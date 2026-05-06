@@ -5,6 +5,8 @@ import { z } from "zod";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
+const citationMarkerRegex = /\[([A-Za-z0-9_-]+)\]/g;
+const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
 
 const sourcedTextSchema = {
   type: "object",
@@ -15,10 +17,26 @@ const sourcedTextSchema = {
       pattern: citationMarkerPattern,
       description: "Claim text with visible citation markers such as [c1]."
     },
-    citationIds: { type: "array", minItems: 1, items: { type: "string" } }
+    citationIds: { type: "array", minItems: 1, items: nonEmptyStringSchema }
   },
   required: ["text", "citationIds"]
 } as const;
+
+function visibleCitationMarkers(text: string): string[] {
+  return Array.from(text.matchAll(citationMarkerRegex), (match) => match[1]).filter(
+    (citationId): citationId is string => citationId !== undefined
+  );
+}
+
+function sortedCitationIds(citationIds: string[]): string[] {
+  return [...citationIds].sort();
+}
+
+function sameCitationMultiset(left: string[], right: string[]) {
+  const sortedLeft = sortedCitationIds(left);
+  const sortedRight = sortedCitationIds(right);
+  return sortedLeft.length === sortedRight.length && sortedLeft.every((citationId, index) => citationId === sortedRight[index]);
+}
 
 const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
   const fixedLengthArrays = [
@@ -44,6 +62,8 @@ const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
   ];
 
   for (const item of items) {
+    const visibleMarkers = visibleCitationMarkers(item.value.text);
+
     if (item.value.citationIds.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -52,14 +72,12 @@ const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
       });
     }
 
-    for (const citationId of item.value.citationIds) {
-      if (!item.value.text.includes(`[${citationId}]`)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [...item.path, "text"],
-          message: `Synthesis claim text must include visible citation marker [${citationId}]`
-        });
-      }
+    if (!sameCitationMultiset(visibleMarkers, item.value.citationIds)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...item.path, "text"],
+        message: "Synthesis claim visible citation markers must exactly match citationIds"
+      });
     }
   }
 });
@@ -75,7 +93,7 @@ export const synthesisTool = {
       whyItMatters: sourcedTextSchema,
       bullCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
       bearCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
-      openQuestions: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } }
+      openQuestions: { type: "array", minItems: 3, maxItems: 3, items: nonEmptyStringSchema }
     },
     required: ["whyItMatters", "bullCase", "bearCase", "openQuestions"]
   }

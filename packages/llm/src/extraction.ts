@@ -25,7 +25,7 @@ function resolvedFactSchema(valueSchema: Record<string, unknown>) {
       value: { anyOf: [valueSchema, { type: "null" }] },
       status: { type: "string", enum: ["verified", "mixed", "inferred", "unknown"] },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
-      citationIds: { type: "array", items: { type: "string" } }
+      citationIds: { type: "array", items: nonEmptyStringSchema }
     },
     required: ["value", "status", "confidence", "citationIds"]
   } as const;

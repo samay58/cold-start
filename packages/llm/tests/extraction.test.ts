@@ -51,6 +51,10 @@ describe("extractionTool", () => {
       minimum: 1800,
       maximum: 2100
     });
+    expect(identity.properties.foundedYear.properties.citationIds.items).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
     expect(funding.properties.investors.properties.value.anyOf[0]).toMatchObject({
       type: "array",
       items: {

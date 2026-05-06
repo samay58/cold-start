@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ColdStartCard } from "@cold-start/core";
-import { parseSynthesisToolUse, synthesizeCard } from "../src/index";
+import { parseSynthesisToolUse, synthesisTool, synthesizeCard } from "../src/index";
 
 const validSynthesisPayload = {
   whyItMatters: { text: "Cartesia is building real-time voice infrastructure [c1].", citationIds: ["c1"] },
@@ -17,6 +17,25 @@ const validSynthesisPayload = {
   ],
   openQuestions: ["How strong is retention?", "What is gross margin?", "How concentrated is revenue?"]
 };
+
+describe("synthesisTool", () => {
+  it("uses non-empty string schemas for citation IDs and open questions", () => {
+    const whyItMatters = synthesisTool.input_schema.properties.whyItMatters;
+
+    expect(whyItMatters.properties.citationIds.items).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+    expect(synthesisTool.input_schema.properties.bullCase.items.properties.citationIds.items).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+    expect(synthesisTool.input_schema.properties.openQuestions.items).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+  });
+});
 
 describe("parseSynthesisToolUse", () => {
   it("extracts and validates the synthesis tool payload", () => {
@@ -66,7 +85,7 @@ describe("parseSynthesisToolUse", () => {
           }
         ]
       })
-    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
   });
 
   it("rejects bull and bear items without visible citation markers", () => {
@@ -86,7 +105,7 @@ describe("parseSynthesisToolUse", () => {
           }
         ]
       })
-    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
 
     expect(() =>
       parseSynthesisToolUse({
@@ -104,7 +123,7 @@ describe("parseSynthesisToolUse", () => {
           }
         ]
       })
-    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
   });
 
   it("rejects empty citation IDs even when text has a visible marker", () => {
@@ -125,6 +144,46 @@ describe("parseSynthesisToolUse", () => {
         ]
       })
     ).toThrow("Synthesis claim requires at least one citation ID");
+  });
+
+  it("rejects undeclared visible citation markers", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              whyItMatters: {
+                text: "Cartesia is building real-time voice infrastructure [c1] [missing].",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+  });
+
+  it("rejects duplicate visible citation markers that do not match declared citation IDs", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              whyItMatters: {
+                text: "Cartesia is building real-time voice infrastructure [c1] [c1].",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
   });
 
   it("rejects short synthesis arrays", () => {
