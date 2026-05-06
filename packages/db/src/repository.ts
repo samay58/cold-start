@@ -10,8 +10,22 @@ type PublicClaim = {
   fact: ResolvedFact<unknown>;
 };
 
+const identityTtlMs = 7 * 24 * 60 * 60 * 1000;
+const signalsTtlMs = 6 * 60 * 60 * 1000;
+const synthesisTtlMs = 24 * 60 * 60 * 1000;
+
 type SourceType = "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
+
+export function cardExpiryDates(now = new Date()) {
+  const time = now.getTime();
+
+  return {
+    identityExpiresAt: new Date(time + identityTtlMs),
+    signalsExpiresAt: new Date(time + signalsTtlMs),
+    synthesisExpiresAt: new Date(time + synthesisTtlMs)
+  };
+}
 
 export async function findCardBySlug(db: ColdStartDb, slug: string): Promise<ColdStartCard | null> {
   const rows = await db.select().from(cards).where(eq(cards.slug, slug)).limit(1);
@@ -28,6 +42,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
   const publicOnly = publicCard(card);
   const generatedAt = new Date(card.generatedAt);
   const now = new Date();
+  const expiresAt = cardExpiryDates(now);
 
   const [row] = await db
     .insert(cards)
@@ -39,9 +54,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
       cacheStatus: card.cacheStatus,
       generationCostUsd: String(card.generationCostUsd),
       generatedAt,
-      identityExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      signalsExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000),
-      synthesisExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      ...expiresAt
     })
     .onConflictDoUpdate({
       target: cards.slug,
@@ -51,6 +64,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
         cacheStatus: card.cacheStatus,
         generationCostUsd: String(card.generationCostUsd),
         generatedAt,
+        ...expiresAt,
         updatedAt: now
       }
     })
@@ -66,23 +80,6 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
 export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: ColdStartCard) {
   const publicOnly = publicCard(card);
 
-  await db.delete(citations).where(eq(citations.cardId, cardId));
-  await db.delete(claims).where(eq(claims.cardId, cardId));
-
-  if (publicOnly.citations.length > 0) {
-    await db.insert(citations).values(
-      publicOnly.citations.map((citation) => ({
-        cardId,
-        citationKey: citation.id,
-        url: citation.url,
-        title: citation.title,
-        sourceType: citation.sourceType,
-        ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
-        fetchedAt: new Date(citation.fetchedAt)
-      }))
-    );
-  }
-
   const publicClaims: PublicClaim[] = [
     { path: "identity.name", fact: publicOnly.identity.name },
     { path: "identity.oneLiner", fact: publicOnly.identity.oneLiner },
@@ -96,19 +93,38 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
     { path: "team.headcount", fact: publicOnly.team.headcount }
   ];
 
-  if (publicClaims.length > 0) {
-    await db.insert(claims).values(
-      publicClaims.map(({ path, fact }) => ({
-        cardId,
-        path,
-        visibility: "public" as const,
-        status: fact.status,
-        confidence: fact.confidence,
-        valueJson: fact.value,
-        citationKeys: fact.citationIds
-      }))
-    );
-  }
+  await db.transaction(async (tx) => {
+    await tx.delete(citations).where(eq(citations.cardId, cardId));
+    await tx.delete(claims).where(eq(claims.cardId, cardId));
+
+    if (publicOnly.citations.length > 0) {
+      await tx.insert(citations).values(
+        publicOnly.citations.map((citation) => ({
+          cardId,
+          citationKey: citation.id,
+          url: citation.url,
+          title: citation.title,
+          sourceType: citation.sourceType,
+          ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
+          fetchedAt: new Date(citation.fetchedAt)
+        }))
+      );
+    }
+
+    if (publicClaims.length > 0) {
+      await tx.insert(claims).values(
+        publicClaims.map(({ path, fact }) => ({
+          cardId,
+          path,
+          visibility: "public" as const,
+          status: fact.status,
+          confidence: fact.confidence,
+          valueJson: fact.value,
+          citationKeys: fact.citationIds
+        }))
+      );
+    }
+  });
 }
 
 export async function recordSource(

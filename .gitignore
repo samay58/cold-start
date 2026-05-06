@@ -7,6 +7,6 @@ coverage/
 .env.local
 .env.*.local
 *.tsbuildinfo
-drizzle/
+/drizzle/
 playwright-report/
 test-results/
