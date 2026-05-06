@@ -15,7 +15,8 @@
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "db:generate": "npm run db:generate -w @cold-start/db",
-    "db:migrate": "npm run db:migrate -w @cold-start/db"
+    "db:migrate": "npm run db:migrate -w @cold-start/db",
+    "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\""
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

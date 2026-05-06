@@ -1,0 +1,11 @@
+description: Cold Start cited extraction regression
+prompts:
+  - "Extract only cited company facts from the provided sources. Drop unsupported claims."
+providers:
+  - id: echo
+tests:
+  - vars:
+      domain: cartesia.ai
+    assert:
+      - type: contains
+        value: cited
