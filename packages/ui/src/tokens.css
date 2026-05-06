@@ -1,49 +1,110 @@
 :root {
+  --color-observatory-navy: #06192c;
+  --color-abyss-ink: #020812;
+  --color-lens-blue: #1674ff;
+  --color-wire-blue: #5fb4ff;
+  --color-ice-white: #eef8ff;
   --color-canvas-parchment: #fafaf7;
   --color-card-cream: #ffffff;
   --color-ink: #0a0a0a;
   --color-muted-ink: #5f625c;
   --color-mid-stone: #6e6e76;
   --color-soft-sand: #d8d5ca;
-  --color-citation-ultramarine: #1a1f8c;
+  --color-citation-ultramarine: #1674ff;
   --color-confidence-amber: #a8741f;
-  --color-confidence-sky: #1a1f8c;
+  --color-confidence-sky: #1674ff;
   --color-confidence-soft: #b7b6b0;
   --color-hover-pebble: #f0efea;
   --font-plex-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-plex-serif: "IBM Plex Serif", ui-serif, Georgia, serif;
   --font-mona-sans: "Mona Sans", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-berkeley-mono: "Berkeley Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --shadow-card: 0 1px 2px #e8e6df;
-  --shadow-popover: 0 12px 28px #dedbd1;
+  --shadow-card: 0 24px 80px rgb(2 8 18 / 0.18), 0 0 0 1px rgb(95 180 255 / 0.18);
+  --shadow-popover: 0 20px 56px rgb(2 8 18 / 0.18), 0 0 0 1px rgb(95 180 255 / 0.18);
 }
 
 .cs-card-page {
+  position: relative;
   width: min(760px, 100%);
   margin: 0 auto;
   padding: 64px 20px;
 }
 
+.cs-card-page::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(90deg, rgb(95 180 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(95 180 255 / 0.055) 1px, transparent 1px),
+    radial-gradient(circle at 50% 20%, rgb(95 180 255 / 0.18), transparent 34rem),
+    linear-gradient(180deg, #08223d 0%, var(--color-observatory-navy) 42%, var(--color-abyss-ink) 100%);
+  background-size: 56px 56px, 56px 56px, auto, auto;
+  content: "";
+}
+
 .cs-card {
   width: 100%;
-  background: var(--color-card-cream);
-  border: 1px solid var(--color-soft-sand);
-  border-radius: 4px;
+  background: rgb(250 250 247 / 0.97);
+  border: 1px solid rgb(95 180 255 / 0.18);
+  border-radius: 8px;
   box-shadow: var(--shadow-card);
   color: var(--color-ink);
   padding: 32px;
 }
 
 .cs-card[data-surface="extension"] {
-  min-height: 100vh;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 20px;
+  width: calc(100% - 24px);
+  min-height: calc(100vh - 24px);
+  margin: 12px;
+  border-radius: 8px;
+  padding: 18px;
 }
 
 .cs-card-header {
   display: grid;
   gap: 12px;
+}
+
+.cs-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-citation-ultramarine);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.cs-card-brand-mark {
+  position: relative;
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--color-observatory-navy);
+  box-shadow: 0 0 0 1px rgb(95 180 255 / 0.32);
+}
+
+.cs-card-brand-mark::before {
+  width: 11px;
+  height: 6px;
+  border: 2px solid var(--color-ice-white);
+  border-radius: 50%;
+  content: "";
+}
+
+.cs-card-brand-mark::after {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-lens-blue);
+  box-shadow: 0 0 0 2px var(--color-abyss-ink);
+  content: "";
 }
 
 .cs-title {
@@ -78,8 +139,9 @@
 }
 
 .cs-meta li {
-  border: 1px solid var(--color-soft-sand);
+  border: 1px solid rgb(95 180 255 / 0.18);
   border-radius: 4px;
+  background: rgb(95 180 255 / 0.045);
   padding: 4px 6px;
 }
 
@@ -140,6 +202,13 @@
   white-space: nowrap;
 }
 
+.cs-citation:hover {
+  color: #0047cc;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 .cs-fact-value .cs-citation,
 .cs-signal .cs-citation,
 .cs-synthesis-list .cs-citation {
@@ -194,7 +263,7 @@
 }
 
 .cs-source-drawer {
-  border-top: 1px solid var(--color-soft-sand);
+  border-top: 1px solid rgb(95 180 255 / 0.18);
   padding-top: 24px;
 }
 

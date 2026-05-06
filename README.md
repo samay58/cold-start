@@ -220,21 +220,26 @@ Expected: the side panel opens and renders the extension card with synthesis.
 
 These are the concrete follow-on phases after this plumbing merge:
 
-1. **Synthesis quality gate**
+1. **Full brand and UX infusion pass**
+   - Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`.
+   - Apply the eye/radar aperture system to generation states, source drawers, verifier drops, OG images, and launch material.
+   - Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
+
+2. **Synthesis quality gate**
    - Keep the current conservative verifier, but make drops visible.
    - Return exactly three bull and three bear lines when supported; otherwise render an explicit "not enough verified evidence" state instead of empty arrays.
    - Persist verifier status and drop reasons so bad synthesis can be debugged without rerunning the whole card.
 
-2. **Side-panel generation flow**
+3. **Side-panel generation flow**
    - If the extension route returns `card not found`, let the side panel start `/api/generate`.
    - Show queued/running/complete/failed states in the panel.
    - Poll until the cached card exists, then render it without requiring a curl command.
 
-3. **Run observability**
+4. **Run observability**
    - Add a local/debug generation status view showing provider failures, LLM errors, verifier drops, cost, and timestamps.
    - Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
 
-4. **Production hardening**
+5. **Production hardening**
    - Require exact `CHROME_EXTENSION_ID` in production.
    - Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments.
    - Add Vercel/Neon env validation before deploy.

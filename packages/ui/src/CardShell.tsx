@@ -32,6 +32,10 @@ export function CardShell({ card, surface }: CardShellProps) {
   return (
     <article className="cs-card" data-surface={surface}>
       <header className="cs-card-header">
+        <div className="cs-card-brand" aria-label="Cold Start">
+          <span className="cs-card-brand-mark" aria-hidden="true" />
+          <span>Cold Start</span>
+        </div>
         <h1 className="cs-title">{title}</h1>
         <p className="cs-subtitle">{subtitle}</p>
         <ul className="cs-meta" aria-label="Card metadata">

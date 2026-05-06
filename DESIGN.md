@@ -1,32 +1,43 @@
 # Cold Start: Style Reference
-> Editorial parchment investor card. Cursor's warmth meets 14islands' typographic gravity.
+> Intelligence bloom. Editorial restraint. Investor-grade instrumentation.
 
-**Theme:** light (no dark mode in v0)
+**Theme:** deep observatory shell + light memo card
 
-Cold Start's design language is the architectural register of an editorial spread crossed with the technical precision of a developer tool. A warm parchment canvas (`#FAFAF7`) carries true-ink type at editorial scale, with Berkeley Mono doing the load-bearing work for any data that wants to be inspected (citations, funding amounts, domains, dates). One restrained accent (deep ultramarine `#1A1F8C`) marks active citations and gated-synthesis links. No gradients, no chromatic chaos, no dark mode. The card is the artifact; the type is the system.
+Cold Start's design language is a lens finding structure in a noisy company graph. The brand mark is an eye/radar aperture: watchful, technical, and quiet. The interface should feel like a precise instrument around a readable memo, not like generic AI magic.
 
-This system is purpose-built for two surfaces: a 380px Chrome side panel (dense, scannable, lots of facts in a small column) and a full-width public web URL at `/c/{slug}` (more breathing room, OG-image-shareable, citation-popover affordances). Same tokens, two layouts.
+The current product should use a deep observatory navy shell (`#06192C`) with wire-blue signal lines, then place the sourced card on a warm memo surface (`#FAFAF7`). Berkeley Mono does the load-bearing work for anything inspected: citations, funding amounts, domains, dates, model status, and API-like labels. Lens Blue (`#1674FF`) is the primary signal color for citations and active states.
+
+This system is purpose-built for two surfaces: a 380px Chrome side panel (dense, scannable, lots of facts in a small column) and a full-width public web URL at `/c/{slug}` (more breathing room, OG-image-shareable, citation affordances). Same tokens, two layouts.
+
+The full Semitechie VC brand spine lives in `docs/brand/semitechie-vc-design-ethos.md`; Cold Start is the first implementation.
 
 ## Hybrid lineage
 
-From Cursor: warm parchment canvas, Berkeley Mono as the technical-credibility signal, subtle multi-layered shadows for card elevation, 4px radii, dense spacing scale that fits real data into a side panel, OpenType `tnum` for tabular numerals so funding amounts align.
+From Cursor: warm memo surfaces, Berkeley Mono as the technical-credibility signal, subtle layered elevation, 4-8px radii, dense spacing scale that fits real data into a side panel, OpenType `tnum` for tabular numerals so funding amounts align.
 
 From 14islands: editorial display typography on company headers, tight negative tracking on display sizes, discipline against chromatic accent abuse (one color, used sparingly), pure light/dark binary for primary type with gray reserved for secondary, generous breathing room between sections.
 
-What's neither: a deep-ultramarine signature accent that neither Cursor (orange) nor 14islands (none) uses. Citation markers `[n]` and active synthesis links render in this color and nothing else does. It's the only chromatic decision in the system.
+From the Cold Start icon and cover-page reference: deep navy field, white wire/aperture lines, a bright blue lens core, and graph-like connective structure. These elements belong in the shell, icon, loading states, OG/social images, source drawers, and generation telemetry.
+
+What's neither: a blue observatory signature that neither Cursor nor 14islands uses. Citation markers `[n]`, verifier status, and active synthesis links render in Lens Blue. Warning/mixed-source states stay amber.
 
 ## Tokens: Colors
 
 | Name | Value | Token | Role |
 |------|-------|-------|------|
-| Canvas Parchment | `#FAFAF7` | `--color-canvas-parchment` | Page background, side panel background. Warmer than 14islands' #F2F2F2, calmer than Cursor's #F7F7F4. |
+| Observatory Navy | `#06192C` | `--color-observatory-navy` | Primary brand field, extension shell, public page background. |
+| Abyss Ink | `#020812` | `--color-abyss-ink` | Deepest background and icon badge edge. |
+| Lens Blue | `#1674FF` | `--color-lens-blue` | Primary signal color, active citations, focused interaction. |
+| Wire Blue | `#5FB4FF` | `--color-wire-blue` | Network lines, radar grid, fine instrumentation rules. |
+| Ice White | `#EEF8FF` | `--color-ice-white` | Icon aperture, inverse text, high-signal labels on dark shell. |
+| Canvas Parchment | `#FAFAF7` | `--color-canvas-parchment` | Memo card reading surface. Warmer than 14islands' #F2F2F2, calmer than Cursor's #F7F7F4. |
 | Card Cream | `#FFFFFF` | `--color-card-cream` | Card surface. Lifted by 1px against canvas via shadow-subtle. |
 | Ink | `#0A0A0A` | `--color-ink` | Primary text, company headers, fact values, dominant borders. True ink, slightly softer than 14islands' #070707. |
 | Mid Stone | `#6E6E76` | `--color-mid-stone` | Secondary text, fact labels, signal dates, source attribution. |
 | Soft Sand | `#B7B6B0` | `--color-soft-sand` | Tertiary text, "not disclosed" empty states, citation popover footers, dividers. |
-| Citation Ultramarine | `#1A1F8C` | `--color-citation-ultramarine` | Citation markers `[n]`, active links in synthesis section, hover state for any clickable source. The only chromatic accent in the system. |
+| Citation Blue | `#1674FF` | `--color-citation-ultramarine` | Citation markers `[n]`, active links in synthesis section, hover state for any clickable source. |
 | Confidence Amber | `#A8741F` | `--color-confidence-amber` | Conflict/mixed-source confidence dot. Used when two authoritative sources disagree on a fact. |
-| Confidence Sky | `#1A1F8C` | `--color-confidence-sky` | Inferred confidence dot (re-uses ultramarine, signals "AI-derived"). |
+| Confidence Sky | `#1674FF` | `--color-confidence-sky` | Inferred confidence dot (reuses Lens Blue, signals "AI-derived"). |
 | Confidence Soft | `#B7B6B0` | `--color-confidence-soft` | Unknown confidence dot. Reuses Soft Sand. |
 | Hover Pebble | `#F0EFEA` | `--color-hover-pebble` | Subtle hover background on rows, citation markers. Slightly darker than canvas. |
 
@@ -167,9 +178,11 @@ Used for X share previews. 1200×630. Card Cream background. Company logo top-le
 
 ### Do
 
+- Use the eye/radar aperture as the only primary mark: toolbar icon, favicon, watermark, loading glyph, social avatar.
+- Put the instrument mood in the shell, not inside every fact row. The card still needs to read cleanly.
 - Render every number, date, domain, ticker, and citation marker in Berkeley Mono. This is the load-bearing technical signal.
 - Enable `tnum` (tabular numerals) globally on Plex Sans so dollar amounts and counts align column-wise.
-- Use Citation Ultramarine `#1A1F8C` for citation markers `[n]` and active synthesis links. Nothing else gets this color.
+- Use Lens Blue `#1674FF` for citation markers `[n]` and active synthesis links.
 - Keep the company name in the card header at display register (Mona Sans 800, tight negative tracking) so it reads as a noun-as-monument.
 - Lift cards 1px off the parchment canvas with `shadow-card`. Never use solid borders alone.
 - Reserve Plex Serif italic for the synthesis lede sentence. One sentence, then back to Plex Sans.
@@ -178,12 +191,12 @@ Used for X share previews. 1200×630. Card Cream background. Company logo top-le
 
 ### Don't
 
-- Don't introduce a second accent color. The system has exactly one chromatic accent (Citation Ultramarine), one warning (Confidence Amber), and grayscale otherwise.
-- Don't add dark mode in v0. Light parchment is the brand. Dark mode is a v2 question, not a v0 toggle.
+- Don't turn the product into a dark dashboard. The shell is dark; the reading surface remains memo-like and legible.
+- Don't introduce a second accent color. The system has one signal accent (Lens Blue), one warning (Confidence Amber), and neutral memo colors otherwise.
 - Don't use Inter, Geist, Roboto, JetBrains Mono, or any other AI-default font. Plex Sans + Plex Serif + Berkeley Mono + Mona Sans only.
 - Don't render funding amounts, dates, or counts in proportional fonts. Always Berkeley Mono with `tnum`.
 - Don't use solid background colors on bull/bear bullets to indicate sentiment. The text and citation must do the work.
-- Don't add gradients, glows, or color washes anywhere. The system is two-tone with one accent.
+- Don't add decorative glows or blobs. Signal fields must feel like measurement, not background wallpaper.
 - Don't use border-radius greater than 12px. Editorial register breaks at pill-rounded.
 - Don't use shadows heavier than `shadow-popover`. No drop shadows, no glow effects, no inner shadows.
 - Don't use icons inside fact rows. The label-value-citation triplet is the entire vocabulary.
@@ -191,7 +204,13 @@ Used for X share previews. 1200×630. Card Cream background. Company logo top-le
 
 ## Imagery
 
-Cold Start has almost no imagery in the data sense. Logos are the primary visual element. Logo treatment: 24px in fact rows, 60px in OG hero, 40px in comparable cards. No drop shadow on logos. No background fill on logo containers. If a logo is unavailable, render a 24px Card Cream square with the company's first letter in Mona Sans 700 Ink.
+Cold Start has almost no imagery in the data sense. Logos are the primary company-specific visual element. The Cold Start mark is the product-specific visual element.
+
+The mark is a dark observatory badge with a white aperture and blue radar core. It should have no white background and must stay legible at 16px in the Chrome toolbar. Preserve the raw radar iris detail at 32px and above; only the smallest toolbar derivative may simplify for legibility.
+
+The source reference is `docs/brand/source/raw-icon-cold-start_RAW.png`. The shipping master is `apps/extension/public/icons/cold-start-icon-master.png` and mirrored at `apps/web/public/icons/cold-start-icon-master.png`.
+
+Logo treatment: 24px in fact rows, 60px in OG hero, 40px in comparable cards. No drop shadow on logos. No background fill on logo containers. If a logo is unavailable, render a 24px Card Cream square with the company's first letter in Mona Sans 700 Ink.
 
 Sparklines are the only data viz primitive: thin 1px Ink strokes on Hover Pebble background, 60×24px, used for headcount-over-time signals when PDL or stableenrich returns time-series. No fills, no gradients, no markers. Just the line.
 
@@ -199,9 +218,18 @@ Sparklines are the only data viz primitive: thin 1px Ink strokes on Hover Pebble
 
 The product surfaces in two layouts driven by one set of tokens.
 
-The **side panel** layout (380px Chrome side panel) is dense. Card padding is 20px. Section gap is 32px. Sections stack vertically in a single column. Section header at heading-sm (20px). Display register reserved for the company name only. Comparable cards stack vertically, not in a grid. The synthesis section is only visible if the user is authenticated (Chrome extension counts as authentication).
+The **side panel** layout (380px Chrome side panel) is dense. It sits on the dark observatory shell, with the memo card inset by 12px. Card padding is 18-20px. Section gap is 32px. Sections stack vertically in a single column. Section header at heading-sm (20px). Display register reserved for the company name only. Comparable cards stack vertically, not in a grid. The synthesis section is only visible if the user is authenticated (Chrome extension counts as authentication).
 
-The **web `/c/{slug}`** layout has more breathing room. Max-width 720px centered. Card padding 32px. Section gap 64px. Hero section above the card uses the display register (72px Mona Sans) for the company name, 24px Plex Sans Mid Stone for the one-liner, and a 12px-radius OG image preview to the right (or below at narrow viewports). Synthesis section is omitted from the public URL. The page footer carries `coldstart.semitechie.vc` watermark and a "Read in extension to see analysis" link to the Chrome Web Store listing.
+The **web `/c/{slug}`** layout has more breathing room. Max-width 720px centered over the observatory shell. Card padding 32px. Section gap 64px. Hero section above the card uses the display register (72px Mona Sans) for the company name, 24px Plex Sans Mid Stone for the one-liner, and a 12px-radius OG image preview to the right (or below at narrow viewports). Synthesis section is omitted from the public URL. The page footer carries `coldstart.semitechie.vc` watermark and a "Read in extension to see analysis" link to the Chrome Web Store listing.
+
+## Next Design Pass
+
+This icon and token pass sets the brand spine. The next proper UX pass should do the following before launch:
+
+- Redesign generation, queued, running, failed, and cached states as instrument states.
+- Make source drawers and verifier drops part of the same observability vocabulary.
+- Produce launch OG/social templates from the cover-page direction.
+- Run screenshots at extension width, mobile width, and desktop web width and tune spacing after seeing real cards.
 
 Both surfaces share the citation drawer pattern: clicking any `[n]` opens the same drawer with the same source list, in the same order, with the same row treatment.
 
