@@ -7,11 +7,13 @@ export type VerificationStatus = "supported" | "contradicted" | "unsupported";
 
 export type VerificationResult = {
   text: string;
+  citationIds: string[];
   status: VerificationStatus;
 };
 
 const verificationResultSchema = z.object({
   text: z.string().min(1),
+  citationIds: z.array(z.string().min(1)),
   status: z.enum(["supported", "contradicted", "unsupported"])
 });
 
@@ -22,9 +24,15 @@ function parseVerifierResults(text: string): VerificationResult[] {
   return verificationResultsSchema.parse(parsed);
 }
 
+function verificationKey(input: { text: string; citationIds: string[] }) {
+  return JSON.stringify([input.text, [...input.citationIds].sort()]);
+}
+
 export function applyVerifierResults(items: SourcedText[], results: VerificationResult[]): SourcedText[] {
-  const supported = new Set(results.filter((result) => result.status === "supported").map((result) => result.text));
-  return items.filter((item) => supported.has(item.text));
+  const supported = new Set(
+    results.filter((result) => result.status === "supported").map((result) => verificationKey(result))
+  );
+  return items.filter((item) => supported.has(verificationKey(item)));
 }
 
 export async function verifySynthesis(input: {
@@ -39,7 +47,7 @@ export async function verifySynthesis(input: {
     system: [
       {
         type: "text",
-        text: "Verify whether each claim is supported by the cited source snippets. Return only JSON.",
+        text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
         cache_control: { type: "ephemeral" }
       }
     ],

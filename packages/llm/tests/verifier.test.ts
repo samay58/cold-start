@@ -10,12 +10,33 @@ describe("applyVerifierResults", () => {
         { text: "Unsupported claim [c2].", citationIds: ["c2"] }
       ],
       [
-        { text: "Bull claim [c1].", status: "supported" },
-        { text: "Unsupported claim [c2].", status: "unsupported" }
+        { text: "Bull claim [c1].", citationIds: ["c1"], status: "supported" },
+        { text: "Unsupported claim [c2].", citationIds: ["c2"], status: "unsupported" }
       ]
     );
 
     expect(result).toEqual([{ text: "Bull claim [c1].", citationIds: ["c1"] }]);
+  });
+
+  it("matches supported claims by text and citation IDs", () => {
+    const result = applyVerifierResults(
+      [
+        { text: "Same claim.", citationIds: ["c1"] },
+        { text: "Same claim.", citationIds: ["c2"] }
+      ],
+      [{ text: "Same claim.", citationIds: ["c1"], status: "supported" }]
+    );
+
+    expect(result).toEqual([{ text: "Same claim.", citationIds: ["c1"] }]);
+  });
+
+  it("normalizes citation ID order when matching", () => {
+    const result = applyVerifierResults(
+      [{ text: "Combined claim.", citationIds: ["c2", "c1"] }],
+      [{ text: "Combined claim.", citationIds: ["c1", "c2"], status: "supported" }]
+    );
+
+    expect(result).toEqual([{ text: "Combined claim.", citationIds: ["c2", "c1"] }]);
   });
 });
 
@@ -24,7 +45,45 @@ describe("verifySynthesis", () => {
     const client = {
       messages: {
         create: async () => ({
-          content: [{ type: "text", text: JSON.stringify([{ text: "Claim [c1].", status: "maybe" }]) }]
+          content: [{ type: "text", text: JSON.stringify([{ text: "Claim [c1].", citationIds: ["c1"], status: "maybe" }]) }]
+        })
+      }
+    } as unknown as Anthropic;
+
+    await expect(
+      verifySynthesis({
+        client,
+        model: "claude-test",
+        claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+        sources: [{ id: "c1", url: "https://example.com", title: "Example" }]
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects non-json verifier output", async () => {
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text", text: "supported" }]
+        })
+      }
+    } as unknown as Anthropic;
+
+    await expect(
+      verifySynthesis({
+        client,
+        model: "claude-test",
+        claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+        sources: [{ id: "c1", url: "https://example.com", title: "Example" }]
+      })
+    ).rejects.toThrow();
+  });
+
+  it("rejects non-array verifier JSON", async () => {
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text", text: JSON.stringify({ text: "Claim [c1].", citationIds: ["c1"], status: "supported" }) }]
         })
       }
     } as unknown as Anthropic;
