@@ -10,16 +10,20 @@ vi.mock("../src/lib/cards", () => ({
 
 const { GET } = await import("../src/app/api/extension/cards/[slug]/route");
 const originalAllowedOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
+const originalChromeExtensionId = process.env.CHROME_EXTENSION_ID;
 const originalApiToken = process.env.EXTENSION_API_TOKEN;
 const originalNodeEnv = process.env.NODE_ENV;
 
-function extensionRequest(origin?: string, token?: string) {
+function extensionRequest(origin?: string, token?: string, extensionId?: string) {
   const headers = new Headers();
   if (origin) {
     headers.set("origin", origin);
   }
   if (token) {
     headers.set("authorization", `Bearer ${token}`);
+  }
+  if (extensionId) {
+    headers.set("x-cold-start-extension-id", extensionId);
   }
 
   return new Request("http://localhost/api/extension/cards/cartesia", { headers });
@@ -48,6 +52,11 @@ describe("GET /api/extension/cards/[slug]", () => {
     } else {
       process.env.EXTENSION_API_TOKEN = originalApiToken;
     }
+    if (originalChromeExtensionId === undefined) {
+      delete process.env.CHROME_EXTENSION_ID;
+    } else {
+      process.env.CHROME_EXTENSION_ID = originalChromeExtensionId;
+    }
     if (originalNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {
@@ -71,10 +80,10 @@ describe("GET /api/extension/cards/[slug]", () => {
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
 
-  it("rejects a disallowed origin with a valid token", async () => {
+  it("rejects a disallowed extension identity with a valid token", async () => {
     const response = await GET(extensionRequest("https://example.com", "secret"), params());
 
-    await expect(response.json()).resolves.toEqual({ error: "extension origin required" });
+    await expect(response.json()).resolves.toEqual({ error: "extension identity required" });
     expect(response.status).toBe(403);
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
@@ -98,6 +107,25 @@ describe("GET /api/extension/cards/[slug]", () => {
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
   });
 
+  it("returns the full cached card for local Chrome extension requests without Origin", async () => {
+    const fullCard = {
+      slug: "cartesia",
+      synthesis: {
+        whyItMatters: { text: "Fast inference matters [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: []
+      }
+    };
+    mocks.getFullCachedCard.mockResolvedValue(fullCard);
+
+    const response = await GET(extensionRequest(undefined, "secret", "generated-extension-id"), params());
+
+    await expect(response.json()).resolves.toEqual(fullCard);
+    expect(response.status).toBe(200);
+    expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
+  });
+
   it("returns 404 when no full cached card exists", async () => {
     mocks.getFullCachedCard.mockResolvedValue(null);
 
@@ -111,6 +139,7 @@ describe("GET /api/extension/cards/[slug]", () => {
   it("fails closed before reading when production extension auth config is missing", async () => {
     process.env.NODE_ENV = "production";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.CHROME_EXTENSION_ID;
     delete process.env.EXTENSION_API_TOKEN;
 
     const response = await GET(extensionRequest("chrome-extension://local-dev", "secret"), params());
@@ -127,6 +156,19 @@ describe("GET /api/extension/cards/[slug]", () => {
     mocks.getFullCachedCard.mockResolvedValue({ slug: "cartesia", synthesis: { openQuestions: [] } });
 
     const response = await GET(extensionRequest("chrome-extension://prod-id", "prod-secret"), params());
+
+    expect(response.status).toBe(200);
+    expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
+  });
+
+  it("allows configured production extension ID without Origin", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "prod-secret";
+    mocks.getFullCachedCard.mockResolvedValue({ slug: "cartesia", synthesis: { openQuestions: [] } });
+
+    const response = await GET(extensionRequest(undefined, "prod-secret", "prod-id"), params());
 
     expect(response.status).toBe(200);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");

@@ -13,6 +13,7 @@
     "spike:stableenrich": "tsx scripts/spike-stableenrich.ts"
   },
   "dependencies": {
+    "agentcash": "0.14.4",
     "zod": "^3.25.0"
   },
   "devDependencies": {

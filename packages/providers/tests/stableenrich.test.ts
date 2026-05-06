@@ -7,52 +7,58 @@ import {
 } from "../src/index";
 
 describe("missingStableenrichConfig", () => {
-  it("reports every missing endpoint needed by the day one spike", () => {
-    expect(missingStableenrichConfig({})).toEqual([
-      "AGENTCASH_API_KEY",
-      "STABLEENRICH_EXA_SEARCH_URL",
-      "STABLEENRICH_EXA_SIMILAR_URL",
-      "STABLEENRICH_FIRECRAWL_URL",
-      "STABLEENRICH_ORG_ENRICH_URL",
-      "STABLEENRICH_LINKEDIN_URL",
-    ]);
+  it("does not require AgentCash API keys or endpoint env when using Stableenrich defaults", () => {
+    expect(missingStableenrichConfig({})).toEqual([]);
   });
 });
 
 describe("buildStableenrichRequests", () => {
-  it("builds the five endpoint probes required by SPEC.md", () => {
-    const requests = buildStableenrichRequests(
-      {
-        AGENTCASH_API_KEY: "key",
-        STABLEENRICH_EXA_SEARCH_URL: "https://stable.example/exa/search",
-        STABLEENRICH_EXA_SIMILAR_URL: "https://stable.example/exa/similar",
-        STABLEENRICH_FIRECRAWL_URL: "https://stable.example/firecrawl",
-        STABLEENRICH_ORG_ENRICH_URL: "https://stable.example/org",
-        STABLEENRICH_LINKEDIN_URL: "https://stable.example/linkedin",
-      },
-      "cartesia.ai",
-    );
+  it("builds the live Stableenrich endpoint probes", () => {
+    const requests = buildStableenrichRequests({}, "cartesia.ai");
 
     expect(requests.map((request) => request.name)).toEqual([
       "exa_search_news",
       "exa_find_similar",
       "firecrawl_homepage",
       "org_enrichment",
-      "linkedin_company",
     ]);
+    expect(requests.map((request) => request.url)).toEqual([
+      "https://stableenrich.dev/api/exa/search",
+      "https://stableenrich.dev/api/exa/find-similar",
+      "https://stableenrich.dev/api/firecrawl/scrape",
+      "https://stableenrich.dev/api/apollo/org-enrich",
+    ]);
+    expect(requests[2]?.body).toEqual({ url: "https://cartesia.ai" });
   });
 });
 
 describe("runStableenrichProbe", () => {
-  it("keeps endpoint identity when an injected fetch fails", async () => {
+  it("runs AgentCash calls sequentially to avoid wallet-backed CLI races", async () => {
+    let activeCalls = 0;
+    let maxActiveCalls = 0;
+
+    await runStableenrichProbe({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      agentcashFetch: async () => {
+        activeCalls += 1;
+        maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        activeCalls -= 1;
+        return { text: "ok" };
+      },
+    });
+
+    expect(maxActiveCalls).toBe(1);
+  });
+
+  it("keeps endpoint identity when an injected AgentCash fetch fails", async () => {
     const results = await runStableenrichProbe({
       env: stableenrichEnv(),
       domain: "cartesia.ai",
-      fetchImpl: async () =>
-        new Response("nope", {
-          status: 402,
-          statusText: "Payment Required",
-        }),
+      agentcashFetch: async () => {
+        throw new Error("payment failed");
+      },
     });
 
     const firstResult = results[0];
@@ -63,7 +69,7 @@ describe("runStableenrichProbe", () => {
     expect(firstResult.reason).toMatchObject({
       name: "exa_search_news",
       endpointUrl: "https://stable.example/exa/search",
-      error: "AgentCash call failed: 402 Payment Required",
+      error: "payment failed",
     });
   });
 });
@@ -73,11 +79,10 @@ describe("fetchStableenrichSources", () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),
       domain: "cartesia.ai",
-      fetchImpl: async (input) =>
-        Response.json({
-          endpointUrl: input,
-          text: "source payload",
-        }),
+      agentcashFetch: async ({ url }) => ({
+        endpointUrl: url,
+        text: "source payload",
+      }),
     });
 
     expect(result.failures).toEqual([]);
@@ -85,7 +90,6 @@ describe("fetchStableenrichSources", () => {
       "news",
       "enrichment",
       "company_site",
-      "enrichment",
       "enrichment",
     ]);
     expect(result.sources[0]).toMatchObject({
@@ -99,24 +103,21 @@ describe("fetchStableenrichSources", () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),
       domain: "cartesia.ai",
-      fetchImpl: async (input) => {
-        if (input === "https://stable.example/firecrawl") {
-          return new Response("nope", {
-            status: 500,
-            statusText: "Internal Server Error",
-          });
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/firecrawl") {
+          throw new Error("upstream failed");
         }
 
-        return Response.json({ text: "ok" });
+        return { text: "ok" };
       },
     });
 
-    expect(result.sources).toHaveLength(4);
+    expect(result.sources).toHaveLength(3);
     expect(result.failures).toEqual([
       {
         name: "firecrawl_homepage",
         endpointUrl: "https://stable.example/firecrawl",
-        error: "AgentCash call failed: 500 Internal Server Error",
+        error: "upstream failed",
       },
     ]);
   });
@@ -124,11 +125,9 @@ describe("fetchStableenrichSources", () => {
 
 function stableenrichEnv() {
   return {
-    AGENTCASH_API_KEY: "key",
     STABLEENRICH_EXA_SEARCH_URL: "https://stable.example/exa/search",
     STABLEENRICH_EXA_SIMILAR_URL: "https://stable.example/exa/similar",
     STABLEENRICH_FIRECRAWL_URL: "https://stable.example/firecrawl",
     STABLEENRICH_ORG_ENRICH_URL: "https://stable.example/org",
-    STABLEENRICH_LINKEDIN_URL: "https://stable.example/linkedin",
   };
 }

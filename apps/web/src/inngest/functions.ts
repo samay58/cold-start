@@ -15,20 +15,18 @@ import { boundedErrorMessage } from "../lib/errors";
 import { inngest } from "./client";
 
 function stableenrichEnvFromProcess(): StableenrichEnv {
-  const agentcashApiKey = process.env.AGENTCASH_API_KEY;
+  const baseUrl = process.env.STABLEENRICH_BASE_URL;
   const exaSearchUrl = process.env.STABLEENRICH_EXA_SEARCH_URL;
   const exaSimilarUrl = process.env.STABLEENRICH_EXA_SIMILAR_URL;
   const firecrawlUrl = process.env.STABLEENRICH_FIRECRAWL_URL;
   const orgEnrichUrl = process.env.STABLEENRICH_ORG_ENRICH_URL;
-  const linkedinUrl = process.env.STABLEENRICH_LINKEDIN_URL;
 
   return {
-    ...(agentcashApiKey ? { AGENTCASH_API_KEY: agentcashApiKey } : {}),
+    ...(baseUrl ? { STABLEENRICH_BASE_URL: baseUrl } : {}),
     ...(exaSearchUrl ? { STABLEENRICH_EXA_SEARCH_URL: exaSearchUrl } : {}),
     ...(exaSimilarUrl ? { STABLEENRICH_EXA_SIMILAR_URL: exaSimilarUrl } : {}),
     ...(firecrawlUrl ? { STABLEENRICH_FIRECRAWL_URL: firecrawlUrl } : {}),
     ...(orgEnrichUrl ? { STABLEENRICH_ORG_ENRICH_URL: orgEnrichUrl } : {}),
-    ...(linkedinUrl ? { STABLEENRICH_LINKEDIN_URL: linkedinUrl } : {}),
   };
 }
 
@@ -87,7 +85,10 @@ export const generateCardFunction = inngest.createFunction(
         });
 
         if (result.sources.length === 0) {
-          throw new Error(`No provider sources returned; failures: ${result.failures.length}`);
+          const details = result.failures
+            .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)
+            .join("; ");
+          throw new Error(`No provider sources returned; failures: ${result.failures.length}${details ? `; ${details}` : ""}`);
         }
 
         return { sources: result.sources, failureCount: result.failures.length };

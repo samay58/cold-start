@@ -6,12 +6,14 @@ import { z } from "zod";
 export type VerificationStatus = "supported" | "contradicted" | "unsupported";
 
 export type VerificationResult = {
+  claimIndex?: number | undefined;
   text: string;
   citationIds: string[];
   status: VerificationStatus;
 };
 
 const verificationResultSchema = z.object({
+  claimIndex: z.number().int().nonnegative().optional(),
   text: z.string().min(1),
   citationIds: z.array(z.string().min(1)),
   status: z.enum(["supported", "contradicted", "unsupported"])
@@ -20,15 +22,44 @@ const verificationResultSchema = z.object({
 const verificationResultsSchema = z.array(verificationResultSchema);
 
 function parseVerifierResults(text: string): VerificationResult[] {
-  const parsed: unknown = JSON.parse(text);
+  const parsed: unknown = JSON.parse(stripJsonFence(text));
   return verificationResultsSchema.parse(parsed);
+}
+
+function stripJsonFence(text: string) {
+  const trimmed = text.trim();
+  const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  return match?.[1]?.trim() ?? trimmed;
 }
 
 function verificationKey(input: { text: string; citationIds: string[] }) {
   return JSON.stringify([input.text, [...input.citationIds].sort()]);
 }
 
-export function applyVerifierResults(items: SourcedText[], results: VerificationResult[]): SourcedText[] {
+export function applyVerifierResults(items: SourcedText[], results: VerificationResult[], indexOffset = 0): SourcedText[] {
+  const indexedResults = results.filter((result) => result.claimIndex !== undefined);
+  if (indexedResults.length > 0) {
+    const resultCounts = new Map<number, { count: number; status: VerificationStatus }>();
+
+    for (const result of indexedResults) {
+      const index = result.claimIndex === undefined ? undefined : result.claimIndex - indexOffset;
+      if (index === undefined || index < 0 || index >= items.length) {
+        continue;
+      }
+
+      const existing = resultCounts.get(index);
+      resultCounts.set(index, {
+        count: (existing?.count ?? 0) + 1,
+        status: result.status
+      });
+    }
+
+    return items.filter((_, index) => {
+      const result = resultCounts.get(index);
+      return result?.count === 1 && result.status === "supported";
+    });
+  }
+
   const resultCounts = new Map<string, { count: number; status: VerificationStatus }>();
 
   for (const result of results) {
@@ -60,14 +91,17 @@ export async function verifySynthesis(input: {
     system: [
       {
         type: "text",
-        text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
+        text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
         cache_control: { type: "ephemeral" }
       }
     ],
     messages: [
       {
         role: "user",
-        content: JSON.stringify({ claims: input.claims, sources: input.sources })
+        content: JSON.stringify({
+          claims: input.claims.map((claim, claimIndex) => ({ claimIndex, ...claim })),
+          sources: input.sources
+        })
       }
     ]
   });

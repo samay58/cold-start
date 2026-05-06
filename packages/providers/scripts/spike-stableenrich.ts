@@ -46,12 +46,11 @@ for (const result of results) {
 
 function stableenrichEnvFromProcess(): StableenrichEnv {
   const env: StableenrichEnv = {};
-  setIfPresent(env, "AGENTCASH_API_KEY", process.env.AGENTCASH_API_KEY);
+  setIfPresent(env, "STABLEENRICH_BASE_URL", process.env.STABLEENRICH_BASE_URL);
   setIfPresent(env, "STABLEENRICH_EXA_SEARCH_URL", process.env.STABLEENRICH_EXA_SEARCH_URL);
   setIfPresent(env, "STABLEENRICH_EXA_SIMILAR_URL", process.env.STABLEENRICH_EXA_SIMILAR_URL);
   setIfPresent(env, "STABLEENRICH_FIRECRAWL_URL", process.env.STABLEENRICH_FIRECRAWL_URL);
   setIfPresent(env, "STABLEENRICH_ORG_ENRICH_URL", process.env.STABLEENRICH_ORG_ENRICH_URL);
-  setIfPresent(env, "STABLEENRICH_LINKEDIN_URL", process.env.STABLEENRICH_LINKEDIN_URL);
   return env;
 }
 

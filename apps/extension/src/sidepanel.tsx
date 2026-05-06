@@ -55,9 +55,21 @@ function saveSettings(settings: Settings): Promise<void> {
 }
 
 async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
-  const request = buildCardRequest(domain, settings, signal);
+  const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);
+}
+
+function readableCardError(message: string) {
+  if (message === "extension identity required") {
+    return "Reload the unpacked extension, then reopen Cold Start.";
+  }
+
+  if (message === "extension token required" || message === "extension token invalid") {
+    return "Check the local API token in settings.";
+  }
+
+  return message;
 }
 
 function SettingsForm({
@@ -175,7 +187,8 @@ function SidePanel() {
           return;
         }
 
-        setRequestState({ status: "error", message: caught instanceof Error ? caught.message : String(caught) });
+        const message = caught instanceof Error ? caught.message : String(caught);
+        setRequestState({ status: "error", message: readableCardError(message) });
       });
 
     return () => controller.abort();

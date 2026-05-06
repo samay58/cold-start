@@ -148,7 +148,21 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
   );
 
   if (publicOnly.citations.length === 0) {
-    await db.batch([deleteCitations, deleteClaims, insertClaims]);
+    await runEvidenceWrites(db, [deleteCitations, deleteClaims, insertClaims], async (tx) => {
+      await tx.delete(citations).where(eq(citations.cardId, cardId));
+      await tx.delete(claims).where(eq(claims.cardId, cardId));
+      await tx.insert(claims).values(
+        publicClaims.map(({ path, fact }) => ({
+          cardId,
+          path,
+          visibility: "public" as const,
+          status: fact.status,
+          confidence: fact.confidence,
+          valueJson: fact.value,
+          citationKeys: fact.citationIds
+        }))
+      );
+    });
     return;
   }
 
@@ -164,7 +178,50 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
     }))
   );
 
-  await db.batch([deleteCitations, deleteClaims, insertCitations, insertClaims]);
+  await runEvidenceWrites(db, [deleteCitations, deleteClaims, insertCitations, insertClaims], async (tx) => {
+    await tx.delete(citations).where(eq(citations.cardId, cardId));
+    await tx.delete(claims).where(eq(claims.cardId, cardId));
+    await tx.insert(citations).values(
+      publicOnly.citations.map((citation) => ({
+        cardId,
+        citationKey: citation.id,
+        url: citation.url,
+        title: citation.title,
+        sourceType: citation.sourceType,
+        ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
+        fetchedAt: new Date(citation.fetchedAt)
+      }))
+    );
+    await tx.insert(claims).values(
+      publicClaims.map(({ path, fact }) => ({
+        cardId,
+        path,
+        visibility: "public" as const,
+        status: fact.status,
+        confidence: fact.confidence,
+        valueJson: fact.value,
+        citationKeys: fact.citationIds
+      }))
+    );
+  });
+}
+
+async function runEvidenceWrites(
+  db: ColdStartDb,
+  batchItems: unknown[],
+  transactionWrites: (tx: ColdStartDb) => Promise<void>
+) {
+  if ("batch" in db && typeof db.batch === "function") {
+    await db.batch(batchItems as never);
+    return;
+  }
+
+  if ("transaction" in db && typeof db.transaction === "function") {
+    await db.transaction(transactionWrites as never);
+    return;
+  }
+
+  throw new Error("Database adapter must support batch or transaction writes");
 }
 
 export async function recordSource(

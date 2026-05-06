@@ -38,7 +38,8 @@ export function defaultApiOrigin(env: ExtensionEnv): string {
 export function buildCardRequest(
   domain: string,
   settings: Settings,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  extensionId?: string
 ): { url: string; init: RequestInit & { headers: Record<string, string> } } {
   const slug = companySlugFromDomain(domain);
   const init: RequestInit & { headers: Record<string, string> } = {
@@ -49,6 +50,10 @@ export function buildCardRequest(
 
   if (signal) {
     init.signal = signal;
+  }
+
+  if (extensionId?.trim()) {
+    init.headers["X-Cold-Start-Extension-Id"] = extensionId.trim();
   }
 
   return {

@@ -1,11 +1,10 @@
 export type StableenrichEnv = Partial<
   Record<
-    | "AGENTCASH_API_KEY"
+    | "STABLEENRICH_BASE_URL"
     | "STABLEENRICH_EXA_SEARCH_URL"
     | "STABLEENRICH_EXA_SIMILAR_URL"
     | "STABLEENRICH_FIRECRAWL_URL"
-    | "STABLEENRICH_ORG_ENRICH_URL"
-    | "STABLEENRICH_LINKEDIN_URL",
+    | "STABLEENRICH_ORG_ENRICH_URL",
     string
   >
 >;
@@ -14,8 +13,7 @@ export type StableenrichProbeName =
   | "exa_search_news"
   | "exa_find_similar"
   | "firecrawl_homepage"
-  | "org_enrichment"
-  | "linkedin_company";
+  | "org_enrichment";
 
 export type StableenrichProbe = {
   name: StableenrichProbeName;

@@ -199,7 +199,13 @@ describe("createDb", () => {
   it("creates a neon-http db with batch support without opening a network connection", () => {
     const db = createDb("postgres://user:pass@example.com/db");
 
-    expect(typeof db.batch).toBe("function");
+    expect("batch" in db && typeof db.batch === "function").toBe(true);
+  });
+
+  it("creates a node-postgres db for local Docker Postgres URLs", () => {
+    const db = createDb("postgres://coldstart:local@localhost:5432/coldstart");
+
+    expect(typeof db.transaction).toBe("function");
   });
 });
 
@@ -422,5 +428,39 @@ describe("recordCardEvidence", () => {
     expect(inserted.claims).toHaveLength(10);
     expect(inserted.citations?.[0]).toMatchObject({ citationKey: "c1", snippet: "Real-time multimodal intelligence." });
     expect(inserted.citations?.[1]).not.toHaveProperty("snippet");
+  });
+
+  it("replaces citations and claims inside a transaction when batch is unavailable", async () => {
+    const operations: string[] = [];
+    const statementBuilder = {
+      delete: (table: unknown) => ({
+        where: () => {
+          operations.push(`delete:${tableName(table)}`);
+          return { table: tableName(table), action: "delete" };
+        }
+      }),
+      insert: (table: unknown) => ({
+        values: (values: unknown[]) => {
+          operations.push(`insert:${tableName(table)}:${values.length}`);
+          return { table: tableName(table), action: "insert", values };
+        }
+      })
+    } as unknown as ColdStartDb;
+    const db = {
+      ...statementBuilder,
+      transaction: async (callback: (transaction: ColdStartDb) => Promise<void>) => {
+        operations.length = 0;
+        await callback(statementBuilder);
+      }
+    } as unknown as ColdStartDb;
+
+    await recordCardEvidence(db, "card-id", card);
+
+    expect(operations).toEqual([
+      "delete:citations",
+      "delete:claims",
+      "insert:citations:3",
+      "insert:claims:10"
+    ]);
   });
 });

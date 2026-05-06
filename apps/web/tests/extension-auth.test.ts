@@ -3,16 +3,20 @@ import { afterEach, describe, expect, it } from "vitest";
 import { assertExtensionRequest } from "../src/lib/extension-auth";
 
 const originalAllowedOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
+const originalChromeExtensionId = process.env.CHROME_EXTENSION_ID;
 const originalApiToken = process.env.EXTENSION_API_TOKEN;
 const originalNodeEnv = process.env.NODE_ENV;
 
-function extensionHeaders(origin?: string, token?: string) {
+function extensionHeaders(origin?: string, token?: string, extensionId?: string) {
   const headers = new Headers();
   if (origin) {
     headers.set("origin", origin);
   }
   if (token) {
     headers.set("authorization", `Bearer ${token}`);
+  }
+  if (extensionId) {
+    headers.set("x-cold-start-extension-id", extensionId);
   }
   return headers;
 }
@@ -29,6 +33,11 @@ describe("assertExtensionRequest", () => {
     } else {
       process.env.EXTENSION_API_TOKEN = originalApiToken;
     }
+    if (originalChromeExtensionId === undefined) {
+      delete process.env.CHROME_EXTENSION_ID;
+    } else {
+      process.env.CHROME_EXTENSION_ID = originalChromeExtensionId;
+    }
     if (originalNodeEnv === undefined) {
       delete process.env.NODE_ENV;
     } else {
@@ -36,7 +45,7 @@ describe("assertExtensionRequest", () => {
     }
   });
 
-  it.each(["chrome-extension://local-dev", "http://localhost:5173"])(
+  it.each(["chrome-extension://local-dev", "chrome-extension://generatedid", "http://localhost:5173"])(
     "allows default dev origin %s with a valid token",
     (origin) => {
       process.env.NODE_ENV = "test";
@@ -54,6 +63,14 @@ describe("assertExtensionRequest", () => {
 
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret"))).toEqual({ ok: true });
     expect(assertExtensionRequest(extensionHeaders("https://cold-start.example", "secret"))).toEqual({ ok: true });
+  });
+
+  it("allows local Chrome extension requests by extension ID when Origin is absent", () => {
+    process.env.NODE_ENV = "test";
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "generated-extension-id"))).toEqual({ ok: true });
   });
 
   it("rejects an allowed origin without a token", () => {
@@ -88,13 +105,14 @@ describe("assertExtensionRequest", () => {
     expect(assertExtensionRequest(extensionHeaders("https://example.com", "secret"))).toEqual({
       ok: false,
       status: 403,
-      error: "extension origin required"
+      error: "extension identity required"
     });
   });
 
   it("fails closed in production when extension auth config is missing", () => {
     process.env.NODE_ENV = "production";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.CHROME_EXTENSION_ID;
     delete process.env.EXTENSION_API_TOKEN;
 
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://local-dev", "secret"))).toEqual({
@@ -110,5 +128,39 @@ describe("assertExtensionRequest", () => {
     process.env.EXTENSION_API_TOKEN = "secret";
 
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret"))).toEqual({ ok: true });
+  });
+
+  it("allows configured production extension ID without relying on Origin", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "prod-id"))).toEqual({ ok: true });
+  });
+
+  it("rejects the wrong production extension ID without relying on Origin", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "wrong-id"))).toEqual({
+      ok: false,
+      status: 403,
+      error: "extension identity required"
+    });
+  });
+
+  it("does not allow the Chrome extension wildcard in production", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://*";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://generatedid", "secret"))).toEqual({
+      ok: false,
+      status: 403,
+      error: "extension identity required"
+    });
   });
 });

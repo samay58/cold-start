@@ -125,13 +125,15 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     const results = await deps.verify(synthesisClaims(synthesis), citationSources);
     const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
     const [whyItMatters] = verifiedWhyItMatters;
+    const bullCaseOffset = 1;
+    const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
     const verifiedSynthesis =
       verifiedWhyItMatters.length === 1 && whyItMatters
         ? {
             ...synthesis,
             whyItMatters,
-            bullCase: applyVerifierResults(synthesis.bullCase, results),
-            bearCase: applyVerifierResults(synthesis.bearCase, results)
+            bullCase: applyVerifierResults(synthesis.bullCase, results, bullCaseOffset),
+            bearCase: applyVerifierResults(synthesis.bearCase, results, bearCaseOffset)
           }
         : undefined;
 

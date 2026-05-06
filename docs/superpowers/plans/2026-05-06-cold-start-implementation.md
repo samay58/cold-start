@@ -371,21 +371,21 @@ test-results/
 Create `.env.example`:
 
 ```bash
-DATABASE_URL=postgres://coldstart:local@localhost:5432/coldstart
+DATABASE_URL=postgres://coldstart:local@127.0.0.1:55432/coldstart
 ANTHROPIC_API_KEY=sk-ant-example
 ANTHROPIC_MODEL=claude-sonnet-4-6
-AGENTCASH_API_KEY=agentcash_example
-STABLEENRICH_EXA_SEARCH_URL=https://stableenrich.example/agentcash/exa/search
-STABLEENRICH_EXA_SIMILAR_URL=https://stableenrich.example/agentcash/exa/find-similar
-STABLEENRICH_FIRECRAWL_URL=https://stableenrich.example/agentcash/firecrawl/scrape
-STABLEENRICH_ORG_ENRICH_URL=https://stableenrich.example/agentcash/enrich/org
-STABLEENRICH_LINKEDIN_URL=https://stableenrich.example/agentcash/linkedin/company
+X402_PRIVATE_KEY=
+STABLEENRICH_BASE_URL=https://stableenrich.dev
+STABLEENRICH_EXA_SEARCH_URL=
+STABLEENRICH_EXA_SIMILAR_URL=
+STABLEENRICH_FIRECRAWL_URL=
+STABLEENRICH_ORG_ENRICH_URL=
 DIRECT_EXA_API_KEY=
 DIRECT_FIRECRAWL_API_KEY=
 DIRECT_PDL_API_KEY=
 NEXT_PUBLIC_WEB_ORIGIN=http://localhost:3000
 CHROME_EXTENSION_ID=local-dev
-ALLOWED_EXTENSION_ORIGINS=chrome-extension://local-dev,http://localhost:5173
+ALLOWED_EXTENSION_ORIGINS=chrome-extension://*,http://localhost:5173
 INNGEST_EVENT_KEY=local-event-key
 INNGEST_SIGNING_KEY=local-signing-key
 ```
@@ -1511,240 +1511,35 @@ git commit -m "feat: add card storage schema"
 - Create: `packages/providers/scripts/spike-stableenrich.ts`
 - Create: `packages/providers/tests/stableenrich.test.ts`
 
-- [ ] **Step 1: Write failing provider tests**
+- [x] **Step 1: Write provider tests against the real contract**
 
-Create `packages/providers/tests/stableenrich.test.ts`:
+AgentCash is wallet-backed, not bearer-key backed. Stableenrich defaults should work with only the AgentCash wallet configured locally. Tests should assert:
 
-```typescript
-import { describe, expect, it } from "vitest";
-import { buildStableenrichRequests, missingStableenrichConfig } from "../src/index";
+- `missingStableenrichConfig({})` returns `[]`.
+- Default endpoints resolve under `https://stableenrich.dev`.
+- Probe names are `exa_search_news`, `exa_find_similar`, `firecrawl_homepage`, and `org_enrichment`.
+- Firecrawl scrape receives only `{ url }`, matching the live Stableenrich schema.
 
-describe("missingStableenrichConfig", () => {
-  it("reports every missing endpoint needed by the day one spike", () => {
-    expect(missingStableenrichConfig({})).toEqual([
-      "AGENTCASH_API_KEY",
-      "STABLEENRICH_EXA_SEARCH_URL",
-      "STABLEENRICH_EXA_SIMILAR_URL",
-      "STABLEENRICH_FIRECRAWL_URL",
-      "STABLEENRICH_ORG_ENRICH_URL",
-      "STABLEENRICH_LINKEDIN_URL"
-    ]);
-  });
-});
-
-describe("buildStableenrichRequests", () => {
-  it("builds the five endpoint probes required by SPEC.md", () => {
-    const requests = buildStableenrichRequests({
-      AGENTCASH_API_KEY: "key",
-      STABLEENRICH_EXA_SEARCH_URL: "https://stable.example/exa/search",
-      STABLEENRICH_EXA_SIMILAR_URL: "https://stable.example/exa/similar",
-      STABLEENRICH_FIRECRAWL_URL: "https://stable.example/firecrawl",
-      STABLEENRICH_ORG_ENRICH_URL: "https://stable.example/org",
-      STABLEENRICH_LINKEDIN_URL: "https://stable.example/linkedin"
-    }, "cartesia.ai");
-
-    expect(requests.map((request) => request.name)).toEqual([
-      "exa_search_news",
-      "exa_find_similar",
-      "firecrawl_homepage",
-      "org_enrichment",
-      "linkedin_company"
-    ]);
-  });
-});
-```
-
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify the old implementation fails**
 
 Run: `npm test -w @cold-start/providers`
 
-Expected: FAIL with missing exports.
+Expected before repair: FAIL because the old wrapper requires a fake API key, points at invented endpoint env vars, sends the wrong Firecrawl body, and includes a nonexistent LinkedIn company probe.
 
-- [ ] **Step 3: Implement provider wrapper**
+- [x] **Step 3: Implement wallet-backed provider wrapper**
 
-Create `packages/providers/src/types.ts`:
-
-```typescript
-export type StableenrichEnv = Partial<Record<
-  | "AGENTCASH_API_KEY"
-  | "STABLEENRICH_EXA_SEARCH_URL"
-  | "STABLEENRICH_EXA_SIMILAR_URL"
-  | "STABLEENRICH_FIRECRAWL_URL"
-  | "STABLEENRICH_ORG_ENRICH_URL"
-  | "STABLEENRICH_LINKEDIN_URL",
-  string
->>;
-
-export type StableenrichProbeName =
-  | "exa_search_news"
-  | "exa_find_similar"
-  | "firecrawl_homepage"
-  | "org_enrichment"
-  | "linkedin_company";
-
-export type StableenrichProbe = {
-  name: StableenrichProbeName;
-  url: string;
-  body: Record<string, unknown>;
-};
-
-export type ProviderSource = {
-  url: string;
-  title: string;
-  sourceType: "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
-  fetchedAt: string;
-  rawText: string;
-};
-```
-
-Create `packages/providers/src/agentcash.ts`:
+Pin the `agentcash` npm package and invoke its installed CLI through `execFile`, not direct `fetch` with an `authorization` header and not `npx agentcash@latest` at request time. Defaults:
 
 ```typescript
-export async function agentcashJson<T>(input: {
-  url: string;
-  apiKey: string;
-  body: Record<string, unknown>;
-  fetchImpl?: typeof fetch;
-}): Promise<T> {
-  const fetcher = input.fetchImpl ?? fetch;
-  const response = await fetcher(input.url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${input.apiKey}`
-    },
-    body: JSON.stringify(input.body)
-  });
-
-  if (!response.ok) {
-    throw new Error(`AgentCash call failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
+const stableenrichPaths = {
+  STABLEENRICH_EXA_SEARCH_URL: "/api/exa/search",
+  STABLEENRICH_EXA_SIMILAR_URL: "/api/exa/find-similar",
+  STABLEENRICH_FIRECRAWL_URL: "/api/firecrawl/scrape",
+  STABLEENRICH_ORG_ENRICH_URL: "/api/apollo/org-enrich",
+} as const;
 ```
 
-Create `packages/providers/src/stableenrich.ts`:
-
-```typescript
-import { agentcashJson } from "./agentcash";
-import type { ProviderSource, StableenrichEnv, StableenrichProbe } from "./types";
-
-const requiredKeys = [
-  "AGENTCASH_API_KEY",
-  "STABLEENRICH_EXA_SEARCH_URL",
-  "STABLEENRICH_EXA_SIMILAR_URL",
-  "STABLEENRICH_FIRECRAWL_URL",
-  "STABLEENRICH_ORG_ENRICH_URL",
-  "STABLEENRICH_LINKEDIN_URL"
-] as const;
-
-export function missingStableenrichConfig(env: StableenrichEnv): string[] {
-  return requiredKeys.filter((key) => !env[key]);
-}
-
-export function buildStableenrichRequests(env: StableenrichEnv, domain: string): StableenrichProbe[] {
-  const missing = missingStableenrichConfig(env);
-  if (missing.length > 0) {
-    throw new Error(`Missing stableenrich config: ${missing.join(", ")}`);
-  }
-
-  return [
-    {
-      name: "exa_search_news",
-      url: env.STABLEENRICH_EXA_SEARCH_URL!,
-      body: { query: `${domain} funding founders product launch`, numResults: 8 }
-    },
-    {
-      name: "exa_find_similar",
-      url: env.STABLEENRICH_EXA_SIMILAR_URL!,
-      body: { url: `https://${domain}`, numResults: 8 }
-    },
-    {
-      name: "firecrawl_homepage",
-      url: env.STABLEENRICH_FIRECRAWL_URL!,
-      body: { url: `https://${domain}`, paths: ["/", "/about", "/team", "/pricing"] }
-    },
-    {
-      name: "org_enrichment",
-      url: env.STABLEENRICH_ORG_ENRICH_URL!,
-      body: { domain }
-    },
-    {
-      name: "linkedin_company",
-      url: env.STABLEENRICH_LINKEDIN_URL!,
-      body: { domain }
-    }
-  ];
-}
-
-export async function runStableenrichProbe(input: {
-  env: StableenrichEnv;
-  domain: string;
-  fetchImpl?: typeof fetch;
-}) {
-  const apiKey = input.env.AGENTCASH_API_KEY;
-  if (!apiKey) {
-    throw new Error("AGENTCASH_API_KEY is required");
-  }
-
-  const requests = buildStableenrichRequests(input.env, input.domain);
-  return Promise.allSettled(
-    requests.map(async (request) => ({
-      name: request.name,
-      endpointUrl: request.url,
-      result: await agentcashJson<unknown>({
-        url: request.url,
-        apiKey,
-        body: request.body,
-        fetchImpl: input.fetchImpl
-      })
-    }))
-  );
-}
-
-export async function fetchStableenrichSources(input: {
-  env: StableenrichEnv;
-  domain: string;
-  fetchImpl?: typeof fetch;
-}): Promise<ProviderSource[]> {
-  const results = await runStableenrichProbe(input);
-
-  return results.flatMap((result) => {
-    if (result.status !== "fulfilled") {
-      return [];
-    }
-
-    const sourceType: ProviderSource["sourceType"] =
-      result.value.name === "firecrawl_homepage"
-        ? "company_site"
-        : result.value.name === "exa_search_news"
-          ? "news"
-          : "enrichment";
-
-    return [
-      providerSourceFromText({
-        url: `agentcash:${result.value.name}`,
-        title: result.value.name,
-        sourceType,
-        rawText: JSON.stringify(result.value.result)
-      })
-    ];
-  });
-}
-
-export function providerSourceFromText(input: {
-  url: string;
-  title: string;
-  sourceType: ProviderSource["sourceType"];
-  rawText: string;
-}): ProviderSource {
-  return {
-    ...input,
-    fetchedAt: new Date().toISOString()
-  };
-}
-```
+`STABLEENRICH_BASE_URL` defaults to `https://stableenrich.dev`. Endpoint env vars are optional overrides only. Local development can use the AgentCash wallet file; deployed environments should set `X402_PRIVATE_KEY`.
 
 Create `packages/providers/src/direct-fallback.ts`:
 
@@ -1773,50 +1568,23 @@ export * from "./stableenrich";
 export * from "./types";
 ```
 
-Create `packages/providers/scripts/spike-stableenrich.ts`:
-
-```typescript
-import { runStableenrichProbe, type StableenrichEnv } from "../src/index";
-
-const domain = process.argv[2] ?? "cartesia.ai";
-
-const env: StableenrichEnv = {
-  AGENTCASH_API_KEY: process.env.AGENTCASH_API_KEY,
-  STABLEENRICH_EXA_SEARCH_URL: process.env.STABLEENRICH_EXA_SEARCH_URL,
-  STABLEENRICH_EXA_SIMILAR_URL: process.env.STABLEENRICH_EXA_SIMILAR_URL,
-  STABLEENRICH_FIRECRAWL_URL: process.env.STABLEENRICH_FIRECRAWL_URL,
-  STABLEENRICH_ORG_ENRICH_URL: process.env.STABLEENRICH_ORG_ENRICH_URL,
-  STABLEENRICH_LINKEDIN_URL: process.env.STABLEENRICH_LINKEDIN_URL
-};
-
-const results = await runStableenrichProbe({ env, domain });
-
-for (const result of results) {
-  if (result.status === "fulfilled") {
-    console.log(JSON.stringify({ endpoint: result.value.name, status: "ok" }));
-  } else {
-    console.log(JSON.stringify({ status: "failed", error: result.reason instanceof Error ? result.reason.message : String(result.reason) }));
-  }
-}
-```
-
-- [ ] **Step 4: Run unit test**
+- [x] **Step 4: Run unit test**
 
 Run: `npm test -w @cold-start/providers`
 
 Expected: PASS.
 
-- [ ] **Step 5: Run stableenrich spike**
+- [x] **Step 5: Run stableenrich spike**
 
-Run after real AgentCash endpoint URLs are discovered and `.env` is populated:
+Run after the AgentCash wallet is redeemed and `.env.local` is populated:
 
 ```bash
 npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 ```
 
-Expected: five JSON lines, each with `status: "ok"`, or specific failed endpoint names. Any failed endpoint becomes a direct-vendor fallback decision before Task 7.
+Expected: four JSON lines, each with `status: "ok"`, for Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment. Any failed endpoint becomes a direct-vendor fallback decision before Task 7.
 
-- [ ] **Step 6: Typecheck**
+- [x] **Step 6: Typecheck**
 
 Run: `npm run typecheck -w @cold-start/providers`
 
@@ -2559,12 +2327,11 @@ export const generateCardFunction = inngest.createFunction(
     const anthropic = createAnthropicClient();
     const model = anthropicModel();
     const stableEnv: StableenrichEnv = {
-      AGENTCASH_API_KEY: process.env.AGENTCASH_API_KEY,
+      STABLEENRICH_BASE_URL: process.env.STABLEENRICH_BASE_URL,
       STABLEENRICH_EXA_SEARCH_URL: process.env.STABLEENRICH_EXA_SEARCH_URL,
       STABLEENRICH_EXA_SIMILAR_URL: process.env.STABLEENRICH_EXA_SIMILAR_URL,
       STABLEENRICH_FIRECRAWL_URL: process.env.STABLEENRICH_FIRECRAWL_URL,
-      STABLEENRICH_ORG_ENRICH_URL: process.env.STABLEENRICH_ORG_ENRICH_URL,
-      STABLEENRICH_LINKEDIN_URL: process.env.STABLEENRICH_LINKEDIN_URL
+      STABLEENRICH_ORG_ENRICH_URL: process.env.STABLEENRICH_ORG_ENRICH_URL
     };
     const clean = await step.run("generate-card", () =>
       generateCardForDomain(domain, {
@@ -3067,13 +2834,13 @@ Create `apps/web/src/lib/extension-auth.ts`:
 ```typescript
 export function assertExtensionRequest(headers: Headers) {
   const origin = headers.get("origin") ?? "";
-  const allowed = (process.env.ALLOWED_EXTENSION_ORIGINS ?? "chrome-extension://local-dev,http://localhost:5173")
+  const allowed = (process.env.ALLOWED_EXTENSION_ORIGINS ?? "chrome-extension://*,http://localhost:5173")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
 
   if (!allowed.includes(origin)) {
-    return { ok: false as const, status: 403, error: "extension origin required" };
+    return { ok: false as const, status: 403, error: "extension identity required" };
   }
 
   return { ok: true as const };
@@ -3145,7 +2912,7 @@ Run:
 curl -i http://localhost:3000/api/extension/cards/cartesia
 ```
 
-Expected: `403` with `extension origin required`.
+Expected: `403` with `extension identity required`.
 
 - [ ] **Step 5: Commit**
 

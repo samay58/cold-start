@@ -31,14 +31,22 @@ describe("normalizeApiOrigin", () => {
 });
 
 describe("buildCardRequest", () => {
-  it("builds the card URL with bearer authorization", () => {
-    const request = buildCardRequest("www.Linear.app", {
-      apiOrigin: "https://coldstart.semitechie.vc",
-      apiToken: "token-123"
-    });
+  it("builds the card URL with bearer authorization and extension identity", () => {
+    const request = buildCardRequest(
+      "www.Linear.app",
+      {
+        apiOrigin: "https://coldstart.semitechie.vc",
+        apiToken: "token-123"
+      },
+      undefined,
+      "extension-123"
+    );
 
     expect(request.url).toBe("https://coldstart.semitechie.vc/api/extension/cards/linear");
-    expect(request.init.headers).toEqual({ Authorization: "Bearer token-123" });
+    expect(request.init.headers).toEqual({
+      Authorization: "Bearer token-123",
+      "X-Cold-Start-Extension-Id": "extension-123"
+    });
   });
 });
 

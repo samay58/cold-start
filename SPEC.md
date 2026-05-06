@@ -120,9 +120,9 @@ The synthesis block is omitted entirely from the public JSON response. The web a
 | LLM | Claude Sonnet 4.6 (Anthropic direct) | Single model for extraction + synthesis in v0; prompt caching cuts repeated system-prompt cost ~90% |
 | Extension | MV3 + Side Panel API + Vite + CRXJS + React + Tailwind + shadcn | Standard 2026 stack; side panel persists across navigation |
 
-**Data plumbing** is the AgentCash + stableenrich path. Memory confirms stableenrich exposes Exa search, Firecrawl scrape, PDL-equivalent people/org enrichment, and LinkedIn data. v0 calls all of these through one wallet via the AgentCash MCP. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr free), RDAP (free).
+**Data plumbing** is the AgentCash + stableenrich path. Live AgentCash discovery confirms stableenrich exposes Exa search, Exa findSimilar, Firecrawl scrape, and Apollo organization enrichment for the v0 company-card path. There is no AgentCash API key in this flow: AgentCash handles payment from a wallet, using the local `~/.agentcash/wallet.json` in development or `X402_PRIVATE_KEY` in deployed environments. The app pins the `agentcash` npm package and invokes the installed CLI, not `npx agentcash@latest` at request time. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr free), RDAP (free).
 
-The AgentCash path collapses what Spec 3 modeled as five vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a stableenrich endpoint turns out to be missing or unreliable during the day-1 spike, fall back to a direct account for that single call. Everything else stays on AgentCash.
+The AgentCash path collapses what Spec 3 modeled as separate vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a stableenrich endpoint turns out to be missing or unreliable during the day-1 spike, fall back to a direct account for that single call. Everything else stays on AgentCash.
 
 **Pipeline** (single-agent, parallel tool calls, no orchestrator):
 
@@ -132,12 +132,12 @@ Activation (extension click or URL navigation)
 Resolve identity (domain → canonical company)
     ↓
 Parallel fan-out via Promise.all:
-    ├── Stableenrich: Exa search × 3 (news, funding, leadership)
+    ├── Stableenrich: Exa search (news, funding, launch, founders)
     ├── Stableenrich: Exa findSimilar(domain) → comparables
-    ├── Stableenrich: PDL-equivalent enrich(domain) → firmographics
-    ├── Stableenrich: Firecrawl(homepage, /about, /team, /pricing)
+    ├── Stableenrich: Apollo org-enrich(domain) → firmographics
+    ├── Stableenrich: Firecrawl(homepage)
     ├── EDGAR (if public)
-    ├── GitHub (if org_url found in PDL or page)
+    ├── GitHub (if org_url found in enrichment or page)
     └── RDAP (domain age)
     ↓
 Claim extraction (Sonnet 4.6, structured output, JSON Schema enforced)
@@ -170,15 +170,15 @@ Estimated per uncached card via AgentCash + stableenrich + Anthropic direct:
 
 | Item | Cost |
 |------|------|
-| Stableenrich Exa × 3 | ~$0.02 |
-| Stableenrich Exa findSimilar | ~$0.005 |
-| Stableenrich PDL enrich | ~$0.01 |
-| Stableenrich Firecrawl × 4 pages | ~$0.005 |
+| Stableenrich Exa search | $0.0100 |
+| Stableenrich Exa findSimilar | $0.0100 |
+| Stableenrich Apollo org-enrich | $0.0495 |
+| Stableenrich Firecrawl scrape | $0.0126 |
 | Sonnet 4.6 extraction (cached prompt) | ~$0.03 |
 | Sonnet 4.6 synthesis (cached prompt) | ~$0.04 |
 | Sonnet 4.6 verifier (cached prompt) | ~$0.01 |
 | EDGAR / GitHub / RDAP | $0 |
-| **Total** | **~$0.12** |
+| **Total** | **~$0.16** |
 
 Cache hit (Postgres lookup, no LLM): ~$0.0001. At any meaningful traffic the blended cost converges toward the cache-hit case because popular domains (Notion, Stripe, OpenAI) get hit thousands of times.
 
@@ -188,7 +188,7 @@ This is conservative against Spec 3's $0.04 estimate and Spec 2's $0.15 estimate
 
 **Week 1: backend + claim store**
 
-Day 1: Spike on stableenrich. Confirm Exa search, Exa findSimilar, Firecrawl, PDL-equivalent, LinkedIn endpoints all work via AgentCash fetch. List any gaps; if any, decide direct-vendor fallback for that endpoint.
+Day 1: Spike on stableenrich. Confirm Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment all work via AgentCash fetch. List any gaps; if any, decide direct-vendor fallback for that endpoint.
 
 Day 2-3: Next.js scaffold on Vercel. Postgres schema for `cards`, `claims`, `citations`, `sources`. Inngest project wired up. AgentCash client wrapper. Sonnet 4.6 client with prompt caching.
 
