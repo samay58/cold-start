@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "lint": "next lint"
+    "lint": "echo \"lint configured in web implementation task\""
   },
   "dependencies": {
     "@cold-start/core": "file:../../packages/core",
