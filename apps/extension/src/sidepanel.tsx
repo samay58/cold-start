@@ -1,17 +1,19 @@
-import { companySlugFromDomain, type ColdStartCard } from "@cold-start/core";
+import type { ColdStartCard } from "@cold-start/core";
 import { CardShell } from "@cold-start/ui";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
+import {
+  buildCardRequest,
+  defaultApiOrigin,
+  normalizeApiOrigin,
+  parseCardResponse,
+  type Settings
+} from "./extension-config";
 import "./styles.css";
 
-const DEFAULT_API_ORIGIN = "http://localhost:3000";
+const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
-
-type Settings = {
-  apiOrigin: string;
-  apiToken: string;
-};
 
 type RequestState =
   | { status: "idle" }
@@ -52,31 +54,10 @@ function saveSettings(settings: Settings): Promise<void> {
   });
 }
 
-function normalizeApiOrigin(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return DEFAULT_API_ORIGIN;
-  }
-
-  return new URL(trimmed).origin;
-}
-
 async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
-  const slug = companySlugFromDomain(domain);
-  const response = await fetch(`${settings.apiOrigin}/api/extension/cards/${encodeURIComponent(slug)}`, {
-    headers: {
-      Authorization: `Bearer ${settings.apiToken}`
-    },
-    signal
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: unknown } | null;
-    const detail = typeof body?.error === "string" ? body.error : `request failed with ${response.status}`;
-    throw new Error(detail);
-  }
-
-  return response.json() as Promise<ColdStartCard>;
+  const request = buildCardRequest(domain, settings, signal);
+  const response = await fetch(request.url, request.init);
+  return parseCardResponse(response);
 }
 
 function SettingsForm({
@@ -95,7 +76,7 @@ function SettingsForm({
 
     try {
       const nextSettings = {
-        apiOrigin: normalizeApiOrigin(apiOrigin),
+        apiOrigin: normalizeApiOrigin(apiOrigin, DEFAULT_API_ORIGIN),
         apiToken: apiToken.trim()
       };
 
