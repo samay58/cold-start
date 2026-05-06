@@ -35,6 +35,24 @@ export function defaultApiOrigin(env: ExtensionEnv): string {
   return LOCAL_API_ORIGIN;
 }
 
+export function storedApiOriginOrDefault(storedApiOrigin: string, defaultOrigin: string): string {
+  const trimmed = storedApiOrigin.trim();
+  if (!trimmed) {
+    return defaultOrigin;
+  }
+
+  try {
+    const normalizedOrigin = normalizeApiOrigin(trimmed, defaultOrigin);
+    if (defaultOrigin === LOCAL_API_ORIGIN && normalizedOrigin === PRODUCTION_API_ORIGIN) {
+      return defaultOrigin;
+    }
+
+    return normalizedOrigin;
+  } catch {
+    return defaultOrigin;
+  }
+}
+
 export function buildCardRequest(
   domain: string,
   settings: Settings,
@@ -70,4 +88,28 @@ export async function parseCardResponse(response: Response): Promise<ColdStartCa
   }
 
   return response.json() as Promise<ColdStartCard>;
+}
+
+export function readableCardError(message: string, apiOrigin: string): string {
+  if (message === "extension identity required") {
+    return "Reload the unpacked extension, then reopen Cold Start.";
+  }
+
+  if (message === "extension auth not configured") {
+    return "Extension auth is missing on the API. Restart the local web app after loading .env.local.";
+  }
+
+  if (message === "extension token required" || message === "extension token invalid") {
+    return "Check the API token in settings.";
+  }
+
+  if (/^(Failed to fetch|Load failed)$/i.test(message) || /networkerror/i.test(message)) {
+    if (apiOrigin.startsWith("http://localhost") || apiOrigin.startsWith("http://127.0.0.1")) {
+      return `Could not reach ${apiOrigin}. Start the local web app, then try again.`;
+    }
+
+    return `Could not reach ${apiOrigin}. For local testing, set API origin to http://localhost:3000.`;
+  }
+
+  return message;
 }

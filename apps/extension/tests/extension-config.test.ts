@@ -3,11 +3,13 @@ import {
   buildCardRequest,
   defaultApiOrigin,
   normalizeApiOrigin,
-  parseCardResponse
+  parseCardResponse,
+  readableCardError,
+  storedApiOriginOrDefault
 } from "../src/extension-config";
 
 describe("defaultApiOrigin", () => {
-  it("uses the production API origin for production builds", () => {
+  it("uses the production API origin for production builds without an override", () => {
     expect(defaultApiOrigin({ MODE: "production", PROD: true })).toBe("https://coldstart.semitechie.vc");
   });
 
@@ -15,8 +17,8 @@ describe("defaultApiOrigin", () => {
     expect(defaultApiOrigin({
       MODE: "production",
       PROD: true,
-      VITE_COLD_START_API_ORIGIN: " http://localhost:3000/api "
-    })).toBe("http://localhost:3000");
+      VITE_COLD_START_API_ORIGIN: " https://coldstart.semitechie.vc/api "
+    })).toBe("https://coldstart.semitechie.vc");
   });
 
   it("uses localhost for local builds without an override", () => {
@@ -27,6 +29,30 @@ describe("defaultApiOrigin", () => {
 describe("normalizeApiOrigin", () => {
   it("normalizes origin input", () => {
     expect(normalizeApiOrigin(" https://example.com/path?q=1 ")).toBe("https://example.com");
+  });
+});
+
+describe("storedApiOriginOrDefault", () => {
+  it("replaces a stale production origin in local builds", () => {
+    expect(storedApiOriginOrDefault("https://coldstart.semitechie.vc", "http://localhost:3000")).toBe(
+      "http://localhost:3000"
+    );
+  });
+
+  it("preserves explicit non-production origins in local builds", () => {
+    expect(storedApiOriginOrDefault("http://127.0.0.1:3000", "http://localhost:3000")).toBe(
+      "http://127.0.0.1:3000"
+    );
+  });
+
+  it("preserves production origins in production builds", () => {
+    expect(storedApiOriginOrDefault("https://coldstart.semitechie.vc", "https://coldstart.semitechie.vc")).toBe(
+      "https://coldstart.semitechie.vc"
+    );
+  });
+
+  it("falls back when stored origins are malformed", () => {
+    expect(storedApiOriginOrDefault("not a url", "http://localhost:3000")).toBe("http://localhost:3000");
   });
 });
 
@@ -61,5 +87,23 @@ describe("parseCardResponse", () => {
     const response = new Response("nope", { status: 502 });
 
     await expect(parseCardResponse(response)).rejects.toThrow("request failed with 502");
+  });
+});
+
+describe("readableCardError", () => {
+  it("explains missing web app extension auth env", () => {
+    expect(readableCardError("extension auth not configured", "http://localhost:3000")).toContain(
+      "Restart the local web app"
+    );
+  });
+
+  it("explains local web app connectivity failures", () => {
+    expect(readableCardError("Failed to fetch", "http://localhost:3000")).toContain("Start the local web app");
+  });
+
+  it("points production-origin failures back to localhost for local testing", () => {
+    expect(readableCardError("Failed to fetch", "https://coldstart.semitechie.vc")).toBe(
+      "Could not reach https://coldstart.semitechie.vc. For local testing, set API origin to http://localhost:3000."
+    );
   });
 });

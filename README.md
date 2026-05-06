@@ -85,6 +85,8 @@ Edit `.env.local` and set at least:
 
 ```bash
 ANTHROPIC_API_KEY=...
+VITE_COLD_START_API_ORIGIN=http://localhost:3000
+ALLOWED_EXTENSION_ORIGINS=chrome-extension://*,http://localhost:5173
 EXTENSION_API_TOKEN=local-extension-token
 ```
 
@@ -130,6 +132,8 @@ Start the web app in terminal 1:
 set -a; source .env.local; set +a
 npm run dev -w @cold-start/web
 ```
+
+The web app also loads the repo-root `.env.local` through `apps/web/next.config.ts`, but restart `next dev` after changing extension auth values. If the extension says `extension auth not configured`, stop this web process and start it again.
 
 Start the Inngest local worker in terminal 2:
 
@@ -213,6 +217,8 @@ In Chrome:
 5. Open `https://cartesia.ai`.
 6. Click the Cold Start extension icon.
 7. If setup appears, use API origin `http://localhost:3000` and API token `local-extension-token`.
+
+If the setup screen shows `https://coldstart.semitechie.vc`, the loaded extension is stale or was built with a production `VITE_COLD_START_API_ORIGIN`. Go back to `chrome://extensions`, click Reload on Cold Start, reopen the side panel, and confirm the API origin is `http://localhost:3000`. A local extension build reads the repo-root `.env.local`; the deployed origin is only for a production deployment with matching deployed env vars.
 
 Expected: the side panel opens and renders the extension card with synthesis.
 

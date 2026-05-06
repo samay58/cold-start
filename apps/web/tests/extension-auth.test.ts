@@ -130,6 +130,31 @@ describe("assertExtensionRequest", () => {
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret"))).toEqual({ ok: true });
   });
 
+  it("fails closed in production when local sentinel auth values leak in", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.CHROME_EXTENSION_ID = "local-dev";
+    process.env.EXTENSION_API_TOKEN = "local-extension-token";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "local-extension-token"))).toEqual({
+      ok: false,
+      status: 500,
+      error: "extension auth not configured"
+    });
+  });
+
+  it("fails closed in production when localhost origins are configured", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id,http://localhost:5173";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret"))).toEqual({
+      ok: false,
+      status: 500,
+      error: "extension auth not configured"
+    });
+  });
+
   it("allows configured production extension ID without relying on Origin", () => {
     process.env.NODE_ENV = "production";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
@@ -159,8 +184,8 @@ describe("assertExtensionRequest", () => {
 
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://generatedid", "secret"))).toEqual({
       ok: false,
-      status: 403,
-      error: "extension identity required"
+      status: 500,
+      error: "extension auth not configured"
     });
   });
 });

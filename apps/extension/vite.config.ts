@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import manifest from "./manifest.config";
 
 export default defineConfig({
+  envDir: "../..",
   plugins: [react(), crx({ manifest })],
   server: {
     host: "127.0.0.1",

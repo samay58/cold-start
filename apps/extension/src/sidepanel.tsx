@@ -8,6 +8,8 @@ import {
   defaultApiOrigin,
   normalizeApiOrigin,
   parseCardResponse,
+  readableCardError,
+  storedApiOriginOrDefault,
   type Settings
 } from "./extension-config";
 import "./styles.css";
@@ -32,10 +34,10 @@ function readActiveDomain(): Promise<string | null> {
 function readSettings(): Promise<Settings> {
   return new Promise((resolve) => {
     chrome.storage.local.get([...STORAGE_KEYS], (items) => {
+      const storedOrigin = typeof items.coldStartApiOrigin === "string" ? items.coldStartApiOrigin.trim() : "";
+
       resolve({
-        apiOrigin: typeof items.coldStartApiOrigin === "string" && items.coldStartApiOrigin.trim()
-          ? items.coldStartApiOrigin
-          : DEFAULT_API_ORIGIN,
+        apiOrigin: storedApiOriginOrDefault(storedOrigin, DEFAULT_API_ORIGIN),
         apiToken: typeof items.coldStartApiToken === "string" ? items.coldStartApiToken : ""
       });
     });
@@ -58,18 +60,6 @@ async function fetchCard(domain: string, settings: Settings, signal: AbortSignal
   const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);
-}
-
-function readableCardError(message: string) {
-  if (message === "extension identity required") {
-    return "Reload the unpacked extension, then reopen Cold Start.";
-  }
-
-  if (message === "extension token required" || message === "extension token invalid") {
-    return "Check the local API token in settings.";
-  }
-
-  return message;
 }
 
 function SettingsForm({
@@ -188,7 +178,7 @@ function SidePanel() {
         }
 
         const message = caught instanceof Error ? caught.message : String(caught);
-        setRequestState({ status: "error", message: readableCardError(message) });
+        setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
       });
 
     return () => controller.abort();

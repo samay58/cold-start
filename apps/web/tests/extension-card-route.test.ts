@@ -161,6 +161,18 @@ describe("GET /api/extension/cards/[slug]", () => {
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
   });
 
+  it("fails closed before reading when production auth uses local sentinel values", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id,http://localhost:5173";
+    process.env.EXTENSION_API_TOKEN = "local-extension-token";
+
+    const response = await GET(extensionRequest("chrome-extension://prod-id", "local-extension-token"), params());
+
+    await expect(response.json()).resolves.toEqual({ error: "extension auth not configured" });
+    expect(response.status).toBe(500);
+    expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
+  });
+
   it("allows configured production extension ID without Origin", async () => {
     process.env.NODE_ENV = "production";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;

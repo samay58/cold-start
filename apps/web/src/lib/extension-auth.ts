@@ -1,5 +1,8 @@
 const LOCAL_CHROME_EXTENSION_WILDCARD = "chrome-extension://*";
+const LOCAL_DEFAULT_EXTENSION_ORIGINS = "chrome-extension://*,http://localhost:5173";
 const extensionIdHeader = "x-cold-start-extension-id";
+const localExtensionId = "local-dev";
+const localExtensionToken = "local-extension-token";
 
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   if (allowedOrigins.includes(origin)) {
@@ -17,6 +20,22 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   return false;
 }
 
+function hasUnsafeProductionConfig(
+  allowedOrigins: string[],
+  configuredExtensionId: string | undefined,
+  apiToken: string | undefined
+) {
+  return (
+    process.env.NODE_ENV === "production" &&
+    (
+      allowedOrigins.includes(LOCAL_CHROME_EXTENSION_WILDCARD) ||
+      allowedOrigins.some((origin) => origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) ||
+      configuredExtensionId === localExtensionId ||
+      apiToken === localExtensionToken
+    )
+  );
+}
+
 export function assertExtensionRequest(headers: Headers) {
   const origin = headers.get("origin") ?? "";
   const extensionId = headers.get(extensionIdHeader)?.trim() ?? "";
@@ -31,10 +50,15 @@ export function assertExtensionRequest(headers: Headers) {
     return { ok: false as const, status: 500, error: "extension auth not configured" };
   }
 
-  const allowed = (configuredOrigins ?? "chrome-extension://*,http://localhost:5173")
+  const defaultOrigins = process.env.NODE_ENV === "production" ? "" : LOCAL_DEFAULT_EXTENSION_ORIGINS;
+  const allowed = (configuredOrigins ?? defaultOrigins)
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+
+  if (hasUnsafeProductionConfig(allowed, configuredExtensionId, apiToken)) {
+    return { ok: false as const, status: 500, error: "extension auth not configured" };
+  }
 
   const allowedByExtensionId =
     process.env.NODE_ENV !== "production"
