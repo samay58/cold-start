@@ -201,16 +201,30 @@ export async function markGenerationRun(
     costUsd?: number;
   }
 ) {
+  const values = {
+    slug: input.slug,
+    domain: input.domain,
+    status: input.status,
+    ...(input.error !== undefined ? { error: input.error } : {}),
+    ...(input.costUsd !== undefined ? { costUsd: String(input.costUsd) } : {}),
+    ...(input.status === "complete" || input.status === "failed" ? { completedAt: new Date() } : {})
+  };
+
+  if (input.status === "complete" || input.status === "failed") {
+    const [updated] = await db
+      .update(generationRuns)
+      .set(values)
+      .where(and(eq(generationRuns.slug, input.slug), inArray(generationRuns.status, ["queued", "running"])))
+      .returning();
+
+    if (updated) {
+      return updated;
+    }
+  }
+
   const [row] = await db
     .insert(generationRuns)
-    .values({
-      slug: input.slug,
-      domain: input.domain,
-      status: input.status,
-      ...(input.error !== undefined ? { error: input.error } : {}),
-      ...(input.costUsd !== undefined ? { costUsd: String(input.costUsd) } : {}),
-      ...(input.status === "complete" || input.status === "failed" ? { completedAt: new Date() } : {})
-    })
+    .values(values)
     .returning();
 
   return row;

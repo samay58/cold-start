@@ -8,12 +8,23 @@ import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
   findPublicCardBySlug,
+  markGenerationRun,
   recordCardEvidence,
   upsertCard
 } from "../src/repository";
 import { citations, claims } from "../src/schema";
 
 const generatedAt = "2026-05-06T12:00:00.000Z";
+type TestGenerationRun = {
+  id: string;
+  slug: string;
+  domain: string;
+  status: "queued" | "running" | "complete" | "failed";
+  error?: string;
+  costUsd?: string;
+  startedAt: Date;
+  completedAt?: Date;
+};
 
 const card: ColdStartCard = {
   slug: "cartesia",
@@ -118,6 +129,58 @@ function sqlParamValues(value: unknown, seen = new Set<unknown>()): unknown[] {
     : [];
 
   return [...directValue, ...chunkValues];
+}
+
+function generationRunLifecycleDb() {
+  const rows: TestGenerationRun[] = [];
+
+  const db = {
+    insert: () => ({
+      values: (values: Omit<TestGenerationRun, "id" | "startedAt">) => ({
+        returning: async () => {
+          const row = {
+            id: `run-${rows.length + 1}`,
+            startedAt: new Date(`2026-05-06T12:00:0${rows.length}.000Z`),
+            ...values
+          };
+          rows.push(row);
+          return [row];
+        }
+      })
+    }),
+    update: () => ({
+      set: (values: Omit<TestGenerationRun, "id" | "startedAt">) => ({
+        where: () => ({
+          returning: async () => {
+            const activeRows = rows.filter(
+              (row) => row.slug === values.slug && (row.status === "queued" || row.status === "running")
+            );
+
+            activeRows.forEach((row) => {
+              Object.assign(row, values);
+            });
+
+            return activeRows;
+          }
+        })
+      })
+    }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          orderBy: () => ({
+            limit: async () =>
+              rows
+                .filter((row) => row.status === "queued" || row.status === "running")
+                .sort((left, right) => right.startedAt.getTime() - left.startedAt.getTime())
+                .slice(0, 1)
+          })
+        })
+      })
+    })
+  } as unknown as ColdStartDb;
+
+  return { db, rows };
 }
 
 describe("cardExpiryDates", () => {
@@ -278,6 +341,48 @@ describe("findActiveGenerationRunBySlug", () => {
 
     await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toMatchObject({ status: "queued" });
     expect(sqlParamValues(whereCondition)).toEqual(expect.arrayContaining(["cartesia", "queued", "running"]));
+  });
+});
+
+describe("markGenerationRun", () => {
+  it("retires a queued run when marking the slug failed", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", status: "queued" });
+    expect(await findActiveGenerationRunBySlug(db, "cartesia")).toMatchObject({ status: "queued" });
+
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      status: "failed",
+      error: "queue failed"
+    });
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: "failed", error: "queue failed" });
+    expect(rows[0]?.completedAt).toBeInstanceOf(Date);
+  });
+
+  it.each(["failed", "complete"] as const)("retires a running run when marking the slug %s", async (status) => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", status: "running" });
+    expect(await findActiveGenerationRunBySlug(db, "cartesia")).toMatchObject({ status: "running" });
+
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      status,
+      ...(status === "failed" ? { error: "worker failed" } : { costUsd: 0.42 })
+    });
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject(
+      status === "failed" ? { status, error: "worker failed" } : { status, costUsd: "0.42" }
+    );
+    expect(rows[0]?.completedAt).toBeInstanceOf(Date);
   });
 });
 
