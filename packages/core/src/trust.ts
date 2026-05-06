@@ -2,6 +2,7 @@ import type { ColdStartCard, ResolvedFact, SourcedText } from "./card";
 
 const verificationSentinel = /\[needs_verification\]/i;
 const forbiddenSynthesisPhrases = /\b(reportedly|industry sources suggest|rumored to|appears to be|is said to)\b/i;
+const citationMarker = /\[([A-Za-z0-9_-]+)\]/g;
 
 function validCitationIds(card: ColdStartCard): Set<string> {
   return new Set(card.citations.map((citation) => citation.id));
@@ -26,8 +27,24 @@ function sanitizeFact<T>(fact: ResolvedFact<T>, validIds: Set<string>): Resolved
   return nullFact();
 }
 
+function sanitizeCitationIds(citationIds: string[], validIds: Set<string>): string[] {
+  return citationIds.filter((citationId) => validIds.has(citationId));
+}
+
+function visibleCitationMarkers(text: string): string[] {
+  return Array.from(text.matchAll(citationMarker), (match) => match[1]).filter(
+    (citationId): citationId is string => citationId !== undefined
+  );
+}
+
 function supportedCitationIds(item: SourcedText, validIds: Set<string>): string[] {
-  return item.citationIds.filter((citationId) => validIds.has(citationId) && item.text.includes(`[${citationId}]`));
+  const visibleMarkers = visibleCitationMarkers(item.text);
+
+  if (visibleMarkers.some((citationId) => !validIds.has(citationId))) {
+    return [];
+  }
+
+  return item.citationIds.filter((citationId) => validIds.has(citationId) && visibleMarkers.includes(citationId));
 }
 
 function keepSupportedText(item: SourcedText, validIds: Set<string>): SourcedText | null {
@@ -79,7 +96,11 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
       founders: sanitizeFact(card.team.founders, validIds),
       keyExecs: sanitizeFact(card.team.keyExecs, validIds),
       headcount: sanitizeFact(card.team.headcount, validIds)
-    }
+    },
+    signals: card.signals.flatMap((signal) => {
+      const citationIds = sanitizeCitationIds(signal.citationIds, validIds);
+      return citationIds.length > 0 ? [{ ...signal, citationIds }] : [];
+    })
   };
 }
 

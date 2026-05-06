@@ -115,6 +115,55 @@ describe("sanitizeCardTrust", () => {
       citationIds: ["c1"]
     });
   });
+
+  it("drops signals when citation IDs do not exist on the card", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      signals: [
+        {
+          title: "Launch coverage",
+          url: "https://example.com/launch",
+          date: "2026-05-06",
+          source: "Example",
+          category: "launch",
+          citationIds: ["missing"]
+        }
+      ]
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.signals).toEqual([]);
+  });
+
+  it("keeps signals with valid citation IDs and filters missing IDs", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      signals: [
+        {
+          title: "Launch coverage",
+          url: "https://example.com/launch",
+          date: "2026-05-06",
+          source: "Example",
+          category: "launch",
+          citationIds: ["c1", "missing"]
+        }
+      ]
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.signals).toEqual([
+      {
+        title: "Launch coverage",
+        url: "https://example.com/launch",
+        date: "2026-05-06",
+        source: "Example",
+        category: "launch",
+        citationIds: ["c1"]
+      }
+    ]);
+  });
 });
 
 describe("stripUnsupportedSynthesis", () => {
@@ -194,6 +243,20 @@ describe("stripUnsupportedSynthesis", () => {
       synthesis: {
         ...baseSynthesis,
         bullCase: [{ text: "The company has a credible infra wedge [missing].", citationIds: ["missing"] }]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([]);
+  });
+
+  it("drops synthesis text with mixed valid and invalid visible citation markers", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [{ text: "The company has a credible infra wedge [c1] [missing].", citationIds: ["c1", "missing"] }]
       }
     };
 
