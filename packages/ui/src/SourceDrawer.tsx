@@ -1,5 +1,6 @@
 import type { Citation } from "@cold-start/core";
 import { CitationMarker } from "./CitationMarker";
+import { sourceDomId } from "./sourceDomId";
 
 function formatSourceType(sourceType: Citation["sourceType"]): string {
   return sourceType.replaceAll("_", " ");
@@ -12,7 +13,7 @@ export function SourceDrawer({ citations }: { citations: Citation[] }) {
       {citations.length > 0 ? (
         <ol className="cs-source-list">
           {citations.map((citation) => (
-            <li className="cs-source-item" id={`source-${citation.id}`} key={citation.id}>
+            <li className="cs-source-item" id={sourceDomId(citation.id)} key={citation.id}>
               <CitationMarker id={citation.id} />
               <div>
                 <a href={citation.url} target="_blank" rel="noreferrer">

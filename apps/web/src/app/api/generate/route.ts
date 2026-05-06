@@ -1,6 +1,10 @@
-import { canonicalDomain, companySlugFromDomain } from "@cold-start/core";
+import { companySlugFromDomain } from "@cold-start/core";
+import { createDb, markGenerationRun } from "@cold-start/db";
 import { NextResponse } from "next/server";
 import { inngest } from "../../../inngest/client";
+import { boundedErrorMessage } from "../../../lib/errors";
+import { canonicalCompanyDomain } from "../../../lib/domain";
+import { webEnv } from "../../../lib/env";
 
 export async function POST(request: Request) {
   let body: { domain?: unknown };
@@ -11,24 +15,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid json body" }, { status: 400 });
   }
 
-  if (typeof body.domain !== "string" || body.domain.trim().length === 0) {
-    return NextResponse.json({ error: "domain is required" }, { status: 400 });
-  }
-
   let domain: string;
 
   try {
-    domain = canonicalDomain(body.domain);
-  } catch {
-    return NextResponse.json({ error: "domain is invalid" }, { status: 400 });
+    domain = canonicalCompanyDomain(body.domain);
+  } catch (error) {
+    return NextResponse.json({ error: boundedErrorMessage(error) }, { status: 400 });
   }
 
   const slug = companySlugFromDomain(domain);
+  const db = createDb(webEnv().DATABASE_URL);
 
-  await inngest.send({
-    name: "card/generate.requested",
-    data: { domain, slug },
-  });
+  await markGenerationRun(db, { slug, domain, status: "queued" });
+
+  try {
+    await inngest.send({
+      name: "card/generate.requested",
+      data: { domain, slug },
+    });
+  } catch (error) {
+    await markGenerationRun(db, { slug, domain, status: "failed", error: boundedErrorMessage(error) });
+    return NextResponse.json({ error: "failed to queue generation" }, { status: 500 });
+  }
 
   return NextResponse.json({ slug, status: "queued" }, { status: 202 });
 }

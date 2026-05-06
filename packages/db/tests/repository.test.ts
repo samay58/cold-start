@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { ColdStartCard } from "@cold-start/core";
+import { publicCard, type ColdStartCard } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
 import { createDb } from "../src/client";
-import { cardExpiryDates, recordCardEvidence, upsertCard } from "../src/repository";
+import { cardExpiryDates, findPublicCardBySlug, recordCardEvidence, upsertCard } from "../src/repository";
 import { citations, claims } from "../src/schema";
 
 const generatedAt = "2026-05-06T12:00:00.000Z";
@@ -143,6 +143,39 @@ describe("upsertCard", () => {
     expect(updateSet?.identityExpiresAt).toEqual(insertValues?.identityExpiresAt);
     expect(updateSet?.signalsExpiresAt).toEqual(insertValues?.signalsExpiresAt);
     expect(updateSet?.synthesisExpiresAt).toEqual(insertValues?.synthesisExpiresAt);
+  });
+});
+
+describe("findPublicCardBySlug", () => {
+  it("returns parsed public card JSON without synthesis", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ publicCardJson: publicCard(card) }]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    const publicOnly = await findPublicCardBySlug(db, "cartesia");
+
+    expect(publicOnly?.slug).toBe("cartesia");
+    expect(publicOnly).not.toHaveProperty("synthesis");
+  });
+
+  it("returns null when the public card row is absent", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => []
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findPublicCardBySlug(db, "missing")).resolves.toBeNull();
   });
 });
 

@@ -1,6 +1,8 @@
+import { sourceDomId } from "./sourceDomId";
+
 export function CitationMarker({ id }: { id: string }) {
   return (
-    <a className="cs-citation" href={`#source-${id}`} aria-label={`Source ${id}`}>
+    <a className="cs-citation" href={`#${sourceDomId(id)}`} aria-label={`Source ${id}`}>
       [{id}]
     </a>
   );

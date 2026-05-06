@@ -16,6 +16,7 @@ const synthesisTtlMs = 24 * 60 * 60 * 1000;
 
 type SourceType = "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
+const publicCardSchema = coldStartCardSchema.omit({ synthesis: true });
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -36,6 +37,17 @@ export async function findCardBySlug(db: ColdStartDb, slug: string): Promise<Col
   }
 
   return coldStartCardSchema.parse(row.cardJson);
+}
+
+export async function findPublicCardBySlug(db: ColdStartDb, slug: string): Promise<Omit<ColdStartCard, "synthesis"> | null> {
+  const rows = await db.select({ publicCardJson: cards.publicCardJson }).from(cards).where(eq(cards.slug, slug)).limit(1);
+  const row = rows[0];
+
+  if (!row) {
+    return null;
+  }
+
+  return publicCardSchema.parse(row.publicCardJson);
 }
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
