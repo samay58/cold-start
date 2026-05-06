@@ -1,0 +1,254 @@
+:root {
+  --color-canvas-parchment: #fafaf7;
+  --color-card-cream: #ffffff;
+  --color-ink: #0a0a0a;
+  --color-muted-ink: #5f625c;
+  --color-mid-stone: #6e6e76;
+  --color-soft-sand: #d8d5ca;
+  --color-citation-ultramarine: #1a1f8c;
+  --color-confidence-amber: #a8741f;
+  --color-confidence-sky: #1a1f8c;
+  --color-confidence-soft: #b7b6b0;
+  --color-hover-pebble: #f0efea;
+  --font-plex-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-plex-serif: "IBM Plex Serif", ui-serif, Georgia, serif;
+  --font-mona-sans: "Mona Sans", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-berkeley-mono: "Berkeley Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --shadow-card: 0 1px 2px #e8e6df;
+  --shadow-popover: 0 12px 28px #dedbd1;
+}
+
+.cs-card-page {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 64px 20px;
+}
+
+.cs-card {
+  width: 100%;
+  background: var(--color-card-cream);
+  border: 1px solid var(--color-soft-sand);
+  border-radius: 4px;
+  box-shadow: var(--shadow-card);
+  color: var(--color-ink);
+  padding: 32px;
+}
+
+.cs-card[data-surface="extension"] {
+  min-height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 20px;
+}
+
+.cs-card-header {
+  display: grid;
+  gap: 12px;
+}
+
+.cs-title {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-mona-sans);
+  font-size: clamp(36px, 8vw, 72px);
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.cs-subtitle {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 1rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.cs-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  color: var(--color-mid-stone);
+  font-size: 0.75rem;
+  list-style: none;
+}
+
+.cs-meta li {
+  border: 1px solid var(--color-soft-sand);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+.cs-section {
+  margin-top: 40px;
+}
+
+.cs-section h2 {
+  margin: 0 0 16px;
+  color: var(--color-ink);
+  font-family: var(--font-plex-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.cs-section h3 {
+  margin: 24px 0 10px;
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.cs-fact-row {
+  display: grid;
+  grid-template-columns: minmax(108px, 0.7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--color-hover-pebble);
+}
+
+.cs-fact-label {
+  color: var(--color-mid-stone);
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.cs-fact-value {
+  color: var(--color-ink);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.cs-mono {
+  font-family: var(--font-berkeley-mono);
+  font-feature-settings: "tnum" 1;
+}
+
+.cs-citation {
+  color: var(--color-citation-ultramarine);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cs-fact-value .cs-citation,
+.cs-signal .cs-citation,
+.cs-synthesis-list .cs-citation {
+  margin-left: 4px;
+}
+
+.cs-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-signal,
+.cs-comparable {
+  border-top: 1px solid var(--color-hover-pebble);
+  padding: 12px 0 0;
+}
+
+.cs-signal a,
+.cs-source-list a {
+  color: var(--color-ink);
+  text-decoration-color: var(--color-soft-sand);
+  text-underline-offset: 3px;
+}
+
+.cs-signal-title,
+.cs-comparable-title {
+  margin: 0 0 4px;
+  font-size: 0.925rem;
+  font-weight: 650;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cs-signal-meta,
+.cs-comparable-copy,
+.cs-source-meta {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cs-empty {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.cs-source-drawer {
+  border-top: 1px solid var(--color-soft-sand);
+  padding-top: 24px;
+}
+
+.cs-source-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-source-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cs-synthesis-lede {
+  margin: 0 0 18px;
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.cs-synthesis-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.cs-synthesis-list li {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .cs-card-page {
+    padding: 24px 12px;
+  }
+
+  .cs-card {
+    padding: 20px;
+  }
+
+  .cs-title {
+    font-size: 3rem;
+  }
+
+  .cs-fact-row,
+  .cs-source-item {
+    grid-template-columns: 1fr;
+  }
+}
