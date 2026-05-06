@@ -265,6 +265,20 @@ describe("stripUnsupportedSynthesis", () => {
     expect(clean.synthesis?.bullCase).toEqual([]);
   });
 
+  it("drops synthesis text when a visible citation marker is not declared", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [{ text: "The company has a credible infra wedge [c1] [c2].", citationIds: ["c1"] }]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([]);
+  });
+
   it("keeps synthesis text with a valid visible citation marker", () => {
     const dirty: ColdStartCard = {
       ...baseCard,

@@ -39,8 +39,9 @@ function visibleCitationMarkers(text: string): string[] {
 
 function supportedCitationIds(item: SourcedText, validIds: Set<string>): string[] {
   const visibleMarkers = visibleCitationMarkers(item.text);
+  const declaredIds = new Set(item.citationIds);
 
-  if (visibleMarkers.some((citationId) => !validIds.has(citationId))) {
+  if (visibleMarkers.some((citationId) => !validIds.has(citationId) || !declaredIds.has(citationId))) {
     return [];
   }
 
