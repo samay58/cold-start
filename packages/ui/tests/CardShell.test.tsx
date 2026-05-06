@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { publicCard, type ColdStartCard } from "@cold-start/core";
-import { CardShell, sourceDomId } from "../src";
+import { CardShell, safeExternalHref, sourceDomId } from "../src";
 
 const card: ColdStartCard = {
   slug: "cartesia",
@@ -77,10 +77,45 @@ describe("CardShell", () => {
     expect(screen.getByText("The company has a credible infra wedge [c1].")).toBeTruthy();
     expect(screen.getByText("Which buyer owns the budget?")).toBeTruthy();
   });
+
+  it("renders unsafe signal and citation URLs as plain text", () => {
+    const unsafeCard: ColdStartCard = {
+      ...card,
+      signals: [
+        {
+          ...card.signals[0]!,
+          title: "Unsafe signal",
+          url: "javascript:alert(1)"
+        }
+      ],
+      citations: [
+        {
+          ...card.citations[0]!,
+          title: "Unsafe citation",
+          url: "data:text/html,owned"
+        }
+      ]
+    };
+
+    render(<CardShell card={unsafeCard} surface="web" />);
+
+    expect(screen.getByText("Unsafe signal").closest("a")).toBeNull();
+    expect(screen.getByText("Unsafe citation").closest("a")).toBeNull();
+  });
 });
 
 describe("sourceDomId", () => {
   it("encodes arbitrary citation IDs into stable DOM IDs", () => {
     expect(sourceDomId("source 1/2#frag%[x]")).toBe("source-source%201%2F2%23frag%25%5Bx%5D");
+  });
+});
+
+describe("safeExternalHref", () => {
+  it("keeps only http and https URLs", () => {
+    expect(safeExternalHref("https://example.com/path")).toBe("https://example.com/path");
+    expect(safeExternalHref("http://example.com/path")).toBe("http://example.com/path");
+    expect(safeExternalHref("javascript:alert(1)")).toBeNull();
+    expect(safeExternalHref("data:text/html,owned")).toBeNull();
+    expect(safeExternalHref("not a url")).toBeNull();
   });
 });

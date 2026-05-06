@@ -100,6 +100,26 @@ function tableName(table: unknown) {
   return "other";
 }
 
+function sqlParamValues(value: unknown, seen = new Set<unknown>()): unknown[] {
+  if (typeof value !== "object" || value === null || seen.has(value)) {
+    return [];
+  }
+
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => sqlParamValues(item, seen));
+  }
+
+  const record = value as { queryChunks?: unknown[]; value?: unknown };
+  const directValue = "value" in record && typeof record.value !== "object" ? [record.value] : [];
+  const chunkValues = Array.isArray(record.queryChunks)
+    ? record.queryChunks.flatMap((chunk) => sqlParamValues(chunk, seen))
+    : [];
+
+  return [...directValue, ...chunkValues];
+}
+
 describe("cardExpiryDates", () => {
   it("computes stable card TTL dates from one clock value", () => {
     const now = new Date("2026-05-06T12:00:00.000Z");
@@ -236,6 +256,28 @@ describe("findActiveGenerationRunBySlug", () => {
     } as unknown as ColdStartDb;
 
     await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+  });
+
+  it("queries active statuses directly before selecting the latest run", async () => {
+    let whereCondition: unknown;
+
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: (condition: unknown) => {
+            whereCondition = condition;
+            return {
+              orderBy: () => ({
+                limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status: "queued" }]
+              })
+            };
+          }
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toMatchObject({ status: "queued" });
+    expect(sqlParamValues(whereCondition)).toEqual(expect.arrayContaining(["cartesia", "queued", "running"]));
   });
 });
 

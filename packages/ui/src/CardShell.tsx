@@ -1,6 +1,7 @@
 import type { ColdStartCard, ResolvedFact } from "@cold-start/core";
 import { CitationMarker } from "./CitationMarker";
 import { FactRow } from "./FactRow";
+import { safeExternalHref } from "./safeExternalHref";
 import { SourceDrawer } from "./SourceDrawer";
 import { SynthesisSection } from "./SynthesisSection";
 
@@ -66,21 +67,29 @@ export function CardShell({ card, surface }: CardShellProps) {
         <h2 id="signals-heading">Signals</h2>
         {card.signals.length > 0 ? (
           <ul className="cs-list">
-            {card.signals.map((signal) => (
-              <li className="cs-signal" key={`${signal.url}-${signal.title}`}>
-                <p className="cs-signal-title">
-                  <a href={signal.url} target="_blank" rel="noreferrer">
-                    {signal.title}
-                  </a>
-                  {signal.citationIds.map((id) => (
-                    <CitationMarker id={id} key={id} />
-                  ))}
-                </p>
-                <p className="cs-signal-meta">
-                  {signal.source} · {signal.category} · {signal.date}
-                </p>
-              </li>
-            ))}
+            {card.signals.map((signal) => {
+              const href = safeExternalHref(signal.url);
+
+              return (
+                <li className="cs-signal" key={`${signal.url}-${signal.title}`}>
+                  <p className="cs-signal-title">
+                    {href ? (
+                      <a href={href} target="_blank" rel="noreferrer">
+                        {signal.title}
+                      </a>
+                    ) : (
+                      <span>{signal.title}</span>
+                    )}
+                    {signal.citationIds.map((id) => (
+                      <CitationMarker id={id} key={id} />
+                    ))}
+                  </p>
+                  <p className="cs-signal-meta">
+                    {signal.source} · {signal.category} · {signal.date}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="cs-empty">No cited public signals found.</p>

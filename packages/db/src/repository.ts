@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { coldStartCardSchema, publicCard, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
 
@@ -62,7 +62,7 @@ export async function findActiveGenerationRunBySlug(
       status: generationRuns.status
     })
     .from(generationRuns)
-    .where(eq(generationRuns.slug, slug))
+    .where(and(eq(generationRuns.slug, slug), inArray(generationRuns.status, ["queued", "running"])))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];
