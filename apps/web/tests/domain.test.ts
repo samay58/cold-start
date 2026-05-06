@@ -22,7 +22,11 @@ describe("canonicalCompanyDomain", () => {
     "company.test",
     "company.invalid",
     "company.localhost",
-    "a".repeat(254) + ".com"
+    "a".repeat(254) + ".com",
+    "foo_bar.com",
+    "-bad.com",
+    "bad-.com",
+    `${"a".repeat(64)}.com`
   ])("rejects non-public domain input %s", (input) => {
     expect(() => canonicalCompanyDomain(input)).toThrow("domain is invalid");
   });

@@ -4,7 +4,13 @@ import { publicCard, type ColdStartCard } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
 import { createDb } from "../src/client";
-import { cardExpiryDates, findPublicCardBySlug, recordCardEvidence, upsertCard } from "../src/repository";
+import {
+  cardExpiryDates,
+  findActiveGenerationRunBySlug,
+  findPublicCardBySlug,
+  recordCardEvidence,
+  upsertCard
+} from "../src/repository";
 import { citations, claims } from "../src/schema";
 
 const generatedAt = "2026-05-06T12:00:00.000Z";
@@ -176,6 +182,60 @@ describe("findPublicCardBySlug", () => {
     } as unknown as ColdStartDb;
 
     await expect(findPublicCardBySlug(db, "missing")).resolves.toBeNull();
+  });
+});
+
+describe("findActiveGenerationRunBySlug", () => {
+  it.each(["queued", "running"] as const)("returns the latest active %s run", async (status) => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status }]
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toEqual({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      status
+    });
+  });
+
+  it.each(["complete", "failed"] as const)("returns null when the latest run is %s", async (status) => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status }]
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+  });
+
+  it("returns null when no generation run exists", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: async () => []
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
   });
 });
 

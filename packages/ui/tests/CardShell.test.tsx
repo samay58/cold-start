@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { publicCard, type ColdStartCard } from "@cold-start/core";
-import { CardShell } from "../src";
+import { CardShell, sourceDomId } from "../src";
 
 const card: ColdStartCard = {
   slug: "cartesia",
@@ -76,5 +76,11 @@ describe("CardShell", () => {
     expect(screen.getByText("Bull case")).toBeTruthy();
     expect(screen.getByText("The company has a credible infra wedge [c1].")).toBeTruthy();
     expect(screen.getByText("Which buyer owns the budget?")).toBeTruthy();
+  });
+});
+
+describe("sourceDomId", () => {
+  it("encodes arbitrary citation IDs into stable DOM IDs", () => {
+    expect(sourceDomId("source 1/2#frag%[x]")).toBe("source-source%201%2F2%23frag%25%5Bx%5D");
   });
 });

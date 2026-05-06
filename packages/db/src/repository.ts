@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { coldStartCardSchema, publicCard, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
 
@@ -16,6 +16,7 @@ const synthesisTtlMs = 24 * 60 * 60 * 1000;
 
 type SourceType = "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
+type ActiveGenerationStatus = Extract<GenerationStatus, "queued" | "running">;
 const publicCardSchema = coldStartCardSchema.omit({ synthesis: true });
 
 export function cardExpiryDates(now = new Date()) {
@@ -48,6 +49,33 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string): Promi
   }
 
   return publicCardSchema.parse(row.publicCardJson);
+}
+
+export async function findActiveGenerationRunBySlug(
+  db: ColdStartDb,
+  slug: string
+): Promise<{ slug: string; domain: string; status: ActiveGenerationStatus } | null> {
+  const rows = await db
+    .select({
+      slug: generationRuns.slug,
+      domain: generationRuns.domain,
+      status: generationRuns.status
+    })
+    .from(generationRuns)
+    .where(eq(generationRuns.slug, slug))
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+  const row = rows[0];
+
+  if (!row || (row.status !== "queued" && row.status !== "running")) {
+    return null;
+  }
+
+  return {
+    slug: row.slug,
+    domain: row.domain,
+    status: row.status
+  };
 }
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {

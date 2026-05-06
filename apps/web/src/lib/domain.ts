@@ -23,6 +23,18 @@ function isIpLiteral(domain: string): boolean {
   return isIpv4Address(domain) || withoutIpv6Brackets.includes(":");
 }
 
+function hasValidDnsLabels(domain: string): boolean {
+  return domain.split(".").every((label) => {
+    return (
+      label.length > 0 &&
+      label.length <= 63 &&
+      /^[a-z0-9-]+$/.test(label) &&
+      !label.startsWith("-") &&
+      !label.endsWith("-")
+    );
+  });
+}
+
 export function canonicalCompanyDomain(input: unknown): string {
   if (typeof input !== "string") {
     throw new Error("domain is required");
@@ -45,7 +57,7 @@ export function canonicalCompanyDomain(input: unknown): string {
     domain.length > 253 ||
     domain === "localhost" ||
     !domain.includes(".") ||
-    domain.includes("..") ||
+    !hasValidDnsLabels(domain) ||
     isIpLiteral(domain) ||
     localSuffixes.some((suffix) => domain.endsWith(suffix))
   ) {

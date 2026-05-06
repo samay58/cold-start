@@ -1,5 +1,5 @@
 import { companySlugFromDomain } from "@cold-start/core";
-import { createDb, markGenerationRun } from "@cold-start/db";
+import { createDb, findActiveGenerationRunBySlug, findPublicCardBySlug, markGenerationRun } from "@cold-start/db";
 import { NextResponse } from "next/server";
 import { inngest } from "../../../inngest/client";
 import { boundedErrorMessage } from "../../../lib/errors";
@@ -25,6 +25,17 @@ export async function POST(request: Request) {
 
   const slug = companySlugFromDomain(domain);
   const db = createDb(webEnv().DATABASE_URL);
+  const cached = await findPublicCardBySlug(db, slug);
+
+  if (cached) {
+    return NextResponse.json({ slug, status: "cached" }, { status: 200 });
+  }
+
+  const activeRun = await findActiveGenerationRunBySlug(db, slug);
+
+  if (activeRun) {
+    return NextResponse.json({ slug, status: activeRun.status }, { status: 202 });
+  }
 
   await markGenerationRun(db, { slug, domain, status: "queued" });
 
