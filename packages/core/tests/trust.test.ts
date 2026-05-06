@@ -6,6 +6,13 @@ import {
   stripUnsupportedSynthesis
 } from "../src/index";
 
+const baseSynthesis = {
+  whyItMatters: { text: "Cartesia is relevant because real-time voice is a live infra wedge [c1].", citationIds: ["c1"] },
+  bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }],
+  bearCase: [{ text: "Competition is intense [needs_verification].", citationIds: [] }],
+  openQuestions: ["Which buyer owns the budget?"]
+} satisfies NonNullable<ColdStartCard["synthesis"]>;
+
 const baseCard: ColdStartCard = {
   slug: "cartesia",
   domain: "cartesia.ai",
@@ -42,12 +49,7 @@ const baseCard: ColdStartCard = {
     { id: "c2", url: "https://example.com/cartesia-funding", title: "Funding", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "news" },
     { id: "c3", url: "https://example.com/cartesia-headcount", title: "Headcount", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "enrichment" }
   ],
-  synthesis: {
-    whyItMatters: { text: "Cartesia is relevant because real-time voice is a live infra wedge [c1].", citationIds: ["c1"] },
-    bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }],
-    bearCase: [{ text: "Competition is intense [needs_verification].", citationIds: [] }],
-    openQuestions: ["Which buyer owns the budget?"]
-  }
+  synthesis: baseSynthesis
 };
 
 describe("publicCard", () => {
@@ -82,5 +84,55 @@ describe("stripUnsupportedSynthesis", () => {
     const clean = stripUnsupportedSynthesis(baseCard);
 
     expect(clean.synthesis?.bearCase).toEqual([]);
+  });
+
+  it("omits synthesis when why it matters is unsupported", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        whyItMatters: { text: "Cartesia reportedly has a live infra wedge.", citationIds: ["c1"] }
+      }
+    };
+
+    expect(stripUnsupportedSynthesis(dirty)).not.toHaveProperty("synthesis");
+  });
+
+  it("omits synthesis when why it matters has no citations", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        whyItMatters: { text: "Cartesia is relevant because real-time voice is a live infra wedge.", citationIds: [] }
+      }
+    };
+
+    expect(stripUnsupportedSynthesis(dirty)).not.toHaveProperty("synthesis");
+  });
+
+  it("drops bull and bear lines with no citations or forbidden phrases", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [
+          { text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] },
+          { text: "A partner channel appears to be opening up [c1].", citationIds: ["c1"] },
+          { text: "The model latency advantage could compound.", citationIds: [] }
+        ],
+        bearCase: [
+          { text: "Competition is intense [c2].", citationIds: ["c2"] },
+          { text: "Industry sources suggest churn risk is elevated [c2].", citationIds: ["c2"] },
+          { text: "Pricing pressure may compress margins.", citationIds: [] }
+        ]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([
+      { text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }
+    ]);
+    expect(clean.synthesis?.bearCase).toEqual([{ text: "Competition is intense [c2].", citationIds: ["c2"] }]);
   });
 });

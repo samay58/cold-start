@@ -56,6 +56,11 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
     return card;
   }
 
+  if (!keepSupportedText(card.synthesis.whyItMatters)) {
+    const { synthesis: _synthesis, ...cardWithoutSynthesis } = card;
+    return cardWithoutSynthesis;
+  }
+
   const synthesis = {
     whyItMatters: card.synthesis.whyItMatters,
     bullCase: card.synthesis.bullCase.filter(keepSupportedText).slice(0, 3),
