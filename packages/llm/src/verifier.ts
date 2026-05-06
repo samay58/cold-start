@@ -29,8 +29,21 @@ function verificationKey(input: { text: string; citationIds: string[] }) {
 }
 
 export function applyVerifierResults(items: SourcedText[], results: VerificationResult[]): SourcedText[] {
+  const resultCounts = new Map<string, { count: number; status: VerificationStatus }>();
+
+  for (const result of results) {
+    const key = verificationKey(result);
+    const existing = resultCounts.get(key);
+    resultCounts.set(key, {
+      count: (existing?.count ?? 0) + 1,
+      status: result.status
+    });
+  }
+
   const supported = new Set(
-    results.filter((result) => result.status === "supported").map((result) => verificationKey(result))
+    Array.from(resultCounts.entries())
+      .filter(([, result]) => result.count === 1 && result.status === "supported")
+      .map(([key]) => key)
   );
   return items.filter((item) => supported.has(verificationKey(item)));
 }

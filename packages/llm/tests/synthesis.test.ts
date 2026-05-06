@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseSynthesisToolUse } from "../src/index";
+import type Anthropic from "@anthropic-ai/sdk";
+import type { ColdStartCard } from "@cold-start/core";
+import { parseSynthesisToolUse, synthesizeCard } from "../src/index";
 
 const validSynthesisPayload = {
   whyItMatters: { text: "Cartesia is building real-time voice infrastructure [c1].", citationIds: ["c1"] },
@@ -211,5 +213,36 @@ describe("parseSynthesisToolUse", () => {
         ]
       })
     ).toThrow("openQuestions must contain exactly 3 items");
+  });
+});
+
+describe("synthesizeCard", () => {
+  it("rejects citation IDs that are not present on the input card", async () => {
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [
+            {
+              type: "tool_use",
+              name: "emit_investor_synthesis",
+              input: {
+                ...validSynthesisPayload,
+                whyItMatters: {
+                  text: "Cartesia is building real-time voice infrastructure [missing].",
+                  citationIds: ["missing"]
+                }
+              }
+            }
+          ]
+        })
+      }
+    } as unknown as Anthropic;
+    const card = {
+      citations: [{ id: "c1" }]
+    } as ColdStartCard;
+
+    await expect(synthesizeCard({ client, model: "claude-test", card })).rejects.toThrow(
+      "Synthesis citation ID not found on card: missing"
+    );
   });
 });

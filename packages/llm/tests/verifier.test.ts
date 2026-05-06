@@ -38,6 +38,30 @@ describe("applyVerifierResults", () => {
 
     expect(result).toEqual([{ text: "Combined claim.", citationIds: ["c2", "c1"] }]);
   });
+
+  it("drops claims with conflicting duplicate verifier results", () => {
+    const result = applyVerifierResults(
+      [{ text: "Conflicted claim [c1].", citationIds: ["c1"] }],
+      [
+        { text: "Conflicted claim [c1].", citationIds: ["c1"], status: "supported" },
+        { text: "Conflicted claim [c1].", citationIds: ["c1"], status: "unsupported" }
+      ]
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("drops claims with duplicate supported verifier results", () => {
+    const result = applyVerifierResults(
+      [{ text: "Duplicated claim [c1].", citationIds: ["c1"] }],
+      [
+        { text: "Duplicated claim [c1].", citationIds: ["c1"], status: "supported" },
+        { text: "Duplicated claim [c1].", citationIds: ["c1"], status: "supported" }
+      ]
+    );
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe("verifySynthesis", () => {

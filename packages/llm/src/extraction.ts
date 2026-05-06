@@ -5,13 +5,15 @@ import { z } from "zod";
 
 const EXTRACTION_TOOL_NAME = "emit_company_claims";
 
-const nullableStringSchema = { type: ["string", "null"] } as const;
+const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
 
-const stringSchema = { type: "string" } as const;
+const urlStringSchema = { type: "string", minLength: 1, format: "uri" } as const;
+
+const nullableNonEmptyStringSchema = { anyOf: [nonEmptyStringSchema, { type: "null" }] } as const;
+
+const nullableUrlStringSchema = { anyOf: [urlStringSchema, { type: "null" }] } as const;
 
 const nonnegativeIntegerSchema = { type: "integer", minimum: 0 } as const;
-
-const positiveIntegerSchema = { type: "integer", minimum: 1 } as const;
 
 const nullablePositiveIntegerSchema = { type: ["integer", "null"], minimum: 1 } as const;
 
@@ -33,8 +35,8 @@ const hqValueSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    city: stringSchema,
-    country: stringSchema
+    city: nonEmptyStringSchema,
+    country: nonEmptyStringSchema
   },
   required: ["city", "country"]
 } as const;
@@ -43,10 +45,10 @@ const roundValueSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: stringSchema,
+    name: nonEmptyStringSchema,
     amountUsd: nullablePositiveIntegerSchema,
-    announcedAt: nullableStringSchema,
-    leadInvestors: { type: "array", items: stringSchema }
+    announcedAt: nullableNonEmptyStringSchema,
+    leadInvestors: { type: "array", items: nonEmptyStringSchema }
   },
   required: ["name", "amountUsd", "announcedAt", "leadInvestors"]
 } as const;
@@ -55,8 +57,8 @@ const investorValueSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: stringSchema,
-    domain: nullableStringSchema
+    name: nonEmptyStringSchema,
+    domain: nullableNonEmptyStringSchema
   },
   required: ["name", "domain"]
 } as const;
@@ -65,9 +67,9 @@ const personValueSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: stringSchema,
-    role: nullableStringSchema,
-    sourceUrl: nullableStringSchema
+    name: nonEmptyStringSchema,
+    role: nullableNonEmptyStringSchema,
+    sourceUrl: nullableUrlStringSchema
   },
   required: ["name", "role", "sourceUrl"]
 } as const;
@@ -77,7 +79,7 @@ const headcountValueSchema = {
   additionalProperties: false,
   properties: {
     value: nonnegativeIntegerSchema,
-    asOf: stringSchema
+    asOf: nonEmptyStringSchema
   },
   required: ["value", "asOf"]
 } as const;
@@ -86,10 +88,10 @@ const citationSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    id: { type: "string" },
-    url: { type: "string" },
-    title: { type: "string" },
-    fetchedAt: { type: "string" },
+    id: nonEmptyStringSchema,
+    url: urlStringSchema,
+    title: nonEmptyStringSchema,
+    fetchedAt: { type: "string", minLength: 1, format: "date-time" },
     sourceType: {
       type: "string",
       enum: ["company_site", "news", "filing", "enrichment", "github", "rdap", "other"]
@@ -103,8 +105,8 @@ const identitySchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: resolvedFactSchema(stringSchema),
-    logoUrl: { type: ["string", "null"] },
+    name: resolvedFactSchema(nonEmptyStringSchema),
+    logoUrl: nullableUrlStringSchema,
     oneLiner: resolvedFactSchema({ type: "string", maxLength: 120 }),
     hq: resolvedFactSchema(hqValueSchema),
     foundedYear: resolvedFactSchema({ type: "integer", minimum: 1800, maximum: 2100 }),
@@ -139,12 +141,12 @@ const signalSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    title: { type: "string" },
-    url: { type: "string" },
-    date: { type: "string" },
-    source: { type: "string" },
+    title: nonEmptyStringSchema,
+    url: urlStringSchema,
+    date: nonEmptyStringSchema,
+    source: nonEmptyStringSchema,
     category: { type: "string", enum: ["news", "hiring", "launch", "funding", "filing", "github", "other"] },
-    citationIds: { type: "array", items: { type: "string" } }
+    citationIds: { type: "array", items: nonEmptyStringSchema }
   },
   required: ["title", "url", "date", "source", "category", "citationIds"]
 } as const;
@@ -153,9 +155,9 @@ const comparableSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: { type: "string" },
-    domain: { type: "string" },
-    oneLiner: { type: "string" }
+    name: nonEmptyStringSchema,
+    domain: nonEmptyStringSchema,
+    oneLiner: nonEmptyStringSchema
   },
   required: ["name", "domain", "oneLiner"]
 } as const;

@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
-import { synthesisSchema, type ColdStartCard } from "@cold-start/core";
+import { synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
 import { z } from "zod";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
@@ -102,6 +102,22 @@ export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
   return citedSynthesisSchema.parse(toolUse.input);
 }
 
+function synthesisClaims(synthesis: NonNullable<ColdStartCard["synthesis"]>): SourcedText[] {
+  return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase];
+}
+
+function assertSynthesisCitationsExistOnCard(synthesis: NonNullable<ColdStartCard["synthesis"]>, card: ColdStartCard) {
+  const validCitationIds = new Set(card.citations.map((citation) => citation.id));
+
+  for (const claim of synthesisClaims(synthesis)) {
+    for (const citationId of claim.citationIds) {
+      if (!validCitationIds.has(citationId)) {
+        throw new Error(`Synthesis citation ID not found on card: ${citationId}`);
+      }
+    }
+  }
+}
+
 export async function synthesizeCard(input: {
   client: Anthropic;
   model: string;
@@ -122,5 +138,7 @@ export async function synthesizeCard(input: {
     tool_choice: { type: "tool", name: SYNTHESIS_TOOL_NAME }
   });
 
-  return parseSynthesisToolUse(response);
+  const synthesis = parseSynthesisToolUse(response);
+  assertSynthesisCitationsExistOnCard(synthesis, input.card);
+  return synthesis;
 }

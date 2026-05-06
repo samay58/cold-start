@@ -55,8 +55,8 @@ describe("extractionTool", () => {
       type: "array",
       items: {
         properties: {
-          name: { type: "string" },
-          domain: { type: ["string", "null"] }
+          name: { type: "string", minLength: 1 },
+          domain: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] }
         }
       }
     });
@@ -70,11 +70,37 @@ describe("extractionTool", () => {
     expect(funding.properties.lastRound.properties.value.anyOf[0]).toMatchObject({
       type: "object",
       properties: {
-        name: { type: "string" },
+        name: { type: "string", minLength: 1 },
         amountUsd: { type: ["integer", "null"], minimum: 1 },
-        announcedAt: { type: ["string", "null"] },
-        leadInvestors: { type: "array", items: { type: "string" } }
+        announcedAt: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+        leadInvestors: { type: "array", items: { type: "string", minLength: 1 } }
       }
+    });
+    expect(extractionTool.input_schema.properties.citations.items.properties.url).toMatchObject({
+      type: "string",
+      minLength: 1,
+      format: "uri"
+    });
+    expect(extractionTool.input_schema.properties.citations.items.properties.fetchedAt).toMatchObject({
+      type: "string",
+      minLength: 1,
+      format: "date-time"
+    });
+    expect(extractionTool.input_schema.properties.identity.properties.logoUrl).toMatchObject({
+      anyOf: [{ type: "string", minLength: 1, format: "uri" }, { type: "null" }]
+    });
+    expect(extractionTool.input_schema.properties.team.properties.founders.properties.value.anyOf[0]).toMatchObject({
+      type: "array",
+      items: {
+        properties: {
+          sourceUrl: { anyOf: [{ type: "string", minLength: 1, format: "uri" }, { type: "null" }] }
+        }
+      }
+    });
+    expect(extractionTool.input_schema.properties.signals.items.properties.url).toMatchObject({
+      type: "string",
+      minLength: 1,
+      format: "uri"
     });
   });
 });
