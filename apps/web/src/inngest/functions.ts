@@ -73,13 +73,13 @@ export const generateCardFunction = inngest.createFunction(
       throw error;
     }
 
-    const anthropic = createAnthropicClient();
-    const model = anthropicModel();
-    const stableEnv = stableenrichEnvFromProcess();
-
     await step.run("mark-generation-running", () => markGenerationRun(db, { slug, domain, status: "running" }));
 
     try {
+      const anthropic = createAnthropicClient();
+      const model = anthropicModel();
+      const stableEnv = stableenrichEnvFromProcess();
+
       const sourceResult = await step.run("fetch-sources", async () => {
         const result = await fetchStableenrichSources({
           env: stableEnv,
