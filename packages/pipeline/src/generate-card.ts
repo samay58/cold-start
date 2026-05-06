@@ -1,21 +1,37 @@
 import {
   type ColdStartCard,
   coldStartCardSchema,
+  type ResolvedFact,
   sanitizeCardTrust,
   type SourcedText,
+  synthesisSchema,
   stripUnsupportedSynthesis
 } from "@cold-start/core";
 import { applyVerifierResults, type VerificationResult } from "@cold-start/llm";
 import type { ProviderSource } from "@cold-start/providers";
-import { totalGenerationCost } from "./cost";
+import { type CostLine, totalGenerationCost } from "./cost";
 import { resolveIdentityFromInput } from "./resolve-identity";
 
-const unknown = {
-  value: null,
-  status: "unknown" as const,
-  confidence: "low" as const,
-  citationIds: []
-};
+export const extractedCardSectionsSchema = coldStartCardSchema.pick({
+  identity: true,
+  funding: true,
+  team: true,
+  signals: true,
+  comparables: true,
+  citations: true
+});
+
+type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
+type VerificationSource = { id: string; url: string; title: string; snippet?: string };
+
+function unknownFact<T>(): ResolvedFact<T> {
+  return {
+    value: null,
+    status: "unknown",
+    confidence: "low",
+    citationIds: []
+  };
+}
 
 export function buildSkeletonCard(input: string): ColdStartCard {
   const identity = resolveIdentityFromInput(input);
@@ -25,22 +41,22 @@ export function buildSkeletonCard(input: string): ColdStartCard {
     generationCostUsd: 0,
     cacheStatus: "miss",
     identity: {
-      name: unknown,
+      name: unknownFact<NonNullable<ColdStartCard["identity"]["name"]["value"]>>(),
       logoUrl: null,
-      oneLiner: unknown,
-      hq: unknown,
-      foundedYear: unknown,
+      oneLiner: unknownFact<NonNullable<ColdStartCard["identity"]["oneLiner"]["value"]>>(),
+      hq: unknownFact<NonNullable<ColdStartCard["identity"]["hq"]["value"]>>(),
+      foundedYear: unknownFact<NonNullable<ColdStartCard["identity"]["foundedYear"]["value"]>>(),
       status: "private"
     },
     funding: {
-      totalRaisedUsd: unknown,
-      lastRound: unknown,
-      investors: unknown
+      totalRaisedUsd: unknownFact<NonNullable<ColdStartCard["funding"]["totalRaisedUsd"]["value"]>>(),
+      lastRound: unknownFact<NonNullable<ColdStartCard["funding"]["lastRound"]["value"]>>(),
+      investors: unknownFact<NonNullable<ColdStartCard["funding"]["investors"]["value"]>>()
     },
     team: {
-      founders: unknown,
-      keyExecs: unknown,
-      headcount: unknown
+      founders: unknownFact<NonNullable<ColdStartCard["team"]["founders"]["value"]>>(),
+      keyExecs: unknownFact<NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>>(),
+      headcount: unknownFact<NonNullable<ColdStartCard["team"]["headcount"]["value"]>>()
     },
     signals: [],
     comparables: [],
@@ -57,60 +73,67 @@ export type ExtractedCardSections = Pick<
   "identity" | "funding" | "team" | "signals" | "comparables" | "citations"
 >;
 
-export type GenerateCardDeps = {
+type BaseGenerateCardDeps = {
   fetchSources(domain: string): Promise<ProviderSource[]>;
   extractSections(input: { domain: string; sources: ProviderSource[] }): Promise<ExtractedCardSections>;
-  synthesize?(card: ColdStartCard): Promise<ColdStartCard["synthesis"]>;
-  verify?(
-    claims: SourcedText[],
-    sources: Array<{ id: string; url: string; title: string; snippet?: string }>
-  ): Promise<VerificationResult[]>;
+  costLines?: CostLine[];
 };
 
-function synthesisClaims(synthesis: NonNullable<ColdStartCard["synthesis"]>): SourcedText[] {
+type WithoutSynthesisDeps = {
+  synthesize?: never;
+  verify?: never;
+};
+
+type WithSynthesisDeps = {
+  synthesize(card: ColdStartCard): Promise<CardSynthesis>;
+  verify(claims: SourcedText[], sources: VerificationSource[]): Promise<VerificationResult[]>;
+};
+
+export type GenerateCardDeps = BaseGenerateCardDeps & (WithoutSynthesisDeps | WithSynthesisDeps);
+
+function synthesisClaims(synthesis: CardSynthesis): SourcedText[] {
   return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase];
 }
 
 export async function generateCardForDomain(domain: string, deps: GenerateCardDeps): Promise<ColdStartCard> {
   const skeleton = buildSkeletonCard(domain);
   const sources = await deps.fetchSources(skeleton.domain);
-  const sections = await deps.extractSections({ domain: skeleton.domain, sources });
+  const sections = extractedCardSectionsSchema.parse(await deps.extractSections({ domain: skeleton.domain, sources }));
 
   let card: ColdStartCard = coldStartCardSchema.parse({
-    ...skeleton,
-    ...sections,
+    slug: skeleton.slug,
+    domain: skeleton.domain,
     generatedAt: new Date().toISOString(),
-    generationCostUsd: totalGenerationCost([
-      { label: "stableenrich", usd: 0.04 },
-      { label: "extraction", usd: 0.03 }
-    ]),
-    cacheStatus: "miss"
+    generationCostUsd: totalGenerationCost(deps.costLines ?? []),
+    cacheStatus: skeleton.cacheStatus,
+    identity: sections.identity,
+    funding: sections.funding,
+    team: sections.team,
+    signals: sections.signals,
+    comparables: sections.comparables,
+    citations: sections.citations
   });
 
-  const synthesis = deps.synthesize ? await deps.synthesize(card) : undefined;
-  if (synthesis) {
-    let verifiedSynthesis: ColdStartCard["synthesis"] = synthesis;
-
-    if (deps.verify) {
-      const citationSources = card.citations.map((citation) => ({
-        id: citation.id,
-        url: citation.url,
-        title: citation.title,
-        ...(citation.snippet ? { snippet: citation.snippet } : {})
-      }));
-      const results = await deps.verify(synthesisClaims(synthesis), citationSources);
-      const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
-      const [whyItMatters] = verifiedWhyItMatters;
-      verifiedSynthesis =
-        verifiedWhyItMatters.length === 1 && whyItMatters
-          ? {
-              ...synthesis,
-              whyItMatters,
-              bullCase: applyVerifierResults(synthesis.bullCase, results),
-              bearCase: applyVerifierResults(synthesis.bearCase, results)
-            }
-          : undefined;
-    }
+  if (deps.synthesize && deps.verify) {
+    const synthesis = synthesisSchema.parse(await deps.synthesize(card));
+    const citationSources = card.citations.map((citation) => ({
+      id: citation.id,
+      url: citation.url,
+      title: citation.title,
+      ...(citation.snippet ? { snippet: citation.snippet } : {})
+    }));
+    const results = await deps.verify(synthesisClaims(synthesis), citationSources);
+    const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
+    const [whyItMatters] = verifiedWhyItMatters;
+    const verifiedSynthesis =
+      verifiedWhyItMatters.length === 1 && whyItMatters
+        ? {
+            ...synthesis,
+            whyItMatters,
+            bullCase: applyVerifierResults(synthesis.bullCase, results),
+            bearCase: applyVerifierResults(synthesis.bearCase, results)
+          }
+        : undefined;
 
     if (verifiedSynthesis) {
       card = { ...card, synthesis: verifiedSynthesis };

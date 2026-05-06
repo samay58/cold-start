@@ -15,6 +15,11 @@ const authorityRank: Record<string, number> = {
   other: 1
 };
 
+function fetchedAtTime(fetchedAt: string) {
+  const time = new Date(fetchedAt).getTime();
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
 export function chooseMostAuthoritativeFact<T>(facts: CandidateFact<T>[]): CandidateFact<T> | null {
   if (facts.length === 0) {
     return null;
@@ -26,6 +31,6 @@ export function chooseMostAuthoritativeFact<T>(facts: CandidateFact<T>[]): Candi
       return authorityDelta;
     }
 
-    return new Date(right.fetchedAt).getTime() - new Date(left.fetchedAt).getTime();
+    return fetchedAtTime(right.fetchedAt) - fetchedAtTime(left.fetchedAt);
   })[0] ?? null;
 }
