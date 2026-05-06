@@ -124,4 +124,92 @@ describe("parseSynthesisToolUse", () => {
       })
     ).toThrow("Synthesis claim requires at least one citation ID");
   });
+
+  it("rejects short synthesis arrays", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: { ...validSynthesisPayload, bullCase: validSynthesisPayload.bullCase.slice(0, 2) }
+          }
+        ]
+      })
+    ).toThrow("bullCase must contain exactly 3 items");
+
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: { ...validSynthesisPayload, bearCase: validSynthesisPayload.bearCase.slice(0, 2) }
+          }
+        ]
+      })
+    ).toThrow("bearCase must contain exactly 3 items");
+
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: { ...validSynthesisPayload, openQuestions: validSynthesisPayload.openQuestions.slice(0, 2) }
+          }
+        ]
+      })
+    ).toThrow("openQuestions must contain exactly 3 items");
+  });
+
+  it("rejects long synthesis arrays", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              bullCase: [
+                ...validSynthesisPayload.bullCase,
+                { text: "The company has an additional upside path [c1].", citationIds: ["c1"] }
+              ]
+            }
+          }
+        ]
+      })
+    ).toThrow("bullCase must contain exactly 3 items");
+
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              bearCase: [
+                ...validSynthesisPayload.bearCase,
+                { text: "The company has an additional diligence risk [c1].", citationIds: ["c1"] }
+              ]
+            }
+          }
+        ]
+      })
+    ).toThrow("bearCase must contain exactly 3 items");
+
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: { ...validSynthesisPayload, openQuestions: [...validSynthesisPayload.openQuestions, "What else matters?"] }
+          }
+        ]
+      })
+    ).toThrow("openQuestions must contain exactly 3 items");
+  });
 });

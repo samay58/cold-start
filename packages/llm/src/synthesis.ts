@@ -21,6 +21,22 @@ const sourcedTextSchema = {
 } as const;
 
 const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
+  const fixedLengthArrays = [
+    { path: ["bullCase"], value: synthesis.bullCase, label: "bullCase" },
+    { path: ["bearCase"], value: synthesis.bearCase, label: "bearCase" },
+    { path: ["openQuestions"], value: synthesis.openQuestions, label: "openQuestions" }
+  ];
+
+  for (const item of fixedLengthArrays) {
+    if (item.value.length !== 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: item.path,
+        message: `${item.label} must contain exactly 3 items`
+      });
+    }
+  }
+
   const items = [
     { path: ["whyItMatters"], value: synthesis.whyItMatters },
     ...synthesis.bullCase.map((value, index) => ({ path: ["bullCase", index], value })),
