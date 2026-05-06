@@ -77,6 +77,44 @@ describe("sanitizeCardTrust", () => {
       citationIds: []
     });
   });
+
+  it("nulls facts when citation IDs do not exist on the card", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      identity: {
+        ...baseCard.identity,
+        foundedYear: { value: 2023, status: "verified", confidence: "high", citationIds: ["missing"] }
+      }
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.identity.foundedYear).toEqual({
+      value: null,
+      status: "unknown",
+      confidence: "low",
+      citationIds: []
+    });
+  });
+
+  it("keeps facts with valid citation IDs and filters missing IDs", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      identity: {
+        ...baseCard.identity,
+        foundedYear: { value: 2023, status: "verified", confidence: "high", citationIds: ["c1", "missing"] }
+      }
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.identity.foundedYear).toEqual({
+      value: 2023,
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    });
+  });
 });
 
 describe("stripUnsupportedSynthesis", () => {
@@ -134,5 +172,49 @@ describe("stripUnsupportedSynthesis", () => {
       { text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }
     ]);
     expect(clean.synthesis?.bearCase).toEqual([{ text: "Competition is intense [c2].", citationIds: ["c2"] }]);
+  });
+
+  it("drops synthesis text without a visible citation marker", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [{ text: "The company has a credible infra wedge.", citationIds: ["c1"] }]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([]);
+  });
+
+  it("drops synthesis text when its visible marker is not in card citations", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [{ text: "The company has a credible infra wedge [missing].", citationIds: ["missing"] }]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([]);
+  });
+
+  it("keeps synthesis text with a valid visible citation marker", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }]
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.bullCase).toEqual([
+      { text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }
+    ]);
   });
 });
