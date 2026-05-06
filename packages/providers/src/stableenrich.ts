@@ -24,6 +24,11 @@ export type StableenrichProbeFailure = {
   error: string;
 };
 
+export type StableenrichSourcesResult = {
+  sources: ProviderSource[];
+  failures: StableenrichProbeFailure[];
+};
+
 export function missingStableenrichConfig(env: StableenrichEnv): string[] {
   return requiredKeys.filter((key) => !env[key]);
 }
@@ -99,10 +104,15 @@ export async function fetchStableenrichSources(input: {
   env: StableenrichEnv;
   domain: string;
   fetchImpl?: typeof fetch;
-}): Promise<ProviderSource[]> {
+}): Promise<StableenrichSourcesResult> {
   const results = await runStableenrichProbe(input);
+  return collectStableenrichSources(results);
+}
 
-  return results.flatMap((result) => {
+export function collectStableenrichSources(
+  results: PromiseSettledResult<StableenrichProbeResult>[],
+): StableenrichSourcesResult {
+  const sources = results.flatMap((result) => {
     if (result.status !== "fulfilled") {
       return [];
     }
@@ -123,6 +133,16 @@ export async function fetchStableenrichSources(input: {
       }),
     ];
   });
+
+  const failures = results.flatMap((result) => {
+    if (result.status === "fulfilled") {
+      return [];
+    }
+
+    return stableenrichProbeFailure(result.reason);
+  });
+
+  return { sources, failures };
 }
 
 export function providerSourceFromText(input: {
@@ -147,4 +167,23 @@ function requireStableenrichConfig(env: StableenrichEnv): Record<StableenrichReq
     StableenrichRequiredKey,
     string
   >;
+}
+
+function stableenrichProbeFailure(reason: unknown): StableenrichProbeFailure[] {
+  if (!reason || typeof reason !== "object") {
+    return [];
+  }
+
+  const candidate = reason as Partial<StableenrichProbeFailure>;
+  if (candidate.name && candidate.endpointUrl && candidate.error) {
+    return [
+      {
+        name: candidate.name,
+        endpointUrl: candidate.endpointUrl,
+        error: candidate.error,
+      },
+    ];
+  }
+
+  return [];
 }

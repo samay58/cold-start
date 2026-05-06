@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildStableenrichRequests, missingStableenrichConfig, runStableenrichProbe } from "../src/index";
+import {
+  buildStableenrichRequests,
+  fetchStableenrichSources,
+  missingStableenrichConfig,
+  runStableenrichProbe,
+} from "../src/index";
 
 describe("missingStableenrichConfig", () => {
   it("reports every missing endpoint needed by the day one spike", () => {
@@ -60,6 +65,60 @@ describe("runStableenrichProbe", () => {
       endpointUrl: "https://stable.example/exa/search",
       error: "AgentCash call failed: 402 Payment Required",
     });
+  });
+});
+
+describe("fetchStableenrichSources", () => {
+  it("maps fulfilled probes into provider sources", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      fetchImpl: async (input) =>
+        Response.json({
+          endpointUrl: input,
+          text: "source payload",
+        }),
+    });
+
+    expect(result.failures).toEqual([]);
+    expect(result.sources.map((source) => source.sourceType)).toEqual([
+      "news",
+      "enrichment",
+      "company_site",
+      "enrichment",
+      "enrichment",
+    ]);
+    expect(result.sources[0]).toMatchObject({
+      url: "agentcash:exa_search_news",
+      title: "exa_search_news",
+      rawText: expect.stringContaining("source payload"),
+    });
+  });
+
+  it("returns endpoint failures instead of silently dropping rejected probes", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      fetchImpl: async (input) => {
+        if (input === "https://stable.example/firecrawl") {
+          return new Response("nope", {
+            status: 500,
+            statusText: "Internal Server Error",
+          });
+        }
+
+        return Response.json({ text: "ok" });
+      },
+    });
+
+    expect(result.sources).toHaveLength(4);
+    expect(result.failures).toEqual([
+      {
+        name: "firecrawl_homepage",
+        endpointUrl: "https://stable.example/firecrawl",
+        error: "AgentCash call failed: 500 Internal Server Error",
+      },
+    ]);
   });
 });
 
