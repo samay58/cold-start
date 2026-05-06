@@ -37,6 +37,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ slug, status: activeRun.status }, { status: 202 });
   }
 
+  // This avoids cached and active duplicate work, but two simultaneous fresh POSTs can still pass this guard.
+  // Add a DB partial unique index or lock before public traffic.
   await markGenerationRun(db, { slug, domain, status: "queued" });
 
   try {
