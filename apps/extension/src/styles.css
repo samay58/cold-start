@@ -1,0 +1,103 @@
+@import "@cold-start/ui/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 360px;
+  margin: 0;
+  background: var(--color-canvas-parchment);
+  color: var(--color-ink);
+  font-family: var(--font-plex-sans);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.cs-extension-empty,
+.cs-extension-panel {
+  padding: 20px;
+}
+
+.cs-extension-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.cs-extension-kicker {
+  margin: 0;
+  color: var(--color-mid-stone);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.cs-extension-panel h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-plex-serif);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.cs-extension-copy,
+.cs-extension-empty,
+.cs-extension-error {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.cs-extension-error {
+  color: var(--color-confidence-amber);
+}
+
+.cs-extension-field {
+  display: grid;
+  gap: 6px;
+  color: var(--color-mid-stone);
+  font-size: 0.82rem;
+  font-weight: 550;
+}
+
+.cs-extension-field input {
+  width: 100%;
+  border: 1px solid var(--color-soft-sand);
+  border-radius: 6px;
+  background: var(--color-card-cream);
+  color: var(--color-ink);
+  padding: 10px 12px;
+  outline: none;
+}
+
+.cs-extension-field input:focus {
+  border-color: var(--color-citation-ultramarine);
+}
+
+.cs-extension-button,
+.cs-extension-link-button {
+  width: fit-content;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.cs-extension-button {
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
+  color: var(--color-card-cream);
+  padding: 9px 14px;
+}
+
+.cs-extension-link-button {
+  border: 1px solid var(--color-soft-sand);
+  background: var(--color-card-cream);
+  color: var(--color-ink);
+  padding: 8px 12px;
+}
