@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cold-start/core": ["packages/core/src/index.ts"],
+      "@cold-start/db": ["packages/db/src/index.ts"],
+      "@cold-start/providers": ["packages/providers/src/index.ts"],
+      "@cold-start/llm": ["packages/llm/src/index.ts"],
+      "@cold-start/pipeline": ["packages/pipeline/src/index.ts"],
+      "@cold-start/ui": ["packages/ui/src/index.ts"]
+    }
+  }
+}

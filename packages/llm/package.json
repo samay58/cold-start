@@ -1,0 +1,22 @@
+{
+  "name": "@cold-start/llm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
+    "@cold-start/core": "file:../core",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0"
+  }
+}
