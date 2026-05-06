@@ -89,7 +89,7 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
 
   const synthesis = deps.synthesize ? await deps.synthesize(card) : undefined;
   if (synthesis) {
-    let verifiedSynthesis = synthesis;
+    let verifiedSynthesis: ColdStartCard["synthesis"] = synthesis;
 
     if (deps.verify) {
       const citationSources = card.citations.map((citation) => ({
@@ -99,14 +99,22 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
         ...(citation.snippet ? { snippet: citation.snippet } : {})
       }));
       const results = await deps.verify(synthesisClaims(synthesis), citationSources);
-      verifiedSynthesis = {
-        ...synthesis,
-        bullCase: applyVerifierResults(synthesis.bullCase, results),
-        bearCase: applyVerifierResults(synthesis.bearCase, results)
-      };
+      const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
+      const [whyItMatters] = verifiedWhyItMatters;
+      verifiedSynthesis =
+        verifiedWhyItMatters.length === 1 && whyItMatters
+          ? {
+              ...synthesis,
+              whyItMatters,
+              bullCase: applyVerifierResults(synthesis.bullCase, results),
+              bearCase: applyVerifierResults(synthesis.bearCase, results)
+            }
+          : undefined;
     }
 
-    card = { ...card, synthesis: verifiedSynthesis };
+    if (verifiedSynthesis) {
+      card = { ...card, synthesis: verifiedSynthesis };
+    }
   }
 
   return finalizeGeneratedCard(coldStartCardSchema.parse(card));
