@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
+import { createDb } from "../src/client";
 import { cardExpiryDates, recordCardEvidence, upsertCard } from "../src/repository";
 import { citations, claims } from "../src/schema";
 
@@ -105,6 +106,14 @@ describe("cardExpiryDates", () => {
   });
 });
 
+describe("createDb", () => {
+  it("creates a neon-http db with batch support without opening a network connection", () => {
+    const db = createDb("postgres://user:pass@example.com/db");
+
+    expect(typeof db.batch).toBe("function");
+  });
+});
+
 describe("upsertCard", () => {
   it("refreshes TTL columns on insert and conflict update", async () => {
     let insertValues: Record<string, unknown> | undefined;
@@ -138,42 +147,36 @@ describe("upsertCard", () => {
 });
 
 describe("recordCardEvidence", () => {
-  it("replaces citations and claims inside one transaction", async () => {
-    const operations: string[] = [];
+  it("replaces citations and claims inside one neon-http batch", async () => {
+    const batchItems: Array<{ table: string; action: string; values?: unknown[] }> = [];
     const inserted: Record<string, unknown[]> = {};
 
-    const tx = {
+    const db = {
       delete: (table: unknown) => ({
-        where: async () => {
-          operations.push(`delete:${tableName(table)}`);
-        }
+        where: () => ({ action: "delete", table: tableName(table) })
       }),
       insert: (table: unknown) => ({
-        values: async (values: unknown[]) => {
+        values: (values: unknown[]) => {
           const name = tableName(table);
-          operations.push(`insert:${name}`);
           inserted[name] = values;
+          return { action: "insert", table: name, values };
         }
-      })
-    };
-
-    const db = {
-      transaction: async (callback: (transaction: typeof tx) => Promise<void>) => {
-        operations.push("transaction:start");
-        await callback(tx);
-        operations.push("transaction:end");
+      }),
+      batch: async (items: Array<{ table: string; action: string; values?: unknown[] }>) => {
+        batchItems.push(...items);
+      },
+      transaction: async () => {
+        throw new Error("recordCardEvidence must use neon-http batch, not transaction");
       }
     } as unknown as ColdStartDb;
 
     await recordCardEvidence(db, "card-id", card);
 
-    expect(operations).toEqual([
-      "transaction:start",
+    expect(batchItems.map((item) => `${item.action}:${item.table}`)).toEqual([
       "delete:citations",
       "delete:claims",
       "insert:citations",
-      "insert:claims",
-      "transaction:end"
+      "insert:claims"
     ]);
     expect(inserted.citations).toHaveLength(3);
     expect(inserted.claims).toHaveLength(10);

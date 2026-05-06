@@ -93,38 +93,38 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
     { path: "team.headcount", fact: publicOnly.team.headcount }
   ];
 
-  await db.transaction(async (tx) => {
-    await tx.delete(citations).where(eq(citations.cardId, cardId));
-    await tx.delete(claims).where(eq(claims.cardId, cardId));
+  const deleteCitations = db.delete(citations).where(eq(citations.cardId, cardId));
+  const deleteClaims = db.delete(claims).where(eq(claims.cardId, cardId));
+  const insertClaims = db.insert(claims).values(
+    publicClaims.map(({ path, fact }) => ({
+      cardId,
+      path,
+      visibility: "public" as const,
+      status: fact.status,
+      confidence: fact.confidence,
+      valueJson: fact.value,
+      citationKeys: fact.citationIds
+    }))
+  );
 
-    if (publicOnly.citations.length > 0) {
-      await tx.insert(citations).values(
-        publicOnly.citations.map((citation) => ({
-          cardId,
-          citationKey: citation.id,
-          url: citation.url,
-          title: citation.title,
-          sourceType: citation.sourceType,
-          ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
-          fetchedAt: new Date(citation.fetchedAt)
-        }))
-      );
-    }
+  if (publicOnly.citations.length === 0) {
+    await db.batch([deleteCitations, deleteClaims, insertClaims]);
+    return;
+  }
 
-    if (publicClaims.length > 0) {
-      await tx.insert(claims).values(
-        publicClaims.map(({ path, fact }) => ({
-          cardId,
-          path,
-          visibility: "public" as const,
-          status: fact.status,
-          confidence: fact.confidence,
-          valueJson: fact.value,
-          citationKeys: fact.citationIds
-        }))
-      );
-    }
-  });
+  const insertCitations = db.insert(citations).values(
+    publicOnly.citations.map((citation) => ({
+      cardId,
+      citationKey: citation.id,
+      url: citation.url,
+      title: citation.title,
+      sourceType: citation.sourceType,
+      ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
+      fetchedAt: new Date(citation.fetchedAt)
+    }))
+  );
+
+  await db.batch([deleteCitations, deleteClaims, insertCitations, insertClaims]);
 }
 
 export async function recordSource(
