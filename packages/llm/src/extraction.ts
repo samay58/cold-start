@@ -5,16 +5,81 @@ import { z } from "zod";
 
 const EXTRACTION_TOOL_NAME = "emit_company_claims";
 
-const resolvedFactSchema = {
+const nullableStringSchema = { type: ["string", "null"] } as const;
+
+const stringSchema = { type: "string" } as const;
+
+const nonnegativeIntegerSchema = { type: "integer", minimum: 0 } as const;
+
+const positiveIntegerSchema = { type: "integer", minimum: 1 } as const;
+
+const nullablePositiveIntegerSchema = { type: ["integer", "null"], minimum: 1 } as const;
+
+function resolvedFactSchema(valueSchema: Record<string, unknown>) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      value: { anyOf: [valueSchema, { type: "null" }] },
+      status: { type: "string", enum: ["verified", "mixed", "inferred", "unknown"] },
+      confidence: { type: "string", enum: ["high", "medium", "low"] },
+      citationIds: { type: "array", items: { type: "string" } }
+    },
+    required: ["value", "status", "confidence", "citationIds"]
+  } as const;
+}
+
+const hqValueSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    value: {},
-    status: { type: "string", enum: ["verified", "mixed", "inferred", "unknown"] },
-    confidence: { type: "string", enum: ["high", "medium", "low"] },
-    citationIds: { type: "array", items: { type: "string" } }
+    city: stringSchema,
+    country: stringSchema
   },
-  required: ["value", "status", "confidence", "citationIds"]
+  required: ["city", "country"]
+} as const;
+
+const roundValueSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: stringSchema,
+    amountUsd: nullablePositiveIntegerSchema,
+    announcedAt: nullableStringSchema,
+    leadInvestors: { type: "array", items: stringSchema }
+  },
+  required: ["name", "amountUsd", "announcedAt", "leadInvestors"]
+} as const;
+
+const investorValueSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: stringSchema,
+    domain: nullableStringSchema
+  },
+  required: ["name", "domain"]
+} as const;
+
+const personValueSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: stringSchema,
+    role: nullableStringSchema,
+    sourceUrl: nullableStringSchema
+  },
+  required: ["name", "role", "sourceUrl"]
+} as const;
+
+const headcountValueSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    value: nonnegativeIntegerSchema,
+    asOf: stringSchema
+  },
+  required: ["value", "asOf"]
 } as const;
 
 const citationSchema = {
@@ -38,11 +103,11 @@ const identitySchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    name: resolvedFactSchema,
+    name: resolvedFactSchema(stringSchema),
     logoUrl: { type: ["string", "null"] },
-    oneLiner: resolvedFactSchema,
-    hq: resolvedFactSchema,
-    foundedYear: resolvedFactSchema,
+    oneLiner: resolvedFactSchema({ type: "string", maxLength: 120 }),
+    hq: resolvedFactSchema(hqValueSchema),
+    foundedYear: resolvedFactSchema({ type: "integer", minimum: 1800, maximum: 2100 }),
     status: { type: "string", enum: ["private", "public", "acquired", "shutdown"] }
   },
   required: ["name", "logoUrl", "oneLiner", "hq", "foundedYear", "status"]
@@ -52,9 +117,9 @@ const fundingSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    totalRaisedUsd: resolvedFactSchema,
-    lastRound: resolvedFactSchema,
-    investors: resolvedFactSchema
+    totalRaisedUsd: resolvedFactSchema(nonnegativeIntegerSchema),
+    lastRound: resolvedFactSchema(roundValueSchema),
+    investors: resolvedFactSchema({ type: "array", items: investorValueSchema })
   },
   required: ["totalRaisedUsd", "lastRound", "investors"]
 } as const;
@@ -63,9 +128,9 @@ const teamSchema = {
   type: "object",
   additionalProperties: false,
   properties: {
-    founders: resolvedFactSchema,
-    keyExecs: resolvedFactSchema,
-    headcount: resolvedFactSchema
+    founders: resolvedFactSchema({ type: "array", items: personValueSchema }),
+    keyExecs: resolvedFactSchema({ type: "array", items: personValueSchema }),
+    headcount: resolvedFactSchema(headcountValueSchema)
   },
   required: ["founders", "keyExecs", "headcount"]
 } as const;

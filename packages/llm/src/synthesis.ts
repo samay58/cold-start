@@ -1,8 +1,10 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { synthesisSchema, type ColdStartCard } from "@cold-start/core";
+import { z } from "zod";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
+const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
 
 const sourcedTextSchema = {
   type: "object",
@@ -10,12 +12,41 @@ const sourcedTextSchema = {
   properties: {
     text: {
       type: "string",
+      pattern: citationMarkerPattern,
       description: "Claim text with visible citation markers such as [c1]."
     },
-    citationIds: { type: "array", items: { type: "string" } }
+    citationIds: { type: "array", minItems: 1, items: { type: "string" } }
   },
   required: ["text", "citationIds"]
 } as const;
+
+const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
+  const items = [
+    { path: ["whyItMatters"], value: synthesis.whyItMatters },
+    ...synthesis.bullCase.map((value, index) => ({ path: ["bullCase", index], value })),
+    ...synthesis.bearCase.map((value, index) => ({ path: ["bearCase", index], value }))
+  ];
+
+  for (const item of items) {
+    if (item.value.citationIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [...item.path, "citationIds"],
+        message: "Synthesis claim requires at least one citation ID"
+      });
+    }
+
+    for (const citationId of item.value.citationIds) {
+      if (!item.value.text.includes(`[${citationId}]`)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [...item.path, "text"],
+          message: `Synthesis claim text must include visible citation marker [${citationId}]`
+        });
+      }
+    }
+  }
+});
 
 export const synthesisTool = {
   name: SYNTHESIS_TOOL_NAME,
@@ -52,7 +83,7 @@ export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
     throw new Error("emit_investor_synthesis tool use returned no input");
   }
 
-  return synthesisSchema.parse(toolUse.input);
+  return citedSynthesisSchema.parse(toolUse.input);
 }
 
 export async function synthesizeCard(input: {

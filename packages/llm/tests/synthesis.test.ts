@@ -46,4 +46,82 @@ describe("parseSynthesisToolUse", () => {
       })
     ).toThrow();
   });
+
+  it("rejects whyItMatters without visible citation markers", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              whyItMatters: {
+                text: "Cartesia is building real-time voice infrastructure.",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+  });
+
+  it("rejects bull and bear items without visible citation markers", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              bullCase: [
+                { text: "The company has a focused voice AI wedge.", citationIds: ["c1"] },
+                ...validSynthesisPayload.bullCase.slice(1)
+              ]
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              bearCase: [
+                { text: "The public sources do not prove durable differentiation.", citationIds: ["c1"] },
+                ...validSynthesisPayload.bearCase.slice(1)
+              ]
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim text must include visible citation marker [c1]");
+  });
+
+  it("rejects empty citation IDs even when text has a visible marker", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              whyItMatters: {
+                text: "Cartesia is building real-time voice infrastructure [c1].",
+                citationIds: []
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow("Synthesis claim requires at least one citation ID");
+  });
 });

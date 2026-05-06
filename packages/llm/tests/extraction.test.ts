@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseExtractionToolUse } from "../src/index";
+import { extractionTool, parseExtractionToolUse } from "../src/index";
 
 const unknownFact = {
   value: null,
@@ -39,6 +39,45 @@ const validExtractionPayload = {
     }
   ]
 };
+
+describe("extractionTool", () => {
+  it("exposes typed resolved fact value schemas", () => {
+    const identity = extractionTool.input_schema.properties.identity;
+    const funding = extractionTool.input_schema.properties.funding;
+    const team = extractionTool.input_schema.properties.team;
+
+    expect(identity.properties.foundedYear.properties.value.anyOf[0]).toMatchObject({
+      type: "integer",
+      minimum: 1800,
+      maximum: 2100
+    });
+    expect(funding.properties.investors.properties.value.anyOf[0]).toMatchObject({
+      type: "array",
+      items: {
+        properties: {
+          name: { type: "string" },
+          domain: { type: ["string", "null"] }
+        }
+      }
+    });
+    expect(team.properties.headcount.properties.value.anyOf[0]).toMatchObject({
+      type: "object",
+      properties: {
+        value: { type: "integer", minimum: 0 },
+        asOf: { type: "string" }
+      }
+    });
+    expect(funding.properties.lastRound.properties.value.anyOf[0]).toMatchObject({
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        amountUsd: { type: ["integer", "null"], minimum: 1 },
+        announcedAt: { type: ["string", "null"] },
+        leadInvestors: { type: "array", items: { type: "string" } }
+      }
+    });
+  });
+});
 
 describe("parseExtractionToolUse", () => {
   it("extracts the forced tool payload", () => {
