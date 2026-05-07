@@ -1,6 +1,22 @@
 import type { Metadata } from "next";
+import { Fraunces, Mona_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces-next",
+  display: "swap"
+});
+
+const monaSans = Mona_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-mona-sans-next",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "https://coldstart.semitechie.vc"),
@@ -21,7 +37,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fraunces.variable} ${monaSans.variable}`} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

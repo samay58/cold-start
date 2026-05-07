@@ -115,34 +115,69 @@ const card: ColdStartCard = {
   }
 };
 
+function sparseCard(): ColdStartCard {
+  const { synthesis: _synthesis, ...base } = card;
+
+  return {
+    ...base,
+    funding: {
+      ...card.funding,
+      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      rounds: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      investors: { value: [], status: "unknown", confidence: "low", citationIds: [] }
+    },
+    team: {
+      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    signals: [],
+    comparables: []
+  };
+}
+
+function expectRemovedLanguageAbsent() {
+  expect(screen.queryByText(/Bear case/i)).toBeNull();
+  expect(screen.queryByText(/Against/i)).toBeNull();
+  expect(screen.queryByText(/Provenance/i)).toBeNull();
+  expect(screen.queryByText(/Verifier/i)).toBeNull();
+}
+
 describe("CardShell", () => {
   it("renders public facts and omits synthesis when the public card has no synthesis", () => {
     render(<CardShell card={publicCard(card)} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getByText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
+    expect(screen.getByLabelText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
     expect(screen.getByText("Low-latency speech models exposed as developer infrastructure.")).toBeTruthy();
     expect(screen.getByText("Developers building voice agents and audio applications.")).toBeTruthy();
     expect(screen.getAllByText("[c1]").length).toBeGreaterThan(0);
     expect(screen.getByText("$91M")).toBeTruthy();
-    expect(screen.getByText("$63M")).toBeTruthy();
-    expect(screen.getByText("Apr 2024")).toBeTruthy();
-    expect(screen.getByText("Led by NEA, IVP")).toBeTruthy();
-    expect(screen.getAllByText("Evidence").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Example News · launch · Apr 2026/)).toBeTruthy();
+    expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Apr 2024").length).toBeGreaterThan(0);
+    expect(screen.getByText("NEA leading, IVP following.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Sources" })).toBeTruthy();
+    expect(screen.getByText("Cartesia launches Sonic")).toBeTruthy();
+    expect(screen.getByText("Example News · launch")).toBeTruthy();
     expect(screen.getAllByText(/fetched May 6 2026/).length).toBeGreaterThan(0);
     expect(screen.getByText("2023")).toBeTruthy();
     expect(screen.getByText("Kleiner Perkins")).toBeTruthy();
-    expect(screen.getAllByText("not publicly disclosed").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Bull case")).toBeNull();
+    expect(screen.queryByLabelText("Investor lens")).toBeNull();
+    expect(screen.queryByText(/Supported ·/i)).toBeNull();
+    expectRemovedLanguageAbsent();
   });
 
   it("renders gated synthesis for the extension surface", () => {
     render(<CardShell card={card} surface="extension" />);
 
-    expect(screen.getByText("Bull case")).toBeTruthy();
+    expect(screen.getByLabelText("Investor lens")).toBeTruthy();
+    expect(screen.getByText("Supported · 1 cited")).toBeTruthy();
     expect(screen.getByText("The company has a credible infra wedge [c1].")).toBeTruthy();
+    expect(screen.getByText("Open questions")).toBeTruthy();
     expect(screen.getByText("Which buyer owns the budget?")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Sources" })).toBeNull();
+    expectRemovedLanguageAbsent();
   });
 
   it("shows empty synthesis states after unsupported claims are stripped", () => {
@@ -152,14 +187,15 @@ describe("CardShell", () => {
           ...card,
           synthesis: {
             ...card.synthesis!,
-            bearCase: []
+            bullCase: []
           }
         }}
         surface="extension"
       />
     );
 
-    expect(screen.getByText("No cited bear case survived verification.")).toBeTruthy();
+    expect(screen.getByText("No cited support survived verification.")).toBeTruthy();
+    expectRemovedLanguageAbsent();
   });
 
   it("orders sources by incentive quality and labels why each source matters", () => {
@@ -196,6 +232,34 @@ describe("CardShell", () => {
 
     expect(screen.getByText("Unsafe signal").closest("a")).toBeNull();
     expect(screen.getByText("Unsafe citation").closest("a")).toBeNull();
+  });
+
+  it("degrades sparse public cards without dead sections", () => {
+    render(<CardShell card={publicCard(sparseCard())} surface="web" />);
+
+    expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Comparables." })).toBeNull();
+    expect(screen.queryByText(/No cited funding rounds/i)).toBeNull();
+    expect(screen.queryByText(/No cited public signals/i)).toBeNull();
+    expect(screen.queryByText(/No comparable companies/i)).toBeNull();
+    expectRemovedLanguageAbsent();
+  });
+
+  it("keeps sparse extension cards compact", () => {
+    render(<CardShell card={publicCard(sparseCard())} surface="extension" />);
+
+    expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByLabelText("Investor lens")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Comparables." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "The basics." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Sources" })).toBeNull();
+    expectRemovedLanguageAbsent();
   });
 });
 

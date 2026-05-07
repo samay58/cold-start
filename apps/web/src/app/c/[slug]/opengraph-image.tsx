@@ -47,6 +47,7 @@ export default async function Image({ params }: OpenGraphImageProps) {
   const lastRound = card?.funding.lastRound.value?.name ?? null;
   const status = card?.identity.status ?? "private";
   const facts = [funding, lastRound, hq, status].filter((fact): fact is string => Boolean(fact)).slice(0, 3);
+  const citations = card?.citations.length ?? 0;
 
   return new ImageResponse(
     (
@@ -57,10 +58,12 @@ export default async function Image({ params }: OpenGraphImageProps) {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#FAFAF7",
-          color: "#161616",
-          padding: "68px 76px",
-          fontFamily: "Arial"
+          background: "#FCFAF5",
+          backgroundImage:
+            "radial-gradient(ellipse 620px 380px at 78% 14%, rgba(120, 80, 40, 0.075), transparent 65%), radial-gradient(circle 360px at 102% 88%, transparent 48%, rgba(105, 70, 35, 0.11) 54%, rgba(105, 70, 35, 0.07) 60%, transparent 68%)",
+          color: "#0E0E0E",
+          padding: "48px 56px",
+          fontFamily: "Fraunces, Georgia, serif"
         }}
       >
         <div
@@ -68,36 +71,53 @@ export default async function Image({ params }: OpenGraphImageProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            color: "#4B5563",
-            fontSize: 28,
-            letterSpacing: 0
+            borderBottom: "1px solid #0E0E0E",
+            paddingBottom: 18,
+            color: "#0E0E0E",
+            fontFamily: "Mona Sans, Arial, sans-serif",
+            fontSize: 22,
+            fontWeight: 500,
+            letterSpacing: "0.14em"
           }}
         >
-          <div>Cold Start</div>
-          <div>{card?.domain ?? "public company card"}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, border: "1px solid #1674FF", fontFamily: "monospace", fontSize: 13, fontWeight: 700 }}>
+              {name.charAt(0).toUpperCase()}
+            </div>
+            <span>COLD START</span>
+            <span style={{ color: "#1674FF" }}>N° {String(citations).padStart(4, "0")}</span>
+          </div>
+          <div style={{ color: "#5F625C", fontSize: 18, letterSpacing: "0.10em" }}>{card?.domain ?? "public company card"}</div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          <div
-            style={{
-              display: "flex",
-              color: "#111827",
-              fontSize: 84,
-              fontWeight: 700,
-              lineHeight: 0.96,
-              letterSpacing: 0,
-              maxWidth: 930
-            }}
-          >
-            {name}
+        <div style={{ display: "flex", flexDirection: "column", gap: 26 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 58, height: 58, border: "1px solid #1674FF", fontFamily: "monospace", fontSize: 34, fontWeight: 700 }}>
+              {name.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ color: "#5F625C", fontFamily: "Mona Sans, Arial, sans-serif", fontSize: 18, fontWeight: 500, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+              Sourced · {citations} citations
+            </div>
           </div>
           <div
             style={{
               display: "flex",
-              color: "#374151",
-              fontSize: 34,
-              lineHeight: 1.25,
-              letterSpacing: 0,
+              color: "#0E0E0E",
+              fontSize: 98,
+              fontWeight: 700,
+              lineHeight: 0.86,
+              letterSpacing: "-0.03em",
+              maxWidth: 930
+            }}
+          >
+            {name}.
+          </div>
+          <div
+            style={{
+              display: "flex",
+              color: "#0E0E0E",
+              fontSize: 30,
+              lineHeight: 1.34,
               maxWidth: 900
             }}
           >
@@ -105,18 +125,18 @@ export default async function Image({ params }: OpenGraphImageProps) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 42, alignItems: "center", borderTop: "1px solid #0E0E0E", paddingTop: 26 }}>
           {facts.map((fact) => (
             <div
               key={fact}
               style={{
                 display: "flex",
                 alignItems: "center",
-                background: "#ECEBE4",
-                color: "#1F2937",
-                borderRadius: 8,
-                padding: "13px 18px",
-                fontSize: 24,
+                color: "#0E0E0E",
+                fontFamily: "Mona Sans, Arial, sans-serif",
+                fontSize: 18,
+                fontWeight: 500,
+                letterSpacing: "0.12em",
                 lineHeight: 1
               }}
             >

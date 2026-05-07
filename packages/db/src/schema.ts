@@ -13,6 +13,7 @@ import {
 export const cacheStatusEnum = pgEnum("cache_status", ["hit", "partial", "miss"]);
 export const claimVisibilityEnum = pgEnum("claim_visibility", ["public", "gated"]);
 export const claimStatusEnum = pgEnum("claim_status", ["verified", "mixed", "inferred", "unknown"]);
+export const generationModeEnum = pgEnum("generation_mode", ["basics", "analysis"]);
 export const sourceTypeEnum = pgEnum("source_type", [
   "company_site",
   "news",
@@ -105,11 +106,15 @@ export const generationRuns = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     slug: text("slug").notNull(),
     domain: text("domain").notNull(),
+    mode: generationModeEnum("mode").default("analysis").notNull(),
     status: generationStatusEnum("status").notNull(),
     error: text("error"),
     costUsd: numeric("cost_usd", { precision: 10, scale: 4 }),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true })
   },
-  (table) => [index("generation_runs_slug_started_idx").on(table.slug, table.startedAt)]
+  (table) => [
+    index("generation_runs_slug_started_idx").on(table.slug, table.startedAt),
+    index("generation_runs_slug_mode_started_idx").on(table.slug, table.mode, table.startedAt)
+  ]
 );

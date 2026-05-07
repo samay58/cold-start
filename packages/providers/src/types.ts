@@ -9,6 +9,10 @@ export type StableenrichEnv = Partial<
   >
 >;
 
+export type DirectExaEnv = Partial<
+  Record<"DIRECT_EXA_API_KEY" | "DIRECT_EXA_BASE_URL", string>
+>;
+
 export type StableenrichProbeName =
   | "exa_funding_history"
   | "exa_company_profile"
@@ -20,6 +24,8 @@ export type StableenrichProbeName =
 export type RetrievalIntent =
   | "funding"
   | "company_profile"
+  | "management_team"
+  | "recent_signals"
   | "independent_analysis"
   | "comparables"
   | "homepage"

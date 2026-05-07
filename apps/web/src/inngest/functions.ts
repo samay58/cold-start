@@ -1,4 +1,4 @@
-import { companySlugFromDomain, type ColdStartCard } from "@cold-start/core";
+import { companySlugFromDomain, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
 import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard } from "@cold-start/db";
 import {
   anthropicModel,
@@ -10,7 +10,13 @@ import {
   verifySynthesis,
 } from "@cold-start/llm";
 import { generateCardForDomain, type ExtractedCardSections } from "@cold-start/pipeline";
-import { fetchStableenrichSources, type StableenrichEnv } from "@cold-start/providers";
+import {
+  fetchDirectExaFundamentalsSources,
+  fetchStableenrichSources,
+  type DirectExaEnv,
+  type ProviderSource,
+  type StableenrichEnv
+} from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/env";
 import { boundedErrorMessage } from "../lib/errors";
@@ -32,12 +38,96 @@ function stableenrichEnvFromProcess(): StableenrichEnv {
   };
 }
 
+function directExaEnvFromProcess(): DirectExaEnv {
+  const apiKey = process.env.DIRECT_EXA_API_KEY;
+  const baseUrl = process.env.DIRECT_EXA_BASE_URL;
+
+  return {
+    ...(apiKey ? { DIRECT_EXA_API_KEY: apiKey } : {}),
+    ...(baseUrl ? { DIRECT_EXA_BASE_URL: baseUrl } : {}),
+  };
+}
+
+type GenerationMode = "basics" | "analysis";
+
+function generationModeForRun(input: unknown): GenerationMode {
+  return input === "analysis" ? "analysis" : "basics";
+}
+
+function fastBasicsEnabled() {
+  return process.env.FAST_BASICS_ENABLED !== "false";
+}
+
 function rawDomainForRun(input: unknown): string {
   if (typeof input !== "string" || input.trim().length === 0) {
     return "invalid-domain";
   }
 
   return input.trim().slice(0, 253);
+}
+
+function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
+  const byUrl = new Map<string, ProviderSource>();
+
+  for (const source of groups.flat()) {
+    if (!byUrl.has(source.url)) {
+      byUrl.set(source.url, source);
+    }
+  }
+
+  return Array.from(byUrl.values());
+}
+
+function preserveFact<T>(existing: ResolvedFact<T>, next: ResolvedFact<T>): ResolvedFact<T> {
+  return next.value === null && existing.value !== null ? existing : next;
+}
+
+function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartCard): ColdStartCard {
+  if (!existing) {
+    return next;
+  }
+
+  const citations = new Map(existing.citations.map((citation) => [citation.id, citation]));
+  next.citations.forEach((citation) => citations.set(citation.id, citation));
+
+  return {
+    ...next,
+    identity: {
+      ...next.identity,
+      name: preserveFact(existing.identity.name, next.identity.name),
+      oneLiner: preserveFact(existing.identity.oneLiner, next.identity.oneLiner),
+      ...(existing.identity.description || next.identity.description
+        ? {
+            description: next.identity.description?.value === null && existing.identity.description?.value
+              ? existing.identity.description
+              : next.identity.description ?? existing.identity.description,
+          }
+        : {}),
+      hq: preserveFact(existing.identity.hq, next.identity.hq),
+      foundedYear: preserveFact(existing.identity.foundedYear, next.identity.foundedYear),
+    },
+    funding: {
+      ...next.funding,
+      totalRaisedUsd: preserveFact(existing.funding.totalRaisedUsd, next.funding.totalRaisedUsd),
+      lastRound: preserveFact(existing.funding.lastRound, next.funding.lastRound),
+      ...(existing.funding.rounds || next.funding.rounds
+        ? {
+            rounds: next.funding.rounds?.value === null && existing.funding.rounds?.value
+              ? existing.funding.rounds
+              : next.funding.rounds ?? existing.funding.rounds,
+          }
+        : {}),
+      investors: preserveFact(existing.funding.investors, next.funding.investors),
+    },
+    team: {
+      founders: preserveFact(existing.team.founders, next.team.founders),
+      keyExecs: preserveFact(existing.team.keyExecs, next.team.keyExecs),
+      headcount: preserveFact(existing.team.headcount, next.team.headcount),
+    },
+    signals: next.signals.length > 0 ? next.signals : existing.signals,
+    comparables: next.comparables.length > 0 ? next.comparables : existing.comparables,
+    citations: Array.from(citations.values()),
+  };
 }
 
 function rawSlugForRun(input: unknown): string {
@@ -57,6 +147,7 @@ export const generateCardFunction = inngest.createFunction(
 
     let domain: string;
     let slug: string;
+    const mode = generationModeForRun(event.data.mode);
 
     try {
       domain = canonicalCompanyDomain(event.data.domain);
@@ -66,6 +157,7 @@ export const generateCardFunction = inngest.createFunction(
         markGenerationRun(db, {
           slug: rawSlugForRun(event.data.slug),
           domain: rawDomainForRun(event.data.domain),
+          mode,
           status: "failed",
           error: boundedErrorMessage(error)
         })
@@ -73,13 +165,18 @@ export const generateCardFunction = inngest.createFunction(
       throw error;
     }
 
-    await step.run("mark-generation-running", () => markGenerationRun(db, { slug, domain, status: "running" }));
+    await step.run("mark-generation-running", () => markGenerationRun(db, { slug, domain, mode, status: "running" }));
 
     try {
       const anthropic = createAnthropicClient();
       const model = anthropicModel();
       const stableEnv = stableenrichEnvFromProcess();
+      const directExaEnv = directExaEnvFromProcess();
       const researchPlan = await step.run("plan-research", async () => {
+        if (mode === "basics") {
+          return fallbackResearchPlan(domain);
+        }
+
         try {
           return await planCompanyResearch({ client: anthropic, model, domain });
         } catch {
@@ -88,20 +185,33 @@ export const generateCardFunction = inngest.createFunction(
       });
 
       const sourceResult = await step.run("fetch-sources", async () => {
-        const result = await fetchStableenrichSources({
-          env: stableEnv,
-          domain,
-          researchPlan,
-        });
+        const [directResult, stableResult] = await Promise.allSettled([
+          mode === "basics" && fastBasicsEnabled()
+            ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
+            : Promise.resolve({ sources: [], failures: [], skipped: true }),
+          fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
+        ]);
 
-        if (result.sources.length === 0) {
-          const details = result.failures
+        const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
+        const stableSources = stableResult.status === "fulfilled" ? stableResult.value.sources : [];
+        const sources = mergeSources(directSources, stableSources);
+        const failures = [
+          ...(directResult.status === "fulfilled"
+            ? directResult.value.failures
+            : [{ name: "exa_direct_company" as const, endpointUrl: "https://api.exa.ai/search", error: boundedErrorMessage(directResult.reason) }]),
+          ...(stableResult.status === "fulfilled"
+            ? stableResult.value.failures
+            : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableResult.reason) }]),
+        ];
+
+        if (sources.length === 0) {
+          const details = failures
             .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)
             .join("; ");
-          throw new Error(`No provider sources returned; failures: ${result.failures.length}${details ? `; ${details}` : ""}`);
+          throw new Error(`No provider sources returned; failures: ${failures.length}${details ? `; ${details}` : ""}`);
         }
 
-        return { sources: result.sources, failureCount: result.failures.length };
+        return { sources, failureCount: failures.length };
       });
 
       // Failure count is tracked for observability, but not converted into cost until live costs are measured.
@@ -117,13 +227,22 @@ export const generateCardFunction = inngest.createFunction(
               model,
               evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
             }),
-          synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
-          verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+          ...(mode === "analysis"
+            ? {
+                synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
+                verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+              }
+            : {}),
         }),
       );
 
-      const row = await step.run("upsert-card", () => upsertCard(db, clean));
-      await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, clean));
+      const existingCard = mode === "analysis" ? await step.run("load-existing-card", () => findCardBySlug(db, slug)) : null;
+      const cardToStore =
+        mode === "basics"
+          ? { ...clean, cacheStatus: "partial" as const }
+          : preserveExistingBasics(existingCard, clean);
+      const row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
+      await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
       await step.run("record-sources", () =>
         Promise.all(
           sourceResult.sources.map((source) =>
@@ -140,13 +259,13 @@ export const generateCardFunction = inngest.createFunction(
       );
 
       await step.run("mark-generation-complete", () =>
-        markGenerationRun(db, { slug, domain, status: "complete", costUsd: clean.generationCostUsd })
+        markGenerationRun(db, { slug, domain, mode, status: "complete", costUsd: cardToStore.generationCostUsd })
       );
 
-      return { slug: clean.slug };
+      return { slug: cardToStore.slug, mode };
     } catch (error) {
       await step.run("mark-generation-failed", () =>
-        markGenerationRun(db, { slug, domain, status: "failed", error: boundedErrorMessage(error) })
+        markGenerationRun(db, { slug, domain, mode, status: "failed", error: boundedErrorMessage(error) })
       );
       throw error;
     }

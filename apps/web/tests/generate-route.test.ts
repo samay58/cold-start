@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     db,
     createDb: vi.fn(() => db),
     findActiveGenerationRunBySlug: vi.fn(),
+    findCardBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
     send: vi.fn()
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findActiveGenerationRunBySlug: mocks.findActiveGenerationRunBySlug,
+  findCardBySlug: mocks.findCardBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun
 }));
@@ -66,6 +68,7 @@ describe("POST /api/generate", () => {
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunBySlug.mockReset();
+    mocks.findCardBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
     mocks.send.mockReset();
@@ -76,7 +79,7 @@ describe("POST /api/generate", () => {
 
     const response = await POST(generateRequest());
 
-    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "cached", mode: "analysis" });
+    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "cached", mode: "basics" });
     expect(response.status).toBe(200);
     expect(mocks.findActiveGenerationRunBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
@@ -118,6 +121,27 @@ describe("POST /api/generate", () => {
     });
   });
 
+  it("queues analysis for an existing basics card that has no synthesis yet", async () => {
+    mocks.findCardBySlug.mockResolvedValue({ slug: "cartesia" });
+    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(mocks.findCardBySlug).toHaveBeenCalledWith(mocks.db, "cartesia");
+    expect(mocks.findPublicCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "queued"
+    });
+  });
+
   it("requires confirmation for basics generation when extension auth is absent", async () => {
     const response = await POST(generateRequest("cartesia.ai", { mode: "basics" }));
 
@@ -146,7 +170,7 @@ describe("POST /api/generate", () => {
 
     const response = await POST(generateRequest());
 
-    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status, mode: "analysis" });
+    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status, mode: "basics" });
     expect(response.status).toBe(202);
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
@@ -160,18 +184,18 @@ describe("POST /api/generate", () => {
 
     const response = await POST(generateRequest("https://www.cartesia.ai/company"));
 
-    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "queued", mode: "analysis" });
+    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "queued", mode: "basics" });
     expect(response.status).toBe(202);
     expect(mocks.markGenerationRun).toHaveBeenCalledTimes(1);
     expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
       slug: "cartesia",
       domain: "cartesia.ai",
-      mode: "analysis",
+      mode: "basics",
       status: "queued"
     });
     expect(mocks.send).toHaveBeenCalledWith({
       name: "card/generate.requested",
-      data: { domain: "cartesia.ai", slug: "cartesia", mode: "analysis" }
+      data: { domain: "cartesia.ai", slug: "cartesia", mode: "basics" }
     });
   });
 
@@ -189,13 +213,13 @@ describe("POST /api/generate", () => {
     expect(mocks.markGenerationRun).toHaveBeenNthCalledWith(1, mocks.db, {
       slug: "cartesia",
       domain: "cartesia.ai",
-      mode: "analysis",
+      mode: "basics",
       status: "queued"
     });
     expect(mocks.markGenerationRun).toHaveBeenNthCalledWith(2, mocks.db, {
       slug: "cartesia",
       domain: "cartesia.ai",
-      mode: "analysis",
+      mode: "basics",
       status: "failed",
       error: "inngest unavailable"
     });

@@ -17,6 +17,7 @@ export type Settings = {
 export type GenerationStatus = {
   slug: string;
   status: "cached" | "queued" | "running";
+  mode: "basics" | "analysis";
 };
 
 export class ApiError extends Error {
@@ -124,18 +125,26 @@ export function buildCardRequest(
 export function buildGenerateRequest(
   domain: string,
   settings: Settings,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  mode: GenerationStatus["mode"] = "basics",
+  confirmStart = false,
+  extensionId?: string
 ): { url: string; init: RequestInit & { headers: Record<string, string>; body: string } } {
   const init: RequestInit & { headers: Record<string, string>; body: string } = {
     method: "POST",
     headers: {
+      Authorization: `Bearer ${settings.apiToken}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ domain, confirmStart: true })
+    body: JSON.stringify({ domain, mode, ...(confirmStart ? { confirmStart: true } : {}) })
   };
 
   if (signal) {
     init.signal = signal;
+  }
+
+  if (extensionId?.trim()) {
+    init.headers["X-Cold-Start-Extension-Id"] = extensionId.trim();
   }
 
   return {

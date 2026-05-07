@@ -116,6 +116,35 @@ describe("sanitizeCardTrust", () => {
     });
   });
 
+  it("downgrades vendor-only facts and single-source sensitive facts", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      funding: {
+        ...baseCard.funding,
+        totalRaisedUsd: { value: 91000000, status: "verified", confidence: "high", citationIds: ["c3"] },
+      },
+      team: {
+        ...baseCard.team,
+        headcount: { value: { value: 42, asOf: "2026-05-06" }, status: "verified", confidence: "high", citationIds: ["c2"] },
+      },
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.funding.totalRaisedUsd).toEqual({
+      value: 91000000,
+      status: "inferred",
+      confidence: "low",
+      citationIds: ["c3"],
+    });
+    expect(clean.team.headcount).toEqual({
+      value: { value: 42, asOf: "2026-05-06" },
+      status: "verified",
+      confidence: "low",
+      citationIds: ["c2"],
+    });
+  });
+
   it("drops signals when citation IDs do not exist on the card", () => {
     const dirty: ColdStartCard = {
       ...baseCard,

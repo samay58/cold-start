@@ -15,6 +15,7 @@ const signalsTtlMs = 6 * 60 * 60 * 1000;
 const synthesisTtlMs = 24 * 60 * 60 * 1000;
 
 type SourceType = "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
+export type GenerationMode = "basics" | "analysis";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
 type ActiveGenerationStatus = Extract<GenerationStatus, "queued" | "running">;
 const publicCardSchema = coldStartCardSchema.omit({ synthesis: true });
@@ -53,16 +54,18 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string): Promi
 
 export async function findActiveGenerationRunBySlug(
   db: ColdStartDb,
-  slug: string
-): Promise<{ slug: string; domain: string; status: ActiveGenerationStatus } | null> {
+  slug: string,
+  mode: GenerationMode = "analysis"
+): Promise<{ slug: string; domain: string; mode: GenerationMode; status: ActiveGenerationStatus } | null> {
   const rows = await db
     .select({
       slug: generationRuns.slug,
       domain: generationRuns.domain,
+      mode: generationRuns.mode,
       status: generationRuns.status
     })
     .from(generationRuns)
-    .where(and(eq(generationRuns.slug, slug), inArray(generationRuns.status, ["queued", "running"])))
+    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];
@@ -74,6 +77,7 @@ export async function findActiveGenerationRunBySlug(
   return {
     slug: row.slug,
     domain: row.domain,
+    mode: row.mode,
     status: row.status
   };
 }
@@ -254,14 +258,17 @@ export async function markGenerationRun(
   input: {
     slug: string;
     domain: string;
+    mode?: GenerationMode;
     status: GenerationStatus;
     error?: string;
     costUsd?: number;
   }
 ) {
+  const mode = input.mode ?? "analysis";
   const values = {
     slug: input.slug,
     domain: input.domain,
+    mode,
     status: input.status,
     ...(input.error !== undefined ? { error: input.error } : {}),
     ...(input.costUsd !== undefined ? { costUsd: String(input.costUsd) } : {}),
@@ -272,7 +279,7 @@ export async function markGenerationRun(
     const [updated] = await db
       .update(generationRuns)
       .set(values)
-      .where(and(eq(generationRuns.slug, input.slug), inArray(generationRuns.status, ["queued", "running"])))
+      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
       .returning();
 
     if (updated) {
@@ -284,7 +291,7 @@ export async function markGenerationRun(
     const [updated] = await db
       .update(generationRuns)
       .set(values)
-      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.status, "queued")))
+      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), eq(generationRuns.status, "queued")))
       .returning();
 
     if (updated) {

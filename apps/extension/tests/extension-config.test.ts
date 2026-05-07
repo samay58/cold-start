@@ -96,12 +96,18 @@ describe("buildGenerateRequest", () => {
         apiToken: "token-123"
       },
       undefined,
-      "basics"
+      "basics",
+      false,
+      "extension-123"
     );
 
     expect(request.url).toBe("http://localhost:3000/api/generate");
     expect(request.init.method).toBe("POST");
-    expect(request.init.headers).toEqual({ "Content-Type": "application/json" });
+    expect(request.init.headers).toEqual({
+      Authorization: "Bearer token-123",
+      "Content-Type": "application/json",
+      "X-Cold-Start-Extension-Id": "extension-123"
+    });
     expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "basics" }));
   });
 
@@ -114,7 +120,8 @@ describe("buildGenerateRequest", () => {
       },
       undefined,
       "analysis",
-      true
+      true,
+      "extension-123"
     );
 
     expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "analysis", confirmStart: true }));

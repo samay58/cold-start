@@ -1,4 +1,4 @@
-import type { ColdStartCard, ResolvedFact, SourcedText } from "./card";
+import type { Citation, ColdStartCard, ResolvedFact, SourcedText } from "./card";
 import { sourceQualityForSource } from "./source-quality";
 
 const verificationSentinel = /\[needs_verification\]/i;
@@ -7,6 +7,10 @@ const citationMarker = /\[([A-Za-z0-9_-]+)\]/g;
 
 function validCitationIds(card: ColdStartCard): Set<string> {
   return new Set(card.citations.map((citation) => citation.id));
+}
+
+function citationsById(card: ColdStartCard): Map<string, Citation> {
+  return new Map(card.citations.map((citation) => [citation.id, citation]));
 }
 
 function nullFact<T>(): ResolvedFact<T> {
@@ -18,14 +22,39 @@ function nullFact<T>(): ResolvedFact<T> {
   };
 }
 
-function sanitizeFact<T>(fact: ResolvedFact<T>, validIds: Set<string>): ResolvedFact<T> {
+function sanitizeFact<T>(
+  fact: ResolvedFact<T>,
+  validIds: Set<string>,
+  citations: Map<string, Citation>,
+  options: { downgradeSingleSource?: boolean } = {},
+): ResolvedFact<T> {
   const citationIds = fact.citationIds.filter((citationId) => validIds.has(citationId));
 
-  if (citationIds.length > 0) {
-    return { ...fact, citationIds };
+  if (citationIds.length === 0) {
+    return nullFact();
   }
 
-  return nullFact();
+  const sanitized = { ...fact, citationIds };
+  if (sanitized.value === null) {
+    return sanitized;
+  }
+
+  const factCitations = citationIds.flatMap((citationId) => {
+    const citation = citations.get(citationId);
+    return citation ? [citation] : [];
+  });
+  const vendorOnly = factCitations.length > 0 && factCitations.every((citation) => citation.sourceType === "enrichment");
+  const singleSourceSensitive = options.downgradeSingleSource === true && new Set(citationIds).size < 2;
+
+  if (!vendorOnly && !singleSourceSensitive) {
+    return sanitized;
+  }
+
+  return {
+    ...sanitized,
+    status: vendorOnly ? "inferred" : sanitized.status,
+    confidence: "low",
+  };
 }
 
 function sanitizeCitationIds(citationIds: string[], validIds: Set<string>): string[] {
@@ -79,6 +108,7 @@ function supportedTextItems(items: SourcedText[], validIds: Set<string>): Source
 
 export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
   const validIds = validCitationIds(card);
+  const citations = citationsById(card);
 
   return {
     ...card,
@@ -88,21 +118,21 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     })),
     identity: {
       ...card.identity,
-      name: sanitizeFact(card.identity.name, validIds),
-      oneLiner: sanitizeFact(card.identity.oneLiner, validIds),
-      ...(card.identity.description ? { description: sanitizeFact(card.identity.description, validIds) } : {}),
-      hq: sanitizeFact(card.identity.hq, validIds),
-      foundedYear: sanitizeFact(card.identity.foundedYear, validIds)
+      name: sanitizeFact(card.identity.name, validIds, citations),
+      oneLiner: sanitizeFact(card.identity.oneLiner, validIds, citations),
+      ...(card.identity.description ? { description: sanitizeFact(card.identity.description, validIds, citations) } : {}),
+      hq: sanitizeFact(card.identity.hq, validIds, citations),
+      foundedYear: sanitizeFact(card.identity.foundedYear, validIds, citations)
     },
     funding: {
-      totalRaisedUsd: sanitizeFact(card.funding.totalRaisedUsd, validIds),
-      lastRound: sanitizeFact(card.funding.lastRound, validIds),
-      investors: sanitizeFact(card.funding.investors, validIds)
+      totalRaisedUsd: sanitizeFact(card.funding.totalRaisedUsd, validIds, citations, { downgradeSingleSource: true }),
+      lastRound: sanitizeFact(card.funding.lastRound, validIds, citations),
+      investors: sanitizeFact(card.funding.investors, validIds, citations)
     },
     team: {
-      founders: sanitizeFact(card.team.founders, validIds),
-      keyExecs: sanitizeFact(card.team.keyExecs, validIds),
-      headcount: sanitizeFact(card.team.headcount, validIds)
+      founders: sanitizeFact(card.team.founders, validIds, citations),
+      keyExecs: sanitizeFact(card.team.keyExecs, validIds, citations),
+      headcount: sanitizeFact(card.team.headcount, validIds, citations, { downgradeSingleSource: true })
     },
     signals: card.signals.flatMap((signal) => {
       const citationIds = sanitizeCitationIds(signal.citationIds, validIds);
