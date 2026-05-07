@@ -7,12 +7,16 @@ import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/env";
 
 export async function POST(request: Request) {
-  let body: { domain?: unknown };
+  let body: { domain?: unknown; confirmStart?: unknown };
 
   try {
-    body = (await request.json()) as { domain?: unknown };
+    body = (await request.json()) as { domain?: unknown; confirmStart?: unknown };
   } catch {
     return NextResponse.json({ error: "invalid json body" }, { status: 400 });
+  }
+
+  if (body.confirmStart !== true) {
+    return NextResponse.json({ error: "generation start confirmation required" }, { status: 400 });
   }
 
   let domain: string;

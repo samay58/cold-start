@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { ColdStartCard } from "@cold-start/core";
-import { parseSynthesisToolUse, synthesisTool, synthesizeCard } from "../src/index";
+import { parseSynthesisToolUse, synthesisSystemPrompt, synthesisTool, synthesizeCard } from "../src/index";
 
 const validSynthesisPayload = {
   whyItMatters: { text: "Cartesia is building real-time voice infrastructure [c1].", citationIds: ["c1"] },
@@ -34,6 +34,15 @@ describe("synthesisTool", () => {
       type: "string",
       minLength: 1
     });
+  });
+});
+
+describe("synthesisSystemPrompt", () => {
+  it("uses source incentives and pushes against empty bear cases", () => {
+    expect(synthesisSystemPrompt).toContain("source incentives");
+    expect(synthesisSystemPrompt).toContain("independent technical");
+    expect(synthesisSystemPrompt).toContain("Do not leave bearCase empty");
+    expect(synthesisSystemPrompt).toContain("do not cite evidence ledger IDs");
   });
 });
 

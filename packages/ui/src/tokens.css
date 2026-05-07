@@ -15,12 +15,15 @@
   --color-confidence-sky: #1674ff;
   --color-confidence-soft: #b7b6b0;
   --color-hover-pebble: #f0efea;
+  --color-rail-bull: #1674ff;
+  --color-rail-bear: #8a3a3a;
+  --color-rail-open: #a8741f;
   --font-plex-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-plex-serif: "IBM Plex Serif", ui-serif, Georgia, serif;
   --font-mona-sans: "Mona Sans", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   --font-berkeley-mono: "Berkeley Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --shadow-card: 0 24px 80px rgb(2 8 18 / 0.18), 0 0 0 1px rgb(95 180 255 / 0.18);
-  --shadow-popover: 0 20px 56px rgb(2 8 18 / 0.18), 0 0 0 1px rgb(95 180 255 / 0.18);
+  --shadow-card: 0 8px 28px rgb(2 8 18 / 0.32), 0 0 0 1px rgb(95 180 255 / 0.10);
+  --shadow-popover: 0 6px 22px rgb(2 8 18 / 0.28), 0 0 0 1px rgb(95 180 255 / 0.10);
 }
 
 .cs-card-page {
@@ -35,18 +38,19 @@
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(90deg, rgb(95 180 255 / 0.07) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(95 180 255 / 0.055) 1px, transparent 1px),
-    radial-gradient(circle at 50% 20%, rgb(95 180 255 / 0.18), transparent 34rem),
+    linear-gradient(90deg, rgb(95 180 255 / 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(95 180 255 / 0.043) 1px, transparent 1px),
+    radial-gradient(circle at 18% 12%, rgb(95 180 255 / 0.16), transparent 26rem),
+    radial-gradient(circle at 82% 18%, rgb(238 248 255 / 0.07), transparent 22rem),
     linear-gradient(180deg, #08223d 0%, var(--color-observatory-navy) 42%, var(--color-abyss-ink) 100%);
-  background-size: 56px 56px, 56px 56px, auto, auto;
+  background-size: 64px 64px, 64px 64px, auto, auto, auto;
   content: "";
 }
 
 .cs-card {
   width: 100%;
   background: rgb(250 250 247 / 0.97);
-  border: 1px solid rgb(95 180 255 / 0.18);
+  border: 1px solid rgb(95 180 255 / 0.10);
   border-radius: 8px;
   box-shadow: var(--shadow-card);
   color: var(--color-ink);
@@ -63,7 +67,9 @@
 
 .cs-card-header {
   display: grid;
-  gap: 12px;
+  gap: 16px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--color-hover-pebble);
 }
 
 .cs-card-brand {
@@ -79,32 +85,12 @@
 }
 
 .cs-card-brand-mark {
-  position: relative;
-  display: inline-grid;
-  width: 18px;
-  height: 18px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--color-observatory-navy);
-  box-shadow: 0 0 0 1px rgb(95 180 255 / 0.32);
-}
-
-.cs-card-brand-mark::before {
-  width: 11px;
-  height: 6px;
-  border: 2px solid var(--color-ice-white);
-  border-radius: 50%;
-  content: "";
-}
-
-.cs-card-brand-mark::after {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--color-lens-blue);
-  box-shadow: 0 0 0 2px var(--color-abyss-ink);
-  content: "";
+  display: inline-block;
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--color-citation-ultramarine);
+  transform: translateY(-1px);
 }
 
 .cs-title {
@@ -127,26 +113,56 @@
   overflow-wrap: anywhere;
 }
 
-.cs-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 0;
-  padding: 0;
+.cs-provenance {
+  margin: 0;
   color: var(--color-mid-stone);
-  font-size: 0.75rem;
-  list-style: none;
+  font-family: var(--font-berkeley-mono);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.cs-meta li {
-  border: 1px solid rgb(95 180 255 / 0.18);
-  border-radius: 4px;
-  background: rgb(95 180 255 / 0.045);
-  padding: 4px 6px;
+.cs-description-grid {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+.cs-description-grid div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.cs-description-grid dt {
+  color: var(--color-soft-sand);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.cs-description-grid dd {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cs-meta-line {
+  margin: 4px 0 0;
+  color: var(--color-mid-stone);
+  font-family: var(--font-berkeley-mono);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  line-height: 1.5;
 }
 
 .cs-section {
-  margin-top: 40px;
+  margin-top: 32px;
 }
 
 .cs-section h2 {
@@ -167,11 +183,91 @@
   letter-spacing: 0;
 }
 
+.cs-rounds {
+  margin: 14px 0 4px;
+}
+
+.cs-rounds-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.cs-rounds-heading h3 {
+  margin-top: 0;
+}
+
+.cs-round-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-round {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) max-content max-content;
+  gap: 12px;
+  align-items: start;
+  border-top: 1px solid var(--color-hover-pebble);
+  padding: 12px 0;
+}
+
+.cs-round-name,
+.cs-round-amount,
+.cs-round-date,
+.cs-round-leads,
+.cs-round-evidence {
+  margin: 0;
+}
+
+.cs-round-name {
+  color: var(--color-ink);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.cs-round-leads {
+  margin-top: 3px;
+  color: var(--color-muted-ink);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cs-round-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+  color: var(--color-mid-stone);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.cs-round-amount,
+.cs-round-date {
+  color: var(--color-ink);
+  font-family: var(--font-berkeley-mono);
+  font-feature-settings: "tnum" 1;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cs-round-date {
+  color: var(--color-muted-ink);
+}
+
 .cs-fact-row {
   display: grid;
   grid-template-columns: minmax(108px, 0.7fr) minmax(0, 1.3fr);
   gap: 12px;
-  padding: 9px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--color-hover-pebble);
 }
 
@@ -184,6 +280,7 @@
 
 .cs-fact-value {
   color: var(--color-ink);
+  font-feature-settings: "tnum" 1;
   font-size: 0.875rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -191,7 +288,7 @@
 
 .cs-mono {
   font-family: var(--font-berkeley-mono);
-  font-feature-settings: "tnum" 1;
+  font-feature-settings: "tnum" 1, "cv11" 1;
 }
 
 .cs-citation {
@@ -200,6 +297,20 @@
   font-size: 0.75rem;
   text-decoration: none;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-citation {
+    transition: color 100ms ease;
+  }
+
+  .cs-fact-row {
+    transition: background-color 120ms ease;
+  }
+
+  .cs-fact-row:hover {
+    background: rgb(95 180 255 / 0.025);
+  }
 }
 
 .cs-citation:hover {
@@ -250,7 +361,22 @@
 .cs-source-meta {
   margin: 0;
   color: var(--color-muted-ink);
+  font-feature-settings: "tnum" 1;
   font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cs-source-quality {
+  color: var(--color-ink);
+  font-weight: 650;
+}
+
+.cs-source-rationale {
+  max-width: 68ch;
+  margin: 4px 0 0;
+  color: var(--color-mid-stone);
+  font-size: 0.76rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -258,8 +384,18 @@
 .cs-empty {
   margin: 0;
   color: var(--color-muted-ink);
-  font-size: 0.875rem;
+  font-family: var(--font-plex-serif);
+  font-size: 0.85rem;
+  font-style: italic;
   line-height: 1.5;
+}
+
+.cs-empty::before {
+  content: "↳ ";
+  color: var(--color-soft-sand);
+  font-family: var(--font-berkeley-mono);
+  font-style: normal;
+  margin-right: 4px;
 }
 
 .cs-source-drawer {
@@ -281,12 +417,44 @@
   gap: 8px;
 }
 
+.cs-synthesis-kicker {
+  margin: 0 0 12px;
+  color: var(--color-citation-ultramarine);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .cs-synthesis-lede {
   margin: 0 0 18px;
   color: var(--color-ink);
-  font-size: 0.95rem;
+  font-family: var(--font-plex-serif);
+  font-size: 0.98rem;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+
+.cs-synthesis-block {
+  border-left: 2px solid transparent;
+  padding-left: 14px;
+  margin-top: 18px;
+}
+
+.cs-synthesis-block[data-rail="bull"] {
+  border-left-color: var(--color-rail-bull);
+}
+
+.cs-synthesis-block[data-rail="bear"] {
+  border-left-color: var(--color-rail-bear);
+}
+
+.cs-synthesis-block[data-rail="open"] {
+  border-left-color: var(--color-rail-open);
+}
+
+.cs-synthesis-block h3 {
+  margin: 0 0 8px;
 }
 
 .cs-synthesis-list {
@@ -317,7 +485,13 @@
   }
 
   .cs-fact-row,
-  .cs-source-item {
+  .cs-source-item,
+  .cs-round {
     grid-template-columns: 1fr;
+  }
+
+  .cs-round-amount,
+  .cs-round-date {
+    text-align: left;
   }
 }

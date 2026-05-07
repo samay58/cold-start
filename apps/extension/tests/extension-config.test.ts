@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  ApiError,
+  buildGenerateRequest,
   buildCardRequest,
   defaultApiOrigin,
   normalizeApiOrigin,
+  parseGenerateResponse,
   parseCardResponse,
+  readableCompanyNameFromDomain,
   readableCardError,
   storedApiOriginOrDefault
 } from "../src/extension-config";
@@ -56,6 +60,13 @@ describe("storedApiOriginOrDefault", () => {
   });
 });
 
+describe("readableCompanyNameFromDomain", () => {
+  it("derives a clean company label from a domain", () => {
+    expect(readableCompanyNameFromDomain("https://www.twelve-labs.io/path")).toBe("Twelve Labs");
+    expect(readableCompanyNameFromDomain("harvey.ai")).toBe("Harvey");
+  });
+});
+
 describe("buildCardRequest", () => {
   it("builds the card URL with bearer authorization and extension identity", () => {
     const request = buildCardRequest(
@@ -76,17 +87,67 @@ describe("buildCardRequest", () => {
   });
 });
 
+describe("buildGenerateRequest", () => {
+  it("builds a basics generation request without confirmation by default", () => {
+    const request = buildGenerateRequest(
+      "legora.com",
+      {
+        apiOrigin: "http://localhost:3000",
+        apiToken: "token-123"
+      },
+      undefined,
+      "basics"
+    );
+
+    expect(request.url).toBe("http://localhost:3000/api/generate");
+    expect(request.init.method).toBe("POST");
+    expect(request.init.headers).toEqual({ "Content-Type": "application/json" });
+    expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "basics" }));
+  });
+
+  it("builds a confirmed analysis generation request", () => {
+    const request = buildGenerateRequest(
+      "legora.com",
+      {
+        apiOrigin: "http://localhost:3000",
+        apiToken: "token-123"
+      },
+      undefined,
+      "analysis",
+      true
+    );
+
+    expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "analysis", confirmStart: true }));
+  });
+});
+
 describe("parseCardResponse", () => {
   it("throws the API error detail when a response fails", async () => {
     const response = new Response(JSON.stringify({ error: "invalid token" }), { status: 401 });
 
-    await expect(parseCardResponse(response)).rejects.toThrow("invalid token");
+    await expect(parseCardResponse(response)).rejects.toMatchObject(new ApiError("invalid token", 401));
   });
 
   it("throws the status when the response body is not JSON", async () => {
     const response = new Response("nope", { status: 502 });
 
     await expect(parseCardResponse(response)).rejects.toThrow("request failed with 502");
+  });
+});
+
+describe("parseGenerateResponse", () => {
+  it("returns the generation status response", async () => {
+    const response = new Response(JSON.stringify({ slug: "legora", status: "queued", mode: "basics" }), { status: 202 });
+
+    await expect(parseGenerateResponse(response)).resolves.toEqual({ slug: "legora", status: "queued", mode: "basics" });
+  });
+
+  it("throws the API error detail when generation fails", async () => {
+    const response = new Response(JSON.stringify({ error: "failed to queue generation" }), { status: 500 });
+
+    await expect(parseGenerateResponse(response)).rejects.toMatchObject(
+      new ApiError("failed to queue generation", 500)
+    );
   });
 });
 
@@ -99,6 +160,10 @@ describe("readableCardError", () => {
 
   it("explains local web app connectivity failures", () => {
     expect(readableCardError("Failed to fetch", "http://localhost:3000")).toContain("Start the local web app");
+  });
+
+  it("explains API generation failures without leaking raw status text", () => {
+    expect(readableCardError("request failed with 500", "http://localhost:3000")).toContain("worker logs");
   });
 
   it("points production-origin failures back to localhost for local testing", () => {

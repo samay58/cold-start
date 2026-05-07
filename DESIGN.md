@@ -1,13 +1,13 @@
 # Cold Start: Style Reference
-> Intelligence bloom. Editorial restraint. Investor-grade instrumentation.
+> Structured insight from noisy company data. Editorial restraint. Investor-grade instrumentation.
 
 **Theme:** deep observatory shell + light memo card
 
-Cold Start's design language is a lens finding structure in a noisy company graph. The brand mark is an eye/radar aperture: watchful, technical, and quiet. The interface should feel like a precise instrument around a readable memo, not like generic AI magic.
+Cold Start's design language is a lens finding structure in a noisy company graph. The brand mark is an eye/radar aperture: watchful, technical, and quiet. The interface should read as an instrument panel around a readable memo, not as a chat surface with decorative glow.
 
 The current product should use a deep observatory navy shell (`#06192C`) with wire-blue signal lines, then place the sourced card on a warm memo surface (`#FAFAF7`). Berkeley Mono does the load-bearing work for anything inspected: citations, funding amounts, domains, dates, model status, and API-like labels. Lens Blue (`#1674FF`) is the primary signal color for citations and active states.
 
-This system is purpose-built for two surfaces: a 380px Chrome side panel (dense, scannable, lots of facts in a small column) and a full-width public web URL at `/c/{slug}` (more breathing room, OG-image-shareable, citation affordances). Same tokens, two layouts.
+The system is built for two surfaces: a 380px Chrome side panel (dense, scannable, lots of facts in a small column) and a full-width public web URL at `/c/{slug}` (more breathing room, OG-image-shareable, citation affordances). Same tokens, two layouts.
 
 The full Semitechie VC brand spine lives in `docs/brand/semitechie-vc-design-ethos.md`; Cold Start is the first implementation.
 
@@ -19,7 +19,7 @@ From 14islands: editorial display typography on company headers, tight negative 
 
 From the Cold Start icon and cover-page reference: deep navy field, white wire/aperture lines, a bright blue lens core, and graph-like connective structure. These elements belong in the shell, icon, loading states, OG/social images, source drawers, and generation telemetry.
 
-What's neither: a blue observatory signature that neither Cursor nor 14islands uses. Citation markers `[n]`, verifier status, and active synthesis links render in Lens Blue. Warning/mixed-source states stay amber.
+Cold Start's own contribution is the blue observatory signature that neither Cursor nor 14islands uses. Citation markers `[n]`, verifier status, and active synthesis links render in Lens Blue. Warning/mixed-source states stay amber.
 
 ## Tokens: Colors
 
@@ -31,10 +31,10 @@ What's neither: a blue observatory signature that neither Cursor nor 14islands u
 | Wire Blue | `#5FB4FF` | `--color-wire-blue` | Network lines, radar grid, fine instrumentation rules. |
 | Ice White | `#EEF8FF` | `--color-ice-white` | Icon aperture, inverse text, high-signal labels on dark shell. |
 | Canvas Parchment | `#FAFAF7` | `--color-canvas-parchment` | Memo card reading surface. Warmer than 14islands' #F2F2F2, calmer than Cursor's #F7F7F4. |
-| Card Cream | `#FFFFFF` | `--color-card-cream` | Card surface. Lifted by 1px against canvas via shadow-subtle. |
+| Card Cream | `#FFFFFF` | `--color-card-cream` | White card surface. Lifted by 1px against canvas via shadow-subtle. |
 | Ink | `#0A0A0A` | `--color-ink` | Primary text, company headers, fact values, dominant borders. True ink, slightly softer than 14islands' #070707. |
 | Mid Stone | `#6E6E76` | `--color-mid-stone` | Secondary text, fact labels, signal dates, source attribution. |
-| Soft Sand | `#B7B6B0` | `--color-soft-sand` | Tertiary text, "not disclosed" empty states, citation popover footers, dividers. |
+| Soft Sand | `#D8D5CA` | `--color-soft-sand` | Tertiary text, "not disclosed" empty states, citation popover footers, dividers. |
 | Citation Blue | `#1674FF` | `--color-citation-ultramarine` | Citation markers `[n]`, active links in synthesis section, hover state for any clickable source. |
 | Confidence Amber | `#A8741F` | `--color-confidence-amber` | Conflict/mixed-source confidence dot. Used when two authoritative sources disagree on a fact. |
 | Confidence Sky | `#1674FF` | `--color-confidence-sky` | Inferred confidence dot (reuses Lens Blue, signals "AI-derived"). |
@@ -59,7 +59,7 @@ One-line counterpoint serif used only at the top of the gated synthesis section 
 - **Sizes:** 18px
 
 ### Mona Sans: Display headers (company name, section titles)
-Replaces 14islands' AftenScreen at the editorial display role. Heavy weight + tight tracking gives the architectural gravity without a custom-font license. Capped at 48px in side panel, 72px on web.
+Replaces 14islands' AftenScreen at the editorial display role. Heavy weight + tight tracking gives the architectural weight without a custom-font license. Capped at 48px in side panel, 72px on web.
 
 - **Family token:** `--font-mona-sans`
 - **Weights:** 700, 800
@@ -127,7 +127,7 @@ Layered, Cursor-inspired. Cards lift just enough to read as elevated against the
 | subtle | `0 0 0 1px rgba(10, 10, 10, 0.06)` | `--shadow-subtle` |
 | card | `0 1px 2px rgba(10, 10, 10, 0.04), 0 0 0 1px rgba(10, 10, 10, 0.06)` | `--shadow-card` |
 | popover | `0 8px 24px rgba(10, 10, 10, 0.12), 0 0 0 1px rgba(10, 10, 10, 0.08)` | `--shadow-popover` |
-| focus-ring | `0 0 0 2px rgba(26, 31, 140, 0.35)` | `--shadow-focus-ring` |
+| focus-ring | `0 0 0 2px rgba(22, 116, 255, 0.35)` | `--shadow-focus-ring` |
 
 ### Layout
 
@@ -148,7 +148,7 @@ Display-register company name and section titles. Mona Sans 700-800 with tight n
 Two-column micro-row with label left, value right. Label is Plex Sans 14px Mid Stone weight 500. Value is Plex Sans 14px Ink, OR Berkeley Mono 13px Ink for any number/date/domain. Citation marker `[1]` follows value, separated by a 4px gap, in Berkeley Mono 12px Citation Ultramarine. Hover the citation: popover. Click: opens source URL.
 
 ### Citation Marker
-The signature element. Berkeley Mono 12px in Citation Ultramarine. Renders as `[n]` where n is the citation index. Hover state: 1px underline + Hover Pebble background. Hover popover (after 300ms): source title (Plex Sans 13px Ink), URL (Berkeley Mono 11px Mid Stone, truncated), fetched-at date (Berkeley Mono 11px Soft Sand), 1-2 line evidence snippet (Plex Sans 13px Ink). Popover uses shadow-popover, 8px radius.
+Berkeley Mono 12px in Citation Ultramarine. Renders as `[n]` where n is the citation index. Hover state: 1px underline + Hover Pebble background. Hover popover (after 300ms): source title (Plex Sans 13px Ink), URL (Berkeley Mono 11px Mid Stone, truncated), fetched-at date (Berkeley Mono 11px Soft Sand), 1-2 line evidence snippet (Plex Sans 13px Ink). Popover uses shadow-popover, 8px radius.
 
 ### Confidence Dot
 4px solid circle, inline before fact label, separated by 6px. `verified` is invisible (no dot, default state). `mixed` is Confidence Amber. `inferred` is Confidence Sky. `unknown` is Confidence Soft. The dot is the entire badge; no text label except in the source drawer.
@@ -218,9 +218,9 @@ Sparklines are the only data viz primitive: thin 1px Ink strokes on Hover Pebble
 
 The product surfaces in two layouts driven by one set of tokens.
 
-The **side panel** layout (380px Chrome side panel) is dense. It sits on the dark observatory shell, with the memo card inset by 12px. Card padding is 18-20px. Section gap is 32px. Sections stack vertically in a single column. Section header at heading-sm (20px). Display register reserved for the company name only. Comparable cards stack vertically, not in a grid. The synthesis section is only visible if the user is authenticated (Chrome extension counts as authentication).
+The **side panel** layout (380px Chrome side panel) is dense. It sits on the dark observatory shell, with the memo card inset by 12px. Card padding is 20px. Section gap is 32px. Sections stack vertically in a single column. Section header at heading-sm (20px). Display register reserved for the company name only. Comparable cards stack vertically, not in a grid. The synthesis section is only visible if the user is authenticated (Chrome extension counts as authentication).
 
-The **web `/c/{slug}`** layout has more breathing room. Max-width 720px centered over the observatory shell. Card padding 32px. Section gap 64px. Hero section above the card uses the display register (72px Mona Sans) for the company name, 24px Plex Sans Mid Stone for the one-liner, and a 12px-radius OG image preview to the right (or below at narrow viewports). Synthesis section is omitted from the public URL. The page footer carries `coldstart.semitechie.vc` watermark and a "Read in extension to see analysis" link to the Chrome Web Store listing.
+The **web `/c/{slug}`** layout has more breathing room. Max-width 720px centered over the observatory shell. Card padding 32px. Section gap 64px. Hero section above the card uses the display register (72px Mona Sans) for the company name, 24px Plex Sans Mid Stone for the structured short description, and a 12px-radius OG image preview to the right (or below at narrow viewports). Descriptions may wrap naturally; do not rely on hard truncation to make the layout work. Synthesis section is omitted from the public URL. The page footer carries `coldstart.semitechie.vc` watermark and a "Read in extension to see analysis" link to the Chrome Web Store listing.
 
 ## Next Design Pass
 
@@ -240,14 +240,20 @@ Both surfaces share the citation drawer pattern: clicking any `[n]` opens the sa
 ```css
 :root {
   /* Colors */
+  --color-observatory-navy: #06192C;
+  --color-abyss-ink: #020812;
+  --color-lens-blue: #1674FF;
+  --color-wire-blue: #5FB4FF;
+  --color-ice-white: #EEF8FF;
   --color-canvas-parchment: #FAFAF7;
   --color-card-cream: #FFFFFF;
   --color-ink: #0A0A0A;
+  --color-muted-ink: #5F625C;
   --color-mid-stone: #6E6E76;
-  --color-soft-sand: #B7B6B0;
-  --color-citation-ultramarine: #1A1F8C;
+  --color-soft-sand: #D8D5CA;
+  --color-citation-ultramarine: #1674FF;
   --color-confidence-amber: #A8741F;
-  --color-confidence-sky: #1A1F8C;
+  --color-confidence-sky: #1674FF;
   --color-confidence-soft: #B7B6B0;
   --color-hover-pebble: #F0EFEA;
 
@@ -305,7 +311,7 @@ Both surfaces share the citation drawer pattern: clicking any `[n]` opens the sa
   --shadow-subtle: 0 0 0 1px rgba(10, 10, 10, 0.06);
   --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04), 0 0 0 1px rgba(10, 10, 10, 0.06);
   --shadow-popover: 0 8px 24px rgba(10, 10, 10, 0.12), 0 0 0 1px rgba(10, 10, 10, 0.08);
-  --shadow-focus-ring: 0 0 0 2px rgba(26, 31, 140, 0.35);
+  --shadow-focus-ring: 0 0 0 2px rgba(22, 116, 255, 0.35);
 }
 
 /* Apply tabular numerals globally */
@@ -318,13 +324,21 @@ Both surfaces share the citation drawer pattern: clicking any `[n]` opens the sa
 
 ```css
 @theme {
+  --color-observatory-navy: #06192C;
+  --color-abyss-ink: #020812;
+  --color-lens-blue: #1674FF;
+  --color-wire-blue: #5FB4FF;
+  --color-ice-white: #EEF8FF;
   --color-canvas-parchment: #FAFAF7;
   --color-card-cream: #FFFFFF;
   --color-ink: #0A0A0A;
+  --color-muted-ink: #5F625C;
   --color-mid-stone: #6E6E76;
-  --color-soft-sand: #B7B6B0;
-  --color-citation-ultramarine: #1A1F8C;
+  --color-soft-sand: #D8D5CA;
+  --color-citation-ultramarine: #1674FF;
   --color-confidence-amber: #A8741F;
+  --color-confidence-sky: #1674FF;
+  --color-confidence-soft: #B7B6B0;
   --color-hover-pebble: #F0EFEA;
 
   --font-plex-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
@@ -341,6 +355,7 @@ Both surfaces share the citation drawer pattern: clicking any `[n]` opens the sa
   --spacing-8: 32px;
   --spacing-12: 48px;
   --spacing-16: 64px;
+  --spacing-24: 96px;
 
   --radius-xs: 2px;
   --radius-sm: 4px;
@@ -352,7 +367,7 @@ Both surfaces share the citation drawer pattern: clicking any `[n]` opens the sa
 ## Similar Brands
 
 - **Linear**. Shares the discipline of one accent color and editorial type pairing. Linear leans more saturated; Cold Start stays parchment.
-- **Stripe Press**. The editorial gravity Cold Start aspires to in its synthesis register. Plex Serif italic is the direct nod.
+- **Stripe Press**. The editorial register Cold Start targets in synthesis. Plex Serif italic is the direct nod.
 - **Pitchbook**. The thing Cold Start replaces. Their tile is a competent dashboard. Cold Start's card is an editorial spread.
 - **Cursor**. The lineage parent for the warm parchment, Berkeley Mono accents, and subtle layered shadows.
 - **14islands**. The lineage parent for editorial display typography at scale and disciplined ink-on-light contrast.

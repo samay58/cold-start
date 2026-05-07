@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { companyDescriptionSchema } from "./intelligence";
 
 export const citationSchema = z.object({
   id: z.string().min(1),
@@ -6,7 +7,21 @@ export const citationSchema = z.object({
   title: z.string().min(1),
   fetchedAt: z.string().datetime(),
   sourceType: z.enum(["company_site", "news", "filing", "enrichment", "github", "rdap", "other"]),
-  snippet: z.string().optional()
+  snippet: z.string().optional(),
+  sourceQuality: z.object({
+    tier: z.enum([
+      "independent_technical",
+      "independent_analysis",
+      "independent_report",
+      "primary_company",
+      "press_release",
+      "enrichment",
+      "unknown"
+    ]),
+    label: z.string().min(1),
+    rationale: z.string().min(1),
+    incentive: z.string().min(1)
+  }).optional()
 });
 
 export const confidenceSchema = z.enum(["high", "medium", "low"]);
@@ -74,7 +89,8 @@ export const coldStartCardSchema = z.object({
   identity: z.object({
     name: resolvedFactSchema(z.string().min(1)),
     logoUrl: z.string().url().nullable(),
-    oneLiner: resolvedFactSchema(z.string().max(120)),
+    oneLiner: resolvedFactSchema(z.string().min(1)),
+    description: resolvedFactSchema(companyDescriptionSchema).optional(),
     hq: resolvedFactSchema(z.object({ city: z.string().min(1), country: z.string().min(1) })),
     foundedYear: resolvedFactSchema(z.number().int().min(1800).max(2100)),
     status: z.enum(["private", "public", "acquired", "shutdown"])
@@ -82,6 +98,7 @@ export const coldStartCardSchema = z.object({
   funding: z.object({
     totalRaisedUsd: resolvedFactSchema(z.number().int().nonnegative()),
     lastRound: resolvedFactSchema(roundSchema),
+    rounds: resolvedFactSchema(z.array(roundSchema)).optional(),
     investors: resolvedFactSchema(z.array(investorSchema))
   }),
   team: z.object({

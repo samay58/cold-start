@@ -17,23 +17,49 @@ describe("buildStableenrichRequests", () => {
     const requests = buildStableenrichRequests({}, "cartesia.ai");
 
     expect(requests.map((request) => request.name)).toEqual([
-      "exa_search_news",
+      "exa_funding_history",
+      "exa_company_profile",
+      "exa_independent_analysis",
       "exa_find_similar",
       "firecrawl_homepage",
       "org_enrichment",
     ]);
     expect(requests.map((request) => request.url)).toEqual([
       "https://stableenrich.dev/api/exa/search",
+      "https://stableenrich.dev/api/exa/search",
+      "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/find-similar",
       "https://stableenrich.dev/api/firecrawl/scrape",
       "https://stableenrich.dev/api/apollo/org-enrich",
     ]);
-    expect(requests[2]?.body).toEqual({ url: "https://cartesia.ai" });
+    expect(requests[0]?.body).toMatchObject({
+      query: expect.stringContaining("funding"),
+      numResults: 8,
+    });
+    expect(requests[1]?.body).toMatchObject({
+      query: expect.stringContaining("what does"),
+      numResults: 6,
+    });
+    expect(requests[4]?.body).toEqual({ url: "https://cartesia.ai" });
+  });
+
+  it("uses research-plan search queries when present", () => {
+    const requests = buildStableenrichRequests({}, "harvey.ai", {
+      searchQueries: {
+        funding: "harvey latest round valuation Sequoia",
+        companyProfile: "harvey legal AI workflow buyer",
+        independentAnalysis: "harvey Sacra ARR analysis",
+      },
+    });
+
+    expect(requests[0]?.body).toMatchObject({ query: "harvey latest round valuation Sequoia" });
+    expect(requests[1]?.body).toMatchObject({ query: "harvey legal AI workflow buyer" });
+    expect(requests[2]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
   });
 });
 
 describe("runStableenrichProbe", () => {
-  it("runs AgentCash calls sequentially to avoid wallet-backed CLI races", async () => {
+  it("runs Stableenrich probes concurrently so cold starts are bounded by the slowest provider", async () => {
     let activeCalls = 0;
     let maxActiveCalls = 0;
 
@@ -49,7 +75,7 @@ describe("runStableenrichProbe", () => {
       },
     });
 
-    expect(maxActiveCalls).toBe(1);
+    expect(maxActiveCalls).toBe(6);
   });
 
   it("keeps endpoint identity when an injected AgentCash fetch fails", async () => {
@@ -67,7 +93,7 @@ describe("runStableenrichProbe", () => {
       throw new Error("Expected the first probe to reject");
     }
     expect(firstResult.reason).toMatchObject({
-      name: "exa_search_news",
+      name: "exa_funding_history",
       endpointUrl: "https://stable.example/exa/search",
       error: "payment failed",
     });
@@ -88,15 +114,50 @@ describe("fetchStableenrichSources", () => {
     expect(result.failures).toEqual([]);
     expect(result.sources.map((source) => source.sourceType)).toEqual([
       "news",
+      "news",
+      "news",
       "enrichment",
       "company_site",
       "enrichment",
     ]);
     expect(result.sources[0]).toMatchObject({
-      url: "agentcash:exa_search_news",
-      title: "exa_search_news",
+      url: "agentcash:exa_funding_history",
+      title: "exa_funding_history",
       rawText: expect.stringContaining("source payload"),
     });
+  });
+
+  it("expands Exa search results into URL-backed source records with retrieval intent", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "perplexity.ai",
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/exa/search") {
+          return {
+            results: [
+              {
+                url: "https://www.perplexity.ai/hub/blog/series-b",
+                title: "Perplexity Series B",
+                text: "Perplexity raised a $63 million Series B led by IVP.",
+                publishedDate: "2024-04-23",
+              },
+            ],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.sources).toContainEqual(
+      expect.objectContaining({
+        url: "https://www.perplexity.ai/hub/blog/series-b",
+        title: "Perplexity Series B",
+        sourceType: "news",
+        intent: "funding",
+        rawText: expect.stringContaining("Series B"),
+      }),
+    );
   });
 
   it("returns endpoint failures instead of silently dropping rejected probes", async () => {
@@ -112,7 +173,7 @@ describe("fetchStableenrichSources", () => {
       },
     });
 
-    expect(result.sources).toHaveLength(3);
+    expect(result.sources).toHaveLength(5);
     expect(result.failures).toEqual([
       {
         name: "firecrawl_homepage",

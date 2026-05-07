@@ -14,12 +14,13 @@ html {
 body {
   min-height: 100vh;
   background:
-    linear-gradient(90deg, rgb(95 180 255 / 0.06) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(95 180 255 / 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 50% 12%, rgb(95 180 255 / 0.18), transparent 34rem),
+    linear-gradient(90deg, rgb(95 180 255 / 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(95 180 255 / 0.043) 1px, transparent 1px),
+    radial-gradient(circle at 18% 12%, rgb(95 180 255 / 0.16), transparent 26rem),
+    radial-gradient(circle at 82% 18%, rgb(238 248 255 / 0.07), transparent 22rem),
     linear-gradient(180deg, #08223d 0%, var(--color-observatory-navy, #06192c) 46%, var(--color-abyss-ink, #020812) 100%);
   background-attachment: fixed;
-  background-size: 56px 56px, 56px 56px, auto, auto;
+  background-size: 64px 64px, 64px 64px, auto, auto, auto;
   color: var(--color-ice-white, #eef8ff);
   font-family: var(--font-plex-sans, "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif);
   font-feature-settings: "tnum" 1;

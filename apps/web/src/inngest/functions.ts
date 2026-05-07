@@ -4,6 +4,8 @@ import {
   anthropicModel,
   createAnthropicClient,
   extractCompanyClaims,
+  fallbackResearchPlan,
+  planCompanyResearch,
   synthesizeCard,
   verifySynthesis,
 } from "@cold-start/llm";
@@ -77,11 +79,19 @@ export const generateCardFunction = inngest.createFunction(
       const anthropic = createAnthropicClient();
       const model = anthropicModel();
       const stableEnv = stableenrichEnvFromProcess();
+      const researchPlan = await step.run("plan-research", async () => {
+        try {
+          return await planCompanyResearch({ client: anthropic, model, domain });
+        } catch {
+          return fallbackResearchPlan(domain);
+        }
+      });
 
       const sourceResult = await step.run("fetch-sources", async () => {
         const result = await fetchStableenrichSources({
           env: stableEnv,
           domain,
+          researchPlan,
         });
 
         if (result.sources.length === 0) {
@@ -99,12 +109,13 @@ export const generateCardFunction = inngest.createFunction(
 
       const clean = await step.run("generate-card", () =>
         generateCardForDomain(domain, {
+          researchPlan,
           fetchSources: async () => sourceResult.sources,
-          extractSections: async ({ domain: candidateDomain, sources }): Promise<ExtractedCardSections> =>
+          extractSections: async ({ domain: candidateDomain, sources, evidenceLedger }): Promise<ExtractedCardSections> =>
             extractCompanyClaims({
               client: anthropic,
               model,
-              evidence: { domain: candidateDomain, sources },
+              evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
             }),
           synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
           verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),

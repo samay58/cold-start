@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildSkeletonCard,
   type ExtractedCardSections,
@@ -105,6 +105,48 @@ describe("generateCardForDomain", () => {
     expect(card.synthesis).toBeUndefined();
   });
 
+  it("keeps the extracted card when optional synthesis fails", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const verify = vi.fn();
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: {
+            value: "Cartesia",
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"]
+          }
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [
+          {
+            id: "c1",
+            url: "https://cartesia.ai/",
+            title: "Cartesia",
+            fetchedAt: "2026-05-06T12:00:00.000Z",
+            sourceType: "company_site",
+            snippet: "Cartesia is building voice AI infrastructure."
+          }
+        ]
+      }),
+      synthesize: async () => {
+        throw new Error("Synthesis citation ID not found on card: e9");
+      },
+      verify
+    });
+
+    expect(card.identity.name.value).toBe("Cartesia");
+    expect(card.synthesis).toBeUndefined();
+    expect(verify).not.toHaveBeenCalled();
+  });
+
   it("ignores unexpected top-level extracted section keys", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
 
@@ -126,5 +168,71 @@ describe("generateCardForDomain", () => {
 
     expect(card.slug).toBe("cartesia");
     expect(card.generationCostUsd).toBe(1.2346);
+  });
+
+  it("passes an evidence ledger into extraction", async () => {
+    const skeleton = buildSkeletonCard("perplexity.ai");
+    let ledgerLength = 0;
+
+    await generateCardForDomain("perplexity.ai", {
+      fetchSources: async () => [
+        {
+          url: "https://www.perplexity.ai/hub/blog/series-b",
+          title: "Perplexity Series B",
+          sourceType: "news",
+          fetchedAt: "2026-05-07T00:00:00.000Z",
+          intent: "funding",
+          rawText: "Perplexity raised $63 million in a Series B led by IVP.",
+        },
+      ],
+      extractSections: async ({ evidenceLedger }) => {
+        ledgerLength = evidenceLedger.length;
+        return {
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: [],
+        };
+      },
+    } as GenerateCardDeps);
+
+    expect(ledgerLength).toBe(1);
+  });
+
+  it("passes the research plan into source fetching and extraction", async () => {
+    const skeleton = buildSkeletonCard("harvey.ai");
+    const researchPlan = {
+      searchQueries: {
+        funding: "harvey funding",
+        companyProfile: "harvey product",
+        independentAnalysis: "harvey analysis",
+      },
+    };
+    let fetchSawPlan = false;
+    let extractionSawPlan = false;
+
+    await generateCardForDomain("harvey.ai", {
+      researchPlan,
+      fetchSources: async (_domain, plan) => {
+        fetchSawPlan = plan === researchPlan;
+        return [];
+      },
+      extractSections: async ({ researchPlan: plan }) => {
+        extractionSawPlan = plan === researchPlan;
+        return {
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: [],
+        };
+      },
+    } as GenerateCardDeps);
+
+    expect(fetchSawPlan).toBe(true);
+    expect(extractionSawPlan).toBe(true);
   });
 });

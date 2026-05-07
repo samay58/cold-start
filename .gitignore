@@ -1,6 +1,7 @@
 .worktrees/
 node_modules/
 .next/
+apps/web/.cold-start/
 dist/
 coverage/
 .env
@@ -10,3 +11,5 @@ coverage/
 /drizzle/
 playwright-report/
 test-results/
+.specstory/
+.DS_Store

@@ -123,6 +123,7 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
   const publicClaims: PublicClaim[] = [
     { path: "identity.name", fact: publicOnly.identity.name },
     { path: "identity.oneLiner", fact: publicOnly.identity.oneLiner },
+    ...(publicOnly.identity.description ? [{ path: "identity.description", fact: publicOnly.identity.description }] : []),
     { path: "identity.hq", fact: publicOnly.identity.hq },
     { path: "identity.foundedYear", fact: publicOnly.identity.foundedYear },
     { path: "funding.totalRaisedUsd", fact: publicOnly.funding.totalRaisedUsd },
@@ -272,6 +273,18 @@ export async function markGenerationRun(
       .update(generationRuns)
       .set(values)
       .where(and(eq(generationRuns.slug, input.slug), inArray(generationRuns.status, ["queued", "running"])))
+      .returning();
+
+    if (updated) {
+      return updated;
+    }
+  }
+
+  if (input.status === "running") {
+    const [updated] = await db
+      .update(generationRuns)
+      .set(values)
+      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.status, "queued")))
       .returning();
 
     if (updated) {

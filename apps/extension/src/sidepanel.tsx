@@ -1,25 +1,34 @@
 import type { ColdStartCard } from "@cold-start/core";
 import { CardShell } from "@cold-start/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  ApiError,
+  buildGenerateRequest,
   buildCardRequest,
   defaultApiOrigin,
   normalizeApiOrigin,
   parseCardResponse,
+  parseGenerateResponse,
+  readableCompanyNameFromDomain,
   readableCardError,
   storedApiOriginOrDefault,
+  type GenerationStatus,
   type Settings
 } from "./extension-config";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
+const GENERATION_POLL_DELAY_MS = 2500;
+const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 
 type RequestState =
   | { status: "idle" }
   | { status: "loading" }
+  | { status: "readyToGenerate" }
+  | { status: "generating"; generationStatus: GenerationStatus["status"] }
   | { status: "success"; card: ColdStartCard }
   | { status: "error"; message: string };
 
@@ -60,6 +69,70 @@ async function fetchCard(domain: string, settings: Settings, signal: AbortSignal
   const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);
+}
+
+async function requestGeneration(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal
+): Promise<GenerationStatus> {
+  const request = buildGenerateRequest(domain, settings, signal);
+  const response = await fetch(request.url, request.init);
+  return parseGenerateResponse(response);
+}
+
+function isMissingCard(caught: unknown) {
+  return caught instanceof ApiError && caught.status === 404 && caught.message === "card not found";
+}
+
+function waitForNextPoll(signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error("request aborted"));
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, GENERATION_POLL_DELAY_MS);
+
+    function handleAbort() {
+      window.clearTimeout(timeout);
+      reject(new Error("request aborted"));
+    }
+
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+async function startGenerationAndPoll(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  onGenerationStatus: (status: GenerationStatus["status"]) => void
+): Promise<ColdStartCard> {
+  const generation = await requestGeneration(domain, settings, signal);
+  onGenerationStatus(generation.status);
+
+  if (generation.status === "cached") {
+    return fetchCard(domain, settings, signal);
+  }
+
+  const deadline = Date.now() + GENERATION_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await waitForNextPoll(signal);
+
+    try {
+      return await fetchCard(domain, settings, signal);
+    } catch (caught) {
+      if (!isMissingCard(caught)) {
+        throw caught;
+      }
+    }
+  }
+
+  throw new ApiError("Card generation is taking longer than expected. Keep the local worker running, then reopen Cold Start.", 202);
 }
 
 function SettingsForm({
@@ -126,11 +199,103 @@ function SettingsForm({
   );
 }
 
-function SidePanel() {
+function GenerationPanel({
+  domain,
+  requestState
+}: {
+  domain: string;
+  requestState: Extract<RequestState, { status: "loading" | "generating" | "idle" }>;
+}) {
+  const companyName = readableCompanyNameFromDomain(domain);
+  const activeIndex =
+    requestState.status === "loading" || requestState.status === "idle"
+      ? 0
+      : requestState.generationStatus === "queued"
+        ? 1
+        : 2;
+  const statusText =
+    requestState.status === "generating"
+      ? requestState.generationStatus === "queued"
+        ? "Queued"
+        : "Running"
+      : "Checking cache";
+  const stages = [
+    { label: "Resolve", detail: "Domain, settings, cached card" },
+    { label: "Plan", detail: "Funding, product, independent sources" },
+    { label: "Retrieve", detail: "Source map and evidence ledger" },
+    { label: "Synthesize", detail: "Rounds, description, investor read" }
+  ];
+
+  return (
+    <div className="cs-extension-panel cs-generation-panel" aria-live="polite">
+      <div className="cs-generation-topline">
+        <div>
+          <p className="cs-extension-kicker">{domain}</p>
+          <h1>{companyName}</h1>
+        </div>
+        <span className="cs-generation-status">{statusText}</span>
+      </div>
+
+      <div className="cs-generation-instrument" aria-hidden="true">
+        <span className="cs-generation-sweep" />
+        <span className="cs-generation-core" />
+      </div>
+
+      <div className="cs-generation-stage-list">
+        {stages.map((stage, index) => (
+          <div
+            className={index === activeIndex ? "cs-generation-stage is-active" : "cs-generation-stage"}
+            key={stage.label}
+          >
+            <span className="cs-generation-stage-dot" />
+            <div>
+              <strong>{stage.label}</strong>
+              <span>{stage.detail}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StartGenerationPanel({
+  domain,
+  onEditSettings,
+  onStart
+}: {
+  domain: string;
+  onEditSettings: () => void;
+  onStart: () => void;
+}) {
+  const companyName = readableCompanyNameFromDomain(domain);
+
+  return (
+    <div className="cs-extension-panel">
+      <p className="cs-extension-kicker">{domain}</p>
+      <h1>Generate {companyName}?</h1>
+      <p className="cs-extension-copy">Cold Start will research this company and save a sourced card.</p>
+      <div className="cs-extension-actions">
+        <button className="cs-extension-button" onClick={onStart} type="button">Start</button>
+        <button className="cs-extension-link-button" onClick={onEditSettings} type="button">
+          Edit settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function SidePanel() {
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });
   const [showSettings, setShowSettings] = useState(false);
+  const activeRequest = useRef<AbortController | null>(null);
+
+  function abortActiveRequest() {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -150,6 +315,8 @@ function SidePanel() {
       }
 
       const nextDomain = changes.activeDomain.newValue;
+      abortActiveRequest();
+      setRequestState({ status: "idle" });
       setDomain(typeof nextDomain === "string" ? nextDomain : null);
     }
 
@@ -157,21 +324,70 @@ function SidePanel() {
 
     return () => {
       mounted = false;
+      abortActiveRequest();
       chrome.storage.onChanged.removeListener(handleStorageChange);
     };
   }, []);
 
   useEffect(() => {
     if (!domain || !settings?.apiToken) {
+      abortActiveRequest();
       setRequestState({ status: "idle" });
       return;
     }
 
     const controller = new AbortController();
+    abortActiveRequest();
+    activeRequest.current = controller;
     setRequestState({ status: "loading" });
 
     void fetchCard(domain, settings, controller.signal)
-      .then((card) => setRequestState({ status: "success", card }))
+      .then((card) => {
+        if (!controller.signal.aborted) {
+          setRequestState({ status: "success", card });
+        }
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = caught instanceof Error ? caught.message : String(caught);
+        if (isMissingCard(caught)) {
+          setRequestState({ status: "readyToGenerate" });
+        } else {
+          setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
+        }
+      });
+
+    return () => {
+      controller.abort();
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+      }
+    };
+  }, [domain, settings]);
+
+  function handleStartGeneration() {
+    if (!domain || !settings?.apiToken) {
+      return;
+    }
+
+    const controller = new AbortController();
+    abortActiveRequest();
+    activeRequest.current = controller;
+    setRequestState({ status: "generating", generationStatus: "queued" });
+
+    void startGenerationAndPoll(domain, settings, controller.signal, (generationStatus) => {
+      if (!controller.signal.aborted) {
+        setRequestState({ status: "generating", generationStatus });
+      }
+    })
+      .then((card) => {
+        if (!controller.signal.aborted) {
+          setRequestState({ status: "success", card });
+        }
+      })
       .catch((caught: unknown) => {
         if (controller.signal.aborted) {
           return;
@@ -180,9 +396,7 @@ function SidePanel() {
         const message = caught instanceof Error ? caught.message : String(caught);
         setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
       });
-
-    return () => controller.abort();
-  }, [domain, settings]);
+  }
 
   if (!settings) {
     return <div className="cs-extension-empty">Loading settings...</div>;
@@ -214,7 +428,21 @@ function SidePanel() {
   }
 
   if (requestState.status === "loading" || requestState.status === "idle") {
-    return <div className="cs-extension-empty">Loading {domain}...</div>;
+    return <GenerationPanel domain={domain} requestState={requestState} />;
+  }
+
+  if (requestState.status === "readyToGenerate") {
+    return (
+      <StartGenerationPanel
+        domain={domain}
+        onEditSettings={() => setShowSettings(true)}
+        onStart={handleStartGeneration}
+      />
+    );
+  }
+
+  if (requestState.status === "generating") {
+    return <GenerationPanel domain={domain} requestState={requestState} />;
   }
 
   if (requestState.status === "error") {
@@ -233,4 +461,7 @@ function SidePanel() {
   return <CardShell card={requestState.card} surface="extension" />;
 }
 
-createRoot(document.getElementById("root")!).render(<SidePanel />);
+const root = document.getElementById("root");
+if (root) {
+  createRoot(root).render(<SidePanel />);
+}

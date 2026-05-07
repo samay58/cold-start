@@ -1,11 +1,11 @@
 ---
-title: Cold Start — AI-Native Company Context Card
+title: Cold Start: Company Context Card
 date: 2026-05-06
 type: product-spec
 status: approved-for-planning
 owner: samay
 brand: @semitechievc (personal)
-domain: coldstart.semitechie.vc (placeholder; TODO check coldstart.vc)
+domain: coldstart.semitechie.vc
 tags: [career-pipeline, build-public, ai-native-investor-tools]
 ---
 
@@ -13,7 +13,7 @@ tags: [career-pipeline, build-public, ai-native-investor-tools]
 
 ## What it is
 
-One click on any company website, get a sourced investor-grade card in under thirty seconds. The card lives at a public URL (`coldstart.semitechie.vc/c/{slug}`) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same card; the extension adds gated synthesis (bull case, bear case, open questions) that the public URL does not.
+One click on any company website, get a cached sourced card quickly or start a fresh background generation when no card exists yet. The card lives at a public URL (`coldstart.semitechie.vc/c/{slug}`) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same card; the extension adds gated synthesis (why it might matter, bull case, bear case, open questions) that the public URL does not.
 
 The wedge is not "more data than Pitchbook." It is faster bearings on the company already in the tab.
 
@@ -32,14 +32,14 @@ Third, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would ha
 This is the load-bearing decision. Resolved 2026-05-06.
 
 **Public surface** (`coldstart.semitechie.vc/c/{slug}`) renders sourced facts only:
-- Identity (name, domain, logo, one-liner, HQ, founded year, status)
+- Identity (name, domain, logo, structured description, HQ, founded year, status)
 - Funding (total raised, last round, lead investors, all cited)
 - Leadership (CEO, founders, with source links)
 - Recent signals (news, hiring, launches, last 90 days, all linked)
 - Closest comparables (via Exa `findSimilar`)
 - Citation list (every claim resolves to a URL)
 
-**Gated surface** (Chrome extension or magic-link auth on web) adds:
+**Gated surface** (Chrome extension; web auth TBD, see open question #2) adds:
 - Why it might matter (3 to 5 sentences, sourced)
 - Bull case (3 bullets, each cited)
 - Bear case (3 bullets, each cited)
@@ -61,7 +61,13 @@ type ColdStartCard = {
   identity: {
     name: ResolvedFact<string>;
     logoUrl: string | null;
-    oneLiner: ResolvedFact<string>;     // <=120 chars
+    oneLiner: ResolvedFact<string>;     // compatibility display alias
+    description?: ResolvedFact<{
+      shortDescription: string;
+      concept: string | null;
+      serves: string | null;
+      mechanism: string | null;
+    }>;
     hq: ResolvedFact<{ city: string; country: string }>;
     foundedYear: ResolvedFact<number>;
     status: 'private' | 'public' | 'acquired' | 'shutdown';
@@ -69,6 +75,7 @@ type ColdStartCard = {
   funding: {
     totalRaisedUsd: ResolvedFact<number | null>;
     lastRound: ResolvedFact<Round | null>;
+    rounds?: ResolvedFact<Round[]>;
     investors: ResolvedFact<Investor[]>;
   };
   team: {
@@ -99,6 +106,8 @@ type ResolvedFact<T> = {
 
 Three rules that fall out of this schema.
 
+`partial` means at least one section was served from cache while another section was regenerated, such as identity remaining valid while signals expired.
+
 Synthesis sentences must end in `[n]` matching a citation. The post-processor strips any sentence ending in `[needs_verification]`. This is structural, not vibes.
 
 If a `ResolvedFact` has no citation, its `value` must be `null` and `status` must be `unknown`. The render layer hides null facts. No "TBD" cards.
@@ -113,18 +122,18 @@ The synthesis block is omitted entirely from the public JSON response. The web a
 |-------|------|-----------|
 | Web framework | Next.js 15 App Router (PPR + Suspense streaming) | Streaming card rendering is the v0 visible quality lever; PPR lets the static shell render in <500ms while sections stream |
 | Hosting | Vercel | Best fidelity on Next.js features that matter here; switch to self-hosted only if cost forces it |
-| DB | Neon Postgres + pgvector | Free tier covers v0; pgvector for slug deduplication |
+| DB | Neon Postgres + pgvector | Free tier covers v0; pgvector for fuzzy company matching across slugs |
 | Cache | Postgres `cards` table with TTLs per section | Identity 7d, signals 6h, synthesis 24h |
 | Object store | Cloudflare R2 | OG images for X previews; egress-free |
 | Background jobs | Inngest | Step functions map to the card pipeline; 60-90s deep generations cannot run in a request handler |
-| LLM | Claude Sonnet 4.6 (Anthropic direct) | Single model for extraction + synthesis in v0; prompt caching cuts repeated system-prompt cost ~90% |
+| LLM | Claude Sonnet 4.6 (Anthropic direct) | Single model for extraction + synthesis in v0; prompt caching reduces repeated system-prompt cost, up to ~90% at steady traffic |
 | Extension | MV3 + Side Panel API + Vite + CRXJS + React + Tailwind + shadcn | Standard 2026 stack; side panel persists across navigation |
 
-**Data plumbing** is the AgentCash + stableenrich path. Live AgentCash discovery confirms stableenrich exposes Exa search, Exa findSimilar, Firecrawl scrape, and Apollo organization enrichment for the v0 company-card path. There is no AgentCash API key in this flow: AgentCash handles payment from a wallet, using the local `~/.agentcash/wallet.json` in development or `X402_PRIVATE_KEY` in deployed environments. The app pins the `agentcash` npm package and invokes the installed CLI, not `npx agentcash@latest` at request time. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr free), RDAP (free).
+**Data plumbing** is the AgentCash + stableenrich path. As of 2026-05-06, stableenrich exposes Exa search, Exa findSimilar, Firecrawl scrape, and Apollo organization enrichment via AgentCash for the v0 company-card path. There is no AgentCash API key in this flow: AgentCash handles payment from a wallet, using the local `~/.agentcash/wallet.json` in development or `X402_PRIVATE_KEY` in deployed environments. The app pins the `agentcash` npm package and invokes the installed CLI, not `npx agentcash@latest` at request time. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr with PAT), RDAP (free).
 
 The AgentCash path collapses what Spec 3 modeled as separate vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a stableenrich endpoint turns out to be missing or unreliable during the day-1 spike, fall back to a direct account for that single call. Everything else stays on AgentCash.
 
-**Pipeline** (single-agent, parallel tool calls, no orchestrator):
+**Pipeline** (single agent, parallel tool calls, no orchestrator-worker hierarchy):
 
 ```
 Activation (extension click or URL navigation)
@@ -153,7 +162,7 @@ Verifier pass (Sonnet 4.6, second call, asks "is each [n] supported by source [n
 Stream sections to client via Suspense
 ```
 
-The verifier is cheap because the prompt is short and cacheable. It catches the "cited a source that doesn't actually support the claim" failure mode that base citation enforcement misses.
+The verifier is cheap because the system prompt is cacheable and the per-card input is bounded by the citation count. It catches the "cited a source that doesn't actually support the claim" failure mode that base citation enforcement misses.
 
 **Trust enforcement** (six structural checks, all run in v0):
 
@@ -161,7 +170,7 @@ The verifier is cheap because the prompt is short and cacheable. It catches the 
 2. Citation IDs in synthesis are required by schema; missing IDs trigger regen.
 3. Forbidden phrase regex on synthesis output: "reportedly," "industry sources suggest," "rumored to," "appears to be," "is said to." Any hit triggers regen.
 4. Two-source rule on funding total, valuation, headcount. Single-source claims downgrade to `confidence: 'low'`.
-5. Verifier subagent re-reads synthesis with sources in context, returns supported/contradicted/unsupported per claim. Anything not `supported` is dropped.
+5. Verifier pass re-reads synthesis with sources in context, returns supported/contradicted/unsupported per claim. Anything not `supported` is dropped.
 6. Confidence badges visible in the UI. `verified` (green), `mixed` (amber, conflict surfaced), `inferred` (blue, AI-derived), `unknown` (gray).
 
 ## Cost model
@@ -178,7 +187,7 @@ Estimated per uncached card via AgentCash + stableenrich + Anthropic direct:
 | Sonnet 4.6 synthesis (cached prompt) | ~$0.04 |
 | Sonnet 4.6 verifier (cached prompt) | ~$0.01 |
 | EDGAR / GitHub / RDAP | $0 |
-| **Total** | **~$0.16** |
+| **Total** | **~$0.16 to $0.20** |
 
 Cache hit (Postgres lookup, no LLM): ~$0.0001. At any meaningful traffic the blended cost converges toward the cache-hit case because popular domains (Notion, Stripe, OpenAI) get hit thousands of times.
 
@@ -194,7 +203,7 @@ Day 2-3: Next.js scaffold on Vercel. Postgres schema for `cards`, `claims`, `cit
 
 Day 4-5: Claim extraction pipeline. Run end-to-end on 5 hand-picked companies (Cartesia, Stripe, Linear, a Series A you know well, a public company). Validate structured output, citations resolve, no hallucinated facts.
 
-Day 6-7: Conflict resolution + verifier subagent + forbidden-phrase regex. Run on 25 companies. Manually score: identity correct, funding correct, no fabricated citations.
+Day 6-7: Conflict resolution + verifier pass + forbidden-phrase regex. Run on 25 companies. Manually score: identity correct, funding correct, no fabricated citations.
 
 **Week 2: web app + public card**
 
@@ -208,7 +217,7 @@ Day 13-14: Eval harness. Hand-curated 50-company golden set. Promptfoo for promp
 
 Day 15-17: Extension scaffold (Vite + CRXJS, MV3, Side Panel API). URL capture, page metadata, backend stream call. Side panel renders the full card including gated synthesis section. `chrome.sidePanel.open()` in user-gesture handler (synchronous; must not be inside `await`).
 
-Day 18-19: Privacy copy, manifest minimal permissions (`sidePanel`, `activeTab`, `scripting`, `storage`). Submit to Chrome Web Store. Expect 2 to 7 day review.
+Day 18-19: Privacy copy, manifest minimal permissions (`sidePanel`, `activeTab`, `scripting`, `storage`). Submit to Chrome Web Store. First-submission review may take up to several weeks; web app is the launch surface while review is pending.
 
 Day 20-21: Web app polish, landing page at `coldstart.semitechie.vc`. Twitter launch thread under @semitechievc. Manual posting of 5 to 10 cards to seed the public corpus.
 
@@ -227,7 +236,7 @@ Defer all of this to v1.1 or later:
 - "Should I invest" scoring.
 - iOS app, Slack bot, MCP endpoint.
 
-The discipline is: every v0 feature must serve the activation moment (one click → sourced card in 30s). If a feature serves a different moment, it's v1.
+The discipline is: every v0 feature must serve the activation moment. For cached companies, the card should appear immediately. For uncached companies, one click starts a 60 to 90 second sourced generation. If a feature serves a different moment, it's v1.
 
 ## Risks
 
@@ -237,11 +246,11 @@ The discipline is: every v0 feature must serve the activation moment (one click 
 | AgentCash wallet drains during Twitter spike | Medium | Top-up alarm at $20 floor; cap free-tier rate at 25 cards/IP/day; cache aggressively |
 | Defamation from bear case on extension | Medium | Bear case sentences must each cite a primary source; legal review of synthesis prompt before extension goes public; user feedback "report wrong" button writes to Postgres for triage |
 | Pitchbook lawyers notice | Low | Public surface is sourced facts with citations, not Pitchbook data; no proprietary feed used; respond if they reach out |
-| Sonnet 4.6 extraction fabricates a number | Medium | Forbidden-phrase regex; verifier subagent; structured output with JSON Schema; manual review of first 25 cards |
+| Sonnet 4.6 extraction fabricates a number | Medium | Forbidden-phrase regex; verifier pass; structured output with JSON Schema; manual review of first 25 cards |
 | Chrome Web Store rejection | Low | Minimal permissions; clear privacy copy; web app is the immediate fallback while resubmitting |
 | stableenrich endpoint price changes | Medium | AgentCash settings let you cap per-call spend; abstraction layer makes per-endpoint vendor swap a config change |
 | Cache key collision (two companies, same name) | Medium | Slug includes domain disambiguator; pgvector similarity check at ingest |
-| Single Sonnet 4.6 outage | Medium | Backup prompt path to GPT-5.x via the same JSON Schema; one-line model swap |
+| Single Sonnet 4.6 outage | Medium | Backup prompt path to GPT-5.x via the same JSON Schema; model swap is a config change plus prompt regression testing |
 
 ## Decisions made (record)
 
@@ -259,8 +268,8 @@ The discipline is: every v0 feature must serve the activation moment (one click 
 
 These do not block the implementation plan but should be resolved before launch:
 
-1. Domain: confirm `coldstart.vc` availability. If taken, `coldstart.semitechie.vc` ships as the launch URL.
-2. Magic-link auth provider for web-side gated synthesis: Clerk, Auth.js, or skip entirely and require Chrome extension install for any synthesis access? Recommend skip; Chrome install IS the auth.
+1. Domain: launch on `coldstart.semitechie.vc`.
+2. Magic-link auth provider for web-side gated synthesis: Clerk, Auth.js, or skip entirely and require Chrome extension install for any synthesis access? Recommend skip; Chrome install is the auth.
 3. First 50 companies for the golden eval set: Samay to draft the list (10 portfolio companies, 10 NYC AI infra, 10 Series A you've passed, 10 ambiguous, 5 public, 5 acquired/subsidiary).
 4. Legal review of synthesis prompt template before extension launches publicly. Cheap insurance; one hour with a lawyer who reviews early-stage product copy.
 5. Whether the public URL surface pre-renders the OG card image at generation time (saves runtime cost on viral tweets) or lazy-generates on first share.

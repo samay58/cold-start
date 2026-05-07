@@ -10,15 +10,33 @@ export type StableenrichEnv = Partial<
 >;
 
 export type StableenrichProbeName =
-  | "exa_search_news"
+  | "exa_funding_history"
+  | "exa_company_profile"
+  | "exa_independent_analysis"
   | "exa_find_similar"
   | "firecrawl_homepage"
   | "org_enrichment";
+
+export type RetrievalIntent =
+  | "funding"
+  | "company_profile"
+  | "independent_analysis"
+  | "comparables"
+  | "homepage"
+  | "firmographics";
 
 export type StableenrichProbe = {
   name: StableenrichProbeName;
   url: string;
   body: Record<string, unknown>;
+};
+
+export type ProviderResearchPlan = {
+  searchQueries?: {
+    funding?: string;
+    companyProfile?: string;
+    independentAnalysis?: string;
+  };
 };
 
 export type ProviderSource = {
@@ -27,4 +45,6 @@ export type ProviderSource = {
   sourceType: "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
   fetchedAt: string;
   rawText: string;
+  intent?: RetrievalIntent;
+  publishedAt?: string;
 };

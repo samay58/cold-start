@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractionTool, parseExtractionToolUse } from "../src/index";
+import { evidenceForExtractionPrompt, extractionSystemPrompt, extractionTool, parseExtractionToolUse } from "../src/index";
 
 const unknownFact = {
   value: null,
@@ -12,7 +12,23 @@ const validExtractionPayload = {
   identity: {
     name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["c1"] },
     logoUrl: null,
-    oneLiner: unknownFact,
+    oneLiner: {
+      value: "Real-time voice AI infrastructure for developers building low-latency audio products.",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    },
+    description: {
+      value: {
+        shortDescription: "Real-time voice AI infrastructure for developers building low-latency audio products.",
+        concept: "Low-latency speech models exposed as developer infrastructure.",
+        serves: "Developers building voice agents and audio applications.",
+        mechanism: "APIs and models for real-time speech generation and understanding."
+      },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    },
     hq: unknownFact,
     foundedYear: unknownFact,
     status: "private"
@@ -20,6 +36,7 @@ const validExtractionPayload = {
   funding: {
     totalRaisedUsd: unknownFact,
     lastRound: unknownFact,
+    rounds: unknownFact,
     investors: unknownFact
   },
   team: {
@@ -80,6 +97,10 @@ describe("extractionTool", () => {
         leadInvestors: { type: "array", items: { type: "string", minLength: 1 } }
       }
     });
+    expect(funding.properties.rounds.properties.value.anyOf[0]).toMatchObject({
+      type: "array",
+      items: funding.properties.lastRound.properties.value.anyOf[0]
+    });
     expect(extractionTool.input_schema.properties.citations.items.properties.url).toMatchObject({
       type: "string",
       minLength: 1,
@@ -106,6 +127,56 @@ describe("extractionTool", () => {
       minLength: 1,
       format: "uri"
     });
+    expect(identity.properties.oneLiner.properties.value.anyOf[0]).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+    expect(identity.properties.description.properties.value.anyOf[0]).toMatchObject({
+      type: "object",
+      properties: {
+        shortDescription: { type: "string", minLength: 1 },
+        concept: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+      }
+    });
+  });
+});
+
+describe("extractionSystemPrompt", () => {
+  it("requires round-ledger funding reconciliation and non-generic investor-grade one-liners", () => {
+    expect(extractionSystemPrompt).toContain("round ledger");
+    expect(extractionSystemPrompt).toContain("Do not write generic category labels");
+    expect(extractionSystemPrompt).toContain("mechanically reconciled");
+    expect(extractionSystemPrompt).toContain("source incentives");
+    expect(extractionSystemPrompt).toContain("Do not truncate mid-thought");
+  });
+});
+
+describe("evidenceForExtractionPrompt", () => {
+  it("keeps prompt evidence compact while preserving ranked source identity", () => {
+    const evidence = evidenceForExtractionPrompt({
+      domain: "harvey.ai",
+      sources: Array.from({ length: 30 }, (_, index) => ({
+        url: `https://source.example/${index}`,
+        title: `Source ${index}`,
+        sourceType: "news",
+        rawText: `source ${index} ${"important funding and product context ".repeat(200)}`,
+      })),
+      evidenceLedger: Array.from({ length: 25 }, (_, index) => ({
+        id: `e${index + 1}`,
+        url: `https://source.example/${index}`,
+        title: `Source ${index}`,
+        sourceType: "news",
+        intents: ["funding"],
+        authorityScore: 10 - index,
+        supportingSnippets: [`snippet ${index} ${"details ".repeat(200)}`],
+      })),
+    });
+
+    expect(evidence.evidenceLedger).toHaveLength(20);
+    expect(evidence.sources).toHaveLength(20);
+    expect(evidence.sources[0]?.rawText.length).toBeLessThanOrEqual(2203);
+    expect(evidence.evidenceLedger?.[0]?.supportingSnippets[0]?.length).toBeLessThanOrEqual(423);
+    expect(evidence.sources[0]?.url).toBe("https://source.example/0");
   });
 });
 
@@ -119,6 +190,175 @@ describe("parseExtractionToolUse", () => {
     });
 
     expect(payload).toEqual(validExtractionPayload);
+  });
+
+  it("keeps complete descriptions instead of applying a hard character cap", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              oneLiner: {
+                value:
+                  "TwelveLabs builds multimodal video understanding infrastructure that lets developers search, classify, and reason over large video libraries with AI models.",
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"],
+              },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(payload.identity.oneLiner.value).toBe(
+      "TwelveLabs builds multimodal video understanding infrastructure that lets developers search, classify, and reason over large video libraries with AI models."
+    );
+  });
+
+  it("derives the compatibility one-liner from structured description when needed", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              oneLiner: unknownFact,
+              description: {
+                value: {
+                  shortDescription: "Domain-specific AI for law firms and in-house legal teams.",
+                  concept: "A legal workflow layer built around case and contract work.",
+                  serves: "Law firms and in-house legal teams.",
+                  mechanism: "AI assistants and workflow agents embedded into legal tasks."
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            },
+          },
+        },
+      ],
+    });
+
+    expect(payload.identity.oneLiner.value).toBe("Domain-specific AI for law firms and in-house legal teams.");
+  });
+
+  it("does not rewrite description prose during normalization", () => {
+    const description = "A research workspace for technical diligence over";
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: description,
+                  concept: null,
+                  serves: null,
+                  mechanism: null
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.identity.description?.value?.shortDescription).toBe(description);
+  });
+
+  it("defaults omitted optional list sections to empty arrays", () => {
+    const { signals: _signals, comparables: _comparables, ...payloadWithoutOptionalLists } = validExtractionPayload;
+
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: payloadWithoutOptionalLists,
+        },
+      ],
+    });
+
+    expect(payload.signals).toEqual([]);
+    expect(payload.comparables).toEqual([]);
+  });
+
+  it("converts missing required fact sections into explicit unknown facts", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            identity: {
+              name: { value: "TwelveLabs" },
+              status: "private",
+            },
+            citations: [],
+          },
+        },
+      ],
+    });
+
+    expect(payload.identity.name).toEqual(unknownFact);
+    expect(payload.identity.oneLiner).toEqual(unknownFact);
+    expect(payload.identity.description).toEqual(unknownFact);
+    expect(payload.funding.totalRaisedUsd).toEqual(unknownFact);
+    expect(payload.funding.rounds).toEqual(unknownFact);
+    expect(payload.team.founders).toEqual(unknownFact);
+  });
+
+  it("filters malformed optional list items instead of failing the full extraction", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            signals: [
+              {
+                title: "Launch",
+                url: "https://example.com/launch",
+                date: "2026-05-01",
+                source: "Example",
+                category: "launch",
+                citationIds: ["c1"],
+              },
+              { title: "Bad signal" },
+            ],
+            comparables: [
+              { name: "Valid", domain: "valid.ai", oneLiner: "Video AI." },
+              { name: "Bad comparable" },
+            ],
+            citations: [
+              validExtractionPayload.citations[0],
+              { id: "bad", title: "Missing URL", fetchedAt: "2026-05-06T00:00:00.000Z", sourceType: "news" },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(payload.signals).toHaveLength(1);
+    expect(payload.comparables).toHaveLength(1);
+    expect(payload.citations).toHaveLength(1);
   });
 
   it("rejects missing extraction tool use", () => {
@@ -144,7 +384,7 @@ describe("parseExtractionToolUse", () => {
           {
             type: "tool_use",
             name: "emit_company_claims",
-            input: { ...validExtractionPayload, citations: [{ id: "c1" }] }
+            input: "not an extraction object"
           }
         ]
       })

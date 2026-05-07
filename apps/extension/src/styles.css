@@ -8,12 +8,11 @@ body {
   min-width: 360px;
   margin: 0;
   background:
-    linear-gradient(90deg, rgb(95 180 255 / 0.06) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(95 180 255 / 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 50% 8%, rgb(95 180 255 / 0.18), transparent 22rem),
-    linear-gradient(180deg, #08223d 0%, var(--color-observatory-navy) 52%, var(--color-abyss-ink) 100%);
+    linear-gradient(90deg, rgb(176 216 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(176 216 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, #102f4d 0%, #08223d 34%, var(--color-observatory-navy) 64%, var(--color-abyss-ink) 100%);
   background-attachment: fixed;
-  background-size: 44px 44px, 44px 44px, auto, auto;
+  background-size: 51px 53px, 51px 53px, auto;
   color: var(--color-ice-white);
   font-family: var(--font-plex-sans);
 }
@@ -107,9 +106,160 @@ input {
   padding: 9px 14px;
 }
 
+.cs-extension-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .cs-extension-link-button {
   border: 1px solid var(--color-soft-sand);
   background: var(--color-card-cream);
   color: var(--color-ink);
   padding: 8px 12px;
+}
+
+.cs-generation-panel {
+  gap: 18px;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.cs-generation-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cs-generation-status {
+  color: var(--color-mid-stone);
+  font-family: var(--font-berkeley-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+.cs-generation-instrument {
+  position: relative;
+  height: 96px;
+  border: 1px solid rgb(95 180 255 / 0.16);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgb(8 34 61 / 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgb(8 34 61 / 0.06) 1px, transparent 1px),
+    linear-gradient(135deg, rgb(250 250 247 / 0.88), rgb(236 242 242 / 0.72));
+  background-size: 37px 41px, 37px 41px, auto;
+}
+
+.cs-generation-instrument::before,
+.cs-generation-instrument::after {
+  position: absolute;
+  inset: 16px auto 16px 24px;
+  width: 64px;
+  border: 1px solid rgb(0 105 255 / 0.24);
+  border-radius: 50%;
+  content: "";
+}
+
+.cs-generation-instrument::after {
+  inset: 31px auto 31px 39px;
+  width: 34px;
+  border-color: rgb(179 116 18 / 0.28);
+}
+
+.cs-generation-sweep {
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgb(0 105 255 / 0.14), transparent);
+  animation: cs-generation-sweep 2.4s ease-in-out infinite;
+}
+
+.cs-generation-core {
+  position: absolute;
+  top: 44px;
+  left: 55px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-citation-ultramarine);
+  box-shadow: 0 0 0 5px rgb(0 105 255 / 0.11);
+}
+
+.cs-generation-stage-list {
+  display: grid;
+  gap: 8px;
+}
+
+.cs-generation-stage {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  align-items: start;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--color-muted-ink);
+  padding: 8px;
+}
+
+.cs-generation-stage.is-active {
+  border-color: rgb(0 105 255 / 0.16);
+  background: rgb(0 105 255 / 0.045);
+  color: var(--color-ink);
+}
+
+.cs-generation-stage-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: rgb(22 22 22 / 0.24);
+}
+
+.cs-generation-stage.is-active .cs-generation-stage-dot {
+  background: var(--color-citation-ultramarine);
+  box-shadow: 0 0 0 4px rgb(0 105 255 / 0.1);
+}
+
+.cs-generation-stage strong,
+.cs-generation-stage span {
+  display: block;
+}
+
+.cs-generation-stage strong {
+  color: inherit;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.cs-generation-stage span {
+  margin-top: 2px;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+@keyframes cs-generation-sweep {
+  0% {
+    transform: translateX(-70%);
+  }
+
+  50% {
+    transform: translateX(170%);
+  }
+
+  100% {
+    transform: translateX(170%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-generation-sweep {
+    animation: none;
+    transform: translateX(40%);
+  }
 }

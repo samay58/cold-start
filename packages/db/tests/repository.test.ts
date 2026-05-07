@@ -19,6 +19,7 @@ type TestGenerationRun = {
   id: string;
   slug: string;
   domain: string;
+  mode: "basics" | "analysis";
   status: "queued" | "running" | "complete" | "failed";
   error?: string;
   costUsd?: string;
@@ -153,7 +154,10 @@ function generationRunLifecycleDb() {
         where: () => ({
           returning: async () => {
             const activeRows = rows.filter(
-              (row) => row.slug === values.slug && (row.status === "queued" || row.status === "running")
+              (row) =>
+                row.slug === values.slug &&
+                row.mode === values.mode &&
+                (row.status === "queued" || row.status === "running")
             );
 
             activeRows.forEach((row) => {
@@ -167,13 +171,20 @@ function generationRunLifecycleDb() {
     }),
     select: () => ({
       from: () => ({
-        where: () => ({
+        where: (condition: unknown) => ({
           orderBy: () => ({
-            limit: async () =>
-              rows
-                .filter((row) => row.status === "queued" || row.status === "running")
+            limit: async () => {
+              const values = sqlParamValues(condition);
+              const mode = values.includes("basics") ? "basics" : values.includes("analysis") ? "analysis" : undefined;
+              return rows
+                .filter(
+                  (row) =>
+                    (!mode || row.mode === mode) &&
+                    (row.status === "queued" || row.status === "running")
+                )
                 .sort((left, right) => right.startedAt.getTime() - left.startedAt.getTime())
-                .slice(0, 1)
+                .slice(0, 1);
+            }
           })
         })
       })
@@ -281,16 +292,17 @@ describe("findActiveGenerationRunBySlug", () => {
         from: () => ({
           where: () => ({
             orderBy: () => ({
-              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status }]
+              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status }]
             })
           })
         })
       })
     } as unknown as ColdStartDb;
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toEqual({
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toEqual({
       slug: "cartesia",
       domain: "cartesia.ai",
+      mode: "analysis",
       status
     });
   });
@@ -301,14 +313,14 @@ describe("findActiveGenerationRunBySlug", () => {
         from: () => ({
           where: () => ({
             orderBy: () => ({
-              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status }]
+              limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status }]
             })
           })
         })
       })
     } as unknown as ColdStartDb;
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
   });
 
   it("returns null when no generation run exists", async () => {
@@ -324,7 +336,7 @@ describe("findActiveGenerationRunBySlug", () => {
       })
     } as unknown as ColdStartDb;
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
   });
 
   it("queries active statuses directly before selecting the latest run", async () => {
@@ -337,7 +349,7 @@ describe("findActiveGenerationRunBySlug", () => {
             whereCondition = condition;
             return {
               orderBy: () => ({
-                limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", status: "queued" }]
+                limit: async () => [{ slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" }]
               })
             };
           }
@@ -345,26 +357,56 @@ describe("findActiveGenerationRunBySlug", () => {
       })
     } as unknown as ColdStartDb;
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toMatchObject({ status: "queued" });
-    expect(sqlParamValues(whereCondition)).toEqual(expect.arrayContaining(["cartesia", "queued", "running"]));
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({ status: "queued" });
+    expect(sqlParamValues(whereCondition)).toEqual(expect.arrayContaining(["cartesia", "analysis", "queued", "running"]));
+  });
+
+  it("tracks active basics and analysis runs independently", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", status: "queued" });
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" });
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", status: "running" });
+
+    expect(rows).toHaveLength(2);
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "basics")).resolves.toMatchObject({
+      mode: "basics",
+      status: "running"
+    });
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({
+      mode: "analysis",
+      status: "queued"
+    });
   });
 });
 
 describe("markGenerationRun", () => {
+  it("promotes a queued run to running without inserting a duplicate row", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" });
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "running" });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "running" });
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({ status: "running" });
+  });
+
   it("retires a queued run when marking the slug failed", async () => {
     const { db, rows } = generationRunLifecycleDb();
 
-    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", status: "queued" });
-    expect(await findActiveGenerationRunBySlug(db, "cartesia")).toMatchObject({ status: "queued" });
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" });
+    expect(await findActiveGenerationRunBySlug(db, "cartesia", "analysis")).toMatchObject({ status: "queued" });
 
     await markGenerationRun(db, {
       slug: "cartesia",
       domain: "cartesia.ai",
+      mode: "analysis",
       status: "failed",
       error: "queue failed"
     });
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ status: "failed", error: "queue failed" });
     expect(rows[0]?.completedAt).toBeInstanceOf(Date);
@@ -373,17 +415,18 @@ describe("markGenerationRun", () => {
   it.each(["failed", "complete"] as const)("retires a running run when marking the slug %s", async (status) => {
     const { db, rows } = generationRunLifecycleDb();
 
-    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", status: "running" });
-    expect(await findActiveGenerationRunBySlug(db, "cartesia")).toMatchObject({ status: "running" });
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "running" });
+    expect(await findActiveGenerationRunBySlug(db, "cartesia", "analysis")).toMatchObject({ status: "running" });
 
     await markGenerationRun(db, {
       slug: "cartesia",
       domain: "cartesia.ai",
+      mode: "analysis",
       status,
       ...(status === "failed" ? { error: "worker failed" } : { costUsd: 0.42 })
     });
 
-    await expect(findActiveGenerationRunBySlug(db, "cartesia")).resolves.toBeNull();
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject(
       status === "failed" ? { status, error: "worker failed" } : { status, costUsd: "0.42" }

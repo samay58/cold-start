@@ -1,7 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { publicCard, type ColdStartCard } from "@cold-start/core";
-import { CardShell, safeExternalHref, sourceDomId } from "../src";
+import { CardShell, formatMediumDate, formatShortDate, safeExternalHref, sourceDomId } from "../src";
+
+afterEach(() => {
+  cleanup();
+});
 
 const card: ColdStartCard = {
   slug: "cartesia",
@@ -13,13 +17,53 @@ const card: ColdStartCard = {
     name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["c1"] },
     logoUrl: null,
     oneLiner: { value: "Real-time voice AI platform", status: "verified", confidence: "high", citationIds: ["c1"] },
+    description: {
+      value: {
+        shortDescription: "Real-time voice AI infrastructure for developers building low-latency audio products.",
+        concept: "Low-latency speech models exposed as developer infrastructure.",
+        serves: "Developers building voice agents and audio applications.",
+        mechanism: "APIs and models for real-time speech generation and understanding."
+      },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    },
     hq: { value: { city: "San Francisco", country: "US" }, status: "verified", confidence: "high", citationIds: ["c1"] },
     foundedYear: { value: 2023, status: "verified", confidence: "high", citationIds: ["c1"] },
     status: "private"
   },
   funding: {
     totalRaisedUsd: { value: 91000000, status: "verified", confidence: "high", citationIds: ["c2"] },
-    lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+    lastRound: {
+      value: {
+        name: "Series B",
+        amountUsd: 63000000,
+        announcedAt: "2024-04-23",
+        leadInvestors: ["NEA", "IVP"]
+      },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c2"]
+    },
+    rounds: {
+      value: [
+        {
+          name: "Series B",
+          amountUsd: 63000000,
+          announcedAt: "2024-04-23",
+          leadInvestors: ["NEA", "IVP"]
+        },
+        {
+          name: "Series A",
+          amountUsd: 27000000,
+          announcedAt: "2023-08-15",
+          leadInvestors: ["Kleiner Perkins"]
+        }
+      ],
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c2"]
+    },
     investors: {
       value: [{ name: "Kleiner Perkins", domain: "kleinerperkins.com" }],
       status: "verified",
@@ -45,7 +89,20 @@ const card: ColdStartCard = {
   comparables: [{ name: "ElevenLabs", domain: "elevenlabs.io", oneLiner: "Voice AI platform" }],
   citations: [
     { id: "c1", url: "https://cartesia.ai", title: "Cartesia", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "company_site" },
-    { id: "c2", url: "https://example.com/funding", title: "Funding", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "news" }
+    {
+      id: "c2",
+      url: "https://www.businesswire.com/news/home/cartesia-series-b",
+      title: "Cartesia Announces Funding",
+      fetchedAt: "2026-05-06T12:00:00.000Z",
+      sourceType: "news"
+    },
+    {
+      id: "c3",
+      url: "https://example.substack.com/p/cartesia-technical-deep-dive",
+      title: "Cartesia technical deep dive",
+      fetchedAt: "2026-05-06T12:00:00.000Z",
+      sourceType: "news"
+    }
   ],
   synthesis: {
     whyItMatters: {
@@ -63,8 +120,18 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(card)} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getByText("Real-time voice AI platform")).toBeTruthy();
+    expect(screen.getByText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
+    expect(screen.getByText("Low-latency speech models exposed as developer infrastructure.")).toBeTruthy();
+    expect(screen.getByText("Developers building voice agents and audio applications.")).toBeTruthy();
     expect(screen.getAllByText("[c1]").length).toBeGreaterThan(0);
+    expect(screen.getByText("$91M")).toBeTruthy();
+    expect(screen.getByText("$63M")).toBeTruthy();
+    expect(screen.getByText("Apr 2024")).toBeTruthy();
+    expect(screen.getByText("Led by NEA, IVP")).toBeTruthy();
+    expect(screen.getAllByText("Evidence").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Example News · launch · Apr 2026/)).toBeTruthy();
+    expect(screen.getAllByText(/fetched May 6 2026/).length).toBeGreaterThan(0);
+    expect(screen.getByText("2023")).toBeTruthy();
     expect(screen.getByText("Kleiner Perkins")).toBeTruthy();
     expect(screen.getAllByText("not publicly disclosed").length).toBeGreaterThan(0);
     expect(screen.queryByText("Bull case")).toBeNull();
@@ -76,6 +143,34 @@ describe("CardShell", () => {
     expect(screen.getByText("Bull case")).toBeTruthy();
     expect(screen.getByText("The company has a credible infra wedge [c1].")).toBeTruthy();
     expect(screen.getByText("Which buyer owns the budget?")).toBeTruthy();
+  });
+
+  it("shows empty synthesis states after unsupported claims are stripped", () => {
+    render(
+      <CardShell
+        card={{
+          ...card,
+          synthesis: {
+            ...card.synthesis!,
+            bearCase: []
+          }
+        }}
+        surface="extension"
+      />
+    );
+
+    expect(screen.getByText("No cited bear case survived verification.")).toBeTruthy();
+  });
+
+  it("orders sources by incentive quality and labels why each source matters", () => {
+    render(<CardShell card={publicCard(card)} surface="web" />);
+
+    const sourceLabels = screen.getAllByText(/Independent technical|Company PR/).map((node) => node.textContent);
+
+    expect(sourceLabels[0]).toBe("Independent technical");
+    expect(sourceLabels).toContain("Company PR");
+    expect(screen.getByText(/less incentive to launder company positioning/)).toBeTruthy();
+    expect(screen.getByText(/Company-shaped narrative/)).toBeTruthy();
   });
 
   it("renders unsafe signal and citation URLs as plain text", () => {
@@ -117,5 +212,12 @@ describe("safeExternalHref", () => {
     expect(safeExternalHref("javascript:alert(1)")).toBeNull();
     expect(safeExternalHref("data:text/html,owned")).toBeNull();
     expect(safeExternalHref("not a url")).toBeNull();
+  });
+});
+
+describe("date formatting", () => {
+  it("preserves year-only dates instead of inventing a month", () => {
+    expect(formatShortDate("2024")).toBe("2024");
+    expect(formatMediumDate("2024")).toBe("2024");
   });
 });

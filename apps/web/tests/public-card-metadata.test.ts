@@ -28,6 +28,17 @@ describe("public card metadata", () => {
           status: "verified",
           confidence: "high",
           citationIds: ["c1"]
+        },
+        description: {
+          value: {
+            shortDescription: "Realtime audio intelligence for developers building voice products.",
+            concept: "Low-latency audio intelligence infrastructure.",
+            serves: "Developers building voice agents and speech products.",
+            mechanism: "APIs and models for realtime audio understanding and generation."
+          },
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"]
         }
       }
     });
@@ -36,10 +47,10 @@ describe("public card metadata", () => {
 
     expect(metadata).toMatchObject({
       title: "Cartesia | Cold Start",
-      description: "Real-time multimodal intelligence for audio products.",
+      description: "Realtime audio intelligence for developers building voice products.",
       openGraph: {
         title: "Cartesia | Cold Start",
-        description: "Real-time multimodal intelligence for audio products.",
+        description: "Realtime audio intelligence for developers building voice products.",
         images: ["/c/cartesia/opengraph-image"]
       }
     });

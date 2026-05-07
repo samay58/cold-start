@@ -10,6 +10,9 @@
   "scripts": {
     "dev": "npm run dev -w @cold-start/web",
     "dev:extension": "npm run dev -w @cold-start/extension",
+    "dev:inngest": "bash scripts/dev-inngest.sh",
+    "dev:full": "concurrently --kill-others-on-fail --names web,inngest --prefix-colors cyan,magenta \"npm run dev\" \"npm run dev:inngest\"",
+    "dev:fresh": "rm -rf apps/web/.next apps/web/.cold-start && npm run dev:full",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -20,6 +23,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "concurrently": "^9.2.1",
+    "inngest-cli": "^1.19.1",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"

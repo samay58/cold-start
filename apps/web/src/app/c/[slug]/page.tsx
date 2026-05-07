@@ -13,11 +13,15 @@ function metadataTitle(name: string) {
   return `${name} | Cold Start`;
 }
 
+function metadataDescription(card: Awaited<ReturnType<typeof getPublicCachedCard>>) {
+  return card?.identity.description?.value?.shortDescription ?? card?.identity.oneLiner.value ?? defaultDescription;
+}
+
 export async function generateMetadata({ params }: CompanyCardPageProps): Promise<Metadata> {
   const { slug } = await params;
   const card = await getPublicCachedCard(slug);
   const name = card?.identity.name.value ?? slug;
-  const description = card?.identity.oneLiner.value ?? defaultDescription;
+  const description = metadataDescription(card);
   const title = metadataTitle(name);
 
   return {

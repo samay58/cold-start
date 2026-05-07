@@ -1,4 +1,5 @@
 import type { ColdStartCard, ResolvedFact, SourcedText } from "./card";
+import { sourceQualityForSource } from "./source-quality";
 
 const verificationSentinel = /\[needs_verification\]/i;
 const forbiddenSynthesisPhrases = /\b(reportedly|industry sources suggest|rumored to|appears to be|is said to)\b/i;
@@ -81,10 +82,15 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
 
   return {
     ...card,
+    citations: card.citations.map((citation) => ({
+      ...citation,
+      sourceQuality: citation.sourceQuality ?? sourceQualityForSource(citation)
+    })),
     identity: {
       ...card.identity,
       name: sanitizeFact(card.identity.name, validIds),
       oneLiner: sanitizeFact(card.identity.oneLiner, validIds),
+      ...(card.identity.description ? { description: sanitizeFact(card.identity.description, validIds) } : {}),
       hq: sanitizeFact(card.identity.hq, validIds),
       foundedYear: sanitizeFact(card.identity.foundedYear, validIds)
     },

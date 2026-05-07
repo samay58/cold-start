@@ -32,12 +32,16 @@ function formatMoney(value: number | null) {
   return `$${value.toLocaleString("en-US")} raised`;
 }
 
+function imageDescription(card: Awaited<ReturnType<typeof getPublicCachedCard>>) {
+  return card?.identity.description?.value?.shortDescription ?? card?.identity.oneLiner.value ?? defaultDescription;
+}
+
 export default async function Image({ params }: OpenGraphImageProps) {
   const { slug } = await params;
   const card = await getPublicCachedCard(slug);
 
   const name = card?.identity.name.value ?? slug;
-  const description = card?.identity.oneLiner.value ?? defaultDescription;
+  const description = imageDescription(card);
   const hq = card?.identity.hq.value ? `${card.identity.hq.value.city}, ${card.identity.hq.value.country}` : null;
   const funding = formatMoney(card?.funding.totalRaisedUsd.value ?? null);
   const lastRound = card?.funding.lastRound.value?.name ?? null;

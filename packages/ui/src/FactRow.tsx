@@ -3,9 +3,95 @@ import { CitationMarker } from "./CitationMarker";
 
 const undisclosedText = "not publicly disclosed";
 const numberFormatter = new Intl.NumberFormat("en-US");
+const compactUsdFormatter = new Intl.NumberFormat("en-US", {
+  compactDisplay: "short",
+  maximumFractionDigits: 1,
+  notation: "compact",
+  style: "currency",
+  currency: "USD"
+});
+const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC"
+});
+const mediumDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC"
+});
+
+type FundingRoundLike = {
+  name: string;
+  amountUsd: number | null;
+  announcedAt: string | null;
+  leadInvestors: string[];
+};
+
+function isYear(value: number) {
+  return Number.isInteger(value) && value >= 1800 && value <= 2100;
+}
+
+function trimCurrency(value: string) {
+  return value.replace(".0", "");
+}
+
+export function formatCompactCurrency(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return undisclosedText;
+  }
+
+  return trimCurrency(compactUsdFormatter.format(value));
+}
+
+export function formatShortDate(value: string | null | undefined): string {
+  if (!value) {
+    return undisclosedText;
+  }
+
+  if (/^\d{4}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return shortDateFormatter.format(parsed);
+}
+
+export function formatMediumDate(value: string | null | undefined): string {
+  if (!value) {
+    return undisclosedText;
+  }
+
+  if (/^\d{4}$/.test(value)) {
+    return value;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return mediumDateFormatter.format(parsed).replace(",", "");
+}
+
+function isFundingRound(value: Record<string, unknown>): value is FundingRoundLike {
+  return (
+    typeof value.name === "string" &&
+    ("amountUsd" in value || "announcedAt" in value || "leadInvestors" in value)
+  );
+}
 
 function formatPrimitive(value: string | number | boolean): string {
   if (typeof value === "number") {
+    if (isYear(value)) {
+      return String(value);
+    }
+
     return numberFormatter.format(value);
   }
 
@@ -20,11 +106,11 @@ function compact(parts: Array<string | null | undefined>): string[] {
 }
 
 function formatObject(value: Record<string, unknown>): string {
-  if (typeof value.name === "string" && ("amountUsd" in value || "announcedAt" in value || "leadInvestors" in value)) {
-    const amount = typeof value.amountUsd === "number" ? numberFormatter.format(value.amountUsd) : null;
+  if (isFundingRound(value)) {
+    const amount = typeof value.amountUsd === "number" ? formatCompactCurrency(value.amountUsd) : null;
     const leads = Array.isArray(value.leadInvestors) ? value.leadInvestors.map(formatValue).join(", ") : null;
 
-    return compact([value.name, amount, typeof value.announcedAt === "string" ? value.announcedAt : null, leads]).join(", ");
+    return compact([value.name, amount, typeof value.announcedAt === "string" ? formatShortDate(value.announcedAt) : null, leads]).join(" · ");
   }
 
   if (typeof value.name === "string" && ("role" in value || "sourceUrl" in value)) {
@@ -40,7 +126,7 @@ function formatObject(value: Record<string, unknown>): string {
   }
 
   if (typeof value.value === "number" && typeof value.asOf === "string") {
-    return `${numberFormatter.format(value.value)} as of ${value.asOf}`;
+    return `${numberFormatter.format(value.value)} as of ${formatShortDate(value.asOf)}`;
   }
 
   return Object.entries(value)
@@ -80,12 +166,22 @@ export function formatValue(value: unknown): string {
   return String(value);
 }
 
-export function FactRow<T>({ label, fact, mono = false }: { label: string; fact: ResolvedFact<T>; mono?: boolean }) {
+export function FactRow<T>({
+  label,
+  fact,
+  mono = false,
+  format
+}: {
+  label: string;
+  fact: ResolvedFact<T>;
+  mono?: boolean;
+  format?: (value: T | null) => string;
+}) {
   return (
     <div className="cs-fact-row">
       <div className="cs-fact-label">{label}</div>
       <div className={mono ? "cs-fact-value cs-mono" : "cs-fact-value"}>
-        {formatValue(fact.value)}
+        {format ? format(fact.value) : formatValue(fact.value)}
         {fact.citationIds.map((id) => (
           <CitationMarker id={id} key={id} />
         ))}

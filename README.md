@@ -1,6 +1,6 @@
 # Cold Start
 
-AI-native company context card. One click on any company website, get a sourced investor-grade card in under thirty seconds. Public sourced facts at `coldstart.semitechie.vc/c/{slug}`. Bull case, bear case, open questions gated behind the Chrome extension.
+Company context card for investor-grade browsing. One click on any company website, get a cached sourced card quickly or start a fresh background generation when no card exists yet. Public sourced facts live at `coldstart.semitechie.vc/c/{slug}`. Bull case, bear case, and open questions are gated behind the Chrome extension.
 
 The wedge: faster bearings on the company already in the tab. Pitchbook's tile asserts; Cold Start cites.
 
@@ -8,13 +8,12 @@ The wedge: faster bearings on the company already in the tab. Pitchbook's tile a
 
 Implementation plan generated 2026-05-06 at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
 
-Current implementation includes the npm workspace scaffold, typed card schema, Drizzle schema and repository layer, provider and LLM wrappers, pipeline orchestration, public web card route, extension-gated card API, Chrome side panel shell, privacy page, golden eval seed, robots route, and sitemap.
+Current implementation includes:
 
-Execution gates:
-
-- Week 1: backend + claim store
-- Week 2: public web card
-- Week 3: Chrome extension + launch hardening
+- npm workspace scaffold, typed card schema, Drizzle schema, and repository layer
+- provider and LLM wrappers, research planner, evidence ledger, and pipeline orchestration
+- public web card route, extension-gated card API, and side-panel generation and polling
+- privacy page, golden eval seed, robots route, and sitemap
 
 ## Repository layout
 
@@ -52,27 +51,19 @@ cold-start/
 
 ## Provenance
 
-This project is the synthesized output of three independent AI-generated specs written 2026-05-06:
+This project merges three independent AI-generated specs written 2026-05-06:
 
 1. Semitechie Scout (Claude analysis)
 2. semitechie.vc Implementation Spec (research-grounded second pass)
 3. Project Signal (third independent technical spec)
 
-All three converged on Chrome side panel, sourced facts with citations, public web sources, $0.05 to $1 per card. They diverged on backend stack, search providers, multi-agent orchestration, public URL policy, and X bot inclusion. SPEC.md resolves all five disagreements with rationale.
+The specs agreed on Chrome side panel, sourced facts, citations, public web, and $0.05 to $1 per card. They disagreed on backend stack, search providers, multi-agent orchestration, public URL policy, and X bot inclusion. SPEC.md resolves those disagreements with rationale.
 
-## Build sequencing
-
-Week 1: backend + claim store. Day 1 spike: confirm stableenrich endpoint coverage via AgentCash. If gaps, fall back to direct vendor for that endpoint only.
-
-Week 2: web app at `/c/{slug}`, OG image generation, and golden eval set of 50 hand-curated companies.
-
-Week 3: Chrome extension (MV3 + Side Panel API + Vite + CRXJS), Chrome Web Store submission, Twitter launch under @semitechievc.
-
-Detailed task breakdown lives at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
+Detailed implementation tasks live at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
 
 ## Manual local test
 
-Use this path to try the app like a new local user. Run from the repo root.
+Follow these steps to try the app like a new local user. Run from the repo root.
 
 ### One-time setup
 
@@ -90,27 +81,27 @@ ALLOWED_EXTENSION_ORIGINS=chrome-extension://*,http://localhost:5173
 EXTENSION_API_TOKEN=local-extension-token
 ```
 
-AgentCash does not use an API key. In local development it uses the wallet created by `agentcash`; in deployed environments set `X402_PRIVATE_KEY`.
+AgentCash does not use an API key. In local development it uses the wallet that `npx agentcash@latest` creates on first run; in deployed environments set `X402_PRIVATE_KEY`.
 
 Redeem or fund AgentCash if needed:
 
 ```bash
 npx agentcash@latest balance
-npx agentcash@latest redeem AC-XJZZ-2KJR-GSMJ-T24Y
+npx agentcash@latest redeem <YOUR-CODE>
 ```
 
-### Check the paid data path
+### Verify paid data providers
 
 ```bash
 set -a; source .env.local; set +a
 npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 ```
 
-Expected: four JSON lines with `status:"ok"` for Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment.
+Expected: four JSON lines with `status: "ok"` for Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment.
 
 ### Start local services
 
-Open Docker Desktop first and wait until it says the engine is running. Then verify Docker can answer:
+Open Docker Desktop first and wait until it says the engine is running. Then verify the Docker daemon is reachable:
 
 ```bash
 docker info >/dev/null
@@ -126,33 +117,34 @@ set -a; source .env.local; set +a
 npm run db:migrate
 ```
 
-Start the web app in terminal 1:
+Two terminals while testing locally:
+
+```text
+Terminal 1: npm run dev:full     # web app + Inngest worker
+Terminal 2: curl checks
+```
+
+Each terminal needs env vars loaded first:
 
 ```bash
 set -a; source .env.local; set +a
-npm run dev -w @cold-start/web
 ```
 
-The web app also loads the repo-root `.env.local` through `apps/web/next.config.ts`, but restart `next dev` after changing extension auth values. If the extension says `extension auth not configured`, stop this web process and start it again.
-
-Start the Inngest local worker in terminal 2:
+Start everything in terminal 1:
 
 ```bash
-npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+npm run dev:full
 ```
 
-If that fails with `Inngest CLI binary not found` because npm skipped install scripts, run:
+This runs `next dev` and the Inngest dev worker side by side with prefixed output (`web` cyan, `inngest` magenta). One Ctrl-C stops both. The web app loads the repo-root `.env.local` through `apps/web/next.config.ts`. Restart `dev:full` after changing extension auth values. If the extension says `extension auth not configured`, restart this process.
 
-```bash
-NPM_CONFIG_CACHE=$(mktemp -d) npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:3000/api/inngest
-```
+If you want them separate, the underlying scripts are still there: `npm run dev` (web only) and `npm run dev:inngest` (worker only). The Inngest script uses the `NPM_CONFIG_CACHE=$(mktemp -d) npx --ignore-scripts=false` invocation to dodge a known monorepo install-scripts skip; without that, `inngest-cli` fails with `Inngest CLI binary not found`.
 
 ### Generate and inspect a card
 
 In terminal 3:
 
 ```bash
-set -a; source .env.local; set +a
 curl -i -X POST http://localhost:3000/api/generate \
   -H 'content-type: application/json' \
   -d '{"domain":"cartesia.ai"}'
@@ -177,7 +169,7 @@ Expected: `"cartesia.ai"` and a citation count.
 Check that the public card does not expose extension-only synthesis:
 
 ```bash
-curl -s http://localhost:3000/api/cards/cartesia | rg '"synthesis"'
+curl -s http://localhost:3000/api/cards/cartesia | grep '"synthesis"'
 ```
 
 Expected: no output.
@@ -202,7 +194,7 @@ Expected: `"cartesia.ai"` and `true`.
 
 ### Try the Chrome side panel
 
-This path assumes the card already exists from the generation step above. The current extension reads the cached extension card; generation is exercised through `/api/generate`.
+The side panel reads the cached extension card when one exists. If no card exists, it starts `/api/generate`, shows staged progress, polls until the card is available, then renders the extension card.
 
 ```bash
 npm run build -w @cold-start/extension
@@ -218,42 +210,46 @@ In Chrome:
 6. Click the Cold Start extension icon.
 7. If setup appears, use API origin `http://localhost:3000` and API token `local-extension-token`.
 
-If the setup screen shows `https://coldstart.semitechie.vc`, the loaded extension is stale or was built with a production `VITE_COLD_START_API_ORIGIN`. Go back to `chrome://extensions`, click Reload on Cold Start, reopen the side panel, and confirm the API origin is `http://localhost:3000`. A local extension build reads the repo-root `.env.local`; the deployed origin is only for a production deployment with matching deployed env vars.
+If the setup screen shows `https://coldstart.semitechie.vc`, the loaded extension was not rebuilt after changing `VITE_COLD_START_API_ORIGIN` or was built with a production value. Go back to `chrome://extensions`, click Reload on Cold Start, reopen the side panel, and confirm the API origin is `http://localhost:3000`.
 
-Expected: the side panel opens and renders the extension card with synthesis.
+Expected: the side panel opens. For a cached company, it renders the extension card with synthesis. For a fresh company, it shows Resolve, Plan, Retrieve, and Synthesize while the worker runs. When the worker completes, the panel renders the full card with bull/bear synthesis.
+
+### Stop local services
+
+Stop the web app and Inngest worker with `Ctrl-C` in their terminals. Stop Postgres with:
+
+```bash
+docker-compose down
+```
 
 ## Next upgrades
 
-These are the concrete follow-on phases after this plumbing merge:
+Next after this merge:
 
-1. **Full brand and UX infusion pass**
+1. **Brand and UX pass**
    - Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`.
-   - Apply the eye/radar aperture system to generation states, source drawers, verifier drops, OG images, and launch material.
+   - Apply the eye/radar aperture system to generation states, source drawers, verifier drops (claims the verifier rejected), OG images, and launch material.
    - Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
 
 2. **Synthesis quality gate**
-   - Keep the current conservative verifier, but make drops visible.
+   - Keep the current conservative verifier, but make rejected claims visible.
    - Return exactly three bull and three bear lines when supported; otherwise render an explicit "not enough verified evidence" state instead of empty arrays.
    - Persist verifier status and drop reasons so bad synthesis can be debugged without rerunning the whole card.
 
-3. **Side-panel generation flow**
-   - If the extension route returns `card not found`, let the side panel start `/api/generate`.
-   - Show queued/running/complete/failed states in the panel.
-   - Poll until the cached card exists, then render it without requiring a curl command.
-
-4. **Run observability**
+3. **Run observability**
    - Add a local/debug generation status view showing provider failures, LLM errors, verifier drops, cost, and timestamps.
    - Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
+   - Show the actual run duration in the extension once a fresh generation completes.
 
-5. **Production hardening**
+4. **Production hardening**
    - Require exact `CHROME_EXTENSION_ID` in production.
    - Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments.
    - Add Vercel/Neon env validation before deploy.
-   - Track current upstream audit residuals: Next pins `postcss@8.4.31`; CRXJS pins `rollup@2.79.2`.
+   - Track upstream `npm audit` warnings from pinned transitive dependencies: Next pins `postcss@8.4.31`; CRXJS pins `rollup@2.79.2`.
 
 ## Brand
 
-@semitechievc on X. Domain target: `coldstart.vc` if available, else `coldstart.semitechie.vc`.
+@semitechievc on X. Domain target: `coldstart.semitechie.vc`.
 
 ## Cross-references
 

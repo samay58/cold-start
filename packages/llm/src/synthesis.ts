@@ -99,6 +99,15 @@ export const synthesisTool = {
   }
 } satisfies Tool;
 
+export const synthesisSystemPrompt = [
+  "You write gated investor synthesis from validated claim-store input only.",
+  "whyItMatters and every bull and bear bullet must end with citation markers.",
+  "Use only citation IDs present in card.citations; do not cite evidence ledger IDs such as [e1].",
+  "Treat source incentives as part of the judgment: independent technical and independent analysis sources deserve more weight for market and product evaluation than press releases or company-authored claims.",
+  "Do not leave bearCase empty when any cited risk, uncertainty, missing proof point, or unresolved diligence question exists on the card.",
+  "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest."
+].join(" ");
+
 type ToolUseLike = {
   type: string;
   name?: string;
@@ -147,7 +156,7 @@ export async function synthesizeCard(input: {
     system: [
       {
         type: "text",
-        text: "You write gated investor synthesis from validated claim-store input only. whyItMatters and every bull and bear bullet must end with citation markers. Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
+        text: synthesisSystemPrompt,
         cache_control: { type: "ephemeral" }
       }
     ],
