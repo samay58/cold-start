@@ -28,7 +28,7 @@ type RequestState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "readyToGenerate" }
-  | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: GenerationStatus["mode"] }
+  | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: GenerationStatus["mode"]; startedAt: number }
   | { status: "success"; card: ColdStartCard }
   | { status: "error"; message: string };
 
@@ -37,52 +37,78 @@ function PlateMark({ label = "C" }: { label?: string }) {
   return <span className="cs-extension-mark" aria-hidden="true">{initial}</span>;
 }
 
-function ExtensionTopbar({ right = "extension" }: { right?: string }) {
+function ExtensionTopbar({
+  onSettings,
+  right = "extension"
+}: {
+  onSettings?: () => void;
+  right?: string;
+}) {
   return (
     <>
       <div className="cs-extension-topbar">
         <div className="cs-extension-brand">
           <PlateMark />
-          <span>COLD START</span>
-          <span>N° 14</span>
+          <span>Cold Start</span>
         </div>
-        <span className="cs-extension-topbar-right">{right}</span>
+        <div className="cs-extension-topbar-right">
+          <span>{right}</span>
+          {onSettings ? (
+            <button aria-label="Open settings" className="cs-icon-button" onClick={onSettings} type="button">
+              <span aria-hidden="true">...</span>
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="cs-extension-rule" />
     </>
   );
 }
 
-function ExtensionPlate({
+function ExtensionFrame({
   actions,
   children,
   className = "",
-  eyebrow,
-  markLabel,
+  onSettings,
   right,
   title
 }: {
   actions?: ReactNode;
   children?: ReactNode;
   className?: string;
-  eyebrow: string;
-  markLabel?: string;
+  onSettings?: () => void;
   right?: string;
   title: string;
 }) {
   return (
-    <section className={`cs-extension-plate ${className}`.trim()}>
-      <ExtensionTopbar {...(right ? { right } : {})} />
-      <div className="cs-extension-hero">
-        <PlateMark label={markLabel ?? title} />
-        <div>
-          <p className="cs-extension-kicker">{eyebrow}</p>
-          <h1>{title}</h1>
-        </div>
-      </div>
+    <section aria-label={title} className={`cs-extension-frame ${className}`.trim()}>
+      <ExtensionTopbar {...(onSettings ? { onSettings } : {})} {...(right ? { right } : {})} />
       {children}
       {actions ? <div className="cs-extension-actions">{actions}</div> : null}
     </section>
+  );
+}
+
+function PanelHeader({
+  eyebrow,
+  markLabel,
+  title,
+  value
+}: {
+  eyebrow: string;
+  markLabel?: string;
+  title: string;
+  value?: string;
+}) {
+  return (
+    <div className="cs-panel-header">
+      <PlateMark label={markLabel ?? title} />
+      <div>
+        <p className="cs-extension-kicker">{eyebrow}</p>
+        <h1>{title}</h1>
+        {value ? <p className="cs-extension-domain">{value}</p> : null}
+      </div>
+    </div>
   );
 }
 
@@ -117,6 +143,28 @@ function saveSettings(settings: Settings): Promise<void> {
       resolve
     );
   });
+}
+
+function useElapsedSeconds(active: boolean, startedAt?: number) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!active || !startedAt) {
+      return;
+    }
+
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [active, startedAt]);
+
+  return startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0;
+}
+
+function formatElapsed(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = String(seconds % 60).padStart(2, "0");
+  return `${minutes}:${remainder}`;
 }
 
 async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
@@ -226,16 +274,9 @@ function SettingsForm({
   }
 
   return (
-    <form className="cs-extension-plate cs-extension-form" onSubmit={handleSubmit}>
+    <form className="cs-extension-frame cs-extension-form" onSubmit={handleSubmit}>
       <ExtensionTopbar right="setup" />
-      <div className="cs-extension-hero">
-        <PlateMark />
-        <div>
-          <p className="cs-extension-kicker">Local access</p>
-          <h1>Extension setup</h1>
-        </div>
-      </div>
-      <p className="cs-extension-copy">Token stays local. Requests use the extension route.</p>
+      <PanelHeader eyebrow="Local access" title="Extension setup" value="Token stays on this browser." />
 
       <label className="cs-extension-field">
         <span>API origin</span>
@@ -259,9 +300,32 @@ function SettingsForm({
 
       {error ? <p className="cs-extension-error">{error}</p> : null}
       <div className="cs-extension-actions">
-        <button className="cs-extension-button" type="submit">Save</button>
+        <button className="cs-extension-button" type="submit">Save settings</button>
       </div>
     </form>
+  );
+}
+
+function LoadingPanel({
+  domain,
+  onSettings
+}: {
+  domain: string;
+  onSettings: () => void;
+}) {
+  const companyName = readableCompanyNameFromDomain(domain);
+
+  return (
+    <ExtensionFrame className="cs-check-panel" onSettings={onSettings} right="checking" title="Checking cache">
+      <PanelHeader eyebrow="Current tab" markLabel={companyName} title={companyName} value={domain} />
+      <div className="cs-cache-card" aria-live="polite">
+        <span className="cs-cache-spinner" aria-hidden="true" />
+        <div>
+          <strong>Looking for a saved profile</strong>
+          <p>If nothing exists yet, you will choose whether to generate one.</p>
+        </div>
+      </div>
+    </ExtensionFrame>
   );
 }
 
@@ -270,65 +334,76 @@ function GenerationPanel({
   requestState
 }: {
   domain: string;
-  requestState: Extract<RequestState, { status: "loading" | "generating" | "idle" }>;
+  requestState: Extract<RequestState, { status: "generating" }>;
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
-  const activeIndex =
-    requestState.status === "loading" || requestState.status === "idle"
-      ? 0
-      : requestState.generationStatus === "queued"
-        ? 1
-        : 2;
+  const elapsed = useElapsedSeconds(true, requestState.startedAt);
+  const isAnalysis = requestState.mode === "analysis";
+  const activeIndex = requestState.generationStatus === "queued" ? 0 : Math.min(3, 1 + Math.floor(elapsed / 8));
   const statusText =
-    requestState.status === "generating"
-      ? requestState.generationStatus === "queued"
-        ? requestState.mode === "analysis" ? "Analysis queued" : "Basics queued"
-        : requestState.mode === "analysis" ? "Analyzing" : "Building basics"
-      : "Checking cache";
+    requestState.generationStatus === "queued"
+      ? isAnalysis ? "Queued analysis" : "Queued profile"
+      : isAnalysis ? "Building lens" : "Building profile";
   const stages = [
-    { marker: "i", label: "Resolve identity", detail: "0.6s", progress: 1 },
-    { marker: "ii", label: "Plan retrieval", detail: "1.4s", progress: 1 },
-    { marker: "iii", label: "Catalogue sources", detail: requestState.status === "generating" ? "8/11" : "queued", progress: activeIndex >= 2 ? 0.72 : 0.36 },
-    { marker: "iv", label: requestState.status === "generating" && requestState.mode === "analysis" ? "Synthesize lens" : "Synthesize card", detail: activeIndex >= 2 ? "queued" : "waiting", progress: activeIndex >= 2 ? 0.2 : 0 }
+    { label: "Resolve identity", marker: "01" },
+    { label: "Read sources", marker: "02" },
+    { label: isAnalysis ? "Trace claims" : "Shape profile", marker: "03" },
+    { label: isAnalysis ? "Prepare lens" : "Attach citations", marker: "04" }
   ];
+  const progress = requestState.generationStatus === "queued" ? 12 : Math.min(92, 28 + elapsed * 3);
 
   return (
-    <ExtensionPlate
+    <ExtensionFrame
       className="cs-generation-panel"
-      eyebrow={statusText}
-      markLabel={companyName}
-      right="live · 0:09"
+      right={`live · ${formatElapsed(elapsed)}`}
       title={domain}
     >
-      <p className="cs-extension-copy">First observation. Researching from scratch.</p>
-      <div className="cs-generation-stage-list">
-        {stages.map((stage, index) => (
-          <div
-            className={index === activeIndex ? "cs-generation-stage is-active" : "cs-generation-stage"}
-            key={stage.label}
-          >
-            <span className="cs-generation-stage-marker">{stage.marker}{index < activeIndex ? " ✓" : index === activeIndex ? " →" : " ·"}</span>
-            <strong>{stage.label}</strong>
-            <span className="cs-generation-stage-bar"><i style={{ width: `${Math.round(stage.progress * 100)}%` }} /></span>
-            <span className="cs-generation-stage-detail">{stage.detail}</span>
-          </div>
-        ))}
+      <PanelHeader eyebrow={statusText} markLabel={companyName} title={companyName} value={domain} />
+
+      <div className="cs-live-card" aria-live="polite">
+        <div className="cs-live-orbit" aria-hidden="true">
+          <span className="cs-live-node" data-node="one" />
+          <span className="cs-live-node" data-node="two" />
+          <span className="cs-live-node" data-node="three" />
+          <span className="cs-live-puck" />
+        </div>
+        <div className="cs-live-copy">
+          <strong>{stages[activeIndex]?.label ?? stages[stages.length - 1]?.label}</strong>
+          <p>{isAnalysis ? "Checking claims against the evidence ledger." : "Collecting enough source distance for a useful profile."}</p>
+        </div>
       </div>
 
-      <div className="cs-generation-source-class" aria-hidden="true">
-        <p>Source class · 11 retrieved</p>
-        <div className="cs-generation-bars">
-          {[48, 42, 54].map((height) => <span data-class="independent" key={`i-${height}`} style={{ height }} />)}
-          {[34, 40, 36, 28].map((height) => <span data-class="reporting" key={`r-${height}`} style={{ height }} />)}
-          {[22, 20].map((height) => <span data-class="company" key={`c-${height}`} style={{ height }} />)}
-        </div>
-        <div className="cs-generation-legend">
-          <span><i data-class="independent" />indep 3</span>
-          <span><i data-class="reporting" />reporting 4</span>
-          <span><i data-class="company" />company 2</span>
-        </div>
+      <div className="cs-generation-progress" aria-label={`${Math.round(progress)} percent complete`}>
+        <span style={{ width: `${progress}%` }} />
       </div>
-    </ExtensionPlate>
+
+      <div className="cs-generation-stage-list">
+        {stages.map((stage, index) => {
+          const complete = index < activeIndex;
+          const active = index === activeIndex;
+          return (
+            <div
+              className={active ? "cs-generation-stage is-active" : "cs-generation-stage"}
+              data-complete={complete ? "true" : "false"}
+              key={stage.label}
+            >
+              <span className="cs-generation-stage-marker">{stage.marker}</span>
+              <strong>{stage.label}</strong>
+              <span className="cs-generation-stage-detail">{complete ? "done" : active ? "active" : "next"}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="cs-source-meter" aria-label="Source class model">
+        <div>
+          <span data-class="independent" style={{ flexGrow: 5 }} />
+          <span data-class="reporting" style={{ flexGrow: 4 }} />
+          <span data-class="company" style={{ flexGrow: 2 }} />
+        </div>
+        <p>Independent sources stay visually heavier than company-controlled material.</p>
+      </div>
+    </ExtensionFrame>
   );
 }
 
@@ -344,21 +419,38 @@ function StartGenerationPanel({
   const companyName = readableCompanyNameFromDomain(domain);
 
   return (
-    <ExtensionPlate
+    <ExtensionFrame
       actions={
         <>
-        <button className="cs-extension-button" onClick={onStart} type="button">Start</button>
+        <button className="cs-extension-button" onClick={onStart} type="button">Generate profile</button>
         <button className="cs-extension-link-button" onClick={onEditSettings} type="button">
-          Edit settings
+          Settings
         </button>
         </>
       }
-      eyebrow={domain}
-      markLabel={companyName}
+      onSettings={onEditSettings}
+      right="ready"
       title={`Generate ${companyName}?`}
     >
-      <p className="cs-extension-copy">Research the company and save a sourced card.</p>
-    </ExtensionPlate>
+      <PanelHeader eyebrow="No saved profile" markLabel={companyName} title={`Generate ${companyName}?`} value={domain} />
+      <div className="cs-gate-card">
+        <p>Create a sourced profile for this company before Cold Start spends provider or model work.</p>
+        <dl>
+          <div>
+            <dt>Starts with</dt>
+            <dd>identity, funding, team, signals</dd>
+          </div>
+          <div>
+            <dt>Then</dt>
+            <dd>sources, citations, cached profile</dd>
+          </div>
+          <div>
+            <dt>Later</dt>
+            <dd>run the investor lens when the profile is useful</dd>
+          </div>
+        </dl>
+      </div>
+    </ExtensionFrame>
   );
 }
 
@@ -381,7 +473,8 @@ export function SidePanel() {
     mode: GenerationStatus["mode"],
     confirmStart: boolean
   ) {
-    setRequestState({ status: "generating", generationStatus: "queued", mode });
+    const startedAt = Date.now();
+    setRequestState({ status: "generating", generationStatus: "queued", mode, startedAt });
 
     void startGenerationAndPoll(
       generationDomain,
@@ -391,7 +484,7 @@ export function SidePanel() {
       confirmStart,
       (generationStatus) => {
         if (!controller.signal.aborted) {
-          setRequestState({ status: "generating", generationStatus, mode });
+          setRequestState({ status: "generating", generationStatus, mode, startedAt });
         }
       }
     )
@@ -467,7 +560,8 @@ export function SidePanel() {
 
         const message = caught instanceof Error ? caught.message : String(caught);
         if (isMissingCard(caught)) {
-          runGenerationWithController(controller, domain, settings, "basics", false);
+          activeRequest.current = null;
+          setRequestState({ status: "readyToGenerate" });
         } else {
           setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
         }
@@ -494,9 +588,9 @@ export function SidePanel() {
 
   if (!settings) {
     return (
-      <ExtensionPlate eyebrow="Booting" right="setup" title="Loading settings">
-        <p className="cs-extension-copy">Reading local extension settings.</p>
-      </ExtensionPlate>
+      <ExtensionFrame className="cs-check-panel" right="setup" title="Loading settings">
+        <PanelHeader eyebrow="Booting" title="Loading settings" value="Reading local extension settings." />
+      </ExtensionFrame>
     );
   }
 
@@ -514,22 +608,23 @@ export function SidePanel() {
 
   if (!domain) {
     return (
-      <ExtensionPlate
+      <ExtensionFrame
         actions={
           <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
-            Edit settings
+            Settings
           </button>
         }
-        eyebrow="No active domain"
+        onSettings={() => setShowSettings(true)}
+        right="idle"
         title="No company tab selected"
       >
-        <p className="cs-extension-copy">Open a company website, then return to the side panel.</p>
-      </ExtensionPlate>
+        <PanelHeader eyebrow="No active domain" title="No company tab selected" value="Open a company website, then return here." />
+      </ExtensionFrame>
     );
   }
 
   if (requestState.status === "loading" || requestState.status === "idle") {
-    return <GenerationPanel domain={domain} requestState={requestState} />;
+    return <LoadingPanel domain={domain} onSettings={() => setShowSettings(true)} />;
   }
 
   if (requestState.status === "readyToGenerate") {
@@ -548,20 +643,20 @@ export function SidePanel() {
 
   if (requestState.status === "error") {
     return (
-      <ExtensionPlate
+      <ExtensionFrame
         actions={
           <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
-            Edit settings
+            Settings
           </button>
         }
         className="cs-extension-error-plate"
-        eyebrow={domain}
-        markLabel={domain}
+        onSettings={() => setShowSettings(true)}
         right="check"
         title="Card unavailable"
       >
+        <PanelHeader eyebrow="Request failed" markLabel={domain} title="Card unavailable" value={domain} />
         <p className="cs-extension-error">{requestState.message}</p>
-      </ExtensionPlate>
+      </ExtensionFrame>
     );
   }
 
@@ -571,8 +666,8 @@ export function SidePanel() {
       {!requestState.card.synthesis ? (
         <div className="cs-extension-analyze">
           <div>
-            <span className="cs-extension-analyze-kicker">iv · investor lens · gated</span>
-            <p>Run cited analysis for this card.</p>
+            <span className="cs-extension-analyze-kicker">Investor lens</span>
+            <p>Build supported claims and open questions from this profile.</p>
           </div>
           <button className="cs-extension-button" onClick={() => handleStartGeneration("analysis", true)} type="button">
             Analyze

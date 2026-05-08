@@ -149,7 +149,7 @@ describe("SidePanel generation gate", () => {
     vi.unstubAllGlobals();
   });
 
-  it("auto-starts basics generation for a missing-card domain", async () => {
+  it("waits for the user before generating a missing-card domain", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
@@ -162,6 +162,18 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    expect(container.textContent).toContain("Generate Amazon?");
+    const generateButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Generate profile"
+    );
+    expect(generateButton).toBeTruthy();
+
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2500);
     });
@@ -169,7 +181,6 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(JSON.stringify({ domain: "amazon.com", mode: "basics" }));
-    expect(container.textContent).not.toContain("Generate Amazon?");
     expect(container.textContent).toContain("Card loaded for amazon.com");
     await unmount();
   });
@@ -210,8 +221,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("auto-starts basics again when the active domain changes", async () => {
-    vi.useFakeTimers();
+  it("shows the generation gate again when the active domain changes", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "company", status: "queued", mode: "basics" }, { status: 202 });
@@ -223,8 +233,8 @@ describe("SidePanel generation gate", () => {
 
     await panel.changeDomain("linear.app");
 
-    expect(generateCalls(fetchMock)).toHaveLength(2);
-    expect(generateCalls(fetchMock)[1]?.[1]?.body).toBe(JSON.stringify({ domain: "linear.app", mode: "basics" }));
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    expect(panel.container.textContent).toContain("Generate Linear?");
     await panel.unmount();
   });
 });

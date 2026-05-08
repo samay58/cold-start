@@ -1,5 +1,6 @@
 import type { ColdStartCard, ResolvedFact } from "@cold-start/core";
 import { sourceQualityForSource } from "@cold-start/core";
+import type { ReactNode } from "react";
 import { CitationMarker } from "./CitationMarker";
 import { FactRow, formatCompactCurrency, formatMediumDate, formatShortDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
@@ -77,14 +78,6 @@ function plateInitial(name: string) {
   return first || "·";
 }
 
-function dropCapAndRest(text: string): { initial: string; rest: string } {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) {
-    return { initial: "", rest: "" };
-  }
-  return { initial: trimmed.charAt(0), rest: trimmed.slice(1) };
-}
-
 function formatMetricCurrency(value: number | null | undefined): string {
   return typeof value === "number" ? formatCompactCurrency(value) : "—";
 }
@@ -93,26 +86,353 @@ function formatStatusLabel(value: ColdStartCard["identity"]["status"]) {
   return value.replaceAll("_", " ");
 }
 
+function formatCacheStatus(value: ColdStartCard["cacheStatus"]) {
+  if (value === "hit") {
+    return "cached";
+  }
+  if (value === "partial") {
+    return "partial";
+  }
+  return "new";
+}
+
 function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-export function CardShell({ card, surface }: CardShellProps) {
-  const synthesis = surface === "extension" && hasSynthesis(card) ? card.synthesis : undefined;
+function formatAppCurrency(value: number | null | undefined): string {
+  return typeof value === "number" ? formatCompactCurrency(value) : "Not found";
+}
+
+function formatAppDate(value: string | null | undefined): string {
+  return value ? formatShortDate(value) : "Not found";
+}
+
+function hasPeople(fact: ColdStartCard["team"]["founders"] | ColdStartCard["team"]["keyExecs"]) {
+  return Array.isArray(fact.value) && fact.value.length > 0;
+}
+
+function sourceClassForCitation(citation: ColdStartCard["citations"][number]): SourceClass {
+  const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
+  if (tier === "independent_technical" || tier === "independent_analysis") {
+    return "independent";
+  }
+  if (tier === "independent_report") {
+    return "reporting";
+  }
+  return "company";
+}
+
+function sortedCitations(card: ColdStartCard | PublicCard) {
+  const rank: Record<NonNullable<ColdStartCard["citations"][number]["sourceQuality"]>["tier"], number> = {
+    independent_technical: 7,
+    independent_analysis: 6,
+    independent_report: 5,
+    primary_company: 4,
+    press_release: 2,
+    enrichment: 1,
+    unknown: 0
+  };
+
+  return [...card.citations].sort((left, right) => {
+    const leftQuality = left.sourceQuality ?? sourceQualityForSource(left);
+    const rightQuality = right.sourceQuality ?? sourceQualityForSource(right);
+    return rank[rightQuality.tier] - rank[leftQuality.tier];
+  });
+}
+
+function ExtensionMetric({
+  label,
+  meta,
+  value
+}: {
+  label: string;
+  meta?: string | undefined;
+  value: string;
+}) {
+  return (
+    <div className="cs-app-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {meta ? <p>{meta}</p> : null}
+    </div>
+  );
+}
+
+function ExtensionRow({
+  label,
+  value
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="cs-app-row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function ExtensionDetail({
+  children,
+  count,
+  defaultOpen = false,
+  title
+}: {
+  children: ReactNode;
+  count?: string;
+  defaultOpen?: boolean;
+  title: string;
+}) {
+  return (
+    <details className="cs-app-detail" open={defaultOpen}>
+      <summary>
+        <span>{title}</span>
+        {count ? <span>{count}</span> : null}
+      </summary>
+      <div className="cs-app-detail-body">{children}</div>
+    </details>
+  );
+}
+
+function SourceMix({ mix }: { mix: ReturnType<typeof citationMix> }) {
+  if (mix.total === 0) {
+    return <span className="cs-app-source-pill">No sources</span>;
+  }
+
+  return (
+    <div className="cs-app-source-mix" aria-label={`${mix.total} sources`}>
+      <span data-class="independent" style={{ flexGrow: Math.max(mix.independent, 1) }} />
+      <span data-class="reporting" style={{ flexGrow: Math.max(mix.reporting, 1) }} />
+      <span data-class="company" style={{ flexGrow: Math.max(mix.company, 1) }} />
+      <strong>{mix.total}</strong>
+    </div>
+  );
+}
+
+function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
+  const synthesis = hasSynthesis(card) ? card.synthesis : undefined;
   const title = card.identity.name.value ?? card.domain;
   const description = card.identity.description?.value ?? null;
   const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
-  const { initial, rest } = dropCapAndRest(subtitle);
+  const rounds = recentFundingRounds(card);
+  const mix = citationMix(card);
+  const citations = sortedCitations(card);
+  const initialLetter = plateInitial(title);
+  const hq = card.identity.hq.value;
+  const headcount = card.team.headcount.value;
+  const teamVisible = hasPeople(card.team.founders) || hasPeople(card.team.keyExecs) || Boolean(headcount);
+  const hasSignals = card.signals.length > 0;
+  const hasComparables = card.comparables.length > 0;
+  const hasDescriptionRows = Boolean(description?.concept || description?.serves || description?.mechanism);
+
+  return (
+    <article className="cs-app-card" data-surface="extension">
+      <header className="cs-app-header">
+        <span className="cs-app-icon" aria-hidden="true">{initialLetter}</span>
+        <div>
+          <div className="cs-app-kicker">
+            <span>{card.domain}</span>
+            <span>{formatCacheStatus(card.cacheStatus)}</span>
+          </div>
+          <h1 aria-label={title}>{title}</h1>
+          {subtitle ? <p>{subtitle}</p> : null}
+        </div>
+      </header>
+
+      <div className="cs-app-statusbar">
+        <SourceMix mix={mix} />
+        <span>{formatStatusLabel(card.identity.status)}</span>
+        <span>{formatMediumDate(card.generatedAt)}</span>
+      </div>
+
+      <section className="cs-app-metrics" aria-label="Headline figures">
+        <ExtensionMetric
+          label="Raised"
+          meta={rounds.length > 0 ? countLabel(rounds.length, "round") : undefined}
+          value={formatAppCurrency(card.funding.totalRaisedUsd.value)}
+        />
+        <ExtensionMetric
+          label="Last round"
+          meta={card.funding.lastRound.value?.name}
+          value={formatAppCurrency(card.funding.lastRound.value?.amountUsd)}
+        />
+        <ExtensionMetric
+          label="Headcount"
+          meta={headcount?.asOf ? formatShortDate(headcount.asOf) : undefined}
+          value={headcount ? `~${headcount.value}` : "Not found"}
+        />
+      </section>
+
+      {synthesis ? (
+        <section className="cs-app-lens" aria-label="Investor lens">
+          <div className="cs-app-section-head">
+            <span>Investor lens</span>
+            <span>Extension</span>
+          </div>
+          <p className="cs-app-lens-copy">{synthesis.whyItMatters.text}</p>
+
+          <div className="cs-app-lens-grid">
+            <div>
+              <h2>Supported</h2>
+              {synthesis.bullCase.length > 0 ? (
+                <ul>
+                  {synthesis.bullCase.map((item) => (
+                    <li key={item.text}>{item.text}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No cited support survived verification.</p>
+              )}
+            </div>
+            <div>
+              <h2>Open questions</h2>
+              {synthesis.openQuestions.length > 0 ? (
+                <ul>
+                  {synthesis.openQuestions.map((question) => (
+                    <li key={question}>{question}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No open questions generated.</p>
+              )}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {hasDescriptionRows ? (
+        <ExtensionDetail count="Profile" defaultOpen title="Company">
+          <dl className="cs-app-rows">
+            {description?.concept ? <ExtensionRow label="Concept" value={description.concept} /> : null}
+            {description?.serves ? <ExtensionRow label="Serves" value={description.serves} /> : null}
+            {description?.mechanism ? <ExtensionRow label="How" value={description.mechanism} /> : null}
+            <ExtensionRow label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
+            <ExtensionRow label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
+          </dl>
+        </ExtensionDetail>
+      ) : null}
+
+      {rounds.length > 0 ? (
+        <ExtensionDetail count={countLabel(rounds.length, "round")} title="Funding">
+          <ol className="cs-app-round-list">
+            {rounds.map((round) => (
+              <li key={`${round.name}-${round.announcedAt ?? "undated"}-${round.amountUsd ?? "undisclosed"}`}>
+                <span data-class={classifyRound(round)} />
+                <div>
+                  <strong>{round.name}</strong>
+                  <p>{round.leadInvestors.length > 0 ? round.leadInvestors.join(", ") : "Lead not found"}</p>
+                </div>
+                <div>
+                  <strong>{formatAppCurrency(round.amountUsd)}</strong>
+                  <p>{formatAppDate(round.announcedAt)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </ExtensionDetail>
+      ) : null}
+
+      {teamVisible ? (
+        <ExtensionDetail count="People" title="Team">
+          <dl className="cs-app-rows">
+            {hasPeople(card.team.founders) ? (
+              <ExtensionRow label="Founders" value={card.team.founders.value?.map((person) => person.name).join(", ")} />
+            ) : null}
+            {hasPeople(card.team.keyExecs) ? (
+              <ExtensionRow label="Key execs" value={card.team.keyExecs.value?.map((person) => person.name).join(", ")} />
+            ) : null}
+            {headcount ? <ExtensionRow label="Headcount" value={`${headcount.value} as of ${formatShortDate(headcount.asOf)}`} /> : null}
+          </dl>
+        </ExtensionDetail>
+      ) : null}
+
+      {hasSignals ? (
+        <ExtensionDetail count={countLabel(card.signals.length, "signal")} title="Signals">
+          <ul className="cs-app-list">
+            {card.signals.slice(0, 4).map((signal) => {
+              const href = safeExternalHref(signal.url);
+              return (
+                <li key={`${signal.url}-${signal.title}`}>
+                  <span>{formatShortDate(signal.date)}</span>
+                  <div>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noreferrer">{signal.title}</a>
+                    ) : (
+                      <strong>{signal.title}</strong>
+                    )}
+                    <p>{signal.source} · {signal.category}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </ExtensionDetail>
+      ) : null}
+
+      {hasComparables ? (
+        <ExtensionDetail count={countLabel(card.comparables.length, "company", "companies")} title="Comparables">
+          <ul className="cs-app-comparables">
+            {card.comparables.slice(0, 4).map((comparable) => (
+              <li key={`${comparable.domain}-${comparable.name}`}>
+                <div>
+                  <strong>{comparable.name}</strong>
+                  <p>{comparable.oneLiner}</p>
+                </div>
+                <span>{comparable.domain}</span>
+              </li>
+            ))}
+          </ul>
+        </ExtensionDetail>
+      ) : null}
+
+      {citations.length > 0 ? (
+        <ExtensionDetail count={countLabel(citations.length, "source")} title="Sources">
+          <ol className="cs-app-sources">
+            {citations.slice(0, 6).map((citation) => {
+              const href = safeExternalHref(citation.url);
+              const quality = citation.sourceQuality ?? sourceQualityForSource(citation);
+              return (
+                <li data-class={sourceClassForCitation(citation)} key={citation.id}>
+                  <span aria-hidden="true" />
+                  <div>
+                    {href ? (
+                      <a href={href} target="_blank" rel="noreferrer">{citation.title}</a>
+                    ) : (
+                      <strong>{citation.title}</strong>
+                    )}
+                    <p>{quality.label} · {citation.sourceType.replaceAll("_", " ")}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </ExtensionDetail>
+      ) : null}
+    </article>
+  );
+}
+
+export function CardShell({ card, surface }: CardShellProps) {
+  if (surface === "extension") {
+    return <ExtensionProfile card={card} />;
+  }
+
+  const synthesis: NonNullable<ColdStartCard["synthesis"]> | undefined = undefined;
+  const title = card.identity.name.value ?? card.domain;
+  const description = card.identity.description?.value ?? null;
+  const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
   const rounds = recentFundingRounds(card);
   const roundCitationIds = fundingRoundCitationIds(card);
   const mix = citationMix(card);
   const initialLetter = plateInitial(title);
   const filedDate = formatMediumDate(card.generatedAt);
-  const isExtension = surface === "extension";
+  const isExtension = false;
   const hasRounds = rounds.length > 0;
   const hasSignals = card.signals.length > 0;
   const hasComparables = card.comparables.length > 0;
-  const capitalMarker = isExtension && synthesis ? "v" : "iv";
+  const capitalMarker = "iv";
 
   return (
     <article className="cs-card" data-surface={surface}>
@@ -153,11 +473,7 @@ export function CardShell({ card, surface }: CardShellProps) {
 
           {subtitle ? (
             <div className="cs-description" aria-label={subtitle}>
-              {initial ? <span className="cs-drop-cap" aria-hidden="true">{initial}</span> : null}
-              <p className="cs-subtitle">
-                <span className="sr-only">{initial}</span>
-                {rest}
-              </p>
+              <p className="cs-subtitle">{subtitle}</p>
             </div>
           ) : null}
 

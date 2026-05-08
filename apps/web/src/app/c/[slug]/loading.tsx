@@ -10,17 +10,17 @@ export default function LoadingCard() {
           </div>
           <span>live · loading</span>
         </div>
-        <div className="cs-loading-hero">
+        <div className="cs-loading-body">
           <span className="cs-home-hero-mark" aria-hidden="true">C</span>
           <div>
-            <p className="cs-home-kicker">Building · first observation</p>
+            <p className="cs-home-kicker">Loading profile</p>
             <h1>Loading sourced facts.</h1>
           </div>
-        </div>
-        <div className="cs-loading-stages">
-          <p><span>i ✓</span> Resolve identity</p>
-          <p><span>ii →</span> Catalogue sources</p>
-          <p><span>iii ·</span> Render plate</p>
+          <div className="cs-loading-stages">
+            <p><span>01</span> Resolve identity</p>
+            <p><span>02</span> Read sources</p>
+            <p><span>03</span> Render profile</p>
+          </div>
         </div>
       </section>
     </main>

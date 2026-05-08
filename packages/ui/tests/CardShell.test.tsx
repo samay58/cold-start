@@ -172,11 +172,11 @@ describe("CardShell", () => {
     render(<CardShell card={card} surface="extension" />);
 
     expect(screen.getByLabelText("Investor lens")).toBeTruthy();
-    expect(screen.getByText("Supported · 1 cited")).toBeTruthy();
+    expect(screen.getByText("Supported")).toBeTruthy();
     expect(screen.getByText("The company has a credible infra wedge [c1].")).toBeTruthy();
     expect(screen.getByText("Open questions")).toBeTruthy();
     expect(screen.getByText("Which buyer owns the budget?")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Sources" })).toBeNull();
+    expect(screen.getByText("Sources")).toBeTruthy();
     expectRemovedLanguageAbsent();
   });
 
@@ -252,13 +252,13 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(sparseCard())} surface="extension" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Not found").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByLabelText("Investor lens")).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Comparables." })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "The basics." })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Sources" })).toBeNull();
+    expect(screen.queryByText("Funding")).toBeNull();
+    expect(screen.queryByText("Signals")).toBeNull();
+    expect(screen.queryByText("Comparables")).toBeNull();
+    expect(screen.queryByText("Team")).toBeNull();
+    expect(screen.getByText("Sources")).toBeTruthy();
     expectRemovedLanguageAbsent();
   });
 });
