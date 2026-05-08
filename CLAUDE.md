@@ -70,6 +70,12 @@ End-to-end card generation against local stack (see README "Generate and inspect
 - Vitest workspace excludes `apps/web` (it has its own `vitest run`); `npm run test` at root runs both via the workspaces fan-out, while `vitest.workspace.ts` is what the `vitest` CLI uses if invoked directly.
 - Extension build output goes to `apps/extension/dist`; load-unpacked from there. If the side panel setup screen shows the production origin, the build has a stale `VITE_COLD_START_API_ORIGIN` — rebuild, then click Reload in `chrome://extensions`.
 
+## Data layer (Neon + Drizzle)
+
+- **Why Neon**: serverless Postgres that scales to zero and pairs cleanly with Vercel; no server to babysit. Postgres specifically (not a doc store) because the `ColdStartCard` is strictly typed and we want SQL for evals and ad-hoc inspection.
+- **Why Drizzle**: TypeScript-first, thin ORM. Schema in `packages/db/src/schema.ts` is just TS, queries are type-checked end to end, and migrations are plain SQL files in `packages/db/drizzle/` checked into git.
+- **Hybrid schema, not pure JSON or pure relational**. The full card lives as a JSONB blob in `cards.card_json` / `cards.public_card_json` (cheap to read whole; matches the typed `ColdStartCard`). Alongside that, `sources`, `citations`, `claims`, and `generation_runs` are normalized tables so we can query across cards (e.g. "all `claims` with `status = 'inferred'`", or per-slug generation history). When you add a card field, decide whether it only needs to ride inside `card_json` or also deserves a row in `claims`/`citations` for cross-card querying.
+
 ## Where to look first
 
 - Adding a card field: `packages/core/src/card.ts` → `packages/llm/src/extraction.ts` → `packages/pipeline/src/generate-card.ts` → `packages/ui/src/CardShell.tsx`.
