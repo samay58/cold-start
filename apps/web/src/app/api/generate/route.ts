@@ -13,6 +13,10 @@ function generationMode(input: unknown): GenerationMode {
   return input === "analysis" || input === "basics" ? input : "basics";
 }
 
+function publicGenerationEnabled() {
+  return process.env.NODE_ENV !== "production" || process.env.PUBLIC_GENERATION_ENABLED === "true";
+}
+
 export async function POST(request: Request) {
   let body: { domain?: unknown; confirmStart?: unknown; mode?: unknown };
 
@@ -32,6 +36,10 @@ export async function POST(request: Request) {
 
   if (!confirmed && !(mode === "basics" && extensionAuth.ok)) {
     return NextResponse.json({ error: "generation start confirmation required" }, { status: 400 });
+  }
+
+  if (mode === "basics" && !extensionAuth.ok && !publicGenerationEnabled()) {
+    return NextResponse.json({ error: "extension identity required" }, { status: 403 });
   }
 
   let domain: string;

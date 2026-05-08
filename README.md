@@ -237,6 +237,10 @@ Stop the web app and Inngest worker with `Ctrl-C` in their terminals. Stop Postg
 docker-compose down
 ```
 
+## Deployment
+
+The internal deployment runbook lives at `docs/deployment.md`.
+
 ## Next upgrades
 
 Next after this merge:

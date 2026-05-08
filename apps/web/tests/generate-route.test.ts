@@ -66,6 +66,7 @@ describe("POST /api/generate", () => {
   beforeEach(() => {
     process.env.NODE_ENV = "test";
     process.env.EXTENSION_API_TOKEN = "secret";
+    delete process.env.PUBLIC_GENERATION_ENABLED;
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunBySlug.mockReset();
     mocks.findCardBySlug.mockReset();
@@ -148,6 +149,32 @@ describe("POST /api/generate", () => {
     await expect(response.json()).resolves.toEqual({ error: "generation start confirmation required" });
     expect(response.status).toBe(400);
     expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
+  it("blocks unauthenticated basics generation in production unless explicitly enabled", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://extension-test-id";
+
+    const response = await POST(generateRequest("cartesia.ai", { mode: "basics", confirmStart: true }));
+
+    await expect(response.json()).resolves.toEqual({ error: "extension identity required" });
+    expect(response.status).toBe(403);
+    expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
+  it("can opt production public basics generation back in", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://extension-test-id";
+    process.env.PUBLIC_GENERATION_ENABLED = "true";
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai", { mode: "basics", confirmStart: true }));
+
+    await expect(response.json()).resolves.toEqual({ slug: "cartesia", status: "queued", mode: "basics" });
+    expect(response.status).toBe(202);
   });
 
   it("requires extension auth and confirmation for analysis generation", async () => {
