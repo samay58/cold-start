@@ -72,16 +72,18 @@ INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 ```
 
-For internal production testing:
+For current internal production testing:
 
 ```text
-NEXT_PUBLIC_WEB_ORIGIN=https://coldstart.semitechie.vc
-VITE_COLD_START_API_ORIGIN=https://coldstart.semitechie.vc
+NEXT_PUBLIC_WEB_ORIGIN=https://cold-start-samay58s-projects.vercel.app
+VITE_COLD_START_API_ORIGIN=https://cold-start-samay58s-projects.vercel.app
 PUBLIC_GENERATION_ENABLED=false
 ALLOWED_EXTENSION_ORIGINS=chrome-extension://<your-loaded-extension-id>
 CHROME_EXTENSION_ID=<your-loaded-extension-id>
 EXTENSION_API_TOKEN=<long-random-token>
 ```
+
+The custom domain target remains `https://coldstart.semitechie.vc`; use the Vercel project URL above until DNS/domain wiring is complete. The internal extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`, which is ignored and should not be committed.
 
 `VITE_COLD_START_API_ORIGIN` is only used when building the extension, not by the deployed web app.
 
@@ -90,7 +92,7 @@ EXTENSION_API_TOKEN=<long-random-token>
 After the web deployment exists, build the extension against the deployed API:
 
 ```bash
-VITE_COLD_START_API_ORIGIN=https://coldstart.semitechie.vc npm run build -w @cold-start/extension
+VITE_COLD_START_API_ORIGIN=https://cold-start-samay58s-projects.vercel.app npm run build -w @cold-start/extension
 ```
 
 Load `apps/extension/dist` unpacked in Chrome, copy the extension ID from `chrome://extensions`, then update Vercel:
@@ -107,7 +109,7 @@ Redeploy after changing Vercel environment variables. Vercel environment variabl
 1. Open the deployed site and confirm `/privacy`, `/robots.txt`, and `/sitemap.xml` render.
 2. Open a company site in Chrome.
 3. Open the unpacked Cold Start extension.
-4. Set API origin to `https://coldstart.semitechie.vc` and token to `EXTENSION_API_TOKEN`.
+4. Set API origin to `https://cold-start-samay58s-projects.vercel.app` and token to the value in `.vercel/extension-api-token.production.local`.
 5. Generate basics for `cartesia.ai`.
 6. Confirm the public page exists at `/c/cartesia`.
 7. Confirm `/api/cards/cartesia` does not include `synthesis`.

@@ -10,7 +10,7 @@ const envSchema = z.object({
 export function webEnv() {
   return envSchema.parse({
     DATABASE_URL: process.env.DATABASE_URL,
-    NEXT_PUBLIC_WEB_ORIGIN: process.env.NEXT_PUBLIC_WEB_ORIGIN ?? "http://localhost:3000",
+    NEXT_PUBLIC_WEB_ORIGIN: process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "http://localhost:3000",
     INNGEST_EVENT_KEY: process.env.INNGEST_EVENT_KEY,
     INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
   });

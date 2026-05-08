@@ -28,5 +28,9 @@ export default defineManifest({
   side_panel: {
     default_path: "sidepanel.html"
   },
-  host_permissions: ["http://localhost:3000/*", "https://coldstart.semitechie.vc/*"]
+  host_permissions: [
+    "http://localhost:3000/*",
+    "https://coldstart.semitechie.vc/*",
+    "https://cold-start-samay58s-projects.vercel.app/*"
+  ]
 });
