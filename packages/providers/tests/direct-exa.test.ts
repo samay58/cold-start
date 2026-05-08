@@ -71,7 +71,7 @@ describe("fetchDirectExaFundamentalsSources", () => {
       fetchJson: async ({ body }) => ({
         results: [
           {
-            url: `https://example.com/${body.category}`,
+            url: body.category === "company" ? "https://www.cartesia.ai/about" : `https://example.com/${body.category}`,
             title: `${body.category} result`,
             text: "Cartesia raised funding and lists its management team.",
             publishedDate: "2026-05-07",
@@ -90,8 +90,8 @@ describe("fetchDirectExaFundamentalsSources", () => {
       "recent_signals",
     ]);
     expect(result.sources[0]).toMatchObject({
-      url: "https://example.com/company",
-      sourceType: "news",
+      url: "https://www.cartesia.ai/about",
+      sourceType: "company_site",
       rawText: expect.stringContaining("management team"),
     });
   });

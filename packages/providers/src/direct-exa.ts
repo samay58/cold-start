@@ -130,7 +130,7 @@ export async function fetchDirectExaFundamentalsSources(input: {
         return [];
       }
 
-      return providerSourcesFromDirectExa(result.value.request, result.value.payload);
+      return providerSourcesFromDirectExa(result.value.request, result.value.payload, input.domain);
     }),
     failures: settled.flatMap((result, index) => {
       if (result.status === "fulfilled") {
@@ -167,7 +167,7 @@ async function directExaJson(request: DirectExaRequest): Promise<unknown> {
   return response.json() as Promise<unknown>;
 }
 
-function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknown): ProviderSource[] {
+function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknown, domain: string): ProviderSource[] {
   const intent = intentForProbe(request.name);
   const records = extractUrlRecords(payload);
 
@@ -190,12 +190,26 @@ function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknow
     return providerSourceFromText({
       url,
       title: stringRecordValue(record, "title") ?? stringRecordValue(record, "name") ?? url,
-      sourceType: "news",
+      sourceType: sourceTypeForDirectUrl(url, domain),
       rawText: JSON.stringify(record),
       intent,
       ...(publishedAt ? { publishedAt } : {}),
     });
   });
+}
+
+function sourceTypeForDirectUrl(url: string, domain: string): ProviderSource["sourceType"] {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    const normalizedDomain = domain.replace(/^www\./i, "").toLowerCase();
+    if (host === normalizedDomain || host.endsWith(`.${normalizedDomain}`)) {
+      return "company_site";
+    }
+  } catch {
+    return "news";
+  }
+
+  return "news";
 }
 
 function providerSourceFromText(input: {

@@ -203,7 +203,7 @@ Week 1 is complete only when all are true:
 - Stableenrich spike records pass/fail for Exa search, Exa findSimilar, Firecrawl, org enrichment, and LinkedIn enrichment.
 - Generating a card for `cartesia.ai` writes `cards`, `claims`, `citations`, and `sources` rows.
 - Any generated `ResolvedFact` without citations is stored as `value: null`, `status: "unknown"`.
-- The synthesis verifier drops unsupported or contradicted claims.
+- The synthesis review drops unsupported or contradicted claims.
 
 ## Week 2 Checkpoint
 
@@ -2732,7 +2732,7 @@ export function SynthesisSection({ synthesis }: { synthesis: NonNullable<ColdSta
       <p>{synthesis.whyItMatters.text}</p>
       <h2>Bull case</h2>
       <ul>{synthesis.bullCase.map((item) => <li key={item.text}>{item.text}</li>)}</ul>
-      <h2>Bear case</h2>
+      <h2>Skeptical evidence</h2>
       <ul>{synthesis.bearCase.map((item) => <li key={item.text}>{item.text}</li>)}</ul>
       <h2>Open questions</h2>
       <ul>{synthesis.openQuestions.map((question) => <li key={question}>{question}</li>)}</ul>

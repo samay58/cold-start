@@ -38,7 +38,7 @@ describe("synthesisTool", () => {
 });
 
 describe("synthesisSystemPrompt", () => {
-  it("uses source incentives and pushes against empty bear cases", () => {
+  it("uses source incentives and pushes against empty skeptical evidence", () => {
     expect(synthesisSystemPrompt).toContain("source incentives");
     expect(synthesisSystemPrompt).toContain("independent technical");
     expect(synthesisSystemPrompt).toContain("Do not leave bearCase empty");

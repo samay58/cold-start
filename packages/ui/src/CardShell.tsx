@@ -79,7 +79,7 @@ function plateInitial(name: string) {
 }
 
 function formatMetricCurrency(value: number | null | undefined): string {
-  return typeof value === "number" ? formatCompactCurrency(value) : "—";
+  return typeof value === "number" ? formatCompactCurrency(value) : "Unknown";
 }
 
 function formatStatusLabel(value: ColdStartCard["identity"]["status"]) {
@@ -203,9 +203,9 @@ function SourceMix({ mix }: { mix: ReturnType<typeof citationMix> }) {
 
   return (
     <div className="cs-app-source-mix" aria-label={`${mix.total} sources`}>
-      <span data-class="independent" style={{ flexGrow: Math.max(mix.independent, 1) }} />
-      <span data-class="reporting" style={{ flexGrow: Math.max(mix.reporting, 1) }} />
-      <span data-class="company" style={{ flexGrow: Math.max(mix.company, 1) }} />
+      {mix.independent > 0 ? <span data-class="independent" style={{ flexGrow: mix.independent }} /> : null}
+      {mix.reporting > 0 ? <span data-class="reporting" style={{ flexGrow: mix.reporting }} /> : null}
+      {mix.company > 0 ? <span data-class="company" style={{ flexGrow: mix.company }} /> : null}
       <strong>{mix.total}</strong>
     </div>
   );
@@ -225,7 +225,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
   const teamVisible = hasPeople(card.team.founders) || hasPeople(card.team.keyExecs) || Boolean(headcount);
   const hasSignals = card.signals.length > 0;
   const hasComparables = card.comparables.length > 0;
-  const hasDescriptionRows = Boolean(description?.concept || description?.serves || description?.mechanism);
+  const hasCompanyRows = Boolean(description?.concept || description?.serves || description?.mechanism || hq || card.identity.foundedYear.value);
 
   return (
     <article className="cs-app-card" data-surface="extension">
@@ -302,7 +302,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
         </section>
       ) : null}
 
-      {hasDescriptionRows ? (
+      {hasCompanyRows ? (
         <ExtensionDetail count="Profile" defaultOpen title="Company">
           <dl className="cs-app-rows">
             {description?.concept ? <ExtensionRow label="Concept" value={description.concept} /> : null}
@@ -539,7 +539,7 @@ export function CardShell({ card, surface }: CardShellProps) {
         </div>
         <div className="cs-stat">
           <p className="cs-stat-label">iii · team</p>
-          <p className="cs-stat-value">{card.team.headcount.value ? `~${card.team.headcount.value.value}` : "—"}</p>
+          <p className="cs-stat-value">{card.team.headcount.value ? `~${card.team.headcount.value.value}` : "Unknown"}</p>
           {card.team.headcount.value ? (
             <p className="cs-stat-meta">as of {card.team.headcount.value.asOf}</p>
           ) : mix.independent > 0 ? (

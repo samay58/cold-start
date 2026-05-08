@@ -13,7 +13,7 @@ The visual metaphor is not "AI magic." It is a lens finding structure in a noisy
 - **Cold light over hype.** Use glacial blue, white wire, and deep navy to suggest inspection and signal extraction. Avoid startup confetti, gradients for their own sake, or VC hype colors.
 - **Editorial object, technical substrate.** The final artifact should read like a memo page, but the surrounding frame can feel like a live system.
 - **One strong mark.** The eye/radar aperture is the brand anchor. Reuse it as icon, watermark, loading glyph, social avatar, and portfolio stamp.
-- **Visible provenance.** Citations, timestamps, domains, and claim status are part of the aesthetic. Do not hide the machinery.
+- **Visible sources.** Citations, timestamps, domains, and claim status are part of the aesthetic. Do not hide the machinery.
 
 ## Palette
 
@@ -50,7 +50,7 @@ For Cold Start, the brand should appear in three layers:
 2. **Application shell:** deep navy signal field around the card, especially in the extension side panel and public page background.
 3. **Reading surface:** high-legibility memo card that keeps citations, facts, and synthesis calm.
 
-The next full UX pass should make generation states, source drawers, and verifier drops feel like parts of the same instrument, not generic loading and error screens.
+The next full UX pass should make generation states, source drawers, and unsupported claims feel like parts of the same instrument, not generic loading and error screens.
 
 ## Icon Asset Rules
 

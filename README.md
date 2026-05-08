@@ -1,8 +1,14 @@
 # Cold Start
 
-Company context card for investor-grade browsing. One click on any company website, get a cached sourced card quickly or start a fresh background generation when no card exists yet. Public sourced facts live at `coldstart.semitechie.vc/c/{slug}`. Bull case, bear case, and open questions are gated behind the Chrome extension.
+Cold Start helps you understand a company from its website without opening ten tabs.
 
-The wedge: faster bearings on the company already in the tab. Pitchbook's tile asserts; Cold Start cites.
+Open a company domain and it builds a card with the basics: what the company does, who runs it, who has backed it, what has happened recently, which companies look nearby, and the links behind every important claim.
+
+The public card is intentionally careful. It only shows facts that can be tied to sources. If Cold Start cannot back something up, it should not make it sound certain. It leaves the field empty, lowers confidence, or says the information was not found.
+
+The Chrome extension adds the private investor read: why the company might matter, the best case, the skeptical case, and the questions worth asking on a first call. That sharper read stays out of the public page.
+
+Cold Start is not a chatbot, a lead list, a CRM, or an investment score. The card is the product: a shareable page that lets someone get oriented quickly, inspect the sources, and decide what to ask next.
 
 ## Status
 
@@ -21,7 +27,8 @@ Current implementation includes:
 cold-start/
 ├── README.md           ← this file
 ├── SPEC.md             ← product + technical spec (source of truth)
-├── DESIGN.md           ← style reference and design tokens
+├── DESIGN.md           ← implemented style reference
+├── docs/               ← brand docs, archived directions, and plans
 ├── apps/               ← Next.js web app and Chrome extension
 ├── packages/           ← core, db, providers, llm, pipeline, and ui packages
 └── eval/               ← golden company seed and eval config
@@ -33,23 +40,24 @@ cold-start/
 |----------|--------|
 | Name | Cold Start |
 | URL policy | Public sourced facts at `/c/{slug}`, gated synthesis behind Chrome extension or auth |
-| Data plumbing | AgentCash + stableenrich primary, direct-vendor fallback per endpoint if a gap surfaces on day-1 spike |
+| Data plumbing | Direct Exa fast fundamentals first, StableEnrich and AgentCash as fallback and enrichment |
 | Build pace | 3-week MVP, no Arc Boost POC, no weekend hack |
 | Backend | Next.js 15 on Vercel + Inngest + Neon Postgres |
 | LLM | Claude Sonnet 4.6, single agent with parallel tool calls, no orchestrator-worker in v0 |
-| Bull/bear scope | In v0 but only on extension surface; web public URL omits synthesis entirely |
+| Investor synthesis | In v0 but only on extension surface; web public URL omits synthesis entirely |
+| Generation modes | `basics` starts after the side-panel gate and can cache a partial public card; `analysis` is explicit, gated, and adds synthesis |
 | X bot | Deferred to v1.1; manual @semitechievc posting in v0 |
 | Brand | Personal under @semitechievc, no separate product handle until product proves out |
 
-## What this product is not
+## Boundaries
 
-- Not a Pitchbook clone (theirs is a database lookup; this is a context layer).
-- Not a chatbot. The card is the unit; the chat is incidental.
-- Not a contact-scraping or outbound tool.
-- Not a "should I invest" recommendation engine.
-- Not a CRM or watchlist in v0.
+- Cold Start is not avoiding the company-intel category. It is trying to make the old version of that category feel slow, opaque, and incomplete.
+- It is a card product, not a chatbot. The reusable artifact is the unit.
+- It is not a contact-scraping or outbound tool.
+- It is not a "should I invest" recommendation engine.
+- It is not a CRM or watchlist in v0.
 
-## Provenance
+## Spec Origins
 
 This project merges three independent AI-generated specs written 2026-05-06:
 
@@ -113,8 +121,6 @@ The local database is exposed on host port `55432` to avoid colliding with a mac
 
 ```bash
 docker-compose up -d postgres
-set -a; source .env.local; set +a
-npm run db:migrate
 ```
 
 Two terminals while testing locally:
@@ -124,21 +130,15 @@ Terminal 1: npm run dev:full     # web app + Inngest worker
 Terminal 2: curl checks
 ```
 
-Each terminal needs env vars loaded first:
-
-```bash
-set -a; source .env.local; set +a
-```
-
 Start everything in terminal 1:
 
 ```bash
 npm run dev:full
 ```
 
-This runs `next dev` and the Inngest dev worker side by side with prefixed output (`web` cyan, `inngest` magenta). One Ctrl-C stops both. The web app loads the repo-root `.env.local` through `apps/web/next.config.ts`. Restart `dev:full` after changing extension auth values. If the extension says `extension auth not configured`, restart this process.
+This loads the repo-root `.env.local`, applies pending Drizzle migrations, then runs `next dev` and the Inngest dev worker side by side with prefixed output (`web` cyan, `inngest` magenta). One Ctrl-C stops both. Restart `dev:full` after changing extension auth values. If the extension says `extension auth not configured`, restart this process.
 
-If you want them separate, the underlying scripts are still there: `npm run dev` (web only) and `npm run dev:inngest` (worker only). The Inngest script uses the `NPM_CONFIG_CACHE=$(mktemp -d) npx --ignore-scripts=false` invocation to dodge a known monorepo install-scripts skip; without that, `inngest-cli` fails with `Inngest CLI binary not found`.
+If you want them separate, the underlying scripts are still there: `npm run dev` (web only), `npm run dev:inngest` (worker only), and `npm run db:migrate` for schema changes. Run `set -a; source .env.local; set +a` before `npm run db:migrate` when invoking it directly. The Inngest script rebuilds `inngest-cli` once if the local binary is missing because install scripts were skipped.
 
 ### Generate and inspect a card
 
@@ -194,7 +194,7 @@ Expected: `"cartesia.ai"` and `true`.
 
 ### Try the Chrome side panel
 
-The side panel reads the cached extension card when one exists. If no card exists, it starts `/api/generate`, shows staged progress, polls until the card is available, then renders the extension card.
+The side panel reads the cached extension card when one exists. If no card exists, it asks before starting `/api/generate` in `basics` mode, shows staged progress, polls until the sourced basics card is available, then renders the card. The deeper `analysis` mode runs only after the user clicks Analyze.
 
 ```bash
 npm run build -w @cold-start/extension
@@ -212,7 +212,7 @@ In Chrome:
 
 If the setup screen shows `https://coldstart.semitechie.vc`, the loaded extension was not rebuilt after changing `VITE_COLD_START_API_ORIGIN` or was built with a production value. Go back to `chrome://extensions`, click Reload on Cold Start, reopen the side panel, and confirm the API origin is `http://localhost:3000`.
 
-Expected: the side panel opens. For a cached company, it renders the extension card with synthesis. For a fresh company, it shows Resolve, Plan, Retrieve, and Synthesize while the worker runs. When the worker completes, the panel renders the full card with bull/bear synthesis.
+Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. If synthesis is missing, the Analyze button starts the gated analysis run.
 
 ### Stop local services
 
@@ -228,16 +228,16 @@ Next after this merge:
 
 1. **Brand and UX pass**
    - Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`.
-   - Apply the eye/radar aperture system to generation states, source drawers, verifier drops (claims the verifier rejected), OG images, and launch material.
+   - Apply the eye/radar aperture system to generation states, source drawers, unsupported claims, OG images, and launch material.
    - Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
 
 2. **Synthesis quality gate**
    - Keep the current conservative verifier, but make rejected claims visible.
-   - Return exactly three bull and three bear lines when supported; otherwise render an explicit "not enough verified evidence" state instead of empty arrays.
-   - Persist verifier status and drop reasons so bad synthesis can be debugged without rerunning the whole card.
+   - Return enough supported lines when evidence survives; otherwise render an explicit "not enough verified evidence" state instead of empty arrays.
+   - Persist synthesis review status and drop reasons so bad synthesis can be debugged without rerunning the whole card.
 
 3. **Run observability**
-   - Add a local/debug generation status view showing provider failures, LLM errors, verifier drops, cost, and timestamps.
+   - Add a local/debug generation status view showing provider failures, LLM errors, unsupported claims, cost, and timestamps.
    - Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
    - Show the actual run duration in the extension once a fresh generation completes.
 

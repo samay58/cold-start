@@ -13,19 +13,21 @@ tags: [career-pipeline, build-public, ai-native-investor-tools]
 
 ## What it is
 
-One click on any company website, get a cached sourced card quickly or start a fresh background generation when no card exists yet. The card lives at a public URL (`coldstart.semitechie.vc/c/{slug}`) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same card; the extension adds gated synthesis (why it might matter, bull case, bear case, open questions) that the public URL does not.
+One click on any company website, get a sourced basics card quickly, then choose whether to run deeper investor analysis. The card lives at a public URL (`coldstart.semitechie.vc/c/{slug}`) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same public facts; the extension adds gated synthesis, supported claims, and open questions that the public URL does not.
 
-The wedge is not "more data than Pitchbook." It is faster bearings on the company already in the tab.
+Cold Start aims to make old company-intel tiles obsolete by matching table-stakes fundamentals and exceeding them with citations, speed, and investor judgment. The first card must cover the basics: identity, domain, management team, public funding history, source quality, and citations. The deeper read earns attention only after those boxes are checked.
 
 ## Why it wins
 
-Three things, in order of importance.
+Four things, in order of importance.
 
-First, **trust**. Every material fact links to a primary source. Claims that cannot be cited are dropped, not paraphrased. Pitchbook's tile asserts; Cold Start cites.
+First, **fundamentals coverage**. A user should not have to forgive the product for missing table stakes. Identity, domain, team, funding, and basic source quality should appear before synthesis.
 
-Second, **artifact gravity**. The card is a stable URL, not a chat reply. One generation per company, cached, shareable. Samay tweeting `coldstart.semitechie.vc/c/cartesia` and a colleague clicking the extension on cartesia.ai both hit the same page. This is the only thing that makes per-card economics work at scale.
+Second, **trust**. Every material fact links to a source. Claims that cannot be cited are dropped, not paraphrased. Legacy tiles assert; Cold Start cites.
 
-Third, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would have to be true. None of that is on Pitchbook. The lens lives behind the extension install (gated surface), so the public artifact stays defamation-clean.
+Third, **artifact gravity**. The card is a stable URL, not a chat reply. One generation per company, cached, shareable. Samay tweeting `coldstart.semitechie.vc/c/cartesia` and a colleague clicking the extension on cartesia.ai both hit the same page. This is the only thing that makes per-card economics work at scale.
+
+Fourth, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would have to be true. The lens lives behind the extension install (gated surface), so the public artifact stays defamation-clean.
 
 ## Two visibility tiers
 
@@ -41,8 +43,8 @@ This is the load-bearing decision. Resolved 2026-05-06.
 
 **Gated surface** (Chrome extension; web auth TBD, see open question #2) adds:
 - Why it might matter (3 to 5 sentences, sourced)
-- Bull case (3 bullets, each cited)
-- Bear case (3 bullets, each cited)
+- Supported claims (3 bullets, each cited)
+- Skeptical evidence, retained in the schema for compatibility but not surfaced as a primary label
 - Open questions (3 prompts a partner would ask in a first call)
 
 The Chrome install is the audience filter that lowers defamation exposure. Anyone can read facts; only investors who installed the extension see the synthesis.
@@ -106,13 +108,13 @@ type ResolvedFact<T> = {
 
 Three rules that fall out of this schema.
 
-`partial` means at least one section was served from cache while another section was regenerated, such as identity remaining valid while signals expired.
+`partial` means the card is intentionally incomplete but useful. In the fundamentals sprint, `basics` can write a partial card without synthesis so the user sees sourced identity, team, funding, signals, and citations first. Later it can also mean one section was served from cache while another section was regenerated, such as identity remaining valid while signals expired.
 
 Synthesis sentences must end in `[n]` matching a citation. The post-processor strips any sentence ending in `[needs_verification]`. This is structural, not vibes.
 
 If a `ResolvedFact` has no citation, its `value` must be `null` and `status` must be `unknown`. The render layer hides null facts. No "TBD" cards.
 
-The synthesis block is omitted entirely from the public JSON response. The web app's `/c/{slug}` page does not request it. The extension and authenticated `/c/{slug}?auth=...` requests do.
+The synthesis block is omitted entirely from the public JSON response. The web app's `/c/{slug}` page does not request it. The extension API can return it after extension auth, and only when `analysis` has produced verified synthesis.
 
 ## Architecture
 
@@ -129,37 +131,43 @@ The synthesis block is omitted entirely from the public JSON response. The web a
 | LLM | Claude Sonnet 4.6 (Anthropic direct) | Single model for extraction + synthesis in v0; prompt caching reduces repeated system-prompt cost, up to ~90% at steady traffic |
 | Extension | MV3 + Side Panel API + Vite + CRXJS + React + Tailwind + shadcn | Standard 2026 stack; side panel persists across navigation |
 
-**Data plumbing** is the AgentCash + stableenrich path. As of 2026-05-06, stableenrich exposes Exa search, Exa findSimilar, Firecrawl scrape, and Apollo organization enrichment via AgentCash for the v0 company-card path. There is no AgentCash API key in this flow: AgentCash handles payment from a wallet, using the local `~/.agentcash/wallet.json` in development or `X402_PRIVATE_KEY` in deployed environments. The app pins the `agentcash` npm package and invokes the installed CLI, not `npx agentcash@latest` at request time. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr with PAT), RDAP (free).
+**Data plumbing** starts with direct Exa for fast fundamentals, then uses StableEnrich and AgentCash as fallback and enrichment. Direct Exa uses `DIRECT_EXA_API_KEY` for fast company, people, funding, and news searches. StableEnrich exposes Exa search, Exa findSimilar, Firecrawl scrape, and Apollo organization enrichment via AgentCash for the richer v0 company-card path. There is no AgentCash API key in this flow: AgentCash handles payment from a wallet, using the local `~/.agentcash/wallet.json` in development or `X402_PRIVATE_KEY` in deployed environments. The app pins the `agentcash` npm package and invokes the installed CLI, not `npx agentcash@latest` at request time. Free direct calls layer underneath: SEC EDGAR (no auth), GitHub REST (5K/hr with PAT), RDAP (free).
 
-The AgentCash path collapses what Spec 3 modeled as separate vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a stableenrich endpoint turns out to be missing or unreliable during the day-1 spike, fall back to a direct account for that single call. Everything else stays on AgentCash.
+The AgentCash path collapses what Spec 3 modeled as separate vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a StableEnrich endpoint is missing or unreliable, fall back to a direct account for that single call. Everything else stays on AgentCash.
 
-**Pipeline** (single agent, parallel tool calls, no orchestrator-worker hierarchy):
+**Generation modes**:
+
+`basics` is the extension activation path. The side panel asks before starting it; the request carries `confirmStart` after that click. The API still accepts extension-authenticated basics requests without `confirmStart` for compatibility, but non-extension requests need confirmation. The target is p95 under 10 seconds for the first useful card. It retrieves fast fundamentals, extracts cited facts, skips synthesis, and may cache `cacheStatus: "partial"`.
+
+`analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and open questions survive verification.
+
+**Pipeline** (single agent, parallel provider calls, no orchestrator-worker hierarchy):
 
 ```
-Activation (extension click or URL navigation)
+Activation (extension click)
     ↓
-Resolve identity (domain → canonical company)
+Basics request
     ↓
-Parallel fan-out via Promise.all:
-    ├── Stableenrich: Exa search (news, funding, launch, founders)
-    ├── Stableenrich: Exa findSimilar(domain) → comparables
-    ├── Stableenrich: Apollo org-enrich(domain) → firmographics
-    ├── Stableenrich: Firecrawl(homepage)
-    ├── EDGAR (if public)
-    ├── GitHub (if org_url found in enrichment or page)
-    └── RDAP (domain age)
+Direct Exa fast fundamentals:
+    ├── company profile
+    ├── people and management team
+    ├── funding history
+    └── recent news
+    ↓
+StableEnrich / AgentCash fallback and enrichment:
+    ├── Exa search and findSimilar
+    ├── Apollo org-enrich
+    └── Firecrawl(homepage)
     ↓
 Claim extraction (Sonnet 4.6, structured output, JSON Schema enforced)
     ↓
-Conflict resolution (deterministic rules: most recent authoritative source wins)
+Trust pass and public card cache
     ↓
-Render public card from validated claims
-    ↓ (if extension/authed)
-Synthesis pass (Sonnet 4.6, claim-store as input, citation-or-cut enforced)
+User clicks Analyze
     ↓
-Verifier pass (Sonnet 4.6, second call, asks "is each [n] supported by source [n]")
+Analysis retrieval, synthesis, verifier
     ↓
-Stream sections to client via Suspense
+Upgrade cached card with gated synthesis
 ```
 
 The verifier is cheap because the system prompt is cacheable and the per-card input is bounded by the citation count. It catches the "cited a source that doesn't actually support the claim" failure mode that base citation enforcement misses.
@@ -169,9 +177,11 @@ The verifier is cheap because the system prompt is cacheable and the per-card in
 1. JSON Schema on every tool output. Zod-validated. The model cannot return an unstructured number.
 2. Citation IDs in synthesis are required by schema; missing IDs trigger regen.
 3. Forbidden phrase regex on synthesis output: "reportedly," "industry sources suggest," "rumored to," "appears to be," "is said to." Any hit triggers regen.
-4. Two-source rule on funding total, valuation, headcount. Single-source claims downgrade to `confidence: 'low'`.
-5. Verifier pass re-reads synthesis with sources in context, returns supported/contradicted/unsupported per claim. Anything not `supported` is dropped.
-6. Confidence badges visible in the UI. `verified` (green), `mixed` (amber, conflict surfaced), `inferred` (blue, AI-derived), `unknown` (gray).
+4. Public web sources can produce `status: 'verified'` when the source actually supports the claim.
+5. Vendor-only facts can display with vendor source context, but stay `status: 'inferred'` and lower confidence unless corroborated.
+6. Two-source rule on funding total, valuation, headcount. Single-source claims downgrade to `confidence: 'low'`.
+7. Verifier pass re-reads synthesis with sources in context, returns supported/contradicted/unsupported per claim. Anything not `supported` is dropped.
+8. Confidence badges visible in the UI. `verified` (green), `mixed` (amber, conflict surfaced), `inferred` (blue, AI-derived), `unknown` (gray).
 
 ## Cost model
 
@@ -242,10 +252,11 @@ The discipline is: every v0 feature must serve the activation moment. For cached
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|
-| Stableenrich endpoint coverage gap | Medium | Day-1 spike; direct-vendor fallback per endpoint |
+| Fast fundamentals miss table stakes | High | Direct Exa first, StableEnrich fallback, golden-set coverage targets for identity, team, and funding |
+| StableEnrich endpoint coverage gap | Medium | Direct-vendor fallback per endpoint |
 | AgentCash wallet drains during Twitter spike | Medium | Top-up alarm at $20 floor; cap free-tier rate at 25 cards/IP/day; cache aggressively |
-| Defamation from bear case on extension | Medium | Bear case sentences must each cite a primary source; legal review of synthesis prompt before extension goes public; user feedback "report wrong" button writes to Postgres for triage |
-| Pitchbook lawyers notice | Low | Public surface is sourced facts with citations, not Pitchbook data; no proprietary feed used; respond if they reach out |
+| Defamation from gated synthesis | Medium | Skeptical claims must each cite a primary source; legal review of synthesis prompt before extension goes public; user feedback "report wrong" button writes to Postgres for triage |
+| Legacy data providers notice | Low | Public surface is sourced facts with citations, not proprietary feed replication; no private provider feed used unless licensed |
 | Sonnet 4.6 extraction fabricates a number | Medium | Forbidden-phrase regex; verifier pass; structured output with JSON Schema; manual review of first 25 cards |
 | Chrome Web Store rejection | Low | Minimal permissions; clear privacy copy; web app is the immediate fallback while resubmitting |
 | stableenrich endpoint price changes | Medium | AgentCash settings let you cap per-call spend; abstraction layer makes per-endpoint vendor swap a config change |
@@ -256,7 +267,7 @@ The discipline is: every v0 feature must serve the activation moment. For cached
 
 - Name: **Cold Start**.
 - URL policy: **public sourced facts at `/c/{slug}`, gated synthesis behind extension or auth**.
-- Data plumbing: **AgentCash + stableenrich primary, direct-vendor fallback per endpoint if needed**.
+- Data plumbing: **Direct Exa fast fundamentals first, StableEnrich and AgentCash fallback and enrichment**.
 - Build pace: **3-week MVP, no Arc Boost POC, no weekend hack**.
 - Backend: **Next.js 15 on Vercel + Inngest + Neon Postgres**.
 - LLM: **Claude Sonnet 4.6, single agent, parallel tool calls, no orchestrator-worker in v0**.

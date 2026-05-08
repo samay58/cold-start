@@ -339,9 +339,12 @@ function GenerationPanel({
   const companyName = readableCompanyNameFromDomain(domain);
   const elapsed = useElapsedSeconds(true, requestState.startedAt);
   const isAnalysis = requestState.mode === "analysis";
-  const activeIndex = requestState.generationStatus === "queued" ? 0 : Math.min(3, 1 + Math.floor(elapsed / 8));
-  const statusText =
+  const activeIndex =
     requestState.generationStatus === "queued"
+      ? Math.min(3, Math.floor(elapsed / 7))
+      : Math.min(3, 1 + Math.floor(elapsed / 8));
+  const statusText =
+    requestState.generationStatus === "queued" && elapsed < 4
       ? isAnalysis ? "Queued analysis" : "Queued profile"
       : isAnalysis ? "Building lens" : "Building profile";
   const stages = [
@@ -350,7 +353,10 @@ function GenerationPanel({
     { label: isAnalysis ? "Trace claims" : "Shape profile", marker: "03" },
     { label: isAnalysis ? "Prepare lens" : "Attach citations", marker: "04" }
   ];
-  const progress = requestState.generationStatus === "queued" ? 12 : Math.min(92, 28 + elapsed * 3);
+  const progress =
+    requestState.generationStatus === "queued"
+      ? Math.min(88, 12 + elapsed * 2)
+      : Math.min(92, 28 + elapsed * 3);
 
   return (
     <ExtensionFrame
@@ -632,7 +638,7 @@ export function SidePanel() {
       <StartGenerationPanel
         domain={domain}
         onEditSettings={() => setShowSettings(true)}
-        onStart={() => handleStartGeneration("basics", false)}
+        onStart={() => handleStartGeneration("basics", true)}
       />
     );
   }

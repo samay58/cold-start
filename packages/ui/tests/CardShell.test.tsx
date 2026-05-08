@@ -238,7 +238,7 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(sparseCard())} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
     expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Comparables." })).toBeNull();
@@ -259,6 +259,24 @@ describe("CardShell", () => {
     expect(screen.queryByText("Comparables")).toBeNull();
     expect(screen.queryByText("Team")).toBeNull();
     expect(screen.getByText("Sources")).toBeTruthy();
+    expectRemovedLanguageAbsent();
+  });
+
+  it("keeps identity rows when sparse extension cards lack structured description", () => {
+    const { synthesis: _synthesis, ...base } = card;
+    const noDescription = publicCard({
+      ...base,
+      identity: {
+        ...base.identity,
+        description: undefined
+      }
+    });
+
+    render(<CardShell card={noDescription} surface="extension" />);
+
+    expect(screen.getByText("Company")).toBeTruthy();
+    expect(screen.getByText("San Francisco, US")).toBeTruthy();
+    expect(screen.getByText("2023")).toBeTruthy();
     expectRemovedLanguageAbsent();
   });
 });

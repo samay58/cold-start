@@ -180,7 +180,9 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
-    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(JSON.stringify({ domain: "amazon.com", mode: "basics" }));
+    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
+      JSON.stringify({ domain: "amazon.com", mode: "basics", confirmStart: true })
+    );
     expect(container.textContent).toContain("Card loaded for amazon.com");
     await unmount();
   });
