@@ -54,7 +54,7 @@ function generationModeForRun(input: unknown): GenerationMode {
   return input === "analysis" ? "analysis" : "basics";
 }
 
-function fastBasicsEnabled() {
+function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
 }
 
@@ -186,7 +186,7 @@ export const generateCardFunction = inngest.createFunction(
 
       const sourceResult = await step.run("fetch-sources", async () => {
         const [directResult, stableResult] = await Promise.allSettled([
-          mode === "basics" && fastBasicsEnabled()
+          directExaEnabled()
             ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
             : Promise.resolve({ sources: [], failures: [], skipped: true }),
           fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
@@ -231,16 +231,21 @@ export const generateCardFunction = inngest.createFunction(
             ? {
                 synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
                 verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+                synthesisRequired: true,
               }
             : {}),
         }),
       );
 
+      if (mode === "analysis" && !clean.synthesis) {
+        throw new Error("analysis synthesis was not produced");
+      }
+
       const existingCard = mode === "analysis" ? await step.run("load-existing-card", () => findCardBySlug(db, slug)) : null;
       const cardToStore =
         mode === "basics"
           ? { ...clean, cacheStatus: "partial" as const }
-          : preserveExistingBasics(existingCard, clean);
+          : { ...preserveExistingBasics(existingCard, clean), cacheStatus: "hit" as const };
       const row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
       await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
       await step.run("record-sources", () =>

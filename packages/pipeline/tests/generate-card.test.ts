@@ -64,7 +64,7 @@ describe("generateCardForDomain", () => {
     expect(card.generationCostUsd).toBe(0);
   });
 
-  it("removes synthesis when verified whyItMatters is unsupported", async () => {
+  it("falls back to a supported synthesis claim when whyItMatters is unsupported", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
     const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
@@ -102,7 +102,49 @@ describe("generateCardForDomain", () => {
       ]
     });
 
-    expect(card.synthesis).toBeUndefined();
+    expect(card.synthesis?.whyItMatters).toEqual(bullCase);
+    expect(card.synthesis?.bullCase).toEqual([]);
+    expect(card.synthesis?.bearCase).toEqual([bearCase]);
+  });
+
+  it("fails required synthesis when no verified claims survive", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+    const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
+
+    await expect(
+      generateCardForDomain("cartesia.ai", {
+        fetchSources: async () => [],
+        extractSections: async () => ({
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: [
+            {
+              id: "c1",
+              url: "https://cartesia.ai/",
+              title: "Cartesia",
+              fetchedAt: "2026-05-06T12:00:00.000Z",
+              sourceType: "company_site",
+              snippet: "Cartesia is building voice AI infrastructure."
+            }
+          ]
+        }),
+        synthesize: async () => ({
+          whyItMatters,
+          bullCase: [bullCase],
+          bearCase: [],
+          openQuestions: ["What customer traction has Cartesia disclosed?"]
+        }),
+        verify: async () => [
+          { ...whyItMatters, status: "unsupported" },
+          { ...bullCase, status: "unsupported" }
+        ],
+        synthesisRequired: true
+      })
+    ).rejects.toThrow("No synthesis claims survived verification");
   });
 
   it("keeps the extracted card when optional synthesis fails", async () => {

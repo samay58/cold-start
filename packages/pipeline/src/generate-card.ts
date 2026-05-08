@@ -94,9 +94,14 @@ type WithoutSynthesisDeps = {
 type WithSynthesisDeps = {
   synthesize(card: ColdStartCard): Promise<CardSynthesis>;
   verify(claims: SourcedText[], sources: VerificationSource[]): Promise<VerificationResult[]>;
+  synthesisRequired?: boolean;
 };
 
 export type GenerateCardDeps = BaseGenerateCardDeps & (WithoutSynthesisDeps | WithSynthesisDeps);
+
+function hasSynthesisDeps(deps: GenerateCardDeps): deps is BaseGenerateCardDeps & WithSynthesisDeps {
+  return typeof deps.synthesize === "function" && typeof deps.verify === "function";
+}
 
 function synthesisClaims(synthesis: CardSynthesis): SourcedText[] {
   return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase];
@@ -106,31 +111,38 @@ async function verifiedSynthesisForCard(
   card: ColdStartCard,
   deps: WithSynthesisDeps
 ): Promise<CardSynthesis | undefined> {
-  try {
-    const synthesis = synthesisSchema.parse(await deps.synthesize(card));
-    const citationSources = card.citations.map((citation) => ({
-      id: citation.id,
-      url: citation.url,
-      title: citation.title,
-      ...(citation.snippet ? { snippet: citation.snippet } : {})
-    }));
-    const results = await deps.verify(synthesisClaims(synthesis), citationSources);
-    const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
-    const [whyItMatters] = verifiedWhyItMatters;
-    const bullCaseOffset = 1;
-    const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
+  const synthesis = synthesisSchema.parse(await deps.synthesize(card));
+  const citationSources = card.citations.map((citation) => ({
+    id: citation.id,
+    url: citation.url,
+    title: citation.title,
+    ...(citation.snippet ? { snippet: citation.snippet } : {})
+  }));
+  const results = await deps.verify(synthesisClaims(synthesis), citationSources);
+  const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
+  const bullCaseOffset = 1;
+  const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
+  let bullCase = applyVerifierResults(synthesis.bullCase, results, bullCaseOffset);
+  let bearCase = applyVerifierResults(synthesis.bearCase, results, bearCaseOffset);
+  let whyItMatters = verifiedWhyItMatters[0];
 
-    return verifiedWhyItMatters.length === 1 && whyItMatters
-      ? {
-          ...synthesis,
-          whyItMatters,
-          bullCase: applyVerifierResults(synthesis.bullCase, results, bullCaseOffset),
-          bearCase: applyVerifierResults(synthesis.bearCase, results, bearCaseOffset)
-        }
-      : undefined;
-  } catch {
-    return undefined;
+  if (!whyItMatters) {
+    whyItMatters = bullCase[0] ?? bearCase[0];
+    if (bullCase[0] === whyItMatters) {
+      bullCase = bullCase.slice(1);
+    } else if (bearCase[0] === whyItMatters) {
+      bearCase = bearCase.slice(1);
+    }
   }
+
+  return whyItMatters
+    ? {
+        ...synthesis,
+        whyItMatters,
+        bullCase,
+        bearCase
+      }
+    : undefined;
 }
 
 export async function generateCardForDomain(domain: string, deps: GenerateCardDeps): Promise<ColdStartCard> {
@@ -161,11 +173,21 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     citations: sections.citations
   });
 
-  if (deps.synthesize && deps.verify) {
-    const verifiedSynthesis = await verifiedSynthesisForCard(card, {
-      synthesize: deps.synthesize,
-      verify: deps.verify
-    });
+  if (hasSynthesisDeps(deps)) {
+    let verifiedSynthesis: CardSynthesis | undefined;
+
+    try {
+      verifiedSynthesis = await verifiedSynthesisForCard(card, deps);
+    } catch (error) {
+      if (deps.synthesisRequired) {
+        throw error;
+      }
+    }
+
+    if (!verifiedSynthesis && deps.synthesisRequired) {
+      throw new Error("No synthesis claims survived verification");
+    }
+
     if (verifiedSynthesis) {
       card = { ...card, synthesis: verifiedSynthesis };
     }
