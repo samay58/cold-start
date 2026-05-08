@@ -1,6 +1,6 @@
 # Cold Start Intent
 
-This document is for agents and collaborators who need to understand what this repo is trying to become before touching implementation details. `SPEC.md` remains the product source of truth, `DESIGN.md` remains the visual source of truth, and `AGENTS.md` remains the working guide. This file states the product idea in plain language and separates known intent from unresolved questions.
+Read this before touching product behavior. `SPEC.md` remains the product source of truth, `DESIGN.md` remains the visual source of truth, and `AGENTS.md` remains the working guide.
 
 ## One-Sentence Intent
 
@@ -8,11 +8,11 @@ Cold Start is an investor-grade company context card: click a company website, g
 
 ## Product Thesis
 
-Cold Start aims to make old company-intel tiles obsolete by matching table-stakes fundamentals and exceeding them with citations, speed, and investor judgment. It is trying to be the thing an investor opens when they need to understand, in seconds, what a company does, who runs it, what is publicly known about funding, what changed recently, and what questions matter next.
+Cold Start competes with old company-intel tiles by matching the basics and beating them on citations, speed, and investor judgment. It should be the thing an investor opens when they need to understand, in seconds, what a company does, who runs it, what is publicly known about funding, what changed recently, and what questions matter next.
 
-The repo's clearest product line is now sharper than the original "tile asserts, card cites" version: basics first, citations always, judgment only after the public facts hold. A fact without source support is worse than an empty field. A confident-looking uncited card violates the product.
+The product line is simple. Basics first. Citations always. Judgment only after the public facts hold. A fact without source support is worse than an empty field. A confident-looking uncited card violates the product.
 
-Cold Start is also deliberately an artifact product, not a chat product. The unit is a stable card at `/c/{slug}`, not a transient answer. The shareable URL matters because it lets one expensive generation become a reusable public object.
+Cold Start is an artifact product, not a chat product. The unit is a stable card at `/c/{slug}`, not a transient answer. The shareable URL matters because one expensive generation can become a reusable public object.
 
 ## Intended User
 
@@ -30,7 +30,7 @@ The product should not assume the user wants a full memo, CRM workflow, outbound
 
 ## What The Product Is
 
-Cold Start has two deliberately different visibility tiers.
+Cold Start has two visibility tiers.
 
 The public tier is the shareable web card at `/c/{slug}` plus `/api/cards/{slug}`. It contains sourced public facts only. In the current schema those facts are identity, structured company description, funding, team, recent signals, comparables, and citations. The public API and page must not expose `synthesis`.
 
@@ -57,7 +57,7 @@ domain or active tab
 
 ## What The Product Is Not
 
-Cold Start is deliberately entering the legacy company-intel category. The goal is to make the old shape of that category feel slow, opaque, and stale.
+Cold Start is entering the legacy company-intel category. The goal is to make the old shape of that category feel slow and opaque.
 
 It is not a chatbot. Chat may become an interaction later, but the card is the product object.
 
@@ -65,7 +65,7 @@ It is not a contact scraping or outbound automation tool. The privacy page expli
 
 It is not an investment score. The synthesis can frame support and questions, but it should not imply "invest" or "pass."
 
-It is not a generic data dump. The investor lens matters: buyer, workflow, wedge, proof, friction, funding cadence, and what would change the read.
+It is not a generic data dump. The investor lens should name the buyer, workflow, wedge, proof, friction, funding cadence, and what would change the read.
 
 ## Load-Bearing Product Decisions
 
@@ -87,7 +87,7 @@ The cache is part of the product economics. The DB stores generated cards with s
 
 Cold Start should earn trust through structure, not tone.
 
-Facts:
+### Facts
 
 - A fact with no valid citation becomes `unknown`, not a pretty guess.
 - Missing facts render as not publicly disclosed or empty states.
@@ -98,15 +98,15 @@ Facts:
 - Source quality matters. Independent technical and analysis sources carry more judgment weight than press releases or enrichment data.
 - Conflicts should become `mixed`, not averaged away.
 
-Synthesis:
+### Synthesis
 
 - Synthesis can only use citations already on the card.
 - Why-it-matters and every synthesis line must include visible citation markers.
-- Forbidden hedge phrases such as "reportedly" and "appears to be" are stripped or rejected.
+- The pipeline strips or rejects forbidden hedge phrases such as "reportedly" and "appears to be."
 - If the verifier cannot support the lede, the entire synthesis block is removed.
 - The public route must never leak synthesis.
 
-Design:
+### Design
 
 - Citations, timestamps, source quality, confidence, domains, and dollar amounts are not housekeeping. They are part of the product's visible trust machinery.
 
@@ -142,7 +142,7 @@ The monorepo boundaries are meaningful:
 - `apps/web` owns public pages, APIs, generation queueing, Inngest serving, and auth gating.
 - `apps/extension` owns active-tab capture, settings, cache fetch, explicit basics start, explicit analysis start, polling, and side-panel rendering.
 
-The cleanest mental model is: core defines what a valid card is, pipeline creates one, db stores both full and public versions, web and extension choose which version to show.
+The cleanest mental model is that core defines a valid card, pipeline creates one, db stores both full and public versions, and web plus extension choose which version to show.
 
 ## Retrieval And LLM Intent
 
@@ -190,9 +190,9 @@ These are true from the current code, not merely from product docs:
 - `generation_runs` tracks `basics` and `analysis` independently through a `mode` column.
 - Production extension auth rejects wildcard Chrome origins, localhost origins, local extension IDs, and the local token sentinel.
 
-## Current Gaps Or Tensions
+## Current Gaps
 
-These are places where docs, code, or product intent do not fully line up yet:
+These are places where docs, code, or product intent do not fully line up yet.
 
 - Slugs are currently the first hostname label, so `foo.com` and `foo.ai` collide as `foo`. The spec mentions domain disambiguation, but the implementation has not solved it.
 - `cacheStatus: "partial"` now covers a basics-first card without synthesis, but partial section regeneration is not implemented as a complete behavior.
@@ -244,6 +244,6 @@ Read these files when validating or changing intent-critical behavior:
 
 ## Agent Operating Principle
 
-When adding features, ask one question first: does this make the card faster, more sourced, more shareable, or more useful to an investor in the activation moment?
+When adding features, ask whether the change makes the card faster, more sourced, more shareable, or more useful to an investor in the activation moment.
 
 If not, it is probably v1. The repo already has enough ambition. The v0 should win by being narrow, cited, and fast.

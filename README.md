@@ -1,18 +1,32 @@
 # Cold Start
 
-Cold Start helps you understand a company from its website without opening ten tabs.
+Cold Start is a company profile that starts from the site already in your browser.
 
-Open a company domain and it builds a card with the basics: what the company does, who runs it, who has backed it, what has happened recently, which companies look nearby, and the links behind every important claim.
+Company research still begins with a messy tab pile. The homepage tells its own story. Databases give you fields, but not always the evidence behind them. Search gives you links, then leaves you to assemble the read yourself.
 
-The public card is intentionally careful. It only shows facts that can be tied to sources. If Cold Start cannot back something up, it should not make it sound certain. It leaves the field empty, lowers confidence, or says the information was not found.
+Cold Start turns that first read into a card. It pulls the basics, cites the sources, and gives the user something they can inspect or forward. If the product cannot back a claim, it lowers confidence, leaves the field blank, or says the fact was not found.
 
-The Chrome extension adds the private investor read: why the company might matter, the best case, the skeptical case, and the questions worth asking on a first call. That sharper read stays out of the public page.
+The public page stays on sourced facts. The Chrome extension adds the private investor read after the basics hold: why the company might matter, which claims have support, and what questions are worth asking on a first call.
 
-Cold Start is not a chatbot, a lead list, a CRM, or an investment score. The card is the product: a shareable page that lets someone get oriented quickly, inspect the sources, and decide what to ask next.
+The product takes inspiration from analyst tear sheets, Raycast-speed command surfaces, and Rauno Freiberg's interaction work: quick feedback, crisp motion, and small details that explain state instead of decorating it. The point is not to copy those surfaces. The point is to make company research feel fast, alive, and trustworthy.
+
+## Who it is for
+
+Cold Start is for investors, builder-investors, and deal people who land on a company site and need bearings fast. It should answer the first questions before a call: what the company does, who runs it, who backed it, what changed recently, what nearby companies matter, and which sources support the read.
+
+It is also built for sharing. A public card can live at `/c/{slug}`. The sharper synthesis stays gated behind the extension.
+
+## How it works
+
+1. The extension reads the active company domain.
+2. The user chooses whether to generate a profile.
+3. The backend resolves the domain, fetches public sources, extracts structured facts, and stores a public card.
+4. The public card renders identity, funding, team, signals, comparables, and sources.
+5. The extension can run a deeper analysis pass that adds investor synthesis without leaking it to the public route.
 
 ## Status
 
-Implementation plan generated 2026-05-06 at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
+The first implementation plan lives at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
 
 Current implementation includes:
 
@@ -51,11 +65,12 @@ cold-start/
 
 ## Boundaries
 
-- Cold Start is not avoiding the company-intel category. It is trying to make the old version of that category feel slow, opaque, and incomplete.
-- It is a card product, not a chatbot. The reusable artifact is the unit.
-- It is not a contact-scraping or outbound tool.
-- It is not a "should I invest" recommendation engine.
-- It is not a CRM or watchlist in v0.
+Cold Start competes with company-intel products, but not by becoming another private-company database.
+
+- The card is the unit. Chat can come later.
+- It does not scrape contacts or send outbound messages.
+- It does not tell the user whether to invest.
+- It does not try to become a CRM or watchlist in v0.
 
 ## Spec Origins
 
@@ -226,30 +241,17 @@ docker-compose down
 
 Next after this merge:
 
-1. **Brand and UX pass**
-   - Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`.
-   - Apply the eye/radar aperture system to generation states, source drawers, unsupported claims, OG images, and launch material.
-   - Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
+1. **Brand and UX pass.** Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`. Apply the eye/radar aperture system to generation states, source drawers, unsupported claims, OG images, and launch material. Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
 
-2. **Synthesis quality gate**
-   - Keep the current conservative verifier, but make rejected claims visible.
-   - Return enough supported lines when evidence survives; otherwise render an explicit "not enough verified evidence" state instead of empty arrays.
-   - Persist synthesis review status and drop reasons so bad synthesis can be debugged without rerunning the whole card.
+2. **Synthesis quality gate.** Keep the current conservative verifier, but make rejected claims visible. Return enough supported lines when evidence survives. If evidence is thin, render an explicit "not enough verified evidence" state instead of empty arrays.
 
-3. **Run observability**
-   - Add a local/debug generation status view showing provider failures, LLM errors, unsupported claims, cost, and timestamps.
-   - Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
-   - Show the actual run duration in the extension once a fresh generation completes.
+3. **Run observability.** Add a local/debug generation status view with provider failures, LLM errors, unsupported claims, cost, and timestamps. Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
 
-4. **Production hardening**
-   - Require exact `CHROME_EXTENSION_ID` in production.
-   - Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments.
-   - Add Vercel/Neon env validation before deploy.
-   - Track upstream `npm audit` warnings from pinned transitive dependencies: Next pins `postcss@8.4.31`; CRXJS pins `rollup@2.79.2`.
+4. **Production hardening.** Require exact `CHROME_EXTENSION_ID` in production. Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments. Add Vercel/Neon env validation before deploy. Track upstream `npm audit` warnings from pinned transitive dependencies: Next pins `postcss@8.4.31`; CRXJS pins `rollup@2.79.2`.
 
 ## Brand
 
-@semitechievc on X. Domain target: `coldstart.semitechie.vc`.
+@semitechievc on X. Target domain is `coldstart.semitechie.vc`.
 
 ## Cross-references
 
