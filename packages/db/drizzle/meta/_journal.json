@@ -15,6 +15,13 @@
       "when": 1778160000000,
       "tag": "0001_generation_run_modes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778341143693,
+      "tag": "0002_fluffy_glorian",
+      "breakpoints": true
     }
   ]
 }

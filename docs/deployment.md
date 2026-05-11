@@ -2,13 +2,35 @@
 
 This is the internal deployment path for testing Cold Start without keeping the local stack open.
 
+Current internal API origin:
+
+```text
+https://cold-start-samay58s-projects.vercel.app
+```
+
+The future custom domain target remains `https://coldstart.semitechie.vc`. Use the Vercel project URL above until DNS is wired and `NEXT_PUBLIC_WEB_ORIGIN` is changed deliberately.
+
 ## Recommended Shape
 
 Use one Vercel project for `apps/web`, one Neon Postgres database, and the hosted Inngest service. Keep the Chrome extension loaded unpacked from `apps/extension/dist` until the product is ready for store packaging.
 
-The deployment should be private-by-default for generation. Public pages at `/c/{slug}` can be shared, but production `/api/generate` should only accept extension-authenticated requests unless `PUBLIC_GENERATION_ENABLED=true` is deliberately set.
+Generation is private by default. Public pages at `/c/{slug}` can be shared, but production `/api/generate` should only accept extension-authenticated requests unless `PUBLIC_GENERATION_ENABLED=true` is deliberately set.
 
 ## Vercel Project
+
+Use the repo-local Vercel CLI, not an arbitrary global install. This repo pins `vercel` in the root `package.json`, so prefer:
+
+```bash
+npm run vercel:login -- samay58@gmail.com --github
+```
+
+or:
+
+```bash
+npm exec vercel -- login samay58@gmail.com --github
+```
+
+If plain `vercel login` fails with a legacy-auth message, your global CLI is older than the repo version.
 
 Create a Vercel project from the GitHub repo with these settings:
 
@@ -24,16 +46,18 @@ The app package depends on workspace packages through `file:` links, so installi
 
 Create a Neon Postgres database and use its pooled connection string for `DATABASE_URL`.
 
-Run migrations against production before the first generation:
+Run migrations against production before the first generation. Use a local file that only exists for this purpose and is never committed:
 
 ```bash
 set -a
-source .env.production.local
+source .env.production.migrate.local
 set +a
-npm run db:migrate
+COLD_START_PRODUCTION_MIGRATION=1 npm run db:migrate:production
 ```
 
-Use a production-only env file locally for this command. Do not point `.env.local` at production unless you are intentionally debugging production data.
+The migration guard refuses an empty, local, or `.env.local` database URL. It hides the actual value in command output.
+
+Do not use `vercel env pull` or `vercel env run` for production database migrations. Protected Vercel secrets may be unreadable to local commands, and `.env.local` can shadow the cloud value. Get the pooled production connection string from Neon or the deployment secret owner, put it in `.env.production.migrate.local`, and run the guarded command above.
 
 ## Inngest
 
@@ -76,23 +100,41 @@ For current internal production testing:
 
 ```text
 NEXT_PUBLIC_WEB_ORIGIN=https://cold-start-samay58s-projects.vercel.app
-VITE_COLD_START_API_ORIGIN=https://cold-start-samay58s-projects.vercel.app
 PUBLIC_GENERATION_ENABLED=false
 ALLOWED_EXTENSION_ORIGINS=chrome-extension://<your-loaded-extension-id>
 CHROME_EXTENSION_ID=<your-loaded-extension-id>
 EXTENSION_API_TOKEN=<long-random-token>
 ```
 
-The custom domain target remains `https://coldstart.semitechie.vc`; use the Vercel project URL above until DNS/domain wiring is complete. The internal extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`, which is ignored and should not be committed.
+The extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`. The file is ignored by git and should not be committed. Its value must match Vercel `EXTENSION_API_TOKEN`.
 
-`VITE_COLD_START_API_ORIGIN` is only used when building the extension, not by the deployed web app.
+`VITE_COLD_START_API_ORIGIN` is not a Vercel runtime variable. It is only used when building the extension. Production builds ignore accidental localhost values unless `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` is also set.
+
+## Version Alignment
+
+The web API, Chrome extension, and eval runner share one contract file: `packages/core/api-contract.json`.
+
+- API responses set `x-cold-start-api-contract`.
+- Extension and eval requests send `x-cold-start-client-contract`.
+- The extension rejects successful responses without the matching API contract and shows an out-of-date deployment message.
+
+When route semantics change, deploy the web app first, then rebuild and reload `apps/extension/dist`. If the extension says the API deployment is out of date, the loaded extension and the deployed API do not match.
+
+Production extension builds automatically migrate stale localhost settings in Chrome storage back to the deployed API origin. If the token field is empty afterward, paste the production token once from `.vercel/extension-api-token.production.local`; subsequent opens should reuse it.
+
+Security notes:
+
+- The extension ID is not a secret. The bearer token is.
+- Never commit, screenshot, or paste the production token into docs, issues, PRs, or chat logs meant to be durable.
+- Rotate `EXTENSION_API_TOKEN` immediately if it is exposed. Deleting a commit is not enough after a push.
+- Keep `PUBLIC_GENERATION_ENABLED=false` unless public generation is intentionally being opened.
 
 ## Extension Build
 
-After the web deployment exists, build the extension against the deployed API:
+After the matching web deployment exists, build the extension. The deployed API is the default extension origin:
 
 ```bash
-VITE_COLD_START_API_ORIGIN=https://cold-start-samay58s-projects.vercel.app npm run build -w @cold-start/extension
+npm run build -w @cold-start/extension
 ```
 
 Load `apps/extension/dist` unpacked in Chrome, copy the extension ID from `chrome://extensions`, then update Vercel:
@@ -104,6 +146,21 @@ ALLOWED_EXTENSION_ORIGINS=chrome-extension://<copied id>
 
 Redeploy after changing Vercel environment variables. Vercel environment variable changes do not affect old deployments.
 
+If the extension setup screen appears, use:
+
+```text
+API origin: https://cold-start-samay58s-projects.vercel.app
+API token: value in .vercel/extension-api-token.production.local
+```
+
+For quick paste:
+
+```bash
+pbcopy < .vercel/extension-api-token.production.local
+```
+
+Do not use `local-extension-token` against the deployed API. That token is only valid for local development.
+
 ## First Smoke Test
 
 1. Open the deployed site and confirm `/privacy`, `/robots.txt`, and `/sitemap.xml` render.
@@ -114,10 +171,19 @@ Redeploy after changing Vercel environment variables. Vercel environment variabl
 6. Confirm the public page exists at `/c/cartesia`.
 7. Confirm `/api/cards/cartesia` does not include `synthesis`.
 8. Confirm the extension can run analysis and see `synthesis`.
+9. If the extension reports an out-of-date API deployment, redeploy the web app, rebuild the extension, and reload it in `chrome://extensions`.
+
+Optional API check:
+
+```bash
+TOKEN="$(cat .vercel/extension-api-token.production.local)"
+curl -s https://cold-start-samay58s-projects.vercel.app/api/extension/cards/cartesia \
+  -H "x-cold-start-extension-id: <your-loaded-extension-id>" \
+  -H "authorization: Bearer $TOKEN" | jq '.domain, has("synthesis")'
+```
 
 ## Known Risks Before Public Launch
 
 - `slug` is still the first hostname label, so `foo.com` and `foo.ai` collide.
-- Duplicate concurrent generation is guarded in app code, not by a database partial unique index.
 - There is no admin/debug run console yet for stale `queued` or `running` jobs.
-- `npm audit` reports upstream moderate/high findings in Next/PostCSS, CRXJS/Rollup, and Drizzle Kit/esbuild. The suggested fixes are breaking, so handle them as dependency-upgrade work rather than blind `npm audit fix --force`.
+- `npm audit` reports upstream moderate/high findings in Next/PostCSS, OpenTelemetry Prometheus exporter, CRXJS/Rollup, and Drizzle Kit/esbuild. The suggested fixes include breaking changes, so handle them as dependency-upgrade work rather than blind `npm audit fix --force`.

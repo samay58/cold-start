@@ -42,7 +42,7 @@ export function SynthesisSection({ marker, synthesis }: { marker: string; synthe
             ))}
           </ul>
         ) : (
-          <p className="cs-empty">No open questions generated.</p>
+          <p className="cs-empty">No open questions surfaced.</p>
         )}
       </div>
     </section>

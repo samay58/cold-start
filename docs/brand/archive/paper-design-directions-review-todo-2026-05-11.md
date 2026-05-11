@@ -1,3 +1,9 @@
+# Archived: Cold Start Paper Design Directions Review
+
+Archived 2026-05-11. This checklist refers to Paper-era exploratory directions and should not be used as the current implementation queue or image-generation style source. Use `DESIGN.md` for the live app system.
+
+---
+
 # Cold Start design directions - manual review
 
 **Status:** Five directions designed in Paper. Manual review with Samay deferred.

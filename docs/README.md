@@ -1,17 +1,18 @@
 # Cold Start Docs
 
-Start here before adding a design or planning document.
+Start here before adding or editing docs.
 
-## Current Truth
+## Current Sources
 
-- `../SPEC.md` owns product and technical truth.
-- `../DESIGN.md` states the implemented visual reference.
-- `../INTENT.md` explains the product intent for agents.
-- `brand/semitechie-vc-design-ethos.md` defines the current brand system.
+- `../README.md`: local setup, smoke tests, and the current deployed extension setup.
+- `../SECURITY.md`: secret handling, extension auth rules, and dependency audit status.
+- `deployment.md`: internal Vercel, Neon, Inngest, and extension deployment runbook.
+- `../SPEC.md`: product and technical source of truth.
+- `../DESIGN.md`: current implemented visual system and image-prompt reference.
+- `../INTENT.md`: product intent and architecture notes for agents.
 
 ## Supporting Material
 
-- `brand/source/` keeps raw visual source assets.
-- `brand/archive/` holds explored design directions that are not current product guidance.
-- `design-directions/REVIEW-TODO.md` records a historical Paper review checklist. It is not an implementation queue.
-- `superpowers/plans/` keeps implementation plans. Not the live roadmap.
+- `brand/source/`: raw visual source assets.
+- `brand/archive/`: historical design directions, Paper mockups, generated HTML, and retired notes. These are not current product guidance.
+- `superpowers/plans/`: implementation plans, not the live roadmap.

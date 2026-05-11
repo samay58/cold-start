@@ -1,3 +1,4 @@
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, COLD_START_CLIENT_CONTRACT_HEADER } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
   ApiError,
@@ -9,24 +10,56 @@ import {
   parseCardResponse,
   readableCompanyNameFromDomain,
   readableCardError,
-  storedApiOriginOrDefault
+  resolveStoredSettings,
+  storedApiOriginOrDefault,
+  storedApiTokenOrDefault,
+  storedSettingsOrDefault
 } from "../src/extension-config";
 
 describe("defaultApiOrigin", () => {
   it("uses the production API origin for production builds without an override", () => {
-    expect(defaultApiOrigin({ MODE: "production", PROD: true })).toBe("https://coldstart.semitechie.vc");
+    expect(defaultApiOrigin({ MODE: "production", PROD: true })).toBe(
+      "https://cold-start-samay58s-projects.vercel.app"
+    );
   });
 
   it("uses a normalized env override when provided", () => {
     expect(defaultApiOrigin({
       MODE: "production",
       PROD: true,
-      VITE_COLD_START_API_ORIGIN: " https://coldstart.semitechie.vc/api "
-    })).toBe("https://coldstart.semitechie.vc");
+      VITE_COLD_START_API_ORIGIN: " https://cold-start-samay58s-projects.vercel.app/api "
+    })).toBe("https://cold-start-samay58s-projects.vercel.app");
   });
 
-  it("uses localhost for local builds without an override", () => {
-    expect(defaultApiOrigin({ MODE: "development", PROD: false })).toBe("http://localhost:3000");
+  it("ignores accidental localhost overrides in production builds", () => {
+    expect(defaultApiOrigin({
+      MODE: "production",
+      PROD: true,
+      VITE_COLD_START_API_ORIGIN: "http://localhost:3000"
+    })).toBe("https://cold-start-samay58s-projects.vercel.app");
+  });
+
+  it("uses localhost in production builds only when explicitly allowed", () => {
+    expect(defaultApiOrigin({
+      MODE: "production",
+      PROD: true,
+      VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN: "true",
+      VITE_COLD_START_API_ORIGIN: "http://localhost:3000"
+    })).toBe("http://localhost:3000");
+  });
+
+  it("uses the production API origin for local builds without an override", () => {
+    expect(defaultApiOrigin({ MODE: "development", PROD: false })).toBe(
+      "https://cold-start-samay58s-projects.vercel.app"
+    );
+  });
+
+  it("uses localhost for local builds only with an explicit override", () => {
+    expect(defaultApiOrigin({
+      MODE: "development",
+      PROD: false,
+      VITE_COLD_START_API_ORIGIN: "http://localhost:3000"
+    })).toBe("http://localhost:3000");
   });
 });
 
@@ -50,13 +83,113 @@ describe("storedApiOriginOrDefault", () => {
   });
 
   it("preserves production origins in production builds", () => {
-    expect(storedApiOriginOrDefault("https://coldstart.semitechie.vc", "https://coldstart.semitechie.vc")).toBe(
-      "https://coldstart.semitechie.vc"
-    );
+    expect(
+      storedApiOriginOrDefault(
+        "https://cold-start-samay58s-projects.vercel.app",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toBe("https://cold-start-samay58s-projects.vercel.app");
+  });
+
+  it("replaces stale local origins in production builds", () => {
+    expect(
+      storedApiOriginOrDefault(
+        "http://localhost:3000",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toBe("https://cold-start-samay58s-projects.vercel.app");
+    expect(
+      storedApiOriginOrDefault(
+        "http://127.0.0.1:3000",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toBe("https://cold-start-samay58s-projects.vercel.app");
+  });
+
+  it("replaces legacy production origins with the current production default", () => {
+    expect(
+      storedApiOriginOrDefault(
+        "https://coldstart.semitechie.vc",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toBe("https://cold-start-samay58s-projects.vercel.app");
   });
 
   it("falls back when stored origins are malformed", () => {
     expect(storedApiOriginOrDefault("not a url", "http://localhost:3000")).toBe("http://localhost:3000");
+  });
+});
+
+describe("storedApiTokenOrDefault", () => {
+  it("preserves local development tokens in local builds", () => {
+    expect(storedApiTokenOrDefault(" local-extension-token ", "http://localhost:3000")).toBe("local-extension-token");
+  });
+
+  it("clears the local development token in production builds", () => {
+    expect(
+      storedApiTokenOrDefault(
+        "local-extension-token",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toBe("");
+  });
+});
+
+describe("storedSettingsOrDefault", () => {
+  it("migrates stale local settings to production defaults", () => {
+    expect(
+      storedSettingsOrDefault(
+        { apiOrigin: "http://localhost:3000", apiToken: "local-extension-token" },
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toEqual({
+      apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
+      apiToken: ""
+    });
+  });
+
+  it("preserves production settings once saved", () => {
+    expect(
+      storedSettingsOrDefault(
+        { apiOrigin: "https://cold-start-samay58s-projects.vercel.app", apiToken: "prod-token" },
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toEqual({
+      apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
+      apiToken: "prod-token"
+    });
+  });
+});
+
+describe("resolveStoredSettings", () => {
+  it("marks stale local production settings for persistence", () => {
+    expect(
+      resolveStoredSettings(
+        { apiOrigin: "http://localhost:3000", apiToken: "local-extension-token" },
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toEqual({
+      settings: {
+        apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
+        apiToken: ""
+      },
+      shouldPersist: true
+    });
+  });
+
+  it("does not rewrite already-current settings", () => {
+    expect(
+      resolveStoredSettings(
+        { apiOrigin: "https://cold-start-samay58s-projects.vercel.app", apiToken: "prod-token" },
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toEqual({
+      settings: {
+        apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
+        apiToken: "prod-token"
+      },
+      shouldPersist: false
+    });
   });
 });
 
@@ -72,16 +205,17 @@ describe("buildCardRequest", () => {
     const request = buildCardRequest(
       "www.Linear.app",
       {
-        apiOrigin: "https://coldstart.semitechie.vc",
+        apiOrigin: "https://cold-start-samay58s-projects.vercel.app",
         apiToken: "token-123"
       },
       undefined,
       "extension-123"
     );
 
-    expect(request.url).toBe("https://coldstart.semitechie.vc/api/extension/cards/linear");
+    expect(request.url).toBe("https://cold-start-samay58s-projects.vercel.app/api/extension/cards/linear");
     expect(request.init.headers).toEqual({
       Authorization: "Bearer token-123",
+      [COLD_START_CLIENT_CONTRACT_HEADER]: COLD_START_API_CONTRACT_VERSION,
       "X-Cold-Start-Extension-Id": "extension-123"
     });
   });
@@ -106,6 +240,7 @@ describe("buildGenerateRequest", () => {
     expect(request.init.headers).toEqual({
       Authorization: "Bearer token-123",
       "Content-Type": "application/json",
+      [COLD_START_CLIENT_CONTRACT_HEADER]: COLD_START_API_CONTRACT_VERSION,
       "X-Cold-Start-Extension-Id": "extension-123"
     });
     expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "basics" }));
@@ -129,6 +264,12 @@ describe("buildGenerateRequest", () => {
 });
 
 describe("parseCardResponse", () => {
+  function cardResponse(body: unknown, init?: ResponseInit) {
+    const response = new Response(JSON.stringify(body), init);
+    response.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
+    return response;
+  }
+
   it("throws the API error detail when a response fails", async () => {
     const response = new Response(JSON.stringify({ error: "invalid token" }), { status: 401 });
 
@@ -140,11 +281,26 @@ describe("parseCardResponse", () => {
 
     await expect(parseCardResponse(response)).rejects.toThrow("request failed with 502");
   });
+
+  it("rejects successful responses from an API with no contract header", async () => {
+    const response = new Response(JSON.stringify({ slug: "cartesia" }), { status: 200 });
+
+    await expect(parseCardResponse(response)).rejects.toMatchObject(
+      new ApiError("api deployment out of date", 426)
+    );
+  });
+
+  it("accepts successful responses with the matching API contract", async () => {
+    const response = cardResponse({ slug: "cartesia" });
+
+    await expect(parseCardResponse(response)).resolves.toEqual({ slug: "cartesia" });
+  });
 });
 
 describe("parseGenerateResponse", () => {
   it("returns the generation status response", async () => {
     const response = new Response(JSON.stringify({ slug: "legora", status: "queued", mode: "basics" }), { status: 202 });
+    response.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
 
     await expect(parseGenerateResponse(response)).resolves.toEqual({ slug: "legora", status: "queued", mode: "basics" });
   });
@@ -171,6 +327,12 @@ describe("readableCardError", () => {
 
   it("explains API generation failures without leaking raw status text", () => {
     expect(readableCardError("request failed with 500", "http://localhost:3000")).toContain("worker logs");
+  });
+
+  it("explains API contract mismatches as deployment skew", () => {
+    expect(readableCardError("api deployment out of date", "https://cold-start-samay58s-projects.vercel.app")).toContain(
+      "out of date"
+    );
   });
 
   it("points production-origin failures back to localhost for local testing", () => {

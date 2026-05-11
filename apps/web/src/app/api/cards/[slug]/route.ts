@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { apiJson } from "../../../../lib/api-response";
 import { getPublicCachedCard } from "../../../../lib/cards";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
@@ -6,8 +6,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const card = await getPublicCachedCard(slug);
 
   if (!card) {
-    return NextResponse.json({ error: "card not found" }, { status: 404 });
+    return apiJson({ error: "card not found" }, { status: 404 });
   }
 
-  return NextResponse.json(card);
+  return apiJson(card);
 }

@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
 import { CardShell } from "@cold-start/ui";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
@@ -6,14 +6,17 @@ import { createRoot } from "react-dom/client";
 import {
   ApiError,
   buildGenerateRequest,
+  buildGenerationStatusRequest,
   buildCardRequest,
   defaultApiOrigin,
   normalizeApiOrigin,
   parseCardResponse,
   parseGenerateResponse,
+  parseGenerationStatusResponse,
   readableCompanyNameFromDomain,
   readableCardError,
-  storedApiOriginOrDefault,
+  resolveStoredSettings,
+  type GenerationRunStatus,
   type GenerationStatus,
   type Settings
 } from "./extension-config";
@@ -29,8 +32,13 @@ type RequestState =
   | { status: "loading" }
   | { status: "readyToGenerate" }
   | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: GenerationStatus["mode"]; startedAt: number }
-  | { status: "success"; card: ColdStartCard }
+  | { status: "success"; card: ColdStartCard; analysisNotice?: string }
   | { status: "error"; message: string };
+
+type GenerationPollResult = {
+  card: ColdStartCard;
+  analysisNotice?: string;
+};
 
 function PlateMark({ label = "C" }: { label?: string }) {
   const initial = label.trim().charAt(0).toUpperCase() || "C";
@@ -124,11 +132,24 @@ function readSettings(): Promise<Settings> {
   return new Promise((resolve) => {
     chrome.storage.local.get([...STORAGE_KEYS], (items) => {
       const storedOrigin = typeof items.coldStartApiOrigin === "string" ? items.coldStartApiOrigin.trim() : "";
+      const storedToken = typeof items.coldStartApiToken === "string" ? items.coldStartApiToken.trim() : "";
+      const { settings: nextSettings, shouldPersist } = resolveStoredSettings(
+        { apiOrigin: storedOrigin, apiToken: storedToken },
+        DEFAULT_API_ORIGIN
+      );
 
-      resolve({
-        apiOrigin: storedApiOriginOrDefault(storedOrigin, DEFAULT_API_ORIGIN),
-        apiToken: typeof items.coldStartApiToken === "string" ? items.coldStartApiToken : ""
-      });
+      if (!shouldPersist) {
+        resolve(nextSettings);
+        return;
+      }
+
+      chrome.storage.local.set(
+        {
+          coldStartApiOrigin: nextSettings.apiOrigin,
+          coldStartApiToken: nextSettings.apiToken
+        },
+        () => resolve(nextSettings)
+      );
     });
   });
 }
@@ -185,8 +206,36 @@ async function requestGeneration(
   return parseGenerateResponse(response);
 }
 
+async function requestGenerationStatus(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  mode: GenerationRunStatus["mode"]
+): Promise<GenerationRunStatus> {
+  const request = buildGenerationStatusRequest(domain, settings, signal, mode, chrome.runtime.id);
+  const response = await fetch(request.url, request.init);
+  return parseGenerationStatusResponse(response);
+}
+
 function isMissingCard(caught: unknown) {
   return caught instanceof ApiError && caught.status === 404 && caught.message === "card not found";
+}
+
+function isMissingGenerationStatusRoute(caught: unknown) {
+  return caught instanceof ApiError && caught.status === 405;
+}
+
+function isActiveRun(status: GenerationRunStatus["status"]): status is "queued" | "running" {
+  return status === "queued" || status === "running";
+}
+
+function startedAtMs(value?: string): number {
+  if (!value) {
+    return Date.now();
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Date.now();
 }
 
 function waitForNextPoll(signal: AbortSignal) {
@@ -210,6 +259,67 @@ function waitForNextPoll(signal: AbortSignal) {
   });
 }
 
+async function pollGenerationUntilCard(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  mode: GenerationStatus["mode"],
+  onGenerationStatus: (status: GenerationStatus["status"]) => void,
+  latestCard: ColdStartCard | null = null
+): Promise<GenerationPollResult> {
+  const deadline = Date.now() + GENERATION_TIMEOUT_MS;
+  let currentCard = latestCard;
+
+  while (Date.now() < deadline) {
+    await waitForNextPoll(signal);
+
+    try {
+      const card = await fetchCard(domain, settings, signal);
+
+      if (mode === "basics" || card.synthesis) {
+        return { card };
+      }
+
+      currentCard = card;
+    } catch (caught) {
+      if (!isMissingCard(caught)) {
+        throw caught;
+      }
+    }
+
+    let runStatus: GenerationRunStatus;
+    try {
+      runStatus = await requestGenerationStatus(domain, settings, signal, mode);
+    } catch (caught) {
+      if (isMissingGenerationStatusRoute(caught)) {
+        continue;
+      }
+
+      throw caught;
+    }
+
+    if (isActiveRun(runStatus.status)) {
+      onGenerationStatus(runStatus.status);
+    } else if (runStatus.status === "failed") {
+      if (mode === "analysis" && currentCard) {
+        return {
+          card: currentCard,
+          analysisNotice: insufficientEvidenceNotice(runStatus.error)
+        };
+      }
+
+      throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
+    } else if (mode === "analysis" && runStatus.status === "complete" && currentCard) {
+      return {
+        card: currentCard,
+        analysisNotice: insufficientEvidenceNotice("analysis completed without synthesis")
+      };
+    }
+  }
+
+  throw new ApiError("Card generation is taking longer than expected. Keep the local worker running, then reopen Cold Start.", 202);
+}
+
 async function startGenerationAndPoll(
   domain: string,
   settings: Settings,
@@ -217,28 +327,23 @@ async function startGenerationAndPoll(
   mode: GenerationStatus["mode"],
   confirmStart: boolean,
   onGenerationStatus: (status: GenerationStatus["status"]) => void
-): Promise<ColdStartCard> {
+): Promise<GenerationPollResult> {
   const generation = await requestGeneration(domain, settings, signal, mode, confirmStart);
   onGenerationStatus(generation.status);
 
   if (generation.status === "cached") {
-    return fetchCard(domain, settings, signal);
+    return { card: await fetchCard(domain, settings, signal) };
   }
 
-  const deadline = Date.now() + GENERATION_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    await waitForNextPoll(signal);
+  return pollGenerationUntilCard(domain, settings, signal, mode, onGenerationStatus);
+}
 
-    try {
-      return await fetchCard(domain, settings, signal);
-    } catch (caught) {
-      if (!isMissingCard(caught)) {
-        throw caught;
-      }
-    }
+function insufficientEvidenceNotice(error?: string) {
+  if (error === "No synthesis claims survived verification") {
+    return "Not enough verified evidence for an investor lens yet.";
   }
 
-  throw new ApiError("Card generation is taking longer than expected. Keep the local worker running, then reopen Cold Start.", 202);
+  return "Not enough verified evidence for an investor lens yet.";
 }
 
 function SettingsForm({
@@ -251,6 +356,7 @@ function SettingsForm({
   const [apiOrigin, setApiOrigin] = useState(initialSettings.apiOrigin);
   const [apiToken, setApiToken] = useState(initialSettings.apiToken);
   const [error, setError] = useState<string | null>(null);
+  const setupEyebrow = DEFAULT_API_ORIGIN.startsWith("http://localhost") ? "Local access" : "Extension access";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -276,7 +382,7 @@ function SettingsForm({
   return (
     <form className="cs-extension-frame cs-extension-form" onSubmit={handleSubmit}>
       <ExtensionTopbar right="setup" />
-      <PanelHeader eyebrow="Local access" title="Extension setup" value="Token stays on this browser." />
+      <PanelHeader eyebrow={setupEyebrow} title="Extension setup" value="Token stays on this browser." />
 
       <label className="cs-extension-field">
         <span>API origin</span>
@@ -339,6 +445,7 @@ function GenerationPanel({
   const companyName = readableCompanyNameFromDomain(domain);
   const elapsed = useElapsedSeconds(true, requestState.startedAt);
   const isAnalysis = requestState.mode === "analysis";
+  const isLongRunning = elapsed >= 75;
   const activeIndex =
     requestState.generationStatus === "queued"
       ? Math.min(3, Math.floor(elapsed / 7))
@@ -353,11 +460,6 @@ function GenerationPanel({
     { label: isAnalysis ? "Trace claims" : "Shape profile", marker: "03" },
     { label: isAnalysis ? "Prepare lens" : "Attach citations", marker: "04" }
   ];
-  const progress =
-    requestState.generationStatus === "queued"
-      ? Math.min(88, 12 + elapsed * 2)
-      : Math.min(92, 28 + elapsed * 3);
-
   return (
     <ExtensionFrame
       className="cs-generation-panel"
@@ -374,13 +476,13 @@ function GenerationPanel({
           <span className="cs-live-puck" />
         </div>
         <div className="cs-live-copy">
-          <strong>{stages[activeIndex]?.label ?? stages[stages.length - 1]?.label}</strong>
-          <p>{isAnalysis ? "Checking claims against the evidence ledger." : "Collecting enough source distance for a useful profile."}</p>
+          <strong className="cs-shimmer-text">{stages[activeIndex]?.label ?? stages[stages.length - 1]?.label}</strong>
+          <p>
+            {isLongRunning
+              ? "Still running in the background. You can close and reopen this panel without restarting it."
+              : isAnalysis ? "Checking claims against the evidence ledger." : "Collecting enough source distance for a useful profile."}
+          </p>
         </div>
-      </div>
-
-      <div className="cs-generation-progress" aria-label={`${Math.round(progress)} percent complete`}>
-        <span style={{ width: `${progress}%` }} />
       </div>
 
       <div className="cs-generation-stage-list">
@@ -394,20 +496,11 @@ function GenerationPanel({
               key={stage.label}
             >
               <span className="cs-generation-stage-marker">{stage.marker}</span>
-              <strong>{stage.label}</strong>
+              <strong className={active ? "cs-shimmer-text" : undefined}>{stage.label}</strong>
               <span className="cs-generation-stage-detail">{complete ? "done" : active ? "active" : "next"}</span>
             </div>
           );
         })}
-      </div>
-
-      <div className="cs-source-meter" aria-label="Source class model">
-        <div>
-          <span data-class="independent" style={{ flexGrow: 5 }} />
-          <span data-class="reporting" style={{ flexGrow: 4 }} />
-          <span data-class="company" style={{ flexGrow: 2 }} />
-        </div>
-        <p>Independent sources stay visually heavier than company-controlled material.</p>
       </div>
     </ExtensionFrame>
   );
@@ -440,7 +533,7 @@ function StartGenerationPanel({
     >
       <PanelHeader eyebrow="No saved profile" markLabel={companyName} title={`Generate ${companyName}?`} value={domain} />
       <div className="cs-gate-card">
-        <p>Create a sourced profile for this company before Cold Start spends provider or model work.</p>
+        <p>Start with a sourced profile before running provider and model work.</p>
         <dl>
           <div>
             <dt>Starts with</dt>
@@ -494,9 +587,56 @@ export function SidePanel() {
         }
       }
     )
-      .then((card) => {
+      .then((result) => {
         if (!controller.signal.aborted) {
-          setRequestState({ status: "success", card });
+          setRequestState(
+            result.analysisNotice
+              ? { status: "success", card: result.card, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card }
+          );
+        }
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = caught instanceof Error ? caught.message : String(caught);
+        setRequestState({ status: "error", message: readableCardError(message, generationSettings.apiOrigin) });
+      });
+  }
+
+  function resumeGenerationWithController(
+    controller: AbortController,
+    generationDomain: string,
+    generationSettings: Settings,
+    mode: GenerationStatus["mode"],
+    generationStatus: "queued" | "running",
+    runStartedAt?: string,
+    latestCard: ColdStartCard | null = null
+  ) {
+    const startedAt = startedAtMs(runStartedAt);
+    setRequestState({ status: "generating", generationStatus, mode, startedAt });
+
+    void pollGenerationUntilCard(
+      generationDomain,
+      generationSettings,
+      controller.signal,
+      mode,
+      (generationStatus) => {
+        if (!controller.signal.aborted) {
+          setRequestState({ status: "generating", generationStatus, mode, startedAt });
+        }
+      },
+      latestCard
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setRequestState(
+            result.analysisNotice
+              ? { status: "success", card: result.card, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card }
+          );
         }
       })
       .catch((caught: unknown) => {
@@ -553,25 +693,86 @@ export function SidePanel() {
     activeRequest.current = controller;
     setRequestState({ status: "loading" });
 
-    void fetchCard(domain, settings, controller.signal)
-      .then((card) => {
-        if (!controller.signal.aborted) {
-          setRequestState({ status: "success", card });
-        }
-      })
-      .catch((caught: unknown) => {
+    void (async () => {
+      let card: ColdStartCard | null = null;
+
+      try {
+        card = await fetchCard(domain, settings, controller.signal);
+      } catch (caught) {
         if (controller.signal.aborted) {
           return;
         }
 
-        const message = caught instanceof Error ? caught.message : String(caught);
-        if (isMissingCard(caught)) {
-          activeRequest.current = null;
-          setRequestState({ status: "readyToGenerate" });
-        } else {
+        if (!isMissingCard(caught)) {
+          const message = caught instanceof Error ? caught.message : String(caught);
           setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
+          return;
         }
-      });
+      }
+
+      if (card?.synthesis) {
+        setRequestState({ status: "success", card });
+        return;
+      }
+
+      if (card) {
+        try {
+          const analysisStatus = await requestGenerationStatus(domain, settings, controller.signal, "analysis");
+          if (isActiveRun(analysisStatus.status)) {
+            resumeGenerationWithController(controller, domain, settings, "analysis", analysisStatus.status, analysisStatus.startedAt, card);
+            return;
+          }
+
+          if (analysisStatus.status === "failed") {
+            setRequestState({
+              status: "success",
+              card,
+              analysisNotice: insufficientEvidenceNotice(analysisStatus.error)
+            });
+            return;
+          }
+        } catch (caught) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          if (!isMissingGenerationStatusRoute(caught) && !isMissingCard(caught)) {
+            const message = caught instanceof Error ? caught.message : String(caught);
+            setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
+            return;
+          }
+        }
+
+        setRequestState({ status: "success", card });
+        return;
+      }
+
+      try {
+        const basicsStatus = await requestGenerationStatus(domain, settings, controller.signal, "basics");
+        if (isActiveRun(basicsStatus.status)) {
+          resumeGenerationWithController(controller, domain, settings, "basics", basicsStatus.status, basicsStatus.startedAt);
+          return;
+        }
+
+        if (basicsStatus.status === "failed") {
+          setRequestState({ status: "error", message: readableCardError(basicsStatus.error ?? "Generation failed before a card was produced.", settings.apiOrigin) });
+          return;
+        }
+      } catch (caught) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        if (!isMissingGenerationStatusRoute(caught) && !isMissingCard(caught)) {
+          const message = caught instanceof Error ? caught.message : String(caught);
+          setRequestState({ status: "error", message: readableCardError(message, settings.apiOrigin) });
+          return;
+        }
+      }
+
+      activeRequest.current = null;
+      setRequestState({ status: "readyToGenerate" });
+    })();
 
     return () => {
       controller.abort();
@@ -666,14 +867,35 @@ export function SidePanel() {
     );
   }
 
+  const canAnalyze = canRunInvestorAnalysis(requestState.card);
+  const showAnalyzeAction = !requestState.card.synthesis && canAnalyze;
+  const showRegenerateAction = !requestState.card.synthesis && !canAnalyze;
+
   return (
-    <div className={requestState.card.synthesis ? "cs-extension-success" : "cs-extension-success has-analysis-action"}>
+    <div className={showAnalyzeAction || showRegenerateAction ? "cs-extension-success has-analysis-action" : "cs-extension-success"}>
       <CardShell card={requestState.card} surface="extension" />
-      {!requestState.card.synthesis ? (
+      {requestState.analysisNotice ? (
+        <div className="cs-extension-analysis-notice" role="status">
+          <span>Not enough verified evidence</span>
+          <p>{requestState.analysisNotice}</p>
+        </div>
+      ) : null}
+      {showRegenerateAction ? (
+        <div className="cs-extension-analyze">
+          <div>
+            <span className="cs-extension-analyze-kicker">Needs sources</span>
+            <p>Regenerate the profile before running investor analysis.</p>
+          </div>
+          <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
+            Regenerate
+          </button>
+        </div>
+      ) : null}
+      {showAnalyzeAction ? (
         <div className="cs-extension-analyze">
           <div>
             <span className="cs-extension-analyze-kicker">Investor lens</span>
-            <p>Build supported claims and open questions from this profile.</p>
+            <p>Run the cited investor read from this profile.</p>
           </div>
           <button className="cs-extension-button" onClick={() => handleStartGeneration("analysis", true)} type="button">
             Analyze

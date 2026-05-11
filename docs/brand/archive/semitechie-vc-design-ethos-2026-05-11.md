@@ -1,3 +1,9 @@
+# Archived: Semitechie VC Design Ethos
+
+Archived 2026-05-11. This was a pre-implementation brand direction and is not current Cold Start app guidance. Use `DESIGN.md` for the implemented Fraunces + Mona Sans + parchment system.
+
+---
+
 # Semitechie VC Design Ethos
 
 Semitechie VC builds investor tools that look like instruments, not dashboards. Cold Start is the first implementation. The same spine should carry into essays, portfolio tools, social graphics, and future small software products.

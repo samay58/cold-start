@@ -9,7 +9,7 @@ export default function HomePage() {
             <span className="cs-home-mark" aria-hidden="true">C</span>
             <span>Cold Start</span>
           </div>
-          <span>coldstart.semitechie.vc</span>
+          <span>cold-start-samay58s-projects.vercel.app</span>
         </div>
 
         <div className="cs-home-grid">

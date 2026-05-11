@@ -27,6 +27,15 @@ describe("buildSkeletonCard", () => {
 });
 
 describe("generateCardForDomain", () => {
+  const citation = {
+    id: "c1",
+    url: "https://cartesia.ai/",
+    title: "Cartesia",
+    fetchedAt: "2026-05-06T12:00:00.000Z",
+    sourceType: "company_site" as const,
+    snippet: "Cartesia is building voice AI infrastructure."
+  };
+
   it("does not attach synthesis without a verifier", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
@@ -41,16 +50,7 @@ describe("generateCardForDomain", () => {
         team: skeleton.team,
         signals: [],
         comparables: [],
-        citations: [
-          {
-            id: "c1",
-            url: "https://cartesia.ai/",
-            title: "Cartesia",
-            fetchedAt: "2026-05-06T12:00:00.000Z",
-            sourceType: "company_site",
-            snippet: "Cartesia is building voice AI infrastructure."
-          }
-        ]
+        citations: [citation]
       }),
       synthesize: async () => ({
         whyItMatters,
@@ -78,16 +78,7 @@ describe("generateCardForDomain", () => {
         team: skeleton.team,
         signals: [],
         comparables: [],
-        citations: [
-          {
-            id: "c1",
-            url: "https://cartesia.ai/",
-            title: "Cartesia",
-            fetchedAt: "2026-05-06T12:00:00.000Z",
-            sourceType: "company_site",
-            snippet: "Cartesia is building voice AI infrastructure."
-          }
-        ]
+        citations: [citation]
       }),
       synthesize: async () => ({
         whyItMatters,
@@ -121,16 +112,7 @@ describe("generateCardForDomain", () => {
           team: skeleton.team,
           signals: [],
           comparables: [],
-          citations: [
-            {
-              id: "c1",
-              url: "https://cartesia.ai/",
-              title: "Cartesia",
-              fetchedAt: "2026-05-06T12:00:00.000Z",
-              sourceType: "company_site",
-              snippet: "Cartesia is building voice AI infrastructure."
-            }
-          ]
+          citations: [citation]
         }),
         synthesize: async () => ({
           whyItMatters,
@@ -167,16 +149,7 @@ describe("generateCardForDomain", () => {
         team: skeleton.team,
         signals: [],
         comparables: [],
-        citations: [
-          {
-            id: "c1",
-            url: "https://cartesia.ai/",
-            title: "Cartesia",
-            fetchedAt: "2026-05-06T12:00:00.000Z",
-            sourceType: "company_site",
-            snippet: "Cartesia is building voice AI infrastructure."
-          }
-        ]
+        citations: [citation]
       }),
       synthesize: async () => {
         throw new Error("Synthesis citation ID not found on card: e9");
@@ -203,13 +176,31 @@ describe("generateCardForDomain", () => {
           team: skeleton.team,
           signals: [],
           comparables: [],
-          citations: []
+          citations: [citation]
         }) as unknown as ExtractedCardSections,
       costLines: [{ label: "provider", usd: 1.23456 }]
     } as GenerateCardDeps);
 
     expect(card.slug).toBe("cartesia");
     expect(card.generationCostUsd).toBe(1.2346);
+  });
+
+  it("rejects no-source extracted cards instead of storing unusable partials", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+
+    await expect(
+      generateCardForDomain("cartesia.ai", {
+        fetchSources: async () => [],
+        extractSections: async () => ({
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: []
+        })
+      })
+    ).rejects.toThrow("No cited sources survived extraction");
   });
 
   it("passes an evidence ledger into extraction", async () => {
@@ -235,7 +226,7 @@ describe("generateCardForDomain", () => {
           team: skeleton.team,
           signals: [],
           comparables: [],
-          citations: [],
+        citations: [citation],
         };
       },
     } as GenerateCardDeps);
@@ -269,7 +260,7 @@ describe("generateCardForDomain", () => {
           team: skeleton.team,
           signals: [],
           comparables: [],
-          citations: [],
+          citations: [citation],
         };
       },
     } as GenerateCardDeps);

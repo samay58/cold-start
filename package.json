@@ -15,11 +15,14 @@
     "dev:fresh": "rm -rf apps/web/.next apps/web/.cold-start && npm run dev:full",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs",
     "lint": "npm run lint --workspaces --if-present",
+    "vercel:login": "vercel login",
     "db:generate": "npm run db:generate -w @cold-start/db",
     "db:migrate": "npm run db:migrate -w @cold-start/db",
-    "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\""
+    "db:migrate:production": "node scripts/migrate-production.mjs",
+    "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\"",
+    "eval:golden": "node eval/run-golden.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
@@ -27,6 +30,7 @@
     "inngest-cli": "^1.19.1",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "vercel": "^53.3.2"
   }
 }

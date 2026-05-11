@@ -4,6 +4,7 @@ node_modules/
 apps/web/.cold-start/
 dist/
 coverage/
+eval/runs/
 .env
 .env.local
 .env.*.local

@@ -167,9 +167,9 @@ The LLM should be treated as a structured extractor and cautious synthesizer. It
 
 ## UX And Brand Intent
 
-The visual metaphor is an observatory instrument around a readable memo. The dark shell is the measuring environment. The card itself is a warm, legible document.
+The current visual system is an editorial company dossier with instrument-grade source encoding. The app is light-first: warm parchment surfaces, black ink, sand hairlines, Fraunces for document emphasis, Mona Sans for operational UI, and Lens Blue for citations and active states.
 
-This should not become a generic dark dashboard. The design docs call for a deep observatory shell, a warm memo card, Berkeley Mono for inspected values, Lens Blue for citations and active states, and visible source quality as part of the aesthetic.
+This should not become a generic dark dashboard or a generic AI SaaS panel. Older Paper-era dark-shell and Berkeley/IBM directions are archived; use `DESIGN.md` as the current app truth before generating mockups or changing UI.
 
 The extension is dense and scannable at Chrome side-panel width. The web card has more breathing room and should work as a social/share artifact. Both surfaces should feel like the same instrument viewing the same card.
 

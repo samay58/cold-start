@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const cacheStatusEnum = pgEnum("cache_status", ["hit", "partial", "miss"]);
 export const claimVisibilityEnum = pgEnum("claim_visibility", ["public", "gated"]);
@@ -115,6 +116,9 @@ export const generationRuns = pgTable(
   },
   (table) => [
     index("generation_runs_slug_started_idx").on(table.slug, table.startedAt),
-    index("generation_runs_slug_mode_started_idx").on(table.slug, table.mode, table.startedAt)
+    index("generation_runs_slug_mode_started_idx").on(table.slug, table.mode, table.startedAt),
+    uniqueIndex("generation_runs_active_slug_mode_idx")
+      .on(table.slug, table.mode)
+      .where(sql`${table.status} in ('queued', 'running')`)
   ]
 );

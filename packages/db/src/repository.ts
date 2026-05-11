@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 
 import { coldStartCardSchema, publicCard, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
 
@@ -19,6 +19,31 @@ export type GenerationMode = "basics" | "analysis";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
 type ActiveGenerationStatus = Extract<GenerationStatus, "queued" | "running">;
 const publicCardSchema = coldStartCardSchema.omit({ synthesis: true });
+export const generationRunStaleAfterMs = 15 * 60 * 1000;
+
+export type GenerationRunSummary = {
+  slug: string;
+  domain: string;
+  mode: GenerationMode;
+  status: GenerationStatus;
+  id?: string;
+  error?: string | null;
+  costUsd?: string | null;
+  startedAt?: Date;
+  completedAt?: Date | null;
+};
+
+type GenerationRunRow = {
+  slug: string;
+  domain: string;
+  mode: GenerationMode;
+  status: GenerationStatus;
+  id?: string;
+  error?: string | null;
+  costUsd?: string | null;
+  startedAt?: Date;
+  completedAt?: Date | null;
+};
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -56,13 +81,18 @@ export async function findActiveGenerationRunBySlug(
   db: ColdStartDb,
   slug: string,
   mode: GenerationMode = "analysis"
-): Promise<{ slug: string; domain: string; mode: GenerationMode; status: ActiveGenerationStatus } | null> {
+): Promise<(GenerationRunSummary & { status: ActiveGenerationStatus }) | null> {
   const rows = await db
     .select({
+      id: generationRuns.id,
       slug: generationRuns.slug,
       domain: generationRuns.domain,
       mode: generationRuns.mode,
-      status: generationRuns.status
+      status: generationRuns.status,
+      error: generationRuns.error,
+      costUsd: generationRuns.costUsd,
+      startedAt: generationRuns.startedAt,
+      completedAt: generationRuns.completedAt
     })
     .from(generationRuns)
     .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
@@ -74,12 +104,67 @@ export async function findActiveGenerationRunBySlug(
     return null;
   }
 
-  return {
-    slug: row.slug,
-    domain: row.domain,
-    mode: row.mode,
-    status: row.status
-  };
+  return generationRunSummary(row) as GenerationRunSummary & { status: ActiveGenerationStatus };
+}
+
+export async function findLatestGenerationRunBySlug(
+  db: ColdStartDb,
+  slug: string,
+  mode: GenerationMode = "analysis"
+): Promise<GenerationRunSummary | null> {
+  const rows = await db
+    .select({
+      id: generationRuns.id,
+      slug: generationRuns.slug,
+      domain: generationRuns.domain,
+      mode: generationRuns.mode,
+      status: generationRuns.status,
+      error: generationRuns.error,
+      costUsd: generationRuns.costUsd,
+      startedAt: generationRuns.startedAt,
+      completedAt: generationRuns.completedAt
+    })
+    .from(generationRuns)
+    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode)))
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+  const row = rows[0];
+
+  return row ? generationRunSummary(row) : null;
+}
+
+export async function retireStaleGenerationRuns(
+  db: ColdStartDb,
+  input: {
+    slug: string;
+    mode?: GenerationMode;
+    now?: Date;
+    staleAfterMs?: number;
+  }
+) {
+  const mode = input.mode ?? "analysis";
+  const now = input.now ?? new Date();
+  const staleAfterMs = input.staleAfterMs ?? generationRunStaleAfterMs;
+  const cutoff = new Date(now.getTime() - staleAfterMs);
+  const minutes = Math.round(staleAfterMs / 60000);
+  const retired = await db
+    .update(generationRuns)
+    .set({
+      status: "failed",
+      error: `stale generation run retired after ${minutes} minutes`,
+      completedAt: now
+    })
+    .where(
+      and(
+        eq(generationRuns.slug, input.slug),
+        eq(generationRuns.mode, mode),
+        inArray(generationRuns.status, ["queued", "running"]),
+        lt(generationRuns.startedAt, cutoff)
+      )
+    )
+    .returning();
+
+  return retired.length;
 }
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
@@ -305,4 +390,18 @@ export async function markGenerationRun(
     .returning();
 
   return row;
+}
+
+function generationRunSummary(row: GenerationRunRow): GenerationRunSummary {
+  return {
+    ...(row.id !== undefined ? { id: row.id } : {}),
+    slug: row.slug,
+    domain: row.domain,
+    mode: row.mode,
+    status: row.status,
+    ...(row.error !== undefined ? { error: row.error } : {}),
+    ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),
+    ...(row.startedAt !== undefined ? { startedAt: row.startedAt } : {}),
+    ...(row.completedAt !== undefined ? { completedAt: row.completedAt } : {})
+  };
 }

@@ -26,27 +26,26 @@ It is also built for sharing. A public card can live at `/c/{slug}`. The sharper
 
 ## Status
 
-The first implementation plan lives at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
+Cold Start has a local development path and an internal Vercel deployment path. The first implementation plan lives at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`; the deployment runbook lives at `docs/deployment.md`.
 
 Current implementation includes:
 
 - npm workspace scaffold, typed card schema, Drizzle schema, and repository layer
 - provider and LLM wrappers, research planner, evidence ledger, and pipeline orchestration
 - public web card route, extension-gated card API, and side-panel generation and polling
-- privacy page, golden eval seed, robots route, and sitemap
+- local `dev:full` runner for the web app plus Inngest worker
+- internal Vercel setup docs, privacy page, golden eval seed, robots route, and sitemap
 
 ## Repository layout
 
-```
-cold-start/
-├── README.md           ← this file
-├── SPEC.md             ← product + technical spec (source of truth)
-├── DESIGN.md           ← implemented style reference
-├── docs/               ← brand docs, archived directions, and plans
-├── apps/               ← Next.js web app and Chrome extension
-├── packages/           ← core, db, providers, llm, pipeline, and ui packages
-└── eval/               ← golden company seed and eval config
-```
+- `README.md`: local setup and project overview
+- `SPEC.md`: product and technical source of truth
+- `DESIGN.md`: implemented visual reference
+- `SECURITY.md`: secret handling and security checklist
+- `docs/`: deployment notes, brand docs, archived directions, and plans
+- `apps/`: Next.js web app and Chrome extension
+- `packages/`: core, db, providers, llm, pipeline, and ui packages
+- `eval/`: golden company seed and eval config
 
 ## Decisions locked in spec
 
@@ -74,13 +73,13 @@ Cold Start competes with company-intel products, but not by becoming another pri
 
 ## Spec Origins
 
-This project merges three independent AI-generated specs written 2026-05-06:
+This project merges three independent research and spec passes written 2026-05-06:
 
 1. Semitechie Scout (Claude analysis)
 2. semitechie.vc Implementation Spec (research-grounded second pass)
 3. Project Signal (third independent technical spec)
 
-The specs agreed on Chrome side panel, sourced facts, citations, public web, and $0.05 to $1 per card. They disagreed on backend stack, search providers, multi-agent orchestration, public URL policy, and X bot inclusion. SPEC.md resolves those disagreements with rationale.
+The specs agreed on Chrome side panel, sourced facts, citations, public web, and $0.05 to $1 per card. They disagreed on backend stack, search providers, multi-agent orchestration, public URL policy, and X bot inclusion. `SPEC.md` resolves those disagreements with rationale.
 
 Detailed implementation tasks live at `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`.
 
@@ -99,7 +98,9 @@ Edit `.env.local` and set at least:
 
 ```bash
 ANTHROPIC_API_KEY=...
+NEXT_PUBLIC_WEB_ORIGIN=http://localhost:3000
 VITE_COLD_START_API_ORIGIN=http://localhost:3000
+CHROME_EXTENSION_ID=local-dev
 ALLOWED_EXTENSION_ORIGINS=chrome-extension://*,http://localhost:5173
 EXTENSION_API_TOKEN=local-extension-token
 ```
@@ -157,12 +158,12 @@ If you want them separate, the underlying scripts are still there: `npm run dev`
 
 ### Generate and inspect a card
 
-In terminal 3:
+In the curl terminal:
 
 ```bash
 curl -i -X POST http://localhost:3000/api/generate \
   -H 'content-type: application/json' \
-  -d '{"domain":"cartesia.ai"}'
+  -d '{"domain":"cartesia.ai","confirmStart":true}'
 ```
 
 Expected: `202` with `queued` or `running`, or `200` with `cached`.
@@ -207,7 +208,7 @@ curl -s http://localhost:3000/api/extension/cards/cartesia \
 
 Expected: `"cartesia.ai"` and `true`.
 
-### Try the Chrome side panel
+### Try the local Chrome side panel
 
 The side panel reads the cached extension card when one exists. If no card exists, it asks before starting `/api/generate` in `basics` mode, shows staged progress, polls until the sourced basics card is available, then renders the card. The deeper `analysis` mode runs only after the user clicks Analyze.
 
@@ -223,9 +224,13 @@ In Chrome:
 4. Select `apps/extension/dist`.
 5. Open `https://cartesia.ai`.
 6. Click the Cold Start extension icon.
-7. If setup appears, use API origin `http://localhost:3000` and API token `local-extension-token`.
+7. If setup appears for local testing, use API origin `http://localhost:3000` and API token `local-extension-token`.
 
-If the setup screen shows `https://coldstart.semitechie.vc`, the loaded extension was not rebuilt after changing `VITE_COLD_START_API_ORIGIN` or was built with a production value. Go back to `chrome://extensions`, click Reload on Cold Start, reopen the side panel, and confirm the API origin is `http://localhost:3000`.
+If the setup screen shows a deployed URL while you are intentionally testing against localhost, the loaded extension was not rebuilt for local testing. Rebuild with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`, click Reload in `chrome://extensions`, reopen the side panel, and confirm the API origin is local.
+
+If the side panel says the API deployment is out of date, the extension bundle and API deployment do not share the same contract. Deploy the web app, rebuild the extension, reload it in `chrome://extensions`, then retry.
+
+Extension builds default to the deployed API origin. For local extension testing, build with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`; that explicit local opt-in preserves localhost settings.
 
 Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. If synthesis is missing, the Analyze button starts the gated analysis run.
 
@@ -241,24 +246,46 @@ docker-compose down
 
 The internal deployment runbook lives at `docs/deployment.md`.
 
+For the current internal deployment:
+
+- API origin: `https://cold-start-samay58s-projects.vercel.app`
+- API token: value in `.vercel/extension-api-token.production.local`
+- Vercel env var that must match that token: `EXTENSION_API_TOKEN`
+
+Do not paste `local-extension-token` into the deployed extension setup. That token is only for local development.
+
+The extension and API share a contract version from `packages/core/api-contract.json`. Web responses carry `x-cold-start-api-contract`; extension requests carry `x-cold-start-client-contract`. Rebuild the extension after route-contract changes.
+
+## Security
+
+Read `SECURITY.md` before pushing or changing deployment auth.
+
+Current repo checks:
+
+- `.env.local`, `.vercel/`, and `.neon/` are ignored.
+- The extension ID is not a secret. `EXTENSION_API_TOKEN` is.
+- Public `/api/cards/{slug}` must not expose `synthesis`; only the extension route may return it.
+- `npm audit` currently reports upstream dependency advisories that require deliberate dependency-upgrade work, not blind `npm audit fix --force`.
+
 ## Next upgrades
 
-Next after this merge:
+Next after this docs pass:
 
-1. **Brand and UX pass.** Build from `DESIGN.md` and `docs/brand/semitechie-vc-design-ethos.md`. Apply the eye/radar aperture system to generation states, source drawers, unsupported claims, OG images, and launch material. Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
+1. **Brand and UX pass.** Build from `DESIGN.md`, which is the current implemented Fraunces + Mona Sans + parchment system. Archived brand and Paper directions under `docs/brand/archive/` are historical context only. Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
 
 2. **Synthesis quality gate.** Keep the current conservative verifier, but make rejected claims visible. Return enough supported lines when evidence survives. If evidence is thin, render an explicit "not enough verified evidence" state instead of empty arrays.
 
 3. **Run observability.** Add a local/debug generation status view with provider failures, LLM errors, unsupported claims, cost, and timestamps. Make stale `queued` or `running` rows recoverable from the app rather than manual SQL.
 
-4. **Production hardening.** Require exact `CHROME_EXTENSION_ID` in production. Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments. Add Vercel/Neon env validation before deploy. Track upstream `npm audit` warnings from pinned transitive dependencies: Next pins `postcss@8.4.31`; CRXJS pins `rollup@2.79.2`.
+4. **Production hardening.** Keep `CHROME_EXTENSION_ID`, `ALLOWED_EXTENSION_ORIGINS`, and `EXTENSION_API_TOKEN` in sync across the loaded extension and Vercel. Use deployed `X402_PRIVATE_KEY` for AgentCash in headless environments. Add Vercel/Neon env validation before deploy. Track the dependency audit items in `SECURITY.md`.
 
 ## Brand
 
-@semitechievc on X. Target domain is `coldstart.semitechie.vc`.
+@semitechievc on X. Current internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`. Future custom domain target is `coldstart.semitechie.vc` after DNS is wired.
 
 ## Cross-references
 
 - Spec source-of-truth: `SPEC.md`
 - Design system source-of-truth: `DESIGN.md`
+- Security checklist: `SECURITY.md`
 - Phoenix knowledge vault stubs: `~/phoenix/01-active/plans/2026-05-06-cold-start-spec.md` and `~/phoenix/02-personal/knowledge/design-taste/cold-start/design.md` both point here.

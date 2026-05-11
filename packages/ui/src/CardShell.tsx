@@ -295,7 +295,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
                   ))}
                 </ul>
               ) : (
-                <p>No open questions generated.</p>
+                <p>No open questions surfaced.</p>
               )}
             </div>
           </div>
@@ -447,7 +447,7 @@ export function CardShell({ card, surface }: CardShellProps) {
             <span>extension</span>
           ) : (
             <>
-              <span>coldstart.semitechie.vc / c / {card.slug}</span>
+              <span>cold-start-samay58s-projects.vercel.app / c / {card.slug}</span>
               <span>filed {filedDate}</span>
             </>
           )}
@@ -684,7 +684,7 @@ export function CardShell({ card, surface }: CardShellProps) {
         <div className="cs-footer-mark">
           <span className="cs-plate" aria-hidden="true">{initialLetter}</span>
           <p className="cs-footer-copy">
-            {isExtension ? "Sources stay attached to the plate. The investor lens stays cited." : "The investor lens lives behind the Cold Start extension. The public card stays on sourced facts."}
+            {isExtension ? "Sources stay attached to the card. The investor lens stays cited." : "The investor lens lives behind the Cold Start extension. The public card stays on sourced facts."}
           </p>
         </div>
         <div className="cs-footer-meta">

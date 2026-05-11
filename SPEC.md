@@ -2,10 +2,12 @@
 title: Cold Start: Company Context Card
 date: 2026-05-06
 type: product-spec
-status: approved-for-planning
+status: implemented-internal-testing
 owner: samay
 brand: @semitechievc (personal)
-domain: coldstart.semitechie.vc
+domain: cold-start-samay58s-projects.vercel.app
+custom_domain_target: coldstart.semitechie.vc
+internal_deployment: https://cold-start-samay58s-projects.vercel.app
 tags: [career-pipeline, build-public, ai-native-investor-tools]
 ---
 
@@ -13,7 +15,7 @@ tags: [career-pipeline, build-public, ai-native-investor-tools]
 
 ## What it is
 
-One click on any company website, get a sourced basics card quickly, then choose whether to run deeper investor analysis. The card lives at a public URL (`coldstart.semitechie.vc/c/{slug}`) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same public facts; the extension adds gated synthesis, supported claims, and open questions that the public URL does not.
+One click on any company website, get a sourced basics card quickly, then choose whether to run deeper investor analysis. The card lives at a public URL (`cold-start-samay58s-projects.vercel.app/c/{slug}` today, with `coldstart.semitechie.vc/c/{slug}` reserved as the future custom-domain target) so it can be tweeted, embedded in memos, and indexed. The Chrome side panel and a `/c/{slug}` web page render the same public facts; the extension adds gated synthesis, supported claims, and open questions that the public URL does not.
 
 Cold Start aims to make old company-intel tiles obsolete by matching table-stakes fundamentals and exceeding them with citations, speed, and investor judgment. The first card must cover the basics: identity, domain, management team, public funding history, source quality, and citations. The deeper read earns attention only after those boxes are checked.
 
@@ -25,7 +27,7 @@ First, **fundamentals coverage**. A user should not have to forgive the product 
 
 Second, **trust**. Every material fact links to a source. Claims that cannot be cited are dropped, not paraphrased. Legacy tiles assert; Cold Start cites.
 
-Third, **artifact gravity**. The card is a stable URL, not a chat reply. One generation per company, cached, shareable. Samay tweeting `coldstart.semitechie.vc/c/cartesia` and a colleague clicking the extension on cartesia.ai both hit the same page. This is the only thing that makes per-card economics work at scale.
+Third, **artifact gravity**. The card is a stable URL, not a chat reply. One generation per company, cached, shareable. Samay sharing `cold-start-samay58s-projects.vercel.app/c/cartesia` and a colleague clicking the extension on cartesia.ai both hit the same page. This is the only thing that makes per-card economics work at scale.
 
 Fourth, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would have to be true. The lens lives behind the extension install (gated surface), so the public artifact stays defamation-clean.
 
@@ -33,7 +35,7 @@ Fourth, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would h
 
 This is the load-bearing decision. Resolved 2026-05-06.
 
-**Public surface** (`coldstart.semitechie.vc/c/{slug}`) renders sourced facts only:
+**Public surface** (`/c/{slug}` on the current deployed origin) renders sourced facts only:
 - Identity (name, domain, logo, structured description, HQ, founded year, status)
 - Funding (total raised, last round, lead investors, all cited)
 - Leadership (CEO, founders, with source links)
@@ -41,7 +43,7 @@ This is the load-bearing decision. Resolved 2026-05-06.
 - Closest comparables (via Exa `findSimilar`)
 - Citation list (every claim resolves to a URL)
 
-**Gated surface** (Chrome extension; web auth TBD, see open question #2) adds:
+**Gated surface** (Chrome extension in v0; web-side gated auth is intentionally deferred) adds:
 - Why it might matter (3 to 5 sentences, sourced)
 - Supported claims (3 bullets, each cited)
 - Skeptical evidence, retained in the schema for compatibility but not surfaced as a primary label
@@ -229,7 +231,7 @@ Day 15-17: Extension scaffold (Vite + CRXJS, MV3, Side Panel API). URL capture, 
 
 Day 18-19: Privacy copy, manifest minimal permissions (`sidePanel`, `activeTab`, `scripting`, `storage`). Submit to Chrome Web Store. First-submission review may take up to several weeks; web app is the launch surface while review is pending.
 
-Day 20-21: Web app polish, landing page at `coldstart.semitechie.vc`. Twitter launch thread under @semitechievc. Manual posting of 5 to 10 cards to seed the public corpus.
+Day 20-21: Web app polish, landing page on the current deployed origin unless the custom domain is already wired. Twitter launch thread under @semitechievc. Manual posting of 5 to 10 cards to seed the public corpus.
 
 ## What's NOT in v0
 
@@ -277,10 +279,10 @@ The discipline is: every v0 feature must serve the activation moment. For cached
 
 ## Open questions
 
-These do not block the implementation plan but should be resolved before launch:
+These do not block the implementation plan but should be resolved before public launch:
 
-1. Domain: launch on `coldstart.semitechie.vc`.
-2. Magic-link auth provider for web-side gated synthesis: Clerk, Auth.js, or skip entirely and require Chrome extension install for any synthesis access? Recommend skip; Chrome install is the auth.
+1. Domain: current internal launch uses `https://cold-start-samay58s-projects.vercel.app`; switch to `https://coldstart.semitechie.vc` only after DNS is wired and `NEXT_PUBLIC_WEB_ORIGIN` is updated.
+2. Web-side gated synthesis: continue requiring Chrome extension install for v0. Revisit Clerk/Auth.js only if non-extension users need synthesis.
 3. First 50 companies for the golden eval set: Samay to draft the list (10 portfolio companies, 10 NYC AI infra, 10 Series A you've passed, 10 ambiguous, 5 public, 5 acquired/subsidiary).
 4. Legal review of synthesis prompt template before extension launches publicly. Cheap insurance; one hour with a lawyer who reviews early-stage product copy.
 5. Whether the public URL surface pre-renders the OG card image at generation time (saves runtime cost on viral tweets) or lazy-generates on first share.

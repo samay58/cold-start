@@ -1,3 +1,4 @@
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from "@cold-start/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -34,6 +35,7 @@ describe("GET /api/cards/[slug]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(body).toEqual(publicCard);
     expect(body).not.toHaveProperty("synthesis");
     expect(mocks.getPublicCachedCard).toHaveBeenCalledWith("cartesia");

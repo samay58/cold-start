@@ -7,9 +7,12 @@ import { createDb } from "../src/client";
 import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
+  findLatestGenerationRunBySlug,
   findPublicCardBySlug,
+  generationRunStaleAfterMs,
   markGenerationRun,
   recordCardEvidence,
+  retireStaleGenerationRuns,
   upsertCard
 } from "../src/repository";
 import { citations, claims } from "../src/schema";
@@ -113,6 +116,10 @@ function tableName(table: unknown) {
 }
 
 function sqlParamValues(value: unknown, seen = new Set<unknown>()): unknown[] {
+  if (value instanceof Date) {
+    return [value];
+  }
+
   if (typeof value !== "object" || value === null || seen.has(value)) {
     return [];
   }
@@ -124,7 +131,11 @@ function sqlParamValues(value: unknown, seen = new Set<unknown>()): unknown[] {
   }
 
   const record = value as { queryChunks?: unknown[]; value?: unknown };
-  const directValue = "value" in record && typeof record.value !== "object" ? [record.value] : [];
+  const directValue = "value" in record
+    ? record.value instanceof Date || typeof record.value !== "object"
+      ? [record.value]
+      : []
+    : [];
   const chunkValues = Array.isArray(record.queryChunks)
     ? record.queryChunks.flatMap((chunk) => sqlParamValues(chunk, seen))
     : [];
@@ -151,13 +162,25 @@ function generationRunLifecycleDb() {
     }),
     update: () => ({
       set: (values: Omit<TestGenerationRun, "id" | "startedAt">) => ({
-        where: () => ({
+        where: (condition: unknown) => ({
           returning: async () => {
+            const conditionValues = sqlParamValues(condition);
+            const mode = conditionValues.includes("basics")
+              ? "basics"
+              : conditionValues.includes("analysis")
+                ? "analysis"
+                : values.mode;
+            const slug = rows.find((row) => conditionValues.includes(row.slug))?.slug ?? values.slug;
+            const statuses = ["queued", "running", "complete", "failed"].filter((status) =>
+              conditionValues.includes(status)
+            );
+            const cutoff = conditionValues.find((value): value is Date => value instanceof Date);
             const activeRows = rows.filter(
               (row) =>
-                row.slug === values.slug &&
-                row.mode === values.mode &&
-                (row.status === "queued" || row.status === "running")
+                row.slug === slug &&
+                row.mode === mode &&
+                (statuses.length === 0 || statuses.includes(row.status)) &&
+                (!cutoff || row.startedAt < cutoff)
             );
 
             activeRows.forEach((row) => {
@@ -176,11 +199,16 @@ function generationRunLifecycleDb() {
             limit: async () => {
               const values = sqlParamValues(condition);
               const mode = values.includes("basics") ? "basics" : values.includes("analysis") ? "analysis" : undefined;
+              const statuses = ["queued", "running", "complete", "failed"].filter((status) =>
+                values.includes(status)
+              );
+              const slug = rows.find((row) => values.includes(row.slug))?.slug;
               return rows
                 .filter(
                   (row) =>
+                    (!slug || row.slug === slug) &&
                     (!mode || row.mode === mode) &&
-                    (row.status === "queued" || row.status === "running")
+                    (statuses.length === 0 || statuses.includes(row.status))
                 )
                 .sort((left, right) => right.startedAt.getTime() - left.startedAt.getTime())
                 .slice(0, 1);
@@ -376,6 +404,73 @@ describe("findActiveGenerationRunBySlug", () => {
     await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({
       mode: "analysis",
       status: "queued"
+    });
+  });
+});
+
+describe("retireStaleGenerationRuns", () => {
+  it("marks stale queued and running runs failed without deleting history", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" });
+    rows[0]!.startedAt = new Date("2026-05-06T12:00:00.000Z");
+
+    const retired = await retireStaleGenerationRuns(db, {
+      slug: "cartesia",
+      mode: "analysis",
+      now: new Date("2026-05-06T12:20:00.000Z"),
+      staleAfterMs: generationRunStaleAfterMs
+    });
+
+    expect(retired).toBe(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      status: "failed",
+      error: "stale generation run retired after 15 minutes"
+    });
+    expect(rows[0]?.completedAt).toEqual(new Date("2026-05-06T12:20:00.000Z"));
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
+  });
+
+  it("keeps active runs that are still inside the stale threshold", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", status: "running" });
+    rows[0]!.startedAt = new Date("2026-05-06T12:10:00.000Z");
+
+    await expect(
+      retireStaleGenerationRuns(db, {
+        slug: "cartesia",
+        mode: "basics",
+        now: new Date("2026-05-06T12:20:00.000Z"),
+        staleAfterMs: generationRunStaleAfterMs
+      })
+    ).resolves.toBe(0);
+    await expect(findActiveGenerationRunBySlug(db, "cartesia", "basics")).resolves.toMatchObject({
+      status: "running"
+    });
+  });
+});
+
+describe("findLatestGenerationRunBySlug", () => {
+  it("returns the newest run even when it is terminal", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "queued" });
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "failed",
+      error: "worker failed"
+    });
+    rows[0]!.startedAt = new Date("2026-05-06T12:00:00.000Z");
+
+    await expect(findLatestGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({
+      slug: "cartesia",
+      mode: "analysis",
+      status: "failed",
+      error: "worker failed"
     });
   });
 });

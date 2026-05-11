@@ -159,6 +159,10 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     await deps.extractSections(extractionInput)
   );
 
+  if (sections.citations.length === 0) {
+    throw new Error("No cited sources survived extraction");
+  }
+
   let card: ColdStartCard = coldStartCardSchema.parse({
     slug: skeleton.slug,
     domain: skeleton.domain,

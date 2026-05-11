@@ -1,3 +1,4 @@
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from "@cold-start/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -104,6 +105,7 @@ describe("GET /api/extension/cards/[slug]", () => {
 
     await expect(response.json()).resolves.toEqual(fullCard);
     expect(response.status).toBe(200);
+    expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
   });
 
@@ -133,6 +135,7 @@ describe("GET /api/extension/cards/[slug]", () => {
 
     await expect(response.json()).resolves.toEqual({ error: "card not found" });
     expect(response.status).toBe(404);
+    expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("missing");
   });
 

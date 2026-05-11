@@ -220,7 +220,7 @@ button {
 .cs-cache-card,
 .cs-gate-card,
 .cs-live-card,
-.cs-source-meter,
+.cs-extension-analysis-notice,
 .cs-extension-analyze {
   border: 1px solid var(--color-hairline);
   border-radius: 12px;
@@ -248,7 +248,7 @@ button {
 .cs-cache-card p,
 .cs-live-copy p,
 .cs-gate-card p,
-.cs-source-meter p,
+.cs-extension-analysis-notice p,
 .cs-extension-analyze p {
   margin: 4px 0 0;
   color: var(--color-muted-ink);
@@ -366,25 +366,10 @@ button {
   box-shadow: 0 0 0 5px rgb(22 116 255 / 0.10);
 }
 
-.cs-generation-progress {
-  height: 6px;
-  margin: 12px 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--color-hairline);
-}
-
-.cs-generation-progress span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-lens-blue);
-}
-
 .cs-generation-stage-list {
   display: grid;
   gap: 6px;
-  padding: 4px 0;
+  padding: 12px 0 4px;
 }
 
 .cs-generation-stage {
@@ -398,11 +383,29 @@ button {
 }
 
 .cs-generation-stage[data-complete="true"] {
-  color: var(--color-lens-blue);
+  color: var(--color-ink);
 }
 
 .cs-generation-stage.is-active {
   color: var(--color-ink);
+}
+
+.cs-shimmer-text {
+  background:
+    linear-gradient(
+      104deg,
+      var(--color-ink) 0%,
+      var(--color-ink) 35%,
+      var(--color-lens-blue) 48%,
+      var(--color-wire-blue) 52%,
+      var(--color-ink) 66%,
+      var(--color-ink) 100%
+    );
+  background-size: 260% 100%;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: cs-text-shimmer 2.2s ease-in-out infinite;
 }
 
 .cs-generation-stage-marker,
@@ -423,42 +426,39 @@ button {
   text-align: right;
 }
 
-.cs-source-meter {
-  display: grid;
-  gap: 9px;
-  margin-top: 10px;
-  padding: 12px;
-}
-
-.cs-source-meter > div {
-  display: flex;
-  gap: 3px;
-  height: 8px;
-}
-
-.cs-source-meter span {
-  border-radius: 999px;
-}
-
-.cs-source-meter span[data-class="independent"] {
-  background: var(--color-class-independent);
-}
-
-.cs-source-meter span[data-class="reporting"] {
-  background: var(--color-class-reporting);
-}
-
-.cs-source-meter span[data-class="company"] {
-  background: var(--color-class-company);
-}
-
 .cs-extension-success {
   min-height: 100vh;
   background: var(--color-parchment);
 }
 
+@keyframes cs-text-shimmer {
+  0% {
+    background-position: 140% 0;
+  }
+
+  55%,
+  100% {
+    background-position: -80% 0;
+  }
+}
+
 .cs-extension-success.has-analysis-action .cs-app-card {
-  padding-bottom: 98px;
+  padding-bottom: 156px;
+}
+
+.cs-extension-analysis-notice {
+  position: sticky;
+  bottom: 82px;
+  z-index: 4;
+  margin: -146px 10px 10px;
+  padding: 10px;
+}
+
+.cs-extension-analysis-notice span {
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
 }
 
 .cs-extension-analyze {

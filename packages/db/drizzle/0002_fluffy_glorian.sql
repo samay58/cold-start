@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "generation_runs_active_slug_mode_idx" ON "generation_runs" USING btree ("slug","mode") WHERE "generation_runs"."status" in ('queued', 'running');

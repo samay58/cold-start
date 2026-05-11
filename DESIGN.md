@@ -1,380 +1,140 @@
-# Cold Start: Style Reference
-> Structured insight from noisy company data. Editorial restraint. Investor-grade instrumentation.
+# Cold Start: Current Interface Design System
+> Current visual source of truth for the shipped app UI. Last verified 2026-05-11 against `packages/ui/src/tokens.css`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`, `apps/extension/src/styles.css`, and `packages/ui/src/CardShell.tsx`.
 
-**Theme:** deep observatory shell + light memo card
+Cold Start currently reads as an editorial company dossier with instrument-grade source encoding. The app is light-first: warm parchment surfaces, black ink, sand hairlines, and a small amount of Lens Blue for active source signal. The mood is not a generic SaaS dashboard and not the older Paper-era dark observatory mockup. Dark navy is still part of the brand token set and can appear in iconography or future framing, but the implemented web and extension surfaces are built around the parchment card system.
 
-Cold Start's design language is a lens finding structure in a noisy company graph. The brand mark is an eye/radar aperture: watchful, technical, and quiet. The interface should read as an instrument panel around a readable memo, not as a chat surface with decorative glow.
+Do not use archived Paper directions, old cover mockups, IBM Plex, Berkeley Mono, or Newsreader as current app guidance. The implemented type system is Fraunces, Mona Sans, and a sparse system mono fallback.
 
-The current product should use a deep observatory navy shell (`#06192C`) with wire-blue signal lines, then place the sourced card on a warm memo surface (`#FAFAF7`). Berkeley Mono does the load-bearing work for anything inspected: citations, funding amounts, domains, dates, model status, and API-like labels. Lens Blue (`#1674FF`) is the primary signal color for citations and active states.
+## Core Ethos
 
-The system is built for two surfaces: a 380px Chrome side panel (dense, scannable, lots of facts in a small column) and a full-width public web URL at `/c/{slug}` (more breathing room, OG-image-shareable, citation affordances). Same tokens, two layouts.
+The interface should feel like a sourced investment note that happens to be alive. It should be more document than dashboard, more research instrument than chatbot. Density is allowed when it helps an investor scan a company quickly, but the page should still have editorial restraint: real hierarchy, clear source marks, and no decorative AI gloss.
 
-The full Semitechie VC brand spine lives in `docs/brand/semitechie-vc-design-ethos.md`; Cold Start is the first implementation.
+The visual language has three jobs:
 
-## Hybrid lineage
+- Make the company profile feel credible enough to inspect.
+- Make source quality visible without turning the card into compliance software.
+- Leave room for richer AI-native interactions, like enrichment cards, without losing the dossier feel.
 
-From Cursor: warm memo surfaces, Berkeley Mono as the technical-credibility signal, subtle layered elevation, 4-8px radii, dense spacing scale that fits real data into a side panel, OpenType `tnum` for tabular numerals so funding amounts align.
+## Typography
 
-From 14islands: editorial display typography on company headers, tight negative tracking on display sizes, discipline against chromatic accent abuse (one color, used sparingly), pure light/dark binary for primary type with gray reserved for secondary, generous breathing room between sections.
+| Role | Actual face | How it is used |
+|------|-------------|----------------|
+| Editorial serif | `Fraunces` | Section headings, fact values, source copy, signal/comparable titles, and high-emphasis card text. It gives the card its dossier quality. |
+| Operational sans | `Mona Sans` | App chrome, labels, controls, badges, tables, stats, and homepage/product copy. It keeps the product crisp and functional. |
+| Sparse mono | `ui-monospace`, `"SF Mono"`, `Menlo`, `monospace` | Tiny stage markers, app marks, and occasional machine-state text. It is not the main data face. |
 
-From the Cold Start icon and cover-page reference: deep navy field, white wire/aperture lines, a bright blue lens core, and graph-like connective structure. These elements belong in the shell, icon, loading states, OG/social images, source drawers, and generation telemetry.
+Fraunces should be used with confidence. In the app it is not a decorative flourish; it is the warmth and authority of the document. Section headings sit around 24-34px with optical sizing and 600-700 weight. Fact values and source titles often sit around 16-18px. Use slight negative tracking at display sizes, not aggressive editorial compression.
 
-Cold Start's own contribution is the blue observatory signature that neither Cursor nor 14islands uses. Citation markers `[n]`, verifier status, and active synthesis links render in Lens Blue. Warning/mixed-source states stay amber.
+Mona Sans carries the product mechanics. Labels are small, uppercase, and tracked enough to feel measured. Buttons, tabs, stats, and metadata should look precise but not terminal-like. Heavy numeric or metric moments can use Mona Sans in the 700-820 range.
 
-## Tokens: Colors
+The mono fallback should be rare. If an image prompt starts rendering everything like a terminal or research HUD, it is drifting away from the actual app.
 
-| Name | Value | Token | Role |
-|------|-------|-------|------|
-| Observatory Navy | `#06192C` | `--color-observatory-navy` | Primary brand field, extension shell, public page background. |
-| Abyss Ink | `#020812` | `--color-abyss-ink` | Deepest background and icon badge edge. |
-| Lens Blue | `#1674FF` | `--color-lens-blue` | Primary signal color, active citations, focused interaction. |
-| Wire Blue | `#5FB4FF` | `--color-wire-blue` | Network lines, radar grid, fine instrumentation rules. |
-| Ice White | `#EEF8FF` | `--color-ice-white` | Icon aperture, inverse text, high-signal labels on dark shell. |
-| Canvas Parchment | `#FAFAF7` | `--color-canvas-parchment` | Memo card reading surface. Warmer than 14islands' #F2F2F2, calmer than Cursor's #F7F7F4. |
-| Card Cream | `#FFFFFF` | `--color-card-cream` | White card surface. Lifted by 1px against canvas via shadow-subtle. |
-| Ink | `#0A0A0A` | `--color-ink` | Primary text, company headers, fact values, dominant borders. True ink, slightly softer than 14islands' #070707. |
-| Mid Stone | `#6E6E76` | `--color-mid-stone` | Secondary text, fact labels, signal dates, source attribution. |
-| Soft Sand | `#D8D5CA` | `--color-soft-sand` | Tertiary text, "not disclosed" empty states, citation popover footers, dividers. |
-| Citation Blue | `#1674FF` | `--color-citation-ultramarine` | Citation markers `[n]`, active links in synthesis section, hover state for any clickable source. |
-| Confidence Amber | `#A8741F` | `--color-confidence-amber` | Conflict/mixed-source confidence dot. Used when two authoritative sources disagree on a fact. |
-| Confidence Sky | `#1674FF` | `--color-confidence-sky` | Inferred confidence dot (reuses Lens Blue, signals "AI-derived"). |
-| Confidence Soft | `#B7B6B0` | `--color-confidence-soft` | Unknown confidence dot. Reuses Soft Sand. |
-| Hover Pebble | `#F0EFEA` | `--color-hover-pebble` | Subtle hover background on rows, citation markers. Slightly darker than canvas. |
+Prompt wording for typography:
 
-## Tokens: Typography
+```text
+Use the current Cold Start app typography: Fraunces as the editorial serif for dossier headings and fact values, Mona Sans for all operational UI, labels, controls, stats, and tables, with tiny system-mono accents only for occasional machine-state marks. Do not use IBM Plex, Berkeley Mono, Newsreader, Inter, Roboto, Geist, or JetBrains Mono.
+```
 
-### IBM Plex Sans: UI body, fact rows, navigation, signal headlines
-Free open font, kill-list-safe substitute for the AI-default Inter/Geist register. Use 400 for body, 500 for emphasis, 600 sparingly for section sub-labels. OpenType `tnum` enabled globally so all numerals align.
+## Color System
 
-- **Family token:** `--font-plex-sans`
-- **Weights:** 400, 500, 600
-- **OpenType features:** `"tnum"` (tabular nums on by default)
-- **Sizes:** 12px, 14px, 16px, 20px
+| Token | Value | Role |
+|-------|-------|------|
+| `--color-observatory-navy` | `#06192c` | Brand depth, icon lineage, optional frame/background accent. Not the default page surface. |
+| `--color-abyss-ink` | `#020812` | Deepest ink/navy, used sparingly for high-contrast brand depth. |
+| `--color-parchment` | `#fafaf7` | Primary app background and paper field. |
+| `--color-parchment-warm` | `#fcfaf5` | Warm card surface. |
+| `--color-ink` | `#0e0e0e` | Primary text. |
+| `--color-muted-ink` | `#5f625c` | Secondary prose and muted body. |
+| `--color-mid-stone` | `#6e6e76` | Labels, secondary metadata, subtle stats. |
+| `--color-soft-sand` | `#d8d5ca` | Borders, separators, quiet structure. |
+| `--color-hairline` | `#e6dfc9` | Fine card rules and table borders. |
+| `--color-hover-pebble` | `#f0efea` | Subtle hover and inset surfaces. |
+| `--color-lens-blue` | `#1674ff` | Primary active signal: citations, selected controls, source emphasis. |
+| `--color-wire-blue` | `#5fb4ff` | Secondary blue signal, used with restraint. |
+| `--color-signal-amber` | `#a8741f` | Warning, mixed-source, or company-sourced caution. |
 
-### IBM Plex Serif: Synthesis lede sentence, "Why it might matter" opener
-One-line counterpoint serif used only at the top of the gated synthesis section to signal "memo register." Italic 400 for the lede, then back to Plex Sans for the bullets. Sparing.
+The current app uses source class color as a small evidence cue: independent sources use Lens Blue, reporting or secondary wires use Wire Blue, and company-provided signals use Signal Amber. These should be tiny marks, not large color blocks.
 
-- **Family token:** `--font-plex-serif`
-- **Weights:** 400 italic
-- **Sizes:** 18px
+Prompt wording for color:
 
-### Mona Sans: Display headers (company name, section titles)
-Replaces 14islands' AftenScreen at the editorial display role. Heavy weight + tight tracking gives the architectural weight without a custom-font license. Capped at 48px in side panel, 72px on web.
+```text
+Use warm off-white parchment surfaces (#FAFAF7 and #FCFAF5), black ink (#0E0E0E), muted stone metadata (#5F625C and #6E6E76), sand hairlines (#E6DFC9), and a precise Lens Blue accent (#1674FF) for citations and active source states. Keep color quiet and editorial. Avoid purple gradients, neon glows, generic dark dashboards, and decorative blobs.
+```
 
-- **Family token:** `--font-mona-sans`
-- **Weights:** 700, 800
-- **Sizes:** 28px, 36px, 48px, 72px
-- **Letter spacing:** -0.02em at 28-36px, -0.03em at 48px, -0.04em at 72px
+## Shape, Texture, And Elevation
 
-### Berkeley Mono: Citations, domains, dates, funding figures, tickers, code
-The load-bearing technical signal per Samay's design taste. Anything that wants to be inspected by an investor renders in mono. Citation markers `[n]` are always Berkeley Mono in ultramarine. Funding amounts and dates are always Berkeley Mono with `tnum` for alignment.
+The implemented system is clean but not sterile. Cards use warm paper surfaces, 12px document radii, soft sand borders, and layered shadows that lift the card without making it float like a marketing tile. Buttons and compact controls are tighter, often around 8-10px. The visual texture should come from typography, rules, source marks, and real data structure, not from background effects.
 
-- **Family token:** `--font-berkeley-mono`
-- **Weights:** 400, 500
-- **Sizes:** 11px, 12px, 13px, 14px
+Use 1px hairlines. Use subtle grid texture only when it supports the product frame. Do not over-round cards, do not use pill-heavy SaaS chrome, and do not turn the product into glassmorphism.
 
-### Type Scale
+## Current Surfaces
 
-| Role | Size | Family | Weight | Line | Tracking | Token |
-|------|------|--------|--------|------|----------|-------|
-| caption | 11px | berkeley-mono | 400 | 1.3 | 0 | `--text-caption` |
-| micro | 12px | plex-sans | 400 | 1.4 | 0 | `--text-micro` |
-| body-sm | 13px | berkeley-mono | 400 | 1.5 | 0 | `--text-body-sm` |
-| body | 14px | plex-sans | 400 | 1.5 | 0 | `--text-body` |
-| body-lg | 16px | plex-sans | 400 | 1.55 | 0 | `--text-body-lg` |
-| serif-lede | 18px | plex-serif | 400 italic | 1.5 | 0 | `--text-serif-lede` |
-| label | 14px | plex-sans | 500 | 1.4 | 0.02em | `--text-label` |
-| heading-sm | 20px | plex-sans | 600 | 1.3 | -0.01em | `--text-heading-sm` |
-| heading | 28px | mona-sans | 700 | 1.15 | -0.02em | `--text-heading` |
-| heading-lg | 36px | mona-sans | 800 | 1.1 | -0.02em | `--text-heading-lg` |
-| display-sm | 48px | mona-sans | 800 | 1.05 | -0.03em | `--text-display-sm` |
-| display | 72px | mona-sans | 800 | 1.0 | -0.04em | `--text-display` |
+The public web app is a light parchment page with a faint Lens Blue grid and a centered dossier card. The card is structured around profile facts, stats, section heads, Roman-style section markers, source rows, funding ladders, and source drawers. It should feel shareable and readable.
 
-## Tokens: Spacing & Shapes
+The Chrome extension side panel is also parchment-led. It is compact, utility-forward, and uses stacked cards, a small app header, a sticky analysis action, loading instrumentation, and the same source/state vocabulary. It is not currently a full dark navy side panel.
 
-**Base unit:** 4px. **Density:** compact-editorial. The scale is dense in the 4-32px range (side panel needs to fit a lot of facts in 380px) and gappy in the 48-96px range (web `/c/{slug}` page needs editorial breathing room between sections).
-
-### Spacing Scale
-
-| Name | Value | Token | Common Use |
-|------|-------|-------|-----------|
-| 1 | 4px | `--space-1` | Inline gap between citation marker and value |
-| 2 | 8px | `--space-2` | Fact row internal padding |
-| 3 | 12px | `--space-3` | Card internal vertical rhythm |
-| 4 | 16px | `--space-4` | Section internal padding |
-| 5 | 20px | `--space-5` | Card padding (side panel) |
-| 6 | 24px | `--space-6` | Card padding (web) |
-| 8 | 32px | `--space-8` | Between fact groups |
-| 12 | 48px | `--space-12` | Between major card sections (side panel) |
-| 16 | 64px | `--space-16` | Between major sections (web) |
-| 24 | 96px | `--space-24` | Hero section margin (web only) |
-
-### Border Radius
-
-| Element | Value | Token |
-|---------|-------|-------|
-| chips, inline pills | 2px | `--radius-xs` |
-| cards, buttons, default | 4px | `--radius-sm` |
-| popovers, drawers | 8px | `--radius-md` |
-| OG image hero (web only) | 12px | `--radius-lg` |
-
-### Shadows
-
-Layered, Cursor-inspired. Cards lift just enough to read as elevated against the parchment canvas.
-
-| Name | Value | Token |
-|------|-------|-------|
-| subtle | `0 0 0 1px rgba(10, 10, 10, 0.06)` | `--shadow-subtle` |
-| card | `0 1px 2px rgba(10, 10, 10, 0.04), 0 0 0 1px rgba(10, 10, 10, 0.06)` | `--shadow-card` |
-| popover | `0 8px 24px rgba(10, 10, 10, 0.12), 0 0 0 1px rgba(10, 10, 10, 0.08)` | `--shadow-popover` |
-| focus-ring | `0 0 0 2px rgba(22, 116, 255, 0.35)` | `--shadow-focus-ring` |
-
-### Layout
-
-- **Side panel width:** 380px fixed (Chrome side panel constraint)
-- **Web `/c/{slug}` max-width:** 720px (single column, editorial)
-- **Web hero max-width:** 960px
-- **Section gap (side panel):** 32px
-- **Section gap (web):** 64px
-- **Card padding (side panel):** 20px
-- **Card padding (web):** 32px
+The product mark still carries the observatory/radar idea, but the live app has evolved away from the older "deep observatory shell around memo card" as the default screen composition.
 
 ## Components
 
-### Card Section Header
-Display-register company name and section titles. Mona Sans 700-800 with tight negative tracking. Use 28px in side panel, 48px on web hero. Always Ink. Never colored.
+### Dossier Card
+
+Warm parchment card, black ink, sand hairlines, 12px radius, layered paper shadow. The card should feel like a high-quality investment memo, not a chat response. Use Fraunces for the most editorial content and Mona Sans for labels and controls.
+
+### Section Head
+
+Fraunces, 24-34px, 600-700 weight, calm negative tracking. Section heads should look like printed document hierarchy, not dashboard widgets.
 
 ### Fact Row
-Two-column micro-row with label left, value right. Label is Plex Sans 14px Mid Stone weight 500. Value is Plex Sans 14px Ink, OR Berkeley Mono 13px Ink for any number/date/domain. Citation marker `[1]` follows value, separated by a 4px gap, in Berkeley Mono 12px Citation Ultramarine. Hover the citation: popover. Click: opens source URL.
 
-### Citation Marker
-Berkeley Mono 12px in Citation Ultramarine. Renders as `[n]` where n is the citation index. Hover state: 1px underline + Hover Pebble background. Hover popover (after 300ms): source title (Plex Sans 13px Ink), URL (Berkeley Mono 11px Mid Stone, truncated), fetched-at date (Berkeley Mono 11px Soft Sand), 1-2 line evidence snippet (Plex Sans 13px Ink). Popover uses shadow-popover, 8px radius.
+Small Mona Sans label, often uppercase or compact. Value can use Fraunces when it should feel read as a claim, or Mona Sans when it functions as operational metadata. Citation/source affordances use Lens Blue.
 
-### Confidence Dot
-4px solid circle, inline before fact label, separated by 6px. `verified` is invisible (no dot, default state). `mixed` is Confidence Amber. `inferred` is Confidence Sky. `unknown` is Confidence Soft. The dot is the entire badge; no text label except in the source drawer.
+### Source Row
 
-### Signal Item
-Vertical stack: date (Berkeley Mono 11px Soft Sand) above headline (Plex Sans 14px Ink, weight 500) above source attribution (Plex Sans 12px Mid Stone). 12px gap below each item. No bullets, no rules between items, only spacing.
+Source rows are evidence objects. Use tiny color-class marks, clear source titles, domain/date metadata, and restrained blue interaction states. The source drawer should feel like the ledger behind the memo.
 
-### Comparable Card
-Mini-card. Logo (24px square, no radius for now). Company name (Plex Sans 14px Ink, weight 500). One-liner (Plex Sans 13px Mid Stone, max 1 line, ellipsis). Card width fills column. 12px internal padding. Hover: shadow-card lift.
+### Stats And Funding
 
-### Bull/Bear Bullet (Gated Synthesis Only)
-Lede sentence in Plex Serif 18px italic Ink (single sentence, no citation, sets register). Bullets follow as Plex Sans 14px Ink, each ending in citation marker `[n]`. Three bullets per side. No icons, no colors, no labels other than the section header (`Bull case` / `Bear case` in heading-sm).
+Use Mona Sans with heavier weight for numbers and compact labels. Keep tables and ladders quiet: hairlines, sand borders, and enough spacing to make the values inspectable.
 
-### Funding Round Table
-Three columns: Round (Plex Sans 14px Ink), Amount (Berkeley Mono 13px Ink, right-aligned, `tnum` enabled, e.g. `$50.0M`), Date (Berkeley Mono 12px Mid Stone, right-aligned). Lead investors below as a small text run (Plex Sans 12px Mid Stone). Each row has 2px bottom border in Soft Sand 20% opacity.
+### Extension Analysis Gate
 
-### Source Drawer
-Slide-in panel from right edge (web) or expand-in-place (side panel). Lists every citation with: index `[n]` (Berkeley Mono Ultramarine), source title (Plex Sans 14px Ink), URL (Berkeley Mono 12px Mid Stone), source type chip (caption + Hover Pebble background + 2px radius), fetched-at (Berkeley Mono 11px Soft Sand). Click any row: open URL in new tab.
+The side panel should make basics and analysis feel like staged enrichment, not one undifferentiated loading state. Buttons should be precise and compact. Loading can use instrument-like motion, but should stay in the parchment/Fraunces/Mona system.
 
-### Empty / Unknown State
-Plex Sans 13px italic Soft Sand. Examples: "not publicly disclosed", "no public funding history found", "founders not surfaced from public sources". Never says "TBD", never says "loading" once render is complete.
+## Enrichment Card Direction
 
-### OG Image Hero (Web Only)
-Used for X share previews. 1200×630. Card Cream background. Company logo top-left (60px). Company name in display Mona Sans 800 (60-72px depending on length). One-liner in Plex Sans 24px Mid Stone below. Funding chip (`Series B · $50M · Mar 2026`) in Berkeley Mono on Hover Pebble pill. Bottom-left: `coldstart.semitechie.vc` watermark in Berkeley Mono 14px Soft Sand.
+For the proposed enrichment UX, each inactive category should feel like a physical evidence slip or research card that belongs to this dossier system. The cards can fall, collide, stack, and be dragged, but they should not become toy-like. The best direction is "luxury research instrument with physics" rather than "playful kanban."
 
-## Do's and Don'ts
+Use:
 
-### Do
+- Parchment cards with sand hairlines and small Lens Blue active marks.
+- Fraunces for category titles like `Serves`, `Core Idea`, `Mechanism`, `Customers`, `Signals`, and `Open Questions`.
+- Mona Sans for small labels, drag affordances, progress labels, and state text.
+- Slight rotations, depth, and imperfect stacks to make the pile feel physical.
+- Snapping or pinning motion that feels crisp, measured, and consequential.
 
-- Use the eye/radar aperture as the only primary mark: toolbar icon, favicon, watermark, loading glyph, social avatar.
-- Put the instrument mood in the shell, not inside every fact row. The card still needs to read cleanly.
-- Render every number, date, domain, ticker, and citation marker in Berkeley Mono. This is the load-bearing technical signal.
-- Enable `tnum` (tabular numerals) globally on Plex Sans so dollar amounts and counts align column-wise.
-- Use Lens Blue `#1674FF` for citation markers `[n]` and active synthesis links.
-- Keep the company name in the card header at display register (Mona Sans 800, tight negative tracking) so it reads as a noun-as-monument.
-- Lift cards 1px off the parchment canvas with `shadow-card`. Never use solid borders alone.
-- Reserve Plex Serif italic for the synthesis lede sentence. One sentence, then back to Plex Sans.
-- Default radius is 4px. Use 2px for chips, 8px for popovers, 12px only on the OG hero image.
-- Render confidence as a 4px dot, never as a text label, except inside the source drawer.
+Avoid:
 
-### Don't
+- Dark terminal cards unless a dark frame is explicitly requested.
+- Big glows, glass panels, floating AI orbs, purple gradients, or synthetic SaaS dashboard cards.
+- Overly cute physics. The motion can be delightful, but the product still serves investors inspecting company truth.
 
-- Don't turn the product into a dark dashboard. The shell is dark; the reading surface remains memo-like and legible.
-- Don't introduce a second accent color. The system has one signal accent (Lens Blue), one warning (Confidence Amber), and neutral memo colors otherwise.
-- Don't use Inter, Geist, Roboto, JetBrains Mono, or any other AI-default font. Plex Sans + Plex Serif + Berkeley Mono + Mona Sans only.
-- Don't render funding amounts, dates, or counts in proportional fonts. Always Berkeley Mono with `tnum`.
-- Don't use solid background colors on bull/bear bullets to indicate sentiment. The text and citation must do the work.
-- Don't add decorative glows or blobs. Signal fields must feel like measurement, not background wallpaper.
-- Don't use border-radius greater than 12px. Editorial register breaks at pill-rounded.
-- Don't use shadows heavier than `shadow-popover`. No drop shadows, no glow effects, no inner shadows.
-- Don't use icons inside fact rows. The label-value-citation triplet is the entire vocabulary.
-- Don't ship any synthesis sentence that doesn't end in a citation marker. The schema enforces this; the design must reinforce it.
+## Image Prompt Block
 
-## Imagery
+Use this block when asking an image model to extend the current app:
 
-Cold Start has almost no imagery in the data sense. Logos are the primary company-specific visual element. The Cold Start mark is the product-specific visual element.
+```text
+Design a UX concept for the current Cold Start app. Preserve the actual implemented design system: an editorial company dossier on warm parchment surfaces (#FAFAF7, #FCFAF5), black ink (#0E0E0E), muted stone metadata (#5F625C, #6E6E76), sand hairlines (#E6DFC9), and precise Lens Blue (#1674FF) for citations, active states, and source signals. Use Fraunces as the editorial serif for section headings, category titles, fact values, and source copy. Use Mona Sans for operational UI, labels, buttons, stats, tables, and controls. Use tiny system-mono accents only for occasional machine-state marks.
 
-The mark is a dark observatory badge with a white aperture and blue radar core. It should have no white background and must stay legible at 16px in the Chrome toolbar. Preserve the raw radar iris detail at 32px and above; only the smallest toolbar derivative may simplify for legibility.
+The design should feel like a high-taste AI-native investment research dossier, not a generic SaaS dashboard. Think Rauno Freiberg-level interaction craft: clear hierarchy, tasteful restraint, tactile motion, measured physics, and details that feel engineered rather than decorated. Avoid AI slop: no purple gradients, no generic glowing cards, no glassmorphism, no over-rounded pill UI, no fake terminal aesthetic, no IBM Plex, no Berkeley Mono, no Newsreader, no Inter, no Roboto, no Geist.
 
-The source reference is `docs/brand/source/raw-icon-cold-start_RAW.png`. The shipping master is `apps/extension/public/icons/cold-start-icon-master.png` and mirrored at `apps/web/public/icons/cold-start-icon-master.png`.
-
-Logo treatment: 24px in fact rows, 60px in OG hero, 40px in comparable cards. No drop shadow on logos. No background fill on logo containers. If a logo is unavailable, render a 24px Card Cream square with the company's first letter in Mona Sans 700 Ink.
-
-Sparklines are the only data viz primitive: thin 1px Ink strokes on Hover Pebble background, 60×24px, used for headcount-over-time signals when PDL or stableenrich returns time-series. No fills, no gradients, no markers. Just the line.
-
-## Layout
-
-The product surfaces in two layouts driven by one set of tokens.
-
-The **side panel** layout (380px Chrome side panel) is dense. It sits on the dark observatory shell, with the memo card inset by 12px. Card padding is 20px. Section gap is 32px. Sections stack vertically in a single column. Section header at heading-sm (20px). Display register reserved for the company name only. Comparable cards stack vertically, not in a grid. The synthesis section is only visible if the user is authenticated (Chrome extension counts as authentication).
-
-The **web `/c/{slug}`** layout has more breathing room. Max-width 720px centered over the observatory shell. Card padding 32px. Section gap 64px. Hero section above the card uses the display register (72px Mona Sans) for the company name, 24px Plex Sans Mid Stone for the structured short description, and a 12px-radius OG image preview to the right (or below at narrow viewports). Descriptions may wrap naturally; do not rely on hard truncation to make the layout work. Synthesis section is omitted from the public URL. The page footer carries `coldstart.semitechie.vc` watermark and a "Read in extension to see analysis" link to the Chrome Web Store listing.
-
-## Next Design Pass
-
-This icon and token pass sets the brand spine. The next proper UX pass should do the following before launch:
-
-- Redesign generation, queued, running, failed, and cached states as instrument states.
-- Make source drawers and verifier drops part of the same observability vocabulary.
-- Produce launch OG/social templates from the cover-page direction.
-- Run screenshots at extension width, mobile width, and desktop web width and tune spacing after seeing real cards.
-
-Both surfaces share the citation drawer pattern: clicking any `[n]` opens the same drawer with the same source list, in the same order, with the same row treatment.
-
-## Quick Start
-
-### CSS Custom Properties
-
-```css
-:root {
-  /* Colors */
-  --color-observatory-navy: #06192C;
-  --color-abyss-ink: #020812;
-  --color-lens-blue: #1674FF;
-  --color-wire-blue: #5FB4FF;
-  --color-ice-white: #EEF8FF;
-  --color-canvas-parchment: #FAFAF7;
-  --color-card-cream: #FFFFFF;
-  --color-ink: #0A0A0A;
-  --color-muted-ink: #5F625C;
-  --color-mid-stone: #6E6E76;
-  --color-soft-sand: #D8D5CA;
-  --color-citation-ultramarine: #1674FF;
-  --color-confidence-amber: #A8741F;
-  --color-confidence-sky: #1674FF;
-  --color-confidence-soft: #B7B6B0;
-  --color-hover-pebble: #F0EFEA;
-
-  /* Typography */
-  --font-plex-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-plex-serif: 'IBM Plex Serif', ui-serif, Georgia, serif;
-  --font-mona-sans: 'Mona Sans', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-berkeley-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-
-  --text-caption: 11px;
-  --leading-caption: 1.3;
-  --text-micro: 12px;
-  --text-body-sm: 13px;
-  --text-body: 14px;
-  --text-body-lg: 16px;
-  --leading-body: 1.5;
-  --text-serif-lede: 18px;
-  --text-label: 14px;
-  --tracking-label: 0.02em;
-  --text-heading-sm: 20px;
-  --leading-heading-sm: 1.3;
-  --tracking-heading-sm: -0.01em;
-  --text-heading: 28px;
-  --leading-heading: 1.15;
-  --tracking-heading: -0.02em;
-  --text-heading-lg: 36px;
-  --leading-heading-lg: 1.1;
-  --tracking-heading-lg: -0.02em;
-  --text-display-sm: 48px;
-  --leading-display-sm: 1.05;
-  --tracking-display-sm: -0.03em;
-  --text-display: 72px;
-  --leading-display: 1.0;
-  --tracking-display: -0.04em;
-
-  /* Spacing */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-24: 96px;
-
-  /* Radii */
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
-  /* Shadows */
-  --shadow-subtle: 0 0 0 1px rgba(10, 10, 10, 0.06);
-  --shadow-card: 0 1px 2px rgba(10, 10, 10, 0.04), 0 0 0 1px rgba(10, 10, 10, 0.06);
-  --shadow-popover: 0 8px 24px rgba(10, 10, 10, 0.12), 0 0 0 1px rgba(10, 10, 10, 0.08);
-  --shadow-focus-ring: 0 0 0 2px rgba(22, 116, 255, 0.35);
-}
-
-/* Apply tabular numerals globally */
-* {
-  font-feature-settings: "tnum" 1;
-}
+For inactive enrichment categories, show a refined pile of physical research cards at the bottom of the Chrome side panel. Each card corresponds to a category such as Serves, Core Idea, Mechanism, Customers, Signals, Open Questions. The user can drag a card upward and snap or pin it into the sidebar to activate that enrichment. On activation, the card should transition into a calculated field using quiet instrument-like motion, source-aware progress, and the same parchment/Fraunces/Mona visual system.
 ```
 
-### Tailwind v4
+## Guardrails
 
-```css
-@theme {
-  --color-observatory-navy: #06192C;
-  --color-abyss-ink: #020812;
-  --color-lens-blue: #1674FF;
-  --color-wire-blue: #5FB4FF;
-  --color-ice-white: #EEF8FF;
-  --color-canvas-parchment: #FAFAF7;
-  --color-card-cream: #FFFFFF;
-  --color-ink: #0A0A0A;
-  --color-muted-ink: #5F625C;
-  --color-mid-stone: #6E6E76;
-  --color-soft-sand: #D8D5CA;
-  --color-citation-ultramarine: #1674FF;
-  --color-confidence-amber: #A8741F;
-  --color-confidence-sky: #1674FF;
-  --color-confidence-soft: #B7B6B0;
-  --color-hover-pebble: #F0EFEA;
-
-  --font-plex-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-plex-serif: 'IBM Plex Serif', ui-serif, Georgia, serif;
-  --font-mona-sans: 'Mona Sans', 'IBM Plex Sans', sans-serif;
-  --font-berkeley-mono: 'Berkeley Mono', 'IBM Plex Mono', ui-monospace, monospace;
-
-  --spacing-1: 4px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-5: 20px;
-  --spacing-6: 24px;
-  --spacing-8: 32px;
-  --spacing-12: 48px;
-  --spacing-16: 64px;
-  --spacing-24: 96px;
-
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-}
-```
-
-## Similar Brands
-
-- **Linear**. Shares the discipline of one accent color and editorial type pairing. Linear leans more saturated; Cold Start stays parchment.
-- **Stripe Press**. The editorial register Cold Start targets in synthesis. Plex Serif italic is the direct nod.
-- **Pitchbook**. The thing Cold Start replaces. Their tile is a competent dashboard. Cold Start's card is an editorial spread.
-- **Cursor**. The lineage parent for the warm parchment, Berkeley Mono accents, and subtle layered shadows.
-- **14islands**. The lineage parent for editorial display typography at scale and disciplined ink-on-light contrast.
-
-## Cross-Reference
-
-- Product spec: [[01-active/plans/2026-05-06-cold-start-spec.md]]
-- Cursor design taste: [[02-personal/knowledge/design-taste/cursor/design.md]]
-- Playdate design taste: [[02-personal/knowledge/design-taste/playdate/]]
-- Samay's design taste README: [[02-personal/knowledge/design-taste/README.md]]
+- `DESIGN.md` is the current visual source of truth.
+- `SPEC.md` is the product and technical source of truth.
+- Archived brand or Paper direction files are historical references only.
+- If a design prompt asks for "Cold Start style," default to this file, not older mockups.
+- If screenshots disagree with this file, inspect the app code and update this file before generating more prompts.

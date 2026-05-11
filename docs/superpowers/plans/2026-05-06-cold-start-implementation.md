@@ -1,5 +1,7 @@
 # Cold Start Implementation Plan
 
+> **Historical note, 2026-05-11:** This plan is preserved for implementation history. Its embedded design snippets may predate the live app. Use root `DESIGN.md` for current visual guidance and image prompts.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the Cold Start MVP: a sourced company context card at `/c/{slug}`, a gated Chrome side panel with synthesis, and the backend pipeline that generates, validates, caches, and serves cards.

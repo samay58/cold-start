@@ -1,91 +1,110 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file gives Claude Code the repo-specific context needed to work safely in Cold Start.
 
 ## Project
 
-Cold Start — AI-native company context card. Public sourced facts at `coldstart.semitechie.vc/c/{slug}`; bull/bear/open-questions synthesis is gated behind a Chrome extension. SPEC.md is source of truth for product, DESIGN.md for visuals.
+Cold Start is an AI-native company context card. Public sourced facts live at `/c/{slug}`. Bull, bear, and open-question synthesis is gated behind the Chrome extension.
 
-## Workspace layout
+Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` as the visual source of truth.
 
-npm workspaces monorepo (`apps/*`, `packages/*`). All cross-package deps are `file:` links, so changes in `packages/*` are picked up immediately by `apps/*` after a single `npm ci` at the root.
+## Workspace Layout
 
-- `apps/web` — Next.js 15 app (App Router). Hosts `/c/{slug}` public pages, `/api/cards/{slug}` (public, sourced facts only), `/api/extension/cards/{slug}` (gated, includes `synthesis`), `/api/generate` (queue), `/api/inngest` (worker endpoint).
-- `apps/extension` — Chrome MV3 side panel via Vite + CRXJS + React 19. Reads cached extension card or kicks off generation and polls.
-- `packages/core` — typed `ColdStartCard` schema (zod), trust/source quality, slug helpers. No runtime deps on infra.
-- `packages/db` — Drizzle ORM + Postgres (Neon in prod, local Postgres on host port `55432` in dev). Repository layer for cards.
-- `packages/providers` — AgentCash + stableenrich wrappers (Exa, Firecrawl, Apollo). `npm run spike:stableenrich` end-to-end smoke.
-- `packages/llm` — Anthropic SDK (Sonnet 4.6). Extraction, synthesis, verifier, research-plan, investor-taste-kernel.
-- `packages/pipeline` — orchestration: `resolve-identity` → research plan → providers → extraction → synthesis → verifier. Outputs `ColdStartCard` plus an evidence ledger and cost lines.
-- `packages/ui` — shared React tokens + card primitives. CSS lives in `tokens.css`.
-- `eval/golden-companies.seed.json` — 50-company eval seed.
+This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
-The data flow worth holding in your head: `apps/web/api/generate` enqueues via Inngest → `apps/web/inngest/functions.ts` calls `packages/pipeline/generate-card.ts` → providers + LLM packages → DB write via `packages/db`. Public route `/c/{slug}` reads through `apps/web/lib/cards.ts` and strips synthesis; extension route adds synthesis only when extension auth headers pass `apps/web/lib/extension-auth.ts`.
+- `apps/web`: Next.js 15 App Router app. Hosts `/c/{slug}`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/generate`, and `/api/inngest`.
+- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, and React 19.
+- `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
+- `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
+- `packages/providers`: AgentCash and stableenrich wrappers, direct Exa, Firecrawl, and PDL fallbacks.
+- `packages/llm`: Anthropic client, extraction, synthesis, verifier, research-plan, and investor-taste-kernel logic.
+- `packages/pipeline`: card generation orchestration, evidence ledger, cost tracking, and conflict resolution.
+- `packages/ui`: shared React card primitives and `tokens.css`.
+- `eval/golden-companies.seed.json`: starter 50-company eval set.
 
-## Common commands
+Data flow: `/api/generate` queues work through Inngest. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
-Run from repo root unless noted. `set -a; source .env.local; set +a` before any command that hits the DB or the LLM.
+## Common Commands
+
+Run from the repo root unless noted.
 
 ```bash
-npm ci                                  # one-time
-npm run dev                             # Next dev server (apps/web)
-npm run dev:extension                   # Vite dev for the extension
+npm ci                                  # one-time install
+npm run dev:full                        # local web app plus Inngest worker
+npm run dev                             # web app only
+npm run dev:extension                   # Vite dev server for the extension
 npm run build                           # build all workspaces
 npm run typecheck                       # tsc --noEmit across workspaces
-npm run test                            # vitest run across workspaces
-npm run lint                            # only configured per-workspace; root is a fan-out
-npm run db:generate                     # drizzle-kit generate (in packages/db)
+npm run test                            # vitest across workspaces
+npm run lint                            # per-workspace fan-out
+npm run db:generate                     # drizzle-kit generate
 npm run db:migrate                      # drizzle-kit migrate
 ```
 
-Single test (vitest), per workspace:
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly.
+
+Single test examples:
 
 ```bash
 npm test -w @cold-start/pipeline -- generate-card
 npm test -w @cold-start/pipeline -- -t "verifier drops"
 ```
 
-Provider smoke (paid path, requires AgentCash wallet funded):
+Provider smoke, paid path:
 
 ```bash
 npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 ```
 
-Local Postgres + Inngest worker (two extra terminals):
+Local stack:
 
 ```bash
-docker-compose up -d postgres                                # host port 55432
-npx inngest-cli@latest dev -u http://localhost:3000/api/inngest
+docker-compose up -d postgres
+npm run dev:full
 ```
 
-End-to-end card generation against local stack (see README "Generate and inspect a card" for the full curl sequence including the `403`/`200` extension-gate checks).
+`dev:full` loads the repo-root `.env.local`, runs pending Drizzle migrations, then starts Next and the Inngest dev worker together.
 
-## Conventions you'll trip over
+## Auth And Deployment Notes
 
-- `apps/web` is launched via `scripts/run-next.mjs`, which loads the **repo-root** `.env.local` (not `apps/web/.env.local`) and writes a dev lock at `apps/web/.cold-start/`. Restart `next dev` after changing extension auth env vars; the running process won't pick them up.
-- Postgres is exposed on **`55432`** locally to avoid colliding with a system Postgres on `5432`. `DATABASE_URL` in `.env.local` should match.
-- AgentCash uses a wallet, not an API key. Local dev uses the `agentcash` CLI wallet; deployed environments need `X402_PRIVATE_KEY`. `ANTHROPIC_API_KEY` is required for any LLM-touching command.
-- Two card surfaces, two API routes, do not merge them. Public `/api/cards/{slug}` MUST NOT return `synthesis`; extension `/api/extension/cards/{slug}` requires `x-cold-start-extension-id` and `authorization: Bearer $EXTENSION_API_TOKEN` and DOES return synthesis. Tests at `apps/web/tests/public-card-metadata.test.ts` enforce this.
-- The card schema in `packages/core/src/card.ts` is load-bearing. Every fact is a `ResolvedFact<T>` with `value`, `confidence`, and citation refs; verifier drops set `value: null` rather than removing fields. When adding a field, update extraction (`packages/llm`), pipeline assembly (`packages/pipeline/generate-card.ts`), and the UI (`packages/ui`) together.
-- Vitest workspace excludes `apps/web` (it has its own `vitest run`); `npm run test` at root runs both via the workspaces fan-out, while `vitest.workspace.ts` is what the `vitest` CLI uses if invoked directly.
-- Extension build output goes to `apps/extension/dist`; load-unpacked from there. If the side panel setup screen shows the production origin, the build has a stale `VITE_COLD_START_API_ORIGIN` — rebuild, then click Reload in `chrome://extensions`.
+- Local extension setup can use API origin `http://localhost:3000` and API token `local-extension-token` only when the extension is explicitly built for local development.
+- Current default extension and internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`.
+- Deployed extension setup uses the token in `.vercel/extension-api-token.production.local`. Its value must match Vercel `EXTENSION_API_TOKEN`.
+- `VITE_COLD_START_API_ORIGIN` is a build-time extension variable, not a deployed web-app runtime variable.
+- Restart `dev:full` after changing extension auth env vars. A running Next process will not pick them up.
+- Read `SECURITY.md` before changing auth, env handling, dependency versions, or anything that could expose tokens.
 
-## Data layer (Neon + Drizzle)
+## Conventions
 
-- **Why Neon**: serverless Postgres that scales to zero and pairs cleanly with Vercel; no server to babysit. Postgres specifically (not a doc store) because the `ColdStartCard` is strictly typed and we want SQL for evals and ad-hoc inspection.
-- **Why Drizzle**: TypeScript-first, thin ORM. Schema in `packages/db/src/schema.ts` is just TS, queries are type-checked end to end, and migrations are plain SQL files in `packages/db/drizzle/` checked into git.
-- **Hybrid schema, not pure JSON or pure relational**. The full card lives as a JSONB blob in `cards.card_json` / `cards.public_card_json` (cheap to read whole; matches the typed `ColdStartCard`). Alongside that, `sources`, `citations`, `claims`, and `generation_runs` are normalized tables so we can query across cards (e.g. "all `claims` with `status = 'inferred'`", or per-slug generation history). When you add a card field, decide whether it only needs to ride inside `card_json` or also deserves a row in `claims`/`citations` for cross-card querying.
+- `apps/web` launches through `scripts/run-next.mjs`, which loads the repo-root `.env.local`, not `apps/web/.env.local`.
+- Public `/api/cards/{slug}` must never return `synthesis`.
+- Extension `/api/extension/cards/{slug}` requires `x-cold-start-extension-id` and `authorization: Bearer $EXTENSION_API_TOKEN`, then returns synthesis when present.
+- `packages/core/src/card.ts` is load-bearing. Every fact is a `ResolvedFact<T>` with `value`, `confidence`, and citation refs. Verifier drops set `value: null` rather than removing fields.
+- When adding a card field, update schema, extraction, pipeline assembly, and UI together.
+- Extension build output goes to `apps/extension/dist`; load that folder unpacked in Chrome.
+- If the side panel shows the wrong API origin, rebuild the extension. Use the deployed origin by default; use `VITE_COLD_START_API_ORIGIN=http://localhost:3000 VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` only for local development. Reload `apps/extension/dist` in `chrome://extensions`, then reopen the side panel.
+- Current visual guidance lives in `DESIGN.md`: Fraunces + Mona Sans, parchment-first surfaces, sand hairlines, and Lens Blue source signal. Archived Paper/brand directions under `docs/brand/archive/` are historical only.
 
-## Where to look first
+## Data Layer
 
-- Adding a card field: `packages/core/src/card.ts` → `packages/llm/src/extraction.ts` → `packages/pipeline/src/generate-card.ts` → `packages/ui/src/CardShell.tsx`.
-- Provider issue: `packages/providers/src/stableenrich.ts` and the spike script.
-- Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, then `evidence-ledger.ts` and `cost.ts`.
-- Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the two card route files under `apps/web/src/app/api/`.
+- Neon is the production Postgres target because it pairs cleanly with Vercel and keeps server operations light.
+- Drizzle is the ORM. Schema lives in `packages/db/src/schema.ts`; migrations live in `packages/db/drizzle/`.
+- The full card is stored as JSONB in `cards.card_json` and `cards.public_card_json` for cheap whole-card reads.
+- `sources`, `citations`, `claims`, and `generation_runs` are normalized so evals and debugging can query across cards.
+- When adding a field, decide whether it belongs only in card JSON or also needs normalized rows for cross-card querying.
+
+## Where To Look First
+
+- Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
+- Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, and the provider spike script.
+- Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
+- Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
 - Background work: `apps/web/src/inngest/functions.ts`.
 
-## Cross-references
+## Cross-References
 
-- `SPEC.md` — product spec (visibility tiers, schema, build sequencing). Treat as source of truth.
-- `DESIGN.md` — design tokens and visual system.
-- `docs/superpowers/plans/2026-05-06-cold-start-implementation.md` — task breakdown.
+- `README.md`: local setup, smoke tests, and deployed extension setup.
+- `docs/deployment.md`: Vercel, Neon, Inngest, and extension deployment.
+- `SPEC.md`: product spec.
+- `DESIGN.md`: visual system.
+- `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`: original implementation plan.

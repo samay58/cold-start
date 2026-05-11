@@ -18,7 +18,7 @@ const monaSans = Mona_Sans({
   display: "swap"
 });
 
-const siteOrigin = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://coldstart.semitechie.vc";
+const siteOrigin = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start-samay58s-projects.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin),
