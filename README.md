@@ -210,7 +210,7 @@ Expected: `"cartesia.ai"` and `true`.
 
 ### Try the local Chrome side panel
 
-The side panel reads the cached extension card when one exists. If no card exists, it asks before starting `/api/generate` in `basics` mode, shows staged progress, polls until the sourced basics card is available, then renders the card. The deeper `analysis` mode runs only after the user clicks Analyze.
+The side panel reads the cached extension card when one exists. If no card exists, it asks before starting `/api/generate` in `basics` mode, shows staged progress, polls until the sourced basics card is available, then renders the card. Additional research is activated from the research-layer card pile rather than a separate global analysis gate.
 
 ```bash
 npm run build -w @cold-start/extension
@@ -232,7 +232,7 @@ If the side panel says the API deployment is out of date, the extension bundle a
 
 Extension builds default to the deployed API origin. For local extension testing, build with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`; that explicit local opt-in preserves localhost settings.
 
-Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. If synthesis is missing, the Analyze button starts the gated analysis run.
+Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. The research layer then exposes dormant enrichment cards that can be pinned into the active stack.
 
 ### Stop local services
 

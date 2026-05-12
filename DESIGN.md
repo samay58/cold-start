@@ -71,7 +71,7 @@ Use 1px hairlines. Use subtle grid texture only when it supports the product fra
 
 The public web app is a light parchment page with a faint Lens Blue grid and a centered dossier card. The card is structured around profile facts, stats, section heads, Roman-style section markers, source rows, funding ladders, and source drawers. It should feel shareable and readable.
 
-The Chrome extension side panel is also parchment-led. It is compact, utility-forward, and uses stacked cards, a small app header, a sticky analysis action, loading instrumentation, and the same source/state vocabulary. It is not currently a full dark navy side panel.
+The Chrome extension side panel is also parchment-led. It is compact, utility-forward, and uses a company context card, research-layer rows, a tactile enrichment-card pile, loading instrumentation, and the same source/state vocabulary. It is not currently a full dark navy side panel.
 
 The product mark still carries the observatory/radar idea, but the live app has evolved away from the older "deep observatory shell around memo card" as the default screen composition.
 
@@ -97,9 +97,9 @@ Source rows are evidence objects. Use tiny color-class marks, clear source title
 
 Use Mona Sans with heavier weight for numbers and compact labels. Keep tables and ladders quiet: hairlines, sand borders, and enough spacing to make the values inspectable.
 
-### Extension Analysis Gate
+### Extension Research Layer
 
-The side panel should make basics and analysis feel like staged enrichment, not one undifferentiated loading state. Buttons should be precise and compact. Loading can use instrument-like motion, but should stay in the parchment/Fraunces/Mona system.
+The side panel should make basics and analysis feel like staged enrichment, not one undifferentiated loading state. Basics generation can still occupy the full panel before a profile exists. Once a profile exists, the research layer owns incremental enrichment: dormant cards sit in a bottom pile, activation pins a card into the layer, and analysis-backed cards run inline instead of using a separate sticky action. Loading can use instrument-like motion, but should stay in the parchment/Fraunces/Mona system.
 
 ## Enrichment Card Direction
 
@@ -112,12 +112,37 @@ Use:
 - Mona Sans for small labels, drag affordances, progress labels, and state text.
 - Slight rotations, depth, and imperfect stacks to make the pile feel physical.
 - Snapping or pinning motion that feels crisp, measured, and consequential.
+- Smooth layout and accordion motion for active enrichments. Framer Motion is acceptable inside the extension when it replaces hand-rolled gesture code and keeps bundle cost visible.
 
 Avoid:
 
 - Dark terminal cards unless a dark frame is explicitly requested.
 - Big glows, glass panels, floating AI orbs, purple gradients, or synthetic SaaS dashboard cards.
 - Overly cute physics. The motion can be delightful, but the product still serves investors inspecting company truth.
+
+### Mockup Intake: Enrichment Card Pile
+
+Five ChatGPT Image mockups were reviewed on 2026-05-11 for the enrichment-card refresh. The strongest direction combines the structure of the tray-based mockup with the drag/snap moment from the pile mockups and the multi-active research state from the source-progress mockups.
+
+Preserve these ideas:
+
+- Company context remains a quiet dossier card at the top. The research layer should not compete with identity, domain, funding, or source credibility.
+- Inactive enrichment categories live as physical research slips in a bottom tray or pile. They are dormant possibilities, not disabled controls.
+- Activating an enrichment feels like pinning evidence into the research layer. Dragging is the premium gesture; click and keyboard activation are required fallbacks.
+- The snap target should be visible only when useful: on drag, keyboard focus, or an explicit "Add enrichment" action. Use Lens Blue dashed hairlines, not a permanent decorative drop box.
+- Active enrichments should show real lifecycle state: selected, queued, running, populated, failed, or unavailable. Never show fake source counts or fake computation.
+- Citations inside enrichment cards should render as compact Lens Blue source chips below the prose. Do not leave bracket markers like `[c1]` in reader-facing text.
+- The pile must feel tactile through small rotations, overlap, compression, and layered sand shadows. Use motion tooling only for interaction quality, not decorative spectacle.
+
+Implementation guardrails:
+
+- The current backend supports `basics` and `analysis`, not independent per-category enrichment jobs. The first implementation must not pretend that all seven cards run separate backend work.
+- Use the existing analysis run as the first AI-backed activation path. Keep clean model seams for future per-category jobs.
+- The first shipped pile should include only useful, inspectable cards: Core Idea, Customers, Serves, Signals, Competition, Mechanism, and Open Questions. Do not show speculative future cards until they map to real data or a real backend job.
+- The real Chrome side panel width is tight. The pile and tray must be designed for about 380px, not the wider image mockup canvas.
+- Keep the dark browser rail out of the extension app unless it is proven in the live Chrome surface. The rail is atmosphere in the mockups, not required product UI.
+- Avoid adding duplicate progress components. The research layer should absorb the analysis running state instead of leaving a parallel full-screen analysis progress page.
+- Populated enrichments need a compact collapsed state. The pile can be expressive, but the research layer must stay scannable after multiple cards are pinned.
 
 ## Image Prompt Block
 

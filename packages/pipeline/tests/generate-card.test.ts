@@ -185,7 +185,7 @@ describe("generateCardForDomain", () => {
     expect(card.generationCostUsd).toBe(1.2346);
   });
 
-  it("rejects no-source extracted cards instead of storing unusable partials", async () => {
+  it("rejects no-source extracted cards when no provider sources exist", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
 
     await expect(
@@ -201,6 +201,46 @@ describe("generateCardForDomain", () => {
         })
       })
     ).rejects.toThrow("No cited sources survived extraction");
+  });
+
+  it("stores a cited fallback profile when extraction drops citations but provider sources exist", async () => {
+    const skeleton = buildSkeletonCard("legora.com");
+
+    const card = await generateCardForDomain("legora.com", {
+      fetchSources: async () => [
+        {
+          url: "https://legora.com/",
+          title: "Legora",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-11T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Legora is a legal AI platform."
+        }
+      ],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: []
+      })
+    });
+
+    expect(card.identity.name).toMatchObject({
+      value: "Legora",
+      status: "inferred",
+      confidence: "low",
+      citationIds: ["c1"]
+    });
+    expect(card.citations).toEqual([
+      expect.objectContaining({
+        id: "c1",
+        url: "https://legora.com/",
+        title: "Legora",
+        sourceType: "company_site"
+      })
+    ]);
   });
 
   it("passes an evidence ledger into extraction", async () => {

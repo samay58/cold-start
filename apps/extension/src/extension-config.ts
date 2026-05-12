@@ -328,6 +328,10 @@ export function readableCardError(message: string, apiOrigin: string): string {
     return "Generation failed on the API. Check the local web app and worker logs, then retry.";
   }
 
+  if (message === "No cited sources survived extraction") {
+    return "Sources were found, but the API could not structure a cited profile. Retry generation, then check the worker logs if it fails again.";
+  }
+
   if (message === "api deployment out of date") {
     return "The API deployment is out of date for this extension. Deploy the web app, then reload the unpacked extension.";
   }

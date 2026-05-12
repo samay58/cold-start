@@ -5,12 +5,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@cold-start/ui", () => ({
-  CardShell: ({ card }: { card: ColdStartCard }) => (
-    <div data-card-shell="true">Card loaded for {card.domain}</div>
-  )
-}));
-
 type StorageListener = (
   changes: Record<string, chrome.storage.StorageChange>,
   areaName: string
@@ -19,6 +13,12 @@ type StorageListener = (
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
 }
+
+const legacyAnalysisLabel = ["Ana", "lyze"].join("");
+const futureCardTitles = [
+  ["Business", "Model"].join(" "),
+  ["Cold", "Start", "Brief"].join(" ")
+];
 
 const settings = {
   coldStartApiOrigin: "http://localhost:3000",
@@ -174,10 +174,23 @@ function generateCalls(fetchMock: ReturnType<typeof vi.fn>) {
   });
 }
 
+function interactiveControls(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>("button, [role='button']"));
+}
+
 describe("SidePanel generation gate", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
+    class TestPointerEvent extends MouseEvent {
+      pointerId: number;
+
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 1;
+      }
+    }
+    vi.stubGlobal("PointerEvent", TestPointerEvent);
   });
 
   afterEach(() => {
@@ -219,7 +232,8 @@ describe("SidePanel generation gate", () => {
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ domain: "amazon.com", mode: "basics", confirmStart: true })
     );
-    expect(container.textContent).toContain("Card loaded for amazon.com");
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("amazon.com");
     await unmount();
   });
 
@@ -227,9 +241,37 @@ describe("SidePanel generation gate", () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    expect(container.textContent).toContain("Card loaded for linear.app");
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("linear.app");
     expect(container.textContent).not.toContain("Generate Linear?");
     expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("does not render the old standalone analysis CTA for a sourced card", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+
+    const buttons = interactiveControls(container).map((button) => button.textContent?.trim());
+    expect(buttons).not.toContain(legacyAnalysisLabel);
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Core Idea");
+
+    await unmount();
+  });
+
+  it("renders the research layer pile for a sourced card", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Core Idea");
+    expect(container.textContent).toContain("Customers");
+    expect(container.textContent).toContain("Add enrichment");
+    for (const title of futureCardTitles) {
+      expect(container.textContent).not.toContain(title);
+    }
+
     await unmount();
   });
 
@@ -253,6 +295,8 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Building profile");
+    expect(container.textContent).not.toContain("Collecting source distance");
+    expect(container.textContent).not.toContain("Still running in the background");
     expect(container.textContent).not.toContain("Generate Cartesia?");
     expect(generateCalls(fetchMock)).toHaveLength(0);
 
@@ -261,7 +305,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Card loaded for cartesia.ai");
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("cartesia.ai");
     await unmount();
   });
 
@@ -282,9 +327,9 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    expect(container.textContent).toContain("Building lens");
-    expect(container.textContent).toContain("Still running in the background");
-    expect(container.textContent).not.toContain("Analyze");
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).toContain("Extracting structure from cited sources");
+    expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -304,8 +349,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Regenerate the profile before running investor analysis.");
-    expect(container.textContent).not.toContain("Run the cited investor read");
-    expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent === "Analyze")).toBe(false);
+    expect(interactiveControls(container).some((button) => button.textContent === legacyAnalysisLabel)).toBe(false);
 
     const regenerateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Regenerate"
@@ -324,7 +368,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("offers manual analysis after basics are loaded", async () => {
+  it("starts real analysis from an analysis-backed enrichment instead of a standalone CTA", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "linear", status: "queued", mode: "analysis" }, { status: 202 });
@@ -334,12 +378,12 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const analyzeButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Analyze"
+    const coreIdeaButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Core Idea")
     );
-    expect(analyzeButton).toBeTruthy();
+    expect(coreIdeaButton).toBeTruthy();
     await act(async () => {
-      analyzeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -373,11 +417,11 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const analyzeButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Analyze"
+    const coreIdeaButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Core Idea")
     );
     await act(async () => {
-      analyzeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -386,16 +430,69 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Building lens");
-    expect(container.textContent).not.toContain("Analyze");
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).not.toContain(legacyAnalysisLabel);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2500);
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Card loaded for linear.app");
-    expect(container.textContent).not.toContain("Analyze");
+    expect(container.textContent).toContain("The company has a supported wedge");
+    expect(container.textContent).not.toContain("[c1]");
+    expect(container.textContent).not.toContain(legacyAnalysisLabel);
+    await unmount();
+  });
+
+  it("renders compact linked source chips without inline citation markers", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    expect(container.textContent).toContain("The company has a supported wedge.");
+    expect(container.textContent).not.toContain("[c1]");
+    const sourceLink = container.querySelector<HTMLAnchorElement>(".cs-source-chip[href='https://linear.app/']");
+    expect(sourceLink).toBeTruthy();
+    expect(sourceLink?.textContent).toContain("linear.app");
+    expect(sourceLink?.target).toBe("_blank");
+
+    await unmount();
+  });
+
+  it("activates a card-backed enrichment by click without starting model analysis", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+
+    const signalsButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Signals")
+    );
+    expect(signalsButton).toBeTruthy();
+
+    await act(async () => {
+      signalsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(container.textContent).toContain("No recent cited signals found yet.");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("activates an enrichment by keyboard from the card pile", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+
+    const servesButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Serves")
+    );
+    expect(servesButton).toBeTruthy();
+
+    await act(async () => {
+      servesButton?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    });
+    await flushPromises();
+
+    expect(container.textContent).toContain("Serves1 source");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
 
@@ -441,7 +538,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Card loaded for obvious.ai");
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("obvious.ai");
     await unmount();
   });
 
@@ -466,11 +564,11 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const analyzeButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Analyze"
+    const coreIdeaButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Core Idea")
     );
     await act(async () => {
-      analyzeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -479,7 +577,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Card loaded for linear.app");
+    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("linear.app");
     expect(container.textContent).toContain("Not enough verified evidence");
     await unmount();
   });

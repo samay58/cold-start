@@ -24,6 +24,7 @@ export const extractedCardSectionsSchema = coldStartCardSchema.pick({
 
 type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
 type VerificationSource = { id: string; url: string; title: string; snippet?: string };
+type CitationSourceType = ColdStartCard["citations"][number]["sourceType"];
 
 function unknownFact<T>(): ResolvedFact<T> {
   return {
@@ -31,6 +32,61 @@ function unknownFact<T>(): ResolvedFact<T> {
     status: "unknown",
     confidence: "low",
     citationIds: []
+  };
+}
+
+function supportedCitationUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function readableNameFromDomain(domain: string) {
+  return domain
+    .split(".")[0]
+    ?.split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ") || domain;
+}
+
+function fallbackSectionsFromEvidence(skeleton: ColdStartCard, evidenceLedger: EvidenceLedgerEntry[]): ExtractedCardSections | null {
+  const citationEntries = evidenceLedger.filter((entry) => supportedCitationUrl(entry.url)).slice(0, 8);
+  if (citationEntries.length === 0) {
+    return null;
+  }
+
+  const citations = citationEntries.map((entry, index) => ({
+    id: `c${index + 1}`,
+    url: entry.url,
+    title: entry.title,
+    fetchedAt: entry.fetchedAt,
+    sourceType: entry.sourceType as CitationSourceType,
+    snippet: entry.supportingSnippets[0] ?? entry.rawText.slice(0, 280)
+  }));
+  const firstCitation = citations[0];
+  const firstCitationTitle = firstCitation?.title.trim();
+
+  return {
+    identity: {
+      ...skeleton.identity,
+      name: firstCitation
+        ? {
+            value: firstCitationTitle && firstCitationTitle !== firstCitation.url ? firstCitationTitle : readableNameFromDomain(skeleton.domain),
+            status: "inferred",
+            confidence: "low",
+            citationIds: [firstCitation.id]
+          }
+        : skeleton.identity.name
+    },
+    funding: skeleton.funding,
+    team: skeleton.team,
+    signals: [],
+    comparables: [],
+    citations
   };
 }
 
@@ -155,12 +211,17 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     sources,
     evidenceLedger
   };
-  const sections = extractedCardSectionsSchema.parse(
+  let sections = extractedCardSectionsSchema.parse(
     await deps.extractSections(extractionInput)
   );
 
   if (sections.citations.length === 0) {
-    throw new Error("No cited sources survived extraction");
+    const fallbackSections = fallbackSectionsFromEvidence(skeleton, evidenceLedger);
+    if (!fallbackSections) {
+      throw new Error("No cited sources survived extraction");
+    }
+
+    sections = fallbackSections;
   }
 
   let card: ColdStartCard = coldStartCardSchema.parse({

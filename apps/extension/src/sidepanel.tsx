@@ -1,5 +1,4 @@
-import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
-import { CardShell } from "@cold-start/ui";
+import type { ColdStartCard } from "@cold-start/core";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -20,6 +19,7 @@ import {
   type GenerationStatus,
   type Settings
 } from "./extension-config";
+import { ResearchLayerPanel } from "./ResearchLayerPanel";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
@@ -31,9 +31,14 @@ type RequestState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "readyToGenerate" }
-  | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: GenerationStatus["mode"]; startedAt: number }
-  | { status: "success"; card: ColdStartCard; analysisNotice?: string }
+  | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: "basics"; startedAt: number }
+  | { status: "success"; card: ColdStartCard; analysisNotice?: string; analysisRun?: AnalysisRunState }
   | { status: "error"; message: string };
+
+type AnalysisRunState = {
+  generationStatus: "queued" | "running";
+  startedAt: number;
+};
 
 type GenerationPollResult = {
   card: ColdStartCard;
@@ -444,22 +449,21 @@ function GenerationPanel({
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
   const elapsed = useElapsedSeconds(true, requestState.startedAt);
-  const isAnalysis = requestState.mode === "analysis";
-  const isLongRunning = elapsed >= 75;
   const activeIndex =
     requestState.generationStatus === "queued"
       ? Math.min(3, Math.floor(elapsed / 7))
       : Math.min(3, 1 + Math.floor(elapsed / 8));
   const statusText =
     requestState.generationStatus === "queued" && elapsed < 4
-      ? isAnalysis ? "Queued analysis" : "Queued profile"
-      : isAnalysis ? "Building lens" : "Building profile";
+      ? "Queued profile"
+      : "Building profile";
   const stages = [
     { label: "Resolve identity", marker: "01" },
     { label: "Read sources", marker: "02" },
-    { label: isAnalysis ? "Trace claims" : "Shape profile", marker: "03" },
-    { label: isAnalysis ? "Prepare lens" : "Attach citations", marker: "04" }
+    { label: "Shape profile", marker: "03" },
+    { label: "Attach citations", marker: "04" }
   ];
+  const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
   return (
     <ExtensionFrame
       className="cs-generation-panel"
@@ -468,24 +472,22 @@ function GenerationPanel({
     >
       <PanelHeader eyebrow={statusText} markLabel={companyName} title={companyName} value={domain} />
 
-      <div className="cs-live-card" aria-live="polite">
-        <div className="cs-live-orbit" aria-hidden="true">
-          <span className="cs-live-node" data-node="one" />
-          <span className="cs-live-node" data-node="two" />
-          <span className="cs-live-node" data-node="three" />
-          <span className="cs-live-puck" />
+      <div className="cs-live-card cs-live-card-refined" aria-live="polite">
+        <div className="cs-live-stage-lockup">
+          <span className="cs-live-marker">{activeStage?.marker}</span>
+          <strong className="cs-shimmer-text">{activeStage?.label}</strong>
         </div>
-        <div className="cs-live-copy">
-          <strong className="cs-shimmer-text">{stages[activeIndex]?.label ?? stages[stages.length - 1]?.label}</strong>
-          <p>
-            {isLongRunning
-              ? "Still running in the background. You can close and reopen this panel without restarting it."
-              : isAnalysis ? "Checking claims against the evidence ledger." : "Collecting enough source distance for a useful profile."}
-          </p>
+        <div className="cs-live-progress-rail" aria-hidden="true">
+          {stages.map((stage, index) => (
+            <span
+              data-state={index < activeIndex ? "complete" : index === activeIndex ? "active" : "pending"}
+              key={stage.label}
+            />
+          ))}
         </div>
       </div>
 
-      <div className="cs-generation-stage-list">
+      <div className="cs-generation-stage-list cs-generation-stage-list-refined">
         {stages.map((stage, index) => {
           const complete = index < activeIndex;
           const active = index === activeIndex;
@@ -506,6 +508,39 @@ function GenerationPanel({
   );
 }
 
+function SuccessPanel({
+  domain,
+  onRegenerate,
+  onStartAnalysis,
+  requestState,
+  settings
+}: {
+  domain: string;
+  onRegenerate: () => void;
+  onStartAnalysis: () => void;
+  requestState: Extract<RequestState, { status: "success" }>;
+  settings: Settings;
+}) {
+  const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
+
+  return (
+    <ResearchLayerPanel
+      analysisNotice={requestState.analysisNotice}
+      analysisRun={requestState.analysisRun}
+      card={requestState.card}
+      elapsedSeconds={elapsedSeconds}
+      onRegenerate={onRegenerate}
+      onStartAnalysis={() => {
+        if (!settings.apiToken || !domain) {
+          return;
+        }
+
+        onStartAnalysis();
+      }}
+    />
+  );
+}
+
 function StartGenerationPanel({
   domain,
   onEditSettings,
@@ -521,10 +556,10 @@ function StartGenerationPanel({
     <ExtensionFrame
       actions={
         <>
-        <button className="cs-extension-button" onClick={onStart} type="button">Generate profile</button>
-        <button className="cs-extension-link-button" onClick={onEditSettings} type="button">
-          Settings
-        </button>
+          <button className="cs-extension-button" onClick={onStart} type="button">Generate profile</button>
+          <button className="cs-extension-link-button" onClick={onEditSettings} type="button">
+            Settings
+          </button>
         </>
       }
       onSettings={onEditSettings}
@@ -565,11 +600,17 @@ export function SidePanel() {
     activeRequest.current = null;
   }
 
+  function clearActiveRequest(controller: AbortController) {
+    if (activeRequest.current === controller) {
+      activeRequest.current = null;
+    }
+  }
+
   function runGenerationWithController(
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    mode: GenerationStatus["mode"],
+    mode: "basics",
     confirmStart: boolean
   ) {
     const startedAt = Date.now();
@@ -603,6 +644,127 @@ export function SidePanel() {
 
         const message = caught instanceof Error ? caught.message : String(caught);
         setRequestState({ status: "error", message: readableCardError(message, generationSettings.apiOrigin) });
+      })
+      .finally(() => {
+        clearActiveRequest(controller);
+      });
+  }
+
+  function runAnalysisWithController(
+    controller: AbortController,
+    generationDomain: string,
+    generationSettings: Settings,
+    currentCard: ColdStartCard
+  ) {
+    const startedAt = Date.now();
+    setRequestState({
+      status: "success",
+      card: currentCard,
+      analysisRun: { generationStatus: "queued", startedAt }
+    });
+
+    void startGenerationAndPoll(
+      generationDomain,
+      generationSettings,
+      controller.signal,
+      "analysis",
+      true,
+      (generationStatus) => {
+        if (!controller.signal.aborted) {
+          setRequestState({
+            status: "success",
+            card: currentCard,
+            analysisRun: {
+              generationStatus: generationStatus === "queued" ? "queued" : "running",
+              startedAt
+            }
+          });
+        }
+      }
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setRequestState(
+            result.analysisNotice
+              ? { status: "success", card: result.card, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card }
+          );
+        }
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = caught instanceof Error ? caught.message : String(caught);
+        setRequestState({
+          status: "success",
+          card: currentCard,
+          analysisNotice: readableCardError(message, generationSettings.apiOrigin)
+        });
+      })
+      .finally(() => {
+        clearActiveRequest(controller);
+      });
+  }
+
+  function resumeAnalysisWithController(
+    controller: AbortController,
+    generationDomain: string,
+    generationSettings: Settings,
+    generationStatus: "queued" | "running",
+    runStartedAt: string | undefined,
+    latestCard: ColdStartCard
+  ) {
+    const startedAt = startedAtMs(runStartedAt);
+    setRequestState({
+      status: "success",
+      card: latestCard,
+      analysisRun: { generationStatus, startedAt }
+    });
+
+    void pollGenerationUntilCard(
+      generationDomain,
+      generationSettings,
+      controller.signal,
+      "analysis",
+      (nextGenerationStatus) => {
+        if (!controller.signal.aborted) {
+          setRequestState({
+            status: "success",
+            card: latestCard,
+            analysisRun: {
+              generationStatus: nextGenerationStatus === "queued" ? "queued" : "running",
+              startedAt
+            }
+          });
+        }
+      },
+      latestCard
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setRequestState(
+            result.analysisNotice
+              ? { status: "success", card: result.card, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card }
+          );
+        }
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = caught instanceof Error ? caught.message : String(caught);
+        setRequestState({
+          status: "success",
+          card: latestCard,
+          analysisNotice: readableCardError(message, generationSettings.apiOrigin)
+        });
+      })
+      .finally(() => {
+        clearActiveRequest(controller);
       });
   }
 
@@ -610,7 +772,7 @@ export function SidePanel() {
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    mode: GenerationStatus["mode"],
+    mode: "basics",
     generationStatus: "queued" | "running",
     runStartedAt?: string,
     latestCard: ColdStartCard | null = null
@@ -646,6 +808,9 @@ export function SidePanel() {
 
         const message = caught instanceof Error ? caught.message : String(caught);
         setRequestState({ status: "error", message: readableCardError(message, generationSettings.apiOrigin) });
+      })
+      .finally(() => {
+        clearActiveRequest(controller);
       });
   }
 
@@ -719,7 +884,7 @@ export function SidePanel() {
         try {
           const analysisStatus = await requestGenerationStatus(domain, settings, controller.signal, "analysis");
           if (isActiveRun(analysisStatus.status)) {
-            resumeGenerationWithController(controller, domain, settings, "analysis", analysisStatus.status, analysisStatus.startedAt, card);
+            resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card);
             return;
           }
 
@@ -782,7 +947,7 @@ export function SidePanel() {
     };
   }, [domain, settings]);
 
-  function handleStartGeneration(mode: GenerationStatus["mode"], confirmStart: boolean) {
+  function handleStartGeneration(mode: "basics", confirmStart: boolean) {
     if (!domain || !settings?.apiToken) {
       return;
     }
@@ -852,9 +1017,14 @@ export function SidePanel() {
     return (
       <ExtensionFrame
         actions={
-          <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
-            Settings
-          </button>
+          <>
+            <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
+              Try again
+            </button>
+            <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
+              Settings
+            </button>
+          </>
         }
         className="cs-extension-error-plate"
         onSettings={() => setShowSettings(true)}
@@ -867,42 +1037,23 @@ export function SidePanel() {
     );
   }
 
-  const canAnalyze = canRunInvestorAnalysis(requestState.card);
-  const showAnalyzeAction = !requestState.card.synthesis && canAnalyze;
-  const showRegenerateAction = !requestState.card.synthesis && !canAnalyze;
-
   return (
-    <div className={showAnalyzeAction || showRegenerateAction ? "cs-extension-success has-analysis-action" : "cs-extension-success"}>
-      <CardShell card={requestState.card} surface="extension" />
-      {requestState.analysisNotice ? (
-        <div className="cs-extension-analysis-notice" role="status">
-          <span>Not enough verified evidence</span>
-          <p>{requestState.analysisNotice}</p>
-        </div>
-      ) : null}
-      {showRegenerateAction ? (
-        <div className="cs-extension-analyze">
-          <div>
-            <span className="cs-extension-analyze-kicker">Needs sources</span>
-            <p>Regenerate the profile before running investor analysis.</p>
-          </div>
-          <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
-            Regenerate
-          </button>
-        </div>
-      ) : null}
-      {showAnalyzeAction ? (
-        <div className="cs-extension-analyze">
-          <div>
-            <span className="cs-extension-analyze-kicker">Investor lens</span>
-            <p>Run the cited investor read from this profile.</p>
-          </div>
-          <button className="cs-extension-button" onClick={() => handleStartGeneration("analysis", true)} type="button">
-            Analyze
-          </button>
-        </div>
-      ) : null}
-    </div>
+    <SuccessPanel
+      domain={domain}
+      onRegenerate={() => handleStartGeneration("basics", true)}
+      onStartAnalysis={() => {
+        if (!domain || !settings.apiToken || requestState.status !== "success") {
+          return;
+        }
+
+        const controller = new AbortController();
+        abortActiveRequest();
+        activeRequest.current = controller;
+        runAnalysisWithController(controller, domain, settings, requestState.card);
+      }}
+      requestState={requestState}
+      settings={settings}
+    />
   );
 }
 
