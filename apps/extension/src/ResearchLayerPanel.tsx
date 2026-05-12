@@ -1,7 +1,7 @@
 import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
-import { AnimatePresence, motion, useDragControls, useReducedMotion, type PanInfo } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -10,6 +10,7 @@ import {
   type ResearchLayerId
 } from "./research-layer";
 import {
+  dormantCardCanDrag,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
@@ -96,7 +97,6 @@ function LayerContent({
     return (
       <div className="cs-layer-running-copy" aria-live="polite">
         <span className="cs-shimmer-text">Extracting structure from cited sources</span>
-        <small>Longer runs continue safely in the background.</small>
         <span className="cs-layer-skeleton" aria-hidden="true" />
         <span className="cs-layer-skeleton cs-layer-skeleton-short" aria-hidden="true" />
       </div>
@@ -200,22 +200,13 @@ function DormantPileCard({
   prefersReducedMotion: boolean | null;
   total: number;
 }) {
-  const dragControls = useDragControls();
-  const canDrag = !prefersReducedMotion;
-  const feedbackProps = canDrag
+  const canDrag = dormantCardCanDrag({ prefersReducedMotion });
+  const feedbackProps = !prefersReducedMotion
     ? {
         whileHover: { y: pose.y - 3, scale: 1.012 },
         whileTap: { scale: 0.99 }
       }
     : {};
-
-  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!canDrag || event.button !== 0) {
-      return;
-    }
-
-    dragControls.start(event);
-  }
 
   return (
     <motion.div
@@ -228,9 +219,7 @@ function DormantPileCard({
       data-index={index}
       drag={canDrag ? true : false}
       dragConstraints={{ bottom: 0, left: -26, right: 26, top: -360 }}
-      dragControls={dragControls}
       dragElastic={0.14}
-      dragListener={false}
       dragMomentum={false}
       exit={{ opacity: 0, scale: 0.94, y: -18 }}
       layout
@@ -239,7 +228,6 @@ function DormantPileCard({
       onDragEnd={(_event, info) => onDragEnd(info)}
       onDragStart={onDragStart}
       onKeyDown={onKeyDown}
-      onPointerDown={handlePointerDown}
       role="button"
       tabIndex={0}
       transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.75 }}

@@ -329,6 +329,7 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Synthesizing");
     expect(container.textContent).toContain("Extracting structure from cited sources");
+    expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();

@@ -13,3 +13,7 @@ export function dragOffsetShouldPreview(offsetY: number) {
 export function dragOffsetShouldSuppressClick(offset: { x: number; y: number }) {
   return Math.abs(offset.x) >= CLICK_SUPPRESSION_THRESHOLD || Math.abs(offset.y) >= CLICK_SUPPRESSION_THRESHOLD;
 }
+
+export function dormantCardCanDrag(_input: { prefersReducedMotion: boolean | null }) {
+  return true;
+}

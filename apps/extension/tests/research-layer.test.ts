@@ -2,6 +2,7 @@ import type { ColdStartCard } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
 import {
+  dormantCardCanDrag,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
@@ -152,7 +153,47 @@ describe("research layer model", () => {
     expect(display?.sourceCount).toBe(0);
   });
 
+  it("deduplicates repeated source links before rendering chips", () => {
+    const display = layerDisplayForCard(baseCard({
+      identity: {
+        ...baseCard().identity,
+        description: {
+          value: {
+            shortDescription: "Developer productivity platform for the AI era.",
+            concept: "AI-native terminal collaboration layer.",
+            serves: "Developers and engineering teams.",
+            mechanism: "Combines terminal execution with shared AI context."
+          },
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1", "c2"]
+        }
+      },
+      citations: [
+        {
+          id: "c1",
+          url: "https://warp.dev/",
+          title: "Warp",
+          fetchedAt: "2026-05-11T12:00:00.000Z",
+          sourceType: "company_site"
+        },
+        {
+          id: "c2",
+          url: "https://warp.dev",
+          title: "Warp duplicate",
+          fetchedAt: "2026-05-11T12:00:00.000Z",
+          sourceType: "company_site"
+        }
+      ]
+    }), "customers");
+
+    expect(display?.sourceCount).toBe(1);
+    expect(display?.sources).toHaveLength(1);
+  });
+
   it("uses stable drag thresholds for card pinning", () => {
+    expect(dormantCardCanDrag({ prefersReducedMotion: true })).toBe(true);
+    expect(dormantCardCanDrag({ prefersReducedMotion: false })).toBe(true);
     expect(dragOffsetShouldPreview(-42)).toBe(true);
     expect(dragOffsetShouldPreview(-41)).toBe(false);
     expect(dragOffsetShouldSnap(-80)).toBe(true);

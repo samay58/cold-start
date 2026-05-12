@@ -50,13 +50,13 @@ export type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "coreIdea", title: "Core Idea", description: "Define the company in one evidence-backed thought", source: "analysis" },
-  { id: "customers", title: "Customers", description: "Who pays and who benefits", source: "card" },
-  { id: "serves", title: "Serves", description: "Define the user and job to be done", source: "card" },
-  { id: "signals", title: "Signals", description: "Identify traction and leading indicators", source: "card" },
-  { id: "competition", title: "Competition", description: "Map the landscape", source: "card" },
-  { id: "mechanism", title: "Mechanism", description: "Define how it works", source: "card" },
-  { id: "openQuestions", title: "Open Questions", description: "Surface key unknowns", source: "analysis" }
+  { id: "coreIdea", title: "Core Idea", description: "A cited one-sentence thesis", source: "analysis" },
+  { id: "customers", title: "Customers", description: "Buyers, users, and adoption surface", source: "card" },
+  { id: "serves", title: "Serves", description: "Primary user and job to be done", source: "card" },
+  { id: "signals", title: "Signals", description: "Traction and leading indicators", source: "card" },
+  { id: "competition", title: "Competition", description: "Adjacent players and defensibility", source: "card" },
+  { id: "mechanism", title: "Mechanism", description: "How the product works", source: "card" },
+  { id: "openQuestions", title: "Open Questions", description: "Unknowns worth pressure-testing", source: "analysis" }
 ];
 
 function stripCitationMarkers(text: string) {
@@ -84,16 +84,29 @@ function safeExternalHref(url: string) {
   }
 }
 
+function sourceDedupeKey(href: string) {
+  try {
+    const parsed = new URL(href);
+    parsed.hash = "";
+    parsed.search = "";
+    parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    return parsed.toString().toLowerCase();
+  } catch {
+    return href.toLowerCase();
+  }
+}
+
 function citationSources(card: ColdStartCard, citationIds: readonly string[] = []): ResearchLayerSourceReference[] {
   if (citationIds.length === 0 || card.citations.length === 0) {
     return [];
   }
 
   const citations = new Map(card.citations.map((citation) => [citation.id, citation]));
-  const seen = new Set<string>();
+  const seenCitationIds = new Set<string>();
+  const seenSourceKeys = new Set<string>();
   const sources: ResearchLayerSourceReference[] = [];
   for (const id of citationIds) {
-    if (seen.has(id)) {
+    if (seenCitationIds.has(id)) {
       continue;
     }
 
@@ -103,7 +116,13 @@ function citationSources(card: ColdStartCard, citationIds: readonly string[] = [
       continue;
     }
 
-    seen.add(id);
+    seenCitationIds.add(id);
+    const sourceKey = sourceDedupeKey(href);
+    if (seenSourceKeys.has(sourceKey)) {
+      continue;
+    }
+
+    seenSourceKeys.add(sourceKey);
     sources.push({
       id: citation.id,
       domain: domainFromHref(href),
