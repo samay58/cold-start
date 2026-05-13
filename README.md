@@ -33,6 +33,7 @@ Current implementation includes:
 - npm workspace scaffold, typed card schema, Drizzle schema, and repository layer
 - provider and LLM wrappers, research planner, evidence ledger, and pipeline orchestration
 - public web card route, extension-gated card API, and side-panel generation and polling
+- generation traces for recent runs, including provider counts, source-gate decisions, extraction counts, synthesis counts, Inngest IDs, and failure stage
 - local `dev:full` runner for the web app plus Inngest worker
 - internal Vercel setup docs, privacy page, golden eval seed, robots route, and sitemap
 
@@ -233,6 +234,30 @@ If the side panel says the API deployment is out of date, the extension bundle a
 Extension builds default to the deployed API origin. For local extension testing, build with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`; that explicit local opt-in preserves localhost settings.
 
 Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. The research layer then exposes dormant enrichment cards that can be pinned into the active stack.
+
+### Inspect generation traces
+
+Recent generation runs can be summarized from the database without opening Inngest or Vercel first:
+
+```bash
+set -a; source .env.local; set +a
+npm run trace:generation -- --limit 10
+npm run trace:generation -- --limit 1 --detail
+npm run trace:generation -- --domain legora.com --mode analysis --quality --detail
+```
+
+Useful filters: `--domain`, `--mode basics|analysis`, `--since 4h`, `--failed`, `--json`, `--quality`, and `--detail`. This prints the job kind, run status, duration, accepted vs. rejected sources, citation count, synthesis verification count, Inngest IDs, failure reason, and deterministic QA flags when present. It is the first place to look when a company like Legora fails source extraction, a run spends too long in a provider or LLM step, or a completed run is missing extraction/synthesis trace.
+
+For a fixed production sanity pass across the current QA company suite:
+
+```bash
+set -a; source .env.production.migrate.local; set +a
+npm run qa:generation
+```
+
+The QA runner reads production DB traces and API card output for `cartesia.ai`, `elevenlabs.io`, `legora.com`, `attio.com`, `skyfire.xyz`, `minimax.io`, and `varickagents.com`. It prints a compact terminal report only. Screenshots from manual or Computer Use side-panel inspection should stay outside the repo under `~/Downloads/cold-start-qa/<timestamp>/`.
+
+`signals` remains a substrate for generation, not a cosmetic card. The basics/analysis fetch path always asks for recent signal-style sources because launches, customers, partnerships, hiring, and funding context inform later enrichment cards. True backend jobs per enrichment card are still a roadmap item; today the trace model already stores a `jobKind` so that split can be made without hiding work behind the old global Analyze mental model.
 
 ### Stop local services
 

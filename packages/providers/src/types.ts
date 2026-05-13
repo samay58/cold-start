@@ -16,6 +16,7 @@ export type DirectExaEnv = Partial<
 export type StableenrichProbeName =
   | "exa_funding_history"
   | "exa_company_profile"
+  | "exa_recent_signals"
   | "exa_independent_analysis"
   | "exa_find_similar"
   | "firecrawl_homepage"

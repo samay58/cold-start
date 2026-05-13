@@ -3,6 +3,7 @@ import {
   buildSkeletonCard,
   type ExtractedCardSections,
   generateCardForDomain,
+  generateCardForDomainWithTrace,
   type GenerateCardDeps
 } from "../src/index";
 
@@ -307,5 +308,83 @@ describe("generateCardForDomain", () => {
 
     expect(fetchSawPlan).toBe(true);
     expect(extractionSawPlan).toBe(true);
+  });
+
+  it("returns extraction and synthesis trace patches", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
+    const bullCase = { text: "The company has a clear infrastructure wedge. [c1]", citationIds: ["c1"] };
+
+    const result = await generateCardForDomainWithTrace("cartesia.ai", {
+      fetchSources: async () => [
+        {
+          url: "https://cartesia.ai",
+          title: "Cartesia",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-06T12:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Cartesia is building voice AI infrastructure."
+        }
+      ],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      }),
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: ["What buyer owns expansion?"]
+      }),
+      verify: async () => [
+        { ...whyItMatters, status: "supported" },
+        { ...bullCase, status: "unsupported" }
+      ],
+      synthesisRequired: true
+    });
+
+    expect(result.tracePatch.extraction).toEqual({
+      sourceCount: 1,
+      evidenceCount: 1,
+      citationCount: 1,
+      fallbackUsed: false
+    });
+    expect(result.tracePatch.synthesis).toEqual({
+      required: true,
+      produced: true,
+      claimCountBeforeVerify: 2,
+      claimCountAfterVerify: 1
+    });
+  });
+
+  it("carries trace patches through extraction failure", async () => {
+    const skeleton = buildSkeletonCard("legora.com");
+
+    await expect(
+      generateCardForDomainWithTrace("legora.com", {
+        fetchSources: async () => [],
+        extractSections: async () => ({
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: []
+        })
+      })
+    ).rejects.toMatchObject({
+      tracePatch: {
+        extraction: {
+          sourceCount: 0,
+          evidenceCount: 0,
+          citationCount: 0,
+          fallbackUsed: false
+        }
+      }
+    });
   });
 });

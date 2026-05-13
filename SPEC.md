@@ -141,7 +141,7 @@ The AgentCash path collapses what Spec 3 modeled as separate vendor-account inte
 
 `basics` is the extension activation path. The side panel asks before starting it; the request carries `confirmStart` after that click. The API still accepts extension-authenticated basics requests without `confirmStart` for compatibility, but non-extension requests need confirmation. The target is p95 under 10 seconds for the first useful card. It retrieves fast fundamentals, extracts cited facts, skips synthesis, and may cache `cacheStatus: "partial"`.
 
-`analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and open questions survive verification.
+`analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and open questions survive verification. In the refreshed extension UX, the user should experience this as activating specific research cards, not pressing a separate global Analyze button. The backend still supports card-level `basics` and `analysis` jobs today, but generation runs now carry `jobKind` and trace metadata so true per-enrichment jobs can land without a second stale progress model.
 
 **Pipeline** (single agent, parallel provider calls, no orchestrator-worker hierarchy):
 
@@ -154,10 +154,10 @@ Direct Exa fast fundamentals:
     ├── company profile
     ├── people and management team
     ├── funding history
-    └── recent news
+    └── recent signals
     ↓
 StableEnrich / AgentCash fallback and enrichment:
-    ├── Exa search and findSimilar
+    ├── Exa search, recent signals, and findSimilar
     ├── Apollo org-enrich
     └── Firecrawl(homepage)
     ↓
@@ -165,9 +165,9 @@ Claim extraction (Sonnet 4.6, structured output, JSON Schema enforced)
     ↓
 Trust pass and public card cache
     ↓
-User clicks Analyze
+User activates a research-layer card
     ↓
-Analysis retrieval, synthesis, verifier
+Analysis retrieval, synthesis, verifier, trace capture
     ↓
 Upgrade cached card with gated synthesis
 ```

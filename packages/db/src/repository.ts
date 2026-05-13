@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
 
-import { coldStartCardSchema, publicCard, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
+import { coldStartCardSchema, publicCard, type ColdStartCard, type GenerationJobKind, type GenerationTrace, type ResolvedFact } from "@cold-start/core";
 
 import type { ColdStartDb } from "./client";
 import { cards, citations, claims, generationRuns, sources } from "./schema";
@@ -25,10 +25,14 @@ export type GenerationRunSummary = {
   slug: string;
   domain: string;
   mode: GenerationMode;
+  jobKind?: GenerationJobKind | string;
   status: GenerationStatus;
   id?: string;
   error?: string | null;
   costUsd?: string | null;
+  traceJson?: GenerationTrace | null;
+  inngestEventId?: string | null;
+  inngestRunId?: string | null;
   startedAt?: Date;
   completedAt?: Date | null;
 };
@@ -37,13 +41,18 @@ type GenerationRunRow = {
   slug: string;
   domain: string;
   mode: GenerationMode;
+  jobKind?: string;
   status: GenerationStatus;
   id?: string;
   error?: string | null;
   costUsd?: string | null;
+  traceJson?: GenerationTrace | null;
+  inngestEventId?: string | null;
+  inngestRunId?: string | null;
   startedAt?: Date;
   completedAt?: Date | null;
 };
+type GenerationRunResultRow = Omit<GenerationRunRow, "traceJson"> & { traceJson?: unknown };
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -88,9 +97,13 @@ export async function findActiveGenerationRunBySlug(
       slug: generationRuns.slug,
       domain: generationRuns.domain,
       mode: generationRuns.mode,
+      jobKind: generationRuns.jobKind,
       status: generationRuns.status,
       error: generationRuns.error,
       costUsd: generationRuns.costUsd,
+      traceJson: generationRuns.traceJson,
+      inngestEventId: generationRuns.inngestEventId,
+      inngestRunId: generationRuns.inngestRunId,
       startedAt: generationRuns.startedAt,
       completedAt: generationRuns.completedAt
     })
@@ -118,9 +131,13 @@ export async function findLatestGenerationRunBySlug(
       slug: generationRuns.slug,
       domain: generationRuns.domain,
       mode: generationRuns.mode,
+      jobKind: generationRuns.jobKind,
       status: generationRuns.status,
       error: generationRuns.error,
       costUsd: generationRuns.costUsd,
+      traceJson: generationRuns.traceJson,
+      inngestEventId: generationRuns.inngestEventId,
+      inngestRunId: generationRuns.inngestRunId,
       startedAt: generationRuns.startedAt,
       completedAt: generationRuns.completedAt
     })
@@ -344,19 +361,28 @@ export async function markGenerationRun(
     slug: string;
     domain: string;
     mode?: GenerationMode;
+    jobKind?: GenerationJobKind;
     status: GenerationStatus;
     error?: string;
     costUsd?: number;
+    traceJson?: GenerationTrace;
+    inngestEventId?: string;
+    inngestRunId?: string;
   }
 ) {
   const mode = input.mode ?? "analysis";
+  const jobKind = input.jobKind ?? mode;
   const values = {
     slug: input.slug,
     domain: input.domain,
     mode,
+    jobKind,
     status: input.status,
     ...(input.error !== undefined ? { error: input.error } : {}),
     ...(input.costUsd !== undefined ? { costUsd: String(input.costUsd) } : {}),
+    ...(input.traceJson !== undefined ? { traceJson: input.traceJson } : {}),
+    ...(input.inngestEventId !== undefined ? { inngestEventId: input.inngestEventId } : {}),
+    ...(input.inngestRunId !== undefined ? { inngestRunId: input.inngestRunId } : {}),
     ...(input.status === "complete" || input.status === "failed" ? { completedAt: new Date() } : {})
   };
 
@@ -392,15 +418,19 @@ export async function markGenerationRun(
   return row;
 }
 
-function generationRunSummary(row: GenerationRunRow): GenerationRunSummary {
+function generationRunSummary(row: GenerationRunResultRow): GenerationRunSummary {
   return {
     ...(row.id !== undefined ? { id: row.id } : {}),
     slug: row.slug,
     domain: row.domain,
     mode: row.mode,
+    ...(row.jobKind !== undefined ? { jobKind: row.jobKind } : {}),
     status: row.status,
     ...(row.error !== undefined ? { error: row.error } : {}),
     ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),
+    ...(row.traceJson !== undefined ? { traceJson: row.traceJson as GenerationTrace | null } : {}),
+    ...(row.inngestEventId !== undefined ? { inngestEventId: row.inngestEventId } : {}),
+    ...(row.inngestRunId !== undefined ? { inngestRunId: row.inngestRunId } : {}),
     ...(row.startedAt !== undefined ? { startedAt: row.startedAt } : {}),
     ...(row.completedAt !== undefined ? { completedAt: row.completedAt } : {})
   };

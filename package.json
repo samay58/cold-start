@@ -21,6 +21,8 @@
     "db:generate": "npm run db:generate -w @cold-start/db",
     "db:migrate": "npm run db:migrate -w @cold-start/db",
     "db:migrate:production": "node scripts/migrate-production.mjs",
+    "trace:generation": "tsx scripts/trace-generation.ts",
+    "qa:generation": "tsx scripts/qa-generation-suite.ts",
     "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\"",
     "eval:golden": "node eval/run-golden.mjs"
   },

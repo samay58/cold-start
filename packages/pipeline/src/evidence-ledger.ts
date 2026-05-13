@@ -104,10 +104,20 @@ function authorityScore(source: ProviderSource, domain: string) {
     enrichment: 1,
     other: 1,
   };
-  const hostBonus = source.url.includes(domain) ? 1 : 0;
+  const hostBonus = sourceHostMatchesDomain(source.url, domain) ? 1 : 0;
   const intentBonus = source.intent === "funding" || source.intent === "company_profile" ? 1 : 0;
 
   return base[source.sourceType] + hostBonus + intentBonus + sourceQualityRank(source);
+}
+
+function sourceHostMatchesDomain(url: string, domain: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    const normalizedDomain = domain.replace(/^www\./i, "").toLowerCase();
+    return host === normalizedDomain || host.endsWith(`.${normalizedDomain}`);
+  } catch {
+    return false;
+  }
 }
 
 function supportSnippets(text: string) {

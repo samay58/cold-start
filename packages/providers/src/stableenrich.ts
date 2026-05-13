@@ -58,6 +58,14 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       },
     },
     {
+      name: "exa_recent_signals",
+      url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
+      body: {
+        query: `${domain} recent launch customers hiring funding product partnership traction`,
+        numResults: 6,
+      },
+    },
+    {
       name: "exa_independent_analysis",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
@@ -179,7 +187,7 @@ export function providerSourceFromText(input: {
 }
 
 function isExaSearchProbe(name: StableenrichProbe["name"]) {
-  return name === "exa_funding_history" || name === "exa_company_profile" || name === "exa_independent_analysis";
+  return name === "exa_funding_history" || name === "exa_company_profile" || name === "exa_recent_signals" || name === "exa_independent_analysis";
 }
 
 function sourceTypeForProbe(name: StableenrichProbe["name"]): ProviderSource["sourceType"] {
@@ -200,6 +208,8 @@ function intentForProbe(name: StableenrichProbe["name"]): RetrievalIntent {
       return "funding";
     case "exa_company_profile":
       return "company_profile";
+    case "exa_recent_signals":
+      return "recent_signals";
     case "exa_independent_analysis":
       return "independent_analysis";
     case "exa_find_similar":

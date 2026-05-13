@@ -108,15 +108,20 @@ export const generationRuns = pgTable(
     slug: text("slug").notNull(),
     domain: text("domain").notNull(),
     mode: generationModeEnum("mode").default("analysis").notNull(),
+    jobKind: text("job_kind").default("analysis").notNull(),
     status: generationStatusEnum("status").notNull(),
     error: text("error"),
     costUsd: numeric("cost_usd", { precision: 10, scale: 4 }),
+    traceJson: jsonb("trace_json"),
+    inngestEventId: text("inngest_event_id"),
+    inngestRunId: text("inngest_run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true })
   },
   (table) => [
     index("generation_runs_slug_started_idx").on(table.slug, table.startedAt),
     index("generation_runs_slug_mode_started_idx").on(table.slug, table.mode, table.startedAt),
+    index("generation_runs_job_kind_started_idx").on(table.jobKind, table.startedAt),
     uniqueIndex("generation_runs_active_slug_mode_idx")
       .on(table.slug, table.mode)
       .where(sql`${table.status} in ('queued', 'running')`)

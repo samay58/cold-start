@@ -1,4 +1,10 @@
-import { companySlugFromDomain, type ColdStartCard, type ResolvedFact } from "@cold-start/core";
+import {
+  companySlugFromDomain,
+  type ColdStartCard,
+  type GenerationTrace,
+  type GenerationTraceStep,
+  type ResolvedFact
+} from "@cold-start/core";
 import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard } from "@cold-start/db";
 import {
   anthropicModel,
@@ -9,7 +15,14 @@ import {
   synthesizeCard,
   verifySynthesis,
 } from "@cold-start/llm";
-import { generateCardForDomain, type ExtractedCardSections } from "@cold-start/pipeline";
+import {
+  filterSourcesForDomain,
+  GenerateCardTraceError,
+  generateCardForDomainWithTrace,
+  sourceGateTrace,
+  type ExtractedCardSections,
+  type GenerateCardTracePatch
+} from "@cold-start/pipeline";
 import {
   fetchDirectExaFundamentalsSources,
   fetchStableenrichSources,
@@ -49,6 +62,8 @@ function directExaEnvFromProcess(): DirectExaEnv {
 }
 
 type GenerationMode = "basics" | "analysis";
+type TimedResult<T> = { durationMs: number; value: T };
+type GenerationTracePatch = Partial<Omit<GenerationTrace, "jobKind" | "mode">>;
 
 function generationModeForRun(input: unknown): GenerationMode {
   return input === "analysis" ? "analysis" : "basics";
@@ -56,6 +71,54 @@ function generationModeForRun(input: unknown): GenerationMode {
 
 function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
+}
+
+async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
+  const startedAt = Date.now();
+  const value = await fn();
+  return { durationMs: Date.now() - startedAt, value };
+}
+
+function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | GenerateCardTracePatch) {
+  if (!patch) {
+    return;
+  }
+
+  if ("inngest" in patch && patch.inngest) {
+    trace.inngest = { ...trace.inngest, ...patch.inngest };
+  }
+
+  if ("steps" in patch && patch.steps) {
+    trace.steps = { ...trace.steps, ...patch.steps };
+  }
+
+  if ("providers" in patch && patch.providers) {
+    trace.providers = patch.providers;
+  }
+
+  if ("sourceGate" in patch && patch.sourceGate) {
+    trace.sourceGate = patch.sourceGate;
+  }
+
+  if ("extraction" in patch && patch.extraction) {
+    trace.extraction = patch.extraction;
+  }
+
+  if ("synthesis" in patch && patch.synthesis) {
+    trace.synthesis = patch.synthesis;
+  }
+
+  if ("failure" in patch && patch.failure) {
+    trace.failure = patch.failure;
+  }
+}
+
+function completedStep(durationMs: number): GenerationTraceStep {
+  return { status: "complete", durationMs };
+}
+
+function generateErrorTracePatch(error: unknown): GenerateCardTracePatch {
+  return error instanceof GenerateCardTraceError ? error.tracePatch : {};
 }
 
 function rawDomainForRun(input: unknown): string {
@@ -141,13 +204,22 @@ function rawSlugForRun(input: unknown): string {
 export const generateCardFunction = inngest.createFunction(
   { id: "generate-card" },
   { event: "card/generate.requested" },
-  async ({ event, step }) => {
+  async ({ event, runId, step }) => {
     const { DATABASE_URL } = webEnv();
     const db = createDb(DATABASE_URL);
 
     let domain: string;
     let slug: string;
     const mode = generationModeForRun(event.data.mode);
+    const trace: GenerationTrace = {
+      jobKind: mode,
+      mode,
+      inngest: {
+        ...(typeof event.id === "string" ? { eventId: event.id } : {}),
+        ...(typeof runId === "string" ? { runId } : {})
+      },
+      steps: {}
+    };
 
     try {
       domain = canonicalCompanyDomain(event.data.domain);
@@ -158,99 +230,208 @@ export const generateCardFunction = inngest.createFunction(
           slug: rawSlugForRun(event.data.slug),
           domain: rawDomainForRun(event.data.domain),
           mode,
+          jobKind: mode,
           status: "failed",
-          error: boundedErrorMessage(error)
+          error: boundedErrorMessage(error),
+          traceJson: {
+            ...trace,
+            failure: {
+              stage: "canonicalize-domain",
+              message: boundedErrorMessage(error),
+              ...(error instanceof Error ? { className: error.name } : {})
+            }
+          }
         })
       );
       throw error;
     }
 
-    await step.run("mark-generation-running", () => markGenerationRun(db, { slug, domain, mode, status: "running" }));
+    await step.run("mark-generation-running", () =>
+      markGenerationRun(db, {
+        slug,
+        domain,
+        mode,
+        jobKind: mode,
+        status: "running",
+        traceJson: trace,
+        ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+        ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+      })
+    );
 
+    let currentStage = "plan-research";
     try {
       const anthropic = createAnthropicClient();
       const model = anthropicModel();
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
-      const researchPlan = await step.run("plan-research", async () => {
-        if (mode === "basics") {
-          return fallbackResearchPlan(domain);
-        }
+      const researchPlanResult = await step.run("plan-research", async () => {
+        const result = await timed(async () => {
+          if (mode === "basics") {
+            return fallbackResearchPlan(domain);
+          }
 
-        try {
-          return await planCompanyResearch({ client: anthropic, model, domain });
-        } catch {
-          return fallbackResearchPlan(domain);
-        }
+          try {
+            return await planCompanyResearch({ client: anthropic, model, domain });
+          } catch {
+            return fallbackResearchPlan(domain);
+          }
+        });
+        return {
+          value: result.value,
+          tracePatch: {
+            steps: {
+              "plan-research": completedStep(result.durationMs)
+            }
+          }
+        };
       });
+      mergeTracePatch(trace, researchPlanResult.tracePatch);
+      const researchPlan = researchPlanResult.value;
 
+      currentStage = "fetch-sources";
       const sourceResult = await step.run("fetch-sources", async () => {
-        const [directResult, stableResult] = await Promise.allSettled([
-          directExaEnabled()
-            ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
-            : Promise.resolve({ sources: [], failures: [], skipped: true }),
-          fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
-        ]);
+        const result = await timed(async () => {
+          const [directResult, stableResult] = await Promise.allSettled([
+            directExaEnabled()
+              ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
+              : Promise.resolve({ sources: [], failures: [], skipped: true }),
+            fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
+          ]);
 
-        const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
-        const stableSources = stableResult.status === "fulfilled" ? stableResult.value.sources : [];
-        const sources = mergeSources(directSources, stableSources);
-        const failures = [
-          ...(directResult.status === "fulfilled"
-            ? directResult.value.failures
-            : [{ name: "exa_direct_company" as const, endpointUrl: "https://api.exa.ai/search", error: boundedErrorMessage(directResult.reason) }]),
-          ...(stableResult.status === "fulfilled"
-            ? stableResult.value.failures
-            : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableResult.reason) }]),
-        ];
+          const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
+          const stableSources = stableResult.status === "fulfilled" ? stableResult.value.sources : [];
+          const sources = mergeSources(directSources, stableSources);
+          const sourceGate = filterSourcesForDomain({ domain, sources });
+          const failures = [
+            ...(directResult.status === "fulfilled"
+              ? directResult.value.failures
+              : [{ name: "exa_direct_company" as const, endpointUrl: "https://api.exa.ai/search", error: boundedErrorMessage(directResult.reason) }]),
+            ...(stableResult.status === "fulfilled"
+              ? stableResult.value.failures
+              : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableResult.reason) }]),
+          ];
 
-        if (sources.length === 0) {
-          const details = failures
-            .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)
-            .join("; ");
-          throw new Error(`No provider sources returned; failures: ${failures.length}${details ? `; ${details}` : ""}`);
-        }
+          const sourceTrace = {
+            providers: {
+              directExa: {
+                skipped: directResult.status === "fulfilled" ? directResult.value.skipped : false,
+                sourceCount: directSources.length,
+                failureCount: directResult.status === "fulfilled" ? directResult.value.failures.length : 1
+              },
+              stableenrich: {
+                sourceCount: stableSources.length,
+                failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1
+              },
+              mergedSourceCount: sources.length
+            },
+            sourceGate: sourceGateTrace(sourceGate)
+          };
 
-        return { sources, failureCount: failures.length };
+          if (sourceGate.accepted.length === 0) {
+            const details = failures
+              .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)
+              .join("; ");
+            return {
+              sources: [] as ProviderSource[],
+              failureCount: failures.length,
+              trace: sourceTrace,
+              error: `No accepted provider sources returned; fetched: ${sources.length}; rejected: ${sourceGate.rejected.length}; failures: ${failures.length}${details ? `; ${details}` : ""}`
+            };
+          }
+
+          return {
+            sources: sourceGate.accepted,
+            failureCount: failures.length,
+            trace: sourceTrace,
+            error: null
+          };
+        });
+        return {
+          value: result.value,
+          tracePatch: {
+            steps: {
+              "fetch-sources": completedStep(result.durationMs)
+            },
+            providers: result.value.trace.providers,
+            sourceGate: result.value.trace.sourceGate
+          }
+        };
       });
+      mergeTracePatch(trace, sourceResult.tracePatch);
 
       // Failure count is tracked for observability, but not converted into cost until live costs are measured.
-      void sourceResult.failureCount;
+      void sourceResult.value.failureCount;
+      if (sourceResult.value.error) {
+        throw new Error(sourceResult.value.error);
+      }
+      const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
 
-      const clean = await step.run("generate-card", () =>
-        generateCardForDomain(domain, {
-          researchPlan,
-          fetchSources: async () => sourceResult.sources,
-          extractSections: async ({ domain: candidateDomain, sources, evidenceLedger }): Promise<ExtractedCardSections> =>
-            extractCompanyClaims({
-              client: anthropic,
-              model,
-              evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
-            }),
-          ...(mode === "analysis"
-            ? {
-                synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
-                verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
-                synthesisRequired: true,
-              }
-            : {}),
-        }),
-      );
+      currentStage = "generate-card";
+      const clean = await step.run("generate-card", async () => {
+        const result = await timed(async () => {
+          try {
+            const generated = await generateCardForDomainWithTrace(domain, {
+              researchPlan,
+              fetchSources: async () => acceptedSources,
+              extractSections: async ({ domain: candidateDomain, sources, evidenceLedger }): Promise<ExtractedCardSections> =>
+                extractCompanyClaims({
+                  client: anthropic,
+                  model,
+                  evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
+                }),
+              ...(mode === "analysis"
+                ? {
+                    synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
+                    verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+                    synthesisRequired: true,
+                  }
+                : {}),
+            });
 
-      if (mode === "analysis" && !clean.synthesis) {
+            return {
+              ok: true as const,
+              card: generated.card,
+              tracePatch: generated.tracePatch
+            };
+          } catch (error) {
+            return {
+              ok: false as const,
+              error: boundedErrorMessage(error),
+              tracePatch: generateErrorTracePatch(error)
+            };
+          }
+        });
+        return {
+          value: result.value,
+          tracePatch: {
+            ...result.value.tracePatch,
+            steps: {
+              "generate-card": completedStep(result.durationMs)
+            }
+          }
+        };
+      });
+      mergeTracePatch(trace, clean.tracePatch);
+
+      if (!clean.value.ok) {
+        throw new Error(clean.value.error);
+      }
+
+      if (mode === "analysis" && !clean.value.card.synthesis) {
         throw new Error("analysis synthesis was not produced");
       }
 
       const existingCard = mode === "analysis" ? await step.run("load-existing-card", () => findCardBySlug(db, slug)) : null;
       const cardToStore =
         mode === "basics"
-          ? { ...clean, cacheStatus: "partial" as const }
-          : { ...preserveExistingBasics(existingCard, clean), cacheStatus: "hit" as const };
+          ? { ...clean.value.card, cacheStatus: "partial" as const }
+          : { ...preserveExistingBasics(existingCard, clean.value.card), cacheStatus: "hit" as const };
       const row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
       await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
       await step.run("record-sources", () =>
         Promise.all(
-          sourceResult.sources.map((source) =>
+          acceptedSources.map((source) =>
             recordSource(db, {
               cardId: row.id,
               url: source.url,
@@ -264,13 +445,38 @@ export const generateCardFunction = inngest.createFunction(
       );
 
       await step.run("mark-generation-complete", () =>
-        markGenerationRun(db, { slug, domain, mode, status: "complete", costUsd: cardToStore.generationCostUsd })
+        markGenerationRun(db, {
+          slug,
+          domain,
+          mode,
+          jobKind: mode,
+          status: "complete",
+          costUsd: cardToStore.generationCostUsd,
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
       );
 
       return { slug: cardToStore.slug, mode };
     } catch (error) {
+      trace.failure = {
+        stage: currentStage,
+        message: boundedErrorMessage(error),
+        ...(error instanceof Error ? { className: error.name } : {})
+      };
       await step.run("mark-generation-failed", () =>
-        markGenerationRun(db, { slug, domain, mode, status: "failed", error: boundedErrorMessage(error) })
+        markGenerationRun(db, {
+          slug,
+          domain,
+          mode,
+          jobKind: mode,
+          status: "failed",
+          error: boundedErrorMessage(error),
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
       );
       throw error;
     }

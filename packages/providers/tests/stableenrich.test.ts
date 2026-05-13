@@ -19,12 +19,14 @@ describe("buildStableenrichRequests", () => {
     expect(requests.map((request) => request.name)).toEqual([
       "exa_funding_history",
       "exa_company_profile",
+      "exa_recent_signals",
       "exa_independent_analysis",
       "exa_find_similar",
       "firecrawl_homepage",
       "org_enrichment",
     ]);
     expect(requests.map((request) => request.url)).toEqual([
+      "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
@@ -40,7 +42,11 @@ describe("buildStableenrichRequests", () => {
       query: expect.stringContaining("what does"),
       numResults: 6,
     });
-    expect(requests[4]?.body).toEqual({ url: "https://cartesia.ai" });
+    expect(requests[2]?.body).toMatchObject({
+      query: expect.stringContaining("recent launch"),
+      numResults: 6,
+    });
+    expect(requests[5]?.body).toEqual({ url: "https://cartesia.ai" });
   });
 
   it("uses research-plan search queries when present", () => {
@@ -54,7 +60,7 @@ describe("buildStableenrichRequests", () => {
 
     expect(requests[0]?.body).toMatchObject({ query: "harvey latest round valuation Sequoia" });
     expect(requests[1]?.body).toMatchObject({ query: "harvey legal AI workflow buyer" });
-    expect(requests[2]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
+    expect(requests[3]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
   });
 });
 
@@ -75,7 +81,7 @@ describe("runStableenrichProbe", () => {
       },
     });
 
-    expect(maxActiveCalls).toBe(6);
+    expect(maxActiveCalls).toBe(7);
   });
 
   it("keeps endpoint identity when an injected AgentCash fetch fails", async () => {
@@ -113,6 +119,7 @@ describe("fetchStableenrichSources", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.sources.map((source) => source.sourceType)).toEqual([
+      "news",
       "news",
       "news",
       "news",
@@ -173,7 +180,7 @@ describe("fetchStableenrichSources", () => {
       },
     });
 
-    expect(result.sources).toHaveLength(5);
+    expect(result.sources).toHaveLength(6);
     expect(result.failures).toEqual([
       {
         name: "firecrawl_homepage",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { publicCard, type ColdStartCard } from "@cold-start/core";
+import type { GenerationTrace } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
 import { createDb } from "../src/client";
@@ -23,9 +24,13 @@ type TestGenerationRun = {
   slug: string;
   domain: string;
   mode: "basics" | "analysis";
+  jobKind?: string;
   status: "queued" | "running" | "complete" | "failed";
   error?: string;
   costUsd?: string;
+  traceJson?: GenerationTrace;
+  inngestEventId?: string;
+  inngestRunId?: string;
   startedAt: Date;
   completedAt?: Date;
 };
@@ -527,6 +532,54 @@ describe("markGenerationRun", () => {
       status === "failed" ? { status, error: "worker failed" } : { status, costUsd: "0.42" }
     );
     expect(rows[0]?.completedAt).toBeInstanceOf(Date);
+  });
+
+  it("stores trace metadata and external run identifiers on lifecycle updates", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      steps: {
+        "fetch-sources": { status: "complete", durationMs: 42 }
+      },
+      sourceGate: {
+        acceptedCount: 1,
+        rejectedCount: 1,
+        acceptedSamples: [{ url: "https://cartesia.ai", title: "Cartesia", sourceType: "company_site" }],
+        rejectedSamples: [
+          {
+            url: "https://cartesia.example",
+            title: "Wrong Cartesia",
+            sourceType: "news",
+            reason: "ambiguous_same_name_domain"
+          }
+        ]
+      }
+    };
+
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "queued",
+      traceJson: trace,
+      inngestEventId: "evt_1",
+      inngestRunId: "run_1"
+    });
+
+    await expect(findLatestGenerationRunBySlug(db, "cartesia", "basics")).resolves.toMatchObject({
+      jobKind: "basics",
+      traceJson: trace,
+      inngestEventId: "evt_1",
+      inngestRunId: "run_1"
+    });
+    expect(rows[0]).toMatchObject({
+      jobKind: "basics",
+      traceJson: trace,
+      inngestEventId: "evt_1",
+      inngestRunId: "run_1"
+    });
   });
 });
 

@@ -1,6 +1,7 @@
 import {
   type ColdStartCard,
   coldStartCardSchema,
+  type GenerationTrace,
   type ResolvedFact,
   sanitizeCardTrust,
   type SourcedText,
@@ -25,6 +26,18 @@ export const extractedCardSectionsSchema = coldStartCardSchema.pick({
 type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
 type VerificationSource = { id: string; url: string; title: string; snippet?: string };
 type CitationSourceType = ColdStartCard["citations"][number]["sourceType"];
+export type GenerateCardTracePatch = Partial<Pick<GenerationTrace, "extraction" | "synthesis">>;
+
+export class GenerateCardTraceError extends Error {
+  constructor(
+    message: string,
+    readonly tracePatch: GenerateCardTracePatch,
+    options?: { cause?: unknown }
+  ) {
+    super(message, options);
+    this.name = "GenerateCardTraceError";
+  }
+}
 
 function unknownFact<T>(): ResolvedFact<T> {
   return {
@@ -166,8 +179,9 @@ function synthesisClaims(synthesis: CardSynthesis): SourcedText[] {
 async function verifiedSynthesisForCard(
   card: ColdStartCard,
   deps: WithSynthesisDeps
-): Promise<CardSynthesis | undefined> {
+): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
   const synthesis = synthesisSchema.parse(await deps.synthesize(card));
+  const claimCountBeforeVerify = synthesisClaims(synthesis).length;
   const citationSources = card.citations.map((citation) => ({
     id: citation.id,
     url: citation.url,
@@ -191,20 +205,37 @@ async function verifiedSynthesisForCard(
     }
   }
 
+  const tracePatch: GenerateCardTracePatch = {
+    synthesis: {
+      required: deps.synthesisRequired === true,
+      produced: Boolean(whyItMatters),
+      claimCountBeforeVerify,
+      claimCountAfterVerify: whyItMatters ? 1 + bullCase.length + bearCase.length : 0
+    }
+  };
+
   return whyItMatters
     ? {
-        ...synthesis,
-        whyItMatters,
-        bullCase,
-        bearCase
+        tracePatch,
+        synthesis: {
+          ...synthesis,
+          whyItMatters,
+          bullCase,
+          bearCase
+        }
       }
-    : undefined;
+    : { tracePatch };
 }
 
-export async function generateCardForDomain(domain: string, deps: GenerateCardDeps): Promise<ColdStartCard> {
+export async function generateCardForDomainWithTrace(
+  domain: string,
+  deps: GenerateCardDeps
+): Promise<{ card: ColdStartCard; tracePatch: GenerateCardTracePatch }> {
   const skeleton = buildSkeletonCard(domain);
   const sources = await deps.fetchSources(skeleton.domain, deps.researchPlan);
   const evidenceLedger = buildEvidenceLedger({ domain: skeleton.domain, sources });
+  let fallbackUsed = false;
+  const tracePatch: GenerateCardTracePatch = {};
   const extractionInput = {
     domain: skeleton.domain,
     ...(deps.researchPlan ? { researchPlan: deps.researchPlan } : {}),
@@ -218,11 +249,26 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
   if (sections.citations.length === 0) {
     const fallbackSections = fallbackSectionsFromEvidence(skeleton, evidenceLedger);
     if (!fallbackSections) {
-      throw new Error("No cited sources survived extraction");
+      tracePatch.extraction = {
+          sourceCount: sources.length,
+          evidenceCount: evidenceLedger.length,
+          citationCount: 0,
+          fallbackUsed: false
+      };
+
+      throw new GenerateCardTraceError("No cited sources survived extraction", tracePatch);
     }
 
+    fallbackUsed = true;
     sections = fallbackSections;
   }
+
+  tracePatch.extraction = {
+    sourceCount: sources.length,
+    evidenceCount: evidenceLedger.length,
+    citationCount: sections.citations.length,
+    fallbackUsed
+  };
 
   let card: ColdStartCard = coldStartCardSchema.parse({
     slug: skeleton.slug,
@@ -242,15 +288,35 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     let verifiedSynthesis: CardSynthesis | undefined;
 
     try {
-      verifiedSynthesis = await verifiedSynthesisForCard(card, deps);
+      const synthesisResult = await verifiedSynthesisForCard(card, deps);
+      if (synthesisResult.tracePatch.synthesis) {
+        tracePatch.synthesis = synthesisResult.tracePatch.synthesis;
+      }
+      verifiedSynthesis = synthesisResult.synthesis;
     } catch (error) {
+      tracePatch.synthesis = {
+        required: deps.synthesisRequired === true,
+        produced: false,
+        claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
+        claimCountAfterVerify: 0
+      };
+
       if (deps.synthesisRequired) {
-        throw error;
+        throw new GenerateCardTraceError(boundedCardError(error), tracePatch, { cause: error });
       }
     }
 
     if (!verifiedSynthesis && deps.synthesisRequired) {
-      throw new Error("No synthesis claims survived verification");
+      if (!tracePatch.synthesis) {
+        tracePatch.synthesis = {
+          required: true,
+          produced: false,
+          claimCountBeforeVerify: 0,
+          claimCountAfterVerify: 0
+        };
+      }
+
+      throw new GenerateCardTraceError("No synthesis claims survived verification", tracePatch);
     }
 
     if (verifiedSynthesis) {
@@ -258,5 +324,21 @@ export async function generateCardForDomain(domain: string, deps: GenerateCardDe
     }
   }
 
-  return finalizeGeneratedCard(coldStartCardSchema.parse(card));
+  return {
+    card: finalizeGeneratedCard(coldStartCardSchema.parse(card)),
+    tracePatch
+  };
+}
+
+function boundedCardError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message.slice(0, 1000);
+  }
+
+  return String(error).slice(0, 1000);
+}
+
+export async function generateCardForDomain(domain: string, deps: GenerateCardDeps): Promise<ColdStartCard> {
+  const result = await generateCardForDomainWithTrace(domain, deps);
+  return result.card;
 }
