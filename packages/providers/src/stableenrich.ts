@@ -1,5 +1,12 @@
 import { agentcashJson } from "./agentcash";
-import type { ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "./types";
+import type {
+  ProviderFactCandidate,
+  ProviderResearchPlan,
+  ProviderSource,
+  RetrievalIntent,
+  StableenrichEnv,
+  StableenrichProbe
+} from "./types";
 
 const stableenrichBaseUrl = "https://stableenrich.dev";
 const stableenrichPaths = {
@@ -26,7 +33,16 @@ export type StableenrichProbeFailure = {
 
 export type StableenrichSourcesResult = {
   sources: ProviderSource[];
+  facts: ProviderFactCandidate[];
   failures: StableenrichProbeFailure[];
+  endpoints: Array<{
+    name: StableenrichProbe["name"];
+    endpointUrl: string;
+    status: "ok" | "failed";
+    sourceCount: number;
+    factCount: number;
+    error?: string;
+  }>;
 };
 
 export function missingStableenrichConfig(env: StableenrichEnv): string[] {
@@ -138,6 +154,13 @@ export function collectStableenrichSources(
 
     return providerSourcesFromProbeResult(result.value);
   });
+  const facts = results.flatMap((result) => {
+    if (result.status !== "fulfilled") {
+      return [];
+    }
+
+    return providerFactsFromProbeResult(result.value);
+  });
 
   const failures = results.flatMap((result) => {
     if (result.status === "fulfilled") {
@@ -146,8 +169,29 @@ export function collectStableenrichSources(
 
     return stableenrichProbeFailure(result.reason);
   });
+  const endpoints = results.map((result) => {
+    if (result.status === "fulfilled") {
+      return {
+        name: result.value.name,
+        endpointUrl: result.value.endpointUrl,
+        status: "ok" as const,
+        sourceCount: providerSourcesFromProbeResult(result.value).length,
+        factCount: providerFactsFromProbeResult(result.value).length,
+      };
+    }
 
-  return { sources, failures };
+    const failure = stableenrichProbeFailure(result.reason)[0];
+    return {
+      name: failure?.name ?? "exa_funding_history",
+      endpointUrl: failure?.endpointUrl ?? "stableenrich",
+      status: "failed" as const,
+      sourceCount: 0,
+      factCount: 0,
+      ...(failure?.error ? { error: failure.error } : {}),
+    };
+  });
+
+  return { sources, facts, failures, endpoints };
 }
 
 function providerSourcesFromProbeResult(result: StableenrichProbeResult): ProviderSource[] {
@@ -170,6 +214,18 @@ function providerSourcesFromProbeResult(result: StableenrichProbeResult): Provid
       ...(intent ? { intent } : {}),
     }),
   ];
+}
+
+function providerFactsFromProbeResult(result: StableenrichProbeResult): ProviderFactCandidate[] {
+  if (result.name === "org_enrichment") {
+    return orgEnrichmentFacts(result);
+  }
+
+  if (result.name === "exa_find_similar") {
+    return comparableFacts(result);
+  }
+
+  return [];
 }
 
 export function providerSourceFromText(input: {
@@ -246,6 +302,213 @@ function exaResultSources(
     .filter((source): source is ProviderSource => source !== undefined);
 }
 
+function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
+  const fetchedAt = new Date().toISOString();
+  const root = objectRecord(result.result);
+  const organization = root ? objectRecord(root.organization) : null;
+  if (!organization) {
+    return [];
+  }
+
+  const domain = stringValue(organization.domain) ?? domainFromUrl(stringValue(organization.website_url));
+  const citationUrl = stableenrichCitationUrl(result.endpointUrl, domain);
+  const citationTitle = domain ? `Apollo org enrichment for ${domain}` : "Apollo org enrichment";
+  const rawText = JSON.stringify(root);
+  const facts: ProviderFactCandidate[] = [];
+
+  addStringFact(facts, "identity.name", stringValue(organization.name), result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "high" });
+  addUrlFact(facts, "identity.websiteUrl", stringValue(organization.website_url) ?? urlFromDomain(domain), result, {
+    citationUrl,
+    citationTitle,
+    fetchedAt,
+    rawText,
+    confidence: "high",
+  });
+  addUrlFact(facts, "identity.linkedinUrl", stringValue(organization.linkedin_url), result, {
+    citationUrl,
+    citationTitle,
+    fetchedAt,
+    rawText,
+    confidence: "medium",
+  });
+  addUrlFact(facts, "identity.logoUrl", stringValue(organization.logo_url), result, {
+    citationUrl,
+    citationTitle,
+    fetchedAt,
+    rawText,
+    confidence: "medium",
+  });
+
+  const city = stringValue(organization.city);
+  const country = stringValue(organization.country);
+  if (city && country) {
+    facts.push(providerFact("identity.hq", { city, country }, result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "medium" }));
+  }
+
+  const foundedYear = integerValue(organization.founded_year);
+  if (foundedYear !== null && foundedYear >= 1800 && foundedYear <= 2100) {
+    facts.push(providerFact("identity.foundedYear", foundedYear, result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "medium" }));
+  }
+
+  const shortDescription = stringValue(organization.short_description) ?? stringValue(organization.seo_description);
+  if (shortDescription) {
+    facts.push(
+      providerFact(
+        "identity.description",
+        {
+          shortDescription,
+          concept: null,
+          serves: null,
+          mechanism: null,
+        },
+        result,
+        { citationUrl, citationTitle, fetchedAt, rawText, confidence: "medium" },
+      ),
+    );
+  }
+
+  const totalFunding = integerValue(organization.total_funding);
+  if (totalFunding !== null && totalFunding > 0) {
+    facts.push(providerFact("funding.totalRaisedUsd", totalFunding, result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "low" }));
+  }
+
+  const latestStage = stringValue(organization.latest_funding_stage);
+  const latestDate = stringValue(organization.latest_funding_round_date);
+  if (latestStage || latestDate) {
+    facts.push(
+      providerFact(
+        "funding.lastRound",
+        {
+          name: latestStage ?? "Latest round",
+          amountUsd: null,
+          announcedAt: latestDate,
+          leadInvestors: [],
+        },
+        result,
+        { citationUrl, citationTitle, fetchedAt, rawText, confidence: "low" },
+      ),
+    );
+  }
+
+  const headcount = integerValue(organization.estimated_num_employees);
+  if (headcount !== null && headcount >= 0) {
+    facts.push(
+      providerFact("team.headcount", { value: headcount, asOf: fetchedAt.slice(0, 10) }, result, {
+        citationUrl,
+        citationTitle,
+        fetchedAt,
+        rawText,
+        confidence: "low",
+      }),
+    );
+  }
+
+  return facts;
+}
+
+function comparableFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
+  const fetchedAt = new Date().toISOString();
+  return extractUrlRecords(result.result).flatMap((record) => {
+    const url = stringRecordValue(record, "url");
+    if (!url) {
+      return [];
+    }
+
+    const domain = domainFromUrl(url);
+    if (!domain) {
+      return [];
+    }
+
+    const title = stringRecordValue(record, "title") ?? stringRecordValue(record, "name") ?? domain;
+    const text = stringRecordValue(record, "text") ?? stringRecordValue(record, "summary") ?? title;
+    return [
+      providerFact(
+        "comparables",
+        {
+          name: comparableName(title, domain),
+          domain,
+          oneLiner: truncateText(text, 180),
+          basis: "Similar web and market context from Exa find-similar",
+          confidence: "medium",
+        },
+        result,
+        {
+          citationUrl: url,
+          citationTitle: title,
+          fetchedAt,
+          rawText: JSON.stringify(record),
+          confidence: "medium",
+          sourceType: "news",
+        },
+      ),
+    ];
+  });
+}
+
+function providerFact<T>(
+  path: ProviderFactCandidate<T>["path"],
+  value: T,
+  result: StableenrichProbeResult,
+  options: {
+    citationUrl: string;
+    citationTitle: string;
+    fetchedAt: string;
+    rawText?: string;
+    confidence: ProviderFactCandidate["confidence"];
+    sourceType?: ProviderSource["sourceType"];
+  },
+): ProviderFactCandidate<T> {
+  return {
+    path,
+    value,
+    status: "inferred",
+    confidence: options.confidence,
+    sourceType: options.sourceType ?? "enrichment",
+    provider: "stableenrich",
+    endpoint: result.name,
+    citationUrl: options.citationUrl,
+    citationTitle: options.citationTitle,
+    fetchedAt: options.fetchedAt,
+    ...(options.rawText ? { rawText: options.rawText } : {}),
+  };
+}
+
+function addStringFact(
+  facts: ProviderFactCandidate[],
+  path: ProviderFactCandidate<string>["path"],
+  value: string | null,
+  result: StableenrichProbeResult,
+  options: {
+    citationUrl: string;
+    citationTitle: string;
+    fetchedAt: string;
+    rawText: string;
+    confidence: ProviderFactCandidate["confidence"];
+  },
+) {
+  if (value) {
+    facts.push(providerFact(path, value, result, options));
+  }
+}
+
+function addUrlFact(
+  facts: ProviderFactCandidate[],
+  path: ProviderFactCandidate<string>["path"],
+  value: string | null,
+  result: StableenrichProbeResult,
+  options: {
+    citationUrl: string;
+    citationTitle: string;
+    fetchedAt: string;
+    rawText: string;
+    confidence: ProviderFactCandidate["confidence"];
+  },
+) {
+  if (value && supportedUrl(value)) {
+    facts.push(providerFact(path, value, result, options));
+  }
+}
+
 function extractUrlRecords(payload: unknown): Record<string, unknown>[] {
   const records: Record<string, unknown>[] = [];
   const seen = new Set<unknown>();
@@ -292,7 +555,85 @@ function dedupeRecordsByUrl(records: Record<string, unknown>[]) {
 
 function stringRecordValue(record: Record<string, unknown>, key: string) {
   const value = record[key];
-  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function integerValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[$,]/g, "").trim();
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? Math.round(parsed) : null;
+  }
+
+  return null;
+}
+
+function supportedUrl(value: string) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function urlFromDomain(domain: string | null) {
+  return domain ? `https://${domain}` : null;
+}
+
+function domainFromUrl(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value.startsWith("http") ? value : `https://${value}`).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function stableenrichCitationUrl(endpointUrl: string, domain: string | null) {
+  const url = new URL(endpointUrl);
+  if (domain) {
+    url.searchParams.set("domain", domain);
+  }
+  return url.toString();
+}
+
+function comparableName(title: string, domain: string) {
+  const clean = title.split(/[|-]/)[0]?.trim();
+  if (clean && clean.length <= 80) {
+    return clean;
+  }
+
+  return domain
+    .split(".")[0]
+    ?.split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ") || domain;
+}
+
+function truncateText(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 1).trim()}.`;
 }
 
 function requireStableenrichConfig(env: StableenrichEnv) {

@@ -108,6 +108,22 @@ function formatAppDate(value: string | null | undefined): string {
   return value ? formatShortDate(value) : "Not found";
 }
 
+function factStateLabel(fact: ResolvedFact<unknown> | undefined, missing = "Not found") {
+  if (!fact || fact.value === null) {
+    return missing;
+  }
+
+  if (fact.status === "inferred" || fact.confidence === "low") {
+    return "single source";
+  }
+
+  if (fact.status === "mixed") {
+    return "mixed";
+  }
+
+  return "verified";
+}
+
 function hasPeople(fact: ColdStartCard["team"]["founders"] | ColdStartCard["team"]["keyExecs"]) {
   return Array.isArray(fact.value) && fact.value.length > 0;
 }
@@ -222,10 +238,19 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
   const initialLetter = plateInitial(title);
   const hq = card.identity.hq.value;
   const headcount = card.team.headcount.value;
+  const website = card.identity.websiteUrl?.value ?? `https://${card.domain}`;
   const teamVisible = hasPeople(card.team.founders) || hasPeople(card.team.keyExecs) || Boolean(headcount);
   const hasSignals = card.signals.length > 0;
   const hasComparables = card.comparables.length > 0;
-  const hasCompanyRows = Boolean(description?.concept || description?.serves || description?.mechanism || hq || card.identity.foundedYear.value);
+  const hasCompanyRows = Boolean(
+    card.identity.websiteUrl?.value ||
+      card.identity.linkedinUrl?.value ||
+      description?.concept ||
+      description?.serves ||
+      description?.mechanism ||
+      hq ||
+      card.identity.foundedYear.value
+  );
 
   return (
     <article className="cs-app-card" data-surface="extension">
@@ -243,6 +268,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
 
       <div className="cs-app-statusbar">
         <SourceMix mix={mix} />
+        <span>{factStateLabel(card.identity.websiteUrl, "domain only")}</span>
         <span>{formatStatusLabel(card.identity.status)}</span>
         <span>{formatMediumDate(card.generatedAt)}</span>
       </div>
@@ -260,7 +286,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
         />
         <ExtensionMetric
           label="Headcount"
-          meta={headcount?.asOf ? formatShortDate(headcount.asOf) : undefined}
+          meta={headcount?.asOf ? `${formatShortDate(headcount.asOf)} · ${factStateLabel(card.team.headcount)}` : factStateLabel(card.team.headcount)}
           value={headcount ? `~${headcount.value}` : "Not found"}
         />
       </section>
@@ -305,6 +331,8 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
       {hasCompanyRows ? (
         <ExtensionDetail count="Profile" defaultOpen title="Company">
           <dl className="cs-app-rows">
+            <ExtensionRow label="Website" value={website} />
+            {card.identity.linkedinUrl?.value ? <ExtensionRow label="LinkedIn" value={card.identity.linkedinUrl.value} /> : null}
             {description?.concept ? <ExtensionRow label="Concept" value={description.concept} /> : null}
             {description?.serves ? <ExtensionRow label="Serves" value={description.serves} /> : null}
             {description?.mechanism ? <ExtensionRow label="How" value={description.mechanism} /> : null}
@@ -335,7 +363,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
       ) : null}
 
       {teamVisible ? (
-        <ExtensionDetail count="People" title="Team">
+        <ExtensionDetail count="People" title="Management team">
           <dl className="cs-app-rows">
             {hasPeople(card.team.founders) ? (
               <ExtensionRow label="Founders" value={card.team.founders.value?.map((person) => person.name).join(", ")} />
@@ -378,7 +406,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
               <li key={`${comparable.domain}-${comparable.name}`}>
                 <div>
                   <strong>{comparable.name}</strong>
-                  <p>{comparable.oneLiner}</p>
+                  <p>{comparable.basis ?? comparable.oneLiner}</p>
                 </div>
                 <span>{comparable.domain}</span>
               </li>
@@ -652,7 +680,13 @@ export function CardShell({ card, surface }: CardShellProps) {
               <li className="cs-comparable" key={`${comparable.domain}-${comparable.name}`}>
                 <div>
                   <p className="cs-comparable-title">{comparable.name}</p>
-                  <p className="cs-comparable-copy">{comparable.oneLiner ?? comparable.domain}</p>
+                  <p className="cs-comparable-copy">
+                    {comparable.oneLiner ?? comparable.domain}
+                    {comparable.citationIds?.map((id) => (
+                      <CitationMarker id={id} key={id} />
+                    ))}
+                  </p>
+                  {comparable.basis ? <p className="cs-signal-meta">{comparable.basis}</p> : null}
                 </div>
                 <span className="cs-comparable-domain">{comparable.domain}</span>
               </li>
@@ -669,6 +703,8 @@ export function CardShell({ card, surface }: CardShellProps) {
             </div>
             <h2 id="identity-heading">The basics.</h2>
             <FactRow label="Domain" fact={staticFact(card.domain)} mono />
+            {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
+            {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
             <FactRow label="HQ" fact={card.identity.hq} />
             <FactRow label="Founded" fact={card.identity.foundedYear} mono />
             <FactRow label="Founders" fact={card.team.founders} />

@@ -99,8 +99,11 @@ function runLabel(row?: RunRow) {
 
   const trace = row.trace_json;
   const citations = trace?.extraction ? trace.extraction.citationCount : "-";
+  const facts = trace?.extraction?.providerFactCandidateCount !== undefined
+    ? `${trace.extraction.providerFactAppliedCount ?? 0}/${trace.extraction.providerFactCandidateCount}`
+    : "-";
   const synthesis = trace?.synthesis ? `${trace.synthesis.claimCountAfterVerify}/${trace.synthesis.claimCountBeforeVerify}` : "-";
-  return `${row.status} ${elapsed(row)} c:${citations} s:${synthesis}`;
+  return `${row.status} ${elapsed(row)} c:${citations} f:${facts} s:${synthesis}`;
 }
 
 async function fetchCard(domain: string): Promise<CardFetchResult> {

@@ -130,6 +130,8 @@ const identitySchema = {
   additionalProperties: false,
   properties: {
     name: resolvedFactSchema(nonEmptyStringSchema),
+    websiteUrl: resolvedFactSchema(urlStringSchema),
+    linkedinUrl: resolvedFactSchema(urlStringSchema),
     logoUrl: nullableUrlStringSchema,
     oneLiner: resolvedFactSchema(nonEmptyStringSchema),
     description: resolvedFactSchema(descriptionValueSchema),
@@ -183,7 +185,10 @@ const comparableSchema = {
   properties: {
     name: nonEmptyStringSchema,
     domain: nonEmptyStringSchema,
-    oneLiner: nonEmptyStringSchema
+    oneLiner: nonEmptyStringSchema,
+    basis: nonEmptyStringSchema,
+    confidence: { type: "string", enum: ["high", "medium", "low"] },
+    citationIds: { type: "array", items: nonEmptyStringSchema }
   },
   required: ["name", "domain", "oneLiner"]
 } as const;
@@ -230,6 +235,7 @@ export const extractionSystemPrompt = [
   "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
   "Description standard: identity.description.shortDescription should be one complete, crisp sentence that explains what the company actually does and who it serves. Do not truncate mid-thought to satisfy layout.",
   "Use identity.description.concept for the non-obvious product idea, serves for buyer/user, and mechanism for how it works when sources support those details.",
+  "Use identity.websiteUrl for the canonical public website when a provider or source returns it. Use identity.linkedinUrl only for the company LinkedIn page, never a person profile.",
   "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be complete prose, not a hard character-limit fragment.",
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
   "Treat source incentives as evidence: independent technical and independent analysis sources should shape qualitative framing more than press releases; company-authored sources are strongest for exact product mechanics, not evaluative claims.",
@@ -329,6 +335,8 @@ function normalizeIdentity(input: unknown) {
 
   return {
     name: normalizeFact(record.name),
+    ...("websiteUrl" in record ? { websiteUrl: normalizeFact(record.websiteUrl) } : {}),
+    ...("linkedinUrl" in record ? { linkedinUrl: normalizeFact(record.linkedinUrl) } : {}),
     logoUrl: typeof record.logoUrl === "string" ? record.logoUrl : null,
     oneLiner: oneLiner.value === null && descriptionValue
       ? { ...description, value: descriptionValue.shortDescription }

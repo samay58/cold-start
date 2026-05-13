@@ -7,6 +7,9 @@ export default defineConfig({
   envDir: "../..",
   plugins: [react(), crx({ manifest })],
   server: {
+    cors: {
+      origin: [/^chrome-extension:\/\/.+$/]
+    },
     host: "127.0.0.1",
     port: 5173
   }

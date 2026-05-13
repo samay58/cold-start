@@ -143,6 +143,9 @@ function summarize(row: Row, includeQuality: boolean) {
     sources: trace?.sourceGate
       ? `${trace.sourceGate.acceptedCount}/${trace.sourceGate.acceptedCount + trace.sourceGate.rejectedCount}`
       : "-",
+    facts: trace?.extraction?.providerFactCandidateCount !== undefined
+      ? `${trace.extraction.providerFactAppliedCount ?? 0}/${trace.extraction.providerFactCandidateCount}`
+      : "-",
     citations: trace?.extraction ? String(trace.extraction.citationCount) : "-",
     synthesis: trace?.synthesis
       ? `${trace.synthesis.claimCountAfterVerify}/${trace.synthesis.claimCountBeforeVerify}`
@@ -161,6 +164,7 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "status",
     "duration",
     "sources",
+    "facts",
     "citations",
     "synthesis",
     ...(includeQuality ? ["quality"] : []),

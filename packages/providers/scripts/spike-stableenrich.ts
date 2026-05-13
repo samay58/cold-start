@@ -1,4 +1,5 @@
 import {
+  collectStableenrichSources,
   missingStableenrichConfig,
   runStableenrichProbe,
   type StableenrichEnv,
@@ -18,6 +19,11 @@ if (missing.length > 0) {
     }),
   );
   process.exit(0);
+}
+
+const beforeBalance = await agentcashBalance();
+if (beforeBalance !== null) {
+  console.log(JSON.stringify({ endpoint: "agentcash_balance", status: "before", balance: beforeBalance }));
 }
 
 const results = await runStableenrichProbe({ env, domain });
@@ -42,6 +48,30 @@ for (const result of results) {
       }),
     );
   }
+}
+
+const collected = collectStableenrichSources(results);
+console.log(
+  JSON.stringify({
+    endpoint: "stableenrich_structured_output",
+    status: "ok",
+    sourceCount: collected.sources.length,
+    factCount: collected.facts.length,
+    failureCount: collected.failures.length,
+    factPaths: Array.from(new Set(collected.facts.map((fact) => fact.path))).sort(),
+  }),
+);
+
+const afterBalance = await agentcashBalance();
+if (afterBalance !== null) {
+  console.log(
+    JSON.stringify({
+      endpoint: "agentcash_balance",
+      status: "after",
+      balance: afterBalance,
+      delta: beforeBalance !== null ? Number((afterBalance - beforeBalance).toFixed(6)) : null,
+    }),
+  );
 }
 
 function stableenrichEnvFromProcess(): StableenrichEnv {
@@ -75,4 +105,17 @@ function stableenrichProbeFailure(reason: unknown): StableenrichProbeFailure | u
   }
 
   return undefined;
+}
+
+async function agentcashBalance(): Promise<number | null> {
+  try {
+    const child = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFile = promisify(child.execFile);
+    const { stdout } = await execFile("npx", ["agentcash@latest", "balance", "--format", "json"], { timeout: 30_000 });
+    const parsed = JSON.parse(stdout) as { success?: boolean; data?: { balance?: number } };
+    return parsed.success === true && typeof parsed.data?.balance === "number" ? parsed.data.balance : null;
+  } catch {
+    return null;
+  }
 }

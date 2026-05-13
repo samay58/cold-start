@@ -27,6 +27,7 @@ import {
   fetchDirectExaFundamentalsSources,
   fetchStableenrichSources,
   type DirectExaEnv,
+  type ProviderFactCandidate,
   type ProviderSource,
   type StableenrichEnv
 } from "@cold-start/providers";
@@ -158,6 +159,20 @@ function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartC
     identity: {
       ...next.identity,
       name: preserveFact(existing.identity.name, next.identity.name),
+      ...(existing.identity.websiteUrl || next.identity.websiteUrl
+        ? {
+            websiteUrl: next.identity.websiteUrl?.value === null && existing.identity.websiteUrl?.value
+              ? existing.identity.websiteUrl
+              : next.identity.websiteUrl ?? existing.identity.websiteUrl,
+          }
+        : {}),
+      ...(existing.identity.linkedinUrl || next.identity.linkedinUrl
+        ? {
+            linkedinUrl: next.identity.linkedinUrl?.value === null && existing.identity.linkedinUrl?.value
+              ? existing.identity.linkedinUrl
+              : next.identity.linkedinUrl ?? existing.identity.linkedinUrl,
+          }
+        : {}),
       oneLiner: preserveFact(existing.identity.oneLiner, next.identity.oneLiner),
       ...(existing.identity.description || next.identity.description
         ? {
@@ -301,6 +316,7 @@ export const generateCardFunction = inngest.createFunction(
 
           const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
           const stableSources = stableResult.status === "fulfilled" ? stableResult.value.sources : [];
+          const stableFacts = stableResult.status === "fulfilled" ? stableResult.value.facts : [];
           const sources = mergeSources(directSources, stableSources);
           const sourceGate = filterSourcesForDomain({ domain, sources });
           const failures = [
@@ -321,7 +337,18 @@ export const generateCardFunction = inngest.createFunction(
               },
               stableenrich: {
                 sourceCount: stableSources.length,
-                failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1
+                factCount: stableFacts.length,
+                failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
+                endpoints: stableResult.status === "fulfilled" ? stableResult.value.endpoints : [
+                  {
+                    name: "stableenrich",
+                    endpointUrl: "stableenrich",
+                    status: "failed" as const,
+                    sourceCount: 0,
+                    factCount: 0,
+                    error: boundedErrorMessage(stableResult.reason)
+                  }
+                ]
               },
               mergedSourceCount: sources.length
             },
@@ -334,6 +361,7 @@ export const generateCardFunction = inngest.createFunction(
               .join("; ");
             return {
               sources: [] as ProviderSource[],
+              providerFacts: stableFacts as ProviderFactCandidate[],
               failureCount: failures.length,
               trace: sourceTrace,
               error: `No accepted provider sources returned; fetched: ${sources.length}; rejected: ${sourceGate.rejected.length}; failures: ${failures.length}${details ? `; ${details}` : ""}`
@@ -342,6 +370,7 @@ export const generateCardFunction = inngest.createFunction(
 
           return {
             sources: sourceGate.accepted,
+            providerFacts: stableFacts as ProviderFactCandidate[],
             failureCount: failures.length,
             trace: sourceTrace,
             error: null
@@ -366,6 +395,7 @@ export const generateCardFunction = inngest.createFunction(
         throw new Error(sourceResult.value.error);
       }
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
+      const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
 
       currentStage = "generate-card";
       const clean = await step.run("generate-card", async () => {
@@ -373,6 +403,7 @@ export const generateCardFunction = inngest.createFunction(
           try {
             const generated = await generateCardForDomainWithTrace(domain, {
               researchPlan,
+              providerFacts,
               fetchSources: async () => acceptedSources,
               extractSections: async ({ domain: candidateDomain, sources, evidenceLedger }): Promise<ExtractedCardSections> =>
                 extractCompanyClaims({

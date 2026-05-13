@@ -1,7 +1,7 @@
 # Cold Start: Current Interface Design System
-> Current visual source of truth for the shipped app UI. Last verified 2026-05-11 against `packages/ui/src/tokens.css`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`, `apps/extension/src/styles.css`, and `packages/ui/src/CardShell.tsx`.
+> Current visual source of truth for the shipped app UI. Last verified 2026-05-13 against `packages/ui/src/tokens.css`, `apps/web/src/app/layout.tsx`, `apps/web/src/app/globals.css`, `apps/extension/src/styles.css`, `apps/extension/src/BrandMark.tsx`, and `packages/ui/src/CardShell.tsx`.
 
-Cold Start currently reads as an editorial company dossier with instrument-grade source encoding. The app is light-first: warm parchment surfaces, black ink, sand hairlines, and a small amount of Lens Blue for active source signal. The mood is not a generic SaaS dashboard and not the older Paper-era dark observatory mockup. Dark navy is still part of the brand token set and can appear in iconography or future framing, but the implemented web and extension surfaces are built around the parchment card system.
+Cold Start currently reads as an editorial company dossier with instrument-grade source encoding. The app is light-first: warm parchment surfaces, black ink, sand hairlines, a pale blue extension field, and a small amount of Lens Blue for active source signal. The mood is not a generic SaaS dashboard and not the older Paper-era dark observatory mockup. Dark navy is still part of the brand token set and can appear in iconography or future framing, but the implemented web and extension surfaces are built around the parchment card system.
 
 Do not use archived Paper directions, old cover mockups, IBM Plex, Berkeley Mono, or Newsreader as current app guidance. The implemented type system is Fraunces, Mona Sans, and a sparse system mono fallback.
 
@@ -43,6 +43,7 @@ Use the current Cold Start app typography: Fraunces as the editorial serif for d
 | `--color-abyss-ink` | `#020812` | Deepest ink/navy, used sparingly for high-contrast brand depth. |
 | `--color-parchment` | `#fafaf7` | Primary app background and paper field. |
 | `--color-parchment-warm` | `#fcfaf5` | Warm card surface. |
+| Extension shell blue | `#eef8fb` | Pale side-panel field behind parchment cards and the wave artwork. |
 | `--color-ink` | `#0e0e0e` | Primary text. |
 | `--color-muted-ink` | `#5f625c` | Secondary prose and muted body. |
 | `--color-mid-stone` | `#6e6e76` | Labels, secondary metadata, subtle stats. |
@@ -71,9 +72,9 @@ Use 1px hairlines. Use subtle grid texture only when it supports the product fra
 
 The public web app is a light parchment page with a faint Lens Blue grid and a centered dossier card. The card is structured around profile facts, stats, section heads, Roman-style section markers, source rows, funding ladders, and source drawers. It should feel shareable and readable.
 
-The Chrome extension side panel is also parchment-led. It is compact, utility-forward, and uses a company context card, research-layer rows, a tactile enrichment-card pile, loading instrumentation, and the same source/state vocabulary. It is not currently a full dark navy side panel.
+The Chrome extension side panel sits on a pale blue field with a quiet Japanese wave background image under translucent parchment cards. It is compact, utility-forward, and uses the aperture-style Cold Start mark, a company context card, research-layer rows, a tactile enrichment-card pile, loading instrumentation, and the same source/state vocabulary. It is not currently a full dark navy side panel.
 
-The product mark still carries the observatory/radar idea, but the live app has evolved away from the older "deep observatory shell around memo card" as the default screen composition.
+The product mark carries the observatory/radar idea without a literal `C`. Use the aperture mark beside the `Cold Start` wordmark in extension chrome; company initials are only for company placeholder logos.
 
 ## Components
 
@@ -100,6 +101,10 @@ Use Mona Sans with heavier weight for numbers and compact labels. Keep tables an
 ### Extension Research Layer
 
 The side panel should make basics and analysis feel like staged enrichment, not one undifferentiated loading state. Basics generation can still occupy the full panel before a profile exists. Once a profile exists, the research layer owns incremental enrichment: dormant cards sit in a bottom pile, activation pins a card into the layer, and analysis-backed cards run inline instead of using a separate sticky action. Loading can use instrument-like motion, but should stay in the parchment/Fraunces/Mona system.
+
+### Extension Progress
+
+The progress screen should have one clear active state, not a repeated status card plus a second status list. Use a single editorial panel with a large Fraunces stage title, restrained Mona Sans support copy, source-aware progress motion, and the same pale blue/wave-backed shell as the finished profile. The animation should feel engineered and alive: moving current lines, subtle shimmer, and a precise blue progress cursor. Avoid chunky loading bars, duplicate step lists, and generic AI status copy.
 
 ## Enrichment Card Direction
 

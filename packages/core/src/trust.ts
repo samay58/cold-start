@@ -119,6 +119,8 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     identity: {
       ...card.identity,
       name: sanitizeFact(card.identity.name, validIds, citations),
+      ...(card.identity.websiteUrl ? { websiteUrl: sanitizeFact(card.identity.websiteUrl, validIds, citations) } : {}),
+      ...(card.identity.linkedinUrl ? { linkedinUrl: sanitizeFact(card.identity.linkedinUrl, validIds, citations) } : {}),
       oneLiner: sanitizeFact(card.identity.oneLiner, validIds, citations),
       ...(card.identity.description ? { description: sanitizeFact(card.identity.description, validIds, citations) } : {}),
       hq: sanitizeFact(card.identity.hq, validIds, citations),
@@ -137,7 +139,11 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     signals: card.signals.flatMap((signal) => {
       const citationIds = sanitizeCitationIds(signal.citationIds, validIds);
       return citationIds.length > 0 ? [{ ...signal, citationIds }] : [];
-    })
+    }),
+    comparables: card.comparables.map((comparable) => ({
+      ...comparable,
+      ...(comparable.citationIds ? { citationIds: sanitizeCitationIds(comparable.citationIds, validIds) } : {})
+    }))
   };
 }
 

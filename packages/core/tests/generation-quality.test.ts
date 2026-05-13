@@ -12,7 +12,7 @@ function baseTrace(): GenerationTrace {
     },
     providers: {
       directExa: { skipped: false, sourceCount: 3, failureCount: 0 },
-      stableenrich: { sourceCount: 2, failureCount: 0 },
+      stableenrich: { sourceCount: 2, factCount: 3, failureCount: 0 },
       mergedSourceCount: 5
     },
     sourceGate: {
@@ -45,6 +45,7 @@ function card(): ColdStartCard {
     cacheStatus: "hit",
     identity: {
       name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["c1"] },
+      websiteUrl: { value: "https://cartesia.ai", status: "verified", confidence: "high", citationIds: ["c1"] },
       logoUrl: null,
       oneLiner: { value: "Voice AI infrastructure.", status: "verified", confidence: "high", citationIds: ["c1"] },
       description: {
@@ -70,10 +71,10 @@ function card(): ColdStartCard {
     team: {
       founders: { value: null, status: "unknown", confidence: "low", citationIds: [] },
       keyExecs: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+      headcount: { value: { value: 64, asOf: "2026-05-11" }, status: "inferred", confidence: "low", citationIds: ["c1"] }
     },
     signals: [],
-    comparables: [],
+    comparables: [{ name: "ElevenLabs", domain: "elevenlabs.io", oneLiner: "Voice AI platform" }],
     citations: [
       {
         id: "c1",

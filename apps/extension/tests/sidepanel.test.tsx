@@ -78,6 +78,56 @@ function noSourcePartialCard(domain: string): ColdStartCard {
   };
 }
 
+function cardWithManagement(domain: string): ColdStartCard {
+  const base = cardForDomain(domain);
+
+  return {
+    ...base,
+    identity: {
+      ...base.identity,
+      websiteUrl: { value: `https://${domain}/`, status: "verified", confidence: "high", citationIds: ["c1"] },
+      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
+      foundedYear: { value: 2013, status: "verified", confidence: "medium", citationIds: ["c1"] },
+      name: { value: "The Information", status: "verified", confidence: "high", citationIds: ["c1"] },
+      oneLiner: { value: "Subscription-only tech journalism publication", status: "verified", confidence: "high", citationIds: ["c1"] }
+    },
+    team: {
+      founders: {
+        value: [{ name: "Jessica Lessin", role: "Founder and CEO", sourceUrl: `https://${domain}/about` }],
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
+      headcount: {
+        value: { value: 87, asOf: "2026-04-26" },
+        status: "inferred",
+        confidence: "low",
+        citationIds: ["c2"]
+      },
+      keyExecs: {
+        value: [
+          { name: "Jessica Lessin", role: "Founder & CEO (prev. reporter)", sourceUrl: `https://${domain}/team` },
+          { name: "Matthew Resnick", role: "Chief operating officer", sourceUrl: "https://linkedin.com/in/matthew" },
+          { name: "Amir Efrati", role: "Executive editor", sourceUrl: "https://linkedin.com/in/amir" }
+        ],
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c2"]
+      }
+    },
+    citations: [
+      ...base.citations,
+      {
+        id: "c2",
+        url: "https://linkedin.com/company/the-information/",
+        title: "The Information LinkedIn",
+        fetchedAt: "2026-05-07T12:00:00.000Z",
+        sourceType: "enrichment"
+      }
+    ]
+  };
+}
+
 function cardWithSynthesis(domain: string): ColdStartCard {
   return {
     ...cardForDomain(domain),
@@ -245,6 +295,27 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("linear.app");
     expect(container.textContent).not.toContain("Generate Linear?");
     expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("renders core metrics and management as fixed company context", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithManagement("theinformation.com")));
+    const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
+
+    expect(container.querySelector("dl[aria-label='Core metrics']")).toBeTruthy();
+    expect(container.textContent).toContain("Employees");
+    expect(container.textContent).toContain("87");
+    expect(container.textContent).toContain("As of 2026-04-26");
+    expect(container.textContent).toContain("theinformation.com");
+    expect(container.textContent).toContain("Management team");
+    expect(container.textContent).toContain("2 sources");
+    expect(container.textContent).toContain("Jessica Lessin");
+    expect(container.textContent).toContain("Matthew Resnick");
+    expect(container.textContent).toContain("Amir Efrati");
+    expect(container.textContent).toContain("Research layer");
+    const managementNames = Array.from(container.querySelectorAll(".cs-management-team strong"))
+      .map((name) => name.textContent);
+    expect(managementNames.filter((name) => name === "Jessica Lessin")).toHaveLength(1);
     await unmount();
   });
 

@@ -310,6 +310,110 @@ describe("generateCardForDomain", () => {
     expect(extractionSawPlan).toBe(true);
   });
 
+  it("merges deterministic provider facts into missing table-stakes fields", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+
+    const result = await generateCardForDomainWithTrace("cartesia.ai", {
+      providerFacts: [
+        {
+          path: "identity.name",
+          value: "Ignored Provider Name",
+          status: "inferred",
+          confidence: "medium",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/ignored-name",
+          citationTitle: "Ignored provider name",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          path: "identity.websiteUrl",
+          value: "https://cartesia.ai",
+          status: "inferred",
+          confidence: "high",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=cartesia.ai",
+          citationTitle: "Apollo org enrichment for cartesia.ai",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          path: "team.headcount",
+          value: { value: 64, asOf: "2026-05-13" },
+          status: "inferred",
+          confidence: "low",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=cartesia.ai",
+          citationTitle: "Apollo org enrichment for cartesia.ai",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          path: "comparables",
+          value: {
+            name: "ElevenLabs",
+            domain: "elevenlabs.io",
+            oneLiner: "Voice AI platform.",
+            basis: "Similar web and market context from Exa find-similar",
+            confidence: "medium",
+          },
+          status: "inferred",
+          confidence: "medium",
+          sourceType: "news",
+          provider: "stableenrich",
+          endpoint: "exa_find_similar",
+          citationUrl: "https://elevenlabs.io",
+          citationTitle: "ElevenLabs",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+      ],
+      fetchSources: async () => [
+        {
+          url: "https://cartesia.ai",
+          title: "Cartesia",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-06T12:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Cartesia is building voice AI infrastructure.",
+        },
+      ],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: {
+            value: "Cartesia",
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"],
+          },
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation],
+      }),
+    });
+
+    expect(result.card.identity.name.value).toBe("Cartesia");
+    expect(result.card.identity.websiteUrl?.value).toBe("https://cartesia.ai");
+    expect(result.card.team.headcount.value).toEqual({ value: 64, asOf: "2026-05-13" });
+    expect(result.card.comparables[0]).toMatchObject({
+      name: "ElevenLabs",
+      domain: "elevenlabs.io",
+      citationIds: ["p2"],
+    });
+    expect(result.card.citations.map((item) => item.url)).not.toContain("https://stableenrich.dev/ignored-name");
+    expect(result.tracePatch.extraction).toMatchObject({
+      providerFactCandidateCount: 4,
+      providerFactAppliedCount: 3,
+      providerFactPaths: ["comparables", "identity.websiteUrl", "team.headcount"],
+    });
+  });
+
   it("returns extraction and synthesis trace patches", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
@@ -347,11 +451,14 @@ describe("generateCardForDomain", () => {
       synthesisRequired: true
     });
 
-    expect(result.tracePatch.extraction).toEqual({
+    expect(result.tracePatch.extraction).toMatchObject({
       sourceCount: 1,
       evidenceCount: 1,
       citationCount: 1,
-      fallbackUsed: false
+      fallbackUsed: false,
+      providerFactCandidateCount: 0,
+      providerFactAppliedCount: 0,
+      providerFactPaths: []
     });
     expect(result.tracePatch.synthesis).toEqual({
       required: true,
@@ -382,7 +489,10 @@ describe("generateCardForDomain", () => {
           sourceCount: 0,
           evidenceCount: 0,
           citationCount: 0,
-          fallbackUsed: false
+          fallbackUsed: false,
+          providerFactCandidateCount: 0,
+          providerFactAppliedCount: 0,
+          providerFactPaths: []
         }
       }
     });

@@ -188,6 +188,61 @@ describe("fetchStableenrichSources", () => {
         error: "upstream failed",
       },
     ]);
+    expect(result.endpoints).toContainEqual(
+      expect.objectContaining({
+        name: "firecrawl_homepage",
+        status: "failed",
+        sourceCount: 0,
+        factCount: 0,
+      }),
+    );
+  });
+
+  it("extracts table-stakes Apollo org enrichment fields as structured facts", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/org") {
+          return {
+            status: "success",
+            organization: {
+              name: "Cartesia",
+              domain: "cartesia.ai",
+              website_url: "https://cartesia.ai",
+              linkedin_url: "https://www.linkedin.com/company/cartesia-ai",
+              logo_url: "https://cartesia.ai/logo.png",
+              city: "San Francisco",
+              country: "United States",
+              founded_year: 2023,
+              estimated_num_employees: 64,
+              total_funding: 91000000,
+              latest_funding_stage: "Series B",
+              latest_funding_round_date: "2024-04-23",
+              short_description: "Real-time voice AI infrastructure.",
+            },
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "identity.websiteUrl", value: "https://cartesia.ai" }),
+        expect.objectContaining({ path: "identity.linkedinUrl", value: "https://www.linkedin.com/company/cartesia-ai" }),
+        expect.objectContaining({ path: "team.headcount", value: expect.objectContaining({ value: 64 }) }),
+        expect.objectContaining({ path: "funding.totalRaisedUsd", value: 91000000 }),
+      ]),
+    );
+    expect(result.endpoints).toContainEqual(
+      expect.objectContaining({
+        name: "org_enrichment",
+        status: "ok",
+        factCount: expect.any(Number),
+      }),
+    );
   });
 });
 

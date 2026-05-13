@@ -65,7 +65,10 @@ export const signalSchema = z.object({
 export const comparableSchema = z.object({
   name: z.string().min(1),
   domain: z.string().min(1),
-  oneLiner: z.string().min(1)
+  oneLiner: z.string().min(1),
+  basis: z.string().min(1).optional(),
+  confidence: confidenceSchema.optional(),
+  citationIds: z.array(z.string().min(1)).optional()
 });
 
 export const sourcedTextSchema = z.object({
@@ -88,6 +91,8 @@ export const coldStartCardSchema = z.object({
   cacheStatus: z.enum(["hit", "partial", "miss"]),
   identity: z.object({
     name: resolvedFactSchema(z.string().min(1)),
+    websiteUrl: resolvedFactSchema(z.string().url()).optional(),
+    linkedinUrl: resolvedFactSchema(z.string().url()).optional(),
     logoUrl: z.string().url().nullable(),
     oneLiner: resolvedFactSchema(z.string().min(1)),
     description: resolvedFactSchema(companyDescriptionSchema).optional(),

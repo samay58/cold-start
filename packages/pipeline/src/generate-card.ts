@@ -9,9 +9,10 @@ import {
   stripUnsupportedSynthesis
 } from "@cold-start/core";
 import { applyVerifierResults, type VerificationResult } from "@cold-start/llm";
-import type { ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
+import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
 import { type CostLine, totalGenerationCost } from "./cost";
 import { buildEvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger";
+import { applyProviderFactCandidates } from "./provider-facts";
 import { resolveIdentityFromInput } from "./resolve-identity";
 
 export const extractedCardSectionsSchema = coldStartCardSchema.pick({
@@ -112,6 +113,8 @@ export function buildSkeletonCard(input: string): ColdStartCard {
     cacheStatus: "miss",
     identity: {
       name: unknownFact<NonNullable<ColdStartCard["identity"]["name"]["value"]>>(),
+      websiteUrl: unknownFact<NonNullable<NonNullable<ColdStartCard["identity"]["websiteUrl"]>["value"]>>(),
+      linkedinUrl: unknownFact<NonNullable<NonNullable<ColdStartCard["identity"]["linkedinUrl"]>["value"]>>(),
       logoUrl: null,
       oneLiner: unknownFact<NonNullable<ColdStartCard["identity"]["oneLiner"]["value"]>>(),
       hq: unknownFact<NonNullable<ColdStartCard["identity"]["hq"]["value"]>>(),
@@ -145,6 +148,7 @@ export type ExtractedCardSections = Pick<
 
 type BaseGenerateCardDeps = {
   researchPlan?: ProviderResearchPlan;
+  providerFacts?: ProviderFactCandidate[];
   fetchSources(domain: string, researchPlan?: ProviderResearchPlan): Promise<ProviderSource[]>;
   extractSections(input: {
     domain: string;
@@ -245,6 +249,8 @@ export async function generateCardForDomainWithTrace(
   let sections = extractedCardSectionsSchema.parse(
     await deps.extractSections(extractionInput)
   );
+  const providerFactMerge = applyProviderFactCandidates(sections, deps.providerFacts ?? []);
+  sections = extractedCardSectionsSchema.parse(providerFactMerge.sections);
 
   if (sections.citations.length === 0) {
     const fallbackSections = fallbackSectionsFromEvidence(skeleton, evidenceLedger);
@@ -253,7 +259,10 @@ export async function generateCardForDomainWithTrace(
           sourceCount: sources.length,
           evidenceCount: evidenceLedger.length,
           citationCount: 0,
-          fallbackUsed: false
+          fallbackUsed: false,
+          providerFactCandidateCount: providerFactMerge.trace.candidateCount,
+          providerFactAppliedCount: providerFactMerge.trace.appliedCount,
+          providerFactPaths: providerFactMerge.trace.paths
       };
 
       throw new GenerateCardTraceError("No cited sources survived extraction", tracePatch);
@@ -267,7 +276,10 @@ export async function generateCardForDomainWithTrace(
     sourceCount: sources.length,
     evidenceCount: evidenceLedger.length,
     citationCount: sections.citations.length,
-    fallbackUsed
+    fallbackUsed,
+    providerFactCandidateCount: providerFactMerge.trace.candidateCount,
+    providerFactAppliedCount: providerFactMerge.trace.appliedCount,
+    providerFactPaths: providerFactMerge.trace.paths
   };
 
   let card: ColdStartCard = coldStartCardSchema.parse({

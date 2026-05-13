@@ -13,7 +13,7 @@ body,
 body {
   min-width: 360px;
   margin: 0;
-  background: var(--color-parchment);
+  background: #eef8fb;
   color: var(--color-ink);
   font-family: var(--font-mona-sans);
   font-synthesis: none;
@@ -30,12 +30,18 @@ button {
 }
 
 .cs-extension-frame {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   padding: 12px;
   background:
-    linear-gradient(180deg, rgb(22 116 255 / 0.035), transparent 140px),
-    var(--color-parchment);
+    linear-gradient(180deg, rgb(242 250 252 / 0.93) 0%, rgb(232 245 249 / 0.84) 44%, rgb(246 251 250 / 0.93) 100%),
+    url("/art/cold-start-wave-panel.jpg"),
+    #eef8fb;
+  background-position: center, center top, center;
+  background-size: auto, cover, auto;
   color: var(--color-ink);
+  overflow: hidden;
 }
 
 .cs-extension-topbar {
@@ -49,18 +55,60 @@ button {
 
 .cs-extension-rule {
   height: 1px;
-  background: var(--color-hairline);
+  background: rgb(169 195 199 / 0.42);
 }
 
 .cs-extension-brand {
   display: flex;
   align-items: center;
   min-width: 0;
-  gap: 8px;
+  gap: 10px;
   color: var(--color-ink);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-family: var(--font-fraunces);
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.cs-brand-mark {
+  display: block;
+  width: 26px;
+  height: 17px;
+  flex-shrink: 0;
+  color: var(--color-observatory-navy);
+  overflow: visible;
+}
+
+.cs-brand-mark-aperture,
+.cs-brand-mark-ring,
+.cs-brand-mark-crosshair {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cs-brand-mark-aperture {
+  stroke-width: 1.65;
+}
+
+.cs-brand-mark-ring {
+  opacity: 0.74;
+  stroke-width: 1.1;
+}
+
+.cs-brand-mark-ring-inner {
+  opacity: 0.28;
+}
+
+.cs-brand-mark-crosshair {
+  opacity: 0.34;
+  stroke-width: 0.85;
+}
+
+.cs-brand-mark-core {
+  fill: var(--color-lens-blue);
 }
 
 .cs-extension-topbar-right {
@@ -302,7 +350,43 @@ button {
 }
 
 .cs-generation-panel {
+  background:
+    linear-gradient(180deg, rgb(250 250 247 / 0.91) 0%, rgb(252 250 245 / 0.78) 58%, rgb(250 250 247 / 0.92) 100%),
+    url("/art/cold-start-wave-panel.jpg"),
+    var(--color-parchment);
+  background-position: center, center top, center;
+  background-size: auto, cover, auto;
   padding-bottom: 16px;
+}
+
+.cs-generation-panel .cs-panel-header {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 20px 38px 22px;
+}
+
+.cs-generation-panel .cs-panel-header > .cs-extension-mark {
+  display: none;
+}
+
+.cs-generation-panel .cs-extension-kicker {
+  margin-bottom: 5px;
+  color: var(--color-muted-ink);
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-generation-panel .cs-panel-header h1 {
+  font-family: var(--font-fraunces);
+  font-size: 30px;
+  font-weight: 680;
+  line-height: 1;
+}
+
+.cs-generation-panel .cs-extension-domain {
+  margin-top: 3px;
+  font-size: 12px;
 }
 
 .cs-live-card {
@@ -313,17 +397,27 @@ button {
   position: relative;
   display: grid;
   gap: 16px;
+  min-height: 342px;
   overflow: hidden;
   padding: 18px;
+  border-color: rgb(216 213 202 / 0.64);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgb(252 250 245 / 0.72), rgb(250 250 247 / 0.56)),
+    rgb(252 250 245 / 0.54);
+  box-shadow:
+    0 16px 38px rgb(2 8 18 / 0.055),
+    0 1px 0 rgb(255 255 255 / 0.76) inset;
 }
 
 .cs-live-card-refined::before {
   position: absolute;
-  inset: 0;
+  inset: -40% -32% auto -18%;
+  height: 220px;
   background:
-    linear-gradient(115deg, transparent 0%, transparent 35%, rgb(22 116 255 / 0.055) 48%, transparent 62%, transparent 100%),
-    radial-gradient(circle at 18% 0%, rgb(22 116 255 / 0.075), transparent 36%);
-  background-size: 250% 100%, 100% 100%;
+    radial-gradient(ellipse at 30% 55%, rgb(22 116 255 / 0.10), transparent 58%),
+    radial-gradient(ellipse at 72% 48%, rgb(168 116 31 / 0.06), transparent 62%);
+  filter: blur(22px);
   content: "";
   pointer-events: none;
 }
@@ -332,89 +426,150 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 18px;
+  gap: 9px;
+  align-self: start;
 }
 
 .cs-live-marker {
   margin: 0;
-  color: var(--color-muted-ink);
-  font-family: var(--font-mono);
+  color: var(--color-lens-blue);
   font-size: 10px;
-  font-weight: 720;
+  font-weight: 780;
   letter-spacing: 0.08em;
 }
 
 .cs-live-stage-lockup strong {
   color: var(--color-ink);
-  font-size: 18px;
-  font-weight: 780;
-  letter-spacing: -0.02em;
-  line-height: 1;
+  font-family: var(--font-fraunces);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 0.98;
 }
 
-.cs-live-progress-rail {
+.cs-live-stage-lockup p {
+  max-width: 255px;
+  margin: 2px 0 0;
+  color: var(--color-muted-ink);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.cs-live-current {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.cs-live-progress-rail span {
-  position: relative;
-  height: 3px;
+  align-self: center;
+  height: 128px;
+  margin: 8px -4px 0;
   overflow: hidden;
-  border-radius: 999px;
-  background: rgb(230 223 201 / 0.70);
 }
 
-.cs-live-progress-rail span[data-state="complete"] {
-  background: var(--color-ink);
-}
-
-.cs-live-progress-rail span[data-state="active"] {
-  background: rgb(22 116 255 / 0.18);
-}
-
-.cs-live-progress-rail span[data-state="active"]::after {
+.cs-live-current::before,
+.cs-live-current::after {
   position: absolute;
-  inset: 0;
-  width: 55%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-lens-blue), var(--color-wire-blue));
-  box-shadow: 0 0 12px rgb(22 116 255 / 0.18);
+  inset: auto 0 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(6 25 44 / 0.18), transparent);
   content: "";
 }
 
-.cs-generation-stage-list {
-  display: grid;
-  gap: 2px;
-  padding: 12px 0 4px;
+.cs-live-current::after {
+  inset: auto 12% 49px;
+  background: linear-gradient(90deg, transparent, rgb(22 116 255 / 0.18), transparent);
 }
 
-.cs-generation-stage-list-refined {
-  padding-top: 16px;
+.cs-live-current span {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 48px;
+  border-top: 1px solid rgb(6 25 44 / 0.135);
+  border-radius: 50% 50% 0 0;
+  transform: translate3d(0, 0, 0) rotate(-2deg);
+  transform-origin: center bottom;
 }
 
-.cs-generation-stage {
+.cs-live-current span:nth-child(1) {
+  bottom: 10px;
+  opacity: 0.86;
+}
+
+.cs-live-current span:nth-child(2) {
+  bottom: 24px;
+  opacity: 0.64;
+}
+
+.cs-live-current span:nth-child(3) {
+  bottom: 40px;
+  opacity: 0.46;
+}
+
+.cs-live-current span:nth-child(4) {
+  bottom: 58px;
+  opacity: 0.30;
+}
+
+.cs-live-current span:nth-child(5) {
+  bottom: 78px;
+  opacity: 0.18;
+}
+
+.cs-live-progress-track {
   position: relative;
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 46px;
-  align-items: center;
-  gap: 10px;
-  min-height: 34px;
-  border-radius: 7px;
-  padding: 0 8px 0 2px;
+  z-index: 1;
+  height: 16px;
+  overflow: hidden;
+  border: 1px solid rgb(216 213 202 / 0.74);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgb(216 213 202 / 0.55) 1px, transparent 1px),
+    rgb(250 250 247 / 0.62);
+  background-size: 22px 100%, auto;
+}
+
+.cs-live-progress-fill {
+  position: absolute;
+  inset: 3px auto 3px 3px;
+  min-width: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgb(6 25 44 / 0.96), rgb(22 116 255 / 0.74)),
+    var(--color-observatory-navy);
+  box-shadow: 0 0 18px rgb(22 116 255 / 0.12);
+}
+
+.cs-live-progress-fill::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 0%, transparent 34%, rgb(255 255 255 / 0.32) 45%, transparent 58%, transparent 100%);
+  background-size: 240% 100%;
+  content: "";
+}
+
+.cs-live-progress-cursor {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 26px;
+  border: 1px solid rgb(250 250 247 / 0.82);
+  border-radius: 999px;
+  background: var(--color-lens-blue);
+  box-shadow: 0 0 0 3px rgb(22 116 255 / 0.10), 0 7px 15px rgb(2 8 18 / 0.15);
+  transform: translate(-50%, -50%);
+}
+
+.cs-live-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
   color: var(--color-muted-ink);
-}
-
-.cs-generation-stage[data-complete="true"] {
-  color: rgb(14 14 14 / 0.70);
-}
-
-.cs-generation-stage.is-active {
-  color: var(--color-ink);
-  background: linear-gradient(90deg, rgb(22 116 255 / 0.055), transparent 74%);
+  font-family: var(--font-mona-sans);
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.2;
 }
 
 .cs-shimmer-text {
@@ -435,38 +590,18 @@ button {
   animation: cs-text-shimmer 2.2s ease-in-out infinite;
 }
 
-.cs-generation-stage-marker,
-.cs-generation-stage-detail {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.cs-generation-stage strong {
-  color: currentColor;
-  font-size: 12px;
-  font-weight: 760;
-  line-height: 1.2;
-}
-
-.cs-generation-stage-detail {
-  color: var(--color-muted-ink);
-  text-align: right;
-}
-
-.cs-generation-stage.is-active .cs-generation-stage-detail {
-  color: var(--color-lens-blue);
-}
-
 .cs-research-shell {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 100vh;
   padding: 12px;
   background:
-    radial-gradient(circle at 50% 0%, rgb(22 116 255 / 0.045), transparent 180px),
-    linear-gradient(180deg, var(--color-parchment) 0%, var(--color-parchment-warm) 100%);
+    linear-gradient(180deg, rgb(241 250 252 / 0.93) 0%, rgb(232 245 249 / 0.82) 42%, rgb(246 251 250 / 0.92) 100%),
+    url("/art/cold-start-wave-panel.jpg"),
+    #eef8fb;
+  background-position: center, center top, center;
+  background-size: auto, cover, auto;
   color: var(--color-ink);
 }
 
@@ -480,36 +615,27 @@ button {
 }
 
 .cs-research-topbar {
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
-  min-height: 28px;
-  padding: 0 2px 2px;
+  min-height: 34px;
+  padding: 1px 2px 8px;
 }
 
 .cs-research-brand {
-  gap: 9px;
+  gap: 10px;
   min-width: 0;
   color: var(--color-ink);
   font-family: var(--font-fraunces);
-  font-size: 18px;
+  font-size: 22px;
+  font-weight: 650;
   line-height: 1;
 }
 
-.cs-research-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  background: var(--color-ink);
-  color: var(--color-parchment);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 760;
+.cs-research-brand .cs-brand-mark {
+  width: 30px;
+  height: 19px;
 }
 
-.cs-research-topbar-meta,
 .cs-research-label,
 .cs-company-facts dt,
 .cs-research-layer-head,
@@ -518,7 +644,6 @@ button {
   color: var(--color-muted-ink);
 }
 
-.cs-research-topbar-meta,
 .cs-research-label,
 .cs-company-facts dt,
 .cs-research-layer-head,
@@ -543,7 +668,7 @@ button {
 
 .cs-company-context-main {
   gap: 18px;
-  padding: 22px 18px 18px;
+  padding: 22px 20px 20px;
 }
 
 .cs-company-logo {
@@ -576,7 +701,7 @@ button {
   font-family: var(--font-fraunces);
   font-size: 30px;
   font-weight: 500;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 
@@ -589,30 +714,113 @@ button {
 
 .cs-company-facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-top: 1px solid var(--color-hairline);
 }
 
 .cs-company-facts div {
+  display: grid;
+  align-content: start;
   min-width: 0;
-  padding: 12px 14px;
+  min-height: 84px;
+  padding: 14px 14px 12px;
   border-right: 1px solid rgb(230 223 201 / 0.74);
 }
 
-.cs-company-facts div:nth-child(2n) {
+.cs-company-facts div:nth-child(3n) {
   border-right: 0;
 }
 
-.cs-company-facts div:nth-child(n + 3) {
+.cs-company-facts div:nth-child(n + 4) {
   border-top: 1px solid rgb(230 223 201 / 0.74);
 }
 
 .cs-company-facts dd {
   margin-top: 6px;
-  font-size: 12px;
+  color: var(--color-ink);
+  font-size: 12.5px;
   font-weight: 620;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.cs-company-facts small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-muted-ink);
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.cs-management-team {
+  border-top: 1px solid var(--color-hairline);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.50), rgb(250 247 239 / 0.28));
+}
+
+.cs-management-team-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 14px 0;
+  color: var(--color-muted-ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-management-team-head span:last-child {
+  font-family: var(--font-mona-sans);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-management-team ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  column-gap: 24px;
+  row-gap: 0;
+  margin: 0;
+  padding: 10px 14px 16px;
+  list-style: none;
+}
+
+.cs-management-team li {
+  min-width: 0;
+  padding: 12px 0 10px;
+  border-top: 1px solid rgb(230 223 201 / 0.64);
+}
+
+.cs-management-team strong {
+  display: block;
+  color: var(--color-ink);
+  font-family: var(--font-fraunces);
+  font-size: 14px;
+  font-weight: 560;
+  letter-spacing: 0;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.cs-management-team li > span {
+  display: block;
+  margin-top: 5px;
+  color: rgb(14 14 14 / 0.68);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cs-management-more strong {
+  font-family: var(--font-mona-sans);
+  font-size: 12px;
+  letter-spacing: 0;
 }
 
 .cs-research-layer {
@@ -686,7 +894,7 @@ button {
 .cs-dormant-card strong {
   font-family: var(--font-fraunces);
   font-weight: 520;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .cs-active-enrichment strong {
@@ -727,7 +935,7 @@ button {
   margin: 0;
   color: var(--color-ink);
   font-size: 13px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
   line-height: 1.52;
 }
 
@@ -1070,13 +1278,27 @@ button {
   }
 }
 
-@keyframes cs-rail-scan {
+@keyframes cs-current-drift {
   0% {
-    transform: translateX(-80%);
+    transform: translate3d(-18px, 0, 0) rotate(-2deg);
+  }
+
+  50% {
+    transform: translate3d(18px, -5px, 0) rotate(1deg);
   }
 
   100% {
-    transform: translateX(190%);
+    transform: translate3d(-18px, 0, 0) rotate(-2deg);
+  }
+}
+
+@keyframes cs-progress-sheen {
+  0% {
+    background-position: 160% 0;
+  }
+
+  100% {
+    background-position: -80% 0;
   }
 }
 
@@ -1124,7 +1346,70 @@ button {
     animation: cs-text-shimmer 3.8s ease-in-out infinite;
   }
 
-  .cs-live-progress-rail span[data-state="active"]::after {
-    animation: cs-rail-scan 1.55s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  .cs-live-current span {
+    animation: cs-current-drift 5.8s ease-in-out infinite;
+  }
+
+  .cs-live-current span:nth-child(2) {
+    animation-duration: 5.7s;
+    animation-delay: -1.1s;
+  }
+
+  .cs-live-current span:nth-child(3) {
+    animation-duration: 6.6s;
+    animation-delay: -2.2s;
+  }
+
+  .cs-live-current span:nth-child(4) {
+    animation-duration: 7.4s;
+    animation-delay: -3.3s;
+  }
+
+  .cs-live-current span:nth-child(5) {
+    animation-duration: 8.2s;
+    animation-delay: -4.1s;
+  }
+
+  .cs-live-progress-fill::after {
+    animation: cs-progress-sheen 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+}
+
+@media (max-width: 430px) {
+  .cs-company-context-main {
+    align-items: flex-start;
+    gap: 14px;
+    padding: 20px 16px 16px;
+  }
+
+  .cs-company-context h1 {
+    font-size: 26px;
+  }
+
+  .cs-company-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-company-facts div:nth-child(3n) {
+    border-right: 1px solid rgb(230 223 201 / 0.74);
+  }
+
+  .cs-company-facts div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .cs-company-facts div:nth-child(n + 3) {
+    border-top: 1px solid rgb(230 223 201 / 0.74);
+  }
+
+  .cs-management-team ul {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-management-team li:nth-child(even),
+  .cs-management-team li:nth-child(odd) {
+    padding-left: 0;
+    padding-right: 0;
+    border-left: 0;
   }
 }

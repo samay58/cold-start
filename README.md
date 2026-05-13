@@ -33,6 +33,7 @@ Current implementation includes:
 - npm workspace scaffold, typed card schema, Drizzle schema, and repository layer
 - provider and LLM wrappers, research planner, evidence ledger, and pipeline orchestration
 - public web card route, extension-gated card API, and side-panel generation and polling
+- polished Chrome side-panel shell with the Cold Start aperture mark, pale blue chrome field, parchment dossier cards, and a single progress surface
 - generation traces for recent runs, including provider counts, source-gate decisions, extraction counts, synthesis counts, Inngest IDs, and failure stage
 - local `dev:full` runner for the web app plus Inngest worker
 - internal Vercel setup docs, privacy page, golden eval seed, robots route, and sitemap
@@ -122,7 +123,7 @@ set -a; source .env.local; set +a
 npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 ```
 
-Expected: four JSON lines with `status: "ok"` for Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment.
+Expected: endpoint JSON lines with `status: "ok"` for Exa search, Exa findSimilar, Firecrawl scrape, and Apollo org enrichment, followed by a structured-output line with `factCount > 0`. The balance lines should show paid calls actually settling; if the delta is zero while endpoints claim success, debug AgentCash before trusting provider coverage.
 
 ### Start local services
 
@@ -217,6 +218,8 @@ The side panel reads the cached extension card when one exists. If no card exist
 npm run build -w @cold-start/extension
 ```
 
+Load the built `apps/extension/dist` folder, not the Vite dev server output. The CRX dev server is useful while actively editing, but it can inject localhost-only development imports into the built service worker. If Chrome reports `Service worker registration failed. Status code: 3`, or the errors page mentions `localhost:5173`, rebuild with the command above and reload the unpacked extension.
+
 In Chrome:
 
 1. Open `chrome://extensions`.
@@ -234,6 +237,15 @@ If the side panel says the API deployment is out of date, the extension bundle a
 Extension builds default to the deployed API origin. For local extension testing, build with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`; that explicit local opt-in preserves localhost settings.
 
 Expected: the side panel opens. For a cached company with synthesis, it renders the full extension card. For a fresh company, it shows a Generate profile gate first, then renders identity, domain, team, funding, signals, and sources after generation finishes. The research layer then exposes dormant enrichment cards that can be pinned into the active stack.
+
+Fast extension checks:
+
+```bash
+npm run qa:extension:ui -w @cold-start/extension
+npm run qa:extension:smoke -w @cold-start/extension
+```
+
+The UI harness uses `apps/extension/vite.sidepanel.config.ts`, a plain Vite config that mounts the real side-panel React app with a Chrome API shim. Keep it separate from the CRX dev server so QA never mutates the built MV3 service worker.
 
 ### Inspect generation traces
 
@@ -296,7 +308,7 @@ Current repo checks:
 
 Next after this docs pass:
 
-1. **Brand and UX pass.** Build from `DESIGN.md`, which is the current implemented Fraunces + Mona Sans + parchment system. Archived brand and Paper directions under `docs/brand/archive/` are historical context only. Screenshot-check extension, mobile web, and desktop web with real cards before calling the visual system launch-ready.
+1. **Visual regression coverage.** Extend the Playwright side-panel harness with approved screenshots for setup, generate gate, progress, cached profile, and active research layer. Keep the checks tied to real app states, not mock-only artwork.
 
 2. **Synthesis quality gate.** Keep the current conservative verifier, but make rejected claims visible. Return enough supported lines when evidence survives. If evidence is thin, render an explicit "not enough verified evidence" state instead of empty arrays.
 

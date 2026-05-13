@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "qa:extension:smoke": "npm run build && playwright test --config=playwright.smoke.config.ts --project=extension-smoke",
+    "qa:extension:ui": "playwright test --project=sidepanel-ui",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
@@ -20,6 +22,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/chrome": "^0.0.330",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",

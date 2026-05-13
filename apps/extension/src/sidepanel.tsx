@@ -19,6 +19,7 @@ import {
   type GenerationStatus,
   type Settings
 } from "./extension-config";
+import { BrandMark } from "./BrandMark";
 import { ResearchLayerPanel } from "./ResearchLayerPanel";
 import "./styles.css";
 
@@ -52,26 +53,30 @@ function PlateMark({ label = "C" }: { label?: string }) {
 
 function ExtensionTopbar({
   onSettings,
-  right = "extension"
+  right
 }: {
   onSettings?: () => void;
   right?: string;
 }) {
+  const hasRightRail = Boolean(right || onSettings);
+
   return (
     <>
       <div className="cs-extension-topbar">
         <div className="cs-extension-brand">
-          <PlateMark />
+          <BrandMark />
           <span>Cold Start</span>
         </div>
-        <div className="cs-extension-topbar-right">
-          <span>{right}</span>
-          {onSettings ? (
-            <button aria-label="Open settings" className="cs-icon-button" onClick={onSettings} type="button">
-              <span aria-hidden="true">...</span>
-            </button>
-          ) : null}
-        </div>
+        {hasRightRail ? (
+          <div className="cs-extension-topbar-right">
+            {right ? <span>{right}</span> : null}
+            {onSettings ? (
+              <button aria-label="Open settings" className="cs-icon-button" onClick={onSettings} type="button">
+                <span aria-hidden="true">...</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="cs-extension-rule" />
     </>
@@ -457,6 +462,10 @@ function GenerationPanel({
     requestState.generationStatus === "queued" && elapsed < 4
       ? "Queued profile"
       : "Building profile";
+  const stageNote =
+    requestState.generationStatus === "queued"
+      ? "Waiting for the worker, then the source pass begins."
+      : "Reading public sources, resolving conflicts, and saving cited facts.";
   const stages = [
     { label: "Resolve identity", marker: "01" },
     { label: "Read sources", marker: "02" },
@@ -464,10 +473,11 @@ function GenerationPanel({
     { label: "Attach citations", marker: "04" }
   ];
   const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
+  const progressPercent = Math.min(94, Math.max(12, ((activeIndex + 0.7) / stages.length) * 100));
   return (
     <ExtensionFrame
       className="cs-generation-panel"
-      right={`live · ${formatElapsed(elapsed)}`}
+      right="live"
       title={domain}
     >
       <PanelHeader eyebrow={statusText} markLabel={companyName} title={companyName} value={domain} />
@@ -475,34 +485,34 @@ function GenerationPanel({
       <div className="cs-live-card cs-live-card-refined" aria-live="polite">
         <div className="cs-live-stage-lockup">
           <span className="cs-live-marker">{activeStage?.marker}</span>
-          <strong className="cs-shimmer-text">{activeStage?.label}</strong>
+          <strong>{activeStage?.label}</strong>
+          <p>{stageNote}</p>
         </div>
-        <div className="cs-live-progress-rail" aria-hidden="true">
-          {stages.map((stage, index) => (
-            <span
-              data-state={index < activeIndex ? "complete" : index === activeIndex ? "active" : "pending"}
-              key={stage.label}
-            />
-          ))}
-        </div>
-      </div>
 
-      <div className="cs-generation-stage-list cs-generation-stage-list-refined">
-        {stages.map((stage, index) => {
-          const complete = index < activeIndex;
-          const active = index === activeIndex;
-          return (
-            <div
-              className={active ? "cs-generation-stage is-active" : "cs-generation-stage"}
-              data-complete={complete ? "true" : "false"}
-              key={stage.label}
-            >
-              <span className="cs-generation-stage-marker">{stage.marker}</span>
-              <strong className={active ? "cs-shimmer-text" : undefined}>{stage.label}</strong>
-              <span className="cs-generation-stage-detail">{complete ? "done" : active ? "active" : "next"}</span>
-            </div>
-          );
-        })}
+        <div className="cs-live-current" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+
+        <div
+          aria-label={`${activeStage?.label ?? "Building profile"} progress`}
+          className="cs-live-progress-track"
+          role="progressbar"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={Math.round(progressPercent)}
+        >
+          <span className="cs-live-progress-fill" style={{ width: `${progressPercent}%` }} />
+          <span className="cs-live-progress-cursor" style={{ left: `${progressPercent}%` }} />
+        </div>
+
+        <div className="cs-live-footer">
+          <span>{`Stage ${activeIndex + 1} of ${stages.length}`}</span>
+          <span>{formatElapsed(elapsed)}</span>
+        </div>
       </div>
     </ExtensionFrame>
   );

@@ -228,6 +228,8 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
 
   const publicClaims: PublicClaim[] = [
     { path: "identity.name", fact: publicOnly.identity.name },
+    ...(publicOnly.identity.websiteUrl ? [{ path: "identity.websiteUrl", fact: publicOnly.identity.websiteUrl }] : []),
+    ...(publicOnly.identity.linkedinUrl ? [{ path: "identity.linkedinUrl", fact: publicOnly.identity.linkedinUrl }] : []),
     { path: "identity.oneLiner", fact: publicOnly.identity.oneLiner },
     ...(publicOnly.identity.description ? [{ path: "identity.description", fact: publicOnly.identity.description }] : []),
     { path: "identity.hq", fact: publicOnly.identity.hq },

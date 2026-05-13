@@ -27,6 +27,15 @@ export type GenerationSourceTrace = {
   intent?: string;
 };
 
+export type GenerationProviderEndpointTrace = {
+  name: string;
+  endpointUrl: string;
+  status: "ok" | "failed" | "skipped";
+  sourceCount: number;
+  factCount: number;
+  error?: string;
+};
+
 export type GenerationSourceRejection = GenerationSourceTrace & {
   reason: GenerationSourceRejectionReason;
 };
@@ -47,7 +56,9 @@ export type GenerationTrace = {
     };
     stableenrich?: {
       sourceCount: number;
+      factCount?: number;
       failureCount: number;
+      endpoints?: GenerationProviderEndpointTrace[];
     };
     mergedSourceCount?: number;
   };
@@ -62,6 +73,9 @@ export type GenerationTrace = {
     evidenceCount: number;
     citationCount: number;
     fallbackUsed: boolean;
+    providerFactCandidateCount?: number;
+    providerFactAppliedCount?: number;
+    providerFactPaths?: string[];
   };
   synthesis?: {
     required: boolean;

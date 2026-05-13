@@ -11,10 +11,14 @@ export type GenerationQualityFlagCode =
   | "missing_synthesis_trace"
   | "no_synthesis_after_analysis"
   | "stableenrich_all_failed"
+  | "stableenrich_no_fact_candidates"
   | "high_source_rejection"
   | "long_plan_step"
   | "long_generate_step"
   | "empty_identity"
+  | "missing_company_website"
+  | "missing_headcount"
+  | "missing_comparables"
   | "empty_research_layer";
 
 export type GenerationQualityFlag = {
@@ -121,6 +125,14 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
     });
   }
 
+  if (stableenrich && stableenrich.sourceCount > 0 && stableenrich.factCount !== undefined && stableenrich.factCount === 0) {
+    add(flags, {
+      code: "stableenrich_no_fact_candidates",
+      severity: "warn",
+      message: "StableEnrich returned sources but no structured facts"
+    });
+  }
+
   const sourceGate = trace.sourceGate;
   if (sourceGate) {
     const total = sourceGate.acceptedCount + sourceGate.rejectedCount;
@@ -158,6 +170,30 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
         code: "empty_identity",
         severity: "fail",
         message: "API card has no company name or one-liner"
+      });
+    }
+
+    if (!input.card.identity.websiteUrl?.value) {
+      add(flags, {
+        code: "missing_company_website",
+        severity: "warn",
+        message: "API card has no canonical company website"
+      });
+    }
+
+    if (!input.card.team.headcount.value) {
+      add(flags, {
+        code: "missing_headcount",
+        severity: "warn",
+        message: "API card has no headcount fact"
+      });
+    }
+
+    if (input.card.comparables.length === 0) {
+      add(flags, {
+        code: "missing_comparables",
+        severity: "warn",
+        message: "API card has no comparable companies"
       });
     }
 

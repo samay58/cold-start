@@ -15,6 +15,7 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
+import { BrandMark } from "./BrandMark";
 
 type AnalysisRun = {
   generationStatus: "queued" | "running";
@@ -73,15 +74,112 @@ function formatCompactCurrency(value: number | null | undefined) {
   return `$${value.toLocaleString()}`;
 }
 
+function formatNumber(value: number | null | undefined) {
+  return typeof value === "number" ? value.toLocaleString() : "Not found";
+}
+
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
 }
 
-function Fact({ label, value }: { label: string; value: ReactNode }) {
+function formatStatus(value: ColdStartCard["identity"]["status"]) {
+  return value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
+}
+
+function websiteLabel(card: ColdStartCard) {
+  const website = card.identity.websiteUrl?.value ?? `https://${card.domain}`;
+  try {
+    return new URL(website).hostname.replace(/^www\./i, "");
+  } catch {
+    return card.domain;
+  }
+}
+
+type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
+
+function roleScore(role: string | null) {
+  const normalized = role?.toLowerCase() ?? "";
+  let score = 0;
+
+  if (normalized.includes("ceo")) {
+    score += 5;
+  }
+  if (normalized.includes("co-founder") || normalized.includes("cofounder")) {
+    score += 4;
+  }
+  if (normalized.includes("founder")) {
+    score += 3;
+  }
+  if (normalized.includes("chief")) {
+    score += 2;
+  }
+  if (normalized.includes("president") || normalized.includes("editor") || normalized.includes("operating")) {
+    score += 1;
+  }
+  if (normalized.includes("prev.") || normalized.includes("previous")) {
+    score -= 2;
+  }
+
+  return score;
+}
+
+function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson {
+  const currentScore = roleScore(current.role);
+  const candidateScore = roleScore(candidate.role);
+
+  if (candidateScore !== currentScore) {
+    return candidateScore > currentScore ? candidate : current;
+  }
+
+  const currentRoleLength = current.role?.length ?? 0;
+  const candidateRoleLength = candidate.role?.length ?? 0;
+
+  if (candidateRoleLength === 0) {
+    return current;
+  }
+  if (currentRoleLength === 0) {
+    return candidate;
+  }
+
+  return candidateRoleLength < currentRoleLength ? candidate : current;
+}
+
+function managementPeople(card: ColdStartCard): CardPerson[] {
+  const byName = new Map<string, CardPerson>();
+  const people = [...(card.team.founders.value ?? []), ...(card.team.keyExecs.value ?? [])];
+
+  for (const person of people) {
+    const key = person.name.trim().toLowerCase();
+    const current = byName.get(key);
+
+    if (!current) {
+      byName.set(key, person);
+      continue;
+    }
+
+    byName.set(key, preferredPerson(current, person));
+  }
+
+  return Array.from(byName.values());
+}
+
+function managementSourceCount(card: ColdStartCard) {
+  return new Set([
+    ...card.team.founders.citationIds,
+    ...card.team.keyExecs.citationIds
+  ]).size;
+}
+
+function roleLabel(role: string | null) {
+  return role ?? "Role not found";
+}
+
+function CoreMetric({ label, meta, value }: { label: string; meta?: string | undefined; value: ReactNode }) {
   return (
     <div>
       <dt>{label}</dt>
       <dd>{value}</dd>
+      {meta ? <small>{meta}</small> : null}
     </div>
   );
 }
@@ -184,9 +282,9 @@ function DormantPileCard({
   onDragEnd,
   onDragStart,
   onKeyDown,
+  onPointerUp,
   pose,
-  prefersReducedMotion,
-  total
+  prefersReducedMotion
 }: {
   dragging: boolean;
   index: number;
@@ -196,14 +294,14 @@ function DormantPileCard({
   onDragEnd: (info: PanInfo) => void;
   onDragStart: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  onPointerUp: () => void;
   pose: PilePose;
   prefersReducedMotion: boolean | null;
-  total: number;
 }) {
   const canDrag = dormantCardCanDrag({ prefersReducedMotion });
   const feedbackProps = !prefersReducedMotion
     ? {
-        whileHover: { y: pose.y - 3, scale: 1.012 },
+        whileHover: { scale: 1.012 },
         whileTap: { scale: 0.99 }
       }
     : {};
@@ -211,8 +309,8 @@ function DormantPileCard({
   return (
     <motion.div
       animate={dragging
-        ? { rotate: pose.rotate - 0.9, scale: 1.025, x: pose.x, y: pose.y, zIndex: 30 }
-        : { rotate: pose.rotate, scale: 1, x: pose.x, y: pose.y, zIndex: total - index }}
+        ? { rotate: pose.rotate - 0.9, scale: 1.025, zIndex: 30 }
+        : { rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
       aria-label={`Pin ${layer.title}`}
       className="cs-dormant-card"
       data-dragging={dragging ? "true" : "false"}
@@ -222,13 +320,18 @@ function DormantPileCard({
       dragElastic={0.14}
       dragMomentum={false}
       exit={{ opacity: 0, scale: 0.94, y: -18 }}
-      layout
       onClick={onClick}
       onDrag={(_event, info) => onDrag(info)}
       onDragEnd={(_event, info) => onDragEnd(info)}
       onDragStart={onDragStart}
       onKeyDown={onKeyDown}
+      onPointerUp={onPointerUp}
       role="button"
+      style={{
+        left: 8 + pose.x,
+        right: 8 - pose.x,
+        top: pose.y
+      }}
       tabIndex={0}
       transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.75 }}
       {...feedbackProps}
@@ -270,6 +373,7 @@ export function ResearchLayerPanel({
   });
   const [draggingLayerId, setDraggingLayerId] = useState<ResearchLayerId | null>(null);
   const [snapPreviewId, setSnapPreviewId] = useState<ResearchLayerId | null>(null);
+  const snapPreviewLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -312,21 +416,38 @@ export function ResearchLayerPanel({
   }
 
   function handleDormantDrag(id: ResearchLayerId, info: PanInfo) {
-    setSnapPreviewId(dragOffsetShouldPreview(info.offset.y) ? id : null);
+    const nextPreviewId = dragOffsetShouldPreview(info.offset.y) ? id : null;
+    snapPreviewLayerId.current = nextPreviewId;
+    setSnapPreviewId(nextPreviewId);
   }
 
   function handleDormantDragEnd(id: ResearchLayerId, info: PanInfo) {
+    const shouldSnap = snapPreviewLayerId.current === id || dragOffsetShouldSnap(info.offset.y);
+
     setDraggingLayerId(null);
     setSnapPreviewId(null);
+    snapPreviewLayerId.current = null;
 
     if (dragOffsetShouldSuppressClick(info.offset)) {
       suppressClickFor.current = id;
     }
 
-    if (dragOffsetShouldSnap(info.offset.y)) {
+    if (shouldSnap) {
       suppressClickFor.current = id;
       activateLayer(id);
     }
+  }
+
+  function handleDormantPointerUp(id: ResearchLayerId) {
+    if (snapPreviewLayerId.current !== id) {
+      return;
+    }
+
+    setDraggingLayerId(null);
+    setSnapPreviewId(null);
+    snapPreviewLayerId.current = null;
+    suppressClickFor.current = id;
+    activateLayer(id);
   }
 
   function pilePose(index: number): PilePose {
@@ -335,16 +456,22 @@ export function ResearchLayerPanel({
 
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
   const hq = card.identity.hq.value;
+  const headcount = card.team.headcount.value;
+  const people = managementPeople(card);
+  const visiblePeople = people.slice(0, 4);
+  const hiddenPeopleCount = people.length - visiblePeople.length;
+  const managerSources = managementSourceCount(card);
+  const lastRound = card.funding.lastRound.value;
+  const lastRoundAmount = formatCompactCurrency(lastRound?.amountUsd);
   const activeCount = activeLayerIds.length;
 
   return (
     <main className="cs-research-shell">
       <header className="cs-research-topbar">
         <div className="cs-research-brand">
-          <span className="cs-research-mark" aria-hidden="true">C</span>
+          <BrandMark />
           <span>Cold Start</span>
         </div>
-        <span className="cs-research-topbar-meta">extension</span>
       </header>
 
       <section className="cs-company-context" aria-label="Company context">
@@ -356,12 +483,41 @@ export function ResearchLayerPanel({
             <p>{card.identity.oneLiner.value ?? card.domain}</p>
           </div>
         </div>
-        <dl className="cs-company-facts">
-          <Fact label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
-          <Fact label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
-          <Fact label="Stage" value={card.funding.lastRound.value?.name ?? "Not found"} />
-          <Fact label="Latest round" value={formatCompactCurrency(card.funding.lastRound.value?.amountUsd)} />
+        <dl className="cs-company-facts" aria-label="Core metrics">
+          <CoreMetric label="Employees" value={formatNumber(headcount?.value)} meta={headcount?.asOf ? `As of ${headcount.asOf}` : undefined} />
+          <CoreMetric label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
+          <CoreMetric label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
+          <CoreMetric label="Website" value={websiteLabel(card)} />
+          <CoreMetric label="Status" value={formatStatus(card.identity.status)} />
+          <CoreMetric
+            label="Latest round"
+            value={lastRound?.name ?? lastRoundAmount}
+            meta={lastRound?.name && lastRoundAmount !== "Not found" ? lastRoundAmount : undefined}
+          />
         </dl>
+
+        {people.length > 0 ? (
+          <section className="cs-management-team" aria-label="Management team">
+            <div className="cs-management-team-head">
+              <span>Management team</span>
+              <span>{managerSources > 0 ? sourceLabel(managerSources) : "sources pending"}</span>
+            </div>
+            <ul>
+              {visiblePeople.map((person) => (
+                <li key={`${person.name}-${person.role ?? "role"}`}>
+                  <strong>{person.name}</strong>
+                  <span>{roleLabel(person.role)}</span>
+                </li>
+              ))}
+              {hiddenPeopleCount > 0 ? (
+                <li className="cs-management-more">
+                  <strong>+{hiddenPeopleCount}</strong>
+                  <span>additional cited leaders</span>
+                </li>
+              ) : null}
+            </ul>
+          </section>
+        ) : null}
       </section>
 
       <section className="cs-research-layer" aria-label="Research layer">
@@ -464,9 +620,9 @@ export function ResearchLayerPanel({
                   onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
                   onDragStart={() => handleDormantDragStart(layer.id)}
                   onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
+                  onPointerUp={() => handleDormantPointerUp(layer.id)}
                   pose={pose}
                   prefersReducedMotion={prefersReducedMotion}
-                  total={dormantLayers.length}
                 />
               );
             })}

@@ -55,3 +55,30 @@ export type ProviderSource = {
   intent?: RetrievalIntent;
   publishedAt?: string;
 };
+
+export type ProviderFactPath =
+  | "identity.name"
+  | "identity.websiteUrl"
+  | "identity.linkedinUrl"
+  | "identity.logoUrl"
+  | "identity.hq"
+  | "identity.foundedYear"
+  | "identity.description"
+  | "funding.totalRaisedUsd"
+  | "funding.lastRound"
+  | "team.headcount"
+  | "comparables";
+
+export type ProviderFactCandidate<T = unknown> = {
+  path: ProviderFactPath;
+  value: T;
+  status: "verified" | "mixed" | "inferred" | "unknown";
+  confidence: "high" | "medium" | "low";
+  sourceType: ProviderSource["sourceType"];
+  provider: "stableenrich" | "direct_exa";
+  endpoint: string;
+  citationUrl: string;
+  citationTitle: string;
+  fetchedAt: string;
+  rawText?: string;
+};
