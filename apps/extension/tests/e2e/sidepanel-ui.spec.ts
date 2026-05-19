@@ -29,9 +29,10 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
 });
 
-test("no-source partial card renders as an incomplete profile, not a dossier", async ({ page }) => {
-  await installChromeShim(page, { activeDomain: "databricks.com" });
-  await mockExtensionApi(page, browserbaseCard({
+test("no-source partial card auto-regenerates before rendering the dossier", async ({ page }) => {
+  const generateRequests: Array<{ mode?: string }> = [];
+  let generationStarted = false;
+  const partialCard = browserbaseCard({
     slug: "databricks",
     domain: "databricks.com",
     cacheStatus: "partial",
@@ -56,13 +57,51 @@ test("no-source partial card renders as an incomplete profile, not a dossier", a
     signals: [],
     comparables: [],
     citations: []
-  }));
+  });
+  const usableCard = browserbaseCard({
+    slug: "databricks",
+    domain: "databricks.com",
+    identity: {
+      ...browserbaseCard().identity,
+      name: { value: "Databricks", status: "verified", confidence: "high", citationIds: ["c1"] },
+      websiteUrl: { value: "https://databricks.com/", status: "verified", confidence: "high", citationIds: ["c1"] }
+    }
+  });
+  await installChromeShim(page, { activeDomain: "databricks.com" });
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "databricks.com",
+      slug: "databricks",
+      card: partialCard,
+      runs: {
+        basics: { slug: "databricks", domain: "databricks.com", mode: "basics", status: "idle" },
+        analysis: { slug: "databricks", domain: "databricks.com", mode: "analysis", status: "idle" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, generationStarted ? usableCard : partialCard);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "databricks",
+      domain: "databricks.com",
+      status: generationStarted ? "complete" : "idle",
+      mode: "basics"
+    });
+  });
+  await page.route("**/api/generate", async (route) => {
+    generationStarted = true;
+    generateRequests.push(route.request().postDataJSON() as { mode?: string });
+    await fulfillJson(route, { slug: "databricks", status: "queued", mode: "basics" }, 202);
+  });
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Databricks" })).toBeVisible();
-  await expect(page.getByText("No cited profile yet")).toBeVisible();
-  await expect(page.getByLabel("Research layer")).toHaveCount(0);
+  await expect(page.getByLabel("Research layer")).toBeVisible();
+  await expect(page.getByText("No cited profile yet")).toHaveCount(0);
   await expect(page.getByText("Not found")).toHaveCount(0);
+  expect(generateRequests).toMatchObject([{ mode: "basics" }]);
 });
 
 test("core metrics and people stay compact in the company context", async ({ page }) => {
@@ -191,9 +230,54 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await openSidePanel(page);
 
   await expect(page.getByText("Building")).toBeVisible();
+  await expect(page.locator(".cs-source-pass-now")).toContainText("Citations");
   await expect(page.locator(".cs-run-steps").getByText("Citations")).toBeVisible();
   await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Citations");
+  await expect(page.locator(".cs-source-pass-rail")).toBeVisible();
   await expect(page.locator(".cs-live-progress-track")).toBeVisible();
+  await expect(page.locator(".cs-live-progress-scan")).toBeVisible();
+});
+
+test("reduced motion keeps progress readable without scan or pulse animation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "cartesia.ai",
+      slug: "cartesia",
+      card: null,
+      runs: {
+        basics: {
+          slug: "cartesia",
+          domain: "cartesia.ai",
+          status: "running",
+          mode: "basics",
+          startedAt: new Date(Date.now() - 30_000).toISOString()
+        },
+        analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      status: "running",
+      mode: "basics",
+      startedAt: new Date(Date.now() - 30_000).toISOString()
+    });
+  });
+
+  await openSidePanel(page);
+
+  await expect(page.locator(".cs-live-progress-track")).toBeVisible();
+  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Citations");
+  await expect(page.locator(".cs-live-progress-scan")).toBeHidden();
+  await expect(page.locator(".cs-live-progress-cursor")).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".cs-source-pass-now")).toContainText("Citations");
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {
@@ -212,6 +296,8 @@ test("dragging a dormant card upward snaps it into the active research layer", a
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 34, { steps: 4 });
+  await expect(page.getByText("Lift to commit")).toBeVisible();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 8 });
   await expect(page.getByText("Release to pin")).toBeVisible();
   await page.mouse.up();

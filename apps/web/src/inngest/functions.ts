@@ -4,6 +4,7 @@ import {
   type GenerationTrace,
   type GenerationTraceStep,
   hasUsablePublicProfile,
+  publicProfileQuality,
   type ResolvedFact
 } from "@cold-start/core";
 import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard } from "@cold-start/db";
@@ -250,12 +251,58 @@ export function preserveExistingBasics(existing: ColdStartCard | null, next: Col
   };
 }
 
-export function prepareCardForStorage(mode: GenerationMode, existing: ColdStartCard | null, generated: ColdStartCard): ColdStartCard {
+function prepareCardSnapshotForStorage(mode: GenerationMode, existing: ColdStartCard | null, generated: ColdStartCard): ColdStartCard {
   const merged = preserveExistingBasics(existing, generated);
   return {
     ...merged,
     cacheStatus: mode === "analysis" || hasUsablePublicProfile(merged) ? "hit" : "partial",
   };
+}
+
+export function prepareCardForStorage(mode: GenerationMode, existing: ColdStartCard | null, generated: ColdStartCard): ColdStartCard {
+  const merged = prepareCardSnapshotForStorage(mode, existing, generated);
+  assertTerminalCardQuality(mode, merged);
+  return {
+    ...merged,
+    cacheStatus: "hit"
+  };
+}
+
+export function underfilledBasicsErrorMessage(card: ColdStartCard) {
+  const quality = publicProfileQuality(card);
+  const gaps = [
+    !quality.hasCitations ? "citations" : null,
+    !quality.hasName ? "name" : null,
+    !quality.hasSummary ? "summary" : null,
+    quality.structuredFactCount < quality.minimumStructuredFactCount ? "structured facts" : null,
+    quality.visibleFactCount < quality.minimumVisibleFactCount ? "visible facts" : null
+  ].filter(Boolean);
+  return [
+    "generated basics underfilled public profile",
+    `(${quality.structuredFactCount}/${quality.minimumStructuredFactCount} structured facts,`,
+    `${quality.visibleFactCount}/${quality.minimumVisibleFactCount} visible facts,`,
+    `${card.citations.length} citations${gaps.length > 0 ? `; missing ${gaps.join(", ")}` : ""})`
+  ].join(" ");
+}
+
+function canStoreCardSnapshot(mode: GenerationMode, card: ColdStartCard) {
+  return mode !== "basics" || hasUsablePublicProfile(card);
+}
+
+function noteSkippedUnderfilledSnapshot(trace: GenerationTrace, stepName: string, card: ColdStartCard) {
+  trace.steps = {
+    ...trace.steps,
+    [stepName]: {
+      status: "skipped",
+      message: `${underfilledBasicsErrorMessage(card)}; continuing enrichment without saving a partial card`
+    }
+  };
+}
+
+function assertTerminalCardQuality(mode: GenerationMode, card: ColdStartCard) {
+  if (mode === "basics" && !hasUsablePublicProfile(card)) {
+    throw new Error(underfilledBasicsErrorMessage(card));
+  }
 }
 
 function pipelineBlockPatch(input: Awaited<ReturnType<typeof extractCompanyBlockClaims>>): BlockEnrichmentPatch {
@@ -544,13 +591,17 @@ export const generateCardFunction = inngest.createFunction(
         seedCard = seedProfileResult.value.card;
         seedSections = seedProfileResult.value.sections;
 
-        const seedCardToStore = prepareCardForStorage(mode, existingCard, seedCard);
-        const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
-        await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
-        trace.milestones = {
-          ...trace.milestones,
-          firstUsableCardMs: Date.now() - functionStartedAt
-        };
+        const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
+        if (canStoreCardSnapshot(mode, seedCardToStore)) {
+          const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
+          await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
+          trace.milestones = {
+            ...trace.milestones,
+            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
+          };
+        } else {
+          noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
+        }
 
         currentStage = "fetch-contact-sources";
         const contactSourceResult = await step.run("fetch-contact-sources", async () => {
@@ -627,27 +678,32 @@ export const generateCardFunction = inngest.createFunction(
 
         seedSections = contactEnriched.value.sections;
         seedCard = cardWithExtractedSections(seedCard, seedSections);
-        const contactCardToStore = prepareCardForStorage(mode, existingCard, seedCard);
-        const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
-        await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
-        trace.milestones = {
-          ...trace.milestones,
-          contactsReadyMs: Date.now() - functionStartedAt
-        };
-        await step.run("record-contact-sources", () =>
-          Promise.all(
-            contactSources.map((source) =>
-              recordSource(db, {
-                cardId: contactRow.id,
-                url: source.url,
-                title: source.title,
-                sourceType: source.sourceType,
-                fetchedAt: source.fetchedAt,
-                rawText: source.rawText,
-              }),
+        const contactCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
+        if (canStoreCardSnapshot(mode, contactCardToStore)) {
+          const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
+          await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
+          trace.milestones = {
+            ...trace.milestones,
+            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt,
+            contactsReadyMs: Date.now() - functionStartedAt
+          };
+          await step.run("record-contact-sources", () =>
+            Promise.all(
+              contactSources.map((source) =>
+                recordSource(db, {
+                  cardId: contactRow.id,
+                  url: source.url,
+                  title: source.title,
+                  sourceType: source.sourceType,
+                  fetchedAt: source.fetchedAt,
+                  rawText: source.rawText,
+                }),
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", contactCardToStore);
+        }
       }
 
       const extractSectionsForCard = async ({ domain: candidateDomain, sources, evidenceLedger }: {
@@ -745,16 +801,6 @@ export const generateCardFunction = inngest.createFunction(
       let generatedSections = clean.value.sections;
       let sourcesToRecord = clean.value.sources;
 
-      if (mode === "basics" && !hasUsablePublicProfile(generatedCard)) {
-        trace.steps = {
-          ...trace.steps,
-          "repair-underfilled-basics": {
-            status: "skipped",
-            message: `partial profile kept; ${acceptedSources.length} accepted sources, user can manually regenerate`
-          }
-        };
-      }
-
       if (mode === "basics") {
         sourcesToRecord = mergeSources(sourcesToRecord, contactSources);
         if (contactProviderFacts.length > 0) {
@@ -802,23 +848,34 @@ export const generateCardFunction = inngest.createFunction(
         }
       }
 
-      let cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
-      let row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
-      await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
-      await step.run("record-sources", () =>
-        Promise.all(
-          sourcesToRecord.map((source) =>
-            recordSource(db, {
-              cardId: row.id,
-              url: source.url,
-              title: source.title,
-              sourceType: source.sourceType,
-              fetchedAt: source.fetchedAt,
-              rawText: source.rawText,
-            }),
+      let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
+
+      if (canStoreCardSnapshot(mode, cardToStore)) {
+        const storedRow = await step.run("upsert-card", () => upsertCard(db, cardToStore));
+        await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
+        await step.run("record-sources", () =>
+          Promise.all(
+            sourcesToRecord.map((source) =>
+              recordSource(db, {
+                cardId: storedRow.id,
+                url: source.url,
+                title: source.title,
+                sourceType: source.sourceType,
+                fetchedAt: source.fetchedAt,
+                rawText: source.rawText,
+              }),
+            ),
           ),
-        ),
-      );
+        );
+        if (mode === "basics") {
+          trace.milestones = {
+            ...trace.milestones,
+            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
+          };
+        }
+      } else {
+        noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-generated-card", cardToStore);
+      }
 
       if (mode === "basics") {
         currentStage = "fetch-enrichment-sources";
@@ -905,13 +962,14 @@ export const generateCardFunction = inngest.createFunction(
         }
 
         cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
-        row = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
-        await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
+        assertTerminalCardQuality(mode, cardToStore);
+        const storedRow = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
+        await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
         await step.run("record-enriched-sources", () =>
           Promise.all(
             sourcesToRecord.map((source) =>
               recordSource(db, {
-                cardId: row.id,
+                cardId: storedRow.id,
                 url: source.url,
                 title: source.title,
                 sourceType: source.sourceType,

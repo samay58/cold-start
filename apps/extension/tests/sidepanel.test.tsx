@@ -252,6 +252,7 @@ async function renderSidePanel(input: {
   document.body.append(container);
   const { SidePanel } = await import("../src/sidepanel");
   await import("../src/ResearchLayerPanel");
+  await import("../src/SourcePassInstrument");
   const root = createRoot(container);
 
   await act(async () => {
@@ -353,6 +354,64 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("linear.app");
     expect(container.textContent).not.toContain("No profile");
     expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("does not let a bloated overview take over the profile card", async () => {
+    const card = cardForDomain("hanoverpark.com");
+    card.identity.name = { value: "Hanover Park", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.identity.oneLiner = {
+      value:
+        "Hanover Park is an AI-native fund administrator for private equity and venture capital firms. It combines fund accounting, portfolio management, LP portals, analytics, modelling, security workflows, client support, capital calls, distributions, and full-service accounting into one platform.",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "hanoverpark.com", fetchMock });
+
+    expect(container.textContent).toContain("Hanover Park is an AI-native fund administrator for private equity and venture capital firms.");
+    expect(container.textContent).not.toContain("full-service accounting into one platform");
+    await unmount();
+  });
+
+  it("keeps critical metrics visible when structured funding misses cited financing", async () => {
+    const card = cardForDomain("polymarket.com");
+    card.identity.name = { value: "Polymarket", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.identity.hq = {
+      value: { city: "New York", country: "United States" },
+      status: "verified",
+      confidence: "medium",
+      citationIds: ["c1"]
+    };
+    card.team.headcount = {
+      value: { value: 209, asOf: "2026-04-21" },
+      status: "inferred",
+      confidence: "low",
+      citationIds: ["c1"]
+    };
+    card.citations.push({
+      id: "e1",
+      url: "https://www.covers.com/industry/polymarket-seeks-fundraising-at-15b-valuation-april-21-2026",
+      title: "Polymarket Seeks Fundraising at $15B Valuation",
+      fetchedAt: "2026-05-19T12:00:00.000Z",
+      sourceType: "news",
+      snippet: "ICE pledged $2B, completed with $600M injection in March 2026 at $9B valuation."
+    });
+
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "polymarket.com", fetchMock });
+    const metrics = container.querySelector(".cs-company-facts");
+
+    expect(metrics?.querySelectorAll("div")).toHaveLength(3);
+    expect(metrics?.textContent).toContain("Employees");
+    expect(metrics?.textContent).toContain("209");
+    expect(metrics?.textContent).toContain("Funding");
+    expect(metrics?.textContent).toContain("$600M");
+    expect(metrics?.textContent).toContain("reported");
+    expect(metrics?.textContent).toContain("HQ");
+    expect(metrics?.textContent).toContain("New York, United States");
     await unmount();
   });
 
@@ -573,35 +632,37 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("does not offer analysis on a no-source partial profile", async () => {
+  it("auto-regenerates a no-source partial profile instead of presenting it as saved", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "cartesia", status: "queued", mode: "basics" }, { status: 202 });
       }
 
-      if (String(url).includes("/api/generate?")) {
-        return jsonResponse({ slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" });
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain: "cartesia.ai",
+          slug: "cartesia",
+          card: noSourcePartialCard("cartesia.ai"),
+          runs: {
+            basics: { slug: "cartesia", domain: "cartesia.ai", mode: "basics", status: "idle" },
+            analysis: { slug: "cartesia", domain: "cartesia.ai", mode: "analysis", status: "idle" }
+          }
+        });
       }
 
-      return jsonResponse(noSourcePartialCard("cartesia.ai"));
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "cartesia", domain: "cartesia.ai", status: generateCalls(fetchMock).length > 0 ? "complete" : "idle", mode: "basics" });
+      }
+
+      return jsonResponse(generateCalls(fetchMock).length > 0 ? cardForDomain("cartesia.ai") : noSourcePartialCard("cartesia.ai"));
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
-    expect(container.textContent).toContain("No cited profile yet");
-    expect(container.textContent).toContain("No cited source survived. Rebuild the public record.");
-    expect(container.textContent).not.toContain("Research");
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).toContain("cartesia.ai");
+    expect(container.textContent).not.toContain("No cited profile yet");
     expect(container.textContent).not.toContain("Not found");
     expect(interactiveControls(container).some((button) => button.textContent === legacyAnalysisLabel)).toBe(false);
-
-    const regenerateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Regenerate profile"
-    );
-    expect(regenerateButton).toBeTruthy();
-
-    await act(async () => {
-      regenerateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
@@ -610,7 +671,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("does not promote a cited domain-placeholder shell into the dossier", async () => {
+  it("auto-regenerates a cited domain-placeholder shell instead of promoting it into the dossier", async () => {
     const domain = "databricks.com";
     const shell: ColdStartCard = {
       ...cardForDomain(domain),
@@ -650,12 +711,34 @@ describe("SidePanel generation gate", () => {
         },
       ],
     };
-    const fetchMock = vi.fn(async () => jsonResponse(shell));
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "databricks", status: "queued", mode: "basics" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "databricks",
+          card: shell,
+          runs: {
+            basics: { slug: "databricks", domain, mode: "basics", status: "idle" },
+            analysis: { slug: "databricks", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "databricks", domain, status: generateCalls(fetchMock).length > 0 ? "complete" : "idle", mode: "basics" });
+      }
+
+      return jsonResponse(generateCalls(fetchMock).length > 0 ? cardForDomain(domain) : shell);
+    });
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Profile saved with gaps");
-    expect(container.textContent).toContain("A few cited facts landed");
-    expect(container.textContent).not.toContain("Research");
+    expect(generateCalls(fetchMock)).toHaveLength(1);
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).not.toContain("Profile saved with gaps");
     expect(container.textContent).not.toContain("Latest round");
     expect(container.textContent).not.toContain("Not found");
     await unmount();

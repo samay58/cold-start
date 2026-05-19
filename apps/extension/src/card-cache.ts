@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_VERSION, type ColdStartCard } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_VERSION, hasUsablePublicProfile, type ColdStartCard } from "@cold-start/core";
 import type { Settings } from "./extension-config";
 
 const CARD_CACHE_PREFIX = "coldStartCard:";
@@ -31,6 +31,11 @@ export function readCachedCard(domain: string, settings: Settings): Promise<Cold
         return;
       }
 
+      if (!hasUsablePublicProfile(cached.card)) {
+        chrome.storage.session.remove(key, () => resolve(null));
+        return;
+      }
+
       resolve(cached.card);
     });
   });
@@ -38,6 +43,12 @@ export function readCachedCard(domain: string, settings: Settings): Promise<Cold
 
 export function writeCachedCard(domain: string, settings: Settings, card: ColdStartCard): Promise<void> {
   const key = cardCacheKey(domain, settings);
+  if (!hasUsablePublicProfile(card)) {
+    return new Promise((resolve) => {
+      chrome.storage.session.remove(key, resolve);
+    });
+  }
+
   const cached: CachedCard = {
     apiOrigin: settings.apiOrigin,
     card,

@@ -62,4 +62,31 @@ describe("buildEvidenceLedger", () => {
     expect(ledger[0]?.url).toBe("https://example.substack.com/p/twelvelabs-technical-deep-dive");
     expect(ledger[1]?.url).toBe("https://www.businesswire.com/news/home/20250605/twelvelabs-series-b");
   });
+
+  it("does not let the company homepage outrank independent profile evidence", () => {
+    const ledger = buildEvidenceLedger({
+      domain: "hanoverpark.com",
+      sources: [
+        {
+          url: "https://hanoverpark.com",
+          title: "Hanover Park",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Hanover Park offers comprehensive fund administration tools and support.",
+        },
+        {
+          url: "https://www.finextra.com/pressarticle/hanover-park-profile",
+          title: "Hanover Park raises Series A",
+          sourceType: "news",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Hanover Park sells fund administration software to private equity and venture capital firms.",
+        },
+      ],
+    });
+
+    expect(ledger[0]?.url).toBe("https://www.finextra.com/pressarticle/hanover-park-profile");
+    expect(ledger[1]?.url).toBe("https://hanoverpark.com");
+  });
 });

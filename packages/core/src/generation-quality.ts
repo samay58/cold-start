@@ -21,6 +21,7 @@ export type GenerationQualityFlagCode =
   | "missing_headcount"
   | "missing_comparables"
   | "empty_research_layer"
+  | "bloated_overview"
   | "underfilled_public_profile";
 
 export type GenerationQualityFlag = {
@@ -61,6 +62,20 @@ function hasResearchLayerContent(card: ColdStartCard) {
       card.comparables.length > 0 ||
       card.synthesis
   );
+}
+
+function sentenceCount(value: string) {
+  return (value.match(/[.!?](?:\s|$)/g) ?? []).length || 1;
+}
+
+function hasBloatedOverview(card: ColdStartCard) {
+  const description = card.identity.description?.value;
+  const overview = description?.shortDescription ?? card.identity.oneLiner.value;
+  if (!overview) {
+    return false;
+  }
+
+  return overview.length > 260 || sentenceCount(overview) > 2;
 }
 
 export function generationQualityFlags(input: GenerationQualityInput): GenerationQualityFlag[] {
@@ -204,6 +219,14 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
         code: "empty_research_layer",
         severity: "warn",
         message: "API card has no research-layer content"
+      });
+    }
+
+    if (status === "complete" && hasBloatedOverview(input.card)) {
+      add(flags, {
+        code: "bloated_overview",
+        severity: "warn",
+        message: "API card overview reads like a long product-page paragraph"
       });
     }
 

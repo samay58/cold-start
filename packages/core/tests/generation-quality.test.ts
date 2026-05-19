@@ -148,6 +148,24 @@ describe("generationQualityFlags", () => {
     );
   });
 
+  it("flags overview copy that bloats into product-page prose", () => {
+    const bloated = card();
+    bloated.identity.description = {
+      ...bloated.identity.description!,
+      value: {
+        shortDescription:
+          "Cartesia builds real-time voice AI infrastructure for developers. The platform includes multiple model families, APIs, deployment workflows, collaboration features, observability, and support tooling for teams across industries. It is designed to enhance every part of the voice application lifecycle.",
+        concept: "Voice AI infrastructure.",
+        serves: "Developers and enterprises.",
+        mechanism: "APIs and models."
+      }
+    };
+
+    expect(generationQualityFlags({ status: "complete", mode: "basics", traceJson: baseTrace(), card: bloated }).map((flag) => flag.code)).toContain(
+      "bloated_overview"
+    );
+  });
+
   it("flags long steps", () => {
     const trace = baseTrace();
     trace.steps = {

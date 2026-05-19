@@ -1,7 +1,7 @@
 import { buildSkeletonCard } from "@cold-start/pipeline";
 import { describe, expect, it } from "vitest";
 import { hasUsablePublicProfile } from "@cold-start/core";
-import { prepareCardForStorage, preserveExistingBasics } from "../src/inngest/functions";
+import { prepareCardForStorage, preserveExistingBasics, underfilledBasicsErrorMessage } from "../src/inngest/functions";
 
 describe("preserveExistingBasics", () => {
   it("keeps existing synthesis when a basics refresh rewrites public facts", () => {
@@ -42,7 +42,7 @@ describe("preserveExistingBasics", () => {
     expect(preserveExistingBasics(existing, next).synthesis).toEqual(next.synthesis);
   });
 
-  it("stores underfilled basics as a partial card instead of failing the run", () => {
+  it("rejects underfilled basics instead of storing a terminal partial card", () => {
     const generated = buildSkeletonCard("thinkwithmark.com");
     generated.identity.name = {
       value: "Think with Mark",
@@ -85,10 +85,12 @@ describe("preserveExistingBasics", () => {
     ];
 
     expect(hasUsablePublicProfile(generated)).toBe(false);
-    expect(prepareCardForStorage("basics", null, generated)).toMatchObject({
-      cacheStatus: "partial",
-      domain: "thinkwithmark.com",
-    });
+    expect(underfilledBasicsErrorMessage(generated)).toBe(
+      "generated basics underfilled public profile (4/4 structured facts, 3/2 visible facts, 1 citations; missing summary)"
+    );
+    expect(() => prepareCardForStorage("basics", null, generated)).toThrow(
+      "generated basics underfilled public profile (4/4 structured facts, 3/2 visible facts, 1 citations; missing summary)"
+    );
   });
 
   it("stores a usable basics profile as a hit", () => {

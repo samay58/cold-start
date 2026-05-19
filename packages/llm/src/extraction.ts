@@ -253,11 +253,13 @@ export const extractionSystemPrompt = [
   "You extract investor-grade public company facts from a structured evidence ledger and raw public sources.",
   "Drop unsupported claims. Every material fact must map to citation IDs. Use null for missing facts.",
   "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
-  "Description standard: identity.description.shortDescription should be one complete, crisp sentence that explains what the company actually does and who it serves. Do not truncate mid-thought to satisfy layout.",
-  "Use identity.description.concept for the non-obvious product idea, serves for buyer/user, and mechanism for how it works when sources support those details.",
+  "Description standard: identity.description.shortDescription must be one complete sentence, ideally 18 to 30 words, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
+  "Use identity.description.concept for the non-obvious product idea, serves for buyer/user, and mechanism for how it works when sources support those details. Keep each field to one sentence and one idea.",
   "Use identity.websiteUrl for the canonical public website when a provider or source returns it. Use identity.linkedinUrl only for the company LinkedIn page, never a person profile.",
-  "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be complete prose, not a hard character-limit fragment.",
+  "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be the same kind of short complete sentence, not a paragraph.",
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
+  "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, serves, or mechanism.",
+  "Ban brochure language: innovative, comprehensive, seamless, robust, advanced, trusted by, commitment to, designed to enhance, and with ease. Replace with the supported fact or omit the sentence.",
   "Treat source incentives as evidence: independent technical and independent analysis sources should shape qualitative framing more than press releases; company-authored sources are strongest for exact product mechanics, not evaluative claims.",
   "Prefer primary company pages for product mechanics, recent funding/news sources for round data, and independent analysis for market framing. Surface conflicts as mixed rather than averaging."
 ].join(" ");
@@ -756,7 +758,7 @@ export async function extractCompanyClaims(input: {
 
 const blockGuidance: Record<BlockEnrichmentId, string> = {
   description:
-    "Fill identity.description fields for the product idea, buyer or user, and mechanism. Prefer primary product pages and independent product analysis. Do not use category labels when concrete workflow language is available.",
+    "Fill identity.description fields for the product idea, buyer or user, and mechanism. shortDescription must be one crisp sentence, ideally 18 to 30 words, and must not become a feature list. Prefer primary product pages for mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
   funding:
     "Build the funding ledger before any totals. For each cited round, capture the round name, the exact USD amount whenever the source states one (do not round-number guess; record explicit figures verbatim), the announcedAt date, and the named leads in leadInvestors. For funding.investors, enumerate every named investor across every round (leads and participating both), deduped, with their domain when the source provides it. For totalRaisedUsd, fill it only when a cited source states the cumulative total explicitly or when every round in the ledger has a cited amount you can sum without overlap. Prefer recent reporting from Reuters, Bloomberg, TechCrunch, The Information, Crunchbase News, PitchBook, and Forbes; company press releases and investor posts are acceptable for exact announcement facts. Demote aggregator pages that lack a primary citation.",
   team:

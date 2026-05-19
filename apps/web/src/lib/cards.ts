@@ -1,13 +1,16 @@
+import { hasUsablePublicProfile, materializeFundingFromCitations } from "@cold-start/core";
 import { createDb, findCardBySlug, findPublicCardBySlug } from "@cold-start/db";
 
 import { webEnv } from "./env";
 
-export function getPublicCachedCard(slug: string) {
+export async function getPublicCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);
-  return findPublicCardBySlug(db, slug);
+  const card = await findPublicCardBySlug(db, slug);
+  return card && hasUsablePublicProfile(card) ? materializeFundingFromCitations(card) : null;
 }
 
-export function getFullCachedCard(slug: string) {
+export async function getFullCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);
-  return findCardBySlug(db, slug);
+  const card = await findCardBySlug(db, slug);
+  return card && hasUsablePublicProfile(card) ? materializeFundingFromCitations(card) : null;
 }

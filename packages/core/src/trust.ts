@@ -129,6 +129,7 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     funding: {
       totalRaisedUsd: sanitizeFact(card.funding.totalRaisedUsd, validIds, citations, { downgradeSingleSource: true }),
       lastRound: sanitizeFact(card.funding.lastRound, validIds, citations),
+      ...(card.funding.rounds ? { rounds: sanitizeFact(card.funding.rounds, validIds, citations) } : {}),
       investors: sanitizeFact(card.funding.investors, validIds, citations)
     },
     team: {

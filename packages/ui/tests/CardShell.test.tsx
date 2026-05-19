@@ -162,7 +162,7 @@ describe("CardShell", () => {
     expect(screen.getByText("Example News · launch")).toBeTruthy();
     expect(screen.getAllByText(/fetched May 6 2026/).length).toBeGreaterThan(0);
     expect(screen.getByText("2023")).toBeTruthy();
-    expect(screen.getByText("Kleiner Perkins")).toBeTruthy();
+    expect(screen.getAllByText("Kleiner Perkins").length).toBeGreaterThan(0);
     expect(screen.queryByLabelText("Investor lens")).toBeNull();
     expect(screen.queryByText(/Supported ·/i)).toBeNull();
     expectRemovedLanguageAbsent();

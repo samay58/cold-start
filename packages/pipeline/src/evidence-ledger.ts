@@ -97,17 +97,18 @@ function newestIso(existing: string | undefined, next: string) {
 function authorityScore(source: ProviderSource, domain: string) {
   const base: Record<ProviderSource["sourceType"], number> = {
     filing: 6,
-    company_site: 5,
+    company_site: 4,
     news: 4,
     github: 3,
     rdap: 2,
     enrichment: 1,
     other: 1,
   };
-  const hostBonus = sourceHostMatchesDomain(source.url, domain) ? 1 : 0;
-  const intentBonus = source.intent === "funding" || source.intent === "company_profile" ? 1 : 0;
+  const qualityRank = sourceQualityRank(source);
+  const hostBonus = source.sourceType !== "company_site" && sourceHostMatchesDomain(source.url, domain) ? 1 : 0;
+  const intentBonus = source.intent === "funding" || source.intent === "independent_analysis" ? 1 : 0;
 
-  return base[source.sourceType] + hostBonus + intentBonus + sourceQualityRank(source);
+  return base[source.sourceType] + hostBonus + intentBonus + qualityRank;
 }
 
 function sourceHostMatchesDomain(url: string, domain: string) {

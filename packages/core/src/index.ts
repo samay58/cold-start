@@ -1,6 +1,7 @@
 export * from "./api-contract";
 export * from "./card";
 export * from "./card-quality";
+export * from "./funding-evidence";
 export * from "./generation-quality";
 export * from "./generation-trace";
 export * from "./intelligence";

@@ -1,7 +1,8 @@
-import { canRunInvestorAnalysis, publicProfileQuality, type ColdStartCard, type PublicProfileQuality } from "@cold-start/core";
-import { AnimatePresence, motion, type PanInfo } from "framer-motion";
+import { canRunInvestorAnalysis, fundingEvidenceFromCitations, publicProfileQuality, type ColdStartCard, type PublicProfileQuality } from "@cold-start/core";
+import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform, type PanInfo } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { commitSpring, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -11,12 +12,13 @@ import {
 } from "./research-layer";
 import {
   dormantCardCanDrag,
+  dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
-import { formatElapsed } from "./extension-format";
+import { compactProfileSummary, formatElapsed } from "./extension-format";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -50,7 +52,8 @@ const PILE_POSES = [
   { x: 7, y: 102, rotate: 0.8 },
   { x: -3, y: 136, rotate: -0.65 },
   { x: 8, y: 170, rotate: 0.5 },
-  { x: 0, y: 204, rotate: -0.35 }
+  { x: 0, y: 204, rotate: -0.35 },
+  { x: 6, y: 238, rotate: 0.42 }
 ];
 
 type PilePose = {
@@ -220,9 +223,11 @@ function managementConfidence(card: ColdStartCard) {
 function profileFacts(card: ColdStartCard): Array<{ label: string; value: string; meta?: string | undefined }> {
   const hq = card.identity.hq.value;
   const headcount = card.team.headcount.value;
-  const lastRound = card.funding.lastRound.value;
+  const lastRoundFact = card.funding.lastRound;
+  const lastRound = lastRoundFact.value;
   const lastRoundAmount = formatOptionalCurrency(lastRound?.amountUsd);
   const totalRaised = formatOptionalCurrency(card.funding.totalRaisedUsd.value);
+  const citationFunding = fundingEvidenceFromCitations(card).find((item) => item.amountLabel);
   const facts: Array<{ label: string; value: string; meta?: string | undefined }> = [];
 
   const employees = formatOptionalNumber(headcount?.value);
@@ -234,7 +239,13 @@ function profileFacts(card: ColdStartCard): Array<{ label: string; value: string
     });
   }
 
-  if (lastRound?.name) {
+  if (lastRound?.name === "Reported financing" && lastRoundAmount && lastRoundFact.status === "inferred") {
+    facts.push({
+      label: "Funding",
+      value: lastRoundAmount,
+      meta: "reported"
+    });
+  } else if (lastRound?.name) {
     facts.push({
       label: "Round",
       value: lastRound.name,
@@ -242,6 +253,12 @@ function profileFacts(card: ColdStartCard): Array<{ label: string; value: string
     });
   } else if (totalRaised) {
     facts.push({ label: "Raised", value: totalRaised });
+  } else if (citationFunding?.amountLabel) {
+    facts.push({
+      label: "Funding",
+      value: citationFunding.amountLabel,
+      meta: citationFunding.status === "closed" ? "reported" : "reported target"
+    });
   }
 
   if (hq?.city || hq?.country) {
@@ -474,7 +491,7 @@ function SourceChips({ sources }: { sources: ResearchLayerDisplay["sources"] }) 
           key={source.id}
           rel="noreferrer"
           target="_blank"
-          title={source.title}
+          title={`${source.qualityLabel}: ${source.title}`}
         >
           {source.domain}
         </a>
@@ -494,6 +511,8 @@ function DormantPileCard({
   onDragStart,
   onKeyDown,
   pose,
+  previewing,
+  snapReady,
   prefersReducedMotion
 }: {
   dragging: boolean;
@@ -505,12 +524,15 @@ function DormantPileCard({
   onDragStart: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   pose: PilePose;
+  previewing: boolean;
+  snapReady: boolean;
   prefersReducedMotion: boolean | null;
 }) {
   const canDrag = dormantCardCanDrag();
+  const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const feedbackProps = !prefersReducedMotion
     ? {
-        whileHover: { scale: 1.008, y: -1 },
+        whileHover: { scale: dragging ? 1.018 : 1.012 },
         whileTap: { scale: 0.992 }
       }
     : {};
@@ -518,18 +540,26 @@ function DormantPileCard({
   return (
     <motion.div
       animate={dragging
-        ? { rotate: pose.rotate - 0.45, scale: 1.018, zIndex: 30 }
-        : { rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
+        ? {
+            x: pose.x,
+            y: pose.y - (snapReady ? 14 : previewing ? 8 : 4),
+            rotate: pose.rotate - (snapReady ? 0.9 : 0.45),
+            scale: snapReady ? 1.028 : 1.018,
+            zIndex: 30
+          }
+        : { x: pose.x, y: pose.y, rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
       aria-label={`Pin ${layer.title}`}
       className="cs-dormant-card"
       data-dragging={dragging ? "true" : "false"}
       data-index={index}
+      data-previewing={previewing ? "true" : "false"}
+      data-snap-ready={snapReady ? "true" : "false"}
       drag={canDrag ? "y" : false}
       dragConstraints={{ bottom: 0, top: -220 }}
       dragElastic={0.035}
       dragMomentum={false}
-      dragTransition={{ bounceDamping: 32, bounceStiffness: 560 }}
-      exit={{ opacity: 0, scale: 0.97, y: -10 }}
+      dragTransition={{ bounceDamping: 38, bounceStiffness: 720, power: 0.12, timeConstant: 140 }}
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.975, y: pose.y - 28 }}
       layoutId={`research-layer-${layer.id}`}
       onClick={onClick}
       onDrag={(_event, info) => onDrag(info)}
@@ -538,12 +568,12 @@ function DormantPileCard({
       onKeyDown={onKeyDown}
       role="button"
       style={{
-        left: 8 + pose.x,
-        right: 8 - pose.x,
-        top: pose.y
+        left: 8,
+        right: 8,
+        top: 0
       }}
       tabIndex={0}
-      transition={{ type: "spring", stiffness: 620, damping: 42, mass: 0.62 }}
+      transition={motionTransition}
       {...feedbackProps}
     >
       <span className="cs-card-grip" aria-hidden="true">⋮</span>
@@ -589,9 +619,19 @@ export function ResearchLayerPanel({
   });
   const [draggingLayerId, setDraggingLayerId] = useState<ResearchLayerId | null>(null);
   const [snapPreviewId, setSnapPreviewId] = useState<ResearchLayerId | null>(null);
+  const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapPreviewLayerId = useRef<ResearchLayerId | null>(null);
+  const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
+  const trayPullRaw = useMotionValue(0);
+  const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? { stiffness: 1000, damping: 100, mass: 0.1 } : snapSpring);
+  const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.975, 0.946]);
+  const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.988, 0.972]);
+  const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -7]);
+  const dropZoneOpacity = useTransform(trayPull, [0, 24, 74], [0.22, 0.58, 1]);
+  const dropZoneScale = useTransform(trayPull, [0, 70, 150], [0.982, 1, 1.018]);
+  const dropZoneY = useTransform(trayPull, [0, 70, 150], [5, 0, -2]);
 
   function activateLayer(id: ResearchLayerId) {
     const layer = layers.find((candidate) => candidate.id === id);
@@ -633,20 +673,30 @@ export function ResearchLayerPanel({
 
   function handleDormantDragStart(id: ResearchLayerId) {
     setDraggingLayerId(id);
+    trayPullRaw.set(0);
   }
 
   function handleDormantDrag(id: ResearchLayerId, info: PanInfo) {
     const nextPreviewId = dragOffsetShouldPreview(info.offset.y) ? id : null;
+    const nextReadyId = dragOffsetShouldSnap(info.offset.y, info.velocity.y) ? id : null;
+    const pull = Math.max(0, -dampenDragOffset(info.offset.y));
+
+    trayPullRaw.set(prefersReducedMotion ? 0 : pull);
     snapPreviewLayerId.current = nextPreviewId;
+    snapReadyLayerId.current = nextReadyId;
     setSnapPreviewId(nextPreviewId);
+    setSnapReadyId(nextReadyId);
   }
 
   function handleDormantDragEnd(id: ResearchLayerId, info: PanInfo) {
-    const shouldSnap = snapPreviewLayerId.current === id || dragOffsetShouldSnap(info.offset.y, info.velocity.y);
+    const shouldSnap = snapReadyLayerId.current === id || dragOffsetShouldSnap(info.offset.y, info.velocity.y);
 
     setDraggingLayerId(null);
     setSnapPreviewId(null);
+    setSnapReadyId(null);
     snapPreviewLayerId.current = null;
+    snapReadyLayerId.current = null;
+    trayPullRaw.set(0);
 
     if (dragOffsetShouldSuppressClick(info.offset)) {
       suppressClickFor.current = id;
@@ -667,12 +717,18 @@ export function ResearchLayerPanel({
   const managerSources = managementSourceCount(card);
   const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
+  const dropZoneCopy = snapReadyId ? "Release to pin" : snapPreviewId ? "Lift to commit" : "Pin card";
+  const summary = compactProfileSummary(
+    card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
+    card.domain
+  );
 
   if (!canStartInvestorLens) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
   return (
+    <LayoutGroup id="cold-start-research-layer">
     <main className="cs-research-shell">
       <section className="cs-company-context" aria-label="Company context">
         <div className="cs-company-context-main">
@@ -687,7 +743,7 @@ export function ResearchLayerPanel({
             <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
               {websiteLabel(card)}
             </a>
-            <p>{card.identity.oneLiner.value ?? card.domain}</p>
+            <p className="cs-company-summary">{summary}</p>
           </div>
         </div>
         <FactRibbon facts={facts} />
@@ -707,6 +763,7 @@ export function ResearchLayerPanel({
         </div>
 
         <div className="cs-active-enrichments">
+          <AnimatePresence initial={false}>
           {activeLayerIds.map((id) => {
             const display = layerDisplayForCard(card, id);
             if (!display) {
@@ -732,7 +789,19 @@ export function ResearchLayerPanel({
               : "Extracting structure from cited sources";
 
             return (
-              <article className="cs-active-enrichment" data-expanded={expanded ? "true" : "false"} data-layer-id={id} data-state={state} key={id}>
+              <motion.article
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className="cs-active-enrichment"
+                data-expanded={expanded ? "true" : "false"}
+                data-layer-id={id}
+                data-state={state}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: -8 }}
+                initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.72, scale: 0.985, y: 10 }}
+                key={id}
+                layout
+                layoutId={`research-layer-${id}`}
+                transition={prefersReducedMotion ? { duration: 0 } : commitSpring}
+              >
                 <button className="cs-active-enrichment-head" onClick={() => toggleExpanded(id)} type="button">
                   <span className="cs-active-dot" aria-hidden="true" />
                   <span>
@@ -757,9 +826,10 @@ export function ResearchLayerPanel({
                     <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />
                   </div>
                 </div>
-              </article>
+              </motion.article>
             );
           })}
+          </AnimatePresence>
         </div>
 
         {analysisNotice ? (
@@ -771,39 +841,55 @@ export function ResearchLayerPanel({
 
       </section>
 
-      <section
+      <motion.section
         className="cs-card-tray"
         aria-label="Dormant enrichment cards"
         data-drop-visible={draggingLayerId ? "true" : "false"}
         data-snap-preview={snapPreviewId ? "true" : "false"}
+        data-snap-ready={snapReadyId ? "true" : "false"}
       >
-        <div className="cs-drop-zone" aria-hidden={!draggingLayerId}>
-          {snapPreviewId ? "Release to pin" : "Pin card"}
-        </div>
-        <motion.div className="cs-card-pile" layout>
-          <AnimatePresence>
-            {dormantLayers.map((layer, index) => {
-              const pose = pilePose(index);
-              const dragging = draggingLayerId === layer.id;
-              return (
-                <DormantPileCard
-                  dragging={dragging}
-                  index={index}
-                  key={layer.id}
-                  layer={layer}
-                  onClick={() => handleDormantClick(layer.id)}
-                  onDrag={(info) => handleDormantDrag(layer.id, info)}
-                  onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
-                  onDragStart={() => handleDormantDragStart(layer.id)}
-                  onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
-                  pose={pose}
-                  prefersReducedMotion={prefersReducedMotion}
-                />
-              );
-            })}
-          </AnimatePresence>
+        <motion.div
+          className="cs-drop-zone"
+          aria-hidden={!draggingLayerId}
+          data-label={dropZoneCopy}
+          {...(!draggingLayerId || prefersReducedMotion ? {} : { style: { opacity: dropZoneOpacity, scale: dropZoneScale, y: dropZoneY } })}
+        >
+          {dropZoneCopy}
         </motion.div>
-      </section>
+        <motion.div
+          className="cs-card-pile-motion"
+          {...(prefersReducedMotion ? {} : { style: { scaleX: trayScaleX, scaleY: trayScaleY, y: trayLift } })}
+        >
+          <motion.div className="cs-card-pile" layout>
+            <AnimatePresence>
+              {dormantLayers.map((layer, index) => {
+                const pose = pilePose(index);
+                const dragging = draggingLayerId === layer.id;
+                const previewing = snapPreviewId === layer.id;
+                const snapReady = snapReadyId === layer.id;
+                return (
+                  <DormantPileCard
+                    dragging={dragging}
+                    index={index}
+                    key={layer.id}
+                    layer={layer}
+                    onClick={() => handleDormantClick(layer.id)}
+                    onDrag={(info) => handleDormantDrag(layer.id, info)}
+                    onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
+                    onDragStart={() => handleDormantDragStart(layer.id)}
+                    onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
+                    pose={pose}
+                    previewing={previewing}
+                    snapReady={snapReady}
+                    prefersReducedMotion={prefersReducedMotion}
+                  />
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+        </motion.div>
+      </motion.section>
     </main>
+    </LayoutGroup>
   );
 }

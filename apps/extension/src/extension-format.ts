@@ -6,3 +6,30 @@ export function formatElapsed(seconds: number): string {
   const remainder = String(seconds % 60).padStart(2, "0");
   return `${minutes}:${remainder}`;
 }
+
+export function compactProfileSummary(value: string | null | undefined, fallback: string): string {
+  const normalized = (value ?? "").replace(/\s+/g, " ").trim();
+  const safeFallback = fallback.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return safeFallback;
+  }
+
+  const sentence = firstSentence(normalized);
+  return clampAtWord(sentence || normalized, 220) || safeFallback;
+}
+
+function firstSentence(value: string): string {
+  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
+  return (match?.[1] ?? value).trim();
+}
+
+function clampAtWord(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const sliced = value.slice(0, maxLength + 1);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const trimmed = (lastSpace > 80 ? sliced.slice(0, lastSpace) : value.slice(0, maxLength)).trim();
+  return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
+}

@@ -1173,6 +1173,13 @@ button {
   line-height: 1.42;
 }
 
+.cs-company-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .cs-company-facts {
   position: relative;
   z-index: 1;
@@ -2578,10 +2585,6 @@ button {
   letter-spacing: 0.12em;
 }
 
-.cs-live-progress-track {
-  margin: 14px 22px 20px;
-}
-
 .cs-run-steps {
   padding: 0 22px 20px;
 }
@@ -3134,7 +3137,7 @@ body {
 }
 
 .cs-company-context h1 {
-  font-size: clamp(29px, 6.5vw, 36px);
+  font-size: clamp(28px, 6.1vw, 34px);
   line-height: 0.98;
 }
 
@@ -3145,11 +3148,11 @@ body {
 }
 
 .cs-company-context-main p:not(.cs-research-label) {
-  max-width: 39rem;
+  max-width: 34rem;
   margin-top: 10px;
   color: rgb(8 25 44 / 0.68);
-  font-size: 13px;
-  line-height: 1.46;
+  font-size: 12.75px;
+  line-height: 1.42;
 }
 
 .cs-company-facts {
@@ -3251,8 +3254,8 @@ body {
 }
 
 .cs-active-enrichment strong {
-  font-size: 18px;
-  line-height: 1.06;
+  font-size: 16px;
+  line-height: 1.08;
 }
 
 .cs-active-enrichment small {
@@ -3268,16 +3271,34 @@ body {
 }
 
 .cs-layer-running-copy span {
-  font-size: 15.5px;
-  line-height: 1.25;
+  font-family: var(--font-mona-sans);
+  font-size: 12.5px;
+  font-weight: 720;
+  line-height: 1.3;
 }
 
 .cs-layer-progress {
   height: 7px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgb(22 116 255 / 0.08), rgb(190 211 220 / 0.28), rgb(22 116 255 / 0.08));
+  background-size: 180% 100%;
+}
+
+.cs-layer-progress span {
+  width: 42%;
+  background:
+    linear-gradient(90deg, transparent, var(--color-lens-blue), rgb(95 180 255 / 0.86), transparent);
+  box-shadow: 0 7px 16px rgb(22 116 255 / 0.12);
+  transform: translateX(-62%);
 }
 
 .cs-layer-skeleton {
   height: 5px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgb(22 116 255 / 0.055), rgb(190 211 220 / 0.16), rgb(22 116 255 / 0.055));
+  background-size: 220% 100%;
 }
 
 .cs-active-enrichment-body p,
@@ -3295,7 +3316,7 @@ body {
 .cs-layer-items strong,
 .cs-layer-items-funding li:first-child strong {
   font-family: var(--font-mona-sans);
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 760;
   line-height: 1.22;
 }
@@ -3318,7 +3339,7 @@ body {
 }
 
 .cs-dormant-card strong {
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.05;
 }
 
@@ -3343,7 +3364,7 @@ body {
 
 @media (max-width: 430px) {
   .cs-company-context h1 {
-    font-size: 31px;
+    font-size: 29px;
   }
 
   .cs-company-context-main p:not(.cs-research-label) {
@@ -3355,6 +3376,450 @@ body {
   }
 
   .cs-active-enrichment strong {
-    font-size: 17px;
+    font-size: 15.5px;
+  }
+}
+
+/* Motion system pass: shared physical state, not isolated animation garnish. */
+.cs-motion-text {
+  display: inline-flex;
+  min-width: 0;
+  perspective: 480px;
+  transform-style: preserve-3d;
+  white-space: pre;
+}
+
+.cs-motion-text-char {
+  display: inline-block;
+  transform-origin: 50% 70%;
+  will-change: opacity, transform, filter;
+}
+
+.cs-generation-status .cs-motion-text {
+  justify-content: flex-start;
+}
+
+.cs-source-pass-instrument {
+  position: relative;
+  min-height: 252px;
+  overflow: hidden;
+  border-color: rgb(216 208 191 / 0.88);
+  background:
+    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(22 116 255 / 0.10), transparent 30%),
+    linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.86)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 18px 38px rgb(2 8 18 / 0.07),
+    0 1px 0 rgb(255 255 255 / 0.86) inset;
+}
+
+.cs-source-pass-instrument::before {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(22 116 255 / 0.035), transparent 42%, rgb(216 208 191 / 0.17)),
+    repeating-linear-gradient(0deg, transparent 0 23px, rgb(216 208 191 / 0.10) 23px 24px);
+  content: "";
+  opacity: calc(0.38 + (var(--cs-source-pass-tension, 0.4) * 0.2));
+  pointer-events: none;
+}
+
+.cs-source-pass-head {
+  position: relative;
+  z-index: 1;
+  padding: 15px 22px 12px;
+  border-bottom-color: rgb(216 208 191 / 0.60);
+}
+
+.cs-source-pass-head span:last-child {
+  color: var(--color-lens-blue);
+  font-size: 13px;
+  font-weight: 820;
+  letter-spacing: 0.14em;
+}
+
+.cs-source-pass-now {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 17px 22px 10px;
+}
+
+.cs-source-pass-current-marker {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgb(22 116 255 / 0.26);
+  border-radius: 999px;
+  background: rgb(22 116 255 / 0.065);
+  color: var(--color-lens-blue);
+  font-family: var(--font-mona-sans);
+  font-size: 11px;
+  font-weight: 840;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(22 116 255 / 0.06);
+}
+
+.cs-source-pass-now h2 {
+  margin: -2px 0 0;
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: clamp(28px, 8.4vw, 40px);
+  font-weight: 650;
+  line-height: 0.96;
+}
+
+.cs-source-pass-now p {
+  margin: 7px 0 0;
+  color: rgb(8 25 44 / 0.58);
+  font-family: var(--font-mona-sans);
+  font-size: 12px;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+
+.cs-source-pass-rail.cs-live-progress-track {
+  position: relative;
+  z-index: 1;
+  height: 35px;
+  margin: 5px 22px 13px;
+  overflow: visible;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  isolation: isolate;
+}
+
+.cs-source-pass-rail.cs-live-progress-track::before {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background:
+    linear-gradient(90deg, rgb(178 203 219 / 0.72), rgb(215 226 236 / 0.96), rgb(178 203 219 / 0.72));
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.82);
+  content: "";
+  transform: translateY(-50%);
+}
+
+.cs-source-pass-fill.cs-live-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  min-width: 0;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--color-lens-blue), rgb(95 180 255 / 0.95), var(--color-lens-blue)),
+    var(--color-lens-blue);
+  background-size: 190% 100%;
+  box-shadow:
+    0 0 0 1px rgb(22 116 255 / 0.10),
+    0 10px 20px rgb(22 116 255 / 0.16);
+  transform: translateY(-50%) scaleX(var(--cs-source-pass-scale, 0.08));
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.cs-source-pass-fill.cs-live-progress-fill::after {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  left: 0;
+  width: 82px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.82), rgb(95 180 255 / 0.34), transparent);
+  content: "";
+  transform: translateX(-94px);
+}
+
+.cs-source-pass-cursor.cs-live-progress-cursor {
+  position: absolute;
+  left: var(--cs-source-pass-left, 8%);
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid rgb(234 242 255 / 0.98);
+  border-radius: 999px;
+  background: var(--color-lens-blue);
+  box-shadow:
+    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(22 116 255 / 0.08),
+    0 9px 18px rgb(22 116 255 / 0.22);
+  transform: translate(-50%, -50%);
+  will-change: left, transform, box-shadow;
+}
+
+.cs-source-pass-cursor::after {
+  position: absolute;
+  inset: 4px;
+  border-radius: inherit;
+  background: rgb(255 255 255 / 0.76);
+  content: "";
+  opacity: 0.6;
+}
+
+.cs-source-pass-scan.cs-live-progress-scan {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 112px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.78), rgb(95 180 255 / 0.36), transparent);
+  filter: blur(0.25px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(var(--cs-source-pass-scan-start, -110px), -50%);
+}
+
+.cs-source-pass-steps.cs-run-steps {
+  position: relative;
+  z-index: 1;
+  padding: 0 22px 19px;
+}
+
+.cs-source-pass-steps.cs-run-steps li {
+  position: relative;
+  grid-template-columns: 48px minmax(0, 1fr) 18px;
+  min-height: 38px;
+  font-family: var(--font-mona-sans);
+  font-size: 13.5px;
+  font-weight: 720;
+}
+
+.cs-source-pass-steps li::after {
+  position: absolute;
+  inset: 5px -6px;
+  z-index: -1;
+  border-radius: 7px;
+  background: linear-gradient(90deg, rgb(22 116 255 / 0.075), transparent 74%);
+  content: "";
+  opacity: 0;
+  transform: scaleX(0.96);
+  transform-origin: left center;
+}
+
+.cs-source-pass-steps li > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+}
+
+.cs-source-pass-steps li[data-active="true"] {
+  color: var(--color-observatory-navy);
+}
+
+.cs-source-pass-steps li[data-active="true"] .cs-run-step-index {
+  color: var(--color-lens-blue);
+}
+
+.cs-source-pass-steps li[data-active="true"] i {
+  width: 9px;
+  height: 9px;
+  background: var(--color-lens-blue);
+  box-shadow:
+    0 0 0 7px rgb(22 116 255 / 0.10),
+    0 7px 14px rgb(22 116 255 / 0.18);
+}
+
+.cs-source-pass-steps small {
+  color: rgb(8 25 44 / 0.48);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.cs-card-pile-motion {
+  position: relative;
+  z-index: 1;
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+.cs-card-tray[data-drop-visible="true"] .cs-card-pile {
+  filter: saturate(1.02);
+}
+
+.cs-card-tray[data-drop-visible="true"] .cs-card-pile::before {
+  opacity: 1;
+}
+
+.cs-card-tray[data-snap-preview="true"] .cs-drop-zone {
+  border-color: rgb(22 116 255 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(237 247 255 / 0.74)),
+    rgb(22 116 255 / 0.055);
+  color: rgb(8 25 44 / 0.68);
+}
+
+.cs-card-tray[data-drop-visible="true"] .cs-drop-zone::after {
+  position: absolute;
+  right: 10px;
+  top: -21px;
+  border: 1px solid rgb(22 116 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 0.92);
+  color: var(--color-lens-blue);
+  content: attr(data-label);
+  font-family: var(--font-mona-sans);
+  font-size: 9px;
+  font-weight: 820;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 5px 8px;
+  text-transform: uppercase;
+  box-shadow: 0 7px 16px rgb(2 8 18 / 0.06);
+}
+
+.cs-card-tray[data-snap-ready="true"] .cs-drop-zone {
+  border-color: rgb(22 116 255 / 0.66);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(230 243 255 / 0.88)),
+    rgb(22 116 255 / 0.10);
+  color: var(--color-lens-blue);
+  box-shadow:
+    0 0 0 4px rgb(22 116 255 / 0.055),
+    0 10px 22px rgb(22 116 255 / 0.11);
+}
+
+.cs-dormant-card[data-previewing="true"] {
+  border-color: rgb(22 116 255 / 0.30);
+  box-shadow:
+    0 15px 28px rgb(2 8 18 / 0.12),
+    0 0 0 1px rgb(22 116 255 / 0.08),
+    0 1px 0 rgb(255 255 255 / 0.92) inset;
+}
+
+.cs-dormant-card[data-snap-ready="true"] {
+  border-color: rgb(22 116 255 / 0.52);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.99), rgb(239 248 255 / 0.96)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 19px 34px rgb(2 8 18 / 0.14),
+    0 0 0 2px rgb(22 116 255 / 0.08),
+    0 1px 0 rgb(255 255 255 / 0.94) inset;
+}
+
+.cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
+  border-radius: 7px;
+  background:
+    linear-gradient(90deg, rgb(22 116 255 / 0.055), transparent 64%),
+    rgb(255 253 248 / 0.44);
+  padding: 9px 10px 10px;
+}
+
+.cs-active-enrichment[data-state="running"] .cs-layer-progress {
+  width: 100%;
+  height: 6px;
+}
+
+@keyframes cs-source-pass-scan-run {
+  0% {
+    opacity: 0;
+    transform: translate(var(--cs-source-pass-scan-start, -110px), -50%);
+  }
+
+  18% {
+    opacity: calc(0.42 + (var(--cs-source-pass-tension, 0.4) * 0.28));
+  }
+
+  76% {
+    opacity: 0.30;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(460px, -50%);
+  }
+}
+
+@keyframes cs-layer-progress-run {
+  0% {
+    opacity: 0;
+    transform: translateX(-62%);
+  }
+
+  20% {
+    opacity: 0.88;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(250%);
+  }
+}
+
+@keyframes cs-layer-skeleton-run {
+  0% {
+    background-position: 140% 0;
+  }
+
+  100% {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-source-pass-fill.cs-live-progress-fill {
+    animation: cs-progress-line-shimmer 1.55s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-source-pass-fill.cs-live-progress-fill::after {
+    animation: cs-progress-sheen 1.9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-source-pass-scan.cs-live-progress-scan {
+    animation: cs-source-pass-scan-run 1.72s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-active-enrichment[data-state="running"] .cs-active-dot {
+    animation: cs-progress-cursor-breathe 1.35s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-active-enrichment[data-state="running"] .cs-layer-progress span {
+    animation: cs-layer-progress-run 1.42s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-active-enrichment[data-state="running"] .cs-layer-skeleton {
+    animation: cs-layer-skeleton-run 1.9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+
+  .cs-source-pass-current-marker,
+  .cs-source-pass-cursor.cs-live-progress-cursor,
+  .cs-card-pile-motion,
+  .cs-dormant-card {
+    transition:
+      background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-motion-text {
+    display: inline;
+  }
+
+  .cs-source-pass-scan.cs-live-progress-scan {
+    display: none;
+  }
+
+  .cs-source-pass-fill.cs-live-progress-fill,
+  .cs-source-pass-cursor.cs-live-progress-cursor,
+  .cs-active-enrichment[data-state="running"] .cs-active-dot,
+  .cs-active-enrichment[data-state="running"] .cs-layer-progress span,
+  .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
+  .cs-card-pile-motion,
+  .cs-dormant-card {
+    animation: none;
+    transition: none;
   }
 }

@@ -164,6 +164,7 @@ For inactive enrichment categories, show a refined pile of physical research car
 ## Guardrails
 
 - `DESIGN.md` is the current visual source of truth.
+- `docs/motion-reference-2026-05-19.md` is the current interaction-motion reference. Use it when polishing gestures, progress, loading, staged text, and snap behavior.
 - `SPEC.md` is the product and technical source of truth.
 - Archived brand or Paper direction files are historical references only.
 - If a design prompt asks for "Cold Start style," default to this file, not older mockups.

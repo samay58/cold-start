@@ -1,6 +1,6 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { hasUsablePublicProfile, publicProfileQuality, type ColdStartCard } from "@cold-start/core";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ApiError,
@@ -27,6 +27,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import type { ResearchLayerId } from "./research-layer";
+import type { SourcePassStage } from "./SourcePassInstrument";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
@@ -34,6 +35,9 @@ const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
 const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 const ResearchLayerPanel = lazy(() =>
   import("./ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
+);
+const SourcePassInstrument = lazy(() =>
+  import("./SourcePassInstrument").then((module) => ({ default: module.SourcePassInstrument }))
 );
 
 type RequestState =
@@ -212,6 +216,29 @@ function useElapsedMilliseconds(active: boolean, startedAt: number | undefined, 
   }, [active, startedAt, tickMs]);
 
   return startedAt ? Math.max(0, now - startedAt) : 0;
+}
+
+function underfilledBasicsMessage(card: ColdStartCard) {
+  const quality = publicProfileQuality(card);
+  const gaps = [
+    !quality.hasCitations ? "citations" : null,
+    !quality.hasName ? "name" : null,
+    !quality.hasSummary ? "summary" : null,
+    quality.structuredFactCount < quality.minimumStructuredFactCount ? "structured facts" : null,
+    quality.visibleFactCount < quality.minimumVisibleFactCount ? "visible facts" : null
+  ].filter(Boolean);
+  return [
+    "generated basics underfilled public profile",
+    `(${quality.structuredFactCount}/${quality.minimumStructuredFactCount} structured facts,`,
+    `${quality.visibleFactCount}/${quality.minimumVisibleFactCount} visible facts,`,
+    `${card.citations.length} citations${gaps.length > 0 ? `; missing ${gaps.join(", ")}` : ""})`
+  ].join(" ");
+}
+
+function assertUsableBasicsCard(mode: GenerationStatus["mode"], card: ColdStartCard) {
+  if (mode === "basics" && !hasUsablePublicProfile(card)) {
+    throw new ApiError(underfilledBasicsMessage(card), 500);
+  }
 }
 
 async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
@@ -428,7 +455,7 @@ async function pollGenerationUntilCard(
       if (isActiveRun(runStatus.status)) {
         onGenerationStatus(runStatus.status);
         const card = await fetchAvailableCard();
-        if (card) {
+        if (card && hasUsablePublicProfile(card)) {
           currentCard = card;
           onInterimCard?.(card);
         }
@@ -437,7 +464,7 @@ async function pollGenerationUntilCard(
 
       if (runStatus.status === "failed") {
         const card = await fetchAvailableCard();
-        if (card) {
+        if (card && hasUsablePublicProfile(card)) {
           return { card };
         }
 
@@ -445,7 +472,9 @@ async function pollGenerationUntilCard(
       }
 
       if (runStatus.status === "complete") {
-        return { card: await fetchCard(domain, settings, signal) };
+        const card = await fetchCard(domain, settings, signal);
+        assertUsableBasicsCard(mode, card);
+        return { card };
       }
 
       continue;
@@ -454,11 +483,17 @@ async function pollGenerationUntilCard(
     try {
       const card = await fetchCard(domain, settings, signal);
 
-      if (mode === "basics" || card.synthesis) {
+      if (mode === "basics") {
+        if (hasUsablePublicProfile(card)) {
+          return { card };
+        }
+      } else if (card.synthesis) {
         return { card };
       }
 
-      currentCard = card;
+      if (mode !== "basics") {
+        currentCard = card;
+      }
     } catch (caught) {
       if (!isMissingCard(caught)) {
         throw caught;
@@ -487,11 +522,15 @@ async function pollGenerationUntilCard(
       }
 
       const card = await fetchAvailableCard();
-      if (card && mode === "basics") {
+      if (card && mode === "basics" && hasUsablePublicProfile(card)) {
         return { card };
       }
 
       throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
+    } else if (mode === "basics" && runStatus.status === "complete") {
+      const card = await fetchCard(domain, settings, signal);
+      assertUsableBasicsCard(mode, card);
+      return { card };
     } else if (mode === "analysis" && runStatus.status === "complete" && currentCard) {
       return {
         card: currentCard,
@@ -516,7 +555,9 @@ async function startGenerationAndPoll(
   onGenerationStatus(generation.status);
 
   if (generation.status === "cached") {
-    return { card: await fetchCard(domain, settings, signal) };
+    const card = await fetchCard(domain, settings, signal);
+    assertUsableBasicsCard(mode, card);
+    return { card };
   }
 
   return pollGenerationUntilCard(
@@ -635,7 +676,7 @@ function GenerationPanel({
   const companyName = readableCompanyNameFromDomain(domain);
   const elapsedMs = useElapsedMilliseconds(true, requestState.startedAt, 120);
   const elapsed = Math.floor(elapsedMs / 1000);
-  const stages = [
+  const stages: SourcePassStage[] = [
     { label: "Sources", marker: "01", note: "Finding sources" },
     { label: "Pages", marker: "02", note: "Reading pages" },
     { label: "Facts", marker: "03", note: "Shaping facts" },
@@ -655,7 +696,6 @@ function GenerationPanel({
     ? "Worker queued"
     : activeStage?.note ?? "Working from cited sources";
   const progressPercent = Math.min(97, Math.max(8, (clampedStageProgress / stages.length) * 100));
-  const progressStyle = { "--cs-progress": `${progressPercent}%` } as CSSProperties;
   return (
     <ExtensionFrame
       className="cs-generation-panel"
@@ -678,43 +718,14 @@ function GenerationPanel({
         </div>
       </header>
 
-      <div className="cs-live-card cs-live-card-refined" aria-live="polite">
-        <div className="cs-live-field">
-          <div className="cs-live-field-head">
-            <span>Source pass</span>
-            <span>{activeStage?.marker} / 04</span>
-          </div>
-
-          <div
-            aria-label={`${activeStage?.label ?? "Building"} progress`}
-            className="cs-live-progress-track"
-            role="progressbar"
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={Math.round(progressPercent)}
-            style={progressStyle}
-          >
-            <span className="cs-live-progress-fill" style={{ width: `${progressPercent}%` }} />
-            <span className="cs-live-progress-cursor" style={{ left: `${progressPercent}%` }} />
-          </div>
-
-          <ol className="cs-run-steps" aria-label="Source pass stages">
-            {stages.map((stage, index) => (
-              <li
-                aria-current={index === activeIndex ? "step" : undefined}
-                data-active={index === activeIndex}
-                data-complete={index < activeIndex}
-                key={stage.marker}
-              >
-                <span className="cs-run-step-index">{stage.marker}</span>
-                <span>{stage.label}</span>
-                <i aria-hidden="true" />
-              </li>
-            ))}
-          </ol>
-          <p className="sr-only">{activeStage?.label}. {stageNote}</p>
-        </div>
-      </div>
+      <Suspense fallback={<div className="cs-live-card cs-live-card-refined" aria-hidden="true" />}>
+        <SourcePassInstrument
+          activeIndex={activeIndex}
+          progressPercent={progressPercent}
+          stageNote={stageNote}
+          stages={stages}
+        />
+      </Suspense>
     </ExtensionFrame>
   );
 }
@@ -1272,6 +1283,11 @@ export function SidePanel() {
         const card = bootstrap.card;
 
         if (card) {
+          if (!hasUsablePublicProfile(card)) {
+            runGenerationWithController(controller, domain, settings, "basics", true);
+            return;
+          }
+
           const analysisStatus = bootstrap.runs.analysis;
           if (isActiveRun(analysisStatus.status) && !card.synthesis) {
             resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card);

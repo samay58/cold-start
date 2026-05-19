@@ -1,11 +1,13 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { fundingEvidenceFromCitations, type ColdStartCard } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
 import {
   dormantCardCanDrag,
+  dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
-  dragOffsetShouldSuppressClick
+  dragOffsetShouldSuppressClick,
+  projectVelocity
 } from "../src/research-layer-motion";
 
 const futureCardTitles = [
@@ -149,6 +151,47 @@ describe("research layer model", () => {
     expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
   });
 
+  it("orders displayed sources by source quality before chip truncation", () => {
+    const display = layerDisplayForCard(baseCard({
+      identity: {
+        ...baseCard().identity,
+        description: {
+          value: {
+            shortDescription: "Developer productivity platform for the AI era.",
+            concept: "AI-native terminal collaboration layer.",
+            serves: "Developers and engineering teams.",
+            mechanism: "Combines terminal execution with shared AI context."
+          },
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1", "c2"]
+        }
+      },
+      citations: [
+        {
+          id: "c1",
+          url: "https://warp.dev",
+          title: "Warp",
+          fetchedAt: "2026-05-11T12:00:00.000Z",
+          sourceType: "company_site"
+        },
+        {
+          id: "c2",
+          url: "https://example.substack.com/p/warp-terminal-deep-dive",
+          title: "Warp terminal technical deep dive",
+          fetchedAt: "2026-05-11T12:00:00.000Z",
+          sourceType: "news"
+        }
+      ]
+    }), "customers");
+
+    expect(display?.sources.map((source) => source.domain)).toEqual([
+      "example.substack.com",
+      "warp.dev"
+    ]);
+    expect(display?.sources[0]?.qualityLabel).toBe("Independent technical");
+  });
+
   it("does not fabricate source counts for cards without citations", () => {
     const display = layerDisplayForCard(baseCard({ citations: [] }), "serves");
     expect(display?.sourceCount).toBe(0);
@@ -226,9 +269,9 @@ describe("research layer model", () => {
     const display = layerDisplayForCard(card, "investors");
 
     expect(display?.status).toBe("populated");
-    expect(display?.body).toContain("raised");
+    expect(display?.body).toContain("disclosed");
     expect(display?.items?.map((item) => item.title)).toEqual([
-      "$91M raised across 2 rounds",
+      "$91M disclosed across 2 rounds",
       "Series B",
       "Seed"
     ]);
@@ -248,6 +291,49 @@ describe("research layer model", () => {
     });
 
     expect(layerDisplayForCard(card, "investors")?.status).toBe("empty");
+  });
+
+  it("falls back to cited funding reporting when structured funding fields are missing", () => {
+    const card = baseCard({
+      domain: "polymarket.com",
+      funding: {
+        totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+      },
+      citations: [
+        {
+          id: "e1",
+          url: "https://www.bloomberg.com/news/articles/2026-04-20/polymarket-in-talks-for-new-investment-at-15-billion-valuation",
+          title: "Polymarket Seeks $400 Million in New Funding at $15 Billion Valuation",
+          fetchedAt: "2026-05-19T12:00:00.000Z",
+          sourceType: "news",
+          snippet:
+            "Polymarket is seeking an additional $400 million in funding, after securing $600 million at a $15 billion valuation last month."
+        },
+        {
+          id: "e2",
+          url: "https://www.covers.com/industry/polymarket-seeks-fundraising-at-15b-valuation-april-21-2026",
+          title: "Polymarket Seeks Fundraising at $15B Valuation",
+          fetchedAt: "2026-05-19T12:00:00.000Z",
+          sourceType: "news",
+          snippet:
+            "ICE pledged $2B, completed with $600M injection in March 2026 at $9B valuation. Now seeking $400M at $15B."
+        }
+      ]
+    });
+
+    expect(fundingEvidenceFromCitations(card)[0]).toMatchObject({
+      amountLabel: "$600M",
+      status: "closed"
+    });
+
+    const display = layerDisplayForCard(card, "investors");
+
+    expect(display?.status).toBe("populated");
+    expect(display?.sourceCount).toBeGreaterThan(0);
+    expect(display?.items?.[0]?.title).toContain("$600M");
+    expect(display?.items?.[0]?.body).toContain("completed with $600M injection");
   });
 
   it("filters stale self-comparables before rendering competition", () => {
@@ -289,8 +375,13 @@ describe("research layer model", () => {
     expect(dragOffsetShouldSnap(-58)).toBe(true);
     expect(dragOffsetShouldSnap(-57)).toBe(false);
     expect(dragOffsetShouldSnap(-26, -500)).toBe(true);
+    expect(dragOffsetShouldSnap(-48, -120)).toBe(true);
+    expect(dragOffsetShouldSnap(-40, -40)).toBe(false);
     expect(dragOffsetShouldSuppressClick({ x: 0, y: -6 })).toBe(false);
     expect(dragOffsetShouldSuppressClick({ x: 6, y: 0 })).toBe(false);
     expect(dragOffsetShouldSuppressClick({ x: 0, y: -7 })).toBe(true);
+    expect(Math.round(projectVelocity(-120))).toBe(-60);
+    expect(dampenDragOffset(-180)).toBeLessThan(-130);
+    expect(dampenDragOffset(-180)).toBeGreaterThan(-150);
   });
 });

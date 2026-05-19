@@ -40,10 +40,11 @@ describe("background prefetch", () => {
           cacheStatus: "hit",
           identity: {
             name: { value: "Linear", status: "verified", confidence: "high", citationIds: ["c1"] },
+            websiteUrl: { value: "https://linear.app/", status: "verified", confidence: "high", citationIds: ["c1"] },
             logoUrl: null,
-            oneLiner: { value: "Issue tracker.", status: "verified", confidence: "high", citationIds: ["c1"] },
-            hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-            foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+            oneLiner: { value: "Linear builds issue tracking and product planning software for engineering teams.", status: "verified", confidence: "high", citationIds: ["c1"] },
+            hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
+            foundedYear: { value: 2019, status: "verified", confidence: "medium", citationIds: ["c1"] },
             status: "private"
           },
           funding: {
@@ -54,10 +55,10 @@ describe("background prefetch", () => {
           team: {
             founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
             keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-            headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+            headcount: { value: { value: 131, asOf: "2026-05-18" }, status: "inferred", confidence: "medium", citationIds: ["c1"] }
           },
           signals: [],
-          comparables: [],
+          comparables: [{ name: "Jira", domain: "atlassian.com", oneLiner: "Issue tracking and project management software." }],
           citations: [
             {
               id: "c1",

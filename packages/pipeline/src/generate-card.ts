@@ -2,6 +2,7 @@ import {
   type ColdStartCard,
   coldStartCardSchema,
   type GenerationTrace,
+  materializeFundingFromCitations,
   type ResolvedFact,
   sanitizeCardTrust,
   type SourcedText,
@@ -152,7 +153,7 @@ export function buildSkeletonCard(input: string): ColdStartCard {
 }
 
 export function finalizeGeneratedCard(card: ColdStartCard): ColdStartCard {
-  const trusted = stripUnsupportedSynthesis(sanitizeCardTrust(card));
+  const trusted = stripUnsupportedSynthesis(sanitizeCardTrust(materializeFundingFromCitations(card)));
   return {
     ...trusted,
     comparables: trusted.comparables.filter((comparable) => isUsableComparableForCompany(trusted, comparable)),

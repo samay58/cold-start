@@ -1,4 +1,4 @@
-import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
+import { canRunInvestorAnalysis, fundingEvidenceFromCitations, sourceQualityForSource, sourceQualityRank, type Citation, type ColdStartCard } from "@cold-start/core";
 import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-start/ui";
 
 export type ResearchLayerId =
@@ -49,6 +49,7 @@ export type ResearchLayerSourceReference = {
   domain: string;
   href: string;
   title: string;
+  qualityLabel: string;
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
@@ -99,7 +100,13 @@ function citationSources(card: ColdStartCard, citationIds: readonly string[] = [
   const seenCitationIds = new Set<string>();
   const seenSourceKeys = new Set<string>();
   const sources: ResearchLayerSourceReference[] = [];
-  for (const id of citationIds) {
+  const orderedIds = Array.from(new Set(citationIds)).sort((left, right) => {
+    const leftCitation = citations.get(left);
+    const rightCitation = citations.get(right);
+    return citationRank(rightCitation) - citationRank(leftCitation);
+  });
+
+  for (const id of orderedIds) {
     if (seenCitationIds.has(id)) {
       continue;
     }
@@ -121,11 +128,16 @@ function citationSources(card: ColdStartCard, citationIds: readonly string[] = [
       id: citation.id,
       domain: domainFromHref(href),
       href,
-      title: citation.title
+      title: citation.title,
+      qualityLabel: citation.sourceQuality?.label ?? sourceQualityForSource(citation).label
     });
   }
 
   return sources;
+}
+
+function citationRank(citation: Citation | undefined) {
+  return citation ? sourceQualityRank(citation) : -1;
 }
 
 function displaySourceCount(sources: ResearchLayerSourceReference[]) {
@@ -335,6 +347,25 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
     const hasFunding = rounds.length > 0 || investors.length > 0 || totalRaised !== null;
 
     if (!hasFunding) {
+      const citationEvidence = fundingEvidenceFromCitations(card);
+      if (citationEvidence.length > 0) {
+        const citationEvidenceIds = citationEvidence.flatMap((item) => item.citationIds);
+        const evidenceSources = citationSources(card, citationEvidenceIds);
+        return {
+          id,
+          title: layer.title,
+          body: citationEvidence[0]?.title ?? "Cited fundraising reporting",
+          items: citationEvidence.map((item) => ({
+            title: item.title,
+            body: item.body,
+            meta: item.meta
+          })),
+          sources: evidenceSources,
+          sourceCount: displaySourceCount(evidenceSources),
+          status: "populated",
+        };
+      }
+
       return {
         id,
         title: layer.title,
@@ -350,17 +381,17 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
       ...investors.map((investor) => investor.name),
     ]);
     const investorLine = investorNames.length > 0
-      ? `${investorNames.length} named ${investorNames.length === 1 ? "investor" : "investors"}: ${investorNames.slice(0, 8).join(", ")}${investorNames.length > 8 ? `, +${investorNames.length - 8} more` : ""}`
+      ? `Backers: ${investorNames.slice(0, 6).join(", ")}${investorNames.length > 6 ? `, +${investorNames.length - 6} more` : ""}`
       : null;
     const headline = totalRaised !== null && rounds.length > 0
-      ? `${formatCompactCurrency(totalRaised)} raised across ${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`
+      ? `${formatCompactCurrency(totalRaised)} disclosed across ${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`
       : [
-          totalRaised !== null ? `${formatCompactCurrency(totalRaised)} raised` : null,
+          totalRaised !== null ? `${formatCompactCurrency(totalRaised)} disclosed` : null,
           rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
         ].filter((part): part is string => Boolean(part)).join(" · ");
     const items = [
       ...(headline || investorLine
-        ? [{ title: headline || "Fundraising", ...(investorLine ? { body: investorLine } : {}) }]
+        ? [{ title: headline || "Funding read", ...(investorLine ? { body: investorLine } : {}) }]
         : []),
       ...rounds.map((round) => {
         const detail = [

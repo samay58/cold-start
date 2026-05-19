@@ -171,7 +171,9 @@ describe("extractionSystemPrompt", () => {
     expect(extractionSystemPrompt).toContain("Do not write generic category labels");
     expect(extractionSystemPrompt).toContain("mechanically reconciled");
     expect(extractionSystemPrompt).toContain("source incentives");
-    expect(extractionSystemPrompt).toContain("Do not truncate mid-thought");
+    expect(extractionSystemPrompt).toContain("18 to 30 words");
+    expect(extractionSystemPrompt).toContain("Never stuff feature lists into the overview");
+    expect(extractionSystemPrompt).toContain("Ban brochure language");
   });
 });
 
