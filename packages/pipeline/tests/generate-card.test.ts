@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildSeedProfileCard,
   buildSkeletonCard,
   type ExtractedCardSections,
   finalizeGeneratedCard,
@@ -25,6 +26,62 @@ describe("buildSkeletonCard", () => {
 
     expect(card.identity.oneLiner.citationIds).toEqual([]);
     expect(card.funding.totalRaisedUsd.citationIds).toEqual([]);
+  });
+});
+
+describe("buildSeedProfileCard", () => {
+  it("creates a cited provider-first card without LLM extraction", () => {
+    const seeded = buildSeedProfileCard({
+      domain: "cartesia.ai",
+      sources: [
+        {
+          url: "https://cartesia.ai",
+          title: "Cartesia",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          rawText: "Cartesia builds real-time multimodal intelligence for voice agents and interactive applications.",
+          intent: "homepage"
+        }
+      ],
+      providerFacts: [
+        {
+          path: "identity.name",
+          value: "Cartesia",
+          status: "inferred",
+          confidence: "high",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=cartesia.ai",
+          citationTitle: "Apollo org enrichment for cartesia.ai",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          rawText: "{}"
+        },
+        {
+          path: "identity.description",
+          value: {
+            shortDescription: "Cartesia builds real-time multimodal intelligence for voice agents.",
+            concept: null,
+            serves: null,
+            mechanism: null
+          },
+          status: "inferred",
+          confidence: "medium",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=cartesia.ai",
+          citationTitle: "Apollo org enrichment for cartesia.ai",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          rawText: "{}"
+        }
+      ]
+    });
+
+    expect(seeded.card.identity.name.value).toBe("Cartesia");
+    expect(seeded.card.identity.oneLiner.value).toBe("Cartesia builds real-time multimodal intelligence for voice agents.");
+    expect(seeded.card.citations.length).toBeGreaterThan(0);
+    expect(seeded.trace.providerFactAppliedCount).toBe(2);
   });
 });
 
@@ -606,7 +663,7 @@ describe("generateCardForDomain", () => {
     });
   });
 
-  it("does not rerun team block enrichment just because emails are missing", async () => {
+  it("merges contact facts when emails are missing but the team block is otherwise complete", async () => {
     const skeleton = buildSkeletonCard("zo.computer");
     const seenBlocks: string[] = [];
     const completeSections: ExtractedCardSections = {
@@ -713,6 +770,27 @@ describe("generateCardForDomain", () => {
     };
 
     const result = await generateCardForDomainWithTrace("zo.computer", {
+      providerFacts: [
+        {
+          path: "team.founders",
+          value: [
+            {
+              name: "Raymond Luo",
+              role: "Founder and CEO",
+              sourceUrl: "https://zo.computer/team",
+              email: "raymond@zo.computer",
+            },
+          ],
+          status: "verified",
+          confidence: "high",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "hunter_email_verifier",
+          citationUrl: "https://stable.example/hunter?domain=raymond@zo.computer",
+          citationTitle: "Hunter email verification for raymond@zo.computer",
+          fetchedAt: "2026-05-14T16:05:00.000Z",
+        },
+      ],
       fetchSources: async () => [
         {
           url: "https://zo.computer/team",
@@ -735,8 +813,8 @@ describe("generateCardForDomain", () => {
       name: "Raymond Luo",
       role: "Founder and CEO",
       sourceUrl: "https://zo.computer/team",
+      email: "raymond@zo.computer",
     });
-    expect(result.card.team.founders.value?.[0]?.email).toBeUndefined();
     expect(result.tracePatch.extraction?.blockEnrichment).toBeUndefined();
   });
 

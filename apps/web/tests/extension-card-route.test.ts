@@ -92,6 +92,11 @@ describe("GET /api/extension/cards/[slug]", () => {
   it("returns the full cached card including synthesis for allowed origins with a valid token", async () => {
     const fullCard = {
       slug: "cartesia",
+      team: {
+        founders: {
+          value: [{ name: "Karan Goel", role: "Co-Founder", sourceUrl: null, email: "karan@cartesia.ai" }]
+        }
+      },
       synthesis: {
         whyItMatters: { text: "Fast inference matters [c1].", citationIds: ["c1"] },
         bullCase: [],
@@ -104,6 +109,7 @@ describe("GET /api/extension/cards/[slug]", () => {
     const response = await GET(extensionRequest("chrome-extension://local-dev", "secret"), params());
 
     await expect(response.json()).resolves.toEqual(fullCard);
+    expect(JSON.stringify(fullCard)).toContain("karan@cartesia.ai");
     expect(response.status).toBe(200);
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");

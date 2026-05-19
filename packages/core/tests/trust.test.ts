@@ -56,6 +56,28 @@ describe("publicCard", () => {
   it("omits synthesis from the public tier", () => {
     expect(publicCard(baseCard)).not.toHaveProperty("synthesis");
   });
+
+  it("strips people emails from the public tier", () => {
+    const privateCard: ColdStartCard = {
+      ...baseCard,
+      team: {
+        ...baseCard.team,
+        founders: {
+          ...baseCard.team.founders,
+          value: [
+            {
+              name: "Karan Goel",
+              role: "Co-founder",
+              sourceUrl: "https://cartesia.ai",
+              email: "karan@cartesia.ai",
+            },
+          ],
+        },
+      },
+    };
+
+    expect(publicCard(privateCard).team.founders.value?.[0]).not.toHaveProperty("email");
+  });
 });
 
 describe("sanitizeCardTrust", () => {

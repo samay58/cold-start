@@ -136,6 +136,24 @@ function textFromList(items: string[], fallback: string) {
   return items.length > 0 ? items.join(", ") : fallback;
 }
 
+function dedupeStrings(values: string[]) {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(trimmed);
+  }
+
+  return unique;
+}
+
 function normalizeCompanyTerm(value: string | null | undefined) {
   return (value ?? "")
     .toLowerCase()
@@ -327,13 +345,19 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
       };
     }
 
-    const investorLine = investors.length > 0
-      ? `${investors.length} named ${investors.length === 1 ? "investor" : "investors"}: ${investors.slice(0, 8).map((investor) => investor.name).join(", ")}${investors.length > 8 ? `, +${investors.length - 8} more` : ""}`
+    const investorNames = dedupeStrings([
+      ...rounds.flatMap((round) => round.leadInvestors),
+      ...investors.map((investor) => investor.name),
+    ]);
+    const investorLine = investorNames.length > 0
+      ? `${investorNames.length} named ${investorNames.length === 1 ? "investor" : "investors"}: ${investorNames.slice(0, 8).join(", ")}${investorNames.length > 8 ? `, +${investorNames.length - 8} more` : ""}`
       : null;
-    const headline = [
-      totalRaised !== null ? `${formatCompactCurrency(totalRaised)} raised` : null,
-      rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
-    ].filter((part): part is string => Boolean(part)).join(" · ");
+    const headline = totalRaised !== null && rounds.length > 0
+      ? `${formatCompactCurrency(totalRaised)} raised across ${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`
+      : [
+          totalRaised !== null ? `${formatCompactCurrency(totalRaised)} raised` : null,
+          rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
+        ].filter((part): part is string => Boolean(part)).join(" · ");
     const items = [
       ...(headline || investorLine
         ? [{ title: headline || "Fundraising", ...(investorLine ? { body: investorLine } : {}) }]
@@ -341,7 +365,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
       ...rounds.map((round) => {
         const detail = [
           round.amountUsd !== null ? formatCompactCurrency(round.amountUsd) : null,
-          round.leadInvestors.length > 0 ? `${round.leadInvestors.slice(0, 3).join(", ")} leading` : null,
+          round.leadInvestors.length > 0 ? round.leadInvestors.slice(0, 3).join(", ") : null,
         ].filter((part): part is string => Boolean(part)).join(" · ");
         return {
           title: round.name,

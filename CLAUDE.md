@@ -46,13 +46,21 @@ npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (mu
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception — it expects `.env.production.migrate.local` because it reads the production DB and API.
 
 Single test examples:
 
 ```bash
 npm test -w @cold-start/pipeline -- generate-card
 npm test -w @cold-start/pipeline -- -t "verifier drops"
+node --test eval/some-file.test.mjs           # node:test files under eval/ run after vitest in `npm run test`
+```
+
+Local Postgres (host port `55432`, not `5432`):
+
+```bash
+docker-compose up -d postgres                 # bring up local DB
+docker-compose down                           # stop it
 ```
 
 Provider smoke, paid path:
@@ -124,4 +132,6 @@ npm run dev:full
 - `docs/qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
 - `SPEC.md`: product spec.
 - `DESIGN.md`: visual system.
+- `INTENT.md`: product intent and non-goals.
+- `AGENTS.md`: Codex-facing parallel of this file; keep the two in sync when changing shared guidance.
 - `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`: original implementation plan.

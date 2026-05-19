@@ -1332,7 +1332,28 @@ button {
   line-height: 1;
 }
 
+.cs-active-enrichment-body-frame {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 170ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 120ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 170ms;
+}
+
+.cs-active-enrichment-body-frame[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 170ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .cs-active-enrichment-body {
+  min-height: 0;
   overflow: hidden;
   padding: 0 16px 16px 42px;
 }
@@ -1443,6 +1464,17 @@ button {
 .cs-layer-items p {
   margin-top: 4px;
   color: rgb(14 14 14 / 0.70);
+}
+
+.cs-layer-items-funding li:first-child {
+  border-color: rgb(22 116 255 / 0.16);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(250 247 239 / 0.70)),
+    rgb(22 116 255 / 0.04);
+}
+
+.cs-layer-items-funding li:first-child strong {
+  font-size: 13px;
 }
 
 .cs-layer-items span {
@@ -1974,12 +2006,18 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 9px;
-  align-items: baseline;
+  gap: 8px;
   margin: 0 14px;
-  padding: 10px 0 12px;
+  padding: 10px 0 13px;
   border-top: 1px solid rgb(212 197 158 / 0.46);
+}
+
+.cs-people-line-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
 }
 
 .cs-people-line-label,
@@ -1996,12 +2034,102 @@ button {
   text-transform: uppercase;
 }
 
-.cs-people-line p {
-  margin: 0;
-  color: rgb(14 14 14 / 0.72);
+.cs-people-line-source {
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-people-line-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(174px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.cs-people-person {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgb(212 197 158 / 0.48);
+  border-radius: 6px;
+  background: rgb(252 250 245 / 0.44);
+}
+
+.cs-people-person[data-has-email="true"] {
+  border-color: rgb(22 116 255 / 0.18);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.72), rgb(250 247 239 / 0.58)),
+    rgb(22 116 255 / 0.04);
+}
+
+.cs-people-name {
+  min-width: 0;
+  color: var(--color-ink);
   font-size: 11.5px;
+  font-weight: 760;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-people-role {
+  display: -webkit-box;
+  color: rgb(14 14 14 / 0.58);
+  font-size: 10.5px;
+  line-height: 1.22;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cs-person-email {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  margin-top: 3px;
+}
+
+.cs-person-email a {
+  min-width: 0;
+  color: var(--color-lens-blue);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 720;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-person-email button {
+  border: 1px solid rgb(22 116 255 / 0.16);
+  border-radius: 999px;
+  padding: 1px 6px;
+  background: rgb(255 253 248 / 0.80);
+  color: var(--color-muted-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 760;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+}
+
+.cs-people-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  border: 1px solid rgb(212 197 158 / 0.42);
+  border-radius: 6px;
+  background: rgb(250 250 247 / 0.42);
+  color: var(--color-muted-ink);
+  font-size: 11px;
+  font-weight: 760;
 }
 
 .cs-research-layer-head {
@@ -2013,9 +2141,9 @@ button {
 }
 
 .cs-active-enrichments {
-  gap: 8px;
+  gap: 6px;
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
 }
 
 .cs-active-enrichments:empty {
@@ -2030,31 +2158,33 @@ button {
 }
 
 .cs-active-enrichment::before {
-  left: 13px;
-  top: 17px;
-  bottom: 10px;
+  left: 12px;
+  top: 15px;
+  bottom: 9px;
 }
 
 .cs-active-enrichment-head {
-  gap: 10px;
-  padding: 13px 12px 12px 13px;
+  gap: 9px;
+  min-height: 58px;
+  padding: 10px 11px 10px 12px;
 }
 
 .cs-active-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   box-shadow: 0 0 0 3px rgb(22 116 255 / 0.10);
 }
 
 .cs-active-enrichment strong {
   font-family: var(--font-mona-sans);
-  font-size: 17px;
-  font-weight: 780;
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.08;
 }
 
 .cs-active-enrichment small,
 .cs-dormant-card small {
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 .cs-active-chevron {
@@ -2063,17 +2193,17 @@ button {
 }
 
 .cs-active-enrichment-body {
-  padding: 0 13px 13px 34px;
+  padding: 0 11px 11px 30px;
 }
 
 .cs-layer-rows,
 .cs-layer-items {
-  gap: 7px;
+  gap: 6px;
 }
 
 .cs-layer-rows div,
 .cs-layer-items li {
-  padding: 9px 10px;
+  padding: 8px 9px;
   border-radius: 6px;
   background: rgb(252 250 245 / 0.58);
 }
@@ -2081,13 +2211,38 @@ button {
 .cs-active-enrichment-body p,
 .cs-layer-rows dd,
 .cs-layer-items p {
-  font-size: 12.5px;
-  line-height: 1.46;
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.cs-layer-items strong {
+  font-size: 12px;
+  line-height: 1.18;
+}
+
+.cs-layer-items p {
+  margin-top: 3px;
+}
+
+.cs-layer-items span {
+  font-size: 8.5px;
+}
+
+.cs-layer-items-funding li:first-child {
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.82), rgb(250 247 239 / 0.72)),
+    rgb(22 116 255 / 0.04);
+}
+
+.cs-layer-items-funding li:first-child strong {
+  font-size: 13px;
 }
 
 .cs-source-chip {
-  min-height: 20px;
+  max-width: 118px;
+  min-height: 19px;
   border-radius: 5px;
+  font-size: 8.5px;
 }
 
 .cs-card-tray {
@@ -2283,6 +2438,12 @@ button {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .cs-active-enrichment-body-frame {
+    transition: none;
+  }
+}
+
 @media (max-width: 430px) {
   .cs-company-context-main {
     align-items: flex-start;
@@ -2308,5 +2469,892 @@ button {
   .cs-company-facts div + div {
     padding-left: 10px;
     border-left: 1px solid rgb(212 197 158 / 0.44);
+  }
+}
+
+/* Focused beauty pass: preserve slab interaction, tune hierarchy and contact density. */
+.cs-research-shell,
+.cs-generation-panel {
+  background:
+    linear-gradient(180deg, rgb(250 248 242 / 0.94) 0%, rgb(252 250 245 / 0.88) 46%, rgb(244 249 250 / 0.92) 100%),
+    url("/art/cold-start-wave-panel.jpg"),
+    #f6f3ea;
+  background-position: center, center bottom, center;
+  background-size: auto, cover, auto;
+}
+
+.cs-generation-panel {
+  padding: 10px;
+}
+
+.cs-generation-hero {
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 18px;
+  margin: 8px 8px 14px;
+  padding: 20px;
+  border: 1px solid rgb(216 208 191 / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.88)),
+    rgb(252 250 245 / 0.92);
+  box-shadow:
+    0 18px 38px rgb(2 8 18 / 0.08),
+    0 1px 0 rgb(255 255 255 / 0.86) inset;
+}
+
+.cs-generation-logo {
+  width: 62px;
+  height: 62px;
+  border-radius: 8px;
+}
+
+.cs-generation-logo .cs-company-logo-fallback {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 34px;
+  font-weight: 650;
+}
+
+.cs-generation-status {
+  color: rgb(14 14 14 / 0.56);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cs-generation-hero h1 {
+  margin-top: 8px;
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: clamp(30px, 7.5vw, 42px);
+  font-weight: 650;
+  line-height: 0.96;
+}
+
+.cs-generation-domain {
+  margin-top: 8px;
+  color: rgb(14 14 14 / 0.58);
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.cs-generation-run-time {
+  align-self: center;
+}
+
+.cs-generation-run-time strong {
+  color: var(--color-lens-blue);
+  font-family: var(--font-fraunces);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.cs-live-card-refined {
+  margin: 0 8px;
+  min-height: 216px;
+  border-color: rgb(216 208 191 / 0.82);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(252 250 245 / 0.84)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 18px 38px rgb(2 8 18 / 0.07),
+    0 1px 0 rgb(255 255 255 / 0.84) inset;
+}
+
+.cs-live-field-head {
+  padding: 20px 22px 14px;
+  border-bottom: 0;
+  color: rgb(14 14 14 / 0.62);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+}
+
+.cs-live-field-head span:last-child {
+  color: var(--color-lens-blue);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.cs-live-progress-track {
+  margin: 14px 22px 20px;
+}
+
+.cs-run-steps {
+  padding: 0 22px 20px;
+}
+
+.cs-run-steps li {
+  grid-template-columns: 48px minmax(0, 1fr) 18px;
+  min-height: 46px;
+  color: rgb(8 25 44 / 0.88);
+  font-family: var(--font-fraunces);
+  font-size: 17px;
+  font-weight: 520;
+}
+
+.cs-run-step-index {
+  color: rgb(8 25 44 / 0.48);
+  font-family: var(--font-mona-sans);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+
+.cs-run-steps i {
+  width: 7px;
+  height: 7px;
+}
+
+.cs-company-context,
+.cs-research-layer {
+  border-color: rgb(216 208 191 / 0.88);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(252 250 245 / 0.83)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 17px 36px rgb(2 8 18 / 0.065),
+    0 1px 0 rgb(255 255 255 / 0.82) inset;
+}
+
+.cs-company-context::before {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 50%),
+    linear-gradient(90deg, rgb(22 116 255 / 0.022), transparent 38%, rgb(216 208 191 / 0.16));
+  opacity: 1;
+}
+
+.cs-company-context-main {
+  gap: 18px;
+  padding: 20px 20px 18px;
+  border-bottom-color: rgb(216 208 191 / 0.68);
+}
+
+.cs-company-logo {
+  width: 60px;
+  height: 60px;
+  border-color: rgb(14 14 14 / 0.13);
+  border-radius: 8px;
+  box-shadow:
+    0 14px 26px rgb(2 8 18 / 0.09),
+    0 1px 0 rgb(255 255 255 / 0.84) inset;
+}
+
+.cs-company-logo .cs-company-logo-fallback {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 32px;
+  font-weight: 650;
+}
+
+.cs-company-context h1 {
+  color: var(--color-observatory-navy);
+  font-size: clamp(31px, 7.4vw, 42px);
+  font-weight: 650;
+  line-height: 0.94;
+}
+
+.cs-company-domain {
+  margin-top: 8px;
+  color: #075ecf;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cs-company-domain::after {
+  margin-left: 8px;
+  color: #075ecf;
+  content: "↗";
+  font-size: 12px;
+}
+
+.cs-company-context-main p:not(.cs-research-label) {
+  max-width: 42rem;
+  margin-top: 12px;
+  color: rgb(8 25 44 / 0.72);
+  font-size: 14px;
+  line-height: 1.48;
+}
+
+.cs-company-facts {
+  padding: 0 18px;
+  border-bottom: 1px solid rgb(216 208 191 / 0.68);
+}
+
+.cs-company-facts div {
+  padding: 13px 12px 14px 0;
+}
+
+.cs-company-facts div + div {
+  padding-left: 18px;
+  border-left-color: rgb(216 208 191 / 0.68);
+}
+
+.cs-company-facts dt,
+.cs-people-line-label,
+.cs-research-layer-head {
+  color: rgb(8 25 44 / 0.72);
+  font-family: var(--font-mono);
+  font-weight: 760;
+  letter-spacing: 0.15em;
+}
+
+.cs-company-facts dd {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 18px;
+  font-weight: 620;
+  line-height: 1.08;
+}
+
+.cs-company-facts small {
+  color: rgb(8 25 44 / 0.56);
+  font-family: var(--font-mona-sans);
+  font-size: 12px;
+}
+
+.cs-people-line {
+  gap: 12px;
+  margin: 0 18px;
+  padding: 13px 0 17px;
+  border-top: 0;
+}
+
+.cs-people-line-head {
+  align-items: center;
+}
+
+.cs-people-line-source {
+  color: rgb(8 25 44 / 0.65);
+  font-family: var(--font-mona-sans);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.cs-people-line-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cs-people-person {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 32px;
+  gap: 11px;
+  align-items: center;
+  min-height: 56px;
+  padding: 9px 11px;
+  border-color: rgb(216 208 191 / 0.70);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(252 250 245 / 0.68)),
+    rgb(250 250 247 / 0.74);
+}
+
+.cs-people-person[data-has-email="true"] {
+  border-color: rgb(22 116 255 / 0.26);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(246 250 255 / 0.72)),
+    rgb(22 116 255 / 0.045);
+}
+
+.cs-person-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(216 208 191 / 0.80);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(246 241 231 / 0.82)),
+    var(--color-parchment-warm);
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.cs-person-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cs-people-name {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.cs-people-role {
+  color: rgb(8 25 44 / 0.62);
+  font-size: 12.5px;
+  line-height: 1.28;
+}
+
+.cs-person-email {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 3px;
+  min-width: 0;
+}
+
+.cs-person-email a {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 22px;
+  align-items: center;
+  border: 1px solid rgb(22 116 255 / 0.20);
+  border-radius: 999px;
+  background: rgb(22 116 255 / 0.06);
+  color: var(--color-lens-blue);
+  font-family: var(--font-mona-sans);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0 9px;
+}
+
+.cs-person-email button {
+  min-height: 22px;
+  border-color: rgb(22 116 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 0.88);
+  color: rgb(8 25 44 / 0.62);
+  font-family: var(--font-mona-sans);
+  font-size: 10px;
+  padding: 0 8px;
+}
+
+.cs-person-contact-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgb(216 208 191 / 0.72);
+  border-radius: 999px;
+  color: var(--color-lens-blue);
+  font-family: var(--font-mona-sans);
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.cs-people-more {
+  min-height: 42px;
+  border-color: rgb(216 208 191 / 0.62);
+  border-radius: 8px;
+}
+
+.cs-research-layer-head {
+  padding: 13px 16px;
+  border-bottom-color: rgb(216 208 191 / 0.78);
+  font-size: 11px;
+}
+
+.cs-active-enrichments {
+  gap: 8px;
+  padding: 10px;
+}
+
+.cs-active-enrichment {
+  border-color: rgb(216 208 191 / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(252 250 245 / 0.84)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 9px 22px rgb(2 8 18 / 0.045),
+    0 1px 0 rgb(255 255 255 / 0.82) inset;
+}
+
+.cs-active-enrichment[data-expanded="true"] {
+  box-shadow:
+    0 15px 34px rgb(2 8 18 / 0.07),
+    0 0 0 1px rgb(22 116 255 / 0.06),
+    0 1px 0 rgb(255 255 255 / 0.82) inset;
+}
+
+.cs-active-enrichment[data-state="running"] {
+  border-color: rgb(22 116 255 / 0.26);
+  background:
+    linear-gradient(135deg, rgb(255 253 248 / 0.96), rgb(239 247 255 / 0.76)),
+    var(--color-parchment-warm);
+}
+
+.cs-active-enrichment::before {
+  left: 18px;
+  top: 18px;
+  bottom: 14px;
+  background: rgb(8 25 44 / 0.12);
+}
+
+.cs-active-enrichment-head {
+  min-height: 66px;
+  padding: 13px 14px 12px 16px;
+}
+
+.cs-active-dot {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 0 6px rgb(22 116 255 / 0.10);
+}
+
+.cs-active-enrichment strong {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 21px;
+  font-weight: 620;
+}
+
+.cs-active-enrichment small {
+  color: rgb(8 25 44 / 0.62);
+  font-size: 12px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 14px 14px 44px;
+}
+
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  color: rgb(8 25 44 / 0.88);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  border-color: rgb(216 208 191 / 0.78);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(252 250 245 / 0.64)),
+    rgb(250 250 247 / 0.70);
+}
+
+.cs-layer-rows dt {
+  color: rgb(8 25 44 / 0.62);
+  letter-spacing: 0.12em;
+}
+
+.cs-layer-items strong {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.cs-layer-items-funding li:first-child strong {
+  font-size: 18px;
+}
+
+.cs-layer-items span {
+  color: rgb(8 25 44 / 0.58);
+  font-size: 10px;
+}
+
+.cs-layer-running-copy {
+  position: relative;
+  gap: 9px;
+  overflow: hidden;
+  padding: 2px 0 4px;
+}
+
+.cs-layer-running-copy::after {
+  position: absolute;
+  right: -20px;
+  bottom: -22px;
+  width: 210px;
+  height: 84px;
+  background:
+    repeating-radial-gradient(ellipse at 72% 80%, rgb(255 255 255 / 0.34) 0 1px, transparent 1px 11px);
+  content: "";
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.cs-layer-running-copy span {
+  font-family: var(--font-fraunces);
+  font-size: 18px;
+  font-weight: 620;
+}
+
+.cs-layer-progress {
+  position: relative;
+  display: block;
+  width: 86%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(22 116 255 / 0.10);
+}
+
+.cs-layer-progress span {
+  display: block;
+  width: 64%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-lens-blue), #66bbff);
+  box-shadow: 0 8px 18px rgb(22 116 255 / 0.14);
+}
+
+.cs-layer-skeleton {
+  height: 6px;
+  background:
+    linear-gradient(90deg, rgb(22 116 255 / 0.08), rgb(22 116 255 / 0.18), rgb(22 116 255 / 0.08));
+}
+
+.cs-source-chip {
+  min-height: 24px;
+  max-width: 152px;
+  border-color: rgb(22 116 255 / 0.22);
+  border-radius: 7px;
+  background: rgb(22 116 255 / 0.06);
+  font-family: var(--font-mona-sans);
+  font-size: 10.5px;
+}
+
+.cs-source-chip::before {
+  width: 5px;
+  height: 5px;
+}
+
+.cs-card-tray {
+  min-height: 300px;
+  margin-top: 2px;
+}
+
+.cs-card-pile {
+  min-height: 294px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-dormant-card {
+  grid-template-columns: 10px minmax(0, 1fr) 22px;
+  min-height: 52px;
+  border-color: rgb(216 208 191 / 0.84);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(252 250 245 / 0.95)),
+    var(--color-parchment-warm);
+  box-shadow:
+    0 13px 24px rgb(2 8 18 / 0.085),
+    0 1px 0 rgb(255 255 255 / 0.88) inset;
+}
+
+.cs-dormant-card strong {
+  color: var(--color-observatory-navy);
+  font-family: var(--font-fraunces);
+  font-size: 18px;
+  font-weight: 620;
+}
+
+.cs-card-plus {
+  border: 1px solid rgb(22 116 255 / 0.62);
+  background: rgb(22 116 255 / 0.08);
+  color: var(--color-lens-blue);
+}
+
+@media (max-width: 430px) {
+  .cs-generation-hero {
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 17px;
+  }
+
+  .cs-generation-logo,
+  .cs-company-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  .cs-company-context-main {
+    gap: 14px;
+    padding: 17px;
+  }
+
+  .cs-company-context h1 {
+    font-size: 33px;
+  }
+
+  .cs-company-context-main p:not(.cs-research-label) {
+    font-size: 13.5px;
+  }
+
+  .cs-company-facts {
+    padding: 0 16px;
+  }
+
+  .cs-company-facts dd {
+    font-size: 16px;
+  }
+
+  .cs-active-enrichment strong {
+    font-size: 19px;
+  }
+}
+
+/* Type calibration from the Hanover Park and August mockups. */
+body {
+  --font-mono: var(--font-mona-sans);
+}
+
+.cs-generation-status,
+.cs-live-field-head,
+.cs-run-step-index,
+.cs-company-facts dt,
+.cs-people-line-label,
+.cs-research-layer-head,
+.cs-layer-rows dt,
+.cs-layer-items span,
+.cs-source-chip {
+  font-family: var(--font-mona-sans);
+}
+
+.cs-company-context-main {
+  gap: 16px;
+  padding: 18px 19px 17px;
+}
+
+.cs-company-logo {
+  width: 54px;
+  height: 54px;
+}
+
+.cs-company-logo .cs-company-logo-fallback {
+  font-size: 28px;
+}
+
+.cs-company-context h1 {
+  font-size: clamp(29px, 6.5vw, 36px);
+  line-height: 0.98;
+}
+
+.cs-company-domain {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 630;
+}
+
+.cs-company-context-main p:not(.cs-research-label) {
+  max-width: 39rem;
+  margin-top: 10px;
+  color: rgb(8 25 44 / 0.68);
+  font-size: 13px;
+  line-height: 1.46;
+}
+
+.cs-company-facts {
+  padding: 0 16px;
+}
+
+.cs-company-facts div {
+  padding: 11px 10px 12px 0;
+}
+
+.cs-company-facts div + div {
+  padding-left: 16px;
+}
+
+.cs-company-facts dt,
+.cs-people-line-label,
+.cs-research-layer-head {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.cs-company-facts dd {
+  font-family: var(--font-mona-sans);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.16;
+}
+
+.cs-company-facts small {
+  font-size: 11px;
+}
+
+.cs-people-line {
+  gap: 10px;
+  margin: 0 16px;
+  padding: 12px 0 15px;
+}
+
+.cs-people-line-source {
+  font-size: 11.5px;
+  font-weight: 640;
+}
+
+.cs-people-line-list {
+  gap: 7px;
+}
+
+.cs-people-person {
+  grid-template-columns: 32px minmax(0, 1fr) 26px;
+  min-height: 50px;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.cs-person-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.cs-people-name {
+  font-family: var(--font-mona-sans);
+  font-size: 13.5px;
+  font-weight: 760;
+  line-height: 1.18;
+}
+
+.cs-people-role {
+  font-size: 11.5px;
+}
+
+.cs-person-email a {
+  min-height: 20px;
+  font-size: 10.5px;
+}
+
+.cs-person-email button {
+  min-height: 20px;
+  font-size: 9.5px;
+}
+
+.cs-person-contact-state {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+}
+
+.cs-research-layer-head {
+  padding: 12px 15px;
+}
+
+.cs-active-enrichments {
+  gap: 8px;
+}
+
+.cs-active-enrichment-head {
+  min-height: 59px;
+  padding: 11px 13px 11px 15px;
+}
+
+.cs-active-enrichment strong {
+  font-size: 18px;
+  line-height: 1.06;
+}
+
+.cs-active-enrichment small {
+  font-size: 11.5px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 13px 13px 41px;
+}
+
+.cs-layer-running-copy {
+  gap: 8px;
+}
+
+.cs-layer-running-copy span {
+  font-size: 15.5px;
+  line-height: 1.25;
+}
+
+.cs-layer-progress {
+  height: 7px;
+}
+
+.cs-layer-skeleton {
+  height: 5px;
+}
+
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  padding: 9px 10px;
+}
+
+.cs-layer-items strong,
+.cs-layer-items-funding li:first-child strong {
+  font-family: var(--font-mona-sans);
+  font-size: 13.5px;
+  font-weight: 760;
+  line-height: 1.22;
+}
+
+.cs-layer-items span {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.cs-source-chip {
+  min-height: 22px;
+  max-width: 146px;
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0;
+}
+
+.cs-dormant-card {
+  min-height: 49px;
+}
+
+.cs-dormant-card strong {
+  font-size: 16px;
+  line-height: 1.05;
+}
+
+.cs-generation-hero h1 {
+  font-size: clamp(28px, 6.5vw, 36px);
+}
+
+.cs-generation-run-time strong {
+  font-size: 19px;
+}
+
+.cs-run-steps li {
+  min-height: 40px;
+  font-family: var(--font-mona-sans);
+  font-size: 14px;
+  font-weight: 720;
+}
+
+.cs-live-card-refined {
+  min-height: 196px;
+}
+
+@media (max-width: 430px) {
+  .cs-company-context h1 {
+    font-size: 31px;
+  }
+
+  .cs-company-context-main p:not(.cs-research-label) {
+    font-size: 12.75px;
+  }
+
+  .cs-company-facts dd {
+    font-size: 14px;
+  }
+
+  .cs-active-enrichment strong {
+    font-size: 17px;
   }
 }

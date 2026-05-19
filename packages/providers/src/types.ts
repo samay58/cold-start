@@ -5,9 +5,12 @@ export type StableenrichEnv = Partial<
     | "STABLEENRICH_EXA_SIMILAR_URL"
     | "STABLEENRICH_FIRECRAWL_URL"
     | "STABLEENRICH_ORG_ENRICH_URL"
+    | "STABLEENRICH_APOLLO_ORG_SEARCH_URL"
     | "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL"
     | "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL"
-    | "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL",
+    | "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL"
+    | "STABLEENRICH_CLADO_CONTACTS_ENRICH_URL"
+    | "STABLEENRICH_MINERVA_ENRICH_URL",
     string
   >
 >;
@@ -27,10 +30,15 @@ export type StableenrichProbeName =
   | "firecrawl_homepage"
   | "firecrawl_about"
   | "firecrawl_team"
+  | "apollo_org_search"
   | "org_enrichment"
   | "apollo_people_search"
   | "apollo_people_enrich"
-  | "hunter_email_verifier";
+  | "clado_contacts_enrich"
+  | "minerva_enrich"
+  | "hunter_email_verifier"
+  | "exa_email_search"
+  | "exa_leader_discovery";
 
 export type RetrievalIntent =
   | "funding"
@@ -92,7 +100,7 @@ export type ProviderFactCandidate<T = unknown> = {
   status: "verified" | "mixed" | "inferred" | "unknown";
   confidence: "high" | "medium" | "low";
   sourceType: ProviderSource["sourceType"];
-  provider: "stableenrich" | "direct_exa";
+  provider: "stableenrich" | "direct_exa" | "sec_edgar";
   endpoint: string;
   citationUrl: string;
   citationTitle: string;

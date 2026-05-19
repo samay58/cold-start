@@ -24,10 +24,15 @@ describe("GET /api/cards/[slug]", () => {
   });
 
   it("returns the public cached card without synthesis", async () => {
-    const publicCard = { slug: "cartesia", identity: { name: { value: "Cartesia" } } };
+    const publicCard = {
+      slug: "cartesia",
+      identity: { name: { value: "Cartesia" } },
+      team: { founders: { value: [{ name: "Karan Goel", role: "Co-Founder", sourceUrl: null }] } }
+    };
     mocks.getPublicCachedCard.mockResolvedValue(publicCard);
     mocks.getFullCachedCard.mockResolvedValue({
       ...publicCard,
+      team: { founders: { value: [{ name: "Karan Goel", role: "Co-Founder", sourceUrl: null, email: "karan@cartesia.ai" }] } },
       synthesis: { whyItMatters: { text: "Hidden [c1].", citationIds: ["c1"] } }
     });
 
@@ -38,6 +43,7 @@ describe("GET /api/cards/[slug]", () => {
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(body).toEqual(publicCard);
     expect(body).not.toHaveProperty("synthesis");
+    expect(JSON.stringify(body)).not.toContain("karan@cartesia.ai");
     expect(mocks.getPublicCachedCard).toHaveBeenCalledWith("cartesia");
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });

@@ -172,5 +172,28 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
 
 export function publicCard(card: ColdStartCard): Omit<ColdStartCard, "synthesis"> {
   const { synthesis: _synthesis, ...publicOnly } = stripUnsupportedSynthesis(sanitizeCardTrust(card));
-  return publicOnly;
+  return {
+    ...publicOnly,
+    team: {
+      founders: stripPersonEmails(publicOnly.team.founders),
+      keyExecs: stripPersonEmails(publicOnly.team.keyExecs),
+      headcount: publicOnly.team.headcount
+    }
+  };
+}
+
+type TeamPeopleFact = ColdStartCard["team"]["founders"];
+
+function stripPersonEmails(fact: TeamPeopleFact): TeamPeopleFact {
+  if (!fact.value) {
+    return fact;
+  }
+
+  return {
+    ...fact,
+    value: fact.value.map((person) => {
+      const { email: _email, ...publicPerson } = person;
+      return publicPerson;
+    })
+  };
 }
