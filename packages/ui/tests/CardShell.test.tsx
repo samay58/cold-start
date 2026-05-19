@@ -156,7 +156,7 @@ describe("CardShell", () => {
     expect(screen.getByText("$91M")).toBeTruthy();
     expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Apr 2024").length).toBeGreaterThan(0);
-    expect(screen.getByText("NEA leading, IVP following.")).toBeTruthy();
+    expect(screen.getByText("NEA, IVP")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Sources" })).toBeTruthy();
     expect(screen.getByText("Cartesia launches Sonic")).toBeTruthy();
     expect(screen.getByText("Example News · launch")).toBeTruthy();

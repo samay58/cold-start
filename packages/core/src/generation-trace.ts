@@ -33,7 +33,22 @@ export type GenerationProviderEndpointTrace = {
   status: "ok" | "failed" | "skipped";
   sourceCount: number;
   factCount: number;
+  durationMs?: number;
   error?: string;
+};
+
+export type GenerationEmailDiscoveryTrace = {
+  name: string;
+  role: string | null;
+  discoverySource: "apollo" | "sec_edgar" | "exa" | "search_hint" | "people_hint" | null;
+  emailFound: string | null;
+  emailSource: "apollo_search" | "apollo_enrich" | "minerva" | "clado" | "hunter" | "exa" | null;
+  hunterAttempts?: Array<{
+    email: string;
+    status: string | null;
+    score: number | null;
+    accepted: boolean;
+  }>;
 };
 
 export type GenerationSourceRejection = GenerationSourceTrace & {
@@ -48,6 +63,11 @@ export type GenerationTrace = {
     runId?: string;
   };
   steps?: Record<string, GenerationTraceStep>;
+  milestones?: {
+    firstUsableCardMs?: number;
+    contactsReadyMs?: number;
+    analysisReadyMs?: number;
+  };
   providers?: {
     directExa?: {
       skipped: boolean;
@@ -61,6 +81,7 @@ export type GenerationTrace = {
       endpoints?: GenerationProviderEndpointTrace[];
     };
     mergedSourceCount?: number;
+    emailDiscovery?: GenerationEmailDiscoveryTrace[];
   };
   sourceGate?: {
     acceptedCount: number;

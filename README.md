@@ -69,7 +69,9 @@ Current implementation includes:
 Cold Start competes with company-intel products, but not by becoming another private-company database.
 
 - The card is the unit. Chat can come later.
-- It does not scrape contacts or send outbound messages.
+- The extension enriches professional work emails for people tied to the active company. Public cards omit contact emails.
+- It does not collect personal emails, phone numbers, or Whitepages data.
+- It does not send outbound messages.
 - It does not tell the user whether to invest.
 - It does not try to become a CRM or watchlist in v0.
 

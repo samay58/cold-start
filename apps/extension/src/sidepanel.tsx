@@ -46,6 +46,7 @@ type RequestState =
       card: ColdStartCard;
       analysisNotice?: string;
       analysisRun?: AnalysisRunState;
+      contactRun?: AnalysisRunState;
       profileRefreshRun?: ProfileRefreshRunState;
     }
   | { status: "error"; message: string };
@@ -378,7 +379,8 @@ async function pollGenerationUntilCard(
   mode: GenerationStatus["mode"],
   onGenerationStatus: (status: GenerationStatus["status"]) => void,
   latestCard: ColdStartCard | null = null,
-  waitForRunCompletion = false
+  waitForRunCompletion = false,
+  onInterimCard?: (card: ColdStartCard) => void
 ): Promise<GenerationPollResult> {
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
   const pollStartedAt = Date.now();
@@ -425,6 +427,11 @@ async function pollGenerationUntilCard(
 
       if (isActiveRun(runStatus.status)) {
         onGenerationStatus(runStatus.status);
+        const card = await fetchAvailableCard();
+        if (card) {
+          currentCard = card;
+          onInterimCard?.(card);
+        }
         continue;
       }
 
@@ -728,6 +735,7 @@ function SuccessPanel({
   settings: Settings;
 }) {
   const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
+  const contactElapsedSeconds = useElapsedSeconds(Boolean(requestState.contactRun), requestState.contactRun?.startedAt);
   const profileRefreshElapsedSeconds = useElapsedSeconds(
     Boolean(requestState.profileRefreshRun),
     requestState.profileRefreshRun?.startedAt
@@ -739,6 +747,8 @@ function SuccessPanel({
         analysisNotice={requestState.analysisNotice}
         analysisRun={requestState.analysisRun}
         card={requestState.card}
+        contactElapsedSeconds={contactElapsedSeconds}
+        contactRun={requestState.contactRun}
         elapsedSeconds={elapsedSeconds}
         onRefreshProfile={onRefreshProfile}
         onRegenerate={onRegenerate}
@@ -849,6 +859,65 @@ export function SidePanel() {
     }
   }
 
+  function watchBasicsCompletionWithController(
+    controller: AbortController,
+    generationDomain: string,
+    generationSettings: Settings,
+    latestCard: ColdStartCard,
+    startedAt: number
+  ) {
+    void pollGenerationUntilCard(
+      generationDomain,
+      generationSettings,
+      controller.signal,
+      "basics",
+      (generationStatus) => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => current.status === "success"
+            ? {
+                ...current,
+                contactRun: {
+                  generationStatus: generationStatus === "queued" ? "queued" : "running",
+                  startedAt
+                }
+              }
+            : current);
+        }
+      },
+      latestCard,
+      true,
+      (card) => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => current.status === "success" ? { ...current, card } : current);
+        }
+      }
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => {
+            if (current.status !== "success") {
+              return { status: "success", card: result.card };
+            }
+
+            const { contactRun: _contactRun, ...nextState } = current;
+            return { ...nextState, card: result.card };
+          });
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => {
+            if (current.status !== "success") {
+              return current;
+            }
+
+            const { contactRun: _contactRun, ...nextState } = current;
+            return nextState;
+          });
+        }
+      });
+  }
+
   function runGenerationWithController(
     controller: AbortController,
     generationDomain: string,
@@ -873,11 +942,19 @@ export function SidePanel() {
     )
       .then((result) => {
         if (!controller.signal.aborted) {
-          setRequestState(
-            result.analysisNotice
-              ? { status: "success", card: result.card, analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card }
-          );
+          const successState = result.analysisNotice
+            ? { status: "success" as const, card: result.card, analysisNotice: result.analysisNotice }
+            : { status: "success" as const, card: result.card };
+          if (mode === "basics") {
+            setRequestState({
+              ...successState,
+              contactRun: { generationStatus: "running", startedAt }
+            });
+            watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
+            return;
+          }
+
+          setRequestState(successState);
         }
       })
       .catch((caught: unknown) => {
@@ -1198,6 +1275,21 @@ export function SidePanel() {
           const analysisStatus = bootstrap.runs.analysis;
           if (isActiveRun(analysisStatus.status) && !card.synthesis) {
             resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card);
+            return;
+          }
+
+          const basicsStatus = bootstrap.runs.basics;
+          if (isActiveRun(basicsStatus.status)) {
+            const startedAt = startedAtMs(basicsStatus.startedAt);
+            setRequestState({
+              status: "success",
+              card,
+              contactRun: {
+                generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
+                startedAt
+              }
+            });
+            watchBasicsCompletionWithController(controller, domain, settings, card, startedAt);
             return;
           }
 

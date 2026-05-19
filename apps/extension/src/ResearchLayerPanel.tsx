@@ -32,6 +32,8 @@ type ResearchLayerPanelProps = {
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
+  contactElapsedSeconds?: number | undefined;
+  contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
   onRefreshProfile: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
@@ -190,9 +192,29 @@ function managementSourceCount(card: ColdStartCard) {
   ]).size;
 }
 
-function personLine(person: CardPerson) {
-  const role = person.role?.trim();
-  return role ? `${person.name}, ${role}` : person.name;
+function personRole(person: CardPerson) {
+  return person.role?.trim() || "Role not verified";
+}
+
+function personInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const initials = parts.length >= 2
+    ? `${parts[0]?.charAt(0) ?? ""}${parts[parts.length - 1]?.charAt(0) ?? ""}`
+    : parts[0]?.slice(0, 2) ?? "";
+
+  return initials.toUpperCase() || "P";
+}
+
+function peopleEmailCount(people: CardPerson[]) {
+  return people.filter((person) => person.email).length;
+}
+
+function managementConfidence(card: ColdStartCard) {
+  const confidenceRank = { high: 3, medium: 2, low: 1 } as const;
+  return [card.team.founders, card.team.keyExecs]
+    .filter((fact) => (fact.value ?? []).some((person) => person.email))
+    .map((fact) => fact.confidence)
+    .sort((left, right) => confidenceRank[right] - confidenceRank[left])[0] ?? null;
 }
 
 function profileFacts(card: ColdStartCard): Array<{ label: string; value: string; meta?: string | undefined }> {
@@ -250,9 +272,15 @@ function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
 }
 
 function PeopleLine({
+  contactElapsedSeconds = 0,
+  contactRun,
+  confidence,
   people,
   sourceCount
 }: {
+  contactElapsedSeconds?: number;
+  contactRun?: AnalysisRun | undefined;
+  confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
   people: CardPerson[];
   sourceCount: number;
 }) {
@@ -260,17 +288,63 @@ function PeopleLine({
     return null;
   }
 
-  const visiblePeople = people.slice(0, 3);
-  const hiddenPeopleCount = people.length - visiblePeople.length;
+  const orderedPeople = [
+    ...people.filter((person) => person.email),
+    ...people.filter((person) => !person.email),
+  ];
+  const visiblePeople = orderedPeople.slice(0, 4);
+  const hiddenPeopleCount = orderedPeople.length - visiblePeople.length;
+  const emailCount = peopleEmailCount(people);
+  const contactStatus = contactRun
+    ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
+    : emailCount > 0
+      ? `${emailCount} verified work email${emailCount === 1 ? "" : "s"}`
+      : "No verified work email found";
+  const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
+
+  function copyEmail(email: string) {
+    void navigator.clipboard?.writeText(email);
+  }
 
   return (
     <section className="cs-people-line" aria-label="Management team">
-      <span className="cs-people-line-label">People</span>
-      <p>
-        {visiblePeople.map(personLine).join("; ")}
-        {hiddenPeopleCount > 0 ? `; +${hiddenPeopleCount}` : ""}
-      </p>
-      {sourceCount > 0 ? <span className="cs-people-line-source">{sourceLabel(sourceCount)}</span> : null}
+      <div className="cs-people-line-head">
+        <span className="cs-people-line-label">People</span>
+        <span className="cs-people-line-source">
+          {contactStatus}
+          {confidenceStatus}
+          {sourceCount > 0 ? ` · ${sourceLabel(sourceCount)}` : ""}
+        </span>
+      </div>
+      <div className="cs-people-line-list">
+        {visiblePeople.map((person) => (
+          <article
+            className="cs-people-person"
+            data-has-email={person.email ? "true" : "false"}
+            key={`${person.name}-${person.email ?? person.role ?? "person"}`}
+          >
+            <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
+            <span className="cs-person-main">
+              <span className="cs-people-name">{person.name}</span>
+              <span className="cs-people-role">{personRole(person)}</span>
+              {person.email ? (
+                <span className="cs-person-email">
+                  <a href={`mailto:${person.email}`}>{person.email}</a>
+                  <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
+                </span>
+              ) : null}
+            </span>
+            <span className="cs-person-contact-state" aria-hidden="true">
+              {person.email ? "@" : ""}
+            </span>
+          </article>
+        ))}
+        {hiddenPeopleCount > 0 ? (
+          <span className="cs-people-more">
+            +{hiddenPeopleCount}
+          </span>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -288,6 +362,9 @@ function LayerContent({
     return (
       <div className="cs-layer-running-copy" aria-live="polite">
         <span className="cs-shimmer-text">{runningCopy}</span>
+        <span className="cs-layer-progress" aria-hidden="true">
+          <span />
+        </span>
         <span className="cs-layer-skeleton" aria-hidden="true" />
         <span className="cs-layer-skeleton cs-layer-skeleton-short" aria-hidden="true" />
       </div>
@@ -299,7 +376,7 @@ function LayerContent({
   if (display.items && display.items.length > 0) {
     return (
       <>
-        <ul className="cs-layer-items">
+        <ul className={`cs-layer-items ${display.id === "investors" ? "cs-layer-items-funding" : ""}`.trim()}>
           {display.items.map((item) => (
             <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
               <div>
@@ -483,6 +560,8 @@ export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
   card,
+  contactElapsedSeconds = 0,
+  contactRun,
   elapsedSeconds,
   onRefreshProfile,
   onRegenerate,
@@ -612,7 +691,13 @@ export function ResearchLayerPanel({
           </div>
         </div>
         <FactRibbon facts={facts} />
-        <PeopleLine people={people} sourceCount={managerSources} />
+        <PeopleLine
+          contactElapsedSeconds={contactElapsedSeconds}
+          contactRun={contactRun}
+          confidence={managementConfidence(card)}
+          people={people}
+          sourceCount={managerSources}
+        />
       </section>
 
       <section className="cs-research-layer" aria-label="Research layer">
@@ -621,7 +706,7 @@ export function ResearchLayerPanel({
           <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
 
-        <motion.div className="cs-active-enrichments" layout>
+        <div className="cs-active-enrichments">
           {activeLayerIds.map((id) => {
             const display = layerDisplayForCard(card, id);
             if (!display) {
@@ -647,7 +732,7 @@ export function ResearchLayerPanel({
               : "Extracting structure from cited sources";
 
             return (
-              <motion.article className="cs-active-enrichment" data-state={state} key={id} layout layoutId={`research-layer-${id}`}>
+              <article className="cs-active-enrichment" data-expanded={expanded ? "true" : "false"} data-layer-id={id} data-state={state} key={id}>
                 <button className="cs-active-enrichment-head" onClick={() => toggleExpanded(id)} type="button">
                   <span className="cs-active-dot" aria-hidden="true" />
                   <span>
@@ -663,23 +748,19 @@ export function ResearchLayerPanel({
                     ⌄
                   </motion.span>
                 </button>
-                <AnimatePresence initial={false}>
-                  {expanded ? (
-                    <motion.div
-                      animate={{ height: "auto", opacity: 1 }}
-                      className="cs-active-enrichment-body"
-                      exit={{ height: 0, opacity: 0 }}
-                      initial={{ height: 0, opacity: 0 }}
-                      transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </motion.article>
+                <div
+                  aria-hidden={!expanded}
+                  className="cs-active-enrichment-body-frame"
+                  data-expanded={expanded ? "true" : "false"}
+                >
+                  <div className="cs-active-enrichment-body">
+                    <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />
+                  </div>
+                </div>
+              </article>
             );
           })}
-        </motion.div>
+        </div>
 
         {analysisNotice ? (
           <div className="cs-research-notice" role="status">

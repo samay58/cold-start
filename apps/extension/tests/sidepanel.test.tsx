@@ -442,8 +442,9 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("People");
     expect(container.textContent).toContain("2 sources");
     expect(container.textContent).toContain("Jessica Lessin");
-    expect(container.textContent).not.toContain("jessica@theinformation.com");
-    expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeNull();
+    expect(container.textContent).toContain("jessica@theinformation.com");
+    expect(container.textContent).toContain("1 verified work email");
+    expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeTruthy();
     expect(container.textContent).toContain("Matthew Resnick");
     expect(container.textContent).toContain("Amir Efrati");
     expect(container.textContent).toContain("Research");

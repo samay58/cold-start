@@ -217,7 +217,34 @@ function printDetail(row: Row) {
     }
   }
 
+  if (trace.milestones) {
+    console.log("\nmilestones");
+    for (const [name, durationMs] of Object.entries(trace.milestones)) {
+      console.log(`- ${name}: ${durationMs}ms`);
+    }
+  }
+
   if (trace.providers) {
+    const emailDiscovery = trace.providers.emailDiscovery;
+    if (Array.isArray(emailDiscovery) && emailDiscovery.length > 0) {
+      console.log("\nemail discovery");
+      for (const entry of emailDiscovery) {
+        const head = `- ${entry.name}${entry.role ? ` (${entry.role})` : ""}`;
+        const discovery = entry.discoverySource ? ` [discovered via ${entry.discoverySource}]` : "";
+        if (entry.emailFound) {
+          console.log(`${head}${discovery} → ${entry.emailFound} via ${entry.emailSource}`);
+        } else {
+          console.log(`${head}${discovery} → no email`);
+        }
+        if (entry.hunterAttempts?.length) {
+          for (const attempt of entry.hunterAttempts) {
+            const verdict = attempt.accepted ? "accepted" : "rejected";
+            const score = attempt.score === null ? "?" : attempt.score;
+            console.log(`    hunter: ${attempt.email} status=${attempt.status ?? "?"} score=${score} ${verdict}`);
+          }
+        }
+      }
+    }
     console.log("\nproviders");
     console.log(JSON.stringify(trace.providers, null, 2));
   }

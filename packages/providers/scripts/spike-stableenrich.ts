@@ -1,4 +1,5 @@
 import {
+  fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   missingStableenrichConfig,
   type StableenrichEnv,
@@ -38,6 +39,26 @@ console.log(
   }),
 );
 
+const contact = await fetchStableenrichPeopleEmailSources({ env, domain, sourceHints: enriched.sources });
+console.log(
+  JSON.stringify({
+    endpoint: "stableenrich_people_email_discovery",
+    status: "ok",
+    sourceCount: contact.sources.length,
+    factCount: contact.facts.length,
+    failureCount: contact.failures.length,
+    sources: contact.sources.map((source) => ({
+      url: source.url,
+      title: source.title,
+      sourceType: source.sourceType,
+      intent: source.intent,
+      rawTextSample: source.rawText.slice(0, 600),
+    })),
+    emailDiscovery: contact.emailDiscovery ?? [],
+    teamFacts: contact.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
+  }, null, 2),
+);
+
 const afterBalance = await agentcashBalance();
 if (afterBalance !== null) {
   console.log(
@@ -57,9 +78,12 @@ function stableenrichEnvFromProcess(): StableenrichEnv {
   setIfPresent(env, "STABLEENRICH_EXA_SIMILAR_URL", process.env.STABLEENRICH_EXA_SIMILAR_URL);
   setIfPresent(env, "STABLEENRICH_FIRECRAWL_URL", process.env.STABLEENRICH_FIRECRAWL_URL);
   setIfPresent(env, "STABLEENRICH_ORG_ENRICH_URL", process.env.STABLEENRICH_ORG_ENRICH_URL);
+  setIfPresent(env, "STABLEENRICH_APOLLO_ORG_SEARCH_URL", process.env.STABLEENRICH_APOLLO_ORG_SEARCH_URL);
   setIfPresent(env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL", process.env.STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL);
   setIfPresent(env, "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL", process.env.STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL);
   setIfPresent(env, "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL", process.env.STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL);
+  setIfPresent(env, "STABLEENRICH_CLADO_CONTACTS_ENRICH_URL", process.env.STABLEENRICH_CLADO_CONTACTS_ENRICH_URL);
+  setIfPresent(env, "STABLEENRICH_MINERVA_ENRICH_URL", process.env.STABLEENRICH_MINERVA_ENRICH_URL);
   return env;
 }
 

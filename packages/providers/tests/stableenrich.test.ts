@@ -70,8 +70,9 @@ describe("buildStableenrichRequests", () => {
     expect(requests[9]?.body).toEqual({ url: "https://cartesia.ai/team" });
     expect(requests[11]?.body).toMatchObject({
       q_organization_domains: ["cartesia.ai"],
-      person_seniorities: expect.arrayContaining(["founder", "c_suite"]),
-      per_page: 5,
+      person_seniorities: expect.arrayContaining(["founder", "c_suite", "vp"]),
+      person_titles: expect.arrayContaining(["CTO", "CFO", "VP Engineering"]),
+      per_page: 25,
     });
   });
 
@@ -781,12 +782,18 @@ describe("fetchStableenrichPeopleEmailSources", () => {
       },
     });
 
-    expect(result.endpoints.map((endpoint) => endpoint.name)).toEqual([
-      "apollo_people_enrich",
-      "hunter_email_verifier",
-      "hunter_email_verifier",
-      "hunter_email_verifier",
-    ]);
+    expect(result.endpoints.map((endpoint) => endpoint.name)).toEqual(
+      expect.arrayContaining([
+        "apollo_org_search",
+        "apollo_people_search",
+        "apollo_people_enrich",
+        "minerva_enrich",
+        "clado_contacts_enrich",
+        "hunter_email_verifier",
+        "exa_email_search",
+        "exa_leader_discovery",
+      ]),
+    );
     expect(result.facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -840,12 +847,18 @@ describe("fetchStableenrichPeopleEmailSources", () => {
       },
     });
 
-    expect(result.endpoints.map((endpoint) => endpoint.name)).toEqual([
-      "apollo_people_enrich",
-      "hunter_email_verifier",
-      "hunter_email_verifier",
-      "hunter_email_verifier",
-    ]);
+    expect(result.endpoints.map((endpoint) => endpoint.name)).toEqual(
+      expect.arrayContaining([
+        "apollo_org_search",
+        "apollo_people_search",
+        "apollo_people_enrich",
+        "minerva_enrich",
+        "clado_contacts_enrich",
+        "hunter_email_verifier",
+        "exa_email_search",
+        "exa_leader_discovery",
+      ]),
+    );
     expect(result.facts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -861,6 +874,112 @@ describe("fetchStableenrichPeopleEmailSources", () => {
       ]),
     );
   });
+
+  it("uses Minerva professional emails before falling back to guessed patterns", async () => {
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "perplexity.ai",
+      sourceHints: [],
+      peopleHints: [
+        {
+          name: "Aravind Srinivas",
+          role: "Co-Founder and CEO",
+          sourceUrl: "https://linkedin.com/in/aravind-srinivas-16051987",
+        },
+      ],
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/people-enrich") {
+          return { person: null };
+        }
+
+        if (url === "https://stable.example/minerva") {
+          return {
+            api_request_id: "req",
+            request_completed_at: "2026-05-19T00:00:00.000Z",
+            results: [
+              {
+                record_id: "aravind-srinivas",
+                is_match: true,
+                full_name: "Aravind Srinivas",
+                linkedin_title: "Co-Founder and CEO",
+                linkedin_url: "https://linkedin.com/in/aravind-srinivas-16051987",
+                professional_emails: [{ email_rank: 1, email_address: "aravind@perplexity.ai" }],
+              },
+            ],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "team.founders",
+          value: [
+            expect.objectContaining({
+              name: "Aravind Srinivas",
+              email: "aravind@perplexity.ai",
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(result.endpoints.map((endpoint) => endpoint.name)).toContain("minerva_enrich");
+  });
+
+  it("uses Clado LinkedIn contact enrichment when Minerva does not return a work email", async () => {
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "firecrawl.dev",
+      sourceHints: [],
+      peopleHints: [
+        {
+          name: "Caleb Peffer",
+          role: "Co-Founder and CEO",
+          sourceUrl: "https://linkedin.com/in/calebpeffer",
+        },
+      ],
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/people-enrich") {
+          return { person: null };
+        }
+
+        if (url === "https://stable.example/minerva") {
+          return { api_request_id: "req", request_completed_at: "2026-05-19T00:00:00.000Z", results: [] };
+        }
+
+        if (url === "https://stable.example/clado") {
+          return {
+            data: [
+              {
+                contacts: [{ type: "email", value: "caleb@firecrawl.dev", rating: 91 }],
+                social: [{ type: "linkedin", link: "https://linkedin.com/in/calebpeffer", rating: 95 }],
+              },
+            ],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "team.founders",
+          value: [
+            expect.objectContaining({
+              name: "Caleb Peffer",
+              email: "caleb@firecrawl.dev",
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(result.endpoints.map((endpoint) => endpoint.name)).toContain("clado_contacts_enrich");
+  });
 });
 
 function stableenrichEnv() {
@@ -869,8 +988,11 @@ function stableenrichEnv() {
     STABLEENRICH_EXA_SIMILAR_URL: "https://stable.example/exa/similar",
     STABLEENRICH_FIRECRAWL_URL: "https://stable.example/firecrawl",
     STABLEENRICH_ORG_ENRICH_URL: "https://stable.example/org",
+    STABLEENRICH_APOLLO_ORG_SEARCH_URL: "https://stable.example/org-search",
     STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL: "https://stable.example/people-search",
     STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL: "https://stable.example/people-enrich",
     STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL: "https://stable.example/hunter",
+    STABLEENRICH_CLADO_CONTACTS_ENRICH_URL: "https://stable.example/clado",
+    STABLEENRICH_MINERVA_ENRICH_URL: "https://stable.example/minerva",
   };
 }

@@ -1,4 +1,5 @@
 import { agentcashJson } from "./agentcash";
+import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
 import type {
   ProviderFactCandidate,
   ProviderResearchPlan,
@@ -8,15 +9,32 @@ import type {
   StableenrichProbe
 } from "./types";
 
+export type StableenrichEmailDiscovery = {
+  name: string;
+  role: string | null;
+  discoverySource: "apollo" | "sec_edgar" | "exa" | "search_hint" | "people_hint" | null;
+  emailFound: string | null;
+  emailSource: "apollo_search" | "apollo_enrich" | "minerva" | "clado" | "hunter" | "exa" | null;
+  hunterAttempts?: Array<{
+    email: string;
+    status: string | null;
+    score: number | null;
+    accepted: boolean;
+  }>;
+};
+
 const stableenrichBaseUrl = "https://stableenrich.dev";
 const stableenrichPaths = {
   STABLEENRICH_EXA_SEARCH_URL: "/api/exa/search",
   STABLEENRICH_EXA_SIMILAR_URL: "/api/exa/find-similar",
   STABLEENRICH_FIRECRAWL_URL: "/api/firecrawl/scrape",
   STABLEENRICH_ORG_ENRICH_URL: "/api/apollo/org-enrich",
+  STABLEENRICH_APOLLO_ORG_SEARCH_URL: "/api/apollo/org-search",
   STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL: "/api/apollo/people-search",
   STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL: "/api/apollo/people-enrich",
   STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL: "/api/hunter/email-verifier",
+  STABLEENRICH_CLADO_CONTACTS_ENRICH_URL: "/api/clado/contacts-enrich",
+  STABLEENRICH_MINERVA_ENRICH_URL: "/api/minerva/enrich",
 } as const;
 
 type StableenrichEndpointKey = keyof typeof stableenrichPaths;
@@ -26,6 +44,7 @@ type StableenrichProbeResult = {
   name: StableenrichProbe["name"];
   endpointUrl: string;
   result: unknown;
+  durationMs?: number;
   metadata?: {
     domain?: string;
     personName?: string;
@@ -61,8 +80,10 @@ export type StableenrichSourcesResult = {
     status: "ok" | "failed";
     sourceCount: number;
     factCount: number;
+    durationMs?: number;
     error?: string;
   }>;
+  emailDiscovery?: StableenrichEmailDiscovery[];
 };
 
 export function missingStableenrichConfig(env: StableenrichEnv): string[] {
@@ -155,14 +176,45 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       url: stableenrichEndpointUrl(env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL"),
       body: {
         q_organization_domains: [domain],
-        person_seniorities: ["founder", "c_suite", "owner", "partner", "head"],
-        person_titles: ["Founder", "Co-Founder", "CEO", "Chief Executive Officer", "President", "Managing Partner"],
-        per_page: 5,
+        person_seniorities: APOLLO_LEADER_SENIORITIES,
+        person_titles: APOLLO_LEADER_TITLES,
+        per_page: 25,
         page: 1,
       },
     },
   ];
 }
+
+const APOLLO_LEADER_SENIORITIES = ["founder", "c_suite", "owner", "partner", "head", "vp", "director"];
+const APOLLO_LEADER_TITLES = [
+  "Founder",
+  "Co-Founder",
+  "Cofounder",
+  "CEO",
+  "Chief Executive Officer",
+  "President",
+  "Managing Partner",
+  "CTO",
+  "Chief Technology Officer",
+  "CFO",
+  "Chief Financial Officer",
+  "COO",
+  "Chief Operating Officer",
+  "CPO",
+  "Chief Product Officer",
+  "CRO",
+  "Chief Revenue Officer",
+  "CMO",
+  "Chief Marketing Officer",
+  "Chief Scientist",
+  "Chief Architect",
+  "VP Engineering",
+  "VP Product",
+  "VP Sales",
+  "Head of Engineering",
+  "Head of Product",
+  "Head of Sales",
+];
 
 export async function runStableenrichProbe(input: {
   env: StableenrichEnv;
@@ -185,11 +237,14 @@ export async function runStableenrichProbe(input: {
 
   return allSettledLimited(requests, async (request) => {
     try {
+      const startedAt = Date.now();
+      const result = await agentcashFetch({ url: request.url, body: request.body, timeoutMs: stableenrichProbeTimeoutMs(request.name) });
       return {
         name: request.name,
         endpointUrl: request.url,
         metadata: { domain: input.domain },
-        result: await agentcashFetch({ url: request.url, body: request.body, timeoutMs: stableenrichProbeTimeoutMs(request.name) }),
+        result,
+        durationMs: Date.now() - startedAt,
       };
     } catch (error) {
       throw {
@@ -249,19 +304,464 @@ export async function fetchStableenrichPeopleEmailSources(input: {
   sourceHints: ProviderSource[];
   peopleHints?: StableenrichPeopleEmailHint[];
   agentcashFetch?: AgentcashFetch;
+  companyName?: string;
 }): Promise<StableenrichSourcesResult> {
   requireStableenrichConfig(input.env);
+  const agentcashFetch = input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request));
+  const [discovery, secFormD, exaEmails] = await Promise.all([
+    runApolloPeopleDiscovery({ env: input.env, domain: input.domain, agentcashFetch }),
+    runSecEdgarDiscovery({ domain: input.domain, ...(input.companyName ? { companyName: input.companyName } : {}) }),
+    runExaEmailDiscovery({
+      env: input.env,
+      domain: input.domain,
+      agentcashFetch,
+      ...(input.companyName ? { companyName: input.companyName } : {}),
+    }),
+  ]);
   const leaders = rankPeople([
     ...peopleRecordsFromEmailHints(input.peopleHints ?? []),
     ...peopleHintsFromProviderSources(input.sourceHints, input.domain),
-  ]).slice(0, 3);
+    ...discovery.people,
+    ...secFormD.people,
+    ...exaEmails.people,
+  ]).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
   const followups = await runPeopleFollowupRequests({
     env: input.env,
     domain: input.domain,
     leaders,
-    agentcashFetch: input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request)),
+    agentcashFetch,
   });
-  return collectStableenrichSources(followups);
+  const collected = collectStableenrichSources([...discovery.results, ...followups, ...exaEmails.results]);
+  const extraSources = [...secFormD.sources];
+  const extraFacts = [...secFormD.facts];
+  return {
+    ...collected,
+    sources: [...collected.sources, ...extraSources],
+    facts: [...collected.facts, ...extraFacts],
+    emailDiscovery: summarizeEmailDiscovery(leaders, [...discovery.results, ...followups, ...exaEmails.results], {
+      secOfficers: secFormD.officers,
+      exaPeople: exaEmails.people,
+    }),
+  };
+}
+
+const EXA_EMAIL_GENERIC_LOCAL_PARTS = new Set([
+  "info", "support", "hello", "contact", "sales", "press", "media", "team",
+  "help", "admin", "noreply", "no-reply", "donotreply", "do-not-reply",
+  "marketing", "legal", "privacy", "security", "abuse", "postmaster",
+  "billing", "accounts", "careers", "jobs", "hr", "people", "ops",
+  "founders", "investors", "ir", "feedback", "news",
+  "jane", "john", "example", "test", "demo", "sample", "your-name", "yourname",
+  "firstname", "first", "lastname", "last", "name", "user", "username",
+]);
+
+async function runExaEmailDiscovery(input: {
+  env: StableenrichEnv;
+  domain: string;
+  companyName?: string;
+  agentcashFetch: AgentcashFetch;
+}): Promise<{
+  people: PersonRecord[];
+  results: PromiseSettledResult<StableenrichProbeResult>[];
+}> {
+  const exaUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_EXA_SEARCH_URL");
+  const companyTerm = input.companyName?.trim() || input.domain.split(".")[0] || input.domain;
+
+  const probes: Array<{ name: "exa_email_search" | "exa_leader_discovery"; query: string }> = [
+    {
+      name: "exa_email_search",
+      query: `"@${input.domain}" founder OR CEO OR CTO OR CFO OR cofounder OR contact email`,
+    },
+    {
+      name: "exa_leader_discovery",
+      query: `"${companyTerm}" "${input.domain}" founder OR CEO OR CTO OR cofounder OR "led by" OR "co-founded"`,
+    },
+  ];
+
+  const settled = await Promise.all(
+    probes.map(async ({ name, query }): Promise<PromiseSettledResult<StableenrichProbeResult>> => {
+      const startedAt = Date.now();
+      try {
+        const result = await input.agentcashFetch({
+          url: exaUrl,
+          body: {
+            query,
+            numResults: 8,
+            contents: {
+              text: true,
+              highlights: { highlightsPerUrl: 3, numSentences: 3 },
+            },
+          },
+          timeoutMs: stableenrichProbeTimeoutMs(name),
+        });
+        return {
+          status: "fulfilled",
+          value: {
+            name,
+            endpointUrl: exaUrl,
+            result,
+            durationMs: Date.now() - startedAt,
+            metadata: { domain: input.domain },
+          },
+        };
+      } catch (error) {
+        return {
+          status: "rejected",
+          reason: {
+            name,
+            endpointUrl: exaUrl,
+            error: error instanceof Error ? error.message : String(error),
+          } satisfies StableenrichProbeFailure,
+        };
+      }
+    }),
+  );
+
+  const fulfilled = settled.flatMap((entry) => (entry.status === "fulfilled" ? [entry.value] : []));
+  const peopleFromEmails = fulfilled
+    .filter((probe) => probe.name === "exa_email_search")
+    .flatMap((probe) => extractPeopleFromExaEmailResults(probe.result, input.domain));
+  const peopleFromLeaders = fulfilled
+    .filter((probe) => probe.name === "exa_leader_discovery")
+    .flatMap((probe) => extractLeadersFromExaResults(probe.result, input.domain));
+
+  return { people: [...peopleFromEmails, ...peopleFromLeaders], results: settled };
+}
+
+function extractLeadersFromExaResults(payload: unknown, domain: string): PersonRecord[] {
+  const records = extractUrlRecords(payload);
+  const out = new Map<string, PersonRecord>();
+
+  for (const record of records) {
+    const url = stringRecordValue(record, "url") ?? "";
+    const text = [stringRecordValue(record, "title") ?? "", stringRecordValue(record, "text") ?? "", stringRecordValue(record, "summary") ?? "", Array.isArray(record.highlights) ? record.highlights.filter((h): h is string => typeof h === "string").join("\n") : ""].join("\n");
+    if (!text) continue;
+
+    const candidates = leadershipNameCandidates(text);
+    for (const { name, role } of candidates) {
+      const key = name.toLowerCase();
+      if (out.has(key)) continue;
+      const [firstName, ...rest] = name.split(/\s+/).filter(Boolean);
+      if (!firstName) continue;
+      out.set(key, {
+        name,
+        firstName,
+        ...(rest.length > 0 ? { lastName: rest.join(" ") } : {}),
+        ...(role ? { role } : {}),
+        ...(url && supportedUrl(url) ? { sourceUrl: url } : {}),
+      });
+    }
+  }
+
+  // Don't return excessive candidates — limit to top 6 to keep Hunter spend bounded.
+  return Array.from(out.values()).slice(0, 6);
+}
+
+const LEADERSHIP_TITLE_REGEX = /\b(Co-?Founder|Founder|CEO|Chief Executive Officer|CTO|Chief Technology Officer|CFO|Chief Financial Officer|COO|Chief Operating Officer|CPO|Chief Product Officer|CRO|Chief Revenue Officer|CMO|Chief Marketing Officer|President|Managing Partner|General Partner|Head of (?:Engineering|Product|Sales|Marketing|Design))\b/gi;
+
+function leadershipNameCandidates(rawText: string): Array<{ name: string; role: string | null }> {
+  const text = rawText.replace(/\s+/g, " ");
+  const out: Array<{ name: string; role: string | null }> = [];
+  // Pattern A: "Chris Hladczuk, Co-Founder and CEO" — name followed by comma-title
+  const namedAfterPattern = /\b([A-Z][a-zA-Z'’]+(?:\s+[A-Z][a-zA-Z'’]+){1,2}),\s+((?:Co-?Founder|Founder|CEO|CTO|CFO|COO|CPO|CRO|CMO|President|Chief [A-Z][a-z]+ Officer|Managing Partner|General Partner|Head of [A-Z][a-z]+)(?:\s+(?:and|&)\s+[A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)?)/g;
+  let match: RegExpExecArray | null;
+  while ((match = namedAfterPattern.exec(text)) !== null) {
+    const name = (match[1] ?? "").trim();
+    const role = (match[2] ?? "").trim();
+    if (!isLikelyPersonName(name)) continue;
+    out.push({ name, role });
+  }
+  // Pattern B: "CEO Chris Hladczuk" or "Co-Founder Nick Puljic" — title then name
+  const titleBeforePattern = /(Co-?Founder|Founder|CEO|CTO|CFO|COO|CPO|CRO|CMO|President|Chief [A-Z][a-z]+ Officer|Managing Partner|General Partner)\s+([A-Z][a-zA-Z'’]+(?:\s+[A-Z][a-zA-Z'’]+){1,2})/g;
+  while ((match = titleBeforePattern.exec(text)) !== null) {
+    const role = (match[1] ?? "").trim();
+    const name = (match[2] ?? "").trim();
+    if (!isLikelyPersonName(name)) continue;
+    out.push({ name, role });
+  }
+  return dedupeByName(out);
+}
+
+const PLACE_OR_BRAND_TOKENS = new Set([
+  "united", "states", "america", "kingdom", "york", "francisco", "angeles", "london",
+  "europe", "asia", "africa", "australia", "canada", "mexico", "germany", "france",
+  "lodge", "ventures", "partners", "capital", "fund", "funds", "company", "park",
+  "email", "format", "profile", "group", "holdings", "series", "round", "team",
+  "investors", "venture", "valuation",
+]);
+
+function isLikelyPersonName(name: string): boolean {
+  if (/[\n\r\t]/.test(name)) return false;
+  if (!/^[A-Z][a-z]/.test(name)) return false;
+  const words = name.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 3) return false;
+  for (const word of words) {
+    if (!/^[A-Z][a-zA-Z'’]+$/.test(word)) return false;
+    if (PLACE_OR_BRAND_TOKENS.has(word.toLowerCase())) return false;
+  }
+  if (/\b(Inc|LLC|Corp|Ltd)\b/.test(name)) return false;
+  return true;
+}
+
+function dedupeByName<T extends { name: string }>(entries: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const entry of entries) {
+    const key = entry.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(entry);
+  }
+  return out;
+}
+
+function extractPeopleFromExaEmailResults(payload: unknown, domain: string): PersonRecord[] {
+  const records = extractUrlRecords(payload);
+  const emailDomain = domain.replace(/^www\./i, "").toLowerCase();
+  const emailRegex = new RegExp(`([A-Za-z0-9._+\\-]+)@${emailDomain.replace(/[.\\\\]/g, "\\$&")}`, "gi");
+  const found = new Map<string, PersonRecord>();
+
+  for (const record of records) {
+    const url = stringRecordValue(record, "url") ?? "";
+    const title = stringRecordValue(record, "title") ?? "";
+    const text = stringRecordValue(record, "text") ?? stringRecordValue(record, "summary") ?? "";
+    const highlights = Array.isArray(record.highlights) ? record.highlights.filter((h): h is string => typeof h === "string").join("\n") : "";
+    const haystack = [title, text, highlights].join("\n");
+    if (!haystack) continue;
+
+    emailRegex.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = emailRegex.exec(haystack)) !== null) {
+      const local = (match[1] ?? "").toLowerCase();
+      if (!local || EXA_EMAIL_GENERIC_LOCAL_PARTS.has(local)) continue;
+      const email = `${local}@${emailDomain}`;
+      if (found.has(email)) continue;
+
+      const person = personFromEmailMention({
+        local,
+        email,
+        snippet: haystack,
+        title,
+        sourceUrl: url,
+      });
+      if (person) {
+        found.set(email, person);
+      }
+    }
+  }
+
+  return Array.from(found.values());
+}
+
+function personFromEmailMention(input: {
+  local: string;
+  email: string;
+  snippet: string;
+  title: string;
+  sourceUrl: string;
+}): PersonRecord | null {
+  const fromLocal = nameGuessFromLocalPart(input.local);
+  const fromSnippet = nameGuessFromSnippet(input.snippet, input.local) ?? nameGuessFromSnippet(input.title, input.local);
+  const best = fromSnippet ?? fromLocal;
+  if (!best) {
+    return null;
+  }
+  const [firstName, ...rest] = best.split(/\s+/).filter(Boolean);
+  if (!firstName) return null;
+  const lastName = rest.join(" ").trim();
+  return {
+    name: best,
+    firstName,
+    ...(lastName ? { lastName } : {}),
+    email: input.email,
+    emailStatus: "verified",
+    ...(input.sourceUrl && supportedUrl(input.sourceUrl) ? { sourceUrl: input.sourceUrl } : {}),
+  };
+}
+
+function nameGuessFromLocalPart(local: string): string | null {
+  if (local.includes(".")) {
+    const parts = local.split(".").filter(Boolean);
+    if (parts.length >= 2) {
+      return parts.map(titleCase).join(" ");
+    }
+  }
+  if (/^[a-z]+$/.test(local) && local.length >= 3) {
+    return titleCase(local);
+  }
+  return null;
+}
+
+function nameGuessFromSnippet(text: string, local: string): string | null {
+  const namePattern = /\b([A-Z][a-z'’]+(?:\s+[A-Z][a-z'’]+){1,2})\b/g;
+  const candidates: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = namePattern.exec(text)) !== null) {
+    const candidate = match[1]?.trim();
+    if (!candidate) continue;
+    if (!isLikelyPersonName(candidate)) continue;
+    candidates.push(candidate);
+  }
+  if (candidates.length === 0) return null;
+
+  const localFirst = local.split(".")[0]?.toLowerCase();
+  const matched = candidates.find((candidate) => {
+    const firstWord = candidate.split(/\s+/)[0]?.toLowerCase() ?? "";
+    return localFirst && firstWord.startsWith(localFirst.slice(0, Math.min(localFirst.length, 4)));
+  });
+  return matched ?? null;
+}
+
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
+async function runSecEdgarDiscovery(input: {
+  domain: string;
+  companyName?: string;
+}): Promise<{
+  people: PersonRecord[];
+  officers: SecFormDOfficer[];
+  sources: ProviderSource[];
+  facts: ProviderFactCandidate[];
+}> {
+  if (process.env.SEC_EDGAR_DISABLED === "true") {
+    return { people: [], officers: [], sources: [], facts: [] };
+  }
+  try {
+    const result = await fetchSecFormD({ domain: input.domain, ...(input.companyName ? { companyName: input.companyName } : {}) });
+    if (!isSecFormDResult(result)) {
+      return { people: [], officers: [], sources: [], facts: [] };
+    }
+    const people = result.officers.map((officer): PersonRecord => ({
+      name: officer.fullName,
+      firstName: officer.firstName,
+      lastName: officer.lastName,
+      ...(officer.titleHint ? { role: officer.titleHint } : officer.relationships.length > 0 ? { role: officer.relationships[0] ?? "Officer" } : {}),
+      sourceUrl: result.formUrl,
+    }));
+    const fetchedAt = new Date().toISOString();
+    const citationTitle = `SEC Form D filing ${result.accessionNumber}`;
+    const sources: ProviderSource[] = [
+      providerSourceFromText({
+        url: result.formUrl,
+        title: citationTitle,
+        sourceType: "filing",
+        intent: "management_team",
+        rawText: JSON.stringify({ cik: result.cik, filedAt: result.filedAt, officers: result.officers }),
+        ...(result.filedAt ? { publishedAt: result.filedAt } : {}),
+      }),
+    ];
+    const facts: ProviderFactCandidate[] = result.officers.map((officer) => {
+      const role = officer.titleHint ?? officer.relationships[0] ?? "Officer";
+      const path = personPath(role);
+      return {
+        path,
+        value: [
+          {
+            name: officer.fullName,
+            role,
+            sourceUrl: result.formUrl,
+          },
+        ],
+        status: "verified",
+        confidence: "high",
+        sourceType: "filing",
+        provider: "sec_edgar",
+        endpoint: result.formUrl,
+        citationUrl: result.formUrl,
+        citationTitle,
+        fetchedAt,
+        rawText: JSON.stringify({ cik: result.cik, officer }),
+      } satisfies ProviderFactCandidate;
+    });
+    return { people, officers: result.officers, sources, facts };
+  } catch {
+    return { people: [], officers: [], sources: [], facts: [] };
+  }
+}
+
+const MAX_LEADERS_FOR_ENRICHMENT = 8;
+const MAX_FALLBACK_LEADERS = 6;
+const MAX_HUNTER_CANDIDATES = 24;
+
+async function runApolloPeopleDiscovery(input: {
+  env: StableenrichEnv;
+  domain: string;
+  agentcashFetch: AgentcashFetch;
+}): Promise<{ people: PersonRecord[]; results: PromiseSettledResult<StableenrichProbeResult>[] }> {
+  const results: PromiseSettledResult<StableenrichProbeResult>[] = [];
+  const orgSearchUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_ORG_SEARCH_URL");
+  let organizationId: string | null = null;
+
+  try {
+    const startedAt = Date.now();
+    const result = await input.agentcashFetch({
+      url: orgSearchUrl,
+      body: {
+        q_keywords: input.domain,
+        per_page: 5,
+        page: 1,
+      },
+      timeoutMs: stableenrichProbeTimeoutMs("apollo_org_search"),
+    });
+    results.push({
+      status: "fulfilled",
+      value: {
+        name: "apollo_org_search",
+        endpointUrl: orgSearchUrl,
+        result,
+        durationMs: Date.now() - startedAt,
+        metadata: { domain: input.domain },
+      },
+    });
+    organizationId = apolloOrganizationIdForDomain(result, input.domain);
+  } catch (error) {
+    results.push({
+      status: "rejected",
+      reason: {
+        name: "apollo_org_search",
+        endpointUrl: orgSearchUrl,
+        error: error instanceof Error ? error.message : String(error),
+      } satisfies StableenrichProbeFailure,
+    });
+  }
+
+  const peopleSearchUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL");
+  try {
+    const startedAt = Date.now();
+    const result = await input.agentcashFetch({
+      url: peopleSearchUrl,
+      body: {
+        ...(organizationId ? { organization_ids: [organizationId] } : { q_organization_domains: [input.domain] }),
+        person_seniorities: APOLLO_LEADER_SENIORITIES,
+        person_titles: APOLLO_LEADER_TITLES,
+        per_page: 25,
+        page: 1,
+      },
+      timeoutMs: stableenrichProbeTimeoutMs("apollo_people_search"),
+    });
+    const value: StableenrichProbeResult = {
+      name: "apollo_people_search",
+      endpointUrl: peopleSearchUrl,
+      result,
+      durationMs: Date.now() - startedAt,
+      metadata: { domain: input.domain },
+    };
+    results.push({ status: "fulfilled", value });
+    return { people: extractPeopleRecords(result), results };
+  } catch (error) {
+    results.push({
+      status: "rejected",
+      reason: {
+        name: "apollo_people_search",
+        endpointUrl: peopleSearchUrl,
+        error: error instanceof Error ? error.message : String(error),
+      } satisfies StableenrichProbeFailure,
+    });
+  }
+
+  return { people: [], results };
 }
 
 export function collectStableenrichSources(
@@ -297,6 +797,7 @@ export function collectStableenrichSources(
         status: "ok" as const,
         sourceCount: providerSourcesFromProbeResult(result.value).length,
         factCount: providerFactsFromProbeResult(result.value).length,
+        ...(result.value.durationMs !== undefined ? { durationMs: result.value.durationMs } : {}),
       };
     }
 
@@ -329,7 +830,7 @@ async function runStableenrichPeopleFollowups(input: {
   const leaders = rankPeople([
     ...peopleSearchPeople,
     ...peopleHintsFromSearchResults(input.results, input.domain),
-  ]).slice(0, 3);
+  ]).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
 
   return runPeopleFollowupRequests({ ...input, leaders });
 }
@@ -350,6 +851,7 @@ async function runPeopleFollowupRequests(input: {
     leaders,
     async (person) => {
       try {
+        const startedAt = Date.now();
         return {
           name: "apollo_people_enrich" as const,
           endpointUrl: peopleEnrichUrl,
@@ -358,7 +860,8 @@ async function runPeopleFollowupRequests(input: {
             body: peopleEnrichBody(person, input.domain),
             timeoutMs: stableenrichProbeTimeoutMs("apollo_people_enrich")
           }),
-          metadata: personMetadata(person),
+          durationMs: Date.now() - startedAt,
+          metadata: { ...personMetadata(person), domain: input.domain },
         };
       } catch (error) {
         throw {
@@ -373,13 +876,32 @@ async function runPeopleFollowupRequests(input: {
   const enrichedPeople = enrichSettled.flatMap((result) =>
     result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
   );
+  const fallbackLeaders = rankPeople([...leaders, ...enrichedPeople]).filter((person) => !emailValue(person.email)).slice(0, MAX_FALLBACK_LEADERS);
+  const minervaSettled = await runMinervaEmailFallbackRequests({
+    env: input.env,
+    domain: input.domain,
+    leaders: fallbackLeaders,
+    agentcashFetch: input.agentcashFetch,
+  });
+  const minervaPeople = minervaSettled.flatMap((result) =>
+    result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
+  );
+  const cladoSettled = await runCladoEmailFallbackRequests({
+    env: input.env,
+    domain: input.domain,
+    leaders: rankPeople([...fallbackLeaders, ...minervaPeople]).filter((person) => !emailValue(person.email)).slice(0, MAX_FALLBACK_LEADERS),
+    agentcashFetch: input.agentcashFetch,
+  });
+  const cladoPeople = cladoSettled.flatMap((result) =>
+    result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
+  );
   const peopleWithEmailNames = new Set(
-    enrichedPeople
+    [...enrichedPeople, ...minervaPeople, ...cladoPeople]
       .filter((person) => emailValue(person.email))
       .map((person) => personNameKey(person))
       .filter((key): key is string => key !== null)
   );
-  const peopleForVerification = rankPeople([...leaders, ...enrichedPeople])
+  const peopleForVerification = rankPeople([...leaders, ...enrichedPeople, ...minervaPeople, ...cladoPeople])
     .filter((person) => !emailValue(person.email))
     .filter((person) => {
       const key = personNameKey(person);
@@ -387,10 +909,10 @@ async function runPeopleFollowupRequests(input: {
     });
   const candidates = peopleForVerification
     .flatMap((person) => emailCandidatesForPerson(person, input.domain).map((email) => ({ person, email })))
-    .slice(0, 9);
+    .slice(0, MAX_HUNTER_CANDIDATES);
 
   if (candidates.length === 0) {
-    return enrichSettled;
+    return [...enrichSettled, ...minervaSettled, ...cladoSettled];
   }
 
   const hunterUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL");
@@ -398,6 +920,7 @@ async function runPeopleFollowupRequests(input: {
     candidates,
     async ({ person, email }) => {
       try {
+        const startedAt = Date.now();
         return {
           name: "hunter_email_verifier" as const,
           endpointUrl: hunterUrl,
@@ -406,8 +929,10 @@ async function runPeopleFollowupRequests(input: {
             body: { email },
             timeoutMs: stableenrichProbeTimeoutMs("hunter_email_verifier")
           }),
+          durationMs: Date.now() - startedAt,
           metadata: {
             ...personMetadata(person),
+            domain: input.domain,
             email,
           },
         };
@@ -421,7 +946,86 @@ async function runPeopleFollowupRequests(input: {
     },
   );
 
-  return [...enrichSettled, ...hunterSettled];
+  return [...enrichSettled, ...minervaSettled, ...cladoSettled, ...hunterSettled];
+}
+
+async function runMinervaEmailFallbackRequests(input: {
+  env: StableenrichEnv;
+  domain: string;
+  leaders: PersonRecord[];
+  agentcashFetch: AgentcashFetch;
+}): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
+  const leaders = input.leaders.filter((person) => person.linkedinUrl || person.name || person.firstName);
+  if (leaders.length === 0) {
+    return [];
+  }
+
+  const minervaUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_MINERVA_ENRICH_URL");
+  return allSettledLimited(leaders, async (person) => {
+    try {
+      const startedAt = Date.now();
+      return {
+        name: "minerva_enrich" as const,
+        endpointUrl: minervaUrl,
+        result: await input.agentcashFetch({
+          url: minervaUrl,
+          body: {
+            records: [minervaRecordForPerson(person)],
+            match_condition_fields: ["professional_email"],
+            return_fields: ["full_name", "linkedin_url", "linkedin_title", "professional_emails"],
+          },
+          timeoutMs: stableenrichProbeTimeoutMs("minerva_enrich"),
+        }),
+        durationMs: Date.now() - startedAt,
+        metadata: { ...personMetadata(person), domain: input.domain },
+      };
+    } catch (error) {
+      throw {
+        name: "minerva_enrich" as const,
+        endpointUrl: minervaUrl,
+        error: error instanceof Error ? error.message : String(error),
+      } satisfies StableenrichProbeFailure;
+    }
+  });
+}
+
+async function runCladoEmailFallbackRequests(input: {
+  env: StableenrichEnv;
+  domain: string;
+  leaders: PersonRecord[];
+  agentcashFetch: AgentcashFetch;
+}): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
+  const leaders = input.leaders.filter((person) => person.linkedinUrl);
+  if (leaders.length === 0) {
+    return [];
+  }
+
+  const cladoUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_CLADO_CONTACTS_ENRICH_URL");
+  return allSettledLimited(leaders, async (person) => {
+    try {
+      const startedAt = Date.now();
+      return {
+        name: "clado_contacts_enrich" as const,
+        endpointUrl: cladoUrl,
+        result: await input.agentcashFetch({
+          url: cladoUrl,
+          body: {
+            linkedin_url: person.linkedinUrl,
+            email_enrichment: true,
+          },
+          timeoutMs: stableenrichProbeTimeoutMs("clado_contacts_enrich"),
+        }),
+        durationMs: Date.now() - startedAt,
+        metadata: { ...personMetadata(person), domain: input.domain },
+      };
+    } catch (error) {
+      throw {
+        name: "clado_contacts_enrich" as const,
+        endpointUrl: cladoUrl,
+        error: error instanceof Error ? error.message : String(error),
+      } satisfies StableenrichProbeFailure;
+    }
+  });
 }
 
 async function allSettledLimited<T, R>(
@@ -468,6 +1072,10 @@ function stableenrichProbeTimeoutMs(name: StableenrichProbe["name"]) {
     return 15_000;
   }
 
+  if (name === "clado_contacts_enrich" || name === "minerva_enrich") {
+    return 30_000;
+  }
+
   if (name === "firecrawl_homepage" || name === "firecrawl_about" || name === "firecrawl_team") {
     return 20_000;
   }
@@ -505,9 +1113,15 @@ function providerFactsFromProbeResult(result: StableenrichProbeResult): Provider
   if (
     result.name === "apollo_people_search" ||
     result.name === "apollo_people_enrich" ||
+    result.name === "clado_contacts_enrich" ||
+    result.name === "minerva_enrich" ||
     result.name === "hunter_email_verifier"
   ) {
     return peopleFacts(result);
+  }
+
+  if (result.name === "exa_email_search") {
+    return exaEmailFacts(result);
   }
 
   if (result.name === "exa_recent_signals") {
@@ -539,7 +1153,9 @@ function isExaSearchProbe(name: StableenrichProbe["name"]) {
     name === "exa_recent_signals" ||
     name === "exa_competition" ||
     name === "exa_independent_analysis" ||
-    name === "exa_find_similar"
+    name === "exa_find_similar" ||
+    name === "exa_email_search" ||
+    name === "exa_leader_discovery"
   );
 }
 
@@ -577,13 +1193,21 @@ function intentForProbe(name: StableenrichProbe["name"]): RetrievalIntent {
       return "company_profile";
     case "firecrawl_team":
       return "management_team";
+    case "apollo_org_search":
     case "org_enrichment":
       return "firmographics";
     case "apollo_people_search":
     case "apollo_people_enrich":
+    case "clado_contacts_enrich":
+    case "minerva_enrich":
       return "management_team";
     case "hunter_email_verifier":
       return "email_verification";
+    case "exa_email_search":
+    case "exa_leader_discovery":
+      return "management_team";
+    default:
+      return "company_profile";
   }
 }
 
@@ -744,12 +1368,52 @@ function peopleFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
     return hunterEmailFact(result);
   }
 
-  return extractPeopleRecords(result.result).flatMap((person) => personFactCandidates(person, result));
+  return extractPeopleRecords(result.result)
+    .map((person) => withPersonMetadata(person, result.metadata))
+    .flatMap((person) => personFactCandidates(person, result));
+}
+
+function exaEmailFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
+  const domain = result.metadata?.domain;
+  if (!domain) return [];
+  const people = extractPeopleFromExaEmailResults(result.result, domain);
+  if (people.length === 0) return [];
+  const fetchedAt = new Date().toISOString();
+  return people.flatMap((person) => {
+    const name = person.name ?? fullName(person.firstName, person.lastName);
+    const email = person.email;
+    if (!name || !email) return [];
+    const role = person.role ?? null;
+    const path = personPath(role);
+    const sourceUrl = person.sourceUrl ?? result.endpointUrl;
+    return [
+      {
+        path,
+        value: [
+          {
+            name,
+            role,
+            sourceUrl: person.sourceUrl ?? null,
+            email,
+          },
+        ],
+        status: "verified" as const,
+        confidence: "high" as const,
+        sourceType: "news" as const,
+        provider: "stableenrich" as const,
+        endpoint: result.endpointUrl,
+        citationUrl: sourceUrl,
+        citationTitle: `Exa email discovery: ${email}`,
+        fetchedAt,
+        rawText: JSON.stringify({ person, source: result.endpointUrl }),
+      } satisfies ProviderFactCandidate,
+    ];
+  });
 }
 
 function hunterEmailFact(result: StableenrichProbeResult): ProviderFactCandidate[] {
   const metadata = result.metadata;
-  const email = emailValue(metadata?.email) ?? emailValue(stringRecordValue(objectRecord(result.result) ?? {}, "email"));
+  const email = workEmailValue(metadata?.email, metadata?.domain) ?? workEmailValue(stringRecordValue(objectRecord(result.result) ?? {}, "email"), metadata?.domain);
   if (!metadata?.personName || !email || !hunterVerificationAccepted(result.result)) {
     return [];
   }
@@ -786,7 +1450,7 @@ function personFactCandidates(person: PersonRecord, result: StableenrichProbeRes
   }
 
   const role = normalizedPersonRole(person.role);
-  const email = emailValue(person.email);
+  const email = workEmailValue(person.email, result.metadata?.domain);
   const fetchedAt = new Date().toISOString();
   const candidateSourceUrl = person.linkedinUrl ?? person.sourceUrl;
   const sourceUrl = candidateSourceUrl && supportedUrl(candidateSourceUrl) ? candidateSourceUrl : null;
@@ -814,10 +1478,31 @@ function personFactCandidates(person: PersonRecord, result: StableenrichProbeRes
   ];
 }
 
+function withPersonMetadata(person: PersonRecord, metadata: StableenrichProbeResult["metadata"]): PersonRecord {
+  return {
+    ...person,
+    ...(person.name || !metadata?.personName ? {} : { name: metadata.personName }),
+    ...(person.role || !metadata?.role ? {} : { role: metadata.role }),
+    ...(person.linkedinUrl || person.sourceUrl || !metadata?.sourceUrl ? {} : { sourceUrl: metadata.sourceUrl }),
+  };
+}
+
 function extractPeopleRecords(payload: unknown): PersonRecord[] {
   const root = objectRecord(payload);
   if (!root) {
     return [];
+  }
+
+  if (Array.isArray(root.results)) {
+    return root.results
+      .map((item) => minervaPersonRecord(item))
+      .filter((person): person is PersonRecord => person !== null);
+  }
+
+  if (Array.isArray(root.data)) {
+    return root.data
+      .map((item) => cladoPersonRecord(item))
+      .filter((person): person is PersonRecord => person !== null);
   }
 
   const people = Array.isArray(root.people) ? root.people : Array.isArray(root.contacts) ? root.contacts : root.person ? [root.person] : [];
@@ -849,6 +1534,62 @@ function extractPeopleRecords(payload: unknown): PersonRecord[] {
       };
     })
     .filter((person): person is PersonRecord => person !== null);
+}
+
+function minervaPersonRecord(value: unknown): PersonRecord | null {
+  const record = objectRecord(value);
+  if (!record) {
+    return null;
+  }
+  if (record.is_match === false) {
+    return null;
+  }
+
+  const professionalEmails = Array.isArray(record.professional_emails) ? record.professional_emails : [];
+  const email = professionalEmails
+    .flatMap((item) => {
+      const emailRecord = objectRecord(item);
+      return emailRecord ? [stringRecordValue(emailRecord, "email_address")] : [];
+    })
+    .find((candidate) => emailValue(candidate));
+  const name = stringValue(record.full_name);
+  const firstName = stringValue(record.first_name);
+  const lastName = stringValue(record.last_name);
+  const linkedinUrl = stringValue(record.linkedin_url);
+  const role = stringValue(record.linkedin_title);
+  if (!name && !firstName && !email) {
+    return null;
+  }
+
+  return {
+    ...(name ? { name } : {}),
+    ...(firstName ? { firstName } : {}),
+    ...(lastName ? { lastName } : {}),
+    ...(role ? { role } : {}),
+    ...(linkedinUrl ? { linkedinUrl } : {}),
+    ...(email ? { email, emailStatus: "verified" } : {}),
+  };
+}
+
+function cladoPersonRecord(value: unknown): PersonRecord | null {
+  const record = objectRecord(value);
+  if (!record) {
+    return null;
+  }
+  const contacts = Array.isArray(record.contacts) ? record.contacts : [];
+  const emailContact = contacts
+    .map((item) => objectRecord(item))
+    .filter((contact): contact is Record<string, unknown> => contact !== null)
+    .find((contact) => contact.type === "email" && emailValue(contact.value) && numberValue(contact.rating) >= 70);
+  const email = emailValue(emailContact?.value);
+  if (!email) {
+    return null;
+  }
+
+  return {
+    email,
+    emailStatus: numberValue(emailContact?.rating) >= 85 ? "verified" : "accept_all",
+  };
 }
 
 function peopleHintsFromSearchResults(
@@ -1084,6 +1825,130 @@ function roleScoreForPerson(role: string | undefined) {
   return score;
 }
 
+function summarizeEmailDiscovery(
+  leaders: PersonRecord[],
+  results: PromiseSettledResult<StableenrichProbeResult>[],
+  context: { secOfficers?: SecFormDOfficer[]; exaPeople?: PersonRecord[] } = {},
+): StableenrichEmailDiscovery[] {
+  if (leaders.length === 0) {
+    return [];
+  }
+
+  const secNames = new Set(
+    (context.secOfficers ?? []).map((officer) => officer.fullName.toLowerCase().trim()),
+  );
+  const exaNames = new Set(
+    (context.exaPeople ?? [])
+      .map((person) => (person.name ?? fullName(person.firstName, person.lastName) ?? "").toLowerCase().trim())
+      .filter((name) => name.length > 0),
+  );
+  const exaEmailsByName = new Map(
+    (context.exaPeople ?? [])
+      .filter((person) => person.email)
+      .map((person): [string, string] => {
+        const name = (person.name ?? fullName(person.firstName, person.lastName) ?? "").toLowerCase().trim();
+        return [name, person.email as string];
+      })
+      .filter(([name]) => name.length > 0),
+  );
+
+  const entries = new Map<string, StableenrichEmailDiscovery>();
+  for (const leader of leaders) {
+    const name = leader.name ?? fullName(leader.firstName, leader.lastName);
+    if (!name) {
+      continue;
+    }
+    const key = name.toLowerCase().trim();
+    if (entries.has(key)) {
+      continue;
+    }
+    const discoverySource: StableenrichEmailDiscovery["discoverySource"] = secNames.has(key)
+      ? "sec_edgar"
+      : exaNames.has(key)
+        ? "exa"
+        : "apollo";
+    const exaEmail = exaEmailsByName.get(key) ?? null;
+    const seedEmail = leader.email ?? exaEmail;
+    const seedSource: StableenrichEmailDiscovery["emailSource"] = leader.email
+      ? "apollo_search"
+      : exaEmail
+        ? "exa"
+        : null;
+    entries.set(key, {
+      name,
+      role: leader.role ?? null,
+      discoverySource,
+      emailFound: seedEmail ?? null,
+      emailSource: seedSource,
+      hunterAttempts: [],
+    });
+  }
+
+  const upgradeWithEmail = (
+    nameKey: string,
+    email: string,
+    source: StableenrichEmailDiscovery["emailSource"],
+  ) => {
+    const entry = entries.get(nameKey);
+    if (!entry || entry.emailFound) {
+      return;
+    }
+    entry.emailFound = email;
+    entry.emailSource = source;
+  };
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") {
+      continue;
+    }
+    const probe = result.value;
+    if (probe.name === "apollo_people_enrich" || probe.name === "minerva_enrich" || probe.name === "clado_contacts_enrich") {
+      const people = extractPeopleRecords(probe.result);
+      const source: StableenrichEmailDiscovery["emailSource"] =
+        probe.name === "apollo_people_enrich" ? "apollo_enrich" : probe.name === "minerva_enrich" ? "minerva" : "clado";
+      for (const person of people) {
+        const email = emailValue(person.email);
+        if (!email) {
+          continue;
+        }
+        const name = person.name ?? fullName(person.firstName, person.lastName) ?? probe.metadata?.personName;
+        if (!name) {
+          continue;
+        }
+        upgradeWithEmail(name.toLowerCase().trim(), email, source);
+      }
+      continue;
+    }
+    if (probe.name === "hunter_email_verifier") {
+      const personName = probe.metadata?.personName;
+      const email = probe.metadata?.email;
+      if (!personName || !email) {
+        continue;
+      }
+      const key = personName.toLowerCase().trim();
+      const entry = entries.get(key);
+      if (!entry) {
+        continue;
+      }
+      const record = objectRecord(probe.result);
+      const status = stringValue(record?.status)?.toLowerCase() ?? null;
+      const score = integerValue(record?.score);
+      const accepted = hunterVerificationAccepted(probe.result);
+      entry.hunterAttempts = entry.hunterAttempts ?? [];
+      entry.hunterAttempts.push({ email, status, score, accepted });
+      if (accepted && !entry.emailFound) {
+        entry.emailFound = email;
+        entry.emailSource = "hunter";
+      }
+    }
+  }
+
+  return Array.from(entries.values()).map((entry) => {
+    const { hunterAttempts, ...rest } = entry;
+    return hunterAttempts && hunterAttempts.length > 0 ? { ...rest, hunterAttempts } : rest;
+  });
+}
+
 function rankPeople(people: PersonRecord[]) {
   const byKey = new Map<string, PersonRecord>();
   for (const person of people) {
@@ -1099,6 +1964,41 @@ function rankPeople(people: PersonRecord[]) {
   }
 
   return Array.from(byKey.values()).sort((left, right) => roleScoreForPerson(right.role) - roleScoreForPerson(left.role));
+}
+
+function apolloOrganizationIdForDomain(payload: unknown, domain: string) {
+  const root = objectRecord(payload);
+  if (!root) {
+    return null;
+  }
+  const organizations = Array.isArray(root.organizations)
+    ? root.organizations
+    : Array.isArray(root.accounts)
+      ? root.accounts
+      : root.organization
+        ? [root.organization]
+        : [];
+  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
+  for (const item of organizations) {
+    const record = objectRecord(item);
+    if (!record) {
+      continue;
+    }
+    const candidateDomain =
+      stringValue(record.primary_domain) ??
+      stringValue(record.domain) ??
+      domainFromUrl(stringValue(record.website_url));
+    if (candidateDomain?.toLowerCase().replace(/^www\./, "") !== normalizedDomain) {
+      continue;
+    }
+
+    const id = stringValue(record.id);
+    if (id) {
+      return id;
+    }
+  }
+
+  return null;
 }
 
 function peopleEnrichBody(person: PersonRecord, domain: string) {
@@ -1120,6 +2020,17 @@ function peopleEnrichBody(person: PersonRecord, domain: string) {
   }
 
   return { name: person.name, domain, reveal_personal_emails: false };
+}
+
+function minervaRecordForPerson(person: PersonRecord) {
+  const [firstName, ...rest] = (person.name ?? "").split(/\s+/);
+  return {
+    record_id: personNameKey(person) ?? person.linkedinUrl ?? person.email ?? "person",
+    ...(person.linkedinUrl ? { linkedin_url: person.linkedinUrl } : {}),
+    ...(person.name ? { full_name: person.name } : {}),
+    ...(person.firstName ?? firstName ? { first_name: person.firstName ?? firstName } : {}),
+    ...(person.lastName ?? rest.join(" ") ? { last_name: person.lastName ?? rest.join(" ") } : {}),
+  };
 }
 
 function personMetadata(person: PersonRecord): NonNullable<StableenrichProbeResult["metadata"]> {
@@ -1167,11 +2078,16 @@ function peopleCitationUrl(result: StableenrichProbeResult, person: PersonRecord
   return stableenrichCitationUrl(result.endpointUrl, key);
 }
 
+function hunterMinScore() {
+  const configured = Number.parseInt(process.env.HUNTER_MIN_SCORE ?? "", 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : 70;
+}
+
 function hunterVerificationAccepted(payload: unknown) {
   const record = objectRecord(payload);
   const status = stringValue(record?.status)?.toLowerCase();
   const score = integerValue(record?.score);
-  return status === "valid" || (status === "accept_all" && score !== null && score >= 70);
+  return status === "valid" || (status === "accept_all" && score !== null && score >= hunterMinScore());
 }
 
 function hunterVerificationConfidence(payload: unknown): ProviderFactCandidate["confidence"] {
@@ -1404,6 +2320,21 @@ function emailValue(value: unknown): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : null;
 }
 
+function workEmailValue(value: unknown, domain: string | undefined): string | null {
+  const email = emailValue(value);
+  if (!email) {
+    return null;
+  }
+
+  if (!domain) {
+    return email;
+  }
+
+  const emailDomain = email.split("@")[1]?.toLowerCase().replace(/^www\./, "");
+  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
+  return emailDomain === normalizedDomain ? email : null;
+}
+
 function integerValue(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.round(value);
@@ -1416,6 +2347,10 @@ function integerValue(value: unknown): number | null {
   }
 
   return null;
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function supportedUrl(value: string) {

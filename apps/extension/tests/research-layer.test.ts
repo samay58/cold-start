@@ -228,11 +228,13 @@ describe("research layer model", () => {
     expect(display?.status).toBe("populated");
     expect(display?.body).toContain("raised");
     expect(display?.items?.map((item) => item.title)).toEqual([
-      "$91M raised · 2 rounds",
+      "$91M raised across 2 rounds",
       "Series B",
       "Seed"
     ]);
     expect(display?.items?.[0]?.body).toContain("Kleiner Perkins");
+    expect(display?.items?.[1]?.body).toBe("$64M · Kleiner Perkins");
+    expect(display?.items?.[2]?.body).toBe("$27M · Index");
     expect(display?.sources[0]).toMatchObject({ id: "c1" });
   });
 

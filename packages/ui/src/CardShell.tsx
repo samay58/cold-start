@@ -596,8 +596,7 @@ export function CardShell({ card, surface }: CardShellProps) {
                       <p className="cs-round-name">{round.name}</p>
                       {round.leadInvestors.length > 0 ? (
                         <p className="cs-round-leads">
-                          {round.leadInvestors[0]} leading
-                          {round.leadInvestors.length > 1 ? `, ${round.leadInvestors.slice(1).join(", ")} following.` : "."}
+                          {round.leadInvestors.join(", ")}
                         </p>
                       ) : null}
                     </div>

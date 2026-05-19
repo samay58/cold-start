@@ -19,6 +19,8 @@ import {
 import {
   filterSourcesForDomain,
   GenerateCardTraceError,
+  extractedCardSectionsSchema,
+  buildSeedProfileCard,
   cardWithExtractedSections,
   enrichExtractedSectionsForDomain,
   generateCardForDomainWithTrace,
@@ -33,10 +35,12 @@ import {
   fetchDirectExaFundamentalsSources,
   fetchStableenrichEnrichmentSources,
   fetchStableenrichFastSources,
+  fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   type DirectExaEnv,
   type ProviderFactCandidate,
   type ProviderSource,
+  type StableenrichPeopleEmailHint,
   type StableenrichEnv
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -61,9 +65,12 @@ const STABLEENRICH_ENV_KEYS = [
   "STABLEENRICH_EXA_SIMILAR_URL",
   "STABLEENRICH_FIRECRAWL_URL",
   "STABLEENRICH_ORG_ENRICH_URL",
+  "STABLEENRICH_APOLLO_ORG_SEARCH_URL",
   "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL",
   "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL",
   "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL",
+  "STABLEENRICH_CLADO_CONTACTS_ENRICH_URL",
+  "STABLEENRICH_MINERVA_ENRICH_URL",
 ] as const satisfies ReadonlyArray<keyof StableenrichEnv>;
 
 const DIRECT_EXA_ENV_KEYS = [
@@ -108,6 +115,10 @@ function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | 
 
   if ("steps" in patch && patch.steps) {
     trace.steps = { ...trace.steps, ...patch.steps };
+  }
+
+  if ("milestones" in patch && patch.milestones) {
+    trace.milestones = { ...trace.milestones, ...patch.milestones };
   }
 
   if ("providers" in patch && patch.providers) {
@@ -157,6 +168,25 @@ function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
   }
 
   return Array.from(byUrl.values());
+}
+
+function peopleHintsFromSections(sections: ExtractedCardSections): StableenrichPeopleEmailHint[] {
+  return [
+    ...(sections.team.founders.value ?? []),
+    ...(sections.team.keyExecs.value ?? [])
+  ].map((person) => ({
+    name: person.name,
+    role: person.role,
+    sourceUrl: person.sourceUrl,
+    email: person.email ?? null
+  }));
+}
+
+function peopleEmailCount(sections: ExtractedCardSections) {
+  return [
+    ...(sections.team.founders.value ?? []),
+    ...(sections.team.keyExecs.value ?? [])
+  ].filter((person) => Boolean(person.email)).length;
 }
 
 function preserveFact<T>(existing: ResolvedFact<T>, next: ResolvedFact<T>): ResolvedFact<T> {
@@ -303,6 +333,7 @@ export const generateCardFunction = inngest.createFunction(
   async ({ event, runId, step }) => {
     const { DATABASE_URL } = webEnv();
     const db = createDb(DATABASE_URL);
+    const functionStartedAt = Date.now();
 
     let domain: string;
     let slug: string;
@@ -472,6 +503,153 @@ export const generateCardFunction = inngest.createFunction(
       }
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
+      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
+      let seedCard: ColdStartCard | null = null;
+      let seedSections: ExtractedCardSections | null = null;
+      let contactProviderFacts: ProviderFactCandidate[] = [];
+      let contactSources: ProviderSource[] = [];
+
+      if (mode === "basics") {
+        currentStage = "seed-profile-card";
+        const seedProfileResult = await step.run("seed-profile-card", async () => {
+          const result = await timed(() =>
+            buildSeedProfileCard({
+              domain,
+              sources: acceptedSources,
+              providerFacts
+            })
+          );
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "seed-profile-card": {
+                  ...completedStep(result.durationMs),
+                  message: `${result.value.trace.providerFactAppliedCount} provider facts, ${result.value.trace.fallbackFields.length} fallback fields`
+                }
+              },
+              extraction: {
+                sourceCount: acceptedSources.length,
+                evidenceCount: 0,
+                citationCount: result.value.trace.citationCount,
+                fallbackUsed: result.value.trace.fallbackFields.length > 0,
+                providerFactCandidateCount: result.value.trace.providerFactCandidateCount,
+                providerFactAppliedCount: result.value.trace.providerFactAppliedCount,
+                providerFactPaths: result.value.trace.providerFactPaths
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, seedProfileResult.tracePatch);
+        seedCard = seedProfileResult.value.card;
+        seedSections = seedProfileResult.value.sections;
+
+        const seedCardToStore = prepareCardForStorage(mode, existingCard, seedCard);
+        const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
+        await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
+        trace.milestones = {
+          ...trace.milestones,
+          firstUsableCardMs: Date.now() - functionStartedAt
+        };
+
+        currentStage = "fetch-contact-sources";
+        const contactSourceResult = await step.run("fetch-contact-sources", async () => {
+          const result = await timed(async () => {
+            const contactResult = await fetchStableenrichPeopleEmailSources({
+              env: stableEnv,
+              domain,
+              sourceHints: acceptedSources,
+              peopleHints: peopleHintsFromSections(seedSections ?? seedProfileResult.value.sections)
+            });
+            const sources = mergeSources(acceptedSources, contactResult.sources);
+            const sourceGate = filterSourcesForDomain({ domain, sources });
+            const initialStable = sourceResult.value.trace.providers.stableenrich;
+            return {
+              sources: sourceGate.accepted,
+              providerFacts: contactResult.facts,
+              trace: {
+                providers: {
+                  ...sourceResult.value.trace.providers,
+                  stableenrich: {
+                    sourceCount: (initialStable?.sourceCount ?? 0) + contactResult.sources.length,
+                    factCount: (initialStable?.factCount ?? 0) + contactResult.facts.length,
+                    failureCount: (initialStable?.failureCount ?? 0) + contactResult.failures.length,
+                    endpoints: [...(initialStable?.endpoints ?? []), ...contactResult.endpoints]
+                  },
+                  mergedSourceCount: sources.length,
+                  ...(contactResult.emailDiscovery && contactResult.emailDiscovery.length > 0
+                    ? { emailDiscovery: contactResult.emailDiscovery }
+                    : {})
+                },
+                sourceGate: sourceGateTrace(sourceGate)
+              }
+            };
+          });
+
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "fetch-contact-sources": completedStep(result.durationMs)
+              },
+              providers: result.value.trace.providers,
+              sourceGate: result.value.trace.sourceGate
+            }
+          };
+        });
+        mergeTracePatch(trace, contactSourceResult.tracePatch);
+        contactProviderFacts = contactSourceResult.value.providerFacts;
+        contactSources = contactSourceResult.value.sources;
+
+        currentStage = "enrich-contacts";
+        const contactEnriched = await step.run("enrich-contacts", async () => {
+          const result = await timed(async () => {
+            const providerFactMerge = applyProviderFactCandidates(seedSections ?? seedProfileResult.value.sections, contactProviderFacts);
+            return {
+              sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
+              providerFactMerge
+            };
+          });
+
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "enrich-contacts": {
+                  ...completedStep(result.durationMs),
+                  message: `${peopleEmailCount(result.value.sections)} verified work emails`
+                }
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, contactEnriched.tracePatch);
+
+        seedSections = contactEnriched.value.sections;
+        seedCard = cardWithExtractedSections(seedCard, seedSections);
+        const contactCardToStore = prepareCardForStorage(mode, existingCard, seedCard);
+        const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
+        await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
+        trace.milestones = {
+          ...trace.milestones,
+          contactsReadyMs: Date.now() - functionStartedAt
+        };
+        await step.run("record-contact-sources", () =>
+          Promise.all(
+            contactSources.map((source) =>
+              recordSource(db, {
+                cardId: contactRow.id,
+                url: source.url,
+                title: source.title,
+                sourceType: source.sourceType,
+                fetchedAt: source.fetchedAt,
+                rawText: source.rawText,
+              }),
+            ),
+          ),
+        );
+      }
+
       const extractSectionsForCard = async ({ domain: candidateDomain, sources, evidenceLedger }: {
         domain: string;
         sources: ProviderSource[];
@@ -577,7 +755,53 @@ export const generateCardFunction = inngest.createFunction(
         };
       }
 
-      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
+      if (mode === "basics") {
+        sourcesToRecord = mergeSources(sourcesToRecord, contactSources);
+        if (contactProviderFacts.length > 0) {
+          currentStage = "merge-contacts-into-card";
+          const contactMerged = await step.run("merge-contacts-into-card", async () => {
+            const result = await timed(async () => {
+              const providerFactMerge = applyProviderFactCandidates(generatedSections, contactProviderFacts);
+              return {
+                sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
+                providerFactMerge
+              };
+            });
+
+            return {
+              value: result.value,
+              tracePatch: {
+                steps: {
+                  "merge-contacts-into-card": {
+                    ...completedStep(result.durationMs),
+                    message: `${peopleEmailCount(result.value.sections)} verified work emails`
+                  }
+                }
+              }
+            };
+          });
+          mergeTracePatch(trace, contactMerged.tracePatch);
+
+          generatedSections = contactMerged.value.sections;
+          generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
+          if (trace.extraction) {
+            trace.extraction = {
+              ...trace.extraction,
+              sourceCount: sourcesToRecord.length,
+              citationCount: generatedSections.citations.length,
+              providerFactCandidateCount:
+                (trace.extraction.providerFactCandidateCount ?? 0) + contactMerged.value.providerFactMerge.trace.candidateCount,
+              providerFactAppliedCount:
+                (trace.extraction.providerFactAppliedCount ?? 0) + contactMerged.value.providerFactMerge.trace.appliedCount,
+              providerFactPaths: [
+                ...(trace.extraction.providerFactPaths ?? []),
+                ...contactMerged.value.providerFactMerge.trace.paths
+              ]
+            };
+          }
+        }
+      }
+
       let cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
       let row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
       await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
@@ -601,9 +825,9 @@ export const generateCardFunction = inngest.createFunction(
         const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
           const result = await timed(async () => {
             const stableResult = await fetchStableenrichEnrichmentSources({ env: stableEnv, domain, researchPlan });
-            const sources = mergeSources(acceptedSources, stableResult.sources);
+            const sources = mergeSources(acceptedSources, contactSources, stableResult.sources);
             const sourceGate = filterSourcesForDomain({ domain, sources });
-            const initialStable = sourceResult.value.trace.providers.stableenrich;
+            const initialStable = trace.providers?.stableenrich ?? sourceResult.value.trace.providers.stableenrich;
             return {
               sources: sourceGate.accepted,
               providerFacts: stableResult.facts,
@@ -662,7 +886,7 @@ export const generateCardFunction = inngest.createFunction(
 
         generatedSections = enriched.value.sections;
         generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
-        sourcesToRecord = enrichmentSourceResult.value.sources;
+        sourcesToRecord = mergeSources(enrichmentSourceResult.value.sources, contactSources);
         if (trace.extraction) {
           trace.extraction = {
             ...trace.extraction,
@@ -697,6 +921,13 @@ export const generateCardFunction = inngest.createFunction(
             ),
           ),
         );
+      }
+
+      if (mode === "analysis") {
+        trace.milestones = {
+          ...trace.milestones,
+          analysisReadyMs: Date.now() - functionStartedAt
+        };
       }
 
       await step.run("mark-generation-complete", () =>
