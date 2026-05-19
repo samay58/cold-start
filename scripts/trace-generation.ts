@@ -37,6 +37,13 @@ type TraceFilters = {
   quality: boolean;
 };
 
+type GenerationRunColumns = {
+  jobKind: boolean;
+  inngestEventId: boolean;
+  inngestRunId: boolean;
+  traceJson: boolean;
+};
+
 function loadRootEnv() {
   const envPath = resolve(process.cwd(), ".env.local");
   if (!existsSync(envPath)) {
@@ -239,7 +246,24 @@ function printDetail(row: Row) {
   }
 }
 
-function buildQuery(filters: TraceFilters) {
+async function generationRunColumns(client: Client): Promise<GenerationRunColumns> {
+  const result = await client.query<{ column_name: string }>(
+    `select column_name
+       from information_schema.columns
+      where table_name = 'generation_runs'
+        and column_name = any($1)`,
+    [["job_kind", "inngest_event_id", "inngest_run_id", "trace_json"]]
+  );
+  const columns = new Set(result.rows.map((row) => row.column_name));
+  return {
+    jobKind: columns.has("job_kind"),
+    inngestEventId: columns.has("inngest_event_id"),
+    inngestRunId: columns.has("inngest_run_id"),
+    traceJson: columns.has("trace_json")
+  };
+}
+
+function buildQuery(filters: TraceFilters, columns: GenerationRunColumns) {
   const where: string[] = [];
   const values: unknown[] = [];
 
@@ -265,8 +289,12 @@ function buildQuery(filters: TraceFilters) {
   values.push(filters.limit);
 
   return {
-    text: `select id, slug, domain, mode, job_kind, status, error, cost_usd, started_at, completed_at,
-                  inngest_event_id, inngest_run_id, trace_json
+    text: `select id, slug, domain, mode,
+                  ${columns.jobKind ? "job_kind" : "mode as job_kind"},
+                  status, error, cost_usd, started_at, completed_at,
+                  ${columns.inngestEventId ? "inngest_event_id" : "null::text as inngest_event_id"},
+                  ${columns.inngestRunId ? "inngest_run_id" : "null::text as inngest_run_id"},
+                  ${columns.traceJson ? "trace_json" : "null::jsonb as trace_json"}
            from generation_runs
            ${where.length > 0 ? `where ${where.join(" and ")}` : ""}
            order by started_at desc
@@ -305,7 +333,8 @@ async function main() {
   const client = new Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    const result = await client.query<Row>(buildQuery(filters));
+    const columns = await generationRunColumns(client);
+    const result = await client.query<Row>(buildQuery(filters, columns));
 
     if (filters.json) {
       console.log(JSON.stringify(jsonRows(result.rows), null, 2));

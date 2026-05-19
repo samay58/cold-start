@@ -24,9 +24,12 @@ const searchQueriesSchema = {
   properties: {
     funding: nonEmptyStringSchema,
     companyProfile: nonEmptyStringSchema,
+    managementTeam: nonEmptyStringSchema,
+    recentSignals: nonEmptyStringSchema,
+    comparables: nonEmptyStringSchema,
     independentAnalysis: nonEmptyStringSchema,
   },
-  required: ["funding", "companyProfile", "independentAnalysis"],
+  required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis"],
 } as const;
 
 const researchPlanZodSchema = z.object({
@@ -39,6 +42,9 @@ const researchPlanZodSchema = z.object({
   searchQueries: z.object({
     funding: z.string().min(1),
     companyProfile: z.string().min(1),
+    managementTeam: z.string().min(1),
+    recentSignals: z.string().min(1),
+    comparables: z.string().min(1),
     independentAnalysis: z.string().min(1),
   }),
   presentationFocus: z.array(z.string().min(1)).min(2).max(5),
@@ -91,6 +97,9 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
     searchQueries: {
       funding: `${domain} funding history latest round valuation investors total raised`,
       companyProfile: `${domain} product customers buyer workflow what does the company do`,
+      managementTeam: `${domain} founders CEO management team leadership contact email`,
+      recentSignals: `${domain} recent launch customers hiring funding product partnership traction`,
+      comparables: `${domain} competitors alternatives similar companies market map`,
       independentAnalysis: `${domain} independent analysis technical deep dive Sacra Substack market map`,
     },
     presentationFocus: ["product mechanism", "source quality", "funding cadence", "public proof gaps"],
@@ -118,6 +127,7 @@ export async function planCompanyResearch(input: {
   const response: Message = await input.client.messages.create({
     model: input.model,
     max_tokens: 1200,
+    temperature: 0,
     system: [
       {
         type: "text",
@@ -132,4 +142,3 @@ export async function planCompanyResearch(input: {
 
   return parseResearchPlanToolUse(response);
 }
-

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { open, readFile, rm, mkdtemp } from "node:fs/promises";
+import { mkdir, open, readFile, rm, mkdtemp } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, parse, resolve } from "node:path";
@@ -49,6 +49,7 @@ export function buildAgentcashFetchArgs(input: Pick<AgentCashJsonInput, "url" | 
     "POST",
     "-b",
     JSON.stringify(input.body),
+    "-y",
     "--format",
     "json",
   ];
@@ -78,14 +79,20 @@ export function parseAgentcashOutput<T>(stdout: string): T {
 
 async function runAgentcashCommand(command: string, args: string[], options: { timeoutMs: number }): Promise<string> {
   const tempDir = await mkdtemp(join(tmpdir(), "cold-start-agentcash-"));
+  const childEnv = agentcashChildEnv({ fallbackHome: join(tempDir, "home") });
   const stdoutPath = join(tempDir, "stdout.json");
   const stderrPath = join(tempDir, "stderr.log");
   const stdout = await open(stdoutPath, "w");
   const stderr = await open(stderrPath, "w");
 
   try {
+    if (childEnv.HOME) {
+      await mkdir(childEnv.HOME, { recursive: true });
+    }
+
     const exitCode = await new Promise<number | null>((resolve, reject) => {
       const child = spawn(command, args, {
+        env: childEnv,
         stdio: ["ignore", stdout.fd, stderr.fd],
       });
       const timeout = setTimeout(() => {
@@ -117,6 +124,17 @@ async function runAgentcashCommand(command: string, args: string[], options: { t
     await Promise.allSettled([stdout.close(), stderr.close()]);
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+export function agentcashChildEnv(input: { baseEnv?: NodeJS.ProcessEnv; fallbackHome: string }): NodeJS.ProcessEnv {
+  const baseEnv = input.baseEnv ?? process.env;
+  const configuredHome = baseEnv.AGENTCASH_HOME?.trim() || baseEnv.HOME?.trim();
+  const home = configuredHome && existsSync(configuredHome) ? configuredHome : input.fallbackHome;
+
+  return {
+    ...baseEnv,
+    HOME: home,
+  };
 }
 
 export function resolveAgentcashCliPath(startDir = process.cwd()) {

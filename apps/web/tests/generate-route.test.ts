@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => {
   return {
     db,
     createDb: vi.fn(() => db),
-    findActiveGenerationRunBySlug: vi.fn(),
-    findLatestGenerationRunBySlug: vi.fn(),
+    findActiveGenerationRunStatusBySlug: vi.fn(),
+    findLatestGenerationRunStatusBySlug: vi.fn(),
     findCardBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
@@ -19,8 +19,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
-  findActiveGenerationRunBySlug: mocks.findActiveGenerationRunBySlug,
-  findLatestGenerationRunBySlug: mocks.findLatestGenerationRunBySlug,
+  findActiveGenerationRunStatusBySlug: mocks.findActiveGenerationRunStatusBySlug,
+  findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findCardBySlug: mocks.findCardBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
@@ -46,6 +46,7 @@ function generateRequest(
   domain = "cartesia.ai",
   options: {
     confirmStart?: boolean;
+    forceRefresh?: boolean;
     mode?: "basics" | "analysis";
     extensionAuth?: boolean;
   } = { confirmStart: true }
@@ -62,9 +63,82 @@ function generateRequest(
     body: JSON.stringify({
       domain,
       ...(options.mode ? { mode: options.mode } : {}),
-      ...(options.confirmStart ? { confirmStart: true } : {})
+      ...(options.confirmStart ? { confirmStart: true } : {}),
+      ...(options.forceRefresh ? { forceRefresh: true } : {})
     })
   });
+}
+
+function resolvedFact<T>(value: T | null) {
+  return {
+    value,
+    status: value === null ? "unknown" as const : "verified" as const,
+    confidence: value === null ? "low" as const : "medium" as const,
+    citationIds: value === null ? [] : ["c1"],
+  };
+}
+
+function usablePublicCard() {
+  return {
+    slug: "cartesia",
+    domain: "cartesia.ai",
+    generatedAt: "2026-05-14T00:00:00.000Z",
+    generationCostUsd: 0,
+    cacheStatus: "hit",
+    identity: {
+      name: resolvedFact("Cartesia"),
+      websiteUrl: resolvedFact("https://cartesia.ai"),
+      logoUrl: null,
+      oneLiner: resolvedFact("Voice AI infrastructure."),
+      hq: resolvedFact({ city: "San Francisco", country: "United States" }),
+      foundedYear: resolvedFact(2023),
+      status: "private",
+    },
+    funding: {
+      totalRaisedUsd: resolvedFact(91000000),
+      lastRound: resolvedFact(null),
+      investors: resolvedFact(null),
+    },
+    team: {
+      founders: resolvedFact([]),
+      keyExecs: resolvedFact([]),
+      headcount: resolvedFact({ value: 64, asOf: "2026-05-14" }),
+    },
+    signals: [],
+    comparables: [],
+    citations: [
+      {
+        id: "c1",
+        url: "https://cartesia.ai",
+        title: "Cartesia",
+        fetchedAt: "2026-05-14T00:00:00.000Z",
+        sourceType: "company_site",
+      },
+    ],
+  };
+}
+
+function underfilledPublicCard() {
+  return {
+    ...usablePublicCard(),
+    identity: {
+      ...usablePublicCard().identity,
+      websiteUrl: resolvedFact(null),
+      hq: resolvedFact(null),
+      foundedYear: resolvedFact(null),
+    },
+    funding: {
+      totalRaisedUsd: resolvedFact(null),
+      lastRound: resolvedFact(null),
+      investors: resolvedFact(null),
+    },
+    team: {
+      founders: resolvedFact([]),
+      keyExecs: resolvedFact([]),
+      headcount: resolvedFact(null),
+    },
+    comparables: [],
+  };
 }
 
 describe("POST /api/generate", () => {
@@ -73,8 +147,8 @@ describe("POST /api/generate", () => {
     process.env.EXTENSION_API_TOKEN = "secret";
     delete process.env.PUBLIC_GENERATION_ENABLED;
     mocks.createDb.mockClear();
-    mocks.findActiveGenerationRunBySlug.mockReset();
-    mocks.findLatestGenerationRunBySlug.mockReset();
+    mocks.findActiveGenerationRunStatusBySlug.mockReset();
+    mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.findCardBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
@@ -84,14 +158,14 @@ describe("POST /api/generate", () => {
   });
 
   it("returns cached without queueing when a public card already exists", async () => {
-    mocks.findPublicCardBySlug.mockResolvedValue({ slug: "cartesia", citations: [{ id: "c1" }] });
+    mocks.findPublicCardBySlug.mockResolvedValue(usablePublicCard());
 
     const response = await POST(generateRequest());
 
     await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", domain: "cartesia.ai", status: "cached", mode: "basics" });
     expect(response.status).toBe(200);
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
-    expect(mocks.findActiveGenerationRunBySlug).not.toHaveBeenCalled();
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
   });
@@ -103,14 +177,14 @@ describe("POST /api/generate", () => {
     expect(response.status).toBe(400);
     expect(mocks.createDb).not.toHaveBeenCalled();
     expect(mocks.findPublicCardBySlug).not.toHaveBeenCalled();
-    expect(mocks.findActiveGenerationRunBySlug).not.toHaveBeenCalled();
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
   it("allows extension-authenticated basics generation without explicit confirmation", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -118,7 +192,7 @@ describe("POST /api/generate", () => {
 
     await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", domain: "cartesia.ai", status: "queued", mode: "basics", runId: "run-id" });
     expect(response.status).toBe(202);
-    expect(mocks.findActiveGenerationRunBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "basics");
+    expect(mocks.findActiveGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "basics");
     expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
       slug: "cartesia",
       domain: "cartesia.ai",
@@ -132,8 +206,8 @@ describe("POST /api/generate", () => {
   });
 
   it("queues analysis for an existing basics card that has no synthesis yet", async () => {
-    mocks.findCardBySlug.mockResolvedValue({ slug: "cartesia", citations: [{ id: "c1" }] });
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -153,8 +227,26 @@ describe("POST /api/generate", () => {
   });
 
   it("does not treat no-source partial basics as cached", async () => {
-    mocks.findPublicCardBySlug.mockResolvedValue({ slug: "cartesia", citations: [] });
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findPublicCardBySlug.mockResolvedValue({ ...underfilledPublicCard(), citations: [] });
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai", { mode: "basics", confirmStart: true, extensionAuth: true }));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "basics" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      status: "queued"
+    });
+  });
+
+  it("does not treat cited but underfilled basics as cached", async () => {
+    mocks.findPublicCardBySlug.mockResolvedValue(underfilledPublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -171,7 +263,7 @@ describe("POST /api/generate", () => {
   });
 
   it("blocks analysis when the existing basics profile has no cited sources", async () => {
-    mocks.findCardBySlug.mockResolvedValue({ slug: "cartesia", citations: [] });
+    mocks.findCardBySlug.mockResolvedValue({ ...underfilledPublicCard(), citations: [] });
 
     const response = await POST(
       generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
@@ -179,7 +271,21 @@ describe("POST /api/generate", () => {
 
     await expect(response.json()).resolves.toEqual({ error: "profile needs cited sources before analysis" });
     expect(response.status).toBe(409);
-    expect(mocks.findActiveGenerationRunBySlug).not.toHaveBeenCalled();
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("blocks analysis when the existing basics profile is cited but underfilled", async () => {
+    mocks.findCardBySlug.mockResolvedValue(underfilledPublicCard());
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toEqual({ error: "profile needs more structured facts before analysis" });
+    expect(response.status).toBe(409);
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
   });
@@ -208,7 +314,7 @@ describe("POST /api/generate", () => {
     process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://extension-test-id";
     process.env.PUBLIC_GENERATION_ENABLED = "true";
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -234,7 +340,7 @@ describe("POST /api/generate", () => {
 
   it.each(["queued", "running"] as const)("returns existing %s run without queueing another job", async (status) => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue({ slug: "cartesia", domain: "cartesia.ai", status });
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue({ slug: "cartesia", domain: "cartesia.ai", status });
 
     const response = await POST(generateRequest());
 
@@ -246,7 +352,7 @@ describe("POST /api/generate", () => {
 
   it("marks queued and sends a generation event for a fresh valid request", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -269,7 +375,7 @@ describe("POST /api/generate", () => {
 
   it("retires stale active runs before deciding whether to queue new work", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "fresh-run" });
     mocks.send.mockResolvedValue(undefined);
 
@@ -282,13 +388,13 @@ describe("POST /api/generate", () => {
       mode: "basics"
     });
     expect(mocks.retireStaleGenerationRuns.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.findActiveGenerationRunBySlug.mock.invocationCallOrder[0]
+      mocks.findActiveGenerationRunStatusBySlug.mock.invocationCallOrder[0]
     );
   });
 
   it("recovers duplicate queue races by returning the active run instead of failing", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug
+    mocks.findActiveGenerationRunStatusBySlug
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         id: "existing-run",
@@ -314,7 +420,7 @@ describe("POST /api/generate", () => {
 
   it("marks failed and returns 500 when event enqueue fails", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(null);
-    mocks.findActiveGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockRejectedValue(new Error("inngest unavailable"));
 
@@ -337,6 +443,73 @@ describe("POST /api/generate", () => {
       error: "inngest unavailable"
     });
   });
+
+  it("queues an extension-confirmed basics refresh even when a cited card exists", async () => {
+    mocks.findPublicCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      mode: "basics",
+      confirmStart: true,
+      extensionAuth: true,
+      forceRefresh: true
+    }));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "basics" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      status: "queued"
+    });
+  });
+
+  it("rejects unconfirmed forced refreshes", async () => {
+    const response = await POST(generateRequest("cartesia.ai", {
+      mode: "basics",
+      confirmStart: false,
+      extensionAuth: true,
+      forceRefresh: true
+    }));
+
+    await expect(response.json()).resolves.toEqual({ error: "extension refresh requires confirmation" });
+    expect(response.status).toBe(400);
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+  });
+
+  it("queues an extension-confirmed analysis refresh even when synthesis exists", async () => {
+    mocks.findCardBySlug.mockResolvedValue({
+      ...usablePublicCard(),
+      synthesis: {
+        whyItMatters: { text: "Existing synthesis [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: ["What changed?"],
+      },
+    });
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      mode: "analysis",
+      confirmStart: true,
+      extensionAuth: true,
+      forceRefresh: true,
+    }));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "queued"
+    });
+  });
 });
 
 describe("GET /api/generate", () => {
@@ -344,7 +517,7 @@ describe("GET /api/generate", () => {
     process.env.NODE_ENV = "test";
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.createDb.mockClear();
-    mocks.findLatestGenerationRunBySlug.mockReset();
+    mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
   });
@@ -360,7 +533,7 @@ describe("GET /api/generate", () => {
   }
 
   it("returns the latest generation run for extension-authenticated callers", async () => {
-    mocks.findLatestGenerationRunBySlug.mockResolvedValue({
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
       id: "run-1",
       slug: "cartesia",
       domain: "cartesia.ai",
@@ -393,7 +566,7 @@ describe("GET /api/generate", () => {
   });
 
   it("reports idle when no generation run exists", async () => {
-    mocks.findLatestGenerationRunBySlug.mockResolvedValue(null);
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue(null);
 
     const response = await GET(statusRequest("linear.app", "basics"));
 

@@ -1,6 +1,7 @@
 import { CardShell } from "@cold-start/ui";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { getPublicCachedCard } from "../../../lib/cards";
 
 type CompanyCardPageProps = {
@@ -8,6 +9,9 @@ type CompanyCardPageProps = {
 };
 
 const defaultDescription = "Sourced company context card.";
+export const revalidate = 15;
+
+const getPublicCardForPage = cache((slug: string) => getPublicCachedCard(slug));
 
 function metadataTitle(name: string) {
   return `${name} | Cold Start`;
@@ -19,7 +23,7 @@ function metadataDescription(card: Awaited<ReturnType<typeof getPublicCachedCard
 
 export async function generateMetadata({ params }: CompanyCardPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const card = await getPublicCachedCard(slug);
+  const card = await getPublicCardForPage(slug);
   const name = card?.identity.name.value ?? slug;
   const description = metadataDescription(card);
   const title = metadataTitle(name);
@@ -44,7 +48,7 @@ export async function generateMetadata({ params }: CompanyCardPageProps): Promis
 
 export default async function CompanyCardPage({ params }: CompanyCardPageProps) {
   const { slug } = await params;
-  const card = await getPublicCachedCard(slug);
+  const card = await getPublicCardForPage(slug);
 
   if (!card) {
     notFound();

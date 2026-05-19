@@ -218,7 +218,7 @@ The side panel reads the cached extension card when one exists. If no card exist
 npm run build -w @cold-start/extension
 ```
 
-Load the built `apps/extension/dist` folder, not the Vite dev server output. The CRX dev server is useful while actively editing, but it can inject localhost-only development imports into the built service worker. If Chrome reports `Service worker registration failed. Status code: 3`, or the errors page mentions `localhost:5173`, rebuild with the command above and reload the unpacked extension.
+Load the built `apps/extension/dist` folder for normal use. The Vite dev server writes CRX dev output to `apps/extension/dist-dev` so localhost imports do not land in the production bundle. If Chrome reports `Service worker registration failed. Status code: 3`, or the errors page mentions `localhost:5173`, rebuild with the command above and reload the unpacked extension.
 
 In Chrome:
 
@@ -228,7 +228,7 @@ In Chrome:
 4. Select `apps/extension/dist`.
 5. Open `https://cartesia.ai`.
 6. Click the Cold Start extension icon.
-7. If setup appears for local testing, use API origin `http://localhost:3000` and API token `local-extension-token`.
+7. If setup appears for production testing, use the deployed API origin and production extension token.
 
 If the setup screen shows a deployed URL while you are intentionally testing against localhost, the loaded extension was not rebuilt for local testing. Rebuild with `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true VITE_COLD_START_API_ORIGIN=http://localhost:3000`, click Reload in `chrome://extensions`, reopen the side panel, and confirm the API origin is local.
 

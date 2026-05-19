@@ -76,6 +76,12 @@ export type GenerationTrace = {
     providerFactCandidateCount?: number;
     providerFactAppliedCount?: number;
     providerFactPaths?: string[];
+    blockEnrichment?: {
+      requested: string[];
+      produced: string[];
+      citationCount: number;
+      errors?: Record<string, string>;
+    };
   };
   synthesis?: {
     required: boolean;

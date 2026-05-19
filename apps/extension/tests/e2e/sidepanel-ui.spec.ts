@@ -2,13 +2,14 @@ import { expect, test } from "@playwright/test";
 import {
   browserbaseCard,
   browserbaseCardWithSynthesis,
+  fulfillJson,
   installChromeShim,
   mockExtensionApi
 } from "./fixtures";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
-  await expect(page.getByText("Cold Start").first()).toBeVisible();
+  await expect(page.locator("#root > *")).toHaveCount(1);
 }
 
 test("cached card renders the research layer without old analyze affordances", async ({ page }) => {
@@ -17,14 +18,54 @@ test("cached card renders the research layer without old analyze affordances", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
-  await expect(page.getByText("Research layer")).toBeVisible();
+  await expect(page.getByLabel("Research layer")).toBeVisible();
+  await expect(page.locator(".cs-company-logo img")).toHaveAttribute("src", /icons\.duckduckgo\.com\/ip3\/browserbase\.com\.ico/);
+  await expect(page.locator(".cs-research-brand")).toHaveCount(0);
+  await expect(page.locator(".cs-extension-brand")).toHaveCount(0);
+  await expect(page.locator(".cs-extension-mark")).toHaveCount(0);
   await expect(page.getByText("Browserbase turns browser automation into agent infrastructure")).toBeVisible();
-  await expect(page.getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
+  await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
   await expect(page.getByText("[c1]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
 });
 
-test("core metrics and management stay in the company dossier", async ({ page }) => {
+test("no-source partial card renders as an incomplete profile, not a dossier", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "databricks.com" });
+  await mockExtensionApi(page, browserbaseCard({
+    slug: "databricks",
+    domain: "databricks.com",
+    cacheStatus: "partial",
+    identity: {
+      ...browserbaseCard().identity,
+      name: { value: "databricks.com", status: "unknown", confidence: "low", citationIds: [] },
+      websiteUrl: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      oneLiner: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    funding: {
+      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    team: {
+      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    signals: [],
+    comparables: [],
+    citations: []
+  }));
+  await openSidePanel(page);
+
+  await expect(page.getByRole("heading", { name: "Databricks" })).toBeVisible();
+  await expect(page.getByText("No cited profile yet")).toBeVisible();
+  await expect(page.getByLabel("Research layer")).toHaveCount(0);
+  await expect(page.getByText("Not found")).toHaveCount(0);
+});
+
+test("core metrics and people stay compact in the company context", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "conductor.build" });
   await mockExtensionApi(page, browserbaseCard({
     domain: "conductor.build",
@@ -84,10 +125,11 @@ test("core metrics and management stay in the company dossier", async ({ page })
   const researchLayer = page.getByLabel("Research layer");
   await expect(facts.getByText("Employees")).toBeVisible();
   await expect(facts.locator("dd").filter({ hasText: /^6$/ })).toBeVisible();
-  await expect(facts.getByText("As of 2026-04-27")).toBeVisible();
+  await expect(facts.getByText("2026-04-27")).toBeVisible();
   await expect(management.getByText("Charlie Holtz")).toHaveCount(1);
   await expect(management.getByText("Jackson de Campos")).toBeVisible();
   await expect(management.getByText("2 sources")).toBeVisible();
+  await expect(page.locator(".cs-management-team")).toHaveCount(0);
 
   const factsBox = await facts.boundingBox();
   const managementBox = await management.boundingBox();
@@ -108,9 +150,50 @@ test("missing card shows an explicit generation gate and does not auto-start", a
 
   await openSidePanel(page);
 
-  await expect(page.getByRole("heading", { name: "Generate Legora?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
+  await expect(page.getByText("Build the public record.")).toBeVisible();
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
+});
+
+test("running basics progress shows the source-pass run instrument", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "cartesia.ai",
+      slug: "cartesia",
+      card: null,
+      runs: {
+        basics: {
+          slug: "cartesia",
+          domain: "cartesia.ai",
+          status: "running",
+          mode: "basics",
+          startedAt: new Date(Date.now() - 30_000).toISOString()
+        },
+        analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      status: "running",
+      mode: "basics",
+      startedAt: new Date(Date.now() - 30_000).toISOString()
+    });
+  });
+
+  await openSidePanel(page);
+
+  await expect(page.getByText("Building")).toBeVisible();
+  await expect(page.locator(".cs-run-steps").getByText("Citations")).toBeVisible();
+  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Citations");
+  await expect(page.locator(".cs-live-progress-track")).toBeVisible();
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {
@@ -150,11 +233,11 @@ test("keyboard activation starts analysis for synthesis-backed cards only", asyn
   });
   await openSidePanel(page);
 
-  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Open Questions" });
+  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Questions" });
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Open Questions" })).toContainText("Synthesizing");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Questions" })).toContainText("Synthesizing");
   expect(generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);

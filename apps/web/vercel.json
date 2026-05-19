@@ -1,4 +1,10 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "cd ../.. && npm ci",
-  "buildCommand": "cd ../.. && npm run build -w @cold-start/web"
+  "buildCommand": "cd ../.. && npm run build -w @cold-start/web",
+  "functions": {
+    "src/app/api/inngest/route.ts": {
+      "maxDuration": 300
+    }
+  }
 }

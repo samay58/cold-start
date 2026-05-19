@@ -77,122 +77,127 @@ describe("parseSynthesisToolUse", () => {
     ).toThrow();
   });
 
-  it("rejects whyItMatters without visible citation markers", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              whyItMatters: {
-                text: "Cartesia is building real-time voice infrastructure.",
-                citationIds: ["c1"]
-              }
+  it("normalizes whyItMatters text when visible citation markers are missing", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            whyItMatters: {
+              text: "Cartesia is building real-time voice infrastructure.",
+              citationIds: ["c1"]
             }
           }
-        ]
-      })
-    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+        }
+      ]
+    });
+
+    expect(payload.whyItMatters).toEqual({
+      text: "Cartesia is building real-time voice infrastructure [c1].",
+      citationIds: ["c1"]
+    });
   });
 
-  it("rejects bull and bear items without visible citation markers", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              bullCase: [
-                { text: "The company has a focused voice AI wedge.", citationIds: ["c1"] },
-                ...validSynthesisPayload.bullCase.slice(1)
-              ]
-            }
+  it("normalizes bull and bear items when visible citation markers are missing", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            bullCase: [
+              { text: "The company has a focused voice AI wedge.", citationIds: ["c1"] },
+              ...validSynthesisPayload.bullCase.slice(1)
+            ],
+            bearCase: [
+              { text: "The public sources do not prove durable differentiation.", citationIds: ["c1"] },
+              ...validSynthesisPayload.bearCase.slice(1)
+            ]
           }
-        ]
-      })
-    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+        }
+      ]
+    });
 
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              bearCase: [
-                { text: "The public sources do not prove durable differentiation.", citationIds: ["c1"] },
-                ...validSynthesisPayload.bearCase.slice(1)
-              ]
-            }
-          }
-        ]
-      })
-    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+    expect(payload.bullCase[0]).toEqual({
+      text: "The company has a focused voice AI wedge [c1].",
+      citationIds: ["c1"]
+    });
+    expect(payload.bearCase[0]).toEqual({
+      text: "The public sources do not prove durable differentiation [c1].",
+      citationIds: ["c1"]
+    });
   });
 
-  it("rejects empty citation IDs even when text has a visible marker", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              whyItMatters: {
-                text: "Cartesia is building real-time voice infrastructure [c1].",
-                citationIds: []
-              }
+  it("recovers citation IDs from visible markers when the structured list is empty", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            whyItMatters: {
+              text: "Cartesia is building real-time voice infrastructure [c1].",
+              citationIds: []
             }
           }
-        ]
-      })
-    ).toThrow("Synthesis claim requires at least one citation ID");
+        }
+      ]
+    });
+
+    expect(payload.whyItMatters).toEqual({
+      text: "Cartesia is building real-time voice infrastructure [c1].",
+      citationIds: ["c1"]
+    });
   });
 
-  it("rejects undeclared visible citation markers", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              whyItMatters: {
-                text: "Cartesia is building real-time voice infrastructure [c1] [missing].",
-                citationIds: ["c1"]
-              }
+  it("rewrites undeclared visible citation markers to match the structured citation IDs", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            whyItMatters: {
+              text: "Cartesia is building real-time voice infrastructure [c1] [missing].",
+              citationIds: ["c1"]
             }
           }
-        ]
-      })
-    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+        }
+      ]
+    });
+
+    expect(payload.whyItMatters).toEqual({
+      text: "Cartesia is building real-time voice infrastructure [c1].",
+      citationIds: ["c1"]
+    });
   });
 
-  it("rejects duplicate visible citation markers that do not match declared citation IDs", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: {
-              ...validSynthesisPayload,
-              whyItMatters: {
-                text: "Cartesia is building real-time voice infrastructure [c1] [c1].",
-                citationIds: ["c1"]
-              }
+  it("deduplicates visible citation markers", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            whyItMatters: {
+              text: "Cartesia is building real-time voice infrastructure [c1] [c1].",
+              citationIds: ["c1"]
             }
           }
-        ]
-      })
-    ).toThrow("Synthesis claim visible citation markers must exactly match citationIds");
+        }
+      ]
+    });
+
+    expect(payload.whyItMatters).toEqual({
+      text: "Cartesia is building real-time voice infrastructure [c1].",
+      citationIds: ["c1"]
+    });
   });
 
   it("rejects short synthesis arrays", () => {

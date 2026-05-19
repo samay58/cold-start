@@ -1,7 +1,7 @@
-import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
-import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
+import { canRunInvestorAnalysis, publicProfileQuality, type ColdStartCard, type PublicProfileQuality } from "@cold-start/core";
+import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, ReactNode } from "react";
+import type { KeyboardEvent } from "react";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -15,11 +15,17 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { BrandMark } from "./BrandMark";
+import { CompanyLogo } from "./CompanyLogo";
+import { formatElapsed } from "./extension-format";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
   generationStatus: "queued" | "running";
   startedAt: number;
+};
+
+type ProfileRefreshRun = AnalysisRun & {
+  layerId: ResearchLayerId;
 };
 
 type ResearchLayerPanelProps = {
@@ -27,19 +33,22 @@ type ResearchLayerPanelProps = {
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
   elapsedSeconds: number;
+  onRefreshProfile: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
   onStartAnalysis: () => void;
+  profileRefreshElapsedSeconds?: number | undefined;
+  profileRefreshRun?: ProfileRefreshRun | undefined;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
 const PILE_POSES = [
-  { x: -2, y: 0, rotate: -1.5 },
-  { x: 16, y: 48, rotate: 1.1 },
-  { x: -10, y: 96, rotate: -0.8 },
-  { x: 12, y: 144, rotate: 1.35 },
-  { x: -4, y: 192, rotate: -1.1 },
-  { x: 15, y: 240, rotate: 0.9 },
-  { x: 0, y: 288, rotate: -0.6 }
+  { x: -1, y: 0, rotate: -0.8 },
+  { x: 8, y: 34, rotate: 0.7 },
+  { x: -6, y: 68, rotate: -0.55 },
+  { x: 7, y: 102, rotate: 0.8 },
+  { x: -3, y: 136, rotate: -0.65 },
+  { x: 8, y: 170, rotate: 0.5 },
+  { x: 0, y: 204, rotate: -0.35 }
 ];
 
 type PilePose = {
@@ -47,16 +56,6 @@ type PilePose = {
   y: number;
   rotate: number;
 };
-
-function formatElapsed(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = String(seconds % 60).padStart(2, "0");
-  return `${minutes}:${remainder}`;
-}
-
-function initialFor(name: string) {
-  return name.trim().charAt(0).toUpperCase() || "C";
-}
 
 function formatCompactCurrency(value: number | null | undefined) {
   if (typeof value !== "number") {
@@ -74,16 +73,17 @@ function formatCompactCurrency(value: number | null | undefined) {
   return `$${value.toLocaleString()}`;
 }
 
-function formatNumber(value: number | null | undefined) {
-  return typeof value === "number" ? value.toLocaleString() : "Not found";
+function formatOptionalNumber(value: number | null | undefined) {
+  return typeof value === "number" ? value.toLocaleString() : null;
+}
+
+function formatOptionalCurrency(value: number | null | undefined) {
+  const formatted = formatCompactCurrency(value);
+  return formatted === "Not found" ? null : formatted;
 }
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
-}
-
-function formatStatus(value: ColdStartCard["identity"]["status"]) {
-  return value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
 }
 
 function websiteLabel(card: ColdStartCard) {
@@ -93,6 +93,20 @@ function websiteLabel(card: ColdStartCard) {
   } catch {
     return card.domain;
   }
+}
+
+function readableCompanyName(card: ColdStartCard) {
+  const extracted = card.identity.name.value?.trim();
+  if (extracted && extracted.toLowerCase() !== card.domain.toLowerCase()) {
+    return extracted;
+  }
+
+  const root = card.domain.replace(/^www\./i, "").split(".")[0] ?? card.domain;
+  return root
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ") || card.domain;
 }
 
 type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
@@ -126,22 +140,28 @@ function roleScore(role: string | null) {
 function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson {
   const currentScore = roleScore(current.role);
   const candidateScore = roleScore(candidate.role);
+  let preferred = current;
 
   if (candidateScore !== currentScore) {
-    return candidateScore > currentScore ? candidate : current;
+    preferred = candidateScore > currentScore ? candidate : current;
+  } else {
+    const currentRoleLength = current.role?.length ?? 0;
+    const candidateRoleLength = candidate.role?.length ?? 0;
+
+    if (candidateRoleLength === 0) {
+      preferred = current;
+    } else if (currentRoleLength === 0) {
+      preferred = candidate;
+    } else {
+      preferred = candidateRoleLength < currentRoleLength ? candidate : current;
+    }
   }
 
-  const currentRoleLength = current.role?.length ?? 0;
-  const candidateRoleLength = candidate.role?.length ?? 0;
-
-  if (candidateRoleLength === 0) {
-    return current;
-  }
-  if (currentRoleLength === 0) {
-    return candidate;
-  }
-
-  return candidateRoleLength < currentRoleLength ? candidate : current;
+  return {
+    ...preferred,
+    sourceUrl: preferred.sourceUrl ?? current.sourceUrl ?? candidate.sourceUrl,
+    email: preferred.email ?? current.email ?? candidate.email ?? null,
+  };
 }
 
 function managementPeople(card: ColdStartCard): CardPerson[] {
@@ -170,31 +190,104 @@ function managementSourceCount(card: ColdStartCard) {
   ]).size;
 }
 
-function roleLabel(role: string | null) {
-  return role ?? "Role not found";
+function personLine(person: CardPerson) {
+  const role = person.role?.trim();
+  return role ? `${person.name}, ${role}` : person.name;
 }
 
-function CoreMetric({ label, meta, value }: { label: string; meta?: string | undefined; value: ReactNode }) {
+function profileFacts(card: ColdStartCard): Array<{ label: string; value: string; meta?: string | undefined }> {
+  const hq = card.identity.hq.value;
+  const headcount = card.team.headcount.value;
+  const lastRound = card.funding.lastRound.value;
+  const lastRoundAmount = formatOptionalCurrency(lastRound?.amountUsd);
+  const totalRaised = formatOptionalCurrency(card.funding.totalRaisedUsd.value);
+  const facts: Array<{ label: string; value: string; meta?: string | undefined }> = [];
+
+  const employees = formatOptionalNumber(headcount?.value);
+  if (employees) {
+    facts.push({
+      label: "Employees",
+      value: employees,
+      ...(headcount?.asOf ? { meta: headcount.asOf } : {})
+    });
+  }
+
+  if (lastRound?.name) {
+    facts.push({
+      label: "Round",
+      value: lastRound.name,
+      ...(lastRoundAmount ? { meta: lastRoundAmount } : {})
+    });
+  } else if (totalRaised) {
+    facts.push({ label: "Raised", value: totalRaised });
+  }
+
+  if (hq?.city || hq?.country) {
+    facts.push({ label: "HQ", value: [hq.city, hq.country].filter(Boolean).join(", ") });
+  } else if (card.identity.foundedYear.value) {
+    facts.push({ label: "Founded", value: String(card.identity.foundedYear.value) });
+  }
+
+  return facts.slice(0, 3);
+}
+
+function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
+  if (facts.length === 0) {
+    return null;
+  }
+
   return (
-    <div>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-      {meta ? <small>{meta}</small> : null}
-    </div>
+    <dl className="cs-company-facts" aria-label="Core metrics">
+      {facts.map((fact) => (
+        <div key={fact.label}>
+          <dt>{fact.label}</dt>
+          <dd>{fact.value}</dd>
+          {fact.meta ? <small>{fact.meta}</small> : null}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function PeopleLine({
+  people,
+  sourceCount
+}: {
+  people: CardPerson[];
+  sourceCount: number;
+}) {
+  if (people.length === 0) {
+    return null;
+  }
+
+  const visiblePeople = people.slice(0, 3);
+  const hiddenPeopleCount = people.length - visiblePeople.length;
+
+  return (
+    <section className="cs-people-line" aria-label="Management team">
+      <span className="cs-people-line-label">People</span>
+      <p>
+        {visiblePeople.map(personLine).join("; ")}
+        {hiddenPeopleCount > 0 ? `; +${hiddenPeopleCount}` : ""}
+      </p>
+      {sourceCount > 0 ? <span className="cs-people-line-source">{sourceLabel(sourceCount)}</span> : null}
+    </section>
   );
 }
 
 function LayerContent({
   display,
-  running
+  running,
+  runningCopy = "Extracting structure from cited sources"
 }: {
   display: ResearchLayerDisplay;
   running: boolean;
+  runningCopy?: string;
 }) {
   if (running) {
     return (
       <div className="cs-layer-running-copy" aria-live="polite">
-        <span className="cs-shimmer-text">Extracting structure from cited sources</span>
+        <span className="cs-shimmer-text">{runningCopy}</span>
         <span className="cs-layer-skeleton" aria-hidden="true" />
         <span className="cs-layer-skeleton cs-layer-skeleton-short" aria-hidden="true" />
       </div>
@@ -246,6 +339,47 @@ function LayerContent({
   );
 }
 
+function PartialProfilePanel({
+  card,
+  onRegenerate,
+  quality
+}: {
+  card: ColdStartCard;
+  onRegenerate: () => void;
+  quality: PublicProfileQuality;
+}) {
+  const companyName = readableCompanyName(card);
+  const status = quality.hasCitations ? "Profile saved with gaps" : "No cited profile yet";
+  const body = quality.hasCitations
+    ? "A few cited facts landed, but not enough to open the research layer."
+    : "No cited source survived. Rebuild the public record.";
+
+  return (
+    <main className="cs-research-shell cs-research-shell-partial">
+      <section className="cs-partial-profile" aria-label="Incomplete company profile">
+        <div className="cs-partial-profile-copy">
+          <p className="cs-research-label">{status}</p>
+          <h1>{companyName}</h1>
+          <p>{body}</p>
+        </div>
+        <dl className="cs-partial-profile-status" aria-label="Profile status">
+          <div>
+            <dt>Sources</dt>
+            <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
+          </div>
+          <div>
+            <dt>Website</dt>
+            <dd>{websiteLabel(card)}</dd>
+          </div>
+        </dl>
+        <button className="cs-extension-button" onClick={onRegenerate} type="button">
+          Regenerate profile
+        </button>
+      </section>
+    </main>
+  );
+}
+
 function SourceChips({ sources }: { sources: ResearchLayerDisplay["sources"] }) {
   if (sources.length === 0) {
     return null;
@@ -282,7 +416,6 @@ function DormantPileCard({
   onDragEnd,
   onDragStart,
   onKeyDown,
-  onPointerUp,
   pose,
   prefersReducedMotion
 }: {
@@ -294,38 +427,38 @@ function DormantPileCard({
   onDragEnd: (info: PanInfo) => void;
   onDragStart: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  onPointerUp: () => void;
   pose: PilePose;
   prefersReducedMotion: boolean | null;
 }) {
-  const canDrag = dormantCardCanDrag({ prefersReducedMotion });
+  const canDrag = dormantCardCanDrag();
   const feedbackProps = !prefersReducedMotion
     ? {
-        whileHover: { scale: 1.012 },
-        whileTap: { scale: 0.99 }
+        whileHover: { scale: 1.008, y: -1 },
+        whileTap: { scale: 0.992 }
       }
     : {};
 
   return (
     <motion.div
       animate={dragging
-        ? { rotate: pose.rotate - 0.9, scale: 1.025, zIndex: 30 }
+        ? { rotate: pose.rotate - 0.45, scale: 1.018, zIndex: 30 }
         : { rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
       aria-label={`Pin ${layer.title}`}
       className="cs-dormant-card"
       data-dragging={dragging ? "true" : "false"}
       data-index={index}
-      drag={canDrag ? true : false}
-      dragConstraints={{ bottom: 0, left: -26, right: 26, top: -360 }}
-      dragElastic={0.14}
+      drag={canDrag ? "y" : false}
+      dragConstraints={{ bottom: 0, top: -220 }}
+      dragElastic={0.035}
       dragMomentum={false}
-      exit={{ opacity: 0, scale: 0.94, y: -18 }}
+      dragTransition={{ bounceDamping: 32, bounceStiffness: 560 }}
+      exit={{ opacity: 0, scale: 0.97, y: -10 }}
+      layoutId={`research-layer-${layer.id}`}
       onClick={onClick}
       onDrag={(_event, info) => onDrag(info)}
       onDragEnd={(_event, info) => onDragEnd(info)}
       onDragStart={onDragStart}
       onKeyDown={onKeyDown}
-      onPointerUp={onPointerUp}
       role="button"
       style={{
         left: 8 + pose.x,
@@ -333,7 +466,7 @@ function DormantPileCard({
         top: pose.y
       }}
       tabIndex={0}
-      transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.75 }}
+      transition={{ type: "spring", stiffness: 620, damping: 42, mass: 0.62 }}
       {...feedbackProps}
     >
       <span className="cs-card-grip" aria-hidden="true">⋮</span>
@@ -351,21 +484,25 @@ export function ResearchLayerPanel({
   analysisRun,
   card,
   elapsedSeconds,
+  onRefreshProfile,
   onRegenerate,
-  onStartAnalysis
+  onStartAnalysis,
+  profileRefreshElapsedSeconds = 0,
+  profileRefreshRun
 }: ResearchLayerPanelProps) {
-  const companyName = card.identity.name.value ?? card.domain;
+  const companyName = readableCompanyName(card);
   const canStartInvestorLens = canRunInvestorAnalysis(card);
+  const quality = publicProfileQuality(card);
   const layers = useMemo(() => layersForCard(card), [card]);
   const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => {
-    if (card.synthesis || analysisRun) {
+    if (canStartInvestorLens && (card.synthesis || analysisRun)) {
       return ["coreIdea"];
     }
 
     return [];
   });
   const [expandedLayerId, setExpandedLayerId] = useState<ResearchLayerId | null>(() => {
-    if (card.synthesis || analysisRun) {
+    if (canStartInvestorLens && (card.synthesis || analysisRun)) {
       return "coreIdea";
     }
 
@@ -375,7 +512,7 @@ export function ResearchLayerPanel({
   const [snapPreviewId, setSnapPreviewId] = useState<ResearchLayerId | null>(null);
   const snapPreviewLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   function activateLayer(id: ResearchLayerId) {
     const layer = layers.find((candidate) => candidate.id === id);
@@ -388,6 +525,10 @@ export function ResearchLayerPanel({
 
     if (layer.source === "analysis" && layer.availability === "needs-analysis" && canStartInvestorLens && !analysisRun) {
       onStartAnalysis();
+    }
+
+    if (layer.source === "card" && layer.availability === "empty" && !profileRefreshRun) {
+      onRefreshProfile(id);
     }
   }
 
@@ -422,7 +563,7 @@ export function ResearchLayerPanel({
   }
 
   function handleDormantDragEnd(id: ResearchLayerId, info: PanInfo) {
-    const shouldSnap = snapPreviewLayerId.current === id || dragOffsetShouldSnap(info.offset.y);
+    const shouldSnap = snapPreviewLayerId.current === id || dragOffsetShouldSnap(info.offset.y, info.velocity.y);
 
     setDraggingLayerId(null);
     setSnapPreviewId(null);
@@ -438,91 +579,45 @@ export function ResearchLayerPanel({
     }
   }
 
-  function handleDormantPointerUp(id: ResearchLayerId) {
-    if (snapPreviewLayerId.current !== id) {
-      return;
-    }
-
-    setDraggingLayerId(null);
-    setSnapPreviewId(null);
-    snapPreviewLayerId.current = null;
-    suppressClickFor.current = id;
-    activateLayer(id);
-  }
-
   function pilePose(index: number): PilePose {
     return PILE_POSES[index % PILE_POSES.length] ?? { x: 0, y: 0, rotate: 0 };
   }
 
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
-  const hq = card.identity.hq.value;
-  const headcount = card.team.headcount.value;
   const people = managementPeople(card);
-  const visiblePeople = people.slice(0, 4);
-  const hiddenPeopleCount = people.length - visiblePeople.length;
   const managerSources = managementSourceCount(card);
-  const lastRound = card.funding.lastRound.value;
-  const lastRoundAmount = formatCompactCurrency(lastRound?.amountUsd);
+  const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
+
+  if (!canStartInvestorLens) {
+    return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
+  }
 
   return (
     <main className="cs-research-shell">
-      <header className="cs-research-topbar">
-        <div className="cs-research-brand">
-          <BrandMark />
-          <span>Cold Start</span>
-        </div>
-      </header>
-
       <section className="cs-company-context" aria-label="Company context">
         <div className="cs-company-context-main">
-          <span className="cs-company-logo" aria-hidden="true">{initialFor(companyName)}</span>
+          <CompanyLogo
+            className="cs-company-logo"
+            domain={card.domain}
+            label={companyName}
+            logoUrl={card.identity.logoUrl}
+          />
           <div>
-            <p className="cs-research-label">Company</p>
             <h1>{companyName}</h1>
+            <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
+              {websiteLabel(card)}
+            </a>
             <p>{card.identity.oneLiner.value ?? card.domain}</p>
           </div>
         </div>
-        <dl className="cs-company-facts" aria-label="Core metrics">
-          <CoreMetric label="Employees" value={formatNumber(headcount?.value)} meta={headcount?.asOf ? `As of ${headcount.asOf}` : undefined} />
-          <CoreMetric label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
-          <CoreMetric label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
-          <CoreMetric label="Website" value={websiteLabel(card)} />
-          <CoreMetric label="Status" value={formatStatus(card.identity.status)} />
-          <CoreMetric
-            label="Latest round"
-            value={lastRound?.name ?? lastRoundAmount}
-            meta={lastRound?.name && lastRoundAmount !== "Not found" ? lastRoundAmount : undefined}
-          />
-        </dl>
-
-        {people.length > 0 ? (
-          <section className="cs-management-team" aria-label="Management team">
-            <div className="cs-management-team-head">
-              <span>Management team</span>
-              <span>{managerSources > 0 ? sourceLabel(managerSources) : "sources pending"}</span>
-            </div>
-            <ul>
-              {visiblePeople.map((person) => (
-                <li key={`${person.name}-${person.role ?? "role"}`}>
-                  <strong>{person.name}</strong>
-                  <span>{roleLabel(person.role)}</span>
-                </li>
-              ))}
-              {hiddenPeopleCount > 0 ? (
-                <li className="cs-management-more">
-                  <strong>+{hiddenPeopleCount}</strong>
-                  <span>additional cited leaders</span>
-                </li>
-              ) : null}
-            </ul>
-          </section>
-        ) : null}
+        <FactRibbon facts={facts} />
+        <PeopleLine people={people} sourceCount={managerSources} />
       </section>
 
       <section className="cs-research-layer" aria-label="Research layer">
         <div className="cs-research-layer-head">
-          <span>Research layer</span>
+          <span>Research</span>
           <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
 
@@ -535,21 +630,34 @@ export function ResearchLayerPanel({
 
             const layer = layers.find((candidate) => candidate.id === id);
             const running = Boolean(analysisRun && layer?.source === "analysis" && !card.synthesis);
-            const expanded = expandedLayerId === id || running;
-            const state = running ? "running" : display.status;
+            const refreshing = Boolean(profileRefreshRun?.layerId === id && layer?.source === "card" && display.status === "empty");
+            const expanded = expandedLayerId === id || running || refreshing;
+            const state = running || refreshing ? "running" : display.status;
+            const statusCopy = running
+              ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
+              : refreshing
+                ? `Refreshing · ${formatElapsed(profileRefreshElapsedSeconds)}`
+                : sourceLabel(display.sourceCount);
+            const runningCopy = refreshing
+              ? id === "competition"
+                ? "Searching for adjacent companies and market-map evidence"
+                : id === "signals"
+                  ? "Searching for recent traction and launch signals"
+                  : "Refreshing cited profile evidence"
+              : "Extracting structure from cited sources";
 
             return (
-              <motion.article className="cs-active-enrichment" data-state={state} key={id} layout>
+              <motion.article className="cs-active-enrichment" data-state={state} key={id} layout layoutId={`research-layer-${id}`}>
                 <button className="cs-active-enrichment-head" onClick={() => toggleExpanded(id)} type="button">
                   <span className="cs-active-dot" aria-hidden="true" />
                   <span>
                     <strong>{display.title}</strong>
-                    <small>{running ? `Synthesizing · ${formatElapsed(elapsedSeconds)}` : sourceLabel(display.sourceCount)}</small>
+                    <small>{statusCopy}</small>
                   </span>
                   <motion.span
                     animate={{ rotate: expanded ? 180 : 0 }}
                     className="cs-active-chevron"
-                    transition={{ duration: prefersReducedMotion ? 0 : 0.16 }}
+                    transition={{ duration: prefersReducedMotion ? 0 : 0.12 }}
                     aria-hidden="true"
                   >
                     ⌄
@@ -562,21 +670,15 @@ export function ResearchLayerPanel({
                       className="cs-active-enrichment-body"
                       exit={{ height: 0, opacity: 0 }}
                       initial={{ height: 0, opacity: 0 }}
-                      transition={{ duration: prefersReducedMotion ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+                      transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
                     >
-                      <LayerContent display={display} running={running} />
+                      <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
               </motion.article>
             );
           })}
-          {activeLayerIds.length === 0 ? (
-            <div className="cs-empty-research-layer">
-              <span>Add enrichment</span>
-              <p>Pin a research card to build the investor layer.</p>
-            </div>
-          ) : null}
         </motion.div>
 
         {analysisNotice ? (
@@ -586,13 +688,6 @@ export function ResearchLayerPanel({
           </div>
         ) : null}
 
-        {!canStartInvestorLens ? (
-          <div className="cs-research-notice" role="status">
-            <strong>Needs sources</strong>
-            <p>Regenerate the profile before running investor analysis.</p>
-            <button type="button" onClick={onRegenerate}>Regenerate</button>
-          </div>
-        ) : null}
       </section>
 
       <section
@@ -602,7 +697,7 @@ export function ResearchLayerPanel({
         data-snap-preview={snapPreviewId ? "true" : "false"}
       >
         <div className="cs-drop-zone" aria-hidden={!draggingLayerId}>
-          {snapPreviewId ? "Release to pin" : "Add enrichment"}
+          {snapPreviewId ? "Release to pin" : "Pin card"}
         </div>
         <motion.div className="cs-card-pile" layout>
           <AnimatePresence>
@@ -620,7 +715,6 @@ export function ResearchLayerPanel({
                   onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
                   onDragStart={() => handleDormantDragStart(layer.id)}
                   onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
-                  onPointerUp={() => handleDormantPointerUp(layer.id)}
                   pose={pose}
                   prefersReducedMotion={prefersReducedMotion}
                 />

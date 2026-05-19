@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentcashChildEnv,
   agentcashJson,
   buildAgentcashFetchArgs,
   buildAgentcashFetchCommand,
@@ -21,6 +22,7 @@ describe("buildAgentcashFetchArgs", () => {
       "POST",
       "-b",
       '{"query":"cartesia funding","numResults":3}',
+      "-y",
       "--format",
       "json",
     ]);
@@ -42,6 +44,7 @@ describe("buildAgentcashFetchArgs", () => {
       "POST",
       "-b",
       '{"query":"cartesia funding"}',
+      "-y",
       "--format",
       "json",
     ]);
@@ -68,9 +71,30 @@ describe("buildAgentcashFetchCommand", () => {
       "POST",
       "-b",
       '{"query":"cartesia funding"}',
+      "-y",
       "--format",
       "json",
     ]);
+  });
+});
+
+describe("agentcashChildEnv", () => {
+  it("keeps an existing home directory for local wallet-backed calls", () => {
+    const env = agentcashChildEnv({
+      baseEnv: { HOME: process.cwd() },
+      fallbackHome: "/tmp/cold-start-agentcash-test",
+    });
+
+    expect(env.HOME).toBe(process.cwd());
+  });
+
+  it("uses a writable fallback when the runtime home directory is missing", () => {
+    const env = agentcashChildEnv({
+      baseEnv: { HOME: "/tmp/cold-start-agentcash-home-does-not-exist" },
+      fallbackHome: "/tmp/cold-start-agentcash-test",
+    });
+
+    expect(env.HOME).toBe("/tmp/cold-start-agentcash-test");
   });
 });
 
@@ -110,6 +134,7 @@ describe("agentcashJson", () => {
       "POST",
       "-b",
       '{"url":"https://cartesia.ai"}',
+      "-y",
       "--format",
       "json",
     ]);

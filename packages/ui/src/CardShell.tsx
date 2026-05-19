@@ -5,7 +5,6 @@ import { CitationMarker } from "./CitationMarker";
 import { FactRow, formatCompactCurrency, formatMediumDate, formatShortDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
 import { SourceDrawer } from "./SourceDrawer";
-import { SynthesisSection } from "./SynthesisSection";
 
 type PublicCard = Omit<ColdStartCard, "synthesis">;
 type CardShellProps = {
@@ -447,7 +446,6 @@ export function CardShell({ card, surface }: CardShellProps) {
     return <ExtensionProfile card={card} />;
   }
 
-  const synthesis: NonNullable<ColdStartCard["synthesis"]> | undefined = undefined;
   const title = card.identity.name.value ?? card.domain;
   const description = card.identity.description?.value ?? null;
   const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
@@ -456,11 +454,9 @@ export function CardShell({ card, surface }: CardShellProps) {
   const mix = citationMix(card);
   const initialLetter = plateInitial(title);
   const filedDate = formatMediumDate(card.generatedAt);
-  const isExtension = false;
   const hasRounds = rounds.length > 0;
   const hasSignals = card.signals.length > 0;
   const hasComparables = card.comparables.length > 0;
-  const capitalMarker = "iv";
 
   return (
     <article className="cs-card" data-surface={surface}>
@@ -468,17 +464,10 @@ export function CardShell({ card, surface }: CardShellProps) {
         <div className="cs-card-brand" aria-label="Cold Start">
           <span className="cs-plate" aria-hidden="true">{initialLetter}</span>
           <span className="cs-card-brand-name">COLD START</span>
-          {mix.total > 0 ? <span className="cs-card-brand-id">N° {String(mix.total).padStart(isExtension ? 2 : 4, "0")}</span> : null}
+          {mix.total > 0 ? <span className="cs-card-brand-id">N° {String(mix.total).padStart(4, "0")}</span> : null}
         </div>
         <div className="cs-card-topbar-meta">
-          {isExtension ? (
-            <span>extension</span>
-          ) : (
-            <>
-              <span>cold-start-samay58s-projects.vercel.app / c / {card.slug}</span>
-              <span>filed {filedDate}</span>
-            </>
-          )}
+          <span>filed {filedDate}</span>
         </div>
       </div>
 
@@ -519,7 +508,7 @@ export function CardShell({ card, surface }: CardShellProps) {
             })()}
           </p>
 
-          {!isExtension && description ? (
+          {description ? (
             <dl className="cs-description-grid" aria-label="Company description">
               {description.concept ? (
                 <div>
@@ -576,12 +565,10 @@ export function CardShell({ card, surface }: CardShellProps) {
         </div>
       </section>
 
-      {synthesis ? <SynthesisSection synthesis={synthesis} marker="iv · investor lens · gated" /> : null}
-
       {hasRounds ? (
         <section className="cs-section" aria-labelledby="capital-heading">
           <div className="cs-section-kicker">
-            <span>{capitalMarker} · capitalisation</span>
+            <span>iv · capitalisation</span>
             <span className="cs-section-kicker-aside">
               {countLabel(rounds.length, "round")}
               {roundCitationIds.length > 0 ? ` · ${countLabel(roundCitationIds.length, "source")}` : ""}
@@ -630,7 +617,7 @@ export function CardShell({ card, surface }: CardShellProps) {
         </section>
       ) : null}
 
-      {!isExtension && hasSignals ? (
+      {hasSignals ? (
         <section className="cs-section" aria-labelledby="signals-heading">
           <div className="cs-section-kicker">
             <span>v · signals · last 90 days</span>
@@ -669,7 +656,7 @@ export function CardShell({ card, surface }: CardShellProps) {
         </section>
       ) : null}
 
-      {!isExtension && hasComparables ? (
+      {hasComparables ? (
         <section className="cs-section" aria-labelledby="comparables-heading">
           <div className="cs-section-kicker">
             <span>vi · nearest neighbours</span>
@@ -695,32 +682,28 @@ export function CardShell({ card, surface }: CardShellProps) {
         </section>
       ) : null}
 
-      {!isExtension ? (
-        <>
-          <section className="cs-section" aria-labelledby="identity-heading">
-            <div className="cs-section-kicker">
-              <span>vii · identity</span>
-            </div>
-            <h2 id="identity-heading">The basics.</h2>
-            <FactRow label="Domain" fact={staticFact(card.domain)} mono />
-            {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
-            {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
-            <FactRow label="HQ" fact={card.identity.hq} />
-            <FactRow label="Founded" fact={card.identity.foundedYear} mono />
-            <FactRow label="Founders" fact={card.team.founders} />
-            <FactRow label="Key execs" fact={card.team.keyExecs} />
-            <FactRow label="Investors" fact={card.funding.investors} />
-          </section>
+      <section className="cs-section" aria-labelledby="identity-heading">
+        <div className="cs-section-kicker">
+          <span>vii · identity</span>
+        </div>
+        <h2 id="identity-heading">The basics.</h2>
+        <FactRow label="Domain" fact={staticFact(card.domain)} mono />
+        {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
+        {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
+        <FactRow label="HQ" fact={card.identity.hq} />
+        <FactRow label="Founded" fact={card.identity.foundedYear} mono />
+        <FactRow label="Founders" fact={card.team.founders} />
+        <FactRow label="Key execs" fact={card.team.keyExecs} />
+        <FactRow label="Investors" fact={card.funding.investors} />
+      </section>
 
-          <SourceDrawer citations={card.citations} marker="viii · sources" />
-        </>
-      ) : null}
+      <SourceDrawer citations={card.citations} marker="viii · sources" />
 
       <footer className="cs-card-footer">
         <div className="cs-footer-mark">
           <span className="cs-plate" aria-hidden="true">{initialLetter}</span>
           <p className="cs-footer-copy">
-            {isExtension ? "Sources stay attached to the card. The investor lens stays cited." : "The investor lens lives behind the Cold Start extension. The public card stays on sourced facts."}
+            The investor lens lives behind the Cold Start extension. The public card stays on sourced facts.
           </p>
         </div>
         <div className="cs-footer-meta">

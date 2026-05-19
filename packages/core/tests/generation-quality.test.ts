@@ -59,12 +59,12 @@ function card(): ColdStartCard {
         confidence: "high",
         citationIds: ["c1"]
       },
-      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
+      foundedYear: { value: 2023, status: "verified", confidence: "medium", citationIds: ["c1"] },
       status: "private"
     },
     funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      totalRaisedUsd: { value: 91000000, status: "verified", confidence: "medium", citationIds: ["c1"] },
       lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
       investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
     },
@@ -131,6 +131,20 @@ describe("generationQualityFlags", () => {
 
     expect(generationQualityFlags({ status: "complete", mode: "analysis", traceJson: baseTrace(), card: visibleCard }).map((flag) => flag.code)).toContain(
       "no_synthesis_after_analysis"
+    );
+  });
+
+  it("flags completed cards that have citations but too few structured facts", () => {
+    const underfilled = card();
+    underfilled.identity.websiteUrl = { value: null, status: "unknown", confidence: "low", citationIds: [] };
+    underfilled.identity.hq = { value: null, status: "unknown", confidence: "low", citationIds: [] };
+    underfilled.identity.foundedYear = { value: null, status: "unknown", confidence: "low", citationIds: [] };
+    underfilled.funding.totalRaisedUsd = { value: null, status: "unknown", confidence: "low", citationIds: [] };
+    underfilled.team.headcount = { value: null, status: "unknown", confidence: "low", citationIds: [] };
+    underfilled.comparables = [];
+
+    expect(generationQualityFlags({ status: "complete", mode: "basics", traceJson: baseTrace(), card: underfilled }).map((flag) => flag.code)).toContain(
+      "underfilled_public_profile"
     );
   });
 

@@ -261,6 +261,28 @@ describe("buildGenerateRequest", () => {
 
     expect(request.init.body).toBe(JSON.stringify({ domain: "legora.com", mode: "analysis", confirmStart: true }));
   });
+
+  it("can request a forced basics refresh for stale card-backed sections", () => {
+    const request = buildGenerateRequest(
+      "legora.com",
+      {
+        apiOrigin: "http://localhost:3000",
+        apiToken: "token-123"
+      },
+      undefined,
+      "basics",
+      true,
+      "extension-123",
+      true
+    );
+
+    expect(request.init.body).toBe(JSON.stringify({
+      domain: "legora.com",
+      mode: "basics",
+      confirmStart: true,
+      forceRefresh: true
+    }));
+  });
 });
 
 describe("parseCardResponse", () => {
@@ -327,6 +349,15 @@ describe("readableCardError", () => {
 
   it("explains API generation failures without leaking raw status text", () => {
     expect(readableCardError("request failed with 500", "http://localhost:3000")).toContain("worker logs");
+  });
+
+  it("explains the retired basics quality gate as deployment skew", () => {
+    expect(
+      readableCardError(
+        "generated basics underfilled public profile (4/4 structured facts)",
+        "https://cold-start-samay58s-projects.vercel.app"
+      )
+    ).toContain("latest API");
   });
 
   it("explains API contract mismatches as deployment skew", () => {

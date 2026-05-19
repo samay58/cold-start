@@ -25,6 +25,15 @@ const settings = {
   coldStartApiToken: "token-123"
 };
 
+function companyNameFromDomain(domain: string) {
+  const root = domain.replace(/^www\./i, "").split(".")[0] ?? domain;
+  return root
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ") || domain;
+}
+
 function cardForDomain(domain: string): ColdStartCard {
   return {
     slug: domain.split(".")[0] ?? domain,
@@ -33,11 +42,12 @@ function cardForDomain(domain: string): ColdStartCard {
     generationCostUsd: 0,
     cacheStatus: "hit",
     identity: {
-      name: { value: domain, status: "verified", confidence: "high", citationIds: ["c1"] },
+      name: { value: companyNameFromDomain(domain), status: "verified", confidence: "high", citationIds: ["c1"] },
+      websiteUrl: { value: `https://${domain}/`, status: "verified", confidence: "high", citationIds: ["c1"] },
       logoUrl: null,
       oneLiner: { value: "Cached company card", status: "verified", confidence: "high", citationIds: ["c1"] },
-      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
+      foundedYear: { value: 2023, status: "verified", confidence: "medium", citationIds: ["c1"] },
       status: "private"
     },
     funding: {
@@ -48,10 +58,10 @@ function cardForDomain(domain: string): ColdStartCard {
     team: {
       founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
       keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+      headcount: { value: { value: 64, asOf: "2026-05-14" }, status: "inferred", confidence: "low", citationIds: ["c1"] }
     },
     signals: [],
-    comparables: [],
+    comparables: [{ name: "Example Peer", domain: "peer.example", oneLiner: "Adjacent company." }],
     citations: [
       {
         id: "c1",
@@ -72,8 +82,22 @@ function noSourcePartialCard(domain: string): ColdStartCard {
     identity: {
       ...cardForDomain(domain).identity,
       name: { value: domain, status: "unknown", confidence: "low", citationIds: [] },
-      oneLiner: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+      websiteUrl: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      oneLiner: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] }
     },
+    funding: {
+      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    team: {
+      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    comparables: [],
     citations: []
   };
 }
@@ -93,7 +117,7 @@ function cardWithManagement(domain: string): ColdStartCard {
     },
     team: {
       founders: {
-        value: [{ name: "Jessica Lessin", role: "Founder and CEO", sourceUrl: `https://${domain}/about` }],
+        value: [{ name: "Jessica Lessin", role: "Founder", sourceUrl: `https://${domain}/about`, email: "jessica@theinformation.com" }],
         status: "verified",
         confidence: "medium",
         citationIds: ["c1"]
@@ -107,6 +131,7 @@ function cardWithManagement(domain: string): ColdStartCard {
       keyExecs: {
         value: [
           { name: "Jessica Lessin", role: "Founder & CEO (prev. reporter)", sourceUrl: `https://${domain}/team` },
+          { name: "Jessica Lessin", role: "CEO", sourceUrl: `https://${domain}/team` },
           { name: "Matthew Resnick", role: "Chief operating officer", sourceUrl: "https://linkedin.com/in/matthew" },
           { name: "Amir Efrati", role: "Executive editor", sourceUrl: "https://linkedin.com/in/amir" }
         ],
@@ -155,31 +180,66 @@ function missingCardResponse() {
 
 async function flushPromises() {
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
   });
 }
 
 async function renderSidePanel(input: {
   domain: string;
   fetchMock: ReturnType<typeof vi.fn>;
+  initialSession?: Record<string, unknown>;
+  storedSettings?: Partial<typeof settings>;
 }) {
   vi.resetModules();
 
   const listeners = new Set<StorageListener>();
   let activeDomain = input.domain;
+  const storedSettings = { ...settings, ...input.storedSettings };
+  const sessionItems: Record<string, unknown> = { activeDomain, ...input.initialSession };
 
   vi.stubGlobal("fetch", input.fetchMock);
   vi.stubGlobal("chrome", {
     runtime: { id: "extension-test-id" },
     storage: {
       local: {
-        get: (_keys: readonly string[], callback: (items: typeof settings) => void) => callback(settings),
-        set: (_items: unknown, callback: () => void) => callback()
+        get: (_keys: readonly string[], callback: (items: typeof settings) => void) => callback(storedSettings),
+        set: (items: Partial<typeof settings>, callback: () => void) => {
+          Object.assign(storedSettings, items);
+          callback();
+        }
       },
       session: {
-        get: (_key: string, callback: (items: { activeDomain: string }) => void) => callback({ activeDomain }),
-        set: vi.fn()
+        get: (
+          keys: string | readonly string[] | Record<string, unknown> | null,
+          callback: (items: Record<string, unknown>) => void
+        ) => {
+          if (keys === null) {
+            callback({ ...sessionItems });
+            return;
+          }
+          if (typeof keys === "string") {
+            callback({ [keys]: sessionItems[keys] });
+            return;
+          }
+          if (Array.isArray(keys)) {
+            callback(Object.fromEntries(keys.map((key) => [key, sessionItems[key]])));
+            return;
+          }
+          const defaults = keys as Record<string, unknown>;
+          callback(Object.fromEntries(Object.keys(defaults).map((key) => [key, sessionItems[key] ?? defaults[key]])));
+        },
+        set: (items: Record<string, unknown>, callback?: () => void) => {
+          Object.assign(sessionItems, items);
+          callback?.();
+        },
+        remove: (keys: string | string[], callback?: () => void) => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            delete sessionItems[key];
+          }
+          callback?.();
+        }
       },
       onChanged: {
         addListener: (listener: StorageListener) => listeners.add(listener),
@@ -191,6 +251,7 @@ async function renderSidePanel(input: {
   const container = document.createElement("div");
   document.body.append(container);
   const { SidePanel } = await import("../src/sidepanel");
+  await import("../src/ResearchLayerPanel");
   const root = createRoot(container);
 
   await act(async () => {
@@ -203,6 +264,7 @@ async function renderSidePanel(input: {
     async changeDomain(nextDomain: string) {
       const oldValue = activeDomain;
       activeDomain = nextDomain;
+      sessionItems.activeDomain = nextDomain;
       await act(async () => {
         for (const listener of listeners) {
           listener({ activeDomain: { oldValue, newValue: nextDomain } }, "session");
@@ -262,9 +324,10 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(container.textContent).toContain("Generate Amazon?");
+    expect(container.textContent).toContain("No profile");
+    expect(container.textContent).toContain("Build the public record.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Generate profile"
+      (button) => button.textContent === "Build profile"
     );
     expect(generateButton).toBeTruthy();
 
@@ -273,16 +336,11 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
-    });
-    await flushPromises();
-
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ domain: "amazon.com", mode: "basics", confirmStart: true })
     );
-    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("amazon.com");
     await unmount();
   });
@@ -291,10 +349,84 @@ describe("SidePanel generation gate", () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
-    expect(container.textContent).not.toContain("Generate Linear?");
+    expect(container.textContent).not.toContain("No profile");
     expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("renders a session-cached card before network revalidation", async () => {
+    const cachedCard = cardForDomain("linear.app");
+    const resolvedApiOrigin = "https://cold-start-samay58s-projects.vercel.app";
+    const cacheKey = `coldStartCard:${encodeURIComponent(resolvedApiOrigin)}:${encodeURIComponent("linear.app")}`;
+    let resolveBootstrap: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => {
+      resolveBootstrap = resolve;
+    }));
+    const { container, unmount } = await renderSidePanel({
+      domain: "linear.app",
+      fetchMock,
+      initialSession: {
+        [cacheKey]: {
+          apiOrigin: resolvedApiOrigin,
+          card: cachedCard,
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.now()
+        }
+      }
+    });
+
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).toContain("linear.app");
+    const firstFetchCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit?] | undefined;
+    expect(String(firstFetchCall?.[0])).toContain("/api/extension/bootstrap?");
+    expect(firstFetchCall?.[1]?.method).toBeUndefined();
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    resolveBootstrap?.(jsonResponse({
+      domain: "linear.app",
+      slug: "linear",
+      card: cachedCard,
+      runs: {
+        basics: { slug: "linear", domain: "linear.app", mode: "basics", status: "complete" },
+        analysis: { slug: "linear", domain: "linear.app", mode: "analysis", status: "idle" }
+      }
+    }));
+    await flushPromises();
+    await unmount();
+  });
+
+  it("uses a saved company logo in the card context", async () => {
+    const card = cardForDomain("figma.com");
+    card.identity.name = { value: "Figma", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.identity.logoUrl = "https://assets.example.com/figma-logo.svg";
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "figma.com", fetchMock });
+
+    const logo = container.querySelector(".cs-company-logo");
+    expect(logo?.getAttribute("aria-label")).toBe("Figma logo");
+    expect(logo?.querySelector("img")?.getAttribute("src")).toBe("https://assets.example.com/figma-logo.svg");
+    expect(logo?.textContent).toBe("F");
+    await unmount();
+  });
+
+  it("uses the aperture brand mark for access setup instead of a block logo", async () => {
+    const fetchMock = vi.fn();
+    const { container, unmount } = await renderSidePanel({
+      domain: "linear.app",
+      fetchMock,
+      storedSettings: { coldStartApiToken: "" }
+    });
+
+    expect(container.textContent).toContain("Connect");
+    expect(container.textContent).toContain("Private cards use the browser token.");
+    expect(container.textContent).toContain("Extension token");
+    expect(container.querySelector(".cs-panel-brand-mark .cs-brand-mark")).toBeTruthy();
+    expect(container.querySelector(".cs-extension-brand")).toBeNull();
+    expect(container.querySelector(".cs-extension-mark")).toBeNull();
+    expect(container.textContent).not.toContain("CS");
+    expect(fetchMock).not.toHaveBeenCalled();
     await unmount();
   });
 
@@ -305,17 +437,19 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector("dl[aria-label='Core metrics']")).toBeTruthy();
     expect(container.textContent).toContain("Employees");
     expect(container.textContent).toContain("87");
-    expect(container.textContent).toContain("As of 2026-04-26");
+    expect(container.textContent).toContain("2026-04-26");
     expect(container.textContent).toContain("theinformation.com");
-    expect(container.textContent).toContain("Management team");
+    expect(container.textContent).toContain("People");
     expect(container.textContent).toContain("2 sources");
     expect(container.textContent).toContain("Jessica Lessin");
+    expect(container.textContent).not.toContain("jessica@theinformation.com");
+    expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeNull();
     expect(container.textContent).toContain("Matthew Resnick");
     expect(container.textContent).toContain("Amir Efrati");
-    expect(container.textContent).toContain("Research layer");
-    const managementNames = Array.from(container.querySelectorAll(".cs-management-team strong"))
-      .map((name) => name.textContent);
-    expect(managementNames.filter((name) => name === "Jessica Lessin")).toHaveLength(1);
+    expect(container.textContent).toContain("Research");
+    const peopleLine = container.querySelector(".cs-people-line");
+    expect(peopleLine?.textContent?.match(/Jessica Lessin/g)).toHaveLength(1);
+    expect(container.querySelector(".cs-management-team")).toBeNull();
     await unmount();
   });
 
@@ -325,8 +459,8 @@ describe("SidePanel generation gate", () => {
 
     const buttons = interactiveControls(container).map((button) => button.textContent?.trim());
     expect(buttons).not.toContain(legacyAnalysisLabel);
-    expect(container.textContent).toContain("Research layer");
-    expect(container.textContent).toContain("Core Idea");
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).toContain("Thesis");
 
     await unmount();
   });
@@ -335,10 +469,10 @@ describe("SidePanel generation gate", () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
-    expect(container.textContent).toContain("Research layer");
-    expect(container.textContent).toContain("Core Idea");
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).toContain("Thesis");
     expect(container.textContent).toContain("Customers");
-    expect(container.textContent).toContain("Add enrichment");
+    expect(container.textContent).not.toContain("Add enrichment");
     for (const title of futureCardTitles) {
       expect(container.textContent).not.toContain(title);
     }
@@ -361,22 +495,28 @@ describe("SidePanel generation gate", () => {
       }
 
       cardFetches += 1;
-      return cardFetches > 1 ? jsonResponse(cardForDomain("cartesia.ai")) : missingCardResponse();
+      return cardFetches > 3 ? jsonResponse(cardForDomain("cartesia.ai")) : missingCardResponse();
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
-    expect(container.textContent).toContain("Building profile");
+    expect(container.textContent).toContain("Building");
+    expect(container.textContent).toContain("Citations");
+    expect(container.querySelector(".cs-run-steps")?.textContent).toContain("01Sources02Pages03Facts04Citations");
+    expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
+    expect(container.querySelector(".cs-live-progress-track")).not.toBeNull();
+    expect(container.querySelector(".cs-live-progress-fill")).not.toBeNull();
+    expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");
     expect(container.textContent).not.toContain("Generate Cartesia?");
     expect(generateCalls(fetchMock)).toHaveLength(0);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
+      await vi.advanceTimersByTimeAsync(350);
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("cartesia.ai");
     await unmount();
   });
@@ -406,6 +546,32 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("shows a recovered basics card when the latest run is failed", async () => {
+    let cardFetches = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "thinkwithmark",
+          domain: "thinkwithmark.com",
+          status: "failed",
+          mode: "basics",
+          error: "generated basics underfilled public profile (4/4 structured facts)"
+        });
+      }
+
+      cardFetches += 1;
+      return cardFetches > 1 ? jsonResponse(cardForDomain("thinkwithmark.com")) : missingCardResponse();
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain: "thinkwithmark.com", fetchMock });
+    await flushPromises();
+
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).toContain("thinkwithmark.com");
+    expect(container.textContent).not.toContain("Card unavailable");
+    await unmount();
+  });
+
   it("does not offer analysis on a no-source partial profile", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
@@ -420,11 +586,14 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
-    expect(container.textContent).toContain("Regenerate the profile before running investor analysis.");
+    expect(container.textContent).toContain("No cited profile yet");
+    expect(container.textContent).toContain("No cited source survived. Rebuild the public record.");
+    expect(container.textContent).not.toContain("Research");
+    expect(container.textContent).not.toContain("Not found");
     expect(interactiveControls(container).some((button) => button.textContent === legacyAnalysisLabel)).toBe(false);
 
     const regenerateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Regenerate"
+      (button) => button.textContent === "Regenerate profile"
     );
     expect(regenerateButton).toBeTruthy();
 
@@ -440,6 +609,57 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("does not promote a cited domain-placeholder shell into the dossier", async () => {
+    const domain = "databricks.com";
+    const shell: ColdStartCard = {
+      ...cardForDomain(domain),
+      identity: {
+        ...cardForDomain(domain).identity,
+        name: { value: domain, status: "verified", confidence: "low", citationIds: ["c1"] },
+        oneLiner: { value: domain, status: "verified", confidence: "low", citationIds: ["c1"] },
+        hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      },
+      funding: {
+        totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        investors: { value: [{ name: "Andreessen Horowitz", domain: "a16z.com" }], status: "verified", confidence: "low", citationIds: ["c1"] },
+      },
+      team: {
+        founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+        keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+        headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      },
+      signals: [
+        {
+          title: "Databricks market mention",
+          url: "https://example.com/databricks",
+          date: "2026-05-15",
+          source: "Example",
+          category: "news",
+          citationIds: ["c1"],
+        },
+      ],
+      comparables: [
+        {
+          name: "Snowflake",
+          domain: "snowflake.com",
+          oneLiner: "Cloud data platform.",
+          citationIds: ["c1"],
+        },
+      ],
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(shell));
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    expect(container.textContent).toContain("Profile saved with gaps");
+    expect(container.textContent).toContain("A few cited facts landed");
+    expect(container.textContent).not.toContain("Research");
+    expect(container.textContent).not.toContain("Latest round");
+    expect(container.textContent).not.toContain("Not found");
+    await unmount();
+  });
+
   it("starts real analysis from an analysis-backed enrichment instead of a standalone CTA", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
@@ -451,7 +671,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Core Idea")
+      (button) => button.textContent?.includes("Thesis")
     );
     expect(coreIdeaButton).toBeTruthy();
     await act(async () => {
@@ -490,15 +710,10 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Core Idea")
+      (button) => button.textContent?.includes("Thesis")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
     });
     await flushPromises();
 
@@ -506,7 +721,7 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
+      await vi.advanceTimersByTimeAsync(350);
     });
     await flushPromises();
 
@@ -530,8 +745,18 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("activates a card-backed enrichment by click without starting model analysis", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+  it("refreshes empty card-backed enrichments inline instead of showing a terminal empty state", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "running", mode: "basics" });
+      }
+
+      return jsonResponse(cardForDomain("warp.dev"));
+    });
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
@@ -544,8 +769,13 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("No recent cited signals found yet.");
-    expect(generateCalls(fetchMock)).toHaveLength(0);
+    expect(container.textContent).toContain("Refreshing");
+    expect(container.textContent).toContain("Searching for recent traction and launch signals");
+    expect(container.textContent).not.toContain("No recent cited signals found yet.");
+    expect(generateCalls(fetchMock)).toHaveLength(1);
+    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
+      JSON.stringify({ domain: "warp.dev", mode: "basics", confirmStart: true, forceRefresh: true })
+    );
     await unmount();
   });
 
@@ -591,7 +821,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "obvious.ai", fetchMock });
 
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Generate profile"
+      (button) => button.textContent === "Build profile"
     );
     await act(async () => {
       generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -599,18 +829,12 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
+      await vi.advanceTimersByTimeAsync(350);
     });
     await flushPromises();
 
     expect(container.textContent).not.toContain("request failed with 405");
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
-    });
-    await flushPromises();
-
-    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("obvious.ai");
     await unmount();
   });
@@ -637,7 +861,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Core Idea")
+      (button) => button.textContent?.includes("Thesis")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -645,11 +869,11 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2500);
+      await vi.advanceTimersByTimeAsync(350);
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Research layer");
+    expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
     expect(container.textContent).toContain("Not enough verified evidence");
     await unmount();
@@ -668,7 +892,8 @@ describe("SidePanel generation gate", () => {
     await panel.changeDomain("linear.app");
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(panel.container.textContent).toContain("Generate Linear?");
+    expect(panel.container.textContent).toContain("No profile");
+    expect(panel.container.textContent).toContain("Linear");
     await panel.unmount();
   });
 });

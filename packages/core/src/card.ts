@@ -50,7 +50,8 @@ export const investorSchema = z.object({
 export const personSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1).nullable(),
-  sourceUrl: z.string().url().nullable()
+  sourceUrl: z.string().url().nullable(),
+  email: z.string().email().nullable().optional()
 });
 
 export const signalSchema = z.object({

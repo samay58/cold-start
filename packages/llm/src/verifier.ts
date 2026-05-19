@@ -88,6 +88,7 @@ export async function verifySynthesis(input: {
   const response: Message = await input.client.messages.create({
     model: input.model,
     max_tokens: 2000,
+    temperature: 0,
     system: [
       {
         type: "text",

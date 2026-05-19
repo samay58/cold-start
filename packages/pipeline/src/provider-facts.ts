@@ -23,8 +23,68 @@ function shouldFill<T>(fact: ResolvedFact<T> | undefined) {
   return !fact || fact.value === null || fact.citationIds.length === 0;
 }
 
+function statusRank(status: ResolvedFact<unknown>["status"]) {
+  return { unknown: 0, inferred: 1, mixed: 2, verified: 3 }[status];
+}
+
+function confidenceRank(confidence: ResolvedFact<unknown>["confidence"]) {
+  return { low: 1, medium: 2, high: 3 }[confidence];
+}
+
 function sameComparable(left: { domain: string }, right: { domain: string }) {
   return left.domain.replace(/^www\./i, "").toLowerCase() === right.domain.replace(/^www\./i, "").toLowerCase();
+}
+
+function sameSignal(left: { url: string; title: string }, right: { url: string; title: string }) {
+  return (
+    left.url.replace(/\/$/, "").toLowerCase() === right.url.replace(/\/$/, "").toLowerCase() ||
+    left.title.trim().toLowerCase() === right.title.trim().toLowerCase()
+  );
+}
+
+type Person = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
+
+function personKey(person: Person) {
+  return person.name.trim().toLowerCase();
+}
+
+function samePerson(left: Person, right: Person) {
+  return personKey(left) === personKey(right);
+}
+
+function mergePerson(left: Person, right: Person): Person {
+  return {
+    name: left.name,
+    role: left.role ?? right.role,
+    sourceUrl: left.sourceUrl ?? right.sourceUrl,
+    ...(left.email || right.email ? { email: left.email ?? right.email ?? null } : {}),
+  };
+}
+
+function appendPeople(
+  existing: ResolvedFact<Person[]>,
+  candidate: ProviderFactCandidate<Person[]>,
+  citationId: string,
+): ResolvedFact<Person[]> {
+  const people = existing.value ? [...existing.value] : [];
+  for (const person of candidate.value) {
+    const index = people.findIndex((current) => samePerson(current, person));
+    if (index >= 0) {
+      const current = people[index];
+      if (current) {
+        people[index] = mergePerson(current, person);
+      }
+      continue;
+    }
+    people.push(person);
+  }
+
+  return {
+    value: people,
+    status: !existing.value || statusRank(candidate.status) > statusRank(existing.status) ? candidate.status : existing.status,
+    confidence: !existing.value || confidenceRank(candidate.confidence) > confidenceRank(existing.confidence) ? candidate.confidence : existing.confidence,
+    citationIds: Array.from(new Set([...existing.citationIds, citationId])),
+  };
 }
 
 function candidateKey(candidate: ProviderFactCandidate) {
@@ -96,6 +156,7 @@ export function applyProviderFactCandidates(
     identity: { ...sections.identity },
     funding: { ...sections.funding },
     team: { ...sections.team },
+    signals: [...sections.signals],
     comparables: [...sections.comparables],
   };
   const appliedPaths: string[] = [];
@@ -167,11 +228,44 @@ export function applyProviderFactCandidates(
           next.funding.lastRound = fact;
         });
         break;
+      case "team.founders": {
+        const citationId = citationIdFor(candidate);
+        next.team.founders = appendPeople(
+          next.team.founders,
+          candidate as ProviderFactCandidate<Person[]>,
+          citationId,
+        );
+        appliedPaths.push(candidate.path);
+        break;
+      }
+      case "team.keyExecs": {
+        const citationId = citationIdFor(candidate);
+        next.team.keyExecs = appendPeople(
+          next.team.keyExecs,
+          candidate as ProviderFactCandidate<Person[]>,
+          citationId,
+        );
+        appliedPaths.push(candidate.path);
+        break;
+      }
       case "team.headcount":
         applyFact(candidate as ProviderFactCandidate<NonNullable<ColdStartCard["team"]["headcount"]["value"]>>, () => shouldFill(next.team.headcount), (fact) => {
           next.team.headcount = fact;
         });
         break;
+      case "signals": {
+        const signal = candidate.value as ColdStartCard["signals"][number];
+        if (next.signals.some((existing) => sameSignal(existing, signal))) {
+          break;
+        }
+        const citationId = citationIdFor(candidate);
+        next.signals.push({
+          ...signal,
+          citationIds: Array.from(new Set([...(signal.citationIds ?? []), citationId])),
+        });
+        appliedPaths.push(candidate.path);
+        break;
+      }
       case "comparables": {
         const comparable = candidate.value as ColdStartCard["comparables"][number];
         if (next.comparables.some((existing) => sameComparable(existing, comparable))) {

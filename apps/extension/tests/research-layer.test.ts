@@ -86,6 +86,7 @@ describe("research layer model", () => {
       "customers",
       "serves",
       "signals",
+      "investors",
       "competition",
       "mechanism",
       "openQuestions"
@@ -191,15 +192,103 @@ describe("research layer model", () => {
     expect(display?.sources).toHaveLength(1);
   });
 
+  it("surfaces fundraising rounds and named investors when funding data exists", () => {
+    const card = baseCard({
+      funding: {
+        totalRaisedUsd: { value: 91_000_000, status: "verified", confidence: "high", citationIds: ["c1"] },
+        lastRound: {
+          value: { name: "Series B", amountUsd: 64_000_000, announcedAt: "2024-04-23", leadInvestors: ["Kleiner Perkins"] },
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"]
+        },
+        rounds: {
+          value: [
+            { name: "Series B", amountUsd: 64_000_000, announcedAt: "2024-04-23", leadInvestors: ["Kleiner Perkins"] },
+            { name: "Seed", amountUsd: 27_000_000, announcedAt: "2023-06-15", leadInvestors: ["Index"] }
+          ],
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"]
+        },
+        investors: {
+          value: [
+            { name: "Kleiner Perkins", domain: "kleinerperkins.com" },
+            { name: "Index Ventures", domain: "indexventures.com" }
+          ],
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"]
+        }
+      }
+    });
+
+    const display = layerDisplayForCard(card, "investors");
+
+    expect(display?.status).toBe("populated");
+    expect(display?.body).toContain("raised");
+    expect(display?.items?.map((item) => item.title)).toEqual([
+      "$91M raised · 2 rounds",
+      "Series B",
+      "Seed"
+    ]);
+    expect(display?.items?.[0]?.body).toContain("Kleiner Perkins");
+    expect(display?.sources[0]).toMatchObject({ id: "c1" });
+  });
+
+  it("reports the empty state for investors when funding data is missing", () => {
+    const card = baseCard({
+      funding: {
+        totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+        investors: { value: [], status: "unknown", confidence: "low", citationIds: [] }
+      }
+    });
+
+    expect(layerDisplayForCard(card, "investors")?.status).toBe("empty");
+  });
+
+  it("filters stale self-comparables before rendering competition", () => {
+    const display = layerDisplayForCard(baseCard({
+      slug: "mintlify",
+      domain: "mintlify.com",
+      identity: {
+        ...baseCard().identity,
+        name: { value: "Mintlify", status: "verified", confidence: "high", citationIds: ["c1"] },
+      },
+      comparables: [
+        { name: "Mintlify", domain: "mintlify.com", oneLiner: "Self result." },
+        { name: "Mintlify", domain: "explinks.com", oneLiner: "Proxy page." },
+        { name: "Mintlify", domain: "mintlify.ojasgoyal.in", oneLiner: "Mirror page." },
+        { name: "ReadMe", domain: "readme.com", oneLiner: "API documentation platform.", citationIds: ["c2"] },
+      ],
+      citations: [
+        ...baseCard().citations,
+        {
+          id: "c2",
+          url: "https://readme.com",
+          title: "ReadMe",
+          fetchedAt: "2026-05-11T12:00:00.000Z",
+          sourceType: "news",
+        },
+      ],
+    }), "competition");
+
+    expect(display?.status).toBe("populated");
+    expect(display?.items?.map((item) => item.title)).toEqual(["ReadMe"]);
+    expect(display?.sourceCount).toBe(1);
+    expect(display?.sources[0]).toMatchObject({ domain: "readme.com", href: "https://readme.com" });
+  });
+
   it("uses stable drag thresholds for card pinning", () => {
-    expect(dormantCardCanDrag({ prefersReducedMotion: true })).toBe(true);
-    expect(dormantCardCanDrag({ prefersReducedMotion: false })).toBe(true);
-    expect(dragOffsetShouldPreview(-42)).toBe(true);
-    expect(dragOffsetShouldPreview(-41)).toBe(false);
-    expect(dragOffsetShouldSnap(-80)).toBe(true);
-    expect(dragOffsetShouldSnap(-79)).toBe(false);
+    expect(dormantCardCanDrag()).toBe(true);
+    expect(dragOffsetShouldPreview(-24)).toBe(true);
+    expect(dragOffsetShouldPreview(-23)).toBe(false);
+    expect(dragOffsetShouldSnap(-58)).toBe(true);
+    expect(dragOffsetShouldSnap(-57)).toBe(false);
+    expect(dragOffsetShouldSnap(-26, -500)).toBe(true);
     expect(dragOffsetShouldSuppressClick({ x: 0, y: -6 })).toBe(false);
-    expect(dragOffsetShouldSuppressClick({ x: 8, y: 0 })).toBe(true);
-    expect(dragOffsetShouldSuppressClick({ x: 0, y: -8 })).toBe(true);
+    expect(dragOffsetShouldSuppressClick({ x: 6, y: 0 })).toBe(false);
+    expect(dragOffsetShouldSuppressClick({ x: 0, y: -7 })).toBe(true);
   });
 });

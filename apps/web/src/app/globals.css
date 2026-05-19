@@ -270,6 +270,26 @@ a {
   font-size: clamp(36px, 6vw, 64px);
 }
 
+.cs-loading-shimmer {
+  display: inline-block;
+  width: fit-content;
+  background:
+    linear-gradient(
+      in oklch 112deg,
+      var(--color-ink) 0%,
+      var(--color-ink) 33%,
+      #0f5fe4 44%,
+      #8dccff 51%,
+      #1674ff 58%,
+      var(--color-ink) 68%,
+      var(--color-ink) 100%
+    );
+  background-size: 300% 100%;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
 .cs-loading-stages {
   display: grid;
   gap: 6px;
@@ -309,6 +329,21 @@ a {
   .cs-home-button:active,
   .cs-home-link:active {
     transform: translateY(0) scale(0.98);
+  }
+
+  .cs-loading-shimmer {
+    animation: cs-loading-blue-shimmer 2.45s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+}
+
+@keyframes cs-loading-blue-shimmer {
+  0% {
+    background-position: 140% 0;
+  }
+
+  55%,
+  100% {
+    background-position: -80% 0;
   }
 }
 

@@ -14,7 +14,7 @@ export default function LoadingCard() {
           <span className="cs-home-hero-mark" aria-hidden="true">C</span>
           <div>
             <p className="cs-home-kicker">Loading profile</p>
-            <h1>Loading sourced facts.</h1>
+            <h1 className="cs-loading-shimmer">Loading sourced facts.</h1>
           </div>
           <div className="cs-loading-stages">
             <p><span>01</span> Resolve identity</p>

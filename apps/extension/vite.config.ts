@@ -3,8 +3,12 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import manifest from "./manifest.config";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   envDir: "../..",
+  build: {
+    emptyOutDir: command === "build",
+    outDir: command === "serve" ? "dist-dev" : "dist"
+  },
   plugins: [react(), crx({ manifest })],
   server: {
     cors: {
@@ -13,4 +17,4 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5173
   }
-});
+}));

@@ -80,6 +80,12 @@ function sourceRejectionReason(
     return "ambiguous_same_name_domain";
   }
 
+  // Comparables are competitor pages by definition; they won't mention the target.
+  // Let them through so the LLM extraction can curate cited comps from real content.
+  if (source.intent === "comparables") {
+    return null;
+  }
+
   if (!hostMatchesTarget && !isTrustedIndependentHost(parsed.host) && !mentionsTarget(source, target)) {
     return "low_relevance";
   }

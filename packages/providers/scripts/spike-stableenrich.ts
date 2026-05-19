@@ -1,9 +1,7 @@
 import {
-  collectStableenrichSources,
+  fetchStableenrichSources,
   missingStableenrichConfig,
-  runStableenrichProbe,
   type StableenrichEnv,
-  type StableenrichProbeFailure,
 } from "../src/index";
 
 const domain = process.argv[2] ?? "cartesia.ai";
@@ -26,39 +24,17 @@ if (beforeBalance !== null) {
   console.log(JSON.stringify({ endpoint: "agentcash_balance", status: "before", balance: beforeBalance }));
 }
 
-const results = await runStableenrichProbe({ env, domain });
-
-for (const result of results) {
-  if (result.status === "fulfilled") {
-    console.log(
-      JSON.stringify({
-        endpoint: result.value.name,
-        endpointUrl: result.value.endpointUrl,
-        status: "ok",
-      }),
-    );
-  } else {
-    const failure = stableenrichProbeFailure(result.reason);
-    console.log(
-      JSON.stringify({
-        endpoint: failure?.name,
-        endpointUrl: failure?.endpointUrl,
-        status: "failed",
-        error: failure?.error ?? (result.reason instanceof Error ? result.reason.message : String(result.reason)),
-      }),
-    );
-  }
-}
-
-const collected = collectStableenrichSources(results);
+const enriched = await fetchStableenrichSources({ env, domain });
 console.log(
   JSON.stringify({
-    endpoint: "stableenrich_structured_output",
+    endpoint: "stableenrich_full_structured_output",
     status: "ok",
-    sourceCount: collected.sources.length,
-    factCount: collected.facts.length,
-    failureCount: collected.failures.length,
-    factPaths: Array.from(new Set(collected.facts.map((fact) => fact.path))).sort(),
+    sourceCount: enriched.sources.length,
+    factCount: enriched.facts.length,
+    failureCount: enriched.failures.length,
+    endpoints: enriched.endpoints,
+    factPaths: Array.from(new Set(enriched.facts.map((fact) => fact.path))).sort(),
+    teamFacts: enriched.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
   }),
 );
 
@@ -81,6 +57,9 @@ function stableenrichEnvFromProcess(): StableenrichEnv {
   setIfPresent(env, "STABLEENRICH_EXA_SIMILAR_URL", process.env.STABLEENRICH_EXA_SIMILAR_URL);
   setIfPresent(env, "STABLEENRICH_FIRECRAWL_URL", process.env.STABLEENRICH_FIRECRAWL_URL);
   setIfPresent(env, "STABLEENRICH_ORG_ENRICH_URL", process.env.STABLEENRICH_ORG_ENRICH_URL);
+  setIfPresent(env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL", process.env.STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL);
+  setIfPresent(env, "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL", process.env.STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL);
+  setIfPresent(env, "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL", process.env.STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL);
   return env;
 }
 
@@ -88,23 +67,6 @@ function setIfPresent(env: StableenrichEnv, key: keyof StableenrichEnv, value: s
   if (value) {
     env[key] = value;
   }
-}
-
-function stableenrichProbeFailure(reason: unknown): StableenrichProbeFailure | undefined {
-  if (!reason || typeof reason !== "object") {
-    return undefined;
-  }
-
-  const candidate = reason as Partial<StableenrichProbeFailure>;
-  if (candidate.name && candidate.endpointUrl && candidate.error) {
-    return {
-      name: candidate.name,
-      endpointUrl: candidate.endpointUrl,
-      error: candidate.error,
-    };
-  }
-
-  return undefined;
 }
 
 async function agentcashBalance(): Promise<number | null> {

@@ -1,4 +1,5 @@
 import type { ColdStartCard } from "./card";
+import { hasUsablePublicProfile } from "./card-quality";
 import type { GenerationTrace } from "./generation-trace";
 
 export type GenerationQualitySeverity = "warn" | "fail";
@@ -19,7 +20,8 @@ export type GenerationQualityFlagCode =
   | "missing_company_website"
   | "missing_headcount"
   | "missing_comparables"
-  | "empty_research_layer";
+  | "empty_research_layer"
+  | "underfilled_public_profile";
 
 export type GenerationQualityFlag = {
   code: GenerationQualityFlagCode;
@@ -202,6 +204,14 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
         code: "empty_research_layer",
         severity: "warn",
         message: "API card has no research-layer content"
+      });
+    }
+
+    if (status === "complete" && !hasUsablePublicProfile(input.card)) {
+      add(flags, {
+        code: "underfilled_public_profile",
+        severity: "fail",
+        message: "API card has citations but too few structured facts"
       });
     }
   }

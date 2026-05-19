@@ -40,6 +40,16 @@ export type GenerationRunStatus = {
   completedAt?: string;
 };
 
+export type ExtensionBootstrapResponse = {
+  domain: string;
+  slug: string;
+  card: ColdStartCard | null;
+  runs: {
+    basics: GenerationRunStatus;
+    analysis: GenerationRunStatus;
+  };
+};
+
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -187,16 +197,10 @@ export function readableCompanyNameFromDomain(domain: string): string {
     .join(" ");
 }
 
-export function buildCardRequest(
-  domain: string,
-  settings: Settings,
-  signal?: AbortSignal,
-  extensionId?: string
-): { url: string; init: RequestInit & { headers: Record<string, string> } } {
-  const slug = companySlugFromDomain(domain);
-  const init: RequestInit & { headers: Record<string, string> } = {
-    headers: contractHeaders(settings.apiToken)
-  };
+type BaseRequestInit = RequestInit & { headers: Record<string, string> };
+
+function baseRequestInit(settings: Settings, signal?: AbortSignal, extensionId?: string): BaseRequestInit {
+  const init: BaseRequestInit = { headers: contractHeaders(settings.apiToken) };
 
   if (signal) {
     init.signal = signal;
@@ -206,9 +210,32 @@ export function buildCardRequest(
     init.headers["X-Cold-Start-Extension-Id"] = extensionId.trim();
   }
 
+  return init;
+}
+
+export function buildCardRequest(
+  domain: string,
+  settings: Settings,
+  signal?: AbortSignal,
+  extensionId?: string
+): { url: string; init: BaseRequestInit } {
+  const slug = companySlugFromDomain(domain);
   return {
     url: `${settings.apiOrigin}/api/extension/cards/${encodeURIComponent(slug)}`,
-    init
+    init: baseRequestInit(settings, signal, extensionId)
+  };
+}
+
+export function buildBootstrapRequest(
+  domain: string,
+  settings: Settings,
+  signal?: AbortSignal,
+  extensionId?: string
+): { url: string; init: BaseRequestInit } {
+  const params = new URLSearchParams({ domain });
+  return {
+    url: `${settings.apiOrigin}/api/extension/bootstrap?${params.toString()}`,
+    init: baseRequestInit(settings, signal, extensionId)
   };
 }
 
@@ -218,28 +245,22 @@ export function buildGenerateRequest(
   signal?: AbortSignal,
   mode: GenerationStatus["mode"] = "basics",
   confirmStart = false,
-  extensionId?: string
-): { url: string; init: RequestInit & { headers: Record<string, string>; body: string } } {
-  const init: RequestInit & { headers: Record<string, string>; body: string } = {
-    method: "POST",
-    headers: {
-      ...contractHeaders(settings.apiToken),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ domain, mode, ...(confirmStart ? { confirmStart: true } : {}) })
-  };
-
-  if (signal) {
-    init.signal = signal;
-  }
-
-  if (extensionId?.trim()) {
-    init.headers["X-Cold-Start-Extension-Id"] = extensionId.trim();
-  }
+  extensionId?: string,
+  forceRefresh = false
+): { url: string; init: BaseRequestInit & { body: string } } {
+  const init = baseRequestInit(settings, signal, extensionId);
+  init.method = "POST";
+  init.headers["Content-Type"] = "application/json";
+  const body = JSON.stringify({
+    domain,
+    mode,
+    ...(confirmStart ? { confirmStart: true } : {}),
+    ...(forceRefresh ? { forceRefresh: true } : {})
+  });
 
   return {
     url: `${settings.apiOrigin}/api/generate`,
-    init
+    init: { ...init, body }
   };
 }
 
@@ -249,59 +270,29 @@ export function buildGenerationStatusRequest(
   signal?: AbortSignal,
   mode: GenerationRunStatus["mode"] = "basics",
   extensionId?: string
-): { url: string; init: RequestInit & { headers: Record<string, string> } } {
-  const init: RequestInit & { headers: Record<string, string> } = {
-    headers: contractHeaders(settings.apiToken)
-  };
-
-  if (signal) {
-    init.signal = signal;
-  }
-
-  if (extensionId?.trim()) {
-    init.headers["X-Cold-Start-Extension-Id"] = extensionId.trim();
-  }
-
+): { url: string; init: BaseRequestInit } {
   const params = new URLSearchParams({ domain, mode });
-
   return {
     url: `${settings.apiOrigin}/api/generate?${params.toString()}`,
-    init
+    init: baseRequestInit(settings, signal, extensionId)
   };
 }
 
-export async function parseCardResponse(response: Response): Promise<ColdStartCard> {
+async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: unknown } | null;
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
     const detail = typeof body?.error === "string" ? body.error : `request failed with ${response.status}`;
     throw new ApiError(detail, response.status);
   }
 
   assertApiContract(response);
-  return response.json() as Promise<ColdStartCard>;
+  return response.json() as Promise<T>;
 }
 
-export async function parseGenerateResponse(response: Response): Promise<GenerationStatus> {
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: unknown } | null;
-    const detail = typeof body?.error === "string" ? body.error : `request failed with ${response.status}`;
-    throw new ApiError(detail, response.status);
-  }
-
-  assertApiContract(response);
-  return response.json() as Promise<GenerationStatus>;
-}
-
-export async function parseGenerationStatusResponse(response: Response): Promise<GenerationRunStatus> {
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { error?: unknown } | null;
-    const detail = typeof body?.error === "string" ? body.error : `request failed with ${response.status}`;
-    throw new ApiError(detail, response.status);
-  }
-
-  assertApiContract(response);
-  return response.json() as Promise<GenerationRunStatus>;
-}
+export const parseCardResponse = (response: Response) => parseApiResponse<ColdStartCard>(response);
+export const parseBootstrapResponse = (response: Response) => parseApiResponse<ExtensionBootstrapResponse>(response);
+export const parseGenerateResponse = (response: Response) => parseApiResponse<GenerationStatus>(response);
+export const parseGenerationStatusResponse = (response: Response) => parseApiResponse<GenerationRunStatus>(response);
 
 export function readableCardError(message: string, apiOrigin: string): string {
   if (message === "extension identity required") {
@@ -320,8 +311,16 @@ export function readableCardError(message: string, apiOrigin: string): string {
     return "Regenerate the profile first. Investor analysis needs cited sources.";
   }
 
+  if (message === "profile needs more structured facts before analysis") {
+    return "Regenerate the profile first. Investor analysis needs more than citations.";
+  }
+
   if (message === "profile not found") {
     return "Generate a sourced profile before running analysis.";
+  }
+
+  if (message.startsWith("generated basics underfilled public profile")) {
+    return "The API rejected a partial profile. Restart or deploy the latest API, then retry.";
   }
 
   if (message === "request failed with 500") {

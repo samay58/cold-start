@@ -1,10 +1,12 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { canRunInvestorAnalysis, type ColdStartCard } from "@cold-start/core";
+import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-start/ui";
 
 export type ResearchLayerId =
   | "coreIdea"
   | "customers"
   | "serves"
   | "signals"
+  | "investors"
   | "competition"
   | "mechanism"
   | "openQuestions";
@@ -50,13 +52,14 @@ export type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "coreIdea", title: "Core Idea", description: "A cited one-sentence thesis", source: "analysis" },
-  { id: "customers", title: "Customers", description: "Buyers, users, and adoption surface", source: "card" },
-  { id: "serves", title: "Serves", description: "Primary user and job to be done", source: "card" },
-  { id: "signals", title: "Signals", description: "Traction and leading indicators", source: "card" },
-  { id: "competition", title: "Competition", description: "Adjacent players and defensibility", source: "card" },
+  { id: "coreIdea", title: "Thesis", description: "Cited investor read", source: "analysis" },
+  { id: "customers", title: "Customers", description: "Buyers and adoption", source: "card" },
+  { id: "serves", title: "Serves", description: "User and job", source: "card" },
+  { id: "signals", title: "Signals", description: "Recent traction", source: "card" },
+  { id: "investors", title: "Investors", description: "Rounds and backers", source: "card" },
+  { id: "competition", title: "Competition", description: "Adjacent players", source: "card" },
   { id: "mechanism", title: "Mechanism", description: "How the product works", source: "card" },
-  { id: "openQuestions", title: "Open Questions", description: "Unknowns worth pressure-testing", source: "analysis" }
+  { id: "openQuestions", title: "Questions", description: "Open pressure points", source: "analysis" }
 ];
 
 function stripCitationMarkers(text: string) {
@@ -72,15 +75,6 @@ function domainFromHref(href: string) {
     return new URL(href).hostname.replace(/^www\./, "");
   } catch {
     return href;
-  }
-}
-
-function safeExternalHref(url: string) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : null;
-  } catch {
-    return null;
   }
 }
 
@@ -142,9 +136,56 @@ function textFromList(items: string[], fallback: string) {
   return items.length > 0 ? items.join(", ") : fallback;
 }
 
+function normalizeCompanyTerm(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .replace(/\b(ai|inc|labs|company|corp|corporation|llc|ltd)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function comparableDomainTerms(domain: string) {
+  const cleaned = domain.replace(/^https?:\/\//i, "").split("/")[0]?.replace(/^www\./i, "") ?? domain;
+  const parts = cleaned.split(".").filter(Boolean);
+  const registrable = parts.length >= 2 ? parts.slice(-2).join(".") : cleaned;
+  return Array.from(new Set([
+    cleaned,
+    registrable,
+    parts[0] ?? cleaned,
+  ].map(normalizeCompanyTerm).filter(Boolean)));
+}
+
+function targetCompanyTerms(card: ColdStartCard) {
+  return Array.from(new Set([
+    normalizeCompanyTerm(card.domain.split(".")[0] ?? card.domain),
+    normalizeCompanyTerm(card.domain),
+    normalizeCompanyTerm(card.identity.name.value),
+  ].filter(Boolean)));
+}
+
+function comparableLooksLikeTarget(card: ColdStartCard, comparable: ColdStartCard["comparables"][number]) {
+  const targetTerms = targetCompanyTerms(card);
+  const comparableName = normalizeCompanyTerm(comparable.name);
+  const comparableDomains = comparableDomainTerms(comparable.domain);
+
+  return targetTerms.some((term) => {
+    return (
+      comparableName === term ||
+      comparableName.startsWith(`${term} `) ||
+      comparableDomains.some((domainTerm) => domainTerm === term || domainTerm.startsWith(`${term} `))
+    );
+  });
+}
+
+function displayComparables(card: ColdStartCard) {
+  return card.comparables.filter((comparable) => !comparableLooksLikeTarget(card, comparable));
+}
+
 export function layersForCard(card: ColdStartCard): ResearchLayer[] {
+  const canAnalyze = canRunInvestorAnalysis(card);
   return RESEARCH_LAYER_CARDS.map((layer) => {
-    if (layer.source === "analysis" && !card.synthesis) {
+    if (layer.source === "analysis" && (!card.synthesis || !canAnalyze)) {
       return { ...layer, availability: "needs-analysis" };
     }
 
@@ -262,21 +303,82 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
     };
   }
 
-  if (id === "competition") {
+  if (id === "investors") {
+    const rounds = card.funding.rounds?.value ?? (card.funding.lastRound.value ? [card.funding.lastRound.value] : []);
+    const totalRaised = card.funding.totalRaisedUsd.value;
+    const investors = card.funding.investors.value ?? [];
+    const citationIds = Array.from(new Set([
+      ...card.funding.totalRaisedUsd.citationIds,
+      ...card.funding.lastRound.citationIds,
+      ...(card.funding.rounds?.citationIds ?? []),
+      ...card.funding.investors.citationIds,
+    ]));
+    const sources = citationSources(card, citationIds);
+    const hasFunding = rounds.length > 0 || investors.length > 0 || totalRaised !== null;
+
+    if (!hasFunding) {
+      return {
+        id,
+        title: layer.title,
+        body: "No cited fundraising history yet.",
+        sources: [],
+        sourceCount: 0,
+        status: "empty",
+      };
+    }
+
+    const investorLine = investors.length > 0
+      ? `${investors.length} named ${investors.length === 1 ? "investor" : "investors"}: ${investors.slice(0, 8).map((investor) => investor.name).join(", ")}${investors.length > 8 ? `, +${investors.length - 8} more` : ""}`
+      : null;
+    const headline = [
+      totalRaised !== null ? `${formatCompactCurrency(totalRaised)} raised` : null,
+      rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
+    ].filter((part): part is string => Boolean(part)).join(" · ");
+    const items = [
+      ...(headline || investorLine
+        ? [{ title: headline || "Fundraising", ...(investorLine ? { body: investorLine } : {}) }]
+        : []),
+      ...rounds.map((round) => {
+        const detail = [
+          round.amountUsd !== null ? formatCompactCurrency(round.amountUsd) : null,
+          round.leadInvestors.length > 0 ? `${round.leadInvestors.slice(0, 3).join(", ")} leading` : null,
+        ].filter((part): part is string => Boolean(part)).join(" · ");
+        return {
+          title: round.name,
+          ...(round.announcedAt ? { meta: formatShortDate(round.announcedAt) } : {}),
+          body: detail || "Round details not disclosed",
+        };
+      }),
+    ];
+
     return {
       id,
       title: layer.title,
-      body: card.comparables.length > 0
-        ? card.comparables.map((company) => `${company.name} (${company.domain})`).join(", ")
+      body: headline || "Cited fundraising history",
+      items,
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: "populated",
+    };
+  }
+
+  if (id === "competition") {
+    const comparables = displayComparables(card);
+    const sources = citationSources(card, comparables.flatMap((company) => company.citationIds ?? []));
+    return {
+      id,
+      title: layer.title,
+      body: comparables.length > 0
+        ? comparables.map((company) => `${company.name} (${company.domain})`).join(", ")
         : "Comparables not yet available.",
-      items: card.comparables.slice(0, 4).map((company) => ({
+      items: comparables.slice(0, 4).map((company) => ({
         title: company.name,
         meta: company.domain,
         body: company.oneLiner
       })),
-      sources: [],
-      sourceCount: 0,
-      status: card.comparables.length > 0 ? "populated" : "empty"
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: comparables.length > 0 ? "populated" : "empty"
     };
   }
 

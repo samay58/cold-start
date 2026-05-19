@@ -108,7 +108,7 @@ EXTENSION_API_TOKEN=<long-random-token>
 
 The extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`. The file is ignored by git and should not be committed. Its value must match Vercel `EXTENSION_API_TOKEN`.
 
-`VITE_COLD_START_API_ORIGIN` is not a Vercel runtime variable. It is only used when building the extension. Production builds ignore accidental localhost values unless `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` is also set.
+`VITE_COLD_START_API_ORIGIN` is not a Vercel runtime variable. It is only used when building the extension. Production builds ignore accidental localhost values unless `VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` is also set. Production manifests also omit the localhost host permission by default.
 
 ## Version Alignment
 
@@ -118,7 +118,7 @@ The web API, Chrome extension, and eval runner share one contract file: `package
 - Extension and eval requests send `x-cold-start-client-contract`.
 - The extension rejects successful responses without the matching API contract and shows an out-of-date deployment message.
 
-When route semantics change, deploy the web app first, then rebuild and reload `apps/extension/dist`. If the extension says the API deployment is out of date, the loaded extension and the deployed API do not match.
+When route semantics change, deploy the web app first, then rebuild and reload `apps/extension/dist`. Vite dev output lives in `apps/extension/dist-dev`; do not load that folder for production checks. If the extension says the API deployment is out of date, the loaded extension and the deployed API do not match.
 
 Production extension builds automatically migrate stale localhost settings in Chrome storage back to the deployed API origin. If the token field is empty afterward, paste the production token once from `.vercel/extension-api-token.production.local`; subsequent opens should reuse it.
 

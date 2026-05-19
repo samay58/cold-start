@@ -4,7 +4,10 @@ export type StableenrichEnv = Partial<
     | "STABLEENRICH_EXA_SEARCH_URL"
     | "STABLEENRICH_EXA_SIMILAR_URL"
     | "STABLEENRICH_FIRECRAWL_URL"
-    | "STABLEENRICH_ORG_ENRICH_URL",
+    | "STABLEENRICH_ORG_ENRICH_URL"
+    | "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL"
+    | "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL"
+    | "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL",
     string
   >
 >;
@@ -16,11 +19,18 @@ export type DirectExaEnv = Partial<
 export type StableenrichProbeName =
   | "exa_funding_history"
   | "exa_company_profile"
+  | "exa_management_team"
   | "exa_recent_signals"
+  | "exa_competition"
   | "exa_independent_analysis"
   | "exa_find_similar"
   | "firecrawl_homepage"
-  | "org_enrichment";
+  | "firecrawl_about"
+  | "firecrawl_team"
+  | "org_enrichment"
+  | "apollo_people_search"
+  | "apollo_people_enrich"
+  | "hunter_email_verifier";
 
 export type RetrievalIntent =
   | "funding"
@@ -30,7 +40,8 @@ export type RetrievalIntent =
   | "independent_analysis"
   | "comparables"
   | "homepage"
-  | "firmographics";
+  | "firmographics"
+  | "email_verification";
 
 export type StableenrichProbe = {
   name: StableenrichProbeName;
@@ -42,6 +53,9 @@ export type ProviderResearchPlan = {
   searchQueries?: {
     funding?: string;
     companyProfile?: string;
+    managementTeam?: string;
+    recentSignals?: string;
+    comparables?: string;
     independentAnalysis?: string;
   };
 };
@@ -66,7 +80,10 @@ export type ProviderFactPath =
   | "identity.description"
   | "funding.totalRaisedUsd"
   | "funding.lastRound"
+  | "team.founders"
+  | "team.keyExecs"
   | "team.headcount"
+  | "signals"
   | "comparables";
 
 export type ProviderFactCandidate<T = unknown> = {

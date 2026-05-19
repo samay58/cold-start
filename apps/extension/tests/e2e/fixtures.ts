@@ -208,6 +208,21 @@ export async function fulfillJson(route: Route, body: unknown, status = 200) {
 }
 
 export async function mockExtensionApi(page: Page, card: ColdStartCard | null) {
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    const url = new URL(route.request().url());
+    const domain = url.searchParams.get("domain") ?? card?.domain ?? "browserbase.com";
+    const slug = domain.split(".")[0] ?? card?.slug ?? "browserbase";
+    await fulfillJson(route, {
+      domain,
+      slug,
+      card,
+      runs: {
+        basics: { slug, domain, mode: "basics", status: "idle" },
+        analysis: { slug, domain, mode: "analysis", status: "idle" }
+      }
+    });
+  });
+
   await page.route("**/api/extension/cards/**", async (route) => {
     if (!card) {
       await fulfillJson(route, { error: "card not found" }, 404);

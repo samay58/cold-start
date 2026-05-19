@@ -677,26 +677,93 @@
 /* ---------- Citations ---------- */
 
 .cs-citation {
-  display: inline-block;
-  margin-left: 4px;
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  margin-left: 5px;
   font-family: var(--font-mona-sans);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 620;
   letter-spacing: 0.04em;
   color: var(--color-lens-blue);
   text-decoration: none;
   white-space: nowrap;
 }
 
-.cs-citation:hover {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
+.cs-citation-label {
+  position: relative;
+  z-index: 1;
+}
+
+.cs-citation-underline {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  bottom: -3px;
+  width: calc(100% + 4px);
+  height: 11px;
+  color: var(--color-lens-blue);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cs-citation-underline path {
+  stroke-dashoffset: 1;
+}
+
+.cs-citation-signal {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-wire-blue);
+  box-shadow: 0 0 0 3px rgb(22 116 255 / 0.07);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-2px, 2px) scale(0.82);
+}
+
+.cs-citation:hover,
+.cs-citation:focus-visible {
+  color: var(--color-observatory-navy);
+}
+
+.cs-citation:hover .cs-citation-underline,
+.cs-citation:focus-visible .cs-citation-underline,
+.cs-citation:hover .cs-citation-signal,
+.cs-citation:focus-visible .cs-citation-signal {
+  opacity: 1;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .cs-citation {
-    transition: color 100ms ease;
+    transition: color 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .cs-citation-underline {
+    transition: opacity 120ms ease;
+  }
+
+  .cs-citation-underline path {
+    transition: stroke-dashoffset 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .cs-citation-signal {
+    transition:
+      opacity 140ms ease,
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .cs-citation:hover .cs-citation-underline path,
+  .cs-citation:focus-visible .cs-citation-underline path {
+    stroke-dashoffset: 0;
+  }
+
+  .cs-citation:hover .cs-citation-signal,
+  .cs-citation:focus-visible .cs-citation-signal {
+    transform: translate(0, 0) scale(1);
   }
 
   .cs-fact-row {

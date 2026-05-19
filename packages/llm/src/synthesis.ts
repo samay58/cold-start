@@ -32,6 +32,10 @@ function sortedCitationIds(citationIds: string[]): string[] {
   return [...citationIds].sort();
 }
 
+function uniqueCitationIds(citationIds: string[]): string[] {
+  return Array.from(new Set(citationIds.filter((citationId) => citationId.trim().length > 0)));
+}
+
 function sameCitationMultiset(left: string[], right: string[]) {
   const sortedLeft = sortedCitationIds(left);
   const sortedRight = sortedCitationIds(right);
@@ -82,6 +86,39 @@ const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
   }
 });
 
+function textWithCitationMarkers(text: string, citationIds: string[]) {
+  const base = text.replace(citationMarkerRegex, "").replace(/\s+/g, " ").trim();
+  const markers = citationIds.map((citationId) => `[${citationId}]`).join(" ");
+  if (citationIds.length === 0) {
+    return base;
+  }
+
+  if (!base) {
+    return markers;
+  }
+
+  return `${base.replace(/[.\s]+$/, "")} ${markers}.`;
+}
+
+function normalizeClaimCitations(claim: SourcedText): SourcedText {
+  const visibleMarkers = uniqueCitationIds(visibleCitationMarkers(claim.text));
+  const citationIds = uniqueCitationIds(claim.citationIds.length > 0 ? claim.citationIds : visibleMarkers);
+  return {
+    ...claim,
+    citationIds,
+    text: textWithCitationMarkers(claim.text, citationIds)
+  };
+}
+
+function normalizeSynthesisCitations(synthesis: NonNullable<ColdStartCard["synthesis"]>): NonNullable<ColdStartCard["synthesis"]> {
+  return {
+    ...synthesis,
+    whyItMatters: normalizeClaimCitations(synthesis.whyItMatters),
+    bullCase: synthesis.bullCase.map(normalizeClaimCitations),
+    bearCase: synthesis.bearCase.map(normalizeClaimCitations)
+  };
+}
+
 export const synthesisTool = {
   name: SYNTHESIS_TOOL_NAME,
   description:
@@ -126,7 +163,7 @@ export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
     throw new Error("emit_investor_synthesis tool use returned no input");
   }
 
-  return citedSynthesisSchema.parse(toolUse.input);
+  return citedSynthesisSchema.parse(normalizeSynthesisCitations(synthesisSchema.parse(toolUse.input)));
 }
 
 function synthesisClaims(synthesis: NonNullable<ColdStartCard["synthesis"]>): SourcedText[] {
@@ -153,6 +190,7 @@ export async function synthesizeCard(input: {
   const response: Message = await input.client.messages.create({
     model: input.model,
     max_tokens: 2500,
+    temperature: 0.2,
     system: [
       {
         type: "text",

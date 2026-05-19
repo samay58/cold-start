@@ -23,6 +23,9 @@ const validPlan = {
   searchQueries: {
     funding: "harvey latest round valuation investors",
     companyProfile: "harvey legal AI product customers workflow",
+    managementTeam: "harvey founders CEO leadership email",
+    recentSignals: "harvey recent customer launches",
+    comparables: "harvey legal AI competitors",
     independentAnalysis: "harvey Sacra ARR analysis",
   },
   presentationFocus: ["buyer", "workflow", "funding quality"],
@@ -36,7 +39,7 @@ describe("researchPlanTool", () => {
       maxItems: 6,
     });
     expect(researchPlanTool.input_schema.properties.searchQueries).toMatchObject({
-      required: ["funding", "companyProfile", "independentAnalysis"],
+      required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis"],
     });
   });
 });
@@ -55,7 +58,8 @@ describe("fallbackResearchPlan", () => {
 
     expect(plan.priorityQuestions[0]?.question).toContain("actually sell");
     expect(plan.searchQueries.independentAnalysis).toContain("independent analysis");
+    expect(plan.searchQueries.managementTeam).toContain("contact email");
+    expect(plan.searchQueries.comparables).toContain("competitors");
     expect(investorTasteKernel).toContain("Source incentives matter");
   });
 });
-

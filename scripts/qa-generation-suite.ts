@@ -18,6 +18,7 @@ import {
 const QA_COMPANIES = [
   "cartesia.ai",
   "elevenlabs.io",
+  "linear.app",
   "legora.com",
   "attio.com",
   "skyfire.xyz",
@@ -42,6 +43,11 @@ type CardFetchResult =
   | { status: "ok"; card: ColdStartCard; surface: "extension" | "public" }
   | { status: "missing"; statusCode: number; surface: "extension" | "public"; error: string }
   | { status: "skipped"; surface: "none"; error: string };
+
+type GenerationRunColumns = {
+  jobKind: boolean;
+  traceJson: boolean;
+};
 
 function loadEnvFile(path: string) {
   if (!existsSync(path)) {
@@ -149,9 +155,12 @@ async function fetchCard(domain: string): Promise<CardFetchResult> {
 }
 
 async function latestRuns(client: Client) {
+  const columns = await generationRunColumns(client);
   const result = await client.query<RunRow>(
     `select distinct on (domain, mode)
-            id, slug, domain, mode, job_kind, status, error, started_at, completed_at, trace_json
+            id, slug, domain, mode, ${columns.jobKind ? "job_kind" : "mode as job_kind"},
+            status, error, started_at, completed_at,
+            ${columns.traceJson ? "trace_json" : "null::jsonb as trace_json"}
        from generation_runs
        where domain = any($1)
        order by domain, mode, started_at desc`,
@@ -162,6 +171,21 @@ async function latestRuns(client: Client) {
     byKey.set(`${row.domain}:${row.mode}`, row);
   }
   return byKey;
+}
+
+async function generationRunColumns(client: Client): Promise<GenerationRunColumns> {
+  const result = await client.query<{ column_name: string }>(
+    `select column_name
+       from information_schema.columns
+      where table_name = 'generation_runs'
+        and column_name = any($1)`,
+    [["job_kind", "trace_json"]]
+  );
+  const columns = new Set(result.rows.map((row) => row.column_name));
+  return {
+    jobKind: columns.has("job_kind"),
+    traceJson: columns.has("trace_json")
+  };
 }
 
 function flagsFor(run: RunRow | undefined, card: ColdStartCard | null): GenerationQualityFlag[] {

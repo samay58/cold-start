@@ -3,28 +3,36 @@ import {
   type ColdStartCard,
   type GenerationTrace,
   type GenerationTraceStep,
+  hasUsablePublicProfile,
   type ResolvedFact
 } from "@cold-start/core";
 import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard } from "@cold-start/db";
 import {
   anthropicModel,
   createAnthropicClient,
+  extractCompanyBlockClaims,
   extractCompanyClaims,
   fallbackResearchPlan,
-  planCompanyResearch,
   synthesizeCard,
   verifySynthesis,
 } from "@cold-start/llm";
 import {
   filterSourcesForDomain,
   GenerateCardTraceError,
+  cardWithExtractedSections,
+  enrichExtractedSectionsForDomain,
   generateCardForDomainWithTrace,
+  applyProviderFactCandidates,
   sourceGateTrace,
+  type BlockEnrichmentPatch,
+  type EvidenceLedgerEntry,
   type ExtractedCardSections,
   type GenerateCardTracePatch
 } from "@cold-start/pipeline";
 import {
   fetchDirectExaFundamentalsSources,
+  fetchStableenrichEnrichmentSources,
+  fetchStableenrichFastSources,
   fetchStableenrichSources,
   type DirectExaEnv,
   type ProviderFactCandidate,
@@ -36,30 +44,39 @@ import { webEnv } from "../lib/env";
 import { boundedErrorMessage } from "../lib/errors";
 import { inngest } from "./client";
 
-function stableenrichEnvFromProcess(): StableenrichEnv {
-  const baseUrl = process.env.STABLEENRICH_BASE_URL;
-  const exaSearchUrl = process.env.STABLEENRICH_EXA_SEARCH_URL;
-  const exaSimilarUrl = process.env.STABLEENRICH_EXA_SIMILAR_URL;
-  const firecrawlUrl = process.env.STABLEENRICH_FIRECRAWL_URL;
-  const orgEnrichUrl = process.env.STABLEENRICH_ORG_ENRICH_URL;
+function readEnvSubset<K extends string>(keys: readonly K[]): Partial<Record<K, string>> {
+  const out: Partial<Record<K, string>> = {};
+  for (const key of keys) {
+    const value = process.env[key];
+    if (value) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
 
-  return {
-    ...(baseUrl ? { STABLEENRICH_BASE_URL: baseUrl } : {}),
-    ...(exaSearchUrl ? { STABLEENRICH_EXA_SEARCH_URL: exaSearchUrl } : {}),
-    ...(exaSimilarUrl ? { STABLEENRICH_EXA_SIMILAR_URL: exaSimilarUrl } : {}),
-    ...(firecrawlUrl ? { STABLEENRICH_FIRECRAWL_URL: firecrawlUrl } : {}),
-    ...(orgEnrichUrl ? { STABLEENRICH_ORG_ENRICH_URL: orgEnrichUrl } : {}),
-  };
+const STABLEENRICH_ENV_KEYS = [
+  "STABLEENRICH_BASE_URL",
+  "STABLEENRICH_EXA_SEARCH_URL",
+  "STABLEENRICH_EXA_SIMILAR_URL",
+  "STABLEENRICH_FIRECRAWL_URL",
+  "STABLEENRICH_ORG_ENRICH_URL",
+  "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL",
+  "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL",
+  "STABLEENRICH_HUNTER_EMAIL_VERIFIER_URL",
+] as const satisfies ReadonlyArray<keyof StableenrichEnv>;
+
+const DIRECT_EXA_ENV_KEYS = [
+  "DIRECT_EXA_API_KEY",
+  "DIRECT_EXA_BASE_URL",
+] as const satisfies ReadonlyArray<keyof DirectExaEnv>;
+
+function stableenrichEnvFromProcess(): StableenrichEnv {
+  return readEnvSubset(STABLEENRICH_ENV_KEYS);
 }
 
 function directExaEnvFromProcess(): DirectExaEnv {
-  const apiKey = process.env.DIRECT_EXA_API_KEY;
-  const baseUrl = process.env.DIRECT_EXA_BASE_URL;
-
-  return {
-    ...(apiKey ? { DIRECT_EXA_API_KEY: apiKey } : {}),
-    ...(baseUrl ? { DIRECT_EXA_BASE_URL: baseUrl } : {}),
-  };
+  return readEnvSubset(DIRECT_EXA_ENV_KEYS);
 }
 
 type GenerationMode = "basics" | "analysis";
@@ -146,41 +163,42 @@ function preserveFact<T>(existing: ResolvedFact<T>, next: ResolvedFact<T>): Reso
   return next.value === null && existing.value !== null ? existing : next;
 }
 
-function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartCard): ColdStartCard {
+function preserveOptionalFact<T>(
+  existing: ResolvedFact<T> | undefined,
+  next: ResolvedFact<T> | undefined,
+): ResolvedFact<T> | undefined {
+  if (!next) {
+    return existing;
+  }
+  if (!existing) {
+    return next;
+  }
+  return next.value === null && existing.value !== null ? existing : next;
+}
+
+export function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartCard): ColdStartCard {
   if (!existing) {
     return next;
   }
 
   const citations = new Map(existing.citations.map((citation) => [citation.id, citation]));
   next.citations.forEach((citation) => citations.set(citation.id, citation));
+  const synthesis = next.synthesis ?? existing.synthesis;
+  const websiteUrl = preserveOptionalFact(existing.identity.websiteUrl, next.identity.websiteUrl);
+  const linkedinUrl = preserveOptionalFact(existing.identity.linkedinUrl, next.identity.linkedinUrl);
+  const description = preserveOptionalFact(existing.identity.description, next.identity.description);
+  const rounds = preserveOptionalFact(existing.funding.rounds, next.funding.rounds);
 
   return {
     ...next,
+    ...(synthesis ? { synthesis } : {}),
     identity: {
       ...next.identity,
       name: preserveFact(existing.identity.name, next.identity.name),
-      ...(existing.identity.websiteUrl || next.identity.websiteUrl
-        ? {
-            websiteUrl: next.identity.websiteUrl?.value === null && existing.identity.websiteUrl?.value
-              ? existing.identity.websiteUrl
-              : next.identity.websiteUrl ?? existing.identity.websiteUrl,
-          }
-        : {}),
-      ...(existing.identity.linkedinUrl || next.identity.linkedinUrl
-        ? {
-            linkedinUrl: next.identity.linkedinUrl?.value === null && existing.identity.linkedinUrl?.value
-              ? existing.identity.linkedinUrl
-              : next.identity.linkedinUrl ?? existing.identity.linkedinUrl,
-          }
-        : {}),
+      ...(websiteUrl ? { websiteUrl } : {}),
+      ...(linkedinUrl ? { linkedinUrl } : {}),
       oneLiner: preserveFact(existing.identity.oneLiner, next.identity.oneLiner),
-      ...(existing.identity.description || next.identity.description
-        ? {
-            description: next.identity.description?.value === null && existing.identity.description?.value
-              ? existing.identity.description
-              : next.identity.description ?? existing.identity.description,
-          }
-        : {}),
+      ...(description ? { description } : {}),
       hq: preserveFact(existing.identity.hq, next.identity.hq),
       foundedYear: preserveFact(existing.identity.foundedYear, next.identity.foundedYear),
     },
@@ -188,13 +206,7 @@ function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartC
       ...next.funding,
       totalRaisedUsd: preserveFact(existing.funding.totalRaisedUsd, next.funding.totalRaisedUsd),
       lastRound: preserveFact(existing.funding.lastRound, next.funding.lastRound),
-      ...(existing.funding.rounds || next.funding.rounds
-        ? {
-            rounds: next.funding.rounds?.value === null && existing.funding.rounds?.value
-              ? existing.funding.rounds
-              : next.funding.rounds ?? existing.funding.rounds,
-          }
-        : {}),
+      ...(rounds ? { rounds } : {}),
       investors: preserveFact(existing.funding.investors, next.funding.investors),
     },
     team: {
@@ -206,6 +218,75 @@ function preserveExistingBasics(existing: ColdStartCard | null, next: ColdStartC
     comparables: next.comparables.length > 0 ? next.comparables : existing.comparables,
     citations: Array.from(citations.values()),
   };
+}
+
+export function prepareCardForStorage(mode: GenerationMode, existing: ColdStartCard | null, generated: ColdStartCard): ColdStartCard {
+  const merged = preserveExistingBasics(existing, generated);
+  return {
+    ...merged,
+    cacheStatus: mode === "analysis" || hasUsablePublicProfile(merged) ? "hit" : "partial",
+  };
+}
+
+function pipelineBlockPatch(input: Awaited<ReturnType<typeof extractCompanyBlockClaims>>): BlockEnrichmentPatch {
+  const patch: BlockEnrichmentPatch = { citations: input.citations };
+
+  if (input.identity) {
+    const identity: NonNullable<BlockEnrichmentPatch["identity"]> = {};
+    if (input.identity.oneLiner) {
+      identity.oneLiner = input.identity.oneLiner;
+    }
+    if (input.identity.description) {
+      identity.description = input.identity.description;
+    }
+    if (Object.keys(identity).length > 0) {
+      patch.identity = identity;
+    }
+  }
+
+  if (input.funding) {
+    const funding: NonNullable<BlockEnrichmentPatch["funding"]> = {};
+    if (input.funding.totalRaisedUsd) {
+      funding.totalRaisedUsd = input.funding.totalRaisedUsd;
+    }
+    if (input.funding.lastRound) {
+      funding.lastRound = input.funding.lastRound;
+    }
+    if (input.funding.rounds) {
+      funding.rounds = input.funding.rounds;
+    }
+    if (input.funding.investors) {
+      funding.investors = input.funding.investors;
+    }
+    if (Object.keys(funding).length > 0) {
+      patch.funding = funding;
+    }
+  }
+
+  if (input.team) {
+    const team: NonNullable<BlockEnrichmentPatch["team"]> = {};
+    if (input.team.founders) {
+      team.founders = input.team.founders;
+    }
+    if (input.team.keyExecs) {
+      team.keyExecs = input.team.keyExecs;
+    }
+    if (input.team.headcount) {
+      team.headcount = input.team.headcount;
+    }
+    if (Object.keys(team).length > 0) {
+      patch.team = team;
+    }
+  }
+
+  if (input.signals) {
+    patch.signals = input.signals;
+  }
+  if (input.comparables) {
+    patch.comparables = input.comparables;
+  }
+
+  return patch;
 }
 
 function rawSlugForRun(input: unknown): string {
@@ -281,17 +362,7 @@ export const generateCardFunction = inngest.createFunction(
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
       const researchPlanResult = await step.run("plan-research", async () => {
-        const result = await timed(async () => {
-          if (mode === "basics") {
-            return fallbackResearchPlan(domain);
-          }
-
-          try {
-            return await planCompanyResearch({ client: anthropic, model, domain });
-          } catch {
-            return fallbackResearchPlan(domain);
-          }
-        });
+        const result = await timed(async () => fallbackResearchPlan(domain));
         return {
           value: result.value,
           tracePatch: {
@@ -311,7 +382,9 @@ export const generateCardFunction = inngest.createFunction(
             directExaEnabled()
               ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
               : Promise.resolve({ sources: [], failures: [], skipped: true }),
-            fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
+            mode === "basics"
+              ? fetchStableenrichFastSources({ env: stableEnv, domain, researchPlan })
+              : fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
           ]);
 
           const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
@@ -339,16 +412,19 @@ export const generateCardFunction = inngest.createFunction(
                 sourceCount: stableSources.length,
                 factCount: stableFacts.length,
                 failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
-                endpoints: stableResult.status === "fulfilled" ? stableResult.value.endpoints : [
-                  {
-                    name: "stableenrich",
-                    endpointUrl: "stableenrich",
-                    status: "failed" as const,
-                    sourceCount: 0,
-                    factCount: 0,
-                    error: boundedErrorMessage(stableResult.reason)
-                  }
-                ]
+                endpoints:
+                  stableResult.status === "fulfilled"
+                    ? stableResult.value.endpoints
+                    : [
+                        {
+                          name: "stableenrich",
+                          endpointUrl: "stableenrich",
+                          status: "failed" as const,
+                          sourceCount: 0,
+                          factCount: 0,
+                          error: boundedErrorMessage(stableResult.reason)
+                        }
+                      ]
               },
               mergedSourceCount: sources.length
             },
@@ -396,43 +472,78 @@ export const generateCardFunction = inngest.createFunction(
       }
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
+      const extractSectionsForCard = async ({ domain: candidateDomain, sources, evidenceLedger }: {
+        domain: string;
+        sources: ProviderSource[];
+        evidenceLedger: EvidenceLedgerEntry[];
+      }): Promise<ExtractedCardSections> =>
+        extractCompanyClaims({
+          client: anthropic,
+          model,
+          evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
+        });
+      const enrichSectionsForCard = async ({ block, domain: candidateDomain, sources, evidenceLedger, currentSections }: {
+        block: Parameters<typeof extractCompanyBlockClaims>[0]["block"];
+        domain: string;
+        sources: ProviderSource[];
+        evidenceLedger: EvidenceLedgerEntry[];
+        currentSections: ExtractedCardSections;
+      }) =>
+        pipelineBlockPatch(
+          await extractCompanyBlockClaims({
+            client: anthropic,
+            model,
+            block,
+            evidence: {
+              domain: candidateDomain,
+              researchPlan,
+              sources,
+              evidenceLedger,
+              currentSections,
+            },
+          })
+        );
+      const runCardAttempt = async (options: {
+        skipBlockEnrichment?: boolean;
+        sources?: ProviderSource[];
+        providerFacts?: ProviderFactCandidate[];
+      } = {}) => {
+        try {
+          const generated = await generateCardForDomainWithTrace(domain, {
+            researchPlan,
+            providerFacts: options.providerFacts ?? providerFacts,
+            ...(options.skipBlockEnrichment !== undefined ? { skipBlockEnrichment: options.skipBlockEnrichment } : {}),
+            fetchSources: async () => options.sources ?? acceptedSources,
+            extractSections: extractSectionsForCard,
+            enrichSections: enrichSectionsForCard,
+            ...(mode === "analysis"
+              ? {
+                  synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
+                  verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+                  synthesisRequired: true,
+                }
+              : {}),
+          });
+
+          return {
+            ok: true as const,
+            card: generated.card,
+            sections: generated.sections,
+            sources: generated.sources,
+            tracePatch: generated.tracePatch
+          };
+        } catch (error) {
+          return {
+            ok: false as const,
+            error: boundedErrorMessage(error),
+            tracePatch: generateErrorTracePatch(error)
+          };
+        }
+      };
 
       currentStage = "generate-card";
       const clean = await step.run("generate-card", async () => {
-        const result = await timed(async () => {
-          try {
-            const generated = await generateCardForDomainWithTrace(domain, {
-              researchPlan,
-              providerFacts,
-              fetchSources: async () => acceptedSources,
-              extractSections: async ({ domain: candidateDomain, sources, evidenceLedger }): Promise<ExtractedCardSections> =>
-                extractCompanyClaims({
-                  client: anthropic,
-                  model,
-                  evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
-                }),
-              ...(mode === "analysis"
-                ? {
-                    synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
-                    verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
-                    synthesisRequired: true,
-                  }
-                : {}),
-            });
-
-            return {
-              ok: true as const,
-              card: generated.card,
-              tracePatch: generated.tracePatch
-            };
-          } catch (error) {
-            return {
-              ok: false as const,
-              error: boundedErrorMessage(error),
-              tracePatch: generateErrorTracePatch(error)
-            };
-          }
-        });
+        const result = await timed(() => runCardAttempt({ skipBlockEnrichment: mode === "basics" }));
         return {
           value: result.value,
           tracePatch: {
@@ -452,17 +563,27 @@ export const generateCardFunction = inngest.createFunction(
       if (mode === "analysis" && !clean.value.card.synthesis) {
         throw new Error("analysis synthesis was not produced");
       }
+      let generatedCard: ColdStartCard = clean.value.card;
+      let generatedSections = clean.value.sections;
+      let sourcesToRecord = clean.value.sources;
 
-      const existingCard = mode === "analysis" ? await step.run("load-existing-card", () => findCardBySlug(db, slug)) : null;
-      const cardToStore =
-        mode === "basics"
-          ? { ...clean.value.card, cacheStatus: "partial" as const }
-          : { ...preserveExistingBasics(existingCard, clean.value.card), cacheStatus: "hit" as const };
-      const row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
+      if (mode === "basics" && !hasUsablePublicProfile(generatedCard)) {
+        trace.steps = {
+          ...trace.steps,
+          "repair-underfilled-basics": {
+            status: "skipped",
+            message: `partial profile kept; ${acceptedSources.length} accepted sources, user can manually regenerate`
+          }
+        };
+      }
+
+      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
+      let cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
+      let row = await step.run("upsert-card", () => upsertCard(db, cardToStore));
       await step.run("record-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
       await step.run("record-sources", () =>
         Promise.all(
-          acceptedSources.map((source) =>
+          sourcesToRecord.map((source) =>
             recordSource(db, {
               cardId: row.id,
               url: source.url,
@@ -474,6 +595,109 @@ export const generateCardFunction = inngest.createFunction(
           ),
         ),
       );
+
+      if (mode === "basics") {
+        currentStage = "fetch-enrichment-sources";
+        const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
+          const result = await timed(async () => {
+            const stableResult = await fetchStableenrichEnrichmentSources({ env: stableEnv, domain, researchPlan });
+            const sources = mergeSources(acceptedSources, stableResult.sources);
+            const sourceGate = filterSourcesForDomain({ domain, sources });
+            const initialStable = sourceResult.value.trace.providers.stableenrich;
+            return {
+              sources: sourceGate.accepted,
+              providerFacts: stableResult.facts,
+              trace: {
+                providers: {
+                  ...sourceResult.value.trace.providers,
+                  stableenrich: {
+                    sourceCount: (initialStable?.sourceCount ?? 0) + stableResult.sources.length,
+                    factCount: (initialStable?.factCount ?? 0) + stableResult.facts.length,
+                    failureCount: (initialStable?.failureCount ?? 0) + stableResult.failures.length,
+                    endpoints: [...(initialStable?.endpoints ?? []), ...stableResult.endpoints]
+                  },
+                  mergedSourceCount: sources.length
+                },
+                sourceGate: sourceGateTrace(sourceGate)
+              }
+            };
+          });
+
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "fetch-enrichment-sources": completedStep(result.durationMs)
+              },
+              providers: result.value.trace.providers,
+              sourceGate: result.value.trace.sourceGate
+            }
+          };
+        });
+        mergeTracePatch(trace, enrichmentSourceResult.tracePatch);
+
+        currentStage = "enrich-card";
+        const enriched = await step.run("enrich-card", async () => {
+          const result = await timed(async () => {
+            const providerFactMerge = applyProviderFactCandidates(generatedSections, enrichmentSourceResult.value.providerFacts);
+            return enrichExtractedSectionsForDomain({
+              domain,
+              researchPlan,
+              sections: providerFactMerge.sections,
+              sources: enrichmentSourceResult.value.sources,
+              enrichSections: enrichSectionsForCard
+            }).then((enrichment) => ({ ...enrichment, providerFactMerge }));
+          });
+
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "enrich-card": completedStep(result.durationMs)
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, enriched.tracePatch);
+
+        generatedSections = enriched.value.sections;
+        generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
+        sourcesToRecord = enrichmentSourceResult.value.sources;
+        if (trace.extraction) {
+          trace.extraction = {
+            ...trace.extraction,
+            sourceCount: sourcesToRecord.length,
+            citationCount: generatedSections.citations.length,
+            providerFactCandidateCount:
+              (trace.extraction.providerFactCandidateCount ?? 0) + enriched.value.providerFactMerge.trace.candidateCount,
+            providerFactAppliedCount:
+              (trace.extraction.providerFactAppliedCount ?? 0) + enriched.value.providerFactMerge.trace.appliedCount,
+            providerFactPaths: [
+              ...(trace.extraction.providerFactPaths ?? []),
+              ...enriched.value.providerFactMerge.trace.paths
+            ],
+            ...(enriched.value.trace ? { blockEnrichment: enriched.value.trace } : {})
+          };
+        }
+
+        cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
+        row = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
+        await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, row.id, cardToStore));
+        await step.run("record-enriched-sources", () =>
+          Promise.all(
+            sourcesToRecord.map((source) =>
+              recordSource(db, {
+                cardId: row.id,
+                url: source.url,
+                title: source.title,
+                sourceType: source.sourceType,
+                fetchedAt: source.fetchedAt,
+                rawText: source.rawText,
+              }),
+            ),
+          ),
+        );
+      }
 
       await step.run("mark-generation-complete", () =>
         markGenerationRun(db, {

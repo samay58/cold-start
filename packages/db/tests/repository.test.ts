@@ -8,7 +8,9 @@ import { createDb } from "../src/client";
 import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
+  findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
+  findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   generationRunStaleAfterMs,
   markGenerationRun,
@@ -477,6 +479,67 @@ describe("findLatestGenerationRunBySlug", () => {
       status: "failed",
       error: "worker failed"
     });
+  });
+});
+
+describe("generation run status snapshots", () => {
+  it("returns active runs without trace payloads or external worker ids", async () => {
+    const { db } = generationRunLifecycleDb();
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      steps: {
+        "fetch-sources": { status: "complete", durationMs: 42 }
+      }
+    };
+
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      traceJson: trace,
+      inngestEventId: "evt_1",
+      inngestRunId: "run_1"
+    });
+
+    const snapshot = await findActiveGenerationRunStatusBySlug(db, "cartesia", "basics");
+
+    expect(snapshot).toMatchObject({ slug: "cartesia", mode: "basics", status: "running" });
+    expect(snapshot).not.toHaveProperty("traceJson");
+    expect(snapshot).not.toHaveProperty("inngestEventId");
+    expect(snapshot).not.toHaveProperty("inngestRunId");
+  });
+
+  it("returns latest terminal runs without trace payloads", async () => {
+    const { db } = generationRunLifecycleDb();
+    const trace: GenerationTrace = {
+      jobKind: "analysis",
+      mode: "analysis",
+      steps: {
+        "generate-card": { status: "complete", durationMs: 84 }
+      }
+    };
+
+    await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "failed",
+      error: "worker failed",
+      traceJson: trace,
+      inngestEventId: "evt_2",
+      inngestRunId: "run_2"
+    });
+
+    const snapshot = await findLatestGenerationRunStatusBySlug(db, "cartesia", "analysis");
+
+    expect(snapshot).toMatchObject({ slug: "cartesia", mode: "analysis", status: "failed", error: "worker failed" });
+    expect(snapshot).not.toHaveProperty("traceJson");
+    expect(snapshot).not.toHaveProperty("inngestEventId");
+    expect(snapshot).not.toHaveProperty("inngestRunId");
   });
 });
 

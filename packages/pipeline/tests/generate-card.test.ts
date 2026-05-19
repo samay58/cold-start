@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildSkeletonCard,
   type ExtractedCardSections,
+  finalizeGeneratedCard,
   generateCardForDomain,
   generateCardForDomainWithTrace,
   type GenerateCardDeps
@@ -128,6 +129,92 @@ describe("generateCardForDomain", () => {
         synthesisRequired: true
       })
     ).rejects.toThrow("No synthesis claims survived verification");
+  });
+
+  it("keeps cited bull and bear sections when the verifier preserves the anchor but blanks whole sections", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+    const bullCase = [
+      { text: "Cartesia has a focused infrastructure wedge. [c1]", citationIds: ["c1"] },
+      { text: "Developer adoption can compound through APIs. [c1]", citationIds: ["c1"] },
+      { text: "Enterprise demand for low-latency voice is visible. [c1]", citationIds: ["c1"] },
+    ];
+    const bearCase = [
+      { text: "Durable differentiation is not fully proven. [c1]", citationIds: ["c1"] },
+      { text: "Gross margin is not disclosed. [c1]", citationIds: ["c1"] },
+      { text: "Customer concentration remains unclear. [c1]", citationIds: ["c1"] },
+    ];
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      }),
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase,
+        bearCase,
+        openQuestions: ["What is retention?", "What is margin?", "What is concentration?"]
+      }),
+      verify: async () => [
+        { ...whyItMatters, status: "supported" },
+        ...bullCase.map((claim) => ({ ...claim, status: "unsupported" as const })),
+        ...bearCase.map((claim) => ({ ...claim, status: "unsupported" as const })),
+      ],
+      synthesisRequired: true
+    });
+
+    expect(card.synthesis?.whyItMatters).toEqual(whyItMatters);
+    expect(card.synthesis?.bullCase).toEqual(bullCase);
+    expect(card.synthesis?.bearCase).toEqual(bearCase);
+  });
+
+  it("keeps full cited sections when the verifier only preserves part of a three-card section", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+    const bullCase = [
+      { text: "Cartesia has a focused infrastructure wedge. [c1]", citationIds: ["c1"] },
+      { text: "Developer adoption can compound through APIs. [c1]", citationIds: ["c1"] },
+      { text: "Enterprise demand for low-latency voice is visible. [c1]", citationIds: ["c1"] },
+    ];
+    const bearCase = [
+      { text: "Durable differentiation is not fully proven. [c1]", citationIds: ["c1"] },
+      { text: "Gross margin is not disclosed. [c1]", citationIds: ["c1"] },
+      { text: "Customer concentration remains unclear. [c1]", citationIds: ["c1"] },
+    ];
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      }),
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase,
+        bearCase,
+        openQuestions: ["What is retention?", "What is margin?", "What is concentration?"]
+      }),
+      verify: async () => [
+        { ...whyItMatters, status: "supported" },
+        { ...bullCase[0]!, status: "supported" },
+        ...bullCase.slice(1).map((claim) => ({ ...claim, status: "unsupported" as const })),
+        ...bearCase.map((claim) => ({ ...claim, status: "unsupported" as const })),
+      ],
+      synthesisRequired: true
+    });
+
+    expect(card.synthesis?.bullCase).toEqual(bullCase);
+    expect(card.synthesis?.bearCase).toEqual(bearCase);
   });
 
   it("keeps the extracted card when optional synthesis fails", async () => {
@@ -310,6 +397,349 @@ describe("generateCardForDomain", () => {
     expect(extractionSawPlan).toBe(true);
   });
 
+  it("runs cited block enrichments for fields the broad extraction misses", async () => {
+    const skeleton = buildSkeletonCard("zo.computer");
+    const seenBlocks: string[] = [];
+
+    const result = await generateCardForDomainWithTrace("zo.computer", {
+      fetchSources: async () => [
+        {
+          url: "https://www.businesswire.com/zo-seed",
+          title: "Zo Computer seed financing",
+          sourceType: "news",
+          fetchedAt: "2026-05-14T16:00:00.000Z",
+          intent: "funding",
+          rawText: "Zo Computer raised a $4 million seed round led by Conviction.",
+        },
+        {
+          url: "https://zo.computer/team",
+          title: "Zo Computer team",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-14T16:00:00.000Z",
+          intent: "management_team",
+          rawText: "Raymond Luo is founder and CEO. Contact raymond@zo.computer for company inquiries.",
+        },
+        {
+          url: "https://zo.computer/blog/product",
+          title: "Zo Computer launches persistent AI workspaces",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-14T16:00:00.000Z",
+          intent: "recent_signals",
+          rawText: "Zo Computer launched persistent cloud workspaces for AI-assisted research and projects.",
+        },
+        {
+          url: "https://browserbase.com",
+          title: "Browserbase",
+          sourceType: "news",
+          fetchedAt: "2026-05-14T16:00:00.000Z",
+          intent: "comparables",
+          rawText: "Browserbase provides cloud browser automation infrastructure for AI agents.",
+        },
+      ],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: {
+            value: "Zo Computer",
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"],
+          },
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation],
+      }),
+      enrichSections: async ({ block }) => {
+        seenBlocks.push(block);
+
+        if (block === "description") {
+          return {
+            identity: {
+              description: {
+                value: {
+                  shortDescription: "Zo Computer provides cloud computers that users and AI agents can share.",
+                  concept: "A persistent cloud computer for human and AI collaboration.",
+                  serves: "Researchers, builders, and AI-heavy knowledge workers.",
+                  mechanism: "Runs a hosted workspace that can be controlled by the user and their AI agent.",
+                },
+                status: "verified",
+                confidence: "medium",
+                citationIds: ["bd1"],
+              },
+            },
+            citations: [
+              {
+                id: "bd1",
+                url: "https://zo.computer/blog/product",
+                title: "Zo Computer launches persistent AI workspaces",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "company_site",
+              },
+            ],
+          };
+        }
+
+        if (block === "funding") {
+          return {
+            funding: {
+              lastRound: {
+                value: {
+                  name: "Seed",
+                  amountUsd: 4000000,
+                  announcedAt: "2026-05-14",
+                  leadInvestors: ["Conviction"],
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["bf1"],
+              },
+            },
+            citations: [
+              {
+                id: "bf1",
+                url: "https://www.businesswire.com/zo-seed",
+                title: "Zo Computer seed financing",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "news",
+              },
+            ],
+          };
+        }
+
+        if (block === "team") {
+          return {
+            team: {
+              founders: {
+                value: [
+                  {
+                    name: "Raymond Luo",
+                    role: "Founder and CEO",
+                    sourceUrl: "https://zo.computer/team",
+                    email: "raymond@zo.computer",
+                  },
+                ],
+                status: "verified",
+                confidence: "medium",
+                citationIds: ["bt1"],
+              },
+            },
+            citations: [
+              {
+                id: "bt1",
+                url: "https://zo.computer/team",
+                title: "Zo Computer team",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "company_site",
+              },
+            ],
+          };
+        }
+
+        if (block === "signals") {
+          return {
+            signals: [
+              {
+                title: "Launched persistent AI workspaces",
+                url: "https://zo.computer/blog/product",
+                date: "2026-05-14",
+                source: "Zo Computer",
+                category: "launch",
+                citationIds: ["bs1"],
+              },
+            ],
+            citations: [
+              {
+                id: "bs1",
+                url: "https://zo.computer/blog/product",
+                title: "Zo Computer launches persistent AI workspaces",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "company_site",
+              },
+            ],
+          };
+        }
+
+        if (block === "comparables") {
+          return {
+            comparables: [
+              {
+                name: "Browserbase",
+                domain: "browserbase.com",
+                oneLiner: "Cloud browser automation infrastructure for AI agents.",
+                basis: "Adjacent cloud execution surface for AI-controlled browser work.",
+                confidence: "medium",
+                citationIds: ["bc1"],
+              },
+            ],
+            citations: [
+              {
+                id: "bc1",
+                url: "https://browserbase.com",
+                title: "Browserbase",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "news",
+              },
+            ],
+          };
+        }
+
+        return { citations: [] };
+      },
+    } as GenerateCardDeps);
+
+    expect(seenBlocks).toEqual(["description", "funding", "team", "signals", "comparables"]);
+    expect(result.card.identity.description?.value?.serves).toBe("Researchers, builders, and AI-heavy knowledge workers.");
+    expect(result.card.funding.lastRound.value).toMatchObject({ name: "Seed", amountUsd: 4000000 });
+    expect(result.card.team.founders.value?.[0]).toMatchObject({
+      name: "Raymond Luo",
+      role: "Founder and CEO",
+      email: "raymond@zo.computer",
+    });
+    expect(result.card.signals[0]?.title).toBe("Launched persistent AI workspaces");
+    expect(result.card.comparables[0]).toMatchObject({ name: "Browserbase", domain: "browserbase.com" });
+    expect(result.tracePatch.extraction?.blockEnrichment).toMatchObject({
+      requested: ["description", "funding", "team", "signals", "comparables"],
+      produced: ["description", "funding", "team", "signals", "comparables"],
+    });
+  });
+
+  it("does not rerun team block enrichment just because emails are missing", async () => {
+    const skeleton = buildSkeletonCard("zo.computer");
+    const seenBlocks: string[] = [];
+    const completeSections: ExtractedCardSections = {
+      identity: {
+        ...skeleton.identity,
+        name: {
+          value: "Zo Computer",
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"],
+        },
+        description: {
+          value: {
+            shortDescription: "Zo Computer provides cloud computers for people and AI agents.",
+            concept: "A persistent cloud computer.",
+            serves: "Researchers and builders.",
+            mechanism: "Hosts a browser-accessible workspace.",
+          },
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1"],
+        },
+      },
+      funding: {
+        ...skeleton.funding,
+        lastRound: {
+          value: {
+            name: "Seed",
+            amountUsd: 4000000,
+            announcedAt: "2026-05-14",
+            leadInvestors: ["Conviction"],
+          },
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"],
+        },
+        investors: {
+          value: [{ name: "Conviction", domain: null }],
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1"],
+        },
+      },
+      team: {
+        ...skeleton.team,
+        founders: {
+          value: [
+            {
+              name: "Raymond Luo",
+              role: "Founder and CEO",
+              sourceUrl: "https://zo.computer/team",
+            },
+          ],
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1"],
+        },
+      },
+      signals: [
+        {
+          title: "Launched persistent AI workspaces",
+          url: "https://zo.computer/blog/product",
+          date: "2026-05-14",
+          source: "Zo Computer",
+          category: "launch",
+          citationIds: ["c1"],
+        },
+        {
+          title: "Announced seed financing",
+          url: "https://www.businesswire.com/zo-seed",
+          date: "2026-05-14",
+          source: "Business Wire",
+          category: "funding",
+          citationIds: ["c1"],
+        },
+      ],
+      comparables: [
+        {
+          name: "Browserbase",
+          domain: "browserbase.com",
+          oneLiner: "Cloud browser automation infrastructure.",
+          basis: "Adjacent cloud execution layer.",
+          confidence: "medium",
+          citationIds: ["c1"],
+        },
+        {
+          name: "Poolside",
+          domain: "poolside.ai",
+          oneLiner: "AI software engineering agents.",
+          basis: "Adjacent AI workspace workflow.",
+          confidence: "low",
+          citationIds: ["c1"],
+        },
+        {
+          name: "Replit",
+          domain: "replit.com",
+          oneLiner: "Browser-based software workspace.",
+          basis: "Adjacent hosted development surface.",
+          confidence: "medium",
+          citationIds: ["c1"],
+        },
+      ],
+      citations: [citation],
+    };
+
+    const result = await generateCardForDomainWithTrace("zo.computer", {
+      fetchSources: async () => [
+        {
+          url: "https://zo.computer/team",
+          title: "Zo Computer team",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-14T16:00:00.000Z",
+          intent: "management_team",
+          rawText: "Raymond Luo is founder and CEO. Contact raymond@zo.computer for company inquiries.",
+        },
+      ],
+      extractSections: async () => completeSections,
+      enrichSections: async ({ block }) => {
+        seenBlocks.push(block);
+        return null;
+      },
+    } as GenerateCardDeps);
+
+    expect(seenBlocks).toEqual([]);
+    expect(result.card.team.founders.value?.[0]).toMatchObject({
+      name: "Raymond Luo",
+      role: "Founder and CEO",
+      sourceUrl: "https://zo.computer/team",
+    });
+    expect(result.card.team.founders.value?.[0]?.email).toBeUndefined();
+    expect(result.tracePatch.extraction?.blockEnrichment).toBeUndefined();
+  });
+
   it("merges deterministic provider facts into missing table-stakes fields", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
 
@@ -352,6 +782,25 @@ describe("generateCardForDomain", () => {
           fetchedAt: "2026-05-13T00:00:00.000Z",
         },
         {
+          path: "team.founders",
+          value: [
+            {
+              name: "Karan Goel",
+              role: "Co-founder and CEO",
+              sourceUrl: "https://www.linkedin.com/in/karangoel",
+              email: "karan@cartesia.ai",
+            },
+          ],
+          status: "verified",
+          confidence: "high",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "apollo_people_enrich",
+          citationUrl: "https://www.linkedin.com/in/karangoel",
+          citationTitle: "Apollo people enrichment for Karan Goel",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
           path: "comparables",
           value: {
             name: "ElevenLabs",
@@ -367,6 +816,25 @@ describe("generateCardForDomain", () => {
           endpoint: "exa_find_similar",
           citationUrl: "https://elevenlabs.io",
           citationTitle: "ElevenLabs",
+          fetchedAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          path: "signals",
+          value: {
+            title: "Cartesia announces Series B",
+            url: "https://cartesia.ai/blog/series-b",
+            date: "2026-05-01",
+            source: "cartesia.ai",
+            category: "funding",
+            citationIds: [],
+          },
+          status: "verified",
+          confidence: "medium",
+          sourceType: "news",
+          provider: "stableenrich",
+          endpoint: "exa_recent_signals",
+          citationUrl: "https://cartesia.ai/blog/series-b",
+          citationTitle: "Cartesia announces Series B",
           fetchedAt: "2026-05-13T00:00:00.000Z",
         },
       ],
@@ -401,16 +869,25 @@ describe("generateCardForDomain", () => {
     expect(result.card.identity.name.value).toBe("Cartesia");
     expect(result.card.identity.websiteUrl?.value).toBe("https://cartesia.ai");
     expect(result.card.team.headcount.value).toEqual({ value: 64, asOf: "2026-05-13" });
+    expect(result.card.team.founders.value?.[0]).toMatchObject({
+      name: "Karan Goel",
+      email: "karan@cartesia.ai",
+    });
     expect(result.card.comparables[0]).toMatchObject({
       name: "ElevenLabs",
       domain: "elevenlabs.io",
-      citationIds: ["p2"],
+      citationIds: ["p3"],
+    });
+    expect(result.card.signals[0]).toMatchObject({
+      title: "Cartesia announces Series B",
+      category: "funding",
+      citationIds: ["p4"],
     });
     expect(result.card.citations.map((item) => item.url)).not.toContain("https://stableenrich.dev/ignored-name");
     expect(result.tracePatch.extraction).toMatchObject({
-      providerFactCandidateCount: 4,
-      providerFactAppliedCount: 3,
-      providerFactPaths: ["comparables", "identity.websiteUrl", "team.headcount"],
+      providerFactCandidateCount: 6,
+      providerFactAppliedCount: 5,
+      providerFactPaths: ["comparables", "identity.websiteUrl", "signals", "team.founders", "team.headcount"],
     });
   });
 
@@ -496,5 +973,47 @@ describe("generateCardForDomain", () => {
         }
       }
     });
+  });
+});
+
+describe("finalizeGeneratedCard", () => {
+  it("drops same-name unrelated comparables proposed by enrichment", () => {
+    const card = {
+      ...buildSkeletonCard("cognition.ai"),
+      identity: {
+        ...buildSkeletonCard("cognition.ai").identity,
+        name: {
+          value: "Cognition AI",
+          status: "verified" as const,
+          confidence: "high" as const,
+          citationIds: ["c1"],
+        },
+      },
+      citations: [
+        {
+          id: "c1",
+          url: "https://cognition.ai",
+          title: "Cognition",
+          fetchedAt: "2026-05-15T00:00:00.000Z",
+          sourceType: "company_site" as const,
+        },
+      ],
+      comparables: [
+        {
+          name: "Cursor",
+          domain: "cursor.com",
+          oneLiner: "AI coding IDE.",
+          citationIds: ["c1"],
+        },
+        {
+          name: "Cognition (Cognition Therapeutics)",
+          domain: "cogtherapeutics.com",
+          oneLiner: "Unrelated therapeutics company.",
+          citationIds: ["c1"],
+        },
+      ],
+    };
+
+    expect(finalizeGeneratedCard(card).comparables.map((comparable) => comparable.name)).toEqual(["Cursor"]);
   });
 });

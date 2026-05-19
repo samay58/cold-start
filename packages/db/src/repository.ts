@@ -37,6 +37,8 @@ export type GenerationRunSummary = {
   completedAt?: Date | null;
 };
 
+export type GenerationRunStatusSummary = Omit<GenerationRunSummary, "traceJson" | "inngestEventId" | "inngestRunId">;
+
 type GenerationRunRow = {
   slug: string;
   domain: string;
@@ -53,6 +55,8 @@ type GenerationRunRow = {
   completedAt?: Date | null;
 };
 type GenerationRunResultRow = Omit<GenerationRunRow, "traceJson"> & { traceJson?: unknown };
+
+type GenerationRunStatusResultRow = Omit<GenerationRunResultRow, "traceJson" | "inngestEventId" | "inngestRunId">;
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -120,6 +124,37 @@ export async function findActiveGenerationRunBySlug(
   return generationRunSummary(row) as GenerationRunSummary & { status: ActiveGenerationStatus };
 }
 
+export async function findActiveGenerationRunStatusBySlug(
+  db: ColdStartDb,
+  slug: string,
+  mode: GenerationMode = "analysis"
+): Promise<(GenerationRunStatusSummary & { status: ActiveGenerationStatus }) | null> {
+  const rows = await db
+    .select({
+      id: generationRuns.id,
+      slug: generationRuns.slug,
+      domain: generationRuns.domain,
+      mode: generationRuns.mode,
+      jobKind: generationRuns.jobKind,
+      status: generationRuns.status,
+      error: generationRuns.error,
+      costUsd: generationRuns.costUsd,
+      startedAt: generationRuns.startedAt,
+      completedAt: generationRuns.completedAt
+    })
+    .from(generationRuns)
+    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+  const row = rows[0];
+
+  if (!row || (row.status !== "queued" && row.status !== "running")) {
+    return null;
+  }
+
+  return generationRunStatusSummary(row) as GenerationRunStatusSummary & { status: ActiveGenerationStatus };
+}
+
 export async function findLatestGenerationRunBySlug(
   db: ColdStartDb,
   slug: string,
@@ -148,6 +183,33 @@ export async function findLatestGenerationRunBySlug(
   const row = rows[0];
 
   return row ? generationRunSummary(row) : null;
+}
+
+export async function findLatestGenerationRunStatusBySlug(
+  db: ColdStartDb,
+  slug: string,
+  mode: GenerationMode = "analysis"
+): Promise<GenerationRunStatusSummary | null> {
+  const rows = await db
+    .select({
+      id: generationRuns.id,
+      slug: generationRuns.slug,
+      domain: generationRuns.domain,
+      mode: generationRuns.mode,
+      jobKind: generationRuns.jobKind,
+      status: generationRuns.status,
+      error: generationRuns.error,
+      costUsd: generationRuns.costUsd,
+      startedAt: generationRuns.startedAt,
+      completedAt: generationRuns.completedAt
+    })
+    .from(generationRuns)
+    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode)))
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+  const row = rows[0];
+
+  return row ? generationRunStatusSummary(row) : null;
 }
 
 export async function retireStaleGenerationRuns(
@@ -225,7 +287,6 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
 
 export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: ColdStartCard) {
   const publicOnly = publicCard(card);
-
   const publicClaims: PublicClaim[] = [
     { path: "identity.name", fact: publicOnly.identity.name },
     ...(publicOnly.identity.websiteUrl ? [{ path: "identity.websiteUrl", fact: publicOnly.identity.websiteUrl }] : []),
@@ -241,92 +302,45 @@ export async function recordCardEvidence(db: ColdStartDb, cardId: string, card: 
     { path: "team.keyExecs", fact: publicOnly.team.keyExecs },
     { path: "team.headcount", fact: publicOnly.team.headcount }
   ];
+  const claimValues = publicClaims.map(({ path, fact }) => ({
+    cardId,
+    path,
+    visibility: "public" as const,
+    status: fact.status,
+    confidence: fact.confidence,
+    valueJson: fact.value,
+    citationKeys: fact.citationIds
+  }));
+  const citationValues = publicOnly.citations.map((citation) => ({
+    cardId,
+    citationKey: citation.id,
+    url: citation.url,
+    title: citation.title,
+    sourceType: citation.sourceType,
+    ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
+    fetchedAt: new Date(citation.fetchedAt)
+  }));
 
-  const deleteCitations = db.delete(citations).where(eq(citations.cardId, cardId));
-  const deleteClaims = db.delete(claims).where(eq(claims.cardId, cardId));
-  const insertClaims = db.insert(claims).values(
-    publicClaims.map(({ path, fact }) => ({
-      cardId,
-      path,
-      visibility: "public" as const,
-      status: fact.status,
-      confidence: fact.confidence,
-      valueJson: fact.value,
-      citationKeys: fact.citationIds
-    }))
-  );
-
-  if (publicOnly.citations.length === 0) {
-    await runEvidenceWrites(db, [deleteCitations, deleteClaims, insertClaims], async (tx) => {
-      await tx.delete(citations).where(eq(citations.cardId, cardId));
-      await tx.delete(claims).where(eq(claims.cardId, cardId));
-      await tx.insert(claims).values(
-        publicClaims.map(({ path, fact }) => ({
-          cardId,
-          path,
-          visibility: "public" as const,
-          status: fact.status,
-          confidence: fact.confidence,
-          valueJson: fact.value,
-          citationKeys: fact.citationIds
-        }))
-      );
-    });
-    return;
+  function buildWrites(adapter: ColdStartDb) {
+    return [
+      adapter.delete(citations).where(eq(citations.cardId, cardId)),
+      adapter.delete(claims).where(eq(claims.cardId, cardId)),
+      ...(citationValues.length > 0 ? [adapter.insert(citations).values(citationValues)] : []),
+      adapter.insert(claims).values(claimValues)
+    ];
   }
 
-  const insertCitations = db.insert(citations).values(
-    publicOnly.citations.map((citation) => ({
-      cardId,
-      citationKey: citation.id,
-      url: citation.url,
-      title: citation.title,
-      sourceType: citation.sourceType,
-      ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
-      fetchedAt: new Date(citation.fetchedAt)
-    }))
-  );
-
-  await runEvidenceWrites(db, [deleteCitations, deleteClaims, insertCitations, insertClaims], async (tx) => {
-    await tx.delete(citations).where(eq(citations.cardId, cardId));
-    await tx.delete(claims).where(eq(claims.cardId, cardId));
-    await tx.insert(citations).values(
-      publicOnly.citations.map((citation) => ({
-        cardId,
-        citationKey: citation.id,
-        url: citation.url,
-        title: citation.title,
-        sourceType: citation.sourceType,
-        ...(citation.snippet !== undefined ? { snippet: citation.snippet } : {}),
-        fetchedAt: new Date(citation.fetchedAt)
-      }))
-    );
-    await tx.insert(claims).values(
-      publicClaims.map(({ path, fact }) => ({
-        cardId,
-        path,
-        visibility: "public" as const,
-        status: fact.status,
-        confidence: fact.confidence,
-        valueJson: fact.value,
-        citationKeys: fact.citationIds
-      }))
-    );
-  });
-}
-
-async function runEvidenceWrites(
-  db: ColdStartDb,
-  batchItems: unknown[],
-  transactionWrites: (tx: ColdStartDb) => Promise<void>
-) {
   if ("batch" in db && typeof db.batch === "function") {
-    await db.batch(batchItems as never);
+    await db.batch(buildWrites(db) as never);
     return;
   }
 
   if ("transaction" in db && typeof db.transaction === "function") {
-    await db.transaction(transactionWrites as never);
+    await db.transaction(async (tx) => {
+      for (const write of buildWrites(tx as unknown as ColdStartDb)) {
+        await write;
+      }
+    });
     return;
   }
 
@@ -433,6 +447,21 @@ function generationRunSummary(row: GenerationRunResultRow): GenerationRunSummary
     ...(row.traceJson !== undefined ? { traceJson: row.traceJson as GenerationTrace | null } : {}),
     ...(row.inngestEventId !== undefined ? { inngestEventId: row.inngestEventId } : {}),
     ...(row.inngestRunId !== undefined ? { inngestRunId: row.inngestRunId } : {}),
+    ...(row.startedAt !== undefined ? { startedAt: row.startedAt } : {}),
+    ...(row.completedAt !== undefined ? { completedAt: row.completedAt } : {})
+  };
+}
+
+function generationRunStatusSummary(row: GenerationRunStatusResultRow): GenerationRunStatusSummary {
+  return {
+    ...(row.id !== undefined ? { id: row.id } : {}),
+    slug: row.slug,
+    domain: row.domain,
+    mode: row.mode,
+    ...(row.jobKind !== undefined ? { jobKind: row.jobKind } : {}),
+    status: row.status,
+    ...(row.error !== undefined ? { error: row.error } : {}),
+    ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),
     ...(row.startedAt !== undefined ? { startedAt: row.startedAt } : {}),
     ...(row.completedAt !== undefined ? { completedAt: row.completedAt } : {})
   };

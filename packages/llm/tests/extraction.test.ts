@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { evidenceForExtractionPrompt, extractionSystemPrompt, extractionTool, parseExtractionToolUse } from "../src/index";
+import {
+  blockEnrichmentTool,
+  evidenceForExtractionPrompt,
+  extractionSystemPrompt,
+  extractionTool,
+  parseBlockEnrichmentToolUse,
+  parseExtractionToolUse
+} from "../src/index";
 
 const unknownFact = {
   value: null,
@@ -118,6 +125,7 @@ describe("extractionTool", () => {
       type: "array",
       items: {
         properties: {
+          email: { anyOf: [{ type: "string", minLength: 1, format: "email" }, { type: "null" }] },
           sourceUrl: { anyOf: [{ type: "string", minLength: 1, format: "uri" }, { type: "null" }] }
         }
       }
@@ -136,6 +144,22 @@ describe("extractionTool", () => {
       properties: {
         shortDescription: { type: "string", minLength: 1 },
         concept: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+      }
+    });
+  });
+});
+
+describe("blockEnrichmentTool", () => {
+  it("supports block-specific payloads with public work emails for management", () => {
+    expect(blockEnrichmentTool.input_schema.properties.blockId).toMatchObject({
+      enum: ["description", "funding", "team", "signals", "comparables"]
+    });
+    expect(blockEnrichmentTool.input_schema.properties.team.properties.founders.properties.value.anyOf[0]).toMatchObject({
+      type: "array",
+      items: {
+        properties: {
+          email: { anyOf: [{ type: "string", minLength: 1, format: "email" }, { type: "null" }] }
+        }
       }
     });
   });
@@ -389,5 +413,85 @@ describe("parseExtractionToolUse", () => {
         ]
       })
     ).toThrow();
+  });
+});
+
+describe("parseBlockEnrichmentToolUse", () => {
+  it("extracts a cited management block without requiring unrelated sections", () => {
+    const payload = parseBlockEnrichmentToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_block_claims",
+          input: {
+            blockId: "team",
+            team: {
+              founders: {
+                value: [
+                  {
+                    name: "Raymond Luo",
+                    role: "Founder and CEO",
+                    sourceUrl: "https://zo.computer/team",
+                    email: "raymond@zo.computer"
+                  }
+                ],
+                status: "verified",
+                confidence: "medium",
+                citationIds: ["c1"]
+              }
+            },
+            citations: [
+              {
+                id: "c1",
+                url: "https://zo.computer/team",
+                title: "Zo Computer team",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "company_site"
+              }
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(payload.blockId).toBe("team");
+    expect(payload.team?.founders?.value?.[0]).toMatchObject({
+      name: "Raymond Luo",
+      email: "raymond@zo.computer"
+    });
+    expect(payload.funding).toBeUndefined();
+    expect(payload.citations).toHaveLength(1);
+  });
+
+  it("drops uncited block facts instead of letting guessed emails through", () => {
+    const payload = parseBlockEnrichmentToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_block_claims",
+          input: {
+            blockId: "team",
+            team: {
+              founders: {
+                value: [
+                  {
+                    name: "Raymond Luo",
+                    role: "Founder and CEO",
+                    sourceUrl: "https://zo.computer/team",
+                    email: "raymond@zo.computer"
+                  }
+                ],
+                status: "inferred",
+                confidence: "low",
+                citationIds: []
+              }
+            },
+            citations: []
+          }
+        }
+      ]
+    });
+
+    expect(payload.team?.founders).toEqual(unknownFact);
   });
 });

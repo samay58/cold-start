@@ -12,18 +12,29 @@ import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
 
 const EXTRACTION_TOOL_NAME = "emit_company_claims";
+const BLOCK_EXTRACTION_TOOL_NAME = "emit_block_claims";
 const maxPromptSources = 24;
+const maxBlockPromptSources = 8;
 const maxPromptSourceTextLength = 2200;
+const maxBlockPromptSourceTextLength = 1400;
 const maxPromptLedgerEntries = 20;
+const maxBlockPromptLedgerEntries = 10;
 const maxPromptSnippetLength = 420;
+
+export const BLOCK_ENRICHMENT_IDS = ["description", "funding", "team", "signals", "comparables"] as const;
+export type BlockEnrichmentId = (typeof BLOCK_ENRICHMENT_IDS)[number];
 
 const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
 
 const urlStringSchema = { type: "string", minLength: 1, format: "uri" } as const;
 
+const emailStringSchema = { type: "string", minLength: 1, format: "email" } as const;
+
 const nullableNonEmptyStringSchema = { anyOf: [nonEmptyStringSchema, { type: "null" }] } as const;
 
 const nullableUrlStringSchema = { anyOf: [urlStringSchema, { type: "null" }] } as const;
+
+const nullableEmailStringSchema = { anyOf: [emailStringSchema, { type: "null" }] } as const;
 
 const nonnegativeIntegerSchema = { type: "integer", minimum: 0 } as const;
 
@@ -81,9 +92,10 @@ const personValueSchema = {
   properties: {
     name: nonEmptyStringSchema,
     role: nullableNonEmptyStringSchema,
-    sourceUrl: nullableUrlStringSchema
+    sourceUrl: nullableUrlStringSchema,
+    email: nullableEmailStringSchema
   },
-  required: ["name", "role", "sourceUrl"]
+  required: ["name", "role", "sourceUrl", "email"]
 } as const;
 
 const headcountValueSchema = {
@@ -208,8 +220,16 @@ export type ExtractionEvidence = {
   }>;
 };
 
-export function evidenceForExtractionPrompt(evidence: ExtractionEvidence): ExtractionEvidence {
-  const evidenceLedger = evidence.evidenceLedger?.slice(0, maxPromptLedgerEntries).map((entry) => ({
+export function evidenceForExtractionPrompt(
+  evidence: ExtractionEvidence,
+  options: { scope?: "full" | "block" } = {}
+): ExtractionEvidence {
+  const isBlock = options.scope === "block";
+  const ledgerLimit = isBlock ? maxBlockPromptLedgerEntries : maxPromptLedgerEntries;
+  const sourceLimit = isBlock ? maxBlockPromptSources : maxPromptSources;
+  const sourceTextLimit = isBlock ? maxBlockPromptSourceTextLength : maxPromptSourceTextLength;
+
+  const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map((entry) => ({
     ...entry,
     supportingSnippets: entry.supportingSnippets.map((snippet) => truncateEvidenceText(snippet, maxPromptSnippetLength)),
   }));
@@ -221,9 +241,9 @@ export function evidenceForExtractionPrompt(evidence: ExtractionEvidence): Extra
     domain: evidence.domain,
     ...(evidence.researchPlan ? { researchPlan: evidence.researchPlan } : {}),
     ...(evidenceLedger ? { evidenceLedger } : {}),
-    sources: sourcePool.slice(0, maxPromptSources).map((source) => ({
+    sources: sourcePool.slice(0, sourceLimit).map((source) => ({
       ...source,
-      rawText: truncateEvidenceText(source.rawText, maxPromptSourceTextLength),
+      rawText: truncateEvidenceText(source.rawText, sourceTextLimit),
     })),
   };
 }
@@ -253,6 +273,30 @@ export const extractedCardSectionsSchema = coldStartCardSchema.pick({
 
 export type ExtractedCardSections = z.infer<typeof extractedCardSectionsSchema>;
 
+const blockEnrichmentPatchSchema = z.object({
+  blockId: z.enum(BLOCK_ENRICHMENT_IDS),
+  identity: z.object({
+    oneLiner: coldStartCardSchema.shape.identity.shape.oneLiner.optional(),
+    description: coldStartCardSchema.shape.identity.shape.description.optional(),
+  }).optional(),
+  funding: z.object({
+    totalRaisedUsd: coldStartCardSchema.shape.funding.shape.totalRaisedUsd.optional(),
+    lastRound: coldStartCardSchema.shape.funding.shape.lastRound.optional(),
+    rounds: coldStartCardSchema.shape.funding.shape.rounds.optional(),
+    investors: coldStartCardSchema.shape.funding.shape.investors.optional(),
+  }).optional(),
+  team: z.object({
+    founders: coldStartCardSchema.shape.team.shape.founders.optional(),
+    keyExecs: coldStartCardSchema.shape.team.shape.keyExecs.optional(),
+    headcount: coldStartCardSchema.shape.team.shape.headcount.optional(),
+  }).optional(),
+  signals: z.array(coreSignalSchema).optional(),
+  comparables: z.array(coreComparableSchema).optional(),
+  citations: z.array(coreCitationSchema),
+});
+
+export type BlockEnrichmentPatch = z.infer<typeof blockEnrichmentPatchSchema>;
+
 export const extractionTool = {
   name: EXTRACTION_TOOL_NAME,
   description: "Emit only company claims supported by the provided public sources.",
@@ -268,6 +312,55 @@ export const extractionTool = {
       citations: { type: "array", items: citationSchema }
     },
     required: ["identity", "funding", "team", "signals", "comparables", "citations"]
+  }
+} satisfies Tool;
+
+const blockIdentityPatchSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    oneLiner: resolvedFactSchema(nonEmptyStringSchema),
+    description: resolvedFactSchema(descriptionValueSchema),
+  },
+} as const;
+
+const blockFundingPatchSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    totalRaisedUsd: resolvedFactSchema(nonnegativeIntegerSchema),
+    lastRound: resolvedFactSchema(roundValueSchema),
+    rounds: resolvedFactSchema({ type: "array", items: roundValueSchema }),
+    investors: resolvedFactSchema({ type: "array", items: investorValueSchema }),
+  },
+} as const;
+
+const blockTeamPatchSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    founders: resolvedFactSchema({ type: "array", items: personValueSchema }),
+    keyExecs: resolvedFactSchema({ type: "array", items: personValueSchema }),
+    headcount: resolvedFactSchema(headcountValueSchema),
+  },
+} as const;
+
+export const blockEnrichmentTool = {
+  name: BLOCK_EXTRACTION_TOOL_NAME,
+  description: "Emit one block of cited company claims from the supplied public sources.",
+  input_schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      blockId: { type: "string", enum: BLOCK_ENRICHMENT_IDS },
+      identity: blockIdentityPatchSchema,
+      funding: blockFundingPatchSchema,
+      team: blockTeamPatchSchema,
+      signals: { type: "array", items: signalSchema },
+      comparables: { type: "array", items: comparableSchema },
+      citations: { type: "array", items: citationSchema },
+    },
+    required: ["blockId", "citations"],
   }
 } satisfies Tool;
 
@@ -292,6 +385,19 @@ export function parseExtractionToolUse(message: { content: ToolUseLike[] }) {
   return extractedCardSectionsSchema.parse(normalizeExtractionInput(toolUse.input));
 }
 
+export function parseBlockEnrichmentToolUse(message: { content: ToolUseLike[] }) {
+  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === BLOCK_EXTRACTION_TOOL_NAME);
+  if (!toolUse) {
+    throw new Error("No emit_block_claims tool use returned");
+  }
+
+  if (toolUse.input === undefined) {
+    throw new Error("emit_block_claims tool use returned no input");
+  }
+
+  return blockEnrichmentPatchSchema.parse(normalizeBlockEnrichmentInput(toolUse.input));
+}
+
 function normalizeExtractionInput(input: unknown) {
   if (!input || typeof input !== "object") {
     return input;
@@ -308,6 +414,91 @@ function normalizeExtractionInput(input: unknown) {
     citations: filterArray(root.citations, coreCitationSchema),
   };
   return normalizedRoot;
+}
+
+function normalizeBlockEnrichmentInput(input: unknown) {
+  if (!input || typeof input !== "object") {
+    return input;
+  }
+
+  const root = input as Record<string, unknown>;
+  const normalizedRoot: Record<string, unknown> = {
+    blockId: root.blockId,
+    citations: filterArray(root.citations, coreCitationSchema),
+  };
+
+  const identity = normalizeBlockIdentity(root.identity);
+  const funding = normalizeBlockFunding(root.funding);
+  const team = normalizeBlockTeam(root.team);
+
+  if (identity) {
+    normalizedRoot.identity = identity;
+  }
+  if (funding) {
+    normalizedRoot.funding = funding;
+  }
+  if (team) {
+    normalizedRoot.team = team;
+  }
+  if ("signals" in root) {
+    normalizedRoot.signals = filterArray(root.signals, coreSignalSchema);
+  }
+  if ("comparables" in root) {
+    normalizedRoot.comparables = filterArray(root.comparables, coreComparableSchema);
+  }
+
+  return normalizedRoot;
+}
+
+function normalizeBlockIdentity(input: unknown) {
+  const record = objectRecord(input);
+  const output: Record<string, unknown> = {};
+
+  if ("oneLiner" in record) {
+    output.oneLiner = normalizeFact(record.oneLiner);
+  }
+  if ("description" in record) {
+    output.description = normalizeFact(record.description, normalizeDescriptionValue);
+  }
+
+  return Object.keys(output).length > 0 ? output : null;
+}
+
+function normalizeBlockFunding(input: unknown) {
+  const record = objectRecord(input);
+  const output: Record<string, unknown> = {};
+
+  if ("totalRaisedUsd" in record) {
+    output.totalRaisedUsd = normalizeFact(record.totalRaisedUsd);
+  }
+  if ("lastRound" in record) {
+    output.lastRound = normalizeFact(record.lastRound, normalizeRoundValue);
+  }
+  if ("rounds" in record) {
+    output.rounds = normalizeFact(record.rounds, normalizeRoundArray);
+  }
+  if ("investors" in record) {
+    output.investors = normalizeFact(record.investors, normalizeInvestorArray);
+  }
+
+  return Object.keys(output).length > 0 ? output : null;
+}
+
+function normalizeBlockTeam(input: unknown) {
+  const record = objectRecord(input);
+  const output: Record<string, unknown> = {};
+
+  if ("founders" in record) {
+    output.founders = normalizeFact(record.founders, normalizePersonArray);
+  }
+  if ("keyExecs" in record) {
+    output.keyExecs = normalizeFact(record.keyExecs, normalizePersonArray);
+  }
+  if ("headcount" in record) {
+    output.headcount = normalizeFact(record.headcount);
+  }
+
+  return Object.keys(output).length > 0 ? output : null;
 }
 
 type NormalizedFact<T = unknown> = {
@@ -481,9 +672,10 @@ function normalizePersonArray(value: unknown) {
         name: record.name.trim(),
         role: typeof record.role === "string" && record.role.trim().length > 0 ? record.role.trim() : null,
         sourceUrl: typeof record.sourceUrl === "string" && record.sourceUrl.trim().length > 0 ? record.sourceUrl.trim() : null,
+        email: emailValue(record.email),
       };
     })
-    .filter((person): person is { name: string; role: string | null; sourceUrl: string | null } => person !== null);
+    .filter((person): person is { name: string; role: string | null; sourceUrl: string | null; email: string | null } => person !== null);
 }
 
 function objectRecord(value: unknown): Record<string, unknown> {
@@ -494,6 +686,15 @@ function stringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim())
     : [];
+}
+
+function emailValue(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
 }
 
 function filterArray<T>(value: unknown, schema: z.ZodType<T>) {
@@ -527,6 +728,7 @@ export async function extractCompanyClaims(input: {
   const response: Message = await input.client.messages.create({
     model: input.model,
     max_tokens: 4000,
+    temperature: 0,
     system: [
       {
         type: "text",
@@ -550,4 +752,62 @@ export async function extractCompanyClaims(input: {
   });
 
   return parseExtractionToolUse(response);
+}
+
+const blockGuidance: Record<BlockEnrichmentId, string> = {
+  description:
+    "Fill identity.description fields for the product idea, buyer or user, and mechanism. Prefer primary product pages and independent product analysis. Do not use category labels when concrete workflow language is available.",
+  funding:
+    "Build the funding ledger before any totals. For each cited round, capture the round name, the exact USD amount whenever the source states one (do not round-number guess; record explicit figures verbatim), the announcedAt date, and the named leads in leadInvestors. For funding.investors, enumerate every named investor across every round (leads and participating both), deduped, with their domain when the source provides it. For totalRaisedUsd, fill it only when a cited source states the cumulative total explicitly or when every round in the ledger has a cited amount you can sum without overlap. Prefer recent reporting from Reuters, Bloomberg, TechCrunch, The Information, Crunchbase News, PitchBook, and Forbes; company press releases and investor posts are acceptable for exact announcement facts. Demote aggregator pages that lack a primary citation.",
+  team:
+    "Extract founders, CEO, and current management team. Include public work emails only when explicitly present in cited professional sources or provider enrichment. Do not guess email patterns or personal email addresses.",
+  signals:
+    "Extract recent traction signals: launches, customers, hiring, partnerships, funding, filings, technical releases, and credible news. Prefer dated sources and avoid generic profile blurbs.",
+  comparables:
+    "Pick 3 to 5 real competitors or close adjacencies. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis must name one concrete overlap with the target — same buyer, same workflow, same product category, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support real overlap, return fewer rather than fabricate.",
+};
+
+export async function extractCompanyBlockClaims(input: {
+  client: Anthropic;
+  model: string;
+  block: BlockEnrichmentId;
+  evidence: ExtractionEvidence & { currentSections?: ExtractedCardSections };
+}) {
+  const response: Message = await input.client.messages.create({
+    model: input.model,
+    max_tokens: 1800,
+    temperature: 0,
+    system: [
+      {
+        type: "text",
+        text: [
+          investorTasteKernel,
+          "You extract one Cold Start card block from public cited evidence.",
+          "Return only claims supported by citations in this prompt. Use null or omit fields when evidence is missing.",
+          "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
+          blockGuidance[input.block],
+        ].join(" "),
+        cache_control: { type: "ephemeral" },
+      }
+    ],
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              blockId: input.block,
+              ...evidenceForExtractionPrompt(input.evidence, { scope: "block" }),
+              ...(input.evidence.currentSections ? { currentSections: input.evidence.currentSections } : {}),
+            })
+          }
+        ]
+      }
+    ],
+    tools: [blockEnrichmentTool],
+    tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
+  });
+
+  return parseBlockEnrichmentToolUse(response);
 }
