@@ -213,7 +213,7 @@ function cleanSeedTitle(title: string, domain: string) {
 function cleanSeedSummary(rawText: string, domain: string) {
   const firstLine = rawText
     .split(/\r?\n/)
-    .map((line) => line.replace(/[#*_`>\[\]()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
+    .map((line) => line.replace(/[#*_`>[\]()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
     .find((line) => {
       const lower = line.toLowerCase();
       return (

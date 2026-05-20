@@ -17,13 +17,11 @@ import { type CostLine, totalGenerationCost } from "./cost";
 import { buildEvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger";
 import { applyProviderFactCandidates } from "./provider-facts";
 import {
-  buildSeedProfileCard,
   buildSkeletonCard,
   type ExtractedCardSections,
   extractedCardSectionsSchema,
   fallbackSectionsFromEvidence,
   finalizeGeneratedCard,
-  type SeedProfileTrace,
   unknownFact
 } from "./seed-profile";
 

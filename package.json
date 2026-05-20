@@ -16,7 +16,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint .",
     "vercel:login": "vercel login",
     "db:generate": "npm run db:generate -w @cold-start/db",
     "db:migrate": "npm run db:migrate -w @cold-start/db",
@@ -28,14 +28,19 @@
     "eval:golden": "node eval/run-golden.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@next/env": "^15.5.15",
     "@types/node": "^22.15.0",
     "concurrently": "^9.2.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
     "inngest-cli": "^1.19.1",
     "next": "^15.4.0",
     "pg": "^8.20.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
+    "typescript-eslint": "^8.59.4",
     "vercel": "^54.2.0",
     "vitest": "^3.2.0"
   },

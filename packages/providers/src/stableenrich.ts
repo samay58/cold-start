@@ -3,7 +3,6 @@ import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edg
 import {
   allSettledLimited,
   cleanEmailPart,
-  dedupeRecordsByUrl,
   domainFromUrl,
   emailValue,
   escapeRegExp,
@@ -449,7 +448,7 @@ async function runExaEmailDiscovery(input: {
   return { people: [...peopleFromEmails, ...peopleFromLeaders], results: settled };
 }
 
-function extractLeadersFromExaResults(payload: unknown, domain: string): PersonRecord[] {
+function extractLeadersFromExaResults(payload: unknown, _domain: string): PersonRecord[] {
   const records = extractUrlRecords(payload);
   const out = new Map<string, PersonRecord>();
 
@@ -477,8 +476,6 @@ function extractLeadersFromExaResults(payload: unknown, domain: string): PersonR
   // Don't return excessive candidates — limit to top 6 to keep Hunter spend bounded.
   return Array.from(out.values()).slice(0, 6);
 }
-
-const LEADERSHIP_TITLE_REGEX = /\b(Co-?Founder|Founder|CEO|Chief Executive Officer|CTO|Chief Technology Officer|CFO|Chief Financial Officer|COO|Chief Operating Officer|CPO|Chief Product Officer|CRO|Chief Revenue Officer|CMO|Chief Marketing Officer|President|Managing Partner|General Partner|Head of (?:Engineering|Product|Sales|Marketing|Design))\b/gi;
 
 function leadershipNameCandidates(rawText: string): Array<{ name: string; role: string | null }> {
   const text = rawText.replace(/\s+/g, " ");

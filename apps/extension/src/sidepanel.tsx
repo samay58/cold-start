@@ -1,24 +1,13 @@
-import { hasUsablePublicProfile, publicProfileQuality, type ColdStartCard } from "@cold-start/core";
+import { hasUsablePublicProfile, type ColdStartCard } from "@cold-start/core";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ApiError,
-  buildBootstrapRequest,
-  buildGenerateRequest,
-  buildGenerationStatusRequest,
-  buildCardRequest,
   defaultApiOrigin,
   normalizeApiOrigin,
-  parseBootstrapResponse,
-  parseCardResponse,
-  parseGenerateResponse,
-  parseGenerationStatusResponse,
   readableCompanyNameFromDomain,
   readableCardError,
   resolveStoredSettings,
-  type ExtensionBootstrapResponse,
-  type GenerationRunStatus,
   type GenerationStatus,
   type Settings
 } from "./extension-config";
@@ -28,16 +17,12 @@ import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import type { ResearchLayerId } from "./research-layer";
 import {
-  assertUsableBasicsCard,
   fetchBootstrap,
-  fetchCard,
   isActiveRun,
-  isMissingCard,
   markPerformance,
   pollGenerationUntilCard,
   startedAtMs,
-  startGenerationAndPoll,
-  type GenerationPollResult
+  startGenerationAndPoll
 } from "./sidepanel-network";
 import type { SourcePassStage } from "./SourcePassInstrument";
 import "./styles.css";

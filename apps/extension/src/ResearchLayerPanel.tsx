@@ -20,7 +20,6 @@ import {
 import { CompanyLogo } from "./CompanyLogo";
 import {
   compactProfileSummary,
-  formatCompactCurrency,
   formatElapsed,
   formatOptionalCurrency,
   formatOptionalNumber
