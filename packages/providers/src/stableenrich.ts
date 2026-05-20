@@ -1,5 +1,24 @@
 import { agentcashJson } from "./agentcash";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
+import {
+  allSettledLimited,
+  cleanEmailPart,
+  dedupeRecordsByUrl,
+  domainFromUrl,
+  emailValue,
+  escapeRegExp,
+  extractUrlRecords,
+  integerValue,
+  numberValue,
+  objectRecord,
+  parseJsonOrNull,
+  stringRecordValue,
+  stringValue,
+  supportedUrl,
+  truncateText,
+  urlFromDomain,
+  workEmailValue
+} from "./stableenrich-utils";
 import type {
   PeopleEmailHint,
   ProviderFactCandidate,
@@ -1030,40 +1049,6 @@ async function runCladoEmailFallbackRequests(input: {
   });
 }
 
-async function allSettledLimited<T, R>(
-  items: T[],
-  task: (item: T) => Promise<R>,
-): Promise<PromiseSettledResult<R>[]> {
-  const limit = stableenrichAgentcashConcurrency(items.length);
-  const results = new Array<PromiseSettledResult<R>>(items.length);
-  let nextIndex = 0;
-
-  async function worker() {
-    while (true) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= items.length) {
-        return;
-      }
-
-      try {
-        results[index] = { status: "fulfilled", value: await task(items[index]!) };
-      } catch (reason) {
-        results[index] = { status: "rejected", reason };
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: limit }, worker));
-  return results;
-}
-
-function stableenrichAgentcashConcurrency(itemCount: number) {
-  const configured = Number.parseInt(process.env.STABLEENRICH_AGENTCASH_CONCURRENCY ?? "", 10);
-  const requested = Number.isFinite(configured) && configured > 0 ? configured : 3;
-  return Math.max(1, Math.min(itemCount, requested));
-}
-
 function stableenrichProbeTimeoutMs(name: StableenrichProbe["name"]) {
   const configured = Number.parseInt(process.env.STABLEENRICH_AGENTCASH_TIMEOUT_MS ?? "", 10);
   if (Number.isFinite(configured) && configured > 0) {
@@ -1819,10 +1804,6 @@ function roleHintFromText(text: string, domain: string) {
   return role && !looksLikePersonName(role) ? normalizedPersonRole(role) ?? role : undefined;
 }
 
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function normalizedPersonRole(role: string | undefined) {
   const trimmed = role?.trim();
   if (!trimmed) {
@@ -2118,11 +2099,6 @@ function emailCandidatesForPerson(person: PersonRecord, domain: string) {
     .slice(0, 6);
 }
 
-function cleanEmailPart(value: string | undefined) {
-  const cleaned = value?.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  return cleaned && cleaned.length > 0 ? cleaned : null;
-}
-
 const GENERIC_PERSON_NAME_TOKENS = new Set([
   "about",
   "admin",
@@ -2372,153 +2348,12 @@ function addUrlFact(
   }
 }
 
-function extractUrlRecords(payload: unknown): Record<string, unknown>[] {
-  const records: Record<string, unknown>[] = [];
-  const seen = new Set<unknown>();
-
-  function visit(value: unknown) {
-    if (!value || typeof value !== "object" || seen.has(value)) {
-      return;
-    }
-
-    seen.add(value);
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        visit(item);
-      }
-      return;
-    }
-
-    const record = value as Record<string, unknown>;
-    if (typeof record.url === "string" && record.url.startsWith("http")) {
-      records.push(record);
-      return;
-    }
-
-    for (const nested of Object.values(record)) {
-      visit(nested);
-    }
-  }
-
-  visit(payload);
-  return dedupeRecordsByUrl(records);
-}
-
-function dedupeRecordsByUrl(records: Record<string, unknown>[]) {
-  const byUrl = new Map<string, Record<string, unknown>>();
-  for (const record of records) {
-    const url = stringRecordValue(record, "url");
-    if (url && !byUrl.has(url)) {
-      byUrl.set(url, record);
-    }
-  }
-  return Array.from(byUrl.values());
-}
-
-function stringRecordValue(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function objectRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-
-function stringValue(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-}
-
-function parseJsonOrNull(value: string): unknown {
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
-}
-
-function emailValue(value: unknown): string | null {
-  const candidate = stringValue(value);
-  if (!candidate) {
-    return null;
-  }
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : null;
-}
-
-function workEmailValue(value: unknown, domain: string | undefined): string | null {
-  const email = emailValue(value);
-  if (!email) {
-    return null;
-  }
-
-  if (!domain) {
-    return email;
-  }
-
-  const emailDomain = email.split("@")[1]?.toLowerCase().replace(/^www\./, "");
-  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
-  return emailDomain === normalizedDomain ? email : null;
-}
-
-function integerValue(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.round(value);
-  }
-
-  if (typeof value === "string") {
-    const cleaned = value.replace(/[$,]/g, "").trim();
-    const parsed = Number(cleaned);
-    return Number.isFinite(parsed) ? Math.round(parsed) : null;
-  }
-
-  return null;
-}
-
-function numberValue(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function supportedUrl(value: string) {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function urlFromDomain(domain: string | null) {
-  return domain ? `https://${domain}` : null;
-}
-
-function domainFromUrl(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  try {
-    return new URL(value.startsWith("http") ? value : `https://${value}`).hostname.replace(/^www\./i, "").toLowerCase();
-  } catch {
-    return null;
-  }
-}
-
 function stableenrichCitationUrl(endpointUrl: string, domain: string | null) {
   const url = new URL(endpointUrl);
   if (domain) {
     url.searchParams.set("domain", domain);
   }
   return url.toString();
-}
-
-function truncateText(value: string, maxLength: number) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, maxLength - 1).trim()}.`;
 }
 
 function requireStableenrichConfig(env: StableenrichEnv) {
