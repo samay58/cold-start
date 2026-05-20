@@ -1,5 +1,5 @@
 import { hasUsablePublicProfile, type ColdStartCard } from "@cold-start/core";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -474,40 +474,40 @@ export function SidePanel() {
     void writeCachedCard(domain, settings, requestState.card);
   }, [domain, requestState, settings]);
 
-  function abortActiveRequest() {
+  const abortActiveRequest = useCallback(() => {
     activeRequest.current?.abort();
     activeRequest.current = null;
-  }
+  }, []);
 
-  function abortProfileRefreshRequest() {
+  const abortProfileRefreshRequest = useCallback(() => {
     profileRefreshRequest.current?.abort();
     profileRefreshRequest.current = null;
-  }
+  }, []);
 
-  function abortAllRequests() {
+  const abortAllRequests = useCallback(() => {
     abortActiveRequest();
     abortProfileRefreshRequest();
-  }
+  }, [abortActiveRequest, abortProfileRefreshRequest]);
 
-  function clearActiveRequest(controller: AbortController) {
+  const clearActiveRequest = useCallback((controller: AbortController) => {
     if (activeRequest.current === controller) {
       activeRequest.current = null;
     }
-  }
+  }, []);
 
-  function clearProfileRefreshRequest(controller: AbortController) {
+  const clearProfileRefreshRequest = useCallback((controller: AbortController) => {
     if (profileRefreshRequest.current === controller) {
       profileRefreshRequest.current = null;
     }
-  }
+  }, []);
 
-  function watchBasicsCompletionWithController(
+  const watchBasicsCompletionWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
     latestCard: ColdStartCard,
     startedAt: number
-  ) {
+  ) => {
     void pollGenerationUntilCard(
       generationDomain,
       generationSettings,
@@ -558,15 +558,15 @@ export function SidePanel() {
           });
         }
       });
-  }
+  }, []);
 
-  function runGenerationWithController(
+  const runGenerationWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
     mode: "basics",
     confirmStart: boolean
-  ) {
+  ) => {
     const startedAt = Date.now();
     setRequestState({ status: "generating", generationStatus: "queued", mode, startedAt });
 
@@ -610,14 +610,14 @@ export function SidePanel() {
       .finally(() => {
         clearActiveRequest(controller);
       });
-  }
+  }, [clearActiveRequest, watchBasicsCompletionWithController]);
 
-  function runAnalysisWithController(
+  const runAnalysisWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
     currentCard: ColdStartCard
-  ) {
+  ) => {
     const startedAt = Date.now();
     setRequestState({
       status: "success",
@@ -668,15 +668,15 @@ export function SidePanel() {
       .finally(() => {
         clearActiveRequest(controller);
       });
-  }
+  }, [clearActiveRequest]);
 
-  function runProfileRefreshWithController(
+  const runProfileRefreshWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
     currentState: Extract<RequestState, { status: "success" }>,
     layerId: ResearchLayerId
-  ) {
+  ) => {
     const startedAt = Date.now();
     const profileRefreshRun: ProfileRefreshRunState = {
       generationStatus: "queued",
@@ -745,16 +745,16 @@ export function SidePanel() {
       .finally(() => {
         clearProfileRefreshRequest(controller);
       });
-  }
+  }, [clearProfileRefreshRequest]);
 
-  function resumeAnalysisWithController(
+  const resumeAnalysisWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
     generationStatus: "queued" | "running",
     runStartedAt: string | undefined,
     latestCard: ColdStartCard
-  ) {
+  ) => {
     const startedAt = startedAtMs(runStartedAt);
     setRequestState({
       status: "success",
@@ -805,9 +805,9 @@ export function SidePanel() {
       .finally(() => {
         clearActiveRequest(controller);
       });
-  }
+  }, [clearActiveRequest]);
 
-  function resumeGenerationWithController(
+  const resumeGenerationWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
@@ -815,7 +815,7 @@ export function SidePanel() {
     generationStatus: "queued" | "running",
     runStartedAt?: string,
     latestCard: ColdStartCard | null = null
-  ) {
+  ) => {
     const startedAt = startedAtMs(runStartedAt);
     setRequestState({ status: "generating", generationStatus, mode, startedAt });
 
@@ -851,7 +851,7 @@ export function SidePanel() {
       .finally(() => {
         clearActiveRequest(controller);
       });
-  }
+  }, [clearActiveRequest]);
 
   useEffect(() => {
     let mounted = true;
@@ -886,7 +886,7 @@ export function SidePanel() {
       abortAllRequests();
       chrome.storage.onChanged.removeListener(handleStorageChange);
     };
-  }, []);
+  }, [abortAllRequests]);
 
   useEffect(() => {
     if (!domain || !settings?.apiToken) {
@@ -988,7 +988,16 @@ export function SidePanel() {
         activeRequest.current = null;
       }
     };
-  }, [domain, settings]);
+  }, [
+    abortAllRequests,
+    clearActiveRequest,
+    domain,
+    resumeAnalysisWithController,
+    resumeGenerationWithController,
+    runGenerationWithController,
+    settings,
+    watchBasicsCompletionWithController
+  ]);
 
   function handleStartGeneration(mode: "basics", confirmStart: boolean) {
     if (!domain || !settings?.apiToken) {
