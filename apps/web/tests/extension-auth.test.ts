@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { assertExtensionRequest } from "../src/lib/extension-auth";
 
@@ -22,6 +22,13 @@ function extensionHeaders(origin?: string, token?: string, extensionId?: string)
 }
 
 describe("assertExtensionRequest", () => {
+  beforeEach(() => {
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.CHROME_EXTENSION_ID;
+    delete process.env.EXTENSION_API_TOKEN;
+    delete process.env.NODE_ENV;
+  });
+
   afterEach(() => {
     if (originalAllowedOrigins === undefined) {
       delete process.env.ALLOWED_EXTENSION_ORIGINS;

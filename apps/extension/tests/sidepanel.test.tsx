@@ -416,8 +416,12 @@ describe("SidePanel generation gate", () => {
   });
 
   it("renders a session-cached card before network revalidation", async () => {
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
     const cachedCard = cardForDomain("linear.app");
-    const resolvedApiOrigin = "https://cold-start-samay58s-projects.vercel.app";
+    const resolvedApiOrigin = storedApiOriginOrDefault(
+      settings.coldStartApiOrigin,
+      defaultApiOrigin(import.meta.env)
+    );
     const cacheKey = `coldStartCard:${encodeURIComponent(resolvedApiOrigin)}:${encodeURIComponent("linear.app")}`;
     let resolveBootstrap: ((response: Response) => void) | undefined;
     const fetchMock = vi.fn(() => new Promise<Response>((resolve) => {

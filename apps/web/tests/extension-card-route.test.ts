@@ -38,6 +38,7 @@ describe("GET /api/extension/cards/[slug]", () => {
   beforeEach(() => {
     process.env.NODE_ENV = "test";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.CHROME_EXTENSION_ID;
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.getFullCachedCard.mockReset();
   });
