@@ -1,4 +1,6 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { getPublicCachedCard } from "../../../lib/cards";
 import { buildOpenGraphModel, type OpenGraphFact } from "./opengraph-model";
 
@@ -37,21 +39,44 @@ const colors = {
 
 let fontPromise: Promise<OpenGraphFont[]> | null = null;
 
-async function loadFont(path: string) {
-  const response = await fetch(new URL(path, import.meta.url));
-  if (!response.ok) {
-    throw new Error(`Failed to load OG font: ${path}`);
+const fontUrls = {
+  fraunces400: new URL("./fonts/fraunces-latin-400-normal.ttf", import.meta.url),
+  fraunces700: new URL("./fonts/fraunces-latin-700-normal.ttf", import.meta.url),
+  mona500: new URL("./fonts/mona-sans-latin-500-normal.ttf", import.meta.url),
+  mona700: new URL("./fonts/mona-sans-latin-700-normal.ttf", import.meta.url)
+};
+
+async function loadFont(url: URL) {
+  const pathname = decodeURIComponent(url.pathname);
+  const fileName = basename(pathname);
+  const sourceName = fileName.replace(/\.[a-f0-9]+(?=\.ttf$)/, "");
+  const candidates = [
+    pathname,
+    join(process.cwd(), ".next/server/chunks/static/media", fileName),
+    join(process.cwd(), "apps/web/.next/server/chunks/static/media", fileName),
+    join(process.cwd(), "src/app/c/[slug]/fonts", sourceName),
+    join(process.cwd(), "apps/web/src/app/c/[slug]/fonts", sourceName)
+  ];
+
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const buffer = await readFile(candidate);
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+    } catch (error) {
+      lastError = error;
+    }
   }
 
-  return response.arrayBuffer();
+  throw new Error(`Failed to load OG font ${fileName}: ${lastError instanceof Error ? lastError.message : "unknown error"}`);
 }
 
 function loadOpenGraphFonts() {
   fontPromise ??= Promise.all([
-    loadFont("./fonts/fraunces-latin-400-normal.woff2"),
-    loadFont("./fonts/fraunces-latin-700-normal.woff2"),
-    loadFont("./fonts/mona-sans-latin-500-normal.woff2"),
-    loadFont("./fonts/mona-sans-latin-700-normal.woff2")
+    loadFont(fontUrls.fraunces400),
+    loadFont(fontUrls.fraunces700),
+    loadFont(fontUrls.mona500),
+    loadFont(fontUrls.mona700)
   ]).then(([fraunces400, fraunces700, mona500, mona700]): OpenGraphFont[] => [
     { data: fraunces400, name: "Fraunces", style: "normal", weight: 400 },
     { data: fraunces700, name: "Fraunces", style: "normal", weight: 700 },

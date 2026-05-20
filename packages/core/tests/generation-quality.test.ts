@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ColdStartCard, GenerationTrace } from "../src/index";
-import { generationQualityFlags } from "../src/index";
+import { formatGenerationQualityFlags, generationQualityFlags } from "../src/index";
 
 function baseTrace(): GenerationTrace {
   return {
@@ -177,5 +177,12 @@ describe("generationQualityFlags", () => {
       "long_plan_step",
       "long_generate_step"
     ]);
+  });
+
+  it("formats quality flags for QA scripts", () => {
+    expect(formatGenerationQualityFlags([])).toBe("ok");
+
+    const flags = generationQualityFlags({ status: "complete", mode: "analysis", traceJson: null });
+    expect(formatGenerationQualityFlags(flags)).toBe("missing_trace");
   });
 });
