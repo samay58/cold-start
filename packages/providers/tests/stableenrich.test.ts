@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildStableenrichRequests,
   fetchStableenrichPeopleEmailSources,
@@ -747,9 +747,75 @@ describe("fetchStableenrichSources", () => {
       ]),
     );
   });
+
+  it("does not enrich company-looking pseudo people from search results", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "canva.com",
+      agentcashFetch: async ({ url, body }) => {
+        calls.push({ url, body });
+        if (url === "https://stable.example/exa/search" && String(body.query).includes("founders CEO leadership")) {
+          return {
+            results: [
+              {
+                url: "https://www.cbinsights.com/company/canva/people",
+                title: "Canva CEO - Canva People | CB Insights",
+                text: "# Canva CEO\n\nFounder at Canva",
+              },
+              {
+                url: "https://rocketreach.co/canva-management",
+                title: "Canva Management",
+                text: "# Canva Management\n\nLeadership team at Canva",
+              },
+            ],
+          };
+        }
+
+        if (url === "https://stable.example/people-search") {
+          return { people: [], pagination: { page: 1, per_page: 5, total_entries: 0, total_pages: 0 } };
+        }
+
+        if (url === "https://stable.example/people-enrich") {
+          return {
+            person: {
+              name: "Canva Management",
+              title: "Founder",
+            },
+          };
+        }
+
+        if (url === "https://stable.example/hunter") {
+          return {
+            status: body.email === "canva@canva.com" ? "valid" : "invalid",
+            score: body.email === "canva@canva.com" ? 100 : 0,
+            email: body.email,
+            mx_records: true,
+            smtp_server: true,
+            smtp_check: body.email === "canva@canva.com",
+          };
+        }
+
+        return { results: [] };
+      },
+    });
+
+    expect(calls.some((call) => call.url === "https://stable.example/people-enrich")).toBe(false);
+    expect(calls.some((call) => call.url === "https://stable.example/hunter")).toBe(false);
+    expect(JSON.stringify(result.facts)).not.toContain("Canva Management");
+    expect(JSON.stringify(result.facts)).not.toContain("canva@canva.com");
+  });
 });
 
 describe("fetchStableenrichPeopleEmailSources", () => {
+  beforeEach(() => {
+    process.env.SEC_EDGAR_DISABLED = "true";
+  });
+
+  afterEach(() => {
+    delete process.env.SEC_EDGAR_DISABLED;
+  });
+
   it("verifies emails from explicit card people when provider search misses the team", async () => {
     const result = await fetchStableenrichPeopleEmailSources({
       env: stableenrichEnv(),
@@ -872,6 +938,212 @@ describe("fetchStableenrichPeopleEmailSources", () => {
         }),
       ]),
     );
+  });
+
+  it("drops mismatched people-enrich records for explicit card people", async () => {
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "canva.com",
+      sourceHints: [],
+      peopleHints: [
+        {
+          name: "Adam Schuck",
+          role: "Head of People",
+          sourceUrl: "https://linkedin.com/in/adamschuck",
+        },
+      ],
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/people-enrich") {
+          return {
+            person: {
+              name: "Chuck Adams",
+              title: "CEO",
+            },
+          };
+        }
+
+        if (url === "https://stable.example/minerva") {
+          return {
+            results: [
+              {
+                is_match: true,
+                full_name: "CHARLES LEWIS ADAMS",
+                linkedin_title: "CEO",
+                linkedin_url: "https://linkedin.com/in/adamschuck",
+              },
+            ],
+          };
+        }
+
+        if (url === "https://stable.example/clado") {
+          return { data: [] };
+        }
+
+        if (url === "https://stable.example/hunter") {
+          return {
+            status: body.email === "adam@canva.com" ? "valid" : "invalid",
+            score: body.email === "adam@canva.com" ? 93 : 6,
+            email: body.email,
+            mx_records: true,
+            smtp_server: true,
+            smtp_check: body.email === "adam@canva.com",
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(JSON.stringify(result.facts)).not.toContain("Chuck Adams");
+    expect(JSON.stringify(result.facts)).not.toContain("CHARLES LEWIS ADAMS");
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "team.keyExecs",
+          value: [
+            expect.objectContaining({
+              name: "Adam Schuck",
+              email: "adam@canva.com",
+            }),
+          ],
+        }),
+      ]),
+    );
+  });
+
+  it("ignores off-domain people-enrich emails and still tries Hunter", async () => {
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "canva.com",
+      sourceHints: [],
+      peopleHints: [
+        {
+          name: "Cameron Adams",
+          role: "Co-founder and CPO",
+          sourceUrl: "https://linkedin.com/in/cameronadams",
+        },
+      ],
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/people-enrich") {
+          return {
+            person: {
+              name: "Cameron Adams",
+              title: "Principal - Healthcare",
+              email: "cameron.adams@sealedair.com",
+              email_status: "verified",
+              linkedin_url: "http://www.linkedin.com/in/cameronadams",
+            },
+          };
+        }
+
+        if (url === "https://stable.example/minerva") {
+          return { api_request_id: "req", request_completed_at: "2026-05-19T00:00:00.000Z", results: [] };
+        }
+
+        if (url === "https://stable.example/clado") {
+          return { data: [] };
+        }
+
+        if (url === "https://stable.example/hunter") {
+          return {
+            status: body.email === "cameron@canva.com" ? "valid" : "invalid",
+            score: body.email === "cameron@canva.com" ? 95 : 4,
+            email: body.email,
+            mx_records: true,
+            smtp_server: true,
+            smtp_check: body.email === "cameron@canva.com",
+          };
+        }
+
+        return { results: [] };
+      },
+    });
+
+    expect(JSON.stringify(result.facts)).not.toContain("sealedair.com");
+    expect(JSON.stringify(result.facts)).not.toContain("Principal - Healthcare");
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "team.founders",
+          value: [
+            expect.objectContaining({
+              name: "Cameron Adams",
+              role: "Co-founder and CPO",
+              email: "cameron@canva.com",
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(result.emailDiscovery).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Cameron Adams",
+          emailFound: "cameron@canva.com",
+          emailSource: "hunter",
+        }),
+      ]),
+    );
+  });
+
+  it("does not verify role inboxes for pseudo people from source hints", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "canva.com",
+      sourceHints: [
+        {
+          url: "https://www.cbinsights.com/company/canva/people",
+          title: "Canva CEO - Canva People | CB Insights",
+          sourceType: "news",
+          intent: "management_team",
+          fetchedAt: "2026-05-20T00:00:00.000Z",
+          rawText: JSON.stringify({
+            url: "https://www.cbinsights.com/company/canva/people",
+            title: "Canva CEO - Canva People | CB Insights",
+            text: "# Canva CEO\n\nFounder at Canva",
+          }),
+        },
+      ],
+      peopleHints: [],
+      agentcashFetch: async ({ url, body }) => {
+        calls.push({ url, body });
+        if (url === "https://stable.example/people-search") {
+          return { people: [], pagination: { page: 1, per_page: 5, total_entries: 0, total_pages: 0 } };
+        }
+
+        if (url === "https://stable.example/exa/search") {
+          return { results: [] };
+        }
+
+        if (url === "https://stable.example/people-enrich") {
+          return {
+            person: {
+              name: "Canva Management",
+              title: "Founder",
+            },
+          };
+        }
+
+        if (url === "https://stable.example/hunter") {
+          return {
+            status: body.email === "canva@canva.com" ? "valid" : "invalid",
+            score: body.email === "canva@canva.com" ? 100 : 0,
+            email: body.email,
+            mx_records: true,
+            smtp_server: true,
+            smtp_check: body.email === "canva@canva.com",
+          };
+        }
+
+        return { organizations: [] };
+      },
+    });
+
+    expect(calls.some((call) => call.url === "https://stable.example/people-enrich")).toBe(false);
+    expect(calls.some((call) => call.url === "https://stable.example/hunter")).toBe(false);
+    expect(result.facts).toEqual([]);
+    expect(result.emailDiscovery).toEqual([]);
   });
 
   it("runs email verification from merged provider source hints", async () => {

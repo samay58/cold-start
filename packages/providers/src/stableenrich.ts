@@ -878,7 +878,7 @@ async function runPeopleFollowupRequests(input: {
   const enrichedPeople = enrichSettled.flatMap((result) =>
     result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
   );
-  const fallbackLeaders = rankPeople([...leaders, ...enrichedPeople]).filter((person) => !emailValue(person.email)).slice(0, MAX_FALLBACK_LEADERS);
+  const fallbackLeaders = rankPeople([...leaders, ...enrichedPeople]).filter((person) => !workEmailValue(person.email, input.domain)).slice(0, MAX_FALLBACK_LEADERS);
   const minervaSettled = await runMinervaEmailFallbackRequests({
     env: input.env,
     domain: input.domain,
@@ -891,7 +891,7 @@ async function runPeopleFollowupRequests(input: {
   const cladoSettled = await runCladoEmailFallbackRequests({
     env: input.env,
     domain: input.domain,
-    leaders: rankPeople([...fallbackLeaders, ...minervaPeople]).filter((person) => !emailValue(person.email)).slice(0, MAX_FALLBACK_LEADERS),
+    leaders: rankPeople([...fallbackLeaders, ...minervaPeople]).filter((person) => !workEmailValue(person.email, input.domain)).slice(0, MAX_FALLBACK_LEADERS),
     agentcashFetch: input.agentcashFetch,
   });
   const cladoPeople = cladoSettled.flatMap((result) =>
@@ -899,12 +899,12 @@ async function runPeopleFollowupRequests(input: {
   );
   const peopleWithEmailNames = new Set(
     [...enrichedPeople, ...minervaPeople, ...cladoPeople]
-      .filter((person) => emailValue(person.email))
+      .filter((person) => workEmailValue(person.email, input.domain))
       .map((person) => personNameKey(person))
       .filter((key): key is string => key !== null)
   );
   const peopleForVerification = rankPeople([...leaders, ...enrichedPeople, ...minervaPeople, ...cladoPeople])
-    .filter((person) => !emailValue(person.email))
+    .filter((person) => !workEmailValue(person.email, input.domain))
     .filter((person) => {
       const key = personNameKey(person);
       return !key || !peopleWithEmailNames.has(key);
@@ -1360,7 +1360,9 @@ function peopleFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
   }
 
   return extractPeopleRecords(result.result)
+    .filter((person) => personMatchesProbeMetadata(person, result.metadata))
     .map((person) => withPersonMetadata(person, result.metadata))
+    .filter((person) => isUsablePersonRecord(person))
     .flatMap((person) => personFactCandidates(person, result));
 }
 
@@ -1405,7 +1407,7 @@ function exaEmailFacts(result: StableenrichProbeResult): ProviderFactCandidate[]
 function hunterEmailFact(result: StableenrichProbeResult): ProviderFactCandidate[] {
   const metadata = result.metadata;
   const email = workEmailValue(metadata?.email, metadata?.domain) ?? workEmailValue(stringRecordValue(objectRecord(result.result) ?? {}, "email"), metadata?.domain);
-  if (!metadata?.personName || !email || !hunterVerificationAccepted(result.result)) {
+  if (!metadata?.personName || !email || !isUsablePersonName(metadata.personName) || !isPersonEmailCandidate(email, metadata.domain) || !hunterVerificationAccepted(result.result)) {
     return [];
   }
 
@@ -1442,6 +1444,10 @@ function personFactCandidates(person: PersonRecord, result: StableenrichProbeRes
 
   const role = normalizedPersonRole(person.role);
   const email = workEmailValue(person.email, result.metadata?.domain);
+  if (result.metadata?.personName && !email) {
+    return [];
+  }
+
   const fetchedAt = new Date().toISOString();
   const candidateSourceUrl = person.linkedinUrl ?? person.sourceUrl;
   const sourceUrl = candidateSourceUrl && supportedUrl(candidateSourceUrl) ? candidateSourceUrl : null;
@@ -1476,6 +1482,45 @@ function withPersonMetadata(person: PersonRecord, metadata: StableenrichProbeRes
     ...(person.role || !metadata?.role ? {} : { role: metadata.role }),
     ...(person.linkedinUrl || person.sourceUrl || !metadata?.sourceUrl ? {} : { sourceUrl: metadata.sourceUrl }),
   };
+}
+
+function personMatchesProbeMetadata(person: PersonRecord, metadata: StableenrichProbeResult["metadata"]) {
+  if (metadata?.personName && !isUsablePersonName(metadata.personName)) {
+    return false;
+  }
+
+  if (!metadata?.personName) {
+    return true;
+  }
+
+  const name = person.name ?? fullName(person.firstName, person.lastName);
+  if (!name) {
+    return true;
+  }
+  if (!isUsablePersonName(name)) {
+    return false;
+  }
+
+  return samePersonName(name, metadata.personName);
+}
+
+function samePersonName(left: string, right: string) {
+  const leftNormalized = normalizePersonName(left);
+  const rightNormalized = normalizePersonName(right);
+  if (!leftNormalized || !rightNormalized) {
+    return false;
+  }
+  if (leftNormalized === rightNormalized) {
+    return true;
+  }
+
+  const leftTokens = new Set(leftNormalized.split(" ").filter((token) => token.length > 1));
+  const rightTokens = rightNormalized.split(" ").filter((token) => token.length > 1);
+  return rightTokens.length >= 2 && rightTokens.every((token) => leftTokens.has(token));
+}
+
+function normalizePersonName(value: string) {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function extractPeopleRecords(payload: unknown): PersonRecord[] {
@@ -1825,6 +1870,9 @@ function summarizeEmailDiscovery(
     return [];
   }
 
+  const domain = results.flatMap((result) =>
+    result.status === "fulfilled" && result.value.metadata?.domain ? [result.value.metadata.domain] : [],
+  )[0];
   const secNames = new Set(
     (context.secOfficers ?? []).map((officer) => officer.fullName.toLowerCase().trim()),
   );
@@ -1835,12 +1883,14 @@ function summarizeEmailDiscovery(
   );
   const exaEmailsByName = new Map(
     (context.exaPeople ?? [])
-      .filter((person) => person.email)
-      .map((person): [string, string] => {
+      .flatMap((person): Array<[string, string]> => {
+        const email = workEmailValue(person.email, domain);
+        if (!email) {
+          return [];
+        }
         const name = (person.name ?? fullName(person.firstName, person.lastName) ?? "").toLowerCase().trim();
-        return [name, person.email as string];
+        return name ? [[name, email]] : [];
       })
-      .filter(([name]) => name.length > 0),
   );
 
   const entries = new Map<string, StableenrichEmailDiscovery>();
@@ -1859,8 +1909,9 @@ function summarizeEmailDiscovery(
         ? "exa"
         : "apollo";
     const exaEmail = exaEmailsByName.get(key) ?? null;
-    const seedEmail = leader.email ?? exaEmail;
-    const seedSource: StableenrichEmailDiscovery["emailSource"] = leader.email
+    const leaderEmail = workEmailValue(leader.email, domain);
+    const seedEmail = leaderEmail ?? exaEmail;
+    const seedSource: StableenrichEmailDiscovery["emailSource"] = leaderEmail
       ? "apollo_search"
       : exaEmail
         ? "exa"
@@ -1898,7 +1949,7 @@ function summarizeEmailDiscovery(
       const source: StableenrichEmailDiscovery["emailSource"] =
         probe.name === "apollo_people_enrich" ? "apollo_enrich" : probe.name === "minerva_enrich" ? "minerva" : "clado";
       for (const person of people) {
-        const email = emailValue(person.email);
+        const email = workEmailValue(person.email, probe.metadata?.domain);
         if (!email) {
           continue;
         }
@@ -1912,7 +1963,7 @@ function summarizeEmailDiscovery(
     }
     if (probe.name === "hunter_email_verifier") {
       const personName = probe.metadata?.personName;
-      const email = probe.metadata?.email;
+      const email = workEmailValue(probe.metadata?.email, probe.metadata?.domain);
       if (!personName || !email) {
         continue;
       }
@@ -1943,13 +1994,19 @@ function summarizeEmailDiscovery(
 function rankPeople(people: PersonRecord[]) {
   const byKey = new Map<string, PersonRecord>();
   for (const person of people) {
+    if (!isUsablePersonRecord(person)) {
+      continue;
+    }
+
     const name = person.name ?? fullName(person.firstName, person.lastName);
     if (!name) {
       continue;
     }
-    const key = `${name.toLowerCase()}:${person.linkedinUrl ?? person.sourceUrl ?? ""}`;
+    const key = name.toLowerCase().trim();
     const current = byKey.get(key);
-    if (!current || roleScoreForPerson(person.role) > roleScoreForPerson(current.role) || (!current.email && person.email)) {
+    const personScore = roleScoreForPerson(person.role);
+    const currentScore = current ? roleScoreForPerson(current.role) : -1;
+    if (!current || personScore > currentScore || (personScore === currentScore && !current.email && person.email)) {
       byKey.set(key, { ...person, name });
     }
   }
@@ -2035,12 +2092,17 @@ function personMetadata(person: PersonRecord): NonNullable<StableenrichProbeResu
 }
 
 function emailCandidatesForPerson(person: PersonRecord, domain: string) {
+  if (!isUsablePersonRecord(person)) {
+    return [];
+  }
+
   const first = cleanEmailPart(person.firstName ?? person.name?.split(/\s+/)[0]);
   const last = cleanEmailPart(person.lastName ?? person.name?.split(/\s+/).slice(1).join(""));
   if (!first) {
     return [];
   }
   const firstInitial = first.charAt(0);
+  const companyLocalPart = cleanEmailPart(domain.split(".")[0]);
 
   return Array.from(new Set([
     `${first}@${domain}`,
@@ -2051,12 +2113,78 @@ function emailCandidatesForPerson(person: PersonRecord, domain: string) {
       `${first}_${last}@${domain}`,
       `${firstInitial}.${last}@${domain}`,
     ] : []),
-  ])).slice(0, 6);
+  ]))
+    .filter((email) => isPersonEmailCandidate(email, domain, companyLocalPart))
+    .slice(0, 6);
 }
 
 function cleanEmailPart(value: string | undefined) {
   const cleaned = value?.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
   return cleaned && cleaned.length > 0 ? cleaned : null;
+}
+
+const GENERIC_PERSON_NAME_TOKENS = new Set([
+  "about",
+  "admin",
+  "career",
+  "careers",
+  "ceo",
+  "cfo",
+  "chief",
+  "cmo",
+  "company",
+  "contact",
+  "coo",
+  "cofounder",
+  "cpo",
+  "cro",
+  "cto",
+  "current",
+  "email",
+  "employee",
+  "employees",
+  "executive",
+  "expert",
+  "format",
+  "formats",
+  "founder",
+  "founders",
+  "hr",
+  "jobs",
+  "just",
+  "leadership",
+  "linkedin",
+  "management",
+  "official",
+  "officer",
+  "people",
+  "profile",
+  "profiles",
+  "subscribe",
+  "support",
+  "team",
+  "test",
+  "title",
+  "today",
+]);
+
+function isUsablePersonRecord(person: PersonRecord) {
+  const name = person.name ?? fullName(person.firstName, person.lastName);
+  return !name || isUsablePersonName(name);
+}
+
+function isUsablePersonName(value: string) {
+  const tokens = normalizePersonName(value).split(" ").filter(Boolean);
+  if (tokens.length < 2 || tokens.length > 4) {
+    return false;
+  }
+
+  return tokens.every((token) => token.length > 1 && !GENERIC_PERSON_NAME_TOKENS.has(token));
+}
+
+function isPersonEmailCandidate(email: string, domain: string | undefined, companyLocalPart = cleanEmailPart(domain?.split(".")[0])) {
+  const local = cleanEmailPart(email.split("@")[0]);
+  return Boolean(local && !EXA_EMAIL_GENERIC_LOCAL_PARTS.has(local) && (!companyLocalPart || local !== companyLocalPart));
 }
 
 function personPath(role: string | null): ProviderFactCandidate["path"] {
