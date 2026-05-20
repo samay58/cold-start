@@ -11,7 +11,7 @@ type CachedCard = {
   storedAt: number;
 };
 
-export function cardCacheKey(domain: string, settings: Pick<Settings, "apiOrigin">) {
+function cardCacheKey(domain: string, settings: Pick<Settings, "apiOrigin">) {
   return `${CARD_CACHE_PREFIX}${encodeURIComponent(settings.apiOrigin)}:${encodeURIComponent(domain)}`;
 }
 

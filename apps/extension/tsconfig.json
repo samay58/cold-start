@@ -4,5 +4,5 @@
     "jsx": "react-jsx",
     "types": ["chrome", "vite/client"]
   },
-  "include": ["src", "tests", "manifest.config.ts", "vite.config.ts"]
+  "include": ["src", "tests", "manifest.config.ts", "vite.config.ts", "vite.sidepanel.config.ts"]
 }

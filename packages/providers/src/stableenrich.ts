@@ -1,6 +1,7 @@
 import { agentcashJson } from "./agentcash";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
 import type {
+  PeopleEmailHint,
   ProviderFactCandidate,
   ProviderResearchPlan,
   ProviderSource,
@@ -302,7 +303,7 @@ export async function fetchStableenrichPeopleEmailSources(input: {
   env: StableenrichEnv;
   domain: string;
   sourceHints: ProviderSource[];
-  peopleHints?: StableenrichPeopleEmailHint[];
+  peopleHints?: PeopleEmailHint[];
   agentcashFetch?: AgentcashFetch;
   companyName?: string;
 }): Promise<StableenrichSourcesResult> {
@@ -318,13 +319,14 @@ export async function fetchStableenrichPeopleEmailSources(input: {
       ...(input.companyName ? { companyName: input.companyName } : {}),
     }),
   ]);
-  const leaders = rankPeople([
-    ...peopleRecordsFromEmailHints(input.peopleHints ?? []),
+  const hintedPeople = rankPeople(peopleRecordsFromEmailHints(input.peopleHints ?? []));
+  const discoveredPeople = [
     ...peopleHintsFromProviderSources(input.sourceHints, input.domain),
     ...discovery.people,
     ...secFormD.people,
     ...exaEmails.people,
-  ]).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
+  ];
+  const leaders = (hintedPeople.length > 0 ? hintedPeople : rankPeople(discoveredPeople)).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
   const followups = await runPeopleFollowupRequests({
     env: input.env,
     domain: input.domain,
@@ -683,7 +685,7 @@ async function runSecEdgarDiscovery(input: {
 
 const MAX_LEADERS_FOR_ENRICHMENT = 8;
 const MAX_FALLBACK_LEADERS = 6;
-const MAX_HUNTER_CANDIDATES = 24;
+const MAX_HUNTER_CANDIDATES = 36;
 
 async function runApolloPeopleDiscovery(input: {
   env: StableenrichEnv;
@@ -1352,17 +1354,6 @@ type PersonRecord = {
   sourceUrl?: string;
 };
 
-export type StableenrichPeopleEmailHint = {
-  id?: string;
-  name?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  role?: string | null;
-  email?: string | null;
-  sourceUrl?: string | null;
-  linkedinUrl?: string | null;
-};
-
 function peopleFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
   if (result.name === "hunter_email_verifier") {
     return hunterEmailFact(result);
@@ -1665,7 +1656,7 @@ function personHintFromSearchRecord(record: Record<string, unknown>, domain: str
   };
 }
 
-function peopleRecordsFromEmailHints(hints: StableenrichPeopleEmailHint[]): PersonRecord[] {
+function peopleRecordsFromEmailHints(hints: PeopleEmailHint[]): PersonRecord[] {
   return hints.flatMap((hint) => {
     const id = stringValue(hint.id);
     const name = stringValue(hint.name);
@@ -2034,8 +2025,9 @@ function minervaRecordForPerson(person: PersonRecord) {
 }
 
 function personMetadata(person: PersonRecord): NonNullable<StableenrichProbeResult["metadata"]> {
+  const name = person.name ?? fullName(person.firstName, person.lastName);
   return {
-    ...(person.name ? { personName: person.name } : {}),
+    ...(name ? { personName: name } : {}),
     ...(person.role ? { role: person.role } : {}),
     ...(person.linkedinUrl || person.sourceUrl ? { sourceUrl: person.linkedinUrl ?? person.sourceUrl } : {}),
     ...(person.email ? { email: person.email } : {}),
@@ -2052,8 +2044,14 @@ function emailCandidatesForPerson(person: PersonRecord, domain: string) {
 
   return Array.from(new Set([
     `${first}@${domain}`,
-    ...(last ? [`${first}.${last}@${domain}`, `${first}${last}@${domain}`, `${firstInitial}${last}@${domain}`] : []),
-  ])).slice(0, 3);
+    ...(last ? [
+      `${first}.${last}@${domain}`,
+      `${firstInitial}${last}@${domain}`,
+      `${first}${last}@${domain}`,
+      `${first}_${last}@${domain}`,
+      `${firstInitial}.${last}@${domain}`,
+    ] : []),
+  ])).slice(0, 6);
 }
 
 function cleanEmailPart(value: string | undefined) {

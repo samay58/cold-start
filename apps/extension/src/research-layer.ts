@@ -11,9 +11,9 @@ export type ResearchLayerId =
   | "mechanism"
   | "openQuestions";
 
-export type ResearchLayerSource = "card" | "analysis";
-export type ResearchLayerAvailability = "available" | "needs-analysis" | "empty";
-export type ResearchLayerDisplayStatus = "populated" | "needs-analysis" | "empty" | "running" | "failed";
+type ResearchLayerSource = "card" | "analysis";
+type ResearchLayerAvailability = "available" | "needs-analysis" | "empty";
+type ResearchLayerDisplayStatus = "populated" | "needs-analysis" | "empty" | "running" | "failed";
 
 export type ResearchLayerCard = {
   id: ResearchLayerId;
@@ -44,7 +44,7 @@ export type ResearchLayerDisplay = {
   status: ResearchLayerDisplayStatus;
 };
 
-export type ResearchLayerSourceReference = {
+type ResearchLayerSourceReference = {
   id: string;
   domain: string;
   href: string;

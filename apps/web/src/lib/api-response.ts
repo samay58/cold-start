@@ -11,7 +11,7 @@ function quoteServerTimingDescription(input: string) {
   return input.replace(/["\\]/g, "");
 }
 
-export function serverTiming(metrics: ServerTimingMetric[]) {
+function serverTiming(metrics: ServerTimingMetric[]) {
   return metrics
     .map((metric) => {
       const parts = [metric.name];
@@ -26,7 +26,7 @@ export function serverTiming(metrics: ServerTimingMetric[]) {
     .join(", ");
 }
 
-export function apiJson(body: unknown, init?: ResponseInit) {
+function apiJson(body: unknown, init?: ResponseInit) {
   const response = NextResponse.json(body, init);
   response.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
   return response;

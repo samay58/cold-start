@@ -7,6 +7,7 @@ Start here before adding or editing docs.
 - `../README.md`: local setup, smoke tests, and the current deployed extension setup.
 - `../SECURITY.md`: secret handling, extension auth rules, and dependency audit status.
 - `deployment.md`: internal Vercel, Neon, Inngest, and extension deployment runbook.
+- `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
 - `../SPEC.md`: product and technical source of truth.
 - `../DESIGN.md`: current implemented visual system and image-prompt reference.
 - `../INTENT.md`: product intent and architecture notes for agents.

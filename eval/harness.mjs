@@ -63,7 +63,7 @@ export async function runGoldenEval({ companies, limit = companies.length, clien
   };
 }
 
-export function summarizeRows(rows) {
+function summarizeRows(rows) {
   return {
     total: rows.length,
     publicSynthesisLeaks: rows.filter((row) => row.publicSynthesisLeak).length,

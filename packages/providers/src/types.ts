@@ -19,6 +19,17 @@ export type DirectExaEnv = Partial<
   Record<"DIRECT_EXA_API_KEY" | "DIRECT_EXA_BASE_URL", string>
 >;
 
+export type PeopleEmailHint = {
+  id?: string | null;
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string | null;
+  email?: string | null;
+  sourceUrl?: string | null;
+  linkedinUrl?: string | null;
+};
+
 export type StableenrichProbeName =
   | "exa_funding_history"
   | "exa_company_profile"

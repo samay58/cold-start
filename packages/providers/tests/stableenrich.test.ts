@@ -810,6 +810,70 @@ describe("fetchStableenrichPeopleEmailSources", () => {
     );
   });
 
+  it("checks first-initial last-name email patterns with Hunter", async () => {
+    const result = await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "canva.com",
+      sourceHints: [],
+      peopleHints: [
+        {
+          name: "Melanie Perkins",
+          role: "Co-founder & CEO",
+          sourceUrl: "https://linkedin.com/in/melanieperkins",
+        },
+      ],
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/people-enrich") {
+          return { person: null };
+        }
+
+        if (url === "https://stable.example/minerva") {
+          return { api_request_id: "req", request_completed_at: "2026-05-19T00:00:00.000Z", results: [] };
+        }
+
+        if (url === "https://stable.example/clado") {
+          return { data: [] };
+        }
+
+        if (url === "https://stable.example/hunter") {
+          return {
+            status: body.email === "mperkins@canva.com" ? "valid" : "invalid",
+            score: body.email === "mperkins@canva.com" ? 92 : 7,
+            email: body.email,
+            mx_records: true,
+            smtp_server: true,
+            smtp_check: body.email === "mperkins@canva.com",
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "team.founders",
+          value: [
+            expect.objectContaining({
+              name: "Melanie Perkins",
+              email: "mperkins@canva.com",
+            }),
+          ],
+        }),
+      ]),
+    );
+    expect(result.emailDiscovery).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Melanie Perkins",
+          emailFound: "mperkins@canva.com",
+          emailSource: "hunter",
+        }),
+      ]),
+    );
+  });
+
   it("runs email verification from merged provider source hints", async () => {
     const result = await fetchStableenrichPeopleEmailSources({
       env: stableenrichEnv(),

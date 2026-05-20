@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import sidepanelViteConfig from "./vite.sidepanel.config";
+
+void sidepanelViteConfig;
 
 export default defineConfig({
   testDir: "./tests/e2e",

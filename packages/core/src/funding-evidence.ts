@@ -11,6 +11,15 @@ export type CitationFundingEvidence = {
   title: string;
 };
 
+function normalizeCompanyTerm(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/^www\./, "")
+    .replace(/\b(ai|inc|labs|company|corp|corporation|llc|ltd)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function stripCitationMarkers(text: string) {
   return text
     .replace(/\s*\[(?:c|C)?[\w.-]+(?:,\s*(?:c|C)?[\w.-]+)*\]/g, "")
@@ -128,9 +137,26 @@ function evidenceSortRank(evidence: CitationFundingEvidence, citationsById: Map<
   };
 }
 
-export function fundingEvidenceFromCitations(card: Pick<ColdStartCard, "citations">): CitationFundingEvidence[] {
+function targetCompanyTerms(card: Pick<ColdStartCard, "citations"> & Partial<Pick<ColdStartCard, "domain" | "identity">>) {
+  return Array.from(new Set([
+    normalizeCompanyTerm(card.domain?.split(".")[0] ?? card.domain),
+    normalizeCompanyTerm(card.domain),
+    normalizeCompanyTerm(card.identity?.name.value),
+  ].filter(Boolean)));
+}
+
+function sentenceLooksLikeCompetitorFunding(sentence: string, targetTerms: string[]) {
+  const normalized = normalizeCompanyTerm(sentence);
+  const mentionsTarget = targetTerms.some((term) => term.length >= 3 && normalized.includes(term));
+  return !mentionsTarget && /\bcompetitor[s]?\b/i.test(sentence);
+}
+
+export function fundingEvidenceFromCitations(
+  card: Pick<ColdStartCard, "citations"> & Partial<Pick<ColdStartCard, "domain" | "identity">>
+): CitationFundingEvidence[] {
   const evidence: CitationFundingEvidence[] = [];
   const seen = new Set<string>();
+  const targetTerms = targetCompanyTerms(card);
 
   for (const citation of card.citations) {
     const text = [citation.snippet, citation.title].filter((part): part is string => Boolean(part)).join(" ");
@@ -143,8 +169,11 @@ export function fundingEvidenceFromCitations(card: Pick<ColdStartCard, "citation
       if (!status) {
         continue;
       }
+      if (sentenceLooksLikeCompetitorFunding(sentence, targetTerms)) {
+        continue;
+      }
 
-      let bestAmount: { amountUsd: number; label: string; score: number } | null = null;
+      let bestAmount: { amountUsd: number; label: string; score: number; status: "closed" | "reported" } | null = null;
       const amountMatches = Array.from(sentence.matchAll(/\$([0-9][0-9,.]*)(?:\s|-)?(billion|bn|m|million|b)\b/gi));
       for (const match of amountMatches) {
         const matchIndex = match.index ?? 0;
@@ -162,14 +191,18 @@ export function fundingEvidenceFromCitations(card: Pick<ColdStartCard, "citation
 
         const localContext = `${beforeAmount} ${afterAmount}`;
         let score = 0;
+        let amountStatus = status;
         if (/\b(completed|injection|secured|securing|raised|round|funding|investment|invested)\b/i.test(localContext)) {
           score += 2;
+          amountStatus = "closed";
         }
         if (/\b(completed with|secured|securing|raised)\s*$/i.test(immediateBefore)) {
           score += 3;
+          amountStatus = "closed";
         }
         if (/\b(pledged|up to|commitment)\s*$/i.test(immediateBefore) || /^\s*(?:commitment|pledge)\b/i.test(afterAmount)) {
           score -= 2;
+          amountStatus = "reported";
         }
         if (status === "reported" && /\b(seek|seeking|raising|raise|talks)\b/i.test(localContext)) {
           score += 1;
@@ -180,14 +213,15 @@ export function fundingEvidenceFromCitations(card: Pick<ColdStartCard, "citation
           score > bestAmount.score ||
           (score === bestAmount.score && parsed.amountUsd > bestAmount.amountUsd)
         ) {
-          bestAmount = { ...parsed, score };
+          bestAmount = { ...parsed, score, status: amountStatus };
         }
       }
 
       const body = clampText(sentence, 220);
       const amountLabel = bestAmount?.label ?? null;
       const amountUsd = bestAmount?.amountUsd ?? null;
-      const key = `${status}:${amountLabel ?? "amount"}:${body.toLowerCase()}`;
+      const evidenceStatus = bestAmount?.status ?? status;
+      const key = `${evidenceStatus}:${amountLabel ?? "amount"}:${body.toLowerCase()}`;
       if (seen.has(key)) {
         continue;
       }
@@ -198,11 +232,10 @@ export function fundingEvidenceFromCitations(card: Pick<ColdStartCard, "citation
         amountUsd,
         body,
         citationIds: [citation.id],
-        meta: status === "closed" ? domainFromHref(citation.url) : `${domainFromHref(citation.url)} · reported`,
-        status,
-        title: fundingTitle(status, amountLabel, body),
+        meta: evidenceStatus === "closed" ? domainFromHref(citation.url) : `${domainFromHref(citation.url)} · reported`,
+        status: evidenceStatus,
+        title: fundingTitle(evidenceStatus, amountLabel, body),
       });
-      break;
     }
   }
 

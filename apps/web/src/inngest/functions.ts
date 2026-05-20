@@ -7,7 +7,7 @@ import {
   publicProfileQuality,
   type ResolvedFact
 } from "@cold-start/core";
-import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard } from "@cold-start/db";
+import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard, type ColdStartDb } from "@cold-start/db";
 import {
   anthropicModel,
   createAnthropicClient,
@@ -33,15 +33,16 @@ import {
   type GenerateCardTracePatch
 } from "@cold-start/pipeline";
 import {
+  fetchDirectExaContactSources,
   fetchDirectExaFundamentalsSources,
   fetchStableenrichEnrichmentSources,
   fetchStableenrichFastSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   type DirectExaEnv,
+  type PeopleEmailHint,
   type ProviderFactCandidate,
   type ProviderSource,
-  type StableenrichPeopleEmailHint,
   type StableenrichEnv
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -90,6 +91,7 @@ function directExaEnvFromProcess(): DirectExaEnv {
 type GenerationMode = "basics" | "analysis";
 type TimedResult<T> = { durationMs: number; value: T };
 type GenerationTracePatch = Partial<Omit<GenerationTrace, "jobKind" | "mode">>;
+type ProviderTrace = NonNullable<GenerationTrace["providers"]>;
 
 function generationModeForRun(input: unknown): GenerationMode {
   return input === "analysis" ? "analysis" : "basics";
@@ -171,7 +173,7 @@ function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
   return Array.from(byUrl.values());
 }
 
-function peopleHintsFromSections(sections: ExtractedCardSections): StableenrichPeopleEmailHint[] {
+function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHint[] {
   return [
     ...(sections.team.founders.value ?? []),
     ...(sections.team.keyExecs.value ?? [])
@@ -188,6 +190,94 @@ function peopleEmailCount(sections: ExtractedCardSections) {
     ...(sections.team.founders.value ?? []),
     ...(sections.team.keyExecs.value ?? [])
   ].filter((person) => Boolean(person.email)).length;
+}
+
+async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
+  return Promise.all(
+    sources.map((source) =>
+      recordSource(db, {
+        cardId,
+        url: source.url,
+        title: source.title,
+        sourceType: source.sourceType,
+        fetchedAt: source.fetchedAt,
+        rawText: source.rawText,
+      }),
+    ),
+  );
+}
+
+function failedStableenrichEndpoint(reason: unknown) {
+  return {
+    name: "stableenrich" as const,
+    endpointUrl: "stableenrich",
+    status: "failed" as const,
+    sourceCount: 0,
+    factCount: 0,
+    error: boundedErrorMessage(reason)
+  };
+}
+
+async function fetchContactSourcesForBasics(input: {
+  acceptedSources: ProviderSource[];
+  directExaEnv: DirectExaEnv;
+  domain: string;
+  initialProviders: ProviderTrace;
+  peopleHints: PeopleEmailHint[];
+  stableEnv: StableenrichEnv;
+}) {
+  const [directContactResult, stableContactResult] = await Promise.allSettled([
+    directExaEnabled()
+      ? fetchDirectExaContactSources({ env: input.directExaEnv, domain: input.domain, peopleHints: input.peopleHints })
+      : Promise.resolve({ sources: [], facts: [], failures: [], skipped: true }),
+    fetchStableenrichPeopleEmailSources({
+      env: input.stableEnv,
+      domain: input.domain,
+      sourceHints: input.acceptedSources,
+      peopleHints: input.peopleHints
+    })
+  ]);
+  const directContactSources = directContactResult.status === "fulfilled" ? directContactResult.value.sources : [];
+  const directContactFacts = directContactResult.status === "fulfilled" ? directContactResult.value.facts : [];
+  const directContactFailureCount = directContactResult.status === "fulfilled" ? directContactResult.value.failures.length : 1;
+  const stableContactSources = stableContactResult.status === "fulfilled" ? stableContactResult.value.sources : [];
+  const stableContactFacts = stableContactResult.status === "fulfilled" ? stableContactResult.value.facts : [];
+  const stableContactFailures = stableContactResult.status === "fulfilled"
+    ? stableContactResult.value.failures
+    : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableContactResult.reason) }];
+  const stableContactEndpoints = stableContactResult.status === "fulfilled"
+    ? stableContactResult.value.endpoints
+    : [failedStableenrichEndpoint(stableContactResult.reason)];
+  const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources);
+  const sourceGate = filterSourcesForDomain({ domain: input.domain, sources });
+  const initialDirectExa = input.initialProviders.directExa ?? { skipped: true, sourceCount: 0, failureCount: 0 };
+  const initialStable = input.initialProviders.stableenrich;
+
+  return {
+    sources: sourceGate.accepted,
+    providerFacts: [...stableContactFacts, ...directContactFacts],
+    trace: {
+      providers: {
+        ...input.initialProviders,
+        directExa: {
+          skipped: initialDirectExa.skipped && (directContactResult.status === "fulfilled" ? directContactResult.value.skipped : false),
+          sourceCount: initialDirectExa.sourceCount + directContactSources.length,
+          failureCount: initialDirectExa.failureCount + directContactFailureCount
+        },
+        stableenrich: {
+          sourceCount: (initialStable?.sourceCount ?? 0) + stableContactSources.length,
+          factCount: (initialStable?.factCount ?? 0) + stableContactFacts.length,
+          failureCount: (initialStable?.failureCount ?? 0) + stableContactFailures.length,
+          endpoints: [...(initialStable?.endpoints ?? []), ...stableContactEndpoints]
+        },
+        mergedSourceCount: sources.length,
+        ...(stableContactResult.status === "fulfilled" && stableContactResult.value.emailDiscovery && stableContactResult.value.emailDiscovery.length > 0
+          ? { emailDiscovery: stableContactResult.value.emailDiscovery }
+          : {})
+      },
+      sourceGate: sourceGateTrace(sourceGate)
+    }
+  };
 }
 
 function preserveFact<T>(existing: ResolvedFact<T>, next: ResolvedFact<T>): ResolvedFact<T> {
@@ -606,35 +696,15 @@ export const generateCardFunction = inngest.createFunction(
         currentStage = "fetch-contact-sources";
         const contactSourceResult = await step.run("fetch-contact-sources", async () => {
           const result = await timed(async () => {
-            const contactResult = await fetchStableenrichPeopleEmailSources({
-              env: stableEnv,
+            const peopleHints = peopleHintsFromSections(seedSections ?? seedProfileResult.value.sections);
+            return fetchContactSourcesForBasics({
+              acceptedSources,
+              directExaEnv,
               domain,
-              sourceHints: acceptedSources,
-              peopleHints: peopleHintsFromSections(seedSections ?? seedProfileResult.value.sections)
+              initialProviders: sourceResult.value.trace.providers,
+              peopleHints,
+              stableEnv
             });
-            const sources = mergeSources(acceptedSources, contactResult.sources);
-            const sourceGate = filterSourcesForDomain({ domain, sources });
-            const initialStable = sourceResult.value.trace.providers.stableenrich;
-            return {
-              sources: sourceGate.accepted,
-              providerFacts: contactResult.facts,
-              trace: {
-                providers: {
-                  ...sourceResult.value.trace.providers,
-                  stableenrich: {
-                    sourceCount: (initialStable?.sourceCount ?? 0) + contactResult.sources.length,
-                    factCount: (initialStable?.factCount ?? 0) + contactResult.facts.length,
-                    failureCount: (initialStable?.failureCount ?? 0) + contactResult.failures.length,
-                    endpoints: [...(initialStable?.endpoints ?? []), ...contactResult.endpoints]
-                  },
-                  mergedSourceCount: sources.length,
-                  ...(contactResult.emailDiscovery && contactResult.emailDiscovery.length > 0
-                    ? { emailDiscovery: contactResult.emailDiscovery }
-                    : {})
-                },
-                sourceGate: sourceGateTrace(sourceGate)
-              }
-            };
           });
 
           return {
@@ -688,18 +758,7 @@ export const generateCardFunction = inngest.createFunction(
             contactsReadyMs: Date.now() - functionStartedAt
           };
           await step.run("record-contact-sources", () =>
-            Promise.all(
-              contactSources.map((source) =>
-                recordSource(db, {
-                  cardId: contactRow.id,
-                  url: source.url,
-                  title: source.title,
-                  sourceType: source.sourceType,
-                  fetchedAt: source.fetchedAt,
-                  rawText: source.rawText,
-                }),
-              ),
-            ),
+            recordSourcesForCard(db, contactRow.id, contactSources),
           );
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", contactCardToStore);
@@ -854,18 +913,7 @@ export const generateCardFunction = inngest.createFunction(
         const storedRow = await step.run("upsert-card", () => upsertCard(db, cardToStore));
         await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
         await step.run("record-sources", () =>
-          Promise.all(
-            sourcesToRecord.map((source) =>
-              recordSource(db, {
-                cardId: storedRow.id,
-                url: source.url,
-                title: source.title,
-                sourceType: source.sourceType,
-                fetchedAt: source.fetchedAt,
-                rawText: source.rawText,
-              }),
-            ),
-          ),
+          recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
         if (mode === "basics") {
           trace.milestones = {
@@ -966,18 +1014,7 @@ export const generateCardFunction = inngest.createFunction(
         const storedRow = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
         await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
         await step.run("record-enriched-sources", () =>
-          Promise.all(
-            sourcesToRecord.map((source) =>
-              recordSource(db, {
-                cardId: storedRow.id,
-                url: source.url,
-                title: source.title,
-                sourceType: source.sourceType,
-                fetchedAt: source.fetchedAt,
-                rawText: source.rawText,
-              }),
-            ),
-          ),
+          recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
       }
 
@@ -1026,8 +1063,3 @@ export const generateCardFunction = inngest.createFunction(
     }
   },
 );
-
-export async function getCachedCard(slug: string) {
-  const db = createDb(webEnv().DATABASE_URL);
-  return findCardBySlug(db, slug);
-}

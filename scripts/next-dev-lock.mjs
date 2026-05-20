@@ -3,9 +3,9 @@ import path from "node:path";
 
 import { webAppDir } from "./load-root-env.mjs";
 
-export const devLockPath = path.join(webAppDir, ".cold-start", "next-dev.json");
+const devLockPath = path.join(webAppDir, ".cold-start", "next-dev.json");
 
-export function isProcessRunning(pid) {
+function isProcessRunning(pid) {
   if (!Number.isInteger(pid) || pid <= 0) {
     return false;
   }

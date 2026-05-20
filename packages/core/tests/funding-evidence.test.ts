@@ -65,6 +65,15 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
         snippet:
           "ICE pledged $2B, completed with $600M injection in March 2026 at $9B valuation. Now seeking $400M at $15B.",
       },
+      {
+        id: "e3",
+        url: "https://techfundingnews.com/polymarket-400m-15b-valuation-ice-nyse-investment/",
+        title: "Prediction market startup Polymarket nabs $400M at $15B valuation from NYSE owner: sources",
+        fetchedAt: "2026-05-19T12:00:00.000Z",
+        sourceType: "news",
+        snippet:
+          "Main competitor Kalshi raised $1B at $22B valuation and leads US market with ~$1.5B annual revenues. Polymarket considering IPO.",
+      },
     ],
     ...overrides,
   };

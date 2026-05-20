@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDirectExaContactRequests,
   buildDirectExaFundamentalsRequests,
+  fetchDirectExaContactSources,
   fetchDirectExaFundamentalsSources,
   missingDirectExaConfig,
+  normalizeNamedPeopleEmailHints,
 } from "../src/index";
 
 describe("missingDirectExaConfig", () => {
@@ -94,5 +97,128 @@ describe("fetchDirectExaFundamentalsSources", () => {
       sourceType: "company_site",
       rawText: expect.stringContaining("management team"),
     });
+  });
+});
+
+describe("fetchDirectExaContactSources", () => {
+  it("normalizes only named people before direct Exa contact search", () => {
+    expect(
+      normalizeNamedPeopleEmailHints([
+        { name: null, role: "CEO" },
+        { name: "  Melanie Perkins  ", role: "CEO" },
+        { name: "Melanie Perkins", sourceUrl: "https://linkedin.com/in/melanieperkins" },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        name: "Melanie Perkins",
+        sourceUrl: "https://linkedin.com/in/melanieperkins",
+      }),
+    ]);
+  });
+
+  it("builds a contact email search around known card people", () => {
+    const requests = buildDirectExaContactRequests({ DIRECT_EXA_API_KEY: "exa-key" }, "canva.com", [
+      { name: "Melanie Perkins", role: "Co-founder & CEO", sourceUrl: "https://linkedin.com/in/melanieperkins" },
+    ]);
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      name: "exa_direct_contact_email",
+      body: {
+        query: expect.stringContaining('"Melanie Perkins"'),
+        numResults: 10,
+      },
+    });
+    expect(String(requests[0]?.body.query)).toContain('"@canva.com"');
+  });
+
+  it("emits cited work-email facts from direct Exa results", async () => {
+    const result = await fetchDirectExaContactSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "canva.com",
+      peopleHints: [
+        { name: "Melanie Perkins", role: "Co-founder & CEO", sourceUrl: "https://linkedin.com/in/melanieperkins" },
+      ],
+      fetchJson: async () => ({
+        results: [
+          {
+            url: "https://example.com/canva-contact",
+            title: "Melanie Perkins contact",
+            text: "Melanie Perkins is Canva's co-founder and CEO. Her work email is mperkins@canva.com.",
+          },
+        ],
+      }),
+    });
+
+    expect(result.skipped).toBe(false);
+    expect(result.failures).toEqual([]);
+    expect(result.sources).toEqual([
+      expect.objectContaining({
+        url: "https://example.com/canva-contact",
+        intent: "email_verification",
+      }),
+    ]);
+    expect(result.facts).toEqual([
+      expect.objectContaining({
+        path: "team.founders",
+        value: [
+          expect.objectContaining({
+            name: "Melanie Perkins",
+            email: "mperkins@canva.com",
+          }),
+        ],
+        provider: "direct_exa",
+      }),
+    ]);
+  });
+
+  it("does not emit generic mailbox emails as person contacts", async () => {
+    const result = await fetchDirectExaContactSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "canva.com",
+      peopleHints: [{ name: "Melanie Perkins", role: "Co-founder & CEO" }],
+      fetchJson: async () => ({
+        results: [
+          {
+            url: "https://example.com/canva-support",
+            title: "Canva support",
+            text: "Melanie Perkins founded Canva. Contact support@canva.com for help.",
+          },
+        ],
+      }),
+    });
+
+    expect(result.facts).toEqual([]);
+  });
+
+  it("does not assign another person's matching email to nearby people", async () => {
+    const result = await fetchDirectExaContactSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "canva.com",
+      peopleHints: [
+        { name: "Melanie Perkins", role: "Co-founder & CEO" },
+        { name: "Cliff Obrecht", role: "Co-founder & COO" },
+      ],
+      fetchJson: async () => ({
+        results: [
+          {
+            url: "https://example.com/canva-founders",
+            title: "Canva founders",
+            text: "Melanie Perkins and Cliff Obrecht co-founded Canva. Contact Melanie at melanie@canva.com.",
+          },
+        ],
+      }),
+    });
+
+    expect(result.facts).toEqual([
+      expect.objectContaining({
+        value: [
+          expect.objectContaining({
+            name: "Melanie Perkins",
+            email: "melanie@canva.com",
+          }),
+        ],
+      }),
+    ]);
   });
 });

@@ -17,8 +17,7 @@
     "@cold-start/core": "file:../core",
     "@neondatabase/serverless": "^1.0.0",
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.20.0",
-    "zod": "^3.25.0"
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/pg": "^8.15.6",

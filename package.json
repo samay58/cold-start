@@ -28,12 +28,20 @@
     "eval:golden": "node eval/run-golden.mjs"
   },
   "devDependencies": {
+    "@next/env": "^15.5.15",
     "@types/node": "^22.15.0",
     "concurrently": "^9.2.1",
     "inngest-cli": "^1.19.1",
+    "next": "^15.4.0",
+    "pg": "^8.20.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
     "vercel": "^54.2.0",
     "vitest": "^3.2.0"
+  },
+  "knip": {
+    "ignoreDependencies": [
+      "inngest-cli"
+    ]
   }
 }
