@@ -374,30 +374,28 @@ type ToolUseLike = {
   text?: string;
 };
 
-export function parseExtractionToolUse(message: { content: ToolUseLike[] }) {
-  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === EXTRACTION_TOOL_NAME);
+function parseToolUse<T>(
+  message: { content: ToolUseLike[] },
+  toolName: string,
+  schema: { parse: (input: unknown) => T },
+  normalize: (input: unknown) => unknown
+): T {
+  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === toolName);
   if (!toolUse) {
-    throw new Error("No emit_company_claims tool use returned");
+    throw new Error(`No ${toolName} tool use returned`);
   }
-
   if (toolUse.input === undefined) {
-    throw new Error("emit_company_claims tool use returned no input");
+    throw new Error(`${toolName} tool use returned no input`);
   }
+  return schema.parse(normalize(toolUse.input));
+}
 
-  return extractedCardSectionsSchema.parse(normalizeExtractionInput(toolUse.input));
+export function parseExtractionToolUse(message: { content: ToolUseLike[] }) {
+  return parseToolUse(message, EXTRACTION_TOOL_NAME, extractedCardSectionsSchema, normalizeExtractionInput);
 }
 
 export function parseBlockEnrichmentToolUse(message: { content: ToolUseLike[] }) {
-  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === BLOCK_EXTRACTION_TOOL_NAME);
-  if (!toolUse) {
-    throw new Error("No emit_block_claims tool use returned");
-  }
-
-  if (toolUse.input === undefined) {
-    throw new Error("emit_block_claims tool use returned no input");
-  }
-
-  return blockEnrichmentPatchSchema.parse(normalizeBlockEnrichmentInput(toolUse.input));
+  return parseToolUse(message, BLOCK_EXTRACTION_TOOL_NAME, blockEnrichmentPatchSchema, normalizeBlockEnrichmentInput);
 }
 
 function normalizeExtractionInput(input: unknown) {

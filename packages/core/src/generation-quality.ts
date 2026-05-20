@@ -241,11 +241,3 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
 
   return flags;
 }
-
-export function formatGenerationQualityFlags(flags: GenerationQualityFlag[]) {
-  if (flags.length === 0) {
-    return "ok";
-  }
-
-  return flags.map((flag) => flag.code).join(", ");
-}

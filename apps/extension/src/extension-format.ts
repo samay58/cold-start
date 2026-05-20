@@ -7,6 +7,30 @@ export function formatElapsed(seconds: number): string {
   return `${minutes}:${remainder}`;
 }
 
+export function formatCompactCurrency(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "Not found";
+  }
+
+  if (value >= 1_000_000_000) {
+    return `$${Math.round(value / 100_000_000) / 10}B`;
+  }
+
+  if (value >= 1_000_000) {
+    return `$${Math.round(value / 1_000_000)}M`;
+  }
+
+  return `$${value.toLocaleString()}`;
+}
+
+export function formatOptionalNumber(value: number | null | undefined): string | null {
+  return typeof value === "number" ? value.toLocaleString() : null;
+}
+
+export function formatOptionalCurrency(value: number | null | undefined): string | null {
+  return typeof value === "number" ? formatCompactCurrency(value) : null;
+}
+
 export function compactProfileSummary(value: string | null | undefined, fallback: string): string {
   const normalized = (value ?? "").replace(/\s+/g, " ").trim();
   const safeFallback = fallback.replace(/\s+/g, " ").trim();

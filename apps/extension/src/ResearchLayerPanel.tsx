@@ -18,7 +18,13 @@ import {
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
-import { compactProfileSummary, formatElapsed } from "./extension-format";
+import {
+  compactProfileSummary,
+  formatCompactCurrency,
+  formatElapsed,
+  formatOptionalCurrency,
+  formatOptionalNumber
+} from "./extension-format";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -61,31 +67,6 @@ type PilePose = {
   y: number;
   rotate: number;
 };
-
-function formatCompactCurrency(value: number | null | undefined) {
-  if (typeof value !== "number") {
-    return "Not found";
-  }
-
-  if (value >= 1_000_000_000) {
-    return `$${Math.round(value / 100_000_000) / 10}B`;
-  }
-
-  if (value >= 1_000_000) {
-    return `$${Math.round(value / 1_000_000)}M`;
-  }
-
-  return `$${value.toLocaleString()}`;
-}
-
-function formatOptionalNumber(value: number | null | undefined) {
-  return typeof value === "number" ? value.toLocaleString() : null;
-}
-
-function formatOptionalCurrency(value: number | null | undefined) {
-  const formatted = formatCompactCurrency(value);
-  return formatted === "Not found" ? null : formatted;
-}
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
