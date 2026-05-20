@@ -1,3 +1,5 @@
+import { stringValue } from "./stableenrich-utils";
+
 const SEC_SEARCH_URL = "https://efts.sec.gov/LATEST/search-index";
 const DEFAULT_USER_AGENT = "Cold Start research@semitechie.vc";
 
@@ -182,8 +184,3 @@ function isArrayOfStrings(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-function stringValue(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
