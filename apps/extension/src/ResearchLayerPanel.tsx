@@ -753,7 +753,7 @@ export function ResearchLayerPanel({
             const layer = layers.find((candidate) => candidate.id === id);
             const running = Boolean(analysisRun && layer?.source === "analysis" && !card.synthesis);
             const refreshing = Boolean(profileRefreshRun?.layerId === id && layer?.source === "card" && display.status === "empty");
-            const expanded = expandedLayerId === id || running || refreshing;
+            const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
             const statusCopy = running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
@@ -767,6 +767,7 @@ export function ResearchLayerPanel({
                   ? "Searching for recent traction and launch signals"
                   : "Refreshing cited profile evidence"
               : "Extracting structure from cited sources";
+            const bodyId = `research-layer-${id}-body`;
 
             return (
               <motion.article
@@ -782,7 +783,13 @@ export function ResearchLayerPanel({
                 layoutId={`research-layer-${id}`}
                 transition={prefersReducedMotion ? { duration: 0 } : commitSpring}
               >
-                <button className="cs-active-enrichment-head" onClick={() => toggleExpanded(id)} type="button">
+                <button
+                  aria-controls={bodyId}
+                  aria-expanded={expanded}
+                  className="cs-active-enrichment-head"
+                  onClick={() => toggleExpanded(id)}
+                  type="button"
+                >
                   <span className="cs-active-dot" aria-hidden="true" />
                   <span>
                     <strong>{display.title}</strong>
@@ -801,6 +808,7 @@ export function ResearchLayerPanel({
                   aria-hidden={!expanded}
                   className="cs-active-enrichment-body-frame"
                   data-expanded={expanded ? "true" : "false"}
+                  id={bodyId}
                 >
                   <div className="cs-active-enrichment-body">
                     <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />

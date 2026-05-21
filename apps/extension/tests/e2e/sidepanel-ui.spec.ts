@@ -190,7 +190,7 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  await expect(page.getByText("Build the public record.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "know it all" })).toBeVisible();
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
 });
@@ -281,11 +281,12 @@ test("reduced motion keeps progress readable without scan or pulse animation", a
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCard());
   await openSidePanel(page);
 
-  const card = page.locator(".cs-dormant-card", { hasText: "Customers" });
+  const card = page.locator(".cs-dormant-card", { hasText: "Questions" });
   await expect(card).toBeVisible();
 
   const box = await card.boundingBox();
@@ -302,9 +303,46 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await expect(page.getByText("Release to pin")).toBeVisible();
   await page.mouse.up();
 
-  const activeCustomers = page.locator(".cs-active-enrichment", { hasText: "Customers" });
-  await expect(activeCustomers).toBeVisible();
-  await expect(activeCustomers).toContainText("AI application developers and automation teams");
+  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Questions" });
+  await expect(activeQuestions).toBeVisible();
+  await expect(activeQuestions).toContainText("Synthesizing");
+});
+
+test("running card enrichment can be collapsed without stopping the refresh signal", async ({ page }) => {
+  const emptySignalsCard = browserbaseCard({ signals: [] });
+  await installChromeShim(page);
+  await mockExtensionApi(page, emptySignalsCard);
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "browserbase",
+      domain: "browserbase.com",
+      status: "running",
+      mode: "basics",
+      startedAt: new Date(Date.now() - 14_000).toISOString()
+    });
+  });
+  await openSidePanel(page);
+
+  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Signals" });
+  await dormantSignals.focus();
+  await page.keyboard.press("Enter");
+
+  const activeSignals = page.locator('.cs-active-enrichment[data-layer-id="signals"]');
+  const signalsHeader = activeSignals.locator(".cs-active-enrichment-head");
+  const signalsBody = activeSignals.locator(".cs-active-enrichment-body-frame");
+  await expect(activeSignals).toHaveAttribute("data-state", "running");
+  await expect(activeSignals).toHaveAttribute("data-expanded", "true");
+  await expect(signalsHeader).toHaveAttribute("aria-expanded", "true");
+  await expect(activeSignals).toContainText("Refreshing");
+  await expect(activeSignals).toContainText("Searching for recent traction and launch signals");
+
+  await signalsHeader.click();
+
+  await expect(activeSignals).toHaveAttribute("data-state", "running");
+  await expect(activeSignals).toHaveAttribute("data-expanded", "false");
+  await expect(signalsHeader).toHaveAttribute("aria-expanded", "false");
+  await expect(signalsBody).toHaveAttribute("data-expanded", "false");
+  await expect(signalsHeader).toContainText("Refreshing");
 });
 
 test("keyboard activation starts analysis for synthesis-backed cards only", async ({ page }) => {

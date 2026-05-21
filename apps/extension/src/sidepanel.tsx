@@ -418,32 +418,119 @@ function StartGenerationPanel({
   onStart: () => void;
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
+  const sourcePassSections = [
+    {
+      description: "Founders and operators",
+      marker: "01",
+      tone: "people",
+      title: "People"
+    },
+    {
+      description: "Rounds and investors",
+      marker: "02",
+      tone: "funding",
+      title: "Funding"
+    },
+    {
+      description: "Launches and traction",
+      marker: "03",
+      tone: "signals",
+      title: "Signals"
+    },
+    {
+      description: "Source references",
+      marker: "04",
+      tone: "citations",
+      title: "Citations"
+    }
+  ] as const;
 
   return (
     <ExtensionFrame
-      actions={
-        <>
-          <button className="cs-extension-button" onClick={onStart} type="button">Build profile</button>
-          <button className="cs-extension-link-button" onClick={onEditSettings} type="button">
-            Access
-          </button>
-        </>
-      }
       className="cs-intake-panel cs-start-panel"
-      onSettings={onEditSettings}
       title={`Open ${companyName}`}
     >
-      <PanelHeader eyebrow="No profile" logoDomain={domain} title={companyName} value={domain} />
-      <div className="cs-gate-card">
-        <div className="cs-pass-lockup">
-          <span className="cs-pass-index">01</span>
-          <div>
-            <span>Source pass</span>
-            <h2>Build the public record.</h2>
-            <p>Identity, people, funding, signals, and citations for this tab.</p>
-          </div>
-        </div>
+      <header className="cs-start-topbar">
+        <button aria-label="Open settings" className="cs-start-settings" onClick={onEditSettings} type="button">
+          <span aria-hidden="true">...</span>
+        </button>
+      </header>
+
+      <div className="cs-start-instrument" aria-hidden="true">
+        <span className="cs-start-reticle" />
+        <span className="cs-start-grid" />
       </div>
+
+      <section className="cs-start-hero" aria-label={`Build a profile for ${companyName}`}>
+        <h1>know it all</h1>
+        <p>Identity, people, funding, signals, citations.</p>
+        <div className="cs-start-actions">
+          <button className="cs-start-primary" onClick={onStart} type="button">
+            <span>Start source pass</span>
+            <svg aria-hidden="true" height="18" viewBox="0 0 18 18" width="18">
+              <path d="M3 9h11" />
+              <path d="m10 4.5 4.5 4.5L10 13.5" />
+            </svg>
+          </button>
+          <button className="cs-start-secondary" disabled type="button">
+            View profile
+          </button>
+        </div>
+      </section>
+
+      <section className="cs-start-company" aria-label="Current tab">
+        <CompanyLogo className="cs-start-company-logo" domain={domain} label={companyName} />
+        <div className="cs-start-company-copy">
+          <h2>{companyName}</h2>
+          <p>{domain}</p>
+        </div>
+        <span className="cs-start-company-rule" aria-hidden="true" />
+        <span className="cs-start-status">No profile</span>
+      </section>
+
+      <section className="cs-start-pile" aria-label="Source pass scope">
+        <span className="cs-start-pile-back cs-start-pile-back-left" aria-hidden="true" />
+        <span className="cs-start-pile-back cs-start-pile-back-right" aria-hidden="true" />
+        {sourcePassSections.map((section) => (
+          <article className="cs-start-pass-card" data-tone={section.tone} key={section.title}>
+            <span className="cs-start-pass-icon" aria-hidden="true">
+              {section.tone === "people" ? (
+                <svg height="23" viewBox="0 0 24 24" width="23">
+                  <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                  <path d="M16 11a3 3 0 0 0 0-6" />
+                  <path d="M3.5 19c0-3.1 2-5 4.5-5s4.5 1.9 4.5 5" />
+                  <path d="M14 14.2c2.4.5 4 2.2 4 4.8" />
+                </svg>
+              ) : section.tone === "funding" ? (
+                <span>$</span>
+              ) : section.tone === "signals" ? (
+                <svg height="24" viewBox="0 0 24 24" width="24">
+                  <path d="M3 13h4l2.2-8 4 15 2.3-8H21" />
+                </svg>
+              ) : (
+                <svg height="23" viewBox="0 0 24 24" width="23">
+                  <path d="M8 7H5.5C4.7 7 4 7.7 4 8.5v4c0 .8.7 1.5 1.5 1.5H8v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5v-9C11 7.7 10.3 7 9.5 7H8Z" />
+                  <path d="M18 7h-2.5c-.8 0-1.5.7-1.5 1.5v4c0 .8.7 1.5 1.5 1.5H18v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5v-9c0-.8-.7-1.5-1.5-1.5H18Z" />
+                </svg>
+              )}
+            </span>
+            <span className="cs-start-pass-copy">
+              <strong>{section.title}</strong>
+              <span>{section.description}</span>
+            </span>
+            <span className="cs-start-pass-marker">{section.marker}</span>
+          </article>
+        ))}
+      </section>
+
+      <footer className="cs-start-trust">
+        <p>Sourcing</p>
+        <span className="cs-start-source-wordmark">Exa</span>
+        <span className="cs-start-source-wordmark">StableEnrich</span>
+        <span className="cs-start-source-logo cs-start-source-logo-agentcash" aria-label="AgentCash">
+          <img alt="" src="/logos/agentcash-logo-dark.svg" />
+        </span>
+      </footer>
     </ExtensionFrame>
   );
 }

@@ -326,9 +326,9 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     expect(container.textContent).toContain("No profile");
-    expect(container.textContent).toContain("Build the public record.");
+    expect(container.textContent).toContain("know it all");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Build profile"
+      (button) => button.textContent === "Start source pass"
     );
     expect(generateButton).toBeTruthy();
 
@@ -867,6 +867,52 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("lets a running card-backed enrichment stay collapsed while it refreshes", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "running", mode: "basics" });
+      }
+
+      return jsonResponse(cardForDomain("warp.dev"));
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+
+    const signalsButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Signals")
+    );
+    expect(signalsButton).toBeTruthy();
+
+    await act(async () => {
+      signalsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    const signalsCard = container.querySelector<HTMLElement>('[data-layer-id="signals"]');
+    const signalsHeader = signalsCard?.querySelector<HTMLButtonElement>(".cs-active-enrichment-head");
+    const signalsBody = signalsCard?.querySelector<HTMLElement>(".cs-active-enrichment-body-frame");
+
+    expect(signalsCard?.dataset.state).toBe("running");
+    expect(signalsCard?.dataset.expanded).toBe("true");
+    expect(signalsHeader?.getAttribute("aria-expanded")).toBe("true");
+    expect(signalsBody?.dataset.expanded).toBe("true");
+
+    await act(async () => {
+      signalsHeader?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(signalsCard?.dataset.state).toBe("running");
+    expect(signalsCard?.dataset.expanded).toBe("false");
+    expect(signalsHeader?.getAttribute("aria-expanded")).toBe("false");
+    expect(signalsBody?.dataset.expanded).toBe("false");
+    expect(signalsHeader?.textContent).toContain("Refreshing");
+    await unmount();
+  });
+
   it("activates an enrichment by keyboard from the card pile", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
@@ -909,7 +955,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "obvious.ai", fetchMock });
 
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Build profile"
+      (button) => button.textContent === "Start source pass"
     );
     await act(async () => {
       generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
