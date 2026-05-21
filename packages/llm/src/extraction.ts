@@ -8,6 +8,7 @@ import {
   signalSchema as coreSignalSchema,
 } from "@cold-start/core";
 import { z } from "zod";
+import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
 
@@ -724,31 +725,39 @@ export async function extractCompanyClaims(input: {
   client: Anthropic;
   model: string;
   evidence: ExtractionEvidence;
+  telemetry?: AnthropicTelemetrySink;
 }) {
-  const response: Message = await input.client.messages.create({
+  const response: Message = await createTracedAnthropicMessage({
+    client: input.client,
+    label: "extract-company-claims",
     model: input.model,
-    max_tokens: 4000,
-    temperature: 0,
-    system: [
-      {
-        type: "text",
-        text: extractionSystemPrompt,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
-          }
-        ]
-      }
-    ],
-    tools: [extractionTool],
-    tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
+    stage: "extract_full",
+    telemetry: input.telemetry,
+    params: {
+      model: input.model,
+      max_tokens: 4000,
+      temperature: 0,
+      system: [
+        {
+          type: "text",
+          text: extractionSystemPrompt,
+          cache_control: { type: "ephemeral" }
+        }
+      ],
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
+            }
+          ]
+        }
+      ],
+      tools: [extractionTool],
+      tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
+    },
   });
 
   return parseExtractionToolUse(response);
@@ -772,41 +781,49 @@ export async function extractCompanyBlockClaims(input: {
   model: string;
   block: BlockEnrichmentId;
   evidence: ExtractionEvidence & { currentSections?: ExtractedCardSections };
+  telemetry?: AnthropicTelemetrySink;
 }) {
-  const response: Message = await input.client.messages.create({
+  const response: Message = await createTracedAnthropicMessage({
+    client: input.client,
+    label: `extract-block:${input.block}`,
     model: input.model,
-    max_tokens: 1800,
-    temperature: 0,
-    system: [
-      {
-        type: "text",
-        text: [
-          investorTasteKernel,
-          "You extract one Cold Start card block from public cited evidence.",
-          "Return only claims supported by citations in this prompt. Use null or omit fields when evidence is missing.",
-          "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
-          blockGuidance[input.block],
-        ].join(" "),
-        cache_control: { type: "ephemeral" },
-      }
-    ],
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              blockId: input.block,
-              ...evidenceForExtractionPrompt(input.evidence, { scope: "block" }),
-              ...(input.evidence.currentSections ? { currentSections: input.evidence.currentSections } : {}),
-            })
-          }
-        ]
-      }
-    ],
-    tools: [blockEnrichmentTool],
-    tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
+    stage: "extract_block",
+    telemetry: input.telemetry,
+    params: {
+      model: input.model,
+      max_tokens: 1800,
+      temperature: 0,
+      system: [
+        {
+          type: "text",
+          text: [
+            investorTasteKernel,
+            "You extract one Cold Start card block from public cited evidence.",
+            "Return only claims supported by citations in this prompt. Use null or omit fields when evidence is missing.",
+            "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
+            blockGuidance[input.block],
+          ].join(" "),
+          cache_control: { type: "ephemeral" },
+        }
+      ],
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                blockId: input.block,
+                ...evidenceForExtractionPrompt(input.evidence, { scope: "block" }),
+                ...(input.evidence.currentSections ? { currentSections: input.evidence.currentSections } : {}),
+              })
+            }
+          ]
+        }
+      ],
+      tools: [blockEnrichmentTool],
+      tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
+    },
   });
 
   return parseBlockEnrichmentToolUse(response);

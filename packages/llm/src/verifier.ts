@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { SourcedText } from "@cold-start/core";
 import { z } from "zod";
+import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 
 export type VerificationStatus = "supported" | "contradicted" | "unsupported";
 
@@ -84,27 +85,35 @@ export async function verifySynthesis(input: {
   model: string;
   claims: SourcedText[];
   sources: Array<{ id: string; url: string; title: string; snippet?: string }>;
+  telemetry?: AnthropicTelemetrySink;
 }): Promise<VerificationResult[]> {
-  const response: Message = await input.client.messages.create({
+  const response: Message = await createTracedAnthropicMessage({
+    client: input.client,
+    label: "verify-synthesis",
     model: input.model,
-    max_tokens: 2000,
-    temperature: 0,
-    system: [
-      {
-        type: "text",
-        text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
-        cache_control: { type: "ephemeral" }
-      }
-    ],
-    messages: [
-      {
-        role: "user",
-        content: JSON.stringify({
-          claims: input.claims.map((claim, claimIndex) => ({ claimIndex, ...claim })),
-          sources: input.sources
-        })
-      }
-    ]
+    stage: "verify",
+    telemetry: input.telemetry,
+    params: {
+      model: input.model,
+      max_tokens: 2000,
+      temperature: 0,
+      system: [
+        {
+          type: "text",
+          text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
+          cache_control: { type: "ephemeral" }
+        }
+      ],
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify({
+            claims: input.claims.map((claim, claimIndex) => ({ claimIndex, ...claim })),
+            sources: input.sources
+          })
+        }
+      ]
+    },
   });
 
   const text = response.content.find((block) => block.type === "text");

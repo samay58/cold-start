@@ -2,6 +2,7 @@ import {
   companySlugFromDomain,
   type ColdStartCard,
   type GenerationTrace,
+  type GenerationLlmCallTrace,
   type GenerationTraceStep,
   hasUsablePublicProfile,
   publicProfileQuality,
@@ -10,6 +11,7 @@ import {
 import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard, type ColdStartDb } from "@cold-start/db";
 import {
   anthropicModel,
+  anthropicModelForStage,
   createAnthropicClient,
   extractCompanyBlockClaims,
   extractCompanyClaims,
@@ -27,7 +29,9 @@ import {
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
   sourceGateTrace,
+  totalGenerationCost,
   type BlockEnrichmentPatch,
+  type CostLine,
   type EvidenceLedgerEntry,
   type ExtractedCardSections,
   type GenerateCardTracePatch
@@ -128,6 +132,17 @@ function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | 
     trace.providers = patch.providers;
   }
 
+  if ("llm" in patch && patch.llm) {
+    trace.llm = {
+      calls: [...(trace.llm?.calls ?? []), ...patch.llm.calls],
+      ...(patch.llm.totalEstimatedCostUsd !== undefined
+        ? { totalEstimatedCostUsd: patch.llm.totalEstimatedCostUsd }
+        : trace.llm?.totalEstimatedCostUsd !== undefined
+          ? { totalEstimatedCostUsd: trace.llm.totalEstimatedCostUsd }
+          : {})
+    };
+  }
+
   if ("sourceGate" in patch && patch.sourceGate) {
     trace.sourceGate = patch.sourceGate;
   }
@@ -147,6 +162,10 @@ function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | 
 
 function completedStep(durationMs: number): GenerationTraceStep {
   return { status: "complete", durationMs };
+}
+
+function skippedStep(message: string): GenerationTraceStep {
+  return { status: "skipped", message };
 }
 
 function generateErrorTracePatch(error: unknown): GenerateCardTracePatch {
@@ -190,6 +209,24 @@ function peopleEmailCount(sections: ExtractedCardSections) {
     ...(sections.team.founders.value ?? []),
     ...(sections.team.keyExecs.value ?? [])
   ].filter((person) => Boolean(person.email)).length;
+}
+
+function recordLlmCall(trace: GenerationTrace, costLines: CostLine[], call: GenerationLlmCallTrace) {
+  const calls = [...(trace.llm?.calls ?? []), call];
+  const totalEstimatedCostUsd = Number(
+    calls.reduce((sum, item) => sum + (item.estimatedCostUsd ?? 0), 0).toFixed(6)
+  );
+  trace.llm = {
+    calls,
+    ...(totalEstimatedCostUsd > 0 ? { totalEstimatedCostUsd } : {})
+  };
+
+  if (call.estimatedCostUsd !== undefined && call.estimatedCostUsd > 0) {
+    costLines.push({
+      label: `anthropic:${call.stage}:${call.label}:${call.model}`,
+      usd: call.estimatedCostUsd
+    });
+  }
 }
 
 async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
@@ -526,7 +563,13 @@ export const generateCardFunction = inngest.createFunction(
     let currentStage = "plan-research";
     try {
       const anthropic = createAnthropicClient();
-      const model = anthropicModel();
+      const defaultModel = anthropicModel();
+      const extractModel = anthropicModelForStage("extract_full", defaultModel);
+      const blockModel = anthropicModelForStage("extract_block", defaultModel);
+      const synthesisModel = anthropicModelForStage("synthesis", defaultModel);
+      const verifierModel = anthropicModelForStage("verify", defaultModel);
+      const costLines: CostLine[] = [];
+      const telemetry = (call: GenerationLlmCallTrace) => recordLlmCall(trace, costLines, call);
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
       const researchPlanResult = await step.run("plan-research", async () => {
@@ -542,10 +585,34 @@ export const generateCardFunction = inngest.createFunction(
       });
       mergeTracePatch(trace, researchPlanResult.tracePatch);
       const researchPlan = researchPlanResult.value;
+      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
+      const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasUsablePublicProfile(existingCard);
 
       currentStage = "fetch-sources";
       const sourceResult = await step.run("fetch-sources", async () => {
         const result = await timed(async () => {
+          if (reuseExistingForAnalysis) {
+            return {
+              sources: [] as ProviderSource[],
+              providerFacts: [] as ProviderFactCandidate[],
+              failureCount: 0,
+              trace: {
+                providers: {
+                  directExa: { skipped: true, sourceCount: 0, failureCount: 0 },
+                  stableenrich: { sourceCount: 0, factCount: 0, failureCount: 0, endpoints: [] },
+                  mergedSourceCount: 0
+                },
+                sourceGate: {
+                  acceptedCount: 0,
+                  rejectedCount: 0,
+                  acceptedSamples: [],
+                  rejectedSamples: []
+                }
+              },
+              error: null
+            };
+          }
+
           const [directResult, stableResult] = await Promise.allSettled([
             directExaEnabled()
               ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
@@ -640,7 +707,6 @@ export const generateCardFunction = inngest.createFunction(
       }
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
-      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
       let seedCard: ColdStartCard | null = null;
       let seedSections: ExtractedCardSections | null = null;
       let contactProviderFacts: ProviderFactCandidate[] = [];
@@ -758,10 +824,36 @@ export const generateCardFunction = inngest.createFunction(
             contactsReadyMs: Date.now() - functionStartedAt
           };
           await step.run("record-contact-sources", () =>
-            recordSourcesForCard(db, contactRow.id, contactSources),
+            recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSources)),
           );
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", contactCardToStore);
+        }
+
+        if (hasUsablePublicProfile(contactCardToStore)) {
+          trace.steps = {
+            ...trace.steps,
+            "generate-card": skippedStep("basics early-stop after provider-backed profile")
+          };
+          const completeCard = {
+            ...contactCardToStore,
+            generationCostUsd: totalGenerationCost(costLines)
+          };
+          await step.run("mark-generation-complete", () =>
+            markGenerationRun(db, {
+              slug,
+              domain,
+              mode,
+              jobKind: mode,
+              status: "complete",
+              costUsd: completeCard.generationCostUsd,
+              traceJson: trace,
+              ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+              ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+            })
+          );
+
+          return { slug: completeCard.slug, mode };
         }
       }
 
@@ -769,12 +861,25 @@ export const generateCardFunction = inngest.createFunction(
         domain: string;
         sources: ProviderSource[];
         evidenceLedger: EvidenceLedgerEntry[];
-      }): Promise<ExtractedCardSections> =>
-        extractCompanyClaims({
+      }): Promise<ExtractedCardSections> => {
+        if (reuseExistingForAnalysis && existingCard) {
+          return extractedCardSectionsSchema.parse({
+            identity: existingCard.identity,
+            funding: existingCard.funding,
+            team: existingCard.team,
+            signals: existingCard.signals,
+            comparables: existingCard.comparables,
+            citations: existingCard.citations
+          });
+        }
+
+        return extractCompanyClaims({
           client: anthropic,
-          model,
+          model: extractModel,
           evidence: { domain: candidateDomain, researchPlan, sources, evidenceLedger },
+          telemetry,
         });
+      };
       const enrichSectionsForCard = async ({ block, domain: candidateDomain, sources, evidenceLedger, currentSections }: {
         block: Parameters<typeof extractCompanyBlockClaims>[0]["block"];
         domain: string;
@@ -785,7 +890,7 @@ export const generateCardFunction = inngest.createFunction(
         pipelineBlockPatch(
           await extractCompanyBlockClaims({
             client: anthropic,
-            model,
+            model: blockModel,
             block,
             evidence: {
               domain: candidateDomain,
@@ -794,6 +899,7 @@ export const generateCardFunction = inngest.createFunction(
               evidenceLedger,
               currentSections,
             },
+            telemetry,
           })
         );
       const runCardAttempt = async (options: {
@@ -809,10 +915,11 @@ export const generateCardFunction = inngest.createFunction(
             fetchSources: async () => options.sources ?? acceptedSources,
             extractSections: extractSectionsForCard,
             enrichSections: enrichSectionsForCard,
+            costLines,
             ...(mode === "analysis"
               ? {
-                  synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model, card }),
-                  verify: async (claims, sources) => verifySynthesis({ client: anthropic, model, claims, sources }),
+                  synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model: synthesisModel, card, telemetry }),
+                  verify: async (claims, sources) => verifySynthesis({ client: anthropic, model: verifierModel, claims, sources, telemetry }),
                   synthesisRequired: true,
                 }
               : {}),
@@ -836,7 +943,9 @@ export const generateCardFunction = inngest.createFunction(
 
       currentStage = "generate-card";
       const clean = await step.run("generate-card", async () => {
-        const result = await timed(() => runCardAttempt({ skipBlockEnrichment: mode === "basics" }));
+        const result = await timed(() =>
+          runCardAttempt({ skipBlockEnrichment: mode === "basics" || reuseExistingForAnalysis })
+        );
         return {
           value: result.value,
           tracePatch: {

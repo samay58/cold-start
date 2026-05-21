@@ -123,6 +123,42 @@ describe("generateCardForDomain", () => {
     expect(card.generationCostUsd).toBe(0);
   });
 
+  it("includes cost lines added during synthesis and verification", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const costLines = [{ label: "provider", usd: 0.01 }];
+    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      costLines,
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      }),
+      synthesize: async () => {
+        costLines.push({ label: "synthesis", usd: 0.02 });
+        return {
+          whyItMatters,
+          bullCase: [],
+          bearCase: [],
+          openQuestions: ["What customer traction has Cartesia disclosed?"]
+        };
+      },
+      verify: async () => {
+        costLines.push({ label: "verify", usd: 0.03 });
+        return [{ ...whyItMatters, status: "supported" }];
+      },
+      synthesisRequired: true
+    });
+
+    expect(card.generationCostUsd).toBe(0.06);
+    expect(card.synthesis?.whyItMatters).toEqual(whyItMatters);
+  });
+
   it("falls back to a supported synthesis claim when whyItMatters is unsupported", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };

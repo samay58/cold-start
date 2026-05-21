@@ -714,8 +714,13 @@ export async function generateCardForDomainWithTrace(
     }
   }
 
+  card = coldStartCardSchema.parse({
+    ...card,
+    generationCostUsd: totalGenerationCost(deps.costLines ?? [])
+  });
+
   return {
-    card: finalizeGeneratedCard(coldStartCardSchema.parse(card)),
+    card: finalizeGeneratedCard(card),
     tracePatch,
     sections,
     sources

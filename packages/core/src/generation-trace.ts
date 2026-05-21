@@ -37,6 +37,24 @@ export type GenerationProviderEndpointTrace = {
   error?: string;
 };
 
+export type GenerationLlmCallTrace = {
+  stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify";
+  label: string;
+  model: string;
+  status: "ok" | "failed";
+  durationMs: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
+  cacheCreation?: {
+    ephemeral5mInputTokens?: number;
+    ephemeral1hInputTokens?: number;
+  };
+  estimatedCostUsd?: number;
+  error?: string;
+};
+
 export type GenerationEmailDiscoveryTrace = {
   name: string;
   role: string | null;
@@ -82,6 +100,10 @@ export type GenerationTrace = {
     };
     mergedSourceCount?: number;
     emailDiscovery?: GenerationEmailDiscoveryTrace[];
+  };
+  llm?: {
+    calls: GenerationLlmCallTrace[];
+    totalEstimatedCostUsd?: number;
   };
   sourceGate?: {
     acceptedCount: number;

@@ -21,7 +21,7 @@ Useful filters:
 - `--quality`
 - `--detail`
 
-The trace command prints job kind, run status, duration, accepted and rejected sources, citation count, synthesis verification count, Inngest IDs, failure reason, and deterministic QA flags when present.
+The trace command prints job kind, run status, duration, accepted and rejected sources, citation count, synthesis verification count, LLM call count, estimated LLM cost, Inngest IDs, failure reason, and deterministic QA flags when present.
 
 ## Production QA Suite
 
@@ -53,5 +53,6 @@ Every generated run should carry these milestones when the lane exists:
 - `analysisReadyMs`
 
 Provider endpoint traces should include `durationMs`.
+Anthropic traces should include model, stage, duration, token usage, cache read/write tokens, and estimated cost.
 
 Speed wins only count if cited quality and work-email usefulness hold. Public card responses must continue to strip emails and synthesis.

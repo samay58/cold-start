@@ -141,6 +141,12 @@ npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 
 Generation trace and production QA commands live in `docs/qa/generation-trace-and-production-qa.md`.
 
+Anthropic cost controls:
+
+- `ANTHROPIC_MODEL` is the default model for every LLM stage.
+- `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages when set.
+- Generation traces record LLM call count, token usage, cache reads/writes, model, latency, and estimated USD per call.
+
 ## Deployment And Security
 
 The internal deployment runbook is `docs/deployment.md`.

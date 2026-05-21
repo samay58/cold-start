@@ -141,6 +141,8 @@ function flagsFor(row: Row) {
 
 function summarize(row: Row, includeQuality: boolean) {
   const trace = row.trace_json;
+  const llmCalls = trace?.llm?.calls.length;
+  const llmCost = trace?.llm?.totalEstimatedCostUsd;
   return {
     when: row.started_at.toISOString().replace("T", " ").slice(0, 19),
     company: row.domain,
@@ -157,6 +159,8 @@ function summarize(row: Row, includeQuality: boolean) {
     synthesis: trace?.synthesis
       ? `${trace.synthesis.claimCountAfterVerify}/${trace.synthesis.claimCountBeforeVerify}`
       : "-",
+    llm: llmCalls !== undefined ? String(llmCalls) : "-",
+    cost: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
     ...(includeQuality ? { quality: formatGenerationQualityFlags(flagsFor(row)) } : {}),
     error: compactError(row.error ?? trace?.failure?.message ?? null)
   };
@@ -174,6 +178,8 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "facts",
     "citations",
     "synthesis",
+    "llm",
+    "cost",
     ...(includeQuality ? ["quality"] : []),
     "error"
   ] as const;
@@ -265,6 +271,21 @@ function printDetail(row: Row) {
   if (trace.synthesis) {
     console.log("\nsynthesis");
     console.log(JSON.stringify(trace.synthesis, null, 2));
+  }
+
+  if (trace.llm) {
+    console.log("\nllm");
+    console.log(`calls: ${trace.llm.calls.length}${trace.llm.totalEstimatedCostUsd !== undefined ? `, estimated cost: $${trace.llm.totalEstimatedCostUsd.toFixed(6)}` : ""}`);
+    for (const call of trace.llm.calls) {
+      const tokens = [
+        call.inputTokens !== undefined ? `in=${call.inputTokens}` : null,
+        call.cacheReadInputTokens !== undefined ? `cache_read=${call.cacheReadInputTokens}` : null,
+        call.cacheCreationInputTokens !== undefined ? `cache_write=${call.cacheCreationInputTokens}` : null,
+        call.outputTokens !== undefined ? `out=${call.outputTokens}` : null,
+      ].filter(Boolean).join(" ");
+      const cost = call.estimatedCostUsd !== undefined ? ` $${call.estimatedCostUsd.toFixed(6)}` : "";
+      console.log(`- ${call.stage} ${call.label} ${call.model} ${call.status} ${call.durationMs}ms${cost}${tokens ? ` ${tokens}` : ""}`);
+    }
   }
 
   if (trace.failure) {

@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
 import { z } from "zod";
+import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
@@ -186,21 +187,29 @@ export async function synthesizeCard(input: {
   client: Anthropic;
   model: string;
   card: ColdStartCard;
+  telemetry?: AnthropicTelemetrySink;
 }) {
-  const response: Message = await input.client.messages.create({
+  const response: Message = await createTracedAnthropicMessage({
+    client: input.client,
+    label: "synthesize-card",
     model: input.model,
-    max_tokens: 2500,
-    temperature: 0.2,
-    system: [
-      {
-        type: "text",
-        text: synthesisSystemPrompt,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
-    messages: [{ role: "user", content: JSON.stringify(input.card) }],
-    tools: [synthesisTool],
-    tool_choice: { type: "tool", name: SYNTHESIS_TOOL_NAME }
+    stage: "synthesis",
+    telemetry: input.telemetry,
+    params: {
+      model: input.model,
+      max_tokens: 2500,
+      temperature: 0.2,
+      system: [
+        {
+          type: "text",
+          text: synthesisSystemPrompt,
+          cache_control: { type: "ephemeral" }
+        }
+      ],
+      messages: [{ role: "user", content: JSON.stringify(input.card) }],
+      tools: [synthesisTool],
+      tool_choice: { type: "tool", name: SYNTHESIS_TOOL_NAME }
+    },
   });
 
   const synthesis = parseSynthesisToolUse(response);
