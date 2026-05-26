@@ -214,6 +214,73 @@ export async function findActiveGenerationRunStatusBySlug(
   return generationRunStatusSummary(row) as GenerationRunStatusSummary & { status: ActiveGenerationStatus };
 }
 
+export type ProviderFailureSummary = {
+  failedCount: number;
+  topReason: string | null;
+  topEndpoint: string | null;
+  startedAt: Date | null;
+};
+
+// Pulls the latest generation_runs row for a slug, extracts a one-line summary of provider
+// failures from its trace_json. Used by the card routes to surface failure context as response
+// headers so extensions and curl callers can tell apart "thin card because no data exists" from
+// "thin card because 25 of 26 enrichment lanes failed."
+export async function latestProviderFailureSummary(
+  db: ColdStartDb,
+  slug: string
+): Promise<ProviderFailureSummary> {
+  const rows = await db
+    .select({
+      traceJson: generationRuns.traceJson,
+      startedAt: generationRuns.startedAt
+    })
+    .from(generationRuns)
+    .where(eq(generationRuns.slug, slug))
+    .orderBy(desc(generationRuns.startedAt))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || !row.traceJson) {
+    return { failedCount: 0, topReason: null, topEndpoint: null, startedAt: row?.startedAt ?? null };
+  }
+
+  const trace = safeParseTraceJson(row.traceJson, slug);
+  const endpoints = (trace as { providers?: { stableenrich?: { endpoints?: Array<{ name: string; status: string; error?: string }> } } })?.providers?.stableenrich?.endpoints ?? [];
+  const failed = endpoints.filter((endpoint) => endpoint.status === "failed");
+
+  if (failed.length === 0) {
+    return { failedCount: 0, topReason: null, topEndpoint: null, startedAt: row.startedAt };
+  }
+
+  const byName = new Map<string, number>();
+  const reasons = new Map<string, number>();
+  for (const endpoint of failed) {
+    byName.set(endpoint.name, (byName.get(endpoint.name) ?? 0) + 1);
+    const reason = categorizeProviderError(endpoint.error);
+    reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+  }
+
+  const topEndpoint = [...byName.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const topReason = [...reasons.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  return {
+    failedCount: failed.length,
+    topReason,
+    topEndpoint,
+    startedAt: row.startedAt
+  };
+}
+
+function categorizeProviderError(error: string | undefined): string {
+  if (!error) return "unknown";
+  if (/insufficient[_\s]balance/i.test(error) || /agentcash.*deposit/i.test(error)) return "insufficient_balance";
+  if (/timed?[\s_-]?out|timeout/i.test(error)) return "timeout";
+  if (/\b(4\d\d|unauthor|forbidden)\b/i.test(error)) return "auth_or_4xx";
+  if (/\b5\d\d\b|server error|bad gateway/i.test(error)) return "upstream_5xx";
+  if (/network|ENOTFOUND|ECONNRESET|ECONNREFUSED/i.test(error)) return "network";
+  return "other";
+}
+
 export async function findLatestGenerationRunBySlug(
   db: ColdStartDb,
   slug: string,

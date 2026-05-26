@@ -1,5 +1,5 @@
-import { apiJsonWithTiming } from "../../../../lib/api-response";
-import { getPublicCachedCard } from "../../../../lib/cards";
+import { apiJsonWithTiming, setProviderFailureHeaders } from "../../../../lib/api-response";
+import { getLatestProviderFailureSummary, getPublicCachedCard } from "../../../../lib/cards";
 
 function elapsedMs(startedAt: number) {
   return performance.now() - startedAt;
@@ -9,7 +9,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const startedAt = performance.now();
   const { slug } = await params;
   const dbStartedAt = performance.now();
-  const card = await getPublicCachedCard(slug);
+  // Fetch the card and the most recent provider failure summary in parallel; the summary is
+  // best-effort observability and must never delay or fail the card response.
+  const [card, providerSummary] = await Promise.all([
+    getPublicCachedCard(slug),
+    getLatestProviderFailureSummary(slug).catch(() => null)
+  ]);
   const metrics = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }
@@ -20,8 +25,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   };
 
   if (!card) {
-    return apiJsonWithTiming({ error: "card not found" }, metrics, { status: 404, headers });
+    const response = apiJsonWithTiming({ error: "card not found" }, metrics, { status: 404, headers });
+    setProviderFailureHeaders(response, providerSummary);
+    return response;
   }
 
-  return apiJsonWithTiming(card, metrics, { headers });
+  const response = apiJsonWithTiming(card, metrics, { headers });
+  setProviderFailureHeaders(response, providerSummary);
+  return response;
 }

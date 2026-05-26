@@ -686,6 +686,26 @@ export const generateCardFunction = inngest.createFunction(
             sourceGate: sourceGateTrace(sourceGate)
           };
 
+          // Wallet-exhaustion detection. AgentCash returns "INSUFFICIENT_BALANCE" inside the CLI
+          // error envelope when the wallet runs dry. If multiple paid probes fail with that
+          // signal, every downstream LLM call will be a waste of Anthropic spend producing thin
+          // synthesis against near-zero evidence. Abort early with the deposit URL so the
+          // operator can refill before the next run.
+          const insufficientBalanceFailures = failures.filter((failure) =>
+            /INSUFFICIENT_BALANCE|insufficient_balance|agentcash\.dev\/deposit/i.test(failure.error)
+          );
+          if (insufficientBalanceFailures.length >= 3) {
+            const depositMatch = insufficientBalanceFailures[0]?.error.match(/https:\/\/agentcash\.dev\/deposit\/[A-Za-z0-9]+/);
+            const depositLink = depositMatch?.[0] ?? "https://agentcash.dev";
+            return {
+              sources: [] as ProviderSource[],
+              providerFacts: stableFacts as ProviderFactCandidate[],
+              failureCount: failures.length,
+              trace: sourceTrace,
+              error: `AgentCash wallet exhausted: ${insufficientBalanceFailures.length} of ${failures.length} provider probes failed with INSUFFICIENT_BALANCE. Refill at ${depositLink} and retry. (Aborting before LLM spend.)`
+            };
+          }
+
           if (sourceGate.accepted.length === 0) {
             const details = failures
               .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)

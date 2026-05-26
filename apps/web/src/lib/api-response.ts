@@ -39,3 +39,23 @@ export function apiJsonWithTiming(body: unknown, metrics: ServerTimingMetric[], 
   }
   return response;
 }
+
+// Stamps a per-slug provider failure summary onto the response. Extension clients (and curl)
+// can read these to distinguish "card thin because data is sparse" from "card thin because
+// 25 of 26 enrichment lanes failed in the last generation." Header names use the x-cold-start-
+// prefix consistent with the contract header.
+export function setProviderFailureHeaders(
+  response: { headers: Headers },
+  summary: { failedCount: number; topReason: string | null; topEndpoint: string | null } | null
+) {
+  if (!summary || summary.failedCount === 0) {
+    return;
+  }
+  response.headers.set("x-cold-start-provider-failures", String(summary.failedCount));
+  if (summary.topReason) {
+    response.headers.set("x-cold-start-provider-top-reason", summary.topReason);
+  }
+  if (summary.topEndpoint) {
+    response.headers.set("x-cold-start-provider-top-endpoint", summary.topEndpoint);
+  }
+}

@@ -184,4 +184,46 @@ describe("verifySynthesis", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("accepts verifier JSON with only an opening fence (truncated response shape)", async () => {
+    // Reproduces the 2026-05-26 inkeep.com production failure where the LLM response was
+    // truncated after the JSON body and never emitted the closing ```. The old regex required
+    // both fences to match and silently fell through, leaving the leading backticks in the
+    // string passed to JSON.parse.
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text", text: '```json\n[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
+        })
+      }
+    } as unknown as Anthropic;
+
+    await expect(
+      verifySynthesis({
+        client,
+        model: "claude-test",
+        claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+        sources: [{ id: "c1", url: "https://example.com", title: "Example" }]
+      })
+    ).resolves.toEqual([{ claimIndex: 0, text: "Claim [c1].", citationIds: ["c1"], status: "supported" }]);
+  });
+
+  it("accepts verifier JSON with chatty preamble before the array", async () => {
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text", text: 'Sure — here are the verification results:\n[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
+        })
+      }
+    } as unknown as Anthropic;
+
+    await expect(
+      verifySynthesis({
+        client,
+        model: "claude-test",
+        claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+        sources: [{ id: "c1", url: "https://example.com", title: "Example" }]
+      })
+    ).resolves.toEqual([{ claimIndex: 0, text: "Claim [c1].", citationIds: ["c1"], status: "supported" }]);
+  });
 });

@@ -27,10 +27,26 @@ function parseVerifierResults(text: string): VerificationResult[] {
   return verificationResultsSchema.parse(parsed);
 }
 
+// Robust to: well-formed fences (```json ... ```), truncated responses with only an opening
+// fence and no closing fence, chatty prose before/after the JSON block, and plain unfenced JSON.
+// The verifier saw real production failures from truncated responses where the strict
+// open-AND-close regex did not match and the raw backticks reached JSON.parse.
+//
+// Strategy: ignore fences entirely. Locate the first [ or { and slice from there to the matching
+// last ] or }. Trailing fence backticks or prose after the JSON body fall outside the slice.
 function stripJsonFence(text: string) {
   const trimmed = text.trim();
-  const match = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  return match?.[1]?.trim() ?? trimmed;
+  const firstBracket = trimmed.search(/[[{]/);
+  if (firstBracket === -1) {
+    return trimmed;
+  }
+  const opener = trimmed[firstBracket];
+  const closer = opener === "[" ? "]" : "}";
+  const lastBracket = trimmed.lastIndexOf(closer);
+  if (lastBracket <= firstBracket) {
+    return trimmed.slice(firstBracket).trim();
+  }
+  return trimmed.slice(firstBracket, lastBracket + 1).trim();
 }
 
 function verificationKey(input: { text: string; citationIds: string[] }) {

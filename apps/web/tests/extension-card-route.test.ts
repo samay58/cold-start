@@ -2,11 +2,13 @@ import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getFullCachedCard: vi.fn()
+  getFullCachedCard: vi.fn(),
+  getLatestProviderFailureSummary: vi.fn()
 }));
 
 vi.mock("../src/lib/cards", () => ({
-  getFullCachedCard: mocks.getFullCachedCard
+  getFullCachedCard: mocks.getFullCachedCard,
+  getLatestProviderFailureSummary: mocks.getLatestProviderFailureSummary
 }));
 
 const { GET } = await import("../src/app/api/extension/cards/[slug]/route");
@@ -41,6 +43,14 @@ describe("GET /api/extension/cards/[slug]", () => {
     delete process.env.CHROME_EXTENSION_ID;
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.getFullCachedCard.mockReset();
+    mocks.getLatestProviderFailureSummary.mockReset();
+    // Default: no provider failures recorded. Individual tests override when asserting header behavior.
+    mocks.getLatestProviderFailureSummary.mockResolvedValue({
+      failedCount: 0,
+      topReason: null,
+      topEndpoint: null,
+      startedAt: null
+    });
   });
 
   afterEach(() => {
