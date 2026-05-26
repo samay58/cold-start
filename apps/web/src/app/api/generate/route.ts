@@ -4,6 +4,7 @@ import {
   companySlugFromDomain,
   hasUsablePublicProfile,
   researchSectionIdSchema,
+  type GenerationJobKind,
   type ResearchSectionId
 } from "@cold-start/core";
 import {
@@ -78,6 +79,14 @@ function serializeGenerationRun(
     ...(input.startedAt ? { startedAt: input.startedAt.toISOString() } : {}),
     ...(input.completedAt ? { completedAt: input.completedAt.toISOString() } : {})
   };
+}
+
+function sectionJobKind(sectionId: ResearchSectionId): GenerationJobKind {
+  return `section:${sectionId}`;
+}
+
+function activeRunMatchesSection(activeRun: GenerationRunStatusSummary, sectionId: ResearchSectionId) {
+  return activeRun.jobKind === sectionJobKind(sectionId);
 }
 
 function elapsedMs(startedAt: number) {
@@ -198,6 +207,17 @@ export async function POST(request: Request) {
   const runLookupMs = elapsedMs(runLookupStartedAt);
 
   if (activeRun) {
+    if (sectionId && !activeRunMatchesSection(activeRun, sectionId)) {
+      return timedJson(
+        { error: "another generation is already running for this company" },
+        { status: 409 },
+        [
+          { name: "db-cache", durationMs: cacheLookupMs },
+          { name: "db-run", durationMs: runLookupMs }
+        ]
+      );
+    }
+
     return timedJson(
       serializeGenerationRun({ ...activeRun, slug, domain, mode }),
       { status: 202 },
@@ -212,7 +232,7 @@ export async function POST(request: Request) {
   let queuedRun: Awaited<ReturnType<typeof markGenerationRun>>;
 
   try {
-    queuedRun = await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: `section:${sectionId}` } : {}), status: "queued" });
+    queuedRun = await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: sectionJobKind(sectionId) } : {}), status: "queued" });
     if (sectionId) {
       await markResearchSectionRunning(db, {
         slug,
@@ -227,6 +247,17 @@ export async function POST(request: Request) {
       const runAfterConflict = await findActiveGenerationRunStatusBySlug(db, slug, mode);
 
       if (runAfterConflict) {
+        if (sectionId && !activeRunMatchesSection(runAfterConflict, sectionId)) {
+          return timedJson(
+            { error: "another generation is already running for this company" },
+            { status: 409 },
+            [
+              { name: "db-cache", durationMs: cacheLookupMs },
+              { name: "db-run", durationMs: runLookupMs }
+            ]
+          );
+        }
+
         return timedJson(
           serializeGenerationRun({ ...runAfterConflict, slug, domain, mode }),
           { status: 202 },
@@ -265,7 +296,7 @@ export async function POST(request: Request) {
       ]
     );
   } catch (error) {
-    await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: `section:${sectionId}` } : {}), status: "failed", error: boundedErrorMessage(error) });
+    await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: sectionJobKind(sectionId) } : {}), status: "failed", error: boundedErrorMessage(error) });
     if (sectionId) {
       await markResearchSectionFailed(db, {
         slug,

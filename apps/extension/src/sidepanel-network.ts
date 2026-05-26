@@ -1,4 +1,12 @@
-import { deriveResearchSectionsFromCard, hasUsablePublicProfile, publicProfileQuality, type ColdStartCard } from "@cold-start/core";
+import {
+  RESEARCH_SECTION_DEFINITIONS_BY_ID,
+  deriveResearchSectionsFromCard,
+  hasUsablePublicProfile,
+  publicProfileQuality,
+  type ColdStartCard,
+  type ResearchSection,
+  type ResearchSectionId
+} from "@cold-start/core";
 import {
   ApiError,
   buildBootstrapRequest,
@@ -22,6 +30,10 @@ const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 export type GenerationPollResult = {
   card: ColdStartCard;
   analysisNotice?: string;
+};
+
+export type SectionGenerationPollResult = GenerationPollResult & {
+  sections: ResearchSection[];
 };
 
 export function markPerformance(name: string) {
@@ -181,6 +193,50 @@ function analysisCardIsComplete(card: ColdStartCard, requiresMarketStructure: bo
   }
 
   return !requiresMarketStructure || Boolean(card.synthesis.marketStructureAndTiming);
+}
+
+function modeForSection(sectionId: ResearchSectionId): GenerationStatus["mode"] {
+  return RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].visibility === "gated" ? "analysis" : "basics";
+}
+
+function sectionFromList(sections: ResearchSection[] | undefined, sectionId: ResearchSectionId) {
+  return sections?.find((section) => section.sectionId === sectionId) ?? null;
+}
+
+function sectionIsSettled(section: ResearchSection | null) {
+  return Boolean(section && section.status !== "running" && section.status !== "not_started");
+}
+
+function localFailedSection(card: ColdStartCard, sectionId: ResearchSectionId, error: string): ResearchSection {
+  const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId];
+  return {
+    slug: card.slug,
+    domain: card.domain,
+    sectionId,
+    visibility: definition.visibility,
+    status: "failed",
+    content: null,
+    citationIds: [],
+    sourceIds: [],
+    runId: null,
+    error,
+    generatedAt: null,
+    staleAt: null
+  };
+}
+
+function withLocalSectionFailure(
+  card: ColdStartCard,
+  sections: ResearchSection[],
+  sectionId: ResearchSectionId,
+  error: string
+): ResearchSection[] {
+  const failedSection = localFailedSection(card, sectionId, error);
+  const hasSection = sections.some((section) => section.sectionId === sectionId);
+
+  return hasSection
+    ? sections.map((section) => section.sectionId === sectionId ? failedSection : section)
+    : [...sections, failedSection];
 }
 
 export function startedAtMs(value?: string): number {
@@ -410,4 +466,81 @@ export async function startGenerationAndPoll(
     latestCard,
     options.waitForRunCompletion ?? false
   );
+}
+
+export async function startSectionGenerationAndPoll(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  sectionId: ResearchSectionId,
+  latestCard: ColdStartCard,
+  onGenerationStatus: (status: GenerationStatus["status"]) => void
+): Promise<SectionGenerationPollResult> {
+  const mode = modeForSection(sectionId);
+  const deadline = Date.now() + GENERATION_TIMEOUT_MS;
+  const pollStartedAt = Date.now();
+  let pollCount = 0;
+  let currentCard = latestCard;
+  let currentSections = deriveResearchSectionsFromCard(latestCard);
+
+  const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
+  onGenerationStatus(generation.status);
+
+  while (Date.now() < deadline) {
+    if (pollCount > 0) {
+      await waitForNextPoll(signal, generationPollDelay(pollStartedAt));
+    }
+    pollCount += 1;
+
+    const bootstrap = await fetchBootstrap(domain, settings, signal);
+    if (bootstrap.card) {
+      currentCard = bootstrap.card;
+      currentSections = bootstrap.sections ?? deriveResearchSectionsFromCard(bootstrap.card);
+    }
+
+    const section = sectionFromList(currentSections, sectionId);
+    if (sectionIsSettled(section)) {
+      return {
+        card: currentCard,
+        sections: currentSections,
+        ...(section?.status === "failed" ? { analysisNotice: section.error ?? "Section generation failed." } : {})
+      };
+    }
+
+    let runStatus: GenerationRunStatus | null = null;
+    try {
+      runStatus = await requestGenerationStatus(domain, settings, signal, mode);
+    } catch (caught) {
+      if (!isMissingGenerationStatusRoute(caught)) {
+        throw caught;
+      }
+    }
+
+    if (runStatus && isActiveRun(runStatus.status)) {
+      onGenerationStatus(runStatus.status);
+      continue;
+    }
+
+    if (runStatus?.status === "failed") {
+      const sections = withLocalSectionFailure(
+        currentCard,
+        currentSections,
+        sectionId,
+        runStatus.error ?? "Section generation failed before a section was saved."
+      );
+      return { card: currentCard, sections, analysisNotice: runStatus.error ?? "Section generation failed." };
+    }
+
+    if (runStatus?.status === "complete") {
+      const sections = withLocalSectionFailure(
+        currentCard,
+        currentSections,
+        sectionId,
+        "Section run completed, but no saved section result was returned."
+      );
+      return { card: currentCard, sections };
+    }
+  }
+
+  throw new ApiError("Section generation is taking longer than expected. Reopen Cold Start in a minute.", 202);
 }

@@ -881,7 +881,7 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true })
+      JSON.stringify({ domain: "linear.app", mode: "analysis", sectionId: "why_it_matters", confirmStart: true })
     );
     await unmount();
   });
@@ -923,7 +923,7 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).toContain("The company has a supported wedge");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
 
     await act(async () => {
@@ -980,7 +980,7 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true, forceRefresh: true })
+      JSON.stringify({ domain: "linear.app", mode: "analysis", sectionId: "market", confirmStart: true })
     );
     expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
     expect(container.textContent).toContain("Synthesizing");
@@ -991,8 +991,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
-    expect(container.textContent).toContain("Synthesizing");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).not.toBe("running");
+    expect(container.textContent).not.toContain("Synthesizing");
     expect(container.textContent).not.toContain("No market structure claims survived verification.");
 
     await act(async () => {
@@ -1058,8 +1058,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
-    expect(container.textContent).toContain("Synthesizing");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).not.toBe("running");
+    expect(container.textContent).not.toContain("Synthesizing");
     expect(container.textContent).not.toContain("Not enough verified evidence");
 
     await act(async () => {

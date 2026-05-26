@@ -635,7 +635,7 @@ function analysisLayerIsRunning(card: ColdStartCard, id: ResearchLayerId, analys
   }
 
   if (!card.synthesis) {
-    return true;
+    return id === "coreIdea";
   }
 
   return id === "marketStructureTiming" && !card.synthesis.marketStructureAndTiming;
@@ -787,6 +787,7 @@ export function ResearchLayerPanel({
     card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
     card.domain
   );
+  void onStartAnalysis;
 
   if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
@@ -836,8 +837,8 @@ export function ResearchLayerPanel({
             }
 
             const layer = layers.find((candidate) => candidate.id === id);
+            const refreshing = Boolean(profileRefreshRun?.layerId === id);
             const running = Boolean(display.status === "running" || (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun)));
-            const refreshing = Boolean(profileRefreshRun?.layerId === id && layer?.source === "card" && display.status === "empty");
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
             const actionLabel = display.status === "stale"
@@ -851,20 +852,20 @@ export function ResearchLayerPanel({
                     : undefined;
             const handleLayerAction = actionLabel
               ? () => {
-                  if (layer?.source === "analysis") {
-                    onStartAnalysis();
-                    return;
-                  }
                   onRefreshProfile(id);
                 }
               : undefined;
             const statusCopy = running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
-                ? `Refreshing · ${formatElapsed(profileRefreshElapsedSeconds)}`
+                ? layer?.source === "analysis"
+                  ? `Synthesizing · ${formatElapsed(profileRefreshElapsedSeconds)}`
+                  : `Refreshing · ${formatElapsed(profileRefreshElapsedSeconds)}`
                 : sourceLabel(display.sourceCount);
             const runningCopy = refreshing
-              ? id === "competition"
+              ? layer?.source === "analysis"
+                ? "Synthesizing this section from cited evidence"
+                : id === "competition"
                 ? "Searching for adjacent companies and market-map evidence"
                 : id === "signals"
                   ? "Searching for recent traction and launch signals"

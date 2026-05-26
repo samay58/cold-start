@@ -130,4 +130,36 @@ describe("research section registry", () => {
       expect(() => researchSectionSchema.parse(section)).not.toThrow();
     }
   });
+
+  it("does not turn enrichment-only descriptions into finished reader sections", () => {
+    const sections = deriveResearchSectionsFromCard(card({
+      identity: {
+        ...card().identity,
+        oneLiner: fact("AI startup for expert digital minds.", ["c1"]),
+        description: {
+          value: {
+            shortDescription: "AI startup for expert digital minds.",
+            concept: "Expert digital minds.",
+            serves: "Experts and creators.",
+            mechanism: "AI-powered clones."
+          },
+          status: "verified",
+          confidence: "medium",
+          citationIds: ["c1"]
+        }
+      },
+      citations: [
+        {
+          id: "c1",
+          url: "https://stableenrich.dev",
+          title: "StableEnrich",
+          fetchedAt: "2026-05-26T12:00:00.000Z",
+          sourceType: "enrichment"
+        }
+      ]
+    }));
+
+    expect(sections.find((section) => section.sectionId === "buyer")).toMatchObject({ status: "empty" });
+    expect(sections.find((section) => section.sectionId === "product")).toMatchObject({ status: "empty" });
+  });
 });

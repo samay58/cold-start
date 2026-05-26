@@ -86,6 +86,10 @@ const LAYER_SECTION_IDS: Record<ResearchLayerId, ResearchSection["sectionId"]> =
   openQuestions: "risks"
 };
 
+export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
+  return LAYER_SECTION_IDS[id];
+}
+
 function stripCitationMarkers(text: string) {
   return text
     .replace(/\s*\[(?:c|C)?[\w.-]+(?:,\s*(?:c|C)?[\w.-]+)*\]/g, "")

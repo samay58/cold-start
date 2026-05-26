@@ -16,14 +16,15 @@ import { clearCachedCards, readCachedCard, writeCachedCard } from "./card-cache"
 import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
-import type { ResearchLayerId } from "./research-layer";
+import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
 import {
   fetchBootstrap,
   isActiveRun,
   markPerformance,
   pollGenerationUntilCard,
   startedAtMs,
-  startGenerationAndPoll
+  startGenerationAndPoll,
+  startSectionGenerationAndPoll
 } from "./sidepanel-network";
 import type { SourcePassStage } from "./SourcePassInstrument";
 import "./styles.css";
@@ -774,12 +775,12 @@ export function SidePanel() {
 
     setRequestState({ ...currentState, profileRefreshRun });
 
-    void startGenerationAndPoll(
+    void startSectionGenerationAndPoll(
       generationDomain,
       generationSettings,
       controller.signal,
-      "basics",
-      true,
+      sectionIdForLayer(layerId),
+      currentState.card,
       (generationStatus) => {
         if (!controller.signal.aborted) {
           setRequestState((current) => current.status === "success"
@@ -794,21 +795,21 @@ export function SidePanel() {
             : current);
         }
       },
-      {
-        forceRefresh: true,
-        latestCard: currentState.card,
-        waitForRunCompletion: true
-      }
     )
       .then((result) => {
         if (!controller.signal.aborted) {
           setRequestState((current) => {
             if (current.status !== "success") {
-              return { status: "success", card: result.card, sections: deriveResearchSectionsFromCard(result.card) };
+              return { status: "success", card: result.card, sections: result.sections };
             }
 
             const { profileRefreshRun: _profileRefreshRun, ...nextState } = current;
-            return { ...nextState, card: result.card, sections: deriveResearchSectionsFromCard(result.card) };
+            return {
+              ...nextState,
+              card: result.card,
+              sections: result.sections,
+              ...(result.analysisNotice ? { analysisNotice: result.analysisNotice } : {})
+            };
           });
         }
       })

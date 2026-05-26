@@ -247,9 +247,22 @@ function missingSection(card: ColdStartCard, sectionId: ResearchSectionId, statu
   };
 }
 
+function hasReaderFacingEvidence(card: ColdStartCard, citationIds: string[]) {
+  const citations = new Map(card.citations.map((citation) => [citation.id, citation]));
+  return citationIds.some((id) => {
+    const citation = citations.get(id);
+    if (!citation) {
+      return false;
+    }
+
+    return citation.sourceType !== "enrichment";
+  });
+}
+
 export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
   const description = card.identity.description?.value;
   const descriptionCitationIds = card.identity.description?.citationIds ?? card.identity.oneLiner.citationIds;
+  const descriptionHasReaderEvidence = hasReaderFacingEvidence(card, descriptionCitationIds);
   const fundingEvidence = [
     card.funding.totalRaisedUsd.value ? {
       label: "Total raised",
@@ -275,7 +288,7 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
     : [];
 
   return [
-    (description?.serves ?? description?.concept ?? card.identity.oneLiner.value)
+    descriptionHasReaderEvidence && (description?.serves ?? description?.concept ?? card.identity.oneLiner.value)
       ? citedContent({
           slug: card.slug,
           domain: card.domain,
@@ -317,7 +330,7 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
           confidence: "medium"
         })
       : missingSection(card, "competition"),
-    description?.mechanism || description?.concept
+    descriptionHasReaderEvidence && (description?.mechanism || description?.concept)
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "product", summary: description.mechanism ?? description.concept ?? null, citationIds: descriptionCitationIds })
       : missingSection(card, "product"),
     card.synthesis?.whyItMatters
