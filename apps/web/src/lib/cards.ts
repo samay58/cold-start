@@ -1,5 +1,13 @@
 import { hasUsablePublicProfile, materializeFundingFromCitations } from "@cold-start/core";
-import { createDb, findCardBySlug, findPublicCardBySlug, latestProviderFailureSummary, type ProviderFailureSummary } from "@cold-start/db";
+import {
+  createDb,
+  findCardBySlug,
+  findPublicCardBySlug,
+  latestProviderFailureSummary,
+  listPublicCardSummaries,
+  type ProviderFailureSummary,
+  type PublicCardSummary
+} from "@cold-start/db";
 
 import { webEnv } from "./env";
 
@@ -20,4 +28,21 @@ export async function getFullCachedCard(slug: string) {
 export async function getLatestProviderFailureSummary(slug: string): Promise<ProviderFailureSummary> {
   const db = createDb(webEnv().DATABASE_URL);
   return latestProviderFailureSummary(db, slug);
+}
+
+export async function getPublicProfileIndex(): Promise<PublicCardSummary[]> {
+  const db = createDb(webEnv().DATABASE_URL);
+  const summaries = await listPublicCardSummaries(db);
+
+  return summaries.map((summary) => {
+    const card = materializeFundingFromCitations(summary.card);
+
+    return {
+      ...summary,
+      totalRaisedUsd: card.funding.totalRaisedUsd.value,
+      lastRoundName: card.funding.lastRound.value?.name ?? null,
+      headcount: card.team.headcount.value?.value ?? null,
+      card
+    };
+  });
 }

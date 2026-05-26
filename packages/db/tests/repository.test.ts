@@ -14,6 +14,7 @@ import {
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   generationRunStaleAfterMs,
+  listPublicCardSummaries,
   markGenerationRun,
   recordCardEvidence,
   retireStaleGenerationRuns,
@@ -538,6 +539,34 @@ describe("findActiveGenerationRunBySlug", () => {
       mode: "analysis",
       status: "queued"
     });
+  });
+});
+
+describe("listPublicCardSummaries", () => {
+  it("returns usable public cards newest first", async () => {
+    const rows = [
+      { cardJson: { ...card, slug: "thin", domain: "thin.ai", citations: [] } },
+      { cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai", generatedAt: "2026-05-07T12:00:00.000Z" } }
+    ];
+    const db = {
+      select: () => ({
+        from: () => ({
+          orderBy: async () => rows
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(listPublicCardSummaries(db)).resolves.toMatchObject([
+      {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        name: "Cartesia",
+        sourceCount: 3,
+        totalRaisedUsd: 91_000_000,
+        lastRoundName: "Series B",
+        headcount: 42
+      }
+    ]);
   });
 });
 

@@ -4,6 +4,7 @@ import {
   coldStartCardObjectSchema,
   coldStartCardSchema,
   generationTraceSchema,
+  hasUsablePublicProfile,
   publicCard,
   researchSectionContentSchema,
   researchSectionIdSchema,
@@ -23,6 +24,20 @@ import { cards, citations, claims, generationRuns, researchSections, sources } f
 type PublicClaim = {
   path: string;
   fact: ResolvedFact<unknown>;
+};
+
+type PublicCard = Omit<ColdStartCard, "synthesis">;
+
+export type PublicCardSummary = {
+  slug: string;
+  domain: string;
+  name: string;
+  generatedAt: string;
+  sourceCount: number;
+  totalRaisedUsd: number | null;
+  lastRoundName: string | null;
+  headcount: number | null;
+  card: PublicCard;
 };
 
 const identityTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -179,6 +194,39 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
   }
 
   return publicCardSchema.parse(publicCard(parseCachedCard(row, cacheOptions)));
+}
+
+export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
+  const rows = await db
+    .select({ cardJson: cards.cardJson })
+    .from(cards)
+    .orderBy(desc(cards.generatedAt));
+
+  return rows.flatMap((row) => {
+    const parsed = coldStartCardSchema.safeParse(row.cardJson);
+
+    if (!parsed.success) {
+      return [];
+    }
+
+    const card = publicCardSchema.parse(publicCard(parsed.data));
+
+    if (!hasUsablePublicProfile(card)) {
+      return [];
+    }
+
+    return [{
+      slug: card.slug,
+      domain: card.domain,
+      name: card.identity.name.value ?? card.domain,
+      generatedAt: card.generatedAt,
+      sourceCount: card.citations.length,
+      totalRaisedUsd: card.funding.totalRaisedUsd.value,
+      lastRoundName: card.funding.lastRound.value?.name ?? null,
+      headcount: card.team.headcount.value?.value ?? null,
+      card
+    }];
+  });
 }
 
 function jsonStringArray(value: unknown): string[] {

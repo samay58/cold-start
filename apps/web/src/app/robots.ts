@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start-samay58s-projects.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start.semitechie.vc";
 
 export default function robots(): MetadataRoute.Robots {
   return {
