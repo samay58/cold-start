@@ -17,7 +17,7 @@ import {
 } from "./extension-config";
 import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
 
-export const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 
 export type GenerationPollResult = {
   card: ColdStartCard;
@@ -32,7 +32,7 @@ export function markPerformance(name: string) {
   }
 }
 
-export function underfilledBasicsMessage(card: ColdStartCard) {
+function underfilledBasicsMessage(card: ColdStartCard) {
   const quality = publicProfileQuality(card);
   const gaps = [
     !quality.hasCitations ? "citations" : null,
@@ -49,13 +49,13 @@ export function underfilledBasicsMessage(card: ColdStartCard) {
   ].join(" ");
 }
 
-export function assertUsableBasicsCard(mode: GenerationStatus["mode"], card: ColdStartCard) {
+function assertUsableBasicsCard(mode: GenerationStatus["mode"], card: ColdStartCard) {
   if (mode === "basics" && !hasUsablePublicProfile(card)) {
     throw new ApiError(underfilledBasicsMessage(card), 500);
   }
 }
 
-export async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
+async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
   const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);
@@ -133,7 +133,7 @@ async function fetchBootstrapSerially(
   };
 }
 
-export async function requestGeneration(
+async function requestGeneration(
   domain: string,
   settings: Settings,
   signal: AbortSignal,
@@ -147,7 +147,7 @@ export async function requestGeneration(
   return parseGenerateResponse(response);
 }
 
-export async function requestGenerationStatus(
+async function requestGenerationStatus(
   domain: string,
   settings: Settings,
   signal: AbortSignal,
@@ -158,16 +158,24 @@ export async function requestGenerationStatus(
   return parseGenerationStatusResponse(response);
 }
 
-export function isMissingCard(caught: unknown) {
+function isMissingCard(caught: unknown) {
   return caught instanceof ApiError && caught.status === 404 && caught.message === "card not found";
 }
 
-export function isMissingGenerationStatusRoute(caught: unknown) {
+function isMissingGenerationStatusRoute(caught: unknown) {
   return caught instanceof ApiError && caught.status === 405;
 }
 
 export function isActiveRun(status: GenerationRunStatus["status"]): status is "queued" | "running" {
   return status === "queued" || status === "running";
+}
+
+function analysisCardIsComplete(card: ColdStartCard, requiresMarketStructure: boolean) {
+  if (!card.synthesis) {
+    return false;
+  }
+
+  return !requiresMarketStructure || Boolean(card.synthesis.marketStructureAndTiming);
 }
 
 export function startedAtMs(value?: string): number {
@@ -228,6 +236,9 @@ export async function pollGenerationUntilCard(
   let pollCount = 0;
   let currentCard = latestCard;
   let requireRunCompletion = waitForRunCompletion;
+  const requiresMarketStructure = Boolean(
+    mode === "analysis" && latestCard?.synthesis && !latestCard.synthesis.marketStructureAndTiming
+  );
 
   async function fetchAvailableCard() {
     try {
@@ -301,7 +312,7 @@ export async function pollGenerationUntilCard(
         if (hasUsablePublicProfile(card)) {
           return { card };
         }
-      } else if (card.synthesis) {
+      } else if (analysisCardIsComplete(card, requiresMarketStructure)) {
         return { card };
       }
 
@@ -345,7 +356,7 @@ export async function pollGenerationUntilCard(
       const card = await fetchCard(domain, settings, signal);
       assertUsableBasicsCard(mode, card);
       return { card };
-    } else if (mode === "analysis" && runStatus.status === "complete" && currentCard) {
+    } else if (mode === "analysis" && runStatus.status === "complete" && currentCard && analysisCardIsComplete(currentCard, requiresMarketStructure)) {
       return {
         card: currentCard,
         analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE
@@ -365,6 +376,17 @@ export async function startGenerationAndPoll(
   onGenerationStatus: (status: GenerationStatus["status"]) => void,
   options: { forceRefresh?: boolean; latestCard?: ColdStartCard | null; waitForRunCompletion?: boolean } = {}
 ): Promise<GenerationPollResult> {
+  let latestCard = options.latestCard ?? null;
+  if (mode === "analysis" && !latestCard) {
+    try {
+      latestCard = await fetchCard(domain, settings, signal);
+    } catch (caught) {
+      if (!isMissingCard(caught)) {
+        throw caught;
+      }
+    }
+  }
+
   const generation = await requestGeneration(domain, settings, signal, mode, confirmStart, options.forceRefresh);
   onGenerationStatus(generation.status);
 
@@ -380,7 +402,7 @@ export async function startGenerationAndPoll(
     signal,
     mode,
     onGenerationStatus,
-    options.latestCard ?? null,
+    latestCard,
     options.waitForRunCompletion ?? false
   );
 }

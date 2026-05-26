@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { markdownSummary, runGoldenEval } from "./harness.mjs";
+import { DEFAULT_PER_RUN_COST_CEILING_USD, markdownSummary, runGoldenEval } from "./harness.mjs";
 import contract from "../packages/core/api-contract.json" with { type: "json" };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -136,6 +136,9 @@ async function main() {
   const origin = argValue("--origin", process.env.COLD_START_API_ORIGIN ?? "http://localhost:3000");
   const token = argValue("--token", process.env.COLD_START_EXTENSION_TOKEN);
   const extensionId = argValue("--extension-id", process.env.COLD_START_EXTENSION_ID ?? "local-dev");
+  const perRunCostCeilingUsd = Number(
+    argValue("--cost-ceiling-usd", process.env.COLD_START_COST_CEILING_USD ?? String(DEFAULT_PER_RUN_COST_CEILING_USD))
+  );
 
   if (!token) {
     throw new Error("Set COLD_START_EXTENSION_TOKEN or pass --token before running the live eval.");
@@ -144,7 +147,8 @@ async function main() {
   const run = await runGoldenEval({
     companies,
     limit,
-    client: liveClient({ origin, token, extensionId })
+    client: liveClient({ origin, token, extensionId }),
+    perRunCostCeilingUsd: Number.isFinite(perRunCostCeilingUsd) ? perRunCostCeilingUsd : undefined
   });
   const outputDir = path.join(__dirname, "runs");
   const stamp = run.generatedAt.replace(/[:.]/g, "-");

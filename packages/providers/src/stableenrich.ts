@@ -1,4 +1,5 @@
 import { agentcashJson } from "./agentcash";
+import { providerBudgetForEndpoint } from "./provider-budget";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
 import {
   allSettledLimited,
@@ -473,14 +474,14 @@ function extractLeadersFromExaResults(payload: unknown, _domain: string): Person
     }
   }
 
-  // Don't return excessive candidates — limit to top 6 to keep Hunter spend bounded.
+  // Don't return excessive candidates. Limit to top 6 to keep Hunter spend bounded.
   return Array.from(out.values()).slice(0, 6);
 }
 
 function leadershipNameCandidates(rawText: string): Array<{ name: string; role: string | null }> {
   const text = rawText.replace(/\s+/g, " ");
   const out: Array<{ name: string; role: string | null }> = [];
-  // Pattern A: "Chris Hladczuk, Co-Founder and CEO" — name followed by comma-title
+  // Pattern A: "Chris Hladczuk, Co-Founder and CEO". Name followed by comma-title.
   const namedAfterPattern = /\b([A-Z][a-zA-Z'’]+(?:\s+[A-Z][a-zA-Z'’]+){1,2}),\s+((?:Co-?Founder|Founder|CEO|CTO|CFO|COO|CPO|CRO|CMO|President|Chief [A-Z][a-z]+ Officer|Managing Partner|General Partner|Head of [A-Z][a-z]+)(?:\s+(?:and|&)\s+[A-Z][A-Za-z]+(?:\s+[A-Z][a-z]+)?)?)/g;
   let match: RegExpExecArray | null;
   while ((match = namedAfterPattern.exec(text)) !== null) {
@@ -489,7 +490,7 @@ function leadershipNameCandidates(rawText: string): Array<{ name: string; role: 
     if (!isLikelyPersonName(name)) continue;
     out.push({ name, role });
   }
-  // Pattern B: "CEO Chris Hladczuk" or "Co-Founder Nick Puljic" — title then name
+  // Pattern B: "CEO Chris Hladczuk" or "Co-Founder Nick Puljic". Title then name.
   const titleBeforePattern = /(Co-?Founder|Founder|CEO|CTO|CFO|COO|CPO|CRO|CMO|President|Chief [A-Z][a-z]+ Officer|Managing Partner|General Partner)\s+([A-Z][a-zA-Z'’]+(?:\s+[A-Z][a-zA-Z'’]+){1,2})/g;
   while ((match = titleBeforePattern.exec(text)) !== null) {
     const role = (match[1] ?? "").trim();
@@ -1052,19 +1053,7 @@ function stableenrichProbeTimeoutMs(name: StableenrichProbe["name"]) {
     return configured;
   }
 
-  if (name === "hunter_email_verifier") {
-    return 15_000;
-  }
-
-  if (name === "clado_contacts_enrich" || name === "minerva_enrich") {
-    return 30_000;
-  }
-
-  if (name === "firecrawl_homepage" || name === "firecrawl_about" || name === "firecrawl_team") {
-    return 20_000;
-  }
-
-  return 30_000;
+  return providerBudgetForEndpoint("stableenrich", name).timeoutMs;
 }
 
 function providerSourcesFromProbeResult(result: StableenrichProbeResult): ProviderSource[] {

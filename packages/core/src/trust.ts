@@ -106,6 +106,27 @@ function supportedTextItems(items: SourcedText[], validIds: Set<string>): Source
   });
 }
 
+function supportedMarketStructureAndTiming(
+  market: NonNullable<ColdStartCard["synthesis"]>["marketStructureAndTiming"],
+  validIds: Set<string>
+): NonNullable<ColdStartCard["synthesis"]>["marketStructureAndTiming"] {
+  if (!market) {
+    return undefined;
+  }
+
+  const filtered = {
+    buyerBudget: market.buyerBudget ? keepSupportedText(market.buyerBudget, validIds) : null,
+    painSeverity: market.painSeverity ? keepSupportedText(market.painSeverity, validIds) : null,
+    adoptionTrigger: market.adoptionTrigger ? keepSupportedText(market.adoptionTrigger, validIds) : null,
+    marketStructure: market.marketStructure ? keepSupportedText(market.marketStructure, validIds) : null,
+    profitPool: market.profitPool ? keepSupportedText(market.profitPool, validIds) : null,
+    expansionPath: market.expansionPath ? keepSupportedText(market.expansionPath, validIds) : null,
+    timingRisk: market.timingRisk ? keepSupportedText(market.timingRisk, validIds) : null
+  };
+
+  return Object.values(filtered).some(Boolean) ? filtered : undefined;
+}
+
 export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
   const validIds = validCitationIds(card);
   const citations = citationsById(card);
@@ -155,6 +176,7 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
 
   const validIds = validCitationIds(card);
   const whyItMatters = keepSupportedText(card.synthesis.whyItMatters, validIds);
+  const marketStructureAndTiming = supportedMarketStructureAndTiming(card.synthesis.marketStructureAndTiming, validIds);
 
   if (!whyItMatters) {
     const { synthesis: _synthesis, ...cardWithoutSynthesis } = card;
@@ -165,7 +187,8 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
     whyItMatters,
     bullCase: supportedTextItems(card.synthesis.bullCase, validIds).slice(0, 3),
     bearCase: supportedTextItems(card.synthesis.bearCase, validIds).slice(0, 3),
-    openQuestions: card.synthesis.openQuestions.filter((question) => question.trim().length > 0).slice(0, 3)
+    openQuestions: card.synthesis.openQuestions.filter((question) => question.trim().length > 0).slice(0, 3),
+    ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
   };
 
   return { ...card, synthesis };

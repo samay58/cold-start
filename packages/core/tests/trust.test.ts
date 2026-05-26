@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type ColdStartCard,
+  coldStartCardSchema,
   publicCard,
   sanitizeCardTrust,
   stripUnsupportedSynthesis
@@ -81,6 +82,25 @@ describe("publicCard", () => {
 });
 
 describe("sanitizeCardTrust", () => {
+  it("populates citation source quality consistently", () => {
+    const clean = sanitizeCardTrust(baseCard);
+
+    expect(clean.citations).toEqual([
+      expect.objectContaining({
+        id: "c1",
+        sourceQuality: expect.objectContaining({ tier: "primary_company" })
+      }),
+      expect.objectContaining({
+        id: "c2",
+        sourceQuality: expect.objectContaining({ tier: "independent_report" })
+      }),
+      expect.objectContaining({
+        id: "c3",
+        sourceQuality: expect.objectContaining({ tier: "enrichment" })
+      })
+    ]);
+  });
+
   it("nulls facts with no citations instead of showing uncited values", () => {
     const dirty: ColdStartCard = {
       ...baseCard,
@@ -217,6 +237,32 @@ describe("sanitizeCardTrust", () => {
   });
 });
 
+describe("coldStartCardSchema trust invariants", () => {
+  it("rejects non-null resolved facts without citation refs", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      identity: {
+        ...baseCard.identity,
+        name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: [] }
+      }
+    };
+
+    expect(coldStartCardSchema.safeParse(dirty).success).toBe(false);
+  });
+
+  it("rejects citation refs that do not resolve to card citations", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      identity: {
+        ...baseCard.identity,
+        name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["missing"] }
+      }
+    };
+
+    expect(coldStartCardSchema.safeParse(dirty).success).toBe(false);
+  });
+});
+
 describe("stripUnsupportedSynthesis", () => {
   it("drops synthesis lines that contain verification sentinels", () => {
     const clean = stripUnsupportedSynthesis(baseCard);
@@ -344,5 +390,44 @@ describe("stripUnsupportedSynthesis", () => {
     expect(clean.synthesis?.bullCase).toEqual([
       { text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }
     ]);
+  });
+
+  it("filters unsupported market structure claims while preserving supported ones", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      synthesis: {
+        ...baseSynthesis,
+        marketStructureAndTiming: {
+          buyerBudget: {
+            text: "Voice agent infrastructure can come from contact-center automation budgets [c1].",
+            citationIds: ["c1"]
+          },
+          painSeverity: {
+            text: "The pain point is not supported [missing].",
+            citationIds: ["missing"]
+          },
+          adoptionTrigger: null,
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk: null
+        }
+      }
+    };
+
+    const clean = stripUnsupportedSynthesis(dirty);
+
+    expect(clean.synthesis?.marketStructureAndTiming).toEqual({
+      buyerBudget: {
+        text: "Voice agent infrastructure can come from contact-center automation budgets [c1].",
+        citationIds: ["c1"]
+      },
+      painSeverity: null,
+      adoptionTrigger: null,
+      marketStructure: null,
+      profitPool: null,
+      expansionPath: null,
+      timingRisk: null
+    });
   });
 });

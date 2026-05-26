@@ -104,7 +104,7 @@ export function stringRecordValue(record: Record<string, unknown>, key: string) 
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-export function dedupeRecordsByUrl(records: Record<string, unknown>[]) {
+function dedupeRecordsByUrl(records: Record<string, unknown>[]) {
   const byUrl = new Map<string, Record<string, unknown>>();
   for (const record of records) {
     const url = stringRecordValue(record, "url");
@@ -148,7 +148,7 @@ export function extractUrlRecords(payload: unknown): Record<string, unknown>[] {
   return dedupeRecordsByUrl(records);
 }
 
-export function stableenrichAgentcashConcurrency(itemCount: number) {
+function stableenrichAgentcashConcurrency(itemCount: number) {
   const configured = Number.parseInt(process.env.STABLEENRICH_AGENTCASH_CONCURRENCY ?? "", 10);
   const requested = Number.isFinite(configured) && configured > 0 ? configured : 3;
   return Math.max(1, Math.min(itemCount, requested));

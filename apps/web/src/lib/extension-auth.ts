@@ -1,8 +1,21 @@
+import { timingSafeEqual } from "node:crypto";
+
 const LOCAL_CHROME_EXTENSION_WILDCARD = "chrome-extension://*";
 const LOCAL_DEFAULT_EXTENSION_ORIGINS = "chrome-extension://*,http://localhost:5173";
 const extensionIdHeader = "x-cold-start-extension-id";
 const localExtensionId = "local-dev";
 const localExtensionToken = "local-extension-token";
+
+function timingSafeStringEqual(a: string, b: string): boolean {
+  // timingSafeEqual requires equal-length buffers; length-mismatch short-circuits to false.
+  // Stringify-first ensures we never throw on weird header values.
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) {
+    return false;
+  }
+  return timingSafeEqual(left, right);
+}
 
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   if (allowedOrigins.includes(origin)) {
@@ -75,7 +88,7 @@ export function assertExtensionRequest(headers: Headers) {
   }
 
   const token = authorization.slice("Bearer ".length);
-  if (token !== apiToken) {
+  if (!timingSafeStringEqual(token, apiToken)) {
     return { ok: false as const, status: 401, error: "extension token invalid" };
   }
 

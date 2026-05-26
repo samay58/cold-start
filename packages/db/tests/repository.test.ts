@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { publicCard, type ColdStartCard } from "@cold-start/core";
 import type { GenerationTrace } from "@cold-start/core";
@@ -8,6 +8,7 @@ import { createDb } from "../src/client";
 import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
+  findCardBySlug,
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
@@ -288,21 +289,51 @@ describe("upsertCard", () => {
 });
 
 describe("findPublicCardBySlug", () => {
-  it("returns parsed public card JSON without synthesis", async () => {
+  it("derives the public card from private card JSON instead of trusting the stored public projection", async () => {
     const db = {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ publicCardJson: publicCard(card) }]
+            limit: async () => [
+              {
+                cardJson: card,
+                publicCardJson: { ...publicCard(card), slug: "stale-public-cache" },
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+                synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
+              }
+            ]
           })
         })
       })
     } as unknown as ColdStartDb;
 
-    const publicOnly = await findPublicCardBySlug(db, "cartesia");
+    const publicOnly = await findPublicCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") });
 
     expect(publicOnly?.slug).toBe("cartesia");
     expect(publicOnly).not.toHaveProperty("synthesis");
+  });
+
+  it("returns null when the basics cache is stale", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                publicCardJson: publicCard(card),
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
+                synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findPublicCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toBeNull();
   });
 
   it("returns null when the public card row is absent", async () => {
@@ -317,6 +348,52 @@ describe("findPublicCardBySlug", () => {
     } as unknown as ColdStartDb;
 
     await expect(findPublicCardBySlug(db, "missing")).resolves.toBeNull();
+  });
+});
+
+describe("findCardBySlug", () => {
+  it("returns null for analysis mode when synthesis is stale", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+                synthesisExpiresAt: new Date("2026-05-06T11:59:59.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findCardBySlug(db, "cartesia", { mode: "analysis", now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toBeNull();
+  });
+
+  it("allows basics mode when identity and signals are fresh even if synthesis is stale", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+                synthesisExpiresAt: new Date("2026-05-06T11:59:59.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findCardBySlug(db, "cartesia", { mode: "basics", now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toMatchObject({
+      slug: "cartesia"
+    });
   });
 });
 
@@ -479,6 +556,44 @@ describe("findLatestGenerationRunBySlug", () => {
       status: "failed",
       error: "worker failed"
     });
+  });
+
+  it("returns null traceJson when the persisted shape is corrupt, instead of forwarding a malformed object", async () => {
+    const corruptTrace = { jobKind: "definitely-not-a-job-kind", mode: 42, steps: "not-a-record" } as unknown as GenerationTrace;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: async () => [{
+                id: "run-corrupt",
+                slug: "cartesia",
+                domain: "cartesia.ai",
+                mode: "analysis",
+                jobKind: "analysis",
+                status: "complete",
+                error: null,
+                costUsd: "0.10",
+                traceJson: corruptTrace,
+                inngestEventId: "evt_x",
+                inngestRunId: "run_x",
+                startedAt: new Date("2026-05-06T12:00:00.000Z"),
+                completedAt: new Date("2026-05-06T12:01:00.000Z")
+              }]
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    const summary = await findLatestGenerationRunBySlug(db, "cartesia", "analysis");
+
+    expect(summary?.slug).toBe("cartesia");
+    expect(summary?.traceJson).toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 

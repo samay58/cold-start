@@ -195,4 +195,30 @@ describe("assertExtensionRequest", () => {
       error: "extension auth not configured"
     });
   });
+
+  it("rejects a wrong token even when the production extension ID matches and the origin header is present", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "wrong", "prod-id"))).toEqual({
+      ok: false,
+      status: 401,
+      error: "extension token invalid"
+    });
+  });
+
+  it("rejects a whitespace-only production extension ID header", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "   "))).toEqual({
+      ok: false,
+      status: 403,
+      error: "extension identity required"
+    });
+  });
 });

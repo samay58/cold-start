@@ -1,6 +1,15 @@
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
 
-import { coldStartCardSchema, publicCard, type ColdStartCard, type GenerationJobKind, type GenerationTrace, type ResolvedFact } from "@cold-start/core";
+import {
+  coldStartCardObjectSchema,
+  coldStartCardSchema,
+  generationTraceSchema,
+  publicCard,
+  type ColdStartCard,
+  type GenerationJobKind,
+  type GenerationTrace,
+  type ResolvedFact
+} from "@cold-start/core";
 
 import type { ColdStartDb } from "./client";
 import { cards, citations, claims, generationRuns, sources } from "./schema";
@@ -18,7 +27,7 @@ type SourceType = "company_site" | "news" | "filing" | "enrichment" | "github" |
 export type GenerationMode = "basics" | "analysis";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
 type ActiveGenerationStatus = Extract<GenerationStatus, "queued" | "running">;
-const publicCardSchema = coldStartCardSchema.omit({ synthesis: true });
+const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true });
 export const generationRunStaleAfterMs = 15 * 60 * 1000;
 
 export type GenerationRunSummary = {
@@ -57,6 +66,18 @@ type GenerationRunRow = {
 type GenerationRunResultRow = Omit<GenerationRunRow, "traceJson"> & { traceJson?: unknown };
 
 type GenerationRunStatusResultRow = Omit<GenerationRunResultRow, "traceJson" | "inngestEventId" | "inngestRunId">;
+type CardCacheMode = GenerationMode;
+type CardCacheOptions = {
+  mode?: CardCacheMode | undefined;
+  now?: Date | undefined;
+};
+type CardCacheRow = {
+  cardJson: unknown;
+  publicCardJson?: unknown;
+  identityExpiresAt: Date;
+  signalsExpiresAt: Date;
+  synthesisExpiresAt: Date;
+};
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -68,26 +89,64 @@ export function cardExpiryDates(now = new Date()) {
   };
 }
 
-export async function findCardBySlug(db: ColdStartDb, slug: string): Promise<ColdStartCard | null> {
-  const rows = await db.select().from(cards).where(eq(cards.slug, slug)).limit(1);
+function isFreshCacheRow(row: CardCacheRow, options: CardCacheOptions = {}) {
+  const now = options.now ?? new Date();
+  const mode = options.mode ?? "analysis";
+
+  if (row.identityExpiresAt <= now || row.signalsExpiresAt <= now) {
+    return false;
+  }
+
+  return mode === "basics" || row.synthesisExpiresAt > now;
+}
+
+export async function findCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = {}): Promise<ColdStartCard | null> {
+  const rows = await db
+    .select({
+      cardJson: cards.cardJson,
+      identityExpiresAt: cards.identityExpiresAt,
+      signalsExpiresAt: cards.signalsExpiresAt,
+      synthesisExpiresAt: cards.synthesisExpiresAt
+    })
+    .from(cards)
+    .where(eq(cards.slug, slug))
+    .limit(1);
   const row = rows[0];
 
   if (!row) {
+    return null;
+  }
+
+  if (!isFreshCacheRow(row, options)) {
     return null;
   }
 
   return coldStartCardSchema.parse(row.cardJson);
 }
 
-export async function findPublicCardBySlug(db: ColdStartDb, slug: string): Promise<Omit<ColdStartCard, "synthesis"> | null> {
-  const rows = await db.select({ publicCardJson: cards.publicCardJson }).from(cards).where(eq(cards.slug, slug)).limit(1);
+export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<Omit<ColdStartCard, "synthesis"> | null> {
+  const rows = await db
+    .select({
+      cardJson: cards.cardJson,
+      publicCardJson: cards.publicCardJson,
+      identityExpiresAt: cards.identityExpiresAt,
+      signalsExpiresAt: cards.signalsExpiresAt,
+      synthesisExpiresAt: cards.synthesisExpiresAt
+    })
+    .from(cards)
+    .where(eq(cards.slug, slug))
+    .limit(1);
   const row = rows[0];
 
   if (!row) {
     return null;
   }
 
-  return publicCardSchema.parse(row.publicCardJson);
+  if (!isFreshCacheRow(row, { mode: options.mode ?? "basics", now: options.now })) {
+    return null;
+  }
+
+  return publicCardSchema.parse(publicCard(coldStartCardSchema.parse(row.cardJson)));
 }
 
 export async function findActiveGenerationRunBySlug(
@@ -434,6 +493,27 @@ export async function markGenerationRun(
   return row;
 }
 
+function safeParseTraceJson(value: unknown, slug: string): GenerationTrace | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const parsed = generationTraceSchema.safeParse(value);
+  if (parsed.success) {
+    return parsed.data as GenerationTrace;
+  }
+
+  console.warn("[repository] dropping corrupt traceJson", {
+    slug,
+    issues: parsed.error.issues.slice(0, 3).map((issue) => ({
+      path: issue.path.join("."),
+      code: issue.code,
+      message: issue.message
+    }))
+  });
+  return null;
+}
+
 function generationRunSummary(row: GenerationRunResultRow): GenerationRunSummary {
   return {
     ...(row.id !== undefined ? { id: row.id } : {}),
@@ -444,7 +524,7 @@ function generationRunSummary(row: GenerationRunResultRow): GenerationRunSummary
     status: row.status,
     ...(row.error !== undefined ? { error: row.error } : {}),
     ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),
-    ...(row.traceJson !== undefined ? { traceJson: row.traceJson as GenerationTrace | null } : {}),
+    ...(row.traceJson !== undefined ? { traceJson: safeParseTraceJson(row.traceJson, row.slug) } : {}),
     ...(row.inngestEventId !== undefined ? { inngestEventId: row.inngestEventId } : {}),
     ...(row.inngestRunId !== undefined ? { inngestRunId: row.inngestRunId } : {}),
     ...(row.startedAt !== undefined ? { startedAt: row.startedAt } : {}),

@@ -4,11 +4,11 @@ Read this before touching product behavior. `SPEC.md` remains the product source
 
 ## One-Sentence Intent
 
-Cold Start is an investor-grade company context card: click a company website, get sourced fundamentals fast, then choose whether to run deeper investor synthesis behind the Chrome extension.
+Cold Start is an investor-grade company context card: click a company website, get sourced fundamentals fast, then choose whether to run a sharper first-pass investment screen behind the Chrome extension.
 
 ## Product Thesis
 
-Cold Start competes with old company-intel tiles by matching the basics and beating them on citations, speed, and investor judgment. It should be the thing an investor opens when they need to understand, in seconds, what a company does, who runs it, what is publicly known about funding, what changed recently, and what questions matter next.
+Cold Start competes with old company-intel tiles by matching the basics and beating them on citations, speed, and investor judgment. It should be the thing an investor opens when they need to understand, in seconds, what a company does, who runs it, what is publicly known about funding, what changed recently, whether the market is structurally interesting, and what questions matter next.
 
 The product line is simple. Basics first. Citations always. Judgment only after the public facts hold. A fact without source support is worse than an empty field. A confident-looking uncited card violates the product.
 
@@ -65,7 +65,9 @@ It is not a contact scraping or outbound automation tool. The privacy page expli
 
 It is not an investment score. The synthesis can frame support and questions, but it should not imply "invest" or "pass."
 
-It is not a generic data dump. The investor lens should name the buyer, workflow, wedge, proof, friction, funding cadence, and what would change the read.
+It is not a generic data dump. The investor lens should name the buyer, workflow, wedge, proof, friction, funding cadence, market structure, and what would change the read.
+
+It is not a top-down TAM wrapper. Market work should start from buyer budget, pain severity, adoption trigger, profit pool, market structure, expansion path, and timing risk. A big market number without bottoms-up budget logic is filler, not analysis.
 
 ## Load-Bearing Product Decisions
 
@@ -117,7 +119,7 @@ The public card is shaped around these sections:
 - Identity: name, domain, logo, one-liner, structured description, HQ, founded year, status.
 - Funding: total raised, last round, optional round ledger, investors.
 - Team: founders, key executives, headcount.
-- Signals: recent public events such as news, hiring, launches, funding, filings, GitHub, or other signals.
+- Traction signals: recent public events such as news, hiring, launches, funding, filings, GitHub, or other signals.
 - Comparables: nearby companies from similarity search.
 - Sources: citation list with source type and source quality.
 
@@ -125,9 +127,23 @@ The gated card adds:
 
 - Why it might matter.
 - Supported claims.
-- Open questions.
+- Risks and diligence prompts.
 
-The description model is especially important. It is not a slogan field. It tries to capture what the company does, the non-obvious product concept, who it serves, and how the mechanism works.
+The description model is especially important. It is not a slogan field. It tries to capture what the company does, the non-obvious product concept, the buyer and use case, and the product or technology that makes it work.
+
+The extension research layer should use investor-screen language:
+
+- Why It Matters
+- Product & Technology
+- Buyer & Use Case
+- Market Structure & Timing
+- Customer Proof
+- Traction
+- Financing & Valuation
+- Competitive Position
+- Business Model & Unit Economics, once the backend supports it with real evidence
+- Strategic Relevance, once the backend supports it with real evidence
+- Risks & Diligence
 
 ## Architecture Intent
 
@@ -202,7 +218,7 @@ These are places where docs, code, or product intent do not fully line up yet.
 - Direct Exa is wired for fast fundamentals, but the exact production latency and coverage targets still need golden-set measurement.
 - The synthesis parser still accepts compatibility fields that post-verification filtering may leave empty. The UI can render fewer supported lines or empty states.
 - Comparables do not carry citation IDs in the current card schema. They come from provider output but are not inspectable at the same claim level as facts.
-- `claims` stores only selected public fact paths. Signals, comparables, gated synthesis, unsupported-claim drops, and source failures are not represented as first-class claim/debug rows yet.
+- `claims` stores only selected public fact paths. Traction signals, comparables, gated synthesis, unsupported-claim drops, and source failures are not represented as first-class claim/debug rows yet.
 
 ## Source Pointers
 

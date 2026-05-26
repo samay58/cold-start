@@ -9,7 +9,7 @@
     "start": "node ../../scripts/run-next.mjs start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"lint configured in web implementation task\""
+    "lint": "eslint ."
   },
   "dependencies": {
     "@cold-start/core": "file:../../packages/core",
@@ -20,7 +20,7 @@
     "@cold-start/ui": "file:../../packages/ui",
     "@tailwindcss/postcss": "^4.1.0",
     "inngest": "^3.40.0",
-    "next": "^15.4.0",
+    "next": "^15.5.18",
     "postcss": "^8.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

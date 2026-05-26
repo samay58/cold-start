@@ -190,7 +190,7 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "know it all" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Build the public record" })).toBeVisible();
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
 });
@@ -286,7 +286,7 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await mockExtensionApi(page, browserbaseCard());
   await openSidePanel(page);
 
-  const card = page.locator(".cs-dormant-card", { hasText: "Questions" });
+  const card = page.locator(".cs-dormant-card", { hasText: "Risks & Diligence" });
   await expect(card).toBeVisible();
 
   const box = await card.boundingBox();
@@ -303,7 +303,7 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await expect(page.getByText("Release to pin")).toBeVisible();
   await page.mouse.up();
 
-  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Questions" });
+  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Risks & Diligence" });
   await expect(activeQuestions).toBeVisible();
   await expect(activeQuestions).toContainText("Synthesizing");
 });
@@ -323,7 +323,7 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   });
   await openSidePanel(page);
 
-  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Signals" });
+  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Traction" });
   await dormantSignals.focus();
   await page.keyboard.press("Enter");
 
@@ -357,12 +357,17 @@ test("keyboard activation starts analysis for synthesis-backed cards only", asyn
   });
   await openSidePanel(page);
 
-  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Questions" });
+  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Risks & Diligence" });
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Questions" })).toContainText("Synthesizing");
-  expect(generationRequests).toMatchObject([
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Risks & Diligence" })).toContainText("Synthesizing");
+  await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
+
+  const marketCard = page.locator(".cs-dormant-card", { hasText: "Market Structure & Timing" });
+  await marketCard.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Market Structure & Timing" })).toContainText("Synthesizing");
 });

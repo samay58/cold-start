@@ -1,0 +1,13 @@
+[project]
+name = "activegraph-coldstart"
+version = "0.1.0"
+description = "Contained ActiveGraph shadow audit harness for Cold Start card fixtures."
+requires-python = ">=3.11"
+dependencies = [
+  "activegraph==1.0.5.post2",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+]

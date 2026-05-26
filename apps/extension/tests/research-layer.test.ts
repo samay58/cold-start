@@ -11,9 +11,9 @@ import {
 } from "../src/research-layer-motion";
 
 const futureCardTitles = [
-  ["Market", "Context"].join(" "),
-  ["Business", "Model"].join(" "),
-  ["Cold", "Start", "Brief"].join(" ")
+  "Business Model & Unit Economics",
+  "Team & Execution",
+  "Strategic Relevance"
 ];
 
 function baseCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
@@ -85,13 +85,25 @@ describe("research layer model", () => {
   it("ships only useful activatable cards in stable order", () => {
     expect(RESEARCH_LAYER_CARDS.map((card) => card.id)).toEqual([
       "coreIdea",
-      "customers",
       "serves",
+      "marketStructureTiming",
+      "customers",
       "signals",
       "investors",
       "competition",
       "mechanism",
       "openQuestions"
+    ]);
+    expect(RESEARCH_LAYER_CARDS.map((card) => card.title)).toEqual([
+      "Why It Matters",
+      "Buyer & Use Case",
+      "Market Structure & Timing",
+      "Customer Proof",
+      "Traction",
+      "Financing & Valuation",
+      "Competitive Position",
+      "Product & Technology",
+      "Risks & Diligence"
     ]);
   });
 
@@ -149,6 +161,91 @@ describe("research layer model", () => {
       status: "populated"
     });
     expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
+  });
+
+  it("renders market structure and timing from verified synthesis fields", () => {
+    const buyerBudget = {
+      text: "The buyer budget is contact-center automation spend [c1].",
+      citationIds: ["c1"]
+    };
+    const timingRisk = {
+      text: "Timing risk remains because production voice workflows are still early [c1].",
+      citationIds: ["c1"]
+    };
+    const card = baseCard({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: ["Can it expand beyond developers?"],
+        marketStructureAndTiming: {
+          buyerBudget,
+          painSeverity: null,
+          adoptionTrigger: null,
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk
+        }
+      }
+    });
+
+    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
+      title: "Market Structure & Timing",
+      body: "The buyer budget is contact-center automation spend.",
+      sourceCount: 1,
+      status: "populated"
+    });
+    expect(layerDisplayForCard(card, "marketStructureTiming")?.items).toEqual([
+      { title: "Buyer budget", body: "The buyer budget is contact-center automation spend." },
+      { title: "Timing risk", body: "Timing risk remains because production voice workflows are still early." }
+    ]);
+  });
+
+  it("treats stale synthesis without market structure as needing analysis", () => {
+    const card = baseCard({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: ["Can it expand beyond developers?"]
+      }
+    });
+
+    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("needs-analysis");
+    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
+      title: "Market Structure & Timing",
+      body: "Market structure analysis has not been generated for this card yet.",
+      sourceCount: 0,
+      status: "needs-analysis"
+    });
+  });
+
+  it("keeps generated market structure with no surviving fields empty", () => {
+    const card = baseCard({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: ["Can it expand beyond developers?"],
+        marketStructureAndTiming: {
+          buyerBudget: null,
+          painSeverity: null,
+          adoptionTrigger: null,
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk: null
+        }
+      }
+    });
+
+    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("empty");
+    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
+      body: "No market structure claims survived verification.",
+      sourceCount: 0,
+      status: "empty"
+    });
   });
 
   it("orders displayed sources by source quality before chip truncation", () => {

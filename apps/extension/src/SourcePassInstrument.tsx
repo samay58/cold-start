@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import type { MotionStyle } from "framer-motion";
 import { useEffect } from "react";
-import { clamp, instrumentSpring, motionTokens, stageDelay } from "./motion-primitives";
+import { clamp, instrumentSpring, motionTokens, reducedSpring, stageDelay } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 export type SourcePassStage = {
@@ -19,15 +19,38 @@ type SourcePassInstrumentProps = {
 
 export function MotionStateText({
   className,
+  motionStyle = "fade",
   value
 }: {
   className?: string;
+  motionStyle?: "characters" | "fade";
   value: string;
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
 
   if (prefersReducedMotion) {
     return <span className={className}>{value}</span>;
+  }
+
+  if (motionStyle === "fade") {
+    return (
+      <span className={className}>
+        <span className="sr-only">{value}</span>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            aria-hidden="true"
+            className="cs-motion-text cs-motion-text-fade"
+            key={value}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    );
   }
 
   return (
@@ -80,7 +103,7 @@ export function MotionStateText({
                   rotateX: -34,
                   filter: "blur(2px)",
                   transition: {
-                    duration: 0.12,
+                    duration: motionTokens.feedbackMs,
                     ease: motionTokens.easeOut
                   }
                 }
@@ -106,14 +129,13 @@ export function SourcePassInstrument({
   const safeActiveIndex = stages.length > 0 ? Math.min(Math.max(Math.trunc(activeIndex), 0), stages.length - 1) : 0;
   const activeStage = stages[safeActiveIndex] ?? stages[stages.length - 1];
   const rawProgress = useMotionValue(safeProgressPercent / 100);
-  const progress = useSpring(rawProgress, prefersReducedMotion ? { stiffness: 1000, damping: 100, mass: 0.1 } : instrumentSpring);
+  const progress = useSpring(rawProgress, prefersReducedMotion ? reducedSpring : instrumentSpring);
   const progressScale = useTransform(progress, (value) => Math.max(0.08, Math.min(0.985, value)));
-  const progressLeft = useTransform(progress, (value) => `${Math.max(8, Math.min(97, value * 100))}%`);
   const railTension = useTransform(progress, [0, 0.45, 1], [0.28, 0.78, 0.48]);
   const scanShift = useTransform(progress, (value) => `${-118 + value * 72}px`);
   const instrumentStyle = {
+    "--cs-source-pass-progress": progressScale,
     "--cs-source-pass-scale": progressScale,
-    "--cs-source-pass-left": progressLeft,
     "--cs-source-pass-tension": railTension,
     "--cs-source-pass-scan-start": scanShift
   } as unknown as MotionStyle;
@@ -127,18 +149,16 @@ export function SourcePassInstrument({
       <div className="cs-live-field">
         <div className="cs-live-field-head cs-source-pass-head">
           <span>Source pass</span>
-          <MotionStateText value={`${activeStage?.marker ?? "01"} / 04`} />
+          <MotionStateText value={`${activeStage?.marker ?? "01"} / ${String(stages.length).padStart(2, "0")}`} />
         </div>
 
         <div className="cs-source-pass-now">
           <span className="cs-source-pass-current-marker">{activeStage?.marker ?? "01"}</span>
           <div>
             <h2>
-              <MotionStateText value={activeStage?.label ?? "Building"} />
+              <MotionStateText motionStyle="characters" value={activeStage?.label ?? "Building"} />
             </h2>
-            <p>
-              <MotionStateText value={stageNote} />
-            </p>
+            <p>{stageNote}</p>
           </div>
         </div>
 
@@ -171,7 +191,7 @@ export function SourcePassInstrument({
               key={stage.marker}
               layout
               transition={{
-                duration: prefersReducedMotion ? 0 : 0.22,
+                duration: prefersReducedMotion ? 0 : motionTokens.stateMs,
                 ease: motionTokens.easeOut,
                 delay: prefersReducedMotion ? 0 : stageDelay(index, safeActiveIndex)
               }}

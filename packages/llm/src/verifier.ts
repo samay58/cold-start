@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { SourcedText } from "@cold-start/core";
 import { z } from "zod";
-import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 
 export type VerificationStatus = "supported" | "contradicted" | "unsupported";
 
@@ -101,7 +101,7 @@ export async function verifySynthesis(input: {
         {
           type: "text",
           text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
-          cache_control: { type: "ephemeral" }
+          cache_control: anthropicSystemCacheControl()
         }
       ],
       messages: [

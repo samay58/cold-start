@@ -43,11 +43,13 @@ import {
   fetchStableenrichFastSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
+  providerBudgetForEndpoint,
   type DirectExaEnv,
   type PeopleEmailHint,
   type ProviderFactCandidate,
   type ProviderSource,
-  type StableenrichEnv
+  type StableenrichEnv,
+  type StableenrichProbeName
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/env";
@@ -255,6 +257,24 @@ function failedStableenrichEndpoint(reason: unknown) {
   };
 }
 
+type StableenrichEndpointTraceInput = NonNullable<NonNullable<NonNullable<GenerationTrace["providers"]>["stableenrich"]>["endpoints"]>[number];
+
+function withStableenrichEndpointBudgets(endpoints: StableenrichEndpointTraceInput[]): StableenrichEndpointTraceInput[] {
+  return endpoints.map((endpoint) => {
+    try {
+      const budget = providerBudgetForEndpoint("stableenrich", endpoint.name as StableenrichProbeName);
+      return {
+        ...endpoint,
+        estimatedCostUsd: budget.estimatedCostUsd,
+        expectedFacts: budget.expectedFacts,
+        stopCondition: budget.stopCondition
+      };
+    } catch {
+      return endpoint;
+    }
+  });
+}
+
 async function fetchContactSourcesForBasics(input: {
   acceptedSources: ProviderSource[];
   directExaEnv: DirectExaEnv;
@@ -283,7 +303,7 @@ async function fetchContactSourcesForBasics(input: {
     ? stableContactResult.value.failures
     : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableContactResult.reason) }];
   const stableContactEndpoints = stableContactResult.status === "fulfilled"
-    ? stableContactResult.value.endpoints
+    ? withStableenrichEndpointBudgets(stableContactResult.value.endpoints)
     : [failedStableenrichEndpoint(stableContactResult.reason)];
   const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources);
   const sourceGate = filterSourcesForDomain({ domain: input.domain, sources });
@@ -649,7 +669,7 @@ export const generateCardFunction = inngest.createFunction(
                 failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
                 endpoints:
                   stableResult.status === "fulfilled"
-                    ? stableResult.value.endpoints
+                    ? withStableenrichEndpointBudgets(stableResult.value.endpoints)
                     : [
                         {
                           name: "stableenrich",
@@ -1052,7 +1072,7 @@ export const generateCardFunction = inngest.createFunction(
                     sourceCount: (initialStable?.sourceCount ?? 0) + stableResult.sources.length,
                     factCount: (initialStable?.factCount ?? 0) + stableResult.facts.length,
                     failureCount: (initialStable?.failureCount ?? 0) + stableResult.failures.length,
-                    endpoints: [...(initialStable?.endpoints ?? []), ...stableResult.endpoints]
+                    endpoints: [...(initialStable?.endpoints ?? []), ...withStableenrichEndpointBudgets(stableResult.endpoints)]
                   },
                   mergedSourceCount: sources.length
                 },

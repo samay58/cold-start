@@ -1,0 +1,201 @@
+{
+  "company": {
+    "name": "Cartesia",
+    "domain": "cartesia.ai",
+    "category": "voice-ai"
+  },
+  "mode": "fixture",
+  "generatedAt": "2026-05-22T12:00:00.000Z",
+  "latencyMs": 8421,
+  "publicCard": {
+    "slug": "cartesia",
+    "domain": "cartesia.ai",
+    "generatedAt": "2026-05-22T12:00:00.000Z",
+    "generationCostUsd": 0.0312,
+    "cacheStatus": "partial",
+    "identity": {
+      "name": {
+        "value": "Cartesia",
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": ["c1"]
+      },
+      "logoUrl": null,
+      "oneLiner": {
+        "value": "Real-time voice AI infrastructure for conversational products.",
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": ["c1"]
+      },
+      "description": {
+        "value": {
+          "shortDescription": "Cartesia builds low-latency speech models and voice infrastructure.",
+          "concept": "real-time voice AI infrastructure",
+          "serves": "developers building conversational products",
+          "mechanism": "low-latency generative audio models"
+        },
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": ["c1", "c2"]
+      },
+      "hq": {
+        "value": {
+          "city": "San Francisco",
+          "country": "US"
+        },
+        "status": "inferred",
+        "confidence": "medium",
+        "citationIds": ["c2"]
+      },
+      "foundedYear": {
+        "value": 2023,
+        "status": "verified",
+        "confidence": "medium",
+        "citationIds": ["c2"]
+      },
+      "status": "private"
+    },
+    "funding": {
+      "totalRaisedUsd": {
+        "value": 27000000,
+        "status": "verified",
+        "confidence": "medium",
+        "citationIds": ["c3"]
+      },
+      "lastRound": {
+        "value": {
+          "name": "Series A",
+          "amountUsd": 22000000,
+          "date": "2024-09-01",
+          "leadInvestors": ["Index Ventures"]
+        },
+        "status": "verified",
+        "confidence": "medium",
+        "citationIds": ["c3"]
+      },
+      "investors": {
+        "value": [
+          {
+            "name": "Index Ventures",
+            "sourceUrl": "https://www.cartesia.ai/blog/series-a"
+          }
+        ],
+        "status": "verified",
+        "confidence": "medium",
+        "citationIds": ["c3"]
+      }
+    },
+    "team": {
+      "founders": {
+        "value": [
+          {
+            "name": "Karan Goel",
+            "role": "Co-founder",
+            "sourceUrl": "https://www.cartesia.ai/about"
+          }
+        ],
+        "status": "verified",
+        "confidence": "medium",
+        "citationIds": ["c2"]
+      },
+      "keyExecs": {
+        "value": [],
+        "status": "unknown",
+        "confidence": "low",
+        "citationIds": []
+      },
+      "headcount": {
+        "value": null,
+        "status": "unknown",
+        "confidence": "low",
+        "citationIds": []
+      }
+    },
+    "signals": [
+      {
+        "title": "Cartesia launches Sonic",
+        "url": "https://www.cartesia.ai/blog/sonic",
+        "date": "2025-04-01",
+        "category": "launch",
+        "citationIds": ["c1"]
+      }
+    ],
+    "comparables": [
+      {
+        "name": "ElevenLabs",
+        "domain": "elevenlabs.io",
+        "oneLiner": "Voice AI platform",
+        "citationIds": ["c1"]
+      }
+    ],
+    "citations": [
+      {
+        "id": "c1",
+        "url": "https://www.cartesia.ai/",
+        "title": "Cartesia homepage",
+        "sourceType": "company_site"
+      },
+      {
+        "id": "c2",
+        "url": "https://www.cartesia.ai/about",
+        "title": "Cartesia about",
+        "sourceType": "company_site"
+      },
+      {
+        "id": "c3",
+        "url": "https://www.cartesia.ai/blog/series-a",
+        "title": "Series A announcement",
+        "sourceType": "company_blog"
+      }
+    ]
+  },
+  "extensionCard": {
+    "slug": "cartesia",
+    "domain": "cartesia.ai",
+    "generatedAt": "2026-05-22T12:00:00.000Z",
+    "generationCostUsd": 0.0312,
+    "cacheStatus": "partial",
+    "citations": [
+      {
+        "id": "c1",
+        "url": "https://www.cartesia.ai/",
+        "title": "Cartesia homepage",
+        "sourceType": "company_site"
+      },
+      {
+        "id": "c2",
+        "url": "https://www.cartesia.ai/about",
+        "title": "Cartesia about",
+        "sourceType": "company_site"
+      },
+      {
+        "id": "c3",
+        "url": "https://www.cartesia.ai/blog/series-a",
+        "title": "Series A announcement",
+        "sourceType": "company_blog"
+      }
+    ],
+    "synthesis": {
+      "whyItMatters": {
+        "text": "Cartesia matters because real-time speech is becoming a product primitive for AI applications. [c1]",
+        "citationIds": ["c1"]
+      },
+      "bullCase": [
+        {
+          "text": "The company has a clear developer wedge around low-latency voice infrastructure. [c1]",
+          "citationIds": ["c1"]
+        }
+      ],
+      "bearCase": [
+        {
+          "text": "The market has well-funded competitors, so product differentiation needs proof beyond demos. [c3]",
+          "citationIds": ["c3"]
+        }
+      ],
+      "openQuestions": [
+        "Which production customers are running live conversational workloads?",
+        "How durable is the latency advantage against larger model providers?"
+      ]
+    }
+  }
+}

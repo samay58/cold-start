@@ -77,14 +77,25 @@ export const sourcedTextSchema = z.object({
   citationIds: z.array(z.string().min(1))
 });
 
+export const marketStructureAndTimingSchema = z.object({
+  buyerBudget: sourcedTextSchema.nullable(),
+  painSeverity: sourcedTextSchema.nullable(),
+  adoptionTrigger: sourcedTextSchema.nullable(),
+  marketStructure: sourcedTextSchema.nullable(),
+  profitPool: sourcedTextSchema.nullable(),
+  expansionPath: sourcedTextSchema.nullable(),
+  timingRisk: sourcedTextSchema.nullable()
+});
+
 export const synthesisSchema = z.object({
   whyItMatters: sourcedTextSchema,
   bullCase: z.array(sourcedTextSchema),
   bearCase: z.array(sourcedTextSchema),
-  openQuestions: z.array(z.string().min(1))
+  openQuestions: z.array(z.string().min(1)),
+  marketStructureAndTiming: marketStructureAndTimingSchema.optional()
 });
 
-export const coldStartCardSchema = z.object({
+export const coldStartCardObjectSchema = z.object({
   slug: z.string().min(1),
   domain: z.string().min(1),
   generatedAt: z.string().datetime(),
@@ -116,6 +127,54 @@ export const coldStartCardSchema = z.object({
   comparables: z.array(comparableSchema),
   citations: z.array(citationSchema),
   synthesis: synthesisSchema.optional()
+});
+
+function isCitationBearingObject(value: unknown): value is { value?: unknown; citationIds: string[] } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return Array.isArray(record.citationIds);
+}
+
+function validateCitationRefs(input: unknown, validIds: Set<string>, ctx: z.RefinementCtx, path: Array<string | number>) {
+  if (isCitationBearingObject(input)) {
+    const citationIds = input.citationIds;
+    if ("value" in input && input.value !== null && citationIds.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Non-null resolved facts require citation refs",
+        path: [...path, "citationIds"]
+      });
+    }
+
+    citationIds.forEach((citationId, index) => {
+      if (!validIds.has(citationId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Citation ref does not resolve: ${citationId}`,
+          path: [...path, "citationIds", index]
+        });
+      }
+    });
+  }
+
+  if (Array.isArray(input)) {
+    input.forEach((item, index) => validateCitationRefs(item, validIds, ctx, [...path, index]));
+    return;
+  }
+
+  if (!input || typeof input !== "object") {
+    return;
+  }
+
+  Object.entries(input).forEach(([key, value]) => validateCitationRefs(value, validIds, ctx, [...path, key]));
+}
+
+export const coldStartCardSchema = coldStartCardObjectSchema.superRefine((card, ctx) => {
+  const validIds = new Set(card.citations.map((citation) => citation.id));
+  validateCitationRefs(card, validIds, ctx, []);
 });
 
 export type Citation = z.infer<typeof citationSchema>;

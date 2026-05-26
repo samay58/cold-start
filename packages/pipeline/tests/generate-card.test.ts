@@ -224,7 +224,7 @@ describe("generateCardForDomain", () => {
     ).rejects.toThrow("No synthesis claims survived verification");
   });
 
-  it("keeps cited bull and bear sections when the verifier preserves the anchor but blanks whole sections", async () => {
+  it("keeps verifier-dropped bull and bear claims dropped even when whole sections are empty", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
     const bullCase = [
@@ -263,11 +263,11 @@ describe("generateCardForDomain", () => {
     });
 
     expect(card.synthesis?.whyItMatters).toEqual(whyItMatters);
-    expect(card.synthesis?.bullCase).toEqual(bullCase);
-    expect(card.synthesis?.bearCase).toEqual(bearCase);
+    expect(card.synthesis?.bullCase).toEqual([]);
+    expect(card.synthesis?.bearCase).toEqual([]);
   });
 
-  it("keeps full cited sections when the verifier only preserves part of a three-card section", async () => {
+  it("keeps only supported bull and bear claims after verification", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
     const bullCase = [
@@ -306,8 +306,58 @@ describe("generateCardForDomain", () => {
       synthesisRequired: true
     });
 
-    expect(card.synthesis?.bullCase).toEqual(bullCase);
-    expect(card.synthesis?.bearCase).toEqual(bearCase);
+    expect(card.synthesis?.bullCase).toEqual([bullCase[0]]);
+    expect(card.synthesis?.bearCase).toEqual([]);
+  });
+
+  it("verifies market structure claims with the rest of synthesis", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+    const buyerBudget = { text: "The likely buyer budget is contact-center automation. [c1]", citationIds: ["c1"] };
+    const painSeverity = { text: "Unsupported market pain. [c1]", citationIds: ["c1"] };
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      }),
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase: [],
+        bearCase: [],
+        openQuestions: ["Which buyer owns the budget?"],
+        marketStructureAndTiming: {
+          buyerBudget,
+          painSeverity,
+          adoptionTrigger: null,
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk: null
+        }
+      }),
+      verify: async () => [
+        { ...whyItMatters, status: "supported" },
+        { ...buyerBudget, status: "supported" },
+        { ...painSeverity, status: "unsupported" }
+      ],
+      synthesisRequired: true
+    });
+
+    expect(card.synthesis?.marketStructureAndTiming).toEqual({
+      buyerBudget,
+      painSeverity: null,
+      adoptionTrigger: null,
+      marketStructure: null,
+      profitPool: null,
+      expansionPath: null,
+      timingRisk: null
+    });
   });
 
   it("keeps the extracted card when optional synthesis fails", async () => {

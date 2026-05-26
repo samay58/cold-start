@@ -255,7 +255,7 @@ describe("CardShell", () => {
     expect(screen.getAllByText("Not found").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByLabelText("Investor lens")).toBeNull();
     expect(screen.queryByText("Funding")).toBeNull();
-    expect(screen.queryByText("Signals")).toBeNull();
+    expect(screen.queryByText("Traction")).toBeNull();
     expect(screen.queryByText("Comparables")).toBeNull();
     expect(screen.queryByText("Team")).toBeNull();
     expect(screen.getByText("Sources")).toBeTruthy();

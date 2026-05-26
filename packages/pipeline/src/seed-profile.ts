@@ -6,24 +6,13 @@ import {
   sanitizeCardTrust,
   stripUnsupportedSynthesis
 } from "@cold-start/core";
+import { extractedCardSectionsSchema, type ExtractedCardSections } from "@cold-start/llm";
 import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
 import type { EvidenceLedgerEntry } from "./evidence-ledger";
 import { applyProviderFactCandidates } from "./provider-facts";
 import { resolveIdentityFromInput } from "./resolve-identity";
 
-export const extractedCardSectionsSchema = coldStartCardSchema.pick({
-  identity: true,
-  funding: true,
-  team: true,
-  signals: true,
-  comparables: true,
-  citations: true
-});
-
-export type ExtractedCardSections = Pick<
-  ColdStartCard,
-  "identity" | "funding" | "team" | "signals" | "comparables" | "citations"
->;
+export { extractedCardSectionsSchema, type ExtractedCardSections };
 
 export type SeedProfileTrace = {
   providerFactCandidateCount: number;

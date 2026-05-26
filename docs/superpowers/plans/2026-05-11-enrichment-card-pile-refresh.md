@@ -18,8 +18,9 @@ Replace the extension success surface with a high-taste research layer where use
 - Basics generation remains a full-panel state because no company context exists yet.
 - Existing-profile enrichment lives inside the research layer.
 - The first slice is extension-only. It uses the current card schema, existing extension API, and existing generation status contract.
-- The first slice includes seven useful cards only: Core Idea, Customers, Serves, Signals, Competition, Mechanism, and Open Questions.
+- The first slice uses investor-grade labels backed by the current schema: Why It Matters, Customer Proof, Buyer & Use Case, Traction, Financing & Valuation, Competitive Position, Product & Technology, and Risks & Diligence.
 - Analysis-backed cards start or resume the real investor-lens job. Card-backed rows render from existing card data or show honest empty states.
+- Market Structure & Timing, Business Model & Unit Economics, Team & Execution, and Strategic Relevance are next-card candidates, not current-pile labels. They need typed backend support before they appear in the UI.
 - Drag is premium, not mandatory. Click, Enter, and Space must activate the same path.
 - The snap target appears only during drag or pile focus. It is not permanent decoration.
 - Framer Motion is used in the extension for drag, snap, active-card layout, chevron rotation, and accordion expansion. It replaces the earlier hand-rolled pointer path rather than sitting beside it.
@@ -32,7 +33,7 @@ The refresh is a rewrite of the extension success surface, not an overlay. Keep 
 rg "Analyze" apps/extension/src apps/extension/tests
 rg "cs-extension-analyze|has-analysis-action|cs-extension-analysis-notice" apps/extension/src apps/extension/tests
 rg "CardShell" apps/extension/src/sidepanel.tsx
-rg "Market Context|Business Model|Cold Start Brief" apps/extension/src apps/extension/tests
+rg "<legacy-card-label-pattern>" apps/extension/src apps/extension/tests
 ```
 
 Expected result: all commands return no matches.
@@ -62,7 +63,7 @@ Expected result: all commands return no matches.
 - [x] Updated `DESIGN.md` so the extension guidance matches the refreshed surface.
 - [x] Refined the basics-generation progress screen away from the legacy orbit/stage-card feel toward text-first shimmer.
 - [x] Changed active enrichment bodies from raw paragraphs into compact evidence rows and item lists.
-- [x] Fixed the Customers card to use supported buyer/user context instead of incorrectly falling back to headcount.
+- [x] Fixed the Customer Proof card to use supported buyer/user context instead of incorrectly falling back to headcount.
 - [x] Reworked the card pile spacing so dormant cards remain readable while preserving the physical stack.
 - [x] Added compact linked source chips and stripped inline citation markers from enrichment prose.
 
@@ -75,7 +76,7 @@ npm run build -w @cold-start/extension
 npm run lint
 rg "Analyze" apps/extension/src apps/extension/tests
 rg "cs-extension-analyze|has-analysis-action|cs-extension-analysis-notice" apps/extension/src apps/extension/tests
-rg "Market Context|Business Model|Cold Start Brief" apps/extension/src apps/extension/tests
+rg "<legacy-card-label-pattern>" apps/extension/src apps/extension/tests
 ```
 
 Note: `npm run lint -w @cold-start/extension` is not available because the extension workspace has no lint script. The root lint fan-out completed.
@@ -88,3 +89,4 @@ Note: `npm run lint -w @cold-start/extension` is not available because the exten
 - If the visual pass feels cramped, adjust spacing and pile depth before adding any new state or component.
 - Product follow-up: basics generation is still too slow for first-run UX. The durable fix is staged generation: return identity/profile shell first, then populate richer research only when cards are activated. Do not mask this solely with better loading UI.
 - Data follow-up: named customers require a real schema/pipeline field. The current card supports buyer/user context through `identity.description.serves`, but not named customer extraction.
+- Strategy follow-up: Market Structure & Timing should be the next original investor-grade card, but only with a prompt and schema that force buyer-budget and market-structure reasoning instead of top-down TAM filler.

@@ -52,7 +52,19 @@ Every generated run should carry these milestones when the lane exists:
 - `contactsReadyMs`
 - `analysisReadyMs`
 
-Provider endpoint traces should include `durationMs`.
+Provider endpoint traces should include `durationMs`, `estimatedCostUsd`, `expectedFacts`, and `stopCondition`.
 Anthropic traces should include model, stage, duration, token usage, cache read/write tokens, and estimated cost.
 
 Speed wins only count if cited quality and work-email usefulness hold. Public card responses must continue to strip emails and synthesis.
+
+## Local Gate
+
+Before handing off code or docs, run:
+
+```bash
+npm run check
+```
+
+This is the same gate CI runs: lint with zero warnings, typecheck, tests, build, golden eval dry run, `knip`, secret scan, and guarded dependency audit.
+
+The dependency audit wrapper allows the current upstream transitive findings that require breaking package work. It still fails on new high or critical findings outside that allowlist.

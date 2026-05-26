@@ -85,7 +85,6 @@ STABLEENRICH_ORG_ENRICH_URL
 DIRECT_EXA_API_KEY
 DIRECT_EXA_BASE_URL
 DIRECT_FIRECRAWL_API_KEY
-DIRECT_PDL_API_KEY
 FAST_BASICS_ENABLED
 PUBLIC_GENERATION_ENABLED
 NEXT_PUBLIC_WEB_ORIGIN
@@ -94,6 +93,36 @@ ALLOWED_EXTENSION_ORIGINS
 EXTENSION_API_TOKEN
 INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
+```
+
+### Optional environment overrides
+
+These are not required for normal deploys. Set them only when you have a reason to.
+
+```text
+# Per-stage Anthropic model overrides. Each falls back to ANTHROPIC_MODEL if unset.
+ANTHROPIC_RESEARCH_PLAN_MODEL
+ANTHROPIC_EXTRACT_MODEL
+ANTHROPIC_BLOCK_MODEL
+ANTHROPIC_SYNTHESIS_MODEL
+ANTHROPIC_VERIFIER_MODEL
+
+# Prompt cache TTL on stable system prompts. Defaults to "1h"; verified end-to-end against the
+# Anthropic API via scripts/verify-cache-ttl.ts. The traced LLM helper attaches the
+# `extended-cache-ttl-2025-04-11` beta header automatically when TTL is 1h. Set to "5m" to roll
+# back without redeploy if cost telemetry shows the 1h create cost is not amortizing. Re-run
+# `npm run verify:cache-ttl` after upgrading @anthropic-ai/sdk.
+ANTHROPIC_CACHE_TTL
+
+# AgentCash CLI overrides. The default uses the bundled `agentcash@<version>` package via npx.
+# Override these only when running with a custom-installed CLI.
+AGENTCASH_BIN
+AGENTCASH_PACKAGE
+AGENTCASH_HOME
+
+# StableEnrich AgentCash request timeout. Defaults to the per-endpoint registry value in
+# packages/providers/src/provider-budget.ts. Set this only as an emergency global override.
+STABLEENRICH_AGENTCASH_TIMEOUT_MS
 ```
 
 For current internal production testing:
@@ -186,4 +215,4 @@ curl -s https://cold-start-samay58s-projects.vercel.app/api/extension/cards/cart
 
 - `slug` is still the first hostname label, so `foo.com` and `foo.ai` collide.
 - There is no admin/debug run console yet for stale `queued` or `running` jobs.
-- `npm audit` reports upstream moderate/high findings in Next/PostCSS, OpenTelemetry Prometheus exporter, CRXJS/Rollup, and Drizzle Kit/esbuild. The suggested fixes include breaking changes, so handle them as dependency-upgrade work rather than blind `npm audit fix --force`.
+- `npm run audit:deps` uses `scripts/audit-deps.mjs`, not raw `npm audit`. The wrapper allows current upstream transitive findings that need breaking dependency work, and fails on new high or critical findings outside that allowlist. Do not run `npm audit fix --force` as a drive-by cleanup.

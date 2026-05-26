@@ -1,5 +1,16 @@
 export const motionTokens = {
-  easeOut: [0.16, 1, 0.3, 1]
+  ease: [0.25, 0.1, 0.25, 1],
+  easeOut: [0.16, 1, 0.3, 1],
+  easeInOut: [0.77, 0, 0.175, 1],
+  feedbackMs: 0.12,
+  stateMs: 0.2,
+  railMs: 0.18
+} as const;
+
+export const reducedSpring = {
+  stiffness: 1000,
+  damping: 100,
+  mass: 0.1
 } as const;
 
 export const snapSpring = {

@@ -6,6 +6,9 @@ dist/
 dist-dev/
 coverage/
 eval/runs/
+eval/activegraph-runs/
+.pytest_cache/
+.venv/
 .env
 .env.local
 .env.*.local

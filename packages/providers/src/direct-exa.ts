@@ -261,18 +261,62 @@ export async function fetchDirectExaContactSources(input: {
   };
 }
 
-async function directExaJson(request: DirectExaRequest): Promise<unknown> {
-  const response = await fetch(request.url, {
-    method: "POST",
-    headers: request.headers,
-    body: JSON.stringify(request.body),
-  });
+const DIRECT_EXA_MAX_ATTEMPTS = 3;
+const DIRECT_EXA_BACKOFF_MS = [500, 1500];
 
-  if (!response.ok) {
-    throw new Error(`Direct Exa request failed with ${response.status}`);
+function isRetryableDirectExaStatus(status: number) {
+  return status === 429 || (status >= 500 && status < 600);
+}
+
+function retryAfterMs(response: Response, fallbackMs: number) {
+  const header = response.headers.get("retry-after");
+  if (!header) {
+    return fallbackMs;
+  }
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(seconds * 1000, 10_000);
+  }
+  return fallbackMs;
+}
+
+async function directExaJson(request: DirectExaRequest): Promise<unknown> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < DIRECT_EXA_MAX_ATTEMPTS; attempt += 1) {
+    let response: Response;
+    try {
+      response = await fetch(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body),
+      });
+    } catch (error) {
+      // Network-level failure (DNS, connection reset, abort). Retryable.
+      lastError = error;
+      const isLastAttempt = attempt === DIRECT_EXA_MAX_ATTEMPTS - 1;
+      if (isLastAttempt) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, DIRECT_EXA_BACKOFF_MS[attempt] ?? 1500));
+      continue;
+    }
+
+    if (response.ok) {
+      return response.json() as Promise<unknown>;
+    }
+
+    const retryable = isRetryableDirectExaStatus(response.status);
+    const isLastAttempt = attempt === DIRECT_EXA_MAX_ATTEMPTS - 1;
+    if (!retryable || isLastAttempt) {
+      throw new Error(`Direct Exa request failed with ${response.status}`);
+    }
+
+    const waitMs = retryAfterMs(response, DIRECT_EXA_BACKOFF_MS[attempt] ?? 1500);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
-  return response.json() as Promise<unknown>;
+  throw lastError instanceof Error ? lastError : new Error("Direct Exa request exhausted retries");
 }
 
 function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknown, domain: string): ProviderSource[] {

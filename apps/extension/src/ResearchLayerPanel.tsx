@@ -2,7 +2,7 @@ import { canRunInvestorAnalysis, fundingEvidenceFromCitations, publicProfileQual
 import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform, type PanInfo } from "framer-motion";
 import { useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commitSpring, snapSpring } from "./motion-primitives";
+import { commitSpring, motionTokens, reducedSpring, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -512,8 +512,7 @@ function DormantPileCard({
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const feedbackProps = !prefersReducedMotion
     ? {
-        whileHover: { scale: dragging ? 1.018 : 1.012 },
-        whileTap: { scale: 0.992 }
+        whileTap: { scale: dragging ? 1.006 : 0.992 }
       }
     : {};
 
@@ -566,6 +565,18 @@ function DormantPileCard({
   );
 }
 
+function analysisLayerIsRunning(card: ColdStartCard, id: ResearchLayerId, analysisRun: AnalysisRun | undefined) {
+  if (!analysisRun) {
+    return false;
+  }
+
+  if (!card.synthesis) {
+    return true;
+  }
+
+  return id === "marketStructureTiming" && !card.synthesis.marketStructureAndTiming;
+}
+
 export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
@@ -605,7 +616,7 @@ export function ResearchLayerPanel({
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const trayPullRaw = useMotionValue(0);
-  const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? { stiffness: 1000, damping: 100, mass: 0.1 } : snapSpring);
+  const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? reducedSpring : snapSpring);
   const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.975, 0.946]);
   const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.988, 0.972]);
   const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -7]);
@@ -643,7 +654,7 @@ export function ResearchLayerPanel({
   }
 
   function handleDormantClick(id: ResearchLayerId) {
-    if (suppressClickFor.current === id) {
+    if (suppressClickFor.current) {
       suppressClickFor.current = null;
       return;
     }
@@ -751,7 +762,7 @@ export function ResearchLayerPanel({
             }
 
             const layer = layers.find((candidate) => candidate.id === id);
-            const running = Boolean(analysisRun && layer?.source === "analysis" && !card.synthesis);
+            const running = Boolean(layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun));
             const refreshing = Boolean(profileRefreshRun?.layerId === id && layer?.source === "card" && display.status === "empty");
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
@@ -798,7 +809,7 @@ export function ResearchLayerPanel({
                   <motion.span
                     animate={{ rotate: expanded ? 180 : 0 }}
                     className="cs-active-chevron"
-                    transition={{ duration: prefersReducedMotion ? 0 : 0.12 }}
+                    transition={{ duration: prefersReducedMotion ? 0 : motionTokens.feedbackMs, ease: motionTokens.easeOut }}
                     aria-hidden="true"
                   >
                     ⌄

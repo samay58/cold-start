@@ -45,6 +45,23 @@ export function anthropicModelForStage(stage: AnthropicCallStage, fallback = pro
   return anthropicModel(process.env[modelEnvByStage[stage]] ?? fallback);
 }
 
+// Shared cache_control for stable system prompts. Defaults to "1h" (verified to land via the
+// `extended-cache-ttl-2025-04-11` beta header; see scripts/verify-cache-ttl.ts). The 1h TTL
+// requires that beta header; `createTracedAnthropicMessage` attaches it automatically when 1h is
+// the resolved TTL. Override via ANTHROPIC_CACHE_TTL=5m to roll back to the shorter TTL without a
+// redeploy if cost telemetry ever shows the 1h create cost is not amortizing through reads.
+type AnthropicCacheTtl = "5m" | "1h";
+const EXTENDED_CACHE_TTL_BETA = "extended-cache-ttl-2025-04-11";
+
+function resolveCacheTtl(): AnthropicCacheTtl {
+  const configured = process.env.ANTHROPIC_CACHE_TTL?.trim();
+  return configured === "5m" ? "5m" : "1h";
+}
+
+export function anthropicSystemCacheControl(): { type: "ephemeral"; ttl: AnthropicCacheTtl } {
+  return { type: "ephemeral", ttl: resolveCacheTtl() };
+}
+
 function perMillionTokenPricing(model: string) {
   const normalized = model.toLowerCase();
   if (normalized.includes("haiku")) {
@@ -134,8 +151,16 @@ export async function createTracedAnthropicMessage(input: {
   telemetry?: AnthropicTelemetrySink | undefined;
 }): Promise<Message> {
   const startedAt = Date.now();
+  // Attach the extended-cache-ttl beta header only when the resolved TTL is 1h. The API silently
+  // downgrades to 5m without it; the beta name is in the SDK's known list (AnthropicBeta).
+  const requestOptions =
+    resolveCacheTtl() === "1h"
+      ? { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } }
+      : undefined;
   try {
-    const response = (await input.client.messages.create(input.params)) as Message & { usage?: AnthropicUsage };
+    const response = (await input.client.messages.create(input.params, requestOptions)) as Message & {
+      usage?: AnthropicUsage;
+    };
     input.telemetry?.(
       callTrace({
         durationMs: Date.now() - startedAt,

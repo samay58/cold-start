@@ -1,0 +1,1000 @@
+{
+  "company": {
+    "name": "Browserbase",
+    "domain": "browserbase.com",
+    "category": "browser-automation"
+  },
+  "mode": "production-public-cache",
+  "generatedAt": "2026-05-13T02:29:00.422Z",
+  "latencyMs": 74200,
+  "publicCard": {
+    "slug": "browserbase",
+    "domain": "browserbase.com",
+    "generatedAt": "2026-05-13T02:29:00.422Z",
+    "generationCostUsd": 0,
+    "cacheStatus": "hit",
+    "identity": {
+      "name": {
+        "value": "Browserbase",
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "c1"
+        ]
+      },
+      "logoUrl": null,
+      "oneLiner": {
+        "value": "Managed headless browser cloud that lets AI agents and developers automate web interactions at scale without managing Chromium infrastructure.",
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e4",
+          "e7",
+          "e8"
+        ]
+      },
+      "description": {
+        "value": {
+          "shortDescription": "Managed headless browser cloud that lets AI agents and developers automate web interactions at scale without managing Chromium infrastructure.",
+          "concept": "Every AI startup building web-facing agents solves the same browser infrastructure problems independently — CAPTCHA handling, anti-bot fingerprinting, proxy rotation, session isolation, autoscaling — so Browserbase builds it once and sells it as a consumption-priced service, the same model Twilio applied to telephony and Stripe to payments.",
+          "serves": "Primarily developers and engineering teams at AI-native startups and enterprises building agents that need to interact with the live web; secondarily non-technical business users via the no-code Director product.",
+          "mechanism": "Customers connect via standard Playwright, Puppeteer, or Selenium code to Browserbase's serverless cloud, which provisions isolated Chromium sessions on demand with built-in CAPTCHA solving, stealth fingerprinting, proxy rotation, SOC-2/HIPAA compliance, and global data-center distribution; Stagehand (open-source SDK) adds natural-language act/extract/observe commands above Playwright; Director generates automation scripts from natural-language prompts for non-developers."
+        },
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e4",
+          "e5",
+          "e7",
+          "e8"
+        ]
+      },
+      "hq": {
+        "value": {
+          "city": "San Francisco",
+          "country": "United States"
+        },
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "e1"
+        ]
+      },
+      "foundedYear": {
+        "value": 2024,
+        "status": "inferred",
+        "confidence": "medium",
+        "citationIds": [
+          "e3",
+          "e5"
+        ]
+      },
+      "status": "private"
+    },
+    "funding": {
+      "totalRaisedUsd": {
+        "value": 67500000,
+        "status": "mixed",
+        "confidence": "medium",
+        "citationIds": [
+          "e1",
+          "e6",
+          "e3",
+          "e9"
+        ]
+      },
+      "lastRound": {
+        "value": {
+          "name": "Series B",
+          "amountUsd": 40000000,
+          "announcedAt": "2025-06-17",
+          "leadInvestors": [
+            "Notable Capital"
+          ]
+        },
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e3",
+          "e4",
+          "e5",
+          "e8",
+          "e10"
+        ]
+      },
+      "investors": {
+        "value": [
+          {
+            "name": "Kleiner Perkins",
+            "domain": "kleinerperkins.com"
+          },
+          {
+            "name": "Notable Capital",
+            "domain": "notablecap.com"
+          },
+          {
+            "name": "CRV",
+            "domain": "crv.com"
+          },
+          {
+            "name": "Basecase Capital",
+            "domain": "basecase.com"
+          },
+          {
+            "name": "AI Grant",
+            "domain": "aigrant.org"
+          },
+          {
+            "name": "Okta Ventures",
+            "domain": "okta.com"
+          },
+          {
+            "name": "Guillermo Rauch (angel)",
+            "domain": null
+          },
+          {
+            "name": "Jeff Lawson (angel)",
+            "domain": null
+          },
+          {
+            "name": "Patrick Collison (angel)",
+            "domain": null
+          },
+          {
+            "name": "Aaron Levie (angel)",
+            "domain": null
+          }
+        ],
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e9",
+          "e6",
+          "e3",
+          "e5"
+        ]
+      }
+    },
+    "team": {
+      "founders": {
+        "value": [
+          {
+            "name": "Paul Klein IV",
+            "role": "Founder & CEO",
+            "sourceUrl": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director"
+          }
+        ],
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e5",
+          "e6",
+          "e8"
+        ]
+      },
+      "keyExecs": {
+        "value": [
+          {
+            "name": "Eli Bingham",
+            "role": "Head of Engineering",
+            "sourceUrl": "https://browserbase.com/"
+          },
+          {
+            "name": "Sarah Richard",
+            "role": "Founding GTM",
+            "sourceUrl": "https://browserbase.com/"
+          },
+          {
+            "name": "Walker Griggs",
+            "role": "Tech Lead (named in customer account)",
+            "sourceUrl": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director"
+          },
+          {
+            "name": "Dominic Saadi",
+            "role": "Founding Engineer",
+            "sourceUrl": "https://linkedin.com/in/dominic-saadi"
+          }
+        ],
+        "status": "inferred",
+        "confidence": "medium",
+        "citationIds": [
+          "e1",
+          "e5",
+          "e11"
+        ]
+      },
+      "headcount": {
+        "value": {
+          "value": 50,
+          "asOf": "2026-05-03"
+        },
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "e1"
+        ]
+      }
+    },
+    "signals": [],
+    "comparables": [],
+    "citations": [
+      {
+        "id": "e1",
+        "url": "https://browserbase.com/",
+        "title": "Browserbase (Exa enrichment)",
+        "fetchedAt": "2026-05-13T02:26:35.832Z",
+        "sourceType": "enrichment",
+        "snippet": "Browserbase is the complete platform to build and deploy agents that browse and interact with the web like humans. Has $128.5M in total funding, with 4 prior funding rounds. Employees: 50, +110% YoY.",
+        "sourceQuality": {
+          "tier": "enrichment",
+          "label": "Data vendor",
+          "rationale": "Useful for coverage, weaker for investor judgment unless confirmed elsewhere.",
+          "incentive": "Vendor-derived."
+        }
+      },
+      {
+        "id": "e3",
+        "url": "https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618",
+        "title": "Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Browserbase raised $40M Series B led by Notable Capital, with CRV and Kleiner Perkins. Serves over 1,000 companies and 20,000+ developers. Launched Director, a no-code automation tool.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e4",
+        "url": "https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/",
+        "title": "Browserbase reels in $40M for its browser automation tools - SiliconANGLE",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Notable Capital led Series B. Valued at $300M, 4x its September valuation. Platform spins up thousands of browsers in a fraction of a second, compatible with Puppeteer and Selenium. Stagehand lets developers combine traditional scripts with AI agents.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e5",
+        "url": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director",
+        "title": "Browserbase Raises $40M Series B, Launches AI Automation Tool",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "1,000+ customers including Commure, 11x, Perplexity, Vercel. 20,000+ developers, 50M browser sessions in 2025. $3M+ in revenue as of Series B, mostly from team expansion. Consumption-based pricing. First salesperson hired day of Series B announcement. Angel investors include Guillermo Rauch (Vercel CEO), Jeff Lawson (Twilio), Patrick Collison (Stripe), Aaron Levie (Box).",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e6",
+        "url": "https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/",
+        "title": "Browserbase: Web Browser Automation Company Raises $21 Million (Series A)",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Series A of $21M co-led by CRV and Kleiner Perkins, with Okta Ventures and Reed McGinley-Stempel. Raised in less than nine months after $6.5M seed. Launched Stagehand open-source AI-powered web automation SDK at Series A.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e7",
+        "url": "https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents",
+        "title": "Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "other",
+        "snippet": "Independent technical analysis. Founded by Paul Klein IV in SF. Stagehand exposes act/extract/observe natural language commands above Playwright. Competitors include Steel.dev, Playwright-MCP, Browserless. Adobe Analytics: AI agent traffic to US retail surged 4,700% YoY (July 2025).",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e8",
+        "url": "https://www.notablecap.com/blog/why-we-invested-in-browserbase",
+        "title": "Building the Browser Infrastructure for AI Agents with the Founder of Browserbase | Notable Capital",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Notable Capital led Series B. Glenn Solomon, managing director: 'If you build a great service that provides for and anticipates the needs that developers have, it can be a very compelling value proposition.' Klein analogizes to Vercel/Stripe/Twilio infrastructure model.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e9",
+        "url": "https://vcnewsdaily.com/browserbase/venture-capital-funding/lyqhnkzngq",
+        "title": "Browserbase Raises $6.5M in Seed Funding",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "$6.5M seed led by Kleiner Perkins, with Basecase Capital and AI Grant. Announced 2024-06-07.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e10",
+        "url": "https://www.lowenstein.com/news-insights/firm-news/lowenstein-represents-notable-capital-as-lead-investor-in-series-b-financing-round-for-browserbase-1",
+        "title": "Lowenstein Represents Notable Capital as Lead Investor in Series B Financing Round for Browserbase | Lowenstein Sandler LLP",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Law firm confirmation of Notable Capital as lead investor in Browserbase Series B.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e11",
+        "url": "https://linkedin.com/in/dominic-saadi",
+        "title": "Dominic Saadi – Founding Engineer, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.833Z",
+        "sourceType": "other",
+        "snippet": "Founding Engineer at Browserbase since April 2024. Previously Software Developer at RedwoodJS.",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e12",
+        "url": "https://linkedin.com/in/connorgrant1",
+        "title": "Connor Grant – Account Executive, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.833Z",
+        "sourceType": "other",
+        "snippet": "Account Executive at Browserbase since Feb 2026. First enterprise AE hire. Named customers Ramp, Clay, Lovable as platform users.",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e15",
+        "url": "https://linkedin.com/in/nick-sweeting-430999b3",
+        "title": "Nick Sweeting – Software Engineer, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "other",
+        "snippet": "Software Engineer at Browserbase since Nov 2025, working on Stagehand team. Previously founding engineer at Browser Use (competitor).",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "c1",
+        "url": "https://browserbase.com/",
+        "title": "Browserbase",
+        "fetchedAt": "2026-05-13T02:28:04.916Z",
+        "sourceType": "company_site",
+        "snippet": "Has $128.5M in total funding, with 4 prior funding rounds.\\n\\n## About\\nBrowserbase is the complete platform to build and deploy agents that browse and interact with the web like humans.\\n\\n## Company Details\\n- Industry: Technology, Information and Internet\\n- Type: Privately Held\\n- Headquarters: San Francisco, United States\\n- Homepage: browserbase.com\\n- Status: active\\n- Aliases: browserbase, browserbase, inc.\\n- LinkedIn: linkedin.com/company/browserbasehq\\n- Linkedin Followers: 10,424 (Monthly: +4.2%, Yearly: +238.1%)\\n- Emails: support@browserbase.com\\n\\n## Financials\\n- Total Funding: USD 128,500,000\\n - Seed Round (2024-06-06): USD 6.5M - 8 investors, led by Kleiner Perkins\\n - Series B (2025-05-22): USD 40.0M - 3 investors, led by Notable Capital\\n - Series A (2024-11-01): USD 21.0M - 4 investors\\n - Series B (2025-06-01): USD 40.0M - 3 investors\\n - Series A (2024-10-29): USD 21.0M - 5 investors, led by Kleiner Perkins, CRV\\n\\n## Workforce\\n- Employees: 50 (11-50 employees)\\n - Monthly Growth: +10.5%\\n - Yearly Growth: +110.0%\\n- Key Executives:\\n - Eli Bingham: Head Of Engineering\\n - Maayan Albert: Eng Lead\\n - Miguel González Fernández: Technical Lead\\n - Peyton Casper: Product Lead - Identity\\n - Liam Matteson: Product Design Lead\\n - Sarah Richard: Founding GTM\\n - Jason Howmans: Technical Lead\\n - Charly Poly: Product Marketing Lead\\n- Breakdown:\\n - By Country: United States: 47 (70%), France: 1 (1%), Canada: 1 (1%), United Kingdom: 1 (1%)\\n - By Department: Technical: 21 (31%), Sales: 7 (10%), Other Department: 6 (9%), Consulting: 4 (6%), Product: 4 (6%), General Management: 3 (4%), Operations: 2 (3%), Design: 1 (1%), Hr: 1 (1%), Marketing: 1 (1%)\\n - By Seniority: Other Management: 19 (28%), Specialist: 15 (22%), Head: 7 (10%), Manager: 5 (7%), Intern: 3 (4%), Founder: 1 (1%)\\n- Talent Sources: Whop (3), Proformex (1), Vercel (2), Kleiner Perkins (1), Pet Care by Erin (1), Figma (1), Casca (1), Hawk Hill Ventures (1), Like Minds (1), Floodgate (1)\\n- Alumni Go To: NationGraph (1), Shopify (1), HyperGrowth Partners (1), Bridg (1), Mercury Insurance (1), Columbia Organization of Rising Entrepreneurs (1), Perplexity (1), Company Picnic (1), Maven Robotics (1), fal (1)\\n- Active Job Postings: 3\\n - Job Posting Trends: Monthly: +0.0%, Quarterly: -25.0%\\n\\n### Open Positions (showing 3)\\n- Web Designer (Marketing)\\n- Account Executive\\n- Design Engineer (Web & Brand)\\n\\n## Products & Technology\\n- Tech Stack: github, snowflake, typescript, microsoft, ramp, vercel, figma, okta, playwright, vanta, google workspace, terraform, css, selenium, hubspot, rippling, react, twitter, kubernetes, chrome, argocd, github actions\\n\\n## Web Presence\\n- Monthly Visits: 217,857\\n - Traffic Growth: Monthly: +10.9%, Yearly: -6.1%\\n- Global Rank: #170,741\\n- Bounce Rate: 0.4%\\n- Pages per Visit: 3.6\\n- Top Countries: United States: 40%, India: 7%, Colombia: 4%, Brazil: 3%, Canada: 3%\\n\\n## Categories\\ntechnology/software, web browser, seamless integration, ai agents, applications, scalable, technology, application-software, automation, platform, information technology, software\\n\\n## Locations (3 offices across 1 country)\\n- United States (3 offices)\\n - San Francisco, California (HQ)\\n - 584 Castro Street #249; San Francisco, California, United States\\n - San Francisco, California, United States\\n\\n## Competitors\\nxmatters, horus, awesomic, sagra technology\\n\\n## Recent News\\n- [2025-08-28]\\n - Business Wire: Madrona Announces the 2025 Intelligent Applications 40, Recognizing the World's Leading Private AI Companies\\n - Morningstar.com: Madrona Announces the 2025 Intelligent Applications 40, Recognizing the World's Leading Private AI Companies\\n- [2025-07-18] The New Stack: Why AI Agents Need a New Kind of Browser\\n- [2025-06-24] The New Stack: Why Headless Browsers Are a Key Technology for AI Agents\\n- [2025-06-21] Techmeme: Browserbase, which develops headless browsers for AI agents and apps, raised a $40M Series B led by Notable Capital at a $300M valuation, up ~4X since September (Alex Konrad/Upstarts Media)\\n- [2025-06-20] Pulse 2.0: Browserbase: Director Launch And $40 Million Series B Raised For Automating Web Browsing\\n- [2025-06-18] Built In: Browserbase Secures $40M Series B Round, Launches No-Code Tool\\n- [2025-06-17]\\n - Sourcery: BREAKING: Browserbase Raises $40M Series 🅱️ to Power AI Agents & Vibe Coders\\n - Venture Capital Firms: Browserbase Launches \\\"Director\\\" to Automate the Web for Everyone; Announces $40M Series B\\n - PR Newswire: Browserbase Launches \\\"Director\\\" to Automate the Web for Everyone; Announces $40M Series B\\n- [2025-05-14]\\n - vcnewsdaily.com: Nekuda Nets $5M in Funding\\n - citybiz: Nekuda Raises $5M\\n- [2024-11-12] Pulse 2.0: Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n- [2024-10-28] The Information: The Information’s 50 Most Promising Startups 2024\\n- [2024-06-30] VentureBeat: Exclusive: Browserbase launches headless browser platform that lets LLMs automate web tasks\\n- [2024-06-07] VC News Daily: Browserbase Raises $6.5M in Seed Funding\\n\\n## Company Updates\\n- [2026-05-01] Deep Agents can now access the whole web like humans do.",
+        "sourceQuality": {
+          "tier": "primary_company",
+          "label": "Company-authored",
+          "rationale": "Best for product mechanics and official facts, weaker for claims about importance.",
+          "incentive": "Company positioning."
+        }
+      },
+      {
+        "id": "c2",
+        "url": "https://browser-use.com/",
+        "title": "Browser Use",
+        "fetchedAt": "2026-05-13T02:28:04.916Z",
+        "sourceType": "news",
+        "snippet": "Has $17.5M in total funding, with 2 prior funding rounds.\\n\\n## About\\nWe make web agents come to life\\n\\n## Company Details\\n- Industry: Software Development\\n- Type: Privately Held\\n- Headquarters: San Francisco, United States\\n- Homepage: browser-use.com\\n- Status: active\\n- Aliases: browser use, browser use inc.\\n- LinkedIn: linkedin.com/company/browser-use\\n- Linkedin Followers: 8,587 (Monthly: -100.0%)\\n\\n## Financials\\n- Total Funding: USD 17,500,000\\n - Pre Seed Round (2025-03-12): USD 500,000 - 1 investor, led by Y Combinator\\n - Non Equity Assistance (2025-01-01) - 1 investor\\n - Seed Round (2025-04-22): USD 17.0M - 13 investors\\n\\n## Workforce\\n- Employees: 13\\n - Monthly Growth: +23.5%\\n - Yearly Growth: +320.0%\\n- Key Executives:\\n - Magnus Müller: Co-Founder\\n - Gregor Žunič: Co-Founder\\n- Breakdown:\\n - By Country: United States: 10 (48%), Switzerland: 2 (10%), Slovenia: 1 (5%)\\n - By Department: Technical: 5 (24%), Consulting: 3 (14%), Other Department: 3 (14%), Finance: 1 (5%), Product: 1 (5%)\\n - By Seniority: Other Management: 6 (29%), Specialist: 3 (14%), Founder: 2 (10%), Manager: 1 (5%), Senior: 1 (5%)\\n- Talent Sources: ZenRows (1), Getspexia (1), greenWAI (1), Keploy 🐰 (1), Massachusetts Institute of Technology (1), Cloud Code AI (1), Reservoir (1), Nx (1), KSDT Radio - UC San Diego (1), None (1)\\n- Alumni Go To: Scale AI (1), Modern Legal (1), None (1), Mistral AI (1), Browserbase (1), Netic (1), BlueWalker Capital (1), You.com (1)\\n\\n## Products & Technology\\n- Tech Stack: github, json\\n\\n## Web Presence\\n- Monthly Visits: 459,393\\n - Traffic Growth: Monthly: +69.4%, Yearly: -34.3%\\n- Global Rank: #92,438\\n- Bounce Rate: 0.4%\\n- Pages per Visit: 3.9\\n- Top Countries: United States: 24%, China: 9%, India: 9%, Vietnam: 8%, Canada: 4%\\n\\n## Categories\\ntechnology/software, browsers, browser use, browser, browser automation, ai agents, interactive elements, llm support, artificial intelligence (ai), business process automation (bpa), open source\\n\\n## Recent News\\n- [2026-04-18] MSN: I never use a browser before changing this one setting\\n- [2026-03-05] WSJ: Exclusive | Anthropic’s AI Hacked the Firefox Browser.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c3",
+        "url": "https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618",
+        "title": "Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618\",\"title\":\"Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In\",\"url\":\"https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618\",\"publishedDate\":\"2025-06-18T16:29:32.000Z\",\"author\":\"Mia Goulart\",\"text\":\"Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In\\n\\nPhoto: Browserbase\\n\\nBrowserbase, a California-based browser infrastructure platform for agentic software, has raised $40 million in a Series B funding round led by Notable Capital, with continued support from existing investors CRV and Kleiner Perkins.\\n\\nAccording to a news release, the funding coincides with the launch of Director, a new no-code tool that enables non-technical users to build and run automations simply by describing what they want to accomplish.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c4",
+        "url": "https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/",
+        "title": "Browserbase reels in $40M for its browser automation tools - SiliconANGLE",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/\",\"title\":\"Browserbase reels in $40M for its browser automation tools - SiliconANGLE\",\"url\":\"https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/\",\"publishedDate\":\"2025-06-17T21:55:17.000Z\",\"author\":\"Maria Deutscher\",\"text\":\"Browserbase reels in $40M for its browser automation tools - SiliconANGLE\\n\\nSHARE\\n\\nUPDATED 17:55 EDT / JUNE 17 2025\\n\\nAI\\n\\n### Browserbase reels in $40M for its browser automation tools\\n\\nSHARE\\n\\nBrowserbase Inc., a startup focused on automating tasks that involve interacting with webpages, has closed a $40 million funding round.\\n\\nNotable Capital led the Series B investment.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c5",
+        "url": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director",
+        "title": "Browserbase Raises $40M Series B, Launches AI Automation Tool",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director\",\"title\":\"Browserbase Raises $40M Series B, Launches AI Automation Tool\",\"url\":\"https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director\",\"publishedDate\":\"2025-06-17T12:59:11.000Z\",\"author\":\"Alex Konrad\",\"text\":\"Browserbase Raises $40M Series B, Launches AI Automation Tool\\n\\nSubscribeSign in\\n\\n# Browserbase Raises $40M To Help AI Agents Work With Websites\\n\\n### The 16-month-old infrastructure startup behind 'headless browsers' is now valued at $300 million and claims more than 1,000 customers.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c6",
+        "url": "https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/",
+        "title": "Browserbase: Web Browser Automation Company Raises $21 Million (Series A)",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/\",\"title\":\"Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\",\"url\":\"https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/\",\"publishedDate\":\"2024-11-12T13:00:57.000Z\",\"author\":\"Amit Chowdhry\",\"text\":\"Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\n# Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\nBy Amit Chowdhry • Nov 12, 2024\\n\\nBrowserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\nBrowserbase, a leader in web browser automation, announced it raised $21 million in Series A funding co-led by CRV and Kleiner Perkins, with participation from Okta Ventures and Reed McGinley-Stempel, CEO of Stych.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c7",
+        "url": "https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents",
+        "title": "Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents\",\"title\":\"Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap\",\"url\":\"https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents\",\"publishedDate\":\"2026-04-06T00:00:00.000Z\",\"text\":\"Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap\\n\\nWhen OpenAI launched Operator in January 2025 — the first mass-market AI agent that could autonomously browse the web, fill out forms, and complete e-commerce checkouts — the focus was squarely on the LLM powering it.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c8",
+        "url": "https://www.notablecap.com/blog/why-we-invested-in-browserbase",
+        "title": "Building the Browser Infrastructure for AI Agents with the Founder of Browserbase | Notable Capital",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "We’re thrilled to be partnering with Paul Klein IV and leading Browserbase’s Series B.\\n\\nWe first met Paul in late 2023, after he reached out in response to an article we published on the opportunity for serverless software.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      }
+    ]
+  },
+  "extensionCard": {
+    "slug": "browserbase",
+    "domain": "browserbase.com",
+    "generatedAt": "2026-05-13T02:29:00.422Z",
+    "generationCostUsd": 0,
+    "cacheStatus": "hit",
+    "identity": {
+      "name": {
+        "value": "Browserbase",
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "c1"
+        ]
+      },
+      "logoUrl": null,
+      "oneLiner": {
+        "value": "Managed headless browser cloud that lets AI agents and developers automate web interactions at scale without managing Chromium infrastructure.",
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e4",
+          "e7",
+          "e8"
+        ]
+      },
+      "description": {
+        "value": {
+          "shortDescription": "Managed headless browser cloud that lets AI agents and developers automate web interactions at scale without managing Chromium infrastructure.",
+          "concept": "Every AI startup building web-facing agents solves the same browser infrastructure problems independently — CAPTCHA handling, anti-bot fingerprinting, proxy rotation, session isolation, autoscaling — so Browserbase builds it once and sells it as a consumption-priced service, the same model Twilio applied to telephony and Stripe to payments.",
+          "serves": "Primarily developers and engineering teams at AI-native startups and enterprises building agents that need to interact with the live web; secondarily non-technical business users via the no-code Director product.",
+          "mechanism": "Customers connect via standard Playwright, Puppeteer, or Selenium code to Browserbase's serverless cloud, which provisions isolated Chromium sessions on demand with built-in CAPTCHA solving, stealth fingerprinting, proxy rotation, SOC-2/HIPAA compliance, and global data-center distribution; Stagehand (open-source SDK) adds natural-language act/extract/observe commands above Playwright; Director generates automation scripts from natural-language prompts for non-developers."
+        },
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e4",
+          "e5",
+          "e7",
+          "e8"
+        ]
+      },
+      "hq": {
+        "value": {
+          "city": "San Francisco",
+          "country": "United States"
+        },
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "e1"
+        ]
+      },
+      "foundedYear": {
+        "value": 2024,
+        "status": "inferred",
+        "confidence": "medium",
+        "citationIds": [
+          "e3",
+          "e5"
+        ]
+      },
+      "status": "private"
+    },
+    "funding": {
+      "totalRaisedUsd": {
+        "value": 67500000,
+        "status": "mixed",
+        "confidence": "medium",
+        "citationIds": [
+          "e1",
+          "e6",
+          "e3",
+          "e9"
+        ]
+      },
+      "lastRound": {
+        "value": {
+          "name": "Series B",
+          "amountUsd": 40000000,
+          "announcedAt": "2025-06-17",
+          "leadInvestors": [
+            "Notable Capital"
+          ]
+        },
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e3",
+          "e4",
+          "e5",
+          "e8",
+          "e10"
+        ]
+      },
+      "investors": {
+        "value": [
+          {
+            "name": "Kleiner Perkins",
+            "domain": "kleinerperkins.com"
+          },
+          {
+            "name": "Notable Capital",
+            "domain": "notablecap.com"
+          },
+          {
+            "name": "CRV",
+            "domain": "crv.com"
+          },
+          {
+            "name": "Basecase Capital",
+            "domain": "basecase.com"
+          },
+          {
+            "name": "AI Grant",
+            "domain": "aigrant.org"
+          },
+          {
+            "name": "Okta Ventures",
+            "domain": "okta.com"
+          },
+          {
+            "name": "Guillermo Rauch (angel)",
+            "domain": null
+          },
+          {
+            "name": "Jeff Lawson (angel)",
+            "domain": null
+          },
+          {
+            "name": "Patrick Collison (angel)",
+            "domain": null
+          },
+          {
+            "name": "Aaron Levie (angel)",
+            "domain": null
+          }
+        ],
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e9",
+          "e6",
+          "e3",
+          "e5"
+        ]
+      }
+    },
+    "team": {
+      "founders": {
+        "value": [
+          {
+            "name": "Paul Klein IV",
+            "role": "Founder & CEO",
+            "sourceUrl": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director"
+          }
+        ],
+        "status": "verified",
+        "confidence": "high",
+        "citationIds": [
+          "e5",
+          "e6",
+          "e8"
+        ]
+      },
+      "keyExecs": {
+        "value": [
+          {
+            "name": "Eli Bingham",
+            "role": "Head of Engineering",
+            "sourceUrl": "https://browserbase.com/"
+          },
+          {
+            "name": "Sarah Richard",
+            "role": "Founding GTM",
+            "sourceUrl": "https://browserbase.com/"
+          },
+          {
+            "name": "Walker Griggs",
+            "role": "Tech Lead (named in customer account)",
+            "sourceUrl": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director"
+          },
+          {
+            "name": "Dominic Saadi",
+            "role": "Founding Engineer",
+            "sourceUrl": "https://linkedin.com/in/dominic-saadi"
+          }
+        ],
+        "status": "inferred",
+        "confidence": "medium",
+        "citationIds": [
+          "e1",
+          "e5",
+          "e11"
+        ]
+      },
+      "headcount": {
+        "value": {
+          "value": 50,
+          "asOf": "2026-05-03"
+        },
+        "status": "inferred",
+        "confidence": "low",
+        "citationIds": [
+          "e1"
+        ]
+      }
+    },
+    "signals": [],
+    "comparables": [],
+    "citations": [
+      {
+        "id": "e1",
+        "url": "https://browserbase.com/",
+        "title": "Browserbase (Exa enrichment)",
+        "fetchedAt": "2026-05-13T02:26:35.832Z",
+        "sourceType": "enrichment",
+        "snippet": "Browserbase is the complete platform to build and deploy agents that browse and interact with the web like humans. Has $128.5M in total funding, with 4 prior funding rounds. Employees: 50, +110% YoY.",
+        "sourceQuality": {
+          "tier": "enrichment",
+          "label": "Data vendor",
+          "rationale": "Useful for coverage, weaker for investor judgment unless confirmed elsewhere.",
+          "incentive": "Vendor-derived."
+        }
+      },
+      {
+        "id": "e3",
+        "url": "https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618",
+        "title": "Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Browserbase raised $40M Series B led by Notable Capital, with CRV and Kleiner Perkins. Serves over 1,000 companies and 20,000+ developers. Launched Director, a no-code automation tool.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e4",
+        "url": "https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/",
+        "title": "Browserbase reels in $40M for its browser automation tools - SiliconANGLE",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Notable Capital led Series B. Valued at $300M, 4x its September valuation. Platform spins up thousands of browsers in a fraction of a second, compatible with Puppeteer and Selenium. Stagehand lets developers combine traditional scripts with AI agents.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e5",
+        "url": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director",
+        "title": "Browserbase Raises $40M Series B, Launches AI Automation Tool",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "1,000+ customers including Commure, 11x, Perplexity, Vercel. 20,000+ developers, 50M browser sessions in 2025. $3M+ in revenue as of Series B, mostly from team expansion. Consumption-based pricing. First salesperson hired day of Series B announcement. Angel investors include Guillermo Rauch (Vercel CEO), Jeff Lawson (Twilio), Patrick Collison (Stripe), Aaron Levie (Box).",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e6",
+        "url": "https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/",
+        "title": "Browserbase: Web Browser Automation Company Raises $21 Million (Series A)",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Series A of $21M co-led by CRV and Kleiner Perkins, with Okta Ventures and Reed McGinley-Stempel. Raised in less than nine months after $6.5M seed. Launched Stagehand open-source AI-powered web automation SDK at Series A.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e7",
+        "url": "https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents",
+        "title": "Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "other",
+        "snippet": "Independent technical analysis. Founded by Paul Klein IV in SF. Stagehand exposes act/extract/observe natural language commands above Playwright. Competitors include Steel.dev, Playwright-MCP, Browserless. Adobe Analytics: AI agent traffic to US retail surged 4,700% YoY (July 2025).",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e8",
+        "url": "https://www.notablecap.com/blog/why-we-invested-in-browserbase",
+        "title": "Building the Browser Infrastructure for AI Agents with the Founder of Browserbase | Notable Capital",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Notable Capital led Series B. Glenn Solomon, managing director: 'If you build a great service that provides for and anticipates the needs that developers have, it can be a very compelling value proposition.' Klein analogizes to Vercel/Stripe/Twilio infrastructure model.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e9",
+        "url": "https://vcnewsdaily.com/browserbase/venture-capital-funding/lyqhnkzngq",
+        "title": "Browserbase Raises $6.5M in Seed Funding",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "$6.5M seed led by Kleiner Perkins, with Basecase Capital and AI Grant. Announced 2024-06-07.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e10",
+        "url": "https://www.lowenstein.com/news-insights/firm-news/lowenstein-represents-notable-capital-as-lead-investor-in-series-b-financing-round-for-browserbase-1",
+        "title": "Lowenstein Represents Notable Capital as Lead Investor in Series B Financing Round for Browserbase | Lowenstein Sandler LLP",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "news",
+        "snippet": "Law firm confirmation of Notable Capital as lead investor in Browserbase Series B.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "e11",
+        "url": "https://linkedin.com/in/dominic-saadi",
+        "title": "Dominic Saadi – Founding Engineer, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.833Z",
+        "sourceType": "other",
+        "snippet": "Founding Engineer at Browserbase since April 2024. Previously Software Developer at RedwoodJS.",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e12",
+        "url": "https://linkedin.com/in/connorgrant1",
+        "title": "Connor Grant – Account Executive, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.833Z",
+        "sourceType": "other",
+        "snippet": "Account Executive at Browserbase since Feb 2026. First enterprise AE hire. Named customers Ramp, Clay, Lovable as platform users.",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "e15",
+        "url": "https://linkedin.com/in/nick-sweeting-430999b3",
+        "title": "Nick Sweeting – Software Engineer, Browserbase",
+        "fetchedAt": "2026-05-13T02:26:35.834Z",
+        "sourceType": "other",
+        "snippet": "Software Engineer at Browserbase since Nov 2025, working on Stagehand team. Previously founding engineer at Browser Use (competitor).",
+        "sourceQuality": {
+          "tier": "unknown",
+          "label": "Source",
+          "rationale": "Source incentive not classified.",
+          "incentive": "Unknown."
+        }
+      },
+      {
+        "id": "c1",
+        "url": "https://browserbase.com/",
+        "title": "Browserbase",
+        "fetchedAt": "2026-05-13T02:28:04.916Z",
+        "sourceType": "company_site",
+        "snippet": "Has $128.5M in total funding, with 4 prior funding rounds.\\n\\n## About\\nBrowserbase is the complete platform to build and deploy agents that browse and interact with the web like humans.\\n\\n## Company Details\\n- Industry: Technology, Information and Internet\\n- Type: Privately Held\\n- Headquarters: San Francisco, United States\\n- Homepage: browserbase.com\\n- Status: active\\n- Aliases: browserbase, browserbase, inc.\\n- LinkedIn: linkedin.com/company/browserbasehq\\n- Linkedin Followers: 10,424 (Monthly: +4.2%, Yearly: +238.1%)\\n- Emails: support@browserbase.com\\n\\n## Financials\\n- Total Funding: USD 128,500,000\\n - Seed Round (2024-06-06): USD 6.5M - 8 investors, led by Kleiner Perkins\\n - Series B (2025-05-22): USD 40.0M - 3 investors, led by Notable Capital\\n - Series A (2024-11-01): USD 21.0M - 4 investors\\n - Series B (2025-06-01): USD 40.0M - 3 investors\\n - Series A (2024-10-29): USD 21.0M - 5 investors, led by Kleiner Perkins, CRV\\n\\n## Workforce\\n- Employees: 50 (11-50 employees)\\n - Monthly Growth: +10.5%\\n - Yearly Growth: +110.0%\\n- Key Executives:\\n - Eli Bingham: Head Of Engineering\\n - Maayan Albert: Eng Lead\\n - Miguel González Fernández: Technical Lead\\n - Peyton Casper: Product Lead - Identity\\n - Liam Matteson: Product Design Lead\\n - Sarah Richard: Founding GTM\\n - Jason Howmans: Technical Lead\\n - Charly Poly: Product Marketing Lead\\n- Breakdown:\\n - By Country: United States: 47 (70%), France: 1 (1%), Canada: 1 (1%), United Kingdom: 1 (1%)\\n - By Department: Technical: 21 (31%), Sales: 7 (10%), Other Department: 6 (9%), Consulting: 4 (6%), Product: 4 (6%), General Management: 3 (4%), Operations: 2 (3%), Design: 1 (1%), Hr: 1 (1%), Marketing: 1 (1%)\\n - By Seniority: Other Management: 19 (28%), Specialist: 15 (22%), Head: 7 (10%), Manager: 5 (7%), Intern: 3 (4%), Founder: 1 (1%)\\n- Talent Sources: Whop (3), Proformex (1), Vercel (2), Kleiner Perkins (1), Pet Care by Erin (1), Figma (1), Casca (1), Hawk Hill Ventures (1), Like Minds (1), Floodgate (1)\\n- Alumni Go To: NationGraph (1), Shopify (1), HyperGrowth Partners (1), Bridg (1), Mercury Insurance (1), Columbia Organization of Rising Entrepreneurs (1), Perplexity (1), Company Picnic (1), Maven Robotics (1), fal (1)\\n- Active Job Postings: 3\\n - Job Posting Trends: Monthly: +0.0%, Quarterly: -25.0%\\n\\n### Open Positions (showing 3)\\n- Web Designer (Marketing)\\n- Account Executive\\n- Design Engineer (Web & Brand)\\n\\n## Products & Technology\\n- Tech Stack: github, snowflake, typescript, microsoft, ramp, vercel, figma, okta, playwright, vanta, google workspace, terraform, css, selenium, hubspot, rippling, react, twitter, kubernetes, chrome, argocd, github actions\\n\\n## Web Presence\\n- Monthly Visits: 217,857\\n - Traffic Growth: Monthly: +10.9%, Yearly: -6.1%\\n- Global Rank: #170,741\\n- Bounce Rate: 0.4%\\n- Pages per Visit: 3.6\\n- Top Countries: United States: 40%, India: 7%, Colombia: 4%, Brazil: 3%, Canada: 3%\\n\\n## Categories\\ntechnology/software, web browser, seamless integration, ai agents, applications, scalable, technology, application-software, automation, platform, information technology, software\\n\\n## Locations (3 offices across 1 country)\\n- United States (3 offices)\\n - San Francisco, California (HQ)\\n - 584 Castro Street #249; San Francisco, California, United States\\n - San Francisco, California, United States\\n\\n## Competitors\\nxmatters, horus, awesomic, sagra technology\\n\\n## Recent News\\n- [2025-08-28]\\n - Business Wire: Madrona Announces the 2025 Intelligent Applications 40, Recognizing the World's Leading Private AI Companies\\n - Morningstar.com: Madrona Announces the 2025 Intelligent Applications 40, Recognizing the World's Leading Private AI Companies\\n- [2025-07-18] The New Stack: Why AI Agents Need a New Kind of Browser\\n- [2025-06-24] The New Stack: Why Headless Browsers Are a Key Technology for AI Agents\\n- [2025-06-21] Techmeme: Browserbase, which develops headless browsers for AI agents and apps, raised a $40M Series B led by Notable Capital at a $300M valuation, up ~4X since September (Alex Konrad/Upstarts Media)\\n- [2025-06-20] Pulse 2.0: Browserbase: Director Launch And $40 Million Series B Raised For Automating Web Browsing\\n- [2025-06-18] Built In: Browserbase Secures $40M Series B Round, Launches No-Code Tool\\n- [2025-06-17]\\n - Sourcery: BREAKING: Browserbase Raises $40M Series 🅱️ to Power AI Agents & Vibe Coders\\n - Venture Capital Firms: Browserbase Launches \\\"Director\\\" to Automate the Web for Everyone; Announces $40M Series B\\n - PR Newswire: Browserbase Launches \\\"Director\\\" to Automate the Web for Everyone; Announces $40M Series B\\n- [2025-05-14]\\n - vcnewsdaily.com: Nekuda Nets $5M in Funding\\n - citybiz: Nekuda Raises $5M\\n- [2024-11-12] Pulse 2.0: Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n- [2024-10-28] The Information: The Information’s 50 Most Promising Startups 2024\\n- [2024-06-30] VentureBeat: Exclusive: Browserbase launches headless browser platform that lets LLMs automate web tasks\\n- [2024-06-07] VC News Daily: Browserbase Raises $6.5M in Seed Funding\\n\\n## Company Updates\\n- [2026-05-01] Deep Agents can now access the whole web like humans do.",
+        "sourceQuality": {
+          "tier": "primary_company",
+          "label": "Company-authored",
+          "rationale": "Best for product mechanics and official facts, weaker for claims about importance.",
+          "incentive": "Company positioning."
+        }
+      },
+      {
+        "id": "c2",
+        "url": "https://browser-use.com/",
+        "title": "Browser Use",
+        "fetchedAt": "2026-05-13T02:28:04.916Z",
+        "sourceType": "news",
+        "snippet": "Has $17.5M in total funding, with 2 prior funding rounds.\\n\\n## About\\nWe make web agents come to life\\n\\n## Company Details\\n- Industry: Software Development\\n- Type: Privately Held\\n- Headquarters: San Francisco, United States\\n- Homepage: browser-use.com\\n- Status: active\\n- Aliases: browser use, browser use inc.\\n- LinkedIn: linkedin.com/company/browser-use\\n- Linkedin Followers: 8,587 (Monthly: -100.0%)\\n\\n## Financials\\n- Total Funding: USD 17,500,000\\n - Pre Seed Round (2025-03-12): USD 500,000 - 1 investor, led by Y Combinator\\n - Non Equity Assistance (2025-01-01) - 1 investor\\n - Seed Round (2025-04-22): USD 17.0M - 13 investors\\n\\n## Workforce\\n- Employees: 13\\n - Monthly Growth: +23.5%\\n - Yearly Growth: +320.0%\\n- Key Executives:\\n - Magnus Müller: Co-Founder\\n - Gregor Žunič: Co-Founder\\n- Breakdown:\\n - By Country: United States: 10 (48%), Switzerland: 2 (10%), Slovenia: 1 (5%)\\n - By Department: Technical: 5 (24%), Consulting: 3 (14%), Other Department: 3 (14%), Finance: 1 (5%), Product: 1 (5%)\\n - By Seniority: Other Management: 6 (29%), Specialist: 3 (14%), Founder: 2 (10%), Manager: 1 (5%), Senior: 1 (5%)\\n- Talent Sources: ZenRows (1), Getspexia (1), greenWAI (1), Keploy 🐰 (1), Massachusetts Institute of Technology (1), Cloud Code AI (1), Reservoir (1), Nx (1), KSDT Radio - UC San Diego (1), None (1)\\n- Alumni Go To: Scale AI (1), Modern Legal (1), None (1), Mistral AI (1), Browserbase (1), Netic (1), BlueWalker Capital (1), You.com (1)\\n\\n## Products & Technology\\n- Tech Stack: github, json\\n\\n## Web Presence\\n- Monthly Visits: 459,393\\n - Traffic Growth: Monthly: +69.4%, Yearly: -34.3%\\n- Global Rank: #92,438\\n- Bounce Rate: 0.4%\\n- Pages per Visit: 3.9\\n- Top Countries: United States: 24%, China: 9%, India: 9%, Vietnam: 8%, Canada: 4%\\n\\n## Categories\\ntechnology/software, browsers, browser use, browser, browser automation, ai agents, interactive elements, llm support, artificial intelligence (ai), business process automation (bpa), open source\\n\\n## Recent News\\n- [2026-04-18] MSN: I never use a browser before changing this one setting\\n- [2026-03-05] WSJ: Exclusive | Anthropic’s AI Hacked the Firefox Browser.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c3",
+        "url": "https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618",
+        "title": "Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618\",\"title\":\"Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In\",\"url\":\"https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618\",\"publishedDate\":\"2025-06-18T16:29:32.000Z\",\"author\":\"Mia Goulart\",\"text\":\"Browserbase Secures $40M Series B Round, Launches No-Code Tool | Built In\\n\\nPhoto: Browserbase\\n\\nBrowserbase, a California-based browser infrastructure platform for agentic software, has raised $40 million in a Series B funding round led by Notable Capital, with continued support from existing investors CRV and Kleiner Perkins.\\n\\nAccording to a news release, the funding coincides with the launch of Director, a new no-code tool that enables non-technical users to build and run automations simply by describing what they want to accomplish.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c4",
+        "url": "https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/",
+        "title": "Browserbase reels in $40M for its browser automation tools - SiliconANGLE",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/\",\"title\":\"Browserbase reels in $40M for its browser automation tools - SiliconANGLE\",\"url\":\"https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/\",\"publishedDate\":\"2025-06-17T21:55:17.000Z\",\"author\":\"Maria Deutscher\",\"text\":\"Browserbase reels in $40M for its browser automation tools - SiliconANGLE\\n\\nSHARE\\n\\nUPDATED 17:55 EDT / JUNE 17 2025\\n\\nAI\\n\\n### Browserbase reels in $40M for its browser automation tools\\n\\nSHARE\\n\\nBrowserbase Inc., a startup focused on automating tasks that involve interacting with webpages, has closed a $40 million funding round.\\n\\nNotable Capital led the Series B investment.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c5",
+        "url": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director",
+        "title": "Browserbase Raises $40M Series B, Launches AI Automation Tool",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director\",\"title\":\"Browserbase Raises $40M Series B, Launches AI Automation Tool\",\"url\":\"https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director\",\"publishedDate\":\"2025-06-17T12:59:11.000Z\",\"author\":\"Alex Konrad\",\"text\":\"Browserbase Raises $40M Series B, Launches AI Automation Tool\\n\\nSubscribeSign in\\n\\n# Browserbase Raises $40M To Help AI Agents Work With Websites\\n\\n### The 16-month-old infrastructure startup behind 'headless browsers' is now valued at $300 million and claims more than 1,000 customers.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c6",
+        "url": "https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/",
+        "title": "Browserbase: Web Browser Automation Company Raises $21 Million (Series A)",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/\",\"title\":\"Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\",\"url\":\"https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/\",\"publishedDate\":\"2024-11-12T13:00:57.000Z\",\"author\":\"Amit Chowdhry\",\"text\":\"Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\n# Browserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\nBy Amit Chowdhry • Nov 12, 2024\\n\\nBrowserbase: Web Browser Automation Company Raises $21 Million (Series A)\\n\\nBrowserbase, a leader in web browser automation, announced it raised $21 million in Series A funding co-led by CRV and Kleiner Perkins, with participation from Okta Ventures and Reed McGinley-Stempel, CEO of Stych.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c7",
+        "url": "https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents",
+        "title": "Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "{\"id\":\"https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents\",\"title\":\"Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap\",\"url\":\"https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents\",\"publishedDate\":\"2026-04-06T00:00:00.000Z\",\"text\":\"Browserbase Raises $27M to Fix the Infrastructure Problem Killing Web-Browsing Agents at Scale | AgentMarketCap\\n\\nWhen OpenAI launched Operator in January 2025 — the first mass-market AI agent that could autonomously browse the web, fill out forms, and complete e-commerce checkouts — the focus was squarely on the LLM powering it.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      },
+      {
+        "id": "c8",
+        "url": "https://www.notablecap.com/blog/why-we-invested-in-browserbase",
+        "title": "Building the Browser Infrastructure for AI Agents with the Founder of Browserbase | Notable Capital",
+        "fetchedAt": "2026-05-13T02:28:04.917Z",
+        "sourceType": "news",
+        "snippet": "We’re thrilled to be partnering with Paul Klein IV and leading Browserbase’s Series B.\\n\\nWe first met Paul in late 2023, after he reached out in response to an article we published on the opportunity for serverless software.",
+        "sourceQuality": {
+          "tier": "independent_report",
+          "label": "Independent report",
+          "rationale": "Third-party reporting.",
+          "incentive": "Editorial reporting."
+        }
+      }
+    ]
+  },
+  "runStatus": {
+    "status": "complete",
+    "note": "Captured from production public card endpoint. Extension endpoint rejected local auth with 403, so gated synthesis is not included."
+  }
+}

@@ -15,6 +15,24 @@ const validSynthesisPayload = {
     { text: "Pricing power is not visible from the cited material [c1].", citationIds: ["c1"] },
     { text: "Customer concentration is still an open risk [c1].", citationIds: ["c1"] }
   ],
+  marketStructureAndTiming: {
+    buyerBudget: {
+      text: "The buyer budget is likely contact-center automation or developer infrastructure spend [c1].",
+      citationIds: ["c1"]
+    },
+    painSeverity: {
+      text: "The pain is severe when latency blocks production voice-agent workflows [c1].",
+      citationIds: ["c1"]
+    },
+    adoptionTrigger: {
+      text: "The adoption trigger is lower-latency model infrastructure reaching production usability [c1].",
+      citationIds: ["c1"]
+    },
+    marketStructure: null,
+    profitPool: null,
+    expansionPath: null,
+    timingRisk: null
+  },
   openQuestions: ["How strong is retention?", "What is gross margin?", "How concentrated is revenue?"]
 };
 
@@ -200,6 +218,55 @@ describe("parseSynthesisToolUse", () => {
     });
   });
 
+  it("normalizes market structure citation markers", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            marketStructureAndTiming: {
+              ...validSynthesisPayload.marketStructureAndTiming,
+              buyerBudget: {
+                text: "The buyer budget is likely contact-center automation spend.",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.marketStructureAndTiming?.buyerBudget).toEqual({
+      text: "The buyer budget is likely contact-center automation spend [c1].",
+      citationIds: ["c1"]
+    });
+  });
+
+  it("rejects market structure claims without citation IDs", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              marketStructureAndTiming: {
+                ...validSynthesisPayload.marketStructureAndTiming,
+                buyerBudget: {
+                  text: "This still has only a visible marker [c1].",
+                  citationIds: []
+                }
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow();
+  });
+
   it("rejects short synthesis arrays", () => {
     expect(() =>
       parseSynthesisToolUse({
@@ -303,6 +370,38 @@ describe("synthesizeCard", () => {
                 whyItMatters: {
                   text: "Cartesia is building real-time voice infrastructure [missing].",
                   citationIds: ["missing"]
+                }
+              }
+            }
+          ]
+        })
+      }
+    } as unknown as Anthropic;
+    const card = {
+      citations: [{ id: "c1" }]
+    } as ColdStartCard;
+
+    await expect(synthesizeCard({ client, model: "claude-test", card })).rejects.toThrow(
+      "Synthesis citation ID not found on card: missing"
+    );
+  });
+
+  it("rejects market structure citation IDs that are not present on the input card", async () => {
+    const client = {
+      messages: {
+        create: async () => ({
+          content: [
+            {
+              type: "tool_use",
+              name: "emit_investor_synthesis",
+              input: {
+                ...validSynthesisPayload,
+                marketStructureAndTiming: {
+                  ...validSynthesisPayload.marketStructureAndTiming,
+                  buyerBudget: {
+                    text: "The buyer budget is likely contact-center automation spend [missing].",
+                    citationIds: ["missing"]
+                  }
                 }
               }
             }

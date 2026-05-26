@@ -29,7 +29,7 @@ Second, **trust**. Every material fact links to a source. Claims that cannot be 
 
 Third, **artifact gravity**. The card is a stable URL, not a chat reply. One generation per company, cached, shareable. Samay sharing `cold-start-samay58s-projects.vercel.app/c/cartesia` and a colleague clicking the extension on cartesia.ai both hit the same page. This is the only thing that makes per-card economics work at scale.
 
-Fourth, **investor lens, not data dump**. Buyer, wedge, GTM motion, what would have to be true. The lens lives behind the extension install (gated surface), so the public artifact stays defamation-clean.
+Fourth, **investor lens, not data dump**. Cold Start should read like the first 10 minutes of a sharp investment screen, not a company encyclopedia. The gated read should explain who buys, what workflow changes, why the market is structurally attractive or not, what proof exists, what could break, and what diligence question comes next. The lens lives behind the extension install (gated surface), so the public artifact stays defamation-clean.
 
 ## Two visibility tiers
 
@@ -44,12 +44,39 @@ This is the load-bearing decision. Resolved 2026-05-06.
 - Citation list (every claim resolves to a URL)
 
 **Gated surface** (Chrome extension in v0; web-side gated auth is intentionally deferred) adds:
-- Why it might matter (3 to 5 sentences, sourced)
-- Supported claims (3 bullets, each cited)
-- Skeptical evidence, retained in the schema for compatibility but not surfaced as a primary label
-- Open questions (3 prompts a partner would ask in a first call)
+- Why it matters, as a cited investment rationale rather than generic summary copy
+- Product and technology, including what is actually differentiated
+- Buyer and use case, including who uses it, who pays, and what workflow changes
+- Customer proof, traction, financing and valuation, and competitive position when supported by cited card data
+- Risks and diligence, including the questions a partner would ask before spending more time
 
 The Chrome install is the audience filter that lowers defamation exposure. Anyone can read facts; only investors who installed the extension see the synthesis.
+
+## Investor-grade research taxonomy
+
+The research layer should use investment-screen language everywhere visible to the user. Internal field names may remain compatibility aliases until a schema migration, but UI, prompts, docs, QA, and screenshots should converge on this vocabulary.
+
+| Current or internal source | User-facing card | Purpose |
+|---|---|---|
+| `synthesis.whyItMatters` / rationale alias | **Why It Matters** | The crisp reason this company could deserve investor attention. |
+| `identity.description.mechanism` | **Product & Technology** | What the product does and what is actually differentiated. |
+| `identity.description.serves` | **Buyer & Use Case** | Who uses it, who pays, and what workflow changes. |
+| `synthesis.marketStructureAndTiming` / `marketStructureTiming` | **Market Structure & Timing** | Whether the market is real, reachable, timely, and economically attractive, based on buyer budget, adoption trigger, profit pool, structure, expansion path, and timing risk. |
+| `customers` enrichment | **Customer Proof** | Named customers, pilots, deployments, usage evidence, or credible buyer adoption. |
+| `signals` | **Traction** | Momentum across revenue clues, usage, hiring, launches, partnerships, news, or funding events. |
+| `funding` / `investors` | **Financing & Valuation** | Round history, backers, amount raised, price context, and valuation only when disclosed by sources. |
+| `comparables` / `competition` | **Competitive Position** | Alternatives, substitutes, incumbents, and the durability of the company's advantage. |
+| diligence prompts | **Risks & Diligence** | What still needs to be proven before conviction. |
+
+The next investor-grade expansion should add typed cards only when the backend can support them with real evidence:
+
+| Future card | Standard |
+|---|---|
+| **Business Model & Unit Economics** | Explain pricing, gross margin pressure, CAC/payback clues, burn efficiency, and whether the model can compound. Use `not disclosed` rather than inferred numbers. |
+| **Team & Execution** | Founder quality, technical credibility, hiring velocity, and evidence of execution. |
+| **Strategic Relevance** | Platform, ecosystem, compute, partnership, internal adoption, or strategic-investor value. For NVentures-style use, this must be specific enough to say where NVIDIA could care and where it probably does not. |
+
+The market card has the highest bar. It should not answer "how big is the TAM?" first. It should answer whether the market is real, reachable, timely, and economically attractive.
 
 ## Card schema
 
@@ -69,8 +96,8 @@ type ColdStartCard = {
     description?: ResolvedFact<{
       shortDescription: string;
       concept: string | null;
-      serves: string | null;
-      mechanism: string | null;
+      serves: string | null;            // compatibility field; user-facing label is Buyer & Use Case
+      mechanism: string | null;         // compatibility field; user-facing label is Product & Technology
     }>;
     hq: ResolvedFact<{ city: string; country: string }>;
     foundedYear: ResolvedFact<number>;
@@ -88,15 +115,31 @@ type ColdStartCard = {
     headcount: ResolvedFact<{ value: number; asOf: string } | null>;
   };
   signals: Signal[];                    // last 90d, each with url + date + category
-  comparables: { name: string; domain: string; oneLiner: string }[];
-  citations: Citation[];                // [{ id, url, title, fetchedAt, sourceType }]
+  comparables: {
+    name: string;
+    domain: string;
+    oneLiner: string;
+    basis?: string;
+    confidence?: 'high' | 'medium' | 'low';
+    citationIds?: string[];
+  }[];
+  citations: Citation[];                // includes sourceQuality when available
 
   // GATED TIER (extension or auth required)
   synthesis?: {
     whyItMatters: SourcedText;          // each sentence ends with [n]
-    bullCase: SourcedText[];            // exactly 3
-    bearCase: SourcedText[];            // exactly 3
-    openQuestions: string[];            // exactly 3
+    bullCase: SourcedText[];            // 0-3 after verifier drops
+    bearCase: SourcedText[];            // 0-3 after verifier drops
+    openQuestions: string[];            // up to 3
+    marketStructureAndTiming?: {
+      buyerBudget: SourcedText | null;
+      painSeverity: SourcedText | null;
+      adoptionTrigger: SourcedText | null;
+      marketStructure: SourcedText | null;
+      profitPool: SourcedText | null;
+      expansionPath: SourcedText | null;
+      timingRisk: SourcedText | null;
+    };
   };
 };
 
@@ -118,6 +161,8 @@ If a `ResolvedFact` has no citation, its `value` must be `null` and `status` mus
 
 The synthesis block is omitted entirely from the public JSON response. The web app's `/c/{slug}` page does not request it. The extension API can return it after extension auth, and only when `analysis` has produced verified synthesis.
 
+The LLM is asked for three bull and three bear claims, but storage is stricter than layout. After verification, unsupported and contradicted claims are removed rather than padded back to three. An empty bull or bear section means nothing in that section survived citation verification.
+
 ## Architecture
 
 **Stack**:
@@ -137,11 +182,13 @@ The synthesis block is omitted entirely from the public JSON response. The web a
 
 The AgentCash path collapses what Spec 3 modeled as separate vendor-account integrations into one wallet top-up plus a unified `fetch` interface. If a StableEnrich endpoint is missing or unreliable, fall back to a direct account for that single call. Everything else stays on AgentCash.
 
+Provider budgets are executable, not just spreadsheet assumptions. StableEnrich endpoint timeout, expected facts, estimated cost, mode, and stop condition live in `packages/providers/src/provider-budget.ts`; generation traces copy that metadata next to endpoint results. Adding a paid endpoint without registering its budget is a contract miss.
+
 **Generation modes**:
 
 `basics` is the extension activation path. The side panel asks before starting it; the request carries `confirmStart` after that click. The API still accepts extension-authenticated basics requests without `confirmStart` for compatibility, but non-extension requests need confirmation. The target is p95 under 10 seconds for the first useful card. It retrieves fast fundamentals, extracts cited facts, skips synthesis, and may cache `cacheStatus: "partial"`.
 
-`analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and open questions survive verification. In the refreshed extension UX, the user should experience this as activating specific research cards, not pressing a separate global Analyze button. The backend still supports card-level `basics` and `analysis` jobs today, but generation runs now carry `jobKind` and trace metadata so true per-enrichment jobs can land without a second stale progress model.
+`analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and diligence prompts survive verification. In the refreshed extension UX, the user should experience this as activating specific research cards, not pressing a separate global Analyze button. The first implemented card set uses Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, Financing & Valuation, Competitive Position, Product & Technology, and Risks & Diligence. The backend still supports card-level `basics` and `analysis` jobs today, but generation runs now carry `jobKind` and trace metadata so true per-enrichment jobs can land without a second stale progress model.
 
 **Pipeline** (single agent, parallel provider calls, no orchestrator-worker hierarchy):
 
@@ -174,7 +221,7 @@ Upgrade cached card with gated synthesis
 
 The verifier is cheap because the system prompt is cacheable and the per-card input is bounded by the citation count. It catches the "cited a source that doesn't actually support the claim" failure mode that base citation enforcement misses.
 
-**Trust enforcement** (six structural checks, all run in v0):
+**Trust enforcement** (structural checks, all run in v0):
 
 1. JSON Schema on every tool output. Zod-validated. The model cannot return an unstructured number.
 2. Citation IDs in synthesis are required by schema; missing IDs trigger regen.
@@ -183,27 +230,27 @@ The verifier is cheap because the system prompt is cacheable and the per-card in
 5. Vendor-only facts can display with vendor source context, but stay `status: 'inferred'` and lower confidence unless corroborated.
 6. Two-source rule on funding total, valuation, headcount. Single-source claims downgrade to `confidence: 'low'`.
 7. Verifier pass re-reads synthesis with sources in context, returns supported/contradicted/unsupported per claim. Anything not `supported` is dropped.
-8. Confidence badges visible in the UI. `verified` (green), `mixed` (amber, conflict surfaced), `inferred` (blue, AI-derived), `unknown` (gray).
+8. Card schema rejects non-null citation-bearing facts without refs and rejects refs that do not resolve to the top-level `citations[]`.
+9. Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
+10. Cache reads enforce TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
+11. Confidence badges visible in the UI. `verified` (green), `mixed` (amber, conflict surfaced), `inferred` (blue, AI-derived), `unknown` (gray).
 
 ## Cost model
 
-Estimated per uncached card via AgentCash + stableenrich + Anthropic direct:
+Provider budget registry values for paid StableEnrich calls:
 
 | Item | Cost |
 |------|------|
 | Stableenrich Exa search | $0.0100 |
 | Stableenrich Exa findSimilar | $0.0100 |
-| Stableenrich Apollo org-enrich | $0.0495 |
-| Stableenrich Firecrawl scrape | $0.0126 |
-| Sonnet 4.6 extraction (cached prompt) | ~$0.03 |
-| Sonnet 4.6 synthesis (cached prompt) | ~$0.04 |
-| Sonnet 4.6 verifier (cached prompt) | ~$0.01 |
+| Stableenrich Apollo org-enrich | $0.0200 |
+| Stableenrich Firecrawl scrape | $0.0100 |
+| Stableenrich email enrichment or verification | $0.0100 to $0.0200 |
 | EDGAR / GitHub / RDAP | $0 |
-| **Total** | **~$0.16 to $0.20** |
+
+Observed production target after the May cost cuts is roughly `$0.75` for basics and `$0.88` for analysis, including provider calls plus Anthropic extraction, synthesis, and verification. Treat those as trace-derived operating targets, not fixed prices. Use `npm run trace:generation -- --quality --detail` for current runs.
 
 Cache hit (Postgres lookup, no LLM): ~$0.0001. At any meaningful traffic the blended cost converges toward the cache-hit case because popular domains (Notion, Stripe, OpenAI) get hit thousands of times.
-
-This is conservative against Spec 3's $0.04 estimate and Spec 2's $0.15 estimate. Reality probably lands between $0.10 and $0.25 per uncached card; safe to plan around $0.20.
 
 ## 3-week MVP plan
 
@@ -274,6 +321,7 @@ The discipline is: every v0 feature must serve the activation moment. For cached
 - Backend: **Next.js 15 on Vercel + Inngest + Neon Postgres**.
 - LLM: **Claude Sonnet 4.6, single agent, parallel tool calls, no orchestrator-worker in v0**.
 - Bull/bear scope: **in v0 but only on extension surface; web public URL omits synthesis entirely**.
+- Research-card language: **investor-grade labels over generic database labels**. Buyer & Use Case, Product & Technology, Traction, and Market Structure & Timing replace generic database wording and top-down TAM filler.
 - X bot: **deferred to v1.1; manual @semitechievc posting in v0**.
 - Brand: **personal under @semitechievc, no separate product handle until product proves out**.
 
@@ -287,8 +335,8 @@ These do not block the implementation plan but should be resolved before public 
 4. Legal review of synthesis prompt template before extension launches publicly. Cheap insurance; one hour with a lawyer who reviews early-stage product copy.
 5. Whether the public URL surface pre-renders the OG card image at generation time (saves runtime cost on viral tweets) or lazy-generates on first share.
 
-## Handoff
+## Current Handoff
 
-This spec is ready for `/superpowers:writing-plans` to convert into a step-by-step implementation plan. The plan should be split by week (week 1 = backend + claim store; week 2 = web app + public card; week 3 = extension + launch) with explicit checkpoints at the end of each week.
+Treat this file as the live product contract. Code changes that affect card shape, trust boundaries, generation modes, public/private visibility, provider cost, or research-layer labels should update this file in the same branch.
 
-The day-1 stableenrich spike is the highest-risk single task. If it fails, the data path falls back to direct-vendor accounts (PDL, Exa, Firecrawl) and the timeline slips by 2 to 4 days. Plan should reflect this contingency.
+The current data path is direct Exa plus StableEnrich through AgentCash, with SEC EDGAR and Firecrawl where useful. If a StableEnrich endpoint becomes unreliable, add or restore a direct fallback for that endpoint only and document the new budget in `packages/providers/src/provider-budget.ts`.

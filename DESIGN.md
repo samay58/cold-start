@@ -113,7 +113,7 @@ For the proposed enrichment UX, each inactive category should feel like a physic
 Use:
 
 - Parchment cards with sand hairlines and small Lens Blue active marks.
-- Fraunces for category titles like `Serves`, `Core Idea`, `Mechanism`, `Customers`, `Signals`, and `Open Questions`.
+- Fraunces for investor-grade category titles like `Why It Matters`, `Buyer & Use Case`, `Market Structure & Timing`, `Customer Proof`, `Traction`, `Financing & Valuation`, `Competitive Position`, `Product & Technology`, and `Risks & Diligence`.
 - Mona Sans for small labels, drag affordances, progress labels, and state text.
 - Slight rotations, depth, and imperfect stacks to make the pile feel physical.
 - Snapping or pinning motion that feels crisp, measured, and consequential.
@@ -143,7 +143,7 @@ Implementation guardrails:
 
 - The current backend supports `basics` and `analysis`, not independent per-category enrichment jobs. The first implementation must not pretend that all seven cards run separate backend work.
 - Use the existing analysis run as the first AI-backed activation path. Keep clean model seams for future per-category jobs.
-- The first shipped pile should include only useful, inspectable cards: Core Idea, Customers, Serves, Signals, Competition, Mechanism, and Open Questions. Do not show speculative future cards until they map to real data or a real backend job.
+- The first shipped pile should include only useful, inspectable cards mapped to real data: Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, Financing & Valuation, Competitive Position, Product & Technology, and Risks & Diligence. Do not show speculative future cards until they map to real data or a real backend job.
 - The real Chrome side panel width is tight. The pile and tray must be designed for about 380px, not the wider image mockup canvas.
 - Keep the dark browser rail out of the extension app unless it is proven in the live Chrome surface. The rail is atmosphere in the mockups, not required product UI.
 - Avoid adding duplicate progress components. The research layer should absorb the analysis running state instead of leaving a parallel full-screen analysis progress page.
@@ -158,7 +158,7 @@ Design a UX concept for the current Cold Start app. Preserve the actual implemen
 
 The design should feel like a high-taste AI-native investment research dossier, not a generic SaaS dashboard. Think Rauno Freiberg-level interaction craft: clear hierarchy, tasteful restraint, tactile motion, measured physics, and details that feel engineered rather than decorated. Avoid AI slop: no purple gradients, no generic glowing cards, no glassmorphism, no over-rounded pill UI, no fake terminal aesthetic, no IBM Plex, no Berkeley Mono, no Newsreader, no Inter, no Roboto, no Geist.
 
-For inactive enrichment categories, show a refined pile of physical research cards at the bottom of the Chrome side panel. Each card corresponds to a category such as Serves, Core Idea, Mechanism, Customers, Signals, Open Questions. The user can drag a card upward and snap or pin it into the sidebar to activate that enrichment. On activation, the card should transition into a calculated field using quiet instrument-like motion, source-aware progress, and the same parchment/Fraunces/Mona visual system.
+For inactive enrichment categories, show a refined pile of physical research cards at the bottom of the Chrome side panel. Each card corresponds to an investor-screen category such as Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, Financing & Valuation, Competitive Position, Product & Technology, and Risks & Diligence. The user can drag a card upward and snap or pin it into the sidebar to activate that enrichment. On activation, the card should transition into a calculated field using quiet instrument-like motion, source-aware progress, and the same parchment/Fraunces/Mona visual system.
 ```
 
 ## Guardrails

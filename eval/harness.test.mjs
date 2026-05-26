@@ -39,6 +39,78 @@ test("scoreEvalResult flags route leaks, missing synthesis, and missing core fac
   assert.equal(score.citationUrlFailures, 0);
 });
 
+test("scoreEvalResult flags cost-ceiling breaches and tracks the observed cost", () => {
+  const score = scoreEvalResult(
+    {
+      company: companies[0],
+      latencyMs: 1250,
+      publicCard: {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        generationCostUsd: 0.75,
+        identity: {
+          name: { value: "Cartesia" },
+          oneLiner: { value: "Voice AI" }
+        },
+        funding: {
+          totalRaisedUsd: { value: 91000000 }
+        },
+        team: {
+          founders: { value: [{ name: "Founder" }] }
+        },
+        citations: []
+      },
+      extensionCard: {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        generationCostUsd: 0.75,
+        synthesis: {
+          whyItMatters: { text: "Supported [c1].", citationIds: ["c1"] }
+        }
+      }
+    },
+    { perRunCostCeilingUsd: 0.5 }
+  );
+
+  assert.equal(score.generationCostUsd, 0.75);
+  assert.equal(score.perRunCostCeilingUsd, 0.5);
+  assert.equal(score.costCeilingExceeded, true);
+  assert.equal(score.needsManualReview, true);
+});
+
+test("scoreEvalResult passes when generation cost stays under the ceiling", () => {
+  const score = scoreEvalResult(
+    {
+      company: companies[0],
+      latencyMs: 1100,
+      publicCard: {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        generationCostUsd: 0.05,
+        identity: {
+          name: { value: "Cartesia" },
+          oneLiner: { value: "Voice AI" }
+        },
+        funding: { totalRaisedUsd: { value: 91000000 } },
+        team: { founders: { value: [{ name: "Founder" }] } },
+        citations: []
+      },
+      extensionCard: {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        generationCostUsd: 0.05,
+        synthesis: {
+          whyItMatters: { text: "Supported [c1].", citationIds: ["c1"] }
+        }
+      }
+    },
+    { perRunCostCeilingUsd: 0.5 }
+  );
+
+  assert.equal(score.costCeilingExceeded, false);
+  assert.equal(score.needsManualReview, false);
+});
+
 test("runGoldenEval limits the seed set and returns scored rows plus summary totals", async () => {
   const seen = [];
   const run = await runGoldenEval({

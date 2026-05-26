@@ -8,6 +8,7 @@ import {
   readableCompanyNameFromDomain,
   readableCardError,
   resolveStoredSettings,
+  type GenerationRunStatus,
   type GenerationStatus,
   type Settings
 } from "./extension-config";
@@ -435,7 +436,7 @@ function StartGenerationPanel({
       description: "Launches and traction",
       marker: "03",
       tone: "signals",
-      title: "Signals"
+      title: "Traction"
     },
     {
       description: "Source references",
@@ -456,14 +457,9 @@ function StartGenerationPanel({
         </button>
       </header>
 
-      <div className="cs-start-instrument" aria-hidden="true">
-        <span className="cs-start-reticle" />
-        <span className="cs-start-grid" />
-      </div>
-
       <section className="cs-start-hero" aria-label={`Build a profile for ${companyName}`}>
-        <h1>know it all</h1>
-        <p>Identity, people, funding, signals, citations.</p>
+        <h1>Build the public record</h1>
+        <p>Identity, people, funding, signals, and citations for this tab.</p>
         <div className="cs-start-actions">
           <button className="cs-start-primary" onClick={onStart} type="button">
             <span>Start source pass</span>
@@ -471,9 +467,6 @@ function StartGenerationPanel({
               <path d="M3 9h11" />
               <path d="m10 4.5 4.5 4.5L10 13.5" />
             </svg>
-          </button>
-          <button className="cs-start-secondary" disabled type="button">
-            View profile
           </button>
         </div>
       </section>
@@ -522,17 +515,19 @@ function StartGenerationPanel({
           </article>
         ))}
       </section>
-
-      <footer className="cs-start-trust">
-        <p>Sourcing</p>
-        <span className="cs-start-source-wordmark">Exa</span>
-        <span className="cs-start-source-wordmark">StableEnrich</span>
-        <span className="cs-start-source-logo cs-start-source-logo-agentcash" aria-label="AgentCash">
-          <img alt="" src="/logos/agentcash-logo-dark.svg" />
-        </span>
-      </footer>
     </ExtensionFrame>
   );
+}
+
+function shouldResumeAnalysisRun(
+  card: ColdStartCard,
+  status: GenerationRunStatus["status"]
+): status is "queued" | "running" {
+  return isActiveRun(status) && (!card.synthesis || !card.synthesis.marketStructureAndTiming);
+}
+
+function shouldForceMarketAnalysisRefresh(card: ColdStartCard) {
+  return Boolean(card.synthesis && !card.synthesis.marketStructureAndTiming);
 }
 
 export function SidePanel() {
@@ -729,7 +724,8 @@ export function SidePanel() {
             }
           });
         }
-      }
+      },
+      { forceRefresh: shouldForceMarketAnalysisRefresh(currentCard) }
     )
       .then((result) => {
         if (!controller.signal.aborted) {
@@ -1007,7 +1003,7 @@ export function SidePanel() {
           }
 
           const analysisStatus = bootstrap.runs.analysis;
-          if (isActiveRun(analysisStatus.status) && !card.synthesis) {
+          if (shouldResumeAnalysisRun(card, analysisStatus.status)) {
             resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card);
             return;
           }

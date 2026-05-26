@@ -16,8 +16,9 @@ declare global {
 
 const legacyAnalysisLabel = ["Ana", "lyze"].join("");
 const futureCardTitles = [
-  ["Business", "Model"].join(" "),
-  ["Cold", "Start", "Brief"].join(" ")
+  "Business Model & Unit Economics",
+  "Team & Execution",
+  "Strategic Relevance"
 ];
 
 const settings = {
@@ -161,6 +162,24 @@ function cardWithSynthesis(domain: string): ColdStartCard {
       bullCase: [{ text: "Demand is visible in cited sources [c1].", citationIds: ["c1"] }],
       bearCase: [],
       openQuestions: ["Who owns the budget?"]
+    }
+  };
+}
+
+function cardWithMarketSynthesis(domain: string): ColdStartCard {
+  return {
+    ...cardWithSynthesis(domain),
+    synthesis: {
+      ...cardWithSynthesis(domain).synthesis!,
+      marketStructureAndTiming: {
+        buyerBudget: null,
+        painSeverity: null,
+        adoptionTrigger: null,
+        marketStructure: null,
+        profitPool: null,
+        expansionPath: null,
+        timingRisk: null
+      }
     }
   };
 }
@@ -326,7 +345,7 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     expect(container.textContent).toContain("No profile");
-    expect(container.textContent).toContain("know it all");
+    expect(container.textContent).toContain("Build the public record");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Start source pass"
     );
@@ -524,7 +543,7 @@ describe("SidePanel generation gate", () => {
     const buttons = interactiveControls(container).map((button) => button.textContent?.trim());
     expect(buttons).not.toContain(legacyAnalysisLabel);
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Thesis");
+    expect(container.textContent).toContain("Why It Matters");
 
     await unmount();
   });
@@ -534,8 +553,9 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Thesis");
-    expect(container.textContent).toContain("Customers");
+    expect(container.textContent).toContain("Why It Matters");
+    expect(container.textContent).toContain("Market Structure & Timing");
+    expect(container.textContent).toContain("Customer Proof");
     expect(container.textContent).not.toContain("Add enrichment");
     for (const title of futureCardTitles) {
       expect(container.textContent).not.toContain(title);
@@ -606,6 +626,56 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("Extracting structure from cited sources");
     expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("resumes an active analysis run for stale synthesis missing market structure", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain: "linear.app",
+          slug: "linear",
+          card: cardWithSynthesis("linear.app"),
+          runs: {
+            basics: { slug: "linear", domain: "linear.app", mode: "basics", status: "complete" },
+            analysis: {
+              slug: "linear",
+              domain: "linear.app",
+              mode: "analysis",
+              status: "running",
+              startedAt: new Date(Date.now() - 85_000).toISOString()
+            }
+          }
+        });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "linear",
+          domain: "linear.app",
+          status: "running",
+          mode: "analysis",
+          startedAt: new Date(Date.now() - 85_000).toISOString()
+        });
+      }
+
+      return jsonResponse(cardWithSynthesis("linear.app"));
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    const marketButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Market Structure & Timing")
+    );
+    expect(marketButton).toBeTruthy();
+    await act(async () => {
+      marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).toContain("Extracting structure from cited sources");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -759,7 +829,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Thesis")
+      (button) => button.textContent?.includes("Why It Matters")
     );
     expect(coreIdeaButton).toBeTruthy();
     await act(async () => {
@@ -798,7 +868,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Thesis")
+      (button) => button.textContent?.includes("Why It Matters")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -816,6 +886,129 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("The company has a supported wedge");
     expect(container.textContent).not.toContain("[c1]");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
+    await unmount();
+  });
+
+  it("keeps polling market analysis for stale synthesis until market structure exists", async () => {
+    vi.useFakeTimers();
+    let cardFetchesAfterAnalysis = 0;
+    const staleCard = cardWithSynthesis("linear.app");
+    const marketCard = cardWithMarketSynthesis("linear.app");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", status: "queued", mode: "analysis" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        const hasStartedAnalysis = generateCalls(fetchMock).length > 0;
+        return jsonResponse({ slug: "linear", domain: "linear.app", status: hasStartedAnalysis ? "running" : "idle", mode: "analysis" });
+      }
+
+      const hasStartedAnalysis = generateCalls(fetchMock).length > 0;
+      if (hasStartedAnalysis) {
+        cardFetchesAfterAnalysis += 1;
+        return jsonResponse(cardFetchesAfterAnalysis > 2 ? marketCard : staleCard);
+      }
+
+      return jsonResponse(staleCard);
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    const marketButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Market Structure & Timing")
+    );
+    expect(marketButton).toBeTruthy();
+
+    await act(async () => {
+      marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(generateCalls(fetchMock)).toHaveLength(1);
+    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
+      JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true, forceRefresh: true })
+    );
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).not.toContain("Market structure analysis has not been generated for this card yet.");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).not.toContain("No market structure claims survived verification.");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("empty");
+    expect(container.textContent).toContain("No market structure claims survived verification.");
+    await unmount();
+  });
+
+  it("does not complete market analysis from stale current card when run status is complete", async () => {
+    vi.useFakeTimers();
+    let statusPollsAfterAnalysis = 0;
+    let cardFetchesAfterAnalysis = 0;
+    const staleCard = cardWithSynthesis("linear.app");
+    const marketCard = cardWithMarketSynthesis("linear.app");
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", status: "queued", mode: "analysis" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        const hasStartedAnalysis = generateCalls(fetchMock).length > 0;
+        if (hasStartedAnalysis) {
+          statusPollsAfterAnalysis += 1;
+        }
+        return jsonResponse({
+          slug: "linear",
+          domain: "linear.app",
+          status: hasStartedAnalysis && statusPollsAfterAnalysis === 1 ? "complete" : hasStartedAnalysis ? "running" : "idle",
+          mode: "analysis"
+        });
+      }
+
+      const hasStartedAnalysis = generateCalls(fetchMock).length > 0;
+      if (hasStartedAnalysis) {
+        cardFetchesAfterAnalysis += 1;
+        return jsonResponse(cardFetchesAfterAnalysis > 2 ? marketCard : staleCard);
+      }
+
+      return jsonResponse(staleCard);
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    const marketButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Market Structure & Timing")
+    );
+    await act(async () => {
+      marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
+    expect(container.textContent).toContain("Synthesizing");
+    expect(container.textContent).not.toContain("Not enough verified evidence");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("empty");
+    expect(container.textContent).toContain("No market structure claims survived verification.");
     await unmount();
   });
 
@@ -848,7 +1041,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Signals")
+      (button) => button.textContent?.includes("Traction")
     );
     expect(signalsButton).toBeTruthy();
 
@@ -882,7 +1075,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Signals")
+      (button) => button.textContent?.includes("Traction")
     );
     expect(signalsButton).toBeTruthy();
 
@@ -918,7 +1111,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const servesButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Serves")
+      (button) => button.textContent?.includes("Buyer & Use Case")
     );
     expect(servesButton).toBeTruthy();
 
@@ -927,7 +1120,7 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Serves1 source");
+    expect(container.textContent).toContain("Buyer & Use Case1 source");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -995,7 +1188,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Thesis")
+      (button) => button.textContent?.includes("Why It Matters")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

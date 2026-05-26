@@ -26,6 +26,8 @@ import {
 } from "./seed-profile";
 
 type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
+type MarketStructureAndTiming = NonNullable<CardSynthesis["marketStructureAndTiming"]>;
+type MarketStructureField = keyof MarketStructureAndTiming;
 type VerificationSource = { id: string; url: string; title: string; snippet?: string };
 export type GenerateCardTracePatch = Partial<Pick<GenerationTrace, "extraction" | "synthesis">>;
 export { BLOCK_ENRICHMENT_IDS, type BlockEnrichmentId };
@@ -539,8 +541,60 @@ async function runBlockEnrichments(
   };
 }
 
+const marketStructureFields: MarketStructureField[] = [
+  "buyerBudget",
+  "painSeverity",
+  "adoptionTrigger",
+  "marketStructure",
+  "profitPool",
+  "expansionPath",
+  "timingRisk"
+];
+
 function synthesisClaims(synthesis: CardSynthesis): SourcedText[] {
   return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase];
+}
+
+function marketStructureClaims(synthesis: CardSynthesis): SourcedText[] {
+  const market = synthesis.marketStructureAndTiming;
+  return market ? marketStructureFields.flatMap((field) => market[field] ? [market[field]] : []) : [];
+}
+
+function allSynthesisClaims(synthesis: CardSynthesis): SourcedText[] {
+  return [...synthesisClaims(synthesis), ...marketStructureClaims(synthesis)];
+}
+
+function verifiedMarketStructureAndTiming(
+  synthesis: CardSynthesis,
+  results: VerificationResult[],
+  indexOffset: number
+): MarketStructureAndTiming | undefined {
+  if (!synthesis.marketStructureAndTiming) {
+    return undefined;
+  }
+
+  let offset = indexOffset;
+  const filtered: MarketStructureAndTiming = {
+    buyerBudget: null,
+    painSeverity: null,
+    adoptionTrigger: null,
+    marketStructure: null,
+    profitPool: null,
+    expansionPath: null,
+    timingRisk: null
+  };
+
+  for (const field of marketStructureFields) {
+    const claim = synthesis.marketStructureAndTiming[field];
+    if (!claim) {
+      continue;
+    }
+
+    filtered[field] = applyVerifierResults([claim], results, offset)[0] ?? null;
+    offset += 1;
+  }
+
+  return Object.values(filtered).some(Boolean) ? filtered : undefined;
 }
 
 async function verifiedSynthesisForCard(
@@ -548,19 +602,21 @@ async function verifiedSynthesisForCard(
   deps: WithSynthesisDeps
 ): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
   const synthesis = synthesisSchema.parse(await deps.synthesize(card));
-  const claimCountBeforeVerify = synthesisClaims(synthesis).length;
+  const claimCountBeforeVerify = allSynthesisClaims(synthesis).length;
   const citationSources = card.citations.map((citation) => ({
     id: citation.id,
     url: citation.url,
     title: citation.title,
     ...(citation.snippet ? { snippet: citation.snippet } : {})
   }));
-  const results = await deps.verify(synthesisClaims(synthesis), citationSources);
+  const results = await deps.verify(allSynthesisClaims(synthesis), citationSources);
   const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
   const bullCaseOffset = 1;
   const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
+  const marketOffset = bearCaseOffset + synthesis.bearCase.length;
   let bullCase = applyVerifierResults(synthesis.bullCase, results, bullCaseOffset);
   let bearCase = applyVerifierResults(synthesis.bearCase, results, bearCaseOffset);
+  const marketStructureAndTiming = verifiedMarketStructureAndTiming(synthesis, results, marketOffset);
   let whyItMatters = verifiedWhyItMatters[0];
 
   if (!whyItMatters) {
@@ -571,17 +627,14 @@ async function verifiedSynthesisForCard(
       bearCase = bearCase.slice(1);
     }
   }
-  if (whyItMatters) {
-    bullCase = bullCase.length >= 3 || synthesis.bullCase.length < 3 ? bullCase : synthesis.bullCase;
-    bearCase = bearCase.length >= 3 || synthesis.bearCase.length < 3 ? bearCase : synthesis.bearCase;
-  }
-
   const tracePatch: GenerateCardTracePatch = {
     synthesis: {
       required: deps.synthesisRequired === true,
       produced: Boolean(whyItMatters),
       claimCountBeforeVerify,
-      claimCountAfterVerify: whyItMatters ? 1 + bullCase.length + bearCase.length : 0
+      claimCountAfterVerify: whyItMatters
+        ? 1 + bullCase.length + bearCase.length + marketStructureClaims({ ...synthesis, marketStructureAndTiming }).length
+        : 0
     }
   };
 
@@ -589,10 +642,11 @@ async function verifiedSynthesisForCard(
     ? {
         tracePatch,
         synthesis: {
-          ...synthesis,
           whyItMatters,
           bullCase,
-          bearCase
+          bearCase,
+          openQuestions: synthesis.openQuestions,
+          ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
         }
       }
     : { tracePatch };

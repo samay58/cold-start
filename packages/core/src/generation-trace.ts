@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type GenerationJobKind =
   | "basics"
   | "analysis"
@@ -34,6 +36,9 @@ export type GenerationProviderEndpointTrace = {
   sourceCount: number;
   factCount: number;
   durationMs?: number;
+  estimatedCostUsd?: number;
+  expectedFacts?: string[];
+  stopCondition?: string;
   error?: string;
 };
 
@@ -138,3 +143,22 @@ export type GenerationTrace = {
     className?: string;
   };
 };
+
+// Minimal runtime guard for GenerationTrace persisted in DB JSONB. Lenient on optional sub-fields,
+// strict on the two required fields. .passthrough() preserves unknown keys so new trace fields don't
+// require a coordinated migration.
+export const generationTraceSchema = z
+  .object({
+    jobKind: z.string().min(1),
+    mode: z.enum(["basics", "analysis"]),
+    steps: z.record(z.unknown()).optional(),
+    inngest: z.unknown().optional(),
+    milestones: z.unknown().optional(),
+    providers: z.unknown().optional(),
+    llm: z.unknown().optional(),
+    sourceGate: z.unknown().optional(),
+    extraction: z.unknown().optional(),
+    synthesis: z.unknown().optional(),
+    failure: z.unknown().optional()
+  })
+  .passthrough();

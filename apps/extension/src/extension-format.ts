@@ -7,7 +7,7 @@ export function formatElapsed(seconds: number): string {
   return `${minutes}:${remainder}`;
 }
 
-export function formatCompactCurrency(value: number | null | undefined): string {
+function formatCompactCurrency(value: number | null | undefined): string {
   if (typeof value !== "number") {
     return "Not found";
   }

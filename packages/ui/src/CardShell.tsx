@@ -333,8 +333,8 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
             <ExtensionRow label="Website" value={website} />
             {card.identity.linkedinUrl?.value ? <ExtensionRow label="LinkedIn" value={card.identity.linkedinUrl.value} /> : null}
             {description?.concept ? <ExtensionRow label="Concept" value={description.concept} /> : null}
-            {description?.serves ? <ExtensionRow label="Serves" value={description.serves} /> : null}
-            {description?.mechanism ? <ExtensionRow label="How" value={description.mechanism} /> : null}
+            {description?.serves ? <ExtensionRow label="Buyer & Use Case" value={description.serves} /> : null}
+            {description?.mechanism ? <ExtensionRow label="Product & Technology" value={description.mechanism} /> : null}
             <ExtensionRow label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
             <ExtensionRow label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
           </dl>
@@ -376,7 +376,7 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
       ) : null}
 
       {hasSignals ? (
-        <ExtensionDetail count={countLabel(card.signals.length, "signal")} title="Signals">
+        <ExtensionDetail count={countLabel(card.signals.length, "signal")} title="Traction">
           <ul className="cs-app-list">
             {card.signals.slice(0, 4).map((signal) => {
               const href = safeExternalHref(signal.url);
@@ -518,13 +518,13 @@ export function CardShell({ card, surface }: CardShellProps) {
               ) : null}
               {description.serves ? (
                 <div>
-                  <dt>Serves</dt>
+                  <dt>Buyer & Use Case</dt>
                   <dd>{description.serves}</dd>
                 </div>
               ) : null}
               {description.mechanism ? (
                 <div>
-                  <dt>Mechanism</dt>
+                  <dt>Product & Technology</dt>
                   <dd>{description.mechanism}</dd>
                 </div>
               ) : null}
@@ -693,7 +693,7 @@ export function CardShell({ card, surface }: CardShellProps) {
         <FactRow label="Founded" fact={card.identity.foundedYear} mono />
         <FactRow label="Founders" fact={card.team.founders} />
         <FactRow label="Key execs" fact={card.team.keyExecs} />
-        <FactRow label="Investors" fact={card.funding.investors} />
+        <FactRow label="Named investors" fact={card.funding.investors} />
       </section>
 
       <SourceDrawer citations={card.citations} marker="viii · sources" />

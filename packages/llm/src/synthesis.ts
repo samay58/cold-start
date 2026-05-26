@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
 import { z } from "zod";
-import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
@@ -21,6 +21,33 @@ const sourcedTextSchema = {
     citationIds: { type: "array", minItems: 1, items: nonEmptyStringSchema }
   },
   required: ["text", "citationIds"]
+} as const;
+
+const nullableSourcedTextSchema = {
+  anyOf: [sourcedTextSchema, { type: "null" }]
+} as const;
+
+const marketStructureAndTimingToolSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    buyerBudget: nullableSourcedTextSchema,
+    painSeverity: nullableSourcedTextSchema,
+    adoptionTrigger: nullableSourcedTextSchema,
+    marketStructure: nullableSourcedTextSchema,
+    profitPool: nullableSourcedTextSchema,
+    expansionPath: nullableSourcedTextSchema,
+    timingRisk: nullableSourcedTextSchema
+  },
+  required: [
+    "buyerBudget",
+    "painSeverity",
+    "adoptionTrigger",
+    "marketStructure",
+    "profitPool",
+    "expansionPath",
+    "timingRisk"
+  ]
 } as const;
 
 function visibleCitationMarkers(text: string): string[] {
@@ -60,10 +87,24 @@ const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
     }
   }
 
+  const market = synthesis.marketStructureAndTiming;
+  const marketItems = market
+    ? [
+        { path: ["marketStructureAndTiming", "buyerBudget"], value: market.buyerBudget },
+        { path: ["marketStructureAndTiming", "painSeverity"], value: market.painSeverity },
+        { path: ["marketStructureAndTiming", "adoptionTrigger"], value: market.adoptionTrigger },
+        { path: ["marketStructureAndTiming", "marketStructure"], value: market.marketStructure },
+        { path: ["marketStructureAndTiming", "profitPool"], value: market.profitPool },
+        { path: ["marketStructureAndTiming", "expansionPath"], value: market.expansionPath },
+        { path: ["marketStructureAndTiming", "timingRisk"], value: market.timingRisk }
+      ].flatMap((item) => (item.value ? [{ path: item.path, value: item.value }] : []))
+    : [];
+
   const items = [
     { path: ["whyItMatters"], value: synthesis.whyItMatters },
     ...synthesis.bullCase.map((value, index) => ({ path: ["bullCase", index], value })),
-    ...synthesis.bearCase.map((value, index) => ({ path: ["bearCase", index], value }))
+    ...synthesis.bearCase.map((value, index) => ({ path: ["bearCase", index], value })),
+    ...marketItems
   ];
 
   for (const item of items) {
@@ -111,12 +152,38 @@ function normalizeClaimCitations(claim: SourcedText): SourcedText {
   };
 }
 
+function normalizeMarketClaimCitations(claim: SourcedText): SourcedText {
+  const citationIds = uniqueCitationIds(claim.citationIds);
+  return {
+    ...claim,
+    citationIds,
+    text: textWithCitationMarkers(claim.text, citationIds)
+  };
+}
+
+function normalizeNullableMarketClaim(claim: SourcedText | null): SourcedText | null {
+  return claim ? normalizeMarketClaimCitations(claim) : null;
+}
+
 function normalizeSynthesisCitations(synthesis: NonNullable<ColdStartCard["synthesis"]>): NonNullable<ColdStartCard["synthesis"]> {
   return {
     ...synthesis,
     whyItMatters: normalizeClaimCitations(synthesis.whyItMatters),
     bullCase: synthesis.bullCase.map(normalizeClaimCitations),
-    bearCase: synthesis.bearCase.map(normalizeClaimCitations)
+    bearCase: synthesis.bearCase.map(normalizeClaimCitations),
+    ...(synthesis.marketStructureAndTiming
+      ? {
+          marketStructureAndTiming: {
+            buyerBudget: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.buyerBudget),
+            painSeverity: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.painSeverity),
+            adoptionTrigger: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.adoptionTrigger),
+            marketStructure: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.marketStructure),
+            profitPool: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.profitPool),
+            expansionPath: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.expansionPath),
+            timingRisk: normalizeNullableMarketClaim(synthesis.marketStructureAndTiming.timingRisk)
+          }
+        }
+      : {})
   };
 }
 
@@ -131,9 +198,10 @@ export const synthesisTool = {
       whyItMatters: sourcedTextSchema,
       bullCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
       bearCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
+      marketStructureAndTiming: marketStructureAndTimingToolSchema,
       openQuestions: { type: "array", minItems: 3, maxItems: 3, items: nonEmptyStringSchema }
     },
-    required: ["whyItMatters", "bullCase", "bearCase", "openQuestions"]
+    required: ["whyItMatters", "bullCase", "bearCase", "marketStructureAndTiming", "openQuestions"]
   }
 } satisfies Tool;
 
@@ -143,7 +211,9 @@ export const synthesisSystemPrompt = [
   "Use only citation IDs present in card.citations; do not cite evidence ledger IDs such as [e1].",
   "Treat source incentives as part of the judgment: independent technical and independent analysis sources deserve more weight for market and product evaluation than press releases or company-authored claims.",
   "Do not leave bearCase empty when any cited risk, uncertainty, missing proof point, or unresolved diligence question exists on the card.",
-  "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest."
+  "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
+  "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
+  "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk."
 ].join(" ");
 
 type ToolUseLike = {
@@ -168,7 +238,20 @@ export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
 }
 
 function synthesisClaims(synthesis: NonNullable<ColdStartCard["synthesis"]>): SourcedText[] {
-  return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase];
+  const market = synthesis.marketStructureAndTiming;
+  const marketClaims = market
+    ? [
+        market.buyerBudget,
+        market.painSeverity,
+        market.adoptionTrigger,
+        market.marketStructure,
+        market.profitPool,
+        market.expansionPath,
+        market.timingRisk
+      ].filter((claim): claim is SourcedText => claim !== null)
+    : [];
+
+  return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase, ...marketClaims];
 }
 
 function assertSynthesisCitationsExistOnCard(synthesis: NonNullable<ColdStartCard["synthesis"]>, card: ColdStartCard) {
@@ -203,7 +286,7 @@ export async function synthesizeCard(input: {
         {
           type: "text",
           text: synthesisSystemPrompt,
-          cache_control: { type: "ephemeral" }
+          cache_control: anthropicSystemCacheControl()
         }
       ],
       messages: [{ role: "user", content: JSON.stringify(input.card) }],

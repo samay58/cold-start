@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildDirectExaContactRequests,
   buildDirectExaFundamentalsRequests,
@@ -97,6 +97,42 @@ describe("fetchDirectExaFundamentalsSources", () => {
       sourceType: "company_site",
       rawText: expect.stringContaining("management team"),
     });
+  });
+});
+
+describe("directExaJson retry behavior", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("retries transient 5xx and recovers with a successful response", async () => {
+    const fetchSpy = vi.fn();
+    fetchSpy.mockResolvedValueOnce(new Response("server gone", { status: 503 }));
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchDirectExaFundamentalsSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "cartesia.ai",
+    });
+
+    expect(result.skipped).toBe(false);
+    // 4 probes succeed (after retrying any 503s). We assert that at least one request retried.
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(4);
+  });
+
+  it("does not retry 4xx auth/payment errors", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response("unauthorized", { status: 401 }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchDirectExaFundamentalsSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "cartesia.ai",
+    });
+
+    expect(result.failures.length).toBe(4);
+    // Exactly 4 calls (one per probe), no retries on 4xx.
+    expect(fetchSpy.mock.calls.length).toBe(4);
   });
 });
 

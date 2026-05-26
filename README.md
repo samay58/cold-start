@@ -124,10 +124,17 @@ If the side panel reports an API contract mismatch, deploy or restart the API, r
 
 ## Checks
 
+Run the full local gate before handing off work:
+
 ```bash
-npm run typecheck
-npm run test
-npx --yes knip --reporter compact
+npm run check
+```
+
+`check` runs lint with zero warnings, typecheck, tests, build, golden eval dry run, `knip`, secret scan, and the guarded dependency audit.
+
+Use the extension UI checks when changing the side panel, research layer, card pile, or motion:
+
+```bash
 npm run qa:extension:ui -w @cold-start/extension
 npm run qa:extension:smoke -w @cold-start/extension
 ```
@@ -146,6 +153,15 @@ Anthropic cost controls:
 - `ANTHROPIC_MODEL` is the default model for every LLM stage.
 - `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages when set.
 - Generation traces record LLM call count, token usage, cache reads/writes, model, latency, and estimated USD per call.
+- Provider endpoint budgets, timeouts, expected facts, and stop conditions live in `packages/providers/src/provider-budget.ts` and are copied into StableEnrich endpoint traces.
+
+## Trust Contract
+
+- Public API responses derive the public card from `cards.card_json` at read time. `cards.public_card_json` remains a compatibility cache, not the source of truth.
+- Cache reads honor section TTLs: identity 7d, signals 6h, synthesis 24h. `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
+- Non-null `ResolvedFact.value` requires citation refs, and every ref must resolve to `citations[]`.
+- Public `/api/cards/{slug}` never includes `synthesis`. Extension routes require extension auth before returning gated synthesis.
+- The verifier is strict. Unsupported or contradicted synthesis claims are dropped; bull and bear arrays may contain 0-3 supported claims after verification.
 
 ## Deployment And Security
 

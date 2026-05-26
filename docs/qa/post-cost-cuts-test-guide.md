@@ -1,6 +1,6 @@
 # Post-Cost-Cuts Test Guide
 
-How to manually verify the May 2026 cost-optimization changes, the new Investors research-layer card, and the redesigned comparables curation. Designed to be runnable end-to-end without context.
+How to manually verify the May 2026 cost-optimization changes, the Financing & Valuation research-layer card, and the redesigned comparables curation. Designed to be runnable end-to-end without context.
 
 ## 1. Deploy to Vercel
 
@@ -52,19 +52,19 @@ In Dia or Chrome:
 3. If Cold Start is already loaded: click the **Reload** ↻ icon on its card.
 4. Otherwise: **Load unpacked** → select `/Users/samaydhawan/Projects/active/cold-start/apps/extension/dist`.
 
-## 4. Verify the new Investors research-layer card
+## 4. Verify the Financing & Valuation research-layer card
 
 1. Open a tab to a cached company. Good cached options: `cartesia.ai`, `elevenlabs.io`, `legora.com`, `attio.com`, `skyfire.xyz`.
 2. Click the Cold Start icon to open the side panel.
 3. Scroll to the **card pile** at the bottom of the side panel.
 
-**Expect to see the cards in this order:** Core Idea, Customers, Serves, Signals, **Investors** (new), Competition, Mechanism, Open Questions.
+**Expect to see the cards in this order:** Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, **Financing & Valuation**, Competitive Position, Product & Technology, Risks & Diligence.
 
-4. Drag the Investors card up or click it to pin it into the active stack.
+4. Drag the Financing & Valuation card up or click it to pin it into the active stack.
 
-**Expect inside the Investors card:**
+**Expect inside the Financing & Valuation card:**
 
-- Title: **Investors**
+- Title: **Financing & Valuation**
 - Headline row reads like `$91M raised · 4 rounds`
 - Body line: `4 named investors: Kleiner Perkins, Lightspeed, Index Ventures, …`
 - One row per round: round name + date on the right + body line with amount and lead investors
@@ -72,7 +72,7 @@ In Dia or Chrome:
 
 ## 5. Verify the comparables redesign
 
-Pin the **Competition** card the same way.
+Pin the **Competitive Position** card the same way.
 
 **Expect 3–5 distinct companies, each with:**
 
@@ -131,7 +131,7 @@ npm run trace:generation -- --domain legora.com --quality --detail
 
 ## 8. Visually inspect the regenerated card
 
-Open the side panel for the just-regenerated company. The Investors card should now reflect the fuller extraction (more named investors, exact amounts), and the Competition card should show curated comps with cited per-comp basis text.
+Open the side panel for the just-regenerated company. The Financing & Valuation card should now reflect the fuller extraction (more named investors, exact amounts), and the Competitive Position card should show curated comps with cited per-comp basis text.
 
 ## Targets
 

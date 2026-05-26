@@ -8,7 +8,11 @@ const coreFieldChecks = [
   }]
 ];
 
-export function scoreEvalResult(result) {
+// Default ceiling sits well above current per-run cost so it does not break golden runs.
+// Tighten after the first published baseline.
+export const DEFAULT_PER_RUN_COST_CEILING_USD = 1.0;
+
+export function scoreEvalResult(result, { perRunCostCeilingUsd = DEFAULT_PER_RUN_COST_CEILING_USD } = {}) {
   const publicCard = result.publicCard ?? null;
   const extensionCard = result.extensionCard ?? null;
   const missingCoreFields = coreFieldChecks
@@ -26,11 +30,18 @@ export function scoreEvalResult(result) {
   const publicSynthesisLeak = Boolean(publicCard && Object.hasOwn(publicCard, "synthesis"));
   const extensionSynthesisPresent = Boolean(extensionCard?.synthesis);
   const providerFailureReason = result.providerFailureReason ?? result.runStatus?.error ?? null;
+  const generationCostUsd = typeof extensionCard?.generationCostUsd === "number"
+    ? extensionCard.generationCostUsd
+    : typeof publicCard?.generationCostUsd === "number"
+      ? publicCard.generationCostUsd
+      : null;
+  const costCeilingExceeded = generationCostUsd !== null && generationCostUsd > perRunCostCeilingUsd;
   const needsManualReview =
     missingCoreFields.length > 0 ||
     citationUrlFailures > 0 ||
     publicSynthesisLeak ||
     !extensionSynthesisPresent ||
+    costCeilingExceeded ||
     Boolean(providerFailureReason);
 
   return {
@@ -43,17 +54,20 @@ export function scoreEvalResult(result) {
     missingCoreFields,
     citationUrlFailures,
     providerFailureReason,
+    generationCostUsd,
+    costCeilingExceeded,
+    perRunCostCeilingUsd,
     needsManualReview
   };
 }
 
-export async function runGoldenEval({ companies, limit = companies.length, client }) {
+export async function runGoldenEval({ companies, limit = companies.length, client, perRunCostCeilingUsd }) {
   const selected = companies.slice(0, limit);
   const rows = [];
 
   for (const company of selected) {
     const result = await client.generateAndFetch(company);
-    rows.push(scoreEvalResult(result));
+    rows.push(scoreEvalResult(result, perRunCostCeilingUsd === undefined ? undefined : { perRunCostCeilingUsd }));
   }
 
   return {
@@ -64,12 +78,18 @@ export async function runGoldenEval({ companies, limit = companies.length, clien
 }
 
 function summarizeRows(rows) {
+  const observedCosts = rows
+    .map((row) => row.generationCostUsd)
+    .filter((cost) => typeof cost === "number");
   return {
     total: rows.length,
     publicSynthesisLeaks: rows.filter((row) => row.publicSynthesisLeak).length,
     extensionSynthesisMissing: rows.filter((row) => !row.extensionSynthesisPresent).length,
     citationUrlFailures: rows.reduce((sum, row) => sum + row.citationUrlFailures, 0),
-    rowsNeedingManualReview: rows.filter((row) => row.needsManualReview).length
+    rowsNeedingManualReview: rows.filter((row) => row.needsManualReview).length,
+    costCeilingBreaches: rows.filter((row) => row.costCeilingExceeded).length,
+    totalCostUsd: observedCosts.reduce((sum, cost) => sum + cost, 0),
+    maxCostUsd: observedCosts.length > 0 ? Math.max(...observedCosts) : 0
   };
 }
 
@@ -103,7 +123,10 @@ export function markdownSummary(run) {
     `Manual review rows: ${run.summary.rowsNeedingManualReview}/${run.summary.total}`,
     `Public synthesis leaks: ${run.summary.publicSynthesisLeaks}`,
     `Missing extension synthesis: ${run.summary.extensionSynthesisMissing}`,
-    `Citation URL failures: ${run.summary.citationUrlFailures}`
+    `Citation URL failures: ${run.summary.citationUrlFailures}`,
+    `Cost ceiling breaches: ${run.summary.costCeilingBreaches}`,
+    `Total generation cost: $${run.summary.totalCostUsd.toFixed(4)}`,
+    `Max per-run generation cost: $${run.summary.maxCostUsd.toFixed(4)}`
   );
 
   return `${lines.join("\n")}\n`;

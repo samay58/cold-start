@@ -2,13 +2,13 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import {
   citationSchema as coreCitationSchema,
-  coldStartCardSchema,
+  coldStartCardObjectSchema,
   comparableSchema as coreComparableSchema,
   type CompanyDescription,
   signalSchema as coreSignalSchema,
 } from "@cold-start/core";
 import { z } from "zod";
-import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
 
@@ -255,17 +255,17 @@ export const extractionSystemPrompt = [
   "Drop unsupported claims. Every material fact must map to citation IDs. Use null for missing facts.",
   "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
   "Description standard: identity.description.shortDescription must be one complete sentence, ideally 18 to 30 words, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
-  "Use identity.description.concept for the non-obvious product idea, serves for buyer/user, and mechanism for how it works when sources support those details. Keep each field to one sentence and one idea.",
+  "Use identity.description.concept for the non-obvious product idea, serves for buyer and use case, and mechanism for product and technology when sources support those details. Keep each field to one sentence and one idea.",
   "Use identity.websiteUrl for the canonical public website when a provider or source returns it. Use identity.linkedinUrl only for the company LinkedIn page, never a person profile.",
   "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be the same kind of short complete sentence, not a paragraph.",
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
-  "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, serves, or mechanism.",
+  "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, buyer and use case, or product and technology.",
   "Ban brochure language: innovative, comprehensive, seamless, robust, advanced, trusted by, commitment to, designed to enhance, and with ease. Replace with the supported fact or omit the sentence.",
   "Treat source incentives as evidence: independent technical and independent analysis sources should shape qualitative framing more than press releases; company-authored sources are strongest for exact product mechanics, not evaluative claims.",
   "Prefer primary company pages for product mechanics, recent funding/news sources for round data, and independent analysis for market framing. Surface conflicts as mixed rather than averaging."
 ].join(" ");
 
-export const extractedCardSectionsSchema = coldStartCardSchema.pick({
+export const extractedCardSectionsSchema = coldStartCardObjectSchema.pick({
   identity: true,
   funding: true,
   team: true,
@@ -279,19 +279,19 @@ export type ExtractedCardSections = z.infer<typeof extractedCardSectionsSchema>;
 const blockEnrichmentPatchSchema = z.object({
   blockId: z.enum(BLOCK_ENRICHMENT_IDS),
   identity: z.object({
-    oneLiner: coldStartCardSchema.shape.identity.shape.oneLiner.optional(),
-    description: coldStartCardSchema.shape.identity.shape.description.optional(),
+    oneLiner: coldStartCardObjectSchema.shape.identity.shape.oneLiner.optional(),
+    description: coldStartCardObjectSchema.shape.identity.shape.description.optional(),
   }).optional(),
   funding: z.object({
-    totalRaisedUsd: coldStartCardSchema.shape.funding.shape.totalRaisedUsd.optional(),
-    lastRound: coldStartCardSchema.shape.funding.shape.lastRound.optional(),
-    rounds: coldStartCardSchema.shape.funding.shape.rounds.optional(),
-    investors: coldStartCardSchema.shape.funding.shape.investors.optional(),
+    totalRaisedUsd: coldStartCardObjectSchema.shape.funding.shape.totalRaisedUsd.optional(),
+    lastRound: coldStartCardObjectSchema.shape.funding.shape.lastRound.optional(),
+    rounds: coldStartCardObjectSchema.shape.funding.shape.rounds.optional(),
+    investors: coldStartCardObjectSchema.shape.funding.shape.investors.optional(),
   }).optional(),
   team: z.object({
-    founders: coldStartCardSchema.shape.team.shape.founders.optional(),
-    keyExecs: coldStartCardSchema.shape.team.shape.keyExecs.optional(),
-    headcount: coldStartCardSchema.shape.team.shape.headcount.optional(),
+    founders: coldStartCardObjectSchema.shape.team.shape.founders.optional(),
+    keyExecs: coldStartCardObjectSchema.shape.team.shape.keyExecs.optional(),
+    headcount: coldStartCardObjectSchema.shape.team.shape.headcount.optional(),
   }).optional(),
   signals: z.array(coreSignalSchema).optional(),
   comparables: z.array(coreComparableSchema).optional(),
@@ -741,7 +741,7 @@ export async function extractCompanyClaims(input: {
         {
           type: "text",
           text: extractionSystemPrompt,
-          cache_control: { type: "ephemeral" }
+          cache_control: anthropicSystemCacheControl()
         }
       ],
       messages: [
@@ -765,7 +765,7 @@ export async function extractCompanyClaims(input: {
 
 const blockGuidance: Record<BlockEnrichmentId, string> = {
   description:
-    "Fill identity.description fields for the product idea, buyer or user, and mechanism. shortDescription must be one crisp sentence, ideally 18 to 30 words, and must not become a feature list. Prefer primary product pages for mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
+    "Fill identity.description fields for the product idea, buyer and use case, and product and technology. shortDescription must be one crisp sentence, ideally 18 to 30 words, and must not become a feature list. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
   funding:
     "Build the funding ledger before any totals. For each cited round, capture the round name, the exact USD amount whenever the source states one (do not round-number guess; record explicit figures verbatim), the announcedAt date, and the named leads in leadInvestors. For funding.investors, enumerate every named investor across every round (leads and participating both), deduped, with their domain when the source provides it. For totalRaisedUsd, fill it only when a cited source states the cumulative total explicitly or when every round in the ledger has a cited amount you can sum without overlap. Prefer recent reporting from Reuters, Bloomberg, TechCrunch, The Information, Crunchbase News, PitchBook, and Forbes; company press releases and investor posts are acceptable for exact announcement facts. Demote aggregator pages that lack a primary citation.",
   team:
@@ -773,7 +773,7 @@ const blockGuidance: Record<BlockEnrichmentId, string> = {
   signals:
     "Extract recent traction signals: launches, customers, hiring, partnerships, funding, filings, technical releases, and credible news. Prefer dated sources and avoid generic profile blurbs.",
   comparables:
-    "Pick 3 to 5 real competitors or close adjacencies. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis must name one concrete overlap with the target — same buyer, same workflow, same product category, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support real overlap, return fewer rather than fabricate.",
+    "Pick 3 to 5 real competitors or close adjacencies. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis must name one concrete overlap with the target: same buyer, same workflow, same product category, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support real overlap, return fewer rather than fabricate.",
 };
 
 export async function extractCompanyBlockClaims(input: {
@@ -803,7 +803,7 @@ export async function extractCompanyBlockClaims(input: {
             "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
             blockGuidance[input.block],
           ].join(" "),
-          cache_control: { type: "ephemeral" },
+          cache_control: anthropicSystemCacheControl(),
         }
       ],
       messages: [

@@ -3,6 +3,7 @@ import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-
 
 export type ResearchLayerId =
   | "coreIdea"
+  | "marketStructureTiming"
   | "customers"
   | "serves"
   | "signals"
@@ -53,14 +54,15 @@ type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "coreIdea", title: "Thesis", description: "Cited investor read", source: "analysis" },
-  { id: "customers", title: "Customers", description: "Buyers and adoption", source: "card" },
-  { id: "serves", title: "Serves", description: "User and job", source: "card" },
-  { id: "signals", title: "Signals", description: "Recent traction", source: "card" },
-  { id: "investors", title: "Investors", description: "Rounds and backers", source: "card" },
-  { id: "competition", title: "Competition", description: "Adjacent players", source: "card" },
-  { id: "mechanism", title: "Mechanism", description: "How the product works", source: "card" },
-  { id: "openQuestions", title: "Questions", description: "Open pressure points", source: "analysis" }
+  { id: "coreIdea", title: "Why It Matters", description: "Cited investment rationale", source: "analysis" },
+  { id: "serves", title: "Buyer & Use Case", description: "Who pays and why", source: "card" },
+  { id: "marketStructureTiming", title: "Market Structure & Timing", description: "Budget, timing, profit pool", source: "analysis" },
+  { id: "customers", title: "Customer Proof", description: "Adoption evidence", source: "card" },
+  { id: "signals", title: "Traction", description: "Recent momentum", source: "card" },
+  { id: "investors", title: "Financing & Valuation", description: "Rounds, backers, price context", source: "card" },
+  { id: "competition", title: "Competitive Position", description: "Alternatives and durability", source: "card" },
+  { id: "mechanism", title: "Product & Technology", description: "What is differentiated", source: "card" },
+  { id: "openQuestions", title: "Risks & Diligence", description: "What still needs proof", source: "analysis" }
 ];
 
 function stripCitationMarkers(text: string) {
@@ -212,6 +214,23 @@ function displayComparables(card: ColdStartCard) {
   return card.comparables.filter((comparable) => !comparableLooksLikeTarget(card, comparable));
 }
 
+function marketRows(card: ColdStartCard) {
+  const market = card.synthesis?.marketStructureAndTiming;
+  if (!market) {
+    return [];
+  }
+
+  return [
+    { title: "Buyer budget", claim: market.buyerBudget },
+    { title: "Pain severity", claim: market.painSeverity },
+    { title: "Adoption trigger", claim: market.adoptionTrigger },
+    { title: "Market structure", claim: market.marketStructure },
+    { title: "Profit pool", claim: market.profitPool },
+    { title: "Expansion path", claim: market.expansionPath },
+    { title: "Timing risk", claim: market.timingRisk }
+  ].flatMap((row) => row.claim ? [{ title: row.title, body: stripCitationMarkers(row.claim.text), citationIds: row.claim.citationIds }] : []);
+}
+
 export function layersForCard(card: ColdStartCard): ResearchLayer[] {
   const canAnalyze = canRunInvestorAnalysis(card);
   return RESEARCH_LAYER_CARDS.map((layer) => {
@@ -222,7 +241,9 @@ export function layersForCard(card: ColdStartCard): ResearchLayer[] {
     const display = layerDisplayForCard(card, layer.id);
     return {
       ...layer,
-      availability: display?.status === "populated" ? "available" : "empty"
+      availability: display?.status === "populated"
+        ? "available"
+        : display?.status === "needs-analysis" ? "needs-analysis" : "empty"
     };
   });
 }
@@ -253,6 +274,42 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
       sources,
       sourceCount: displaySourceCount(sources),
       status: "populated"
+    };
+  }
+
+  if (id === "marketStructureTiming") {
+    if (!card.synthesis) {
+      return {
+        id,
+        title: layer.title,
+        body: "Activate the investor lens to assess market structure and timing.",
+        sources: [],
+        sourceCount: 0,
+        status: "needs-analysis"
+      };
+    }
+
+    if (!card.synthesis.marketStructureAndTiming) {
+      return {
+        id,
+        title: layer.title,
+        body: "Market structure analysis has not been generated for this card yet.",
+        sources: [],
+        sourceCount: 0,
+        status: "needs-analysis"
+      };
+    }
+
+    const rows = marketRows(card);
+    const sources = citationSources(card, rows.flatMap((row) => row.citationIds));
+    return {
+      id,
+      title: layer.title,
+      body: rows[0]?.body ?? "No market structure claims survived verification.",
+      items: rows.map((row) => ({ title: row.title, body: row.body })),
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: rows.length > 0 ? "populated" : "empty"
     };
   }
 
@@ -443,7 +500,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): R
     return {
       id,
       title: layer.title,
-      body: mechanism ?? "Mechanism not yet available from cited sources.",
+      body: mechanism ?? "Product and technology context not yet available from cited sources.",
       rows: mechanism ? [{ label: "How it works", value: mechanism }] : undefined,
       sources,
       sourceCount: displaySourceCount(sources),

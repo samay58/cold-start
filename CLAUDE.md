@@ -16,11 +16,12 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; pin/unpin enrichment cards from there rather than a separate analysis gate.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
-- `packages/providers`: AgentCash and stableenrich wrappers, direct Exa, Firecrawl, and PDL fallbacks.
+- `packages/providers`: AgentCash and StableEnrich wrappers, direct Exa, Firecrawl, SEC EDGAR, and provider budget registry.
 - `packages/llm`: Anthropic client, extraction, synthesis, verifier, research-plan, and investor-taste-kernel logic.
 - `packages/pipeline`: card generation orchestration, evidence ledger, cost tracking, and conflict resolution.
 - `packages/ui`: shared React card primitives and `tokens.css`.
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
+- `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 
 Data flow: `/api/generate` queues work through Inngest. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
@@ -36,7 +37,11 @@ npm run dev:extension                   # Vite dev server for the extension
 npm run build                           # build all workspaces
 npm run typecheck                       # tsc --noEmit across workspaces
 npm run test                            # vitest across workspaces, then `node --test eval/*.test.mjs`
-npm run lint                            # per-workspace fan-out (web's lint script is currently a stub)
+npm run lint                            # ESLint flat-config check
+npm run check                           # full local/CI gate
+npm run knip                            # unused dependency/export check
+npm run secrets:check                   # scan tracked surfaces for accidental secrets
+npm run audit:deps                      # guarded production dependency audit
 npm run db:generate                     # drizzle-kit generate
 npm run db:migrate                      # drizzle-kit migrate
 npm run db:migrate:production           # scripts/migrate-production.mjs against prod DB
@@ -46,7 +51,7 @@ npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (mu
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception — it expects `.env.production.migrate.local` because it reads the production DB and API.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API.
 
 Single test examples:
 
@@ -100,13 +105,23 @@ npm run dev:full
 - `apps/web` launches through `scripts/run-next.mjs`, which loads the repo-root `.env.local`, not `apps/web/.env.local`.
 - Public `/api/cards/{slug}` must never return `synthesis`.
 - Extension `/api/extension/cards/{slug}` requires `x-cold-start-extension-id` and `authorization: Bearer $EXTENSION_API_TOKEN`, then returns synthesis when present.
-- `packages/core/src/card.ts` is load-bearing. Every fact is a `ResolvedFact<T>` with `value`, `confidence`, and citation refs. Verifier drops set `value: null` rather than removing fields.
+- `packages/core/src/card.ts` is load-bearing. Every non-null citation-bearing fact needs citation refs, and every ref must resolve to the top-level `citations[]`.
+- Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
+- Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
+- Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
 - Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). The pipeline records mode as `jobKind` in generation traces. `analysis` runs require synthesis to be present (see commit `249e606`).
 - The extension and API share a contract version pinned in `packages/core/api-contract.json`. Web responses send `x-cold-start-api-contract`; extension requests send `x-cold-start-client-contract`. Bump the version and rebuild the extension whenever route shapes change.
 - When adding a card field, update schema, extraction, pipeline assembly, and UI together.
 - Extension build output goes to `apps/extension/dist`; load that folder unpacked in Chrome.
 - If the side panel shows the wrong API origin, rebuild the extension. Use the deployed origin by default; use `VITE_COLD_START_API_ORIGIN=http://localhost:3000 VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` only for local development. Reload `apps/extension/dist` in `chrome://extensions`, then reopen the side panel.
 - Current visual guidance lives in `DESIGN.md`: Fraunces + Mona Sans, parchment-first surfaces, sand hairlines, and Lens Blue source signal. Archived Paper/brand directions under `docs/brand/archive/` are historical only.
+- ESLint uses flat config at the repo root (`eslint.config.mjs`). New packages inherit root rules unless they add their own config.
+- Provider endpoint cost, timeout, and stop conditions are registered in `packages/providers/src/provider-budget.ts`. Wire new stableenrich endpoints there before adding them to the pipeline.
+- Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions.
+- Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The `createTracedAnthropicMessage` helper attaches the `anthropic-beta: extended-cache-ttl-2025-04-11` header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m` to roll back without redeploy. Verify with `npm run verify:cache-ttl` after SDK upgrades.
+- `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed stableenrich calls do not retry by design: AgentCash is paid per-call, so a blind retry on opaque CLI errors can multiply cost on transient AND non-transient failures. Failures are recorded as structured `StableenrichProbeFailure` entries in `allSettledLimited` results; the pipeline degrades gracefully on them.
+- Generation-run `traceJson` is validated via `generationTraceSchema.safeParse` at read time. Corrupt rows produce `traceJson: null` with a structured warn, never a malformed object downstream.
+- Bearer token comparison in `apps/web/src/lib/extension-auth.ts` is timing-safe (`crypto.timingSafeEqual`).
 
 ## Data Layer
 
@@ -119,7 +134,7 @@ npm run dev:full
 ## Where To Look First
 
 - Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
-- Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, and the provider spike script.
+- Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, `packages/providers/src/provider-budget.ts`, and the provider spike script.
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
 - Background work: `apps/web/src/inngest/functions.ts`.

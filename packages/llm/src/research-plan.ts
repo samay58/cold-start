@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { z } from "zod";
-import { createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { researchPlannerSystemPrompt } from "./investor-taste-kernel";
 
 const RESEARCH_PLAN_TOOL_NAME = "emit_research_plan";
@@ -85,8 +85,13 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
         sourceHint: "Homepage, product pages, customer pages, and independent product analysis.",
       },
       {
+        question: "Is the market structurally attractive, and why now?",
+        why: "Budget ownership, pain severity, adoption trigger, profit pool, and timing matter more than top-down TAM.",
+        sourceHint: "Customer pages, independent market analysis, budget-owner content, technical analysis, and industry reporting.",
+      },
+      {
         question: "What public proof exists beyond company positioning?",
-        why: "Adoption, customers, usage, hiring, and independent analysis separate substance from PR.",
+        why: "Customer proof, usage, hiring, and independent analysis separate substance from PR.",
         sourceHint: "Independent reporting, technical analysis, customer pages, hiring pages, and analyst posts.",
       },
       {
@@ -101,9 +106,9 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
       managementTeam: `${domain} founders CEO management team leadership contact email`,
       recentSignals: `${domain} recent launch customers hiring funding product partnership traction`,
       comparables: `${domain} competitors alternatives similar companies market map`,
-      independentAnalysis: `${domain} independent analysis technical deep dive Sacra Substack market map`,
+      independentAnalysis: `${domain} independent analysis technical deep dive market structure buyer budget timing`,
     },
-    presentationFocus: ["product mechanism", "source quality", "funding cadence", "public proof gaps"],
+    presentationFocus: ["product and technology", "buyer and use case", "market structure and timing", "source quality", "funding cadence", "public proof gaps"],
   };
 }
 
@@ -140,7 +145,7 @@ export async function planCompanyResearch(input: {
         {
           type: "text",
           text: researchPlannerSystemPrompt,
-          cache_control: { type: "ephemeral" },
+          cache_control: anthropicSystemCacheControl(),
         },
       ],
       messages: [{ role: "user", content: `Domain: ${input.domain}` }],
