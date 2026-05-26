@@ -27,6 +27,8 @@ export type GenerationStatus = {
   slug: string;
   status: "cached" | "queued" | "running";
   mode: "basics" | "analysis";
+  runId?: string;
+  startedAt?: string;
 };
 
 export type GenerationRunStatus = {
@@ -273,9 +275,13 @@ export function buildGenerationStatusRequest(
   settings: Settings,
   signal?: AbortSignal,
   mode: GenerationRunStatus["mode"] = "basics",
-  extensionId?: string
+  extensionId?: string,
+  sectionId?: string
 ): { url: string; init: BaseRequestInit } {
   const params = new URLSearchParams({ domain, mode });
+  if (sectionId) {
+    params.set("sectionId", sectionId);
+  }
   return {
     url: `${settings.apiOrigin}/api/generate?${params.toString()}`,
     init: baseRequestInit(settings, signal, extensionId)

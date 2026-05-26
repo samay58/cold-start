@@ -103,6 +103,15 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const mode = generationMode(url.searchParams.get("mode"));
+  let sectionId: ResearchSectionId | null;
+
+  try {
+    sectionId = parseSectionId(url.searchParams.get("sectionId"));
+  } catch (error) {
+    return apiJsonWithTiming({ error: boundedErrorMessage(error) }, [{ name: "total", durationMs: elapsedMs(startedAt) }], { status: 400 });
+  }
+
+  const jobKind = sectionId ? sectionJobKind(sectionId) : undefined;
   let domain: string;
 
   try {
@@ -115,7 +124,7 @@ export async function GET(request: Request) {
   const dbStartedAt = performance.now();
   const db = createDb(webEnv().DATABASE_URL);
   await retireStaleGenerationRuns(db, { slug, mode });
-  const latestRun = await findLatestGenerationRunStatusBySlug(db, slug, mode);
+  const latestRun = await findLatestGenerationRunStatusBySlug(db, slug, mode, jobKind);
   const metrics: ServerTimingMetric[] = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }

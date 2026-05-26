@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -211,6 +211,23 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 
 function missingCardResponse() {
   return jsonResponse({ error: "card not found" }, { status: 404 });
+}
+
+function testSection(domain: string, sectionId: ResearchSection["sectionId"], status: ResearchSection["status"]): ResearchSection {
+  return {
+    slug: domain.split(".")[0] ?? domain,
+    domain,
+    sectionId,
+    visibility: sectionId === "market" || sectionId === "risks" || sectionId === "why_it_matters" ? "gated" : "public",
+    status,
+    content: null,
+    citationIds: [],
+    sourceIds: [],
+    runId: null,
+    error: null,
+    generatedAt: null,
+    staleAt: null
+  };
 }
 
 async function flushPromises() {
@@ -716,6 +733,55 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("blocks section generation while the company profile run is still active", async () => {
+    vi.useFakeTimers();
+    const domain = "llamaindex.ai";
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ error: "company profile is still generating" }, { status: 409 });
+      }
+
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "llamaindex",
+          card: cardForDomain(domain),
+          sections: [testSection(domain, "why_it_matters", "not_started")],
+          runs: {
+            basics: {
+              slug: "llamaindex",
+              domain,
+              mode: "basics",
+              status: "running",
+              startedAt: new Date(Date.now() - 51_000).toISOString()
+            },
+            analysis: { slug: "llamaindex", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      return jsonResponse(cardForDomain(domain));
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const whyButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Why It Matters")
+    );
+    expect(whyButton).toBeTruthy();
+
+    await act(async () => {
+      whyButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("running");
+    expect(container.textContent).toContain("Profile finishing");
+    expect(container.textContent).toContain("Finishing the company profile before section generation");
+    expect(interactiveControls(container).some((button) => button.textContent === "Generate")).toBe(false);
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
   it("shows a recovered basics card when the latest run is failed", async () => {
     let cardFetches = 0;
     const fetchMock = vi.fn(async (url: string) => {
@@ -1093,7 +1159,7 @@ describe("SidePanel generation gate", () => {
       }
 
       if (String(url).includes("/api/generate?")) {
-        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "running", mode: "basics" });
+        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "idle", mode: "basics" });
       }
 
       return jsonResponse(cardForDomain("warp.dev"));
@@ -1124,7 +1190,7 @@ describe("SidePanel generation gate", () => {
       }
 
       if (String(url).includes("/api/generate?")) {
-        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "running", mode: "basics" });
+        return jsonResponse({ slug: "warp", domain: "warp.dev", status: "idle", mode: "basics" });
       }
 
       return jsonResponse(cardForDomain("warp.dev"));

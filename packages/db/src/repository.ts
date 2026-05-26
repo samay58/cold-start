@@ -607,8 +607,14 @@ export async function findLatestGenerationRunBySlug(
 export async function findLatestGenerationRunStatusBySlug(
   db: ColdStartDb,
   slug: string,
-  mode: GenerationMode = "analysis"
+  mode: GenerationMode = "analysis",
+  jobKind?: string
 ): Promise<GenerationRunStatusSummary | null> {
+  const filters = [
+    eq(generationRuns.slug, slug),
+    eq(generationRuns.mode, mode),
+    ...(jobKind ? [eq(generationRuns.jobKind, jobKind)] : [])
+  ];
   const rows = await db
     .select({
       id: generationRuns.id,
@@ -623,7 +629,7 @@ export async function findLatestGenerationRunStatusBySlug(
       completedAt: generationRuns.completedAt
     })
     .from(generationRuns)
-    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode)))
+    .where(and(...filters))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];

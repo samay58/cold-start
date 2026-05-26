@@ -53,6 +53,8 @@ type ResearchLayerPanelProps = {
   onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
   onStartAnalysis: () => void;
+  profileElapsedSeconds?: number | undefined;
+  profileRun?: AnalysisRun | undefined;
   activeSectionElapsedSeconds?: number | undefined;
   activeSectionRun?: ActiveSectionRun | undefined;
   sections?: ResearchSection[] | undefined;
@@ -651,6 +653,8 @@ export function ResearchLayerPanel({
   onRunSection,
   onRegenerate,
   onStartAnalysis,
+  profileElapsedSeconds = 0,
+  profileRun,
   activeSectionElapsedSeconds = 0,
   activeSectionRun,
   sections
@@ -838,10 +842,17 @@ export function ResearchLayerPanel({
 
             const layer = layers.find((candidate) => candidate.id === id);
             const refreshing = Boolean(activeSectionRun?.layerId === id);
-            const running = Boolean(display.status === "running" || (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun)));
+            const waitingForProfile = Boolean(profileRun && display.status !== "populated");
+            const running = Boolean(
+              waitingForProfile ||
+              display.status === "running" ||
+              (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun))
+            );
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
-            const actionLabel = display.status === "stale"
+            const actionLabel = waitingForProfile
+              ? undefined
+              : display.status === "stale"
               ? "Refresh"
               : display.status === "failed"
                 ? "Retry"
@@ -855,14 +866,18 @@ export function ResearchLayerPanel({
                   onRunSection(id);
                 }
               : undefined;
-            const statusCopy = running
+            const statusCopy = waitingForProfile
+              ? `Profile finishing · ${formatElapsed(profileElapsedSeconds)}`
+              : running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
                 ? layer?.source === "analysis"
                   ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
                   : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
                 : sourceLabel(display.sourceCount);
-            const runningCopy = refreshing
+            const runningCopy = waitingForProfile
+              ? "Finishing the company profile before section generation"
+              : refreshing
               ? layer?.source === "analysis"
                 ? "Synthesizing this section from cited evidence"
                 : id === "competition"

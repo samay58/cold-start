@@ -50,6 +50,7 @@ type RequestState =
       analysisNotice?: string;
       analysisRun?: AnalysisRunState;
       contactRun?: AnalysisRunState;
+      profileRun?: AnalysisRunState;
       activeSectionRun?: ActiveSectionRunState;
     }
   | { status: "error"; message: string };
@@ -381,6 +382,7 @@ function SuccessPanel({
 }) {
   const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
   const contactElapsedSeconds = useElapsedSeconds(Boolean(requestState.contactRun), requestState.contactRun?.startedAt);
+  const profileElapsedSeconds = useElapsedSeconds(Boolean(requestState.profileRun), requestState.profileRun?.startedAt);
   const activeSectionElapsedSeconds = useElapsedSeconds(
     Boolean(requestState.activeSectionRun),
     requestState.activeSectionRun?.startedAt
@@ -405,6 +407,8 @@ function SuccessPanel({
 
           onStartAnalysis();
         }}
+        profileElapsedSeconds={profileElapsedSeconds}
+        profileRun={requestState.profileRun}
         activeSectionElapsedSeconds={activeSectionElapsedSeconds}
         activeSectionRun={requestState.activeSectionRun}
       />
@@ -606,6 +610,10 @@ export function SidePanel() {
                 contactRun: {
                   generationStatus: generationStatus === "queued" ? "queued" : "running",
                   startedAt
+                },
+                profileRun: {
+                  generationStatus: generationStatus === "queued" ? "queued" : "running",
+                  startedAt
                 }
               }
             : current);
@@ -626,7 +634,7 @@ export function SidePanel() {
               return { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) };
             }
 
-            const { contactRun: _contactRun, ...nextState } = current;
+            const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
             return { ...nextState, card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) };
           });
         }
@@ -638,7 +646,7 @@ export function SidePanel() {
               return current;
             }
 
-            const { contactRun: _contactRun, ...nextState } = current;
+            const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
             return nextState;
           });
         }
@@ -675,7 +683,8 @@ export function SidePanel() {
           if (mode === "basics") {
             setRequestState({
               ...successState,
-              contactRun: { generationStatus: "running", startedAt }
+              contactRun: { generationStatus: "running", startedAt },
+              profileRun: { generationStatus: "running", startedAt }
             });
             watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
             return;
@@ -1026,6 +1035,10 @@ export function SidePanel() {
               card,
               sections: bootstrapSections,
               contactRun: {
+                generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
+                startedAt
+              },
+              profileRun: {
                 generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
                 startedAt
               }

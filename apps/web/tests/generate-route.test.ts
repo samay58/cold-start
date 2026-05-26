@@ -607,6 +607,16 @@ describe("GET /api/generate", () => {
     });
   }
 
+  function sectionStatusRequest(sectionId: string, domain = "cartesia.ai", mode = "analysis") {
+    const headers = new Headers({
+      authorization: "Bearer secret",
+      "x-cold-start-extension-id": "extension-test-id"
+    });
+    return new Request(`http://localhost/api/generate?domain=${encodeURIComponent(domain)}&mode=${mode}&sectionId=${sectionId}`, {
+      headers
+    });
+  }
+
   it("returns the latest generation run for extension-authenticated callers", async () => {
     mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
       id: "run-1",
@@ -638,6 +648,29 @@ describe("GET /api/generate", () => {
       mode: "analysis"
     });
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
+  });
+
+  it("can return the status for one requested section run", async () => {
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
+      id: "run-section",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "section:market",
+      status: "running",
+      startedAt: new Date("2026-05-06T12:00:00.000Z")
+    });
+
+    const response = await GET(sectionStatusRequest("market"));
+
+    await expect(response.json()).resolves.toMatchObject({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "running",
+      runId: "run-section"
+    });
+    expect(mocks.findLatestGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "analysis", "section:market");
   });
 
   it("reports idle when no generation run exists", async () => {

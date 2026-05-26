@@ -172,9 +172,10 @@ async function requestGenerationStatus(
   domain: string,
   settings: Settings,
   signal: AbortSignal,
-  mode: GenerationRunStatus["mode"]
+  mode: GenerationRunStatus["mode"],
+  sectionId?: ResearchSectionId
 ): Promise<GenerationRunStatus> {
-  const request = buildGenerationStatusRequest(domain, settings, signal, mode, chrome.runtime.id);
+  const request = buildGenerationStatusRequest(domain, settings, signal, mode, chrome.runtime.id, sectionId);
   const response = await fetch(request.url, request.init);
   return parseGenerationStatusResponse(response);
 }
@@ -513,7 +514,7 @@ export async function startSectionGenerationAndPoll(
 
     let runStatus: GenerationRunStatus | null = null;
     try {
-      runStatus = await requestGenerationStatus(domain, settings, signal, mode);
+      runStatus = await requestGenerationStatus(domain, settings, signal, mode, sectionId);
     } catch (caught) {
       if (!isMissingGenerationStatusRoute(caught)) {
         throw caught;
