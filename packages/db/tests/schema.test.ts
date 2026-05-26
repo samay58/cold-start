@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cards, citations, claims, generationRuns, sources } from "../src/schema";
+import { cards, citations, claims, generationRuns, researchSections, sources } from "../src/schema";
 
 describe("database schema", () => {
   it("exports every table required by the card pipeline", () => {
@@ -9,5 +9,6 @@ describe("database schema", () => {
     expect(citations).toBeDefined();
     expect(sources).toBeDefined();
     expect(generationRuns).toBeDefined();
+    expect(researchSections).toBeDefined();
   });
 });

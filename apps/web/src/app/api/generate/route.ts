@@ -1,4 +1,11 @@
-import { analysisBlockedReason, companySlugFromDomain, hasUsablePublicProfile } from "@cold-start/core";
+import {
+  RESEARCH_SECTION_DEFINITIONS_BY_ID,
+  analysisBlockedReason,
+  companySlugFromDomain,
+  hasUsablePublicProfile,
+  researchSectionIdSchema,
+  type ResearchSectionId
+} from "@cold-start/core";
 import {
   createDb,
   findActiveGenerationRunStatusBySlug,
@@ -6,6 +13,8 @@ import {
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   markGenerationRun,
+  markResearchSectionFailed,
+  markResearchSectionRunning,
   retireStaleGenerationRuns,
   type GenerationRunStatusSummary
 } from "@cold-start/db";
@@ -20,6 +29,18 @@ type GenerationMode = "basics" | "analysis";
 
 function generationMode(input: unknown): GenerationMode {
   return input === "analysis" || input === "basics" ? input : "basics";
+}
+
+function parseSectionId(input: unknown): ResearchSectionId | null {
+  if (input === undefined || input === null || input === "") {
+    return null;
+  }
+
+  return researchSectionIdSchema.parse(input);
+}
+
+function modeForSection(sectionId: ResearchSectionId): GenerationMode {
+  return RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].visibility === "gated" ? "analysis" : "basics";
 }
 
 function publicGenerationEnabled() {
@@ -102,20 +123,31 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   const timedJson = (body: unknown, init?: ResponseInit, extraMetrics: ServerTimingMetric[] = []) =>
     apiJsonWithTiming(body, [...extraMetrics, { name: "total", durationMs: elapsedMs(startedAt) }], init);
-  let body: { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown };
+  let body: { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown; sectionId?: unknown };
 
   try {
-    body = (await request.json()) as { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown };
+    body = (await request.json()) as { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown; sectionId?: unknown };
   } catch {
     return timedJson({ error: "invalid json body" }, { status: 400 });
   }
 
-  const mode = generationMode(body.mode);
+  let sectionId: ResearchSectionId | null;
+  try {
+    sectionId = parseSectionId(body.sectionId);
+  } catch (error) {
+    return timedJson({ error: boundedErrorMessage(error) }, { status: 400 });
+  }
+
+  const requestedMode = generationMode(body.mode);
+  const mode = sectionId ? modeForSection(sectionId) : requestedMode;
+  if (sectionId && body.mode !== undefined && requestedMode !== mode) {
+    return timedJson({ error: "section mode does not match requested mode" }, { status: 400 });
+  }
   const extensionAuth = assertExtensionRequest(request.headers);
   const confirmed = body.confirmStart === true;
   const forceRefresh = body.forceRefresh === true;
 
-  if (mode === "analysis" && !extensionAuth.ok) {
+  if ((mode === "analysis" || sectionId) && !extensionAuth.ok) {
     return timedJson({ error: extensionAuth.error }, { status: extensionAuth.status });
   }
 
@@ -156,7 +188,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!forceRefresh && cached && (mode === "basics" ? hasUsablePublicProfile(cached) : ("synthesis" in cached && cached.synthesis))) {
+  if (!sectionId && !forceRefresh && cached && (mode === "basics" ? hasUsablePublicProfile(cached) : ("synthesis" in cached && cached.synthesis))) {
     return timedJson(serializeGenerationRun({ slug, domain, mode, status: "cached" }), { status: 200 }, [{ name: "db", durationMs: cacheLookupMs }]);
   }
 
@@ -180,7 +212,16 @@ export async function POST(request: Request) {
   let queuedRun: Awaited<ReturnType<typeof markGenerationRun>>;
 
   try {
-    queuedRun = await markGenerationRun(db, { slug, domain, mode, status: "queued" });
+    queuedRun = await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: `section:${sectionId}` } : {}), status: "queued" });
+    if (sectionId) {
+      await markResearchSectionRunning(db, {
+        slug,
+        domain,
+        sectionId,
+        visibility: RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].visibility,
+        runId: queuedRun?.id ?? null
+      });
+    }
   } catch (error) {
     if (isUniqueGenerationRunConflict(error)) {
       const runAfterConflict = await findActiveGenerationRunStatusBySlug(db, slug, mode);
@@ -204,7 +245,7 @@ export async function POST(request: Request) {
     const queueStartedAt = performance.now();
     await inngest.send({
       name: "card/generate.requested",
-      data: { domain, slug, mode },
+      data: { domain, slug, mode, ...(sectionId ? { sectionId } : {}) },
     });
     const queueMs = elapsedMs(queueStartedAt);
     return timedJson(
@@ -224,7 +265,17 @@ export async function POST(request: Request) {
       ]
     );
   } catch (error) {
-    await markGenerationRun(db, { slug, domain, mode, status: "failed", error: boundedErrorMessage(error) });
+    await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: `section:${sectionId}` } : {}), status: "failed", error: boundedErrorMessage(error) });
+    if (sectionId) {
+      await markResearchSectionFailed(db, {
+        slug,
+        domain,
+        sectionId,
+        visibility: RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].visibility,
+        error: boundedErrorMessage(error),
+        runId: queuedRun?.id ?? null
+      });
+    }
     return timedJson(
       { error: "failed to queue generation" },
       { status: 500 },

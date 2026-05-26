@@ -3,7 +3,8 @@ import {
   COLD_START_API_CONTRACT_VERSION,
   COLD_START_CLIENT_CONTRACT_HEADER,
   companySlugFromDomain,
-  type ColdStartCard
+  type ColdStartCard,
+  type ResearchSection
 } from "@cold-start/core";
 
 const PRODUCTION_API_ORIGIN = "https://cold-start-samay58s-projects.vercel.app";
@@ -44,6 +45,7 @@ export type ExtensionBootstrapResponse = {
   domain: string;
   slug: string;
   card: ColdStartCard | null;
+  sections?: ResearchSection[];
   runs: {
     basics: GenerationRunStatus;
     analysis: GenerationRunStatus;
@@ -246,7 +248,8 @@ export function buildGenerateRequest(
   mode: GenerationStatus["mode"] = "basics",
   confirmStart = false,
   extensionId?: string,
-  forceRefresh = false
+  forceRefresh = false,
+  sectionId?: string
 ): { url: string; init: BaseRequestInit & { body: string } } {
   const init = baseRequestInit(settings, signal, extensionId);
   init.method = "POST";
@@ -254,6 +257,7 @@ export function buildGenerateRequest(
   const body = JSON.stringify({
     domain,
     mode,
+    ...(sectionId ? { sectionId } : {}),
     ...(confirmStart ? { confirmStart: true } : {}),
     ...(forceRefresh ? { forceRefresh: true } : {})
   });

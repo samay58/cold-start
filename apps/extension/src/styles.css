@@ -1746,6 +1746,23 @@ button {
   margin-top: 0;
 }
 
+.cs-layer-action {
+  width: fit-content;
+  margin-top: 10px;
+  border: 1px solid rgb(22 116 255 / 0.34);
+  border-radius: 7px;
+  background: rgb(22 116 255 / 0.08);
+  color: var(--color-lens-blue);
+  cursor: pointer;
+  font: 700 12px/1 var(--font-sans);
+  letter-spacing: 0;
+  padding: 8px 11px;
+}
+
+.cs-layer-action:hover {
+  background: rgb(22 116 255 / 0.13);
+}
+
 .cs-layer-rows,
 .cs-layer-items {
   margin: 0;

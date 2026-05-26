@@ -8,7 +8,16 @@ export type GenerationJobKind =
   | "serves"
   | "mechanism"
   | "competition"
-  | "openQuestions";
+  | "openQuestions"
+  | "section:buyer"
+  | "section:customer_proof"
+  | "section:traction"
+  | "section:financing"
+  | "section:competition"
+  | "section:product"
+  | "section:why_it_matters"
+  | "section:market"
+  | "section:risks";
 
 export type GenerationTraceStep = {
   status: "started" | "complete" | "failed" | "skipped";

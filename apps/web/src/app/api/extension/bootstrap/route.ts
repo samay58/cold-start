@@ -1,8 +1,10 @@
-import { companySlugFromDomain } from "@cold-start/core";
+import { companySlugFromDomain, deriveResearchSectionsFromCard } from "@cold-start/core";
 import {
   createDb,
   findCardBySlug,
   findLatestGenerationRunStatusBySlug,
+  findResearchSectionsBySlug,
+  retireStaleResearchSections,
   retireStaleGenerationRuns,
   type GenerationRunStatusSummary
 } from "@cold-start/db";
@@ -72,14 +74,17 @@ export async function GET(request: Request) {
 
   await Promise.all([
     retireStaleGenerationRuns(db, { slug, mode: "basics" }),
-    retireStaleGenerationRuns(db, { slug, mode: "analysis" })
+    retireStaleGenerationRuns(db, { slug, mode: "analysis" }),
+    retireStaleResearchSections(db, { slug })
   ]);
 
-  const [card, basicsRun, analysisRun] = await Promise.all([
-    findCardBySlug(db, slug),
+  const [card, storedSections, basicsRun, analysisRun] = await Promise.all([
+    findCardBySlug(db, slug, { allowStale: true }),
+    findResearchSectionsBySlug(db, slug),
     findLatestGenerationRunStatusBySlug(db, slug, "basics"),
     findLatestGenerationRunStatusBySlug(db, slug, "analysis")
   ]);
+  const sections = storedSections.length > 0 ? storedSections : card ? deriveResearchSectionsFromCard(card) : [];
   const metrics: ServerTimingMetric[] = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }
@@ -90,6 +95,7 @@ export async function GET(request: Request) {
       domain,
       slug,
       card,
+      sections,
       runs: {
         basics: basicsRun ? serializeRun(basicsRun) : idleRun(slug, domain, "basics"),
         analysis: analysisRun ? serializeRun(analysisRun) : idleRun(slug, domain, "analysis")

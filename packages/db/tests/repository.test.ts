@@ -336,6 +336,31 @@ describe("findPublicCardBySlug", () => {
     await expect(findPublicCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toBeNull();
   });
 
+  it("can return the last stored public card when stale reads are allowed", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                publicCardJson: publicCard(card),
+                identityExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
+                synthesisExpiresAt: new Date("2026-05-06T11:59:59.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findPublicCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z"), allowStale: true })).resolves.toMatchObject({
+      slug: "cartesia",
+      cacheStatus: "stale"
+    });
+  });
+
   it("returns null when the public card row is absent", async () => {
     const db = {
       select: () => ({
@@ -371,6 +396,30 @@ describe("findCardBySlug", () => {
     } as unknown as ColdStartDb;
 
     await expect(findCardBySlug(db, "cartesia", { mode: "analysis", now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toBeNull();
+  });
+
+  it("can return the last stored full card when analysis is stale", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                identityExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
+                synthesisExpiresAt: new Date("2026-05-06T11:59:59.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findCardBySlug(db, "cartesia", { mode: "analysis", now: new Date("2026-05-06T12:00:00.000Z"), allowStale: true })).resolves.toMatchObject({
+      slug: "cartesia",
+      cacheStatus: "stale"
+    });
   });
 
   it("allows basics mode when identity and signals are fresh even if synthesis is stale", async () => {

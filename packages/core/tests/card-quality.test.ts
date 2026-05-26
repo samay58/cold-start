@@ -3,7 +3,9 @@ import type { ColdStartCard } from "../src/index";
 import {
   analysisBlockedReason,
   canRunInvestorAnalysis,
+  hasInvestorUsableProfile,
   hasUsablePublicProfile,
+  investorProfileQuality,
   publicProfileQuality,
   publicProfileStructuredFactCount,
   publicProfileVisibleFactCount,
@@ -79,6 +81,23 @@ describe("public profile quality", () => {
 
   it("accepts a cited profile with enough structured facts", () => {
     const usable = card({
+      citations: [
+        ...card().citations,
+        {
+          id: "c2",
+          url: "https://www.theinformation.com/articles/cartesia-raises-series-b",
+          title: "Cartesia raises Series B",
+          fetchedAt: "2026-05-14T00:00:00.000Z",
+          sourceType: "news",
+        },
+        {
+          id: "c3",
+          url: "https://www.crunchbase.com/organization/cartesia-ai",
+          title: "Cartesia funding",
+          fetchedAt: "2026-05-14T00:00:00.000Z",
+          sourceType: "other",
+        },
+      ],
       team: {
         ...card().team,
         headcount: fact({ value: 64, asOf: "2026-05-14" }),
@@ -94,7 +113,59 @@ describe("public profile quality", () => {
 
     expect(publicProfileStructuredFactCount(usable)).toBeGreaterThanOrEqual(4);
     expect(hasUsablePublicProfile(usable)).toBe(true);
+    expect(hasInvestorUsableProfile(usable)).toBe(true);
     expect(canRunInvestorAnalysis(usable)).toBe(true);
+  });
+
+  it("does not treat enrichment-only citations and a bloated overview as investor usable", () => {
+    const enrichmentOnly = card({
+      identity: {
+        ...card().identity,
+        description: {
+          value: {
+            shortDescription:
+              "Oboe is an AI-native learning platform that creates personalized educational courses on any topic. Founded by Michael Mignano and Nir Zicherman, Oboe aims to enhance learning experiences through AI-powered tutors, eliminating the need for human instructors or pre-recorded content. The platform generates structured, chapter-based curricula that adapt to individual user goals, prior knowledge, learning styles, and available time.",
+            concept: null,
+            serves: null,
+            mechanism: null,
+          },
+          status: "inferred",
+          confidence: "medium",
+          citationIds: ["c1", "c2"],
+        },
+      },
+      team: {
+        ...card().team,
+        founders: fact([{ name: "Nir Zicherman", role: "Co-Founder and CEO", sourceUrl: "https://www.linkedin.com/in/nirzicherman" }]),
+      },
+      citations: [
+        {
+          id: "c1",
+          url: "https://stableenrich.dev/api/apollo/org-enrich?domain=oboe.com",
+          title: "Apollo org enrichment for oboe.com",
+          fetchedAt: "2026-05-26T18:00:00.000Z",
+          sourceType: "enrichment",
+        },
+        {
+          id: "c2",
+          url: "https://www.linkedin.com/company/oboe",
+          title: "Oboe LinkedIn",
+          fetchedAt: "2026-05-26T18:00:00.000Z",
+          sourceType: "other",
+        },
+      ],
+    });
+
+    expect(hasUsablePublicProfile(enrichmentOnly)).toBe(true);
+    expect(investorProfileQuality(enrichmentOnly)).toMatchObject({
+      conciseOverview: false,
+      sourceBackedCitationCount: 1,
+      minimumSourceBackedCitationCount: 3,
+      isInvestorReady: false,
+    });
+    expect(hasInvestorUsableProfile(enrichmentOnly)).toBe(false);
+    expect(canRunInvestorAnalysis(enrichmentOnly)).toBe(false);
+    expect(analysisBlockedReason(enrichmentOnly)).toBe("profile needs source-backed evidence before analysis");
   });
 
   it("reports analysis readiness separately from structured fact count", () => {

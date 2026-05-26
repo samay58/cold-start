@@ -100,7 +100,7 @@ export const coldStartCardObjectSchema = z.object({
   domain: z.string().min(1),
   generatedAt: z.string().datetime(),
   generationCostUsd: z.number().nonnegative(),
-  cacheStatus: z.enum(["hit", "partial", "miss"]),
+  cacheStatus: z.enum(["hit", "partial", "miss", "stale"]),
   identity: z.object({
     name: resolvedFactSchema(z.string().min(1)),
     websiteUrl: resolvedFactSchema(z.string().url()).optional(),

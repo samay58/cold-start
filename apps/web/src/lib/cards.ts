@@ -5,13 +5,13 @@ import { webEnv } from "./env";
 
 export async function getPublicCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);
-  const card = await findPublicCardBySlug(db, slug);
+  const card = await findPublicCardBySlug(db, slug, { allowStale: true });
   return card && hasUsablePublicProfile(card) ? materializeFundingFromCitations(card) : null;
 }
 
 export async function getFullCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);
-  const card = await findCardBySlug(db, slug);
+  const card = await findCardBySlug(db, slug, { allowStale: true });
   return card && hasUsablePublicProfile(card) ? materializeFundingFromCitations(card) : null;
 }
 

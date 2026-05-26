@@ -83,6 +83,57 @@ describe("buildSeedProfileCard", () => {
     expect(seeded.card.citations.length).toBeGreaterThan(0);
     expect(seeded.trace.providerFactAppliedCount).toBe(2);
   });
+
+  it("compresses provider description fields before they become reader-facing card copy", () => {
+    const seeded = buildSeedProfileCard({
+      domain: "oboe.com",
+      sources: [],
+      providerFacts: [
+        {
+          path: "identity.name",
+          value: "Oboe",
+          status: "inferred",
+          confidence: "high",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=oboe.com",
+          citationTitle: "Apollo org enrichment for oboe.com",
+          fetchedAt: "2026-05-26T18:00:00.000Z",
+          rawText: "{}"
+        },
+        {
+          path: "identity.description",
+          value: {
+            shortDescription:
+              "Oboe is an AI-native learning platform that creates personalized educational courses on any topic. Founded by Michael Mignano and Nir Zicherman, Oboe aims to enhance learning experiences through AI-powered tutors, eliminating the need for human instructors or pre-recorded content. The platform generates structured, chapter-based curricula that adapt to individual user goals, prior knowledge, learning styles, and available time.",
+            concept:
+              "Oboe helps users create personalized educational courses on any topic with AI-generated curricula and tutors. It also supports quizzes, flashcards, games, and multiple learning formats.",
+            serves:
+              "The platform appears to serve individual learners, corporate training teams, and higher education institutions. It may also serve creators who want to package expertise into courses.",
+            mechanism:
+              "Users start with a diagnostic conversation that tailors the learning journey, then Oboe generates a structured chapter-based course. The system adapts to user goals, prior knowledge, learning style, and available time."
+          },
+          status: "inferred",
+          confidence: "medium",
+          sourceType: "enrichment",
+          provider: "stableenrich",
+          endpoint: "org_enrichment",
+          citationUrl: "https://stableenrich.dev/api/apollo/org-enrich?domain=oboe.com",
+          citationTitle: "Apollo org enrichment for oboe.com",
+          fetchedAt: "2026-05-26T18:00:00.000Z",
+          rawText: "{}"
+        }
+      ]
+    });
+
+    const description = seeded.card.identity.description?.value;
+    expect(description?.shortDescription.length).toBeLessThanOrEqual(180);
+    expect(description?.concept?.split(".").filter(Boolean)).toHaveLength(1);
+    expect(description?.serves?.split(".").filter(Boolean)).toHaveLength(1);
+    expect(description?.mechanism?.split(".").filter(Boolean)).toHaveLength(1);
+    expect(seeded.card.identity.oneLiner.value).not.toContain("Founded by");
+  });
 });
 
 describe("generateCardForDomain", () => {

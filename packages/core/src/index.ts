@@ -5,6 +5,7 @@ export * from "./funding-evidence";
 export * from "./generation-quality";
 export * from "./generation-trace";
 export * from "./intelligence";
+export * from "./research-sections";
 export * from "./slug";
 export * from "./source-quality";
 export * from "./trust";

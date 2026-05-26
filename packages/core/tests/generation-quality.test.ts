@@ -134,6 +134,49 @@ describe("generationQualityFlags", () => {
     );
   });
 
+  it("flags analysis runs that tried to synthesize without any evidence sources", () => {
+    const trace = baseTrace();
+    trace.providers = {
+      directExa: { skipped: true, sourceCount: 0, failureCount: 0 },
+      stableenrich: { sourceCount: 0, factCount: 0, failureCount: 0 },
+      mergedSourceCount: 0
+    };
+    trace.sourceGate = { acceptedCount: 0, rejectedCount: 0, acceptedSamples: [], rejectedSamples: [] };
+    trace.extraction = { sourceCount: 0, evidenceCount: 0, citationCount: 2, fallbackUsed: false };
+    trace.synthesis = {
+      required: true,
+      produced: false,
+      claimCountBeforeVerify: 12,
+      claimCountAfterVerify: 0
+    };
+
+    expect(generationQualityFlags({ status: "failed", mode: "analysis", traceJson: trace }).map((flag) => flag.code)).toContain("zero_analysis_evidence");
+  });
+
+  it("flags completed cards backed only by enrichment/vendor citations", () => {
+    const vendorOnly = card();
+    vendorOnly.citations = [
+      {
+        id: "c1",
+        url: "https://stableenrich.dev/api/apollo/org-enrich?domain=cartesia.ai",
+        title: "Apollo org enrichment",
+        fetchedAt: "2026-05-11T00:00:00.000Z",
+        sourceType: "enrichment"
+      },
+      {
+        id: "c2",
+        url: "https://stableenrich.dev/api/hunter/domain-search?domain=cartesia.ai",
+        title: "Hunter domain search",
+        fetchedAt: "2026-05-11T00:00:00.000Z",
+        sourceType: "enrichment"
+      }
+    ];
+
+    expect(generationQualityFlags({ status: "complete", mode: "basics", traceJson: baseTrace(), card: vendorOnly }).map((flag) => flag.code)).toContain(
+      "vendor_only_citations"
+    );
+  });
+
   it("flags completed cards that have citations but too few structured facts", () => {
     const underfilled = card();
     underfilled.identity.websiteUrl = { value: null, status: "unknown", confidence: "low", citationIds: [] };

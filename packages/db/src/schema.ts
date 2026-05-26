@@ -15,6 +15,8 @@ export const cacheStatusEnum = pgEnum("cache_status", ["hit", "partial", "miss"]
 export const claimVisibilityEnum = pgEnum("claim_visibility", ["public", "gated"]);
 export const claimStatusEnum = pgEnum("claim_status", ["verified", "mixed", "inferred", "unknown"]);
 export const generationModeEnum = pgEnum("generation_mode", ["basics", "analysis"]);
+export const researchSectionVisibilityEnum = pgEnum("research_section_visibility", ["public", "gated"]);
+export const researchSectionStatusEnum = pgEnum("research_section_status", ["not_started", "running", "available", "empty", "failed", "stale"]);
 export const sourceTypeEnum = pgEnum("source_type", [
   "company_site",
   "news",
@@ -125,5 +127,30 @@ export const generationRuns = pgTable(
     uniqueIndex("generation_runs_active_slug_mode_idx")
       .on(table.slug, table.mode)
       .where(sql`${table.status} in ('queued', 'running')`)
+  ]
+);
+
+export const researchSections = pgTable(
+  "research_sections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull(),
+    domain: text("domain").notNull(),
+    sectionId: text("section_id").notNull(),
+    visibility: researchSectionVisibilityEnum("visibility").notNull(),
+    status: researchSectionStatusEnum("status").notNull(),
+    contentJson: jsonb("content_json"),
+    citationIds: jsonb("citation_ids").notNull(),
+    sourceIds: jsonb("source_ids").notNull(),
+    runId: text("run_id"),
+    error: text("error"),
+    generatedAt: timestamp("generated_at", { withTimezone: true }),
+    staleAt: timestamp("stale_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("research_sections_slug_section_idx").on(table.slug, table.sectionId),
+    index("research_sections_slug_status_idx").on(table.slug, table.status)
   ]
 );

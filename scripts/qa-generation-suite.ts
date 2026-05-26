@@ -226,6 +226,7 @@ async function main() {
   try {
     const runs = await latestRuns(client);
     const rows: Array<Record<string, string>> = [];
+    let failCount = 0;
 
     for (const domain of QA_COMPANIES) {
       const card = await fetchCard(domain);
@@ -234,7 +235,15 @@ async function main() {
       const basics = runs.get(`${domain}:basics`);
       const analysis = runs.get(`${domain}:analysis`);
       const flags = [...flagsFor(basics, visibleCard), ...flagsFor(analysis, extensionCard)];
+      if (card.status === "missing") {
+        flags.push({
+          code: "missing_trace",
+          severity: "fail",
+          message: `API returned ${card.statusCode}; saved stale cards should remain visible`
+        });
+      }
       const uniqueFlags = Array.from(new Map(flags.map((flag) => [flag.code, flag])).values());
+      failCount += uniqueFlags.filter((flag) => flag.severity === "fail").length;
 
       rows.push({
         domain,
@@ -253,6 +262,9 @@ async function main() {
     console.log("");
     console.log("If runtime flags point at server failure, pull Vercel logs with:");
     console.log("npm exec vercel -- logs --environment production --since 4h --json --expand");
+    if (failCount > 0) {
+      process.exitCode = 1;
+    }
   } finally {
     await client.end();
   }

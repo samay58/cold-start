@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => {
     db,
     findCardBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
-    retireStaleGenerationRuns: vi.fn()
+    findResearchSectionsBySlug: vi.fn(),
+    retireStaleGenerationRuns: vi.fn(),
+    retireStaleResearchSections: vi.fn()
   };
 });
 
@@ -17,7 +19,9 @@ vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findCardBySlug: mocks.findCardBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
-  retireStaleGenerationRuns: mocks.retireStaleGenerationRuns
+  findResearchSectionsBySlug: mocks.findResearchSectionsBySlug,
+  retireStaleGenerationRuns: mocks.retireStaleGenerationRuns,
+  retireStaleResearchSections: mocks.retireStaleResearchSections
 }));
 
 vi.mock("../src/lib/env", () => ({
@@ -55,8 +59,12 @@ describe("GET /api/extension/bootstrap", () => {
     mocks.createDb.mockClear();
     mocks.findCardBySlug.mockReset();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
+    mocks.findResearchSectionsBySlug.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
+    mocks.retireStaleResearchSections.mockReset();
+    mocks.findResearchSectionsBySlug.mockResolvedValue([]);
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
+    mocks.retireStaleResearchSections.mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -92,7 +100,22 @@ describe("GET /api/extension/bootstrap", () => {
         openQuestions: []
       }
     };
+    const sections = [{
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: "why_it_matters",
+      visibility: "gated",
+      status: "running",
+      content: null,
+      citationIds: [],
+      sourceIds: [],
+      runId: "run-analysis",
+      error: null,
+      generatedAt: null,
+      staleAt: null
+    }];
     mocks.findCardBySlug.mockResolvedValue(card);
+    mocks.findResearchSectionsBySlug.mockResolvedValue(sections);
     mocks.findLatestGenerationRunStatusBySlug
       .mockResolvedValueOnce({
         id: "run-basics",
@@ -123,6 +146,7 @@ describe("GET /api/extension/bootstrap", () => {
       domain: "cartesia.ai",
       slug: "cartesia",
       card,
+      sections,
       runs: {
         basics: {
           slug: "cartesia",
@@ -147,6 +171,7 @@ describe("GET /api/extension/bootstrap", () => {
     expect(JSON.stringify(body)).not.toContain("traceJson");
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "basics" });
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "analysis" });
+    expect(mocks.retireStaleResearchSections).toHaveBeenCalledWith(mocks.db, { slug: "cartesia" });
     expect(response.headers.get("Server-Timing")).toContain("db");
   });
 
@@ -160,6 +185,7 @@ describe("GET /api/extension/bootstrap", () => {
       domain: "linear.app",
       slug: "linear",
       card: null,
+      sections: [],
       runs: {
         basics: { slug: "linear", domain: "linear.app", mode: "basics", status: "idle" },
         analysis: { slug: "linear", domain: "linear.app", mode: "analysis", status: "idle" }

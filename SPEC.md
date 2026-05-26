@@ -297,6 +297,44 @@ Defer all of this to v1.1 or later:
 
 The discipline is: every v0 feature must serve the activation moment. For cached companies, the card should appear immediately. For uncached companies, one click starts a 60 to 90 second sourced generation. If a feature serves a different moment, it's v1.
 
+## Research section state
+
+The extension shows nine research cards. Each card has one saved server state, so the UI does not infer whether work happened:
+
+```text
+buyer
+customer_proof
+traction
+financing
+competition
+product
+why_it_matters
+market
+risks
+```
+
+Each section is stored in `research_sections` with one status:
+
+```text
+not_started
+running
+available
+empty
+failed
+stale
+```
+
+Snapping a card into place only saves the local pin. It does not start generation. The extension renders the saved section state:
+
+- `available`: show content.
+- `empty`: show the honest evidence gap.
+- `failed`: show the saved error and a retry action.
+- `running`: show progress.
+- `stale`: show old content with a refresh action.
+- `not_started`: show a generate action.
+
+Old cards can derive fallback section state from `cards.card_json`, but new generation writes section rows. Section rows win over fallback.
+
 ## Risks
 
 | Risk | Severity | Mitigation |

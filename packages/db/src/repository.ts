@@ -5,14 +5,20 @@ import {
   coldStartCardSchema,
   generationTraceSchema,
   publicCard,
+  researchSectionContentSchema,
+  researchSectionIdSchema,
+  researchSectionStatusSchema,
+  researchSectionVisibilitySchema,
   type ColdStartCard,
   type GenerationJobKind,
   type GenerationTrace,
+  type ResearchSection,
+  type ResearchSectionId,
   type ResolvedFact
 } from "@cold-start/core";
 
 import type { ColdStartDb } from "./client";
-import { cards, citations, claims, generationRuns, sources } from "./schema";
+import { cards, citations, claims, generationRuns, researchSections, sources } from "./schema";
 
 type PublicClaim = {
   path: string;
@@ -29,6 +35,7 @@ type GenerationStatus = "queued" | "running" | "complete" | "failed";
 type ActiveGenerationStatus = Extract<GenerationStatus, "queued" | "running">;
 const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true });
 export const generationRunStaleAfterMs = 15 * 60 * 1000;
+export const researchSectionRunStaleAfterMs = 15 * 60 * 1000;
 
 export type GenerationRunSummary = {
   slug: string;
@@ -70,6 +77,7 @@ type CardCacheMode = GenerationMode;
 type CardCacheOptions = {
   mode?: CardCacheMode | undefined;
   now?: Date | undefined;
+  allowStale?: boolean | undefined;
 };
 type CardCacheRow = {
   cardJson: unknown;
@@ -77,6 +85,23 @@ type CardCacheRow = {
   identityExpiresAt: Date;
   signalsExpiresAt: Date;
   synthesisExpiresAt: Date;
+};
+
+type ResearchSectionRow = {
+  slug: string;
+  domain: string;
+  sectionId: string;
+  visibility: string;
+  status: string;
+  contentJson: unknown;
+  citationIds: unknown;
+  sourceIds: unknown;
+  runId?: string | null;
+  error?: string | null;
+  generatedAt?: Date | null;
+  staleAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export function cardExpiryDates(now = new Date()) {
@@ -100,6 +125,11 @@ function isFreshCacheRow(row: CardCacheRow, options: CardCacheOptions = {}) {
   return mode === "basics" || row.synthesisExpiresAt > now;
 }
 
+function parseCachedCard(row: CardCacheRow, options: CardCacheOptions = {}) {
+  const parsed = coldStartCardSchema.parse(row.cardJson);
+  return isFreshCacheRow(row, options) ? parsed : { ...parsed, cacheStatus: "stale" as const };
+}
+
 export async function findCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = {}): Promise<ColdStartCard | null> {
   const rows = await db
     .select({
@@ -117,11 +147,11 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
     return null;
   }
 
-  if (!isFreshCacheRow(row, options)) {
+  if (!options.allowStale && !isFreshCacheRow(row, options)) {
     return null;
   }
 
-  return coldStartCardSchema.parse(row.cardJson);
+  return parseCachedCard(row, options);
 }
 
 export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<Omit<ColdStartCard, "synthesis"> | null> {
@@ -142,11 +172,164 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
     return null;
   }
 
-  if (!isFreshCacheRow(row, { mode: options.mode ?? "basics", now: options.now })) {
+  const cacheOptions = { mode: options.mode ?? "basics", now: options.now, allowStale: options.allowStale };
+
+  if (!options.allowStale && !isFreshCacheRow(row, cacheOptions)) {
     return null;
   }
 
-  return publicCardSchema.parse(publicCard(coldStartCardSchema.parse(row.cardJson)));
+  return publicCardSchema.parse(publicCard(parseCachedCard(row, cacheOptions)));
+}
+
+function jsonStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+function researchSectionFromRow(row: ResearchSectionRow): ResearchSection {
+  const status = researchSectionStatusSchema.parse(row.status);
+  const content = row.contentJson === null || row.contentJson === undefined ? null : researchSectionContentSchema.parse(row.contentJson);
+  return {
+    slug: row.slug,
+    domain: row.domain,
+    sectionId: researchSectionIdSchema.parse(row.sectionId),
+    visibility: researchSectionVisibilitySchema.parse(row.visibility),
+    status,
+    content,
+    citationIds: jsonStringArray(row.citationIds),
+    sourceIds: jsonStringArray(row.sourceIds),
+    runId: row.runId ?? null,
+    error: row.error ?? null,
+    generatedAt: row.generatedAt ? row.generatedAt.toISOString() : null,
+    staleAt: row.staleAt ? row.staleAt.toISOString() : null,
+    ...(row.createdAt ? { createdAt: row.createdAt.toISOString() } : {}),
+    ...(row.updatedAt ? { updatedAt: row.updatedAt.toISOString() } : {})
+  };
+}
+
+export async function findResearchSectionsBySlug(db: ColdStartDb, slug: string): Promise<ResearchSection[]> {
+  const rows = await db
+    .select({
+      slug: researchSections.slug,
+      domain: researchSections.domain,
+      sectionId: researchSections.sectionId,
+      visibility: researchSections.visibility,
+      status: researchSections.status,
+      contentJson: researchSections.contentJson,
+      citationIds: researchSections.citationIds,
+      sourceIds: researchSections.sourceIds,
+      runId: researchSections.runId,
+      error: researchSections.error,
+      generatedAt: researchSections.generatedAt,
+      staleAt: researchSections.staleAt,
+      createdAt: researchSections.createdAt,
+      updatedAt: researchSections.updatedAt
+    })
+    .from(researchSections)
+    .where(eq(researchSections.slug, slug));
+
+  return rows.map(researchSectionFromRow);
+}
+
+export async function upsertResearchSection(db: ColdStartDb, section: ResearchSection): Promise<ResearchSection | null> {
+  const now = new Date();
+  const [row] = await db
+    .insert(researchSections)
+    .values({
+      slug: section.slug,
+      domain: section.domain,
+      sectionId: section.sectionId,
+      visibility: section.visibility,
+      status: section.status,
+      contentJson: section.content,
+      citationIds: section.citationIds,
+      sourceIds: section.sourceIds,
+      runId: section.runId,
+      error: section.error,
+      generatedAt: section.generatedAt ? new Date(section.generatedAt) : null,
+      staleAt: section.staleAt ? new Date(section.staleAt) : null,
+      updatedAt: now
+    })
+    .onConflictDoUpdate({
+      target: [researchSections.slug, researchSections.sectionId],
+      set: {
+        domain: section.domain,
+        visibility: section.visibility,
+        status: section.status,
+        contentJson: section.content,
+        citationIds: section.citationIds,
+        sourceIds: section.sourceIds,
+        runId: section.runId,
+        error: section.error,
+        generatedAt: section.generatedAt ? new Date(section.generatedAt) : null,
+        staleAt: section.staleAt ? new Date(section.staleAt) : null,
+        updatedAt: now
+      }
+    })
+    .returning();
+
+  return row ? researchSectionFromRow(row) : null;
+}
+
+export async function upsertResearchSections(db: ColdStartDb, sectionsToWrite: ResearchSection[]): Promise<void> {
+  for (const section of sectionsToWrite) {
+    await upsertResearchSection(db, section);
+  }
+}
+
+export async function markResearchSectionRunning(
+  db: ColdStartDb,
+  input: { slug: string; domain: string; sectionId: ResearchSectionId; visibility: "public" | "gated"; runId?: string | null }
+) {
+  return upsertResearchSection(db, {
+    slug: input.slug,
+    domain: input.domain,
+    sectionId: input.sectionId,
+    visibility: input.visibility,
+    status: "running",
+    content: null,
+    citationIds: [],
+    sourceIds: [],
+    runId: input.runId ?? null,
+    error: null,
+    generatedAt: null,
+    staleAt: null
+  });
+}
+
+export async function markResearchSectionFailed(
+  db: ColdStartDb,
+  input: { slug: string; domain: string; sectionId: ResearchSectionId; visibility: "public" | "gated"; error: string; runId?: string | null }
+) {
+  return upsertResearchSection(db, {
+    slug: input.slug,
+    domain: input.domain,
+    sectionId: input.sectionId,
+    visibility: input.visibility,
+    status: "failed",
+    content: null,
+    citationIds: [],
+    sourceIds: [],
+    runId: input.runId ?? null,
+    error: input.error,
+    generatedAt: new Date().toISOString(),
+    staleAt: null
+  });
+}
+
+export async function retireStaleResearchSections(db: ColdStartDb, input: { slug: string; now?: Date; staleAfterMs?: number }) {
+  const now = input.now ?? new Date();
+  const cutoff = new Date(now.getTime() - (input.staleAfterMs ?? researchSectionRunStaleAfterMs));
+  const rows = await db
+    .update(researchSections)
+    .set({
+      status: "failed",
+      error: "stale section run retired after 15 minutes",
+      updatedAt: now
+    })
+    .where(and(eq(researchSections.slug, input.slug), eq(researchSections.status, "running"), lt(researchSections.updatedAt, cutoff)))
+    .returning();
+
+  return rows.length;
 }
 
 export async function findActiveGenerationRunBySlug(
@@ -373,30 +556,32 @@ export async function retireStaleGenerationRuns(
 }
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
-  const publicOnly = publicCard(card);
-  const generatedAt = new Date(card.generatedAt);
+  const cardToStore = card.cacheStatus === "stale" ? { ...card, cacheStatus: "hit" as const } : card;
+  const publicOnly = publicCard(cardToStore);
+  const generatedAt = new Date(cardToStore.generatedAt);
   const now = new Date();
   const expiresAt = cardExpiryDates(now);
+  const persistedCacheStatus: "hit" | "partial" | "miss" = card.cacheStatus === "stale" ? "hit" : card.cacheStatus;
 
   const [row] = await db
     .insert(cards)
     .values({
-      slug: card.slug,
-      domain: card.domain,
-      cardJson: card,
+      slug: cardToStore.slug,
+      domain: cardToStore.domain,
+      cardJson: cardToStore,
       publicCardJson: publicOnly,
-      cacheStatus: card.cacheStatus,
-      generationCostUsd: String(card.generationCostUsd),
+      cacheStatus: persistedCacheStatus,
+      generationCostUsd: String(cardToStore.generationCostUsd),
       generatedAt,
       ...expiresAt
     })
     .onConflictDoUpdate({
       target: cards.slug,
       set: {
-        cardJson: card,
+        cardJson: cardToStore,
         publicCardJson: publicOnly,
-        cacheStatus: card.cacheStatus,
-        generationCostUsd: String(card.generationCostUsd),
+        cacheStatus: persistedCacheStatus,
+        generationCostUsd: String(cardToStore.generationCostUsd),
         generatedAt,
         ...expiresAt,
         updatedAt: now

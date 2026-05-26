@@ -95,6 +95,42 @@ function citationTitle(candidate: ProviderFactCandidate) {
   return candidate.citationTitle.trim() || `${candidate.provider} ${candidate.endpoint}`;
 }
 
+function firstSentence(value: string | null | undefined, maxLength = 180) {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.replace(/\s+/g, " ").trim();
+  const match = trimmed.match(/^.+?[.!?](?:\s|$)/);
+  const sentence = (match?.[0] ?? trimmed).trim();
+  if (sentence.length <= maxLength) {
+    return sentence;
+  }
+
+  const clipped = sentence.slice(0, maxLength).trimEnd();
+  const boundary = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, boundary > 80 ? boundary : maxLength).trimEnd()}.`;
+}
+
+function sanitizeDescriptionFact(
+  fact: ResolvedFact<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>>,
+): ResolvedFact<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>> {
+  if (!fact.value) {
+    return fact;
+  }
+
+  const value = fact.value;
+  return {
+    ...fact,
+    value: {
+      shortDescription: firstSentence(value.shortDescription) ?? value.shortDescription,
+      concept: firstSentence(value.concept),
+      serves: firstSentence(value.serves),
+      mechanism: firstSentence(value.mechanism),
+    },
+  };
+}
+
 function providerCitationBuilder(sections: SectionsWithFacts) {
   const citations = [...sections.citations];
   const idsByKey = new Map<string, string>();
@@ -209,11 +245,12 @@ export function applyProviderFactCandidates(
         break;
       case "identity.description":
         applyFact(candidate as ProviderFactCandidate<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>>, () => shouldFill(next.identity.description), (fact) => {
-          next.identity.description = fact;
+          const sanitizedFact = sanitizeDescriptionFact(fact);
+          next.identity.description = sanitizedFact;
           if (shouldFill(next.identity.oneLiner)) {
             next.identity.oneLiner = {
-              ...fact,
-              value: fact.value?.shortDescription ?? null,
+              ...sanitizedFact,
+              value: sanitizedFact.value?.shortDescription ?? null,
             };
           }
         });

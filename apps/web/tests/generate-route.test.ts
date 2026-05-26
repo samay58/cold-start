@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => {
     findCardBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
+    markResearchSectionFailed: vi.fn(),
+    markResearchSectionRunning: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
     send: vi.fn()
   };
@@ -24,6 +26,8 @@ vi.mock("@cold-start/db", () => ({
   findCardBySlug: mocks.findCardBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
+  markResearchSectionFailed: mocks.markResearchSectionFailed,
+  markResearchSectionRunning: mocks.markResearchSectionRunning,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns
 }));
 
@@ -49,6 +53,7 @@ function generateRequest(
     forceRefresh?: boolean;
     mode?: "basics" | "analysis";
     extensionAuth?: boolean;
+    sectionId?: string;
   } = { confirmStart: true }
 ) {
   const headers = new Headers({ "Content-Type": "application/json" });
@@ -63,6 +68,7 @@ function generateRequest(
     body: JSON.stringify({
       domain,
       ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.sectionId ? { sectionId: options.sectionId } : {}),
       ...(options.confirmStart ? { confirmStart: true } : {}),
       ...(options.forceRefresh ? { forceRefresh: true } : {})
     })
@@ -114,6 +120,20 @@ function usablePublicCard() {
         fetchedAt: "2026-05-14T00:00:00.000Z",
         sourceType: "company_site",
       },
+      {
+        id: "c2",
+        url: "https://news.example/cartesia-series-b",
+        title: "Cartesia Series B coverage",
+        fetchedAt: "2026-05-14T00:00:00.000Z",
+        sourceType: "news",
+      },
+      {
+        id: "c3",
+        url: "https://example.com/cartesia-profile",
+        title: "Cartesia company profile",
+        fetchedAt: "2026-05-14T00:00:00.000Z",
+        sourceType: "other",
+      },
     ],
   };
 }
@@ -152,7 +172,11 @@ describe("POST /api/generate", () => {
     mocks.findCardBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
+    mocks.markResearchSectionFailed.mockReset();
+    mocks.markResearchSectionRunning.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
+    mocks.markResearchSectionFailed.mockResolvedValue(null);
+    mocks.markResearchSectionRunning.mockResolvedValue(null);
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
     mocks.send.mockReset();
   });
@@ -224,6 +248,57 @@ describe("POST /api/generate", () => {
       mode: "analysis",
       status: "queued"
     });
+  });
+
+  it("queues one requested section and marks that section running", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", domain: "cartesia.ai", status: "queued", mode: "analysis", runId: "run-id" });
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "section:market",
+      status: "queued"
+    });
+    expect(mocks.markResearchSectionRunning).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: "market",
+      visibility: "gated",
+      runId: "run-id"
+    });
+    expect(mocks.send).toHaveBeenCalledWith({
+      name: "card/generate.requested",
+      data: { domain: "cartesia.ai", slug: "cartesia", mode: "analysis", sectionId: "market" }
+    });
+  });
+
+  it("rejects section generation when the requested mode does not match the section", async () => {
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "basics",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toEqual({ error: "section mode does not match requested mode" });
+    expect(response.status).toBe(400);
+    expect(mocks.createDb).not.toHaveBeenCalled();
   });
 
   it("does not treat no-source partial basics as cached", async () => {

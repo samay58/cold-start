@@ -1,4 +1,13 @@
-import { canRunInvestorAnalysis, fundingEvidenceFromCitations, sourceQualityForSource, sourceQualityRank, type Citation, type ColdStartCard } from "@cold-start/core";
+import {
+  RESEARCH_SECTION_DEFINITIONS_BY_ID,
+  canRunInvestorAnalysis,
+  fundingEvidenceFromCitations,
+  sourceQualityForSource,
+  sourceQualityRank,
+  type Citation,
+  type ColdStartCard,
+  type ResearchSection
+} from "@cold-start/core";
 import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-start/ui";
 
 export type ResearchLayerId =
@@ -14,7 +23,7 @@ export type ResearchLayerId =
 
 type ResearchLayerSource = "card" | "analysis";
 type ResearchLayerAvailability = "available" | "needs-analysis" | "empty";
-type ResearchLayerDisplayStatus = "populated" | "needs-analysis" | "empty" | "running" | "failed";
+type ResearchLayerDisplayStatus = "populated" | "needs-analysis" | "empty" | "running" | "failed" | "stale";
 
 export type ResearchLayerCard = {
   id: ResearchLayerId;
@@ -64,6 +73,18 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "mechanism", title: "Product & Technology", description: "What is differentiated", source: "card" },
   { id: "openQuestions", title: "Risks & Diligence", description: "What still needs proof", source: "analysis" }
 ];
+
+const LAYER_SECTION_IDS: Record<ResearchLayerId, ResearchSection["sectionId"]> = {
+  coreIdea: "why_it_matters",
+  serves: "buyer",
+  marketStructureTiming: "market",
+  customers: "customer_proof",
+  signals: "traction",
+  investors: "financing",
+  competition: "competition",
+  mechanism: "product",
+  openQuestions: "risks"
+};
 
 function stripCitationMarkers(text: string) {
   return text
@@ -144,6 +165,91 @@ function citationRank(citation: Citation | undefined) {
 
 function displaySourceCount(sources: ResearchLayerSourceReference[]) {
   return sources.length;
+}
+
+function sectionForLayer(sections: ResearchSection[] | undefined, id: ResearchLayerId) {
+  return sections?.find((section) => section.sectionId === LAYER_SECTION_IDS[id]) ?? null;
+}
+
+function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, section: ResearchSection): ResearchLayerDisplay {
+  const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
+  const sources = citationSources(card, section.citationIds);
+  const content = section.content;
+  const title = layer.title;
+
+  if (section.status === "running") {
+    return {
+      id: layer.id,
+      title,
+      body: "Generating this section from cited evidence.",
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: "running"
+    };
+  }
+
+  if (section.status === "failed") {
+    return {
+      id: layer.id,
+      title,
+      body: section.error ?? "This section failed to generate.",
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: "failed"
+    };
+  }
+
+  if (section.status === "not_started") {
+    return {
+      id: layer.id,
+      title,
+      body: "This section has not been generated yet.",
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: "needs-analysis"
+    };
+  }
+
+  if (section.status === "empty" || !content) {
+    return {
+      id: layer.id,
+      title,
+      body: definition.emptyState,
+      rows: [{ label: "Evidence gap", value: definition.emptyState }],
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: "empty"
+    };
+  }
+
+  const items = content.items.map((item) => ({
+    title: item.label,
+    body: stripCitationMarkers(item.text),
+    ...(item.meta ? { meta: item.meta } : {})
+  }));
+  const questions = content.questions.map((question, index) => ({
+    title: `Question ${index + 1}`,
+    body: stripCitationMarkers(question)
+  }));
+  const rows = section.sectionId === "market" && content.napkinMath
+    ? [
+        { label: "Formula", value: content.napkinMath.formula },
+        { label: "Buyer count", value: content.napkinMath.buyers.value },
+        { label: "Annual spend", value: content.napkinMath.annualSpend.value },
+        { label: "Market size", value: content.napkinMath.marketSize.value },
+      ]
+    : undefined;
+
+  return {
+    id: layer.id,
+    title,
+    body: stripCitationMarkers(content.summary ?? items[0]?.body ?? questions[0]?.body ?? definition.emptyState),
+    ...(items.length > 0 || questions.length > 0 ? { items: [...items, ...questions] } : {}),
+    ...(rows ? { rows } : {}),
+    sources,
+    sourceCount: displaySourceCount(sources),
+    status: section.status === "stale" ? "stale" : "populated"
+  };
 }
 
 function textFromList(items: string[], fallback: string) {
@@ -231,14 +337,30 @@ function marketRows(card: ColdStartCard) {
   ].flatMap((row) => row.claim ? [{ title: row.title, body: stripCitationMarkers(row.claim.text), citationIds: row.claim.citationIds }] : []);
 }
 
-export function layersForCard(card: ColdStartCard): ResearchLayer[] {
+export function layersForCard(card: ColdStartCard, sections?: ResearchSection[]): ResearchLayer[] {
   const canAnalyze = canRunInvestorAnalysis(card);
   return RESEARCH_LAYER_CARDS.map((layer) => {
-    if (layer.source === "analysis" && (!card.synthesis || !canAnalyze)) {
+    const section = sectionForLayer(sections, layer.id);
+    if (section) {
+      return {
+        ...layer,
+        availability: section.status === "available" || section.status === "stale"
+          ? "available"
+          : section.status === "not_started" || section.status === "running"
+            ? "needs-analysis"
+            : "empty"
+      };
+    }
+
+    if (layer.source === "analysis" && !card.synthesis) {
       return { ...layer, availability: "needs-analysis" };
     }
 
-    const display = layerDisplayForCard(card, layer.id);
+    const display = layerDisplayForCard(card, layer.id, sections);
+    if (layer.source === "analysis" && display?.status === "needs-analysis" && !canAnalyze) {
+      return { ...layer, availability: "needs-analysis" };
+    }
+
     return {
       ...layer,
       availability: display?.status === "populated"
@@ -248,10 +370,15 @@ export function layersForCard(card: ColdStartCard): ResearchLayer[] {
   });
 }
 
-export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId): ResearchLayerDisplay | null {
+export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, sections?: ResearchSection[]): ResearchLayerDisplay | null {
   const layer = RESEARCH_LAYER_CARDS.find((candidate) => candidate.id === id);
   if (!layer) {
     return null;
+  }
+
+  const section = sectionForLayer(sections, id);
+  if (section) {
+    return displayFromSection(card, layer, section);
   }
 
   if (id === "coreIdea") {

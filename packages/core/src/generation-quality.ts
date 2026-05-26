@@ -11,6 +11,8 @@ export type GenerationQualityFlagCode =
   | "zero_citations"
   | "missing_synthesis_trace"
   | "no_synthesis_after_analysis"
+  | "zero_analysis_evidence"
+  | "vendor_only_citations"
   | "stableenrich_all_failed"
   | "stableenrich_no_fact_candidates"
   | "high_source_rejection"
@@ -78,6 +80,19 @@ function hasBloatedOverview(card: ColdStartCard) {
   return overview.length > 260 || sentenceCount(overview) > 2;
 }
 
+function citationHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isVendorOnlyCitation(citation: ColdStartCard["citations"][number]) {
+  const host = citationHost(citation.url);
+  return citation.sourceType === "enrichment" || host === "stableenrich.dev" || host.endsWith(".stableenrich.dev");
+}
+
 export function generationQualityFlags(input: GenerationQualityInput): GenerationQualityFlag[] {
   const flags: GenerationQualityFlag[] = [];
   const trace = input.traceJson ?? null;
@@ -130,6 +145,14 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
       code: "no_synthesis_after_analysis",
       severity: "fail",
       message: "analysis completed but API card has no synthesis"
+    });
+  }
+
+  if (mode === "analysis" && trace.extraction && trace.extraction.sourceCount === 0 && trace.extraction.evidenceCount === 0) {
+    add(flags, {
+      code: "zero_analysis_evidence",
+      severity: "fail",
+      message: "analysis run had no fetched or loaded evidence sources"
     });
   }
 
@@ -227,6 +250,14 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
         code: "bloated_overview",
         severity: "warn",
         message: "API card overview reads like a long product-page paragraph"
+      });
+    }
+
+    if (status === "complete" && input.card.citations.length > 0 && input.card.citations.every(isVendorOnlyCitation)) {
+      add(flags, {
+        code: "vendor_only_citations",
+        severity: "fail",
+        message: "API card citations are only enrichment/vendor sources"
       });
     }
 

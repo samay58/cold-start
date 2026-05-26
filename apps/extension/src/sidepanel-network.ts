@@ -1,4 +1,4 @@
-import { hasUsablePublicProfile, publicProfileQuality, type ColdStartCard } from "@cold-start/core";
+import { deriveResearchSectionsFromCard, hasUsablePublicProfile, publicProfileQuality, type ColdStartCard } from "@cold-start/core";
 import {
   ApiError,
   buildBootstrapRequest,
@@ -71,7 +71,10 @@ export async function fetchBootstrap(domain: string, settings: Settings, signal:
     if (!parsed.runs || !("card" in parsed)) {
       return fetchBootstrapSerially(domain, settings, signal);
     }
-    return parsed;
+    return {
+      ...parsed,
+      sections: parsed.sections ?? (parsed.card ? deriveResearchSectionsFromCard(parsed.card) : [])
+    };
   } catch (caught) {
     if (caught instanceof ApiError && (caught.status === 404 || caught.status === 405)) {
       const fallback = await fetchBootstrapSerially(domain, settings, signal);
@@ -129,6 +132,7 @@ async function fetchBootstrapSerially(
     domain,
     slug: card?.slug ?? safeSlug,
     card,
+    sections: card ? deriveResearchSectionsFromCard(card) : [],
     runs: { basics, analysis }
   };
 }
@@ -139,9 +143,10 @@ async function requestGeneration(
   signal: AbortSignal,
   mode: GenerationStatus["mode"],
   confirmStart: boolean,
-  forceRefresh = false
+  forceRefresh = false,
+  sectionId?: string
 ): Promise<GenerationStatus> {
-  const request = buildGenerateRequest(domain, settings, signal, mode, confirmStart, chrome.runtime.id, forceRefresh);
+  const request = buildGenerateRequest(domain, settings, signal, mode, confirmStart, chrome.runtime.id, forceRefresh, sectionId);
   markPerformance("cold-start-generation-post");
   const response = await fetch(request.url, request.init);
   return parseGenerateResponse(response);

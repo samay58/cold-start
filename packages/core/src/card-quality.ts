@@ -4,6 +4,8 @@ type CardForQuality = Pick<ColdStartCard, "citations" | "comparables" | "domain"
 
 const MIN_STRUCTURED_PROFILE_FACTS = 4;
 const MIN_VISIBLE_PROFILE_FACTS = 2;
+const MIN_SOURCE_BACKED_CITATIONS = 3;
+const MAX_OVERVIEW_LENGTH = 260;
 
 export type PublicProfileQuality = {
   hasCitations: boolean;
@@ -14,6 +16,14 @@ export type PublicProfileQuality = {
   visibleFactCount: number;
   minimumVisibleFactCount: number;
   isAnalysisReady: boolean;
+};
+
+export type InvestorProfileQuality = PublicProfileQuality & {
+  conciseOverview: boolean;
+  sourceBackedCitationCount: number;
+  minimumSourceBackedCitationCount: number;
+  hasInvestorEvidence: boolean;
+  isInvestorReady: boolean;
 };
 
 function hasCitedSources(card: Pick<ColdStartCard, "citations">): boolean {
@@ -31,6 +41,10 @@ function hasFunding(card: CardForQuality) {
       (card.funding.rounds?.value?.length ?? 0) > 0 ||
       (card.funding.investors.value?.length ?? 0) > 0
   );
+}
+
+function hasInvestorEvidence(card: CardForQuality) {
+  return Boolean(hasFunding(card) || hasPeople(card) || card.signals.length > 0 || card.comparables.length > 0);
 }
 
 function normalizedText(value: string) {
@@ -79,6 +93,36 @@ function hasSummary(card: CardForQuality) {
       hasUsefulText(description?.serves, card.domain) ||
       hasUsefulText(description?.mechanism, card.domain)
   );
+}
+
+function sentenceCount(value: string) {
+  return (value.match(/[.!?](?:\s|$)/g) ?? []).length || 1;
+}
+
+function overviewText(card: CardForQuality) {
+  return card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value ?? "";
+}
+
+function hasConciseOverview(card: CardForQuality) {
+  const overview = overviewText(card).trim();
+  return overview.length > 0 && overview.length <= MAX_OVERVIEW_LENGTH && sentenceCount(overview) <= 2;
+}
+
+function citationHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isVendorOnlyCitation(citation: ColdStartCard["citations"][number]) {
+  const host = citationHost(citation.url);
+  return citation.sourceType === "enrichment" || host === "stableenrich.dev" || host.endsWith(".stableenrich.dev");
+}
+
+function sourceBackedCitationCount(card: CardForQuality) {
+  return card.citations.filter((citation) => !isVendorOnlyCitation(citation)).length;
 }
 
 export function publicProfileStructuredFactCount(card: CardForQuality): number {
@@ -133,15 +177,52 @@ export function hasUsablePublicProfile(card: CardForQuality): boolean {
   return publicProfileQuality(card).isAnalysisReady;
 }
 
+export function investorProfileQuality(card: CardForQuality): InvestorProfileQuality {
+  const publicQuality = publicProfileQuality(card);
+  const backedCitationCount = sourceBackedCitationCount(card);
+  const conciseOverview = hasConciseOverview(card);
+  const hasInvestorEvidenceValue = hasInvestorEvidence(card);
+
+  return {
+    ...publicQuality,
+    conciseOverview,
+    sourceBackedCitationCount: backedCitationCount,
+    minimumSourceBackedCitationCount: MIN_SOURCE_BACKED_CITATIONS,
+    hasInvestorEvidence: hasInvestorEvidenceValue,
+    isInvestorReady: Boolean(
+      publicQuality.isAnalysisReady &&
+        conciseOverview &&
+        backedCitationCount >= MIN_SOURCE_BACKED_CITATIONS &&
+        hasInvestorEvidenceValue
+    ),
+  };
+}
+
+export function hasInvestorUsableProfile(card: CardForQuality): boolean {
+  return investorProfileQuality(card).isInvestorReady;
+}
+
 export function analysisBlockedReason(card: CardForQuality): string | null {
-  const quality = publicProfileQuality(card);
+  const quality = investorProfileQuality(card);
 
   if (!quality.hasCitations) {
     return "profile needs cited sources before analysis";
   }
 
-  if (!quality.isAnalysisReady) {
+  if (!publicProfileQuality(card).isAnalysisReady) {
     return "profile needs more structured facts before analysis";
+  }
+
+  if (quality.sourceBackedCitationCount < MIN_SOURCE_BACKED_CITATIONS) {
+    return "profile needs source-backed evidence before analysis";
+  }
+
+  if (!quality.conciseOverview) {
+    return "profile needs a concise overview before analysis";
+  }
+
+  if (!quality.hasInvestorEvidence) {
+    return "profile needs investor evidence before analysis";
   }
 
   return null;

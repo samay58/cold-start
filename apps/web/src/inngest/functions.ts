@@ -4,11 +4,25 @@ import {
   type GenerationTrace,
   type GenerationLlmCallTrace,
   type GenerationTraceStep,
+  deriveResearchSectionsFromCard,
+  hasInvestorUsableProfile,
   hasUsablePublicProfile,
   publicProfileQuality,
+  researchSectionIdSchema,
+  type ResearchSectionId,
   type ResolvedFact
 } from "@cold-start/core";
-import { createDb, findCardBySlug, markGenerationRun, recordCardEvidence, recordSource, upsertCard, type ColdStartDb } from "@cold-start/db";
+import {
+  createDb,
+  findCardBySlug,
+  markGenerationRun,
+  markResearchSectionFailed,
+  recordCardEvidence,
+  recordSource,
+  upsertCard,
+  upsertResearchSections,
+  type ColdStartDb
+} from "@cold-start/db";
 import {
   anthropicModel,
   anthropicModelForStage,
@@ -85,6 +99,9 @@ const DIRECT_EXA_ENV_KEYS = [
   "DIRECT_EXA_API_KEY",
   "DIRECT_EXA_BASE_URL",
 ] as const satisfies ReadonlyArray<keyof DirectExaEnv>;
+
+const PUBLIC_RESEARCH_SECTION_IDS = ["buyer", "customer_proof", "traction", "financing", "competition", "product"] as const;
+const GATED_RESEARCH_SECTION_IDS = ["why_it_matters", "market", "risks"] as const;
 
 function stableenrichEnvFromProcess(): StableenrichEnv {
   return readEnvSubset(STABLEENRICH_ENV_KEYS);
@@ -192,6 +209,44 @@ function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
   }
 
   return Array.from(byUrl.values());
+}
+
+function sectionsWithSourceCitations(card: ColdStartCard, sources: ProviderSource[]): ExtractedCardSections {
+  const citations = [...card.citations];
+  const existingUrls = new Set(citations.map((citation) => citation.url));
+  let sourceIndex = 1;
+
+  for (const source of sources.filter((candidate) => candidate.sourceType !== "enrichment").slice(0, 12)) {
+    if (existingUrls.has(source.url)) {
+      continue;
+    }
+
+    let id = `s${sourceIndex}`;
+    sourceIndex += 1;
+    while (citations.some((citation) => citation.id === id)) {
+      id = `s${sourceIndex}`;
+      sourceIndex += 1;
+    }
+
+    citations.push({
+      id,
+      url: source.url,
+      title: source.title,
+      fetchedAt: source.fetchedAt,
+      sourceType: source.sourceType,
+      ...(source.rawText ? { snippet: source.rawText.slice(0, 700) } : {})
+    });
+    existingUrls.add(source.url);
+  }
+
+  return {
+    identity: card.identity,
+    funding: card.funding,
+    team: card.team,
+    signals: card.signals,
+    comparables: card.comparables,
+    citations
+  };
 }
 
 function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHint[] {
@@ -521,6 +576,11 @@ function rawSlugForRun(input: unknown): string {
   return input.trim().slice(0, 120);
 }
 
+function parseEventSectionId(input: unknown): ResearchSectionId | null {
+  const parsed = researchSectionIdSchema.safeParse(input);
+  return parsed.success ? parsed.data : null;
+}
+
 export const generateCardFunction = inngest.createFunction(
   { id: "generate-card" },
   { event: "card/generate.requested" },
@@ -532,8 +592,10 @@ export const generateCardFunction = inngest.createFunction(
     let domain: string;
     let slug: string;
     const mode = generationModeForRun(event.data.mode);
+    const requestedSectionId = parseEventSectionId(event.data.sectionId);
+    const jobKind: GenerationTrace["jobKind"] = requestedSectionId ? `section:${requestedSectionId}` : mode;
     const trace: GenerationTrace = {
-      jobKind: mode,
+      jobKind,
       mode,
       inngest: {
         ...(typeof event.id === "string" ? { eventId: event.id } : {}),
@@ -551,7 +613,7 @@ export const generateCardFunction = inngest.createFunction(
           slug: rawSlugForRun(event.data.slug),
           domain: rawDomainForRun(event.data.domain),
           mode,
-          jobKind: mode,
+          jobKind,
           status: "failed",
           error: boundedErrorMessage(error),
           traceJson: {
@@ -572,7 +634,7 @@ export const generateCardFunction = inngest.createFunction(
         slug,
         domain,
         mode,
-        jobKind: mode,
+        jobKind,
         status: "running",
         traceJson: trace,
         ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
@@ -605,34 +667,12 @@ export const generateCardFunction = inngest.createFunction(
       });
       mergeTracePatch(trace, researchPlanResult.tracePatch);
       const researchPlan = researchPlanResult.value;
-      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug));
-      const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasUsablePublicProfile(existingCard);
+      const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
+      const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
 
       currentStage = "fetch-sources";
       const sourceResult = await step.run("fetch-sources", async () => {
         const result = await timed(async () => {
-          if (reuseExistingForAnalysis) {
-            return {
-              sources: [] as ProviderSource[],
-              providerFacts: [] as ProviderFactCandidate[],
-              failureCount: 0,
-              trace: {
-                providers: {
-                  directExa: { skipped: true, sourceCount: 0, failureCount: 0 },
-                  stableenrich: { sourceCount: 0, factCount: 0, failureCount: 0, endpoints: [] },
-                  mergedSourceCount: 0
-                },
-                sourceGate: {
-                  acceptedCount: 0,
-                  rejectedCount: 0,
-                  acceptedSamples: [],
-                  rejectedSamples: []
-                }
-              },
-              error: null
-            };
-          }
-
           const [directResult, stableResult] = await Promise.allSettled([
             directExaEnabled()
               ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
@@ -791,6 +831,7 @@ export const generateCardFunction = inngest.createFunction(
         if (canStoreCardSnapshot(mode, seedCardToStore)) {
           const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
           await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
+          await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(seedCardToStore)));
           trace.milestones = {
             ...trace.milestones,
             firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
@@ -858,6 +899,7 @@ export const generateCardFunction = inngest.createFunction(
         if (canStoreCardSnapshot(mode, contactCardToStore)) {
           const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
           await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
+          await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(contactCardToStore)));
           trace.milestones = {
             ...trace.milestones,
             firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt,
@@ -870,7 +912,7 @@ export const generateCardFunction = inngest.createFunction(
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", contactCardToStore);
         }
 
-        if (hasUsablePublicProfile(contactCardToStore)) {
+        if (hasInvestorUsableProfile(contactCardToStore)) {
           trace.steps = {
             ...trace.steps,
             "generate-card": skippedStep("basics early-stop after provider-backed profile")
@@ -884,7 +926,7 @@ export const generateCardFunction = inngest.createFunction(
               slug,
               domain,
               mode,
-              jobKind: mode,
+              jobKind,
               status: "complete",
               costUsd: completeCard.generationCostUsd,
               traceJson: trace,
@@ -903,14 +945,7 @@ export const generateCardFunction = inngest.createFunction(
         evidenceLedger: EvidenceLedgerEntry[];
       }): Promise<ExtractedCardSections> => {
         if (reuseExistingForAnalysis && existingCard) {
-          return extractedCardSectionsSchema.parse({
-            identity: existingCard.identity,
-            funding: existingCard.funding,
-            team: existingCard.team,
-            signals: existingCard.signals,
-            comparables: existingCard.comparables,
-            citations: existingCard.citations
-          });
+          return extractedCardSectionsSchema.parse(sectionsWithSourceCitations(existingCard, sources));
         }
 
         return extractCompanyClaims({
@@ -1061,6 +1096,7 @@ export const generateCardFunction = inngest.createFunction(
       if (canStoreCardSnapshot(mode, cardToStore)) {
         const storedRow = await step.run("upsert-card", () => upsertCard(db, cardToStore));
         await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
+        await step.run("record-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(cardToStore)));
         await step.run("record-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
@@ -1162,6 +1198,7 @@ export const generateCardFunction = inngest.createFunction(
         assertTerminalCardQuality(mode, cardToStore);
         const storedRow = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
         await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
+        await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(cardToStore)));
         await step.run("record-enriched-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
@@ -1179,7 +1216,7 @@ export const generateCardFunction = inngest.createFunction(
           slug,
           domain,
           mode,
-          jobKind: mode,
+          jobKind,
           status: "complete",
           costUsd: cardToStore.generationCostUsd,
           traceJson: trace,
@@ -1200,13 +1237,30 @@ export const generateCardFunction = inngest.createFunction(
           slug,
           domain,
           mode,
-          jobKind: mode,
+          jobKind,
           status: "failed",
           error: boundedErrorMessage(error),
           traceJson: trace,
           ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
         })
+      );
+      await step.run("mark-research-sections-failed", () =>
+        Promise.all(
+          (requestedSectionId
+            ? [requestedSectionId]
+            : mode === "analysis" ? GATED_RESEARCH_SECTION_IDS : PUBLIC_RESEARCH_SECTION_IDS
+          ).map((sectionId) =>
+            markResearchSectionFailed(db, {
+              slug,
+              domain,
+              sectionId,
+              visibility: mode === "analysis" ? "gated" : "public",
+              error: boundedErrorMessage(error),
+              runId: typeof runId === "string" ? runId : null
+            })
+          )
+        )
       );
       throw error;
     }

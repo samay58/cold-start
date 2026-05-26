@@ -71,6 +71,22 @@ function cardForDomain(domain: string): ColdStartCard {
         fetchedAt: "2026-05-07T12:00:00.000Z",
         sourceType: "company_site",
         snippet: "Cached company card"
+      },
+      {
+        id: "c2",
+        url: `https://news.example/${domain}/launch`,
+        title: `${domain} launch coverage`,
+        fetchedAt: "2026-05-07T12:00:00.000Z",
+        sourceType: "news",
+        snippet: "Independent coverage of the company."
+      },
+      {
+        id: "c3",
+        url: `https://registry.example/${domain}`,
+        title: `${domain} registry profile`,
+        fetchedAt: "2026-05-07T12:00:00.000Z",
+        sourceType: "other",
+        snippet: "Registry profile for the company."
       }
     ]
   };
@@ -209,13 +225,15 @@ async function renderSidePanel(input: {
   domain: string;
   fetchMock: ReturnType<typeof vi.fn>;
   initialSession?: Record<string, unknown>;
+  storedLocal?: Record<string, unknown>;
   storedSettings?: Partial<typeof settings>;
 }) {
   vi.resetModules();
 
   const listeners = new Set<StorageListener>();
   let activeDomain = input.domain;
-  const storedSettings = { ...settings, ...input.storedSettings };
+  const storedLocal: Record<string, unknown> = input.storedLocal ?? {};
+  Object.assign(storedLocal, { ...settings, ...input.storedSettings, ...storedLocal });
   const sessionItems: Record<string, unknown> = { activeDomain, ...input.initialSession };
 
   vi.stubGlobal("fetch", input.fetchMock);
@@ -223,10 +241,28 @@ async function renderSidePanel(input: {
     runtime: { id: "extension-test-id" },
     storage: {
       local: {
-        get: (_keys: readonly string[], callback: (items: typeof settings) => void) => callback(storedSettings),
-        set: (items: Partial<typeof settings>, callback: () => void) => {
-          Object.assign(storedSettings, items);
-          callback();
+        get: (
+          keys: string | readonly string[] | Record<string, unknown> | null,
+          callback: (items: Record<string, unknown>) => void
+        ) => {
+          if (keys === null) {
+            callback({ ...storedLocal });
+            return;
+          }
+          if (typeof keys === "string") {
+            callback({ [keys]: storedLocal[keys] });
+            return;
+          }
+          if (Array.isArray(keys)) {
+            callback(Object.fromEntries(keys.map((key) => [key, storedLocal[key]])));
+            return;
+          }
+          const defaults = keys as Record<string, unknown>;
+          callback(Object.fromEntries(Object.keys(defaults).map((key) => [key, storedLocal[key] ?? defaults[key]])));
+        },
+        set: (items: Record<string, unknown>, callback?: () => void) => {
+          Object.assign(storedLocal, items);
+          callback?.();
         }
       },
       session: {
@@ -837,6 +873,12 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
+    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true })
@@ -872,6 +914,12 @@ describe("SidePanel generation gate", () => {
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -924,6 +972,12 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
+    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
     expect(generateCalls(fetchMock)).toHaveLength(1);
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true, forceRefresh: true })
@@ -947,7 +1001,7 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("empty");
-    expect(container.textContent).toContain("No market structure claims survived verification.");
+    expect(container.textContent).toContain("No market-structure claims survived verification.");
     await unmount();
   });
 
@@ -993,6 +1047,12 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
+    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(350);
     });
@@ -1008,7 +1068,7 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("empty");
-    expect(container.textContent).toContain("No market structure claims survived verification.");
+    expect(container.textContent).toContain("No market-structure claims survived verification.");
     await unmount();
   });
 
@@ -1026,7 +1086,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("refreshes empty card-backed enrichments inline instead of showing a terminal empty state", async () => {
+  it("opens empty card-backed enrichments without automatically refreshing the company profile", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
@@ -1050,17 +1110,14 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Refreshing");
-    expect(container.textContent).toContain("Searching for recent traction and launch signals");
-    expect(container.textContent).not.toContain("No recent cited signals found yet.");
-    expect(generateCalls(fetchMock)).toHaveLength(1);
-    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "warp.dev", mode: "basics", confirmStart: true, forceRefresh: true })
-    );
+    expect(container.textContent).toContain("No traction signal found yet.");
+    expect(container.textContent).not.toContain("Refreshing");
+    expect(container.textContent).not.toContain("Searching for recent traction and launch signals");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
 
-  it("lets a running card-backed enrichment stay collapsed while it refreshes", async () => {
+  it("keeps an empty card-backed enrichment stable instead of promoting it into a running refresh", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
@@ -1085,24 +1142,10 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     const signalsCard = container.querySelector<HTMLElement>('[data-layer-id="signals"]');
-    const signalsHeader = signalsCard?.querySelector<HTMLButtonElement>(".cs-active-enrichment-head");
-    const signalsBody = signalsCard?.querySelector<HTMLElement>(".cs-active-enrichment-body-frame");
-
-    expect(signalsCard?.dataset.state).toBe("running");
+    expect(signalsCard?.dataset.state).toBe("empty");
     expect(signalsCard?.dataset.expanded).toBe("true");
-    expect(signalsHeader?.getAttribute("aria-expanded")).toBe("true");
-    expect(signalsBody?.dataset.expanded).toBe("true");
-
-    await act(async () => {
-      signalsHeader?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    expect(signalsCard?.dataset.state).toBe("running");
-    expect(signalsCard?.dataset.expanded).toBe("false");
-    expect(signalsHeader?.getAttribute("aria-expanded")).toBe("false");
-    expect(signalsBody?.dataset.expanded).toBe("false");
-    expect(signalsHeader?.textContent).toContain("Refreshing");
+    expect(container.textContent).toContain("No traction signal found yet.");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
 
@@ -1123,6 +1166,28 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("Buyer & Use Case1 source");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
+  });
+
+  it("persists pinned research cards per domain without restarting generation on reopen", async () => {
+    const storedLocal: Record<string, unknown> = {};
+    const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
+    const firstRender = await renderSidePanel({ domain: "warp.dev", fetchMock, storedLocal });
+
+    const servesButton = interactiveControls(firstRender.container).find(
+      (button) => button.textContent?.includes("Buyer & Use Case")
+    );
+    expect(servesButton).toBeTruthy();
+
+    await act(async () => {
+      servesButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+    await firstRender.unmount();
+
+    const secondRender = await renderSidePanel({ domain: "warp.dev", fetchMock, storedLocal });
+    expect(secondRender.container.textContent).toContain("Buyer & Use Case1 source");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await secondRender.unmount();
   });
 
   it("keeps polling when the generation status route is unavailable", async () => {

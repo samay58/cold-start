@@ -1,6 +1,14 @@
-import { canRunInvestorAnalysis, fundingEvidenceFromCitations, publicProfileQuality, type ColdStartCard, type PublicProfileQuality } from "@cold-start/core";
+import {
+  canRunInvestorAnalysis,
+  fundingEvidenceFromCitations,
+  hasUsablePublicProfile,
+  publicProfileQuality,
+  type ColdStartCard,
+  type PublicProfileQuality,
+  type ResearchSection
+} from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform, type PanInfo } from "framer-motion";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commitSpring, motionTokens, reducedSpring, snapSpring } from "./motion-primitives";
 import {
@@ -47,6 +55,7 @@ type ResearchLayerPanelProps = {
   onStartAnalysis: () => void;
   profileRefreshElapsedSeconds?: number | undefined;
   profileRefreshRun?: ProfileRefreshRun | undefined;
+  sections?: ResearchSection[] | undefined;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
@@ -60,12 +69,55 @@ const PILE_POSES = [
   { x: 0, y: 204, rotate: -0.35 },
   { x: 6, y: 238, rotate: 0.42 }
 ];
+const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
+const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
 
 type PilePose = {
   x: number;
   y: number;
   rotate: number;
 };
+
+function defaultActiveLayers(card: ColdStartCard, canShowResearchLayers: boolean, analysisRun: AnalysisRun | undefined): ResearchLayerId[] {
+  return canShowResearchLayers && (card.synthesis || analysisRun) ? ["coreIdea"] : [];
+}
+
+function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  const record: Record<string, ResearchLayerId[]> = {};
+  for (const [domain, ids] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(ids)) {
+      continue;
+    }
+    const validIds = ids.filter((id): id is ResearchLayerId => typeof id === "string" && researchLayerIds.has(id as ResearchLayerId));
+    if (validIds.length > 0) {
+      record[domain] = Array.from(new Set(validIds));
+    }
+  }
+  return record;
+}
+
+function readPinnedLayerIds(domain: string, fallback: ResearchLayerId[], callback: (ids: ResearchLayerId[]) => void) {
+  chrome.storage.local.get([PINNED_RESEARCH_LAYERS_KEY], (items) => {
+    const record = pinnedLayerRecordValue(items[PINNED_RESEARCH_LAYERS_KEY]);
+    callback(record[domain] ?? fallback);
+  });
+}
+
+function writePinnedLayerIds(domain: string, ids: ResearchLayerId[]) {
+  chrome.storage.local.get([PINNED_RESEARCH_LAYERS_KEY], (items) => {
+    const record = pinnedLayerRecordValue(items[PINNED_RESEARCH_LAYERS_KEY]);
+    chrome.storage.local.set({
+      [PINNED_RESEARCH_LAYERS_KEY]: {
+        ...record,
+        [domain]: ids
+      }
+    });
+  });
+}
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
@@ -347,11 +399,15 @@ function PeopleLine({
 }
 
 function LayerContent({
+  actionLabel,
   display,
+  onAction,
   running,
   runningCopy = "Extracting structure from cited sources"
 }: {
+  actionLabel?: string | undefined;
   display: ResearchLayerDisplay;
+  onAction?: (() => void) | undefined;
   running: boolean;
   runningCopy?: string;
 }) {
@@ -368,7 +424,15 @@ function LayerContent({
     );
   }
 
-  const sourceChips = <SourceChips sources={display.sources} />;
+  const action = onAction && actionLabel
+    ? <button className="cs-layer-action" onClick={onAction} type="button">{actionLabel}</button>
+    : null;
+  const sourceChips = (
+    <>
+      <SourceChips sources={display.sources} />
+      {action}
+    </>
+  );
 
   if (display.items && display.items.length > 0) {
     return (
@@ -588,19 +652,15 @@ export function ResearchLayerPanel({
   onRegenerate,
   onStartAnalysis,
   profileRefreshElapsedSeconds = 0,
-  profileRefreshRun
+  profileRefreshRun,
+  sections
 }: ResearchLayerPanelProps) {
   const companyName = readableCompanyName(card);
   const canStartInvestorLens = canRunInvestorAnalysis(card);
+  const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
-  const layers = useMemo(() => layersForCard(card), [card]);
-  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => {
-    if (canStartInvestorLens && (card.synthesis || analysisRun)) {
-      return ["coreIdea"];
-    }
-
-    return [];
-  });
+  const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
+  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => defaultActiveLayers(card, canShowResearchLayers, analysisRun));
   const [expandedLayerId, setExpandedLayerId] = useState<ResearchLayerId | null>(() => {
     if (canStartInvestorLens && (card.synthesis || analysisRun)) {
       return "coreIdea";
@@ -624,22 +684,36 @@ export function ResearchLayerPanel({
   const dropZoneScale = useTransform(trayPull, [0, 70, 150], [0.982, 1, 1.018]);
   const dropZoneY = useTransform(trayPull, [0, 70, 150], [5, 0, -2]);
 
+  useEffect(() => {
+    let cancelled = false;
+    readPinnedLayerIds(card.domain, defaultActiveLayers(card, canShowResearchLayers, analysisRun), (ids) => {
+      if (cancelled) {
+        return;
+      }
+      setActiveLayerIds(ids);
+      setExpandedLayerId((current) => current && ids.includes(current) ? current : ids[0] ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [analysisRun, canShowResearchLayers, card]);
+
   function activateLayer(id: ResearchLayerId) {
     const layer = layers.find((candidate) => candidate.id === id);
     if (!layer) {
       return;
     }
 
-    setActiveLayerIds((current) => current.includes(id) ? current : [...current, id]);
+    setActiveLayerIds((current) => {
+      if (current.includes(id)) {
+        return current;
+      }
+      const next = [...current, id];
+      writePinnedLayerIds(card.domain, next);
+      return next;
+    });
     setExpandedLayerId(id);
 
-    if (layer.source === "analysis" && layer.availability === "needs-analysis" && canStartInvestorLens && !analysisRun) {
-      onStartAnalysis();
-    }
-
-    if (layer.source === "card" && layer.availability === "empty" && !profileRefreshRun) {
-      onRefreshProfile(id);
-    }
   }
 
   function toggleExpanded(id: ResearchLayerId) {
@@ -714,7 +788,7 @@ export function ResearchLayerPanel({
     card.domain
   );
 
-  if (!canStartInvestorLens) {
+  if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
@@ -756,16 +830,34 @@ export function ResearchLayerPanel({
         <div className="cs-active-enrichments">
           <AnimatePresence initial={false}>
           {activeLayerIds.map((id) => {
-            const display = layerDisplayForCard(card, id);
+            const display = layerDisplayForCard(card, id, sections);
             if (!display) {
               return null;
             }
 
             const layer = layers.find((candidate) => candidate.id === id);
-            const running = Boolean(layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun));
+            const running = Boolean(display.status === "running" || (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun)));
             const refreshing = Boolean(profileRefreshRun?.layerId === id && layer?.source === "card" && display.status === "empty");
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
+            const actionLabel = display.status === "stale"
+              ? "Refresh"
+              : display.status === "failed"
+                ? "Retry"
+                : display.status === "needs-analysis"
+                  ? "Generate"
+                  : display.status === "empty"
+                    ? "Refresh"
+                    : undefined;
+            const handleLayerAction = actionLabel
+              ? () => {
+                  if (layer?.source === "analysis") {
+                    onStartAnalysis();
+                    return;
+                  }
+                  onRefreshProfile(id);
+                }
+              : undefined;
             const statusCopy = running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
@@ -822,7 +914,13 @@ export function ResearchLayerPanel({
                   id={bodyId}
                 >
                   <div className="cs-active-enrichment-body">
-                    <LayerContent display={display} running={running || refreshing} runningCopy={runningCopy} />
+                    <LayerContent
+                      actionLabel={actionLabel}
+                      display={display}
+                      onAction={running || refreshing ? undefined : handleLayerAction}
+                      running={running || refreshing}
+                      runningCopy={runningCopy}
+                    />
                   </div>
                 </div>
               </motion.article>
