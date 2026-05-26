@@ -39,7 +39,7 @@ type AnalysisRun = {
   startedAt: number;
 };
 
-type ProfileRefreshRun = AnalysisRun & {
+type ActiveSectionRun = AnalysisRun & {
   layerId: ResearchLayerId;
 };
 
@@ -50,11 +50,11 @@ type ResearchLayerPanelProps = {
   contactElapsedSeconds?: number | undefined;
   contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
-  onRefreshProfile: (layerId: ResearchLayerId) => void;
+  onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
   onStartAnalysis: () => void;
-  profileRefreshElapsedSeconds?: number | undefined;
-  profileRefreshRun?: ProfileRefreshRun | undefined;
+  activeSectionElapsedSeconds?: number | undefined;
+  activeSectionRun?: ActiveSectionRun | undefined;
   sections?: ResearchSection[] | undefined;
 };
 
@@ -648,11 +648,11 @@ export function ResearchLayerPanel({
   contactElapsedSeconds = 0,
   contactRun,
   elapsedSeconds,
-  onRefreshProfile,
+  onRunSection,
   onRegenerate,
   onStartAnalysis,
-  profileRefreshElapsedSeconds = 0,
-  profileRefreshRun,
+  activeSectionElapsedSeconds = 0,
+  activeSectionRun,
   sections
 }: ResearchLayerPanelProps) {
   const companyName = readableCompanyName(card);
@@ -837,7 +837,7 @@ export function ResearchLayerPanel({
             }
 
             const layer = layers.find((candidate) => candidate.id === id);
-            const refreshing = Boolean(profileRefreshRun?.layerId === id);
+            const refreshing = Boolean(activeSectionRun?.layerId === id);
             const running = Boolean(display.status === "running" || (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun)));
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : display.status;
@@ -852,15 +852,15 @@ export function ResearchLayerPanel({
                     : undefined;
             const handleLayerAction = actionLabel
               ? () => {
-                  onRefreshProfile(id);
+                  onRunSection(id);
                 }
               : undefined;
             const statusCopy = running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
                 ? layer?.source === "analysis"
-                  ? `Synthesizing · ${formatElapsed(profileRefreshElapsedSeconds)}`
-                  : `Refreshing · ${formatElapsed(profileRefreshElapsedSeconds)}`
+                  ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
+                  : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
                 : sourceLabel(display.sourceCount);
             const runningCopy = refreshing
               ? layer?.source === "analysis"

@@ -1,4 +1,4 @@
-import { companySlugFromDomain, deriveResearchSectionsFromCard } from "@cold-start/core";
+import { companySlugFromDomain, mergeStoredResearchSectionsWithLegacy } from "@cold-start/core";
 import {
   createDb,
   findCardBySlug,
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     findLatestGenerationRunStatusBySlug(db, slug, "basics"),
     findLatestGenerationRunStatusBySlug(db, slug, "analysis")
   ]);
-  const sections = storedSections.length > 0 ? storedSections : card ? deriveResearchSectionsFromCard(card) : [];
+  const sections = mergeStoredResearchSectionsWithLegacy({ card, storedSections });
   const metrics: ServerTimingMetric[] = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }

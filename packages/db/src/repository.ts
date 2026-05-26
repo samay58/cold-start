@@ -38,6 +38,7 @@ export type PublicCardSummary = {
   lastRoundName: string | null;
   headcount: number | null;
   card: PublicCard;
+  sections: ResearchSection[];
 };
 
 const identityTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -197,12 +198,39 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
 }
 
 export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
-  const rows = await db
+  const [cardRows, sectionRows] = await Promise.all([
+    db
     .select({ cardJson: cards.cardJson })
     .from(cards)
-    .orderBy(desc(cards.generatedAt));
+      .orderBy(desc(cards.generatedAt)),
+    db
+      .select({
+        slug: researchSections.slug,
+        domain: researchSections.domain,
+        sectionId: researchSections.sectionId,
+        visibility: researchSections.visibility,
+        status: researchSections.status,
+        contentJson: researchSections.contentJson,
+        citationIds: researchSections.citationIds,
+        sourceIds: researchSections.sourceIds,
+        runId: researchSections.runId,
+        error: researchSections.error,
+        generatedAt: researchSections.generatedAt,
+        staleAt: researchSections.staleAt,
+        createdAt: researchSections.createdAt,
+        updatedAt: researchSections.updatedAt
+      })
+      .from(researchSections)
+      .where(eq(researchSections.visibility, "public"))
+  ]);
+  const sectionsBySlug = new Map<string, ResearchSection[]>();
 
-  return rows.flatMap((row) => {
+  for (const row of sectionRows) {
+    const section = researchSectionFromRow(row);
+    sectionsBySlug.set(section.slug, [...(sectionsBySlug.get(section.slug) ?? []), section]);
+  }
+
+  return cardRows.flatMap((row) => {
     const parsed = coldStartCardSchema.safeParse(row.cardJson);
 
     if (!parsed.success) {
@@ -224,7 +252,8 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
       totalRaisedUsd: card.funding.totalRaisedUsd.value,
       lastRoundName: card.funding.lastRound.value?.name ?? null,
       headcount: card.team.headcount.value?.value ?? null,
-      card
+      card,
+      sections: sectionsBySlug.get(card.slug) ?? []
     }];
   });
 }
@@ -451,6 +480,39 @@ export type ProviderFailureSummary = {
   topEndpoint: string | null;
   startedAt: Date | null;
 };
+
+export type StoredSource = {
+  id: string;
+  url: string;
+  title: string;
+  sourceType: SourceType;
+  fetchedAt: string;
+  rawText: string;
+};
+
+export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<StoredSource[]> {
+  const rows = await db
+    .select({
+      id: sources.id,
+      url: sources.url,
+      title: sources.title,
+      sourceType: sources.sourceType,
+      fetchedAt: sources.fetchedAt,
+      rawText: sources.rawText
+    })
+    .from(sources)
+    .innerJoin(cards, eq(sources.cardId, cards.id))
+    .where(eq(cards.slug, slug));
+
+  return rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    sourceType: row.sourceType,
+    fetchedAt: row.fetchedAt.toISOString(),
+    rawText: row.rawText
+  }));
+}
 
 // Pulls the latest generation_runs row for a slug, extracts a one-line summary of provider
 // failures from its trace_json. Used by the card routes to surface failure context as response
@@ -765,7 +827,7 @@ export async function markGenerationRun(
     const [updated] = await db
       .update(generationRuns)
       .set(values)
-      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
+      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), eq(generationRuns.jobKind, jobKind), inArray(generationRuns.status, ["queued", "running"])))
       .returning();
 
     if (updated) {
@@ -777,7 +839,7 @@ export async function markGenerationRun(
     const [updated] = await db
       .update(generationRuns)
       .set(values)
-      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), eq(generationRuns.status, "queued")))
+      .where(and(eq(generationRuns.slug, input.slug), eq(generationRuns.mode, mode), eq(generationRuns.jobKind, jobKind), eq(generationRuns.status, "queued")))
       .returning();
 
     if (updated) {

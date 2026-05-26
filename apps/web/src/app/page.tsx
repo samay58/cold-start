@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { RESEARCH_SECTION_DEFINITIONS_BY_ID, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import type { PublicCardSummary } from "@cold-start/db";
 import Link from "next/link";
 import React from "react";
@@ -58,70 +58,24 @@ function companyMeta(summary: PublicCardSummary) {
   ].filter((item): item is string => Boolean(item));
 }
 
-function sectionPreviews(card: PublicCard): SectionPreview[] {
-  const description = card.identity.description?.value;
-  const descriptionSources = card.identity.description?.citationIds.length ?? 0;
-  const fundingSources = new Set([
-    ...card.funding.totalRaisedUsd.citationIds,
-    ...card.funding.lastRound.citationIds,
-    ...card.funding.investors.citationIds,
-    ...(card.funding.rounds?.citationIds ?? [])
-  ]).size;
-  const comparableSources = new Set(card.comparables.flatMap((comparable) => comparable.citationIds ?? [])).size;
+function sectionPreview(section: ResearchSection, card: PublicCard): SectionPreview {
+  const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
+  const content = section.content;
+  const item = content?.items[0] ?? null;
+  const state = section.status === "available" || section.status === "stale"
+    ? card.cacheStatus === "stale" ? "stale" : section.status
+    : "empty";
 
-  const sections: SectionPreview[] = [
-    {
-      id: "buyer",
-      title: "Buyer & Use Case",
-      detail: description?.serves ? "buyer evidence" : "needs buyer proof",
-      body: description?.serves ?? description?.concept ?? card.identity.oneLiner.value ?? "Buyer context has not cleared the source gate.",
-      sourceCount: descriptionSources || card.identity.oneLiner.citationIds.length,
-      state: description?.serves || description?.concept || card.identity.oneLiner.value ? "available" : "empty"
-    },
-    {
-      id: "traction",
-      title: "Traction",
-      detail: card.signals.length > 0 ? countLabel(card.signals.length, "signal") : "no traction yet",
-      body: card.signals[0]?.title ?? "No recent cited traction signal is saved yet.",
-      sourceCount: new Set(card.signals.flatMap((signal) => signal.citationIds)).size,
-      state: card.signals.length > 0 ? "available" : "empty"
-    },
-    {
-      id: "financing",
-      title: "Financing",
-      detail: compactMoney(card.funding.totalRaisedUsd.value) ?? card.funding.lastRound.value?.name ?? "no disclosed round",
-      body: card.funding.lastRound.value?.name
-        ? `${card.funding.lastRound.value.name}${compactMoney(card.funding.lastRound.value.amountUsd) ? `, ${compactMoney(card.funding.lastRound.value.amountUsd)}` : ""}`
-        : card.funding.investors.value?.length
-          ? `Named investors include ${card.funding.investors.value.slice(0, 4).map((investor) => investor.name).join(", ")}.`
-          : "No cited financing detail is saved yet.",
-      sourceCount: fundingSources,
-      state: fundingSources > 0 ? "available" : "empty"
-    },
-    {
-      id: "competition",
-      title: "Competitive Position",
-      detail: card.comparables.length > 0 ? countLabel(card.comparables.length, "company", "companies") : "no comparables yet",
-      body: card.comparables.length > 0
-        ? card.comparables.slice(0, 3).map((company) => company.name).join(", ")
-        : "No comparable set has cleared the source gate.",
-      sourceCount: comparableSources,
-      state: card.comparables.length > 0 ? "available" : "empty"
-    },
-    {
-      id: "product",
-      title: "Product & Technology",
-      detail: description?.mechanism ? "mechanism saved" : "mechanism missing",
-      body: description?.mechanism ?? description?.shortDescription ?? card.identity.oneLiner.value ?? "Product mechanism is not saved yet.",
-      sourceCount: descriptionSources || card.identity.oneLiner.citationIds.length,
-      state: description?.mechanism || description?.shortDescription || card.identity.oneLiner.value ? "available" : "empty"
-    }
-  ];
-
-  return sections.map((section): SectionPreview => ({
-    ...section,
-    state: card.cacheStatus === "stale" && section.state === "available" ? "stale" : section.state
-  }));
+  return {
+    id: section.sectionId,
+    title: definition.title,
+    detail: state === "empty"
+      ? definition.emptyState
+      : item?.label ?? content?.confidence ?? "saved",
+    body: content?.summary ?? item?.text ?? definition.emptyState,
+    sourceCount: new Set(section.citationIds).size,
+    state
+  };
 }
 
 function CompanyRow({ selected, summary }: { selected: boolean; summary: PublicCardSummary }) {
@@ -160,8 +114,10 @@ function SectionCard({ active = false, section }: { active?: boolean; section: S
 
 function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
   const card = summary.card;
-  const sections = sectionPreviews(card);
-  const activeSection = sections.find((section) => section.state !== "empty") ?? sections[0]!;
+  const sections = (summary.sections ?? [])
+    .filter((section) => section.visibility === "public")
+    .map((section) => sectionPreview(section, card));
+  const activeSection = sections.find((section) => section.state !== "empty") ?? sections[0] ?? null;
   const meta = companyMeta(summary);
 
   return (
@@ -197,7 +153,7 @@ function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
         </div>
         <div className="cs-index-stack-list">
           {sections.map((section) => (
-            <SectionCard active={section.id === activeSection.id} key={section.id} section={section} />
+            <SectionCard active={section.id === activeSection?.id} key={section.id} section={section} />
           ))}
         </div>
       </div>

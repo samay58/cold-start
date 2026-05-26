@@ -1,7 +1,8 @@
 import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
-  deriveResearchSectionsFromCard,
   hasUsablePublicProfile,
+  mergeStoredResearchSectionsWithLegacy,
+  placeholderResearchSectionsForCard,
   publicProfileQuality,
   type ColdStartCard,
   type ResearchSection,
@@ -85,7 +86,10 @@ export async function fetchBootstrap(domain: string, settings: Settings, signal:
     }
     return {
       ...parsed,
-      sections: parsed.sections ?? (parsed.card ? deriveResearchSectionsFromCard(parsed.card) : [])
+      sections: mergeStoredResearchSectionsWithLegacy({
+        card: parsed.card ?? null,
+        storedSections: parsed.sections ?? []
+      })
     };
   } catch (caught) {
     if (caught instanceof ApiError && (caught.status === 404 || caught.status === 405)) {
@@ -144,7 +148,7 @@ async function fetchBootstrapSerially(
     domain,
     slug: card?.slug ?? safeSlug,
     card,
-    sections: card ? deriveResearchSectionsFromCard(card) : [],
+    sections: card ? mergeStoredResearchSectionsWithLegacy({ card, storedSections: [] }) : [],
     runs: { basics, analysis }
   };
 }
@@ -481,7 +485,7 @@ export async function startSectionGenerationAndPoll(
   const pollStartedAt = Date.now();
   let pollCount = 0;
   let currentCard = latestCard;
-  let currentSections = deriveResearchSectionsFromCard(latestCard);
+  let currentSections = placeholderResearchSectionsForCard(latestCard);
 
   const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
   onGenerationStatus(generation.status);
@@ -495,7 +499,7 @@ export async function startSectionGenerationAndPoll(
     const bootstrap = await fetchBootstrap(domain, settings, signal);
     if (bootstrap.card) {
       currentCard = bootstrap.card;
-      currentSections = bootstrap.sections ?? deriveResearchSectionsFromCard(bootstrap.card);
+      currentSections = bootstrap.sections ?? mergeStoredResearchSectionsWithLegacy({ card: bootstrap.card, storedSections: [] });
     }
 
     const section = sectionFromList(currentSections, sectionId);

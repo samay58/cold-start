@@ -1,4 +1,4 @@
-import { hasUsablePublicProfile, materializeFundingFromCitations } from "@cold-start/core";
+import { hasUsablePublicProfile, materializeFundingFromCitations, mergeStoredResearchSectionsWithLegacy } from "@cold-start/core";
 import {
   createDb,
   findCardBySlug,
@@ -42,7 +42,12 @@ export async function getPublicProfileIndex(): Promise<PublicCardSummary[]> {
       totalRaisedUsd: card.funding.totalRaisedUsd.value,
       lastRoundName: card.funding.lastRound.value?.name ?? null,
       headcount: card.team.headcount.value?.value ?? null,
-      card
+      card,
+      sections: mergeStoredResearchSectionsWithLegacy({
+        card,
+        storedSections: summary.sections,
+        includeGated: false
+      })
     };
   });
 }

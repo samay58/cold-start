@@ -2,24 +2,17 @@ import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   canRunInvestorAnalysis,
   fundingEvidenceFromCitations,
+  sectionIdForLayer as coreSectionIdForLayer,
   sourceQualityForSource,
   sourceQualityRank,
   type Citation,
   type ColdStartCard,
+  type ResearchLayerId,
   type ResearchSection
 } from "@cold-start/core";
 import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-start/ui";
 
-export type ResearchLayerId =
-  | "coreIdea"
-  | "marketStructureTiming"
-  | "customers"
-  | "serves"
-  | "signals"
-  | "investors"
-  | "competition"
-  | "mechanism"
-  | "openQuestions";
+export type { ResearchLayerId } from "@cold-start/core";
 
 type ResearchLayerSource = "card" | "analysis";
 type ResearchLayerAvailability = "available" | "needs-analysis" | "empty";
@@ -74,20 +67,8 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "openQuestions", title: "Risks & Diligence", description: "What still needs proof", source: "analysis" }
 ];
 
-const LAYER_SECTION_IDS: Record<ResearchLayerId, ResearchSection["sectionId"]> = {
-  coreIdea: "why_it_matters",
-  serves: "buyer",
-  marketStructureTiming: "market",
-  customers: "customer_proof",
-  signals: "traction",
-  investors: "financing",
-  competition: "competition",
-  mechanism: "product",
-  openQuestions: "risks"
-};
-
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
-  return LAYER_SECTION_IDS[id];
+  return coreSectionIdForLayer(id);
 }
 
 function stripCitationMarkers(text: string) {
@@ -172,7 +153,7 @@ function displaySourceCount(sources: ResearchLayerSourceReference[]) {
 }
 
 function sectionForLayer(sections: ResearchSection[] | undefined, id: ResearchLayerId) {
-  return sections?.find((section) => section.sectionId === LAYER_SECTION_IDS[id]) ?? null;
+  return sections?.find((section) => section.sectionId === sectionIdForLayer(id)) ?? null;
 }
 
 function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, section: ResearchSection): ResearchLayerDisplay {

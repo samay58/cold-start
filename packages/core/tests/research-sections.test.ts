@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "../src/index";
 import {
   RESEARCH_SECTION_DEFINITIONS,
-  deriveResearchSectionsFromCard,
+  deriveLegacyResearchSectionsFromCard,
+  mergeStoredResearchSectionsWithLegacy,
   researchSectionSchema
 } from "../src/index";
 
@@ -102,7 +103,7 @@ describe("research section registry", () => {
   });
 
   it("derives compatible section state from an existing card", () => {
-    const sections = deriveResearchSectionsFromCard(card());
+    const sections = deriveLegacyResearchSectionsFromCard(card());
 
     expect(sections.map((section) => section.sectionId)).toEqual(RESEARCH_SECTION_DEFINITIONS.map((section) => section.id));
     expect(sections.find((section) => section.sectionId === "buyer")).toMatchObject({
@@ -132,7 +133,7 @@ describe("research section registry", () => {
   });
 
   it("does not turn enrichment-only descriptions into finished reader sections", () => {
-    const sections = deriveResearchSectionsFromCard(card({
+    const sections = deriveLegacyResearchSectionsFromCard(card({
       identity: {
         ...card().identity,
         oneLiner: fact("AI startup for expert digital minds.", ["c1"]),
@@ -161,5 +162,27 @@ describe("research section registry", () => {
 
     expect(sections.find((section) => section.sectionId === "buyer")).toMatchObject({ status: "empty" });
     expect(sections.find((section) => section.sectionId === "product")).toMatchObject({ status: "empty" });
+  });
+
+  it("merges stored rows over legacy fallback without dropping missing sections", () => {
+    const stored = {
+      ...deriveLegacyResearchSectionsFromCard(card()).find((section) => section.sectionId === "why_it_matters")!,
+      status: "running" as const,
+      content: null,
+      runId: "run-1"
+    };
+    const sections = mergeStoredResearchSectionsWithLegacy({
+      card: card(),
+      storedSections: [stored]
+    });
+
+    expect(sections).toHaveLength(9);
+    expect(sections.find((section) => section.sectionId === "why_it_matters")).toMatchObject({
+      status: "running",
+      runId: "run-1"
+    });
+    expect(sections.find((section) => section.sectionId === "buyer")).toMatchObject({
+      status: "available"
+    });
   });
 });

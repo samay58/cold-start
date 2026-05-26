@@ -142,11 +142,10 @@ describe("GET /api/extension/bootstrap", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       domain: "cartesia.ai",
       slug: "cartesia",
       card,
-      sections,
       runs: {
         basics: {
           slug: "cartesia",
@@ -168,6 +167,8 @@ describe("GET /api/extension/bootstrap", () => {
         }
       }
     });
+    expect(body.sections).toHaveLength(9);
+    expect(body.sections.find((section: { sectionId: string }) => section.sectionId === "why_it_matters")).toMatchObject(sections[0]);
     expect(JSON.stringify(body)).not.toContain("traceJson");
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "basics" });
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "analysis" });

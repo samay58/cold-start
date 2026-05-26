@@ -15,10 +15,22 @@ export const researchSectionIdSchema = z.enum([
 
 export const researchSectionStatusSchema = z.enum(["not_started", "running", "available", "empty", "failed", "stale"]);
 export const researchSectionVisibilitySchema = z.enum(["public", "gated"]);
+export const researchLayerIdSchema = z.enum([
+  "coreIdea",
+  "serves",
+  "marketStructureTiming",
+  "customers",
+  "signals",
+  "investors",
+  "competition",
+  "mechanism",
+  "openQuestions"
+]);
 
 export type ResearchSectionId = z.infer<typeof researchSectionIdSchema>;
 export type ResearchSectionStatus = z.infer<typeof researchSectionStatusSchema>;
 export type ResearchSectionVisibility = z.infer<typeof researchSectionVisibilitySchema>;
+export type ResearchLayerId = z.infer<typeof researchLayerIdSchema>;
 
 export const researchSectionItemSchema = z.object({
   label: z.string().min(1),
@@ -81,6 +93,7 @@ export type ResearchSection = z.infer<typeof researchSectionSchema>;
 
 export type ResearchSectionDefinition = {
   id: ResearchSectionId;
+  layerId: ResearchLayerId;
   title: string;
   visibility: ResearchSectionVisibility;
   staleAfterMs: number;
@@ -111,6 +124,7 @@ function prompt(body: string) {
 export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "buyer",
+    layerId: "serves",
     title: "Buyer & Use Case",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
@@ -119,6 +133,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "customer_proof",
+    layerId: "customers",
     title: "Customer Proof",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
@@ -127,6 +142,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "traction",
+    layerId: "signals",
     title: "Traction",
     visibility: "public",
     staleAfterMs: SIX_HOURS_MS,
@@ -135,6 +151,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "financing",
+    layerId: "investors",
     title: "Financing & Valuation",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
@@ -143,6 +160,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "competition",
+    layerId: "competition",
     title: "Competitive Position",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
@@ -151,6 +169,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "product",
+    layerId: "mechanism",
     title: "Product & Technology",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
@@ -159,6 +178,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "why_it_matters",
+    layerId: "coreIdea",
     title: "Why It Matters",
     visibility: "gated",
     staleAfterMs: DAY_MS,
@@ -167,6 +187,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "market",
+    layerId: "marketStructureTiming",
     title: "Market Structure & Timing",
     visibility: "gated",
     staleAfterMs: DAY_MS,
@@ -175,6 +196,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   },
   {
     id: "risks",
+    layerId: "openQuestions",
     title: "Risks & Diligence",
     visibility: "gated",
     staleAfterMs: DAY_MS,
@@ -186,6 +208,28 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
 export const RESEARCH_SECTION_DEFINITIONS_BY_ID = Object.fromEntries(
   RESEARCH_SECTION_DEFINITIONS.map((definition) => [definition.id, definition])
 ) as Record<ResearchSectionId, ResearchSectionDefinition>;
+
+export const RESEARCH_SECTION_DEFINITIONS_BY_LAYER_ID = Object.fromEntries(
+  RESEARCH_SECTION_DEFINITIONS.map((definition) => [definition.layerId, definition])
+) as Record<ResearchLayerId, ResearchSectionDefinition>;
+
+export function sectionIdForLayer(id: ResearchLayerId): ResearchSectionId {
+  return RESEARCH_SECTION_DEFINITIONS_BY_LAYER_ID[id].id;
+}
+
+export function sectionDefinitionForLayer(id: ResearchLayerId): ResearchSectionDefinition {
+  return RESEARCH_SECTION_DEFINITIONS_BY_LAYER_ID[id];
+}
+
+export function layerIdForSection(id: ResearchSectionId): ResearchLayerId {
+  return RESEARCH_SECTION_DEFINITIONS_BY_ID[id].layerId;
+}
+
+export function researchSectionIdsForVisibility(visibility: ResearchSectionVisibility): ResearchSectionId[] {
+  return RESEARCH_SECTION_DEFINITIONS
+    .filter((definition) => definition.visibility === visibility)
+    .map((definition) => definition.id);
+}
 
 function citedContent(input: {
   slug: string;
@@ -223,7 +267,7 @@ function citedContent(input: {
   };
 }
 
-function missingSection(card: ColdStartCard, sectionId: ResearchSectionId, status: ResearchSectionStatus = "empty"): ResearchSection {
+export function emptyResearchSectionForCard(card: ColdStartCard, sectionId: ResearchSectionId, status: ResearchSectionStatus = "empty"): ResearchSection {
   const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId];
   return {
     slug: card.slug,
@@ -247,6 +291,12 @@ function missingSection(card: ColdStartCard, sectionId: ResearchSectionId, statu
   };
 }
 
+export function placeholderResearchSectionsForCard(card: ColdStartCard): ResearchSection[] {
+  return RESEARCH_SECTION_DEFINITIONS.map((definition) =>
+    emptyResearchSectionForCard(card, definition.id, definition.visibility === "gated" ? "not_started" : "empty")
+  );
+}
+
 function hasReaderFacingEvidence(card: ColdStartCard, citationIds: string[]) {
   const citations = new Map(card.citations.map((citation) => [citation.id, citation]));
   return citationIds.some((id) => {
@@ -259,7 +309,7 @@ function hasReaderFacingEvidence(card: ColdStartCard, citationIds: string[]) {
   });
 }
 
-export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
+export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
   const description = card.identity.description?.value;
   const descriptionCitationIds = card.identity.description?.citationIds ?? card.identity.oneLiner.citationIds;
   const descriptionHasReaderEvidence = hasReaderFacingEvidence(card, descriptionCitationIds);
@@ -296,8 +346,8 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
           summary: description?.serves ?? description?.concept ?? card.identity.oneLiner.value,
           citationIds: descriptionCitationIds.length > 0 ? descriptionCitationIds : card.identity.oneLiner.citationIds
         })
-      : missingSection(card, "buyer"),
-    missingSection(card, "customer_proof"),
+      : emptyResearchSectionForCard(card, "buyer"),
+    emptyResearchSectionForCard(card, "customer_proof"),
     card.signals.length > 0
       ? citedContent({
           slug: card.slug,
@@ -312,10 +362,10 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
           })),
           confidence: "medium"
         })
-      : missingSection(card, "traction"),
+      : emptyResearchSectionForCard(card, "traction"),
     fundingEvidence.length > 0
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "financing", summary: fundingEvidence[0]?.text ?? null, items: fundingEvidence })
-      : missingSection(card, "financing"),
+      : emptyResearchSectionForCard(card, "financing"),
     card.comparables.length > 0
       ? citedContent({
           slug: card.slug,
@@ -329,16 +379,16 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
           })),
           confidence: "medium"
         })
-      : missingSection(card, "competition"),
+      : emptyResearchSectionForCard(card, "competition"),
     descriptionHasReaderEvidence && (description?.mechanism || description?.concept)
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "product", summary: description.mechanism ?? description.concept ?? null, citationIds: descriptionCitationIds })
-      : missingSection(card, "product"),
+      : emptyResearchSectionForCard(card, "product"),
     card.synthesis?.whyItMatters
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "why_it_matters", summary: card.synthesis.whyItMatters.text, citationIds: card.synthesis.whyItMatters.citationIds })
-      : missingSection(card, "why_it_matters", "not_started"),
+      : emptyResearchSectionForCard(card, "why_it_matters", "not_started"),
     card.synthesis?.marketStructureAndTiming
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "market", summary: marketRows[0]?.text ?? null, items: marketRows, confidence: marketRows.length > 0 ? "medium" : "low" })
-      : missingSection(card, "market", "not_started"),
+      : emptyResearchSectionForCard(card, "market", "not_started"),
     card.synthesis
       ? citedContent({
           slug: card.slug,
@@ -349,6 +399,50 @@ export function deriveResearchSectionsFromCard(card: ColdStartCard): ResearchSec
           questions: card.synthesis.openQuestions,
           confidence: card.synthesis.bearCase.length > 0 || card.synthesis.openQuestions.length > 0 ? "medium" : "low"
         })
-      : missingSection(card, "risks", "not_started")
+      : emptyResearchSectionForCard(card, "risks", "not_started")
   ];
+}
+
+export function mergeStoredResearchSectionsWithLegacy(input: {
+  card: ColdStartCard | null;
+  storedSections: ResearchSection[];
+  includeGated?: boolean;
+}): ResearchSection[] {
+  const storedById = new Map(input.storedSections.map((section) => [section.sectionId, section]));
+  let legacySections: ResearchSection[] = [];
+  if (input.card) {
+    try {
+      legacySections = deriveLegacyResearchSectionsFromCard(input.card);
+    } catch {
+      legacySections = [];
+    }
+  }
+  const legacyById = new Map(legacySections.map((section) => [section.sectionId, section]));
+  const definitions = input.includeGated === false
+    ? RESEARCH_SECTION_DEFINITIONS.filter((definition) => definition.visibility === "public")
+    : RESEARCH_SECTION_DEFINITIONS;
+
+  return definitions.map((definition) =>
+    storedById.get(definition.id) ??
+    legacyById.get(definition.id) ??
+    (input.card ? emptyResearchSectionForCard(input.card, definition.id, definition.visibility === "gated" ? "not_started" : "empty") : null)
+  ).filter((section): section is ResearchSection => Boolean(section));
+}
+
+export function researchSectionCitationIssues(card: ColdStartCard, section: ResearchSection): string[] {
+  const validIds = new Set(card.citations.map((citation) => citation.id));
+  const contentIds = [
+    ...section.citationIds,
+    ...(section.content?.items.flatMap((item) => item.citationIds) ?? []),
+    ...(section.content?.napkinMath?.buyers.citationIds ?? []),
+    ...(section.content?.napkinMath?.annualSpend.citationIds ?? [])
+  ];
+
+  return Array.from(new Set(contentIds))
+    .filter((id) => !validIds.has(id))
+    .map((id) => `Citation ref does not resolve: ${id}`);
+}
+
+export function researchSectionHasReaderFacingEvidence(card: ColdStartCard, section: ResearchSection): boolean {
+  return hasReaderFacingEvidence(card, section.citationIds);
 }

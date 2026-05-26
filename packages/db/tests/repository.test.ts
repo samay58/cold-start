@@ -548,12 +548,22 @@ describe("listPublicCardSummaries", () => {
       { cardJson: { ...card, slug: "thin", domain: "thin.ai", citations: [] } },
       { cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai", generatedAt: "2026-05-07T12:00:00.000Z" } }
     ];
+    let selectCount = 0;
     const db = {
-      select: () => ({
-        from: () => ({
-          orderBy: async () => rows
-        })
-      })
+      select: () => {
+        selectCount += 1;
+        return selectCount === 1
+          ? {
+              from: () => ({
+                orderBy: async () => rows
+              })
+            }
+          : {
+              from: () => ({
+                where: async () => []
+              })
+            };
+      }
     } as unknown as ColdStartDb;
 
     await expect(listPublicCardSummaries(db)).resolves.toMatchObject([

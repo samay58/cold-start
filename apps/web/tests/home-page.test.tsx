@@ -21,9 +21,10 @@ function fact<T>(value: T | null, citationIds = value === null ? [] : ["c1"]) {
 }
 
 function summary(slug: string, name: string, generatedAt: string) {
+  const domain = `${slug}.ai`;
   return {
     slug,
-    domain: `${slug}.ai`,
+    domain,
     name,
     generatedAt,
     sourceCount: slug === "cartesia" ? 3 : 2,
@@ -32,7 +33,7 @@ function summary(slug: string, name: string, generatedAt: string) {
     headcount: slug === "cartesia" ? 42 : null,
     card: {
       slug,
-      domain: `${slug}.ai`,
+      domain,
       generatedAt,
       cacheStatus: "hit",
       generationCostUsd: 0.12,
@@ -86,7 +87,43 @@ function summary(slug: string, name: string, generatedAt: string) {
         { id: "c1", url: "https://example.com/one", title: `${name} site`, fetchedAt: generatedAt, sourceType: "company_site" as const },
         { id: "c2", url: "https://example.com/two", title: `${name} funding`, fetchedAt: generatedAt, sourceType: "news" as const }
       ]
-    }
+    },
+    sections: [
+      {
+        slug,
+        domain,
+        sectionId: "buyer",
+        visibility: "public",
+        status: "available",
+        content: {
+          status: "available",
+          summary: "Investors screening generated company profiles.",
+          items: [{ label: "Buyer", text: "Investors screening generated company profiles.", citationIds: ["c1"] }],
+          questions: [],
+          confidence: "high"
+        },
+        citationIds: ["c1"],
+        sourceIds: ["c1"],
+        runId: null,
+        error: null,
+        generatedAt,
+        staleAt: null
+      },
+      {
+        slug,
+        domain,
+        sectionId: "traction",
+        visibility: "public",
+        status: "empty",
+        content: { status: "empty", summary: null, items: [], questions: [], confidence: "low" },
+        citationIds: [],
+        sourceIds: [],
+        runId: null,
+        error: null,
+        generatedAt,
+        staleAt: null
+      }
+    ]
   };
 }
 

@@ -4,22 +4,29 @@ import {
   type GenerationTrace,
   type GenerationLlmCallTrace,
   type GenerationTraceStep,
-  deriveResearchSectionsFromCard,
+  deriveLegacyResearchSectionsFromCard,
+  emptyResearchSectionForCard,
+  RESEARCH_SECTION_DEFINITIONS_BY_ID,
+  researchSectionCitationIssues,
+  researchSectionHasReaderFacingEvidence,
   hasInvestorUsableProfile,
   hasUsablePublicProfile,
   publicProfileQuality,
   researchSectionIdSchema,
+  type ResearchSection,
   type ResearchSectionId,
   type ResolvedFact
 } from "@cold-start/core";
 import {
   createDb,
+  findSourcesBySlug,
   findCardBySlug,
   markGenerationRun,
   markResearchSectionFailed,
   recordCardEvidence,
   recordSource,
   upsertCard,
+  upsertResearchSection,
   upsertResearchSections,
   type ColdStartDb
 } from "@cold-start/db";
@@ -30,8 +37,10 @@ import {
   extractCompanyBlockClaims,
   extractCompanyClaims,
   fallbackResearchPlan,
+  synthesizeResearchSection,
   synthesizeCard,
   verifySynthesis,
+  type ResearchSectionEvidenceSource,
 } from "@cold-start/llm";
 import {
   filterSourcesForDomain,
@@ -299,6 +308,89 @@ async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: Pr
       }),
     ),
   );
+}
+
+function normalizedUrlKey(value: string) {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.search = "";
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return url.toString().toLowerCase();
+  } catch {
+    return value.toLowerCase();
+  }
+}
+
+function evidenceForSection(card: ColdStartCard, storedSources: Awaited<ReturnType<typeof findSourcesBySlug>>): ResearchSectionEvidenceSource[] {
+  const sourcesByUrl = new Map(storedSources.map((source) => [normalizedUrlKey(source.url), source]));
+
+  return card.citations.flatMap((citation) => {
+    const source = sourcesByUrl.get(normalizedUrlKey(citation.url));
+    const text = source?.rawText || citation.snippet || "";
+    if (!text.trim()) {
+      return [];
+    }
+
+    return [{
+      citationId: citation.id,
+      url: citation.url,
+      title: citation.title,
+      sourceType: citation.sourceType,
+      text
+    }];
+  });
+}
+
+function citationIdsFromSectionContent(content: NonNullable<ResearchSection["content"]>) {
+  return Array.from(new Set([
+    ...content.items.flatMap((item) => item.citationIds),
+    ...(content.napkinMath?.buyers.citationIds ?? []),
+    ...(content.napkinMath?.annualSpend.citationIds ?? [])
+  ]));
+}
+
+function sectionFromGeneratedContent(card: ColdStartCard, sectionId: ResearchSectionId, content: NonNullable<ResearchSection["content"]>, runId: string | null): ResearchSection {
+  const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId];
+  const citationIds = citationIdsFromSectionContent(content);
+  const section: ResearchSection = {
+    slug: card.slug,
+    domain: card.domain,
+    sectionId,
+    visibility: definition.visibility,
+    status: content.status === "available" && citationIds.length > 0 ? "available" : "empty",
+    content: content.status === "available" && citationIds.length > 0 ? content : {
+      status: "empty",
+      summary: null,
+      items: [],
+      questions: [],
+      confidence: "low"
+    },
+    citationIds,
+    sourceIds: citationIds,
+    runId,
+    error: null,
+    generatedAt: new Date().toISOString(),
+    staleAt: null
+  };
+  const citationIssues = researchSectionCitationIssues(card, section);
+  if (citationIssues.length > 0) {
+    throw new Error(citationIssues[0]);
+  }
+
+  if (section.status === "available" && !researchSectionHasReaderFacingEvidence(card, section)) {
+    return generatedEmptySection(card, sectionId, runId);
+  }
+
+  return section;
+}
+
+function generatedEmptySection(card: ColdStartCard, sectionId: ResearchSectionId, runId: string | null): ResearchSection {
+  return {
+    ...emptyResearchSectionForCard(card, sectionId),
+    runId,
+    generatedAt: new Date().toISOString()
+  };
 }
 
 function failedStableenrichEndpoint(reason: unknown) {
@@ -629,7 +721,8 @@ export const generateCardFunction = inngest.createFunction(
       throw error;
     }
 
-    await step.run("mark-generation-running", () =>
+    let generationRunDbId: string | null = null;
+    const runningGenerationRun = await step.run("mark-generation-running", () =>
       markGenerationRun(db, {
         slug,
         domain,
@@ -641,6 +734,7 @@ export const generateCardFunction = inngest.createFunction(
         ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
       })
     );
+    generationRunDbId = runningGenerationRun?.id ?? null;
 
     let currentStage = "plan-research";
     try {
@@ -652,6 +746,75 @@ export const generateCardFunction = inngest.createFunction(
       const verifierModel = anthropicModelForStage("verify", defaultModel);
       const costLines: CostLine[] = [];
       const telemetry = (call: GenerationLlmCallTrace) => recordLlmCall(trace, costLines, call);
+
+      if (requestedSectionId) {
+        currentStage = "generate-section";
+        const sectionResult = await step.run("generate-section", async () => {
+          const result = await timed(async () => {
+            const existingCardForSection = await findCardBySlug(db, slug, { allowStale: true });
+            if (!existingCardForSection || !hasUsablePublicProfile(existingCardForSection)) {
+              throw new Error("profile not found");
+            }
+
+            const storedSources = await findSourcesBySlug(db, slug);
+            const evidence = evidenceForSection(existingCardForSection, storedSources);
+            if (evidence.length === 0) {
+              return generatedEmptySection(
+                existingCardForSection,
+                requestedSectionId,
+                generationRunDbId
+              );
+            }
+
+            const content = await synthesizeResearchSection({
+              client: anthropic,
+              definition: RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId],
+              evidence,
+              model: synthesisModel,
+              company: {
+                domain,
+                name: existingCardForSection.identity.name.value ?? domain
+              },
+              telemetry
+            });
+
+            return sectionFromGeneratedContent(
+              existingCardForSection,
+              requestedSectionId,
+              content,
+              generationRunDbId
+            );
+          });
+
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "generate-section": completedStep(result.durationMs)
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, sectionResult.tracePatch);
+
+        await step.run("upsert-generated-section", () => upsertResearchSection(db, sectionResult.value));
+        await step.run("mark-section-generation-complete", () =>
+          markGenerationRun(db, {
+            slug,
+            domain,
+            mode,
+            jobKind,
+            status: "complete",
+            costUsd: totalGenerationCost(costLines),
+            traceJson: trace,
+            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+          })
+        );
+
+        return { slug, mode, sectionId: requestedSectionId };
+      }
+
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
       const researchPlanResult = await step.run("plan-research", async () => {
@@ -831,7 +994,7 @@ export const generateCardFunction = inngest.createFunction(
         if (canStoreCardSnapshot(mode, seedCardToStore)) {
           const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
           await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
-          await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(seedCardToStore)));
+          await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(seedCardToStore)));
           trace.milestones = {
             ...trace.milestones,
             firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
@@ -899,7 +1062,7 @@ export const generateCardFunction = inngest.createFunction(
         if (canStoreCardSnapshot(mode, contactCardToStore)) {
           const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
           await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
-          await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(contactCardToStore)));
+          await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(contactCardToStore)));
           trace.milestones = {
             ...trace.milestones,
             firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt,
@@ -1096,7 +1259,7 @@ export const generateCardFunction = inngest.createFunction(
       if (canStoreCardSnapshot(mode, cardToStore)) {
         const storedRow = await step.run("upsert-card", () => upsertCard(db, cardToStore));
         await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
-        await step.run("record-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(cardToStore)));
+        await step.run("record-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
@@ -1198,7 +1361,7 @@ export const generateCardFunction = inngest.createFunction(
         assertTerminalCardQuality(mode, cardToStore);
         const storedRow = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
         await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
-        await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveResearchSectionsFromCard(cardToStore)));
+        await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-enriched-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
@@ -1257,7 +1420,7 @@ export const generateCardFunction = inngest.createFunction(
               sectionId,
               visibility: mode === "analysis" ? "gated" : "public",
               error: boundedErrorMessage(error),
-              runId: typeof runId === "string" ? runId : null
+              runId: generationRunDbId
             })
           )
         )
