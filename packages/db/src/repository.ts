@@ -1007,6 +1007,36 @@ export async function markGenerationRun(
   return row;
 }
 
+export async function updateGenerationRunTrace(
+  db: ColdStartDb,
+  input: {
+    id: string;
+    patch: (trace: GenerationTrace | null) => GenerationTrace;
+  }
+) {
+  const [existing] = await db
+    .select({
+      slug: generationRuns.slug,
+      traceJson: generationRuns.traceJson
+    })
+    .from(generationRuns)
+    .where(eq(generationRuns.id, input.id))
+    .limit(1);
+
+  if (!existing) {
+    return null;
+  }
+
+  const traceJson = input.patch(safeParseTraceJson(existing.traceJson, existing.slug));
+  const [row] = await db
+    .update(generationRuns)
+    .set({ traceJson })
+    .where(eq(generationRuns.id, input.id))
+    .returning();
+
+  return row ?? null;
+}
+
 function safeParseTraceJson(value: unknown, slug: string): GenerationTrace | null {
   if (value === null || value === undefined) {
     return null;

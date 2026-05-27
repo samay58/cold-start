@@ -26,9 +26,11 @@ import {
   recordResearchRunEvent,
   recordCardEvidence,
   recordSource,
+  updateGenerationRunTrace,
   upsertCard,
   upsertResearchSection,
   upsertResearchSections,
+  type StoredSource,
   type ColdStartDb
 } from "@cold-start/db";
 import {
@@ -128,6 +130,7 @@ type GenerationTracePatch = Partial<Omit<GenerationTrace, "jobKind" | "mode">>;
 type ProviderTrace = NonNullable<GenerationTrace["providers"]>;
 type StableenrichTrace = NonNullable<ProviderTrace["stableenrich"]>;
 type GenerationMilestoneName = keyof NonNullable<GenerationTrace["milestones"]>;
+type ContactEnrichmentTier = "named-only" | "full" | "off";
 type GenerationEventTimestamp = {
   ts?: unknown;
   data?: {
@@ -136,12 +139,42 @@ type GenerationEventTimestamp = {
   };
 };
 
+const CONTACT_ENRICHMENT_EVENT_NAME = "card/contact-enrichment.requested" as const;
+
 function generationModeForRun(input: unknown): GenerationMode {
   return input === "analysis" ? "analysis" : "basics";
 }
 
 function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
+}
+
+export function contactEnrichmentEnabled(input: {
+  CONTACT_ENRICHMENT_ENABLED: boolean;
+  CONTACT_ENRICHMENT_TIER: ContactEnrichmentTier;
+}) {
+  return input.CONTACT_ENRICHMENT_ENABLED && input.CONTACT_ENRICHMENT_TIER !== "off";
+}
+
+export function buildContactEnrichmentRequestedEvent(input: {
+  domain: string;
+  slug: string;
+  requestedAtMs: number;
+  tier: ContactEnrichmentTier;
+  parentGenerationRunId?: string | null;
+  parentInngestRunId?: string | null;
+}) {
+  return {
+    name: CONTACT_ENRICHMENT_EVENT_NAME,
+    data: {
+      domain: input.domain,
+      slug: input.slug,
+      requestedAtMs: input.requestedAtMs,
+      tier: input.tier,
+      ...(input.parentGenerationRunId ? { parentGenerationRunId: input.parentGenerationRunId } : {}),
+      ...(input.parentInngestRunId ? { parentInngestRunId: input.parentInngestRunId } : {})
+    }
+  };
 }
 
 async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
@@ -351,6 +384,16 @@ function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
   }
 
   return Array.from(byUrl.values());
+}
+
+function providerSourcesFromStoredSources(storedSources: StoredSource[]): ProviderSource[] {
+  return storedSources.map((source) => ({
+    url: source.url,
+    title: source.title,
+    sourceType: source.sourceType,
+    fetchedAt: source.fetchedAt,
+    rawText: source.rawText
+  }));
 }
 
 function sectionsWithSourceCitations(card: ColdStartCard, sources: ProviderSource[]): ExtractedCardSections {
@@ -618,6 +661,226 @@ async function fetchContactSourcesForBasics(input: {
   };
 }
 
+function stringValue(input: unknown): string | null {
+  return typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
+}
+
+export const contactEnrichmentFunction = inngest.createFunction(
+  { id: "contact-enrichment" },
+  { event: CONTACT_ENRICHMENT_EVENT_NAME },
+  async ({ event, runId, step }) => {
+    const runtimeEnv = webEnv();
+    const { DATABASE_URL } = runtimeEnv;
+    const db = createDb(DATABASE_URL);
+    const requestedAtMs = requestedAtMsFromGenerationEvent(event);
+    const parentGenerationRunId = stringValue(event.data.parentGenerationRunId);
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      inngest: {
+        ...(typeof event.id === "string" ? { eventId: event.id } : {}),
+        ...(typeof runId === "string" ? { runId } : {})
+      },
+      steps: {}
+    };
+
+    let domain = "invalid-domain";
+    let slug = rawSlugForRun(event.data.slug);
+    let currentStage = "canonicalize-domain";
+
+    const eventRunId = () =>
+      parentGenerationRunId ?? trace.inngest?.runId ?? `contacts:${slug}`;
+    const recordEvent = (
+      name: string,
+      type: string,
+      message: string,
+      metadata: Record<string, unknown> = {}
+    ) =>
+      step.run(`contact-event-${name}`, () =>
+        recordResearchRunEvent(db, {
+          runId: eventRunId(),
+          slug,
+          domain,
+          sectionId: null,
+          type,
+          message,
+          metadata
+        }).catch(() => null)
+      );
+
+    try {
+      domain = canonicalCompanyDomain(event.data.domain);
+      slug = companySlugFromDomain(domain);
+    } catch (error) {
+      trace.failure = {
+        stage: currentStage,
+        message: boundedErrorMessage(error),
+        ...(error instanceof Error ? { className: error.name } : {})
+      };
+      await recordEvent("invalid-domain", "contacts.failed", boundedErrorMessage(error));
+      throw error;
+    }
+
+    if (!contactEnrichmentEnabled(runtimeEnv)) {
+      trace.steps = {
+        ...trace.steps,
+        "contact-enrichment": skippedStep("CONTACT_ENRICHMENT_ENABLED=false")
+      };
+      await recordEvent("disabled", "contacts.skipped", "Contact enrichment disabled", {
+        tier: runtimeEnv.CONTACT_ENRICHMENT_TIER
+      });
+      return { slug, skipped: "disabled" };
+    }
+
+    await recordEvent("started", "contacts.started", "Started async contact enrichment", {
+      tier: runtimeEnv.CONTACT_ENRICHMENT_TIER
+    });
+
+    try {
+      currentStage = "load-card";
+      const existingCard = await step.run("load-card", () => findCardBySlug(db, slug, { allowStale: true }));
+      if (!existingCard) {
+        trace.steps = {
+          ...trace.steps,
+          "load-card": skippedStep("card not found")
+        };
+        await recordEvent("missing-card", "contacts.skipped", "No stored card found for contact enrichment");
+        return { slug, skipped: "card_not_found" };
+      }
+
+      currentStage = "load-sources";
+      const acceptedSources = await step.run("load-sources", async () =>
+        providerSourcesFromStoredSources(await findSourcesBySlug(db, slug))
+      );
+      const baseSections = extractedCardSectionsSchema.parse(
+        sectionsWithSourceCitations(existingCard, acceptedSources)
+      );
+      const peopleHints = peopleHintsFromSections(baseSections);
+      if (runtimeEnv.CONTACT_ENRICHMENT_TIER === "named-only" && peopleHints.length === 0) {
+        trace.steps = {
+          ...trace.steps,
+          "contact-enrichment": skippedStep("no named people to verify")
+        };
+        await recordEvent("no-people", "contacts.skipped", "No named people found for contact enrichment");
+        return { slug, skipped: "no_named_people" };
+      }
+
+      const stableEnv = stableenrichEnvFromProcess();
+      const directExaEnv = directExaEnvFromProcess();
+      currentStage = "fetch-contact-sources";
+      const contactSourceResult = await step.run("fetch-contact-sources", async () => {
+        const result = await timed(() =>
+          fetchContactSourcesForBasics({
+            acceptedSources,
+            directExaEnv,
+            domain,
+            initialProviders: {},
+            peopleHints,
+            stableEnv
+          })
+        );
+
+        return {
+          value: result.value,
+          tracePatch: {
+            steps: {
+              "fetch-contact-sources": completedStep(result.durationMs)
+            },
+            providers: result.value.trace.providers,
+            sourceGate: result.value.trace.sourceGate
+          }
+        };
+      });
+      mergeTracePatch(trace, contactSourceResult.tracePatch);
+      await recordEvent("sources-fetched", "source.contacts", "Checked people and email sources", {
+        sourceCount: contactSourceResult.value.sources.length,
+        providerFactCount: contactSourceResult.value.providerFacts.length
+      });
+
+      currentStage = "enrich-contacts";
+      const contactEnriched = await step.run("enrich-contacts", async () => {
+        const result = await timed(() => {
+          const providerFactMerge = applyProviderFactCandidates(baseSections, contactSourceResult.value.providerFacts);
+          return {
+            sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
+            providerFactMerge
+          };
+        });
+
+        return {
+          value: result.value,
+          tracePatch: {
+            steps: {
+              "enrich-contacts": {
+                ...completedStep(result.durationMs),
+                message: `${peopleEmailCount(result.value.sections)} verified work emails`
+              }
+            }
+          }
+        };
+      });
+      mergeTracePatch(trace, contactEnriched.tracePatch);
+
+      const contactCard = cardWithExtractedSections(existingCard, contactEnriched.value.sections);
+      const cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
+      if (canStoreCardSnapshot("basics", cardToStore)) {
+        const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, cardToStore));
+        await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, cardToStore));
+        await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
+        await step.run("record-contact-sources", () =>
+          recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSourceResult.value.sources))
+        );
+      } else {
+        noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", cardToStore);
+      }
+
+      writeGenerationMilestone(trace, "contactsReadyMs", requestedAtMs);
+      if (parentGenerationRunId) {
+        await step.run("update-parent-contact-trace", () =>
+          updateGenerationRunTrace(db, {
+            id: parentGenerationRunId,
+            patch: (existingTrace) => {
+              const nextTrace = existingTrace ?? {
+                jobKind: "basics" as const,
+                mode: "basics" as const,
+                steps: {}
+              };
+              const contactTracePatch: GenerationTracePatch = {};
+              if (trace.steps) {
+                contactTracePatch.steps = trace.steps;
+              }
+              if (trace.providers) {
+                contactTracePatch.providers = trace.providers;
+              }
+              if (trace.sourceGate) {
+                contactTracePatch.sourceGate = trace.sourceGate;
+              }
+              mergeTracePatch(nextTrace, contactTracePatch);
+              writeGenerationMilestone(nextTrace, "contactsReadyMs", requestedAtMs);
+              return nextTrace;
+            }
+          })
+        );
+      }
+
+      await recordEvent("complete", "contacts.enriched", `Found ${peopleEmailCount(contactEnriched.value.sections)} verified work emails`, {
+        emailCount: peopleEmailCount(contactEnriched.value.sections)
+      });
+      return { slug, emailCount: peopleEmailCount(contactEnriched.value.sections) };
+    } catch (error) {
+      trace.failure = {
+        stage: currentStage,
+        message: boundedErrorMessage(error),
+        ...(error instanceof Error ? { className: error.name } : {})
+      };
+      await recordEvent("failed", "contacts.failed", boundedErrorMessage(error), {
+        stage: currentStage
+      });
+      throw error;
+    }
+  }
+);
+
 function preserveFact<T>(existing: ResolvedFact<T>, next: ResolvedFact<T>): ResolvedFact<T> {
   return next.value === null && existing.value !== null ? existing : next;
 }
@@ -811,7 +1074,8 @@ export const generateCardFunction = inngest.createFunction(
   { id: "generate-card" },
   { event: "card/generate.requested" },
   async ({ event, runId, step }) => {
-    const { DATABASE_URL } = webEnv();
+    const runtimeEnv = webEnv();
+    const { DATABASE_URL } = runtimeEnv;
     const db = createDb(DATABASE_URL);
     const requestedAtMs = requestedAtMsFromGenerationEvent(event);
 
@@ -1137,9 +1401,6 @@ export const generateCardFunction = inngest.createFunction(
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
       let seedCard: ColdStartCard | null = null;
-      let seedSections: ExtractedCardSections | null = null;
-      let contactProviderFacts: ProviderFactCandidate[] = [];
-      let contactSources: ProviderSource[] = [];
 
       if (mode === "basics") {
         currentStage = "seed-profile-card";
@@ -1174,124 +1435,45 @@ export const generateCardFunction = inngest.createFunction(
         });
         mergeTracePatch(trace, seedProfileResult.tracePatch);
         seedCard = seedProfileResult.value.card;
-        seedSections = seedProfileResult.value.sections;
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
         if (canStoreCardSnapshot(mode, seedCardToStore)) {
           const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
           await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
           await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(seedCardToStore)));
+          await step.run("record-seed-sources", () => recordSourcesForCard(db, seedRow.id, acceptedSources));
           await recordEvent("seed-card-saved", "card.partial", "Saved first usable company card", {
             citationCount: seedCardToStore.citations.length,
             sourceCount: acceptedSources.length
           }, null);
           writeGenerationMilestone(trace, "seedCardMs", requestedAtMs);
+          if (contactEnrichmentEnabled(runtimeEnv)) {
+            await step.sendEvent(
+              "request-contact-enrichment",
+              buildContactEnrichmentRequestedEvent({
+                domain,
+                slug,
+                requestedAtMs,
+                tier: runtimeEnv.CONTACT_ENRICHMENT_TIER,
+                parentGenerationRunId: generationRunDbId,
+                parentInngestRunId: trace.inngest?.runId ?? null
+              })
+            );
+            trace.steps = {
+              ...trace.steps,
+              "request-contact-enrichment": completedStep(0)
+            };
+            await recordEvent("contact-enrichment-requested", "contacts.requested", "Requested async contact enrichment", {
+              tier: runtimeEnv.CONTACT_ENRICHMENT_TIER
+            }, null);
+          } else {
+            trace.steps = {
+              ...trace.steps,
+              "request-contact-enrichment": skippedStep("CONTACT_ENRICHMENT_ENABLED=false")
+            };
+          }
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
-        }
-
-        currentStage = "fetch-contact-sources";
-        const contactSourceResult = await step.run("fetch-contact-sources", async () => {
-          const result = await timed(async () => {
-            const peopleHints = peopleHintsFromSections(seedSections ?? seedProfileResult.value.sections);
-            return fetchContactSourcesForBasics({
-              acceptedSources,
-              directExaEnv,
-              domain,
-              initialProviders: sourceResult.value.trace.providers,
-              peopleHints,
-              stableEnv
-            });
-          });
-
-          return {
-            value: result.value,
-            tracePatch: {
-              steps: {
-                "fetch-contact-sources": completedStep(result.durationMs)
-              },
-              providers: result.value.trace.providers,
-              sourceGate: result.value.trace.sourceGate
-            }
-          };
-        });
-        mergeTracePatch(trace, contactSourceResult.tracePatch);
-        await recordEvent("contact-sources-fetched", "source.contacts", `Checked people and email sources`, {
-          sourceCount: contactSourceResult.value.sources.length,
-          providerFactCount: contactSourceResult.value.providerFacts.length
-        }, null);
-        contactProviderFacts = contactSourceResult.value.providerFacts;
-        contactSources = contactSourceResult.value.sources;
-
-        currentStage = "enrich-contacts";
-        const contactEnriched = await step.run("enrich-contacts", async () => {
-          const result = await timed(async () => {
-            const providerFactMerge = applyProviderFactCandidates(seedSections ?? seedProfileResult.value.sections, contactProviderFacts);
-            return {
-              sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
-              providerFactMerge
-            };
-          });
-
-          return {
-            value: result.value,
-            tracePatch: {
-              steps: {
-                "enrich-contacts": {
-                  ...completedStep(result.durationMs),
-                  message: `${peopleEmailCount(result.value.sections)} verified work emails`
-                }
-              }
-            }
-          };
-        });
-        mergeTracePatch(trace, contactEnriched.tracePatch);
-        await recordEvent("contacts-enriched", "contacts.enriched", `Found ${peopleEmailCount(contactEnriched.value.sections)} verified work emails`, {
-          emailCount: peopleEmailCount(contactEnriched.value.sections)
-        }, null);
-
-        seedSections = contactEnriched.value.sections;
-        seedCard = cardWithExtractedSections(seedCard, seedSections);
-        const contactCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
-        if (canStoreCardSnapshot(mode, contactCardToStore)) {
-          const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
-          await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
-          await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(contactCardToStore)));
-          writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
-          writeGenerationMilestone(trace, "contactsReadyMs", requestedAtMs);
-          await step.run("record-contact-sources", () =>
-            recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSources)),
-          );
-        } else {
-          noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", contactCardToStore);
-        }
-
-        if (hasInvestorUsableProfile(contactCardToStore)) {
-          trace.steps = {
-            ...trace.steps,
-            "generate-card": skippedStep("basics early-stop after provider-backed profile")
-          };
-          const completeCard = {
-            ...contactCardToStore,
-            generationCostUsd: totalGenerationCost(costLines)
-          };
-          const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
-          applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
-          await step.run("mark-generation-complete", () =>
-            markGenerationRun(db, {
-              slug,
-              domain,
-              mode,
-              jobKind,
-              status: "complete",
-              costUsd: completeCard.generationCostUsd,
-              traceJson: trace,
-              ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-              ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-            })
-          );
-
-          return { slug: completeCard.slug, mode };
         }
       }
 
@@ -1400,53 +1582,6 @@ export const generateCardFunction = inngest.createFunction(
       let generatedSections = clean.value.sections;
       let sourcesToRecord = clean.value.sources;
 
-      if (mode === "basics") {
-        sourcesToRecord = mergeSources(sourcesToRecord, contactSources);
-        if (contactProviderFacts.length > 0) {
-          currentStage = "merge-contacts-into-card";
-          const contactMerged = await step.run("merge-contacts-into-card", async () => {
-            const result = await timed(async () => {
-              const providerFactMerge = applyProviderFactCandidates(generatedSections, contactProviderFacts);
-              return {
-                sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
-                providerFactMerge
-              };
-            });
-
-            return {
-              value: result.value,
-              tracePatch: {
-                steps: {
-                  "merge-contacts-into-card": {
-                    ...completedStep(result.durationMs),
-                    message: `${peopleEmailCount(result.value.sections)} verified work emails`
-                  }
-                }
-              }
-            };
-          });
-          mergeTracePatch(trace, contactMerged.tracePatch);
-
-          generatedSections = contactMerged.value.sections;
-          generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
-          if (trace.extraction) {
-            trace.extraction = {
-              ...trace.extraction,
-              sourceCount: sourcesToRecord.length,
-              citationCount: generatedSections.citations.length,
-              providerFactCandidateCount:
-                (trace.extraction.providerFactCandidateCount ?? 0) + contactMerged.value.providerFactMerge.trace.candidateCount,
-              providerFactAppliedCount:
-                (trace.extraction.providerFactAppliedCount ?? 0) + contactMerged.value.providerFactMerge.trace.appliedCount,
-              providerFactPaths: [
-                ...(trace.extraction.providerFactPaths ?? []),
-                ...contactMerged.value.providerFactMerge.trace.paths
-              ]
-            };
-          }
-        }
-      }
-
       let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
 
       if (canStoreCardSnapshot(mode, cardToStore)) {
@@ -1472,7 +1607,7 @@ export const generateCardFunction = inngest.createFunction(
         const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
           const result = await timed(async () => {
             const stableResult = await fetchStableenrichEnrichmentSources({ env: stableEnv, domain, researchPlan });
-            const sources = mergeSources(acceptedSources, contactSources, stableResult.sources);
+            const sources = mergeSources(acceptedSources, stableResult.sources);
             const sourceGate = filterSourcesForDomain({ domain, sources });
             const initialStable = trace.providers?.stableenrich ?? sourceResult.value.trace.providers.stableenrich;
             return {
@@ -1537,7 +1672,7 @@ export const generateCardFunction = inngest.createFunction(
 
         generatedSections = enriched.value.sections;
         generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
-        sourcesToRecord = mergeSources(enrichmentSourceResult.value.sources, contactSources);
+        sourcesToRecord = enrichmentSourceResult.value.sources;
         if (trace.extraction) {
           trace.extraction = {
             ...trace.extraction,
