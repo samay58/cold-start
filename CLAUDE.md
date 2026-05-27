@@ -13,7 +13,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
 - `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/generate`, and `/api/inngest`.
-- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; pin/unpin enrichment cards from there rather than a separate analysis gate.
+- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
 - `packages/providers`: AgentCash and StableEnrich wrappers, direct Exa, Firecrawl, SEC EDGAR, and provider budget registry.
@@ -114,7 +114,7 @@ npm run dev:full
 - When adding a card field, update schema, extraction, pipeline assembly, and UI together.
 - Extension build output goes to `apps/extension/dist`; load that folder unpacked in Chrome.
 - If the side panel shows the wrong API origin, rebuild the extension. Use the deployed origin by default; use `VITE_COLD_START_API_ORIGIN=http://localhost:3000 VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` only for local development. Reload `apps/extension/dist` in `chrome://extensions`, then reopen the side panel.
-- Current visual guidance lives in `DESIGN.md`: Fraunces + Mona Sans, parchment-first surfaces, sand hairlines, and Lens Blue source signal. Archived Paper/brand directions under `docs/brand/archive/` are historical only.
+- Current visual guidance lives in `DESIGN.md`: Signal Ledger, IBM Plex Sans/Serif, Berkeley Mono evidence marks, light mineral field/plate surfaces, and rule-led structure. Archived Paper, parchment, Ray Gun, and older motion directions under `docs/brand/archive/` are historical only.
 - ESLint uses flat config at the repo root (`eslint.config.mjs`). New packages inherit root rules unless they add their own config.
 - Provider endpoint cost, timeout, and stop conditions are registered in `packages/providers/src/provider-budget.ts`. Wire new stableenrich endpoints there before adding them to the pipeline.
 - Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions.

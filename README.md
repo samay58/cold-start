@@ -132,7 +132,7 @@ npm run check
 
 `check` runs lint with zero warnings, typecheck, tests, build, golden eval dry run, `knip`, secret scan, and the guarded dependency audit.
 
-Use the extension UI checks when changing the side panel, research layer, card pile, or motion:
+Use the extension UI checks when changing the side panel, research layer, module rows, or motion:
 
 ```bash
 npm run qa:extension:ui -w @cold-start/extension
