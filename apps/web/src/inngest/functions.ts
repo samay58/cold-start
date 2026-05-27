@@ -599,11 +599,62 @@ function withStableenrichEndpointBudgets(endpoints: StableenrichEndpointTraceInp
   });
 }
 
+function agentcashBudgetCeilingUsd(input: {
+  mode: GenerationMode;
+  override?: number | undefined;
+}) {
+  if (typeof input.override === "number" && Number.isFinite(input.override) && input.override >= 0) {
+    return input.override;
+  }
+
+  return input.mode === "analysis" ? 0.5 : 0.3;
+}
+
+function stableenrichEndpointBudgetUsd(endpoints: StableenrichEndpointTraceInput[] | undefined) {
+  return (endpoints ?? []).reduce((sum, endpoint) => sum + (endpoint.estimatedCostUsd ?? 0), 0);
+}
+
+function remainingAgentcashBudgetUsd(input: {
+  ceilingUsd: number;
+  endpoints?: StableenrichEndpointTraceInput[] | undefined;
+}) {
+  return Math.max(0, Number((input.ceilingUsd - stableenrichEndpointBudgetUsd(input.endpoints)).toFixed(6)));
+}
+
+function stableenrichExaSkipsForDirectCoverage(input: {
+  directSources: ProviderSource[];
+  domain: string;
+}): StableenrichProbeName[] {
+  if (input.directSources.length === 0) {
+    return [];
+  }
+
+  const sourceGate = filterSourcesForDomain({ domain: input.domain, sources: input.directSources });
+  const coveredIntents = new Set(
+    sourceGate.accepted.flatMap((source) => (source.intent ? [source.intent] : []))
+  );
+  const skips: StableenrichProbeName[] = [];
+  if (coveredIntents.has("company_profile")) {
+    skips.push("exa_company_profile");
+  }
+  if (coveredIntents.has("funding")) {
+    skips.push("exa_funding_history");
+  }
+  if (coveredIntents.has("management_team")) {
+    skips.push("exa_management_team");
+  }
+  if (coveredIntents.has("recent_signals")) {
+    skips.push("exa_recent_signals");
+  }
+  return skips;
+}
+
 async function fetchContactSourcesForBasics(input: {
   acceptedSources: ProviderSource[];
   directExaEnv: DirectExaEnv;
   domain: string;
   initialProviders: ProviderTrace;
+  maxStableenrichBudgetUsd?: number | undefined;
   peopleHints: PeopleEmailHint[];
   stableEnv: StableenrichEnv;
 }) {
@@ -615,7 +666,8 @@ async function fetchContactSourcesForBasics(input: {
       env: input.stableEnv,
       domain: input.domain,
       sourceHints: input.acceptedSources,
-      peopleHints: input.peopleHints
+      peopleHints: input.peopleHints,
+      maxBudgetUsd: input.maxStableenrichBudgetUsd
     })
   ]);
   const directContactSources = directContactResult.status === "fulfilled" ? directContactResult.value.sources : [];
@@ -649,7 +701,8 @@ async function fetchContactSourcesForBasics(input: {
           sourceCount: (initialStable?.sourceCount ?? 0) + stableContactSources.length,
           factCount: (initialStable?.factCount ?? 0) + stableContactFacts.length,
           failureCount: (initialStable?.failureCount ?? 0) + stableContactFailures.length,
-          endpoints: [...(initialStable?.endpoints ?? []), ...stableContactEndpoints]
+          endpoints: [...(initialStable?.endpoints ?? []), ...stableContactEndpoints],
+          ...(stableContactResult.status === "fulfilled" && stableContactResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {})
         },
         mergedSourceCount: sources.length,
         ...(stableContactResult.status === "fulfilled" && stableContactResult.value.emailDiscovery && stableContactResult.value.emailDiscovery.length > 0
@@ -775,6 +828,10 @@ export const contactEnrichmentFunction = inngest.createFunction(
             directExaEnv,
             domain,
             initialProviders: {},
+            maxStableenrichBudgetUsd: agentcashBudgetCeilingUsd({
+              mode: "basics",
+              override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
+            }),
             peopleHints,
             stableEnv
           })
@@ -1258,6 +1315,10 @@ export const generateCardFunction = inngest.createFunction(
 
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
+      const agentcashBudgetCeiling = agentcashBudgetCeilingUsd({
+        mode,
+        override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
+      });
       const researchPlanResult = await step.run("plan-research", async () => {
         const result = await timed(async () => fallbackResearchPlan(domain));
         return {
@@ -1280,14 +1341,48 @@ export const generateCardFunction = inngest.createFunction(
       currentStage = "fetch-sources";
       const sourceResult = await step.run("fetch-sources", async () => {
         const result = await timed(async () => {
-          const [directResult, stableResult] = await Promise.allSettled([
-            directExaEnabled()
-              ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
-              : Promise.resolve({ sources: [], failures: [], skipped: true }),
-            mode === "basics"
-              ? fetchStableenrichFastSources({ env: stableEnv, domain, researchPlan })
-              : fetchStableenrichSources({ env: stableEnv, domain, researchPlan }),
-          ]);
+          let stableSkipProbeNames: StableenrichProbeName[] = [];
+          const directPromise = directExaEnabled()
+            ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
+            : Promise.resolve({ sources: [], failures: [], skipped: true });
+          let directResult: PromiseSettledResult<Awaited<ReturnType<typeof fetchDirectExaFundamentalsSources>>>;
+          let stableResult: PromiseSettledResult<Awaited<ReturnType<typeof fetchStableenrichFastSources>>>;
+
+          if (runtimeEnv.CHEAP_FIRST_EXA_ENABLED) {
+            directResult = await Promise.resolve(directPromise).then(
+              (value) => ({ status: "fulfilled" as const, value }),
+              (reason) => ({ status: "rejected" as const, reason })
+            );
+            const directSourcesForCoverage = directResult.status === "fulfilled" ? directResult.value.sources : [];
+            stableSkipProbeNames = stableenrichExaSkipsForDirectCoverage({ directSources: directSourcesForCoverage, domain });
+            stableResult = await (
+              mode === "basics"
+                ? fetchStableenrichFastSources({
+                    env: stableEnv,
+                    domain,
+                    researchPlan,
+                    skipProbeNames: stableSkipProbeNames,
+                    maxBudgetUsd: agentcashBudgetCeiling
+                  })
+                : fetchStableenrichSources({
+                    env: stableEnv,
+                    domain,
+                    researchPlan,
+                    skipProbeNames: stableSkipProbeNames,
+                    maxBudgetUsd: agentcashBudgetCeiling
+                  })
+            ).then(
+              (value) => ({ status: "fulfilled" as const, value }),
+              (reason) => ({ status: "rejected" as const, reason })
+            );
+          } else {
+            [directResult, stableResult] = await Promise.allSettled([
+              directPromise,
+              mode === "basics"
+                ? fetchStableenrichFastSources({ env: stableEnv, domain, researchPlan, maxBudgetUsd: agentcashBudgetCeiling })
+                : fetchStableenrichSources({ env: stableEnv, domain, researchPlan, maxBudgetUsd: agentcashBudgetCeiling }),
+            ]);
+          }
 
           const directSources = directResult.status === "fulfilled" ? directResult.value.sources : [];
           const stableSources = stableResult.status === "fulfilled" ? stableResult.value.sources : [];
@@ -1314,6 +1409,8 @@ export const generateCardFunction = inngest.createFunction(
                 sourceCount: stableSources.length,
                 factCount: stableFacts.length,
                 failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
+                ...(stableResult.status === "fulfilled" && stableResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
+                ...(stableSkipProbeNames.length > 0 ? { skippedProbeNames: stableSkipProbeNames } : {}),
                 endpoints:
                   stableResult.status === "fulfilled"
                     ? withStableenrichEndpointBudgets(stableResult.value.endpoints)
@@ -1606,7 +1703,16 @@ export const generateCardFunction = inngest.createFunction(
         currentStage = "fetch-enrichment-sources";
         const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
           const result = await timed(async () => {
-            const stableResult = await fetchStableenrichEnrichmentSources({ env: stableEnv, domain, researchPlan });
+            const remainingBudgetUsd = remainingAgentcashBudgetUsd({
+              ceilingUsd: agentcashBudgetCeiling,
+              endpoints: trace.providers?.stableenrich?.endpoints
+            });
+            const stableResult = await fetchStableenrichEnrichmentSources({
+              env: stableEnv,
+              domain,
+              researchPlan,
+              maxBudgetUsd: remainingBudgetUsd
+            });
             const sources = mergeSources(acceptedSources, stableResult.sources);
             const sourceGate = filterSourcesForDomain({ domain, sources });
             const initialStable = trace.providers?.stableenrich ?? sourceResult.value.trace.providers.stableenrich;
@@ -1620,6 +1726,7 @@ export const generateCardFunction = inngest.createFunction(
                     sourceCount: (initialStable?.sourceCount ?? 0) + stableResult.sources.length,
                     factCount: (initialStable?.factCount ?? 0) + stableResult.facts.length,
                     failureCount: (initialStable?.failureCount ?? 0) + stableResult.failures.length,
+                    ...(initialStable?.budgetCeilingHit || stableResult.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
                     endpoints: [...(initialStable?.endpoints ?? []), ...withStableenrichEndpointBudgets(stableResult.endpoints)]
                   },
                   mergedSourceCount: sources.length

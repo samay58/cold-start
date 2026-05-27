@@ -29,7 +29,6 @@ describe("buildStableenrichRequests", () => {
       "firecrawl_about",
       "firecrawl_team",
       "org_enrichment",
-      "apollo_people_search",
     ]);
     expect(requests.map((request) => request.url)).toEqual([
       "https://stableenrich.dev/api/exa/search",
@@ -43,7 +42,6 @@ describe("buildStableenrichRequests", () => {
       "https://stableenrich.dev/api/firecrawl/scrape",
       "https://stableenrich.dev/api/firecrawl/scrape",
       "https://stableenrich.dev/api/apollo/org-enrich",
-      "https://stableenrich.dev/api/apollo/people-search",
     ]);
     expect(requests[0]?.body).toMatchObject({
       query: expect.stringContaining("funding"),
@@ -68,12 +66,7 @@ describe("buildStableenrichRequests", () => {
     expect(requests[7]?.body).toEqual({ url: "https://cartesia.ai" });
     expect(requests[8]?.body).toEqual({ url: "https://cartesia.ai/about" });
     expect(requests[9]?.body).toEqual({ url: "https://cartesia.ai/team" });
-    expect(requests[11]?.body).toMatchObject({
-      q_organization_domains: ["cartesia.ai"],
-      person_seniorities: expect.arrayContaining(["founder", "c_suite", "vp"]),
-      person_titles: expect.arrayContaining(["CTO", "CFO", "VP Engineering"]),
-      per_page: 25,
-    });
+    expect(requests.map((request) => request.name)).not.toContain("apollo_people_search");
   });
 
   it("uses research-plan search queries when present", () => {
@@ -188,6 +181,7 @@ describe("fetchStableenrichSources", () => {
       "company_site",
       "enrichment",
       "enrichment",
+      "enrichment",
     ]);
     expect(result.sources[0]).toMatchObject({
       url: "agentcash:exa_funding_history",
@@ -242,7 +236,7 @@ describe("fetchStableenrichSources", () => {
       },
     });
 
-    expect(result.sources).toHaveLength(9);
+    expect(result.sources).toHaveLength(10);
     expect(result.failures).toEqual([
       {
         name: "firecrawl_homepage",
@@ -1315,6 +1309,61 @@ describe("fetchStableenrichPeopleEmailSources", () => {
       ]),
     );
     expect(result.endpoints.map((endpoint) => endpoint.name)).toContain("clado_contacts_enrich");
+  });
+
+  it("skips Apollo people search and enrich when three named sourced leaders are already known", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "modal.com",
+      sourceHints: [],
+      peopleHints: [
+        { name: "Erik Bernhardsson", role: "Founder and CEO", sourceUrl: "https://modal.com/team" },
+        { name: "Akshat Bubna", role: "Founder", sourceUrl: "https://modal.com/team" },
+        { name: "Jesse Graf", role: "Founder", sourceUrl: "https://modal.com/team" },
+      ],
+      agentcashFetch: async (request) => {
+        calls.push({ url: request.url, body: request.body });
+        return { text: "ok" };
+      },
+    });
+
+    expect(calls.some((call) => call.url === "https://stable.example/people-search")).toBe(false);
+    expect(calls.some((call) => call.url === "https://stable.example/people-enrich")).toBe(false);
+  });
+
+  it("caps management enrichment, fallback enrichment, and Hunter verification attempts", async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    await fetchStableenrichPeopleEmailSources({
+      env: stableenrichEnv(),
+      domain: "example.ai",
+      sourceHints: [],
+      peopleHints: [
+        { name: "Alice Morgan", role: "CEO" },
+        { name: "Bob Patel", role: "CTO" },
+        { name: "Casey Rivera", role: "COO" },
+        { name: "Devin Chen", role: "CFO" },
+        { name: "Emery Singh", role: "CPO" },
+      ],
+      agentcashFetch: async (request) => {
+        calls.push({ url: request.url, body: request.body });
+        if (request.url === "https://stable.example/minerva") {
+          return { results: [] };
+        }
+        if (request.url === "https://stable.example/clado") {
+          return { data: [] };
+        }
+        if (request.url === "https://stable.example/hunter") {
+          return { status: "invalid", score: 1, email: request.body.email };
+        }
+        return { text: "ok" };
+      },
+    });
+
+    expect(calls.filter((call) => call.url === "https://stable.example/people-enrich")).toHaveLength(3);
+    expect(calls.filter((call) => call.url === "https://stable.example/minerva")).toHaveLength(2);
+    expect(calls.filter((call) => call.url === "https://stable.example/clado")).toHaveLength(0);
+    expect(calls.filter((call) => call.url === "https://stable.example/hunter").length).toBeLessThanOrEqual(6);
   });
 });
 

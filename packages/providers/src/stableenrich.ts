@@ -76,6 +76,13 @@ type StableenrichProbeResult = {
 
 type StableenrichProbeTier = "all" | "fast" | "enrichment";
 
+export type AgentcashBudgetState = {
+  maxUsd: number | null;
+  spentUsd: number;
+  ceilingHit: boolean;
+  skippedEndpoints: StableenrichProbe["name"][];
+};
+
 const fastStableenrichProbeNames = new Set<StableenrichProbe["name"]>([
   "exa_funding_history",
   "exa_company_profile",
@@ -83,6 +90,57 @@ const fastStableenrichProbeNames = new Set<StableenrichProbe["name"]>([
   "firecrawl_homepage",
   "org_enrichment"
 ]);
+
+export function createAgentcashBudgetState(maxUsd?: number | null): AgentcashBudgetState {
+  return {
+    maxUsd: typeof maxUsd === "number" && Number.isFinite(maxUsd) && maxUsd >= 0 ? maxUsd : null,
+    spentUsd: 0,
+    ceilingHit: false,
+    skippedEndpoints: []
+  };
+}
+
+function takeAgentcashBudget(state: AgentcashBudgetState | undefined, endpoint: StableenrichProbe["name"]) {
+  if (!state || state.maxUsd === null) {
+    return true;
+  }
+
+  const budget = providerBudgetForEndpoint("stableenrich", endpoint);
+  if (state.spentUsd + budget.estimatedCostUsd > state.maxUsd) {
+    state.ceilingHit = true;
+    state.skippedEndpoints.push(endpoint);
+    return false;
+  }
+
+  state.spentUsd = Number((state.spentUsd + budget.estimatedCostUsd).toFixed(6));
+  return true;
+}
+
+function selectStableenrichRequests(input: {
+  env: StableenrichEnv;
+  domain: string;
+  researchPlan?: ProviderResearchPlan | undefined;
+  tier?: StableenrichProbeTier | undefined;
+  skipProbeNames?: StableenrichProbe["name"][] | undefined;
+  budgetState?: AgentcashBudgetState | undefined;
+}) {
+  const tier = input.tier ?? "all";
+  const skipProbeNames = new Set(input.skipProbeNames ?? []);
+  return buildStableenrichRequests(input.env, input.domain, input.researchPlan).filter((request) => {
+    if (skipProbeNames.has(request.name)) {
+      return false;
+    }
+
+    if (tier !== "all") {
+      const isFast = fastStableenrichProbeNames.has(request.name);
+      if (tier === "fast" ? !isFast : isFast) {
+        return false;
+      }
+    }
+
+    return takeAgentcashBudget(input.budgetState, request.name);
+  });
+}
 
 export type StableenrichProbeFailure = {
   name: StableenrichProbe["name"];
@@ -104,6 +162,7 @@ export type StableenrichSourcesResult = {
     error?: string;
   }>;
   emailDiscovery?: StableenrichEmailDiscovery[];
+  budgetCeilingHit?: boolean;
 };
 
 export function missingStableenrichConfig(env: StableenrichEnv): string[] {
@@ -191,17 +250,6 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       url: stableenrichEndpointUrl(env, "STABLEENRICH_ORG_ENRICH_URL"),
       body: { domain },
     },
-    {
-      name: "apollo_people_search",
-      url: stableenrichEndpointUrl(env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL"),
-      body: {
-        q_organization_domains: [domain],
-        person_seniorities: APOLLO_LEADER_SENIORITIES,
-        person_titles: APOLLO_LEADER_TITLES,
-        per_page: 25,
-        page: 1,
-      },
-    },
   ];
 }
 
@@ -239,19 +287,23 @@ const APOLLO_LEADER_TITLES = [
 export async function runStableenrichProbe(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan;
-  agentcashFetch?: AgentcashFetch;
-  tier?: StableenrichProbeTier;
+  researchPlan?: ProviderResearchPlan | undefined;
+  agentcashFetch?: AgentcashFetch | undefined;
+  tier?: StableenrichProbeTier | undefined;
+  skipProbeNames?: StableenrichProbe["name"][] | undefined;
+  maxBudgetUsd?: number | undefined;
+  budgetState?: AgentcashBudgetState | undefined;
+  requests?: StableenrichProbe[] | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
   requireStableenrichConfig(input.env);
-  const tier = input.tier ?? "all";
-  const requests = buildStableenrichRequests(input.env, input.domain, input.researchPlan).filter((request) => {
-    if (tier === "all") {
-      return true;
-    }
-
-    const isFast = fastStableenrichProbeNames.has(request.name);
-    return tier === "fast" ? isFast : !isFast;
+  const budgetState = input.budgetState ?? createAgentcashBudgetState(input.maxBudgetUsd);
+  const requests = input.requests ?? selectStableenrichRequests({
+    env: input.env,
+    domain: input.domain,
+    researchPlan: input.researchPlan,
+    tier: input.tier,
+    skipProbeNames: input.skipProbeNames,
+    budgetState
   });
   const agentcashFetch = input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request));
 
@@ -279,78 +331,97 @@ export async function runStableenrichProbe(input: {
 export async function fetchStableenrichSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan;
-  agentcashFetch?: AgentcashFetch;
+  researchPlan?: ProviderResearchPlan | undefined;
+  agentcashFetch?: AgentcashFetch | undefined;
+  skipProbeNames?: StableenrichProbe["name"][] | undefined;
+  maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
-  const results = await runStableenrichProbe(input);
+  const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  const results = await runStableenrichProbe({ ...input, budgetState });
   const followups = await runStableenrichPeopleFollowups({
     env: input.env,
     domain: input.domain,
     results,
     agentcashFetch: input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request)),
+    budgetState,
   });
-  return collectStableenrichSources([...results, ...followups]);
+  return { ...collectStableenrichSources([...results, ...followups]), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
 }
 
 export async function fetchStableenrichFastSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan;
-  agentcashFetch?: AgentcashFetch;
+  researchPlan?: ProviderResearchPlan | undefined;
+  agentcashFetch?: AgentcashFetch | undefined;
+  skipProbeNames?: StableenrichProbe["name"][] | undefined;
+  maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
-  const results = await runStableenrichProbe({ ...input, tier: "fast" });
-  return collectStableenrichSources(results);
+  const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  const results = await runStableenrichProbe({ ...input, tier: "fast", budgetState });
+  return { ...collectStableenrichSources(results), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
 }
 
 export async function fetchStableenrichEnrichmentSources(input: {
   env: StableenrichEnv;
   domain: string;
-  researchPlan?: ProviderResearchPlan;
-  agentcashFetch?: AgentcashFetch;
+  researchPlan?: ProviderResearchPlan | undefined;
+  agentcashFetch?: AgentcashFetch | undefined;
+  skipProbeNames?: StableenrichProbe["name"][] | undefined;
+  maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
-  const results = await runStableenrichProbe({ ...input, tier: "enrichment" });
+  const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  const results = await runStableenrichProbe({ ...input, tier: "enrichment", budgetState });
   const followups = await runStableenrichPeopleFollowups({
     env: input.env,
     domain: input.domain,
     results,
     agentcashFetch: input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request)),
+    budgetState,
   });
-  return collectStableenrichSources([...results, ...followups]);
+  return { ...collectStableenrichSources([...results, ...followups]), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
 }
 
 export async function fetchStableenrichPeopleEmailSources(input: {
   env: StableenrichEnv;
   domain: string;
   sourceHints: ProviderSource[];
-  peopleHints?: PeopleEmailHint[];
-  agentcashFetch?: AgentcashFetch;
-  companyName?: string;
+  peopleHints?: PeopleEmailHint[] | undefined;
+  agentcashFetch?: AgentcashFetch | undefined;
+  companyName?: string | undefined;
+  maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
   requireStableenrichConfig(input.env);
   const agentcashFetch = input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request));
-  const [discovery, secFormD, exaEmails] = await Promise.all([
-    runApolloPeopleDiscovery({ env: input.env, domain: input.domain, agentcashFetch }),
+  const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  const hintedPeople = rankPeople(peopleRecordsFromEmailHints(input.peopleHints ?? []));
+  const sourceHintPeople = peopleHintsFromProviderSources(input.sourceHints, input.domain);
+  const [secFormD, exaEmails] = await Promise.all([
     runSecEdgarDiscovery({ domain: input.domain, ...(input.companyName ? { companyName: input.companyName } : {}) }),
     runExaEmailDiscovery({
       env: input.env,
       domain: input.domain,
       agentcashFetch,
+      budgetState,
       ...(input.companyName ? { companyName: input.companyName } : {}),
     }),
   ]);
-  const hintedPeople = rankPeople(peopleRecordsFromEmailHints(input.peopleHints ?? []));
-  const discoveredPeople = [
-    ...peopleHintsFromProviderSources(input.sourceHints, input.domain),
+  const cheapLeaders = rankPeople([...hintedPeople, ...sourceHintPeople, ...secFormD.people]);
+  const skipApolloPeople = namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
+  const discovery = skipApolloPeople
+    ? { people: [], results: [] as PromiseSettledResult<StableenrichProbeResult>[] }
+    : await runApolloPeopleDiscovery({ env: input.env, domain: input.domain, agentcashFetch, budgetState });
+  const leaders = rankPeople([
+    ...cheapLeaders,
     ...discovery.people,
-    ...secFormD.people,
     ...exaEmails.people,
-  ];
-  const leaders = (hintedPeople.length > 0 ? hintedPeople : rankPeople(discoveredPeople)).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
+  ]).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
   const followups = await runPeopleFollowupRequests({
     env: input.env,
     domain: input.domain,
     leaders,
     agentcashFetch,
+    allowApolloEnrich: !skipApolloPeople,
+    budgetState,
   });
   const collected = collectStableenrichSources([...discovery.results, ...followups, ...exaEmails.results]);
   const extraSources = [...secFormD.sources];
@@ -359,6 +430,7 @@ export async function fetchStableenrichPeopleEmailSources(input: {
     ...collected,
     sources: [...collected.sources, ...extraSources],
     facts: [...collected.facts, ...extraFacts],
+    ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}),
     emailDiscovery: summarizeEmailDiscovery(leaders, [...discovery.results, ...followups, ...exaEmails.results], {
       secOfficers: secFormD.officers,
       exaPeople: exaEmails.people,
@@ -379,8 +451,9 @@ const EXA_EMAIL_GENERIC_LOCAL_PARTS = new Set([
 async function runExaEmailDiscovery(input: {
   env: StableenrichEnv;
   domain: string;
-  companyName?: string;
+  companyName?: string | undefined;
   agentcashFetch: AgentcashFetch;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<{
   people: PersonRecord[];
   results: PromiseSettledResult<StableenrichProbeResult>[];
@@ -400,7 +473,7 @@ async function runExaEmailDiscovery(input: {
   ];
 
   const settled = await Promise.all(
-    probes.map(async ({ name, query }): Promise<PromiseSettledResult<StableenrichProbeResult>> => {
+    probes.filter(({ name }) => takeAgentcashBudget(input.budgetState, name)).map(async ({ name, query }): Promise<PromiseSettledResult<StableenrichProbeResult>> => {
       const startedAt = Date.now();
       try {
         const result = await input.agentcashFetch({
@@ -637,7 +710,7 @@ function titleCase(value: string) {
 
 async function runSecEdgarDiscovery(input: {
   domain: string;
-  companyName?: string;
+  companyName?: string | undefined;
 }): Promise<{
   people: PersonRecord[];
   officers: SecFormDOfficer[];
@@ -700,84 +773,96 @@ async function runSecEdgarDiscovery(input: {
   }
 }
 
-const MAX_LEADERS_FOR_ENRICHMENT = 8;
-const MAX_FALLBACK_LEADERS = 6;
-const MAX_HUNTER_CANDIDATES = 36;
+function namedLeadersWithSourceUrl(people: PersonRecord[]) {
+  return rankPeople(people).filter((person) => {
+    const name = person.name ?? fullName(person.firstName, person.lastName);
+    return Boolean(name && person.sourceUrl);
+  });
+}
+
+const MAX_LEADERS_FOR_ENRICHMENT = 3;
+const MAX_FALLBACK_LEADERS = 2;
+const MAX_HUNTER_CANDIDATES = 6;
 
 async function runApolloPeopleDiscovery(input: {
   env: StableenrichEnv;
   domain: string;
   agentcashFetch: AgentcashFetch;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<{ people: PersonRecord[]; results: PromiseSettledResult<StableenrichProbeResult>[] }> {
   const results: PromiseSettledResult<StableenrichProbeResult>[] = [];
   const orgSearchUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_ORG_SEARCH_URL");
   let organizationId: string | null = null;
 
-  try {
-    const startedAt = Date.now();
-    const result = await input.agentcashFetch({
-      url: orgSearchUrl,
-      body: {
-        q_keywords: input.domain,
-        per_page: 5,
-        page: 1,
-      },
-      timeoutMs: stableenrichProbeTimeoutMs("apollo_org_search"),
-    });
-    results.push({
-      status: "fulfilled",
-      value: {
-        name: "apollo_org_search",
-        endpointUrl: orgSearchUrl,
-        result,
-        durationMs: Date.now() - startedAt,
-        metadata: { domain: input.domain },
-      },
-    });
-    organizationId = apolloOrganizationIdForDomain(result, input.domain);
-  } catch (error) {
-    results.push({
-      status: "rejected",
-      reason: {
-        name: "apollo_org_search",
-        endpointUrl: orgSearchUrl,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies StableenrichProbeFailure,
-    });
+  if (takeAgentcashBudget(input.budgetState, "apollo_org_search")) {
+    try {
+      const startedAt = Date.now();
+      const result = await input.agentcashFetch({
+        url: orgSearchUrl,
+        body: {
+          q_keywords: input.domain,
+          per_page: 5,
+          page: 1,
+        },
+        timeoutMs: stableenrichProbeTimeoutMs("apollo_org_search"),
+      });
+      results.push({
+        status: "fulfilled",
+        value: {
+          name: "apollo_org_search",
+          endpointUrl: orgSearchUrl,
+          result,
+          durationMs: Date.now() - startedAt,
+          metadata: { domain: input.domain },
+        },
+      });
+      organizationId = apolloOrganizationIdForDomain(result, input.domain);
+    } catch (error) {
+      results.push({
+        status: "rejected",
+        reason: {
+          name: "apollo_org_search",
+          endpointUrl: orgSearchUrl,
+          error: error instanceof Error ? error.message : String(error),
+        } satisfies StableenrichProbeFailure,
+      });
+    }
   }
 
   const peopleSearchUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL");
-  try {
-    const startedAt = Date.now();
-    const result = await input.agentcashFetch({
-      url: peopleSearchUrl,
-      body: {
-        ...(organizationId ? { organization_ids: [organizationId] } : { q_organization_domains: [input.domain] }),
-        person_seniorities: APOLLO_LEADER_SENIORITIES,
-        person_titles: APOLLO_LEADER_TITLES,
-        per_page: 25,
-        page: 1,
-      },
-      timeoutMs: stableenrichProbeTimeoutMs("apollo_people_search"),
-    });
-    const value: StableenrichProbeResult = {
-      name: "apollo_people_search",
-      endpointUrl: peopleSearchUrl,
-      result,
-      durationMs: Date.now() - startedAt,
-      metadata: { domain: input.domain },
-    };
-    results.push({ status: "fulfilled", value });
-    return { people: extractPeopleRecords(result), results };
-  } catch (error) {
-    results.push({
-      status: "rejected",
-      reason: {
+  if (takeAgentcashBudget(input.budgetState, "apollo_people_search")) {
+    try {
+      const startedAt = Date.now();
+      const result = await input.agentcashFetch({
+        url: peopleSearchUrl,
+        body: {
+          ...(organizationId ? { organization_ids: [organizationId] } : { q_organization_domains: [input.domain] }),
+          person_seniorities: APOLLO_LEADER_SENIORITIES,
+          person_titles: APOLLO_LEADER_TITLES,
+          per_page: 25,
+          page: 1,
+        },
+        timeoutMs: stableenrichProbeTimeoutMs("apollo_people_search"),
+      });
+      const value: StableenrichProbeResult = {
         name: "apollo_people_search",
         endpointUrl: peopleSearchUrl,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies StableenrichProbeFailure,
-    });
+        result,
+        durationMs: Date.now() - startedAt,
+        metadata: { domain: input.domain },
+      };
+      results.push({ status: "fulfilled", value });
+      return { people: extractPeopleRecords(result), results };
+    } catch (error) {
+      results.push({
+        status: "rejected",
+        reason: {
+          name: "apollo_people_search",
+          endpointUrl: peopleSearchUrl,
+          error: error instanceof Error ? error.message : String(error),
+        } satisfies StableenrichProbeFailure,
+      });
+    }
   }
 
   return { people: [], results };
@@ -839,19 +924,29 @@ async function runStableenrichPeopleFollowups(input: {
   domain: string;
   results: PromiseSettledResult<StableenrichProbeResult>[];
   agentcashFetch: AgentcashFetch;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
-  const peopleSearch = input.results.find(
-    (result): result is PromiseFulfilledResult<StableenrichProbeResult> =>
-      result.status === "fulfilled" && result.value.name === "apollo_people_search"
-  );
-  const peopleSearchPeople = peopleSearch ? extractPeopleRecords(peopleSearch.value.result) : [];
-
+  const cheapLeaders = peopleHintsFromSearchResults(input.results, input.domain);
+  const skipApolloPeople = namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
+  const discovery = skipApolloPeople
+    ? { people: [], results: [] as PromiseSettledResult<StableenrichProbeResult>[] }
+    : await runApolloPeopleDiscovery({
+        env: input.env,
+        domain: input.domain,
+        agentcashFetch: input.agentcashFetch,
+        budgetState: input.budgetState
+      });
   const leaders = rankPeople([
-    ...peopleSearchPeople,
-    ...peopleHintsFromSearchResults(input.results, input.domain),
+    ...cheapLeaders,
+    ...discovery.people,
   ]).slice(0, MAX_LEADERS_FOR_ENRICHMENT);
+  const followups = await runPeopleFollowupRequests({
+    ...input,
+    leaders,
+    allowApolloEnrich: !skipApolloPeople
+  });
 
-  return runPeopleFollowupRequests({ ...input, leaders });
+  return [...discovery.results, ...followups];
 }
 
 async function runPeopleFollowupRequests(input: {
@@ -859,6 +954,8 @@ async function runPeopleFollowupRequests(input: {
   domain: string;
   leaders: PersonRecord[];
   agentcashFetch: AgentcashFetch;
+  allowApolloEnrich?: boolean | undefined;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
   const leaders = input.leaders;
   if (leaders.length === 0) {
@@ -866,8 +963,11 @@ async function runPeopleFollowupRequests(input: {
   }
 
   const peopleEnrichUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL");
+  const leadersForApolloEnrich = input.allowApolloEnrich === false
+    ? []
+    : leaders.filter(() => takeAgentcashBudget(input.budgetState, "apollo_people_enrich"));
   const enrichSettled = await allSettledLimited(
-    leaders,
+    leadersForApolloEnrich,
     async (person) => {
       try {
         const startedAt = Date.now();
@@ -901,6 +1001,7 @@ async function runPeopleFollowupRequests(input: {
     domain: input.domain,
     leaders: fallbackLeaders,
     agentcashFetch: input.agentcashFetch,
+    budgetState: input.budgetState,
   });
   const minervaPeople = minervaSettled.flatMap((result) =>
     result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
@@ -910,6 +1011,7 @@ async function runPeopleFollowupRequests(input: {
     domain: input.domain,
     leaders: rankPeople([...fallbackLeaders, ...minervaPeople]).filter((person) => !workEmailValue(person.email, input.domain)).slice(0, MAX_FALLBACK_LEADERS),
     agentcashFetch: input.agentcashFetch,
+    budgetState: input.budgetState,
   });
   const cladoPeople = cladoSettled.flatMap((result) =>
     result.status === "fulfilled" ? extractPeopleRecords(result.value.result) : []
@@ -920,7 +1022,10 @@ async function runPeopleFollowupRequests(input: {
       .map((person) => personNameKey(person))
       .filter((key): key is string => key !== null)
   );
-  const peopleForVerification = rankPeople([...leaders, ...enrichedPeople, ...minervaPeople, ...cladoPeople])
+  const peopleForVerification = dedupePeopleInOrder([
+    ...leaders,
+    ...rankPeople([...enrichedPeople, ...minervaPeople, ...cladoPeople])
+  ])
     .filter((person) => !workEmailValue(person.email, input.domain))
     .filter((person) => {
       const key = personNameKey(person);
@@ -928,7 +1033,8 @@ async function runPeopleFollowupRequests(input: {
     });
   const candidates = peopleForVerification
     .flatMap((person) => emailCandidatesForPerson(person, input.domain).map((email) => ({ person, email })))
-    .slice(0, MAX_HUNTER_CANDIDATES);
+    .slice(0, MAX_HUNTER_CANDIDATES)
+    .filter(() => takeAgentcashBudget(input.budgetState, "hunter_email_verifier"));
 
   if (candidates.length === 0) {
     return [...enrichSettled, ...minervaSettled, ...cladoSettled];
@@ -973,8 +1079,11 @@ async function runMinervaEmailFallbackRequests(input: {
   domain: string;
   leaders: PersonRecord[];
   agentcashFetch: AgentcashFetch;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
-  const leaders = input.leaders.filter((person) => person.linkedinUrl || person.name || person.firstName);
+  const leaders = input.leaders
+    .filter((person) => person.linkedinUrl || person.name || person.firstName)
+    .filter(() => takeAgentcashBudget(input.budgetState, "minerva_enrich"));
   if (leaders.length === 0) {
     return [];
   }
@@ -1013,8 +1122,11 @@ async function runCladoEmailFallbackRequests(input: {
   domain: string;
   leaders: PersonRecord[];
   agentcashFetch: AgentcashFetch;
+  budgetState?: AgentcashBudgetState | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
-  const leaders = input.leaders.filter((person) => person.linkedinUrl);
+  const leaders = input.leaders
+    .filter((person) => person.linkedinUrl)
+    .filter(() => takeAgentcashBudget(input.budgetState, "clado_contacts_enrich"));
   if (leaders.length === 0) {
     return [];
   }
@@ -1979,6 +2091,23 @@ function rankPeople(people: PersonRecord[]) {
   }
 
   return Array.from(byKey.values()).sort((left, right) => roleScoreForPerson(right.role) - roleScoreForPerson(left.role));
+}
+
+function dedupePeopleInOrder(people: PersonRecord[]) {
+  const seen = new Set<string>();
+  const out: PersonRecord[] = [];
+  for (const person of people) {
+    if (!isUsablePersonRecord(person)) {
+      continue;
+    }
+    const key = personNameKey(person);
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(person);
+  }
+  return out;
 }
 
 function apolloOrganizationIdForDomain(payload: unknown, domain: string) {

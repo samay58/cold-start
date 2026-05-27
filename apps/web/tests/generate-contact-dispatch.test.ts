@@ -8,6 +8,7 @@ const providerSource = {
   url: "https://modal.com",
   title: "Modal",
   sourceType: "company_site" as const,
+  intent: "company_profile" as const,
   fetchedAt: generatedAt,
   rawText: "Modal runs serverless compute for AI teams."
 };
@@ -303,6 +304,12 @@ describe("generate-card contact dispatch", () => {
       })
     );
     expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-seed-card"));
+    expect(mocks.fetchStableenrichFastSources).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skipProbeNames: ["exa_company_profile"],
+        maxBudgetUsd: 0.3
+      })
+    );
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
   });

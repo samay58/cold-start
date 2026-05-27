@@ -10,6 +10,8 @@ describe("providerBudgetRegistry", () => {
       expectedFacts: ["identity.name", "identity.websiteUrl", "identity.linkedinUrl", "identity.logoUrl", "identity.hq", "identity.foundedYear", "identity.description"],
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
+      maxCallsPerRun: 1,
+      maxStageCallsUsd: 0.02,
       stopCondition: "stop after one accepted firmographic profile"
     });
   });
@@ -19,6 +21,9 @@ describe("providerBudgetRegistry", () => {
       expect.objectContaining({
         endpoint: "hunter_email_verifier",
         timeoutMs: 15_000,
+        estimatedCostUsd: 0.01,
+        maxCallsPerRun: 6,
+        maxStageCallsUsd: 0.06,
         expectedFacts: ["team.founders", "team.keyExecs"]
       })
     );
@@ -36,13 +41,17 @@ describe("providerBudgetRegistry", () => {
     ] as const) {
       expect(providerBudgetForEndpoint("stableenrich", endpoint)).toMatchObject({
         timeoutMs: 18_000,
-        estimatedCostUsd: 0.01
+        estimatedCostUsd: 0.01,
+        maxCallsPerRun: 1,
+        maxStageCallsUsd: 0.01
       });
     }
 
     expect(providerBudgetForEndpoint("stableenrich", "firecrawl_team")).toMatchObject({
       timeoutMs: 15_000,
-      estimatedCostUsd: 0.01
+      estimatedCostUsd: 0.01,
+      maxCallsPerRun: 1,
+      maxStageCallsUsd: 0.01
     });
   });
 });

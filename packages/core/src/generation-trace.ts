@@ -112,10 +112,12 @@ export type GenerationTrace = {
       factCount?: number;
       failureCount: number;
       endpoints?: GenerationProviderEndpointTrace[];
+      skippedProbeNames?: string[];
       walletSnapshotBeforeUsd?: number;
       walletSnapshotAfterUsd?: number;
       walletDeltaUsd?: number;
       walletSnapshotError?: string;
+      budgetCeilingHit?: boolean;
     };
     mergedSourceCount?: number;
     emailDiscovery?: GenerationEmailDiscoveryTrace[];
