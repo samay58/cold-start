@@ -43,7 +43,11 @@ const envSchema = z.object({
   EXTRACTION_EVIDENCE_BUDGET_CHARS: optionalEnvNumber(1),
 });
 
-export function webEnv() {
+type WebEnv = z.infer<typeof envSchema>;
+
+let cachedEnv: WebEnv | null = null;
+
+function parseWebEnv() {
   return envSchema.parse({
     DATABASE_URL: process.env.DATABASE_URL,
     NEXT_PUBLIC_WEB_ORIGIN: process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "http://localhost:3000",
@@ -56,4 +60,9 @@ export function webEnv() {
     ANALYSIS_SYNTHESIS_MIN_CITATIONS: process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS,
     EXTRACTION_EVIDENCE_BUDGET_CHARS: process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
   });
+}
+
+export function webEnv() {
+  cachedEnv ??= parseWebEnv();
+  return cachedEnv;
 }

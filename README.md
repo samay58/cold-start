@@ -46,6 +46,17 @@ npx agentcash@latest balance
 npx agentcash@latest redeem <YOUR-CODE>
 ```
 
+Generation behavior is controlled by startup env vars. Restart the app and Inngest worker after changing them.
+
+```bash
+CONTACT_ENRICHMENT_ENABLED=true          # false disables deferred contact enrichment
+CONTACT_ENRICHMENT_TIER=named-only       # named-only, full, or off
+CHEAP_FIRST_EXA_ENABLED=true             # run Direct Exa before paid StableEnrich Exa probes
+PER_RUN_AGENTCASH_BUDGET_USD=0.30        # optional override; defaults to 0.30 basics and 0.50 analysis
+ANALYSIS_SYNTHESIS_MIN_CITATIONS=8       # set 0 to disable the analysis evidence gate
+EXTRACTION_EVIDENCE_BUDGET_CHARS=24000   # raise high, e.g. 1000000, to disable source text budgeting
+```
+
 ## Run Locally
 
 Start Postgres:
@@ -152,8 +163,11 @@ Anthropic cost controls:
 
 - `ANTHROPIC_MODEL` is the default model for every LLM stage.
 - `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages when set.
+- `EXTRACTION_EVIDENCE_BUDGET_CHARS` caps variable source text sent to extraction and research-section prompts. High-trust sources keep priority: filings, independent analysis, company pages, news, then enrichment.
+- `ANALYSIS_SYNTHESIS_MIN_CITATIONS` gates analysis synthesis when the public evidence is too thin. A gated run records `trace.synthesis.gateMessage` and does not call synthesis or verifier.
 - Generation traces record LLM call count, token usage, cache reads/writes, model, latency, and estimated USD per call.
 - Provider endpoint budgets, timeouts, expected facts, and stop conditions live in `packages/providers/src/provider-budget.ts` and are copied into StableEnrich endpoint traces.
+- Real AgentCash spend is recorded from wallet snapshots as `trace.costUsdAgentcash` and `trace.providers.stableenrich.walletDeltaUsd` when wallet reads succeed.
 
 ## Trust Contract
 

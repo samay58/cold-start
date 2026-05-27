@@ -21,7 +21,17 @@ Useful filters:
 - `--quality`
 - `--detail`
 
-The trace command prints job kind, run status, duration, accepted and rejected sources, citation count, synthesis verification count, LLM call count, estimated LLM cost, Inngest IDs, failure reason, and deterministic QA flags when present.
+The trace command prints job kind, run status, duration, accepted and rejected sources, applied provider facts, citation count, synthesis verification count, LLM call count, real AgentCash delta, estimated Anthropic cost, provider budget, Inngest IDs, failure reason, and deterministic QA flags when present.
+
+## Read The Trace
+
+Use `--quality` for the compact table and `--detail` when diagnosing a run. `agentcash` is the real wallet delta from `trace.costUsdAgentcash` or `providers.stableenrich.walletDeltaUsd`; `budget` is the expected StableEnrich spend from endpoint metadata. If the wallet snapshot failed, trust the budget only as a ceiling estimate. `anthropic` is `trace.costUsdAnthropic` or the summed LLM estimate.
+
+Milestones live under `trace.milestones`. `firstUsableCardMs` is the sidebar-visible basics point, `contactsReadyMs` is deferred people enrichment, and `analysisReadyMs` is extension-gated synthesis. Inngest replay can run some steps more than once, so the milestone value is anchored to the original event timestamp and should stay monotonic.
+
+StableEnrich endpoint rows show `facts` produced and `applied` facts that survived the pipeline merge. A row with facts and zero applied facts is low-yield. `skippedProbeNames` shows cheap-first Direct Exa coverage, and `budgetCeilingHit` means the per-run AgentCash budget stopped additional paid endpoints.
+
+Analysis runs can finish without synthesis when evidence is weak. In that path, `trace.synthesis.gateMessage` explains the non-fatal gate and synthesis/verifier LLM calls should be absent.
 
 ## Production QA Suite
 
@@ -52,7 +62,7 @@ Every generated run should carry these milestones when the lane exists:
 - `contactsReadyMs`
 - `analysisReadyMs`
 
-Provider endpoint traces should include `durationMs`, `estimatedCostUsd`, `expectedFacts`, and `stopCondition`.
+Provider endpoint traces should include `durationMs`, `estimatedCostUsd`, `expectedFacts`, `stopCondition`, and `factsAppliedCount`.
 Anthropic traces should include model, stage, duration, token usage, cache read/write tokens, and estimated cost.
 
 Speed wins only count if cited quality and work-email usefulness hold. Public card responses must continue to strip emails and synthesis.

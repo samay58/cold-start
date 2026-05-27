@@ -87,19 +87,50 @@ If you see fewer than 3 comps that's intentional. The new prompt prefers fewer r
 ```bash
 set -a; source /Users/samaydhawan/Projects/active/cold-start/.env.production.migrate.local; set +a
 cd /Users/samaydhawan/Projects/active/cold-start
-npm run trace:generation -- --limit 5 --detail
+npm run trace:generation -- --limit 20 --quality
+npm run trace:generation -- --domain modal.com --mode basics --limit 1 --detail --quality
 ```
 
-In the most-recent trace, expect:
+In recent basics traces, expect:
 
 - Step list contains `fetch-sources`, `generate-card`, `load-existing-card`, `upsert-card`, `record-card-evidence`, `record-sources`, `mark-generation-complete`.
+- Milestones include `firstUsableCardMs`. Runs with deferred contact enrichment can also include `contactsReadyMs`; analysis runs can include `analysisReadyMs`.
+- The compact table shows both `agentcash` and `anthropic`. `agentcash` should come from wallet delta when snapshots succeed, not just provider budget math.
+- StableEnrich detail shows wallet before, wallet after, wallet delta, skipped probes, and per-endpoint `facts` versus `applied`.
+- Cheap-first runs can list skipped StableEnrich Exa probes when Direct Exa already covered the intent.
+- A `budget ceiling hit: true` line means `PER_RUN_AGENTCASH_BUDGET_USD` stopped more paid provider calls.
 - **NO `repair-underfilled-basics` step with `status: complete`** (only `skipped`, which is now its only outcome).
 - **NO `email-backfill` step at all** (it was deleted).
 - For analysis runs: **NO `plan-research` LLM call**. The step runs in zero milliseconds using the fallback plan.
 - `extraction.providerFactPaths` no longer lists `"comparables"` (those now come from the LLM block, not from stableenrich).
 - `extraction.blockEnrichment.produced` typically shows 2–4 of the 5 blocks for well-covered domains (was almost always 5).
+- Weak analysis runs can have `trace.synthesis.gateMessage` and zero synthesis/verifier LLM calls. That is a non-fatal "synthesis not yet available" state, not a generation failure.
+
+## 6A. Verify the rescue-pass env gates
+
+Confirm production and local envs set the intended defaults before live testing:
+
+```bash
+CONTACT_ENRICHMENT_ENABLED=true
+CONTACT_ENRICHMENT_TIER=named-only
+CHEAP_FIRST_EXA_ENABLED=true
+PER_RUN_AGENTCASH_BUDGET_USD=0.30
+ANALYSIS_SYNTHESIS_MIN_CITATIONS=8
+EXTRACTION_EVIDENCE_BUDGET_CHARS=24000
+```
+
+Rollback levers:
+
+- `CONTACT_ENRICHMENT_ENABLED=false` disables the deferred contact job.
+- `CONTACT_ENRICHMENT_TIER=off` keeps the job enabled but does no people enrichment.
+- `CHEAP_FIRST_EXA_ENABLED=false` restores the previous StableEnrich-first source fanout.
+- Clearing `PER_RUN_AGENTCASH_BUDGET_USD` restores the built-in ceiling: 0.30 for basics, 0.50 for analysis.
+- `ANALYSIS_SYNTHESIS_MIN_CITATIONS=0` disables the synthesis evidence gate.
+- `EXTRACTION_EVIDENCE_BUDGET_CHARS=1000000` effectively disables source text budgeting.
 
 ## 7. End-to-end spend check with a real generation
+
+This step spends AgentCash and can trigger paid LLM/provider calls. Do not run it from an automated agent session without explicit operator approval.
 
 Top up AgentCash first:
 
