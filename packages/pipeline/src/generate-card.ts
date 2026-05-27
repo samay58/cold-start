@@ -30,6 +30,7 @@ type MarketStructureAndTiming = NonNullable<CardSynthesis["marketStructureAndTim
 type MarketStructureField = keyof MarketStructureAndTiming;
 type VerificationSource = { id: string; url: string; title: string; snippet?: string };
 export type GenerateCardTracePatch = Partial<Pick<GenerationTrace, "extraction" | "synthesis">>;
+const synthesisGateMessage = "insufficient evidence for synthesis";
 export { BLOCK_ENRICHMENT_IDS, type BlockEnrichmentId };
 export type BlockEnrichmentPatch = {
   identity?: Partial<Pick<ColdStartCard["identity"], "oneLiner" | "description">>;
@@ -88,6 +89,48 @@ export type GenerateCardDeps = BaseGenerateCardDeps & (WithoutSynthesisDeps | Wi
 
 function hasSynthesisDeps(deps: GenerateCardDeps): deps is BaseGenerateCardDeps & WithSynthesisDeps {
   return typeof deps.synthesize === "function" && typeof deps.verify === "function";
+}
+
+function analysisSynthesisMinCitations() {
+  const value = Number.parseInt(process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS ?? "8", 10);
+  return Number.isFinite(value) ? value : 8;
+}
+
+function hasCitedFact(fact: ResolvedFact<unknown> | undefined) {
+  return Boolean(fact?.value !== null && fact?.value !== undefined && fact.citationIds.length > 0);
+}
+
+export function synthesisEvidenceGate(card: ColdStartCard, minCitations = analysisSynthesisMinCitations()) {
+  if (minCitations <= 0) {
+    return { ok: true as const };
+  }
+
+  const citedSourceTypes = new Set(
+    card.citations
+      .filter((citation) => citation.sourceType !== "enrichment")
+      .map((citation) => citation.sourceType)
+  );
+  const hasFundingEvidence = hasCitedFact(card.funding.totalRaisedUsd) || hasCitedFact(card.funding.lastRound);
+  const hasNamedTeamMember = [
+    ...(card.team.founders.value ?? []),
+    ...(card.team.keyExecs.value ?? [])
+  ].some((person) => person.name.trim().length > 0);
+  const ok =
+    card.citations.length >= minCitations &&
+    citedSourceTypes.size >= 2 &&
+    hasFundingEvidence &&
+    hasNamedTeamMember;
+
+  return ok
+    ? { ok: true as const }
+    : {
+        ok: false as const,
+        message: synthesisGateMessage,
+        citationCount: card.citations.length,
+        sourceTypeCount: citedSourceTypes.size,
+        hasFundingEvidence,
+        hasNamedTeamMember
+      };
 }
 
 function citationDedupeKey(url: string) {
@@ -732,27 +775,40 @@ export async function generateCardForDomainWithTrace(
 
   if (hasSynthesisDeps(deps)) {
     let verifiedSynthesis: CardSynthesis | undefined;
+    let synthesisGated = false;
 
-    try {
-      const synthesisResult = await verifiedSynthesisForCard(card, deps);
-      if (synthesisResult.tracePatch.synthesis) {
-        tracePatch.synthesis = synthesisResult.tracePatch.synthesis;
-      }
-      verifiedSynthesis = synthesisResult.synthesis;
-    } catch (error) {
+    const gate = synthesisEvidenceGate(card);
+    if (!gate.ok) {
+      synthesisGated = true;
       tracePatch.synthesis = {
         required: deps.synthesisRequired === true,
         produced: false,
-        claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
-        claimCountAfterVerify: 0
+        claimCountBeforeVerify: 0,
+        claimCountAfterVerify: 0,
+        gateMessage: gate.message
       };
+    } else {
+      try {
+        const synthesisResult = await verifiedSynthesisForCard(card, deps);
+        if (synthesisResult.tracePatch.synthesis) {
+          tracePatch.synthesis = synthesisResult.tracePatch.synthesis;
+        }
+        verifiedSynthesis = synthesisResult.synthesis;
+      } catch (error) {
+        tracePatch.synthesis = {
+          required: deps.synthesisRequired === true,
+          produced: false,
+          claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
+          claimCountAfterVerify: 0
+        };
 
-      if (deps.synthesisRequired) {
-        throw new GenerateCardTraceError(boundedCardError(error), tracePatch, { cause: error });
+        if (deps.synthesisRequired) {
+          throw new GenerateCardTraceError(boundedCardError(error), tracePatch, { cause: error });
+        }
       }
     }
 
-    if (!verifiedSynthesis && deps.synthesisRequired) {
+    if (!verifiedSynthesis && deps.synthesisRequired && !synthesisGated) {
       if (!tracePatch.synthesis) {
         tracePatch.synthesis = {
           required: true,

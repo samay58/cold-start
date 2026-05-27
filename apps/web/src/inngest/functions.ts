@@ -1708,9 +1708,6 @@ export const generateCardFunction = inngest.createFunction(
         throw new Error(clean.value.error);
       }
 
-      if (mode === "analysis" && !clean.value.card.synthesis) {
-        throw new Error("analysis synthesis was not produced");
-      }
       let generatedCard: ColdStartCard = clean.value.card;
       let generatedSections = clean.value.sections;
       let sourcesToRecord = clean.value.sources;

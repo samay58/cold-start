@@ -39,6 +39,7 @@ const envSchema = z.object({
   CONTACT_ENRICHMENT_TIER: z.enum(["named-only", "full", "off"]).default("named-only"),
   CHEAP_FIRST_EXA_ENABLED: envBoolean(true),
   PER_RUN_AGENTCASH_BUDGET_USD: optionalEnvNumber(),
+  ANALYSIS_SYNTHESIS_MIN_CITATIONS: optionalEnvNumber(),
 });
 
 export function webEnv() {
@@ -51,5 +52,6 @@ export function webEnv() {
     CONTACT_ENRICHMENT_TIER: process.env.CONTACT_ENRICHMENT_TIER,
     CHEAP_FIRST_EXA_ENABLED: process.env.CHEAP_FIRST_EXA_ENABLED,
     PER_RUN_AGENTCASH_BUDGET_USD: process.env.PER_RUN_AGENTCASH_BUDGET_USD,
+    ANALYSIS_SYNTHESIS_MIN_CITATIONS: process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS,
   });
 }

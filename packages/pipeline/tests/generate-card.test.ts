@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildSeedProfileCard,
   buildSkeletonCard,
@@ -8,6 +8,20 @@ import {
   generateCardForDomainWithTrace,
   type GenerateCardDeps
 } from "../src/index";
+
+const originalAnalysisSynthesisMinCitations = process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS;
+
+beforeEach(() => {
+  process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "0";
+});
+
+afterEach(() => {
+  if (originalAnalysisSynthesisMinCitations === undefined) {
+    delete process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS;
+  } else {
+    process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = originalAnalysisSynthesisMinCitations;
+  }
+});
 
 describe("buildSkeletonCard", () => {
   it("creates a public-safe unknown card before evidence arrives", () => {
@@ -442,6 +456,51 @@ describe("generateCardForDomain", () => {
     expect(card.identity.name.value).toBe("Cartesia");
     expect(card.synthesis).toBeUndefined();
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it("gates required synthesis before LLM calls when analysis evidence is weak", async () => {
+    process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
+    const skeleton = buildSkeletonCard("oboe.com");
+    const synthesize = vi.fn();
+    const verify = vi.fn();
+
+    const result = await generateCardForDomainWithTrace("oboe.com", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: {
+            value: "Oboe",
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"]
+          }
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [
+          { ...citation, id: "c1", url: "https://oboe.com", title: "Oboe" },
+          { ...citation, id: "c2", url: "https://example.com/oboe", title: "Oboe profile", sourceType: "news" as const },
+          { ...citation, id: "c3", url: "https://example.com/oboe-funding", title: "Oboe funding", sourceType: "news" as const }
+        ]
+      }),
+      synthesize,
+      verify,
+      synthesisRequired: true
+    });
+
+    expect(synthesize).not.toHaveBeenCalled();
+    expect(verify).not.toHaveBeenCalled();
+    expect(result.card.synthesis).toBeUndefined();
+    expect(result.tracePatch.synthesis).toEqual({
+      required: true,
+      produced: false,
+      claimCountBeforeVerify: 0,
+      claimCountAfterVerify: 0,
+      gateMessage: "insufficient evidence for synthesis"
+    });
   });
 
   it("ignores unexpected top-level extracted section keys", async () => {

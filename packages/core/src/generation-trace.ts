@@ -156,6 +156,7 @@ export type GenerationTrace = {
     produced: boolean;
     claimCountBeforeVerify: number;
     claimCountAfterVerify: number;
+    gateMessage?: string;
   };
   failure?: {
     stage: string;
