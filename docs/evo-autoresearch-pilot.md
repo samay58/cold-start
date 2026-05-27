@@ -12,6 +12,15 @@ Default gate:
 npm run evo:generation-gate -- --env-file /Users/samaydhawan/Projects/active/cold-start/.env.production.migrate.local --limit 12 --min-score 25
 ```
 
+Evo's stored benchmark and gates must run against the candidate worktree, not the parent checkout:
+
+```bash
+evo config set benchmark 'npm --prefix {worktree} run evo:generation-benchmark -- --env-file /Users/samaydhawan/Projects/active/cold-start/.env.production.migrate.local --limit 12 --json'
+evo config set gate 'npm --prefix {worktree} run evo:generation-gate -- --env-file /Users/samaydhawan/Projects/active/cold-start/.env.production.migrate.local --limit 12 --min-score 25'
+evo gate add root --name generation_score_floor --command 'npm --prefix {worktree} run evo:generation-gate -- --env-file /Users/samaydhawan/Projects/active/cold-start/.env.production.migrate.local --limit 12 --min-score 25'
+evo gate add root --name golden_dry_run --command 'npm --prefix {worktree} run eval:golden -- --dry-run --limit 12'
+```
+
 Baseline Evo setup should use local worktrees only and should not pay for fresh provider or LLM calls. Paid live evals require explicit approval.
 
 Required gates for promoted winners:
