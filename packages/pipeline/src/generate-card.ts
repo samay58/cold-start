@@ -693,6 +693,7 @@ export async function generateCardForDomainWithTrace(
           providerFactCandidateCount: providerFactMerge.trace.candidateCount,
           providerFactAppliedCount: providerFactMerge.trace.appliedCount,
           providerFactPaths: providerFactMerge.trace.paths,
+          providerFactAppliedByEndpoint: providerFactMerge.trace.appliedByEndpoint,
           ...(blockEnrichment.trace ? { blockEnrichment: blockEnrichment.trace } : {})
       };
 
@@ -711,6 +712,7 @@ export async function generateCardForDomainWithTrace(
     providerFactCandidateCount: providerFactMerge.trace.candidateCount,
     providerFactAppliedCount: providerFactMerge.trace.appliedCount,
     providerFactPaths: providerFactMerge.trace.paths,
+    providerFactAppliedByEndpoint: providerFactMerge.trace.appliedByEndpoint,
     ...(blockEnrichment.trace ? { blockEnrichment: blockEnrichment.trace } : {})
   };
 

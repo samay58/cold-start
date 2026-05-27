@@ -6,6 +6,7 @@ export type ProviderFactMergeTrace = {
   appliedCount: number;
   citationCount: number;
   paths: string[];
+  appliedByEndpoint: Record<string, number>;
 };
 
 export type SectionsWithFacts = Pick<ColdStartCard, "identity" | "funding" | "team" | "signals" | "comparables" | "citations">;
@@ -181,6 +182,7 @@ export function applyProviderFactCandidates(
         appliedCount: 0,
         citationCount: 0,
         paths: [],
+        appliedByEndpoint: {},
       },
     };
   }
@@ -196,6 +198,12 @@ export function applyProviderFactCandidates(
     comparables: [...sections.comparables],
   };
   const appliedPaths: string[] = [];
+  const appliedByEndpoint: Record<string, number> = {};
+
+  function markApplied(candidate: ProviderFactCandidate) {
+    appliedPaths.push(candidate.path);
+    appliedByEndpoint[candidate.endpoint] = (appliedByEndpoint[candidate.endpoint] ?? 0) + 1;
+  }
 
   function applyFact<T>(
     candidate: ProviderFactCandidate<T>,
@@ -207,7 +215,7 @@ export function applyProviderFactCandidates(
     }
     const citationId = citationIdFor(candidate);
     write(resolved(candidate, citationId));
-    appliedPaths.push(candidate.path);
+    markApplied(candidate);
   }
 
   for (const candidate of candidates) {
@@ -230,7 +238,7 @@ export function applyProviderFactCandidates(
       case "identity.logoUrl":
         if (!next.identity.logoUrl && typeof candidate.value === "string") {
           next.identity.logoUrl = candidate.value;
-          appliedPaths.push(candidate.path);
+          markApplied(candidate);
         }
         break;
       case "identity.hq":
@@ -272,7 +280,7 @@ export function applyProviderFactCandidates(
           candidate as ProviderFactCandidate<Person[]>,
           citationId,
         );
-        appliedPaths.push(candidate.path);
+        markApplied(candidate);
         break;
       }
       case "team.keyExecs": {
@@ -282,7 +290,7 @@ export function applyProviderFactCandidates(
           candidate as ProviderFactCandidate<Person[]>,
           citationId,
         );
-        appliedPaths.push(candidate.path);
+        markApplied(candidate);
         break;
       }
       case "team.headcount":
@@ -300,7 +308,7 @@ export function applyProviderFactCandidates(
           ...signal,
           citationIds: Array.from(new Set([...(signal.citationIds ?? []), citationId])),
         });
-        appliedPaths.push(candidate.path);
+        markApplied(candidate);
         break;
       }
       case "comparables": {
@@ -313,7 +321,7 @@ export function applyProviderFactCandidates(
           ...comparable,
           citationIds: Array.from(new Set([...(comparable.citationIds ?? []), citationId])),
         });
-        appliedPaths.push(candidate.path);
+        markApplied(candidate);
         break;
       }
     }
@@ -326,6 +334,7 @@ export function applyProviderFactCandidates(
       appliedCount: appliedPaths.length,
       citationCount: citations.length - sections.citations.length,
       paths: Array.from(new Set(appliedPaths)).sort(),
+      appliedByEndpoint,
     },
   };
 }

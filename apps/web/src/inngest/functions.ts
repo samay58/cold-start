@@ -583,20 +583,52 @@ function failedStableenrichEndpoint(reason: unknown) {
 
 type StableenrichEndpointTraceInput = NonNullable<NonNullable<NonNullable<GenerationTrace["providers"]>["stableenrich"]>["endpoints"]>[number];
 
-function withStableenrichEndpointBudgets(endpoints: StableenrichEndpointTraceInput[]): StableenrichEndpointTraceInput[] {
+function mergeEndpointFactCounts(
+  left: Record<string, number> | undefined,
+  right: Record<string, number> | undefined
+) {
+  const out: Record<string, number> = { ...(left ?? {}) };
+  for (const [endpoint, count] of Object.entries(right ?? {})) {
+    out[endpoint] = (out[endpoint] ?? 0) + count;
+  }
+  return out;
+}
+
+function withStableenrichEndpointBudgets(
+  endpoints: StableenrichEndpointTraceInput[],
+  appliedByEndpoint: Record<string, number> = {}
+): StableenrichEndpointTraceInput[] {
   return endpoints.map((endpoint) => {
     try {
       const budget = providerBudgetForEndpoint("stableenrich", endpoint.name as StableenrichProbeName);
       return {
         ...endpoint,
+        factsAppliedCount: appliedByEndpoint[endpoint.name] ?? endpoint.factsAppliedCount ?? 0,
         estimatedCostUsd: budget.estimatedCostUsd,
         expectedFacts: budget.expectedFacts,
         stopCondition: budget.stopCondition
       };
     } catch {
-      return endpoint;
+      return {
+        ...endpoint,
+        factsAppliedCount: appliedByEndpoint[endpoint.name] ?? endpoint.factsAppliedCount ?? 0
+      };
     }
   });
+}
+
+function applyStableenrichEndpointYield(trace: GenerationTrace, appliedByEndpoint?: Record<string, number>) {
+  if (!trace.providers?.stableenrich?.endpoints || !appliedByEndpoint) {
+    return;
+  }
+
+  trace.providers = {
+    ...trace.providers,
+    stableenrich: {
+      ...trace.providers.stableenrich,
+      endpoints: withStableenrichEndpointBudgets(trace.providers.stableenrich.endpoints, appliedByEndpoint)
+    }
+  };
 }
 
 function agentcashBudgetCeilingUsd(input: {
@@ -877,6 +909,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
         };
       });
       mergeTracePatch(trace, contactEnriched.tracePatch);
+      applyStableenrichEndpointYield(trace, contactEnriched.value.providerFactMerge.trace.appliedByEndpoint);
 
       const contactCard = cardWithExtractedSections(existingCard, contactEnriched.value.sections);
       const cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
@@ -1525,12 +1558,14 @@ export const generateCardFunction = inngest.createFunction(
                 fallbackUsed: result.value.trace.fallbackFields.length > 0,
                 providerFactCandidateCount: result.value.trace.providerFactCandidateCount,
                 providerFactAppliedCount: result.value.trace.providerFactAppliedCount,
-                providerFactPaths: result.value.trace.providerFactPaths
+                providerFactPaths: result.value.trace.providerFactPaths,
+                providerFactAppliedByEndpoint: result.value.trace.providerFactAppliedByEndpoint
               }
             }
           };
         });
         mergeTracePatch(trace, seedProfileResult.tracePatch);
+        applyStableenrichEndpointYield(trace, seedProfileResult.value.trace.providerFactAppliedByEndpoint);
         seedCard = seedProfileResult.value.card;
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
@@ -1667,6 +1702,7 @@ export const generateCardFunction = inngest.createFunction(
         };
       });
       mergeTracePatch(trace, clean.tracePatch);
+      applyStableenrichEndpointYield(trace, clean.tracePatch.extraction?.providerFactAppliedByEndpoint);
 
       if (!clean.value.ok) {
         throw new Error(clean.value.error);
@@ -1793,9 +1829,14 @@ export const generateCardFunction = inngest.createFunction(
               ...(trace.extraction.providerFactPaths ?? []),
               ...enriched.value.providerFactMerge.trace.paths
             ],
+            providerFactAppliedByEndpoint: mergeEndpointFactCounts(
+              trace.extraction.providerFactAppliedByEndpoint,
+              enriched.value.providerFactMerge.trace.appliedByEndpoint
+            ),
             ...(enriched.value.trace ? { blockEnrichment: enriched.value.trace } : {})
           };
         }
+        applyStableenrichEndpointYield(trace, enriched.value.providerFactMerge.trace.appliedByEndpoint);
 
         cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
         assertTerminalCardQuality(mode, cardToStore);

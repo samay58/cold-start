@@ -18,6 +18,7 @@ export type SeedProfileTrace = {
   providerFactCandidateCount: number;
   providerFactAppliedCount: number;
   providerFactPaths: string[];
+  providerFactAppliedByEndpoint: Record<string, number>;
   citationCount: number;
   fallbackFields: string[];
 };
@@ -315,6 +316,7 @@ export function buildSeedProfileCard(input: {
       providerFactCandidateCount: providerFactMerge.trace.candidateCount,
       providerFactAppliedCount: providerFactMerge.trace.appliedCount,
       providerFactPaths: providerFactMerge.trace.paths,
+      providerFactAppliedByEndpoint: providerFactMerge.trace.appliedByEndpoint,
       citationCount: card.citations.length,
       fallbackFields
     }

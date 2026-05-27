@@ -44,6 +44,7 @@ export type GenerationProviderEndpointTrace = {
   status: "ok" | "failed" | "skipped";
   sourceCount: number;
   factCount: number;
+  factsAppliedCount?: number;
   durationMs?: number;
   estimatedCostUsd?: number;
   expectedFacts?: string[];
@@ -142,6 +143,7 @@ export type GenerationTrace = {
     providerFactCandidateCount?: number;
     providerFactAppliedCount?: number;
     providerFactPaths?: string[];
+    providerFactAppliedByEndpoint?: Record<string, number>;
     blockEnrichment?: {
       requested: string[];
       produced: string[];

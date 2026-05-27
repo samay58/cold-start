@@ -275,6 +275,21 @@ function printDetail(row: Row) {
       if (stableenrich.walletSnapshotError) {
         console.log(`- wallet snapshot error: ${stableenrich.walletSnapshotError}`);
       }
+      if (stableenrich.budgetCeilingHit) {
+        console.log("- budget ceiling hit: true");
+      }
+      if (stableenrich.skippedProbeNames?.length) {
+        console.log(`- skipped probes: ${stableenrich.skippedProbeNames.join(", ")}`);
+      }
+      if (stableenrich.endpoints?.length) {
+        console.log("\nstableenrich endpoints");
+        for (const endpoint of stableenrich.endpoints) {
+          const applied = endpoint.factsAppliedCount ?? 0;
+          const lowYield = endpoint.factCount > 0 && applied === 0 ? " low-yield" : "";
+          const cost = endpoint.estimatedCostUsd !== undefined ? ` budget=$${endpoint.estimatedCostUsd.toFixed(4)}` : "";
+          console.log(`- ${endpoint.name}: ${endpoint.status} sources=${endpoint.sourceCount} facts=${endpoint.factCount} applied=${applied}${cost}${lowYield}`);
+        }
+      }
     }
     console.log(JSON.stringify(trace.providers, null, 2));
   }
