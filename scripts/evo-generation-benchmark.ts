@@ -6,6 +6,7 @@ import process from "node:process";
 import { Client } from "pg";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import { providerBudgetRegistry } from "@cold-start/providers";
 
 type GoldenCompany = {
   name: string;
@@ -32,6 +33,8 @@ type EndpointStats = {
   wastedMs: number;
   slowNoFactCount: number;
   totalEstimatedCostUsd: number;
+  budgetedNoFactTimeoutMs: number;
+  budgetedNoFactCostUsd: number;
 };
 
 type BenchmarkSummary = {
@@ -50,6 +53,8 @@ type BenchmarkSummary = {
   providerFailureCount: number;
   wastedProviderMs: number;
   slowNoFactEndpointCount: number;
+  budgetedNoFactTimeoutMs: number;
+  budgetedNoFactCostUsd: number;
   emailCoverage: number | null;
   uiCompleteCount: number;
 };
@@ -186,6 +191,8 @@ function endpointStats(runs: RunRow[]): EndpointStats {
   let wastedMs = 0;
   let slowNoFactCount = 0;
   let totalEstimatedCostUsd = 0;
+  let budgetedNoFactTimeoutMs = 0;
+  let budgetedNoFactCostUsd = 0;
 
   for (const run of runs) {
     for (const endpoint of run.trace_json?.providers?.stableenrich?.endpoints ?? []) {
@@ -194,7 +201,10 @@ function endpointStats(runs: RunRow[]): EndpointStats {
         continue;
       }
       if (endpoint.factCount === 0) {
+        const budget = providerBudgetRegistry.stableenrich[endpoint.name as keyof typeof providerBudgetRegistry.stableenrich];
         wastedMs += endpoint.durationMs ?? 0;
+        budgetedNoFactTimeoutMs += budget?.timeoutMs ?? endpoint.durationMs ?? 0;
+        budgetedNoFactCostUsd += budget?.estimatedCostUsd ?? endpoint.estimatedCostUsd ?? 0;
         if ((endpoint.durationMs ?? 0) > 10_000) {
           slowNoFactCount += 1;
         }
@@ -202,7 +212,7 @@ function endpointStats(runs: RunRow[]): EndpointStats {
     }
   }
 
-  return { wastedMs, slowNoFactCount, totalEstimatedCostUsd };
+  return { wastedMs, slowNoFactCount, totalEstimatedCostUsd, budgetedNoFactTimeoutMs, budgetedNoFactCostUsd };
 }
 
 async function latestRuns(client: Client, domains: string[]) {
@@ -265,6 +275,8 @@ function summarize(input: { domains: string[]; runs: RunRow[]; cards: Map<string
     providerFailureCount,
     wastedProviderMs: endpoint.wastedMs,
     slowNoFactEndpointCount: endpoint.slowNoFactCount,
+    budgetedNoFactTimeoutMs: endpoint.budgetedNoFactTimeoutMs,
+    budgetedNoFactCostUsd: Number(endpoint.budgetedNoFactCostUsd.toFixed(4)),
     emailCoverage: peopleTotal > 0 ? emailTotal / peopleTotal : null,
     uiCompleteCount: cards.filter((card) => Boolean(card?.identity.name.value) && hasSummary(card) && (card?.citations.length ?? 0) > 0).length
   };
@@ -275,6 +287,8 @@ function score(summary: BenchmarkSummary) {
   const contacts = summary.contactsP90Ms === null ? 0.4 : clamp(1 - summary.contactsP90Ms / 90_000, 0, 1);
   const cost = summary.avgRunCostUsd === null ? 0.5 : clamp(1 - summary.avgRunCostUsd / 1.0, 0, 1);
   const waste = clamp(1 - summary.wastedProviderMs / 120_000, 0, 1);
+  const budgetedWaste = clamp(1 - summary.budgetedNoFactTimeoutMs / 240_000, 0, 1);
+  const budgetedCostWaste = clamp(1 - summary.budgetedNoFactCostUsd / 0.3, 0, 1);
   const coverage = summary.domains === 0 ? 0 : clamp(summary.uiCompleteCount / summary.domains, 0, 1);
   const citations = clamp((summary.medianCitations ?? 0) / 4, 0, 1);
   const providerReliability = clamp(1 - summary.providerFailureCount / Math.max(1, summary.domains * 10), 0, 1);
@@ -285,8 +299,10 @@ function score(summary: BenchmarkSummary) {
     (
       30 * firstUsable +
       12 * contacts +
-      20 * cost +
-      15 * waste +
+      14 * cost +
+      10 * waste +
+      8 * budgetedWaste +
+      6 * budgetedCostWaste +
       15 * coverage +
       8 * citations +
       5 * providerReliability -
