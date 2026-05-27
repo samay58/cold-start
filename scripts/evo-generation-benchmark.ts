@@ -287,8 +287,8 @@ function score(summary: BenchmarkSummary) {
   const contacts = summary.contactsP90Ms === null ? 0.4 : clamp(1 - summary.contactsP90Ms / 90_000, 0, 1);
   const cost = summary.avgRunCostUsd === null ? 0.5 : clamp(1 - summary.avgRunCostUsd / 1.0, 0, 1);
   const waste = clamp(1 - summary.wastedProviderMs / 120_000, 0, 1);
-  const budgetedWaste = clamp(1 - summary.budgetedNoFactTimeoutMs / 240_000, 0, 1);
-  const budgetedCostWaste = clamp(1 - summary.budgetedNoFactCostUsd / 0.3, 0, 1);
+  const budgetedWaste = 240_000 / (240_000 + summary.budgetedNoFactTimeoutMs);
+  const budgetedCostWaste = 0.3 / (0.3 + summary.budgetedNoFactCostUsd);
   const coverage = summary.domains === 0 ? 0 : clamp(summary.uiCompleteCount / summary.domains, 0, 1);
   const citations = clamp((summary.medianCitations ?? 0) / 4, 0, 1);
   const providerReliability = clamp(1 - summary.providerFailureCount / Math.max(1, summary.domains * 10), 0, 1);
@@ -299,10 +299,10 @@ function score(summary: BenchmarkSummary) {
     (
       30 * firstUsable +
       12 * contacts +
-      14 * cost +
+      12 * cost +
       10 * waste +
-      8 * budgetedWaste +
-      6 * budgetedCostWaste +
+      18 * budgetedWaste +
+      8 * budgetedCostWaste +
       15 * coverage +
       8 * citations +
       5 * providerReliability -

@@ -4,7 +4,7 @@
 
 Use Evo for one narrow loop first: make generation faster and cheaper without weakening card quality.
 
-The benchmark is `npm run evo:generation-benchmark`. It scores recent generation traces and cached cards for the golden-company slice, then weights no-fact provider calls through the current repo's provider budget registry so code changes to timeout and paid endpoint policy can move the score. Higher is better. The score rewards lower `firstUsableCardMs`, lower contact readiness latency, lower run cost, less no-fact provider time, tighter no-fact timeout and cost budgets, complete public-card basics, and citation depth. It penalizes missing core fields, provider failures, and slow provider endpoints that return no facts.
+The benchmark is `npm run evo:generation-benchmark`. It scores recent generation traces and cached cards for the golden-company slice, then weights no-fact provider calls through the current repo's provider budget registry so code changes to timeout and paid endpoint policy can move the score. Higher is better. The score rewards lower `firstUsableCardMs`, lower contact readiness latency, lower run cost, less no-fact provider time, tighter no-fact timeout and cost budgets, complete public-card basics, and citation depth. The no-fact budget terms use a reciprocal curve so incremental timeout/cost reductions show up before the system reaches an ideal target. It penalizes missing core fields, provider failures, and slow provider endpoints that return no facts.
 
 Default gate:
 
