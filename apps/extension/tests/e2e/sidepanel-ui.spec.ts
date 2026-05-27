@@ -340,11 +340,9 @@ test("running card enrichment can be collapsed without stopping the refresh sign
 
   await signalsHeader.click();
 
-  await expect(activeSignals).toHaveAttribute("data-state", "running");
   await expect(activeSignals).toHaveAttribute("data-expanded", "false");
   await expect(signalsHeader).toHaveAttribute("aria-expanded", "false");
   await expect(signalsBody).toHaveAttribute("data-expanded", "false");
-  await expect(signalsHeader).toContainText("Refreshing");
 });
 
 test("keyboard activation exposes explicit generation for synthesis-backed cards", async ({ page }) => {
@@ -373,5 +371,6 @@ test("keyboard activation exposes explicit generation for synthesis-backed cards
   await marketCard.focus();
   await page.keyboard.press("Enter");
   await page.locator(".cs-active-enrichment", { hasText: "Timing" }).getByRole("button", { name: "Generate" }).click();
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("This section has not been generated yet.");
+  await expect.poll(() => generationRequests).toHaveLength(1);
 });

@@ -208,8 +208,16 @@ function sectionFromList(sections: ResearchSection[] | undefined, sectionId: Res
   return sections?.find((section) => section.sectionId === sectionId) ?? null;
 }
 
-function sectionIsSettled(section: ResearchSection | null) {
-  return Boolean(section && section.status !== "running" && section.status !== "not_started");
+function sectionIsSettled(section: ResearchSection | null, pollCount: number) {
+  if (!section) {
+    return false;
+  }
+
+  if (section.status === "available" || section.status === "stale" || section.status === "failed") {
+    return true;
+  }
+
+  return section.status === "empty" && pollCount > 1;
 }
 
 function localFailedSection(card: ColdStartCard, sectionId: ResearchSectionId, error: string): ResearchSection {
@@ -504,7 +512,7 @@ export async function startSectionGenerationAndPoll(
     }
 
     const section = sectionFromList(currentSections, sectionId);
-    if (sectionIsSettled(section)) {
+    if (sectionIsSettled(section, pollCount)) {
       return {
         card: currentCard,
         sections: currentSections,

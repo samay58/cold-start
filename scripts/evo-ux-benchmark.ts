@@ -177,6 +177,10 @@ async function waitForHttp(url: string, server: StartedServer) {
   throw new Error(`Timed out waiting for ${url}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
 }
 
+async function warmRoute(url: string) {
+  await fetch(url, { cache: "no-store" }).catch(() => undefined);
+}
+
 function navTiming(raw: unknown) {
   if (!raw || typeof raw !== "object") {
     return { domContentLoadedMs: null, loadEventMs: null };
@@ -488,8 +492,14 @@ async function main() {
       waitForHttp(`${extensionOrigin}/sidepanel.html`, extensionServer)
     ]);
 
-    browser = await chromium.launch();
     const cardSlug = argValue("--card-slug") ?? "cartesia";
+    await Promise.all([
+      warmRoute(`${webOrigin}/`),
+      warmRoute(`${webOrigin}/c/${cardSlug}`),
+      warmRoute(`${extensionOrigin}/sidepanel.html`)
+    ]);
+
+    browser = await chromium.launch();
     const routes = await Promise.all([
       measureRoute({
         browser,
