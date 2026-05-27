@@ -305,7 +305,8 @@ test("dragging a dormant card upward snaps it into the active research layer", a
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
-  await expect(activeQuestions).toContainText("Synthesizing");
+  await expect(activeQuestions).toContainText("This section has not been generated yet.");
+  await expect(activeQuestions.getByRole("button", { name: "Generate" })).toBeVisible();
 });
 
 test("running card enrichment can be collapsed without stopping the refresh signal", async ({ page }) => {
@@ -328,6 +329,7 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await page.keyboard.press("Enter");
 
   const activeSignals = page.locator('.cs-active-enrichment[data-layer-id="signals"]');
+  await activeSignals.getByRole("button", { name: "Refresh" }).click();
   const signalsHeader = activeSignals.locator(".cs-active-enrichment-head");
   const signalsBody = activeSignals.locator(".cs-active-enrichment-body-frame");
   await expect(activeSignals).toHaveAttribute("data-state", "running");
@@ -345,7 +347,7 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await expect(signalsHeader).toContainText("Refreshing");
 });
 
-test("keyboard activation starts analysis for synthesis-backed cards only", async ({ page }) => {
+test("keyboard activation exposes explicit generation for synthesis-backed cards", async ({ page }) => {
   const generationRequests: Array<{ mode?: string }> = [];
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCard());
@@ -361,6 +363,7 @@ test("keyboard activation starts analysis for synthesis-backed cards only", asyn
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
+  await page.locator(".cs-active-enrichment", { hasText: "Next question" }).getByRole("button", { name: "Generate" }).click();
   await expect(page.locator(".cs-active-enrichment", { hasText: "Next question" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
@@ -369,5 +372,6 @@ test("keyboard activation starts analysis for synthesis-backed cards only", asyn
   const marketCard = page.locator(".cs-dormant-card", { hasText: "Timing" });
   await marketCard.focus();
   await page.keyboard.press("Enter");
+  await page.locator(".cs-active-enrichment", { hasText: "Timing" }).getByRole("button", { name: "Generate" }).click();
   await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
 });
