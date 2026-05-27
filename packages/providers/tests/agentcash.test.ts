@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   agentcashChildEnv,
   agentcashJson,
+  agentcashWalletSnapshot,
+  buildAgentcashAccountsArgs,
+  parseAgentcashAccountsOutput,
   buildAgentcashFetchArgs,
   buildAgentcashFetchCommand,
   parseAgentcashOutput,
@@ -138,5 +141,103 @@ describe("agentcashJson", () => {
       "--format",
       "json",
     ]);
+  });
+});
+
+describe("buildAgentcashAccountsArgs", () => {
+  it("builds read-only account balance args", () => {
+    expect(buildAgentcashAccountsArgs()).toEqual(["accounts", "--format", "json"]);
+  });
+
+  it("keeps npx package prefix when npx is explicitly requested", () => {
+    expect(buildAgentcashAccountsArgs({ command: "npx", packageName: "agentcash@0.14.4" })).toEqual([
+      "agentcash@0.14.4",
+      "accounts",
+      "--format",
+      "json",
+    ]);
+  });
+});
+
+describe("parseAgentcashAccountsOutput", () => {
+  it("parses total balance from AgentCash accounts envelopes", () => {
+    expect(
+      parseAgentcashAccountsOutput(
+        JSON.stringify({
+          success: true,
+          data: {
+            totalBalance: 4.25,
+            accounts: [
+              {
+                network: "base",
+                address: "0xabc",
+                balance: 3,
+                depositLink: "https://agentcash.dev/deposit/base"
+              },
+              {
+                network: "solana",
+                address: "solabc",
+                balance: 1.25,
+                depositLink: "https://agentcash.dev/deposit/solana"
+              }
+            ]
+          }
+        })
+      )
+    ).toEqual({
+      totalBalanceUsd: 4.25,
+      accounts: [
+        {
+          network: "base",
+          address: "0xabc",
+          balanceUsd: 3,
+          depositLink: "https://agentcash.dev/deposit/base"
+        },
+        {
+          network: "solana",
+          address: "solabc",
+          balanceUsd: 1.25,
+          depositLink: "https://agentcash.dev/deposit/solana"
+        }
+      ]
+    });
+  });
+
+  it("sums account balances when AgentCash omits totalBalance", () => {
+    const snapshot = parseAgentcashAccountsOutput(
+      JSON.stringify({
+        success: true,
+        data: {
+          accounts: [
+            { network: "base", address: "0xabc", balance: 2 },
+            { network: "solana", address: "solabc", balance: 0.5 }
+          ]
+        }
+      })
+    );
+
+    expect(snapshot.totalBalanceUsd).toBe(2.5);
+  });
+});
+
+describe("agentcashWalletSnapshot", () => {
+  it("reads account balances through an injected AgentCash runner", async () => {
+    const calls: Array<{ command: string; args: string[] }> = [];
+    const snapshot = await agentcashWalletSnapshot({
+      runAgentcash: async (command, args) => {
+        calls.push({ command, args });
+        return JSON.stringify({
+          success: true,
+          data: {
+            accounts: [{ network: "base", address: "0xabc", balance: 1.75 }]
+          }
+        });
+      }
+    });
+
+    expect(snapshot.totalBalanceUsd).toBe(1.75);
+    expect(calls[0]?.command).toBe(process.execPath);
+    expect(calls[0]?.args[0]).toMatch(/agentcash.*dist\/esm\/index\.js$/);
+    expect(calls[0]?.args.slice(1)).toEqual(["accounts", "--format", "json"]);
   });
 });

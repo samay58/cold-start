@@ -112,10 +112,16 @@ export type GenerationTrace = {
       factCount?: number;
       failureCount: number;
       endpoints?: GenerationProviderEndpointTrace[];
+      walletSnapshotBeforeUsd?: number;
+      walletSnapshotAfterUsd?: number;
+      walletDeltaUsd?: number;
+      walletSnapshotError?: string;
     };
     mergedSourceCount?: number;
     emailDiscovery?: GenerationEmailDiscoveryTrace[];
   };
+  costUsdAgentcash?: number;
+  costUsdAnthropic?: number;
   llm?: {
     calls: GenerationLlmCallTrace[];
     totalEstimatedCostUsd?: number;

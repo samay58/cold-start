@@ -129,6 +129,12 @@ function milestone(run: RunRow, name: keyof NonNullable<GenerationTrace["milesto
 }
 
 function runCostUsd(run: RunRow) {
+  const agentcashCost = run.trace_json?.costUsdAgentcash ?? run.trace_json?.providers?.stableenrich?.walletDeltaUsd;
+  const anthropicCost = run.trace_json?.costUsdAnthropic ?? run.trace_json?.llm?.totalEstimatedCostUsd;
+  if (typeof agentcashCost === "number" && Number.isFinite(agentcashCost)) {
+    return Number((agentcashCost + (anthropicCost ?? 0)).toFixed(6));
+  }
+
   if (run.cost_usd !== null) {
     const parsed = Number(run.cost_usd);
     if (Number.isFinite(parsed)) {

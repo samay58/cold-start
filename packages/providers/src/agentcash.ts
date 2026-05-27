@@ -16,12 +16,39 @@ type AgentCashJsonInput = {
   runAgentcash?: AgentcashRun;
 };
 
+type AgentCashAccountsInput = {
+  command?: string;
+  packageName?: string;
+  timeoutMs?: number;
+  runAgentcash?: AgentcashRun;
+};
+
+export type AgentcashWalletAccount = {
+  network: string;
+  address: string;
+  balanceUsd: number;
+  depositLink?: string;
+};
+
+export type AgentcashWalletSnapshot = {
+  totalBalanceUsd: number;
+  accounts: AgentcashWalletAccount[];
+};
+
 export async function agentcashJson<T>(input: AgentCashJsonInput): Promise<T> {
   const { command, args } = buildAgentcashFetchCommand(input);
   const timeoutMs = input.timeoutMs ?? 120_000;
   const stdout = await (input.runAgentcash ?? runAgentcashCommand)(command, args, { timeoutMs });
 
   return parseAgentcashOutput<T>(stdout);
+}
+
+export async function agentcashWalletSnapshot(input: AgentCashAccountsInput = {}): Promise<AgentcashWalletSnapshot> {
+  const { command, args } = buildAgentcashAccountsCommand(input);
+  const timeoutMs = input.timeoutMs ?? 30_000;
+  const stdout = await (input.runAgentcash ?? runAgentcashCommand)(command, args, { timeoutMs });
+
+  return parseAgentcashAccountsOutput(stdout);
 }
 
 export function buildAgentcashFetchCommand(input: Pick<AgentCashJsonInput, "url" | "body" | "command" | "packageName">) {
@@ -36,6 +63,21 @@ export function buildAgentcashFetchCommand(input: Pick<AgentCashJsonInput, "url"
   return {
     command: process.execPath,
     args: [agentcashCliPath(), ...buildAgentcashFetchArgs({ ...input, command: "agentcash" })],
+  };
+}
+
+export function buildAgentcashAccountsCommand(input: Pick<AgentCashAccountsInput, "command" | "packageName"> = {}) {
+  const overrideCommand = input.command ?? process.env.AGENTCASH_BIN;
+  if (overrideCommand) {
+    return {
+      command: overrideCommand,
+      args: buildAgentcashAccountsArgs({ ...input, command: overrideCommand }),
+    };
+  }
+
+  return {
+    command: process.execPath,
+    args: [agentcashCliPath(), ...buildAgentcashAccountsArgs({ ...input, command: "agentcash" })],
   };
 }
 
@@ -57,6 +99,14 @@ export function buildAgentcashFetchArgs(input: Pick<AgentCashJsonInput, "url" | 
   return command === "npx" ? [packageName, ...fetchArgs] : fetchArgs;
 }
 
+export function buildAgentcashAccountsArgs(input: Pick<AgentCashAccountsInput, "command" | "packageName"> = {}) {
+  const command = input.command ?? process.env.AGENTCASH_BIN ?? "agentcash";
+  const packageName = input.packageName ?? process.env.AGENTCASH_PACKAGE ?? "agentcash@0.14.4";
+  const accountsArgs = ["accounts", "--format", "json"];
+
+  return command === "npx" ? [packageName, ...accountsArgs] : accountsArgs;
+}
+
 export function parseAgentcashOutput<T>(stdout: string): T {
   const parsed = JSON.parse(stdout) as unknown;
 
@@ -75,6 +125,46 @@ export function parseAgentcashOutput<T>(stdout: string): T {
   }
 
   return parsed as T;
+}
+
+export function parseAgentcashAccountsOutput(stdout: string): AgentcashWalletSnapshot {
+  const data = parseAgentcashOutput<{
+    accounts?: Array<{
+      network?: unknown;
+      address?: unknown;
+      balance?: unknown;
+      depositLink?: unknown;
+    }>;
+    totalBalance?: unknown;
+  }>(stdout);
+
+  const accounts = (data.accounts ?? []).flatMap((account): AgentcashWalletAccount[] => {
+    const balanceUsd = Number(account.balance);
+    if (!Number.isFinite(balanceUsd)) {
+      return [];
+    }
+
+    return [{
+      network: typeof account.network === "string" ? account.network : "unknown",
+      address: typeof account.address === "string" ? account.address : "",
+      balanceUsd,
+      ...(typeof account.depositLink === "string" ? { depositLink: account.depositLink } : {})
+    }];
+  });
+
+  if (accounts.length === 0) {
+    throw new Error("AgentCash accounts response did not include any balances");
+  }
+
+  const parsedTotal = Number(data.totalBalance);
+  const totalBalanceUsd = Number.isFinite(parsedTotal)
+    ? parsedTotal
+    : accounts.reduce((sum, account) => sum + account.balanceUsd, 0);
+
+  return {
+    totalBalanceUsd: Number(totalBalanceUsd.toFixed(6)),
+    accounts
+  };
 }
 
 async function runAgentcashCommand(command: string, args: string[], options: { timeoutMs: number }): Promise<string> {

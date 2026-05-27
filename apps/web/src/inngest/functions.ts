@@ -73,7 +73,8 @@ import {
   type ProviderFactCandidate,
   type ProviderSource,
   type StableenrichEnv,
-  type StableenrichProbeName
+  type StableenrichProbeName,
+  agentcashWalletSnapshot
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/env";
@@ -125,6 +126,7 @@ type GenerationMode = "basics" | "analysis";
 type TimedResult<T> = { durationMs: number; value: T };
 type GenerationTracePatch = Partial<Omit<GenerationTrace, "jobKind" | "mode">>;
 type ProviderTrace = NonNullable<GenerationTrace["providers"]>;
+type StableenrichTrace = NonNullable<ProviderTrace["stableenrich"]>;
 type GenerationMilestoneName = keyof NonNullable<GenerationTrace["milestones"]>;
 type GenerationEventTimestamp = {
   ts?: unknown;
@@ -209,7 +211,21 @@ function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | 
   }
 
   if ("providers" in patch && patch.providers) {
-    trace.providers = patch.providers;
+    const providers: ProviderTrace = {
+      ...trace.providers,
+      ...patch.providers
+    };
+
+    if (patch.providers.stableenrich) {
+      providers.stableenrich = {
+        ...stableenrichTraceWithWallet(trace.providers?.stableenrich, null),
+        ...patch.providers.stableenrich
+      };
+    } else if (trace.providers?.stableenrich) {
+      providers.stableenrich = trace.providers.stableenrich;
+    }
+
+    trace.providers = providers;
   }
 
   if ("llm" in patch && patch.llm) {
@@ -221,6 +237,9 @@ function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | 
           ? { totalEstimatedCostUsd: trace.llm.totalEstimatedCostUsd }
           : {})
     };
+    if (trace.llm.totalEstimatedCostUsd !== undefined) {
+      trace.costUsdAnthropic = trace.llm.totalEstimatedCostUsd;
+    }
   }
 
   if ("sourceGate" in patch && patch.sourceGate) {
@@ -246,6 +265,68 @@ function completedStep(durationMs: number): GenerationTraceStep {
 
 function skippedStep(message: string): GenerationTraceStep {
   return { status: "skipped", message };
+}
+
+async function safeAgentcashWalletSnapshot() {
+  try {
+    return {
+      ok: true as const,
+      snapshot: await agentcashWalletSnapshot()
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error: boundedErrorMessage(error)
+    };
+  }
+}
+
+function stableenrichTraceWithWallet(
+  stableenrich: StableenrichTrace | undefined,
+  before: Awaited<ReturnType<typeof safeAgentcashWalletSnapshot>> | null,
+  after?: Awaited<ReturnType<typeof safeAgentcashWalletSnapshot>> | null
+): StableenrichTrace {
+  const next: StableenrichTrace = stableenrich ?? {
+    sourceCount: 0,
+    failureCount: 0
+  };
+
+  if (before?.ok) {
+    next.walletSnapshotBeforeUsd = before.snapshot.totalBalanceUsd;
+  } else if (before && !before.ok) {
+    next.walletSnapshotError = `before: ${before.error}`;
+  }
+
+  if (after?.ok) {
+    next.walletSnapshotAfterUsd = after.snapshot.totalBalanceUsd;
+    if (before?.ok) {
+      const delta = Math.max(0, before.snapshot.totalBalanceUsd - after.snapshot.totalBalanceUsd);
+      next.walletDeltaUsd = Number(delta.toFixed(6));
+    }
+  } else if (after && !after.ok) {
+    next.walletSnapshotError = [next.walletSnapshotError, `after: ${after.error}`].filter(Boolean).join("; ");
+  }
+
+  return next;
+}
+
+function applyStableenrichWalletTrace(
+  trace: GenerationTrace,
+  before: Awaited<ReturnType<typeof safeAgentcashWalletSnapshot>> | null,
+  after?: Awaited<ReturnType<typeof safeAgentcashWalletSnapshot>> | null
+) {
+  const stableenrich = stableenrichTraceWithWallet(trace.providers?.stableenrich, before, after);
+  trace.providers = {
+    ...trace.providers,
+    stableenrich
+  };
+
+  if (stableenrich.walletDeltaUsd !== undefined) {
+    trace.costUsdAgentcash = stableenrich.walletDeltaUsd;
+  }
+  if (trace.llm?.totalEstimatedCostUsd !== undefined) {
+    trace.costUsdAnthropic = trace.llm.totalEstimatedCostUsd;
+  }
 }
 
 function generateErrorTracePatch(error: unknown): GenerateCardTracePatch {
@@ -345,6 +426,7 @@ function recordLlmCall(trace: GenerationTrace, costLines: CostLine[], call: Gene
       usd: call.estimatedCostUsd
     });
   }
+  trace.costUsdAnthropic = totalEstimatedCostUsd;
 }
 
 async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
@@ -774,6 +856,8 @@ export const generateCardFunction = inngest.createFunction(
     }
 
     let generationRunDbId: string | null = null;
+    const walletSnapshotBefore = await step.run("wallet-snapshot-before", () => safeAgentcashWalletSnapshot());
+    applyStableenrichWalletTrace(trace, walletSnapshotBefore);
     const runningGenerationRun = await step.run("mark-generation-running", () =>
       markGenerationRun(db, {
         slug,
@@ -1191,6 +1275,8 @@ export const generateCardFunction = inngest.createFunction(
             ...contactCardToStore,
             generationCostUsd: totalGenerationCost(costLines)
           };
+          const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
+          applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
           await step.run("mark-generation-complete", () =>
             markGenerationRun(db, {
               slug,
@@ -1488,6 +1574,8 @@ export const generateCardFunction = inngest.createFunction(
         writeGenerationMilestone(trace, "analysisReadyMs", requestedAtMs);
       }
 
+      const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
+      applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
       await step.run("mark-generation-complete", () =>
         markGenerationRun(db, {
           slug,
@@ -1513,6 +1601,8 @@ export const generateCardFunction = inngest.createFunction(
         message: boundedErrorMessage(error),
         ...(error instanceof Error ? { className: error.name } : {})
       };
+      const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
+      applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
       await step.run("mark-generation-failed", () =>
         markGenerationRun(db, {
           slug,

@@ -142,7 +142,12 @@ function flagsFor(row: Row) {
 function summarize(row: Row, includeQuality: boolean) {
   const trace = row.trace_json;
   const llmCalls = trace?.llm?.calls.length;
-  const llmCost = trace?.llm?.totalEstimatedCostUsd;
+  const llmCost = trace?.costUsdAnthropic ?? trace?.llm?.totalEstimatedCostUsd;
+  const agentcashCost = trace?.costUsdAgentcash ?? trace?.providers?.stableenrich?.walletDeltaUsd;
+  const stableenrichBudget = trace?.providers?.stableenrich?.endpoints?.reduce(
+    (sum, endpoint) => sum + (endpoint.estimatedCostUsd ?? 0),
+    0
+  );
   return {
     when: row.started_at.toISOString().replace("T", " ").slice(0, 19),
     company: row.domain,
@@ -160,7 +165,9 @@ function summarize(row: Row, includeQuality: boolean) {
       ? `${trace.synthesis.claimCountAfterVerify}/${trace.synthesis.claimCountBeforeVerify}`
       : "-",
     llm: llmCalls !== undefined ? String(llmCalls) : "-",
-    cost: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
+    agentcash: agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
+    anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
+    budget: stableenrichBudget !== undefined ? `$${stableenrichBudget.toFixed(4)}` : "-",
     ...(includeQuality ? { quality: formatGenerationQualityFlags(flagsFor(row)) } : {}),
     error: compactError(row.error ?? trace?.failure?.message ?? null)
   };
@@ -179,7 +186,9 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "citations",
     "synthesis",
     "llm",
-    "cost",
+    "agentcash",
+    "anthropic",
+    "budget",
     ...(includeQuality ? ["quality"] : []),
     "error"
   ] as const;
@@ -252,6 +261,21 @@ function printDetail(row: Row) {
       }
     }
     console.log("\nproviders");
+    const stableenrich = trace.providers.stableenrich;
+    if (stableenrich) {
+      const budget = stableenrich.endpoints?.reduce((sum, endpoint) => sum + (endpoint.estimatedCostUsd ?? 0), 0) ?? 0;
+      const before = stableenrich.walletSnapshotBeforeUsd;
+      const after = stableenrich.walletSnapshotAfterUsd;
+      const delta = stableenrich.walletDeltaUsd;
+      console.log("stableenrich spend");
+      console.log(`- budgeted: $${budget.toFixed(4)}`);
+      console.log(`- wallet before: ${before === undefined ? "-" : `$${before.toFixed(4)}`}`);
+      console.log(`- wallet after: ${after === undefined ? "-" : `$${after.toFixed(4)}`}`);
+      console.log(`- wallet delta: ${delta === undefined ? "-" : `$${delta.toFixed(4)}`}`);
+      if (stableenrich.walletSnapshotError) {
+        console.log(`- wallet snapshot error: ${stableenrich.walletSnapshotError}`);
+      }
+    }
     console.log(JSON.stringify(trace.providers, null, 2));
   }
 
