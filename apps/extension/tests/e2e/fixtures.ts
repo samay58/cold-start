@@ -1,10 +1,13 @@
+import { createRequire } from "node:module";
 import type { ColdStartCard } from "@cold-start/core";
 import type { Page, Route } from "@playwright/test";
 
 export const QA_API_ORIGIN = "https://cold-start-samay58s-projects.vercel.app";
 export const QA_TOKEN = "qa-extension-token";
-const COLD_START_API_CONTRACT_HEADER = "x-cold-start-api-contract";
-const COLD_START_API_CONTRACT_VERSION = "2026-05-10.generate-status-v1";
+const require = createRequire(import.meta.url);
+const contract = require("@cold-start/core/api-contract.json") as { apiHeader: string; version: string };
+const COLD_START_API_CONTRACT_HEADER = contract.apiHeader;
+const COLD_START_API_CONTRACT_VERSION = contract.version;
 
 type ChromeStorageArea = "local" | "session";
 
