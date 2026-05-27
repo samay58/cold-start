@@ -351,13 +351,13 @@ describe("readableCardError", () => {
     expect(readableCardError("request failed with 500", "http://localhost:3000")).toContain("worker logs");
   });
 
-  it("explains the retired basics quality gate as deployment skew", () => {
+  it("explains basics quality gate failures as source coverage gaps", () => {
     expect(
       readableCardError(
         "generated basics underfilled public profile (4/4 structured facts)",
         "https://cold-start-samay58s-projects.vercel.app"
       )
-    ).toContain("latest API");
+    ).toContain("could not find enough cited basics");
   });
 
   it("explains API contract mismatches as deployment skew", () => {

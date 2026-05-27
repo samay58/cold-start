@@ -354,7 +354,7 @@ export function readableCardError(message: string, apiOrigin: string): string {
   }
 
   if (message.startsWith("generated basics underfilled public profile")) {
-    return "The API rejected a partial profile. Restart or deploy the latest API, then retry.";
+    return "Cold Start tried, but could not find enough cited basics to make a reliable card for this domain.";
   }
 
   if (message === "request failed with 500") {
