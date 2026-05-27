@@ -27,6 +27,8 @@
     "db:migrate:production": "node scripts/migrate-production.mjs",
     "trace:generation": "tsx scripts/trace-generation.ts",
     "optimize:generation": "tsx scripts/optimize-generation.ts",
+    "evo:generation-benchmark": "tsx scripts/evo-generation-benchmark.ts",
+    "evo:generation-gate": "tsx scripts/evo-generation-benchmark.ts --gate",
     "qa:generation": "tsx scripts/qa-generation-suite.ts",
     "repair:sections": "tsx scripts/repair-research-sections.ts",
     "verify:cache-ttl": "tsx scripts/verify-cache-ttl.ts",

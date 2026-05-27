@@ -23,4 +23,26 @@ describe("providerBudgetRegistry", () => {
       })
     );
   });
+
+  it("keeps slow no-fact fanout probes on bounded but plausible timeouts", () => {
+    for (const endpoint of [
+      "exa_funding_history",
+      "exa_company_profile",
+      "exa_management_team",
+      "exa_competition",
+      "exa_find_similar",
+      "exa_email_search",
+      "exa_leader_discovery",
+    ] as const) {
+      expect(providerBudgetForEndpoint("stableenrich", endpoint)).toMatchObject({
+        timeoutMs: 18_000,
+        estimatedCostUsd: 0.01
+      });
+    }
+
+    expect(providerBudgetForEndpoint("stableenrich", "firecrawl_team")).toMatchObject({
+      timeoutMs: 15_000,
+      estimatedCostUsd: 0.01
+    });
+  });
 });

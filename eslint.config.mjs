@@ -9,6 +9,7 @@ export default tseslint.config(
       "**/dist/**",
       "**/dist-dev/**",
       "**/.next/**",
+      "**/.evo/**",
       "**/.vercel/**",
       "**/.venv/**",
       "**/node_modules/**",
