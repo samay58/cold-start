@@ -96,6 +96,7 @@ export type GenerationTrace = {
   };
   steps?: Record<string, GenerationTraceStep>;
   milestones?: {
+    seedCardMs?: number;
     firstUsableCardMs?: number;
     contactsReadyMs?: number;
     analysisReadyMs?: number;

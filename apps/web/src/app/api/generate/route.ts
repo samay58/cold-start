@@ -295,9 +295,17 @@ export async function POST(request: Request) {
 
   try {
     const queueStartedAt = performance.now();
+    const requestedAtMs = queuedRun?.startedAt?.getTime() ?? Date.now();
     await inngest.send({
       name: "card/generate.requested",
-      data: { domain, slug, mode, ...(sectionId ? { sectionId } : {}) },
+      ts: requestedAtMs,
+      data: {
+        domain,
+        slug,
+        mode,
+        requestedAtMs,
+        ...(sectionId ? { sectionId } : {})
+      },
     });
     const queueMs = elapsedMs(queueStartedAt);
     return timedJson(

@@ -125,6 +125,14 @@ type GenerationMode = "basics" | "analysis";
 type TimedResult<T> = { durationMs: number; value: T };
 type GenerationTracePatch = Partial<Omit<GenerationTrace, "jobKind" | "mode">>;
 type ProviderTrace = NonNullable<GenerationTrace["providers"]>;
+type GenerationMilestoneName = keyof NonNullable<GenerationTrace["milestones"]>;
+type GenerationEventTimestamp = {
+  ts?: unknown;
+  data?: {
+    requestedAt?: unknown;
+    requestedAtMs?: unknown;
+  };
+};
 
 function generationModeForRun(input: unknown): GenerationMode {
   return input === "analysis" ? "analysis" : "basics";
@@ -138,6 +146,49 @@ async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
   const startedAt = Date.now();
   const value = await fn();
   return { durationMs: Date.now() - startedAt, value };
+}
+
+function timestampMs(input: unknown): number | null {
+  if (typeof input === "number" && Number.isFinite(input) && input > 0) {
+    return Math.round(input);
+  }
+
+  if (typeof input === "string" && input.trim().length > 0) {
+    const parsed = Date.parse(input);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+export function requestedAtMsFromGenerationEvent(event: GenerationEventTimestamp, fallbackNowMs = Date.now()) {
+  return timestampMs(event.data?.requestedAtMs)
+    ?? timestampMs(event.data?.requestedAt)
+    ?? timestampMs(event.ts)
+    ?? fallbackNowMs;
+}
+
+function milestoneElapsedMs(requestedAtMs: number, nowMs = Date.now()) {
+  return Math.max(1, Math.round(nowMs - requestedAtMs));
+}
+
+export function writeGenerationMilestone(
+  trace: GenerationTrace,
+  name: GenerationMilestoneName,
+  requestedAtMs: number,
+  nowMs = Date.now()
+) {
+  const existing = trace.milestones?.[name];
+  if (typeof existing === "number" && Number.isFinite(existing)) {
+    return existing;
+  }
+
+  const value = milestoneElapsedMs(requestedAtMs, nowMs);
+  trace.milestones = {
+    ...trace.milestones,
+    [name]: value
+  };
+  return value;
 }
 
 function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | GenerateCardTracePatch) {
@@ -680,7 +731,7 @@ export const generateCardFunction = inngest.createFunction(
   async ({ event, runId, step }) => {
     const { DATABASE_URL } = webEnv();
     const db = createDb(DATABASE_URL);
-    const functionStartedAt = Date.now();
+    const requestedAtMs = requestedAtMsFromGenerationEvent(event);
 
     let domain: string;
     let slug: string;
@@ -1050,10 +1101,7 @@ export const generateCardFunction = inngest.createFunction(
             citationCount: seedCardToStore.citations.length,
             sourceCount: acceptedSources.length
           }, null);
-          trace.milestones = {
-            ...trace.milestones,
-            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
-          };
+          writeGenerationMilestone(trace, "seedCardMs", requestedAtMs);
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
         }
@@ -1125,11 +1173,8 @@ export const generateCardFunction = inngest.createFunction(
           const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, contactCardToStore));
           await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, contactCardToStore));
           await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(contactCardToStore)));
-          trace.milestones = {
-            ...trace.milestones,
-            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt,
-            contactsReadyMs: Date.now() - functionStartedAt
-          };
+          writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
+          writeGenerationMilestone(trace, "contactsReadyMs", requestedAtMs);
           await step.run("record-contact-sources", () =>
             recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSources)),
           );
@@ -1330,10 +1375,7 @@ export const generateCardFunction = inngest.createFunction(
           sourceCount: sourcesToRecord.length
         }, null);
         if (mode === "basics") {
-          trace.milestones = {
-            ...trace.milestones,
-            firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
-          };
+          writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
         }
       } else {
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-generated-card", cardToStore);
@@ -1439,13 +1481,11 @@ export const generateCardFunction = inngest.createFunction(
           citationCount: cardToStore.citations.length,
           sourceCount: sourcesToRecord.length
         }, null);
+        writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
       }
 
       if (mode === "analysis") {
-        trace.milestones = {
-          ...trace.milestones,
-          analysisReadyMs: Date.now() - functionStartedAt
-        };
+        writeGenerationMilestone(trace, "analysisReadyMs", requestedAtMs);
       }
 
       await step.run("mark-generation-complete", () =>

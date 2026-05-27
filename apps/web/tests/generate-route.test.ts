@@ -238,7 +238,13 @@ describe("POST /api/generate", () => {
     });
     expect(mocks.send).toHaveBeenCalledWith({
       name: "card/generate.requested",
-      data: { domain: "cartesia.ai", slug: "cartesia", mode: "basics" }
+      ts: expect.any(Number),
+      data: {
+        domain: "cartesia.ai",
+        slug: "cartesia",
+        mode: "basics",
+        requestedAtMs: expect.any(Number)
+      }
     });
   });
 
@@ -295,7 +301,14 @@ describe("POST /api/generate", () => {
     });
     expect(mocks.send).toHaveBeenCalledWith({
       name: "card/generate.requested",
-      data: { domain: "cartesia.ai", slug: "cartesia", mode: "analysis", sectionId: "market" }
+      ts: expect.any(Number),
+      data: {
+        domain: "cartesia.ai",
+        slug: "cartesia",
+        mode: "analysis",
+        sectionId: "market",
+        requestedAtMs: expect.any(Number)
+      }
     });
   });
 
@@ -457,7 +470,13 @@ describe("POST /api/generate", () => {
     });
     expect(mocks.send).toHaveBeenCalledWith({
       name: "card/generate.requested",
-      data: { domain: "cartesia.ai", slug: "cartesia", mode: "basics" }
+      ts: expect.any(Number),
+      data: {
+        domain: "cartesia.ai",
+        slug: "cartesia",
+        mode: "basics",
+        requestedAtMs: expect.any(Number)
+      }
     });
   });
 
