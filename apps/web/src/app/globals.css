@@ -267,7 +267,7 @@ a {
 .cs-index-preview-main {
   display: grid;
   align-content: start;
-  flex: 1 1 54%;
+  flex: 1 1 58%;
   gap: 20px;
   padding: clamp(20px, 3vw, 34px);
 }
@@ -277,6 +277,10 @@ a {
   grid-template-columns: 54px minmax(0, 1fr);
   gap: 14px;
   align-items: center;
+}
+
+.cs-index-company-lockup > div {
+  min-width: 0;
 }
 
 .cs-index-company-lockup > span {
@@ -301,10 +305,11 @@ a {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-fraunces);
-  font-size: clamp(42px, 6vw, 76px);
+  font-size: clamp(38px, 4.8vw, 64px);
   font-weight: 720;
   letter-spacing: 0;
-  line-height: 0.92;
+  line-height: 0.98;
+  overflow-wrap: anywhere;
 }
 
 .cs-index-one-liner {
@@ -359,7 +364,7 @@ a {
 
 .cs-index-stack {
   display: grid;
-  flex: 0 0 min(420px, 44%);
+  flex: 0 0 min(370px, 39%);
   align-content: start;
   padding: 14px;
 }
