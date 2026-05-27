@@ -1,39 +1,64 @@
-/* Cold Start · app profile design tokens */
+/* Cold Start · Signal Ledger direction design tokens
+ * See DESIGN.md and docs/brand/signal-ledger-direction.md for the live system.
+ * Legacy token names are aliased while older component CSS is converted. */
 
 :root {
-  /* Brand field (page shell) */
-  --color-observatory-navy: #06192c;
-  --color-abyss-ink: #020812;
-  --color-ice-white: #eef8ff;
+  /* Canonical palette */
+  --color-field: #f7f5ee;
+  --color-plate: #fffdf8;
+  --color-ink: #171a1f;
+  --color-muted: #68706a;
+  --color-rule: #ccc7b8;
+  --color-rule-strong: #9c978a;
+  --color-verified: #0e6b5b;
+  --color-reported: #315f9d;
+  --color-company: #9b6a1e;
+  --color-conflict: #b63a2a;
+  --color-focus: #d7b84a;
 
-  /* Reading surface (card) */
-  --color-parchment: #fafaf7;
-  --color-parchment-warm: #fcfaf5;
-  --color-ink: #0e0e0e;
-  --color-muted-ink: #5f625c;
-  --color-mid-stone: #6e6e76;
-  --color-soft-sand: #d8d5ca;
-  --color-hairline: #e6dfc9;
-  --color-hover-pebble: #f0efea;
+  --color-paper-shadow-soft: rgb(23 26 31 / 0.05);
+  --color-paper-shadow-hard: rgb(23 26 31 / 0.10);
 
-  /* Bedrock accent (warm blue) and complement */
-  --color-lens-blue: #1674ff;
-  --color-wire-blue: #5fb4ff;
-  --color-signal-amber: #a8741f;
+  /* Source-class encoding */
+  --color-class-independent: var(--color-verified);
+  --color-class-reporting: var(--color-reported);
+  --color-class-company: var(--color-company);
 
-  /* Source-class encoding (per round, per citation) */
-  --color-class-independent: var(--color-lens-blue);
-  --color-class-reporting: var(--color-wire-blue);
-  --color-class-company: var(--color-signal-amber);
+  /* Canonical type system */
+  --font-display: var(--font-plex-sans-next, "IBM Plex Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body: var(--font-plex-sans-next, "IBM Plex Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-plex-serif-next, "IBM Plex Serif"), ui-serif, Georgia, serif;
+  --font-mono: "Berkeley Mono", var(--font-plex-mono-next, "IBM Plex Mono"), ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* Type system */
-  --font-fraunces: var(--font-fraunces-next, "Fraunces"), ui-serif, Georgia, serif;
-  --font-mona-sans: var(--font-mona-sans-next, "Mona Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  /* Shadows stay shallow; structure comes from rules and alignment. */
+  --shadow-card: 0 0 0 1px var(--color-rule);
+  --shadow-popover: 0 10px 26px rgb(23 26 31 / 0.10), 0 0 0 1px var(--color-rule);
+  --shadow-pickup: 0 6px 18px rgb(23 26 31 / 0.08);
 
-  /* Shadows */
-  --shadow-card: 0 18px 60px rgb(2 8 18 / 0.10), 0 0 0 1px rgb(14 14 14 / 0.06);
-  --shadow-popover: 0 12px 34px rgb(2 8 18 / 0.12), 0 0 0 1px rgb(14 14 14 / 0.06);
+  /* ----- Legacy aliases (retire in component CSS rewrite) ----- */
+  --color-observatory-navy: var(--color-ink);
+  --color-abyss-ink: var(--color-ink);
+  --color-ice-white: var(--color-field);
+
+  --color-bone: var(--color-field);
+  --color-bone-deep: #eeeae0;
+  --color-xerox: var(--color-muted);
+  --color-riso-red: var(--color-conflict);
+
+  --color-parchment: var(--color-field);
+  --color-parchment-warm: var(--color-plate);
+  --color-muted-ink: var(--color-muted);
+  --color-mid-stone: var(--color-muted);
+  --color-soft-sand: var(--color-rule);
+  --color-hairline: var(--color-rule);
+  --color-hover-pebble: #efebe0;
+
+  --color-lens-blue: var(--color-reported);
+  --color-wire-blue: var(--color-reported);
+  --color-signal-amber: var(--color-company);
+
+  --font-fraunces: var(--font-serif);
+  --font-mona-sans: var(--font-body);
 }
 
 .sr-only {
@@ -53,20 +78,16 @@
 .cs-card-page {
   box-sizing: border-box;
   position: relative;
-  width: min(1120px, 100%);
+  width: min(880px, 100%);
   margin: 0 auto;
-  padding: 32px 16px;
+  padding: 56px 28px 80px;
 }
 
 .cs-card-page::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(22 116 255 / 0.028) 1px, transparent 1px),
-    linear-gradient(180deg, var(--color-parchment) 0%, var(--color-parchment-warm) 100%);
-  background-size: 64px 64px, 64px 64px, auto, auto, auto;
+  background: var(--color-bone);
   content: "";
 }
 
@@ -77,14 +98,14 @@
   position: relative;
   width: 100%;
   max-width: 100%;
-  padding: 30px;
-  border: 1px solid var(--color-hairline);
-  border-radius: 12px;
-  background-color: var(--color-parchment-warm);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--color-bone);
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
+  font-family: var(--font-body);
+  box-shadow: none;
+  overflow: visible;
 }
 
 .cs-card[data-surface="extension"] {
@@ -719,7 +740,7 @@
   height: 4px;
   border-radius: 999px;
   background: var(--color-wire-blue);
-  box-shadow: 0 0 0 3px rgb(22 116 255 / 0.07);
+  box-shadow: 0 0 0 3px rgb(242 227 0 / 0.07);
   opacity: 0;
   pointer-events: none;
   transform: translate(-2px, 2px) scale(0.82);
@@ -771,7 +792,7 @@
   }
 
   .cs-fact-row:hover {
-    background: rgb(22 116 255 / 0.025);
+    background: rgb(242 227 0 / 0.025);
   }
 }
 
@@ -1170,7 +1191,7 @@
   min-height: 100vh;
   padding: 12px;
   background:
-    linear-gradient(180deg, rgb(22 116 255 / 0.035), transparent 140px),
+    linear-gradient(180deg, rgb(242 227 0 / 0.035), transparent 140px),
     var(--color-parchment);
   color: var(--color-ink);
   font-family: var(--font-mona-sans);
@@ -1193,7 +1214,7 @@
   border: 1px solid var(--color-lens-blue);
   border-radius: 12px;
   background: var(--color-parchment-warm);
-  box-shadow: inset 0 0 0 1px rgb(22 116 255 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(242 227 0 / 0.08);
   color: var(--color-ink);
   flex-shrink: 0;
   font-family: var(--font-mono);
@@ -1692,5 +1713,1155 @@
 
   .cs-footer-meta {
     justify-items: start;
+  }
+}
+
+/* ============================================================
+ * Legacy public web card selectors converted by Signal Ledger overrides
+ * Overrides and additions for the redesigned web surface.
+ * ============================================================ */
+
+.cs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Top chrome ---------- */
+
+.cs-card[data-surface="web"] .cs-card-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-name {
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-brand-aperture {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 12px;
+  background: var(--color-focus);
+  vertical-align: middle;
+}
+
+.cs-card[data-surface="web"] .cs-card-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-card-topbar-meta span {
+  color: var(--color-xerox);
+}
+
+/* ---------- Headline ---------- */
+
+.cs-card[data-surface="web"] .cs-card-header {
+  display: grid;
+  gap: 18px;
+  padding: 56px 0 28px;
+  border: 0;
+}
+
+.cs-card[data-surface="web"] .cs-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(56px, 11vw, 124px);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 0.92;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.cs-card[data-surface="web"] .cs-subtitle {
+  margin: 0;
+  max-width: 56ch;
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+  padding: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-meta-line span::before {
+  content: "→ ";
+  color: var(--color-focus);
+  margin-right: 4px;
+}
+
+/* ---------- Section labels (letter-spaced + hand-drawn underline) ---------- */
+
+.cs-section-label {
+  display: inline-grid;
+  grid-template-columns: auto;
+  gap: 4px;
+  margin: 0 0 18px;
+  color: var(--color-ink);
+}
+
+.cs-section-label-text {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.cs-section-label-underline {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 10px;
+  color: var(--color-focus);
+  overflow: visible;
+}
+
+.cs-card[data-surface="web"] .cs-section {
+  display: block;
+  margin: 56px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.cs-card[data-surface="web"] .cs-section h2 {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+  color: var(--color-ink);
+}
+
+/* ---------- Stats ---------- */
+
+.cs-card[data-surface="web"] .cs-stats {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 36px;
+  margin: 48px 0 0;
+  padding: 36px 0 36px;
+  border-top: 1px solid var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-stat {
+  display: grid;
+  gap: 8px;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cs-card[data-surface="web"] .cs-stat .cs-section-label {
+  margin: 0;
+}
+
+.cs-card[data-surface="web"] .cs-stat-hero .cs-stat-value {
+  font-family: var(--font-mono);
+  font-size: clamp(48px, 7vw, 84px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-stat-value {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-stat-value-mid {
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+.cs-card[data-surface="web"] .cs-stat-meta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+/* ---------- Pitch grid (3 blocks) ---------- */
+
+.cs-pitch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 32px;
+  margin: 4px 0 0;
+}
+
+.cs-pitch-block {
+  display: grid;
+  gap: 8px;
+}
+
+.cs-pitch-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--color-focus);
+  text-transform: uppercase;
+}
+
+.cs-pitch-copy {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+/* ---------- Funding rounds ---------- */
+
+.cs-card[data-surface="web"] .cs-round-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-card[data-surface="web"] .cs-round {
+  display: grid;
+  grid-template-columns: 24px 100px minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: 20px;
+  padding: 18px 0;
+  border-top: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-round:last-child {
+  border-bottom: 1px solid var(--color-ink);
+}
+
+.cs-round-marker {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-focus);
+}
+
+.cs-card[data-surface="web"] .cs-round[data-class="reporting"] .cs-round-marker {
+  color: var(--color-xerox);
+}
+
+.cs-card[data-surface="web"] .cs-round[data-class="company"] .cs-round-marker {
+  color: var(--color-riso-red);
+}
+
+.cs-card[data-surface="web"] .cs-round-date {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-round-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-round-leads {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-xerox);
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+
+.cs-card[data-surface="web"] .cs-round-amount {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 2.5vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- Signals + comparables ---------- */
+
+.cs-card[data-surface="web"] .cs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-card[data-surface="web"] .cs-signal,
+.cs-card[data-surface="web"] .cs-comparable {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 20px;
+  padding: 18px 0;
+  border-top: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-signal:last-child,
+.cs-card[data-surface="web"] .cs-comparable:last-child {
+  border-bottom: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-signal-date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-signal-title,
+.cs-card[data-surface="web"] .cs-comparable-title {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-comparable {
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.cs-card[data-surface="web"] .cs-signal-meta,
+.cs-card[data-surface="web"] .cs-comparable-copy {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  font-style: normal;
+  color: var(--color-xerox);
+}
+
+.cs-card[data-surface="web"] .cs-comparable-copy {
+  font-family: var(--font-body);
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-comparable-domain {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-focus);
+  text-align: right;
+}
+
+/* ---------- Fact rows ---------- */
+
+.cs-card[data-surface="web"] .cs-fact-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 24px;
+  padding: 14px 0;
+  border-top: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-fact-row:last-child {
+  border-bottom: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-fact-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-fact-value {
+  font-family: var(--font-body);
+  font-feature-settings: "tnum" 1;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-ink);
+  font-style: normal;
+}
+
+.cs-card[data-surface="web"] .cs-fact-value.cs-mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+/* ---------- Citations (inline mono brackets) ---------- */
+
+.cs-card[data-surface="web"] .cs-citation {
+  position: relative;
+  display: inline;
+  margin-left: 4px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--color-ink);
+  background: var(--color-focus);
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.cs-card[data-surface="web"] .cs-citation:hover,
+.cs-card[data-surface="web"] .cs-citation:focus-visible {
+  background: var(--color-ink);
+  color: var(--color-focus);
+  outline: none;
+}
+
+/* ---------- Source footnote block ---------- */
+
+.cs-source-block {
+  margin-top: 64px;
+  padding-top: 36px;
+  border-top: 1px solid var(--color-ink);
+}
+
+.cs-source-block .cs-section-label {
+  margin-bottom: 24px;
+}
+
+.cs-source-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-source-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 0;
+  border: 0;
+}
+
+.cs-source-marker {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: 0;
+}
+
+.cs-source-item[data-class="reporting"] .cs-source-marker {
+  color: var(--color-xerox);
+}
+
+.cs-source-item[data-class="company"] .cs-source-marker {
+  color: var(--color-riso-red);
+}
+
+.cs-source-body {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+.cs-source-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.cs-source-title:hover,
+.cs-source-title:focus-visible {
+  background: var(--color-focus);
+  outline: none;
+}
+
+.cs-source-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-xerox);
+}
+
+.cs-source-host {
+  color: var(--color-xerox);
+}
+
+.cs-source-sep {
+  color: var(--color-xerox);
+}
+
+.cs-source-date {
+  color: var(--color-xerox);
+}
+
+/* ---------- Footer ---------- */
+
+.cs-card[data-surface="web"] .cs-card-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: flex-start;
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 1px solid var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-footer-copy {
+  margin: 0;
+  max-width: 60ch;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  line-height: 1.6;
+  color: var(--color-xerox);
+  font-style: normal;
+}
+
+.cs-card[data-surface="web"] .cs-footer-meta {
+  display: flex;
+  gap: 18px;
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--color-xerox);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-footer-meta span {
+  color: var(--color-xerox);
+}
+
+.cs-empty {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  color: var(--color-xerox);
+  font-style: normal;
+}
+
+@media (max-width: 760px) {
+  .cs-card[data-surface="web"] .cs-stats {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .cs-card[data-surface="web"] .cs-round {
+    grid-template-columns: 24px 1fr;
+    gap: 12px;
+  }
+
+  .cs-card[data-surface="web"] .cs-round-date,
+  .cs-card[data-surface="web"] .cs-round-amount {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .cs-card[data-surface="web"] .cs-round-body {
+    grid-column: 2;
+  }
+
+  .cs-card[data-surface="web"] .cs-signal,
+  .cs-card[data-surface="web"] .cs-comparable,
+  .cs-card[data-surface="web"] .cs-fact-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cs-card[data-surface="web"] .cs-card-topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .cs-card[data-surface="web"] .cs-card-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-card[data-surface="web"] .cs-footer-meta {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- Signal Ledger override ---------- */
+
+.cs-card-page {
+  width: min(1180px, 100%);
+  padding: 36px 24px 72px;
+}
+
+.cs-card-page::before {
+  background: var(--color-field);
+}
+
+.cs-card[data-surface="web"] {
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  box-shadow: none;
+}
+
+.cs-card[data-surface="web"] .cs-card-topbar {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand {
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-brand-aperture {
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--color-ink);
+  border-radius: 2px;
+  background: var(--color-focus);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-id,
+.cs-card[data-surface="web"] .cs-card-topbar-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-card-header {
+  gap: 14px;
+  padding: clamp(34px, 5vw, 58px) 0 26px;
+}
+
+.cs-card[data-surface="web"] .cs-title {
+  max-width: 920px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(42px, 7vw, 72px);
+  font-weight: 670;
+  letter-spacing: -0.015em;
+  line-height: 0.96;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-subtitle {
+  max-width: 740px;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(18px, 2.1vw, 22px);
+  font-weight: 450;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-meta-line {
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+.cs-key-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--color-rule-strong);
+  border-left: 1px solid var(--color-rule);
+}
+
+.cs-key-value {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  column-gap: 9px;
+  row-gap: 6px;
+  min-width: 0;
+  padding: 13px 14px 14px;
+  border-right: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-key-label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.cs-key-value strong {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--color-ink);
+}
+
+.cs-key-value .cs-key-number {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cs-key-value .cs-citation {
+  grid-column: 2;
+  width: fit-content;
+}
+
+.cs-ledger-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: clamp(30px, 5vw, 56px);
+  align-items: start;
+  margin-top: clamp(34px, 5vw, 56px);
+}
+
+.cs-ledger-main {
+  min-width: 0;
+}
+
+.cs-source-rail {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+
+.cs-card[data-surface="web"] .cs-section {
+  margin-top: 0;
+  padding: 24px 0 30px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-section + .cs-section {
+  margin-top: 0;
+}
+
+.cs-card[data-surface="web"] .cs-section-label,
+.cs-source-block .cs-section-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+}
+
+.cs-section-label-underline {
+  display: none;
+}
+
+.cs-evidence-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: currentColor;
+  color: var(--color-verified);
+  flex: 0 0 auto;
+}
+
+[data-state="reported"] > .cs-evidence-dot,
+[data-class="reporting"] > .cs-evidence-dot {
+  background: transparent;
+  color: var(--color-reported);
+}
+
+[data-state="company"] > .cs-evidence-dot,
+[data-class="company"] > .cs-evidence-dot {
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  color: var(--color-company);
+}
+
+[data-state="conflict"] > .cs-evidence-dot {
+  border-radius: 0;
+  background: var(--color-conflict);
+  color: var(--color-conflict);
+  transform: rotate(45deg);
+}
+
+[data-state="unknown"] > .cs-evidence-dot {
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.cs-card[data-surface="web"] .cs-section-label-text,
+.cs-source-block .cs-section-label-text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.1;
+  color: var(--color-ink);
+  text-transform: none;
+}
+
+.cs-claim-list,
+.cs-evidence-table {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-claim-row {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  gap: 10px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-claim-row p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-ink);
+}
+
+.cs-claim-row strong {
+  font-weight: 650;
+}
+
+.cs-claim-row a {
+  color: var(--color-ink);
+  text-decoration-color: var(--color-rule-strong);
+  text-underline-offset: 3px;
+}
+
+.cs-claim-date,
+.cs-claim-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+}
+
+.cs-card[data-surface="web"] .cs-round {
+  display: grid;
+  grid-template-columns: 9px minmax(110px, 0.9fr) minmax(0, 1.8fr) minmax(92px, 0.6fr) minmax(78px, 0.6fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-round-name,
+.cs-card[data-surface="web"] .cs-round-leads,
+.cs-card[data-surface="web"] .cs-round-amount,
+.cs-card[data-surface="web"] .cs-round-date {
+  margin: 0;
+  line-height: 1.35;
+}
+
+.cs-card[data-surface="web"] .cs-round-name {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.cs-card[data-surface="web"] .cs-round-leads {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.cs-card[data-surface="web"] .cs-round-amount,
+.cs-card[data-surface="web"] .cs-round-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+.cs-fact-grid {
+  display: grid;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-fact-row {
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 18px;
+  padding: 12px 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-fact-label {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+.cs-card[data-surface="web"] .cs-fact-value {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.cs-card[data-surface="web"] .cs-fact-value.cs-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.cs-next-question p {
+  margin: 0;
+  max-width: 44rem;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.cs-card[data-surface="web"] .cs-citation {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  margin-left: 5px;
+  padding: 0 2px;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--color-reported);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.cs-card[data-surface="web"] .cs-citation:hover,
+.cs-card[data-surface="web"] .cs-citation:focus-visible {
+  background: var(--color-focus);
+  color: var(--color-ink);
+  outline: 2px solid transparent;
+}
+
+.cs-source-block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.cs-source-list {
+  gap: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-source-item {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-source-marker,
+.cs-source-body,
+.cs-source-title,
+.cs-source-meta {
+  font-family: var(--font-mono);
+}
+
+.cs-source-marker {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 11px;
+  color: var(--color-verified);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-source-item[data-class="reporting"] .cs-source-marker {
+  color: var(--color-reported);
+}
+
+.cs-source-item[data-class="company"] .cs-source-marker {
+  color: var(--color-company);
+}
+
+.cs-source-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.cs-source-meta {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+
+.cs-source-title:hover,
+.cs-source-title:focus-visible {
+  background: var(--color-focus);
+  color: var(--color-ink);
+}
+
+.cs-card[data-surface="web"] .cs-card-footer {
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-card[data-surface="web"] .cs-footer-copy,
+.cs-card[data-surface="web"] .cs-footer-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-muted);
+}
+
+.cs-empty {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 0;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+@media (max-width: 960px) {
+  .cs-ledger-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-source-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 700px) {
+  .cs-card-page {
+    padding: 14px 10px 40px;
+  }
+
+  .cs-card[data-surface="web"] {
+    padding: 18px;
+  }
+
+  .cs-key-values {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-card[data-surface="web"] .cs-round {
+    grid-template-columns: 9px minmax(0, 1fr);
+  }
+
+  .cs-card[data-surface="web"] .cs-round-leads,
+  .cs-card[data-surface="web"] .cs-round-amount,
+  .cs-card[data-surface="web"] .cs-round-date {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .cs-card[data-surface="web"] .cs-fact-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

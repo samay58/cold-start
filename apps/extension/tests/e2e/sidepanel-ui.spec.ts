@@ -286,7 +286,7 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await mockExtensionApi(page, browserbaseCard());
   await openSidePanel(page);
 
-  const card = page.locator(".cs-dormant-card", { hasText: "Risks & Diligence" });
+  const card = page.locator(".cs-dormant-card", { hasText: "Next question" });
   await expect(card).toBeVisible();
 
   const box = await card.boundingBox();
@@ -298,12 +298,12 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 34, { steps: 4 });
-  await expect(page.getByText("Lift to commit")).toBeVisible();
+  await expect(page.getByText("Lift to add")).toBeVisible();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 8 });
-  await expect(page.getByText("Release to pin")).toBeVisible();
+  await expect(page.getByText("Release to add")).toBeVisible();
   await page.mouse.up();
 
-  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Risks & Diligence" });
+  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
   await expect(activeQuestions).toContainText("Synthesizing");
 });
@@ -323,7 +323,7 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   });
   await openSidePanel(page);
 
-  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Traction" });
+  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Signals" });
   await dormantSignals.focus();
   await page.keyboard.press("Enter");
 
@@ -357,17 +357,17 @@ test("keyboard activation starts analysis for synthesis-backed cards only", asyn
   });
   await openSidePanel(page);
 
-  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Risks & Diligence" });
+  const openQuestions = page.locator(".cs-dormant-card", { hasText: "Next question" });
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Risks & Diligence" })).toContainText("Synthesizing");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Next question" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
 
-  const marketCard = page.locator(".cs-dormant-card", { hasText: "Market Structure & Timing" });
+  const marketCard = page.locator(".cs-dormant-card", { hasText: "Timing" });
   await marketCard.focus();
   await page.keyboard.press("Enter");
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Market Structure & Timing" })).toContainText("Synthesizing");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
 });

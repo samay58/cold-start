@@ -37,15 +37,6 @@ function recentFundingRounds(card: ColdStartCard | PublicCard): FundingRound[] {
   return card.funding.lastRound.value ? [card.funding.lastRound.value] : [];
 }
 
-function fundingRoundCitationIds(card: ColdStartCard | PublicCard) {
-  const rounds = card.funding.rounds;
-  if (rounds?.value && rounds.value.length > 0) {
-    return rounds.citationIds;
-  }
-
-  return card.funding.lastRound.citationIds;
-}
-
 function classifyRound(round: FundingRound): SourceClass {
   if (!round.amountUsd && !round.leadInvestors.length) {
     return "company";
@@ -105,6 +96,28 @@ function formatAppCurrency(value: number | null | undefined): string {
 
 function formatAppDate(value: string | null | undefined): string {
   return value ? formatShortDate(value) : "Not found";
+}
+
+type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
+
+function evidenceStateForFact(fact: ResolvedFact<unknown> | undefined): EvidenceState {
+  if (!fact || fact.value === null) {
+    return "unknown";
+  }
+
+  if (fact.status === "mixed") {
+    return "conflict";
+  }
+
+  if (fact.status === "inferred" || fact.confidence === "low") {
+    return "company";
+  }
+
+  if (fact.confidence === "medium") {
+    return "reported";
+  }
+
+  return "verified";
 }
 
 function factStateLabel(fact: ResolvedFact<unknown> | undefined, missing = "Not found") {
@@ -333,8 +346,8 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
             <ExtensionRow label="Website" value={website} />
             {card.identity.linkedinUrl?.value ? <ExtensionRow label="LinkedIn" value={card.identity.linkedinUrl.value} /> : null}
             {description?.concept ? <ExtensionRow label="Concept" value={description.concept} /> : null}
-            {description?.serves ? <ExtensionRow label="Buyer & Use Case" value={description.serves} /> : null}
-            {description?.mechanism ? <ExtensionRow label="Product & Technology" value={description.mechanism} /> : null}
+            {description?.serves ? <ExtensionRow label="Who buys" value={description.serves} /> : null}
+            {description?.mechanism ? <ExtensionRow label="Product" value={description.mechanism} /> : null}
             <ExtensionRow label="HQ" value={hq ? `${hq.city}, ${hq.country}` : "Not found"} />
             <ExtensionRow label="Founded" value={card.identity.foundedYear.value ?? "Not found"} />
           </dl>
@@ -441,6 +454,64 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
   );
 }
 
+function SectionLabel({ state = "verified", text }: { state?: EvidenceState; text: string }) {
+  return (
+    <div className="cs-section-label" data-state={state}>
+      <span className="cs-evidence-dot" aria-hidden="true" />
+      <h2 className="cs-section-label-text">{text}</h2>
+    </div>
+  );
+}
+
+function KeyValue({
+  children,
+  citationIds = [],
+  label,
+  mono = false,
+  state = "verified",
+  value
+}: {
+  children?: ReactNode;
+  citationIds?: string[];
+  label: string;
+  mono?: boolean;
+  state?: EvidenceState;
+  value?: ReactNode;
+}) {
+  return (
+    <div className="cs-key-value" data-state={state}>
+      <span className="cs-evidence-dot" aria-hidden="true" />
+      <span className="cs-key-label">{label}</span>
+      <strong className={mono ? "cs-key-number" : undefined}>{children ?? value}</strong>
+      {citationIds.map((id) => (
+        <CitationMarker id={id} key={id} />
+      ))}
+    </div>
+  );
+}
+
+function ClaimRow({
+  children,
+  citationIds = [],
+  state = "verified"
+}: {
+  children: ReactNode;
+  citationIds?: string[] | undefined;
+  state?: EvidenceState | undefined;
+}) {
+  return (
+    <li className="cs-claim-row" data-state={state}>
+      <span className="cs-evidence-dot" aria-hidden="true" />
+      <p>
+        {children}
+        {citationIds.map((id) => (
+          <CitationMarker id={id} key={id} />
+        ))}
+      </p>
+    </li>
+  );
+}
+
 export function CardShell({ card, surface }: CardShellProps) {
   if (surface === "extension") {
     return <ExtensionProfile card={card} />;
@@ -450,264 +521,183 @@ export function CardShell({ card, surface }: CardShellProps) {
   const description = card.identity.description?.value ?? null;
   const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
   const rounds = recentFundingRounds(card);
-  const roundCitationIds = fundingRoundCitationIds(card);
   const mix = citationMix(card);
-  const initialLetter = plateInitial(title);
   const filedDate = formatMediumDate(card.generatedAt);
   const hasRounds = rounds.length > 0;
   const hasSignals = card.signals.length > 0;
   const hasComparables = card.comparables.length > 0;
+  const totalRaised = card.funding.totalRaisedUsd.value;
+  const lastRound = card.funding.lastRound.value;
+  const headcount = card.team.headcount.value;
+  const hq = card.identity.hq.value;
+  const founders = card.team.founders.value ?? [];
+  const nextQuestion = hasSynthesis(card) && card.synthesis?.openQuestions[0]
+    ? card.synthesis.openQuestions[0]
+    : hasRounds
+      ? "Which proof point shows buyer pull beyond financing?"
+      : "What outside source confirms financing and buyer adoption?";
 
   return (
     <article className="cs-card" data-surface={surface}>
       <div className="cs-card-topbar">
         <div className="cs-card-brand" aria-label="Cold Start">
-          <span className="cs-plate" aria-hidden="true">{initialLetter}</span>
-          <span className="cs-card-brand-name">COLD START</span>
-          {mix.total > 0 ? <span className="cs-card-brand-id">N° {String(mix.total).padStart(4, "0")}</span> : null}
+          <span className="cs-brand-aperture" aria-hidden="true" />
+          <span className="cs-card-brand-name">Cold Start</span>
+          {mix.total > 0 ? <span className="cs-card-brand-id">{String(mix.total).padStart(2, "0")} sources</span> : null}
         </div>
         <div className="cs-card-topbar-meta">
-          <span>filed {filedDate}</span>
+          <span>Filed {filedDate}</span>
+          <span>{formatStatusLabel(card.identity.status)}</span>
         </div>
       </div>
 
       <header className="cs-card-header">
-        <div className="cs-hero">
-          <div className="cs-hero-meta">
-            <div className="cs-hero-plate" aria-hidden="true">
-              {initialLetter}
-              <span className="cs-hero-plate-tag">{mix.total > 0 ? mix.total : "·"}</span>
-            </div>
-            <span className="cs-hero-kicker">
-              {mix.total > 0 ? `Sourced · ${mix.total} citations` : "Sourced"}
-            </span>
-          </div>
-
-          <h1 className="cs-title" aria-label={title}>
-            <span>{title}</span>
-            <span aria-hidden="true">.</span>
-          </h1>
-
-          {subtitle ? (
-            <div className="cs-description" aria-label={subtitle}>
-              <p className="cs-subtitle">{subtitle}</p>
-            </div>
-          ) : null}
-
-          <p className="cs-meta-line" aria-label="Card metadata">
-            {(() => {
-              const hq = card.identity.hq.value;
-              const hqText = hq ? hq.city : card.domain;
-              const founded = card.identity.foundedYear.value ? `Founded ${card.identity.foundedYear.value}` : null;
-              const parts = [hqText, founded, formatStatusLabel(card.identity.status), mix.total > 0 ? "Verified" : null].filter((p): p is string => Boolean(p));
-              return parts.map((part, index, arr) => (
-                <span key={`${part}-${index}`} className={index === arr.length - 1 ? "cs-meta-verified" : undefined}>
-                  {part}
-                </span>
-              ));
-            })()}
-          </p>
-
-          {description ? (
-            <dl className="cs-description-grid" aria-label="Company description">
-              {description.concept ? (
-                <div>
-                  <dt>Concept</dt>
-                  <dd>{description.concept}</dd>
-                </div>
-              ) : null}
-              {description.serves ? (
-                <div>
-                  <dt>Buyer & Use Case</dt>
-                  <dd>{description.serves}</dd>
-                </div>
-              ) : null}
-              {description.mechanism ? (
-                <div>
-                  <dt>Product & Technology</dt>
-                  <dd>{description.mechanism}</dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : null}
+        <h1 className="cs-title" aria-label={title}>{title}</h1>
+        {subtitle ? <p className="cs-subtitle">{subtitle}</p> : null}
+        <div className="cs-meta-line" aria-label="Card metadata">
+          {(() => {
+            const hqText = hq ? hq.city : card.domain;
+            const founded = card.identity.foundedYear.value ? `Founded ${card.identity.foundedYear.value}` : null;
+            const parts = [hqText, founded, mix.total > 0 ? `${mix.total} cited sources` : null].filter((p): p is string => Boolean(p));
+            return parts.map((part, index) => (
+              <span key={`${part}-${index}`}>{part}</span>
+            ));
+          })()}
         </div>
       </header>
 
-      <section className="cs-stats" aria-label="Headline figures">
-        <div className="cs-stat">
-          <p className="cs-stat-label">i · raised</p>
-          <p className="cs-stat-value">{formatMetricCurrency(card.funding.totalRaisedUsd.value)}</p>
-          {rounds.length > 0 ? (
-            <p className="cs-stat-meta">
-              across {countLabel(rounds.length, "round")}
-              {mix.total > 0 ? `, ${mix.total} sources` : ""}
-            </p>
-          ) : null}
-        </div>
-        <div className="cs-stat">
-          <p className="cs-stat-label">ii · last round</p>
-          <p className="cs-stat-value">{formatMetricCurrency(card.funding.lastRound.value?.amountUsd ?? null)}</p>
-          {card.funding.lastRound.value ? (
-            <p className="cs-stat-meta">
-              {card.funding.lastRound.value.name}
-              {card.funding.lastRound.value.announcedAt ? `, ${formatShortDate(card.funding.lastRound.value.announcedAt)}` : ""}
-            </p>
-          ) : null}
-        </div>
-        <div className="cs-stat">
-          <p className="cs-stat-label">iii · team</p>
-          <p className="cs-stat-value">{card.team.headcount.value ? `~${card.team.headcount.value.value}` : "Unknown"}</p>
-          {card.team.headcount.value ? (
-            <p className="cs-stat-meta">as of {card.team.headcount.value.asOf}</p>
-          ) : mix.independent > 0 ? (
-            <p className="cs-stat-meta">{countLabel(mix.independent, "indep. source")}</p>
-          ) : null}
-        </div>
+      <section className="cs-key-values" aria-label="Key facts">
+        <KeyValue citationIds={card.funding.totalRaisedUsd.citationIds} label="Raised" mono state={evidenceStateForFact(card.funding.totalRaisedUsd)}>
+          {formatMetricCurrency(totalRaised)}
+        </KeyValue>
+        <KeyValue citationIds={card.funding.lastRound.citationIds} label="Last round" mono state={evidenceStateForFact(card.funding.lastRound)}>
+          {lastRound ? `${lastRound.name} · ${formatMetricCurrency(lastRound.amountUsd)}` : "not found"}
+        </KeyValue>
+        <KeyValue citationIds={card.team.headcount.citationIds} label="Headcount" mono state={evidenceStateForFact(card.team.headcount)}>
+          {headcount ? `${headcount.value} · ${formatShortDate(headcount.asOf)}` : "not found"}
+        </KeyValue>
+        <KeyValue citationIds={card.identity.hq.citationIds} label="HQ" state={evidenceStateForFact(card.identity.hq)}>
+          {hq ? `${hq.city}, ${hq.country}` : "not found"}
+        </KeyValue>
+        <KeyValue citationIds={card.identity.foundedYear.citationIds} label="Founded" mono state={evidenceStateForFact(card.identity.foundedYear)}>
+          {card.identity.foundedYear.value ?? "not found"}
+        </KeyValue>
+        <KeyValue citationIds={card.team.founders.citationIds} label="Founders" state={evidenceStateForFact(card.team.founders)}>
+          {founders.length > 0 ? founders.map((person) => person.name).join(", ") : "not found"}
+        </KeyValue>
       </section>
 
-      {hasRounds ? (
-        <section className="cs-section" aria-labelledby="capital-heading">
-          <div className="cs-section-kicker">
-            <span>iv · capitalisation</span>
-            <span className="cs-section-kicker-aside">
-              {countLabel(rounds.length, "round")}
-              {roundCitationIds.length > 0 ? ` · ${countLabel(roundCitationIds.length, "source")}` : ""}
-            </span>
-          </div>
-          <h2 id="capital-heading">Capitalisation.</h2>
-          <div className="cs-rounds-legend" aria-hidden="true">
-            <span><i style={{ background: "var(--color-class-independent)" }} />independent</span>
-            <span><i style={{ background: "var(--color-class-reporting)" }} />reporting</span>
-            <span><i style={{ background: "var(--color-class-company)" }} />company</span>
-          </div>
-          <div className="cs-rounds" aria-label="Recent funding rounds">
-            <ol className="cs-round-list">
-              {rounds.map((round) => {
-                const klass = classifyRound(round);
-                return (
-                  <li
-                    className="cs-round"
-                    data-class={klass}
-                    key={`${round.name}-${round.announcedAt ?? "undated"}-${round.amountUsd ?? "undisclosed"}`}
-                  >
-                    <span className="cs-round-dot" aria-hidden="true" />
-                    <p className="cs-round-date">{formatShortDate(round.announcedAt)}</p>
-                    <div>
-                      <p className="cs-round-name">{round.name}</p>
-                      {round.leadInvestors.length > 0 ? (
-                        <p className="cs-round-leads">
-                          {round.leadInvestors.join(", ")}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <p className="cs-round-amount">{formatCompactCurrency(round.amountUsd)}</p>
-                      {round.announcedAt ? (
-                        <p className="cs-round-post">{formatShortDate(round.announcedAt)}</p>
-                      ) : (
-                        <p className="cs-round-post">date undisclosed</p>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        </section>
-      ) : null}
+      <div className="cs-ledger-layout">
+        <main className="cs-ledger-main">
+          {description && (description.concept || description.serves || description.mechanism) ? (
+            <section className="cs-section" aria-labelledby="proof-heading">
+              <SectionLabel text="Proof" state={evidenceStateForFact(card.identity.description)} />
+              <h2 id="proof-heading" className="cs-sr-only">Proof.</h2>
+              <ul className="cs-claim-list">
+                {description.concept ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Product: {description.concept}</ClaimRow> : null}
+                {description.serves ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Who pays: {description.serves}</ClaimRow> : null}
+                {description.mechanism ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Technology: {description.mechanism}</ClaimRow> : null}
+              </ul>
+            </section>
+          ) : null}
 
-      {hasSignals ? (
-        <section className="cs-section" aria-labelledby="signals-heading">
-          <div className="cs-section-kicker">
-            <span>v · signals · last 90 days</span>
-            <span className="cs-section-kicker-aside">
-              {countLabel(card.signals.length, "event")}
-            </span>
-          </div>
-          <h2 id="signals-heading">In motion.</h2>
-          <ul className="cs-list">
-            {card.signals.map((signal) => {
-              const href = safeExternalHref(signal.url);
-              return (
-                <li className="cs-signal" key={`${signal.url}-${signal.title}`}>
-                  <span className="cs-signal-date">{formatShortDate(signal.date)}</span>
-                  <div>
-                    <p className="cs-signal-title">
+          <section className="cs-section" aria-labelledby="money-heading">
+            <SectionLabel text="Money" state={evidenceStateForFact(card.funding.totalRaisedUsd)} />
+            <h2 id="money-heading" className="cs-sr-only">Money.</h2>
+            {hasRounds ? (
+              <ol className="cs-evidence-table">
+                {rounds.map((round) => {
+                  const klass = classifyRound(round);
+                  return (
+                    <li
+                      className="cs-round"
+                      data-class={klass}
+                      key={`${round.name}-${round.announcedAt ?? "undated"}-${round.amountUsd ?? "undisclosed"}`}
+                    >
+                      <span className="cs-evidence-dot" aria-hidden="true" />
+                      <p className="cs-round-name">{round.name}</p>
+                      <p className="cs-round-leads">{round.leadInvestors.length > 0 ? round.leadInvestors.join(", ") : "Lead not found"}</p>
+                      <p className="cs-round-amount">{formatCompactCurrency(round.amountUsd)}</p>
+                      <p className="cs-round-date">{formatShortDate(round.announcedAt)}</p>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <p className="cs-empty">No public funding found.</p>
+            )}
+          </section>
+
+          <section className="cs-section" aria-labelledby="people-heading">
+            <SectionLabel text="People" state={evidenceStateForFact(card.team.founders)} />
+            <h2 id="people-heading" className="cs-sr-only">People.</h2>
+            <div className="cs-fact-grid">
+              <FactRow label="Domain" fact={staticFact(card.domain)} mono />
+              {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
+              {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
+              <FactRow label="Founders" fact={card.team.founders} />
+              <FactRow label="Key execs" fact={card.team.keyExecs} />
+              <FactRow label="Investors" fact={card.funding.investors} />
+            </div>
+          </section>
+
+          {hasSignals ? (
+            <section className="cs-section" aria-labelledby="signals-heading">
+              <SectionLabel text="Signals" state="reported" />
+              <h2 id="signals-heading" className="cs-sr-only">Signals.</h2>
+              <ul className="cs-claim-list">
+                {card.signals.map((signal) => {
+                  const href = safeExternalHref(signal.url);
+                  return (
+                    <ClaimRow citationIds={signal.citationIds} key={`${signal.url}-${signal.title}`} state="reported">
+                      <span className="cs-claim-date">{formatShortDate(signal.date)}</span>{" "}
                       {href ? (
-                        <a href={href} target="_blank" rel="noreferrer">
-                          {signal.title}
-                        </a>
+                        <a href={href} target="_blank" rel="noreferrer">{signal.title}</a>
                       ) : (
                         <span>{signal.title}</span>
                       )}
-                      {signal.citationIds.map((id) => (
-                        <CitationMarker id={id} key={id} />
-                      ))}
-                    </p>
-                    <p className="cs-signal-meta">
-                      {signal.source} · {signal.category}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
+                      <span className="cs-claim-meta"> {signal.source} · {signal.category}</span>
+                    </ClaimRow>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
 
-      {hasComparables ? (
-        <section className="cs-section" aria-labelledby="comparables-heading">
-          <div className="cs-section-kicker">
-            <span>vi · nearest neighbours</span>
-          </div>
-          <h2 id="comparables-heading">Comparables.</h2>
-          <ul className="cs-list">
-            {card.comparables.map((comparable) => (
-              <li className="cs-comparable" key={`${comparable.domain}-${comparable.name}`}>
-                <div>
-                  <p className="cs-comparable-title">{comparable.name}</p>
-                  <p className="cs-comparable-copy">
-                    {comparable.oneLiner ?? comparable.domain}
-                    {comparable.citationIds?.map((id) => (
-                      <CitationMarker id={id} key={id} />
-                    ))}
-                  </p>
-                  {comparable.basis ? <p className="cs-signal-meta">{comparable.basis}</p> : null}
-                </div>
-                <span className="cs-comparable-domain">{comparable.domain}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+          {hasComparables ? (
+            <section className="cs-section" aria-labelledby="comps-heading">
+              <SectionLabel text="Comps" state="reported" />
+              <h2 id="comps-heading" className="cs-sr-only">Comps.</h2>
+              <ul className="cs-claim-list">
+                {card.comparables.map((comparable) => (
+                  <ClaimRow citationIds={comparable.citationIds} key={`${comparable.domain}-${comparable.name}`} state="reported">
+                    <strong>{comparable.name}</strong>: {comparable.basis ?? comparable.oneLiner}
+                    <span className="cs-claim-meta"> {comparable.domain}</span>
+                  </ClaimRow>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
-      <section className="cs-section" aria-labelledby="identity-heading">
-        <div className="cs-section-kicker">
-          <span>vii · identity</span>
-        </div>
-        <h2 id="identity-heading">The basics.</h2>
-        <FactRow label="Domain" fact={staticFact(card.domain)} mono />
-        {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
-        {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
-        <FactRow label="HQ" fact={card.identity.hq} />
-        <FactRow label="Founded" fact={card.identity.foundedYear} mono />
-        <FactRow label="Founders" fact={card.team.founders} />
-        <FactRow label="Key execs" fact={card.team.keyExecs} />
-        <FactRow label="Named investors" fact={card.funding.investors} />
-      </section>
+          <section className="cs-section cs-next-question" aria-labelledby="next-question-heading">
+            <SectionLabel text="Next question" state="unknown" />
+            <p id="next-question-heading">{nextQuestion}</p>
+          </section>
+        </main>
 
-      <SourceDrawer citations={card.citations} marker="viii · sources" />
+        <aside className="cs-source-rail" aria-label="Source ledger">
+          <SourceDrawer citations={card.citations} marker="Sources" />
+        </aside>
+      </div>
 
       <footer className="cs-card-footer">
-        <div className="cs-footer-mark">
-          <span className="cs-plate" aria-hidden="true">{initialLetter}</span>
-          <p className="cs-footer-copy">
-            The investor lens lives behind the Cold Start extension. The public card stays on sourced facts.
-          </p>
-        </div>
+        <p className="cs-footer-copy">
+          Public card. Sourced facts only. The investor lens lives behind the extension.
+        </p>
         <div className="cs-footer-meta">
-          <span className="cs-footer-sources">Sources · {mix.total} →</span>
-          <span className="cs-footer-cache">{card.cacheStatus} cache · {filedDate}</span>
+          <span>{mix.total} cited</span>
+          <span>{card.cacheStatus} cache</span>
+          <span>{filedDate}</span>
         </div>
       </footer>
     </article>

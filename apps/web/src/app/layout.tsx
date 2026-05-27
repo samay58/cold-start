@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
-import { Fraunces, Mona_Sans } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
-  variable: "--font-fraunces-next",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex-sans-next",
   display: "swap"
 });
 
-const monaSans = Mona_Sans({
+const plexSerif = IBM_Plex_Serif({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-serif-next",
+  display: "swap"
+});
+
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-mona-sans-next",
+  variable: "--font-plex-mono-next",
   display: "swap"
 });
 
@@ -39,7 +45,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${monaSans.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

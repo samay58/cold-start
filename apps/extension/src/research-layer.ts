@@ -56,15 +56,15 @@ type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "coreIdea", title: "Why It Matters", description: "Cited investment rationale", source: "analysis" },
-  { id: "serves", title: "Buyer & Use Case", description: "Who pays and why", source: "card" },
-  { id: "marketStructureTiming", title: "Market Structure & Timing", description: "Budget, timing, profit pool", source: "analysis" },
-  { id: "customers", title: "Customer Proof", description: "Adoption evidence", source: "card" },
-  { id: "signals", title: "Traction", description: "Recent momentum", source: "card" },
-  { id: "investors", title: "Financing & Valuation", description: "Rounds, backers, price context", source: "card" },
-  { id: "competition", title: "Competitive Position", description: "Alternatives and durability", source: "card" },
-  { id: "mechanism", title: "Product & Technology", description: "What is differentiated", source: "card" },
-  { id: "openQuestions", title: "Risks & Diligence", description: "What still needs proof", source: "analysis" }
+  { id: "coreIdea", title: "Why care", description: "Cited investment read", source: "analysis" },
+  { id: "serves", title: "Who pays", description: "Buyer and workflow", source: "card" },
+  { id: "marketStructureTiming", title: "Timing", description: "Budget, trigger, profit pool", source: "analysis" },
+  { id: "customers", title: "Proof", description: "Adoption evidence", source: "card" },
+  { id: "signals", title: "Signals", description: "Recent momentum", source: "card" },
+  { id: "investors", title: "Money", description: "Rounds, backers, price context", source: "card" },
+  { id: "competition", title: "Comps", description: "Alternatives and durability", source: "card" },
+  { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" },
+  { id: "openQuestions", title: "Next question", description: "What still needs proof", source: "analysis" }
 ];
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {

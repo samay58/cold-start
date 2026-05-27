@@ -149,18 +149,18 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(card)} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getByLabelText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
-    expect(screen.getByText("Low-latency speech models exposed as developer infrastructure.")).toBeTruthy();
-    expect(screen.getByText("Developers building voice agents and audio applications.")).toBeTruthy();
+    expect(screen.getByText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
+    expect(screen.getByText(/Low-latency speech models exposed as developer infrastructure/)).toBeTruthy();
+    expect(screen.getByText(/Developers building voice agents and audio applications/)).toBeTruthy();
     expect(screen.getAllByText("[c1]").length).toBeGreaterThan(0);
     expect(screen.getByText("$91M")).toBeTruthy();
     expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Apr 2024").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Apr 2024/).length).toBeGreaterThan(0);
     expect(screen.getByText("NEA, IVP")).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Sources" })).toBeTruthy();
+    expect(screen.getByText("Sources")).toBeTruthy();
     expect(screen.getByText("Cartesia launches Sonic")).toBeTruthy();
-    expect(screen.getByText("Example News · launch")).toBeTruthy();
-    expect(screen.getAllByText(/fetched May 6 2026/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Example News · launch/)).toBeTruthy();
+    expect(screen.getAllByText(/May 6 2026/).length).toBeGreaterThan(0);
     expect(screen.getByText("2023")).toBeTruthy();
     expect(screen.getAllByText("Kleiner Perkins").length).toBeGreaterThan(0);
     expect(screen.queryByLabelText("Investor lens")).toBeNull();
@@ -198,15 +198,12 @@ describe("CardShell", () => {
     expectRemovedLanguageAbsent();
   });
 
-  it("orders sources by incentive quality and labels why each source matters", () => {
+  it("orders sources by incentive quality", () => {
     render(<CardShell card={publicCard(card)} surface="web" />);
 
-    const sourceLabels = screen.getAllByText(/Independent technical|Company PR/).map((node) => node.textContent);
-
-    expect(sourceLabels[0]).toBe("Independent technical");
-    expect(sourceLabels).toContain("Company PR");
-    expect(screen.getByText(/less incentive to launder company positioning/)).toBeTruthy();
-    expect(screen.getByText(/Company-shaped narrative/)).toBeTruthy();
+    const items = screen.getAllByRole("listitem").filter((node) => node.classList.contains("cs-source-item"));
+    expect(items.length).toBeGreaterThan(1);
+    expect(items[0]?.getAttribute("data-class")).toBe("independent");
   });
 
   it("renders unsafe signal and citation URLs as plain text", () => {
@@ -238,10 +235,10 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(sparseCard())} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("not found").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
     expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Comparables." })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Comps" })).toBeNull();
     expect(screen.queryByText(/No cited funding rounds/i)).toBeNull();
     expect(screen.queryByText(/No cited public signals/i)).toBeNull();
     expect(screen.queryByText(/No comparable companies/i)).toBeNull();

@@ -95,15 +95,15 @@ describe("research layer model", () => {
       "openQuestions"
     ]);
     expect(RESEARCH_LAYER_CARDS.map((card) => card.title)).toEqual([
-      "Why It Matters",
-      "Buyer & Use Case",
-      "Market Structure & Timing",
-      "Customer Proof",
-      "Traction",
-      "Financing & Valuation",
-      "Competitive Position",
-      "Product & Technology",
-      "Risks & Diligence"
+      "Why care",
+      "Who pays",
+      "Timing",
+      "Proof",
+      "Signals",
+      "Money",
+      "Comps",
+      "Product",
+      "Next question"
     ]);
   });
 
@@ -191,7 +191,7 @@ describe("research layer model", () => {
     });
 
     expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      title: "Market Structure & Timing",
+      title: "Timing",
       body: "The buyer budget is contact-center automation spend.",
       sourceCount: 1,
       status: "populated"
@@ -214,7 +214,7 @@ describe("research layer model", () => {
 
     expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("needs-analysis");
     expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      title: "Market Structure & Timing",
+      title: "Timing",
       body: "Market structure analysis has not been generated for this card yet.",
       sourceCount: 0,
       status: "needs-analysis"

@@ -8,20 +8,15 @@ body {
 }
 
 html {
-  background: var(--color-parchment);
+  background: var(--color-field);
 }
 
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.035) 1px, transparent 1px),
-    linear-gradient(180deg, rgb(22 116 255 / 0.028) 1px, transparent 1px),
-    linear-gradient(180deg, var(--color-parchment) 0%, var(--color-parchment-warm) 100%);
-  background-attachment: fixed;
-  background-size: 64px 64px, 64px 64px, auto;
+  background: var(--color-field);
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-feature-settings: "tnum" 1;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
@@ -154,9 +149,9 @@ a {
   align-items: center;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid rgb(22 116 255 / 0.2);
+  border: 1px solid rgb(242 227 0 / 0.2);
   border-radius: 8px;
-  background: rgb(22 116 255 / 0.08);
+  background: rgb(242 227 0 / 0.08);
   color: var(--color-lens-blue);
   font-size: 12px;
   font-weight: 760;
@@ -184,8 +179,8 @@ a {
 }
 
 .cs-company-row[data-selected="true"] {
-  border-color: rgb(22 116 255 / 0.28);
-  background: rgb(22 116 255 / 0.055);
+  border-color: rgb(242 227 0 / 0.28);
+  background: rgb(242 227 0 / 0.055);
 }
 
 .cs-company-row-mark,
@@ -206,7 +201,7 @@ a {
 }
 
 .cs-company-row[data-selected="true"] .cs-company-row-mark {
-  border-color: rgb(22 116 255 / 0.36);
+  border-color: rgb(242 227 0 / 0.36);
   color: var(--color-lens-blue);
 }
 
@@ -257,7 +252,7 @@ a {
   padding: 20px;
   gap: 18px;
   background:
-    radial-gradient(circle at 82% 0%, rgb(22 116 255 / 0.10), transparent 28%),
+    radial-gradient(circle at 82% 0%, rgb(242 227 0 / 0.10), transparent 28%),
     linear-gradient(180deg, var(--color-parchment-warm), var(--color-parchment));
 }
 
@@ -287,7 +282,7 @@ a {
 .cs-index-company-lockup > span {
   width: 54px;
   height: 54px;
-  border-color: rgb(22 116 255 / 0.45);
+  border-color: rgb(242 227 0 / 0.45);
   color: var(--color-lens-blue);
   font-size: 28px;
 }
@@ -401,7 +396,7 @@ a {
 
 .cs-index-section-card[data-active="true"] {
   min-height: 160px;
-  border-color: rgb(22 116 255 / 0.26);
+  border-color: rgb(242 227 0 / 0.26);
   background: var(--color-parchment);
   box-shadow: 0 16px 32px rgb(14 14 14 / 0.07);
 }
@@ -418,7 +413,7 @@ a {
   height: 10px;
   border-radius: 999px;
   background: var(--color-lens-blue);
-  box-shadow: 0 0 0 6px rgb(22 116 255 / 0.1);
+  box-shadow: 0 0 0 6px rgb(242 227 0 / 0.1);
 }
 
 .cs-index-section-card[data-state="empty"] .cs-index-section-dot {

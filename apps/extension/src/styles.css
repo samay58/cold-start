@@ -14,11 +14,11 @@ body {
   --cs-motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
   --cs-motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --cs-motion-ease-io: cubic-bezier(0.77, 0, 0.175, 1);
-  --cs-motion-feedback: 120ms;
-  --cs-motion-state: 200ms;
+  --cs-motion-feedback: 90ms;
+  --cs-motion-state: 140ms;
   min-width: 360px;
   margin: 0;
-  background: #eef8fb;
+  background: var(--color-bone-deep);
   color: var(--color-ink);
   font-family: var(--font-mona-sans);
   font-synthesis: none;
@@ -39,12 +39,7 @@ button {
   isolation: isolate;
   min-height: 100vh;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgb(242 250 252 / 0.93) 0%, rgb(232 245 249 / 0.84) 44%, rgb(246 251 250 / 0.93) 100%),
-    url("/art/cold-start-wave-panel.jpg"),
-    #eef8fb;
-  background-position: center, center top, center;
-  background-size: auto, cover, auto;
+  background: var(--color-bone-deep);
   color: var(--color-ink);
   overflow: hidden;
 }
@@ -67,7 +62,7 @@ button {
   width: 26px;
   height: 17px;
   flex-shrink: 0;
-  color: var(--color-observatory-navy);
+  color: var(--color-focus);
   overflow: visible;
 }
 
@@ -99,7 +94,7 @@ button {
 }
 
 .cs-brand-mark-core {
-  fill: var(--color-lens-blue);
+  fill: var(--color-ink);
 }
 
 .cs-icon-button {
@@ -128,10 +123,10 @@ button {
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgb(22 116 255 / 0.18);
+  border: 1px solid rgb(242 227 0 / 0.18);
   border-radius: 10px;
   background: var(--color-parchment-warm);
-  box-shadow: inset 0 0 0 1px rgb(22 116 255 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(242 227 0 / 0.08);
   color: var(--color-observatory-navy);
   flex-shrink: 0;
 }
@@ -189,11 +184,11 @@ button {
 .cs-panel-company-logo {
   width: 44px;
   height: 44px;
-  border-color: rgb(22 116 255 / 0.18);
+  border-color: rgb(242 227 0 / 0.18);
   border-radius: 10px;
   box-shadow:
     0 12px 26px rgb(2 8 18 / 0.08),
-    inset 0 0 0 1px rgb(22 116 255 / 0.08);
+    inset 0 0 0 1px rgb(242 227 0 / 0.08);
 }
 
 .cs-panel-company-logo .cs-company-logo-fallback {
@@ -272,7 +267,7 @@ button {
 .cs-extension-field input:focus {
   border-color: var(--color-lens-blue);
   box-shadow:
-    0 0 0 3px rgb(22 116 255 / 0.10),
+    0 0 0 3px rgb(242 227 0 / 0.10),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -329,12 +324,7 @@ button {
   display: grid;
   align-content: start;
   gap: 16px;
-  background:
-    linear-gradient(180deg, rgb(241 250 252 / 0.92) 0%, rgb(232 245 249 / 0.82) 48%, rgb(246 251 250 / 0.94) 100%),
-    url("/art/cold-start-wave-panel.jpg"),
-    #eef8fb;
-  background-position: center, center top, center;
-  background-size: auto, cover, auto;
+  background: var(--color-bone-deep);
 }
 
 .cs-start-panel {
@@ -692,13 +682,13 @@ button {
 }
 
 .cs-intake-panel .cs-panel-brand-mark {
-  border-color: rgb(22 116 255 / 0.34);
+  border-color: rgb(242 227 0 / 0.34);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(246 241 231 / 0.90)),
     var(--color-parchment-warm);
   box-shadow:
     0 14px 30px rgb(2 8 18 / 0.08),
-    inset 0 0 0 1px rgb(22 116 255 / 0.08);
+    inset 0 0 0 1px rgb(242 227 0 / 0.08);
 }
 
 .cs-intake-panel .cs-extension-kicker {
@@ -742,7 +732,7 @@ button {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.045), transparent 42%, rgb(168 116 31 / 0.035)),
+    linear-gradient(90deg, rgb(242 227 0 / 0.045), transparent 42%, rgb(255 61 46 / 0.035)),
     linear-gradient(180deg, rgb(255 255 255 / 0.30), transparent 48%);
   content: "";
   pointer-events: none;
@@ -851,8 +841,8 @@ button {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 14% 0%, rgb(22 116 255 / 0.07), transparent 34%),
-    linear-gradient(90deg, transparent, rgb(168 116 31 / 0.045));
+    radial-gradient(circle at 14% 0%, rgb(242 227 0 / 0.07), transparent 34%),
+    linear-gradient(90deg, transparent, rgb(255 61 46 / 0.045));
   content: "";
   pointer-events: none;
 }
@@ -875,17 +865,17 @@ button {
   justify-content: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgb(22 116 255 / 0.22);
+  border: 1px solid rgb(242 227 0 / 0.22);
   border-radius: 50%;
   background:
     radial-gradient(circle at 40% 32%, rgb(95 180 255 / 0.20), transparent 62%),
-    rgb(22 116 255 / 0.055);
+    rgb(242 227 0 / 0.055);
   color: var(--color-lens-blue);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 780;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 0 5px rgb(22 116 255 / 0.055);
+  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.055);
 }
 
 .cs-pass-lockup span:not(.cs-pass-index) {
@@ -918,13 +908,7 @@ button {
 }
 
 .cs-generation-panel {
-  background:
-    radial-gradient(circle at 82% 12%, rgb(22 116 255 / 0.13), transparent 28%),
-    linear-gradient(180deg, rgb(241 250 252 / 0.96) 0%, rgb(232 245 249 / 0.88) 44%, rgb(246 251 250 / 0.96) 100%),
-    url("/art/cold-start-wave-panel.jpg"),
-    #eef8fb;
-  background-position: center, center, center top, center;
-  background-size: auto, auto, cover, auto;
+  background: var(--color-bone-deep);
   padding-bottom: 16px;
 }
 
@@ -940,7 +924,7 @@ button {
 .cs-generation-logo {
   width: 44px;
   height: 44px;
-  border-color: rgb(22 116 255 / 0.16);
+  border-color: rgb(242 227 0 / 0.16);
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(245 249 248 / 0.86)),
@@ -957,9 +941,9 @@ button {
   border-radius: 8px;
   background:
     radial-gradient(circle at 44% 34%, rgb(255 255 255 / 0.28), transparent 36%),
-    linear-gradient(135deg, rgb(8 30 58 / 0.92), rgb(22 116 255 / 0.86));
+    linear-gradient(135deg, rgb(10 10 10 / 0.92), rgb(242 227 0 / 0.86));
   box-shadow:
-    0 8px 18px rgb(22 116 255 / 0.16),
+    0 8px 18px rgb(242 227 0 / 0.16),
     0 0 0 1px rgb(255 255 255 / 0.28) inset;
   content: "";
 }
@@ -1146,7 +1130,7 @@ button {
 
 .cs-run-steps li[data-active="true"] i {
   background: var(--color-lens-blue);
-  box-shadow: 0 0 0 5px rgb(22 116 255 / 0.08);
+  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.08);
 }
 
 .cs-run-steps li[data-complete="true"] {
@@ -1214,9 +1198,9 @@ button {
 }
 
 .cs-live-stage-axis li[data-active="true"]::before {
-  border-color: rgb(22 116 255 / 0.42);
+  border-color: rgb(242 227 0 / 0.42);
   background: var(--color-lens-blue);
-  box-shadow: 0 0 0 5px rgb(22 116 255 / 0.08);
+  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.08);
 }
 
 .cs-live-progress-track {
@@ -1260,8 +1244,8 @@ button {
     var(--color-lens-blue);
   background-size: 180% 100%;
   box-shadow:
-    0 0 0 1px rgb(22 116 255 / 0.08),
-    0 8px 18px rgb(22 116 255 / 0.14);
+    0 0 0 1px rgb(242 227 0 / 0.08),
+    0 8px 18px rgb(242 227 0 / 0.14);
   transform: translateY(-50%);
 }
 
@@ -1285,8 +1269,8 @@ button {
   border-radius: 999px;
   background: var(--color-lens-blue);
   box-shadow:
-    0 0 0 8px rgb(22 116 255 / 0.08),
-    0 8px 18px rgb(22 116 255 / 0.20);
+    0 0 0 8px rgb(242 227 0 / 0.08),
+    0 8px 18px rgb(242 227 0 / 0.20);
   transform: translate(-50%, -50%);
 }
 
@@ -1315,12 +1299,7 @@ button {
   gap: 10px;
   min-height: 100vh;
   padding: 12px;
-  background:
-    linear-gradient(180deg, rgb(241 250 252 / 0.93) 0%, rgb(232 245 249 / 0.82) 42%, rgb(246 251 250 / 0.92) 100%),
-    url("/art/cold-start-wave-panel.jpg"),
-    #eef8fb;
-  background-position: center, center top, center;
-  background-size: auto, cover, auto;
+  background: var(--color-bone-deep);
   color: var(--color-ink);
 }
 
@@ -1453,7 +1432,7 @@ button {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.035), transparent 34%, rgb(168 116 31 / 0.035)),
+    linear-gradient(90deg, rgb(242 227 0 / 0.035), transparent 34%, rgb(255 61 46 / 0.035)),
     linear-gradient(180deg, rgb(255 255 255 / 0.38), transparent 48%);
   content: "";
   pointer-events: none;
@@ -1616,7 +1595,7 @@ button {
   height: 8px;
   border-radius: 999px;
   background: var(--color-lens-blue);
-  box-shadow: 0 0 0 4px rgb(22 116 255 / 0.10);
+  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
 }
 
 .cs-research-progress-dot[data-running="true"] {
@@ -1648,7 +1627,7 @@ button {
 
 .cs-research-progress-event {
   padding: 8px 10px;
-  border: 1px solid rgb(22 116 255 / 0.18);
+  border: 1px solid rgb(242 227 0 / 0.18);
   border-radius: 7px;
   background: rgb(235 243 255 / 0.62);
   color: #1d3659;
@@ -1668,7 +1647,7 @@ button {
   min-width: 0;
   max-width: 132px;
   padding: 7px 9px;
-  border: 1px solid rgb(22 116 255 / 0.20);
+  border: 1px solid rgb(242 227 0 / 0.20);
   border-radius: 8px;
   background: rgb(255 255 255 / 0.46);
   color: var(--color-lens-blue);
@@ -1765,7 +1744,7 @@ button {
   height: 8px;
   border-radius: 999px;
   background: var(--color-lens-blue);
-  box-shadow: 0 0 0 4px rgb(22 116 255 / 0.10);
+  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
   flex: 0 0 auto;
 }
 
@@ -1864,7 +1843,7 @@ button {
   margin-top: 4px;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgb(230 223 201 / 0.36), rgb(22 116 255 / 0.16), rgb(230 223 201 / 0.36));
+    linear-gradient(90deg, rgb(230 223 201 / 0.36), rgb(242 227 0 / 0.16), rgb(230 223 201 / 0.36));
   background-size: 220% 100%;
 }
 
@@ -1876,9 +1855,9 @@ button {
 .cs-layer-action {
   width: fit-content;
   margin-top: 10px;
-  border: 1px solid rgb(22 116 255 / 0.34);
+  border: 1px solid rgb(242 227 0 / 0.34);
   border-radius: 7px;
-  background: rgb(22 116 255 / 0.08);
+  background: rgb(242 227 0 / 0.08);
   color: var(--color-lens-blue);
   cursor: pointer;
   font: 700 12px/1 var(--font-sans);
@@ -1887,7 +1866,7 @@ button {
 }
 
 .cs-layer-action:hover {
-  background: rgb(22 116 255 / 0.13);
+  background: rgb(242 227 0 / 0.13);
 }
 
 .cs-layer-rows,
@@ -1962,10 +1941,10 @@ button {
 }
 
 .cs-layer-items-funding li:first-child {
-  border-color: rgb(22 116 255 / 0.16);
+  border-color: rgb(242 227 0 / 0.16);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(250 247 239 / 0.70)),
-    rgb(22 116 255 / 0.04);
+    rgb(242 227 0 / 0.04);
 }
 
 .cs-layer-items-funding li:first-child strong {
@@ -1993,9 +1972,9 @@ button {
   align-items: center;
   max-width: 132px;
   min-height: 22px;
-  border: 1px solid rgb(22 116 255 / 0.20);
+  border: 1px solid rgb(242 227 0 / 0.20);
   border-radius: 6px;
-  background: rgb(22 116 255 / 0.055);
+  background: rgb(242 227 0 / 0.055);
   color: var(--color-lens-blue);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -2074,11 +2053,11 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(22 116 255 / 0.22);
+  border: 1px solid rgb(242 227 0 / 0.22);
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.84), rgb(250 247 239 / 0.74)),
-    rgb(22 116 255 / 0.035);
+    rgb(242 227 0 / 0.035);
   color: var(--color-lens-blue);
   font-family: var(--font-mono);
   font-size: 9.5px;
@@ -2102,12 +2081,12 @@ button {
 }
 
 .cs-card-tray[data-snap-preview="true"] .cs-drop-zone {
-  border-color: rgb(22 116 255 / 0.48);
+  border-color: rgb(242 227 0 / 0.48);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(239 247 255 / 0.82)),
-    rgb(22 116 255 / 0.06);
+    rgb(242 227 0 / 0.06);
   box-shadow:
-    0 0 0 3px rgb(22 116 255 / 0.075),
+    0 0 0 3px rgb(242 227 0 / 0.075),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
 }
 
@@ -2169,10 +2148,10 @@ button {
 }
 
 .cs-dormant-card[data-dragging="true"] {
-  border-color: rgb(22 116 255 / 0.38);
+  border-color: rgb(242 227 0 / 0.38);
   box-shadow:
     0 24px 42px rgb(2 8 18 / 0.16),
-    0 0 0 3px rgb(22 116 255 / 0.07),
+    0 0 0 3px rgb(242 227 0 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
@@ -2329,7 +2308,7 @@ button {
   width: 34px;
   height: 34px;
   font-size: 9px;
-  box-shadow: 0 0 0 4px rgb(22 116 255 / 0.045);
+  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.045);
 }
 
 .cs-pass-lockup h2 {
@@ -2440,10 +2419,10 @@ button {
 }
 
 .cs-people-person[data-has-email="true"] {
-  border-color: rgb(22 116 255 / 0.18);
+  border-color: rgb(242 227 0 / 0.18);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.72), rgb(250 247 239 / 0.58)),
-    rgb(22 116 255 / 0.04);
+    rgb(242 227 0 / 0.04);
 }
 
 .cs-people-name {
@@ -2488,7 +2467,7 @@ button {
 }
 
 .cs-person-email button {
-  border: 1px solid rgb(22 116 255 / 0.16);
+  border: 1px solid rgb(242 227 0 / 0.16);
   border-radius: 999px;
   padding: 1px 6px;
   background: rgb(255 253 248 / 0.80);
@@ -2553,7 +2532,7 @@ button {
 .cs-active-dot {
   width: 6px;
   height: 6px;
-  box-shadow: 0 0 0 3px rgb(22 116 255 / 0.10);
+  box-shadow: 0 0 0 3px rgb(242 227 0 / 0.10);
 }
 
 .cs-active-enrichment strong {
@@ -2612,7 +2591,7 @@ button {
 .cs-layer-items-funding li:first-child {
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.82), rgb(250 247 239 / 0.72)),
-    rgb(22 116 255 / 0.04);
+    rgb(242 227 0 / 0.04);
 }
 
 .cs-layer-items-funding li:first-child strong {
@@ -2646,7 +2625,7 @@ button {
   min-height: 248px;
   border-color: rgb(190 211 220 / 0.28);
   background:
-    radial-gradient(circle at 86% 0%, rgb(22 116 255 / 0.06), transparent 24%),
+    radial-gradient(circle at 86% 0%, rgb(242 227 0 / 0.06), transparent 24%),
     linear-gradient(180deg, rgb(255 253 248 / 0.10), rgb(230 241 255 / 0.08)),
     rgb(250 250 247 / 0.08);
   box-shadow: 0 12px 28px rgb(2 8 18 / 0.016) inset;
@@ -2697,7 +2676,7 @@ button {
 .cs-dormant-card[data-dragging="true"] {
   box-shadow:
     0 16px 28px rgb(2 8 18 / 0.13),
-    0 0 0 2px rgb(22 116 255 / 0.065),
+    0 0 0 2px rgb(242 227 0 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
@@ -2748,15 +2727,15 @@ button {
   0%,
   100% {
     box-shadow:
-      0 0 0 6px rgb(22 116 255 / 0.07),
-      0 0 16px rgb(22 116 255 / 0.22),
+      0 0 0 6px rgb(242 227 0 / 0.07),
+      0 0 16px rgb(242 227 0 / 0.22),
       0 5px 12px rgb(2 8 18 / 0.12);
   }
 
   52% {
     box-shadow:
-      0 0 0 9px rgb(22 116 255 / 0.11),
-      0 0 22px rgb(22 116 255 / 0.30),
+      0 0 0 9px rgb(242 227 0 / 0.11),
+      0 0 22px rgb(242 227 0 / 0.30),
       0 5px 12px rgb(2 8 18 / 0.12);
   }
 }
@@ -2765,6 +2744,272 @@ button {
   .cs-active-enrichment-body-frame {
     transition: none;
   }
+}
+
+/* ---------- Signal Ledger extension override ---------- */
+
+body,
+.cs-extension-frame,
+.cs-research-shell {
+  background: var(--color-field);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.cs-brand-mark {
+  color: var(--color-focus);
+}
+
+.cs-company-context,
+.cs-research-layer,
+.cs-active-enrichment,
+.cs-research-progress,
+.cs-dormant-card,
+.cs-drop-zone,
+.cs-cache-card,
+.cs-gate-card,
+.cs-live-card {
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: none;
+}
+
+.cs-company-context::before,
+.cs-active-enrichment::before,
+.cs-card-pile::before {
+  display: none;
+}
+
+.cs-company-context-main {
+  padding: 20px;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+}
+
+.cs-company-logo {
+  width: 52px;
+  height: 52px;
+  border-color: var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-field);
+  box-shadow: none;
+}
+
+.cs-company-context h1,
+.cs-partial-profile h1,
+.cs-research-progress strong,
+.cs-active-enrichment strong,
+.cs-dormant-card strong {
+  font-family: var(--font-body);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.cs-company-context-main p:not(.cs-research-label),
+.cs-company-summary,
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  color: var(--color-ink);
+}
+
+.cs-company-domain,
+.cs-research-label,
+.cs-company-facts dt,
+.cs-research-layer-head,
+.cs-active-enrichment small,
+.cs-dormant-card small,
+.cs-research-progress small,
+.cs-research-activity li,
+.cs-research-activity summary {
+  color: var(--color-muted);
+}
+
+.cs-company-facts {
+  gap: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+.cs-company-facts div {
+  min-height: 72px;
+  border-width: 0 1px 1px 0;
+  border-color: var(--color-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-company-facts div::after {
+  display: none;
+}
+
+.cs-company-facts dd,
+.cs-company-facts small,
+.cs-research-layer-head,
+.cs-research-label,
+.cs-company-facts dt,
+.cs-card-grip,
+.cs-active-chevron,
+.cs-research-source-strip small,
+.cs-source-chip,
+.cs-card-plus {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-research-layer-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: 11px;
+}
+
+.cs-research-progress {
+  margin: 10px;
+  padding: 11px;
+}
+
+.cs-research-progress-dot,
+.cs-active-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--color-verified);
+  border-radius: 2px;
+  background: var(--color-verified);
+  box-shadow: none;
+}
+
+.cs-research-progress-event {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: var(--color-field);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.cs-research-source-strip a,
+.cs-source-chip {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-reported);
+  box-shadow: none;
+}
+
+.cs-active-enrichments {
+  gap: 8px;
+  padding: 10px;
+}
+
+.cs-active-enrichment {
+  overflow: hidden;
+}
+
+.cs-active-enrichment[data-state="running"] {
+  border-color: var(--color-focus);
+}
+
+.cs-active-enrichment-head {
+  padding: 13px 12px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 14px 14px 34px;
+}
+
+.cs-layer-action {
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-ink);
+  font: 650 12px/1 var(--font-body);
+}
+
+.cs-layer-action:hover {
+  background: var(--color-field);
+}
+
+.cs-layer-skeleton,
+.cs-active-enrichment[data-state="running"] .cs-layer-running-copy,
+.cs-live-progress-fill,
+.cs-live-progress-track::before {
+  background: var(--color-rule);
+  box-shadow: none;
+}
+
+.cs-card-tray {
+  min-height: 336px;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+}
+
+.cs-card-tray::before {
+  content: "Available modules";
+  display: block;
+  padding: 12px 14px 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.cs-card-pile {
+  height: 318px;
+}
+
+.cs-dormant-card {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-color: var(--color-rule);
+  background: var(--color-plate);
+}
+
+.cs-dormant-card[data-previewing="true"],
+.cs-dormant-card[data-snap-ready="true"] {
+  border-color: var(--color-focus);
+  background: var(--color-field);
+  box-shadow: var(--shadow-pickup);
+}
+
+.cs-card-grip {
+  color: var(--color-muted);
+}
+
+.cs-card-plus {
+  border: 1px solid var(--color-rule);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.cs-drop-zone {
+  border: 1px dashed var(--color-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-muted);
+}
+
+.cs-card-tray[data-snap-preview="true"] .cs-drop-zone,
+.cs-card-tray[data-snap-ready="true"] .cs-drop-zone {
+  border-color: var(--color-focus);
+  background: color-mix(in srgb, var(--color-focus) 12%, transparent);
+  color: var(--color-ink);
+  box-shadow: none;
+}
+
+.cs-card-tray[data-drop-visible="true"] .cs-drop-zone::after {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: var(--color-plate);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+  box-shadow: none;
 }
 
 @media (max-width: 430px) {
@@ -2798,12 +3043,7 @@ button {
 /* Focused beauty pass: preserve slab interaction, tune hierarchy and contact density. */
 .cs-research-shell,
 .cs-generation-panel {
-  background:
-    linear-gradient(180deg, rgb(250 248 242 / 0.94) 0%, rgb(252 250 245 / 0.88) 46%, rgb(244 249 250 / 0.92) 100%),
-    url("/art/cold-start-wave-panel.jpg"),
-    #f6f3ea;
-  background-position: center, center bottom, center;
-  background-size: auto, cover, auto;
+  background: var(--color-bone-deep);
 }
 
 .cs-generation-panel {
@@ -2940,7 +3180,7 @@ button {
 .cs-company-context::before {
   background:
     linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 50%),
-    linear-gradient(90deg, rgb(22 116 255 / 0.022), transparent 38%, rgb(216 208 191 / 0.16));
+    linear-gradient(90deg, rgb(242 227 0 / 0.022), transparent 38%, rgb(216 208 191 / 0.16));
   opacity: 1;
 }
 
@@ -3092,10 +3332,10 @@ button {
 }
 
 .cs-people-person[data-has-email="true"] {
-  border-color: rgb(22 116 255 / 0.26);
+  border-color: rgb(242 227 0 / 0.26);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(246 250 255 / 0.72)),
-    rgb(22 116 255 / 0.045);
+    rgb(242 227 0 / 0.045);
 }
 
 .cs-person-avatar {
@@ -3149,9 +3389,9 @@ button {
   max-width: 100%;
   min-height: 22px;
   align-items: center;
-  border: 1px solid rgb(22 116 255 / 0.20);
+  border: 1px solid rgb(242 227 0 / 0.20);
   border-radius: 999px;
-  background: rgb(22 116 255 / 0.06);
+  background: rgb(242 227 0 / 0.06);
   color: var(--color-lens-blue);
   font-family: var(--font-mona-sans);
   font-size: 11px;
@@ -3161,7 +3401,7 @@ button {
 
 .cs-person-email button {
   min-height: 22px;
-  border-color: rgb(22 116 255 / 0.18);
+  border-color: rgb(242 227 0 / 0.18);
   border-radius: 999px;
   background: rgb(255 253 248 / 0.88);
   color: rgb(8 25 44 / 0.62);
@@ -3215,12 +3455,12 @@ button {
 .cs-active-enrichment[data-expanded="true"] {
   box-shadow:
     0 15px 34px rgb(2 8 18 / 0.07),
-    0 0 0 1px rgb(22 116 255 / 0.06),
+    0 0 0 1px rgb(242 227 0 / 0.06),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
 .cs-active-enrichment[data-state="running"] {
-  border-color: rgb(22 116 255 / 0.26);
+  border-color: rgb(242 227 0 / 0.26);
   background:
     linear-gradient(135deg, rgb(255 253 248 / 0.96), rgb(239 247 255 / 0.76)),
     var(--color-parchment-warm);
@@ -3228,8 +3468,8 @@ button {
 
 .cs-active-enrichment[data-state="running"][data-expanded="false"] {
   box-shadow:
-    0 10px 24px rgb(22 116 255 / 0.09),
-    0 0 0 1px rgb(22 116 255 / 0.09),
+    0 10px 24px rgb(242 227 0 / 0.09),
+    0 0 0 1px rgb(242 227 0 / 0.09),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -3262,7 +3502,7 @@ button {
 .cs-active-dot {
   width: 8px;
   height: 8px;
-  box-shadow: 0 0 0 6px rgb(22 116 255 / 0.10);
+  box-shadow: 0 0 0 6px rgb(242 227 0 / 0.10);
 }
 
 .cs-active-enrichment strong {
@@ -3352,7 +3592,7 @@ button {
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(22 116 255 / 0.10);
+  background: rgb(242 227 0 / 0.10);
 }
 
 .cs-layer-progress span {
@@ -3361,21 +3601,21 @@ button {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--color-lens-blue), #66bbff);
-  box-shadow: 0 8px 18px rgb(22 116 255 / 0.14);
+  box-shadow: 0 8px 18px rgb(242 227 0 / 0.14);
 }
 
 .cs-layer-skeleton {
   height: 6px;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.08), rgb(22 116 255 / 0.18), rgb(22 116 255 / 0.08));
+    linear-gradient(90deg, rgb(242 227 0 / 0.08), rgb(242 227 0 / 0.18), rgb(242 227 0 / 0.08));
 }
 
 .cs-source-chip {
   min-height: 24px;
   max-width: 152px;
-  border-color: rgb(22 116 255 / 0.22);
+  border-color: rgb(242 227 0 / 0.22);
   border-radius: 7px;
-  background: rgb(22 116 255 / 0.06);
+  background: rgb(242 227 0 / 0.06);
   font-family: var(--font-mona-sans);
   font-size: 10.5px;
 }
@@ -3418,8 +3658,8 @@ button {
 }
 
 .cs-card-plus {
-  border: 1px solid rgb(22 116 255 / 0.62);
-  background: rgb(22 116 255 / 0.08);
+  border: 1px solid rgb(242 227 0 / 0.62);
+  background: rgb(242 227 0 / 0.08);
   color: var(--color-lens-blue);
 }
 
@@ -3469,8 +3709,8 @@ button {
   }
 
   .cs-source-chip:hover {
-    border-color: rgb(22 116 255 / 0.42);
-    background: rgb(22 116 255 / 0.09);
+    border-color: rgb(242 227 0 / 0.42);
+    background: rgb(242 227 0 / 0.09);
   }
 
   .cs-company-domain:hover {
@@ -3699,7 +3939,7 @@ body {
   height: 7px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.08), rgb(190 211 220 / 0.28), rgb(22 116 255 / 0.08));
+    linear-gradient(90deg, rgb(242 227 0 / 0.08), rgb(190 211 220 / 0.28), rgb(242 227 0 / 0.08));
   background-size: 180% 100%;
 }
 
@@ -3707,7 +3947,7 @@ body {
   width: 42%;
   background:
     linear-gradient(90deg, transparent, var(--color-lens-blue), rgb(95 180 255 / 0.86), transparent);
-  box-shadow: 0 7px 16px rgb(22 116 255 / 0.12);
+  box-shadow: 0 7px 16px rgb(242 227 0 / 0.12);
   transform: translateX(-62%);
 }
 
@@ -3715,7 +3955,7 @@ body {
   height: 5px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.055), rgb(190 211 220 / 0.16), rgb(22 116 255 / 0.055));
+    linear-gradient(90deg, rgb(242 227 0 / 0.055), rgb(190 211 220 / 0.16), rgb(242 227 0 / 0.055));
   background-size: 220% 100%;
 }
 
@@ -3823,7 +4063,7 @@ body {
   overflow: hidden;
   border-color: rgb(216 208 191 / 0.88);
   background:
-    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(22 116 255 / 0.10), transparent 30%),
+    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(242 227 0 / 0.10), transparent 30%),
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.86)),
     var(--color-parchment-warm);
   box-shadow:
@@ -3835,7 +4075,7 @@ body {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.035), transparent 42%, rgb(216 208 191 / 0.17)),
+    linear-gradient(90deg, rgb(242 227 0 / 0.035), transparent 42%, rgb(216 208 191 / 0.17)),
     repeating-linear-gradient(0deg, transparent 0 23px, rgb(216 208 191 / 0.10) 23px 24px);
   content: "";
   opacity: calc(0.38 + (var(--cs-source-pass-tension, 0.4) * 0.2));
@@ -3871,15 +4111,15 @@ body {
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid rgb(22 116 255 / 0.26);
+  border: 1px solid rgb(242 227 0 / 0.26);
   border-radius: 999px;
-  background: rgb(22 116 255 / 0.065);
+  background: rgb(242 227 0 / 0.065);
   color: var(--color-lens-blue);
   font-family: var(--font-mona-sans);
   font-size: 11px;
   font-weight: 840;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(22 116 255 / 0.06);
+  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(242 227 0 / 0.06);
 }
 
 .cs-source-pass-now h2 {
@@ -3941,8 +4181,8 @@ body {
     var(--color-lens-blue);
   background-size: 190% 100%;
   box-shadow:
-    0 0 0 1px rgb(22 116 255 / 0.10),
-    0 10px 20px rgb(22 116 255 / 0.16);
+    0 0 0 1px rgb(242 227 0 / 0.10),
+    0 10px 20px rgb(242 227 0 / 0.16);
   transform: translateY(-50%) scaleX(var(--cs-source-pass-scale, 0.08));
   transform-origin: left center;
   will-change: transform;
@@ -3969,8 +4209,8 @@ body {
   border-radius: 999px;
   background: var(--color-lens-blue);
   box-shadow:
-    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(22 116 255 / 0.08),
-    0 9px 18px rgb(22 116 255 / 0.22);
+    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(242 227 0 / 0.08),
+    0 9px 18px rgb(242 227 0 / 0.22);
   transform: translate3d(calc((100cqw - 16px) * var(--cs-source-pass-progress, 0.08)), -50%, 0);
   will-change: transform, box-shadow;
 }
@@ -4018,7 +4258,7 @@ body {
   inset: 5px -6px;
   z-index: -1;
   border-radius: 7px;
-  background: linear-gradient(90deg, rgb(22 116 255 / 0.075), transparent 74%);
+  background: linear-gradient(90deg, rgb(242 227 0 / 0.075), transparent 74%);
   content: "";
   opacity: 0;
   transform: scaleX(0.96);
@@ -4043,8 +4283,8 @@ body {
   height: 9px;
   background: var(--color-lens-blue);
   box-shadow:
-    0 0 0 7px rgb(22 116 255 / 0.10),
-    0 7px 14px rgb(22 116 255 / 0.18);
+    0 0 0 7px rgb(242 227 0 / 0.10),
+    0 7px 14px rgb(242 227 0 / 0.18);
 }
 
 .cs-source-pass-steps small {
@@ -4070,10 +4310,10 @@ body {
 }
 
 .cs-card-tray[data-snap-preview="true"] .cs-drop-zone {
-  border-color: rgb(22 116 255 / 0.34);
+  border-color: rgb(242 227 0 / 0.34);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(237 247 255 / 0.74)),
-    rgb(22 116 255 / 0.055);
+    rgb(242 227 0 / 0.055);
   color: rgb(8 25 44 / 0.68);
 }
 
@@ -4081,7 +4321,7 @@ body {
   position: absolute;
   right: 10px;
   top: -21px;
-  border: 1px solid rgb(22 116 255 / 0.18);
+  border: 1px solid rgb(242 227 0 / 0.18);
   border-radius: 999px;
   background: rgb(255 253 248 / 0.92);
   color: var(--color-lens-blue);
@@ -4097,39 +4337,39 @@ body {
 }
 
 .cs-card-tray[data-snap-ready="true"] .cs-drop-zone {
-  border-color: rgb(22 116 255 / 0.66);
+  border-color: rgb(242 227 0 / 0.66);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(230 243 255 / 0.88)),
-    rgb(22 116 255 / 0.10);
+    rgb(242 227 0 / 0.10);
   color: var(--color-lens-blue);
   box-shadow:
-    0 0 0 4px rgb(22 116 255 / 0.055),
-    0 10px 22px rgb(22 116 255 / 0.11);
+    0 0 0 4px rgb(242 227 0 / 0.055),
+    0 10px 22px rgb(242 227 0 / 0.11);
 }
 
 .cs-dormant-card[data-previewing="true"] {
-  border-color: rgb(22 116 255 / 0.30);
+  border-color: rgb(242 227 0 / 0.30);
   box-shadow:
     0 15px 28px rgb(2 8 18 / 0.12),
-    0 0 0 1px rgb(22 116 255 / 0.08),
+    0 0 0 1px rgb(242 227 0 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
 .cs-dormant-card[data-snap-ready="true"] {
-  border-color: rgb(22 116 255 / 0.52);
+  border-color: rgb(242 227 0 / 0.52);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.99), rgb(239 248 255 / 0.96)),
     var(--color-parchment-warm);
   box-shadow:
     0 19px 34px rgb(2 8 18 / 0.14),
-    0 0 0 2px rgb(22 116 255 / 0.08),
+    0 0 0 2px rgb(242 227 0 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.94) inset;
 }
 
 .cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
   border-radius: 7px;
   background:
-    linear-gradient(90deg, rgb(22 116 255 / 0.055), transparent 64%),
+    linear-gradient(90deg, rgb(242 227 0 / 0.055), transparent 64%),
     rgb(255 253 248 / 0.44);
   padding: 9px 10px 10px;
 }
@@ -4188,12 +4428,12 @@ body {
 @keyframes cs-dot-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 4px rgb(22 116 255 / 0.10);
+    box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
     transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 7px rgb(22 116 255 / 0.06);
+    box-shadow: 0 0 0 7px rgb(242 227 0 / 0.06);
     transform: scale(1.08);
   }
 }

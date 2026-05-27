@@ -596,7 +596,7 @@ describe("SidePanel generation gate", () => {
     const buttons = interactiveControls(container).map((button) => button.textContent?.trim());
     expect(buttons).not.toContain(legacyAnalysisLabel);
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Why It Matters");
+    expect(container.textContent).toContain("Why care");
 
     await unmount();
   });
@@ -606,9 +606,9 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Why It Matters");
-    expect(container.textContent).toContain("Market Structure & Timing");
-    expect(container.textContent).toContain("Customer Proof");
+    expect(container.textContent).toContain("Why care");
+    expect(container.textContent).toContain("Timing");
+    expect(container.textContent).toContain("Proof");
     expect(container.textContent).not.toContain("Add enrichment");
     for (const title of futureCardTitles) {
       expect(container.textContent).not.toContain(title);
@@ -718,7 +718,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const marketButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Market Structure & Timing")
+      (button) => button.textContent?.includes("Timing")
     );
     expect(marketButton).toBeTruthy();
     await act(async () => {
@@ -765,7 +765,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
     const whyButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Why It Matters")
+      (button) => button.textContent?.includes("Why care")
     );
     expect(whyButton).toBeTruthy();
 
@@ -1000,7 +1000,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Why It Matters")
+      (button) => button.textContent?.includes("Why care")
     );
     expect(coreIdeaButton).toBeTruthy();
     await act(async () => {
@@ -1045,7 +1045,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Why It Matters")
+      (button) => button.textContent?.includes("Why care")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1098,7 +1098,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const marketButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Market Structure & Timing")
+      (button) => button.textContent?.includes("Timing")
     );
     expect(marketButton).toBeTruthy();
 
@@ -1175,7 +1175,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const marketButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Market Structure & Timing")
+      (button) => button.textContent?.includes("Timing")
     );
     await act(async () => {
       marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -1236,7 +1236,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Traction")
+      (button) => button.textContent?.includes("Signals")
     );
     expect(signalsButton).toBeTruthy();
 
@@ -1267,7 +1267,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Traction")
+      (button) => button.textContent?.includes("Signals")
     );
     expect(signalsButton).toBeTruthy();
 
@@ -1289,7 +1289,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const servesButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Buyer & Use Case")
+      (button) => button.textContent?.includes("Who pays")
     );
     expect(servesButton).toBeTruthy();
 
@@ -1298,7 +1298,7 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Buyer & Use Case1 source");
+    expect(container.textContent).toContain("Who pays1 source");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -1309,7 +1309,7 @@ describe("SidePanel generation gate", () => {
     const firstRender = await renderSidePanel({ domain: "warp.dev", fetchMock, storedLocal });
 
     const servesButton = interactiveControls(firstRender.container).find(
-      (button) => button.textContent?.includes("Buyer & Use Case")
+      (button) => button.textContent?.includes("Who pays")
     );
     expect(servesButton).toBeTruthy();
 
@@ -1320,7 +1320,7 @@ describe("SidePanel generation gate", () => {
     await firstRender.unmount();
 
     const secondRender = await renderSidePanel({ domain: "warp.dev", fetchMock, storedLocal });
-    expect(secondRender.container.textContent).toContain("Buyer & Use Case1 source");
+    expect(secondRender.container.textContent).toContain("Who pays1 source");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await secondRender.unmount();
   });
@@ -1388,7 +1388,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const coreIdeaButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Why It Matters")
+      (button) => button.textContent?.includes("Why care")
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

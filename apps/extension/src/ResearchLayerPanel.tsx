@@ -65,14 +65,14 @@ type ResearchLayerPanelProps = {
 
 const VISIBLE_SOURCE_COUNT = 3;
 const PILE_POSES = [
-  { x: -1, y: 0, rotate: -0.8 },
-  { x: 8, y: 34, rotate: 0.7 },
-  { x: -6, y: 68, rotate: -0.55 },
-  { x: 7, y: 102, rotate: 0.8 },
-  { x: -3, y: 136, rotate: -0.65 },
-  { x: 8, y: 170, rotate: 0.5 },
-  { x: 0, y: 204, rotate: -0.35 },
-  { x: 6, y: 238, rotate: 0.42 }
+  { x: 0, y: 0, rotate: -0.35 },
+  { x: 0, y: 38, rotate: 0.28 },
+  { x: 0, y: 76, rotate: -0.22 },
+  { x: 0, y: 114, rotate: 0.36 },
+  { x: 0, y: 152, rotate: -0.30 },
+  { x: 0, y: 190, rotate: 0.20 },
+  { x: 0, y: 228, rotate: -0.18 },
+  { x: 0, y: 266, rotate: 0.24 }
 ];
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
@@ -880,7 +880,7 @@ export function ResearchLayerPanel({
   const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
   const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
-  const dropZoneCopy = snapReadyId ? "Release to pin" : snapPreviewId ? "Lift to commit" : "Pin card";
+  const dropZoneCopy = snapReadyId ? "Release to add" : snapPreviewId ? "Lift to add" : "Add module";
   const summary = compactProfileSummary(
     card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
     card.domain
