@@ -15,13 +15,16 @@ export type ProviderBudgetRegistry = {
   stableenrich: Record<StableenrichProbeName, ProviderEndpointBudget>;
 };
 
+const exaSearchFanoutTimeoutMs = 18_000;
+const firecrawlSecondaryPageTimeoutMs = 15_000;
+
 export const providerBudgetRegistry = {
   stableenrich: {
     exa_funding_history: {
       endpoint: "exa_funding_history",
       mode: "search",
       expectedFacts: ["funding.totalRaisedUsd", "funding.lastRound"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after cited funding total or latest round evidence"
     },
@@ -29,7 +32,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_company_profile",
       mode: "search",
       expectedFacts: ["identity.name", "identity.description", "identity.websiteUrl"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after one accepted company profile source"
     },
@@ -37,7 +40,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_management_team",
       mode: "search",
       expectedFacts: ["team.founders", "team.keyExecs"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after cited founders or executives are found"
     },
@@ -53,7 +56,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_competition",
       mode: "search",
       expectedFacts: ["comparables"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after comparable candidates with a clear basis"
     },
@@ -69,7 +72,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_find_similar",
       mode: "search",
       expectedFacts: ["comparables"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after semantically similar company candidates"
     },
@@ -93,7 +96,7 @@ export const providerBudgetRegistry = {
       endpoint: "firecrawl_team",
       mode: "scrape",
       expectedFacts: ["team.founders", "team.keyExecs"],
-      timeoutMs: 20_000,
+      timeoutMs: firecrawlSecondaryPageTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after team page text or confirmed 404"
     },
@@ -157,7 +160,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_email_search",
       mode: "email",
       expectedFacts: ["team.founders", "team.keyExecs"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after public email evidence or no relevant results"
     },
@@ -165,7 +168,7 @@ export const providerBudgetRegistry = {
       endpoint: "exa_leader_discovery",
       mode: "search",
       expectedFacts: ["team.founders", "team.keyExecs"],
-      timeoutMs: 30_000,
+      timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       stopCondition: "stop after leader discovery sources are accepted"
     }
