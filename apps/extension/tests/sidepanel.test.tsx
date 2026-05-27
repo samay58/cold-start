@@ -782,6 +782,75 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("shows active research evidence while the company profile run is still active", async () => {
+    vi.useFakeTimers();
+    const domain = "llamaindex.ai";
+    const card = cardForDomain(domain);
+    card.identity.name.value = "LlamaIndex";
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "llamaindex",
+          card,
+          sections: [testSection(domain, "why_it_matters", "not_started")],
+          sources: [
+            {
+              id: "source-1",
+              url: "https://www.llamaindex.ai/",
+              title: "LlamaIndex",
+              domain: "llamaindex.ai",
+              sourceType: "company_site",
+              fetchedAt: new Date().toISOString(),
+              snippet: "LlamaIndex is a data framework."
+            },
+            {
+              id: "source-2",
+              url: "https://example.com/llamaindex-funding",
+              title: "LlamaIndex funding",
+              domain: "example.com",
+              sourceType: "news",
+              fetchedAt: new Date().toISOString(),
+              snippet: "The company raised a Series A."
+            }
+          ],
+          events: [
+            {
+              id: "event-1",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "source.found",
+              message: "Found 2 sources",
+              metadata: { sourceCount: 2 },
+              createdAt: new Date().toISOString()
+            }
+          ],
+          runs: {
+            basics: {
+              slug: "llamaindex",
+              domain,
+              mode: "basics",
+              status: "running",
+              startedAt: new Date(Date.now() - 14_000).toISOString()
+            },
+            analysis: { slug: "llamaindex", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      return jsonResponse(card);
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    expect(container.textContent).toContain("Researching LlamaIndex");
+    expect(container.textContent).toContain("2 sources found");
+    expect(container.textContent).toContain("Found 2 sources");
+    await unmount();
+  });
+
   it("shows a recovered basics card when the latest run is failed", async () => {
     let cardFetches = 0;
     const fetchMock = vi.fn(async (url: string) => {

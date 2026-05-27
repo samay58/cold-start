@@ -16,6 +16,7 @@ import {
   markGenerationRun,
   markResearchSectionFailed,
   markResearchSectionRunning,
+  recordResearchRunEvent,
   retireStaleGenerationRuns,
   type GenerationRunStatusSummary
 } from "@cold-start/db";
@@ -242,6 +243,17 @@ export async function POST(request: Request) {
 
   try {
     queuedRun = await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: sectionJobKind(sectionId) } : {}), status: "queued" });
+    await recordResearchRunEvent(db, {
+      runId: queuedRun?.id ?? `${slug}:${sectionId ? sectionJobKind(sectionId) : mode}`,
+      slug,
+      domain,
+      sectionId,
+      type: sectionId ? "section.queued" : "generation.queued",
+      message: sectionId
+        ? `Queued ${RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].title}`
+        : `Queued ${mode === "analysis" ? "investor analysis" : "company profile"}`,
+      metadata: { mode, ...(sectionId ? { sectionId } : {}) }
+    }).catch(() => null);
     if (sectionId) {
       await markResearchSectionRunning(db, {
         slug,
@@ -306,6 +318,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: sectionJobKind(sectionId) } : {}), status: "failed", error: boundedErrorMessage(error) });
+    await recordResearchRunEvent(db, {
+      runId: queuedRun?.id ?? `${slug}:${sectionId ? sectionJobKind(sectionId) : mode}`,
+      slug,
+      domain,
+      sectionId,
+      type: sectionId ? "section.failed" : "generation.failed",
+      message: "Failed to queue generation",
+      metadata: { mode, error: boundedErrorMessage(error), ...(sectionId ? { sectionId } : {}) }
+    }).catch(() => null);
     if (sectionId) {
       await markResearchSectionFailed(db, {
         slug,

@@ -32,6 +32,7 @@ import {
   formatOptionalCurrency,
   formatOptionalNumber
 } from "./extension-format";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -58,6 +59,8 @@ type ResearchLayerPanelProps = {
   activeSectionElapsedSeconds?: number | undefined;
   activeSectionRun?: ActiveSectionRun | undefined;
   sections?: ResearchSection[] | undefined;
+  events?: ExtensionResearchRunEvent[] | undefined;
+  sources?: ExtensionSourceSummary[] | undefined;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
@@ -643,6 +646,92 @@ function analysisLayerIsRunning(card: ColdStartCard, id: ResearchLayerId, analys
   return id === "marketStructureTiming" && !card.synthesis.marketStructureAndTiming;
 }
 
+function plural(value: number, singular: string, pluralWord = `${singular}s`) {
+  return `${value} ${value === 1 ? singular : pluralWord}`;
+}
+
+function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
+  switch (sourceType) {
+    case "company_site":
+      return "primary";
+    case "enrichment":
+      return "enrichment";
+    case "filing":
+      return "filing";
+    case "github":
+      return "GitHub";
+    case "news":
+      return "news";
+    case "rdap":
+      return "domain";
+    case "other":
+      return "other";
+  }
+}
+
+function ResearchProgressPanel({
+  companyName,
+  events = [],
+  isRunning,
+  resolvedCount,
+  sources = [],
+  totalCount
+}: {
+  companyName: string;
+  events?: ExtensionResearchRunEvent[] | undefined;
+  isRunning: boolean;
+  resolvedCount: number;
+  sources?: ExtensionSourceSummary[] | undefined;
+  totalCount: number;
+}) {
+  const latestEvent = events[0] ?? null;
+  const sourceTypes = Array.from(new Set(sources.map((source) => sourceKindLabel(source.sourceType)))).slice(0, 3);
+  const stateCopy = isRunning ? `Researching ${companyName}` : `Saved research for ${companyName}`;
+  const sourceCopy = sources.length > 0 ? `${plural(sources.length, "source")} found` : "Sources will appear here";
+  const sectionCopy = `${resolvedCount} of ${totalCount} sections resolved`;
+
+  return (
+    <div className="cs-research-progress" aria-label="Research progress">
+      <div className="cs-research-progress-main">
+        <span className="cs-research-progress-dot" data-running={isRunning ? "true" : "false"} aria-hidden="true" />
+        <div>
+          <strong>{stateCopy}</strong>
+          <small>
+            {sourceCopy}
+            {sourceTypes.length > 0 ? ` · ${sourceTypes.join(", ")}` : null}
+            {` · ${sectionCopy}`}
+          </small>
+        </div>
+      </div>
+      {latestEvent ? (
+        <div className="cs-research-progress-event" role="status">
+          {latestEvent.message}
+        </div>
+      ) : null}
+      {sources.length > 0 ? (
+        <div className="cs-research-source-strip" aria-label="Recent sources">
+          {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
+            <a href={source.url} key={source.id} rel="noreferrer" target="_blank" title={source.snippet}>
+              <span>{source.domain}</span>
+              <small>{sourceKindLabel(source.sourceType)}</small>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {events.length > 1 ? (
+        <details className="cs-research-activity">
+          <summary>Activity</summary>
+          <ol>
+            {events.slice(0, 6).map((event) => (
+              <li key={event.id}>{event.message}</li>
+            ))}
+          </ol>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
@@ -657,7 +746,9 @@ export function ResearchLayerPanel({
   profileRun,
   activeSectionElapsedSeconds = 0,
   activeSectionRun,
-  sections
+  sections,
+  events,
+  sources
 }: ResearchLayerPanelProps) {
   const companyName = readableCompanyName(card);
   const canStartInvestorLens = canRunInvestorAnalysis(card);
@@ -786,6 +877,9 @@ export function ResearchLayerPanel({
   const managerSources = managementSourceCount(card);
   const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
+  const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
+  const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
+  const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
   const dropZoneCopy = snapReadyId ? "Release to pin" : snapPreviewId ? "Lift to commit" : "Pin card";
   const summary = compactProfileSummary(
     card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
@@ -831,6 +925,16 @@ export function ResearchLayerPanel({
           <span>Research</span>
           <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
+        {showResearchProgress ? (
+          <ResearchProgressPanel
+            companyName={companyName}
+            events={events}
+            isRunning={activeRunVisible}
+            resolvedCount={resolvedSectionCount}
+            sources={sources}
+            totalCount={RESEARCH_LAYER_CARDS.length}
+          />
+        ) : null}
 
         <div className="cs-active-enrichments">
           <AnimatePresence initial={false}>

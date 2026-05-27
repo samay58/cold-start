@@ -19,7 +19,7 @@ import {
 } from "@cold-start/core";
 
 import type { ColdStartDb } from "./client";
-import { cards, citations, claims, generationRuns, researchSections, sources } from "./schema";
+import { cards, citations, claims, generationRuns, researchRunEvents, researchSections, sources } from "./schema";
 
 type PublicClaim = {
   path: string;
@@ -490,6 +490,35 @@ export type StoredSource = {
   rawText: string;
 };
 
+export type SourceSummary = Omit<StoredSource, "rawText"> & {
+  domain: string;
+  snippet: string;
+};
+
+export type ResearchRunEvent = {
+  id: string;
+  runId: string;
+  slug: string;
+  domain: string;
+  sectionId: ResearchSectionId | null;
+  type: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+type ResearchRunEventRow = {
+  id: string;
+  runId: string;
+  slug: string;
+  domain: string;
+  sectionId?: string | null;
+  type: string;
+  message: string;
+  metadata: unknown;
+  createdAt: Date;
+};
+
 export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<StoredSource[]> {
   const rows = await db
     .select({
@@ -512,6 +541,123 @@ export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<
     fetchedAt: row.fetchedAt.toISOString(),
     rawText: row.rawText
   }));
+}
+
+function sourceDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function compactSnippet(rawText: string, maxLength = 360) {
+  const normalized = rawText.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+export async function findSourceSummariesBySlug(
+  db: ColdStartDb,
+  slug: string,
+  options: { limit?: number } = {}
+): Promise<SourceSummary[]> {
+  const rows = await db
+    .select({
+      id: sources.id,
+      url: sources.url,
+      title: sources.title,
+      sourceType: sources.sourceType,
+      fetchedAt: sources.fetchedAt,
+      rawText: sources.rawText
+    })
+    .from(sources)
+    .innerJoin(cards, eq(sources.cardId, cards.id))
+    .where(eq(cards.slug, slug))
+    .orderBy(desc(sources.fetchedAt))
+    .limit(options.limit ?? 24);
+
+  return rows.map((row) => ({
+    id: row.id,
+    url: row.url,
+    title: row.title,
+    domain: sourceDomain(row.url),
+    sourceType: row.sourceType,
+    fetchedAt: row.fetchedAt.toISOString(),
+    snippet: compactSnippet(row.rawText)
+  }));
+}
+
+function researchRunEventFromRow(row: ResearchRunEventRow): ResearchRunEvent {
+  return {
+    id: row.id,
+    runId: row.runId,
+    slug: row.slug,
+    domain: row.domain,
+    sectionId: row.sectionId ? researchSectionIdSchema.parse(row.sectionId) : null,
+    type: row.type,
+    message: row.message,
+    metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {},
+    createdAt: row.createdAt.toISOString()
+  };
+}
+
+export async function recordResearchRunEvent(
+  db: ColdStartDb,
+  input: {
+    runId: string;
+    slug: string;
+    domain: string;
+    sectionId?: ResearchSectionId | null;
+    type: string;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<ResearchRunEvent | null> {
+  const [row] = await db
+    .insert(researchRunEvents)
+    .values({
+      runId: input.runId,
+      slug: input.slug,
+      domain: input.domain,
+      sectionId: input.sectionId ?? null,
+      type: input.type,
+      message: input.message,
+      metadata: input.metadata ?? {}
+    })
+    .returning();
+
+  return row ? researchRunEventFromRow(row) : null;
+}
+
+export async function findResearchRunEventsBySlug(
+  db: ColdStartDb,
+  slug: string,
+  options: { limit?: number } = {}
+): Promise<ResearchRunEvent[]> {
+  const rows = await db
+    .select({
+      id: researchRunEvents.id,
+      runId: researchRunEvents.runId,
+      slug: researchRunEvents.slug,
+      domain: researchRunEvents.domain,
+      sectionId: researchRunEvents.sectionId,
+      type: researchRunEvents.type,
+      message: researchRunEvents.message,
+      metadata: researchRunEvents.metadata,
+      createdAt: researchRunEvents.createdAt
+    })
+    .from(researchRunEvents)
+    .where(eq(researchRunEvents.slug, slug))
+    .orderBy(desc(researchRunEvents.createdAt))
+    .limit(options.limit ?? 30);
+
+  return rows.map(researchRunEventFromRow);
 }
 
 // Pulls the latest generation_runs row for a slug, extracts a one-line summary of provider

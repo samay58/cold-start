@@ -3,10 +3,13 @@ import {
   createDb,
   findCardBySlug,
   findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsBySlug,
   findResearchSectionsBySlug,
+  findSourceSummariesBySlug,
   retireStaleResearchSections,
   retireStaleGenerationRuns,
-  type GenerationRunStatusSummary
+  type GenerationRunStatusSummary,
+  type SourceSummary
 } from "@cold-start/db";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../../lib/api-response";
 import { canonicalCompanyDomain } from "../../../../lib/domain";
@@ -45,6 +48,51 @@ function idleRun(slug: string, domain: string, mode: GenerationMode) {
   return serializeRun({ slug, domain, mode, status: "idle" });
 }
 
+function compactSnippet(value: string | undefined, maxLength = 360) {
+  const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+function sourceDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function citationSourceSummaries(card: Awaited<ReturnType<typeof findCardBySlug>>): SourceSummary[] {
+  if (!card) {
+    return [];
+  }
+
+  const citations = Array.isArray(card.citations) ? card.citations : [];
+  return citations.map((citation) => ({
+    id: `citation:${citation.id}`,
+    url: citation.url,
+    title: citation.title,
+    domain: sourceDomain(citation.url),
+    sourceType: citation.sourceType,
+    fetchedAt: citation.fetchedAt,
+    snippet: compactSnippet(citation.snippet)
+  }));
+}
+
+function mergeSourceSummaries(primary: SourceSummary[], fallback: SourceSummary[], limit = 24) {
+  const byUrl = new Map<string, SourceSummary>();
+  for (const source of [...primary, ...fallback]) {
+    if (!byUrl.has(source.url)) {
+      byUrl.set(source.url, source);
+    }
+  }
+
+  return Array.from(byUrl.values()).slice(0, limit);
+}
+
 export async function GET(request: Request) {
   const startedAt = performance.now();
   const auth = assertExtensionRequest(request.headers);
@@ -78,13 +126,16 @@ export async function GET(request: Request) {
     retireStaleResearchSections(db, { slug })
   ]);
 
-  const [card, storedSections, basicsRun, analysisRun] = await Promise.all([
+  const [card, storedSections, basicsRun, analysisRun, sources, events] = await Promise.all([
     findCardBySlug(db, slug, { allowStale: true }),
     findResearchSectionsBySlug(db, slug),
     findLatestGenerationRunStatusBySlug(db, slug, "basics"),
-    findLatestGenerationRunStatusBySlug(db, slug, "analysis")
+    findLatestGenerationRunStatusBySlug(db, slug, "analysis"),
+    findSourceSummariesBySlug(db, slug, { limit: 24 }),
+    findResearchRunEventsBySlug(db, slug, { limit: 30 }).catch(() => [])
   ]);
   const sections = mergeStoredResearchSectionsWithLegacy({ card, storedSections });
+  const sourceSummaries = mergeSourceSummaries(sources, citationSourceSummaries(card));
   const metrics: ServerTimingMetric[] = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }
@@ -96,6 +147,8 @@ export async function GET(request: Request) {
       slug,
       card,
       sections,
+      sources: sourceSummaries,
+      events,
       runs: {
         basics: basicsRun ? serializeRun(basicsRun) : idleRun(slug, domain, "basics"),
         analysis: analysisRun ? serializeRun(analysisRun) : idleRun(slug, domain, "analysis")

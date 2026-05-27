@@ -1592,6 +1592,133 @@ button {
   border-bottom: 1px solid var(--color-hairline);
 }
 
+.cs-research-progress {
+  display: grid;
+  gap: 10px;
+  margin: 12px;
+  padding: 12px;
+  border: 1px solid rgb(230 223 201 / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.82), rgb(250 247 239 / 0.72)),
+    var(--color-parchment-warm);
+}
+
+.cs-research-progress-main {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.cs-research-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-lens-blue);
+  box-shadow: 0 0 0 4px rgb(22 116 255 / 0.10);
+}
+
+.cs-research-progress-dot[data-running="true"] {
+  animation: cs-dot-pulse 1400ms ease-in-out infinite;
+}
+
+.cs-research-progress strong {
+  display: block;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-family: var(--font-fraunces);
+  font-size: 18px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-research-progress small {
+  display: block;
+  margin-top: 5px;
+  color: var(--color-muted-ink);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.cs-research-progress-event {
+  padding: 8px 10px;
+  border: 1px solid rgb(22 116 255 / 0.18);
+  border-radius: 7px;
+  background: rgb(235 243 255 / 0.62);
+  color: #1d3659;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cs-research-source-strip {
+  display: flex;
+  gap: 7px;
+  overflow: hidden;
+}
+
+.cs-research-source-strip a {
+  display: inline-grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: 132px;
+  padding: 7px 9px;
+  border: 1px solid rgb(22 116 255 / 0.20);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.46);
+  color: var(--color-lens-blue);
+  text-decoration: none;
+}
+
+.cs-research-source-strip span,
+.cs-research-source-strip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-research-source-strip span {
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.cs-research-source-strip small {
+  margin: 0;
+  color: var(--color-muted-ink);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.cs-research-activity {
+  border-top: 1px solid rgb(230 223 201 / 0.70);
+  padding-top: 8px;
+}
+
+.cs-research-activity summary {
+  color: var(--color-muted-ink);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.cs-research-activity ol {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding-left: 16px;
+}
+
+.cs-research-activity li {
+  color: var(--color-muted-ink);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .cs-active-enrichments {
   display: grid;
   gap: 10px;
@@ -4058,6 +4185,19 @@ body {
   }
 }
 
+@keyframes cs-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 4px rgb(22 116 255 / 0.10);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 7px rgb(22 116 255 / 0.06);
+    transform: scale(1.08);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .cs-cache-spinner {
     animation: cs-spin 720ms linear infinite;
@@ -4117,6 +4257,7 @@ body {
   .cs-active-enrichment[data-state="running"] .cs-layer-progress span,
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
   .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
+  .cs-research-progress-dot[data-running="true"],
   .cs-card-pile-motion,
   .cs-dormant-card {
     animation: none;

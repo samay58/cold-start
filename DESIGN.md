@@ -106,6 +106,8 @@ The side panel should make basics and analysis feel like staged enrichment, not 
 
 The progress screen should have one clear active state, not a repeated status card plus a second status list. Use a single editorial panel with a large Fraunces stage title, restrained Mona Sans support copy, source-aware progress motion, and the same pale blue/wave-backed shell as the finished profile. The animation should feel engineered and alive: moving current lines, subtle shimmer, and a precise blue progress cursor. Avoid chunky loading bars, duplicate step lists, and generic AI status copy.
 
+Once a saved profile is visible, progress belongs inside the dossier. Use a compact research progress card: company name, source count, current activity event, and a short source strip. Keep the full activity log tucked behind a small disclosure. The goal is to prove work is happening without turning the side panel into backend logs.
+
 ## Enrichment Card Direction
 
 For the proposed enrichment UX, each inactive category should feel like a physical evidence slip or research card that belongs to this dossier system. The cards can fall, collide, stack, and be dragged, but they should not become toy-like. The best direction is "luxury research instrument with physics" rather than "playful kanban."

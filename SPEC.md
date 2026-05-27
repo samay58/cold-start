@@ -190,6 +190,8 @@ Provider budgets are executable, not just spreadsheet assumptions. StableEnrich 
 
 `analysis` is the deeper gated path. It always requires extension auth plus explicit confirmation. It can reuse the existing basics card, run richer retrieval and synthesis, then upgrade the same card only when supported claims and diligence prompts survive verification. In the refreshed extension UX, the user should experience this as activating specific research cards, not pressing a separate global Analyze button. The first implemented card set uses Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, Financing & Valuation, Competitive Position, Product & Technology, and Risks & Diligence. The backend still supports card-level `basics` and `analysis` jobs today, but generation runs now carry `jobKind` and trace metadata so true per-enrichment jobs can land without a second stale progress model.
 
+Generation runs also write small product-facing events. Traces remain for debugging. Events are for the extension. A run event says what the system actually did: queued a section, found sources, saved the first usable card, checked contact sources, saved enrichment, completed, or failed. The extension can show these events without parsing `trace_json`.
+
 **Pipeline** (single agent, parallel provider calls, no orchestrator-worker hierarchy):
 
 ```
@@ -334,6 +336,18 @@ Snapping a card into place only saves the local pin. It does not start generatio
 - `not_started`: show a generate action.
 
 Old cards can derive fallback section state from `cards.card_json`, but new generation writes section rows. Section rows win over fallback.
+
+The extension bootstrap also returns compact source summaries and recent run events:
+
+```text
+card
+sections
+runs
+sources
+events
+```
+
+`sources` are capped summaries for display. `events` are recent activity rows, not raw traces. Public routes do not expose gated section content or generation traces.
 
 ## Risks
 

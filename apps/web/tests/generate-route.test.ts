@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     markGenerationRun: vi.fn(),
     markResearchSectionFailed: vi.fn(),
     markResearchSectionRunning: vi.fn(),
+    recordResearchRunEvent: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
     send: vi.fn()
   };
@@ -28,6 +29,7 @@ vi.mock("@cold-start/db", () => ({
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
   markResearchSectionRunning: mocks.markResearchSectionRunning,
+  recordResearchRunEvent: mocks.recordResearchRunEvent,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns
 }));
 
@@ -174,9 +176,11 @@ describe("POST /api/generate", () => {
     mocks.markGenerationRun.mockReset();
     mocks.markResearchSectionFailed.mockReset();
     mocks.markResearchSectionRunning.mockReset();
+    mocks.recordResearchRunEvent.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
     mocks.markResearchSectionFailed.mockResolvedValue(null);
     mocks.markResearchSectionRunning.mockResolvedValue(null);
+    mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
     mocks.send.mockReset();
   });
@@ -222,6 +226,15 @@ describe("POST /api/generate", () => {
       domain: "cartesia.ai",
       mode: "basics",
       status: "queued"
+    });
+    expect(mocks.recordResearchRunEvent).toHaveBeenCalledWith(mocks.db, {
+      runId: "run-id",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: null,
+      type: "generation.queued",
+      message: "Queued company profile",
+      metadata: { mode: "basics" }
     });
     expect(mocks.send).toHaveBeenCalledWith({
       name: "card/generate.requested",

@@ -12,15 +12,18 @@ import {
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsBySlug,
+  findSourceSummariesBySlug,
   findPublicCardBySlug,
   generationRunStaleAfterMs,
   listPublicCardSummaries,
   markGenerationRun,
+  recordResearchRunEvent,
   recordCardEvidence,
   retireStaleGenerationRuns,
   upsertCard
 } from "../src/repository";
-import { citations, claims } from "../src/schema";
+import { citations, claims, researchRunEvents, sources } from "../src/schema";
 
 const generatedAt = "2026-05-06T12:00:00.000Z";
 type TestGenerationRun = {
@@ -122,6 +125,18 @@ function tableName(table: unknown) {
   }
 
   return "other";
+}
+
+function sourceTableName(table: unknown) {
+  if (table === sources) {
+    return "sources";
+  }
+
+  if (table === researchRunEvents) {
+    return "research_run_events";
+  }
+
+  return tableName(table);
 }
 
 function sqlParamValues(value: unknown, seen = new Set<unknown>()): unknown[] {
@@ -743,6 +758,96 @@ describe("generation run status snapshots", () => {
     expect(snapshot).not.toHaveProperty("traceJson");
     expect(snapshot).not.toHaveProperty("inngestEventId");
     expect(snapshot).not.toHaveProperty("inngestRunId");
+  });
+});
+
+describe("research run evidence summaries", () => {
+  it("records and loads recent run events without exposing raw traces", async () => {
+    const rows: unknown[] = [];
+    const db = {
+      insert: (table: unknown) => ({
+        values: (value: unknown) => ({
+          returning: async () => {
+            const row = {
+              id: "event-1",
+              ...(value as Record<string, unknown>),
+              createdAt: new Date("2026-05-26T20:00:00.000Z")
+            };
+            rows.push({ table: sourceTableName(table), row });
+            return [row];
+          }
+        })
+      }),
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            orderBy: () => ({
+              limit: async () => rows.map((entry) => (entry as { row: unknown }).row)
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await recordResearchRunEvent(db, {
+      runId: "run-basics",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      type: "source.found",
+      message: "Found 3 independent sources",
+      metadata: { sourceCount: 3 }
+    });
+
+    await expect(findResearchRunEventsBySlug(db, "cartesia", { limit: 5 })).resolves.toEqual([
+      {
+        id: "event-1",
+        runId: "run-basics",
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: null,
+        type: "source.found",
+        message: "Found 3 independent sources",
+        metadata: { sourceCount: 3 },
+        createdAt: "2026-05-26T20:00:00.000Z"
+      }
+    ]);
+  });
+
+  it("returns compact source summaries with snippets capped for extension bootstrap", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: async () => [
+                  {
+                    id: "source-1",
+                    url: "https://cartesia.ai/blog",
+                    title: "Cartesia Blog",
+                    sourceType: "company_site",
+                    fetchedAt: new Date("2026-05-26T20:01:00.000Z"),
+                    rawText: "A".repeat(900)
+                  }
+                ]
+              })
+            })
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findSourceSummariesBySlug(db, "cartesia", { limit: 3 })).resolves.toEqual([
+      {
+        id: "source-1",
+        url: "https://cartesia.ai/blog",
+        title: "Cartesia Blog",
+        domain: "cartesia.ai",
+        sourceType: "company_site",
+        fetchedAt: "2026-05-26T20:01:00.000Z",
+        snippet: `${"A".repeat(360)}...`
+      }
+    ]);
   });
 });
 

@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => {
     db,
     findCardBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
+    findResearchRunEventsBySlug: vi.fn(),
     findResearchSectionsBySlug: vi.fn(),
+    findSourceSummariesBySlug: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
     retireStaleResearchSections: vi.fn()
   };
@@ -19,7 +21,9 @@ vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findCardBySlug: mocks.findCardBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsBySlug: mocks.findResearchRunEventsBySlug,
   findResearchSectionsBySlug: mocks.findResearchSectionsBySlug,
+  findSourceSummariesBySlug: mocks.findSourceSummariesBySlug,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns,
   retireStaleResearchSections: mocks.retireStaleResearchSections
 }));
@@ -59,10 +63,14 @@ describe("GET /api/extension/bootstrap", () => {
     mocks.createDb.mockClear();
     mocks.findCardBySlug.mockReset();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
+    mocks.findResearchRunEventsBySlug.mockReset();
     mocks.findResearchSectionsBySlug.mockReset();
+    mocks.findSourceSummariesBySlug.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
     mocks.retireStaleResearchSections.mockReset();
     mocks.findResearchSectionsBySlug.mockResolvedValue([]);
+    mocks.findResearchRunEventsBySlug.mockResolvedValue([]);
+    mocks.findSourceSummariesBySlug.mockResolvedValue([]);
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
     mocks.retireStaleResearchSections.mockResolvedValue(0);
   });
@@ -174,6 +182,114 @@ describe("GET /api/extension/bootstrap", () => {
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "analysis" });
     expect(mocks.retireStaleResearchSections).toHaveBeenCalledWith(mocks.db, { slug: "cartesia" });
     expect(response.headers.get("Server-Timing")).toContain("db");
+  });
+
+  it("returns compact sources and recent research events for the active company", async () => {
+    const card = {
+      slug: "llamaindex",
+      domain: "llamaindex.ai",
+      citations: []
+    };
+    mocks.findCardBySlug.mockResolvedValue(card);
+    mocks.findLatestGenerationRunStatusBySlug
+      .mockResolvedValueOnce({
+        id: "run-basics",
+        slug: "llamaindex",
+        domain: "llamaindex.ai",
+        mode: "basics",
+        status: "running",
+        startedAt: new Date("2026-05-26T20:00:00.000Z")
+      })
+      .mockResolvedValueOnce(null);
+    mocks.findSourceSummariesBySlug.mockResolvedValue([
+      {
+        id: "source-1",
+        url: "https://www.llamaindex.ai/",
+        title: "LlamaIndex",
+        domain: "llamaindex.ai",
+        sourceType: "company_site",
+        fetchedAt: "2026-05-26T20:00:01.000Z",
+        snippet: "LlamaIndex is a data framework for LLM applications."
+      }
+    ]);
+    mocks.findResearchRunEventsBySlug.mockResolvedValue([
+      {
+        id: "event-1",
+        runId: "run-basics",
+        slug: "llamaindex",
+        domain: "llamaindex.ai",
+        sectionId: null,
+        type: "source.found",
+        message: "Found company website",
+        metadata: { sourceType: "company_site" },
+        createdAt: "2026-05-26T20:00:02.000Z"
+      }
+    ]);
+
+    const response = await GET(extensionRequest("llamaindex.ai", "secret", "extension-test-id"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.sources).toEqual([
+      {
+        id: "source-1",
+        url: "https://www.llamaindex.ai/",
+        title: "LlamaIndex",
+        domain: "llamaindex.ai",
+        sourceType: "company_site",
+        fetchedAt: "2026-05-26T20:00:01.000Z",
+        snippet: "LlamaIndex is a data framework for LLM applications."
+      }
+    ]);
+    expect(body.events).toEqual([
+      {
+        id: "event-1",
+        runId: "run-basics",
+        slug: "llamaindex",
+        domain: "llamaindex.ai",
+        sectionId: null,
+        type: "source.found",
+        message: "Found company website",
+        metadata: { sourceType: "company_site" },
+        createdAt: "2026-05-26T20:00:02.000Z"
+      }
+    ]);
+    expect(mocks.findSourceSummariesBySlug).toHaveBeenCalledWith(mocks.db, "llamaindex", { limit: 24 });
+    expect(mocks.findResearchRunEventsBySlug).toHaveBeenCalledWith(mocks.db, "llamaindex", { limit: 30 });
+  });
+
+  it("uses citation snippets as source summaries when stored raw sources are missing", async () => {
+    mocks.findCardBySlug.mockResolvedValue({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      citations: [
+        {
+          id: "c1",
+          url: "https://cartesia.ai/",
+          title: "Cartesia",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-26T20:10:00.000Z",
+          snippet: "Real-time multimodal intelligence."
+        }
+      ]
+    });
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.findSourceSummariesBySlug.mockResolvedValue([]);
+
+    const response = await GET(extensionRequest("cartesia.ai", "secret", "extension-test-id"));
+    const body = await response.json();
+
+    expect(body.sources).toEqual([
+      {
+        id: "citation:c1",
+        url: "https://cartesia.ai/",
+        title: "Cartesia",
+        domain: "cartesia.ai",
+        sourceType: "company_site",
+        fetchedAt: "2026-05-26T20:10:00.000Z",
+        snippet: "Real-time multimodal intelligence."
+      }
+    ]);
   });
 
   it("returns idle run snapshots when no runs exist", async () => {

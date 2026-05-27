@@ -8,6 +8,8 @@ import {
   readableCompanyNameFromDomain,
   readableCardError,
   resolveStoredSettings,
+  type ExtensionResearchRunEvent,
+  type ExtensionSourceSummary,
   type GenerationRunStatus,
   type GenerationStatus,
   type Settings
@@ -52,6 +54,8 @@ type RequestState =
       contactRun?: AnalysisRunState;
       profileRun?: AnalysisRunState;
       activeSectionRun?: ActiveSectionRunState;
+      events?: ExtensionResearchRunEvent[];
+      sources?: ExtensionSourceSummary[];
     }
   | { status: "error"; message: string };
 
@@ -395,6 +399,8 @@ function SuccessPanel({
         analysisRun={requestState.analysisRun}
         card={requestState.card}
         sections={requestState.sections}
+        events={requestState.events}
+        sources={requestState.sources}
         contactElapsedSeconds={contactElapsedSeconds}
         contactRun={requestState.contactRun}
         elapsedSeconds={elapsedSeconds}
@@ -1007,7 +1013,7 @@ export function SidePanel() {
       const cachedCard = await readCachedCard(domain, settings).catch(() => null);
       if (cachedCard && !controller.signal.aborted) {
         showedCachedCard = true;
-        setRequestState({ status: "success", card: cachedCard, sections: placeholderResearchSectionsForCard(cachedCard) });
+        setRequestState({ status: "success", card: cachedCard, sections: placeholderResearchSectionsForCard(cachedCard), events: [], sources: [] });
       }
 
       try {
@@ -1034,6 +1040,8 @@ export function SidePanel() {
               status: "success",
               card,
               sections: bootstrapSections,
+              events: bootstrap.events ?? [],
+              sources: bootstrap.sources ?? [],
               contactRun: {
                 generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
                 startedAt
@@ -1049,8 +1057,8 @@ export function SidePanel() {
 
           setRequestState(
             analysisStatus.status === "failed" && !card.synthesis
-              ? { status: "success", card, sections: bootstrapSections, analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE }
-              : { status: "success", card, sections: bootstrapSections }
+              ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE }
+              : { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [] }
           );
           clearActiveRequest(controller);
           return;

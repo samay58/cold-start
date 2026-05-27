@@ -154,3 +154,22 @@ export const researchSections = pgTable(
     index("research_sections_slug_status_idx").on(table.slug, table.status)
   ]
 );
+
+export const researchRunEvents = pgTable(
+  "research_run_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: text("run_id").notNull(),
+    slug: text("slug").notNull(),
+    domain: text("domain").notNull(),
+    sectionId: text("section_id"),
+    type: text("type").notNull(),
+    message: text("message").notNull(),
+    metadata: jsonb("metadata").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    index("research_run_events_slug_created_idx").on(table.slug, table.createdAt),
+    index("research_run_events_run_created_idx").on(table.runId, table.createdAt)
+  ]
+);

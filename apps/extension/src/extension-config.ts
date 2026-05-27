@@ -43,11 +43,35 @@ export type GenerationRunStatus = {
   completedAt?: string;
 };
 
+export type ExtensionSourceSummary = {
+  id: string;
+  url: string;
+  title: string;
+  domain: string;
+  sourceType: "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
+  fetchedAt: string;
+  snippet: string;
+};
+
+export type ExtensionResearchRunEvent = {
+  id: string;
+  runId: string;
+  slug: string;
+  domain: string;
+  sectionId: string | null;
+  type: string;
+  message: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type ExtensionBootstrapResponse = {
   domain: string;
   slug: string;
   card: ColdStartCard | null;
   sections?: ResearchSection[];
+  sources?: ExtensionSourceSummary[];
+  events?: ExtensionResearchRunEvent[];
   runs: {
     basics: GenerationRunStatus;
     analysis: GenerationRunStatus;

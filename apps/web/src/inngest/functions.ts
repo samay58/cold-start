@@ -23,6 +23,7 @@ import {
   findCardBySlug,
   markGenerationRun,
   markResearchSectionFailed,
+  recordResearchRunEvent,
   recordCardEvidence,
   recordSource,
   upsertCard,
@@ -737,6 +738,34 @@ export const generateCardFunction = inngest.createFunction(
     generationRunDbId = runningGenerationRun?.id ?? null;
 
     let currentStage = "plan-research";
+    const eventRunId = () => generationRunDbId ?? trace.inngest?.runId ?? `${slug}:${jobKind}`;
+    const recordEvent = (
+      name: string,
+      type: string,
+      message: string,
+      metadata: Record<string, unknown> = {},
+      sectionId: ResearchSectionId | null = requestedSectionId
+    ) =>
+      step.run(`event-${name}`, () =>
+        recordResearchRunEvent(db, {
+          runId: eventRunId(),
+          slug,
+          domain,
+          sectionId,
+          type,
+          message,
+          metadata
+        }).catch(() => null)
+      );
+
+    await recordEvent(
+      "generation-started",
+      requestedSectionId ? "section.started" : "generation.started",
+      requestedSectionId
+        ? `Started ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`
+        : `Started ${mode === "analysis" ? "investor analysis" : "company profile"}`
+    );
+
     try {
       const anthropic = createAnthropicClient();
       const defaultModel = anthropicModel();
@@ -798,6 +827,19 @@ export const generateCardFunction = inngest.createFunction(
         mergeTracePatch(trace, sectionResult.tracePatch);
 
         await step.run("upsert-generated-section", () => upsertResearchSection(db, sectionResult.value));
+        await recordEvent(
+          "section-saved",
+          sectionResult.value.status === "available" ? "section.available" : "section.empty",
+          sectionResult.value.status === "available"
+            ? `Saved ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`
+            : `No strong evidence found for ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`,
+          {
+            citationCount: sectionResult.value.citationIds.length,
+            sourceCount: sectionResult.value.sourceIds.length,
+            status: sectionResult.value.status
+          },
+          requestedSectionId
+        );
         await step.run("mark-section-generation-complete", () =>
           markGenerationRun(db, {
             slug,
@@ -830,6 +872,9 @@ export const generateCardFunction = inngest.createFunction(
       });
       mergeTracePatch(trace, researchPlanResult.tracePatch);
       const researchPlan = researchPlanResult.value;
+      await recordEvent("research-plan-ready", "plan.ready", "Research plan ready", {
+        queryCount: Object.keys(researchPlan.searchQueries).length
+      }, null);
       const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
       const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
 
@@ -942,6 +987,12 @@ export const generateCardFunction = inngest.createFunction(
         };
       });
       mergeTracePatch(trace, sourceResult.tracePatch);
+      await recordEvent("sources-fetched", "source.found", `Found ${sourceResult.value.sources.length} accepted sources`, {
+        acceptedCount: sourceResult.value.sources.length,
+        rejectedCount: sourceResult.value.trace.sourceGate.rejectedCount,
+        directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
+        stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount
+      }, null);
 
       // Failure count is tracked for observability, but not converted into cost until live costs are measured.
       void sourceResult.value.failureCount;
@@ -995,6 +1046,10 @@ export const generateCardFunction = inngest.createFunction(
           const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
           await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
           await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(seedCardToStore)));
+          await recordEvent("seed-card-saved", "card.partial", "Saved first usable company card", {
+            citationCount: seedCardToStore.citations.length,
+            sourceCount: acceptedSources.length
+          }, null);
           trace.milestones = {
             ...trace.milestones,
             firstUsableCardMs: trace.milestones?.firstUsableCardMs ?? Date.now() - functionStartedAt
@@ -1029,6 +1084,10 @@ export const generateCardFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, contactSourceResult.tracePatch);
+        await recordEvent("contact-sources-fetched", "source.contacts", `Checked people and email sources`, {
+          sourceCount: contactSourceResult.value.sources.length,
+          providerFactCount: contactSourceResult.value.providerFacts.length
+        }, null);
         contactProviderFacts = contactSourceResult.value.providerFacts;
         contactSources = contactSourceResult.value.sources;
 
@@ -1055,6 +1114,9 @@ export const generateCardFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, contactEnriched.tracePatch);
+        await recordEvent("contacts-enriched", "contacts.enriched", `Found ${peopleEmailCount(contactEnriched.value.sections)} verified work emails`, {
+          emailCount: peopleEmailCount(contactEnriched.value.sections)
+        }, null);
 
         seedSections = contactEnriched.value.sections;
         seedCard = cardWithExtractedSections(seedCard, seedSections);
@@ -1263,6 +1325,10 @@ export const generateCardFunction = inngest.createFunction(
         await step.run("record-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
+        await recordEvent("card-saved", "card.saved", "Saved cited company card", {
+          citationCount: cardToStore.citations.length,
+          sourceCount: sourcesToRecord.length
+        }, null);
         if (mode === "basics") {
           trace.milestones = {
             ...trace.milestones,
@@ -1312,6 +1378,10 @@ export const generateCardFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, enrichmentSourceResult.tracePatch);
+        await recordEvent("enrichment-sources-fetched", "source.enrichment", `Checked deeper enrichment sources`, {
+          sourceCount: enrichmentSourceResult.value.sources.length,
+          providerFactCount: enrichmentSourceResult.value.providerFacts.length
+        }, null);
 
         currentStage = "enrich-card";
         const enriched = await step.run("enrich-card", async () => {
@@ -1365,6 +1435,10 @@ export const generateCardFunction = inngest.createFunction(
         await step.run("record-enriched-sources", () =>
           recordSourcesForCard(db, storedRow.id, sourcesToRecord),
         );
+        await recordEvent("enriched-card-saved", "card.enriched", "Saved enriched company card", {
+          citationCount: cardToStore.citations.length,
+          sourceCount: sourcesToRecord.length
+        }, null);
       }
 
       if (mode === "analysis") {
@@ -1387,6 +1461,10 @@ export const generateCardFunction = inngest.createFunction(
           ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
         })
       );
+      await recordEvent("generation-complete", "generation.complete", "Research run complete", {
+        costUsd: cardToStore.generationCostUsd,
+        mode
+      }, null);
 
       return { slug: cardToStore.slug, mode };
     } catch (error) {
@@ -1425,6 +1503,9 @@ export const generateCardFunction = inngest.createFunction(
           )
         )
       );
+      await recordEvent("generation-failed", requestedSectionId ? "section.failed" : "generation.failed", boundedErrorMessage(error), {
+        stage: currentStage
+      });
       throw error;
     }
   },
