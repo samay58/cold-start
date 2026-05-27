@@ -18,6 +18,18 @@ Generation is private by default. Public pages at `/c/{slug}` can be shared, but
 
 ## Vercel Project
 
+Before creating or updating production deployments, verify CLI parity:
+
+```bash
+npx vercel --version
+```
+
+If the CLI is older than `54.5.0`, upgrade once before production deploy:
+
+```bash
+npm i -g vercel@latest
+```
+
 Use the repo-local Vercel CLI, not an arbitrary global install. This repo pins `vercel` in the root `package.json`, so prefer:
 
 ```bash
