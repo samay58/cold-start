@@ -9,17 +9,28 @@ import {
 } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import {
+  budgetEvidenceSources,
+  compactEvidenceText,
+  defaultExtractionEvidenceBudgetChars,
+  evidenceBudgetCharsFromEnv
+} from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
 
 const TOOL_NAME = "emit_research_section";
 const maxEvidenceItems = 18;
 const maxEvidenceTextLength = 1400;
+const researchEvidenceBudgetChars = evidenceBudgetCharsFromEnv(
+  process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
+  defaultExtractionEvidenceBudgetChars
+);
 
 type EvidenceSource = {
   citationId: string;
   url: string;
   title: string;
   sourceType: Citation["sourceType"];
+  intent?: string | null;
   text: string;
 };
 
@@ -121,17 +132,25 @@ const toolUseSchema = z.object({
 });
 
 function truncate(value: string, maxLength: number) {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength).trim()}...`;
+  return compactEvidenceText(value, maxLength);
 }
 
-function evidenceForPrompt(evidence: EvidenceSource[]) {
-  return evidence.slice(0, maxEvidenceItems).map((source) => ({
-    citationId: source.citationId,
-    title: source.title,
-    url: source.url,
-    sourceType: source.sourceType,
-    text: truncate(source.text, maxEvidenceTextLength)
-  }));
+export function evidenceForResearchSectionPrompt(evidence: EvidenceSource[]) {
+  return budgetEvidenceSources({
+    sources: evidence,
+    itemLimit: maxEvidenceItems,
+    textLimit: maxEvidenceTextLength,
+    budgetChars: researchEvidenceBudgetChars,
+    getText: (source) => source.text,
+    withText: (source, text) => ({
+      citationId: source.citationId,
+      title: source.title,
+      url: source.url,
+      sourceType: source.sourceType,
+      ...(source.intent ? { intent: source.intent } : {}),
+      text: truncate(text, maxEvidenceTextLength)
+    })
+  });
 }
 
 function parseToolInput(message: { content: unknown[] }): ResearchSectionContent {
@@ -175,7 +194,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
             `Section: ${input.definition.title}`,
             input.definition.generationPrompt,
             "Evidence JSON:",
-            JSON.stringify(evidenceForPrompt(input.evidence), null, 2)
+            JSON.stringify(evidenceForResearchSectionPrompt(input.evidence), null, 2)
           ].join("\n\n")
         }
       ]

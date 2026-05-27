@@ -40,6 +40,7 @@ const envSchema = z.object({
   CHEAP_FIRST_EXA_ENABLED: envBoolean(true),
   PER_RUN_AGENTCASH_BUDGET_USD: optionalEnvNumber(),
   ANALYSIS_SYNTHESIS_MIN_CITATIONS: optionalEnvNumber(),
+  EXTRACTION_EVIDENCE_BUDGET_CHARS: optionalEnvNumber(1),
 });
 
 export function webEnv() {
@@ -53,5 +54,6 @@ export function webEnv() {
     CHEAP_FIRST_EXA_ENABLED: process.env.CHEAP_FIRST_EXA_ENABLED,
     PER_RUN_AGENTCASH_BUDGET_USD: process.env.PER_RUN_AGENTCASH_BUDGET_USD,
     ANALYSIS_SYNTHESIS_MIN_CITATIONS: process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS,
+    EXTRACTION_EVIDENCE_BUDGET_CHARS: process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
   });
 }

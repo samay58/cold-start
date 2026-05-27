@@ -9,6 +9,12 @@ import {
 } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import {
+  budgetEvidenceSources,
+  compactEvidenceText,
+  defaultExtractionEvidenceBudgetChars,
+  evidenceBudgetCharsFromEnv
+} from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
 
@@ -21,6 +27,10 @@ const maxBlockPromptSourceTextLength = 1400;
 const maxPromptLedgerEntries = 20;
 const maxBlockPromptLedgerEntries = 10;
 const maxPromptSnippetLength = 420;
+const extractionEvidenceBudgetChars = evidenceBudgetCharsFromEnv(
+  process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS,
+  defaultExtractionEvidenceBudgetChars
+);
 
 export const BLOCK_ENRICHMENT_IDS = ["description", "funding", "team", "signals", "comparables"] as const;
 export type BlockEnrichmentId = (typeof BLOCK_ENRICHMENT_IDS)[number];
@@ -209,7 +219,7 @@ const comparableSchema = {
 export type ExtractionEvidence = {
   domain: string;
   researchPlan?: ResearchPlan;
-  sources: Array<{ url: string; title: string; rawText: string; sourceType: string }>;
+  sources: Array<{ url: string; title: string; rawText: string; sourceType: string; intent?: string | null }>;
   evidenceLedger?: Array<{
     id: string;
     url: string;
@@ -242,10 +252,14 @@ export function evidenceForExtractionPrompt(
     domain: evidence.domain,
     ...(evidence.researchPlan ? { researchPlan: evidence.researchPlan } : {}),
     ...(evidenceLedger ? { evidenceLedger } : {}),
-    sources: sourcePool.slice(0, sourceLimit).map((source) => ({
-      ...source,
-      rawText: truncateEvidenceText(source.rawText, sourceTextLimit),
-    })),
+    sources: budgetEvidenceSources({
+      sources: sourcePool,
+      itemLimit: sourceLimit,
+      textLimit: sourceTextLimit,
+      budgetChars: extractionEvidenceBudgetChars,
+      getText: (source) => source.rawText,
+      withText: (source, rawText) => ({ ...source, rawText }),
+    }),
   };
 }
 
@@ -710,15 +724,7 @@ function filterArray<T>(value: unknown, schema: z.ZodType<T>) {
 }
 
 function truncateEvidenceText(value: string, maxLength: number) {
-  const collapsed = value.replace(/\s+/g, " ").trim();
-  if (collapsed.length <= maxLength) {
-    return collapsed;
-  }
-
-  const slice = collapsed.slice(0, maxLength + 1);
-  const lastSpace = slice.lastIndexOf(" ");
-  const truncated = lastSpace > 0 ? slice.slice(0, lastSpace) : collapsed.slice(0, maxLength);
-  return `${truncated.trim()}...`;
+  return compactEvidenceText(value, maxLength);
 }
 
 export async function extractCompanyClaims(input: {

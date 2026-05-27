@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   blockEnrichmentTool,
   evidenceForExtractionPrompt,
@@ -199,10 +199,102 @@ describe("evidenceForExtractionPrompt", () => {
     });
 
     expect(evidence.evidenceLedger).toHaveLength(20);
-    expect(evidence.sources).toHaveLength(20);
-    expect(evidence.sources[0]?.rawText.length).toBeLessThanOrEqual(2203);
-    expect(evidence.evidenceLedger?.[0]?.supportingSnippets[0]?.length).toBeLessThanOrEqual(423);
+    expect(evidence.sources.length).toBeLessThanOrEqual(20);
+    expect(evidence.sources.reduce((sum, source) => sum + source.rawText.length, 0)).toBeLessThanOrEqual(24_000);
+    expect(evidence.sources[0]?.rawText.length).toBeLessThanOrEqual(2200);
+    expect(evidence.evidenceLedger?.[0]?.supportingSnippets[0]?.length).toBeLessThanOrEqual(420);
     expect(evidence.sources[0]?.url).toBe("https://source.example/0");
+  });
+
+  it("prioritizes high-trust evidence before lower-yield enrichment text", () => {
+    const evidence = evidenceForExtractionPrompt({
+      domain: "modal.com",
+      sources: [
+        {
+          url: "https://news.example/modal",
+          title: "News",
+          sourceType: "news",
+          intent: "recent_signals",
+          rawText: "news context ".repeat(200),
+        },
+        {
+          url: "https://stableenrich.dev/modal",
+          title: "Enrichment",
+          sourceType: "enrichment",
+          rawText: "provider profile ".repeat(200),
+        },
+        {
+          url: "https://modal.com/about",
+          title: "Company",
+          sourceType: "company_site",
+          rawText: "company product detail ".repeat(200),
+        },
+        {
+          url: "https://sec.gov/modal",
+          title: "Filing",
+          sourceType: "filing",
+          rawText: "filing disclosure ".repeat(200),
+        },
+        {
+          url: "https://analysis.example/modal",
+          title: "Independent analysis",
+          sourceType: "news",
+          intent: "independent_analysis",
+          rawText: "independent market analysis ".repeat(200),
+        },
+      ],
+    });
+
+    expect(evidence.sources.map((source) => source.url)).toEqual([
+      "https://sec.gov/modal",
+      "https://analysis.example/modal",
+      "https://modal.com/about",
+      "https://news.example/modal",
+      "https://stableenrich.dev/modal",
+    ]);
+  });
+
+  it("honors EXTRACTION_EVIDENCE_BUDGET_CHARS at module load", async () => {
+    const previousBudget = process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS;
+    process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = "1000";
+    vi.resetModules();
+
+    try {
+      const { evidenceForExtractionPrompt: promptEvidence } = await import("../src/extraction");
+      const evidence = promptEvidence({
+        domain: "modal.com",
+        sources: [
+          {
+            url: "https://stableenrich.dev/modal",
+            title: "Enrichment",
+            sourceType: "enrichment",
+            rawText: "provider profile ".repeat(300),
+          },
+          {
+            url: "https://modal.com/about",
+            title: "Company",
+            sourceType: "company_site",
+            rawText: "company product detail ".repeat(300),
+          },
+          {
+            url: "https://sec.gov/modal",
+            title: "Filing",
+            sourceType: "filing",
+            rawText: "filing disclosure ".repeat(300),
+          },
+        ],
+      });
+
+      expect(evidence.sources[0]?.url).toBe("https://sec.gov/modal");
+      expect(evidence.sources.reduce((sum, source) => sum + source.rawText.length, 0)).toBeLessThanOrEqual(1000);
+    } finally {
+      if (previousBudget === undefined) {
+        delete process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS;
+      } else {
+        process.env.EXTRACTION_EVIDENCE_BUDGET_CHARS = previousBudget;
+      }
+      vi.resetModules();
+    }
   });
 });
 
