@@ -183,9 +183,9 @@ The LLM should be treated as a structured extractor and cautious synthesizer. It
 
 ## UX And Brand Intent
 
-The current visual system is an editorial company dossier with instrument-grade source encoding. The app is light-first: warm parchment surfaces, black ink, sand hairlines, Fraunces for document emphasis, Mona Sans for operational UI, and Lens Blue for citations and active states.
+The current visual system is Signal Ledger: a light mineral field, plate-like reading surfaces, rule-led structure, small source-quality marks, IBM Plex Sans for interface structure, IBM Plex Serif for short claim text, and Berkeley Mono for evidence IDs, dates, and numbers.
 
-This should not become a generic dark dashboard or a generic AI SaaS panel. Older Paper-era dark-shell and Berkeley/IBM directions are archived; use `DESIGN.md` as the current app truth before generating mockups or changing UI.
+This should not become a generic dark dashboard, generic AI SaaS panel, zine, or parchment dossier. Older Paper-era, parchment, Ray Gun, and card-pile motion directions are archived; use `DESIGN.md` as the current app truth before generating mockups or changing UI.
 
 The extension is dense and scannable at Chrome side-panel width. The web card has more breathing room and should work as a social/share artifact. Both surfaces should feel like the same instrument viewing the same card.
 

@@ -21,16 +21,17 @@ Generation is private by default. Public pages at `/c/{slug}` can be shared, but
 Before creating or updating production deployments, verify CLI parity:
 
 ```bash
-npx vercel --version
+vercel --version
+npm exec vercel -- --version
 ```
 
-If the CLI is older than `54.5.0`, upgrade once before production deploy:
+If either CLI is older than `54.5.0`, upgrade before production deploy. A global install is convenient but must be an explicit local-machine choice:
 
 ```bash
 npm i -g vercel@latest
 ```
 
-Use the repo-local Vercel CLI, not an arbitrary global install. This repo pins `vercel` in the root `package.json`, so prefer:
+Use the repo-local Vercel CLI for normal project commands once the dependency is current. This repo pins `vercel` in the root `package.json`, so prefer:
 
 ```bash
 npm run vercel:login -- samay58@gmail.com --github

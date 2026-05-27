@@ -52,19 +52,19 @@ In Dia or Chrome:
 3. If Cold Start is already loaded: click the **Reload** ↻ icon on its card.
 4. Otherwise: **Load unpacked** → select `/Users/samaydhawan/Projects/active/cold-start/apps/extension/dist`.
 
-## 4. Verify the Financing & Valuation research-layer card
+## 4. Verify the Money research module
 
 1. Open a tab to a cached company. Good cached options: `cartesia.ai`, `elevenlabs.io`, `legora.com`, `attio.com`, `skyfire.xyz`.
 2. Click the Cold Start icon to open the side panel.
-3. Scroll to the **card pile** at the bottom of the side panel.
+3. Scroll to the research module workbench near the bottom of the side panel.
 
-**Expect to see the cards in this order:** Why It Matters, Buyer & Use Case, Market Structure & Timing, Customer Proof, Traction, **Financing & Valuation**, Competitive Position, Product & Technology, Risks & Diligence.
+**Expect to see the modules in this order:** Why care, Who pays, Timing, Proof, Signals, Money, Comps, Product, Next question.
 
-4. Drag the Financing & Valuation card up or click it to pin it into the active stack.
+4. Open or pin the Money module.
 
-**Expect inside the Financing & Valuation card:**
+**Expect inside the Money module:**
 
-- Title: **Financing & Valuation**
+- Title: Money
 - Headline row reads like `$91M raised · 4 rounds`
 - Body line: `4 named investors: Kleiner Perkins, Lightspeed, Index Ventures, …`
 - One row per round: round name + date on the right + body line with amount and lead investors
@@ -72,7 +72,7 @@ In Dia or Chrome:
 
 ## 5. Verify the comparables redesign
 
-Pin the **Competitive Position** card the same way.
+Open the Comps module the same way.
 
 **Expect 3–5 distinct companies, each with:**
 
