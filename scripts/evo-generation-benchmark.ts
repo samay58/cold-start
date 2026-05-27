@@ -6,7 +6,7 @@ import process from "node:process";
 import { Client } from "pg";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
-import { providerBudgetRegistry } from "@cold-start/providers";
+import { providerBudgetRegistry } from "../packages/providers/src/provider-budget";
 
 type GoldenCompany = {
   name: string;
