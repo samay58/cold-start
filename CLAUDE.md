@@ -49,9 +49,16 @@ npm run dev:fresh                       # wipe apps/web/.next + .cold-start, the
 npm run trace:generation                # tsx scripts/trace-generation.ts (single-run debug)
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
+npm run eval:fugu:top-truths            # node eval/fugu-top-truths/run.mjs (Fugu top-truths eval)
+npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
+npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
+npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
+npm run verify:cache-ttl                # tsx scripts/verify-cache-ttl.ts (confirm 1h Anthropic cache header)
+npm run evo:generation-benchmark        # cost/latency report over recent runs; add --gate to fail on regression
+npm run evo:ux-benchmark                # Playwright UX report (load, layout shift, overflow); add --gate to fail on regression
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps.
 
 Single test examples:
 
