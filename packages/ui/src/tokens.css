@@ -13,11 +13,22 @@
   --color-conflict: #b63a2a;
   --color-focus: #d7b84a;
 
+  /* Catalogue card (web public surface): warm parchment + one dusty-lilac seal accent */
+  --cat-ground: #e4dcc8;
+  --cat-paper: #f4eddc;
+  --cat-paper-edge: #c9bea4;
+  --cat-ink: #20201e;
+  --cat-muted: #786f62;
+  --cat-rule: #d8ceb6;
+  --cat-rule-strong: #c3b79a;
+  --color-seal: #6e5c9e;
+
   --color-class-independent: var(--color-verified);
   --color-class-reporting: var(--color-reported);
   --color-class-company: var(--color-company);
 
-  --font-display: var(--font-plex-sans-next, "IBM Plex Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-umami-next, "AtUmami"), ui-serif, Georgia, serif;
+  --font-text: var(--font-textual-next, "AtTextual"), ui-serif, Georgia, serif;
   --font-body: var(--font-plex-sans-next, "IBM Plex Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-plex-serif-next, "IBM Plex Serif"), ui-serif, Georgia, serif;
   --font-mono: "Berkeley Mono", var(--font-plex-mono-next, "IBM Plex Mono"), ui-monospace, "SF Mono", Menlo, monospace;
@@ -1024,6 +1035,401 @@
   gap: 10px;
   align-items: start;
   padding: 10px 0;
+}
+
+/* ============================================================
+   Catalogue card — public /c/{slug} web surface.
+   A kept index card: parchment stock, one dusty-lilac seal
+   accent, At Umami display + At Textual text, evidence as
+   small classification marks. Scoped to [data-surface="web"].
+   ============================================================ */
+
+.cs-card-page::before {
+  background: var(--cat-ground);
+}
+
+.cs-card[data-surface="web"] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--cat-paper-edge);
+  border-radius: 4px;
+  background: var(--cat-paper);
+  color: var(--cat-ink);
+  box-shadow:
+    10px 10px 0 -1px #efe8d6,
+    10px 10px 0 0 var(--cat-paper-edge),
+    20px 20px 0 -1px #eae2d0,
+    20px 20px 0 0 var(--cat-paper-edge),
+    0 30px 64px -16px rgba(55, 44, 26, 0.32);
+}
+
+.cs-card[data-surface="web"] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.cs-card-texture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.cs-card-edge {
+  height: 3px;
+  background: var(--color-seal);
+}
+
+/* Topbar: wordmark + Index, and the call number */
+.cs-card[data-surface="web"] .cs-card-topbar {
+  padding: 16px clamp(20px, 3vw, 44px) 13px;
+  border-bottom: 1px solid var(--cat-rule-strong);
+}
+
+.cs-card[data-surface="web"] .cs-brand-aperture {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--cat-ink);
+  border-radius: 2px;
+  background: var(--color-seal);
+  box-shadow: none;
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-name {
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--cat-ink);
+}
+
+.cs-card-brand-index {
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cat-muted);
+}
+
+.cs-card-callno {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  text-align: right;
+}
+
+.cs-card-callno-id {
+  font-family: var(--font-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--color-seal);
+}
+
+.cs-card-callno-count {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cat-muted);
+}
+
+/* Header: filed stamp, display name, sourced one-liner */
+.cs-card[data-surface="web"] .cs-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 15px;
+  padding: clamp(30px, 4vw, 44px) 0 26px;
+}
+
+.cs-card-filed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cs-filed-stamp {
+  border: 1px solid var(--color-seal);
+  border-radius: 3px;
+  padding: 3px 9px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--color-seal);
+}
+
+.cs-filed-status {
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-title {
+  max-width: none;
+  font-family: var(--font-display);
+  font-size: clamp(52px, 7vw, 88px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 0.88;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-subtitle {
+  font-family: var(--font-body);
+  font-size: clamp(17px, 1.6vw, 20px);
+  font-weight: 400;
+  line-height: 1.5;
+  max-width: 40rem;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-meta-line {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-meta-line span::before {
+  color: var(--color-seal);
+}
+
+.cs-card[data-surface="web"] .cs-source-signature {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 16px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cs-card[data-surface="web"] .cs-source-signature-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-source-signature-item {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--cat-muted);
+}
+
+/* Key facts as a ruled record */
+.cs-card[data-surface="web"] .cs-key-values {
+  border-top: 1px solid var(--cat-rule-strong);
+  border-left: 1px solid var(--cat-rule);
+}
+
+.cs-card[data-surface="web"] .cs-key-value,
+.cs-card[data-surface="web"] .cs-key-value:nth-child(2n) {
+  border-right: 1px solid var(--cat-rule);
+  border-bottom: 1px solid var(--cat-rule);
+  background: transparent;
+}
+
+.cs-card[data-surface="web"] .cs-key-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-key-value strong {
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-key-value .cs-key-number {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sections + ledger */
+.cs-card[data-surface="web"] .cs-section {
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-card[data-surface="web"] .cs-section-label-text,
+.cs-card[data-surface="web"] .cs-source-block .cs-section-label-text {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--color-seal);
+}
+
+.cs-card[data-surface="web"] .cs-claim-row,
+.cs-card[data-surface="web"] .cs-round,
+.cs-card[data-surface="web"] .cs-fact-row,
+.cs-card[data-surface="web"] .cs-claim-list,
+.cs-card[data-surface="web"] .cs-evidence-table,
+.cs-card[data-surface="web"] .cs-fact-grid {
+  border-color: var(--cat-rule);
+}
+
+.cs-card[data-surface="web"] .cs-claim-row p {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-round-name {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-round-leads {
+  font-family: var(--font-body);
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-round-amount {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-round-date,
+.cs-card[data-surface="web"] .cs-claim-date,
+.cs-card[data-surface="web"] .cs-claim-meta {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-fact-label {
+  font-family: var(--font-body);
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-fact-value,
+.cs-card[data-surface="web"] .cs-fact-value.cs-mono {
+  font-family: var(--font-body);
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-next-question {
+  border-top-width: 1px;
+}
+
+.cs-card[data-surface="web"] .cs-next-question p {
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--cat-ink);
+}
+
+/* Citation markers: ink hairline, source-class color, no wash */
+.cs-card[data-surface="web"] .cs-citation {
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+  background: transparent;
+  color: var(--color-reported);
+  font-family: var(--font-body);
+  font-weight: 600;
+}
+
+.cs-card[data-surface="web"] .cs-citation:hover,
+.cs-card[data-surface="web"] .cs-citation:focus-visible {
+  background: var(--color-seal);
+  color: #fff;
+}
+
+/* Source rail / tracings */
+.cs-card[data-surface="web"] .cs-source-block {
+  border: 1px solid var(--cat-rule);
+  background: rgba(255, 253, 248, 0.34);
+}
+
+.cs-card[data-surface="web"] .cs-source-list {
+  border-top-color: var(--cat-rule-strong);
+}
+
+.cs-card[data-surface="web"] .cs-source-item {
+  border-bottom: 1px solid var(--cat-rule);
+  background: rgba(255, 253, 248, 0.5);
+}
+
+.cs-card[data-surface="web"] .cs-source-title {
+  font-family: var(--font-body);
+  color: var(--cat-ink);
+}
+
+.cs-card[data-surface="web"] .cs-source-marker,
+.cs-card[data-surface="web"] .cs-source-meta {
+  font-family: var(--font-body);
+  color: var(--cat-muted);
+}
+
+/* Footer with the Vetted stamp */
+.cs-card[data-surface="web"] .cs-card-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  border-top: 1px solid var(--cat-rule-strong);
+}
+
+.cs-card-vetted {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 14px 5px;
+  border: 2px solid color-mix(in srgb, var(--color-seal) 82%, transparent);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--color-seal) 15%, transparent);
+  transform: rotate(-3deg);
+}
+
+.cs-vetted-mark {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-seal) 92%, transparent);
+}
+
+.cs-vetted-detail {
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-seal) 82%, transparent);
+}
+
+.cs-card[data-surface="web"] .cs-footer-copy,
+.cs-card[data-surface="web"] .cs-footer-meta {
+  font-family: var(--font-body);
+  color: var(--cat-muted);
+}
+
+.cs-card[data-surface="web"] .cs-footer-copy {
+  flex: 1;
+  min-width: 240px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

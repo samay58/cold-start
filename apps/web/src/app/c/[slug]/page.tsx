@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { getPublicCachedCard } from "../../../lib/cards";
+import { CardTexture } from "../../CardTexture";
 
 type CompanyCardPageProps = {
   params: Promise<{ slug: string }>;
@@ -56,7 +57,7 @@ export default async function CompanyCardPage({ params }: CompanyCardPageProps) 
 
   return (
     <main className="cs-card-page">
-      <CardShell card={card} surface="web" />
+      <CardShell card={card} surface="web" texture={<CardTexture />} />
     </main>
   );
 }

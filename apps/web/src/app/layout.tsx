@@ -1,7 +1,27 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
+import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
+
+// Licensed display + text faces (arillatype.studio), self-hosted as variable webfonts.
+const umami = localFont({
+  src: [
+    { path: "../../public/fonts/AtUmamiVAR.woff2", weight: "100 900", style: "normal" },
+    { path: "../../public/fonts/AtUmamiItalicVAR.woff2", weight: "100 900", style: "italic" }
+  ],
+  variable: "--font-umami-next",
+  display: "swap"
+});
+
+const textual = localFont({
+  src: [
+    { path: "../../public/fonts/AtTextualVAR.woff2", weight: "100 900", style: "normal" },
+    { path: "../../public/fonts/AtTextualItalicVAR.woff2", weight: "100 900", style: "italic" }
+  ],
+  variable: "--font-textual-next",
+  display: "swap"
+});
 
 const plexSans = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -45,7 +65,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} ${umami.variable} ${textual.variable}`} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

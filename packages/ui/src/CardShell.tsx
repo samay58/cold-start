@@ -10,6 +10,7 @@ type PublicCard = Omit<ColdStartCard, "synthesis">;
 type CardShellProps = {
   card: ColdStartCard | PublicCard;
   surface: "web" | "extension";
+  texture?: ReactNode;
 };
 
 function staticFact<T>(value: T): ResolvedFact<T> {
@@ -536,7 +537,7 @@ function SourceSignature({ mix }: { mix: ReturnType<typeof citationMix> }) {
   );
 }
 
-export function CardShell({ card, surface }: CardShellProps) {
+export function CardShell({ card, surface, texture }: CardShellProps) {
   if (surface === "extension") {
     return <ExtensionProfile card={card} />;
   }
@@ -560,22 +561,30 @@ export function CardShell({ card, surface }: CardShellProps) {
     : hasRounds
       ? "Which proof point shows buyer pull beyond financing?"
       : "What outside source confirms financing and buyer adoption?";
+  const callNumber = `CS · ${card.slug.toUpperCase()}`;
+  const corroborated = mix.independent + mix.reporting;
 
   return (
     <article className="cs-card" data-surface={surface}>
+      {texture}
+      <div className="cs-card-edge" aria-hidden="true" />
       <div className="cs-card-topbar">
         <div className="cs-card-brand" aria-label="Cold Start">
           <span className="cs-brand-aperture" aria-hidden="true" />
           <span className="cs-card-brand-name">Cold Start</span>
-          {mix.total > 0 ? <span className="cs-card-brand-id">{String(mix.total).padStart(2, "0")} sources</span> : null}
+          <span className="cs-card-brand-index">Index</span>
         </div>
-        <div className="cs-card-topbar-meta">
-          <span>Filed {filedDate}</span>
-          <span>{formatStatusLabel(card.identity.status)}</span>
+        <div className="cs-card-callno">
+          <span className="cs-card-callno-id">{callNumber}</span>
+          {mix.total > 0 ? <span className="cs-card-callno-count">{mix.total} sources on file</span> : null}
         </div>
       </div>
 
       <header className="cs-card-header">
+        <div className="cs-card-filed">
+          <span className="cs-filed-stamp">Filed {filedDate}</span>
+          <span className="cs-filed-status">{formatStatusLabel(card.identity.status)}</span>
+        </div>
         <h1 className="cs-title" aria-label={title}>{title}</h1>
         {subtitle ? <p className="cs-subtitle">{subtitle}</p> : null}
         <div className="cs-meta-line" aria-label="Card metadata">
@@ -705,7 +714,7 @@ export function CardShell({ card, surface }: CardShellProps) {
           ) : null}
 
           <section className="cs-section cs-next-question" aria-labelledby="next-question-heading">
-            <SectionLabel text="Next question" state="unknown" />
+            <SectionLabel text="Open questions" state="unknown" />
             <p id="next-question-heading">{nextQuestion}</p>
           </section>
         </main>
@@ -716,6 +725,12 @@ export function CardShell({ card, surface }: CardShellProps) {
       </div>
 
       <footer className="cs-card-footer">
+        {mix.total > 0 ? (
+          <div className="cs-card-vetted" aria-label="Source corroboration">
+            <span className="cs-vetted-mark">Vetted</span>
+            <span className="cs-vetted-detail">{corroborated} of {mix.total} corroborated</span>
+          </div>
+        ) : null}
         <p className="cs-footer-copy">
           Public card. Sourced facts only. The investor lens lives behind the extension.
         </p>
