@@ -158,6 +158,9 @@ describe("CardShell", () => {
     expect(screen.getAllByText(/Apr 2024/).length).toBeGreaterThan(0);
     expect(screen.getByText("NEA, IVP")).toBeTruthy();
     expect(screen.getByText("Sources")).toBeTruthy();
+    expect(screen.getByText("Source mix")).toBeTruthy();
+    expect(screen.getByText("1 independent")).toBeTruthy();
+    expect(screen.getByText("2 company")).toBeTruthy();
     expect(screen.getByText("Cartesia launches Sonic")).toBeTruthy();
     expect(screen.getByText(/Example News · launch/)).toBeTruthy();
     expect(screen.getAllByText(/May 6 2026/).length).toBeGreaterThan(0);

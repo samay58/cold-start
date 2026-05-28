@@ -512,6 +512,30 @@ function ClaimRow({
   );
 }
 
+function SourceSignature({ mix }: { mix: ReturnType<typeof citationMix> }) {
+  const rows = [
+    { className: "independent", count: mix.independent, label: "independent" },
+    { className: "reporting", count: mix.reporting, label: "reported" },
+    { className: "company", count: mix.company, label: "company" }
+  ].filter((row) => row.count > 0);
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="cs-source-signature" aria-label="Source mix">
+      <span className="cs-source-signature-label">Source mix</span>
+      {rows.map((row) => (
+        <span className="cs-source-signature-item" data-class={row.className} key={row.className}>
+          <span aria-hidden="true" />
+          {row.count} {row.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CardShell({ card, surface }: CardShellProps) {
   if (surface === "extension") {
     return <ExtensionProfile card={card} />;
@@ -564,6 +588,7 @@ export function CardShell({ card, surface }: CardShellProps) {
             ));
           })()}
         </div>
+        <SourceSignature mix={mix} />
       </header>
 
       <section className="cs-key-values" aria-label="Key facts">
