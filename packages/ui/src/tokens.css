@@ -2865,3 +2865,289 @@
     gap: 4px;
   }
 }
+
+.cs-card-page {
+  width: min(1240px, 100%);
+  padding: 32px 22px 78px;
+}
+
+.cs-card[data-surface="web"] {
+  padding: 0;
+  border-color: var(--color-rule-strong);
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.88) inset;
+}
+
+.cs-card[data-surface="web"] .cs-card-topbar {
+  padding: 16px 18px 14px;
+  border-bottom-color: var(--color-rule-strong);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand {
+  gap: 12px;
+  font-weight: 700;
+}
+
+.cs-card[data-surface="web"] .cs-brand-aperture {
+  width: 24px;
+  height: 18px;
+  border-color: var(--color-ink);
+  border-radius: 2px;
+  background: var(--color-focus);
+  box-shadow:
+    inset 4px 0 0 var(--color-ink),
+    inset 10px 0 0 var(--color-plate),
+    inset 13px 0 0 var(--color-ink),
+    inset 19px 0 0 var(--color-plate);
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-name {
+  font-size: 14px;
+}
+
+.cs-card[data-surface="web"] .cs-card-brand-id {
+  color: var(--color-company);
+}
+
+.cs-card[data-surface="web"] .cs-card-header,
+.cs-card[data-surface="web"] .cs-key-values,
+.cs-ledger-layout,
+.cs-card[data-surface="web"] .cs-card-footer {
+  margin-left: clamp(18px, 3vw, 42px);
+  margin-right: clamp(18px, 3vw, 42px);
+}
+
+.cs-card[data-surface="web"] .cs-card-header {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
+  gap: 14px 34px;
+  padding: 54px 0 30px;
+}
+
+.cs-card[data-surface="web"] .cs-title {
+  grid-column: 1 / -1;
+  max-width: 920px;
+  font-size: 68px;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+.cs-card[data-surface="web"] .cs-subtitle {
+  max-width: 720px;
+}
+
+.cs-card[data-surface="web"] .cs-meta-line {
+  align-self: end;
+  padding-top: 6px;
+}
+
+.cs-source-signature {
+  display: grid;
+  gap: 8px;
+  align-self: start;
+  justify-self: end;
+  width: min(260px, 100%);
+  padding: 11px 12px;
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-field) 54%, var(--color-plate));
+}
+
+.cs-source-signature-label {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.2;
+  color: var(--color-ink);
+}
+
+.cs-source-signature-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+}
+
+.cs-source-signature-item > span {
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.cs-source-signature-item[data-class="independent"] {
+  color: var(--color-verified);
+}
+
+.cs-source-signature-item[data-class="reporting"] {
+  color: var(--color-reported);
+}
+
+.cs-source-signature-item[data-class="reporting"] > span {
+  background: transparent;
+}
+
+.cs-source-signature-item[data-class="company"] {
+  color: var(--color-company);
+}
+
+.cs-source-signature-item[data-class="company"] > span {
+  background: color-mix(in srgb, currentColor 52%, transparent);
+}
+
+.cs-key-values {
+  border-color: var(--color-rule-strong);
+}
+
+.cs-key-value {
+  min-height: 112px;
+  padding: 15px 15px 17px;
+  background: color-mix(in srgb, var(--color-plate) 86%, var(--color-field));
+}
+
+.cs-key-value:nth-child(2n) {
+  background: var(--color-plate);
+}
+
+.cs-key-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+}
+
+.cs-key-value strong {
+  align-self: start;
+  font-size: 16px;
+}
+
+.cs-ledger-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(286px, 340px);
+}
+
+.cs-card[data-surface="web"] .cs-section {
+  padding: 30px 0 36px;
+}
+
+.cs-card[data-surface="web"] .cs-section:nth-child(2n) {
+  padding-top: 36px;
+}
+
+.cs-card[data-surface="web"] .cs-section-label-text,
+.cs-source-block .cs-section-label-text {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 560;
+}
+
+.cs-claim-row {
+  padding: 15px 0;
+}
+
+.cs-claim-row p {
+  font-size: 15.5px;
+}
+
+.cs-source-rail {
+  top: 18px;
+}
+
+.cs-source-block {
+  padding: 12px;
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-field) 66%, var(--color-plate));
+}
+
+.cs-source-list {
+  border-top-color: var(--color-rule-strong);
+}
+
+.cs-source-item {
+  position: relative;
+  padding: 12px 8px 12px 28px;
+  border-bottom-color: var(--color-rule);
+  border-radius: 3px;
+  background: var(--color-plate);
+}
+
+.cs-source-item + .cs-source-item {
+  margin-top: 7px;
+}
+
+.cs-source-item::before {
+  position: absolute;
+  top: 15px;
+  left: 10px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: currentColor;
+  color: var(--color-verified);
+  content: "";
+}
+
+.cs-source-item[data-class="reporting"]::before {
+  background: transparent;
+  color: var(--color-reported);
+}
+
+.cs-source-item[data-class="company"]::before {
+  background: color-mix(in srgb, currentColor 52%, transparent);
+  color: var(--color-company);
+}
+
+.cs-source-title {
+  font-family: var(--font-body);
+  font-size: 12.5px;
+}
+
+.cs-source-marker,
+.cs-source-meta {
+  font-size: 10.5px;
+}
+
+.cs-card[data-surface="web"] .cs-citation {
+  border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 2px;
+  padding: 1px 3px 0;
+  background: color-mix(in srgb, var(--color-reported) 7%, transparent);
+}
+
+.cs-card[data-surface="web"] .cs-card-footer {
+  margin-top: 38px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 960px) {
+  .cs-card[data-surface="web"] .cs-card-header {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-source-signature {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 700px) {
+  .cs-card-page {
+    padding: 10px 8px 40px;
+  }
+
+  .cs-card[data-surface="web"] .cs-card-header,
+  .cs-card[data-surface="web"] .cs-key-values,
+  .cs-ledger-layout,
+  .cs-card[data-surface="web"] .cs-card-footer {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .cs-card[data-surface="web"] .cs-title {
+    font-size: 44px;
+    line-height: 1;
+  }
+
+}

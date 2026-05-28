@@ -628,3 +628,216 @@ a {
     min-width: 62px;
   }
 }
+
+.cs-home {
+  padding: 24px;
+  background: var(--color-field);
+}
+
+.cs-index-shell {
+  grid-template-columns: minmax(250px, 342px) minmax(0, 1fr);
+  border-color: var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.88) inset;
+}
+
+.cs-index-list {
+  gap: 20px;
+  border-right-color: var(--color-rule-strong);
+  background: color-mix(in srgb, var(--color-field) 72%, var(--color-plate));
+}
+
+.cs-brand-lockup span {
+  width: 26px;
+  height: 20px;
+  border-color: var(--color-ink);
+  border-radius: 2px;
+  background: var(--color-focus);
+  box-shadow:
+    inset 4px 0 0 var(--color-ink),
+    inset 10px 0 0 var(--color-plate),
+    inset 13px 0 0 var(--color-ink);
+}
+
+.cs-brand-lockup strong {
+  font-size: 17px;
+  font-weight: 720;
+}
+
+.cs-index-list-head {
+  align-items: end;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-index-list-head h2 {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 560;
+}
+
+.cs-index-list-head span {
+  border-color: var(--color-rule);
+  border-radius: 4px;
+  background: var(--color-plate);
+  color: var(--color-company);
+  font-family: var(--font-mono);
+}
+
+.cs-company-list {
+  gap: 6px;
+}
+
+.cs-company-row {
+  min-height: 62px;
+  padding: 10px 0;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid var(--color-rule);
+  border-radius: 0;
+}
+
+.cs-company-row[data-selected="true"] {
+  border-color: var(--color-rule-strong);
+  background: var(--color-plate);
+}
+
+.cs-company-row-mark,
+.cs-index-company-lockup > span {
+  border-radius: 4px;
+  background: var(--color-plate);
+  font-family: var(--font-serif);
+}
+
+.cs-company-row[data-selected="true"] .cs-company-row-mark {
+  border-color: var(--color-company);
+  color: var(--color-company);
+}
+
+.cs-company-row-meta span {
+  color: var(--color-verified);
+  font-family: var(--font-mono);
+}
+
+.cs-index-preview {
+  padding: 22px;
+  background: var(--color-plate);
+}
+
+.cs-index-preview-main,
+.cs-index-stack {
+  border-color: var(--color-rule);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-field) 44%, var(--color-plate));
+}
+
+.cs-index-preview-main {
+  padding: 34px;
+}
+
+.cs-index-company-lockup {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.cs-index-company-lockup > span {
+  width: 48px;
+  height: 48px;
+  border-color: var(--color-company);
+  color: var(--color-company);
+}
+
+.cs-index-company-lockup h1,
+.cs-index-empty h1,
+.cs-loading-body h1 {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.cs-index-one-liner {
+  max-width: 58ch;
+  font-family: var(--font-serif);
+}
+
+.cs-index-facts span {
+  border-radius: 4px;
+  background: var(--color-plate);
+  font-family: var(--font-mono);
+}
+
+.cs-index-primary {
+  border-radius: 4px;
+  background: var(--color-ink);
+}
+
+.cs-index-stack {
+  padding: 16px;
+}
+
+.cs-index-stack-head {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-index-section-card {
+  min-height: 78px;
+  padding: 14px 12px 14px 34px;
+  border-radius: 4px;
+  background: var(--color-plate);
+}
+
+.cs-index-section-card[data-active="true"] {
+  min-height: 164px;
+  border-color: var(--color-rule-strong);
+  background: color-mix(in srgb, var(--color-field) 62%, var(--color-plate));
+  box-shadow: none;
+}
+
+.cs-index-section-dot {
+  top: 20px;
+  left: 13px;
+  border: 1px solid var(--color-verified);
+  border-radius: 2px;
+  background: var(--color-verified);
+  box-shadow: none;
+}
+
+.cs-index-section-card[data-state="empty"] .cs-index-section-dot {
+  background: transparent;
+}
+
+.cs-index-section-head h2 {
+  font-family: var(--font-serif);
+  font-size: 21px;
+  font-weight: 560;
+}
+
+.cs-index-section-head span {
+  color: var(--color-reported);
+  font-family: var(--font-mono);
+}
+
+.cs-index-section-body {
+  font-family: var(--font-body);
+}
+
+.cs-index-empty,
+.cs-loading-plate,
+.cs-loading-body {
+  border-radius: 6px;
+}
+
+@media (max-width: 760px) {
+  .cs-home {
+    padding: 10px;
+  }
+
+  .cs-index-preview-main {
+    padding: 24px 18px;
+  }
+
+  .cs-index-company-lockup h1,
+  .cs-index-empty h1 {
+    font-size: 42px;
+    line-height: 1;
+  }
+}

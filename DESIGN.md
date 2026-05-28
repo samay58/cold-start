@@ -1,8 +1,8 @@
 # Cold Start: Interface Design System
 
-> Current visual source of truth. Last rewritten 2026-05-27 for the **Signal Ledger direction**. This replaces the 2026-05-26 Ray Gun/zine pass, now archived at `docs/brand/archive/raygun-era-2026-05-27.md`. The earlier parchment system remains archived at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
+> Current visual source of truth. Last updated 2026-05-28 for the **Personal Ledger** extension of Signal Ledger. This keeps the 2026-05-27 evidence system and adds a more authored source treatment. The 2026-05-26 Ray Gun/zine pass remains archived at `docs/brand/archive/raygun-era-2026-05-27.md`. The earlier parchment system remains archived at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
 
-Cold Start should feel like the private research instrument an investor keeps open during first-pass diligence. Not a dossier. Not a zine. Not a SaaS dashboard. The interface is a live signal ledger: calm enough to trust, sharp enough to have taste, and specific enough that source quality is visible before the reader asks.
+Cold Start should feel like the private research instrument an investor keeps open during first-pass diligence. Not a dossier. Not a generic zine. Not a SaaS dashboard. The interface is a personal signal ledger: calm enough to trust, sharp enough to have taste, and specific enough that source quality is visible before the reader asks.
 
 The page should make one promise: every claim has a place, every source has a weight, every missing fact is honestly absent. The design work is to make that promise feel inevitable.
 
@@ -12,7 +12,9 @@ The old directions failed in opposite ways:
 - **Ray Gun reset:** energetic but referential. It had posture, but too much of the taste came from borrowed zine language instead of Cold Start's own product logic.
 - **Compliance software:** the ever-present risk. If trust becomes badges, filters, gray tables, and disclaimers, the product loses all warmth and judgment.
 
-Signal Ledger is the middle with teeth. It is quiet, gridded, evidence-forward, and proprietary. It should look like a tool built by someone who reads investment memos, filing footnotes, and product surfaces with equal seriousness.
+Signal Ledger is the middle with teeth. Personal Ledger is the next layer: same evidence discipline, more visible authorship. It should look like a tool built by someone who reads investment memos, filing footnotes, and product surfaces with equal seriousness.
+
+The useful lesson from expressive personal sites is not to copy their surfaces. Taste comes from specific choices: an owned mark, chosen color, clear source objects, and layouts that do not feel templated.
 
 ## Core Ethos
 
@@ -22,7 +24,7 @@ Three jobs:
 
 - Put the company, the key facts, and the next diligence question above everything else.
 - Make evidence weight visible through small, repeatable marks rather than decorative chrome.
-- Let the extension feel like an active workbench without turning the research layer into a toy.
+- Let source handling, rhythm, and marks carry personality without turning the research layer into a toy.
 
 The page has editorial judgment, but it is not magazine cosplay. It has instrumentation, but it is not a terminal. It has motion, but only where state changes.
 
