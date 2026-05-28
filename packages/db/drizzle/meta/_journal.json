@@ -43,6 +43,13 @@
       "when": 1779841879817,
       "tag": "0005_outgoing_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779986771780,
+      "tag": "0006_first_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

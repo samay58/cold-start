@@ -780,9 +780,12 @@ function namedLeadersWithSourceUrl(people: PersonRecord[]) {
   });
 }
 
-const MAX_LEADERS_FOR_ENRICHMENT = 3;
-const MAX_FALLBACK_LEADERS = 2;
-const MAX_HUNTER_CANDIDATES = 6;
+const MAX_LEADERS_FOR_ENRICHMENT = providerBudgetForEndpoint("stableenrich", "apollo_people_enrich").maxCallsPerRun;
+const MAX_FALLBACK_LEADERS = Math.min(
+  providerBudgetForEndpoint("stableenrich", "minerva_enrich").maxCallsPerRun,
+  providerBudgetForEndpoint("stableenrich", "clado_contacts_enrich").maxCallsPerRun
+);
+const MAX_HUNTER_CANDIDATES = providerBudgetForEndpoint("stableenrich", "hunter_email_verifier").maxCallsPerRun;
 
 async function runApolloPeopleDiscovery(input: {
   env: StableenrichEnv;

@@ -11,7 +11,6 @@ describe("providerBudgetRegistry", () => {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.02,
       stopCondition: "stop after one accepted firmographic profile"
     });
   });
@@ -23,7 +22,6 @@ describe("providerBudgetRegistry", () => {
         timeoutMs: 15_000,
         estimatedCostUsd: 0.01,
         maxCallsPerRun: 6,
-        maxStageCallsUsd: 0.06,
         expectedFacts: ["team.founders", "team.keyExecs"]
       })
     );
@@ -42,16 +40,14 @@ describe("providerBudgetRegistry", () => {
       expect(providerBudgetForEndpoint("stableenrich", endpoint)).toMatchObject({
         timeoutMs: 18_000,
         estimatedCostUsd: 0.01,
-        maxCallsPerRun: 1,
-        maxStageCallsUsd: 0.01
+        maxCallsPerRun: 1
       });
     }
 
     expect(providerBudgetForEndpoint("stableenrich", "firecrawl_team")).toMatchObject({
       timeoutMs: 15_000,
       estimatedCostUsd: 0.01,
-      maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01
+      maxCallsPerRun: 1
     });
   });
 });

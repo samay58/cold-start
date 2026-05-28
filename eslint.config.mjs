@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import nextPlugin from "@next/eslint-plugin-next";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
@@ -28,6 +29,9 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    plugins: {
+      "@next/next": nextPlugin
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -67,6 +71,20 @@ export default tseslint.config(
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn"
+    }
+  },
+  {
+    files: ["**/*.{js,jsx,ts,tsx}"],
+    ignores: ["apps/extension/**", "packages/**", "scripts/**", "eval/**"],
+    settings: {
+      next: {
+        rootDir: "apps/web/"
+      }
+    },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "@next/next/no-html-link-for-pages": "off"
     }
   },
   {

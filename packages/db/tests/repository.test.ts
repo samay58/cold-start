@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { publicCard, type ColdStartCard } from "@cold-start/core";
+import { type ColdStartCard } from "@cold-start/core";
 import type { GenerationTrace } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
@@ -313,7 +313,6 @@ describe("findPublicCardBySlug", () => {
             limit: async () => [
               {
                 cardJson: card,
-                publicCardJson: { ...publicCard(card), slug: "stale-public-cache" },
                 identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
                 signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
                 synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
@@ -338,7 +337,6 @@ describe("findPublicCardBySlug", () => {
             limit: async () => [
               {
                 cardJson: card,
-                publicCardJson: publicCard(card),
                 identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
                 signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
                 synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
@@ -360,7 +358,6 @@ describe("findPublicCardBySlug", () => {
             limit: async () => [
               {
                 cardJson: card,
-                publicCardJson: publicCard(card),
                 identityExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
                 signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z"),
                 synthesisExpiresAt: new Date("2026-05-06T11:59:59.000Z")

@@ -1,0 +1,1 @@
+ALTER TABLE "cards" DROP COLUMN "public_card_json";

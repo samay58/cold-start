@@ -35,7 +35,6 @@ export const cards = pgTable(
     slug: text("slug").notNull(),
     domain: text("domain").notNull(),
     cardJson: jsonb("card_json").notNull(),
-    publicCardJson: jsonb("public_card_json").notNull(),
     cacheStatus: cacheStatusEnum("cache_status").notNull(),
     generationCostUsd: numeric("generation_cost_usd", { precision: 10, scale: 4 }).notNull(),
     generatedAt: timestamp("generated_at", { withTimezone: true }).notNull(),

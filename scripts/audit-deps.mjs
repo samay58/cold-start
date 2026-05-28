@@ -1,41 +1,29 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 
-const allowed = new Set([
-  "@crxjs/vite-plugin",
-  "@opentelemetry/auto-instrumentations-node",
-  "@opentelemetry/exporter-logs-otlp-grpc",
-  "@opentelemetry/exporter-logs-otlp-http",
-  "@opentelemetry/exporter-logs-otlp-proto",
-  "@opentelemetry/exporter-metrics-otlp-grpc",
-  "@opentelemetry/exporter-metrics-otlp-http",
-  "@opentelemetry/exporter-metrics-otlp-proto",
-  "@opentelemetry/exporter-prometheus",
-  "@opentelemetry/exporter-trace-otlp-grpc",
-  "@opentelemetry/exporter-trace-otlp-http",
-  "@opentelemetry/exporter-trace-otlp-proto",
-  "@opentelemetry/otlp-exporter-base",
-  "@opentelemetry/otlp-grpc-exporter-base",
-  "@opentelemetry/otlp-transformer",
-  "@opentelemetry/sdk-node",
-  "@vercel/build-utils",
-  "@vercel/node",
-  "@vercel/python-analysis",
-  "@vercel/static-config",
-  "ajv",
-  "ethers",
-  "inngest",
-  "minimatch",
-  "next",
-  "path-to-regexp",
-  "postcss",
-  "protobufjs",
-  "qs",
-  "rollup",
-  "smol-toml",
-  "undici",
-  "viem",
-  "ws"
+const allowedAdvisorySources = new Set([
+  1101610,
+  1112496,
+  1113069,
+  1113517,
+  1113715,
+  1114594,
+  1114638,
+  1114640,
+  1114642,
+  1117941,
+  1117942,
+  1117943,
+  1118640,
+  1118923,
+  1118925,
+  1118927,
+  1118929,
+  1118931,
+  1118934,
+  1119377,
+  1119378,
+  1119502
 ]);
 
 const result = spawnSync("npm", ["audit", "--omit=dev", "--json"], {
@@ -63,18 +51,58 @@ try {
 }
 
 const vulnerabilities = Object.values(report.vulnerabilities ?? {});
-const blocking = vulnerabilities.filter((item) => {
+const vulnerabilitiesByName = new Map(vulnerabilities.map((item) => [item.name, item]));
+
+function advisorySourcesFor(item, seen = new Set()) {
+  if (!item || seen.has(item.name)) {
+    return [];
+  }
+
+  seen.add(item.name);
+
+  return (item.via ?? []).flatMap((via) => {
+    if (typeof via === "string") {
+      return advisorySourcesFor(vulnerabilitiesByName.get(via), seen);
+    }
+
+    return Number.isFinite(via.source) ? [via.source] : [];
+  });
+}
+
+function unknownAdvisorySourcesFor(item) {
+  const sources = advisorySourcesFor(item);
+  return sources.length === 0 ? ["unresolved"] : sources.filter((source) => !allowedAdvisorySources.has(source));
+}
+
+const unknownFindings = vulnerabilities
+  .map((item) => ({ item, unknownSources: unknownAdvisorySourcesFor(item) }))
+  .filter(({ unknownSources }) => unknownSources.length > 0);
+
+const blocking = unknownFindings.filter(({ item }) => {
   const severity = item?.severity;
-  return (severity === "high" || severity === "critical") && !allowed.has(item.name);
+  return severity === "high" || severity === "critical";
 });
 
 if (blocking.length > 0) {
   console.error("Blocking dependency audit findings:");
-  for (const item of blocking) {
+  for (const { item, unknownSources } of blocking) {
     console.error(`- ${item.name} (${item.severity})`);
+    console.error(`  unknown advisories: ${unknownSources.join(", ")}`);
   }
   process.exit(1);
 }
 
-const allowedFindings = vulnerabilities.filter((item) => allowed.has(item.name));
-console.log(`Dependency audit passed with ${allowedFindings.length} temporary allowed findings.`);
+if (unknownFindings.length > 0) {
+  console.warn("Non-blocking dependency audit findings with unknown advisories:");
+  for (const { item, unknownSources } of unknownFindings) {
+    console.warn(`- ${item.name} (${item.severity}): ${unknownSources.join(", ")}`);
+  }
+}
+
+const allowedFindings = vulnerabilities.filter((item) =>
+  advisorySourcesFor(item).some((source) => allowedAdvisorySources.has(source))
+);
+const allowedAdvisoryCount = new Set(allowedFindings.flatMap((item) => advisorySourcesFor(item))).size;
+console.log(
+  `Dependency audit passed with ${allowedFindings.length} findings tied to ${allowedAdvisoryCount} known temporary advisories.`
+);

@@ -2,7 +2,6 @@ import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   hasUsablePublicProfile,
   mergeStoredResearchSectionsWithLegacy,
-  placeholderResearchSectionsForCard,
   publicProfileQuality,
   type ColdStartCard,
   type ResearchSection,
@@ -30,12 +29,11 @@ const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 
 export type GenerationPollResult = {
   card: ColdStartCard;
+  sections: ResearchSection[];
   analysisNotice?: string;
 };
 
-export type SectionGenerationPollResult = GenerationPollResult & {
-  sections: ResearchSection[];
-};
+export type SectionGenerationPollResult = GenerationPollResult;
 
 export function markPerformance(name: string) {
   try {
@@ -43,6 +41,13 @@ export function markPerformance(name: string) {
   } catch {
     // Performance marks are diagnostic only.
   }
+}
+
+export function sectionsForCard(card: ColdStartCard, storedSections: ResearchSection[] = []): ResearchSection[] {
+  return mergeStoredResearchSectionsWithLegacy({
+    card,
+    storedSections
+  });
 }
 
 function underfilledBasicsMessage(card: ColdStartCard) {
@@ -86,10 +91,7 @@ export async function fetchBootstrap(domain: string, settings: Settings, signal:
     }
     return {
       ...parsed,
-      sections: mergeStoredResearchSectionsWithLegacy({
-        card: parsed.card ?? null,
-        storedSections: parsed.sections ?? []
-      })
+      sections: parsed.card ? sectionsForCard(parsed.card, parsed.sections ?? []) : []
     };
   } catch (caught) {
     if (caught instanceof ApiError && (caught.status === 404 || caught.status === 405)) {
@@ -148,7 +150,7 @@ async function fetchBootstrapSerially(
     domain,
     slug: card?.slug ?? safeSlug,
     card,
-    sections: card ? mergeStoredResearchSectionsWithLegacy({ card, storedSections: [] }) : [],
+    sections: card ? sectionsForCard(card) : [],
     runs: { basics, analysis }
   };
 }
@@ -303,16 +305,24 @@ export async function pollGenerationUntilCard(
   onGenerationStatus: (status: GenerationStatus["status"]) => void,
   latestCard: ColdStartCard | null = null,
   waitForRunCompletion = false,
-  onInterimCard?: (card: ColdStartCard) => void
+  onInterimCard?: (result: GenerationPollResult) => void,
+  latestSections: ResearchSection[] = []
 ): Promise<GenerationPollResult> {
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
   const pollStartedAt = Date.now();
   let pollCount = 0;
   let currentCard = latestCard;
+  let currentSections = latestCard ? sectionsForCard(latestCard, latestSections) : latestSections;
   let requireRunCompletion = waitForRunCompletion;
   const requiresMarketStructure = Boolean(
     mode === "analysis" && latestCard?.synthesis && !latestCard.synthesis.marketStructureAndTiming
   );
+
+  function updateCurrentCard(card: ColdStartCard) {
+    currentCard = card;
+    currentSections = sectionsForCard(card, currentSections);
+    return currentSections;
+  }
 
   async function fetchAvailableCard() {
     try {
@@ -355,8 +365,8 @@ export async function pollGenerationUntilCard(
         onGenerationStatus(runStatus.status);
         const card = await fetchAvailableCard();
         if (card && hasUsablePublicProfile(card)) {
-          currentCard = card;
-          onInterimCard?.(card);
+          const sections = updateCurrentCard(card);
+          onInterimCard?.({ card, sections });
         }
         continue;
       }
@@ -364,7 +374,7 @@ export async function pollGenerationUntilCard(
       if (runStatus.status === "failed") {
         const card = await fetchAvailableCard();
         if (card && hasUsablePublicProfile(card)) {
-          return { card };
+          return { card, sections: updateCurrentCard(card) };
         }
 
         throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
@@ -373,7 +383,7 @@ export async function pollGenerationUntilCard(
       if (runStatus.status === "complete") {
         const card = await fetchCard(domain, settings, signal);
         assertUsableBasicsCard(mode, card);
-        return { card };
+        return { card, sections: updateCurrentCard(card) };
       }
 
       continue;
@@ -384,14 +394,14 @@ export async function pollGenerationUntilCard(
 
       if (mode === "basics") {
         if (hasUsablePublicProfile(card)) {
-          return { card };
+          return { card, sections: updateCurrentCard(card) };
         }
       } else if (analysisCardIsComplete(card, requiresMarketStructure)) {
-        return { card };
+        return { card, sections: updateCurrentCard(card) };
       }
 
       if (mode !== "basics") {
-        currentCard = card;
+        updateCurrentCard(card);
       }
     } catch (caught) {
       if (!isMissingCard(caught)) {
@@ -416,23 +426,25 @@ export async function pollGenerationUntilCard(
       if (mode === "analysis" && currentCard) {
         return {
           card: currentCard,
+          sections: currentSections,
           analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE
         };
       }
 
       const card = await fetchAvailableCard();
       if (card && mode === "basics" && hasUsablePublicProfile(card)) {
-        return { card };
+        return { card, sections: updateCurrentCard(card) };
       }
 
       throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
     } else if (mode === "basics" && runStatus.status === "complete") {
       const card = await fetchCard(domain, settings, signal);
       assertUsableBasicsCard(mode, card);
-      return { card };
+      return { card, sections: updateCurrentCard(card) };
     } else if (mode === "analysis" && runStatus.status === "complete" && currentCard && analysisCardIsComplete(currentCard, requiresMarketStructure)) {
       return {
         card: currentCard,
+        sections: currentSections,
         analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE
       };
     }
@@ -448,7 +460,7 @@ export async function startGenerationAndPoll(
   mode: GenerationStatus["mode"],
   confirmStart: boolean,
   onGenerationStatus: (status: GenerationStatus["status"]) => void,
-  options: { forceRefresh?: boolean; latestCard?: ColdStartCard | null; waitForRunCompletion?: boolean } = {}
+  options: { forceRefresh?: boolean; latestCard?: ColdStartCard | null; latestSections?: ResearchSection[]; waitForRunCompletion?: boolean } = {}
 ): Promise<GenerationPollResult> {
   let latestCard = options.latestCard ?? null;
   if (mode === "analysis" && !latestCard) {
@@ -467,7 +479,7 @@ export async function startGenerationAndPoll(
   if (generation.status === "cached") {
     const card = await fetchCard(domain, settings, signal);
     assertUsableBasicsCard(mode, card);
-    return { card };
+    return { card, sections: sectionsForCard(card, options.latestSections ?? []) };
   }
 
   return pollGenerationUntilCard(
@@ -477,7 +489,9 @@ export async function startGenerationAndPoll(
     mode,
     onGenerationStatus,
     latestCard,
-    options.waitForRunCompletion ?? false
+    options.waitForRunCompletion ?? false,
+    undefined,
+    options.latestSections ?? []
   );
 }
 
@@ -494,7 +508,7 @@ export async function startSectionGenerationAndPoll(
   const pollStartedAt = Date.now();
   let pollCount = 0;
   let currentCard = latestCard;
-  let currentSections = placeholderResearchSectionsForCard(latestCard);
+  let currentSections = sectionsForCard(latestCard);
 
   const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
   onGenerationStatus(generation.status);
@@ -508,7 +522,7 @@ export async function startSectionGenerationAndPoll(
     const bootstrap = await fetchBootstrap(domain, settings, signal);
     if (bootstrap.card) {
       currentCard = bootstrap.card;
-      currentSections = bootstrap.sections ?? mergeStoredResearchSectionsWithLegacy({ card: bootstrap.card, storedSections: [] });
+      currentSections = bootstrap.sections ?? sectionsForCard(bootstrap.card);
     }
 
     const section = sectionFromList(currentSections, sectionId);

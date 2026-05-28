@@ -1,9 +1,10 @@
 import type { GenerationTrace } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
+  mergeGenerationTrace,
   requestedAtMsFromGenerationEvent,
   writeGenerationMilestone
-} from "../src/inngest/functions";
+} from "../src/inngest/generation-trace";
 
 describe("generation milestone telemetry", () => {
   it("uses the durable Inngest event timestamp instead of replay-local function start time", () => {
@@ -39,5 +40,70 @@ describe("generation milestone telemetry", () => {
     );
 
     expect(trace.milestones?.firstUsableCardMs).toBe(85_000);
+  });
+
+  it("preserves child contact telemetry when the parent persists its final trace later", () => {
+    const childTrace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      milestones: {
+        contactsReadyMs: 42_000
+      },
+      providers: {
+        stableenrich: {
+          sourceCount: 2,
+          failureCount: 0
+        },
+        emailDiscovery: [
+          {
+            name: "Erik Bernhardsson",
+            role: "Founder",
+            discoverySource: "exa",
+            emailFound: "erik@modal.com",
+            emailSource: "hunter"
+          }
+        ]
+      }
+    };
+
+    const parentFinalTrace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      steps: {
+        "fetch-sources": {
+          status: "complete",
+          durationMs: 1200
+        }
+      },
+      milestones: {
+        seedCardMs: 11_000,
+        firstUsableCardMs: 27_000
+      },
+      llm: {
+        calls: [
+          {
+            stage: "extract_full",
+            label: "extract",
+            model: "claude-test",
+            status: "ok",
+            durationMs: 800,
+            estimatedCostUsd: 0.12
+          }
+        ],
+        totalEstimatedCostUsd: 0.12
+      },
+      costUsdAnthropic: 0.12
+    };
+
+    const merged = mergeGenerationTrace(childTrace, parentFinalTrace);
+
+    expect(merged.milestones).toEqual({
+      contactsReadyMs: 42_000,
+      seedCardMs: 11_000,
+      firstUsableCardMs: 27_000
+    });
+    expect(merged.providers?.emailDiscovery).toEqual(childTrace.providers?.emailDiscovery);
+    expect(merged.steps?.["fetch-sources"]?.status).toBe("complete");
+    expect(merged.costUsdAnthropic).toBe(0.12);
   });
 });

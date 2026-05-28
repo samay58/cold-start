@@ -1,4 +1,4 @@
-import { deriveLegacyResearchSectionsFromCard, hasUsablePublicProfile, placeholderResearchSectionsForCard, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { hasUsablePublicProfile, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -24,6 +24,7 @@ import {
   isActiveRun,
   markPerformance,
   pollGenerationUntilCard,
+  sectionsForCard,
   startedAtMs,
   startGenerationAndPoll,
   startSectionGenerationAndPoll
@@ -48,7 +49,7 @@ type RequestState =
   | {
       status: "success";
       card: ColdStartCard;
-      sections?: ResearchSection[];
+      sections: ResearchSection[];
       analysisNotice?: string;
       analysisRun?: AnalysisRunState;
       contactRun?: AnalysisRunState;
@@ -627,9 +628,9 @@ export function SidePanel() {
       },
       latestCard,
       true,
-      (card) => {
+      (result) => {
         if (!controller.signal.aborted) {
-          setRequestState((current) => current.status === "success" ? { ...current, card, sections: deriveLegacyResearchSectionsFromCard(card) } : current);
+          setRequestState((current) => current.status === "success" ? { ...current, card: result.card, sections: sectionsForCard(result.card, current.sections) } : current);
         }
       }
     )
@@ -637,11 +638,11 @@ export function SidePanel() {
         if (!controller.signal.aborted) {
           setRequestState((current) => {
             if (current.status !== "success") {
-              return { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) };
+              return { status: "success", card: result.card, sections: result.sections };
             }
 
             const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
-            return { ...nextState, card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) };
+            return { ...nextState, card: result.card, sections: sectionsForCard(result.card, current.sections) };
           });
         }
       })
@@ -684,8 +685,8 @@ export function SidePanel() {
       .then((result) => {
         if (!controller.signal.aborted) {
           const successState = result.analysisNotice
-            ? { status: "success" as const, card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card), analysisNotice: result.analysisNotice }
-            : { status: "success" as const, card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) };
+            ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+            : { status: "success" as const, card: result.card, sections: result.sections };
           if (mode === "basics") {
             setRequestState({
               ...successState,
@@ -716,13 +717,15 @@ export function SidePanel() {
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    currentCard: ColdStartCard
+    currentState: Extract<RequestState, { status: "success" }>
   ) => {
     const startedAt = Date.now();
+    const currentCard = currentState.card;
+    const currentSections = currentState.sections;
     setRequestState({
       status: "success",
       card: currentCard,
-      sections: deriveLegacyResearchSectionsFromCard(currentCard),
+      sections: currentSections,
       analysisRun: { generationStatus: "queued", startedAt }
     });
 
@@ -737,7 +740,7 @@ export function SidePanel() {
           setRequestState({
             status: "success",
             card: currentCard,
-            sections: deriveLegacyResearchSectionsFromCard(currentCard),
+            sections: currentSections,
             analysisRun: {
               generationStatus: generationStatus === "queued" ? "queued" : "running",
               startedAt
@@ -745,14 +748,18 @@ export function SidePanel() {
           });
         }
       },
-      { forceRefresh: shouldForceMarketAnalysisRefresh(currentCard) }
+      {
+        forceRefresh: shouldForceMarketAnalysisRefresh(currentCard),
+        latestCard: currentCard,
+        latestSections: currentSections
+      }
     )
       .then((result) => {
         if (!controller.signal.aborted) {
           setRequestState(
             result.analysisNotice
-              ? { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card), analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) }
+              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card, sections: result.sections }
           );
         }
       })
@@ -765,7 +772,7 @@ export function SidePanel() {
         setRequestState({
           status: "success",
           card: currentCard,
-          sections: deriveLegacyResearchSectionsFromCard(currentCard),
+          sections: currentSections,
           analysisNotice: readableCardError(message, generationSettings.apiOrigin)
         });
       })
@@ -857,13 +864,14 @@ export function SidePanel() {
     generationSettings: Settings,
     generationStatus: "queued" | "running",
     runStartedAt: string | undefined,
-    latestCard: ColdStartCard
+    latestCard: ColdStartCard,
+    latestSections: ResearchSection[]
   ) => {
     const startedAt = startedAtMs(runStartedAt);
     setRequestState({
       status: "success",
       card: latestCard,
-      sections: deriveLegacyResearchSectionsFromCard(latestCard),
+      sections: latestSections,
       analysisRun: { generationStatus, startedAt }
     });
 
@@ -877,7 +885,7 @@ export function SidePanel() {
           setRequestState({
             status: "success",
             card: latestCard,
-            sections: deriveLegacyResearchSectionsFromCard(latestCard),
+            sections: latestSections,
             analysisRun: {
               generationStatus: nextGenerationStatus === "queued" ? "queued" : "running",
               startedAt
@@ -885,14 +893,17 @@ export function SidePanel() {
           });
         }
       },
-      latestCard
+      latestCard,
+      false,
+      undefined,
+      latestSections
     )
       .then((result) => {
         if (!controller.signal.aborted) {
           setRequestState(
             result.analysisNotice
-              ? { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card), analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) }
+              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card, sections: result.sections }
           );
         }
       })
@@ -905,7 +916,7 @@ export function SidePanel() {
         setRequestState({
           status: "success",
           card: latestCard,
-          sections: deriveLegacyResearchSectionsFromCard(latestCard),
+          sections: latestSections,
           analysisNotice: readableCardError(message, generationSettings.apiOrigin)
         });
       })
@@ -942,8 +953,8 @@ export function SidePanel() {
         if (!controller.signal.aborted) {
           setRequestState(
             result.analysisNotice
-              ? { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card), analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card, sections: deriveLegacyResearchSectionsFromCard(result.card) }
+              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+              : { status: "success", card: result.card, sections: result.sections }
           );
         }
       })
@@ -1013,7 +1024,7 @@ export function SidePanel() {
       const cachedCard = await readCachedCard(domain, settings).catch(() => null);
       if (cachedCard && !controller.signal.aborted) {
         showedCachedCard = true;
-        setRequestState({ status: "success", card: cachedCard, sections: placeholderResearchSectionsForCard(cachedCard), events: [], sources: [] });
+        setRequestState({ status: "success", card: cachedCard, sections: sectionsForCard(cachedCard), events: [], sources: [] });
       }
 
       try {
@@ -1029,7 +1040,7 @@ export function SidePanel() {
 
           const analysisStatus = bootstrap.runs.analysis;
           if (shouldResumeAnalysisRun(card, analysisStatus.status)) {
-            resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card);
+            resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card, bootstrapSections);
             return;
           }
 
@@ -1229,7 +1240,7 @@ export function SidePanel() {
         const controller = new AbortController();
         abortActiveRequest();
         activeRequest.current = controller;
-        runAnalysisWithController(controller, domain, settings, requestState.card);
+        runAnalysisWithController(controller, domain, settings, requestState);
       }}
       requestState={requestState}
       settings={settings}

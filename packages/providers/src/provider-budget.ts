@@ -9,7 +9,6 @@ export type ProviderEndpointBudget = {
   timeoutMs: number;
   estimatedCostUsd: number;
   maxCallsPerRun: number;
-  maxStageCallsUsd: number;
   stopCondition: string;
 };
 
@@ -29,7 +28,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after cited funding total or latest round evidence"
     },
     exa_company_profile: {
@@ -39,7 +37,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after one accepted company profile source"
     },
     exa_management_team: {
@@ -49,7 +46,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after cited founders or executives are found"
     },
     exa_recent_signals: {
@@ -59,7 +55,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after recent accepted signal sources"
     },
     exa_competition: {
@@ -69,7 +64,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after comparable candidates with a clear basis"
     },
     exa_independent_analysis: {
@@ -79,7 +73,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after independent analysis source coverage"
     },
     exa_find_similar: {
@@ -89,7 +82,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after semantically similar company candidates"
     },
     firecrawl_homepage: {
@@ -99,7 +91,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 20_000,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after one accepted homepage scrape"
     },
     firecrawl_about: {
@@ -109,7 +100,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 20_000,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after about page text or confirmed 404"
     },
     firecrawl_team: {
@@ -119,7 +109,6 @@ export const providerBudgetRegistry = {
       timeoutMs: firecrawlSecondaryPageTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after team page text or confirmed 404"
     },
     apollo_org_search: {
@@ -129,7 +118,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.02,
       stopCondition: "stop after one accepted organization match"
     },
     org_enrichment: {
@@ -139,7 +127,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.02,
       stopCondition: "stop after one accepted firmographic profile"
     },
     apollo_people_search: {
@@ -149,7 +136,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.02,
       stopCondition: "stop after likely work emails for known people"
     },
     apollo_people_enrich: {
@@ -159,7 +145,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 3,
-      maxStageCallsUsd: 0.06,
       stopCondition: "stop after enriching requested people"
     },
     clado_contacts_enrich: {
@@ -169,7 +154,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 2,
-      maxStageCallsUsd: 0.04,
       stopCondition: "stop after alternate contact enrichment returns"
     },
     minerva_enrich: {
@@ -179,7 +163,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 30_000,
       estimatedCostUsd: 0.02,
       maxCallsPerRun: 2,
-      maxStageCallsUsd: 0.04,
       stopCondition: "stop after alternate email enrichment returns"
     },
     hunter_email_verifier: {
@@ -189,7 +172,6 @@ export const providerBudgetRegistry = {
       timeoutMs: 15_000,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 6,
-      maxStageCallsUsd: 0.06,
       stopCondition: "stop after validating one candidate work email"
     },
     exa_email_search: {
@@ -199,7 +181,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after public email evidence or no relevant results"
     },
     exa_leader_discovery: {
@@ -209,7 +190,6 @@ export const providerBudgetRegistry = {
       timeoutMs: exaSearchFanoutTimeoutMs,
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
-      maxStageCallsUsd: 0.01,
       stopCondition: "stop after leader discovery sources are accepted"
     }
   }

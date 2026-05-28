@@ -97,7 +97,6 @@ type CardCacheOptions = {
 };
 type CardCacheRow = {
   cardJson: unknown;
-  publicCardJson?: unknown;
   identityExpiresAt: Date;
   signalsExpiresAt: Date;
   synthesisExpiresAt: Date;
@@ -174,7 +173,6 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
   const rows = await db
     .select({
       cardJson: cards.cardJson,
-      publicCardJson: cards.publicCardJson,
       identityExpiresAt: cards.identityExpiresAt,
       signalsExpiresAt: cards.signalsExpiresAt,
       synthesisExpiresAt: cards.synthesisExpiresAt
@@ -819,7 +817,6 @@ export async function retireStaleGenerationRuns(
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
   const cardToStore = card.cacheStatus === "stale" ? { ...card, cacheStatus: "hit" as const } : card;
-  const publicOnly = publicCard(cardToStore);
   const generatedAt = new Date(cardToStore.generatedAt);
   const now = new Date();
   const expiresAt = cardExpiryDates(now);
@@ -831,7 +828,6 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
       slug: cardToStore.slug,
       domain: cardToStore.domain,
       cardJson: cardToStore,
-      publicCardJson: publicOnly,
       cacheStatus: persistedCacheStatus,
       generationCostUsd: String(cardToStore.generationCostUsd),
       generatedAt,
@@ -841,7 +837,6 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
       target: cards.slug,
       set: {
         cardJson: cardToStore,
-        publicCardJson: publicOnly,
         cacheStatus: persistedCacheStatus,
         generationCostUsd: String(cardToStore.generationCostUsd),
         generatedAt,
