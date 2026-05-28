@@ -33,9 +33,27 @@ function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function compactMoney(value: number | null) {
-  if (value === null) {
+function compactMoney(value: number | string | null | undefined) {
+  if (value === null || value === undefined) {
     return null;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    if (trimmed.startsWith("$")) {
+      return trimmed.replace(/^\$+/, "$");
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return trimmed;
+    }
+
+    value = parsed;
   }
 
   return new Intl.NumberFormat("en-US", {
@@ -46,8 +64,18 @@ function compactMoney(value: number | null) {
   }).format(value);
 }
 
-function companyInitial(name: string) {
-  return name.trim().charAt(0).toUpperCase() || "C";
+function formatGeneratedDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric"
+  }).format(parsed).replace(",", "");
 }
 
 function companyMeta(summary: PublicCardSummary) {
@@ -83,7 +111,6 @@ function CompanyRow({ selected, summary }: { selected: boolean; summary: PublicC
 
   return (
     <Link aria-current={selected ? "page" : undefined} className="cs-company-row" data-selected={selected ? "true" : "false"} href={`/?company=${summary.slug}`}>
-      <span className="cs-company-row-mark" aria-hidden="true">{companyInitial(summary.name)}</span>
       <span className="cs-company-row-main">
         <strong>{summary.name}</strong>
         <small>{summary.domain}</small>
@@ -119,26 +146,36 @@ function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
     .map((section) => sectionPreview(section, card));
   const activeSection = sections.find((section) => section.state !== "empty") ?? sections[0] ?? null;
   const meta = companyMeta(summary);
+  const availableCount = sections.filter((section) => section.state !== "empty").length;
+  const rows = [
+    ["Sources", countLabel(summary.sourceCount, "source")],
+    ["Raised", meta[0] ?? "not found"],
+    ["Round", summary.lastRoundName ?? "not found"],
+    ["People", summary.headcount ? `~${summary.headcount}` : "not found"],
+    ["Filed", formatGeneratedDate(summary.generatedAt)]
+  ];
 
   return (
     <section className="cs-index-preview" aria-label={`${summary.name} preview`}>
       <div className="cs-index-preview-main">
-        <div className="cs-index-company-lockup">
-          <span aria-hidden="true">{companyInitial(summary.name)}</span>
-          <div>
-            <p>{summary.domain}</p>
-            <h1>{summary.name}</h1>
-          </div>
+        <div className="cs-index-kicker">
+          <span>{summary.domain}</span>
+          <span>{availableCount} / {sections.length || 0} public sections</span>
         </div>
+
+        <h1>{summary.name}</h1>
 
         <p className="cs-index-one-liner">
           {card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value ?? "Sourced company profile."}
         </p>
 
         <div className="cs-index-facts" aria-label="Profile facts">
-          <span>{countLabel(summary.sourceCount, "source")}</span>
-          {meta.map((item) => <span key={item}>{item}</span>)}
-          {card.cacheStatus === "stale" ? <span>stale</span> : null}
+          {rows.map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
         </div>
 
         <div className="cs-index-actions">
@@ -148,8 +185,8 @@ function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
 
       <div className="cs-index-stack" aria-label="Research sections">
         <div className="cs-index-stack-head">
-          <span>Research</span>
-          <span>{sections.filter((section) => section.state !== "empty").length} / {sections.length}</span>
+          <span>Public research</span>
+          <span>{availableCount} live</span>
         </div>
         <div className="cs-index-stack-list">
           {sections.map((section) => (
@@ -166,7 +203,7 @@ function EmptyState() {
     <main className="cs-home">
       <section className="cs-index-empty" aria-label="Cold Start">
         <div className="cs-brand-lockup">
-          <span>CS</span>
+          <span aria-hidden="true" />
           <strong>Cold Start</strong>
         </div>
         <h1>No sourced profiles yet.</h1>
@@ -190,11 +227,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   return (
     <main className="cs-home">
       <section className="cs-index-shell" aria-label="Cold Start public profiles">
-        <aside className="cs-index-list" aria-label="Companies">
+        <header className="cs-index-masthead">
           <div className="cs-brand-lockup">
-            <span>CS</span>
+            <span aria-hidden="true" />
             <strong>Cold Start</strong>
           </div>
+          <h1>Sourced company cards for first-pass diligence.</h1>
+          <p>Facts stay public. Judgment stays gated. The index below is a working shelf of profiles that cleared the source gate.</p>
+          <span>{countLabel(summaries.length, "profile")}</span>
+        </header>
+
+        <aside className="cs-index-list" aria-label="Companies">
           <div className="cs-index-list-head">
             <h2>Companies</h2>
             <span>{summaries.length}</span>

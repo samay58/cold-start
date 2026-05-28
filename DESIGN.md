@@ -1,18 +1,18 @@
 # Cold Start: Interface Design System
 
-> Current visual source of truth. Last updated 2026-05-28 for the **Personal Ledger** extension of Signal Ledger. This keeps the 2026-05-27 evidence system and adds a more authored source treatment. The 2026-05-26 Ray Gun/zine pass remains archived at `docs/brand/archive/raygun-era-2026-05-27.md`. The earlier parchment system remains archived at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
+> Current visual source of truth. Last updated 2026-05-28 for the public website craft reset. The 2026-05-26 Ray Gun pass remains archived at `docs/brand/archive/raygun-era-2026-05-27.md`. The earlier parchment system remains archived at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
 
-Cold Start should feel like the private research instrument an investor keeps open during first-pass diligence. Not a dossier. Not a generic zine. Not a SaaS dashboard. The interface is a personal signal ledger: calm enough to trust, sharp enough to have taste, and specific enough that source quality is visible before the reader asks.
+Cold Start should feel like a sourced investing index kept by someone with taste. It is not a SaaS dashboard, not a dossier, not a magazine costume, and not a chat product. The interface is a source ledger: quiet field, sharp rules, legible facts, and enough authorship that the page feels made rather than generated.
 
-The page should make one promise: every claim has a place, every source has a weight, every missing fact is honestly absent. The design work is to make that promise feel inevitable.
+The page should make one promise: every claim has a place, every source has a weight, and every missing fact is honestly absent. The design work is to make that promise feel natural.
 
 The old directions failed in opposite ways:
 
 - **Parchment dossier:** tasteful but generic. Warm paper, serif type, sand lines, and blue citation marks made the product look like every AI editorial mockup.
-- **Ray Gun reset:** energetic but referential. It had posture, but too much of the taste came from borrowed zine language instead of Cold Start's own product logic.
+- **Ray Gun reset:** energetic but referential. It had posture, but too much of the taste came from borrowed editorial language instead of Cold Start's own product logic.
 - **Compliance software:** the ever-present risk. If trust becomes badges, filters, gray tables, and disclaimers, the product loses all warmth and judgment.
 
-Signal Ledger is the middle with teeth. Personal Ledger is the next layer: same evidence discipline, more visible authorship. It should look like a tool built by someone who reads investment memos, filing footnotes, and product surfaces with equal seriousness.
+Signal Ledger is the middle with teeth: same evidence discipline, more visible authorship. It should look like a tool built by someone who reads investment memos, filing footnotes, and product surfaces with equal seriousness.
 
 The useful lesson from expressive personal sites is not to copy their surfaces. Taste comes from specific choices: an owned mark, chosen color, clear source objects, and layouts that do not feel templated.
 

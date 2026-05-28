@@ -127,6 +127,13 @@ function summary(slug: string, name: string, generatedAt: string) {
   };
 }
 
+function summaryWithDisplayMoney(slug: string, name: string, generatedAt: string) {
+  return {
+    ...summary(slug, name, generatedAt),
+    totalRaisedUsd: "$$91M" as unknown as number
+  };
+}
+
 async function renderHome(company?: string) {
   const element = await HomePage({ searchParams: Promise.resolve(company ? { company } : {}) });
   return renderToStaticMarkup(element);
@@ -174,5 +181,16 @@ describe("HomePage", () => {
 
     expect(html).toContain("No sourced profiles yet");
     expect(html).toContain("Generate a company from the extension");
+  });
+
+  it("normalizes display money from stored cards", async () => {
+    mocks.getPublicProfileIndex.mockResolvedValue([
+      summaryWithDisplayMoney("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
+    ]);
+
+    const html = await renderHome("cartesia");
+
+    expect(html).toContain("$91M");
+    expect(html).not.toContain("$$91M");
   });
 });
