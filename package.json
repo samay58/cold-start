@@ -15,7 +15,7 @@
     "dev:fresh": "rm -rf apps/web/.next apps/web/.cold-start && npm run dev:full",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs",
+    "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs eval/**/*.test.mjs",
     "lint": "eslint .",
     "check": "npm run lint -- --max-warnings=0 && npm run typecheck && npm run test && npm run build && npm run eval:golden -- --dry-run --limit 12 && npm run knip && npm run secrets:check && npm run audit:deps",
     "knip": "knip",
@@ -36,7 +36,8 @@
     "verify:cache-ttl": "tsx scripts/verify-cache-ttl.ts",
     "wallet:status": "tsx scripts/wallet-status.ts",
     "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\"",
-    "eval:golden": "node eval/run-golden.mjs"
+    "eval:golden": "node eval/run-golden.mjs",
+    "eval:fugu:top-truths": "node eval/fugu-top-truths/run.mjs"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

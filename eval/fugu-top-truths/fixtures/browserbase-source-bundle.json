@@ -1,0 +1,100 @@
+{
+  "company": {
+    "name": "Browserbase",
+    "domain": "browserbase.com",
+    "category": "browser-automation"
+  },
+  "notes": "Frozen bundle for the top-5 truths eval. Built from the Browserbase production/sidebar fixture family in experiments/activegraph-coldstart. It intentionally preserves conflicting funding evidence.",
+  "sources": [
+    {
+      "id": "e1",
+      "title": "Browserbase enrichment profile",
+      "url": "https://browserbase.com/",
+      "sourceType": "enrichment",
+      "authorityScore": 2,
+      "fetchedAt": "2026-05-13T02:26:35.832Z",
+      "text": "Browserbase is the complete platform to build and deploy agents that browse and interact with the web like humans. The enrichment profile says Browserbase has $128.5M in total funding, 4 prior funding rounds, about 50 employees, and 110% year-over-year employee growth."
+    },
+    {
+      "id": "e2",
+      "title": "Built In Series B report",
+      "url": "https://builtin.com/articles/browserbase-announces-40m-series-b-funding-20250618",
+      "sourceType": "news",
+      "authorityScore": 6,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "Built In reports Browserbase raised a $40M Series B led by Notable Capital, with CRV and Kleiner Perkins participating. It says Browserbase serves over 1,000 companies and more than 20,000 developers, and launched Director, a no-code automation tool."
+    },
+    {
+      "id": "e3",
+      "title": "SiliconANGLE Series B report",
+      "url": "https://siliconangle.com/2025/06/17/browserbase-reels-40m-browser-automation-tools/",
+      "sourceType": "news",
+      "authorityScore": 6,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "SiliconANGLE reports Notable Capital led Browserbase's $40M Series B. It says the company was valued at $300M, four times its September valuation. It describes a platform that spins up thousands of browsers in a fraction of a second, compatible with Puppeteer and Selenium, and says Stagehand lets developers combine scripts with AI agents."
+    },
+    {
+      "id": "e4",
+      "title": "Upstarts Media Series B and traction report",
+      "url": "https://www.upstartsmedia.com/p/browserbase-raises-40m-and-launches-director",
+      "sourceType": "news",
+      "authorityScore": 6,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "Upstarts Media reports Browserbase has 1,000+ customers including Commure, 11x, Perplexity, and Vercel; 20,000+ developers; 50M browser sessions in 2025; and more than $3M in revenue as of the Series B, mostly from team expansion. It says Browserbase uses consumption-based pricing and hired its first salesperson on the day of the Series B announcement."
+    },
+    {
+      "id": "e5",
+      "title": "Pulse 2 Series A report",
+      "url": "https://pulse2.com/browserbase-web-browser-automation-company-raises-21-million-series-a/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "Pulse 2 reports Browserbase raised a $21M Series A co-led by CRV and Kleiner Perkins, with Okta Ventures and Reed McGinley-Stempel. It says this came less than nine months after a $6.5M seed. It also says Browserbase launched Stagehand, an open-source AI-powered web automation SDK, at the Series A."
+    },
+    {
+      "id": "e6",
+      "title": "AgentMarketCap technical analysis",
+      "url": "https://agentmarketcap.ai/blog/2026/04/06/browserbase-27m-series-a-headless-browser-cloud-web-browsing-agents",
+      "sourceType": "other",
+      "authorityScore": 3,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "AgentMarketCap describes Browserbase as infrastructure for headless browser cloud and web-browsing agents. It says Stagehand exposes act, extract, and observe natural language commands above Playwright. It lists competitors including Steel.dev, Playwright-MCP, and Browserless. It also claims Browserbase raised a $27M Series A, conflicting with the $21M Series A report."
+    },
+    {
+      "id": "e7",
+      "title": "Notable Capital investment note",
+      "url": "https://www.notablecap.com/blog/why-we-invested-in-browserbase",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "Notable Capital says it led Browserbase's Series B. Glenn Solomon says a great service that anticipates developer needs can be a compelling value proposition. Founder Paul Klein IV analogizes Browserbase to infrastructure companies like Vercel, Stripe, and Twilio."
+    },
+    {
+      "id": "e8",
+      "title": "VC News Daily seed report",
+      "url": "https://vcnewsdaily.com/browserbase/venture-capital-funding/lyqhnkzngq",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "VC News Daily reports Browserbase raised a $6.5M seed led by Kleiner Perkins, with Basecase Capital and AI Grant. It says the seed was announced on 2024-06-07."
+    },
+    {
+      "id": "e9",
+      "title": "Lowenstein Series B confirmation",
+      "url": "https://www.lowenstein.com/news-insights/firm-news/lowenstein-represents-notable-capital-as-lead-investor-in-series-b-financing-round-for-browserbase-1",
+      "sourceType": "news",
+      "authorityScore": 4,
+      "fetchedAt": "2026-05-13T02:26:35.834Z",
+      "text": "Lowenstein Sandler confirms it represented Notable Capital as lead investor in Browserbase's Series B financing round."
+    },
+    {
+      "id": "e10",
+      "title": "Browserbase product surface from production card",
+      "url": "https://browserbase.com/",
+      "sourceType": "company_site",
+      "authorityScore": 4,
+      "fetchedAt": "2026-05-13T02:29:00.422Z",
+      "text": "The production card describes Browserbase as managed headless browser cloud for AI agents and developers. Customers connect via Playwright, Puppeteer, or Selenium to a serverless cloud that provisions isolated Chromium sessions with CAPTCHA solving, stealth fingerprinting, proxy rotation, compliance controls, and global data-center distribution. Stagehand adds natural-language act, extract, and observe commands above Playwright, while Director generates automation scripts from natural-language prompts for non-developers."
+    }
+  ]
+}
