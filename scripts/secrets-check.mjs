@@ -50,6 +50,7 @@ const patterns = [
   { label: "AgentCash wallet private key", regex: /X402_PRIVATE_KEY[ \t]*=[ \t]*["']?(0x[0-9a-fA-F]{40,})["']?/g, capture: 1 },
   { label: "Cold Start extension API token", regex: /EXTENSION_API_TOKEN[ \t]*=[ \t]*["']?([A-Za-z0-9_-]{20,})["']?/g, capture: 1 },
   { label: "Direct Exa API key", regex: /DIRECT_EXA_API_KEY[ \t]*=[ \t]*["']?([A-Za-z0-9_-]{20,})["']?/g, capture: 1 },
+  { label: "Exa Websets API key", regex: /EXA_WEBSETS_API_KEY[ \t]*=[ \t]*["']?([A-Za-z0-9_-]{20,})["']?/g, capture: 1 },
   // Generic ethereum private key pattern (for any other 0x-prefixed wallet key that lands in source).
   { label: "Ethereum-style private key", regex: /\b0x[0-9a-fA-F]{64}\b/g }
 ];

@@ -116,6 +116,7 @@ const mocks = vi.hoisted(() => ({
   fetchStableenrichFastSources: vi.fn(),
   fetchStableenrichPeopleEmailSources: vi.fn(),
   fetchStableenrichSources: vi.fn(),
+  fetchWebsetsPeopleEmailSources: vi.fn(),
   agentcashWalletSnapshot: vi.fn(),
   providerBudgetForEndpoint: vi.fn(),
   buildSeedProfileCard: vi.fn(),
@@ -147,6 +148,7 @@ vi.mock("@cold-start/providers", () => ({
   fetchStableenrichFastSources: mocks.fetchStableenrichFastSources,
   fetchStableenrichPeopleEmailSources: mocks.fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources: mocks.fetchStableenrichSources,
+  fetchWebsetsPeopleEmailSources: mocks.fetchWebsetsPeopleEmailSources,
   agentcashWalletSnapshot: mocks.agentcashWalletSnapshot,
   providerBudgetForEndpoint: mocks.providerBudgetForEndpoint
 }));
@@ -222,6 +224,27 @@ async function runBasicsGeneration(contactEnabled: string) {
   } as never);
 
   return harness;
+}
+
+function underfilledSeedCard(): ColdStartCard {
+  return {
+    ...card,
+    identity: {
+      ...card.identity,
+      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    funding: {
+      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      rounds: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      investors: { value: [], status: "unknown", confidence: "low", citationIds: [] }
+    },
+    team: {
+      ...card.team,
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    }
+  };
 }
 
 describe("generate-card contact dispatch", () => {
@@ -312,6 +335,38 @@ describe("generate-card contact dispatch", () => {
     );
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
+  });
+
+  it("dispatches contact enrichment from a stored final card when the seed card is underfilled", async () => {
+    mocks.buildSeedProfileCard.mockReturnValue({
+      card: underfilledSeedCard(),
+      sections,
+      trace: {
+        providerFactCandidateCount: 0,
+        providerFactAppliedCount: 0,
+        providerFactPaths: [],
+        fallbackFields: [],
+        citationCount: 1
+      }
+    });
+
+    const { names, step } = await runBasicsGeneration("true");
+
+    expect(names).not.toContain("upsert-seed-card");
+    expect(step.sendEvent).toHaveBeenCalledTimes(1);
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-contact-enrichment",
+      expect.objectContaining({
+        name: "card/contact-enrichment.requested",
+        data: expect.objectContaining({
+          domain: "modal.com",
+          slug: "modal",
+          parentGenerationRunId: "generation-run-id"
+        })
+      })
+    );
+    expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-card"));
+    expect(names).not.toContain("fetch-contact-sources");
   });
 
   it("does not dispatch contact enrichment when disabled", async () => {

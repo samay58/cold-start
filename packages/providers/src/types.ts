@@ -19,6 +19,10 @@ export type DirectExaEnv = Partial<
   Record<"DIRECT_EXA_API_KEY" | "DIRECT_EXA_BASE_URL", string>
 >;
 
+export type WebsetsEnv = Partial<
+  Record<"EXA_WEBSETS_API_KEY" | "EXA_WEBSETS_BASE_URL", string>
+>;
+
 export type PeopleEmailHint = {
   id?: string | null;
   name?: string | null;
@@ -111,7 +115,7 @@ export type ProviderFactCandidate<T = unknown> = {
   status: "verified" | "mixed" | "inferred" | "unknown";
   confidence: "high" | "medium" | "low";
   sourceType: ProviderSource["sourceType"];
-  provider: "stableenrich" | "direct_exa" | "sec_edgar";
+  provider: "stableenrich" | "direct_exa" | "sec_edgar" | "websets";
   endpoint: string;
   citationUrl: string;
   citationTitle: string;

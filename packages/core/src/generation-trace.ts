@@ -75,7 +75,7 @@ export type GenerationEmailDiscoveryTrace = {
   role: string | null;
   discoverySource: "apollo" | "sec_edgar" | "exa" | "search_hint" | "people_hint" | null;
   emailFound: string | null;
-  emailSource: "apollo_search" | "apollo_enrich" | "minerva" | "clado" | "hunter" | "exa" | null;
+  emailSource: "apollo_search" | "apollo_enrich" | "minerva" | "clado" | "hunter" | "exa" | "websets" | null;
   hunterAttempts?: Array<{
     email: string;
     status: string | null;
@@ -119,6 +119,17 @@ export type GenerationTrace = {
       walletDeltaUsd?: number;
       walletSnapshotError?: string;
       budgetCeilingHit?: boolean;
+    };
+    websets?: {
+      skipped: boolean;
+      sourceCount: number;
+      factCount: number;
+      failureCount: number;
+      itemCount?: number;
+      acceptedEmailCount?: number;
+      rejectedEmailCount?: number;
+      websetId?: string;
+      dashboardUrl?: string;
     };
     mergedSourceCount?: number;
     emailDiscovery?: GenerationEmailDiscoveryTrace[];

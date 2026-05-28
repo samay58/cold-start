@@ -69,6 +69,7 @@ import {
   fetchStableenrichFastSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
+  fetchWebsetsPeopleEmailSources,
   providerBudgetForEndpoint,
   type DirectExaEnv,
   type PeopleEmailHint,
@@ -76,6 +77,7 @@ import {
   type ProviderSource,
   type StableenrichEnv,
   type StableenrichProbeName,
+  type WebsetsEnv,
   agentcashWalletSnapshot
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -113,6 +115,11 @@ const DIRECT_EXA_ENV_KEYS = [
   "DIRECT_EXA_BASE_URL",
 ] as const satisfies ReadonlyArray<keyof DirectExaEnv>;
 
+const WEBSETS_ENV_KEYS = [
+  "EXA_WEBSETS_API_KEY",
+  "EXA_WEBSETS_BASE_URL",
+] as const satisfies ReadonlyArray<keyof WebsetsEnv>;
+
 const PUBLIC_RESEARCH_SECTION_IDS = ["buyer", "customer_proof", "traction", "financing", "competition", "product"] as const;
 const GATED_RESEARCH_SECTION_IDS = ["why_it_matters", "market", "risks"] as const;
 
@@ -122,6 +129,10 @@ function stableenrichEnvFromProcess(): StableenrichEnv {
 
 function directExaEnvFromProcess(): DirectExaEnv {
   return readEnvSubset(DIRECT_EXA_ENV_KEYS);
+}
+
+function websetsEnvFromProcess(): WebsetsEnv {
+  return readEnvSubset(WEBSETS_ENV_KEYS);
 }
 
 type GenerationMode = "basics" | "analysis";
@@ -446,6 +457,28 @@ function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHi
   }));
 }
 
+function peopleHintsFromCard(card: ColdStartCard): PeopleEmailHint[] {
+  return [
+    ...(card.team.founders.value ?? []),
+    ...(card.team.keyExecs.value ?? [])
+  ].map((person) => ({
+    name: person.name,
+    role: person.role,
+    sourceUrl: person.sourceUrl,
+    email: person.email ?? null
+  }));
+}
+
+function cardHasContactTargets(card: ColdStartCard, tier: ContactEnrichmentTier) {
+  if (tier === "full") {
+    return true;
+  }
+
+  return peopleHintsFromCard(card).some((person) =>
+    Boolean(person.name?.trim()) && !person.email
+  );
+}
+
 function peopleEmailCount(sections: ExtractedCardSections) {
   return [
     ...(sections.team.founders.value ?? []),
@@ -689,38 +722,96 @@ async function fetchContactSourcesForBasics(input: {
   maxStableenrichBudgetUsd?: number | undefined;
   peopleHints: PeopleEmailHint[];
   stableEnv: StableenrichEnv;
+  websetsEnabled: boolean;
+  websetsEnv: WebsetsEnv;
+  websetsExternalId?: string;
 }) {
-  const [directContactResult, stableContactResult] = await Promise.allSettled([
+  const useWebsetsContactPath = input.websetsEnabled && Boolean(input.websetsEnv.EXA_WEBSETS_API_KEY?.trim());
+  const [directContactResult, stableContactResult, websetsContactResult] = await Promise.allSettled([
     directExaEnabled()
       ? fetchDirectExaContactSources({ env: input.directExaEnv, domain: input.domain, peopleHints: input.peopleHints })
       : Promise.resolve({ sources: [], facts: [], failures: [], skipped: true }),
-    fetchStableenrichPeopleEmailSources({
-      env: input.stableEnv,
-      domain: input.domain,
-      sourceHints: input.acceptedSources,
-      peopleHints: input.peopleHints,
-      maxBudgetUsd: input.maxStableenrichBudgetUsd
-    })
+    useWebsetsContactPath
+      ? Promise.resolve({
+          sources: [],
+          facts: [],
+          failures: [],
+          endpoints: [
+            {
+              name: "stableenrich" as const,
+              endpointUrl: "stableenrich",
+              status: "skipped" as const,
+              sourceCount: 0,
+              factCount: 0,
+              error: "EXA_WEBSETS_CONTACTS_ENABLED=true"
+            }
+          ],
+          emailDiscovery: [],
+          budgetCeilingHit: false
+        })
+      : fetchStableenrichPeopleEmailSources({
+          env: input.stableEnv,
+          domain: input.domain,
+          sourceHints: input.acceptedSources,
+          peopleHints: input.peopleHints,
+          maxBudgetUsd: input.maxStableenrichBudgetUsd
+        }),
+    useWebsetsContactPath
+      ? fetchWebsetsPeopleEmailSources({
+          env: input.websetsEnv,
+          domain: input.domain,
+          peopleHints: input.peopleHints,
+          ...(input.websetsExternalId ? { externalId: input.websetsExternalId } : {})
+        })
+      : Promise.resolve({
+          sources: [],
+          facts: [],
+          failures: [],
+          skipped: true,
+          emailDiscovery: [],
+          trace: {
+            skipped: true,
+            sourceCount: 0,
+            factCount: 0,
+            failureCount: 0
+          }
+        })
   ]);
   const directContactSources = directContactResult.status === "fulfilled" ? directContactResult.value.sources : [];
   const directContactFacts = directContactResult.status === "fulfilled" ? directContactResult.value.facts : [];
   const directContactFailureCount = directContactResult.status === "fulfilled" ? directContactResult.value.failures.length : 1;
   const stableContactSources = stableContactResult.status === "fulfilled" ? stableContactResult.value.sources : [];
   const stableContactFacts = stableContactResult.status === "fulfilled" ? stableContactResult.value.facts : [];
+  const websetsContactSources = websetsContactResult.status === "fulfilled" ? websetsContactResult.value.sources : [];
+  const websetsContactFacts = websetsContactResult.status === "fulfilled" ? websetsContactResult.value.facts : [];
+  const websetsTrace = websetsContactResult.status === "fulfilled"
+    ? websetsContactResult.value.trace
+    : {
+        skipped: false,
+        sourceCount: 0,
+        factCount: 0,
+        failureCount: 1
+      };
   const stableContactFailures = stableContactResult.status === "fulfilled"
     ? stableContactResult.value.failures
     : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableContactResult.reason) }];
   const stableContactEndpoints = stableContactResult.status === "fulfilled"
     ? withStableenrichEndpointBudgets(stableContactResult.value.endpoints)
     : [failedStableenrichEndpoint(stableContactResult.reason)];
-  const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources);
+  const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources, websetsContactSources);
   const sourceGate = filterSourcesForDomain({ domain: input.domain, sources });
   const initialDirectExa = input.initialProviders.directExa ?? { skipped: true, sourceCount: 0, failureCount: 0 };
   const initialStable = input.initialProviders.stableenrich;
+  const stableEmailDiscovery = stableContactResult.status === "fulfilled"
+    ? stableContactResult.value.emailDiscovery ?? []
+    : [];
+  const websetsEmailDiscovery = websetsContactResult.status === "fulfilled"
+    ? websetsContactResult.value.emailDiscovery ?? []
+    : [];
 
   return {
     sources: sourceGate.accepted,
-    providerFacts: [...stableContactFacts, ...directContactFacts],
+    providerFacts: [...websetsContactFacts, ...stableContactFacts, ...directContactFacts],
     trace: {
       providers: {
         ...input.initialProviders,
@@ -736,9 +827,10 @@ async function fetchContactSourcesForBasics(input: {
           endpoints: [...(initialStable?.endpoints ?? []), ...stableContactEndpoints],
           ...(stableContactResult.status === "fulfilled" && stableContactResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {})
         },
+        websets: websetsTrace,
         mergedSourceCount: sources.length,
-        ...(stableContactResult.status === "fulfilled" && stableContactResult.value.emailDiscovery && stableContactResult.value.emailDiscovery.length > 0
-          ? { emailDiscovery: stableContactResult.value.emailDiscovery }
+        ...([...websetsEmailDiscovery, ...stableEmailDiscovery].length > 0
+          ? { emailDiscovery: [...websetsEmailDiscovery, ...stableEmailDiscovery] }
           : {})
       },
       sourceGate: sourceGateTrace(sourceGate)
@@ -852,6 +944,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
 
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
+      const websetsEnv = websetsEnvFromProcess();
       currentStage = "fetch-contact-sources";
       const contactSourceResult = await step.run("fetch-contact-sources", async () => {
         const result = await timed(() =>
@@ -865,7 +958,10 @@ export const contactEnrichmentFunction = inngest.createFunction(
               override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
             }),
             peopleHints,
-            stableEnv
+            stableEnv,
+            websetsEnabled: runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED,
+            websetsEnv,
+            websetsExternalId: `cold-start-contact-${slug}-${parentGenerationRunId ?? trace.inngest?.runId ?? requestedAtMs}`
           })
         );
 
@@ -1247,6 +1343,51 @@ export const generateCardFunction = inngest.createFunction(
         }).catch(() => null)
       );
 
+    let contactEnrichmentRequested = false;
+    const requestContactEnrichmentForStoredCard = async (card: ColdStartCard, trigger: string) => {
+      if (contactEnrichmentRequested) {
+        return;
+      }
+
+      if (!contactEnrichmentEnabled(runtimeEnv)) {
+        contactEnrichmentRequested = true;
+        trace.steps = {
+          ...trace.steps,
+          "request-contact-enrichment": skippedStep("CONTACT_ENRICHMENT_ENABLED=false")
+        };
+        return;
+      }
+
+      if (!cardHasContactTargets(card, runtimeEnv.CONTACT_ENRICHMENT_TIER)) {
+        trace.steps = {
+          ...trace.steps,
+          "request-contact-enrichment": skippedStep("no named people needing work email yet")
+        };
+        return;
+      }
+
+      await step.sendEvent(
+        "request-contact-enrichment",
+        buildContactEnrichmentRequestedEvent({
+          domain,
+          slug,
+          requestedAtMs,
+          tier: runtimeEnv.CONTACT_ENRICHMENT_TIER,
+          parentGenerationRunId: generationRunDbId,
+          parentInngestRunId: trace.inngest?.runId ?? null
+        })
+      );
+      contactEnrichmentRequested = true;
+      trace.steps = {
+        ...trace.steps,
+        "request-contact-enrichment": completedStep(0)
+      };
+      await recordEvent("contact-enrichment-requested", "contacts.requested", "Requested async contact enrichment", {
+        tier: runtimeEnv.CONTACT_ENRICHMENT_TIER,
+        trigger
+      }, null);
+    };
+
     await recordEvent(
       "generation-started",
       requestedSectionId ? "section.started" : "generation.started",
@@ -1579,31 +1720,7 @@ export const generateCardFunction = inngest.createFunction(
             sourceCount: acceptedSources.length
           }, null);
           writeGenerationMilestone(trace, "seedCardMs", requestedAtMs);
-          if (contactEnrichmentEnabled(runtimeEnv)) {
-            await step.sendEvent(
-              "request-contact-enrichment",
-              buildContactEnrichmentRequestedEvent({
-                domain,
-                slug,
-                requestedAtMs,
-                tier: runtimeEnv.CONTACT_ENRICHMENT_TIER,
-                parentGenerationRunId: generationRunDbId,
-                parentInngestRunId: trace.inngest?.runId ?? null
-              })
-            );
-            trace.steps = {
-              ...trace.steps,
-              "request-contact-enrichment": completedStep(0)
-            };
-            await recordEvent("contact-enrichment-requested", "contacts.requested", "Requested async contact enrichment", {
-              tier: runtimeEnv.CONTACT_ENRICHMENT_TIER
-            }, null);
-          } else {
-            trace.steps = {
-              ...trace.steps,
-              "request-contact-enrichment": skippedStep("CONTACT_ENRICHMENT_ENABLED=false")
-            };
-          }
+          await requestContactEnrichmentForStoredCard(seedCardToStore, "seed-card");
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
         }
@@ -1727,6 +1844,7 @@ export const generateCardFunction = inngest.createFunction(
         }, null);
         if (mode === "basics") {
           writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
+          await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
         }
       } else {
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-generated-card", cardToStore);
@@ -1847,6 +1965,7 @@ export const generateCardFunction = inngest.createFunction(
           citationCount: cardToStore.citations.length,
           sourceCount: sourcesToRecord.length
         }, null);
+        await requestContactEnrichmentForStoredCard(cardToStore, "enriched-card");
         writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
       }
 
