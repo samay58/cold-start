@@ -1,0 +1,28 @@
+/* Self-hosted faces for the side panel, matching the web public surface:
+   At Umami (display), At Textual (receipt/evidence accent), IBM Plex Sans (body).
+   The licensed At faces (arillatype.studio) and the open IBM Plex Sans are
+   bundled as variable webfonts so the panel never falls back to system fonts. */
+
+@font-face {
+  font-family: "AtUmami";
+  src: url("/fonts/AtUmamiVAR.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "AtTextual";
+  src: url("/fonts/AtTextualVAR.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/IBMPlexSansVAR.woff2") format("woff2");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+}

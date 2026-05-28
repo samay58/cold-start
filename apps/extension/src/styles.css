@@ -1,4 +1,5 @@
 @import "@cold-start/ui/tokens.css";
+@import "./fonts.css";
 
 * {
   box-sizing: border-box;
@@ -18,9 +19,9 @@ body {
   --cs-motion-state: 140ms;
   min-width: 360px;
   margin: 0;
-  background: var(--color-bone-deep);
+  background: var(--color-field);
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
@@ -39,7 +40,7 @@ button {
   isolation: isolate;
   min-height: 100vh;
   padding: 12px;
-  background: var(--color-bone-deep);
+  background: var(--color-field);
   color: var(--color-ink);
   overflow: hidden;
 }
@@ -103,10 +104,10 @@ button {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid var(--color-rule);
   border-radius: 8px;
-  background: var(--color-parchment-warm);
-  color: var(--color-muted-ink);
+  background: var(--color-plate);
+  color: var(--color-muted);
   cursor: pointer;
 }
 
@@ -123,11 +124,11 @@ button {
   place-items: center;
   width: 44px;
   height: 44px;
-  border: 1px solid rgb(242 227 0 / 0.18);
+  border: 1px solid rgb(110 92 158 / 0.18);
   border-radius: 10px;
-  background: var(--color-parchment-warm);
-  box-shadow: inset 0 0 0 1px rgb(242 227 0 / 0.08);
-  color: var(--color-observatory-navy);
+  background: var(--color-plate);
+  box-shadow: inset 0 0 0 1px rgb(110 92 158 / 0.08);
+  color: var(--color-ink);
   flex-shrink: 0;
 }
 
@@ -145,7 +146,7 @@ button {
   border: 1px solid rgb(14 14 14 / 0.10);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(246 241 231 / 0.92)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   color: var(--color-ink);
   flex: 0 0 auto;
   box-shadow:
@@ -172,7 +173,7 @@ button {
 .cs-company-logo-fallback {
   position: relative;
   z-index: 1;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-weight: 780;
   line-height: 1;
 }
@@ -184,11 +185,11 @@ button {
 .cs-panel-company-logo {
   width: 44px;
   height: 44px;
-  border-color: rgb(242 227 0 / 0.18);
+  border-color: rgb(110 92 158 / 0.18);
   border-radius: 10px;
   box-shadow:
     0 12px 26px rgb(2 8 18 / 0.08),
-    inset 0 0 0 1px rgb(242 227 0 / 0.08);
+    inset 0 0 0 1px rgb(110 92 158 / 0.08);
 }
 
 .cs-panel-company-logo .cs-company-logo-fallback {
@@ -197,7 +198,7 @@ button {
 
 .cs-extension-kicker {
   margin: 0 0 5px;
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.04em;
@@ -219,14 +220,14 @@ button {
 .cs-extension-copy,
 .cs-extension-error {
   margin: 5px 0 0;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .cs-extension-error {
-  color: var(--color-signal-amber);
+  color: var(--color-conflict);
 }
 
 .cs-extension-form {
@@ -238,7 +239,7 @@ button {
 .cs-extension-field {
   display: grid;
   gap: 8px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 720;
@@ -253,9 +254,9 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(250 247 239 / 0.82)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 650;
   letter-spacing: 0;
@@ -265,9 +266,9 @@ button {
 }
 
 .cs-extension-field input:focus {
-  border-color: var(--color-lens-blue);
+  border-color: var(--color-seal);
   box-shadow:
-    0 0 0 3px rgb(242 227 0 / 0.10),
+    0 0 0 3px rgb(110 92 158 / 0.10),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -296,7 +297,7 @@ button {
 .cs-extension-button {
   border: 1px solid var(--color-ink);
   background: var(--color-ink);
-  color: var(--color-parchment);
+  color: var(--color-plate);
   box-shadow:
     0 12px 26px rgb(2 8 18 / 0.14),
     0 1px 0 rgb(255 255 255 / 0.14) inset;
@@ -306,7 +307,7 @@ button {
   border: 1px solid rgb(212 197 158 / 0.78);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(250 247 239 / 0.72)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   color: var(--color-ink);
   box-shadow: 0 1px 0 rgb(255 255 255 / 0.74) inset;
 }
@@ -314,9 +315,9 @@ button {
 .cs-cache-card,
 .cs-gate-card,
 .cs-live-card {
-  border: 1px solid var(--color-hairline);
+  border: 1px solid var(--color-rule);
   border-radius: 12px;
-  background: var(--color-parchment-warm);
+  background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(14 14 14 / 0.03);
 }
 
@@ -324,7 +325,7 @@ button {
   display: grid;
   align-content: start;
   gap: 16px;
-  background: var(--color-bone-deep);
+  background: var(--color-field);
 }
 
 .cs-start-panel {
@@ -346,7 +347,7 @@ button {
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(252 250 245 / 0.90)),
-    var(--color-parchment);
+    var(--color-plate);
   content: "";
   pointer-events: none;
 }
@@ -390,7 +391,7 @@ button {
   max-width: 240px;
   margin: 0;
   color: #050505;
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: clamp(42px, 11.8vw, 54px);
   font-weight: 700;
   letter-spacing: 0;
@@ -424,7 +425,7 @@ button {
   min-width: 0;
   border: 1px solid #050607;
   background: linear-gradient(180deg, #17191a, #050607);
-  color: var(--color-parchment);
+  color: var(--color-plate);
   padding: 0 15px 0 17px;
   box-shadow: 0 12px 26px rgb(2 8 18 / 0.18);
 }
@@ -460,12 +461,12 @@ button {
   border-color: rgb(216 213 202 / 0.88);
   background:
     linear-gradient(180deg, rgb(255 254 250 / 0.98), rgb(247 242 232 / 0.92)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow: 0 8px 18px rgb(2 8 18 / 0.08);
 }
 
 .cs-start-company-logo .cs-company-logo-fallback {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 25px;
   font-weight: 720;
 }
@@ -478,7 +479,7 @@ button {
   margin: 0;
   overflow: hidden;
   color: var(--color-ink);
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 720;
   letter-spacing: 0;
@@ -490,7 +491,7 @@ button {
 .cs-start-company-copy p {
   margin: 5px 0 0;
   overflow: hidden;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -500,7 +501,7 @@ button {
 .cs-start-company-rule {
   width: 1px;
   height: 28px;
-  background: var(--color-soft-sand);
+  background: var(--color-rule);
 }
 
 .cs-start-status {
@@ -548,11 +549,11 @@ button {
   gap: 12px;
   align-items: center;
   min-height: 62px;
-  border: 1px solid var(--color-soft-sand);
+  border: 1px solid var(--color-rule);
   border-radius: 9px;
   background:
     linear-gradient(180deg, rgb(255 254 250 / 0.98), rgb(253 250 243 / 0.97)),
-    var(--color-parchment);
+    var(--color-plate);
   padding: 8px 12px;
   box-shadow:
     0 14px 30px rgb(2 8 18 / 0.075),
@@ -601,7 +602,7 @@ button {
 .cs-start-pass-card[data-tone="people"] .cs-start-pass-icon {
   border-color: #d8e6fa;
   background: #eaf3ff;
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
 }
 
 .cs-start-pass-card[data-tone="funding"] .cs-start-pass-icon {
@@ -615,7 +616,7 @@ button {
 .cs-start-pass-card[data-tone="signals"] .cs-start-pass-icon {
   border-color: #e3ddf5;
   background: #f2eeff;
-  color: #34308a;
+  color: #4a3f72;
 }
 
 .cs-start-pass-card[data-tone="citations"] .cs-start-pass-icon {
@@ -633,7 +634,7 @@ button {
 .cs-start-pass-copy strong {
   overflow: hidden;
   color: var(--color-ink);
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 19px;
   font-weight: 720;
   letter-spacing: 0;
@@ -644,7 +645,7 @@ button {
 
 .cs-start-pass-copy span {
   overflow: hidden;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.18;
   text-overflow: ellipsis;
@@ -682,18 +683,18 @@ button {
 }
 
 .cs-intake-panel .cs-panel-brand-mark {
-  border-color: rgb(242 227 0 / 0.34);
+  border-color: rgb(110 92 158 / 0.34);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(246 241 231 / 0.90)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 14px 30px rgb(2 8 18 / 0.08),
-    inset 0 0 0 1px rgb(242 227 0 / 0.08);
+    inset 0 0 0 1px rgb(110 92 158 / 0.08);
 }
 
 .cs-intake-panel .cs-extension-kicker {
   margin-bottom: 8px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 720;
@@ -701,7 +702,7 @@ button {
 }
 
 .cs-intake-panel .cs-panel-header h1 {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 30px;
   font-weight: 650;
   line-height: 0.98;
@@ -721,7 +722,7 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(250 247 239 / 0.74)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 12px 30px rgb(2 8 18 / 0.045),
     0 1px 0 rgb(255 255 255 / 0.78) inset;
@@ -731,9 +732,7 @@ button {
 .cs-access-card::before {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.045), transparent 42%, rgb(255 61 46 / 0.035)),
-    linear-gradient(180deg, rgb(255 255 255 / 0.30), transparent 48%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 48%);
   content: "";
   pointer-events: none;
 }
@@ -754,7 +753,7 @@ button {
 }
 
 .cs-access-card-head span {
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 760;
@@ -781,7 +780,7 @@ button {
 }
 
 .cs-access-card .cs-extension-actions > span {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   font-weight: 640;
   line-height: 1.2;
@@ -808,7 +807,7 @@ button {
 .cs-live-copy p,
 .cs-gate-card p {
   margin: 4px 0 0;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -816,8 +815,8 @@ button {
 .cs-cache-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid var(--color-hairline);
-  border-top-color: var(--color-lens-blue);
+  border: 2px solid var(--color-rule);
+  border-top-color: var(--color-seal);
   border-radius: 999px;
 }
 
@@ -831,7 +830,7 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(250 247 239 / 0.80)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 14px 34px rgb(2 8 18 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.78) inset;
@@ -840,9 +839,7 @@ button {
 .cs-gate-card::before {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 14% 0%, rgb(242 227 0 / 0.07), transparent 34%),
-    linear-gradient(90deg, transparent, rgb(255 61 46 / 0.045));
+  background: radial-gradient(circle at 14% 0%, rgb(110 92 158 / 0.05), transparent 34%);
   content: "";
   pointer-events: none;
 }
@@ -865,22 +862,22 @@ button {
   justify-content: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgb(242 227 0 / 0.22);
+  border: 1px solid rgb(110 92 158 / 0.22);
   border-radius: 50%;
   background:
-    radial-gradient(circle at 40% 32%, rgb(95 180 255 / 0.20), transparent 62%),
-    rgb(242 227 0 / 0.055);
-  color: var(--color-lens-blue);
+    radial-gradient(circle at 40% 32%, rgb(110 92 158 / 0.20), transparent 62%),
+    rgb(110 92 158 / 0.055);
+  color: var(--color-seal);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 780;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.055);
+  box-shadow: 0 0 0 5px rgb(110 92 158 / 0.055);
 }
 
 .cs-pass-lockup span:not(.cs-pass-index) {
   display: block;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 720;
@@ -892,7 +889,7 @@ button {
 .cs-pass-lockup h2 {
   margin: 8px 0 0;
   color: var(--color-ink);
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 24px;
   font-weight: 620;
   letter-spacing: 0;
@@ -908,7 +905,7 @@ button {
 }
 
 .cs-generation-panel {
-  background: var(--color-bone-deep);
+  background: var(--color-field);
   padding-bottom: 16px;
 }
 
@@ -924,7 +921,7 @@ button {
 .cs-generation-logo {
   width: 44px;
   height: 44px;
-  border-color: rgb(242 227 0 / 0.16);
+  border-color: rgb(110 92 158 / 0.16);
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(245 249 248 / 0.86)),
@@ -941,9 +938,9 @@ button {
   border-radius: 8px;
   background:
     radial-gradient(circle at 44% 34%, rgb(255 255 255 / 0.28), transparent 36%),
-    linear-gradient(135deg, rgb(10 10 10 / 0.92), rgb(242 227 0 / 0.86));
+    linear-gradient(135deg, rgb(10 10 10 / 0.92), rgb(110 92 158 / 0.86));
   box-shadow:
-    0 8px 18px rgb(242 227 0 / 0.16),
+    0 8px 18px rgb(110 92 158 / 0.16),
     0 0 0 1px rgb(255 255 255 / 0.28) inset;
   content: "";
 }
@@ -968,7 +965,7 @@ button {
 }
 
 .cs-generation-status {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 740;
   letter-spacing: 0;
@@ -978,7 +975,7 @@ button {
 .cs-generation-hero h1 {
   margin-top: 4px;
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 780;
   letter-spacing: 0;
@@ -988,7 +985,7 @@ button {
 
 .cs-generation-domain {
   margin-top: 5px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 13px;
   line-height: 1.15;
   overflow-wrap: anywhere;
@@ -1061,7 +1058,7 @@ button {
   padding: 14px 16px 12px;
   border-bottom: 1px solid rgb(190 211 220 / 0.48);
   color: rgb(113 128 145);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.12em;
@@ -1125,12 +1122,12 @@ button {
 }
 
 .cs-run-steps li[data-active="true"] .cs-run-step-index {
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
 }
 
 .cs-run-steps li[data-active="true"] i {
-  background: var(--color-lens-blue);
-  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.08);
+  background: var(--color-seal);
+  box-shadow: 0 0 0 5px rgb(110 92 158 / 0.08);
 }
 
 .cs-run-steps li[data-complete="true"] {
@@ -1168,7 +1165,7 @@ button {
   min-width: 0;
   padding-top: 19px;
   color: rgb(95 98 92 / 0.70);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 680;
   letter-spacing: 0;
@@ -1183,12 +1180,12 @@ button {
   height: 9px;
   border: 1px solid rgb(216 213 202 / 0.90);
   border-radius: 50%;
-  background: var(--color-parchment-warm);
+  background: var(--color-plate);
   content: "";
 }
 
 .cs-live-stage-axis span {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 9px;
   font-weight: 760;
 }
@@ -1198,9 +1195,9 @@ button {
 }
 
 .cs-live-stage-axis li[data-active="true"]::before {
-  border-color: rgb(242 227 0 / 0.42);
-  background: var(--color-lens-blue);
-  box-shadow: 0 0 0 5px rgb(242 227 0 / 0.08);
+  border-color: rgb(110 92 158 / 0.42);
+  background: var(--color-seal);
+  box-shadow: 0 0 0 5px rgb(110 92 158 / 0.08);
 }
 
 .cs-live-progress-track {
@@ -1240,12 +1237,12 @@ button {
   overflow: hidden;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, var(--color-lens-blue), rgb(102 187 255 / 0.96), var(--color-lens-blue)),
-    var(--color-lens-blue);
+    linear-gradient(90deg, var(--color-seal), rgb(110 92 158 / 0.96), var(--color-seal)),
+    var(--color-seal);
   background-size: 180% 100%;
   box-shadow:
-    0 0 0 1px rgb(242 227 0 / 0.08),
-    0 8px 18px rgb(242 227 0 / 0.14);
+    0 0 0 1px rgb(110 92 158 / 0.08),
+    0 8px 18px rgb(110 92 158 / 0.14);
   transform: translateY(-50%);
 }
 
@@ -1267,10 +1264,10 @@ button {
   height: 14px;
   border: 3px solid rgb(232 241 255 / 0.96);
   border-radius: 999px;
-  background: var(--color-lens-blue);
+  background: var(--color-seal);
   box-shadow:
-    0 0 0 8px rgb(242 227 0 / 0.08),
-    0 8px 18px rgb(242 227 0 / 0.20);
+    0 0 0 8px rgb(110 92 158 / 0.08),
+    0 8px 18px rgb(110 92 158 / 0.20);
   transform: translate(-50%, -50%);
 }
 
@@ -1280,9 +1277,9 @@ button {
       in oklch 112deg,
       var(--color-ink) 0%,
       var(--color-ink) 34%,
-      #0f5fe4 45%,
-      #8dccff 52%,
-      #1674ff 58%,
+      #6e5c9e 45%,
+      #b3a6d4 52%,
+      #6e5c9e 58%,
       var(--color-ink) 68%,
       var(--color-ink) 100%
     );
@@ -1299,7 +1296,7 @@ button {
   gap: 10px;
   min-height: 100vh;
   padding: 12px;
-  background: var(--color-bone-deep);
+  background: var(--color-field);
   color: var(--color-ink);
 }
 
@@ -1315,7 +1312,7 @@ button {
 .cs-research-layer-head,
 .cs-active-enrichment small,
 .cs-dormant-card small {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
 }
 
 .cs-research-label,
@@ -1330,7 +1327,7 @@ button {
 
 .cs-company-context,
 .cs-research-layer {
-  border: 1px solid var(--color-hairline);
+  border: 1px solid var(--color-rule);
   border-radius: 8px;
   background: rgb(252 250 245 / 0.82);
   box-shadow: 0 10px 34px rgb(2 8 18 / 0.06), 0 1px 0 rgb(255 255 255 / 0.65) inset;
@@ -1365,7 +1362,7 @@ button {
 
 .cs-partial-profile h1 {
   margin-top: 6px;
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 34px;
   font-weight: 620;
   letter-spacing: 0;
@@ -1375,7 +1372,7 @@ button {
 .cs-partial-profile-copy > p:not(.cs-research-label) {
   max-width: 520px;
   margin-top: 10px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 13.5px;
   line-height: 1.42;
 }
@@ -1398,7 +1395,7 @@ button {
 }
 
 .cs-partial-profile-status dt {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -1432,7 +1429,7 @@ button {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.035), transparent 34%, rgb(255 61 46 / 0.035)),
+    linear-gradient(90deg, rgb(110 92 158 / 0.035), transparent 34%, rgb(255 61 46 / 0.035)),
     linear-gradient(180deg, rgb(255 255 255 / 0.38), transparent 48%);
   content: "";
   pointer-events: none;
@@ -1461,7 +1458,7 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(242 237 226 / 0.92)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 16px 32px rgb(2 8 18 / 0.10),
     0 1px 0 rgb(255 255 255 / 0.86) inset,
@@ -1482,7 +1479,7 @@ button {
 }
 
 .cs-company-context h1 {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 31px;
   font-weight: 500;
   letter-spacing: 0;
@@ -1491,7 +1488,7 @@ button {
 
 .cs-company-context-main p:not(.cs-research-label) {
   margin-top: 9px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 13.5px;
   line-height: 1.42;
 }
@@ -1554,7 +1551,7 @@ button {
 .cs-company-facts small {
   display: block;
   margin-top: 6px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 10px;
   font-weight: 640;
   letter-spacing: 0;
@@ -1568,7 +1565,7 @@ button {
 .cs-research-layer-head {
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-rule);
 }
 
 .cs-research-progress {
@@ -1580,7 +1577,7 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.82), rgb(250 247 239 / 0.72)),
-    var(--color-parchment-warm);
+    var(--color-plate);
 }
 
 .cs-research-progress-main {
@@ -1594,8 +1591,8 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--color-lens-blue);
-  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
+  background: var(--color-seal);
+  box-shadow: 0 0 0 4px rgb(110 92 158 / 0.10);
 }
 
 .cs-research-progress-dot[data-running="true"] {
@@ -1606,7 +1603,7 @@ button {
   display: block;
   overflow: hidden;
   color: var(--color-ink);
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 720;
   letter-spacing: 0;
@@ -1618,7 +1615,7 @@ button {
 .cs-research-progress small {
   display: block;
   margin-top: 5px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0;
@@ -1627,10 +1624,10 @@ button {
 
 .cs-research-progress-event {
   padding: 8px 10px;
-  border: 1px solid rgb(242 227 0 / 0.18);
+  border: 1px solid rgb(110 92 158 / 0.18);
   border-radius: 7px;
   background: rgb(235 243 255 / 0.62);
-  color: #1d3659;
+  color: #3a3358;
   font-size: 12px;
   line-height: 1.35;
 }
@@ -1647,10 +1644,10 @@ button {
   min-width: 0;
   max-width: 132px;
   padding: 7px 9px;
-  border: 1px solid rgb(242 227 0 / 0.20);
+  border: 1px solid rgb(110 92 158 / 0.20);
   border-radius: 8px;
   background: rgb(255 255 255 / 0.46);
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   text-decoration: none;
 }
 
@@ -1668,7 +1665,7 @@ button {
 
 .cs-research-source-strip small {
   margin: 0;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -1679,7 +1676,7 @@ button {
 }
 
 .cs-research-activity summary {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   cursor: pointer;
   font-size: 11px;
   font-weight: 760;
@@ -1693,7 +1690,7 @@ button {
 }
 
 .cs-research-activity li {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 11px;
   line-height: 1.35;
 }
@@ -1711,7 +1708,7 @@ button {
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(250 247 239 / 0.72)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow: 0 9px 24px rgb(2 8 18 / 0.05), 0 1px 0 rgb(255 255 255 / 0.78) inset;
 }
 
@@ -1743,8 +1740,8 @@ button {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--color-lens-blue);
-  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
+  background: var(--color-seal);
+  box-shadow: 0 0 0 4px rgb(110 92 158 / 0.10);
   flex: 0 0 auto;
 }
 
@@ -1757,7 +1754,7 @@ button {
 
 .cs-active-enrichment strong,
 .cs-dormant-card strong {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-weight: 520;
   letter-spacing: 0;
 }
@@ -1783,7 +1780,7 @@ button {
   justify-content: center;
   width: 20px;
   height: 20px;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1;
@@ -1843,7 +1840,7 @@ button {
   margin-top: 4px;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgb(230 223 201 / 0.36), rgb(242 227 0 / 0.16), rgb(230 223 201 / 0.36));
+    linear-gradient(90deg, rgb(230 223 201 / 0.36), rgb(110 92 158 / 0.16), rgb(230 223 201 / 0.36));
   background-size: 220% 100%;
 }
 
@@ -1855,18 +1852,18 @@ button {
 .cs-layer-action {
   width: fit-content;
   margin-top: 10px;
-  border: 1px solid rgb(242 227 0 / 0.34);
+  border: 1px solid rgb(110 92 158 / 0.34);
   border-radius: 7px;
-  background: rgb(242 227 0 / 0.08);
-  color: var(--color-lens-blue);
+  background: rgb(110 92 158 / 0.08);
+  color: var(--color-seal);
   cursor: pointer;
-  font: 700 12px/1 var(--font-sans);
+  font: 700 12px/1 var(--font-body);
   letter-spacing: 0;
   padding: 8px 11px;
 }
 
 .cs-layer-action:hover {
-  background: rgb(242 227 0 / 0.13);
+  background: rgb(110 92 158 / 0.13);
 }
 
 .cs-layer-rows,
@@ -1893,7 +1890,7 @@ button {
 
 .cs-layer-rows dt {
   margin: 0;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 720;
@@ -1928,7 +1925,7 @@ button {
 .cs-layer-items strong {
   display: block;
   color: var(--color-ink);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 740;
   letter-spacing: 0;
@@ -1941,10 +1938,10 @@ button {
 }
 
 .cs-layer-items-funding li:first-child {
-  border-color: rgb(242 227 0 / 0.16);
+  border-color: rgb(110 92 158 / 0.16);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(250 247 239 / 0.70)),
-    rgb(242 227 0 / 0.04);
+    rgb(110 92 158 / 0.04);
 }
 
 .cs-layer-items-funding li:first-child strong {
@@ -1952,7 +1949,7 @@ button {
 }
 
 .cs-layer-items span {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.04em;
@@ -1972,10 +1969,10 @@ button {
   align-items: center;
   max-width: 132px;
   min-height: 22px;
-  border: 1px solid rgb(242 227 0 / 0.20);
+  border: 1px solid rgb(110 92 158 / 0.20);
   border-radius: 6px;
-  background: rgb(242 227 0 / 0.055);
-  color: var(--color-lens-blue);
+  background: rgb(110 92 158 / 0.055);
+  color: var(--color-seal);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 720;
@@ -1999,14 +1996,14 @@ button {
 }
 
 .cs-source-chip-muted {
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   border-color: rgb(14 14 14 / 0.10);
   background: rgb(250 250 247 / 0.72);
 }
 
 .cs-research-notice p {
   margin: 5px 0 0;
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -2014,7 +2011,7 @@ button {
 .cs-research-notice {
   margin: 12px;
   padding: 12px;
-  border: 1px solid var(--color-hairline);
+  border: 1px solid var(--color-rule);
   border-radius: 8px;
   background: rgb(250 250 247 / 0.76);
 }
@@ -2030,7 +2027,7 @@ button {
   border: 1px solid var(--color-ink);
   border-radius: 8px;
   background: var(--color-ink);
-  color: var(--color-parchment);
+  color: var(--color-plate);
   cursor: pointer;
   font-size: 11px;
   font-weight: 760;
@@ -2053,12 +2050,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(242 227 0 / 0.22);
+  border: 1px solid rgb(110 92 158 / 0.22);
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.84), rgb(250 247 239 / 0.74)),
-    rgb(242 227 0 / 0.035);
-  color: var(--color-lens-blue);
+    rgb(110 92 158 / 0.035);
+  color: var(--color-seal);
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-weight: 760;
@@ -2081,12 +2078,12 @@ button {
 }
 
 .cs-card-tray[data-snap-preview="true"] .cs-drop-zone {
-  border-color: rgb(242 227 0 / 0.48);
+  border-color: rgb(110 92 158 / 0.48);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(239 247 255 / 0.82)),
-    rgb(242 227 0 / 0.06);
+    rgb(110 92 158 / 0.06);
   box-shadow:
-    0 0 0 3px rgb(242 227 0 / 0.075),
+    0 0 0 3px rgb(110 92 158 / 0.075),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
 }
 
@@ -2117,7 +2114,7 @@ button {
   border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(249 245 236 / 0.96)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   color: var(--color-ink);
   cursor: grab;
   padding: 10px 13px;
@@ -2143,15 +2140,15 @@ button {
 .cs-active-enrichment-head:focus-visible,
 .cs-research-notice button:focus-visible,
 .cs-source-chip:focus-visible {
-  outline: 2px solid var(--color-lens-blue);
+  outline: 2px solid var(--color-seal);
   outline-offset: 2px;
 }
 
 .cs-dormant-card[data-dragging="true"] {
-  border-color: rgb(242 227 0 / 0.38);
+  border-color: rgb(110 92 158 / 0.38);
   box-shadow:
     0 24px 42px rgb(2 8 18 / 0.16),
-    0 0 0 3px rgb(242 227 0 / 0.07),
+    0 0 0 3px rgb(110 92 158 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
@@ -2182,7 +2179,7 @@ button {
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: var(--color-lens-blue);
+  background: var(--color-seal);
   color: #fff;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -2229,7 +2226,7 @@ button {
 }
 
 .cs-panel-header h1 {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 24px;
   font-weight: 640;
   line-height: 1;
@@ -2237,8 +2234,8 @@ button {
 
 .cs-extension-kicker {
   margin-bottom: 4px;
-  color: var(--color-muted-ink);
-  font-family: var(--font-mona-sans);
+  color: var(--color-muted);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.04em;
@@ -2281,7 +2278,7 @@ button {
 
 .cs-intake-panel .cs-extension-kicker {
   margin-bottom: 5px;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 10px;
   letter-spacing: 0.05em;
 }
@@ -2308,7 +2305,7 @@ button {
   width: 34px;
   height: 34px;
   font-size: 9px;
-  box-shadow: 0 0 0 4px rgb(242 227 0 / 0.045);
+  box-shadow: 0 0 0 4px rgb(110 92 158 / 0.045);
 }
 
 .cs-pass-lockup h2 {
@@ -2382,8 +2379,8 @@ button {
 
 .cs-people-line-label,
 .cs-people-line-source {
-  color: var(--color-muted-ink);
-  font-family: var(--font-mona-sans);
+  color: var(--color-muted);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
   line-height: 1.2;
@@ -2419,10 +2416,10 @@ button {
 }
 
 .cs-people-person[data-has-email="true"] {
-  border-color: rgb(242 227 0 / 0.18);
+  border-color: rgb(110 92 158 / 0.18);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.72), rgb(250 247 239 / 0.58)),
-    rgb(242 227 0 / 0.04);
+    rgb(110 92 158 / 0.04);
 }
 
 .cs-people-name {
@@ -2456,7 +2453,7 @@ button {
 
 .cs-person-email a {
   min-width: 0;
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 720;
@@ -2467,11 +2464,11 @@ button {
 }
 
 .cs-person-email button {
-  border: 1px solid rgb(242 227 0 / 0.16);
+  border: 1px solid rgb(110 92 158 / 0.16);
   border-radius: 999px;
   padding: 1px 6px;
   background: rgb(255 253 248 / 0.80);
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   cursor: pointer;
   font: inherit;
   font-size: 9px;
@@ -2487,14 +2484,14 @@ button {
   border: 1px solid rgb(212 197 158 / 0.42);
   border-radius: 6px;
   background: rgb(250 250 247 / 0.42);
-  color: var(--color-muted-ink);
+  color: var(--color-muted);
   font-size: 11px;
   font-weight: 760;
 }
 
 .cs-research-layer-head {
   padding: 10px 13px;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
   letter-spacing: 0.05em;
@@ -2532,11 +2529,11 @@ button {
 .cs-active-dot {
   width: 6px;
   height: 6px;
-  box-shadow: 0 0 0 3px rgb(242 227 0 / 0.10);
+  box-shadow: 0 0 0 3px rgb(110 92 158 / 0.10);
 }
 
 .cs-active-enrichment strong {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 760;
   line-height: 1.08;
@@ -2591,7 +2588,7 @@ button {
 .cs-layer-items-funding li:first-child {
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.82), rgb(250 247 239 / 0.72)),
-    rgb(242 227 0 / 0.04);
+    rgb(110 92 158 / 0.04);
 }
 
 .cs-layer-items-funding li:first-child strong {
@@ -2616,7 +2613,7 @@ button {
   height: 28px;
   border-style: dashed;
   border-radius: 7px;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 9px;
   transform: translateY(4px) scale(0.992);
 }
@@ -2625,7 +2622,7 @@ button {
   min-height: 248px;
   border-color: rgb(190 211 220 / 0.28);
   background:
-    radial-gradient(circle at 86% 0%, rgb(242 227 0 / 0.06), transparent 24%),
+    radial-gradient(circle at 86% 0%, rgb(110 92 158 / 0.06), transparent 24%),
     linear-gradient(180deg, rgb(255 253 248 / 0.10), rgb(230 241 255 / 0.08)),
     rgb(250 250 247 / 0.08);
   box-shadow: 0 12px 28px rgb(2 8 18 / 0.016) inset;
@@ -2639,7 +2636,7 @@ button {
   border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(244 250 253 / 0.94)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   padding: 8px 10px;
   box-shadow:
     0 8px 15px rgb(2 8 18 / 0.075),
@@ -2658,7 +2655,7 @@ button {
 }
 
 .cs-dormant-card strong {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 780;
 }
@@ -2676,7 +2673,7 @@ button {
 .cs-dormant-card[data-dragging="true"] {
   box-shadow:
     0 16px 28px rgb(2 8 18 / 0.13),
-    0 0 0 2px rgb(242 227 0 / 0.065),
+    0 0 0 2px rgb(110 92 158 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
@@ -2727,15 +2724,15 @@ button {
   0%,
   100% {
     box-shadow:
-      0 0 0 6px rgb(242 227 0 / 0.07),
-      0 0 16px rgb(242 227 0 / 0.22),
+      0 0 0 6px rgb(110 92 158 / 0.07),
+      0 0 16px rgb(110 92 158 / 0.22),
       0 5px 12px rgb(2 8 18 / 0.12);
   }
 
   52% {
     box-shadow:
-      0 0 0 9px rgb(242 227 0 / 0.11),
-      0 0 22px rgb(242 227 0 / 0.30),
+      0 0 0 9px rgb(110 92 158 / 0.11),
+      0 0 22px rgb(110 92 158 / 0.30),
       0 5px 12px rgb(2 8 18 / 0.12);
   }
 }
@@ -3043,7 +3040,7 @@ body,
 /* Focused beauty pass: preserve slab interaction, tune hierarchy and contact density. */
 .cs-research-shell,
 .cs-generation-panel {
-  background: var(--color-bone-deep);
+  background: var(--color-field);
 }
 
 .cs-generation-panel {
@@ -3072,8 +3069,8 @@ body,
 }
 
 .cs-generation-logo .cs-company-logo-fallback {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 34px;
   font-weight: 650;
 }
@@ -3089,8 +3086,8 @@ body,
 
 .cs-generation-hero h1 {
   margin-top: 8px;
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: clamp(30px, 7.5vw, 42px);
   font-weight: 650;
   line-height: 0.96;
@@ -3108,8 +3105,8 @@ body,
 }
 
 .cs-generation-run-time strong {
-  color: var(--color-lens-blue);
-  font-family: var(--font-fraunces);
+  color: var(--color-seal);
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 650;
 }
@@ -3120,7 +3117,7 @@ body,
   border-color: rgb(216 208 191 / 0.82);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(252 250 245 / 0.84)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 18px 38px rgb(2 8 18 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.84) inset;
@@ -3136,7 +3133,7 @@ body,
 }
 
 .cs-live-field-head span:last-child {
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   font-size: 13px;
   letter-spacing: 0.12em;
 }
@@ -3149,14 +3146,14 @@ body,
   grid-template-columns: 48px minmax(0, 1fr) 18px;
   min-height: 46px;
   color: rgb(8 25 44 / 0.88);
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 17px;
   font-weight: 520;
 }
 
 .cs-run-step-index {
   color: rgb(8 25 44 / 0.48);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 13px;
   letter-spacing: 0.08em;
 }
@@ -3171,7 +3168,7 @@ body,
   border-color: rgb(216 208 191 / 0.88);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(252 250 245 / 0.83)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 17px 36px rgb(2 8 18 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
@@ -3180,7 +3177,7 @@ body,
 .cs-company-context::before {
   background:
     linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 50%),
-    linear-gradient(90deg, rgb(242 227 0 / 0.022), transparent 38%, rgb(216 208 191 / 0.16));
+    linear-gradient(90deg, rgb(110 92 158 / 0.022), transparent 38%, rgb(216 208 191 / 0.16));
   opacity: 1;
 }
 
@@ -3201,14 +3198,14 @@ body,
 }
 
 .cs-company-logo .cs-company-logo-fallback {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 32px;
   font-weight: 650;
 }
 
 .cs-company-context h1 {
-  color: var(--color-observatory-navy);
+  color: var(--color-ink);
   font-size: clamp(31px, 7.4vw, 42px);
   font-weight: 650;
   line-height: 0.94;
@@ -3218,7 +3215,7 @@ body,
   display: inline-flex;
   max-width: 100%;
   margin-top: 8px;
-  color: #075ecf;
+  color: #6e5c9e;
   font-size: 14px;
   font-weight: 650;
   line-height: 1.2;
@@ -3230,7 +3227,7 @@ body,
 
 .cs-company-domain::after {
   margin-left: 8px;
-  color: #075ecf;
+  color: #6e5c9e;
   content: "↗";
   font-size: 12px;
 }
@@ -3280,8 +3277,8 @@ body,
 }
 
 .cs-company-facts dd {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 620;
   line-height: 1.08;
@@ -3289,7 +3286,7 @@ body,
 
 .cs-company-facts small {
   color: rgb(8 25 44 / 0.56);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12px;
 }
 
@@ -3306,7 +3303,7 @@ body,
 
 .cs-people-line-source {
   color: rgb(8 25 44 / 0.65);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -3332,10 +3329,10 @@ body,
 }
 
 .cs-people-person[data-has-email="true"] {
-  border-color: rgb(242 227 0 / 0.26);
+  border-color: rgb(110 92 158 / 0.26);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(246 250 255 / 0.72)),
-    rgb(242 227 0 / 0.045);
+    rgb(110 92 158 / 0.045);
 }
 
 .cs-person-avatar {
@@ -3348,9 +3345,9 @@ body,
   border-radius: 999px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(246 241 231 / 0.82)),
-    var(--color-parchment-warm);
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+    var(--color-plate);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -3363,8 +3360,8 @@ body,
 }
 
 .cs-people-name {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 620;
 }
@@ -3389,11 +3386,11 @@ body,
   max-width: 100%;
   min-height: 22px;
   align-items: center;
-  border: 1px solid rgb(242 227 0 / 0.20);
+  border: 1px solid rgb(110 92 158 / 0.20);
   border-radius: 999px;
-  background: rgb(242 227 0 / 0.06);
-  color: var(--color-lens-blue);
-  font-family: var(--font-mona-sans);
+  background: rgb(110 92 158 / 0.06);
+  color: var(--color-seal);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
   padding: 0 9px;
@@ -3401,11 +3398,11 @@ body,
 
 .cs-person-email button {
   min-height: 22px;
-  border-color: rgb(242 227 0 / 0.18);
+  border-color: rgb(110 92 158 / 0.18);
   border-radius: 999px;
   background: rgb(255 253 248 / 0.88);
   color: rgb(8 25 44 / 0.62);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 10px;
   padding: 0 8px;
 }
@@ -3418,8 +3415,8 @@ body,
   height: 30px;
   border: 1px solid rgb(216 208 191 / 0.72);
   border-radius: 999px;
-  color: var(--color-lens-blue);
-  font-family: var(--font-mona-sans);
+  color: var(--color-seal);
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 760;
 }
@@ -3446,7 +3443,7 @@ body,
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(252 250 245 / 0.84)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 9px 22px rgb(2 8 18 / 0.045),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
@@ -3455,21 +3452,21 @@ body,
 .cs-active-enrichment[data-expanded="true"] {
   box-shadow:
     0 15px 34px rgb(2 8 18 / 0.07),
-    0 0 0 1px rgb(242 227 0 / 0.06),
+    0 0 0 1px rgb(110 92 158 / 0.06),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
 .cs-active-enrichment[data-state="running"] {
-  border-color: rgb(242 227 0 / 0.26);
+  border-color: rgb(110 92 158 / 0.26);
   background:
     linear-gradient(135deg, rgb(255 253 248 / 0.96), rgb(239 247 255 / 0.76)),
-    var(--color-parchment-warm);
+    var(--color-plate);
 }
 
 .cs-active-enrichment[data-state="running"][data-expanded="false"] {
   box-shadow:
-    0 10px 24px rgb(242 227 0 / 0.09),
-    0 0 0 1px rgb(242 227 0 / 0.09),
+    0 10px 24px rgb(110 92 158 / 0.09),
+    0 0 0 1px rgb(110 92 158 / 0.09),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -3480,7 +3477,7 @@ body,
   left: 44px;
   height: 2px;
   border-radius: 999px 999px 0 0;
-  background: linear-gradient(90deg, transparent, var(--color-lens-blue), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-seal), transparent);
   content: "";
   opacity: 0.72;
   pointer-events: none;
@@ -3502,12 +3499,12 @@ body,
 .cs-active-dot {
   width: 8px;
   height: 8px;
-  box-shadow: 0 0 0 6px rgb(242 227 0 / 0.10);
+  box-shadow: 0 0 0 6px rgb(110 92 158 / 0.10);
 }
 
 .cs-active-enrichment strong {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 21px;
   font-weight: 620;
 }
@@ -3544,8 +3541,8 @@ body,
 }
 
 .cs-layer-items strong {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 16px;
   font-weight: 620;
 }
@@ -3580,7 +3577,7 @@ body,
 }
 
 .cs-layer-running-copy span {
-  font-family: var(--font-fraunces);
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 620;
 }
@@ -3592,7 +3589,7 @@ body,
   height: 8px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgb(242 227 0 / 0.10);
+  background: rgb(110 92 158 / 0.10);
 }
 
 .cs-layer-progress span {
@@ -3600,23 +3597,23 @@ body,
   width: 64%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--color-lens-blue), #66bbff);
-  box-shadow: 0 8px 18px rgb(242 227 0 / 0.14);
+  background: linear-gradient(90deg, var(--color-seal), #66bbff);
+  box-shadow: 0 8px 18px rgb(110 92 158 / 0.14);
 }
 
 .cs-layer-skeleton {
   height: 6px;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.08), rgb(242 227 0 / 0.18), rgb(242 227 0 / 0.08));
+    linear-gradient(90deg, rgb(110 92 158 / 0.08), rgb(110 92 158 / 0.18), rgb(110 92 158 / 0.08));
 }
 
 .cs-source-chip {
   min-height: 24px;
   max-width: 152px;
-  border-color: rgb(242 227 0 / 0.22);
+  border-color: rgb(110 92 158 / 0.22);
   border-radius: 7px;
-  background: rgb(242 227 0 / 0.06);
-  font-family: var(--font-mona-sans);
+  background: rgb(110 92 158 / 0.06);
+  font-family: var(--font-body);
   font-size: 10.5px;
 }
 
@@ -3644,23 +3641,23 @@ body,
   border-radius: 8px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(252 250 245 / 0.95)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 13px 24px rgb(2 8 18 / 0.085),
     0 1px 0 rgb(255 255 255 / 0.88) inset;
 }
 
 .cs-dormant-card strong {
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 620;
 }
 
 .cs-card-plus {
-  border: 1px solid rgb(242 227 0 / 0.62);
-  background: rgb(242 227 0 / 0.08);
-  color: var(--color-lens-blue);
+  border: 1px solid rgb(110 92 158 / 0.62);
+  background: rgb(110 92 158 / 0.08);
+  color: var(--color-seal);
 }
 
 .cs-extension-button,
@@ -3709,12 +3706,12 @@ body,
   }
 
   .cs-source-chip:hover {
-    border-color: rgb(242 227 0 / 0.42);
-    background: rgb(242 227 0 / 0.09);
+    border-color: rgb(110 92 158 / 0.42);
+    background: rgb(110 92 158 / 0.09);
   }
 
   .cs-company-domain:hover {
-    color: var(--color-lens-blue);
+    color: var(--color-seal);
   }
 
   .cs-dormant-card:hover {
@@ -3765,7 +3762,7 @@ body,
 
 /* Type calibration from the Hanover Park and August mockups. */
 body {
-  --font-mono: var(--font-mona-sans);
+  --font-mono: var(--font-body);
 }
 
 .cs-generation-status,
@@ -3777,7 +3774,7 @@ body {
 .cs-layer-rows dt,
 .cs-layer-items span,
 .cs-source-chip {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
 }
 
 .cs-company-context-main {
@@ -3833,7 +3830,7 @@ body {
 }
 
 .cs-company-facts dd {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 760;
   line-height: 1.16;
@@ -3872,7 +3869,7 @@ body {
 }
 
 .cs-people-name {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 13.5px;
   font-weight: 760;
   line-height: 1.18;
@@ -3929,7 +3926,7 @@ body {
 }
 
 .cs-layer-running-copy span {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 720;
   line-height: 1.3;
@@ -3939,15 +3936,15 @@ body {
   height: 7px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.08), rgb(190 211 220 / 0.28), rgb(242 227 0 / 0.08));
+    linear-gradient(90deg, rgb(110 92 158 / 0.08), rgb(190 211 220 / 0.28), rgb(110 92 158 / 0.08));
   background-size: 180% 100%;
 }
 
 .cs-layer-progress span {
   width: 42%;
   background:
-    linear-gradient(90deg, transparent, var(--color-lens-blue), rgb(95 180 255 / 0.86), transparent);
-  box-shadow: 0 7px 16px rgb(242 227 0 / 0.12);
+    linear-gradient(90deg, transparent, var(--color-seal), rgb(110 92 158 / 0.86), transparent);
+  box-shadow: 0 7px 16px rgb(110 92 158 / 0.12);
   transform: translateX(-62%);
 }
 
@@ -3955,7 +3952,7 @@ body {
   height: 5px;
   overflow: hidden;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.055), rgb(190 211 220 / 0.16), rgb(242 227 0 / 0.055));
+    linear-gradient(90deg, rgb(110 92 158 / 0.055), rgb(190 211 220 / 0.16), rgb(110 92 158 / 0.055));
   background-size: 220% 100%;
 }
 
@@ -3973,7 +3970,7 @@ body {
 
 .cs-layer-items strong,
 .cs-layer-items-funding li:first-child strong {
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 760;
   line-height: 1.22;
@@ -4011,7 +4008,7 @@ body {
 
 .cs-run-steps li {
   min-height: 40px;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 720;
 }
@@ -4063,9 +4060,9 @@ body {
   overflow: hidden;
   border-color: rgb(216 208 191 / 0.88);
   background:
-    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(242 227 0 / 0.10), transparent 30%),
+    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(110 92 158 / 0.10), transparent 30%),
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.86)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 18px 38px rgb(2 8 18 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
@@ -4075,7 +4072,7 @@ body {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.035), transparent 42%, rgb(216 208 191 / 0.17)),
+    linear-gradient(90deg, rgb(110 92 158 / 0.035), transparent 42%, rgb(216 208 191 / 0.17)),
     repeating-linear-gradient(0deg, transparent 0 23px, rgb(216 208 191 / 0.10) 23px 24px);
   content: "";
   opacity: calc(0.38 + (var(--cs-source-pass-tension, 0.4) * 0.2));
@@ -4090,7 +4087,7 @@ body {
 }
 
 .cs-source-pass-head span:last-child {
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   font-size: 13px;
   font-weight: 820;
   letter-spacing: 0.14em;
@@ -4111,21 +4108,21 @@ body {
   width: 34px;
   height: 34px;
   place-items: center;
-  border: 1px solid rgb(242 227 0 / 0.26);
+  border: 1px solid rgb(110 92 158 / 0.26);
   border-radius: 999px;
-  background: rgb(242 227 0 / 0.065);
-  color: var(--color-lens-blue);
-  font-family: var(--font-mona-sans);
+  background: rgb(110 92 158 / 0.065);
+  color: var(--color-seal);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 840;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(242 227 0 / 0.06);
+  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(110 92 158 / 0.06);
 }
 
 .cs-source-pass-now h2 {
   margin: -2px 0 0;
-  color: var(--color-observatory-navy);
-  font-family: var(--font-fraunces);
+  color: var(--color-ink);
+  font-family: var(--font-display);
   font-size: clamp(28px, 8.4vw, 40px);
   font-weight: 650;
   line-height: 0.96;
@@ -4134,7 +4131,7 @@ body {
 .cs-source-pass-now p {
   margin: 7px 0 0;
   color: rgb(8 25 44 / 0.58);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 680;
   letter-spacing: 0;
@@ -4177,12 +4174,12 @@ body {
   overflow: hidden;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, var(--color-lens-blue), rgb(95 180 255 / 0.95), var(--color-lens-blue)),
-    var(--color-lens-blue);
+    linear-gradient(90deg, var(--color-seal), rgb(110 92 158 / 0.95), var(--color-seal)),
+    var(--color-seal);
   background-size: 190% 100%;
   box-shadow:
-    0 0 0 1px rgb(242 227 0 / 0.10),
-    0 10px 20px rgb(242 227 0 / 0.16);
+    0 0 0 1px rgb(110 92 158 / 0.10),
+    0 10px 20px rgb(110 92 158 / 0.16);
   transform: translateY(-50%) scaleX(var(--cs-source-pass-scale, 0.08));
   transform-origin: left center;
   will-change: transform;
@@ -4194,7 +4191,7 @@ body {
   bottom: -7px;
   left: 0;
   width: 82px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.82), rgb(95 180 255 / 0.34), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.82), rgb(110 92 158 / 0.34), transparent);
   content: "";
   transform: translateX(-94px);
 }
@@ -4207,10 +4204,10 @@ body {
   height: 16px;
   border: 3px solid rgb(234 242 255 / 0.98);
   border-radius: 999px;
-  background: var(--color-lens-blue);
+  background: var(--color-seal);
   box-shadow:
-    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(242 227 0 / 0.08),
-    0 9px 18px rgb(242 227 0 / 0.22);
+    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(110 92 158 / 0.08),
+    0 9px 18px rgb(110 92 158 / 0.22);
   transform: translate3d(calc((100cqw - 16px) * var(--cs-source-pass-progress, 0.08)), -50%, 0);
   will-change: transform, box-shadow;
 }
@@ -4231,7 +4228,7 @@ body {
   width: 112px;
   height: 18px;
   border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.78), rgb(95 180 255 / 0.36), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.78), rgb(110 92 158 / 0.36), transparent);
   filter: blur(0.25px);
   opacity: 0;
   pointer-events: none;
@@ -4248,7 +4245,7 @@ body {
   position: relative;
   grid-template-columns: 48px minmax(0, 1fr) 18px;
   min-height: 38px;
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 13.5px;
   font-weight: 720;
 }
@@ -4258,7 +4255,7 @@ body {
   inset: 5px -6px;
   z-index: -1;
   border-radius: 7px;
-  background: linear-gradient(90deg, rgb(242 227 0 / 0.075), transparent 74%);
+  background: linear-gradient(90deg, rgb(110 92 158 / 0.075), transparent 74%);
   content: "";
   opacity: 0;
   transform: scaleX(0.96);
@@ -4271,20 +4268,20 @@ body {
 }
 
 .cs-source-pass-steps li[data-active="true"] {
-  color: var(--color-observatory-navy);
+  color: var(--color-ink);
 }
 
 .cs-source-pass-steps li[data-active="true"] .cs-run-step-index {
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
 }
 
 .cs-source-pass-steps li[data-active="true"] i {
   width: 9px;
   height: 9px;
-  background: var(--color-lens-blue);
+  background: var(--color-seal);
   box-shadow:
-    0 0 0 7px rgb(242 227 0 / 0.10),
-    0 7px 14px rgb(242 227 0 / 0.18);
+    0 0 0 7px rgb(110 92 158 / 0.10),
+    0 7px 14px rgb(110 92 158 / 0.18);
 }
 
 .cs-source-pass-steps small {
@@ -4310,10 +4307,10 @@ body {
 }
 
 .cs-card-tray[data-snap-preview="true"] .cs-drop-zone {
-  border-color: rgb(242 227 0 / 0.34);
+  border-color: rgb(110 92 158 / 0.34);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(237 247 255 / 0.74)),
-    rgb(242 227 0 / 0.055);
+    rgb(110 92 158 / 0.055);
   color: rgb(8 25 44 / 0.68);
 }
 
@@ -4321,12 +4318,12 @@ body {
   position: absolute;
   right: 10px;
   top: -21px;
-  border: 1px solid rgb(242 227 0 / 0.18);
+  border: 1px solid rgb(110 92 158 / 0.18);
   border-radius: 999px;
   background: rgb(255 253 248 / 0.92);
-  color: var(--color-lens-blue);
+  color: var(--color-seal);
   content: attr(data-label);
-  font-family: var(--font-mona-sans);
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 820;
   letter-spacing: 0.08em;
@@ -4337,39 +4334,39 @@ body {
 }
 
 .cs-card-tray[data-snap-ready="true"] .cs-drop-zone {
-  border-color: rgb(242 227 0 / 0.66);
+  border-color: rgb(110 92 158 / 0.66);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(230 243 255 / 0.88)),
-    rgb(242 227 0 / 0.10);
-  color: var(--color-lens-blue);
+    rgb(110 92 158 / 0.10);
+  color: var(--color-seal);
   box-shadow:
-    0 0 0 4px rgb(242 227 0 / 0.055),
-    0 10px 22px rgb(242 227 0 / 0.11);
+    0 0 0 4px rgb(110 92 158 / 0.055),
+    0 10px 22px rgb(110 92 158 / 0.11);
 }
 
 .cs-dormant-card[data-previewing="true"] {
-  border-color: rgb(242 227 0 / 0.30);
+  border-color: rgb(110 92 158 / 0.30);
   box-shadow:
     0 15px 28px rgb(2 8 18 / 0.12),
-    0 0 0 1px rgb(242 227 0 / 0.08),
+    0 0 0 1px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
 .cs-dormant-card[data-snap-ready="true"] {
-  border-color: rgb(242 227 0 / 0.52);
+  border-color: rgb(110 92 158 / 0.52);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.99), rgb(239 248 255 / 0.96)),
-    var(--color-parchment-warm);
+    var(--color-plate);
   box-shadow:
     0 19px 34px rgb(2 8 18 / 0.14),
-    0 0 0 2px rgb(242 227 0 / 0.08),
+    0 0 0 2px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.94) inset;
 }
 
 .cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
   border-radius: 7px;
   background:
-    linear-gradient(90deg, rgb(242 227 0 / 0.055), transparent 64%),
+    linear-gradient(90deg, rgb(110 92 158 / 0.055), transparent 64%),
     rgb(255 253 248 / 0.44);
   padding: 9px 10px 10px;
 }
@@ -4428,12 +4425,12 @@ body {
 @keyframes cs-dot-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 4px rgb(242 227 0 / 0.10);
+    box-shadow: 0 0 0 4px rgb(110 92 158 / 0.10);
     transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 7px rgb(242 227 0 / 0.06);
+    box-shadow: 0 0 0 7px rgb(110 92 158 / 0.06);
     transform: scale(1.08);
   }
 }
@@ -4503,4 +4500,53 @@ body {
     animation: none;
     transition: none;
   }
+}
+
+/* ============================================================
+   Catalogue character — mirrors the web public card (DESIGN.md).
+   Display (At Umami) on hero names and section labels (seal),
+   At Textual only as the receipt/index accent, Plex Sans body
+   everywhere else. The character is the heavy display name, the
+   single dusty-lilac seal accent, classification dots, and rules.
+   ============================================================ */
+
+/* Hero / company names: heavy At Umami display, like the web card title. */
+.cs-company-context h1,
+.cs-generation-hero h1,
+.cs-start-hero h1,
+.cs-partial-profile h1,
+.cs-start-company-copy h2,
+.cs-pass-lockup h2,
+.cs-source-pass-now h2 {
+  font-family: var(--font-display);
+  font-weight: 770;
+  letter-spacing: -0.02em;
+}
+
+/* Section labels: At Umami display in the seal accent, title case. */
+.cs-research-layer-head span:first-child,
+.cs-people-line-label,
+.cs-live-field-head span:first-child {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--color-seal);
+}
+
+/* Research-drawer module titles read as catalogue section names. */
+.cs-active-enrichment strong,
+.cs-dormant-card strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Receipt / index marks: At Textual, the one earned mono accent. */
+.cs-run-step-index,
+.cs-pass-index,
+.cs-generation-run-time strong,
+.cs-source-chip {
+  font-family: var(--font-text);
 }
