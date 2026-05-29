@@ -85,7 +85,7 @@ export function SourceDrawer({ citations, marker = "Sources" }: { citations: Cit
           })}
         </ol>
       ) : (
-        <p className="cs-empty">NO SOURCES ATTACHED.</p>
+        <p className="cs-empty">No sources on file yet.</p>
       )}
     </section>
   );

@@ -1,19 +1,20 @@
 # Cold Start: Interface Design System
 
-> Current visual source of truth. Last updated 2026-05-29 for the Catalogue Card direction, shared by the public `/c/{slug}` card and the Chrome side panel. The Signal Ledger system that preceded it is archived at `docs/brand/archive/signal-ledger-era-2026-05.md`; the 2026-05-26 Ray Gun pass at `docs/brand/archive/raygun-era-2026-05-27.md`; the earlier parchment system at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
+> Current visual source of truth. Last updated 2026-05-28 for the public website craft reset. The 2026-05-26 Ray Gun pass remains archived at `docs/brand/archive/raygun-era-2026-05-27.md`. The earlier parchment system remains archived at `docs/brand/archive/parchment-era-2026-05.md`. If code disagrees with this file, treat this file as the intended direction and update code deliberately.
 
-Cold Start should feel like a sourced investing index kept by someone with taste. It is not a SaaS dashboard, not a dossier, not a magazine costume, and not a chat product. Each company renders as a kept catalogue card: warm parchment, sharp rules, legible facts, a single dusty-lilac seal used as a verb, and enough authorship that the page feels filed rather than generated.
+Cold Start should feel like a sourced investing index kept by someone with taste. It is not a SaaS dashboard, not a dossier, not a magazine costume, and not a chat product. The interface is a source ledger: quiet field, sharp rules, legible facts, and enough authorship that the page feels made rather than generated.
 
 The page should make one promise: every claim has a place, every source has a weight, and every missing fact is honestly absent. The design work is to make that promise feel natural.
 
-The direction inherits the Signal Ledger's evidence discipline and adds the authorship the earlier passes lacked. The history is instructive:
+The old directions failed in opposite ways:
 
 - **Parchment dossier:** tasteful but generic. Warm paper, serif type, sand lines, and blue citation marks made the product look like every AI editorial mockup.
-- **Ray Gun reset:** energetic but referential. Too much of the taste came from borrowed editorial language instead of Cold Start's own product logic.
-- **Signal Ledger:** disciplined but flat. Plex Sans everywhere, blue-and-gold accents, and clean rules read as competent default rather than authored.
+- **Ray Gun reset:** energetic but referential. It had posture, but too much of the taste came from borrowed editorial language instead of Cold Start's own product logic.
 - **Compliance software:** the ever-present risk. If trust becomes badges, filters, gray tables, and disclaimers, the product loses all warmth and judgment.
 
-The Catalogue Card keeps the evidence discipline and earns its character from specific choices: the At Umami display face, one chosen seal color, classification marks, filed and vetted stamps, and a parchment surface that survives scrutiny. Taste comes from those choices, not from chrome.
+Signal Ledger is the middle with teeth: same evidence discipline, more visible authorship. It should look like a tool built by someone who reads investment memos, filing footnotes, and product surfaces with equal seriousness.
+
+The useful lesson from expressive personal sites is not to copy their surfaces. Taste comes from specific choices: an owned mark, chosen color, clear source objects, and layouts that do not feel templated.
 
 ## Core Ethos
 
@@ -29,88 +30,75 @@ The page has editorial judgment, but it is not magazine cosplay. It has instrume
 
 ## Typography
 
-Use three families, each with a narrow job. Two are licensed faces from arillatype.studio, self-hosted as variable webfonts on both surfaces.
+Use three families, each with a narrow job.
 
 | Role | Face | How it is used |
 |------|------|----------------|
-| Display | `At Umami` 600-800 | Company name, hero headings, and section labels. Heavy and rounded; the load-bearing taste signal. Distinctly display, never used as body. |
-| Body | `IBM Plex Sans` 400-760 | Navigation, labels, buttons, tables, metadata, body copy, values, claims. Clear, slightly engineered, not precious. Tabular figures on for numbers. |
-| Receipt / evidence | `At Textual` 400-600 | Call numbers, source marks, run-step indices, and the small index-card numerics. A licensed monospaced face: the receipt nod, never a generic code font. |
+| Interface | `IBM Plex Sans` 400-700 | Navigation, labels, buttons, tables, metadata, body copy, and most headings. It is clear, slightly engineered, and not precious. |
+| Editorial emphasis | `IBM Plex Serif` 400-600 | One-liners, claim text, short rationale blocks, and source titles when the text should read like a note rather than a control. Use sparingly. |
+| Evidence | `Berkeley Mono` 400-700 | Numbers, dates, citation markers, source IDs, trace states, confidence codes, and compact ledgers. Tabular figures always on. |
 
-At Textual is the precision face. Do not turn the surface into monospace. The contrast only works when the receipt marks feel earned. `Berkeley Mono` / `IBM Plex Mono` remain defined as `--font-mono` for dense numeric ledgers, but At Textual carries the index-card character.
+Berkeley Mono is the precision face. Do not turn the whole app into mono. The contrast only works when the mono marks feel earned.
 
-Headings use sentence case, not shouty labels. A section can say `Money`, `People`, `Proof`, `Risk`, or `Sources`. It should not say `THE NUMBERS`, `WHO SAID YES`, or anything that reads like a concept poster. Section labels render in At Umami in the seal color; dense field labels stay small body at `0.04em` to `0.14em`.
+Headings use sentence case, not shouty labels. A section can say `Money`, `People`, `Proof`, `Risk`, or `Sources`. It should not say `THE NUMBERS`, `WHO SAID YES`, or anything that reads like a concept poster. Dense product labels can be small and tracked at `0.04em` to `0.08em`, but avoid wide letter-spaced spectacle.
 
 Type scale:
 
 | Token | Size | Use |
 |------|------|-----|
-| `display` | `clamp(52px, 7vw, 88px)` web, `clamp(28px, 6vw, 34px)` panel | Company name. At Umami 770-800, tight tracking. |
-| `section` | `13px-17px` | Section labels. At Umami 600 in the seal color, sentence case. |
-| `claim` | `15px-18px` | Short sourced thesis text. IBM Plex Sans 400-500. |
-| `body` | `12px-16px` | Core reading text. IBM Plex Sans 400-500. |
-| `receipt` | `9px-13px` | Call numbers, source marks, step indices, dates. At Textual, tabular. |
+| `display` | `clamp(42px, 7vw, 72px)` | Company name on public card. IBM Plex Sans 650-700, tight but not compressed. |
+| `section` | `24px-32px` | Section titles. IBM Plex Sans 620 or IBM Plex Serif 500 when the section is prose-heavy. |
+| `claim` | `18px-22px` | Short sourced thesis text. IBM Plex Serif 450-550. |
+| `body` | `14px-16px` | Core reading text. IBM Plex Sans 400-500. |
+| `ledger` | `11px-13px` | Sources, citations, dates, source weight, trace events. Berkeley Mono. |
 
-Kill on sight: Inter, Geist, Roboto, Space Grotesk, JetBrains Mono, Fraunces, Mona Sans, Newsreader, Source Serif 4, decorative compressed display faces, and single-family systems where every element has the same voice.
+Kill on sight: Inter, Geist, Roboto, Space Grotesk, JetBrains Mono, Fraunces, Newsreader, Source Serif 4, decorative compressed display faces, and single-family systems where every element has the same voice.
 
 Prompt wording for typography:
 
 ```text
-Use At Umami (heavy rounded display) for the company name, hero headings, and section labels, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual (a licensed monospaced face) only for call numbers, source marks, step indices, and small index-card numerics. Keep labels sentence case. Avoid wide all-caps section styling, zine typography, generic code mono as a voice, Fraunces, Space Grotesk, JetBrains Mono, Inter, Geist, Roboto, and generic compressed display fonts.
+Use IBM Plex Sans for interface structure and most headings, IBM Plex Serif only for short claim text and editorial emphasis, and Berkeley Mono with tabular figures for numbers, dates, citations, source IDs, evidence states, and compact ledgers. Keep labels sentence case. Avoid wide all-caps section styling, zine typography, Fraunces, Space Grotesk, JetBrains Mono, Inter, Geist, Roboto, and generic compressed display fonts.
 ```
 
 ## Color System
 
-The palette is warm parchment with one chosen accent, evidence-coded. It should not collapse into beige editorial warmth or neon technical drama.
+The palette is light, mineral, and evidence-coded. It should not collapse into beige editorial warmth or neon technical drama.
 
 | Token | Value | Role |
 |-------|-------|------|
-| `--color-seal` | `#6E5C9E` | The single accent. A dusty lilac used as a verb: top edge, call number, filed and vetted stamps, section labels, active state, links. |
-| `--cat-paper` | `#F4EDDC` | Card surface on the public card. Warm parchment, carrying the texture. |
-| `--cat-ground` | `#E4DCC8` | Manila ground the card sits on. |
-| `--cat-ink` | `#20201E` | Primary text on parchment. |
-| `--cat-muted` | `#786F62` | Secondary prose on parchment. |
-| `--cat-rule` / `--cat-rule-strong` | `#D8CEB6` / `#C3B79A` | Parchment hairlines and structural separators. |
-| `--color-field` | `#F7F5EE` | Quiet field for the panel ground and lighter surfaces. |
-| `--color-plate` | `#FFFDF8` | Clean reading surface for panel cards and forms. |
-| `--color-ink` / `--color-muted` | `#171A1F` / `#68706A` | Primary and secondary text on plate. |
-| `--color-rule` / `--color-rule-strong` | `#CCC7B8` / `#9C978A` | Plate hairlines and active separators. |
+| `--color-field` | `#F7F5EE` | App background. Quiet field, warmer than white but not parchment. |
+| `--color-plate` | `#FFFDF8` | Primary reading surface and extension modules. |
+| `--color-ink` | `#171A1F` | Primary text and strong rules. |
+| `--color-muted` | `#68706A` | Secondary prose, stale metadata, unavailable values. |
+| `--color-rule` | `#CCC7B8` | Hairlines, table rules, ledger dividers. |
+| `--color-rule-strong` | `#9C978A` | Active separators and selected module outlines. |
 | `--color-verified` | `#0E6B5B` | Independent or directly corroborated evidence. |
 | `--color-reported` | `#315F9D` | Press, database, or secondary reporting evidence. |
 | `--color-company` | `#9B6A1E` | Company-sourced claims. Useful, but caveated. |
 | `--color-conflict` | `#B63A2A` | Contradiction, stale claim, verifier drop, or material risk. |
-| `--color-focus` | `#D7B84A` | Brand-aperture fill only. A small metal accent, never a wash or an interaction color. |
+| `--color-focus` | `#D7B84A` | Current focus ring, selected citation, active research module. Use as a small metal-like accent, never as a wash. |
 
 Evidence color appears as tiny marks: square dots, short ticks, citation brackets, or source IDs. Do not color whole cards by source class. Do not use large green or amber backgrounds to imply trust. The product should make confidence legible, not gamified.
 
-The seal is the only decorative color, and it earns that by being a single, restrained accent used as a verb, not a SaaS blue-purple system: no gradient accent fields, no tinted buttons, no glow. No dark mode. No hazard yellow. No glass. Shadows are rare and shallow; structure comes from rule weight, alignment, parchment texture, and spacing.
+No gradients. No dark mode. No blue-purple accent system. No hazard yellow. No glass. Shadows are rare and shallow; structure should come from rule weight, alignment, and spacing.
 
 Prompt wording for color:
 
 ```text
-Warm parchment surface (paper #F4EDDC on ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for the top edge, call number, filed and vetted stamps, section labels, and active state. Encode evidence with small marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. No gradient accent fields, no dark mode, no hazard yellow, no glass, no large tinted status cards, and no SaaS blue-purple palette.
+Use a light mineral palette: field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8. Encode evidence with small marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A, focus #D7B84A. No gradients, no dark mode, no hazard yellow, no glass, no large tinted status cards, and no decorative blue-purple SaaS palette.
 ```
 
 ## Shape, Texture, And Elevation
 
-The default shape is a catalogue card, not a floating SaaS card. Use 6px radius for primary surfaces and 4px for compact controls. Never exceed 8px unless a native browser control forces it.
+The default shape is a plate, not a floating card. Use 6px radius for primary surfaces and 4px for compact controls. Never exceed 8px unless a native browser control forces it.
 
 Surfaces have 1px rules, not decorative borders. Rules can be stronger where they carry structure. A ledger table can use horizontal rules every row; a prose section may use only one opening rule. Do not wrap every section in a card.
 
-The public card ships a real parchment texture via `@paper-design/shaders-react`, scoped to the card surface as a near-static WebGL island (`apps/web/src/app/CardTexture.tsx`). It must survive scrutiny at 1x and disappear at reading distance. It degrades to the flat `--cat-paper` fill under SSR, no-WebGL, and `prefers-reduced-motion`, with no layout shift. The side panel uses the flat parchment fill; it does not load the shader.
+Use background texture only if it survives scrutiny at 1x and disappears at reading distance. The first implementation should ship with no texture. Taste comes from the grid and source marks.
 
-The catalogue motifs carry the authorship:
+Elevation:
 
-- **Top edge:** a thin seal hairline along the card head.
-- **Call number:** a short `CS · SLUG` mark in At Textual, seal colored, with a source count beneath.
-- **Filed stamp:** a seal-outlined `FILED <date>` lockup beside the company name.
-- **Classification dots:** small verified / reported / company squares lead facts and claims. Never tint whole cards.
-- **Vetted stamp:** a rotated seal stamp tied to real corroboration counts in the footer.
-- **Stacked-card depth:** the card sits on a faint offset shadow, a card pulled from an index. This is the one allowed elevation on the public card.
-
-Elevation otherwise:
-
-- Public page: no outer shadow beyond the stacked-card depth. The card sits on the manila ground.
+- Public page: no outer shadow. The page is a reading plate sitting on the field.
 - Extension modules: one shallow shadow allowed for active dragged or expanded modules, max `0 6px 18px rgb(23 26 31 / 0.08)`.
 - Controls: no glow, no glass, no pill chrome.
 
@@ -172,14 +160,14 @@ Primary public surface. Field background outside, plate background inside, 6px r
 
 ### Header Stack
 
-Company name, domain, and generation metadata. The name is the only display-scale text, set in At Umami. A filed stamp and a seal call number sit alongside; the call number and generated state use At Textual so the reader understands they are machine-resolved facts.
+Company name, domain, and generation metadata. The name is the only display-scale text. The domain and generated state sit in Berkeley Mono so the reader understands they are machine-resolved facts.
 
 ### Key Value Strip
 
 A compact row or wrap grid of values. Each value has:
 
 - Small sentence-case label.
-- Tabular IBM Plex Sans value for numbers and dates; IBM Plex Sans value for words. Each fact is led by a classification dot.
+- Berkeley Mono value for numbers and dates; IBM Plex Sans value for words.
 - Citation marker beside the value when cited.
 - Evidence dot before the label.
 
@@ -201,7 +189,7 @@ The words `verified`, `company`, and `conflict` are implementation states, not n
 
 ### Citation Marker
 
-Inline marker `[1]` in IBM Plex Sans with an ink hairline and source-class color, no wash; it fills with the seal on hover or focus. Hover or focus reveals a compact popover with title, publisher, date, and source class. Click scrolls to the ledger row on web. In the extension, click can open the source detail inline.
+Inline Berkeley Mono marker: `[1]`. Source class controls marker color. Hover or focus reveals a compact popover with title, publisher, date, and source class. Click scrolls to the ledger row on web. In the extension, click can open the source detail inline.
 
 Markers must stay readable against text. Do not make them superscript if that hurts tap targets.
 
@@ -215,7 +203,7 @@ A table, not a drawer by default.
 [3] company   Company site     current     cartesia.ai
 ```
 
-Use At Textual for source marks and dates and IBM Plex Sans for source titles. The ledger reads as the card's tracings and should make "where did this come from?" answerable in one glance.
+Use Berkeley Mono for IDs, dates, and domains. Use IBM Plex Sans or Serif for source titles depending on density. The ledger should make "where did this come from?" answerable in one glance.
 
 ### Evidence Matrix
 
@@ -315,7 +303,7 @@ Sentences should be declarative. Claims must carry citations. If a statement can
 Use this when asking an image model to extend the current app:
 
 ```text
-Design a UX concept for Cold Start as a kept catalogue card. The product is an investor research surface for sourced company context, not a dashboard, zine, or chat UI. Surface is warm parchment (paper #F4EDDC on manila ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for the top edge, call number, filed and vetted stamps, and section labels. Source quality appears through tiny evidence marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. Typography uses At Umami (heavy rounded display) for the company name and section labels, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual (a licensed monospaced face) only for call numbers, source marks, and step indices. The public card is a two-zone record with a filed stamp, display company name, and key values at top, evidence-led ruled sections below, a source ledger as tracings, and a rotated vetted stamp in the footer, sitting on a faint stacked-card shadow over the manila ground. The extension is a compact workbench with expandable research module rows, real generation events, source counts, and cited outputs in the same language. Use 6px radii, 1px rules, dense but breathable grids, classification dots, citation markers like [1], and mechanical state motion. No dark mode, no gradient accent fields, no glass, no hazard yellow, no SaaS blue-purple palette, no zine typography, no ASCII charts, no decorative icons, no soft SaaS shadows, no Fraunces, no Mona Sans, no Space Grotesk, no JetBrains Mono, no Inter, no Geist, no Roboto.
+Design a UX concept for Cold Start in the Signal Ledger direction. The product is an investor research surface for sourced company context, not a dashboard, zine, or chat UI. Use a light mineral palette: field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8. Source quality appears through tiny evidence marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A, focus #D7B84A. Typography uses IBM Plex Sans for interface structure, IBM Plex Serif for short claim text, and Berkeley Mono for numbers, dates, citations, source IDs, evidence states, and compact ledgers. The public page is a two-zone research plate with identity and key values at top, evidence-led sections below, and a source ledger rail on desktop. The extension is a compact workbench with expandable research module rows, real generation events, source counts, and cited outputs. Use 6px radii, 1px rules, dense but breathable grids, source tables, citation markers like [1], and mechanical state motion. No dark mode, no gradients, no glass, no hazard yellow, no zine typography, no ASCII charts, no floating card pile, no decorative icons, no soft SaaS shadows, no Fraunces, no Space Grotesk, no JetBrains Mono, no Inter, no Geist, no Roboto.
 ```
 
 ## Implementation Plan

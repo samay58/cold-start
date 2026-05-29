@@ -5,10 +5,9 @@ export default function LoadingCard() {
         <div className="cs-loading-topbar">
           <div className="cs-home-brand">
             <span className="cs-home-mark" aria-hidden="true">C</span>
-            <span>COLD START</span>
-            <span>N° 0014</span>
+            <span>Cold Start</span>
           </div>
-          <span>live · loading</span>
+          <span>Filing</span>
         </div>
         <div className="cs-loading-body">
           <span className="cs-home-hero-mark" aria-hidden="true">C</span>
