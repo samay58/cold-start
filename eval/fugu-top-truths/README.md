@@ -4,6 +4,8 @@ This is an offline shadow eval for the single Cold Start question that best test
 
 It does not write to production, mutate cards, or hit provider retrieval. The source bundle is fixed before model calls.
 
+> **Fugu access ends June 7, 2026.** Both `fugu-mini` and `fugu-ultra` (Sakana beta API) become unavailable after that date, and the beta quota is free and expiring (~11% used as of 2026-05-29). Run the full mini/ultra/baseline comparison at volume and capture artifacts before the cutoff. Plan: `docs/product/slow-work/2026-05-29-fugu-the-read-card-wedge.md`.
+
 ## Run
 
 Dry run:

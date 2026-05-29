@@ -1,0 +1,110 @@
+{
+  "builtAt": "2026-05-29T20:04:04.092Z",
+  "bundles": [
+    {
+      "slug": "openai",
+      "name": "OpenAI",
+      "domain": "openai.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "anthropic",
+      "name": "Anthropic",
+      "domain": "anthropic.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "perplexity",
+      "name": "Perplexity",
+      "domain": "perplexity.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "cursor",
+      "name": "Anysphere (Cursor)",
+      "domain": "cursor.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "mistral",
+      "name": "Mistral AI",
+      "domain": "mistral.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "cohere",
+      "name": "Cohere",
+      "domain": "cohere.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "character",
+      "name": "Character.AI",
+      "domain": "character.ai",
+      "sources": 16,
+      "chars": 18303
+    },
+    {
+      "slug": "stability",
+      "name": "Stability AI",
+      "domain": "stability.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "inflection",
+      "name": "Inflection AI",
+      "domain": "inflection.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "adept",
+      "name": "Adept AI",
+      "domain": "adept.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "scale",
+      "name": "Scale AI",
+      "domain": "scale.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "x",
+      "name": "xAI",
+      "domain": "x.ai",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "groq",
+      "name": "Groq",
+      "domain": "groq.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "suno",
+      "name": "Suno",
+      "domain": "suno.com",
+      "sources": 16,
+      "chars": 19200
+    },
+    {
+      "slug": "elevenlabs",
+      "name": "ElevenLabs",
+      "domain": "elevenlabs.io",
+      "sources": 16,
+      "chars": 19200
+    }
+  ]
+}

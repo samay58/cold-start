@@ -1,0 +1,169 @@
+{
+  "company": {
+    "name": "Groq",
+    "domain": "groq.com",
+    "category": "ai-inference-hardware"
+  },
+  "builtAt": "2026-05-29T20:03:53.970Z",
+  "sources": [
+    {
+      "id": "e1",
+      "title": "Groq Health",
+      "url": "https://groqhealth.com/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2026-04-24T00:00:00.000Z",
+      "text": "# Groq Health (Groq Health, Inc.) Groq Health is a Hospitals and Health Care company. Groq Health is a company that provides a app to prescribe clinically proven treatments tailored to the unique body of individuals. They have been in operation for over 25 years and have clients from top data scientists and practicing doctors. Groq Health employs 5 people (-25.0% YoY, -2 people), founded in 2018. Headquartered in New York, New York, United States. ## About Founded by Florence Comite, Groq Health is a virtual digital clinic based on the philosophy that everyone deserves personalized precision medicine, the confluence of a person’s health story with data from a CGM (Continuous Glucose Monitor), biomarkers, wearables, genomics and more. Groq Health is the only app built by real doctors, real physician-scientists, and personal, N-of-1 (or study of 1) scientific evidence and data. Leveraging over 2 decades of research from the Comite Center for Precision Medicine + Health, Groq app analyzes key biomarkers in detail; connects the dots by gathering intel about habits (sleep, nutrition, exercise, restorative practices), personal and family history; then integrates and interprets a wide spe"
+    },
+    {
+      "id": "e2",
+      "title": "Groq",
+      "url": "https://groq.com/",
+      "sourceType": "company_site",
+      "authorityScore": 4,
+      "tier": "primary_company",
+      "publishedAt": "2026-04-24T00:00:00.000Z",
+      "text": "# Groq (Groq Inc) Groq is a Semiconductor Manufacturing company. Groq is a hardware and software platform that provides fast and affordable al inference on-demand, powered by groq lpus, and on-prem al inference for data centers. They offer cloud and on-prem solutions for AI applications. Groq employs 241 people (-16.4% YoY, -68 people) and has an annual revenue of $3.4M, founded in 2016. Headquartered in Mountain View, California, United States, operates in 19 countries (including Saudi Arabia, Canada, Australia, United Kingdom, and Singapore). Has $4.0B in total funding, with 9 prior funding rounds. ## About Groq is the AI inference platform delivering low cost, high performance without compromise. Its custom LPU and cloud infrastructure run today’s most powerful AI models instantly and reliably. Over 2.5 million developers use Groq to build fast and scale with confidence. ## Company Details - Industry: Semiconductor Manufacturing - Type: Privately Held - Headquarters: Mountain View, United States - Founded Year: 2016 - Homepage: groq.com - Status: active - Ownership: Private - Parent Company: NVIDIA Corporation - Aliases: groq, groq, inc., groq inc - LinkedIn: linkedin.com/compan"
+    },
+    {
+      "id": "e3",
+      "title": "Nvidia AI chip challenger Groq raises even more than expected, hits $6.9B valuation | TechCrunch",
+      "url": "https://techcrunch.com/2025/09/17/nvidia-ai-chip-challenger-groq-raises-even-more-than-expected-hits-6-9b-valuation/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-09-17T23:51:42.000Z",
+      "text": "Nvidia AI chip challenger Groq raises even more than expected, hits $6.9B valuation | TechCrunch –:–:–:– The first StrictlyVC of 2026 hits SF on April 30. Tickets are going fast. Register now. Get Disrupt Early Bird savings of up to $410 by May 29, 11:59 p.m. PT. Register now. Image Credits:Groq # Nvidia AI chip challenger Groq raises even more than expected, hits $6.9B valuation 4:51 PM PDT · September 17, 2025 AI chip startup Groq confirmed Wednesday that it raised a fresh $750 million in funding at a post-money valuation of $6.9 billion. This topped the rumored numbers when word leaked in July that Groq was raising. At that time, reports suggested that the raise would be about $600 million, at near a $6 billion valuation. Groq, which also sells data center computing power, previously raised $640 million at a $2.8 billion valuation in August 2024, making this more than double the valuation in about a year. Groq has now raised over $3 billion to date, PitchBook estimates. Groq has been a hot commodity because it is working on breaking the chokehold that AI chip maker Nvidia has over the tech industry. Groq’s chips are not GPUs, the graphics processing units that typically power AI"
+    },
+    {
+      "id": "e4",
+      "title": "Groq Raises $750 Million as Inference Demand Surges | Groq is fast, low cost inference.",
+      "url": "https://groq.com/newsroom/groq-raises-750-million-as-inference-demand-surges",
+      "sourceType": "company_site",
+      "authorityScore": 4,
+      "tier": "primary_company",
+      "text": "Groq Raises $750 Million as Inference Demand Surges | Groq is fast, low cost inference. The investment strengthens Groq’s role in the American AI Stack, delivering fast, affordable compute worldwide. Mountain View, CA — September 17, 2025 — Groq, the pioneer in AI inference, today announced $750 million in new financing at a post-money valuation of $6.9 billion. The round was led by Disruptive with significant investment from Blackrock, Neuberger Berman, DTCP and a large US-based West Coast mutual fund manager. The raise also included continued support from Samsung, Cisco, D1, Altimeter, 1789 Capital and Infinitum. Groq powers more than two million developers and Fortune 500 companies with fast, affordable compute and is growing its presence globally, building on existing data centers in North America, Europe, and the Middle East. “Inference is defining this era of AI, and we’re building the American infrastructure that delivers it with high speed and low cost.” — Jonathan Ross, Groq Founder and CEO The White House recently issued an executive order promoting the export of the American AI Technology Stack, emphasizing the global deployment of US-origin AI technology. Groq is playin"
+    },
+    {
+      "id": "e5",
+      "title": "Scoop: Groq raising $650 million for its second act",
+      "url": "https://www.axios.com/2026/05/28/groq-650-million-nvidia",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2026-05-28T13:30:07.000Z",
+      "text": "Scoop: Groq raising $650 million for its second act May 28, 2026 - Business # Scoop: Groq raising $650 million for its second act Add Axios on Google Add Axios as your preferred source to see more of our stories on Google. Add Axios on Google Illustration: Annelise Capossela/Axios Groq is raising up to $650 million from existing investors, after the AI chipmaker previously signed a $20 billion licensing deal with Nvidia that saw much of its senior team depart, Axios has learned. Why it matters: Groq is one of the biggest AI wins so far for venture capitalists, and those same investors now get a second bite at the apple. - Or at least a different sort of apple, as Groq transitions away from hardware and toward becoming an AI inference neocloud business. Zoom in: Groq's investors already got paid out, with a final cash distribution hitting soon, via the Nvidia deal. - Now they're being asked to participate pro rata in Groq 2.0, with existing backers Disruptive and Infinitum backstopping the $650 million if it's not filled. - Groq 2.0 is being led by company vets Adam Winter (CEO) and Matt Eng (CFO). - Existing shareholders will receive the remaining cash distributions and then have t"
+    },
+    {
+      "id": "e6",
+      "title": "AI chip startup Groq lands $640M to challenge Nvidia | TechCrunch",
+      "url": "https://techcrunch.com/2024/08/05/ai-chip-startup-groq-lands-640m-to-challenge-nvidia/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2024-08-05T11:00:00.000Z",
+      "text": "AI chip startup Groq lands $640M to challenge Nvidia | TechCrunch –:–:–:– The first StrictlyVC of 2026 hits SF on April 30. Tickets are going fast. Register now. Get Disrupt Early Bird savings of up to $410 by May 29, 11:59 p.m. PT. Register now. # AI chip startup Groq lands $640M to challenge Nvidia 4:00 AM PDT · August 5, 2024 Groq, a startup developing chips to run generative AI models faster than conventional processors, said on Monday that it has raised $640 million in a new funding round led by Blackrock. Neuberger Berman, Type One Ventures, Cisco, KDDI and Samsung Catalyst Fund also participated. The tranche, which brings Groq’s total raised to over $1 billion and values the company at $2.8 billion, is a major win for Groq, which reportedly was originally looking to raise$300 million at a slightly lower($2.5 billion) valuation. It more than doubles Groq’s previous valuation (~$1 billion) in April 2021, when the company raised $300 million in a round led by Tiger Global Management and D1 Capital Partners. Meta chief AI scientist Yann LeCun will serve as a technical advisor to Groq and Stuart Pann, the former head of Intel’s foundry business and ex-CIO at HP, will join the sta"
+    },
+    {
+      "id": "e7",
+      "title": "AI inference chip startup Groq nabs $750M at $6.9B valuation - SiliconANGLE",
+      "url": "https://siliconangle.com/2025/09/17/ai-inference-chip-startup-groq-nabs-750m-6-9b-valuation/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-09-17T20:07:27.000Z",
+      "text": "AI inference chip startup Groq nabs $750M at $6.9B valuation - SiliconANGLE SHARE UPDATED 16:07 EDT / SEPTEMBER 17 2025 AI ### AI inference chip startup Groq nabs $750M at $6.9B valuation SHARE Groq Inc., a developer of artificial intelligence inference chips, today announced that it has raised $750 million in new funding. Databricks Inc. backer Disruptive led the round. It was joined by Cisco Systems Inc., Samsung Electronics Co., Deutsche Telekom Capital Partners and several investment firms. Groq is now valued at $6.9 million, up from $2.8 billion last year. Groq offers a processor called the Language Processing Unit, or LPU. The company claims that the chip can run some inference workloads with up to 10 times higher energy efficiency than graphics cards. Groq says the LPU’s efficiency is the fruit of several optimizations not included in rival chips. Coordinating the different processor components that are involved in running an AI model can consume a significant amount of computing power. According to Groq, its LPU reduces that overhead, which leaves more processing capacity for inference. The company says its silicon can run models with 1 trillion parameters. Groq’s LPU reduc"
+    },
+    {
+      "id": "e8",
+      "title": "AIwire - Covering Scientific & Technical AI",
+      "url": "https://www.hpcwire.com/aiwire/2024/08/05/groq-secures-640m-funding-to-enhance-speed-and-capacity-of-ai-inference/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2024-08-05T17:50:26.000Z",
+      "text": "AIwire - Covering Scientific & Technical AI ## Off the Wire Press Releases ## Groq Secures $640M Funding to Enhance Speed and Capacity of AI Inference August 5, 2024 Shares --- MOUNTAIN VIEW, Calif., Aug. 5, 2024 — Groq, a leader in fast AI inference, has secured a $640 million Series D round at a valuation of $2.8B. The round was led by funds and accounts managed by BlackRock Private Equity Partners with participation from both existing and new investors. The unique, vertically integrated Groq AI inference platform has generated demand from developers seeking exceptional speed. “The market for AI compute is meaningful and Groq’s vertically integrated solution is well positioned to meet this opportunity. We look forward to supporting Groq as they scale to meet demand and accelerate their innovation further,” said Samir Menon, Managing Director, BlackRock Private Equity Partners. “Samsung Catalyst Fund is excited to support Groq,” said Marco Chisari, Head of Samsung Semiconductor Innovation Center and EVP of Samsung Electronics. “We are highly impressed by Groq’s disruptive compute architecture and their software-first approach. Groq’s record-breaking speed and near-instant Generati"
+    },
+    {
+      "id": "e9",
+      "title": "Nvidia buying AI chip startup Groq for about $20 billion, biggest deal",
+      "url": "https://archive.is/NbA28",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-12-24T20:54:16.000Z",
+      "text": "Nvidia buying AI chip startup Groq for about $20 billion, biggest deal ## Nvidia buying AI chip startup Groq for about $20 billion, biggest deal archived 25 Dec 2025 20:04:34 UTC history←prior next→ | archive.todaywebpage capture | Saved from | 25 Dec 2025 20:04:34 UTC | | --- | --- | --- | | All snapshots | from host www.cnbc.com | | Webpage Screenshot | | share download .zip report bug or abuse Buy me a coffee | Reddit VKontakte Twitter Pinboard Livejournal short link long link markdown html code Nvidia buying AI chip startup Groq for about $20 billion, biggest deal archived 25 Dec 2025 20:04:34 UTC wiki code {{cite web | title = Nvidia buying AI chip startup Groq for about $20 billion, biggest deal | url = https://www.cnbc.com/2025/12/24/nvidia-buying-ai-chip-startup-groq-for-about-20-billion-biggest-deal.html | date = 2025-12-25 | archiveurl = http://archive.today/NbA28 | archivedate = 2025-12-25 }} Skip Navigation Exclusive: Nvidia buying AI chip startup Groq’s assets for about $20 billion in its largest deal on record Livestream CREATE FREE ACCOUNT Markets Business Investing Tech Politics Video Watchlist Investing Club PRO Livestream Menu Key Points - Nvidia is making its lar"
+    },
+    {
+      "id": "e10",
+      "title": "Nvidia rival Groq to close $600M at $6B valuation as AI chip demand soars — TFN",
+      "url": "https://techfundingnews.com/nvidia-rival-groq-to-close-600m-at-6b-valuation-as-ai-chip-demand-soars/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-07-30T08:36:00.000Z",
+      "text": "Nvidia rival Groq to close $600M at $6B valuation as AI chip demand soars — TFN May 28, 2026 ### The AI startup replacing software engineers just raised $1B at $26B valuation and it is already writing 89% of Cognition’s own code May 28, 2026 ### Kopa.ai raises €2M to build the AI operating system that could replace fragmented e-commerce teams May 28, 2026 ### This Princeton spinout just raised $100M to power the AI boom with fusion energy May 27, 2026 ### Why fintech infrastructure is the next frontier for global business payments May 27, 2026 ### Point of sale upgrades in 2026: Specialised retail solutions worth the investment ###### The AI startup replacing software engineers just raised $1B at $26B valuation and it is already writing 89% of Cognition’s own code May 28, 2026 3 minute read ###### Kopa.ai raises €2M to build the AI operating system that could replace fragmented e-commerce teams May 28, 2026 3 minute read ###### This Princeton spinout just raised $100M to power the AI boom with fusion energy May 28, 2026 3 minute read ###### Why fintech infrastructure is the next frontier for global business payments May 27, 2026 4 minute read # Nvidia rival Groq to close $600M at $"
+    },
+    {
+      "id": "e11",
+      "title": "Groq raises $750M Series E at $6.9B valuation to scale AI inference hardware",
+      "url": "https://cryptobriefing.com/groq-raises-750m-series-e-ai-chips/",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2026-05-28T13:54:59.000Z",
+      "text": "Groq raises $750M Series E at $6.9B valuation to scale AI inference hardware SEARCH Searching... # Groq raises $750M Series E at $6.9B valuation to scale AI inference hardware The AI chip startup, backed by BlackRock and Samsung, is betting big on its Language Processing Units to challenge Nvidia's dominance in inference computing. Share this.removeAttribute('data-copied'), 2000);\" aria-label=\"Copy link\"> Add us on Google May. 28, 2026 Groq, the AI chip company that built its reputation on blazing-fast inference speeds, has closed a $750 million Series E funding round. The deal values the company at approximately $6.9 billion post-money, more than doubling its valuation from just a year ago. The round was led by Disruptive, which alone committed over $300 million. Other investors joining the cap table include BlackRock, Samsung, Neuberger Berman, and Deutsche Telekom Capital Partners. ## From $2.8B to $6.9B in one year Groq closed a $640 million Series D in August 2024 at a valuation of $2.8 billion. Twelve months later, it’s worth nearly two and a half times that amount. By July 2025, reports surfaced that Groq was in advanced discussions to raise roughly $600 million at a valuati"
+    },
+    {
+      "id": "e12",
+      "title": "Groq targets $650 million fundraise after Nvidia licensing deal, Axios reports | MarketScreener",
+      "url": "https://www.marketscreener.com/news/groq-targets-650-million-fundraise-after-nvidia-licensing-deal-axios-reports-ce7f5ddadc88f322",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2026-05-28T14:59:23.000Z",
+      "text": "Groq targets $650 million fundraise after Nvidia licensing deal, Axios reports | MarketScreener Add to a list PDF Report ## NVIDIA Corporation ## Equities ## NVDA ## US67066G1040 ## Semiconductors Market Closed - Nasdaq | 04:00:00 2026-05-28 pm EDT | Pre-market 07:19:17 pm | | --- | --- | | 214.25 USD | +0.78% | 214.39 | +0.07% | | 07:16pm | Samsung Electronics ships HBM4E chip samples to global customers | RE | | --- | --- | --- | | 07:12pm | Wall St hits more record closing highs on US-Iran ceasefire extension | RE | # Groq targets $650 million fundraise after Nvidia licensing deal, Axios reports Published on 05/28/2026 at 10:59 am EDT - Modified on 05/28/2026 at 11:03 am EDT Reuters Share +0.78% May 28 (Reuters) - Groq is raising up to $650 million from existing investors, Axios reported on Thursday, after the AI chip startup signed a $17 billion licensing deal with Nvidia in December. Groq has been shifting focus away from hardware toward AI inferencing, where it specializes in enabling trained AI models to respond to user requests. o The startup's investors have already received payouts, with a final cash distribution expected soon through the Nvidia deal, Axios reported. o In"
+    },
+    {
+      "id": "e13",
+      "title": "Groq Raises $650 Million For A Second Act In AI Inferencing - Finimize",
+      "url": "https://finimize.com/content/groq-raises-650-million-for-a-second-act-in-ai-inferencing",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2026-05-28T19:03:30.000Z",
+      "text": "Groq Raises $650 Million For A Second Act In AI Inferencing - Finimize Free Newsletter Free Newsletter ### Get the Research # Groq Raises $650 Million For A Second Act In AI Inferencing The startup is asking existing backers to fund “Groq 2.0” after a $17 billion NVIDIA licensing deal set up payouts and a final cash distribution. 2 mins What's going on here? AI startup Groq is raising up to $650 million from existing investors for a reboot called “Groq 2.0”, after a $17 billion licensing deal with Nvidia set up investor payouts and a final cash distribution. What does this mean? Reuters, citing a source familiar with the matter, said Groq’s shareholders are due to receive the remaining cash tied to that Nvidia agreement, then get the option to put new money into a refreshed company structure. That sequencing is the tell: the old story was largely about monetizing intellectual property through a giant contract, while the new one is about running an “AI inferencing” business – the compute that helps already-trained.. models answer prompts quickly and reliably. In that world, performance is judged less by one-off checks and more by ongoing usage: customers pay for capacity and keep pa"
+    },
+    {
+      "id": "e14",
+      "title": "Nvidia licenses Groq’s inferencing chip tech and hires its leaders | InfoWorld",
+      "url": "https://www.infoworld.com/article/4112134/nvidia-licenses-groqs-inferencing-chip-tech-and-hires-its-leaders-2.html",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-12-30T14:14:22.000Z",
+      "text": "Nvidia licenses Groq’s inferencing chip tech and hires its leaders | InfoWorld # Nvidia licenses Groq’s inferencing chip tech and hires its leaders news Dec 30, 20254 mins ## This non-acquisition could help Nvidia diversify its supply chains and address new markets, while limiting antitrust scrutiny. Credit: Groq Nvidia has licensed intellectual property from inferencing chip designer Groq, and hired away some of its senior executives, but stopped short of an outright acquisition. “We’ve taken a non-exclusive license to Groq’s IP and have hired engineering talent from Groq’s team to join us in our mission to provide world-leading accelerated computing technology,” an Nvidia spokesman said Tuesday, via email. But, he said, “We haven’t acquired Groq.” Groq designs and sells chips optimized for AI inferencing. These chips, which Groq calls language processing units (LPUs), are lower-powered, lower-priced devices than the GPUs Nvidia designs and sells, which these days are primarily used for training AI models. As the AI market matures, and usage shifts from the creation of AI tools to their use, demand for devices optimized for inferencing is likely to grow. The company also rents out"
+    },
+    {
+      "id": "e15",
+      "title": "Nvidia Licenses Groq AI Chip Technology, Hires CEO in Strategic Inference Push | Tech News - News9live",
+      "url": "https://www.news9live.com/technology/tech-news/nvidia-licenses-groq-ai-chip-technology-hires-ceo-in-strategic-inference-push-2914814",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-12-25T10:18:42.000Z",
+      "text": "Nvidia Licenses Groq AI Chip Technology, Hires CEO in Strategic Inference Push | Tech News - News9live हिन्दीಕನ್ನಡతెలుగుमराठीગુજરાતીবাংলাਪੰਜਾਬੀதமிழ்മലയാളംमनी9 TV9-UP Trending - Join News9 on WhatsApp - Artificial Intelligence - Personal finance & investments - BCCI - Science - Delhi Air Quality - T20 World Cup 2026 X State - Telangana - Tamil Nadu - Kerala - Karnataka - Andhra Pradesh Technology - Features - Tech News - Product Review - Mobile Phones - Gaming Education / Career - School - Jobs - Exam Results - Entrance Exams - Board Results Health - Health News - Mental Health - Medicine - Health Conditions Sports - Tennis - Other Sports - Football - Women's Premier League - Kabaddi - WWE - UFC - Olympics - Cricket Business - News - Personal Finance - Markets - Economy - Companies City - Mumbai - Hyderabad - Delhi - Bengaluru Entertainment - Celebs - Tamil cinema - Malayalam cinema - Kannada cinema - Telugu cinema - Television - Regional Cinema - OTT - Movie Reviews - Hollywood - Bollywood - Bigg Boss Lifestyle - Pets - Home & Garden - Events - Fitness - Travel - Spirituality - Relationships - Food & Drink - Book Review - Fashion - Beauty follow us: - Videos Tech News # Nvidia lice"
+    },
+    {
+      "id": "e16",
+      "title": "Chip startup Groq’s Jonathan Ross will do ‘incredible things’ at Nvidia: Social Capital CEO Chamath Palihapitiya - The Economic Times",
+      "url": "https://economictimes.indiatimes.com/tech/technology/chip-startup-groqs-jonathan-ross-will-do-incredible-things-at-nvidia-social-capital-ceo-chamath-palihapitiya/articleshow/126184361.cms",
+      "sourceType": "news",
+      "authorityScore": 5,
+      "tier": "independent_report",
+      "publishedAt": "2025-12-26T06:22:12.000Z",
+      "text": "Chip startup Groq’s Jonathan Ross will do ‘incredible things’ at Nvidia: Social Capital CEO Chamath Palihapitiya - The Economic Times Business News Tech Tech & Internet Chip startup Groq’s Jonathan Ross will do ‘incredible things’ at Nvidia: Social Capital CEO Chamath Palihapitiya # Chip startup Groq’s Jonathan Ross will do ‘incredible things’ at Nvidia: Social Capital CEO Chamath Palihapitiya ETtechLast Updated: Dec 26, 2025, 01:59:48 PM IST Follow us Share Font Size AbcSmall AbcMedium AbcLarge Save Print ### Synopsis Chip giant Nvidia has acquired assets and talent from AI startup Groq for $20 billion. This deal brings Groq's specialized inference chip technology to Nvidia. Groq founder Jonathan Ross and key staff will join Nvidia. Groq will continue its cloud business independently under new leadership. This acquisition represents Nvidia's largest transaction ever. Listen to this article in summarized format Listen Jonathan Ross (left) and Chamath Palihapitiya (right) Chamath Palihapitiya, chief executive of venture capital firm Social Capital, said Jonathan Ross and team Groq would do “incredible things at Nvidia”. The chipmaking giant has agreed to acquire assets and onboard t"
+    }
+  ]
+}

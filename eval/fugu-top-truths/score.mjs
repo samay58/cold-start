@@ -40,7 +40,7 @@ export function validateTopTruthsOutput(output) {
   return issues;
 }
 
-export function scoreTopTruthsOutput(output) {
+export function scoreTopTruthsOutput(output, bundle = null) {
   const issues = validateTopTruthsOutput(output);
   const dimensions = {
     rankingDiscipline: dimensionScore("Ranking discipline", rankingDiscipline(output, issues)),
@@ -57,7 +57,93 @@ export function scoreTopTruthsOutput(output) {
     dimensions,
     issues,
     keepSignal: total >= 12 && issues.length === 0 ? "yes" : total >= 9 ? "conditional" : "no",
+    // Reported as a SEPARATE axis, never folded into the 15-pt structural total. A model can
+    // score well on structure and still cite sources that do not resolve or do not support the
+    // claim. This is the guarantee the Fugu free-text path loses vs the Anthropic tool path.
+    ...(bundle ? { integrity: scoreCitationIntegrity(output, bundle) } : {}),
   };
+}
+
+// Citation integrity, deterministic. Two checks:
+//   resolution: every cited sourceId must exist in the frozen bundle (no fabricated refs).
+//   support proxy: the cited sources' text should contain the truth's salient tokens (the
+//     dollar figures, numbers, and distinctive capitalized terms it asserts). This is a cheap
+//     automated proxy for "the source actually backs the claim"; a true verifier-style support
+//     check (LLM judge) is the follow-up, run on a sample rather than every burn run.
+export function scoreCitationIntegrity(output, bundle) {
+  const bundleIds = new Set((bundle?.sources ?? []).map((source) => String(source.id)));
+  const textById = new Map((bundle?.sources ?? []).map((source) => [String(source.id), normalizeForMatch(String(source.text ?? ""))]));
+  const truths = Array.isArray(output?.truths) ? output.truths : [];
+  const excluded = Array.isArray(output?.excludedClaims) ? output.excludedClaims : [];
+
+  const referencedIds = [
+    ...truths.flatMap((truth) => truth?.sourceIds ?? []),
+    ...excluded.flatMap((claim) => claim?.sourceIds ?? []),
+  ].map(String);
+  const fabricatedIds = Array.from(new Set(referencedIds.filter((id) => !bundleIds.has(id))));
+  const resolvedCount = referencedIds.filter((id) => bundleIds.has(id)).length;
+
+  let truthsCited = 0;
+  let truthsSupported = 0;
+  for (const truth of truths) {
+    const ids = (truth?.sourceIds ?? []).map(String).filter((id) => bundleIds.has(id));
+    if (ids.length === 0) continue;
+    truthsCited += 1;
+    const citedText = ids.map((id) => textById.get(id) ?? "").join(" ");
+    if (truthSupportedByText(truth?.truth ?? "", citedText)) {
+      truthsSupported += 1;
+    }
+  }
+
+  const totalTruths = truths.length || 0;
+  let score = 3;
+  if (fabricatedIds.length > 0) score = Math.min(score, fabricatedIds.length >= 3 ? 0 : 1);
+  if (totalTruths > 0 && truthsCited < totalTruths) score = Math.min(score, 1);
+  if (totalTruths > 0 && truthsSupported < Math.ceil(totalTruths * 0.6)) score = Math.min(score, 2);
+
+  return {
+    label: "Citation integrity",
+    score,
+    referenced: referencedIds.length,
+    resolved: resolvedCount,
+    fabricatedIds,
+    truthsCited,
+    truthsSupported,
+    totalTruths,
+    fabricationFree: fabricatedIds.length === 0,
+  };
+}
+
+function normalizeForMatch(value) {
+  return String(value).toLowerCase().replace(/\s+/g, " ");
+}
+
+function salientTokensFromClaim(claim) {
+  const text = String(claim);
+  const moneyAndNumbers = Array.from(text.matchAll(/\$?\d[\d.,]*\s?(?:billion|million|b|m|k|%)?/gi), (match) => match[0].toLowerCase().replace(/\s+/g, ""));
+  const capitalized = Array.from(text.matchAll(/\b[A-Z][a-zA-Z0-9.&-]{3,}\b/g), (match) => match[0].toLowerCase());
+  return { numbers: Array.from(new Set(moneyAndNumbers)), terms: Array.from(new Set(capitalized)) };
+}
+
+function truthSupportedByText(claim, citedText) {
+  if (!citedText) return false;
+  const citedDigits = citedText.replace(/,/g, "");
+  const { numbers, terms } = salientTokensFromClaim(claim);
+  const digitsOf = (token) => token.replace(/[^\d]/g, "");
+  const bigNumbers = numbers.map(digitsOf).filter((digits) => digits.length >= 2);
+  // If the claim asserts a multi-digit figure, that figure must appear in the cited source.
+  // The company name matching everywhere is not evidence the number is supported.
+  if (bigNumbers.length > 0) {
+    return bigNumbers.some((digits) => citedDigits.includes(digits));
+  }
+  // No checkable number: fall back to distinctive capitalized-term overlap.
+  return matchedTermRatio(terms, citedText) >= 0.34;
+}
+
+function matchedTermRatio(terms, citedText) {
+  if (terms.length === 0) return 0;
+  const matched = terms.filter((term) => citedText.includes(term)).length;
+  return matched / terms.length;
 }
 
 function dimensionScore(label, score) {
