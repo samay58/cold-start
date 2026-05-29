@@ -217,7 +217,6 @@ button {
 }
 
 .cs-extension-domain,
-.cs-extension-copy,
 .cs-extension-error {
   margin: 5px 0 0;
   color: var(--color-muted);
@@ -313,7 +312,6 @@ button {
 }
 
 .cs-cache-card,
-.cs-gate-card,
 .cs-live-card {
   border: 1px solid var(--color-rule);
   border-radius: 12px;
@@ -794,8 +792,7 @@ button {
   padding: 14px;
 }
 
-.cs-cache-card strong,
-.cs-live-copy strong {
+.cs-cache-card strong {
   display: block;
   color: var(--color-ink);
   font-size: 13px;
@@ -803,9 +800,7 @@ button {
   line-height: 1.25;
 }
 
-.cs-cache-card p,
-.cs-live-copy p,
-.cs-gate-card p {
+.cs-cache-card p {
   margin: 4px 0 0;
   color: var(--color-muted);
   font-size: 12px;
@@ -818,90 +813,6 @@ button {
   border: 2px solid var(--color-rule);
   border-top-color: var(--color-seal);
   border-radius: 999px;
-}
-
-.cs-gate-card {
-  position: relative;
-  display: grid;
-  gap: 18px;
-  overflow: hidden;
-  padding: 20px;
-  border-color: rgb(212 197 158 / 0.78);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(250 247 239 / 0.80)),
-    var(--color-plate);
-  box-shadow:
-    0 14px 34px rgb(2 8 18 / 0.065),
-    0 1px 0 rgb(255 255 255 / 0.78) inset;
-}
-
-.cs-gate-card::before {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 14% 0%, rgb(110 92 158 / 0.05), transparent 34%);
-  content: "";
-  pointer-events: none;
-}
-
-.cs-pass-lockup {
-  position: relative;
-  z-index: 1;
-}
-
-.cs-pass-lockup {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.cs-pass-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgb(110 92 158 / 0.22);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 40% 32%, rgb(110 92 158 / 0.20), transparent 62%),
-    rgb(110 92 158 / 0.055);
-  color: var(--color-seal);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 780;
-  letter-spacing: 0.08em;
-  box-shadow: 0 0 0 5px rgb(110 92 158 / 0.055);
-}
-
-.cs-pass-lockup span:not(.cs-pass-index) {
-  display: block;
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 720;
-  letter-spacing: 0.09em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.cs-pass-lockup h2 {
-  margin: 8px 0 0;
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 620;
-  letter-spacing: 0;
-  line-height: 1.02;
-}
-
-.cs-pass-lockup p {
-  max-width: 41rem;
-  margin: 10px 0 0;
-  color: rgb(14 14 14 / 0.72);
-  font-size: 13px;
-  line-height: 1.5;
 }
 
 .cs-generation-panel {
@@ -1136,68 +1047,6 @@ button {
 
 .cs-run-steps li[data-complete="true"] i {
   background: rgb(14 14 14 / 0.78);
-}
-
-.cs-live-stage-axis {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cs-live-stage-axis::before {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 8px;
-  height: 2px;
-  background: rgb(216 213 202 / 0.72);
-  content: "";
-}
-
-.cs-live-stage-axis li {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  padding-top: 19px;
-  color: rgb(95 98 92 / 0.70);
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 680;
-  letter-spacing: 0;
-  line-height: 1;
-}
-
-.cs-live-stage-axis li::before {
-  position: absolute;
-  top: 4px;
-  left: 0;
-  width: 9px;
-  height: 9px;
-  border: 1px solid rgb(216 213 202 / 0.90);
-  border-radius: 50%;
-  background: var(--color-plate);
-  content: "";
-}
-
-.cs-live-stage-axis span {
-  color: var(--color-muted);
-  font-size: 9px;
-  font-weight: 760;
-}
-
-.cs-live-stage-axis li[data-active="true"] {
-  color: var(--color-ink);
-}
-
-.cs-live-stage-axis li[data-active="true"]::before {
-  border-color: rgb(110 92 158 / 0.42);
-  background: var(--color-seal);
-  box-shadow: 0 0 0 5px rgb(110 92 158 / 0.08);
 }
 
 .cs-live-progress-track {
@@ -2287,38 +2136,6 @@ button {
   font-size: 27px;
 }
 
-.cs-gate-card {
-  gap: 0;
-  padding: 16px;
-  border-radius: 8px;
-  box-shadow:
-    0 10px 24px rgb(2 8 18 / 0.05),
-    0 1px 0 rgb(255 255 255 / 0.78) inset;
-}
-
-.cs-pass-lockup {
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 13px;
-}
-
-.cs-pass-index {
-  width: 34px;
-  height: 34px;
-  font-size: 9px;
-  box-shadow: 0 0 0 4px rgb(110 92 158 / 0.045);
-}
-
-.cs-pass-lockup h2 {
-  margin-top: 7px;
-  font-size: 22px;
-}
-
-.cs-pass-lockup p {
-  margin-top: 8px;
-  font-size: 12.5px;
-  line-height: 1.42;
-}
-
 .cs-extension-actions {
   gap: 9px;
 }
@@ -2344,10 +2161,6 @@ button {
 
 .cs-live-field-head {
   font-size: 10px;
-}
-
-.cs-live-stage-axis {
-  display: none;
 }
 
 .cs-live-progress-track {
@@ -2764,7 +2577,6 @@ body,
 .cs-dormant-card,
 .cs-drop-zone,
 .cs-cache-card,
-.cs-gate-card,
 .cs-live-card {
   border: 1px solid var(--color-rule);
   border-radius: 6px;
@@ -4516,7 +4328,6 @@ body {
 .cs-start-hero h1,
 .cs-partial-profile h1,
 .cs-start-company-copy h2,
-.cs-pass-lockup h2,
 .cs-source-pass-now h2 {
   font-family: var(--font-display);
   font-weight: 770;
@@ -4545,7 +4356,6 @@ body {
 
 /* Receipt / index marks: At Textual, the one earned mono accent. */
 .cs-run-step-index,
-.cs-pass-index,
 .cs-generation-run-time strong,
 .cs-source-chip {
   font-family: var(--font-text);
