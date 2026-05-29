@@ -79,7 +79,10 @@ function websiteCitationIdForDomain(card: ColdStartCard): string | null {
       return citation.id;
     }
     try {
-      if (new URL(citation.url).hostname.replace(/^www\./i, "").toLowerCase() === target) {
+      // Match the bare domain or any subdomain of it (e.g. app.bolt.com, docs.bolt.com for bolt.com).
+      // The leading "." guard rejects look-alikes: "evil-bolt.com" and "bolt.com.evil" do not match.
+      const host = new URL(citation.url).hostname.replace(/^www\./i, "").toLowerCase();
+      if (host === target || host.endsWith(`.${target}`)) {
         return citation.id;
       }
     } catch {
