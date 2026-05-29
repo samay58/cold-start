@@ -859,17 +859,73 @@ export async function enrichExtractedSectionsForDomain(input: {
   };
 }
 
-export function cardWithExtractedSections(card: ColdStartCard, sections: ExtractedCardSections): ColdStartCard {
-  return coldStartCardSchema.parse({
+// Drop fact citation refs that do not resolve to a citation in citations[], nulling any fact that
+// loses all of its refs. This is a no-op for well-formed cards (every ref already resolves); it only
+// fires when an upstream step (e.g. block enrichment) attaches a fact ref without registering its
+// citation. Without it, coldStartCardSchema.parse throws and the whole generation run fails.
+function withResolvedCitationRefs(card: ColdStartCard): ColdStartCard {
+  const validIds = new Set(card.citations.map((citation) => citation.id));
+
+  const fixFact = <T>(fact: ResolvedFact<T>): ResolvedFact<T> => {
+    const citationIds = fact.citationIds.filter((id) => validIds.has(id));
+    if (citationIds.length === fact.citationIds.length) {
+      return fact;
+    }
+    if (fact.value !== null && citationIds.length === 0) {
+      return { value: null, status: "unknown", confidence: fact.confidence, citationIds: [] };
+    }
+    return { ...fact, citationIds };
+  };
+
+  return {
     ...card,
-    generatedAt: new Date().toISOString(),
-    identity: sections.identity,
-    funding: sections.funding,
-    team: sections.team,
-    signals: sections.signals,
-    comparables: sections.comparables,
-    citations: sections.citations
-  });
+    identity: {
+      ...card.identity,
+      name: fixFact(card.identity.name),
+      ...(card.identity.websiteUrl ? { websiteUrl: fixFact(card.identity.websiteUrl) } : {}),
+      ...(card.identity.linkedinUrl ? { linkedinUrl: fixFact(card.identity.linkedinUrl) } : {}),
+      oneLiner: fixFact(card.identity.oneLiner),
+      ...(card.identity.description ? { description: fixFact(card.identity.description) } : {}),
+      hq: fixFact(card.identity.hq),
+      foundedYear: fixFact(card.identity.foundedYear)
+    },
+    funding: {
+      ...card.funding,
+      totalRaisedUsd: fixFact(card.funding.totalRaisedUsd),
+      lastRound: fixFact(card.funding.lastRound),
+      ...(card.funding.rounds ? { rounds: fixFact(card.funding.rounds) } : {}),
+      investors: fixFact(card.funding.investors)
+    },
+    team: {
+      founders: fixFact(card.team.founders),
+      keyExecs: fixFact(card.team.keyExecs),
+      headcount: fixFact(card.team.headcount)
+    },
+    signals: card.signals.flatMap((signal) => {
+      const citationIds = signal.citationIds.filter((id) => validIds.has(id));
+      return citationIds.length > 0 ? [{ ...signal, citationIds }] : [];
+    }),
+    comparables: card.comparables.map((comparable) =>
+      comparable.citationIds
+        ? { ...comparable, citationIds: comparable.citationIds.filter((id) => validIds.has(id)) }
+        : comparable
+    )
+  };
+}
+
+export function cardWithExtractedSections(card: ColdStartCard, sections: ExtractedCardSections): ColdStartCard {
+  return coldStartCardSchema.parse(
+    withResolvedCitationRefs({
+      ...card,
+      generatedAt: new Date().toISOString(),
+      identity: sections.identity,
+      funding: sections.funding,
+      team: sections.team,
+      signals: sections.signals,
+      comparables: sections.comparables,
+      citations: sections.citations
+    })
+  );
 }
 
 function boundedCardError(error: unknown) {
