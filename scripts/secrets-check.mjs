@@ -38,8 +38,11 @@ const ignoredExtensions = new Set([
 ]);
 
 const patterns = [
-  { label: "OpenAI API key", regex: /sk-[A-Za-z0-9_-]{32,}/g },
-  { label: "Anthropic API key", regex: /sk-ant-[A-Za-z0-9_-]{32,}/g },
+  // Require a word boundary before sk- so the pattern does not match mid-word, e.g. the "sk-" inside
+  // "elon-musk-is-betting-..." URL slugs in scraped eval fixtures. Real keys are standalone tokens
+  // (preceded by whitespace, quote, =, :, or start), so the boundary never drops a genuine key.
+  { label: "OpenAI API key", regex: /\bsk-[A-Za-z0-9_-]{32,}/g },
+  { label: "Anthropic API key", regex: /\bsk-ant-[A-Za-z0-9_-]{32,}/g },
   { label: "GitHub token", regex: /gh[pousr]_[A-Za-z0-9_]{30,}/g },
   { label: "Vercel token", regex: /\b[A-Za-z0-9]{24}_[A-Za-z0-9]{24}\b/g },
   { label: "Private key block", regex: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g },
