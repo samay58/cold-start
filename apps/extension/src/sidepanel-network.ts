@@ -25,7 +25,11 @@ import {
 } from "./extension-config";
 import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
 
-const GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+// Production analysis/basics runs can legitimately take 4-7 minutes (observed p95 well above the
+// old 4-minute wall, max ~414s). The card now persists server-side near the end of a run, so when
+// this deadline is hit on a still-active run the panel shows a calm "still researching" state and a
+// recheck loads the cached card, rather than a hard failure.
+const GENERATION_TIMEOUT_MS = 7 * 60 * 1000;
 
 export type GenerationPollResult = {
   card: ColdStartCard;
@@ -450,7 +454,7 @@ export async function pollGenerationUntilCard(
     }
   }
 
-  throw new ApiError("Card generation is taking longer than expected. Keep the local worker running, then reopen Cold Start.", 202);
+  throw new ApiError("Still researching this company. It is taking longer than usual; check again in a moment and the card will be ready.", 202);
 }
 
 export async function startGenerationAndPoll(

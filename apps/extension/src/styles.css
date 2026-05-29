@@ -229,6 +229,14 @@ button {
   color: var(--color-conflict);
 }
 
+.cs-extension-note {
+  margin: 5px 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .cs-extension-form {
   display: grid;
   align-content: start;
