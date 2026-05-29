@@ -13,6 +13,7 @@ import {
   type VerificationResult
 } from "@cold-start/llm";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
+import { withResolvedCitationRefs } from "./citation-refs";
 import { type CostLine, totalGenerationCost } from "./cost";
 import { buildEvidenceLedger, type EvidenceLedgerEntry } from "./evidence-ledger";
 import { applyProviderFactCandidates } from "./provider-facts";
@@ -759,19 +760,21 @@ export async function generateCardForDomainWithTrace(
     ...(blockEnrichment.trace ? { blockEnrichment: blockEnrichment.trace } : {})
   };
 
-  let card: ColdStartCard = coldStartCardSchema.parse({
-    slug: skeleton.slug,
-    domain: skeleton.domain,
-    generatedAt: new Date().toISOString(),
-    generationCostUsd: totalGenerationCost(deps.costLines ?? []),
-    cacheStatus: skeleton.cacheStatus,
-    identity: sections.identity,
-    funding: sections.funding,
-    team: sections.team,
-    signals: sections.signals,
-    comparables: sections.comparables,
-    citations: sections.citations
-  });
+  let card: ColdStartCard = coldStartCardSchema.parse(
+    withResolvedCitationRefs({
+      slug: skeleton.slug,
+      domain: skeleton.domain,
+      generatedAt: new Date().toISOString(),
+      generationCostUsd: totalGenerationCost(deps.costLines ?? []),
+      cacheStatus: skeleton.cacheStatus,
+      identity: sections.identity,
+      funding: sections.funding,
+      team: sections.team,
+      signals: sections.signals,
+      comparables: sections.comparables,
+      citations: sections.citations
+    } as ColdStartCard)
+  );
 
   if (hasSynthesisDeps(deps)) {
     let verifiedSynthesis: CardSynthesis | undefined;
@@ -826,10 +829,12 @@ export async function generateCardForDomainWithTrace(
     }
   }
 
-  card = coldStartCardSchema.parse({
-    ...card,
-    generationCostUsd: totalGenerationCost(deps.costLines ?? [])
-  });
+  card = coldStartCardSchema.parse(
+    withResolvedCitationRefs({
+      ...card,
+      generationCostUsd: totalGenerationCost(deps.costLines ?? [])
+    })
+  );
 
   return {
     card: finalizeGeneratedCard(card),
@@ -856,60 +861,6 @@ export async function enrichExtractedSectionsForDomain(input: {
   return {
     sections: extractedCardSectionsSchema.parse(blockEnrichment.sections),
     trace: blockEnrichment.trace
-  };
-}
-
-// Drop fact citation refs that do not resolve to a citation in citations[], nulling any fact that
-// loses all of its refs. This is a no-op for well-formed cards (every ref already resolves); it only
-// fires when an upstream step (e.g. block enrichment) attaches a fact ref without registering its
-// citation. Without it, coldStartCardSchema.parse throws and the whole generation run fails.
-function withResolvedCitationRefs(card: ColdStartCard): ColdStartCard {
-  const validIds = new Set(card.citations.map((citation) => citation.id));
-
-  const fixFact = <T>(fact: ResolvedFact<T>): ResolvedFact<T> => {
-    const citationIds = fact.citationIds.filter((id) => validIds.has(id));
-    if (citationIds.length === fact.citationIds.length) {
-      return fact;
-    }
-    if (fact.value !== null && citationIds.length === 0) {
-      return { value: null, status: "unknown", confidence: fact.confidence, citationIds: [] };
-    }
-    return { ...fact, citationIds };
-  };
-
-  return {
-    ...card,
-    identity: {
-      ...card.identity,
-      name: fixFact(card.identity.name),
-      ...(card.identity.websiteUrl ? { websiteUrl: fixFact(card.identity.websiteUrl) } : {}),
-      ...(card.identity.linkedinUrl ? { linkedinUrl: fixFact(card.identity.linkedinUrl) } : {}),
-      oneLiner: fixFact(card.identity.oneLiner),
-      ...(card.identity.description ? { description: fixFact(card.identity.description) } : {}),
-      hq: fixFact(card.identity.hq),
-      foundedYear: fixFact(card.identity.foundedYear)
-    },
-    funding: {
-      ...card.funding,
-      totalRaisedUsd: fixFact(card.funding.totalRaisedUsd),
-      lastRound: fixFact(card.funding.lastRound),
-      ...(card.funding.rounds ? { rounds: fixFact(card.funding.rounds) } : {}),
-      investors: fixFact(card.funding.investors)
-    },
-    team: {
-      founders: fixFact(card.team.founders),
-      keyExecs: fixFact(card.team.keyExecs),
-      headcount: fixFact(card.team.headcount)
-    },
-    signals: card.signals.flatMap((signal) => {
-      const citationIds = signal.citationIds.filter((id) => validIds.has(id));
-      return citationIds.length > 0 ? [{ ...signal, citationIds }] : [];
-    }),
-    comparables: card.comparables.map((comparable) =>
-      comparable.citationIds
-        ? { ...comparable, citationIds: comparable.citationIds.filter((id) => validIds.has(id)) }
-        : comparable
-    )
   };
 }
 

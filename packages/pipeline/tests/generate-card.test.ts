@@ -189,6 +189,44 @@ describe("generateCardForDomain", () => {
     expect(card.generationCostUsd).toBe(0);
   });
 
+  it("drops unresolved extracted citation refs instead of crashing the run", async () => {
+    // Reproduces the SpaceX basics failure: extraction cited evidence-ledger id "e19"
+    // on identity facts, but no citation with id "e19" survived in citations[]. The full
+    // schema parse used to throw a ZodError, which then leaked into every public section.
+    const skeleton = buildSkeletonCard("spacex.com");
+
+    const card = await generateCardForDomain("spacex.com", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: {
+          ...skeleton.identity,
+          name: { value: "SpaceX", status: "verified", confidence: "high", citationIds: ["e19", "c1"] },
+          websiteUrl: { value: "https://spacex.com", status: "verified", confidence: "high", citationIds: ["e19"] },
+          linkedinUrl: { value: "https://www.linkedin.com/company/spacex", status: "verified", confidence: "high", citationIds: ["e19"] }
+        },
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [
+          { id: "c1", url: "https://spacex.com/", title: "SpaceX", fetchedAt: "2026-05-29T00:00:00.000Z", sourceType: "company_site" as const }
+        ]
+      })
+    } as unknown as GenerateCardDeps);
+
+    // The run completes. The unresolved "e19" ref is dropped everywhere.
+    expect(card.identity.name.value).toBe("SpaceX");
+    expect(card.identity.name.citationIds).toEqual(["c1"]);
+    expect(card.identity.websiteUrl?.value ?? null).toBeNull();
+    expect(card.identity.linkedinUrl?.value ?? null).toBeNull();
+    const allRefs = [
+      ...card.identity.name.citationIds,
+      ...(card.identity.websiteUrl?.citationIds ?? []),
+      ...(card.identity.linkedinUrl?.citationIds ?? [])
+    ];
+    expect(allRefs).not.toContain("e19");
+  });
+
   it("includes cost lines added during synthesis and verification", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const costLines = [{ label: "provider", usd: 0.01 }];

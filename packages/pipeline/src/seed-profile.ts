@@ -8,6 +8,7 @@ import {
 } from "@cold-start/core";
 import { extractedCardSectionsSchema, type ExtractedCardSections } from "@cold-start/llm";
 import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
+import { withResolvedCitationRefs } from "./citation-refs";
 import type { EvidenceLedgerEntry } from "./evidence-ledger";
 import { applyProviderFactCandidates } from "./provider-facts";
 import { resolveIdentityFromInput } from "./resolve-identity";
@@ -368,16 +369,18 @@ export function buildSeedProfileCard(input: {
     }
   }
 
-  const card = finalizeGeneratedCard(coldStartCardSchema.parse({
-    ...skeleton,
-    generatedAt: new Date().toISOString(),
-    identity: sections.identity,
-    funding: sections.funding,
-    team: sections.team,
-    signals: sections.signals,
-    comparables: sections.comparables,
-    citations: sections.citations
-  }));
+  const card = finalizeGeneratedCard(coldStartCardSchema.parse(
+    withResolvedCitationRefs({
+      ...skeleton,
+      generatedAt: new Date().toISOString(),
+      identity: sections.identity,
+      funding: sections.funding,
+      team: sections.team,
+      signals: sections.signals,
+      comparables: sections.comparables,
+      citations: sections.citations
+    })
+  ));
 
   return {
     card,

@@ -1,4 +1,4 @@
-import { fundingEvidenceFromCitations, type ColdStartCard } from "@cold-start/core";
+import { fundingEvidenceFromCitations, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
 import {
@@ -292,6 +292,31 @@ describe("research layer model", () => {
   it("does not fabricate source counts for cards without citations", () => {
     const display = layerDisplayForCard(baseCard({ citations: [] }), "serves");
     expect(display?.sourceCount).toBe(0);
+  });
+
+  it("never renders a raw section error as card body", () => {
+    const zodCrud =
+      '[ { "code": "custom", "message": "Citation ref does not resolve: e19", "path": [ "identity", "name", "citationIds", 0 ] } ]';
+    const failedSection: ResearchSection = {
+      slug: "warp",
+      domain: "warp.dev",
+      sectionId: "traction",
+      visibility: "public",
+      status: "failed",
+      content: null,
+      citationIds: [],
+      sourceIds: [],
+      runId: null,
+      error: zodCrud,
+      generatedAt: null,
+      staleAt: null
+    };
+
+    const display = layerDisplayForCard(baseCard(), "signals", [failedSection]);
+
+    expect(display?.status).toBe("failed");
+    expect(display?.body).not.toContain("Citation ref does not resolve");
+    expect(display?.body).not.toContain("citationIds");
   });
 
   it("deduplicates repeated source links before rendering chips", () => {

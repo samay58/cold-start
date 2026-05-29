@@ -174,10 +174,12 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
   }
 
   if (section.status === "failed") {
+    // Never surface the raw section.error here: it can be a ZodError dump or other internal
+    // detail. The error is kept in the database for debugging; the reader gets a plain line.
     return {
       id: layer.id,
       title,
-      body: section.error ?? "This section failed to generate.",
+      body: "This section failed to generate. Retry to rebuild it from cited sources.",
       sources,
       sourceCount: displaySourceCount(sources),
       status: "failed"
