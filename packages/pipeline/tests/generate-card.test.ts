@@ -1290,4 +1290,43 @@ describe("finalizeGeneratedCard", () => {
 
     expect(finalizeGeneratedCard(card).comparables.map((comparable) => comparable.name)).toEqual(["Cursor"]);
   });
+
+  it("derives a readable name from the domain when extraction leaves it missing but the site is cited", () => {
+    const skeleton = buildSkeletonCard("bolt.com");
+    const card = {
+      ...skeleton,
+      citations: [
+        {
+          id: "c1",
+          url: "https://bolt.com",
+          title: "Bolt",
+          fetchedAt: "2026-05-29T00:00:00.000Z",
+          sourceType: "company_site" as const,
+        },
+      ],
+    };
+
+    const finalized = finalizeGeneratedCard(card);
+    expect(finalized.identity.name.value).toBe("Bolt");
+    expect(finalized.identity.name.status).toBe("inferred");
+    expect(finalized.identity.name.citationIds).toEqual(["c1"]);
+  });
+
+  it("leaves the name missing when the company site is not cited", () => {
+    const skeleton = buildSkeletonCard("bolt.com");
+    const card = {
+      ...skeleton,
+      citations: [
+        {
+          id: "c1",
+          url: "https://techcrunch.com/2026/bolt",
+          title: "News",
+          fetchedAt: "2026-05-29T00:00:00.000Z",
+          sourceType: "news" as const,
+        },
+      ],
+    };
+
+    expect(finalizeGeneratedCard(card).identity.name.value).toBeNull();
+  });
 });

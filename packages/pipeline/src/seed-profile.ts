@@ -52,6 +52,71 @@ function readableNameFromDomain(domain: string) {
     .join(" ") || domain;
 }
 
+function normalizedNameText(value: string) {
+  return value.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
+}
+
+// Mirrors core card-quality.isDomainPlaceholder: a name that is just the domain (or empty) does not
+// count as a usable name in the public-profile gate.
+function isDomainPlaceholderName(value: string | null | undefined, domain: string) {
+  if (!value) {
+    return true;
+  }
+  const normalizedValue = normalizedNameText(value);
+  const normalizedDomain = normalizedNameText(domain);
+  return (
+    normalizedValue === normalizedDomain ||
+    normalizedValue === `www.${normalizedDomain}` ||
+    (normalizedValue.includes(".") && normalizedValue.replace(/\s+/g, "") === normalizedDomain)
+  );
+}
+
+function websiteCitationIdForDomain(card: ColdStartCard): string | null {
+  const target = normalizedNameText(card.domain);
+  const websiteUrl = card.identity.websiteUrl?.value ?? null;
+  for (const citation of card.citations) {
+    if (websiteUrl && citation.url === websiteUrl) {
+      return citation.id;
+    }
+    try {
+      if (new URL(citation.url).hostname.replace(/^www\./i, "").toLowerCase() === target) {
+        return citation.id;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+// When extraction yields no usable company name but the card is otherwise rich, derive a readable
+// name from the domain (e.g. "bolt.com" -> "Bolt") backed by the company's own cited website. Without
+// this, a fact-rich card is rejected by hasUsablePublicProfile solely for a missing name. The derived
+// name must carry a real citation or it fails the card schema / trust sanitization.
+function withDerivedNameFallback(card: ColdStartCard): ColdStartCard {
+  if (!isDomainPlaceholderName(card.identity.name.value, card.domain)) {
+    return card;
+  }
+  const derived = readableNameFromDomain(card.domain);
+  if (isDomainPlaceholderName(derived, card.domain)) {
+    return card;
+  }
+  const citationId = websiteCitationIdForDomain(card);
+  if (!citationId) {
+    return card;
+  }
+  const name: ResolvedFact<string> = {
+    value: derived,
+    status: "inferred",
+    confidence: "low",
+    citationIds: [citationId]
+  };
+  return {
+    ...card,
+    identity: { ...card.identity, name }
+  };
+}
+
 export function fallbackSectionsFromEvidence(
   skeleton: ColdStartCard,
   evidenceLedger: EvidenceLedgerEntry[]
@@ -126,7 +191,9 @@ export function buildSkeletonCard(input: string): ColdStartCard {
 }
 
 export function finalizeGeneratedCard(card: ColdStartCard): ColdStartCard {
-  const trusted = stripUnsupportedSynthesis(sanitizeCardTrust(materializeFundingFromCitations(card)));
+  const trusted = withDerivedNameFallback(
+    stripUnsupportedSynthesis(sanitizeCardTrust(materializeFundingFromCitations(card)))
+  );
   return {
     ...trusted,
     comparables: trusted.comparables.filter((comparable) => isUsableComparableForCompany(trusted, comparable)),
