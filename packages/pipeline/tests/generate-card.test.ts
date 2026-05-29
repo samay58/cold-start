@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildSeedProfileCard,
   buildSkeletonCard,
+  cardWithExtractedSections,
   type ExtractedCardSections,
   finalizeGeneratedCard,
   generateCardForDomain,
@@ -1328,5 +1329,45 @@ describe("finalizeGeneratedCard", () => {
     };
 
     expect(finalizeGeneratedCard(card).identity.name.value).toBeNull();
+  });
+});
+
+describe("cardWithExtractedSections", () => {
+  it("drops unresolved fact citation refs instead of throwing", () => {
+    const base = buildSkeletonCard("acme.com");
+    const sections: ExtractedCardSections = {
+      identity: {
+        ...base.identity,
+        name: { value: "Acme", status: "verified", confidence: "high", citationIds: ["c1"] },
+      },
+      funding: base.funding,
+      team: {
+        founders: {
+          value: [{ name: "Jane Doe", role: "CEO", sourceUrl: null }],
+          status: "verified",
+          confidence: "high",
+          citationIds: ["e1"],
+        },
+        keyExecs: base.team.keyExecs,
+        headcount: base.team.headcount,
+      },
+      signals: [],
+      comparables: [],
+      citations: [
+        {
+          id: "c1",
+          url: "https://acme.com",
+          title: "Acme",
+          fetchedAt: "2026-05-29T00:00:00.000Z",
+          sourceType: "company_site" as const,
+        },
+      ],
+    };
+
+    const card = cardWithExtractedSections(base, sections);
+    // Valid ref survives; the dangling "e1" ref is dropped and its fact nulled (no schema throw).
+    expect(card.identity.name.value).toBe("Acme");
+    expect(card.team.founders.value).toBeNull();
+    expect(card.team.founders.citationIds).toEqual([]);
   });
 });
