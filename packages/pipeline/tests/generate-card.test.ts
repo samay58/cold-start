@@ -1313,6 +1313,44 @@ describe("finalizeGeneratedCard", () => {
     expect(finalized.identity.name.citationIds).toEqual(["c1"]);
   });
 
+  it("derives the name from a subdomain company-site citation", () => {
+    const skeleton = buildSkeletonCard("bolt.com");
+    const card = {
+      ...skeleton,
+      citations: [
+        {
+          id: "c1",
+          url: "https://app.bolt.com/dashboard",
+          title: "Bolt App",
+          fetchedAt: "2026-05-29T00:00:00.000Z",
+          sourceType: "company_site" as const,
+        },
+      ],
+    };
+
+    const finalized = finalizeGeneratedCard(card);
+    expect(finalized.identity.name.value).toBe("Bolt");
+    expect(finalized.identity.name.citationIds).toEqual(["c1"]);
+  });
+
+  it("does not derive the name from a look-alike domain citation", () => {
+    const skeleton = buildSkeletonCard("bolt.com");
+    const card = {
+      ...skeleton,
+      citations: [
+        {
+          id: "c1",
+          url: "https://evil-bolt.com",
+          title: "Not Bolt",
+          fetchedAt: "2026-05-29T00:00:00.000Z",
+          sourceType: "company_site" as const,
+        },
+      ],
+    };
+
+    expect(finalizeGeneratedCard(card).identity.name.value).toBeNull();
+  });
+
   it("leaves the name missing when the company site is not cited", () => {
     const skeleton = buildSkeletonCard("bolt.com");
     const card = {
