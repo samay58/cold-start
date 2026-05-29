@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  ApiError,
   defaultApiOrigin,
   normalizeApiOrigin,
   readableCompanyNameFromDomain,
@@ -58,7 +59,17 @@ type RequestState =
       events?: ExtensionResearchRunEvent[];
       sources?: ExtensionSourceSummary[];
     }
+  | { status: "pending"; domain: string }
   | { status: "error"; message: string };
+
+// A 202 from the poller means the client deadline elapsed while the run is still active. The card
+// persists server-side near the end of a run, so this is recoverable: surface a calm "still
+// researching" state (with a recheck) instead of a hard failure.
+function stillGeneratingState(caught: unknown, generationDomain: string): RequestState | null {
+  return caught instanceof ApiError && caught.status === 202
+    ? { status: "pending", domain: generationDomain }
+    : null;
+}
 
 type AnalysisRunState = {
   generationStatus: "queued" | "running";
@@ -705,6 +716,12 @@ export function SidePanel() {
           return;
         }
 
+        const pending = stillGeneratingState(caught, generationDomain);
+        if (pending) {
+          setRequestState(pending);
+          return;
+        }
+
         const message = caught instanceof Error ? caught.message : String(caught);
         setRequestState({ status: "error", message: readableCardError(message, generationSettings.apiOrigin) });
       })
@@ -963,6 +980,12 @@ export function SidePanel() {
           return;
         }
 
+        const pending = stillGeneratingState(caught, generationDomain);
+        if (pending) {
+          setRequestState(pending);
+          return;
+        }
+
         const message = caught instanceof Error ? caught.message : String(caught);
         setRequestState({ status: "error", message: readableCardError(message, generationSettings.apiOrigin) });
       })
@@ -1202,6 +1225,28 @@ export function SidePanel() {
 
   if (requestState.status === "generating") {
     return <GenerationPanel domain={domain} requestState={requestState} />;
+  }
+
+  if (requestState.status === "pending") {
+    return (
+      <ExtensionFrame
+        actions={
+          <>
+            <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
+              Check again
+            </button>
+            <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
+              Settings
+            </button>
+          </>
+        }
+        onSettings={() => setShowSettings(true)}
+        title="Still researching"
+      >
+        <PanelHeader eyebrow="In progress" logoDomain={requestState.domain} title="Still researching" value={requestState.domain} />
+        <p className="cs-extension-note">Cold Start is still building this card. It is taking a little longer than usual; check again in a moment and it will be ready.</p>
+      </ExtensionFrame>
+    );
   }
 
   if (requestState.status === "error") {
