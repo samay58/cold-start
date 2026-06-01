@@ -84,10 +84,10 @@ function generationStageIndexFromEvents(events: ExtensionResearchRunEvent[]) {
   const stageByType: Record<string, number> = {
     "generation.queued": 0,
     "generation.started": 0,
-    "plan.ready": 1,
-    "source.found": 2,
-    "source.enrichment": 2,
-    "card.partial": 3,
+    "plan.ready": 0,
+    "source.found": 1,
+    "source.enrichment": 1,
+    "card.partial": 2,
     "card.saved": 3,
     "card.enriched": 3,
     "generation.complete": 3
@@ -97,6 +97,58 @@ function generationStageIndexFromEvents(events: ExtensionResearchRunEvent[]) {
     const stage = stageByType[event.type];
     return typeof stage === "number" ? Math.max(highest ?? stage, stage) : highest;
   }, null);
+}
+
+function acceptedSourceCountFromEvents(events: ExtensionResearchRunEvent[]) {
+  for (const event of events) {
+    const count = event.metadata.acceptedCount;
+    if (typeof count === "number" && Number.isFinite(count)) {
+      return count;
+    }
+
+    const matched = event.message.match(/found\s+(\d+)\s+accepted\s+sources/i);
+    if (matched?.[1]) {
+      return Number(matched[1]);
+    }
+  }
+
+  return null;
+}
+
+function generationStageNote({
+  activeIndex,
+  elapsed,
+  events,
+  generationStatus
+}: {
+  activeIndex: number;
+  elapsed: number;
+  events: ExtensionResearchRunEvent[];
+  generationStatus: GenerationStatus["status"];
+}) {
+  const acceptedCount = acceptedSourceCountFromEvents(events);
+
+  if (generationStatus === "queued" && elapsed < 4) {
+    return "Waiting for a worker";
+  }
+
+  if (activeIndex === 1 && acceptedCount !== null) {
+    return `${acceptedCount} sources in hand`;
+  }
+
+  if (activeIndex === 0) {
+    return "Finding where to look";
+  }
+
+  if (activeIndex === 1) {
+    return "Evidence is coming in";
+  }
+
+  if (activeIndex === 2) {
+    return "Turning evidence into the card";
+  }
+
+  return "Wrapping the card";
 }
 
 function ExtensionTopbar({
@@ -349,10 +401,10 @@ function GenerationPanel({
   const events = requestState.events ?? [];
   const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const stages: SourcePassStage[] = [
-    { label: "Queue", marker: "01", note: "Worker accepted" },
-    { label: "Gather", marker: "02", note: "Finding sources" },
-    { label: "Read", marker: "03", note: "Normalizing evidence" },
-    { label: "File", marker: "04", note: "Assembling citations" }
+    { label: "Sourcing", marker: "01", note: "Finding where to look" },
+    { label: "Collecting", marker: "02", note: "Evidence is coming in" },
+    { label: "Synthesizing", marker: "03", note: "Turning evidence into the card" },
+    { label: "Finalizing", marker: "04", note: "Wrapping the card" }
   ];
   const estimatedStageProgress = requestState.generationStatus === "queued"
     ? elapsedMs / 7000
@@ -367,9 +419,12 @@ function GenerationPanel({
       ? "Queued"
       : "Building";
   const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
-  const stageNote = requestState.generationStatus === "queued" && elapsed < 4
-    ? "Worker queued"
-    : events[0]?.message ?? activeStage?.note ?? "Working from cited sources";
+  const stageNote = generationStageNote({
+    activeIndex,
+    elapsed,
+    events,
+    generationStatus: requestState.generationStatus
+  }) ?? activeStage?.note ?? "Working from cited sources";
   const progressPercent = Math.min(97, Math.max(8, (clampedStageProgress / stages.length) * 100));
   return (
     <ExtensionFrame

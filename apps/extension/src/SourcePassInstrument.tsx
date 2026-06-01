@@ -78,7 +78,7 @@ export function SourcePassInstrument({
     <div className="cs-live-card cs-live-card-refined cs-source-pass-instrument" aria-live="polite">
       <div className="cs-live-field">
         <div className="cs-live-field-head cs-source-pass-head">
-          <span>Source pass</span>
+          <span>Building card</span>
           <MotionStateText value={`${activeStage?.marker ?? "01"} / ${String(stages.length).padStart(2, "0")}`} />
         </div>
 
@@ -106,7 +106,7 @@ export function SourcePassInstrument({
           <span className="cs-source-pass-scan cs-live-progress-scan" />
         </motion.div>
 
-        <ol className="cs-run-steps cs-source-pass-steps" aria-label="Source pass stages">
+        <ol className="cs-run-steps cs-source-pass-steps" aria-label="Build stages">
           {stages.map((stage, index) => (
             <motion.li
               aria-current={index === safeActiveIndex ? "step" : undefined}

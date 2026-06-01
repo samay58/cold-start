@@ -1139,25 +1139,35 @@ button {
 .cs-layer-running-text::after {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(
-      105deg,
-      transparent 0%,
-      transparent 30%,
-      rgb(110 92 158 / 0.18) 42%,
-      rgb(179 166 212 / 0.62) 49%,
-      rgb(110 92 158 / 0.24) 56%,
-      transparent 70%,
-      transparent 100%
-    );
-  background-size: 260% 100%;
-  background-position: 130% 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #8876b8;
   content: attr(data-text);
   opacity: 0;
   pointer-events: none;
+  text-shadow: 0 0 10px rgb(179 166 212 / 0.18);
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 34%,
+      #000 45%,
+      #000 56%,
+      transparent 68%,
+      transparent 100%
+    );
+  mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 34%,
+      #000 45%,
+      #000 56%,
+      transparent 68%,
+      transparent 100%
+    );
+  -webkit-mask-size: 240% 100%;
+  mask-size: 240% 100%;
+  -webkit-mask-position: 130% 0;
+  mask-position: 130% 0;
 }
 
 .cs-research-shell {
@@ -2845,14 +2855,14 @@ body,
 }
 
 .cs-generation-panel {
-  padding: 10px;
+  padding: 8px;
 }
 
 .cs-generation-hero {
-  grid-template-columns: 62px minmax(0, 1fr) auto;
-  gap: 18px;
-  margin: 8px 8px 14px;
-  padding: 20px;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 14px;
+  margin: 6px 6px 10px;
+  padding: 14px 16px;
   border: 1px solid rgb(216 208 191 / 0.86);
   border-radius: 8px;
   background:
@@ -2864,15 +2874,15 @@ body,
 }
 
 .cs-generation-logo {
-  width: 62px;
-  height: 62px;
+  width: 52px;
+  height: 52px;
   border-radius: 8px;
 }
 
 .cs-generation-logo .cs-company-logo-fallback {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 34px;
+  font-size: 29px;
   font-weight: 650;
 }
 
@@ -2886,18 +2896,18 @@ body,
 }
 
 .cs-generation-hero h1 {
-  margin-top: 8px;
+  margin-top: 5px;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(30px, 7.5vw, 42px);
+  font-size: clamp(26px, 6.7vw, 36px);
   font-weight: 650;
   line-height: 0.96;
 }
 
 .cs-generation-domain {
-  margin-top: 8px;
+  margin-top: 5px;
   color: rgb(14 14 14 / 0.58);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 620;
 }
 
@@ -2908,13 +2918,13 @@ body,
 .cs-generation-run-time strong {
   color: var(--color-seal);
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 650;
 }
 
 .cs-live-card-refined {
-  margin: 0 8px;
-  min-height: 216px;
+  margin: 0 6px;
+  min-height: 188px;
   border-color: rgb(216 208 191 / 0.82);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(252 250 245 / 0.84)),
@@ -2925,7 +2935,7 @@ body,
 }
 
 .cs-live-field-head {
-  padding: 20px 22px 14px;
+  padding: 15px 18px 10px;
   border-bottom: 0;
   color: rgb(14 14 14 / 0.62);
   font-family: var(--font-mono);
@@ -3859,7 +3869,7 @@ body {
 
 .cs-source-pass-instrument {
   position: relative;
-  min-height: 252px;
+  min-height: 206px;
   overflow: hidden;
   border-color: rgb(216 208 191 / 0.88);
   background:
@@ -3885,7 +3895,7 @@ body {
 .cs-source-pass-head {
   position: relative;
   z-index: 1;
-  padding: 15px 22px 12px;
+  padding: 13px 18px 8px;
   border-bottom-color: rgb(216 208 191 / 0.60);
 }
 
@@ -3900,16 +3910,16 @@ body {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
   align-items: start;
-  padding: 17px 22px 10px;
+  padding: 12px 18px 6px;
 }
 
 .cs-source-pass-current-marker {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   place-items: center;
   border: 1px solid rgb(110 92 158 / 0.26);
   border-radius: 999px;
@@ -3919,23 +3929,23 @@ body {
   font-size: 11px;
   font-weight: 840;
   letter-spacing: 0.08em;
-  box-shadow: 0 0 0 calc(5px + (var(--cs-source-pass-tension, 0.4) * 5px)) rgb(110 92 158 / 0.06);
+  box-shadow: 0 0 0 calc(4px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(110 92 158 / 0.055);
 }
 
 .cs-source-pass-now h2 {
   margin: -2px 0 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(28px, 8.4vw, 40px);
+  font-size: clamp(25px, 6.6vw, 34px);
   font-weight: 650;
   line-height: 0.96;
 }
 
 .cs-source-pass-now p {
-  margin: 7px 0 0;
+  margin: 5px 0 0;
   color: rgb(8 25 44 / 0.58);
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 680;
   letter-spacing: 0;
   line-height: 1.35;
@@ -3945,8 +3955,8 @@ body {
   position: relative;
   z-index: 1;
   container-type: inline-size;
-  height: 35px;
-  margin: 5px 22px 13px;
+  height: 26px;
+  margin: 2px 18px 8px;
   overflow: visible;
   border: 0;
   border-radius: 999px;
@@ -4041,15 +4051,15 @@ body {
 .cs-source-pass-steps.cs-run-steps {
   position: relative;
   z-index: 1;
-  padding: 0 22px 19px;
+  padding: 0 18px 14px;
 }
 
 .cs-source-pass-steps.cs-run-steps li {
   position: relative;
-  grid-template-columns: 48px minmax(0, 1fr) 18px;
-  min-height: 38px;
+  grid-template-columns: 38px minmax(0, 1fr) 14px;
+  min-height: 30px;
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 720;
 }
 
@@ -4067,7 +4077,7 @@ body {
 
 .cs-source-pass-steps li > span:nth-child(2) {
   display: grid;
-  gap: 3px;
+  gap: 1px;
 }
 
 .cs-source-pass-steps li[data-active="true"] {
@@ -4238,22 +4248,24 @@ body {
 @keyframes cs-layer-text-sheen {
   0%,
   16% {
-    background-position: 130% 0;
     opacity: 0;
+    -webkit-mask-position: 130% 0;
+    mask-position: 130% 0;
   }
 
   34% {
-    opacity: 0.72;
+    opacity: 0.9;
   }
 
   58% {
-    opacity: 0.28;
+    opacity: 0.46;
   }
 
   74%,
   100% {
-    background-position: -65% 0;
     opacity: 0;
+    -webkit-mask-position: -70% 0;
+    mask-position: -70% 0;
   }
 }
 

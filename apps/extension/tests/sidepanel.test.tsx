@@ -637,8 +637,8 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Building");
-    expect(container.textContent).toContain("File");
-    expect(container.querySelector(".cs-run-steps")?.textContent).toContain("01Queue02Gather03Read04File");
+    expect(container.textContent).toContain("Finalizing");
+    expect(container.querySelector(".cs-run-steps")?.textContent).toContain("01Sourcing02Collecting03Synthesizing04Finalizing");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
     expect(container.querySelector(".cs-live-progress-track")).not.toBeNull();
     expect(container.querySelector(".cs-live-progress-fill")).not.toBeNull();
@@ -693,8 +693,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Read");
-    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Found 8 accepted sources");
+    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Collecting");
+    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("8 sources in hand");
     await unmount();
   });
 
