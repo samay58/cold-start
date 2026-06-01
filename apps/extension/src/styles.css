@@ -1144,7 +1144,7 @@ button {
   color: transparent;
   -webkit-background-clip: text;
   background-clip: text;
-  animation: cs-text-shimmer 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation: cs-text-shimmer 2.9s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
 .cs-research-shell {
@@ -2515,32 +2515,6 @@ button {
   }
 }
 
-@keyframes cs-progress-sheen {
-  0% {
-    opacity: 0;
-    transform: translateX(-90px);
-  }
-
-  28% {
-    opacity: 0.65;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(340px);
-  }
-}
-
-@keyframes cs-progress-line-shimmer {
-  0% {
-    background-position: 130% 0;
-  }
-
-  100% {
-    background-position: -70% 0;
-  }
-}
-
 @keyframes cs-progress-cursor-breathe {
   0%,
   100% {
@@ -3864,12 +3838,6 @@ body {
   white-space: pre;
 }
 
-.cs-motion-text-char {
-  display: inline-block;
-  transform-origin: 50% 70%;
-  will-change: opacity, transform, filter;
-}
-
 .cs-generation-status .cs-motion-text {
   justify-content: flex-start;
 }
@@ -3994,9 +3962,8 @@ body {
   overflow: hidden;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, var(--color-seal), rgb(110 92 158 / 0.95), var(--color-seal)),
+    linear-gradient(90deg, rgb(110 92 158 / 0.92), var(--color-seal)),
     var(--color-seal);
-  background-size: 190% 100%;
   box-shadow:
     0 0 0 1px rgb(110 92 158 / 0.10),
     0 10px 20px rgb(110 92 158 / 0.16);
@@ -4010,10 +3977,11 @@ body {
   top: -7px;
   bottom: -7px;
   left: 0;
-  width: 82px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.82), rgb(110 92 158 / 0.34), transparent);
+  width: 46px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.46), transparent);
   content: "";
-  transform: translateX(-94px);
+  opacity: 0.42;
+  transform: translateX(calc((100cqw - 46px) * 0.72));
 }
 
 .cs-source-pass-cursor.cs-live-progress-cursor {
@@ -4052,7 +4020,7 @@ body {
   filter: blur(0.25px);
   opacity: 0;
   pointer-events: none;
-  transform: translate(var(--cs-source-pass-scan-start, -110px), -50%);
+  transform: translate(-104px, -50%);
 }
 
 .cs-source-pass-steps.cs-run-steps {
@@ -4199,20 +4167,20 @@ body {
 @keyframes cs-source-pass-scan-run {
   0% {
     opacity: 0;
-    transform: translate(var(--cs-source-pass-scan-start, -110px), -50%);
+    transform: translate(-104px, -50%);
   }
 
-  18% {
-    opacity: calc(0.42 + (var(--cs-source-pass-tension, 0.4) * 0.28));
+  22% {
+    opacity: calc(0.24 + (var(--cs-source-pass-tension, 0.4) * 0.16));
   }
 
-  76% {
-    opacity: 0.30;
+  70% {
+    opacity: 0.18;
   }
 
   100% {
     opacity: 0;
-    transform: translate(460px, -50%);
+    transform: translate(390px, -50%);
   }
 }
 
@@ -4260,16 +4228,8 @@ body {
     animation: cs-spin 720ms linear infinite;
   }
 
-  .cs-source-pass-fill.cs-live-progress-fill {
-    animation: cs-progress-line-shimmer 1.55s var(--cs-motion-ease-out) infinite;
-  }
-
-  .cs-source-pass-fill.cs-live-progress-fill::after {
-    animation: cs-progress-sheen 1.9s var(--cs-motion-ease-out) infinite;
-  }
-
   .cs-source-pass-scan.cs-live-progress-scan {
-    animation: cs-source-pass-scan-run 1.72s var(--cs-motion-ease-out) infinite;
+    animation: cs-source-pass-scan-run 2.35s var(--cs-motion-ease-out) infinite;
   }
 
   .cs-active-enrichment[data-state="running"] .cs-active-dot {
@@ -4323,7 +4283,7 @@ body {
 }
 
 /* ============================================================
-   Catalogue character — mirrors the web public card (DESIGN.md).
+   Catalogue character, mirrors the web public card (DESIGN.md).
    Display (At Umami) on hero names and section labels (seal),
    At Textual only as the receipt/index accent, Plex Sans body
    everywhere else. The character is the heavy display name, the

@@ -12,6 +12,7 @@ import {
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsByRunId,
   findResearchRunEventsBySlug,
   findSourceSummariesBySlug,
   findPublicCardBySlug,
@@ -795,7 +796,7 @@ describe("research run evidence summaries", () => {
       metadata: { sourceCount: 3 }
     });
 
-    await expect(findResearchRunEventsBySlug(db, "cartesia", { limit: 5 })).resolves.toEqual([
+    const expected = [
       {
         id: "event-1",
         runId: "run-basics",
@@ -807,7 +808,10 @@ describe("research run evidence summaries", () => {
         metadata: { sourceCount: 3 },
         createdAt: "2026-05-26T20:00:00.000Z"
       }
-    ]);
+    ];
+
+    await expect(findResearchRunEventsBySlug(db, "cartesia", { limit: 5 })).resolves.toEqual(expected);
+    await expect(findResearchRunEventsByRunId(db, "run-basics", { limit: 5 })).resolves.toEqual(expected);
   });
 
   it("returns compact source summaries with snippets capped for extension bootstrap", async () => {

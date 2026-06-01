@@ -13,12 +13,14 @@ import {
   findCardBySlug,
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
+  findResearchRunEventsByRunId,
   markGenerationRun,
   markResearchSectionFailed,
   markResearchSectionRunning,
   recordResearchRunEvent,
   retireStaleGenerationRuns,
-  type GenerationRunStatusSummary
+  type GenerationRunStatusSummary,
+  type ResearchRunEvent
 } from "@cold-start/db";
 import { inngest } from "../../../inngest/client";
 import { boundedErrorMessage } from "../../../lib/errors";
@@ -65,6 +67,7 @@ function serializeGenerationRun(
     domain: string;
     mode: GenerationMode;
     status: "idle" | "cached" | GenerationRunStatusSummary["status"];
+    events?: ResearchRunEvent[];
   } & Omit<Partial<GenerationRunStatusSummary>, "slug" | "domain" | "mode" | "status">
 ) {
   const costUsd = input.costUsd === undefined || input.costUsd === null ? undefined : Number(input.costUsd);
@@ -78,7 +81,8 @@ function serializeGenerationRun(
     ...(input.error ? { error: input.error } : {}),
     ...(costUsd !== undefined && Number.isFinite(costUsd) ? { costUsd } : {}),
     ...(input.startedAt ? { startedAt: input.startedAt.toISOString() } : {}),
-    ...(input.completedAt ? { completedAt: input.completedAt.toISOString() } : {})
+    ...(input.completedAt ? { completedAt: input.completedAt.toISOString() } : {}),
+    ...(input.events && input.events.length > 0 ? { events: input.events } : {})
   };
 }
 
@@ -135,7 +139,8 @@ export async function GET(request: Request) {
     return apiJsonWithTiming(serializeGenerationRun({ slug, domain, mode, status: "idle" }), metrics, { status: 200 });
   }
 
-  return apiJsonWithTiming(serializeGenerationRun(latestRun), metrics, { status: 200 });
+  const events = latestRun.id ? await findResearchRunEventsByRunId(db, latestRun.id, { limit: 12 }).catch(() => []) : [];
+  return apiJsonWithTiming(serializeGenerationRun({ ...latestRun, events }), metrics, { status: 200 });
 }
 
 export async function POST(request: Request) {
@@ -228,8 +233,9 @@ export async function POST(request: Request) {
       );
     }
 
+    const events = activeRun.id ? await findResearchRunEventsByRunId(db, activeRun.id, { limit: 12 }).catch(() => []) : [];
     return timedJson(
-      serializeGenerationRun({ ...activeRun, slug, domain, mode }),
+      serializeGenerationRun({ ...activeRun, slug, domain, mode, events }),
       { status: 202 },
       [
         { name: "db-cache", durationMs: cacheLookupMs },
@@ -240,10 +246,11 @@ export async function POST(request: Request) {
 
   // The DB partial unique index is the final guard if two fresh POSTs pass the read above.
   let queuedRun: Awaited<ReturnType<typeof markGenerationRun>>;
+  let queuedEvent: ResearchRunEvent | null = null;
 
   try {
     queuedRun = await markGenerationRun(db, { slug, domain, mode, ...(sectionId ? { jobKind: sectionJobKind(sectionId) } : {}), status: "queued" });
-    await recordResearchRunEvent(db, {
+    queuedEvent = await recordResearchRunEvent(db, {
       runId: queuedRun?.id ?? `${slug}:${sectionId ? sectionJobKind(sectionId) : mode}`,
       slug,
       domain,
@@ -279,8 +286,9 @@ export async function POST(request: Request) {
           );
         }
 
+        const events = runAfterConflict.id ? await findResearchRunEventsByRunId(db, runAfterConflict.id, { limit: 12 }).catch(() => []) : [];
         return timedJson(
-          serializeGenerationRun({ ...runAfterConflict, slug, domain, mode }),
+          serializeGenerationRun({ ...runAfterConflict, slug, domain, mode, events }),
           { status: 202 },
           [
             { name: "db-cache", durationMs: cacheLookupMs },
@@ -314,6 +322,7 @@ export async function POST(request: Request) {
         domain,
         mode,
         status: "queued",
+        ...(queuedEvent ? { events: [queuedEvent] } : {}),
         ...(queuedRun?.id ? { id: queuedRun.id } : {}),
         ...(queuedRun?.startedAt ? { startedAt: queuedRun.startedAt } : {})
       }),

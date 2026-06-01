@@ -46,7 +46,7 @@ type RequestState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "readyToGenerate" }
-  | { status: "generating"; generationStatus: GenerationStatus["status"]; mode: "basics"; startedAt: number }
+  | { status: "generating"; events?: ExtensionResearchRunEvent[]; generationStatus: GenerationStatus["status"]; mode: "basics"; startedAt: number }
   | {
       status: "success";
       card: ColdStartCard;
@@ -79,6 +79,25 @@ type AnalysisRunState = {
 type ActiveSectionRunState = AnalysisRunState & {
   layerId: ResearchLayerId;
 };
+
+function generationStageIndexFromEvents(events: ExtensionResearchRunEvent[]) {
+  const stageByType: Record<string, number> = {
+    "generation.queued": 0,
+    "generation.started": 0,
+    "plan.ready": 1,
+    "source.found": 2,
+    "source.enrichment": 2,
+    "card.partial": 3,
+    "card.saved": 3,
+    "card.enriched": 3,
+    "generation.complete": 3
+  };
+
+  return events.reduce<number | null>((highest, event) => {
+    const stage = stageByType[event.type];
+    return typeof stage === "number" ? Math.max(highest ?? stage, stage) : highest;
+  }, null);
+}
 
 function ExtensionTopbar({
   onSettings
@@ -327,15 +346,20 @@ function GenerationPanel({
   const companyName = readableCompanyNameFromDomain(domain);
   const elapsedMs = useElapsedMilliseconds(true, requestState.startedAt, 120);
   const elapsed = Math.floor(elapsedMs / 1000);
+  const events = requestState.events ?? [];
+  const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const stages: SourcePassStage[] = [
-    { label: "Sources", marker: "01", note: "Finding sources" },
-    { label: "Pages", marker: "02", note: "Reading pages" },
-    { label: "Facts", marker: "03", note: "Shaping facts" },
-    { label: "Citations", marker: "04", note: "Citing facts" }
+    { label: "Queue", marker: "01", note: "Worker accepted" },
+    { label: "Gather", marker: "02", note: "Finding sources" },
+    { label: "Read", marker: "03", note: "Normalizing evidence" },
+    { label: "File", marker: "04", note: "Assembling citations" }
   ];
-  const stageProgress = requestState.generationStatus === "queued"
+  const estimatedStageProgress = requestState.generationStatus === "queued"
     ? elapsedMs / 7000
     : 1 + elapsedMs / 8000;
+  const stageProgress = eventStageIndex === null
+    ? estimatedStageProgress
+    : eventStageIndex + Math.min(0.82, Math.max(0.28, elapsedMs / 22000));
   const clampedStageProgress = Math.min(stages.length - 0.12, Math.max(0.22, stageProgress));
   const activeIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(stageProgress)));
   const statusText =
@@ -345,7 +369,7 @@ function GenerationPanel({
   const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
   const stageNote = requestState.generationStatus === "queued" && elapsed < 4
     ? "Worker queued"
-    : activeStage?.note ?? "Working from cited sources";
+    : events[0]?.message ?? activeStage?.note ?? "Working from cited sources";
   const progressPercent = Math.min(97, Math.max(8, (clampedStageProgress / stages.length) * 100));
   return (
     <ExtensionFrame
@@ -620,11 +644,12 @@ export function SidePanel() {
       generationSettings,
       controller.signal,
       "basics",
-      (generationStatus) => {
+      (generationStatus, update) => {
         if (!controller.signal.aborted) {
           setRequestState((current) => current.status === "success"
             ? {
                 ...current,
+                ...(update?.events ? { events: update.events } : {}),
                 contactRun: {
                   generationStatus: generationStatus === "queued" ? "queued" : "running",
                   startedAt
@@ -687,9 +712,18 @@ export function SidePanel() {
       controller.signal,
       mode,
       confirmStart,
-      (generationStatus) => {
+      (generationStatus, update) => {
         if (!controller.signal.aborted) {
-          setRequestState({ status: "generating", generationStatus, mode, startedAt });
+          setRequestState((current) => {
+            const events = update?.events ?? (current.status === "generating" ? current.events : undefined);
+            return {
+              status: "generating",
+              generationStatus,
+              mode,
+              startedAt,
+              ...(events ? { events } : {})
+            };
+          });
         }
       }
     )
@@ -949,19 +983,29 @@ export function SidePanel() {
     mode: "basics",
     generationStatus: "queued" | "running",
     runStartedAt?: string,
-    latestCard: ColdStartCard | null = null
+    latestCard: ColdStartCard | null = null,
+    events: ExtensionResearchRunEvent[] = []
   ) => {
     const startedAt = startedAtMs(runStartedAt);
-    setRequestState({ status: "generating", generationStatus, mode, startedAt });
+    setRequestState({ status: "generating", events, generationStatus, mode, startedAt });
 
     void pollGenerationUntilCard(
       generationDomain,
       generationSettings,
       controller.signal,
       mode,
-      (generationStatus) => {
+      (generationStatus, update) => {
         if (!controller.signal.aborted) {
-          setRequestState({ status: "generating", generationStatus, mode, startedAt });
+          setRequestState((current) => {
+            const events = update?.events ?? (current.status === "generating" ? current.events : undefined);
+            return {
+              status: "generating",
+              generationStatus,
+              mode,
+              startedAt,
+              ...(events ? { events } : {})
+            };
+          });
         }
       },
       latestCard
@@ -1100,7 +1144,7 @@ export function SidePanel() {
 
         const basicsStatus = bootstrap.runs.basics;
         if (isActiveRun(basicsStatus.status)) {
-          resumeGenerationWithController(controller, domain, settings, "basics", basicsStatus.status, basicsStatus.startedAt);
+          resumeGenerationWithController(controller, domain, settings, "basics", basicsStatus.status, basicsStatus.startedAt, null, bootstrap.events ?? []);
           return;
         }
 

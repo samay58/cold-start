@@ -658,6 +658,31 @@ export async function findResearchRunEventsBySlug(
   return rows.map(researchRunEventFromRow);
 }
 
+export async function findResearchRunEventsByRunId(
+  db: ColdStartDb,
+  runId: string,
+  options: { limit?: number } = {}
+): Promise<ResearchRunEvent[]> {
+  const rows = await db
+    .select({
+      id: researchRunEvents.id,
+      runId: researchRunEvents.runId,
+      slug: researchRunEvents.slug,
+      domain: researchRunEvents.domain,
+      sectionId: researchRunEvents.sectionId,
+      type: researchRunEvents.type,
+      message: researchRunEvents.message,
+      metadata: researchRunEvents.metadata,
+      createdAt: researchRunEvents.createdAt
+    })
+    .from(researchRunEvents)
+    .where(eq(researchRunEvents.runId, runId))
+    .orderBy(desc(researchRunEvents.createdAt))
+    .limit(options.limit ?? 12);
+
+  return rows.map(researchRunEventFromRow);
+}
+
 // Pulls the latest generation_runs row for a slug, extracts a one-line summary of provider
 // failures from its trace_json. Used by the card routes to surface failure context as response
 // headers so extensions and curl callers can tell apart "thin card because no data exists" from

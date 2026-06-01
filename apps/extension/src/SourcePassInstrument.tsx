@@ -19,11 +19,9 @@ type SourcePassInstrumentProps = {
 
 export function MotionStateText({
   className,
-  motionStyle = "fade",
   value
 }: {
   className?: string;
-  motionStyle?: "characters" | "fade";
   value: string;
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -32,86 +30,20 @@ export function MotionStateText({
     return <span className={className}>{value}</span>;
   }
 
-  if (motionStyle === "fade") {
-    return (
-      <span className={className}>
-        <span className="sr-only">{value}</span>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            aria-hidden="true"
-            className="cs-motion-text cs-motion-text-fade"
-            key={value}
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -3 }}
-            transition={{ duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
-          >
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </span>
-    );
-  }
-
   return (
     <span className={className}>
       <span className="sr-only">{value}</span>
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
           aria-hidden="true"
-          className="cs-motion-text"
+          className="cs-motion-text cs-motion-text-fade"
           key={value}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={{
-            hidden: {},
-            visible: {
-              transition: {
-                staggerChildren: 0.014
-              }
-            },
-            exit: {
-              transition: {
-                staggerChildren: 0.008,
-                staggerDirection: -1
-              }
-            }
-          }}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -3 }}
+          transition={{ duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
         >
-          {value.split("").map((letter, index) => (
-            <motion.span
-              className="cs-motion-text-char"
-              key={`${value}-${letter}-${index}`}
-              variants={{
-                hidden: { opacity: 0, y: 7, rotateX: 42, filter: "blur(2px)" },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  rotateX: 0,
-                  filter: "blur(0px)",
-                  transition: {
-                    type: "spring",
-                    stiffness: 420,
-                    damping: 36,
-                    mass: 0.34
-                  }
-                },
-                exit: {
-                  opacity: 0,
-                  y: -6,
-                  rotateX: -34,
-                  filter: "blur(2px)",
-                  transition: {
-                    duration: motionTokens.feedbackMs,
-                    ease: motionTokens.easeOut
-                  }
-                }
-              }}
-            >
-              {letter === " " ? "\u00A0" : letter}
-            </motion.span>
-          ))}
+          {value}
         </motion.span>
       </AnimatePresence>
     </span>
@@ -132,12 +64,10 @@ export function SourcePassInstrument({
   const progress = useSpring(rawProgress, prefersReducedMotion ? reducedSpring : instrumentSpring);
   const progressScale = useTransform(progress, (value) => Math.max(0.08, Math.min(0.985, value)));
   const railTension = useTransform(progress, [0, 0.45, 1], [0.28, 0.78, 0.48]);
-  const scanShift = useTransform(progress, (value) => `${-118 + value * 72}px`);
   const instrumentStyle = {
     "--cs-source-pass-progress": progressScale,
     "--cs-source-pass-scale": progressScale,
-    "--cs-source-pass-tension": railTension,
-    "--cs-source-pass-scan-start": scanShift
+    "--cs-source-pass-tension": railTension
   } as unknown as MotionStyle;
 
   useEffect(() => {
@@ -156,7 +86,7 @@ export function SourcePassInstrument({
           <span className="cs-source-pass-current-marker">{activeStage?.marker ?? "01"}</span>
           <div>
             <h2>
-              <MotionStateText motionStyle="characters" value={activeStage?.label ?? "Building"} />
+              <MotionStateText value={activeStage?.label ?? "Building"} />
             </h2>
             <p>{stageNote}</p>
           </div>

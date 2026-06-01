@@ -29,6 +29,7 @@ export type GenerationStatus = {
   mode: "basics" | "analysis";
   runId?: string;
   startedAt?: string;
+  events?: ExtensionResearchRunEvent[];
 };
 
 export type GenerationRunStatus = {
@@ -41,6 +42,7 @@ export type GenerationRunStatus = {
   costUsd?: number;
   startedAt?: string;
   completedAt?: string;
+  events?: ExtensionResearchRunEvent[];
 };
 
 export type ExtensionSourceSummary = {

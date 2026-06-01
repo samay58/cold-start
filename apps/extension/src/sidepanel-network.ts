@@ -19,6 +19,7 @@ import {
   parseGenerationStatusResponse,
   readableCompanyNameFromDomain,
   type ExtensionBootstrapResponse,
+  type ExtensionResearchRunEvent,
   type GenerationRunStatus,
   type GenerationStatus,
   type Settings
@@ -38,6 +39,11 @@ export type GenerationPollResult = {
 };
 
 export type SectionGenerationPollResult = GenerationPollResult;
+
+export type GenerationStatusListener = (
+  status: GenerationStatus["status"],
+  update?: { events?: ExtensionResearchRunEvent[] | undefined }
+) => void;
 
 export function markPerformance(name: string) {
   try {
@@ -306,7 +312,7 @@ export async function pollGenerationUntilCard(
   settings: Settings,
   signal: AbortSignal,
   mode: GenerationStatus["mode"],
-  onGenerationStatus: (status: GenerationStatus["status"]) => void,
+  onGenerationStatus: GenerationStatusListener,
   latestCard: ColdStartCard | null = null,
   waitForRunCompletion = false,
   onInterimCard?: (result: GenerationPollResult) => void,
@@ -366,7 +372,7 @@ export async function pollGenerationUntilCard(
       }
 
       if (isActiveRun(runStatus.status)) {
-        onGenerationStatus(runStatus.status);
+        onGenerationStatus(runStatus.status, { events: runStatus.events });
         const card = await fetchAvailableCard();
         if (card && hasUsablePublicProfile(card)) {
           const sections = updateCurrentCard(card);
@@ -425,7 +431,7 @@ export async function pollGenerationUntilCard(
     }
 
     if (isActiveRun(runStatus.status)) {
-      onGenerationStatus(runStatus.status);
+      onGenerationStatus(runStatus.status, { events: runStatus.events });
     } else if (runStatus.status === "failed") {
       if (mode === "analysis" && currentCard) {
         return {
@@ -463,7 +469,7 @@ export async function startGenerationAndPoll(
   signal: AbortSignal,
   mode: GenerationStatus["mode"],
   confirmStart: boolean,
-  onGenerationStatus: (status: GenerationStatus["status"]) => void,
+  onGenerationStatus: GenerationStatusListener,
   options: { forceRefresh?: boolean; latestCard?: ColdStartCard | null; latestSections?: ResearchSection[]; waitForRunCompletion?: boolean } = {}
 ): Promise<GenerationPollResult> {
   let latestCard = options.latestCard ?? null;
@@ -478,7 +484,7 @@ export async function startGenerationAndPoll(
   }
 
   const generation = await requestGeneration(domain, settings, signal, mode, confirmStart, options.forceRefresh);
-  onGenerationStatus(generation.status);
+  onGenerationStatus(generation.status, { events: generation.events });
 
   if (generation.status === "cached") {
     const card = await fetchCard(domain, settings, signal);
@@ -505,7 +511,7 @@ export async function startSectionGenerationAndPoll(
   signal: AbortSignal,
   sectionId: ResearchSectionId,
   latestCard: ColdStartCard,
-  onGenerationStatus: (status: GenerationStatus["status"]) => void
+  onGenerationStatus: GenerationStatusListener
 ): Promise<SectionGenerationPollResult> {
   const mode = modeForSection(sectionId);
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
@@ -515,7 +521,7 @@ export async function startSectionGenerationAndPoll(
   let currentSections = sectionsForCard(latestCard);
 
   const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
-  onGenerationStatus(generation.status);
+  onGenerationStatus(generation.status, { events: generation.events });
 
   while (Date.now() < deadline) {
     if (pollCount > 0) {
@@ -548,7 +554,7 @@ export async function startSectionGenerationAndPoll(
     }
 
     if (runStatus && isActiveRun(runStatus.status)) {
-      onGenerationStatus(runStatus.status);
+      onGenerationStatus(runStatus.status, { events: runStatus.events });
       continue;
     }
 

@@ -230,9 +230,9 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await openSidePanel(page);
 
   await expect(page.getByText("Building")).toBeVisible();
-  await expect(page.locator(".cs-source-pass-now")).toContainText("Citations");
-  await expect(page.locator(".cs-run-steps").getByText("Citations")).toBeVisible();
-  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Citations");
+  await expect(page.locator(".cs-source-pass-now")).toContainText("File");
+  await expect(page.locator(".cs-run-steps").getByText("File")).toBeVisible();
+  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("File");
   await expect(page.locator(".cs-source-pass-rail")).toBeVisible();
   await expect(page.locator(".cs-live-progress-track")).toBeVisible();
   await expect(page.locator(".cs-live-progress-scan")).toBeVisible();
@@ -274,10 +274,10 @@ test("reduced motion keeps progress readable without scan or pulse animation", a
   await openSidePanel(page);
 
   await expect(page.locator(".cs-live-progress-track")).toBeVisible();
-  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Citations");
+  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("File");
   await expect(page.locator(".cs-live-progress-scan")).toBeHidden();
   await expect(page.locator(".cs-live-progress-cursor")).toHaveCSS("animation-name", "none");
-  await expect(page.locator(".cs-source-pass-now")).toContainText("Citations");
+  await expect(page.locator(".cs-source-pass-now")).toContainText("File");
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {

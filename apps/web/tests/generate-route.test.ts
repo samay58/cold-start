@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     createDb: vi.fn(() => db),
     findActiveGenerationRunStatusBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
+    findResearchRunEventsByRunId: vi.fn(),
     findCardBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findActiveGenerationRunStatusBySlug: mocks.findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findCardBySlug: mocks.findCardBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
@@ -171,6 +173,8 @@ describe("POST /api/generate", () => {
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunStatusBySlug.mockReset();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
+    mocks.findResearchRunEventsByRunId.mockReset();
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
     mocks.findCardBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
@@ -703,6 +707,48 @@ describe("GET /api/generate", () => {
       runId: "run-section"
     });
     expect(mocks.findLatestGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "analysis", "section:market");
+  });
+
+  it("includes compact run events for the active generation status", async () => {
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
+      id: "run-1",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      status: "running",
+      startedAt: new Date("2026-05-06T12:00:00.000Z")
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([
+      {
+        id: "event-1",
+        runId: "run-1",
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: null,
+        type: "source.found",
+        message: "Found 8 accepted sources",
+        metadata: { acceptedCount: 8 },
+        createdAt: "2026-05-06T12:00:20.000Z"
+      }
+    ]);
+
+    const response = await GET(statusRequest("cartesia.ai", "basics"));
+
+    await expect(response.json()).resolves.toMatchObject({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      status: "running",
+      runId: "run-1",
+      events: [
+        {
+          id: "event-1",
+          type: "source.found",
+          message: "Found 8 accepted sources"
+        }
+      ]
+    });
+    expect(mocks.findResearchRunEventsByRunId).toHaveBeenCalledWith(mocks.db, "run-1", { limit: 12 });
   });
 
   it("reports idle when no generation run exists", async () => {

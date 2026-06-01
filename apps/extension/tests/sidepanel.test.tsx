@@ -637,8 +637,8 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Building");
-    expect(container.textContent).toContain("Citations");
-    expect(container.querySelector(".cs-run-steps")?.textContent).toContain("01Sources02Pages03Facts04Citations");
+    expect(container.textContent).toContain("File");
+    expect(container.querySelector(".cs-run-steps")?.textContent).toContain("01Queue02Gather03Read04File");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
     expect(container.querySelector(".cs-live-progress-track")).not.toBeNull();
     expect(container.querySelector(".cs-live-progress-fill")).not.toBeNull();
@@ -655,6 +655,46 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("cartesia.ai");
+    await unmount();
+  });
+
+  it("uses generation events to drive the build-card progress stage", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "cartesia",
+          domain: "cartesia.ai",
+          status: "running",
+          mode: "basics",
+          startedAt: new Date(Date.now() - 1_000).toISOString(),
+          events: [
+            {
+              id: "event-source",
+              runId: "run-1",
+              slug: "cartesia",
+              domain: "cartesia.ai",
+              sectionId: null,
+              type: "source.found",
+              message: "Found 8 accepted sources",
+              metadata: { acceptedCount: 8 },
+              createdAt: new Date().toISOString()
+            }
+          ]
+        });
+      }
+
+      return missingCardResponse();
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Read");
+    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Found 8 accepted sources");
     await unmount();
   });
 

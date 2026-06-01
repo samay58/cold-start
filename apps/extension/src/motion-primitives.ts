@@ -15,22 +15,22 @@ export const reducedSpring = {
 
 export const snapSpring = {
   type: "spring",
-  stiffness: 760,
-  damping: 44,
-  mass: 0.54
+  stiffness: 620,
+  damping: 54,
+  mass: 0.56
 } as const;
 
 export const commitSpring = {
   type: "spring",
-  stiffness: 540,
-  damping: 42,
-  mass: 0.64
+  stiffness: 470,
+  damping: 48,
+  mass: 0.62
 } as const;
 
 export const instrumentSpring = {
   type: "spring",
-  stiffness: 520,
-  damping: 48,
+  stiffness: 380,
+  damping: 44,
   mass: 0.42
 } as const;
 

@@ -581,7 +581,7 @@ function DormantPileCard({
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const feedbackProps = !prefersReducedMotion
     ? {
-        whileTap: { scale: dragging ? 1.006 : 0.992 }
+        whileTap: { scale: dragging ? 1.004 : 0.996 }
       }
     : {};
 
@@ -590,9 +590,9 @@ function DormantPileCard({
       animate={dragging
         ? {
             x: pose.x,
-            y: pose.y - (snapReady ? 14 : previewing ? 8 : 4),
-            rotate: pose.rotate - (snapReady ? 0.9 : 0.45),
-            scale: snapReady ? 1.028 : 1.018,
+            y: pose.y - (snapReady ? 10 : previewing ? 6 : 3),
+            rotate: pose.rotate - (snapReady ? 0.45 : 0.24),
+            scale: snapReady ? 1.018 : 1.01,
             zIndex: 30
           }
         : { x: pose.x, y: pose.y, rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
