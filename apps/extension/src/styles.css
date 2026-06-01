@@ -1139,35 +1139,40 @@ button {
 .cs-layer-running-text::after {
   position: absolute;
   inset: 0;
-  color: #8876b8;
+  color: #6e5c9e;
   content: attr(data-text);
-  opacity: 0;
+  opacity: 0.28;
   pointer-events: none;
-  text-shadow: 0 0 10px rgb(179 166 212 / 0.18);
+  text-shadow:
+    0 0 1px rgb(110 92 158 / 0.22),
+    0 0 12px rgb(179 166 212 / 0.22);
   -webkit-mask-image:
     linear-gradient(
       90deg,
       transparent 0%,
-      transparent 34%,
-      #000 45%,
-      #000 56%,
-      transparent 68%,
+      transparent 24%,
+      rgb(0 0 0 / 0.64) 38%,
+      #000 50%,
+      rgb(0 0 0 / 0.72) 62%,
+      transparent 78%,
       transparent 100%
     );
   mask-image:
     linear-gradient(
       90deg,
       transparent 0%,
-      transparent 34%,
-      #000 45%,
-      #000 56%,
-      transparent 68%,
+      transparent 24%,
+      rgb(0 0 0 / 0.64) 38%,
+      #000 50%,
+      rgb(0 0 0 / 0.72) 62%,
+      transparent 78%,
       transparent 100%
     );
-  -webkit-mask-size: 240% 100%;
-  mask-size: 240% 100%;
-  -webkit-mask-position: 130% 0;
-  mask-position: 130% 0;
+  -webkit-mask-size: 185% 100%;
+  mask-size: 185% 100%;
+  -webkit-mask-position: 112% 0;
+  mask-position: 112% 0;
+  will-change: opacity, -webkit-mask-position, mask-position;
 }
 
 .cs-research-shell {
@@ -4246,26 +4251,24 @@ body {
 }
 
 @keyframes cs-layer-text-sheen {
-  0%,
-  16% {
-    opacity: 0;
-    -webkit-mask-position: 130% 0;
-    mask-position: 130% 0;
+  0% {
+    opacity: 0.32;
+    -webkit-mask-position: 112% 0;
+    mask-position: 112% 0;
   }
 
-  34% {
-    opacity: 0.9;
+  18% {
+    opacity: 0.98;
   }
 
-  58% {
-    opacity: 0.46;
+  72% {
+    opacity: 0.84;
   }
 
-  74%,
   100% {
-    opacity: 0;
-    -webkit-mask-position: -70% 0;
-    mask-position: -70% 0;
+    opacity: 0.34;
+    -webkit-mask-position: -96% 0;
+    mask-position: -96% 0;
   }
 }
 
@@ -4300,7 +4303,7 @@ body {
   }
 
   .cs-active-enrichment[data-state="running"] .cs-layer-running-text::after {
-    animation: cs-layer-text-sheen 3.8s var(--cs-motion-ease-out) infinite;
+    animation: cs-layer-text-sheen 2.6s var(--cs-motion-ease-out) infinite alternate;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {
