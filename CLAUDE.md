@@ -12,7 +12,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
-- `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/generate`, and `/api/inngest`.
+- `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
 - `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
@@ -36,7 +36,7 @@ npm run dev                             # web app only
 npm run dev:extension                   # Vite dev server for the extension
 npm run build                           # build all workspaces
 npm run typecheck                       # tsc --noEmit across workspaces
-npm run test                            # vitest across workspaces, then `node --test eval/*.test.mjs`
+npm run test                            # vitest across workspaces, then `node --test` over eval/*.test.mjs and eval/**/*.test.mjs
 npm run lint                            # ESLint flat-config check
 npm run check                           # full local/CI gate
 npm run knip                            # unused dependency/export check
@@ -50,6 +50,8 @@ npm run trace:generation                # tsx scripts/trace-generation.ts (singl
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
 npm run eval:fugu:top-truths            # node eval/fugu-top-truths/run.mjs (Fugu top-truths eval)
+npm run eval:fugu:build-bundles         # node eval/fugu-top-truths/build-bundles.mjs (prep model-input bundles)
+npm run eval:fugu:matrix                # node eval/fugu-top-truths/run-matrix.mjs (mini/ultra/baseline comparison)
 npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
 npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
 npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
