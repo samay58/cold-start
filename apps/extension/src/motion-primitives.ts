@@ -53,7 +53,3 @@ export function dampenOutsideRange(value: number, [min, max]: [number, number], 
 export function clamp(value: number, [min, max]: [number, number]) {
   return Math.min(Math.max(value, min), max);
 }
-
-export function stageDelay(index: number, activeIndex: number) {
-  return Math.max(0, Math.abs(index - activeIndex) * 0.025);
-}

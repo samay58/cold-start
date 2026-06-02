@@ -451,6 +451,7 @@ function GenerationPanel({
       <Suspense fallback={<div className="cs-live-card cs-live-card-refined" aria-hidden="true" />}>
         <SourcePassInstrument
           activeIndex={activeIndex}
+          events={events}
           progressPercent={progressPercent}
           stageNote={stageNote}
           stages={stages}

@@ -1,7 +1,8 @@
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import type { MotionStyle } from "framer-motion";
 import { useEffect } from "react";
-import { clamp, instrumentSpring, motionTokens, reducedSpring, stageDelay } from "./motion-primitives";
+import type { ExtensionResearchRunEvent } from "./extension-config";
+import { clamp, instrumentSpring, motionTokens, reducedSpring } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 export type SourcePassStage = {
@@ -12,10 +13,44 @@ export type SourcePassStage = {
 
 type SourcePassInstrumentProps = {
   activeIndex: number;
+  events?: ExtensionResearchRunEvent[];
   progressPercent: number;
   stageNote: string;
   stages: SourcePassStage[];
 };
+
+type EvidenceRow = {
+  key: string;
+  kind: "done" | "live" | "upcoming";
+  tag: string;
+  message: string;
+  count?: number | undefined;
+};
+
+const EVENT_TAGS: Record<string, string> = {
+  plan: "Plan",
+  source: "Sources",
+  card: "Card",
+  contacts: "Contacts",
+  generation: "Done"
+};
+
+function eventTag(type: string) {
+  return EVENT_TAGS[type.split(".")[0] ?? ""] ?? "Run";
+}
+
+function eventCount(metadata: Record<string, unknown> | undefined) {
+  if (!metadata) {
+    return undefined;
+  }
+  for (const key of ["acceptedCount", "sourceCount", "citationCount", "count"]) {
+    const value = metadata[key];
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
 
 export function MotionStateText({
   className,
@@ -50,8 +85,59 @@ export function MotionStateText({
   );
 }
 
+// The feed merges the real research-run events (oldest first, the latest is
+// "live") with the stages still ahead, shown faint. It is never empty: before
+// any event lands, the active stage carries the live row so the panel reads as
+// working rather than blank.
+function buildEvidenceRows(
+  events: ExtensionResearchRunEvent[],
+  stages: SourcePassStage[],
+  activeIndex: number,
+  stageNote: string
+): EvidenceRow[] {
+  const ordered = [...events].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const rows: EvidenceRow[] = [];
+
+  if (ordered.length > 0) {
+    ordered.forEach((event, index) => {
+      rows.push({
+        key: event.id,
+        kind: index === ordered.length - 1 ? "live" : "done",
+        tag: eventTag(event.type),
+        message: event.message,
+        count: eventCount(event.metadata)
+      });
+    });
+  } else {
+    const activeStage = stages[activeIndex];
+    if (activeStage) {
+      rows.push({
+        key: `stage-live-${activeStage.marker}`,
+        kind: "live",
+        tag: activeStage.label,
+        message: stageNote || activeStage.note
+      });
+    }
+  }
+
+  for (let index = activeIndex + 1; index < stages.length; index += 1) {
+    const stage = stages[index];
+    if (stage) {
+      rows.push({
+        key: `stage-${stage.marker}`,
+        kind: "upcoming",
+        tag: stage.label,
+        message: stage.note
+      });
+    }
+  }
+
+  return rows;
+}
+
 export function SourcePassInstrument({
   activeIndex,
+  events = [],
   progressPercent,
   stageNote,
   stages
@@ -69,6 +155,7 @@ export function SourcePassInstrument({
     "--cs-source-pass-scale": progressScale,
     "--cs-source-pass-tension": railTension
   } as unknown as MotionStyle;
+  const rows = buildEvidenceRows(events, stages, safeActiveIndex, stageNote);
 
   useEffect(() => {
     rawProgress.set(safeProgressPercent / 100);
@@ -84,12 +171,9 @@ export function SourcePassInstrument({
 
         <div className="cs-source-pass-now">
           <span className="cs-source-pass-current-marker">{activeStage?.marker ?? "01"}</span>
-          <div>
-            <h2>
-              <MotionStateText value={activeStage?.label ?? "Building"} />
-            </h2>
-            <p>{stageNote}</p>
-          </div>
+          <h2>
+            <MotionStateText value={activeStage?.label ?? "Building"} />
+          </h2>
         </div>
 
         <motion.div
@@ -106,34 +190,27 @@ export function SourcePassInstrument({
           <span className="cs-source-pass-scan cs-live-progress-scan" />
         </motion.div>
 
-        <ol className="cs-run-steps cs-source-pass-steps" aria-label="Build stages">
-          {stages.map((stage, index) => (
-            <motion.li
-              aria-current={index === safeActiveIndex ? "step" : undefined}
-              animate={{
-                opacity: index === safeActiveIndex ? 1 : index < safeActiveIndex ? 0.86 : 0.58,
-                x: index === safeActiveIndex && !prefersReducedMotion ? 2 : 0,
-                scale: index === safeActiveIndex && !prefersReducedMotion ? 1.012 : 1
-              }}
-              data-active={index === safeActiveIndex}
-              data-complete={index < safeActiveIndex}
-              data-stage-index={index}
-              key={stage.marker}
-              layout
-              transition={{
-                duration: prefersReducedMotion ? 0 : motionTokens.stateMs,
-                ease: motionTokens.easeOut,
-                delay: prefersReducedMotion ? 0 : stageDelay(index, safeActiveIndex)
-              }}
-            >
-              <span className="cs-run-step-index">{stage.marker}</span>
-              <span>
-                {stage.label}
-                {index === safeActiveIndex ? <small>{stageNote}</small> : null}
-              </span>
-              <motion.i aria-hidden="true" layout />
-            </motion.li>
-          ))}
+        <ol className="cs-evidence-feed" aria-label="Research activity">
+          <AnimatePresence initial={false}>
+            {rows.map((row) => (
+              <motion.li
+                data-kind={row.kind}
+                key={row.key}
+                layout={!prefersReducedMotion}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={{ duration: prefersReducedMotion ? 0 : motionTokens.stateMs, ease: motionTokens.easeOut }}
+              >
+                <span className="cs-evidence-dot" aria-hidden="true" />
+                <span className="cs-evidence-message">{row.message}</span>
+                <span className="cs-evidence-meta">
+                  <small className="cs-evidence-tag">{row.tag}</small>
+                  {row.count ? <span className="cs-evidence-count">{row.count}</span> : null}
+                </span>
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ol>
         <p className="sr-only">{activeStage?.label}. {stageNote}</p>
       </div>

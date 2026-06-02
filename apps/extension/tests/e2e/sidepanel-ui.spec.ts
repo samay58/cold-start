@@ -231,11 +231,54 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
 
   await expect(page.getByText("Building")).toBeVisible();
   await expect(page.locator(".cs-source-pass-now")).toContainText("Finalizing");
-  await expect(page.locator(".cs-run-steps").getByText("Finalizing")).toBeVisible();
-  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Finalizing");
+  await expect(page.locator(".cs-evidence-feed")).toBeVisible();
+  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toHaveCount(1);
   await expect(page.locator(".cs-source-pass-rail")).toBeVisible();
   await expect(page.locator(".cs-live-progress-track")).toBeVisible();
   await expect(page.locator(".cs-live-progress-scan")).toBeVisible();
+});
+
+test("progress evidence feed surfaces real research events", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  const startedAt = new Date(Date.now() - 12_000).toISOString();
+  const events = [
+    { id: "e1", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "plan.ready", message: "Research plan ready", metadata: {}, createdAt: "2026-06-01T00:00:01.000Z" },
+    { id: "e2", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "source.found", message: "Found 12 accepted sources", metadata: { acceptedCount: 12 }, createdAt: "2026-06-01T00:00:03.000Z" },
+    { id: "e3", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "card.partial", message: "Saved first usable company card", metadata: { citationCount: 7 }, createdAt: "2026-06-01T00:00:05.000Z" }
+  ];
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "cartesia.ai",
+      slug: "cartesia",
+      card: null,
+      events,
+      runs: {
+        basics: { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events },
+        analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events });
+  });
+
+  await openSidePanel(page);
+
+  const feed = page.locator(".cs-evidence-feed");
+  await expect(feed).toBeVisible({ timeout: 10_000 });
+  await expect(feed).toContainText("Research plan ready");
+  await expect(feed).toContainText("Found 12 accepted sources");
+  await expect(feed).toContainText("Saved first usable company card");
+  // The newest real event is the single live row.
+  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toHaveCount(1);
+  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toContainText("Saved first usable company card");
+  // Count chip derived from event metadata.
+  await expect(feed.locator(".cs-evidence-count").first()).toContainText("12");
+  // Stages still ahead appear as faint upcoming rows, so the feed is never bare.
+  await expect(page.locator(".cs-evidence-feed li[data-kind='upcoming']").first()).toBeVisible();
 });
 
 test("reduced motion keeps progress readable without scan or pulse animation", async ({ page }) => {
@@ -274,9 +317,10 @@ test("reduced motion keeps progress readable without scan or pulse animation", a
   await openSidePanel(page);
 
   await expect(page.locator(".cs-live-progress-track")).toBeVisible();
-  await expect(page.locator(".cs-run-steps li[aria-current='step']")).toContainText("Finalizing");
+  await expect(page.locator(".cs-evidence-feed")).toBeVisible();
   await expect(page.locator(".cs-live-progress-scan")).toBeHidden();
   await expect(page.locator(".cs-live-progress-cursor")).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".cs-evidence-feed li[data-kind='live'] .cs-evidence-dot")).toHaveCSS("animation-name", "none");
   await expect(page.locator(".cs-source-pass-now")).toContainText("Finalizing");
 });
 
