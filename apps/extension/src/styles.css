@@ -1129,50 +1129,25 @@ button {
 }
 
 .cs-layer-running-text {
+  background:
+    linear-gradient(
+      90deg,
+      var(--color-ink) 0%,
+      var(--color-ink) 28%,
+      #6e5c9e 41%,
+      #c9bff1 50%,
+      #6e5c9e 59%,
+      var(--color-ink) 72%,
+      var(--color-ink) 100%
+    );
+  background-size: 220% 100%;
+  background-position: 112% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
   display: inline-block;
   color: var(--color-ink);
-  isolation: isolate;
-  position: relative;
   text-wrap: balance;
-}
-
-.cs-layer-running-text::after {
-  position: absolute;
-  inset: 0;
-  color: #6e5c9e;
-  content: attr(data-text);
-  opacity: 0.28;
-  pointer-events: none;
-  text-shadow:
-    0 0 1px rgb(110 92 158 / 0.22),
-    0 0 12px rgb(179 166 212 / 0.22);
-  -webkit-mask-image:
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      transparent 24%,
-      rgb(0 0 0 / 0.64) 38%,
-      #000 50%,
-      rgb(0 0 0 / 0.72) 62%,
-      transparent 78%,
-      transparent 100%
-    );
-  mask-image:
-    linear-gradient(
-      90deg,
-      transparent 0%,
-      transparent 24%,
-      rgb(0 0 0 / 0.64) 38%,
-      #000 50%,
-      rgb(0 0 0 / 0.72) 62%,
-      transparent 78%,
-      transparent 100%
-    );
-  -webkit-mask-size: 185% 100%;
-  mask-size: 185% 100%;
-  -webkit-mask-position: 112% 0;
-  mask-position: 112% 0;
-  will-change: opacity, -webkit-mask-position, mask-position;
+  -webkit-text-fill-color: transparent;
 }
 
 .cs-research-shell {
@@ -4252,23 +4227,11 @@ body {
 
 @keyframes cs-layer-text-sheen {
   0% {
-    opacity: 0.32;
-    -webkit-mask-position: 112% 0;
-    mask-position: 112% 0;
-  }
-
-  18% {
-    opacity: 0.98;
-  }
-
-  72% {
-    opacity: 0.84;
+    background-position: 112% 0;
   }
 
   100% {
-    opacity: 0.34;
-    -webkit-mask-position: -96% 0;
-    mask-position: -96% 0;
+    background-position: -92% 0;
   }
 }
 
@@ -4302,8 +4265,8 @@ body {
     animation: cs-layer-progress-run 1.42s var(--cs-motion-ease-out) infinite;
   }
 
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-text::after {
-    animation: cs-layer-text-sheen 2.6s var(--cs-motion-ease-out) infinite alternate;
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-text {
+    animation: cs-layer-text-sheen 2.9s linear infinite alternate;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {
@@ -4333,7 +4296,7 @@ body {
   .cs-source-pass-fill.cs-live-progress-fill,
   .cs-source-pass-cursor.cs-live-progress-cursor,
   .cs-active-enrichment[data-state="running"] .cs-active-dot,
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-text::after,
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-text,
   .cs-active-enrichment[data-state="running"] .cs-layer-progress span,
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
   .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
@@ -4342,6 +4305,11 @@ body {
   .cs-dormant-card {
     animation: none;
     transition: none;
+  }
+
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-text {
+    background: none;
+    -webkit-text-fill-color: currentColor;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {

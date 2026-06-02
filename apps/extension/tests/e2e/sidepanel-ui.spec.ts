@@ -337,6 +337,8 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await expect(signalsHeader).toHaveAttribute("aria-expanded", "true");
   await expect(activeSignals).toContainText("Refreshing");
   await expect(activeSignals).toContainText("Searching for recent traction and launch signals");
+  await expect(activeSignals.locator(".cs-layer-running-text")).toHaveCSS("animation-name", "cs-layer-text-sheen");
+  await expect(activeSignals.locator(".cs-layer-running-text")).not.toHaveCSS("background-image", "none");
 
   await signalsHeader.click();
 
