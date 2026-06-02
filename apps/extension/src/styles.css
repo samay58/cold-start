@@ -3386,6 +3386,14 @@ body,
   will-change: transform;
 }
 
+/* Live elapsed timers tick every second; tabular figures keep their width
+   fixed so the status line holds still next to the moving sheen (and does
+   not lurch at 0:59 -> 1:00). */
+.cs-active-enrichment-head small,
+.cs-people-line-source {
+  font-variant-numeric: tabular-nums;
+}
+
 .cs-layer-running-copy span {
   font-family: var(--font-display);
   font-size: 18px;
