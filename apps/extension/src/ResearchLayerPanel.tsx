@@ -419,10 +419,8 @@ function LayerContent({
   if (running) {
     return (
       <div className="cs-layer-running-copy" aria-live="polite">
+        <span className="cs-layer-running-sheen" aria-hidden="true" />
         <span className="cs-layer-running-text">{runningCopy}</span>
-        <span className="cs-layer-progress" aria-hidden="true">
-          <span />
-        </span>
         <span className="cs-layer-skeleton" aria-hidden="true" />
         <span className="cs-layer-skeleton cs-layer-skeleton-short" aria-hidden="true" />
       </div>

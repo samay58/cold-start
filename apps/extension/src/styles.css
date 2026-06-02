@@ -1129,25 +1129,11 @@ button {
 }
 
 .cs-layer-running-text {
-  background:
-    linear-gradient(
-      90deg,
-      var(--color-ink) 0%,
-      var(--color-ink) 28%,
-      #6e5c9e 41%,
-      #c9bff1 50%,
-      #6e5c9e 59%,
-      var(--color-ink) 72%,
-      var(--color-ink) 100%
-    );
-  background-size: 220% 100%;
-  background-position: 112% 0;
-  -webkit-background-clip: text;
-  background-clip: text;
+  position: relative;
+  z-index: 1;
   display: inline-block;
   color: var(--color-ink);
   text-wrap: balance;
-  -webkit-text-fill-color: transparent;
 }
 
 .cs-research-shell {
@@ -3362,17 +3348,42 @@ body,
   padding: 2px 0 4px;
 }
 
-.cs-layer-running-copy::after {
+/* One clear sheen pass. A wide highlight rides across the whole running
+   card via transform (composited, reliable). The band is tiled twice across
+   a 200%-wide layer so one is always on-card: as one exits left, the next
+   enters right. translateX 0 -> -50% is exactly one tile period, so the loop
+   is seamless with no hard reset and no dead phase. Text stays solid and
+   readable underneath (z-index above the sheen). */
+.cs-layer-running-sheen {
   position: absolute;
-  right: -20px;
-  bottom: -22px;
-  width: 210px;
-  height: 84px;
-  background:
-    repeating-radial-gradient(ellipse at 72% 80%, rgb(255 255 255 / 0.34) 0 1px, transparent 1px 11px);
-  content: "";
-  opacity: 0.45;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  width: 200%;
+  border-radius: inherit;
   pointer-events: none;
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 13%,
+    rgb(110 92 158 / 0.05) 19%,
+    rgb(110 92 158 / 0.22) 23%,
+    rgb(201 191 241 / 0.52) 25%,
+    rgb(110 92 158 / 0.22) 27%,
+    rgb(110 92 158 / 0.05) 31%,
+    transparent 37%,
+    transparent 63%,
+    rgb(110 92 158 / 0.05) 69%,
+    rgb(110 92 158 / 0.22) 73%,
+    rgb(201 191 241 / 0.52) 75%,
+    rgb(110 92 158 / 0.22) 77%,
+    rgb(110 92 158 / 0.05) 81%,
+    transparent 87%,
+    transparent 100%
+  );
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .cs-layer-running-copy span {
@@ -4225,13 +4236,13 @@ body {
   }
 }
 
-@keyframes cs-layer-text-sheen {
-  0% {
-    background-position: 112% 0;
+@keyframes cs-layer-sheen-slide {
+  from {
+    transform: translate3d(0, 0, 0);
   }
 
-  100% {
-    background-position: -92% 0;
+  to {
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
@@ -4261,12 +4272,8 @@ body {
     animation: cs-progress-cursor-breathe 1.35s var(--cs-motion-ease-out) infinite;
   }
 
-  .cs-active-enrichment[data-state="running"] .cs-layer-progress span {
-    animation: cs-layer-progress-run 1.42s var(--cs-motion-ease-out) infinite;
-  }
-
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-text {
-    animation: cs-layer-text-sheen 2.9s linear infinite alternate;
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen {
+    animation: cs-layer-sheen-slide 1.85s linear infinite;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {
@@ -4296,8 +4303,7 @@ body {
   .cs-source-pass-fill.cs-live-progress-fill,
   .cs-source-pass-cursor.cs-live-progress-cursor,
   .cs-active-enrichment[data-state="running"] .cs-active-dot,
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-text,
-  .cs-active-enrichment[data-state="running"] .cs-layer-progress span,
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen,
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
   .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
   .cs-research-progress-dot[data-running="true"],
@@ -4307,9 +4313,12 @@ body {
     transition: none;
   }
 
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-text {
-    background: none;
-    -webkit-text-fill-color: currentColor;
+  /* Reduce: the sheen rests as a soft static highlight instead of sweeping.
+     The live elapsed timer in the status line carries the "still working"
+     signal without spatial motion. */
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen {
+    transform: translate3d(-25%, 0, 0);
+    opacity: 0.7;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {

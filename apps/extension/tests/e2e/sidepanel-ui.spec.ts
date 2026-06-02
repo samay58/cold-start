@@ -337,14 +337,105 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await expect(signalsHeader).toHaveAttribute("aria-expanded", "true");
   await expect(activeSignals).toContainText("Refreshing");
   await expect(activeSignals).toContainText("Searching for recent traction and launch signals");
-  await expect(activeSignals.locator(".cs-layer-running-text")).toHaveCSS("animation-name", "cs-layer-text-sheen");
-  await expect(activeSignals.locator(".cs-layer-running-text")).not.toHaveCSS("background-image", "none");
+  await expect(activeSignals.locator(".cs-layer-running-sheen")).toHaveCSS("animation-name", "cs-layer-sheen-slide");
+  await expect(activeSignals.locator(".cs-layer-running-sheen")).not.toHaveCSS("background-image", "none");
+  // Running text itself is solid and readable, not a clipped gradient.
+  await expect(activeSignals.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
 
   await signalsHeader.click();
 
   await expect(activeSignals).toHaveAttribute("data-expanded", "false");
   await expect(signalsHeader).toHaveAttribute("aria-expanded", "false");
   await expect(signalsBody).toHaveAttribute("data-expanded", "false");
+});
+
+async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0]) {
+  await installChromeShim(page, { activeDomain: "browserbase.com" });
+  // Pin "Why care" (coreIdea) so an analysis section is open while basics is still running.
+  await page.addInitScript(() => {
+    (window as unknown as { chrome: { storage: { local: { set: (i: Record<string, unknown>) => void } } } })
+      .chrome.storage.local.set({ coldStartPinnedResearchLayers: { "browserbase.com": ["coreIdea"] } });
+  });
+
+  const startedAt = new Date(Date.now() - 32_000).toISOString();
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "browserbase.com",
+      slug: "browserbase",
+      card: browserbaseCard(),
+      sections: [],
+      events: [],
+      sources: [],
+      runs: {
+        basics: { slug: "browserbase", domain: "browserbase.com", mode: "basics", status: "running", startedAt },
+        analysis: { slug: "browserbase", domain: "browserbase.com", mode: "analysis", status: "idle" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, browserbaseCard());
+  });
+  // Keep basics "running" so profileRun never resolves and waitingForProfile stays true.
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "browserbase",
+      domain: "browserbase.com",
+      status: "running",
+      mode: "basics",
+      startedAt
+    });
+  });
+  await page.goto("/sidepanel.html");
+}
+
+test("profile-finishing shimmer keeps text readable and sweeps over time", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await openProfileFinishing(page);
+
+  const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
+  await expect(runningCard).toBeVisible({ timeout: 10_000 });
+  await expect(runningCard).toContainText("Finishing the company profile before section generation");
+
+  const sheen = runningCard.locator(".cs-layer-running-sheen");
+  await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");
+  await expect(sheen).toHaveCSS("animation-play-state", "running");
+  await expect(sheen).not.toHaveCSS("background-image", "none");
+  // Text reads as solid ink, not a transparent clipped gradient.
+  await expect(runningCard.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
+  await expect(runningCard.locator(".cs-layer-running-text")).not.toHaveCSS("-webkit-text-fill-color", "rgba(0, 0, 0, 0)");
+
+  // Prove motion: sample the sheen's translateX at intervals that are not a
+  // multiple of the 1.85s period, so identical readings would mean it is stuck.
+  const readTx = () =>
+    sheen.evaluate((el) => {
+      const transform = getComputedStyle(el).transform;
+      if (!transform || transform === "none") {
+        return 0;
+      }
+      return new DOMMatrixReadOnly(transform).m41;
+    });
+
+  const samples: number[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    samples.push(Math.round(await readTx()));
+    if (i < 2) {
+      await page.waitForTimeout(620);
+    }
+  }
+  const distinct = new Set(samples);
+  expect(distinct.size, `sheen translateX should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
+});
+
+test("profile-finishing shimmer rests calmly under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openProfileFinishing(page);
+
+  const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
+  await expect(runningCard).toBeVisible({ timeout: 10_000 });
+  const sheen = runningCard.locator(".cs-layer-running-sheen");
+  await expect(sheen).toHaveCSS("animation-name", "none");
+  // Text stays solid and readable in reduced motion too.
+  await expect(runningCard.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
 });
 
 test("keyboard activation exposes explicit generation for synthesis-backed cards", async ({ page }) => {
