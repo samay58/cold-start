@@ -636,9 +636,9 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
-    expect(container.textContent).toContain("Building");
-    expect(container.textContent).toContain("Finalizing");
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Finalizing");
+    expect(container.textContent).toContain("Researching");
+    expect(container.textContent).toContain("Finishing up");
+    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 4 of 4");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
     expect(container.querySelector(".cs-build-bar")).not.toBeNull();
     expect(container.querySelector(".cs-build-bar-sweep")).not.toBeNull();
@@ -658,7 +658,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("uses generation events to drive the build-card progress stage", async () => {
+  it("uses generation events to drive the research progress stage", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (url: string) => {
       if (String(url).includes("/api/generate?")) {
@@ -693,8 +693,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Collecting");
-    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Found 8 accepted sources");
+    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 2 of 4");
+    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Found 8 sources");
     await unmount();
   });
 

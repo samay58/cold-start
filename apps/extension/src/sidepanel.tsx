@@ -143,22 +143,22 @@ function generationStageNote({
   }
 
   if (activeIndex === 1 && acceptedCount !== null) {
-    return `${acceptedCount} sources in hand`;
+    return `${acceptedCount} sources found`;
   }
 
   if (activeIndex === 0) {
-    return "Finding where to look";
+    return "Looking for useful sources";
   }
 
   if (activeIndex === 1) {
-    return "Evidence is coming in";
+    return "Reading what came in";
   }
 
   if (activeIndex === 2) {
-    return "Turning evidence into the card";
+    return "Sorting the signal";
   }
 
-  return "Wrapping the card";
+  return "Saving the profile";
 }
 
 function ExtensionTopbar({
@@ -491,10 +491,10 @@ function GenerationPanel({
   const events = requestState.events ?? [];
   const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const stages: SourcePassStage[] = [
-    { label: "Sourcing", marker: "01", note: "Finding where to look" },
-    { label: "Collecting", marker: "02", note: "Evidence is coming in" },
-    { label: "Synthesizing", marker: "03", note: "Turning evidence into the card" },
-    { label: "Finalizing", marker: "04", note: "Wrapping the card" }
+    { label: "Finding sources", marker: "01", note: "Looking for useful places to read" },
+    { label: "Reading evidence", marker: "02", note: "Pulling in what matters" },
+    { label: "Making sense", marker: "03", note: "Sorting the signal" },
+    { label: "Finishing up", marker: "04", note: "Saving the profile" }
   ];
   const estimatedStageProgress = requestState.generationStatus === "queued"
     ? elapsedMs / 7000
@@ -507,14 +507,14 @@ function GenerationPanel({
   const statusText =
     requestState.generationStatus === "queued" && elapsed < 4
       ? "Queued"
-      : "Building";
+      : "Researching";
   const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
   const stageNote = generationStageNote({
     activeIndex,
     elapsed,
     events,
     generationStatus: requestState.generationStatus
-  }) ?? activeStage?.note ?? "Working from cited sources";
+  }) ?? activeStage?.note ?? "Working from useful sources";
   const progressPercent = Math.min(97, Math.max(8, (clampedStageProgress / stages.length) * 100));
   return (
     <ExtensionFrame
@@ -1414,7 +1414,7 @@ export function SidePanel() {
         title="Still researching"
       >
         <PanelHeader eyebrow="In progress" logoDomain={requestState.domain} title="Still researching" value={requestState.domain} />
-        <p className="cs-extension-note">Cold Start is still building this card. It is taking a little longer than usual; check again in a moment and it will be ready.</p>
+        <p className="cs-extension-note">Cold Start is still working on this company. It is taking a little longer than usual; check again in a moment.</p>
       </ExtensionFrame>
     );
   }

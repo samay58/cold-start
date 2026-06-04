@@ -79,6 +79,34 @@ function eventStatus(event: ExtensionResearchRunEvent): PlanStatus {
   return "done";
 }
 
+function displayEventMessage(event: ExtensionResearchRunEvent) {
+  if (event.type === "generation.queued") {
+    return "Queued this company";
+  }
+  if (event.type === "generation.started") {
+    return "Started research";
+  }
+  if (event.type === "plan.ready") {
+    return "Picked a research plan";
+  }
+  if (event.type === "card.partial") {
+    return "Saved the first profile";
+  }
+  if (event.type === "card.saved" || event.type === "card.enriched") {
+    return "Saved the profile";
+  }
+  if (event.type === "generation.complete") {
+    return "Research ready";
+  }
+
+  return event.message
+    .replace(/\baccepted sources\b/gi, "sources")
+    .replace(/\bcompany profile\b/gi, "this company")
+    .replace(/\bcompany card\b/gi, "profile")
+    .replace(/\bthe card\b/gi, "the profile")
+    .replace(/\bcard\b/gi, "profile");
+}
+
 function statusForStage(index: number, activeIndex: number, events: ExtensionResearchRunEvent[]): PlanStatus {
   if (events.some((event) => eventStageIndex(event) === index && eventStatus(event) === "failed")) {
     return "failed";
@@ -111,7 +139,7 @@ function buildPlan(
       stageEvents.length > 0
         ? stageEvents.map((event) => ({
             key: event.id,
-            message: event.message,
+            message: displayEventMessage(event),
             status: eventStatus(event)
           }))
         : stageIndex === activeIndex
@@ -213,7 +241,7 @@ export function SourcePassInstrument({
   return (
     <div className="cs-live-card cs-live-card-refined cs-build" aria-live="polite">
       <div className="cs-build-head">
-        <span>Building card</span>
+        <span>Research progress</span>
         <span className="cs-build-step">
           {activeStage?.marker ?? "01"} / {String(stages.length).padStart(2, "0")}
         </span>
@@ -224,7 +252,7 @@ export function SourcePassInstrument({
       <div
         className="cs-build-bar"
         role="progressbar"
-        aria-label="Build progress"
+        aria-label="Research progress"
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={Math.round(safeProgressPercent)}
@@ -267,7 +295,7 @@ export function SourcePassInstrument({
       </ol>
 
       <p className="cs-build-meta">
-        {activeStage?.label ?? "Building"}; step {safeActiveIndex + 1} of {stages.length}
+        Step {safeActiveIndex + 1} of {stages.length}
       </p>
       <p className="sr-only">{activeStage?.label}. {stageNote}</p>
     </div>

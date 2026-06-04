@@ -229,10 +229,11 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
 
   await openSidePanel(page);
 
-  await expect(page.getByText("Building")).toBeVisible();
+  await expect(page.getByText("Researching")).toBeVisible();
   await expect(page.locator(".cs-build-bar")).toBeVisible();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-meta")).toContainText("Finalizing");
+  await expect(page.locator(".cs-build-tree")).toContainText("Finishing up");
+  await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
   // Prove the loading sweep is actually moving over time, not just declared.
   const sweep = page.locator(".cs-build-bar-sweep");
   await expect(sweep).toHaveCSS("animation-name", "cs-build-sweep");
@@ -281,11 +282,11 @@ test("progress tree surfaces real research events as substeps", async ({ page })
 
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible({ timeout: 10_000 });
-  await expect(tree).toContainText("Research plan ready");
-  await expect(tree).toContainText("Found 12 accepted sources");
-  await expect(tree).toContainText("Saved first usable company card");
+  await expect(tree).toContainText("Picked a research plan");
+  await expect(tree).toContainText("Found 12 sources");
+  await expect(tree).toContainText("Saved the first profile");
   await expect(tree).not.toContainText("Started async contact enrichment");
-  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Saved first usable company card" })).toBeVisible();
+  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Saved the first profile" })).toBeVisible();
 });
 
 test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {
@@ -325,7 +326,7 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
 
   await expect(page.locator(".cs-build-bar")).toBeVisible();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-meta")).toContainText("Finalizing");
+  await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
   const sweep = page.locator(".cs-build-bar-sweep");
   await expect(sweep).toHaveCSS("animation-name", "none");
   await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
