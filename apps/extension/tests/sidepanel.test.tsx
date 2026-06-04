@@ -442,9 +442,10 @@ describe("SidePanel generation gate", () => {
 
     const fetchMock = vi.fn(async () => jsonResponse(card));
     const { container, unmount } = await renderSidePanel({ domain: "hanoverpark.com", fetchMock });
+    const visibleSummary = container.querySelector(".cs-company-summary");
 
-    expect(container.textContent).toContain("Hanover Park is an AI-native fund administrator for private equity and venture capital firms.");
-    expect(container.textContent).not.toContain("full-service accounting into one platform");
+    expect(visibleSummary?.textContent).toContain("Hanover Park is an AI-native fund administrator for private equity and venture capital firms.");
+    expect(visibleSummary?.textContent).not.toContain("full-service accounting into one platform");
     await unmount();
   });
 
@@ -716,7 +717,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     expect(container.textContent).toContain("Synthesizing");
-    expect(container.textContent).toContain("Extracting structure from cited sources");
+    expect(container.textContent).toContain("Reading cited sources");
     expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);
@@ -767,7 +768,7 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.textContent).toContain("Synthesizing");
-    expect(container.textContent).toContain("Extracting structure from cited sources");
+    expect(container.textContent).toContain("Reading cited sources");
     expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
@@ -815,8 +816,8 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("running");
-    expect(container.textContent).toContain("Profile finishing");
-    expect(container.textContent).toContain("Finishing the company profile before section generation");
+    expect(container.textContent).toContain("Finishing profile");
+    expect(container.textContent).toContain("Getting the profile ready");
     expect(interactiveControls(container).some((button) => button.textContent === "Generate")).toBe(false);
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
@@ -885,7 +886,7 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Researching LlamaIndex");
+    expect(container.textContent).toContain("Researching");
     expect(container.textContent).toContain("2 sources found");
     expect(container.textContent).toContain("Found 2 sources");
     await unmount();

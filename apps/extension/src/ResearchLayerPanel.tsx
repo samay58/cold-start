@@ -126,6 +126,70 @@ function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
 }
 
+function readableRunEvent(event: ExtensionResearchRunEvent) {
+  if (event.type === "card.partial") {
+    return "Saved a starter profile";
+  }
+  if (event.type === "card.saved" || event.type === "card.enriched") {
+    return "Saved the profile";
+  }
+  if (event.type === "source.found") {
+    const count = event.metadata.acceptedCount ?? event.metadata.sourceCount;
+    return typeof count === "number" && Number.isFinite(count) ? `Found ${count} sources` : "Found useful sources";
+  }
+  if (event.type === "source.enrichment") {
+    return "Checked deeper sources";
+  }
+  if (event.type === "contacts.requested" || event.type === "contacts.started") {
+    return "Checking people";
+  }
+  if (event.type === "contacts.enriched") {
+    const count = event.metadata.emailCount;
+    return typeof count === "number" && Number.isFinite(count) ? `Found ${count} work emails` : "Found work emails";
+  }
+
+  return event.message
+    .replace(/\baccepted sources\b/gi, "sources")
+    .replace(/\bcompany profile\b/gi, "profile")
+    .replace(/\bcompany card\b/gi, "profile")
+    .replace(/\bthe card\b/gi, "the profile")
+    .replace(/\bcard\b/gi, "profile")
+    .replace(/\basync contact enrichment\b/gi, "people lookup");
+}
+
+function expandedProfileSummary(value: string | null | undefined, fallback: string) {
+  const normalized = (value ?? "").replace(/\s+/g, " ").trim() || fallback.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 360) {
+    return normalized;
+  }
+
+  const sliced = normalized.slice(0, 361);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const trimmed = (lastSpace > 180 ? sliced.slice(0, lastSpace) : normalized.slice(0, 360)).trim();
+  return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
+}
+
+function ProfileSummary({
+  fullSummary,
+  summary
+}: {
+  fullSummary: string;
+  summary: string;
+}) {
+  const hasMore = fullSummary !== summary;
+  return (
+    <div className="cs-company-summary-wrap">
+      <p className="cs-company-summary">{summary}</p>
+      {hasMore ? (
+        <button aria-label="Read the full company description" className="cs-company-summary-more" type="button">
+          <span>More</span>
+          <span className="cs-company-summary-popover" role="tooltip">{fullSummary}</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function websiteLabel(card: ColdStartCard) {
   const website = card.identity.websiteUrl?.value ?? `https://${card.domain}`;
   try {
@@ -665,25 +729,26 @@ function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
 }
 
 function ResearchProgressPanel({
-  companyName,
   events = [],
   isRunning,
   resolvedCount,
   sources = [],
   totalCount
 }: {
-  companyName: string;
   events?: ExtensionResearchRunEvent[] | undefined;
   isRunning: boolean;
   resolvedCount: number;
   sources?: ExtensionSourceSummary[] | undefined;
   totalCount: number;
 }) {
-  const latestEvent = events[0] ?? null;
-  const sourceTypes = Array.from(new Set(sources.map((source) => sourceKindLabel(source.sourceType)))).slice(0, 3);
-  const stateCopy = isRunning ? `Researching ${companyName}` : `Saved research for ${companyName}`;
-  const sourceCopy = sources.length > 0 ? `${plural(sources.length, "source")} found` : "Sources will appear here";
-  const sectionCopy = `${resolvedCount} of ${totalCount} sections resolved`;
+  const meaningfulEvents = events
+    .map((event) => ({ id: event.id, message: readableRunEvent(event) }))
+    .filter((event, index, all) => all.findIndex((candidate) => candidate.message === event.message) === index);
+  const latestEvent = meaningfulEvents[0] ?? null;
+  const secondaryEvent = meaningfulEvents.find((event) => event.id !== latestEvent?.id) ?? null;
+  const stateCopy = isRunning ? "Researching" : "Research saved";
+  const sourceCopy = sources.length > 0 ? `${plural(sources.length, "source")} found` : "Looking for useful sources";
+  const sectionCopy = `${resolvedCount} of ${totalCount} sections ready`;
 
   return (
     <div className="cs-research-progress" aria-label="Research progress">
@@ -693,7 +758,6 @@ function ResearchProgressPanel({
           <strong>{stateCopy}</strong>
           <small>
             {sourceCopy}
-            {sourceTypes.length > 0 ? ` · ${sourceTypes.join(", ")}` : null}
             {` · ${sectionCopy}`}
           </small>
         </div>
@@ -703,6 +767,7 @@ function ResearchProgressPanel({
           {latestEvent.message}
         </div>
       ) : null}
+      {secondaryEvent ? <p className="cs-research-progress-note">Also: {secondaryEvent.message}</p> : null}
       {sources.length > 0 ? (
         <div className="cs-research-source-strip" aria-label="Recent sources">
           {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
@@ -712,16 +777,6 @@ function ResearchProgressPanel({
             </a>
           ))}
         </div>
-      ) : null}
-      {events.length > 1 ? (
-        <details className="cs-research-activity">
-          <summary>Activity</summary>
-          <ol>
-            {events.slice(0, 6).map((event) => (
-              <li key={event.id}>{event.message}</li>
-            ))}
-          </ol>
-        </details>
       ) : null}
     </div>
   );
@@ -875,10 +930,9 @@ export function ResearchLayerPanel({
   const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
   const dropZoneCopy = snapReadyId ? "Release to add" : snapPreviewId ? "Lift to add" : "Add module";
-  const summary = compactProfileSummary(
-    card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
-    card.domain
-  );
+  const rawSummary = card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value;
+  const summary = compactProfileSummary(rawSummary, card.domain);
+  const fullSummary = expandedProfileSummary(rawSummary, card.domain);
 
   if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
@@ -900,7 +954,7 @@ export function ResearchLayerPanel({
             <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
               {websiteLabel(card)}
             </a>
-            <p className="cs-company-summary">{summary}</p>
+            <ProfileSummary fullSummary={fullSummary} summary={summary} />
           </div>
         </div>
         <FactRibbon facts={facts} />
@@ -920,7 +974,6 @@ export function ResearchLayerPanel({
         </div>
         {showResearchProgress ? (
           <ResearchProgressPanel
-            companyName={companyName}
             events={events}
             isRunning={activeRunVisible}
             resolvedCount={resolvedSectionCount}
@@ -964,7 +1017,7 @@ export function ResearchLayerPanel({
                 }
               : undefined;
             const statusCopy = waitingForProfile
-              ? `Profile finishing · ${formatElapsed(profileElapsedSeconds)}`
+              ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
               : running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
@@ -973,16 +1026,16 @@ export function ResearchLayerPanel({
                   : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
                 : sourceLabel(display.sourceCount);
             const runningCopy = waitingForProfile
-              ? "Finishing the company profile before section generation"
+              ? "Getting the profile ready"
               : refreshing
               ? layer?.source === "analysis"
-                ? "Synthesizing this section from cited evidence"
+                ? "Reading the evidence"
                 : id === "competition"
-                ? "Searching for adjacent companies and market-map evidence"
+                ? "Looking for adjacent companies"
                 : id === "signals"
-                  ? "Searching for recent traction and launch signals"
-                  : "Refreshing cited profile evidence"
-              : "Extracting structure from cited sources";
+                  ? "Checking recent traction"
+                  : "Refreshing the evidence"
+              : "Reading cited sources";
             const bodyId = `research-layer-${id}-body`;
 
             return (

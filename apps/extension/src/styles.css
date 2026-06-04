@@ -1477,6 +1477,66 @@ button {
   -webkit-line-clamp: 3;
 }
 
+.cs-company-summary-wrap {
+  position: relative;
+  max-width: 34rem;
+}
+
+.cs-company-summary-more {
+  position: relative;
+  margin-top: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--color-seal);
+  cursor: pointer;
+  font: 650 11.5px/1.2 var(--font-body);
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: rgb(110 92 158 / 0.30);
+  text-underline-offset: 3px;
+}
+
+.cs-company-summary-more:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgb(110 92 158 / 0.34);
+  outline-offset: 4px;
+}
+
+.cs-company-summary-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 9px);
+  z-index: 20;
+  width: min(360px, calc(100vw - 56px));
+  padding: 13px 14px;
+  border: 1px solid rgb(204 199 184 / 0.92);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(250 247 239 / 0.96)),
+    var(--color-plate);
+  box-shadow:
+    0 18px 38px rgb(2 8 18 / 0.14),
+    0 1px 0 rgb(255 255 255 / 0.92) inset;
+  color: rgb(8 25 44 / 0.82);
+  font-size: 12.75px;
+  font-weight: 520;
+  line-height: 1.48;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  text-decoration: none;
+  transform: translate3d(0, 4px, 0);
+  transition:
+    opacity var(--cs-motion-state) var(--cs-motion-ease-out),
+    transform var(--cs-motion-state) var(--cs-motion-ease-out);
+}
+
+.cs-company-summary-more:hover .cs-company-summary-popover,
+.cs-company-summary-more:focus-visible .cs-company-summary-popover {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
 .cs-company-facts {
   position: relative;
   z-index: 1;
@@ -1547,9 +1607,9 @@ button {
 
 .cs-research-progress {
   display: grid;
-  gap: 10px;
+  gap: 9px;
   margin: 12px;
-  padding: 12px;
+  padding: 14px 15px;
   border: 1px solid rgb(230 223 201 / 0.86);
   border-radius: 8px;
   background:
@@ -1559,17 +1619,31 @@ button {
 
 .cs-research-progress-main {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
 }
 
 .cs-research-progress-dot {
-  width: 8px;
-  height: 8px;
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(216 208 191 / 0.58);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(247 245 238 / 0.64)),
+    rgb(110 92 158 / 0.055);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.82) inset,
+    0 5px 12px rgb(2 8 18 / 0.04);
+}
+
+.cs-research-progress-dot::after {
+  position: absolute;
+  inset: 8px;
   border-radius: 999px;
-  background: var(--color-seal);
-  box-shadow: 0 0 0 4px rgb(110 92 158 / 0.10);
+  background: var(--color-verified);
+  content: "";
 }
 
 .cs-research-progress-dot[data-running="true"] {
@@ -1581,7 +1655,7 @@ button {
   overflow: hidden;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 720;
   letter-spacing: 0;
   line-height: 1.05;
@@ -1593,19 +1667,27 @@ button {
   display: block;
   margin-top: 5px;
   color: var(--color-muted);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 650;
   letter-spacing: 0;
   line-height: 1.25;
 }
 
 .cs-research-progress-event {
-  padding: 8px 10px;
-  border: 1px solid rgb(110 92 158 / 0.18);
+  padding: 9px 11px;
+  border: 1px solid rgb(204 199 184 / 0.74);
   border-radius: 7px;
-  background: rgb(235 243 255 / 0.62);
-  color: #3a3358;
+  background: rgb(255 253 248 / 0.58);
+  color: rgb(8 25 44 / 0.78);
   font-size: 12px;
+  line-height: 1.35;
+}
+
+.cs-research-progress-note {
+  margin: -2px 0 0 28px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 610;
   line-height: 1.35;
 }
 
@@ -1893,8 +1975,8 @@ button {
 
 .cs-layer-items li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
   padding: 11px 12px;
   border: 1px solid rgb(230 223 201 / 0.78);
@@ -1931,10 +2013,20 @@ button {
 }
 
 .cs-layer-items span {
+  order: -1;
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 7px;
+  border: 1px solid rgb(204 199 184 / 0.60);
+  border-radius: 999px;
+  background: rgb(247 245 238 / 0.72);
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 9px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -3377,16 +3469,16 @@ body,
 }
 
 .cs-active-enrichment[data-state="running"] {
-  border-color: rgb(110 92 158 / 0.26);
+  border-color: rgb(110 92 158 / 0.18);
   background:
-    linear-gradient(135deg, rgb(255 253 248 / 0.96), rgb(239 247 255 / 0.76)),
+    linear-gradient(135deg, rgb(255 253 248 / 0.98), rgb(249 247 244 / 0.84)),
     var(--color-plate);
 }
 
 .cs-active-enrichment[data-state="running"][data-expanded="false"] {
   box-shadow:
-    0 10px 24px rgb(110 92 158 / 0.09),
-    0 0 0 1px rgb(110 92 158 / 0.09),
+    0 9px 22px rgb(2 8 18 / 0.05),
+    0 0 0 1px rgb(110 92 158 / 0.055),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -3398,10 +3490,10 @@ body,
     linear-gradient(
       105deg,
       transparent 0%,
-      transparent 23%,
-      rgb(110 92 158 / 0.13) 38%,
-      rgb(102 187 255 / 0.07) 50%,
-      transparent 67%,
+      transparent 28%,
+      rgb(110 92 158 / 0.06) 43%,
+      rgb(255 253 248 / 0.30) 51%,
+      transparent 70%,
       transparent 100%
     );
   content: "";
@@ -3421,13 +3513,14 @@ body,
 
 .cs-active-enrichment-head {
   min-height: 66px;
-  padding: 13px 14px 12px 16px;
+  padding: 13px 18px 12px 18px;
 }
 
 .cs-active-dot {
   width: 8px;
   height: 8px;
-  box-shadow: 0 0 0 6px rgb(110 92 158 / 0.10);
+  margin-right: 4px;
+  box-shadow: 0 0 0 8px rgb(110 92 158 / 0.06);
 }
 
 .cs-active-enrichment strong {
@@ -3486,17 +3579,11 @@ body,
 
 .cs-layer-running-copy {
   position: relative;
-  gap: 9px;
+  gap: 8px;
   overflow: hidden;
-  padding: 2px 0 4px;
+  padding: 2px 0 2px;
 }
 
-/* One clear sheen pass. A wide highlight rides across the whole running
-   card via transform (composited, reliable). The band is tiled twice across
-   a 200%-wide layer so one is always on-card: as one exits left, the next
-   enters right. translateX 0 -> -50% is exactly one tile period, so the loop
-   is seamless with no hard reset and no dead phase. Text stays solid and
-   readable underneath (z-index above the sheen). */
 .cs-layer-running-sheen {
   position: absolute;
   top: 0;
@@ -3509,20 +3596,20 @@ body,
   background-image: linear-gradient(
     100deg,
     transparent 0%,
-    transparent 13%,
-    rgb(110 92 158 / 0.05) 19%,
-    rgb(110 92 158 / 0.22) 23%,
-    rgb(201 191 241 / 0.52) 25%,
-    rgb(110 92 158 / 0.22) 27%,
-    rgb(110 92 158 / 0.05) 31%,
-    transparent 37%,
+    transparent 16%,
+    rgb(110 92 158 / 0.025) 21%,
+    rgb(110 92 158 / 0.10) 24%,
+    rgb(255 253 248 / 0.46) 26%,
+    rgb(110 92 158 / 0.10) 28%,
+    rgb(110 92 158 / 0.025) 33%,
+    transparent 40%,
     transparent 63%,
-    rgb(110 92 158 / 0.05) 69%,
-    rgb(110 92 158 / 0.22) 73%,
-    rgb(201 191 241 / 0.52) 75%,
-    rgb(110 92 158 / 0.22) 77%,
-    rgb(110 92 158 / 0.05) 81%,
-    transparent 87%,
+    rgb(110 92 158 / 0.025) 69%,
+    rgb(110 92 158 / 0.10) 73%,
+    rgb(255 253 248 / 0.46) 75%,
+    rgb(110 92 158 / 0.10) 77%,
+    rgb(110 92 158 / 0.025) 81%,
+    transparent 88%,
     transparent 100%
   );
   transform: translate3d(0, 0, 0);
@@ -3539,14 +3626,14 @@ body,
 
 .cs-layer-running-copy span {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 620;
 }
 
 .cs-layer-skeleton {
-  height: 6px;
+  height: 5px;
   background:
-    linear-gradient(90deg, rgb(110 92 158 / 0.08), rgb(110 92 158 / 0.18), rgb(110 92 158 / 0.08));
+    linear-gradient(90deg, rgb(216 208 191 / 0.28), rgb(110 92 158 / 0.095), rgb(216 208 191 / 0.24));
 }
 
 .cs-source-chip {
@@ -4528,12 +4615,114 @@ body {
     0 1px 0 rgb(255 255 255 / 0.94) inset;
 }
 
-.cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
-  border-radius: 7px;
+.cs-active-enrichment-head {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 20px;
+  column-gap: 14px;
+  min-height: 64px;
+  padding: 13px 16px;
+}
+
+.cs-active-enrichment-head span:nth-child(2) {
+  min-width: 0;
+}
+
+.cs-active-chevron {
+  justify-self: end;
+}
+
+.cs-active-dot {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  margin-right: 0;
+  border: 1px solid rgb(216 208 191 / 0.58);
+  border-radius: 9px;
   background:
-    linear-gradient(90deg, rgb(110 92 158 / 0.055), transparent 64%),
-    rgb(255 253 248 / 0.44);
-  padding: 9px 10px 10px;
+    linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(247 245 238 / 0.62)),
+    rgb(110 92 158 / 0.055);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.82) inset,
+    0 7px 14px rgb(2 8 18 / 0.035);
+}
+
+.cs-active-dot::after {
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+  background: var(--color-verified);
+  content: "";
+}
+
+.cs-active-enrichment[data-state="running"] {
+  border-color: rgb(110 92 158 / 0.14);
+  background:
+    linear-gradient(135deg, rgb(255 253 248 / 0.97), rgb(250 247 239 / 0.86)),
+    var(--color-plate);
+}
+
+.cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
+  border-radius: 9px;
+  background:
+    linear-gradient(90deg, rgb(110 92 158 / 0.035), transparent 70%),
+    rgb(255 253 248 / 0.50);
+  padding: 12px 14px 13px;
+}
+
+.cs-layer-running-sheen {
+  opacity: 0.72;
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 18%,
+    rgb(110 92 158 / 0.018) 23%,
+    rgb(110 92 158 / 0.070) 26%,
+    rgb(255 253 248 / 0.38) 28%,
+    rgb(110 92 158 / 0.060) 31%,
+    transparent 39%,
+    transparent 66%,
+    rgb(110 92 158 / 0.018) 72%,
+    rgb(110 92 158 / 0.065) 75%,
+    rgb(255 253 248 / 0.36) 77%,
+    rgb(110 92 158 / 0.055) 80%,
+    transparent 88%,
+    transparent 100%
+  );
+}
+
+.cs-layer-running-copy span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cs-layer-skeleton {
+  height: 4px;
+  background:
+    linear-gradient(90deg, rgb(216 208 191 / 0.28), rgb(110 92 158 / 0.060), rgb(216 208 191 / 0.22));
+  background-size: 220% 100%;
+}
+
+.cs-layer-items li {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cs-layer-items span {
+  order: -1;
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 7px;
+  border: 1px solid rgb(204 199 184 / 0.60);
+  border-radius: 999px;
+  background: rgb(247 245 238 / 0.72);
+  color: rgb(8 25 44 / 0.58);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes cs-source-pass-scan-run {
@@ -4563,11 +4752,11 @@ body {
   }
 
   18% {
-    opacity: 0.82;
+    opacity: 0.46;
   }
 
   62% {
-    opacity: 0.46;
+    opacity: 0.24;
   }
 
   100% {
@@ -4589,13 +4778,13 @@ body {
 @keyframes cs-dot-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 4px rgb(110 92 158 / 0.10);
+    box-shadow: 0 0 0 3px rgb(110 92 158 / 0.06);
     transform: scale(1);
   }
 
   50% {
-    box-shadow: 0 0 0 7px rgb(110 92 158 / 0.06);
-    transform: scale(1.08);
+    box-shadow: 0 0 0 5px rgb(110 92 158 / 0.035);
+    transform: scale(1.025);
   }
 }
 
@@ -4648,15 +4837,15 @@ body {
   }
 
   .cs-active-enrichment[data-state="running"] .cs-active-dot {
-    animation: cs-progress-cursor-breathe 1.35s var(--cs-motion-ease-out) infinite;
+    animation: cs-dot-pulse 2.4s var(--cs-motion-ease-out) infinite;
   }
 
   .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen {
-    animation: cs-layer-sheen-slide 1.85s linear infinite;
+    animation: cs-layer-sheen-slide 3.6s linear infinite;
   }
 
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after {
-    animation: cs-running-card-swell 3.8s var(--cs-motion-ease-out) infinite;
+    animation: cs-running-card-swell 5.2s var(--cs-motion-ease-out) infinite;
   }
 
   .cs-source-pass-current-marker,

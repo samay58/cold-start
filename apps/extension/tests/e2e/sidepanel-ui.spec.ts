@@ -388,7 +388,7 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await expect(activeSignals).toHaveAttribute("data-expanded", "true");
   await expect(signalsHeader).toHaveAttribute("aria-expanded", "true");
   await expect(activeSignals).toContainText("Refreshing");
-  await expect(activeSignals).toContainText("Searching for recent traction and launch signals");
+  await expect(activeSignals).toContainText("Checking recent traction");
   await expect(activeSignals.locator(".cs-layer-running-sheen")).toHaveCSS("animation-name", "cs-layer-sheen-slide");
   await expect(activeSignals.locator(".cs-layer-running-sheen")).not.toHaveCSS("background-image", "none");
   // Running text itself is solid and readable, not a clipped gradient.
@@ -446,7 +446,7 @@ test("profile-finishing shimmer keeps text readable and sweeps over time", async
 
   const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
   await expect(runningCard).toBeVisible({ timeout: 10_000 });
-  await expect(runningCard).toContainText("Finishing the company profile before section generation");
+  await expect(runningCard).toContainText("Getting the profile ready");
 
   const sheen = runningCard.locator(".cs-layer-running-sheen");
   await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");
