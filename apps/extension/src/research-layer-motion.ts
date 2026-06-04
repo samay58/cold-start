@@ -19,10 +19,6 @@ export function dragOffsetShouldSuppressClick(offset: { x: number; y: number }) 
   return Math.hypot(offset.x, offset.y) >= CLICK_SUPPRESSION_THRESHOLD;
 }
 
-export function dormantCardCanDrag() {
-  return true;
-}
-
 export function projectVelocity(initialVelocity: number, decelerationRate = 0.998) {
   return projectIntent(initialVelocity, decelerationRate);
 }

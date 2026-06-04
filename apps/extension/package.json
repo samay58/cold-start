@@ -15,6 +15,7 @@
     "@cold-start/core": "file:../../packages/core",
     "@cold-start/ui": "file:../../packages/ui",
     "@crxjs/vite-plugin": "^2.0.0-beta.32",
+    "@paper-design/shaders-react": "^0.0.76",
     "@vitejs/plugin-react": "^5.0.0",
     "framer-motion": "^12.38.0",
     "react": "^19.1.0",

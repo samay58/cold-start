@@ -17,6 +17,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/.cold-start/**",
       "**/.pytest_cache/**",
+      "docs/motion-references/**",
       ".worktrees/**",
       "eval/activegraph-runs/**",
       "**/*.tsbuildinfo",

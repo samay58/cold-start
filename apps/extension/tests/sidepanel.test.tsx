@@ -398,9 +398,9 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     expect(container.textContent).toContain("No profile");
-    expect(container.textContent).toContain("Build the public record");
+    expect(container.textContent).toContain("Get up to speed");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Start source pass"
+      (button) => button.textContent === "Begin research"
     );
     expect(generateButton).toBeTruthy();
 
@@ -638,10 +638,10 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Building");
     expect(container.textContent).toContain("Finalizing");
-    expect(container.querySelector(".cs-evidence-feed")?.textContent).toContain("Finalizing");
+    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Finalizing");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
-    expect(container.querySelector(".cs-live-progress-track")).not.toBeNull();
-    expect(container.querySelector(".cs-live-progress-fill")).not.toBeNull();
+    expect(container.querySelector(".cs-build-bar")).not.toBeNull();
+    expect(container.querySelector(".cs-build-bar-sweep")).not.toBeNull();
     expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");
@@ -693,8 +693,8 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector(".cs-source-pass-now")?.textContent).toContain("Collecting");
-    expect(container.querySelector(".cs-evidence-feed")?.textContent).toContain("Found 8 accepted sources");
+    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Collecting");
+    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Found 8 accepted sources");
     await unmount();
   });
 
@@ -1388,7 +1388,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "obvious.ai", fetchMock });
 
     const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Start source pass"
+      (button) => button.textContent === "Begin research"
     );
     await act(async () => {
       generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

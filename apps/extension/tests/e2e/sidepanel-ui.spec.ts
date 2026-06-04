@@ -190,7 +190,7 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Build the public record" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Get up to speed" })).toBeVisible();
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
 });
@@ -230,21 +230,33 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await openSidePanel(page);
 
   await expect(page.getByText("Building")).toBeVisible();
-  await expect(page.locator(".cs-source-pass-now")).toContainText("Finalizing");
-  await expect(page.locator(".cs-evidence-feed")).toBeVisible();
-  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toHaveCount(1);
-  await expect(page.locator(".cs-source-pass-rail")).toBeVisible();
-  await expect(page.locator(".cs-live-progress-track")).toBeVisible();
-  await expect(page.locator(".cs-live-progress-scan")).toBeVisible();
+  await expect(page.locator(".cs-build-bar")).toBeVisible();
+  await expect(page.locator(".cs-build-tree")).toBeVisible();
+  await expect(page.locator(".cs-build-meta")).toContainText("Finalizing");
+  // Prove the loading sweep is actually moving over time, not just declared.
+  const sweep = page.locator(".cs-build-bar-sweep");
+  await expect(sweep).toHaveCSS("animation-name", "cs-build-sweep");
+  const samples: number[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    samples.push(Math.round(await sweep.evaluate((el) => {
+      const transform = getComputedStyle(el).transform;
+      return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+    })));
+    if (i < 2) {
+      await page.waitForTimeout(420);
+    }
+  }
+  expect(new Set(samples).size, `sweep translateX should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
 });
 
-test("progress evidence feed surfaces real research events", async ({ page }) => {
+test("progress tree surfaces real research events as substeps", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
   const startedAt = new Date(Date.now() - 12_000).toISOString();
   const events = [
     { id: "e1", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "plan.ready", message: "Research plan ready", metadata: {}, createdAt: "2026-06-01T00:00:01.000Z" },
     { id: "e2", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "source.found", message: "Found 12 accepted sources", metadata: { acceptedCount: 12 }, createdAt: "2026-06-01T00:00:03.000Z" },
-    { id: "e3", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "card.partial", message: "Saved first usable company card", metadata: { citationCount: 7 }, createdAt: "2026-06-01T00:00:05.000Z" }
+    { id: "e3", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "card.partial", message: "Saved first usable company card", metadata: { citationCount: 7 }, createdAt: "2026-06-01T00:00:05.000Z" },
+    { id: "e4", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "contacts.started", message: "Started async contact enrichment", metadata: {}, createdAt: "2026-06-01T00:00:06.000Z" }
   ];
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
@@ -267,21 +279,16 @@ test("progress evidence feed surfaces real research events", async ({ page }) =>
 
   await openSidePanel(page);
 
-  const feed = page.locator(".cs-evidence-feed");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  await expect(feed).toContainText("Research plan ready");
-  await expect(feed).toContainText("Found 12 accepted sources");
-  await expect(feed).toContainText("Saved first usable company card");
-  // The newest real event is the single live row.
-  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toHaveCount(1);
-  await expect(page.locator(".cs-evidence-feed li[data-kind='live']")).toContainText("Saved first usable company card");
-  // Count chip derived from event metadata.
-  await expect(feed.locator(".cs-evidence-count").first()).toContainText("12");
-  // Stages still ahead appear as faint upcoming rows, so the feed is never bare.
-  await expect(page.locator(".cs-evidence-feed li[data-kind='upcoming']").first()).toBeVisible();
+  const tree = page.locator(".cs-build-tree");
+  await expect(tree).toBeVisible({ timeout: 10_000 });
+  await expect(tree).toContainText("Research plan ready");
+  await expect(tree).toContainText("Found 12 accepted sources");
+  await expect(tree).toContainText("Saved first usable company card");
+  await expect(tree).not.toContainText("Started async contact enrichment");
+  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Saved first usable company card" })).toBeVisible();
 });
 
-test("reduced motion keeps progress readable without scan or pulse animation", async ({ page }) => {
+test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
   await page.route("**/api/extension/bootstrap?**", async (route) => {
@@ -316,12 +323,12 @@ test("reduced motion keeps progress readable without scan or pulse animation", a
 
   await openSidePanel(page);
 
-  await expect(page.locator(".cs-live-progress-track")).toBeVisible();
-  await expect(page.locator(".cs-evidence-feed")).toBeVisible();
-  await expect(page.locator(".cs-live-progress-scan")).toBeHidden();
-  await expect(page.locator(".cs-live-progress-cursor")).toHaveCSS("animation-name", "none");
-  await expect(page.locator(".cs-evidence-feed li[data-kind='live'] .cs-evidence-dot")).toHaveCSS("animation-name", "none");
-  await expect(page.locator(".cs-source-pass-now")).toContainText("Finalizing");
+  await expect(page.locator(".cs-build-bar")).toBeVisible();
+  await expect(page.locator(".cs-build-tree")).toBeVisible();
+  await expect(page.locator(".cs-build-meta")).toContainText("Finalizing");
+  const sweep = page.locator(".cs-build-bar-sweep");
+  await expect(sweep).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {

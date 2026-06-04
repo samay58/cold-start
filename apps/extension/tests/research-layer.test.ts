@@ -2,7 +2,6 @@ import { fundingEvidenceFromCitations, type ColdStartCard, type ResearchSection 
 import { describe, expect, it } from "vitest";
 import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
 import {
-  dormantCardCanDrag,
   dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
@@ -491,7 +490,6 @@ describe("research layer model", () => {
   });
 
   it("uses stable drag thresholds for card pinning", () => {
-    expect(dormantCardCanDrag()).toBe(true);
     expect(dragOffsetShouldPreview(-24)).toBe(true);
     expect(dragOffsetShouldPreview(-23)).toBe(false);
     expect(dragOffsetShouldSnap(-58)).toBe(true);

@@ -19,7 +19,6 @@ import {
   type ResearchLayerId
 } from "./research-layer";
 import {
-  dormantCardCanDrag,
   dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
@@ -53,7 +52,6 @@ type ResearchLayerPanelProps = {
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
-  onStartAnalysis: () => void;
   profileElapsedSeconds?: number | undefined;
   profileRun?: AnalysisRun | undefined;
   activeSectionElapsedSeconds?: number | undefined;
@@ -575,7 +573,6 @@ function DormantPileCard({
   snapReady: boolean;
   prefersReducedMotion: boolean | null;
 }) {
-  const canDrag = dormantCardCanDrag();
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const feedbackProps = !prefersReducedMotion
     ? {
@@ -600,7 +597,7 @@ function DormantPileCard({
       data-index={index}
       data-previewing={previewing ? "true" : "false"}
       data-snap-ready={snapReady ? "true" : "false"}
-      drag={canDrag ? "y" : false}
+      drag="y"
       dragConstraints={{ bottom: 0, top: -220 }}
       dragElastic={0.035}
       dragMomentum={false}
@@ -739,7 +736,6 @@ export function ResearchLayerPanel({
   elapsedSeconds,
   onRunSection,
   onRegenerate,
-  onStartAnalysis,
   profileElapsedSeconds = 0,
   profileRun,
   activeSectionElapsedSeconds = 0,
@@ -883,7 +879,6 @@ export function ResearchLayerPanel({
     card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value,
     card.domain
   );
-  void onStartAnalysis;
 
   if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;

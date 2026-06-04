@@ -3,8 +3,7 @@ export const motionTokens = {
   easeOut: [0.16, 1, 0.3, 1],
   easeInOut: [0.77, 0, 0.175, 1],
   feedbackMs: 0.12,
-  stateMs: 0.2,
-  railMs: 0.18
+  stateMs: 0.2
 } as const;
 
 export const reducedSpring = {
@@ -25,13 +24,6 @@ export const commitSpring = {
   stiffness: 470,
   damping: 48,
   mass: 0.62
-} as const;
-
-export const instrumentSpring = {
-  type: "spring",
-  stiffness: 380,
-  damping: 44,
-  mass: 0.42
 } as const;
 
 export function projectIntent(initialVelocity: number, decelerationRate = 0.998) {

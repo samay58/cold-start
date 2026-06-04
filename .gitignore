@@ -21,3 +21,6 @@ test-results/
 .DS_Store
 .vercel
 .neon
+
+# Local motion/design reference examples (incl. licensed Devouring Details prototypes); not for redistribution
+docs/motion-references/

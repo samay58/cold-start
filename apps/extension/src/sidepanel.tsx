@@ -1,7 +1,9 @@
-import { hasUsablePublicProfile, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { companySlugFromDomain, hasUsablePublicProfile, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent, PointerEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
+import type { MotionStyle } from "framer-motion";
 import {
   ApiError,
   defaultApiOrigin,
@@ -31,6 +33,8 @@ import {
   startSectionGenerationAndPoll
 } from "./sidepanel-network";
 import type { SourcePassStage } from "./SourcePassInstrument";
+import { reducedSpring, snapSpring } from "./motion-primitives";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
@@ -40,6 +44,12 @@ const ResearchLayerPanel = lazy(() =>
 );
 const SourcePassInstrument = lazy(() =>
   import("./SourcePassInstrument").then((module) => ({ default: module.SourcePassInstrument }))
+);
+const ProgressMeshGradient = lazy(() =>
+  import("@paper-design/shaders-react").then((module) => ({ default: module.MeshGradient }))
+);
+const ProgressStaticMeshGradient = lazy(() =>
+  import("@paper-design/shaders-react").then((module) => ({ default: module.StaticMeshGradient }))
 );
 
 type RequestState =
@@ -367,24 +377,104 @@ function SettingsForm({
 }
 
 function LoadingPanel({
+  apiOrigin = DEFAULT_API_ORIGIN,
   domain,
   onSettings
 }: {
+  apiOrigin?: string;
   domain: string;
   onSettings: () => void;
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
+  const slug = companySlugFromDomain(domain);
+  const cardHref = `${apiOrigin.replace(/\/+$/, "")}/c/${slug}`;
 
   return (
-    <ExtensionFrame className="cs-check-panel" onSettings={onSettings} title="Checking cache">
-      <PanelHeader eyebrow="Current tab" logoDomain={domain} title={companyName} value={domain} />
+    <ExtensionFrame className="cs-loading-panel" onSettings={onSettings} title="Checking cache">
       <div className="cs-cache-card" aria-live="polite">
-        <span className="cs-cache-spinner" aria-hidden="true" />
-        <div>
-          <strong>Checking profile</strong>
-        </div>
+        <span className="cs-eye-loader" role="img" aria-label={`Looking up ${companyName}`}>
+          <svg viewBox="0 0 48 28" width="42" height="25" aria-hidden="true">
+            <path
+              className="cs-eye-lid"
+              d="M2 14 C 13 2, 35 2, 46 14 C 35 26, 13 26, 2 14 Z"
+              fill="none"
+              stroke="var(--color-ink)"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            />
+            <g className="cs-eye-iris">
+              <circle cx="24" cy="14" r="7" fill="var(--color-seal)" />
+              <circle cx="24" cy="14" r="3" fill="#0b0b10" />
+              <circle cx="26.4" cy="11.4" r="1.4" fill="rgba(255,255,255,0.85)" />
+            </g>
+          </svg>
+        </span>
+        <p>
+          Checking if{" "}
+          <a className="cs-cache-slug-link" href={cardHref} rel="noreferrer" target="_blank">
+            {companyName}
+          </a>{" "}
+          already exists…
+        </p>
       </div>
     </ExtensionFrame>
+  );
+}
+
+function ProgressBackground() {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [shaderEnabled, setShaderEnabled] = useState(false);
+
+  useEffect(() => {
+    if (navigator.userAgent.toLowerCase().includes("jsdom")) {
+      setShaderEnabled(false);
+      return;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      setShaderEnabled(Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl")));
+    } catch {
+      setShaderEnabled(false);
+    }
+  }, []);
+
+  return (
+    <div className="cs-generation-mesh" aria-hidden="true" data-reduced-motion={prefersReducedMotion ? "true" : "false"}>
+      <span className="cs-generation-mesh-fallback" />
+      {shaderEnabled ? (
+        <Suspense fallback={null}>
+          {prefersReducedMotion ? (
+            <ProgressStaticMeshGradient
+              className="cs-generation-mesh-shader"
+              colors={["#f7f5ee", "#f4eddc", "#d9d0e8", "#6e5c9e", "#fffdf8"]}
+              fit="cover"
+              grainMixer={0.42}
+              grainOverlay={0.08}
+              mixing={0.74}
+              positions={32}
+              scale={1.18}
+              waveX={0.22}
+              waveXShift={0.28}
+              waveY={0.16}
+              waveYShift={0.62}
+            />
+          ) : (
+            <ProgressMeshGradient
+              className="cs-generation-mesh-shader"
+              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#d9d0e8", "#6e5c9e"]}
+              distortion={0.36}
+              fit="cover"
+              grainMixer={0.35}
+              grainOverlay={0.06}
+              scale={1.16}
+              speed={0.16}
+              swirl={0.28}
+            />
+          )}
+        </Suspense>
+      ) : null}
+    </div>
   );
 }
 
@@ -431,6 +521,7 @@ function GenerationPanel({
       className="cs-generation-panel"
       title={domain}
     >
+      <ProgressBackground />
       <header className="cs-generation-hero">
         <CompanyLogo
           className="cs-generation-logo"
@@ -465,16 +556,12 @@ function SuccessPanel({
   domain,
   onRunSection,
   onRegenerate,
-  onStartAnalysis,
-  requestState,
-  settings
+  requestState
 }: {
   domain: string;
   onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
-  onStartAnalysis: () => void;
   requestState: Extract<RequestState, { status: "success" }>;
-  settings: Settings;
 }) {
   const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
   const contactElapsedSeconds = useElapsedSeconds(Boolean(requestState.contactRun), requestState.contactRun?.startedAt);
@@ -498,13 +585,6 @@ function SuccessPanel({
         elapsedSeconds={elapsedSeconds}
         onRunSection={onRunSection}
         onRegenerate={onRegenerate}
-        onStartAnalysis={() => {
-          if (!settings.apiToken || !domain) {
-            return;
-          }
-
-          onStartAnalysis();
-        }}
         profileElapsedSeconds={profileElapsedSeconds}
         profileRun={requestState.profileRun}
         activeSectionElapsedSeconds={activeSectionElapsedSeconds}
@@ -524,6 +604,25 @@ function StartGenerationPanel({
   onStart: () => void;
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const mouseX = useSpring(useMotionValue(50), prefersReducedMotion ? reducedSpring : snapSpring);
+  const mouseY = useSpring(useMotionValue(50), prefersReducedMotion ? reducedSpring : snapSpring);
+  const splashPosition = useMotionTemplate`circle at ${mouseX}% ${mouseY}%`;
+  const entrance = prefersReducedMotion
+    ? undefined
+    : {
+        hidden: { opacity: 0, y: 8, filter: "blur(4px)" },
+        visible: (index: number) => ({
+          opacity: 1,
+          y: 0,
+          filter: "blur(0px)",
+          transition: { delay: index * 0.055, ...snapSpring }
+        })
+      };
+  const entranceProps = (index: number) => entrance
+    ? { animate: "visible" as const, custom: index, initial: "hidden" as const, variants: entrance }
+    : {};
+  const buttonPressProps = prefersReducedMotion ? {} : { whileTap: { scale: 0.985, y: 1 } };
   const sourcePassSections = [
     {
       description: "Founders and operators",
@@ -532,24 +631,37 @@ function StartGenerationPanel({
       title: "People"
     },
     {
-      description: "Rounds and investors",
+      description: "Strategy and focus",
       marker: "02",
-      tone: "funding",
-      title: "Funding"
+      tone: "business",
+      title: "Business"
     },
     {
-      description: "Launches and traction",
+      description: "Customers and progress",
       marker: "03",
       tone: "signals",
       title: "Traction"
     },
     {
-      description: "Source references",
+      description: "Risks and unknowns",
       marker: "04",
-      tone: "citations",
-      title: "Citations"
+      tone: "questions",
+      title: "Questions"
     }
   ] as const;
+  const tagline = companyName
+    ? `Know ${companyName} like a professional investor would.`
+    : "Know this company like a professional investor would.";
+
+  function updateButtonPointer(event: PointerEvent<HTMLButtonElement>) {
+    if (prefersReducedMotion) {
+      return;
+    }
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    mouseX.set(((event.clientX - bounds.left) / bounds.width) * 100);
+    mouseY.set(((event.clientY - bounds.top) / bounds.height) * 100);
+  }
 
   return (
     <ExtensionFrame
@@ -562,21 +674,36 @@ function StartGenerationPanel({
         </button>
       </header>
 
-      <section className="cs-start-hero" aria-label={`Build a profile for ${companyName}`}>
-        <h1>Build the public record</h1>
-        <p>Identity, people, funding, signals, and citations for this tab.</p>
-        <div className="cs-start-actions">
-          <button className="cs-start-primary" onClick={onStart} type="button">
-            <span>Start source pass</span>
+      <motion.section
+        className="cs-start-hero"
+        aria-label={`Build a profile for ${companyName}`}
+        {...entranceProps(0)}
+      >
+        <h1>Get up to speed</h1>
+        <p>{tagline}</p>
+        <motion.div className="cs-start-actions" {...entranceProps(1)}>
+          <motion.button
+            className="cs-start-primary"
+            onClick={onStart}
+            onPointerMove={updateButtonPointer}
+            style={{ "--cs-button-splash-position": splashPosition } as unknown as MotionStyle}
+            type="button"
+            {...buttonPressProps}
+          >
+            <span>Begin research</span>
             <svg aria-hidden="true" height="18" viewBox="0 0 18 18" width="18">
               <path d="M3 9h11" />
               <path d="m10 4.5 4.5 4.5L10 13.5" />
             </svg>
-          </button>
-        </div>
-      </section>
+          </motion.button>
+        </motion.div>
+      </motion.section>
 
-      <section className="cs-start-company" aria-label="Current tab">
+      <motion.section
+        className="cs-start-company"
+        aria-label="Current tab"
+        {...entranceProps(2)}
+      >
         <CompanyLogo className="cs-start-company-logo" domain={domain} label={companyName} />
         <div className="cs-start-company-copy">
           <h2>{companyName}</h2>
@@ -584,13 +711,22 @@ function StartGenerationPanel({
         </div>
         <span className="cs-start-company-rule" aria-hidden="true" />
         <span className="cs-start-status">No profile</span>
-      </section>
+      </motion.section>
 
-      <section className="cs-start-pile" aria-label="Source pass scope">
+      <motion.section
+        className="cs-start-pile"
+        aria-label="Source pass scope"
+        {...entranceProps(3)}
+      >
         <span className="cs-start-pile-back cs-start-pile-back-left" aria-hidden="true" />
         <span className="cs-start-pile-back cs-start-pile-back-right" aria-hidden="true" />
-        {sourcePassSections.map((section) => (
-          <article className="cs-start-pass-card" data-tone={section.tone} key={section.title}>
+        {sourcePassSections.map((section, index) => (
+          <motion.article
+            className="cs-start-pass-card"
+            data-tone={section.tone}
+            key={section.title}
+            {...entranceProps(4 + index)}
+          >
             <span className="cs-start-pass-icon" aria-hidden="true">
               {section.tone === "people" ? (
                 <svg height="23" viewBox="0 0 24 24" width="23">
@@ -599,16 +735,22 @@ function StartGenerationPanel({
                   <path d="M3.5 19c0-3.1 2-5 4.5-5s4.5 1.9 4.5 5" />
                   <path d="M14 14.2c2.4.5 4 2.2 4 4.8" />
                 </svg>
-              ) : section.tone === "funding" ? (
-                <span>$</span>
+              ) : section.tone === "business" ? (
+                <svg height="23" viewBox="0 0 24 24" width="23">
+                  <path d="M12 3.5v17" />
+                  <path d="M4.8 8.4h14.4" />
+                  <path d="M7 17.2 12 8.4l5 8.8" />
+                  <path d="M7 17.2h10" />
+                </svg>
               ) : section.tone === "signals" ? (
                 <svg height="24" viewBox="0 0 24 24" width="24">
                   <path d="M3 13h4l2.2-8 4 15 2.3-8H21" />
                 </svg>
               ) : (
                 <svg height="23" viewBox="0 0 24 24" width="23">
-                  <path d="M8 7H5.5C4.7 7 4 7.7 4 8.5v4c0 .8.7 1.5 1.5 1.5H8v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5v-9C11 7.7 10.3 7 9.5 7H8Z" />
-                  <path d="M18 7h-2.5c-.8 0-1.5.7-1.5 1.5v4c0 .8.7 1.5 1.5 1.5H18v3.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5v-9c0-.8-.7-1.5-1.5-1.5H18Z" />
+                  <path d="M12 17h.01" />
+                  <path d="M9.6 8.5A2.8 2.8 0 0 1 12 7.2c1.7 0 3 1.1 3 2.6 0 1.2-.7 1.9-1.7 2.5-.8.5-1.3 1-1.3 2.1" />
+                  <path d="M4.8 20.2h14.4L12 3.8 4.8 20.2Z" />
                 </svg>
               )}
             </span>
@@ -617,9 +759,9 @@ function StartGenerationPanel({
               <span>{section.description}</span>
             </span>
             <span className="cs-start-pass-marker">{section.marker}</span>
-          </article>
+          </motion.article>
         ))}
-      </section>
+      </motion.section>
     </ExtensionFrame>
   );
 }
@@ -629,10 +771,6 @@ function shouldResumeAnalysisRun(
   status: GenerationRunStatus["status"]
 ): status is "queued" | "running" {
   return isActiveRun(status) && (!card.synthesis || !card.synthesis.marketStructureAndTiming);
-}
-
-function shouldForceMarketAnalysisRefresh(card: ColdStartCard) {
-  return Boolean(card.synthesis && !card.synthesis.marketStructureAndTiming);
 }
 
 export function SidePanel() {
@@ -819,74 +957,6 @@ export function SidePanel() {
         clearActiveRequest(controller);
       });
   }, [clearActiveRequest, watchBasicsCompletionWithController]);
-
-  const runAnalysisWithController = useCallback((
-    controller: AbortController,
-    generationDomain: string,
-    generationSettings: Settings,
-    currentState: Extract<RequestState, { status: "success" }>
-  ) => {
-    const startedAt = Date.now();
-    const currentCard = currentState.card;
-    const currentSections = currentState.sections;
-    setRequestState({
-      status: "success",
-      card: currentCard,
-      sections: currentSections,
-      analysisRun: { generationStatus: "queued", startedAt }
-    });
-
-    void startGenerationAndPoll(
-      generationDomain,
-      generationSettings,
-      controller.signal,
-      "analysis",
-      true,
-      (generationStatus) => {
-        if (!controller.signal.aborted) {
-          setRequestState({
-            status: "success",
-            card: currentCard,
-            sections: currentSections,
-            analysisRun: {
-              generationStatus: generationStatus === "queued" ? "queued" : "running",
-              startedAt
-            }
-          });
-        }
-      },
-      {
-        forceRefresh: shouldForceMarketAnalysisRefresh(currentCard),
-        latestCard: currentCard,
-        latestSections: currentSections
-      }
-    )
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setRequestState(
-            result.analysisNotice
-              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card, sections: result.sections }
-          );
-        }
-      })
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const message = caught instanceof Error ? caught.message : String(caught);
-        setRequestState({
-          status: "success",
-          card: currentCard,
-          sections: currentSections,
-          analysisNotice: readableCardError(message, generationSettings.apiOrigin)
-        });
-      })
-      .finally(() => {
-        clearActiveRequest(controller);
-      });
-  }, [clearActiveRequest]);
 
   const runSectionGenerationWithController = useCallback((
     controller: AbortController,
@@ -1272,7 +1342,7 @@ export function SidePanel() {
 
   if (!settings) {
     return (
-      <ExtensionFrame className="cs-check-panel" title="Loading settings">
+      <ExtensionFrame title="Loading settings">
         <PanelHeader eyebrow="Loading" title="Settings" value="Reading extension settings." />
       </ExtensionFrame>
     );
@@ -1310,7 +1380,7 @@ export function SidePanel() {
   }
 
   if (requestState.status === "loading" || requestState.status === "idle") {
-    return <LoadingPanel domain={domain} onSettings={() => setShowSettings(true)} />;
+    return <LoadingPanel apiOrigin={settings.apiOrigin} domain={domain} onSettings={() => setShowSettings(true)} />;
   }
 
   if (requestState.status === "readyToGenerate") {
@@ -1362,7 +1432,6 @@ export function SidePanel() {
             </button>
           </>
         }
-        className="cs-extension-error-plate"
         onSettings={() => setShowSettings(true)}
         title="Card unavailable"
       >
@@ -1377,18 +1446,7 @@ export function SidePanel() {
       domain={domain}
       onRunSection={handleRunSection}
       onRegenerate={() => handleStartGeneration("basics", true)}
-      onStartAnalysis={() => {
-        if (!domain || !settings.apiToken || requestState.status !== "success") {
-          return;
-        }
-
-        const controller = new AbortController();
-        abortActiveRequest();
-        activeRequest.current = controller;
-        runAnalysisWithController(controller, domain, settings, requestState);
-      }}
       requestState={requestState}
-      settings={settings}
     />
   );
 }
