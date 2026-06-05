@@ -1,22 +1,23 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ExtensionResearchRunEvent } from "./extension-config";
 import { motionTokens, snapSpring } from "./motion-primitives";
+import {
+  buildResearchProgressPlan,
+  type ResearchProgressStage,
+  type ResearchProgressStatus
+} from "./research-progress";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
-export type SourcePassStage = {
-  label: string;
-  marker: string;
-  note: string;
-};
+export type SourcePassStage = ResearchProgressStage;
 
 type SourcePassInstrumentProps = {
   activeIndex: number;
+  complete?: boolean;
   events?: ExtensionResearchRunEvent[];
   stageNote: string;
   stages: SourcePassStage[];
+  variant?: "full" | "compact";
 };
-
-type PlanStatus = "pending" | "running" | "done" | "attention" | "failed";
 
 export function MotionStateText({
   className,
@@ -51,109 +52,7 @@ export function MotionStateText({
   );
 }
 
-function eventStageIndex(event: ExtensionResearchRunEvent) {
-  const stageByType: Record<string, number> = {
-    "generation.queued": 0,
-    "generation.started": 0,
-    "plan.ready": 0,
-    "source.found": 1,
-    "source.enrichment": 1,
-    "card.partial": 2,
-    "card.saved": 3,
-    "card.enriched": 3,
-    "generation.complete": 3
-  };
-
-  return stageByType[event.type] ?? null;
-}
-
-function eventStatus(event: ExtensionResearchRunEvent): PlanStatus {
-  const normalized = `${event.type} ${event.message}`.toLowerCase();
-  if (normalized.includes("failed") || normalized.includes("error")) {
-    return "failed";
-  }
-  if (normalized.includes("blocked") || normalized.includes("insufficient") || normalized.includes("not found")) {
-    return "attention";
-  }
-  return "done";
-}
-
-function displayEventMessage(event: ExtensionResearchRunEvent) {
-  if (event.type === "generation.queued") {
-    return "Queued this company";
-  }
-  if (event.type === "generation.started") {
-    return "Started research";
-  }
-  if (event.type === "plan.ready") {
-    return "Picked a research plan";
-  }
-  if (event.type === "card.partial") {
-    return "Saved the first profile";
-  }
-  if (event.type === "card.saved" || event.type === "card.enriched") {
-    return "Saved the profile";
-  }
-  if (event.type === "generation.complete") {
-    return "Research ready";
-  }
-
-  return event.message
-    .replace(/\baccepted sources\b/gi, "sources")
-    .replace(/\bcompany profile\b/gi, "this company")
-    .replace(/\bcompany card\b/gi, "profile")
-    .replace(/\bthe card\b/gi, "the profile")
-    .replace(/\bcard\b/gi, "profile");
-}
-
-function statusForStage(index: number, activeIndex: number, events: ExtensionResearchRunEvent[]): PlanStatus {
-  if (events.some((event) => eventStageIndex(event) === index && eventStatus(event) === "failed")) {
-    return "failed";
-  }
-  if (events.some((event) => eventStageIndex(event) === index && eventStatus(event) === "attention")) {
-    return "attention";
-  }
-  if (index < activeIndex) {
-    return "done";
-  }
-  if (index === activeIndex) {
-    return "running";
-  }
-  return "pending";
-}
-
-function buildPlan(
-  stages: SourcePassStage[],
-  activeIndex: number,
-  events: ExtensionResearchRunEvent[],
-  stageNote: string
-) {
-  const orderedEvents = [...events]
-    .filter((event) => eventStageIndex(event) !== null)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-
-  return stages.map((stage, stageIndex) => {
-    const stageEvents = orderedEvents.filter((event) => eventStageIndex(event) === stageIndex);
-    const substeps =
-      stageEvents.length > 0
-        ? stageEvents.map((event) => ({
-            key: event.id,
-            message: displayEventMessage(event),
-            status: eventStatus(event)
-          }))
-        : stageIndex === activeIndex
-          ? [{ key: `stage-${stage.marker}`, message: stageNote || stage.note, status: "running" as const }]
-          : [];
-
-    return {
-      ...stage,
-      status: statusForStage(stageIndex, activeIndex, orderedEvents),
-      substeps
-    };
-  });
-}
-
-function StatusMark({ status }: { status: PlanStatus }) {
+function StatusMark({ status }: { status: ResearchProgressStatus }) {
   const prefersReducedMotion = usePrefersReducedMotion();
   if (status === "running") {
     return (
@@ -210,14 +109,22 @@ function DrizzleLoader() {
 
 export function SourcePassInstrument({
   activeIndex,
+  complete = false,
   events = [],
   stageNote,
-  stages
+  stages,
+  variant = "full"
 }: SourcePassInstrumentProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const safeActiveIndex = stages.length > 0 ? Math.min(Math.max(Math.trunc(activeIndex), 0), stages.length - 1) : 0;
   const activeStage = stages[safeActiveIndex] ?? stages[stages.length - 1];
-  const plan = buildPlan(stages, safeActiveIndex, events, stageNote);
+  const plan = buildResearchProgressPlan({
+    activeIndex: safeActiveIndex,
+    complete,
+    events,
+    stageNote,
+    stages
+  });
   const stageVariants = prefersReducedMotion
     ? undefined
     : {
@@ -248,9 +155,13 @@ export function SourcePassInstrument({
   const substepMotionProps = substepVariants
     ? { variants: substepVariants }
     : {};
+  const rootClassName =
+    variant === "compact"
+      ? "cs-build cs-build-compact"
+      : "cs-live-card cs-live-card-refined cs-build";
 
   return (
-    <div className="cs-live-card cs-live-card-refined cs-build" aria-live="polite">
+    <div className={rootClassName} aria-live="polite" data-variant={variant}>
       <div className="cs-build-head">
         <span>Research progress</span>
         <span className="cs-build-step">
@@ -292,9 +203,11 @@ export function SourcePassInstrument({
         ))}
       </ol>
 
-      <p className="cs-build-meta">
-        Step {safeActiveIndex + 1} of {stages.length}
-      </p>
+      {variant === "full" ? (
+        <p className="cs-build-meta">
+          Step {safeActiveIndex + 1} of {stages.length}
+        </p>
+      ) : null}
       <p className="sr-only">{activeStage?.label}. {stageNote}</p>
     </div>
   );

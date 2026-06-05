@@ -4635,6 +4635,128 @@ body {
   text-align: right;
 }
 
+.cs-build-compact {
+  min-height: 0;
+  gap: 10px;
+  padding: 11px 0 0;
+  border-top: 1px solid rgb(230 223 201 / 0.72);
+}
+
+.cs-build-compact .cs-build-head {
+  align-items: center;
+}
+
+.cs-build-compact .cs-build-head span:first-child {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cs-build-compact .cs-build-step {
+  color: rgb(101 109 103 / 0.82);
+  font-size: 10px;
+}
+
+.cs-build-compact .cs-build-tree {
+  gap: 10px;
+  padding: 0;
+}
+
+.cs-build-compact .cs-build-stage {
+  gap: 4px;
+}
+
+.cs-build-compact .cs-build-stage + .cs-build-stage {
+  padding-top: 0;
+}
+
+.cs-build-compact .cs-build-stage-row {
+  grid-template-columns: 24px 16px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cs-build-compact .cs-build-stage-marker {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.cs-build-compact .cs-plan-status {
+  width: 16px;
+  height: 16px;
+}
+
+.cs-build-compact .cs-plan-status svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.9;
+}
+
+.cs-build-compact .cs-drizzle-loader {
+  transform: scale(0.78);
+}
+
+.cs-build-compact .cs-build-stage-copy {
+  gap: 2px;
+}
+
+.cs-build-compact .cs-build-stage-copy strong {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.08;
+}
+
+.cs-build-compact .cs-build-stage-copy span {
+  font-size: 11px;
+  font-weight: 580;
+  line-height: 1.22;
+}
+
+.cs-build-compact .cs-build-substeps {
+  gap: 4px;
+  margin: 2px 0 0 32px;
+  padding-left: 18px;
+}
+
+.cs-build-compact .cs-build-substeps::before {
+  top: -1px;
+  bottom: 5px;
+  left: 8px;
+  border-left-color: rgb(204 199 184 / 0.70);
+}
+
+.cs-build-compact .cs-build-substeps li {
+  grid-template-columns: 14px minmax(0, 1fr);
+  gap: 7px;
+  color: rgb(8 25 44 / 0.82);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cs-build-compact .cs-build-substeps .cs-plan-status {
+  width: 14px;
+  height: 14px;
+}
+
+.cs-build-compact .cs-build-substeps .cs-plan-status svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2;
+}
+
+.cs-build-compact .cs-build-stage[data-status="pending"] {
+  opacity: 0.44;
+}
+
+.cs-build-compact .cs-build-stage[data-status="done"] {
+  opacity: 0.86;
+}
+
+.cs-build-compact .cs-build-stage[data-active="true"] {
+  opacity: 1;
+}
+
 .cs-source-pass-fill.cs-live-progress-fill::after {
   position: absolute;
   top: -7px;

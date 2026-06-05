@@ -232,7 +232,7 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await expect(page.getByText("Researching")).toBeVisible();
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-tree")).toContainText("Finishing up");
+  await expect(page.locator(".cs-build-tree")).toContainText("Filing the card");
   await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
@@ -281,9 +281,9 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).toContainText("Picked a research plan");
   await expect(tree).toContainText("Found 12 sources");
-  await expect(tree).toContainText("Saved the first profile");
+  await expect(tree).toContainText("Starter profile ready");
   await expect(tree).not.toContainText("Started async contact enrichment");
-  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Saved the first profile" })).toBeVisible();
+  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Starter profile ready" })).toBeVisible();
 });
 
 test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {
@@ -414,16 +414,33 @@ async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0
   });
 
   const startedAt = new Date(Date.now() - 32_000).toISOString();
+  const events = [
+    { id: "profile-e1", runId: "profile-r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "plan.ready", message: "Research plan ready", metadata: { mode: "basics" }, createdAt: "2026-06-01T00:00:01.000Z" },
+    { id: "profile-e2", runId: "profile-r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "source.found", message: "Found 5 accepted sources", metadata: { mode: "basics", acceptedCount: 5 }, createdAt: "2026-06-01T00:00:03.000Z" },
+    { id: "profile-e3", runId: "profile-r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "card.partial", message: "Saved first usable company card", metadata: { mode: "basics", citationCount: 4 }, createdAt: "2026-06-01T00:00:05.000Z" },
+    { id: "analysis-e1", runId: "analysis-r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "generation.started", message: "Started analysis generation", metadata: { mode: "analysis" }, createdAt: "2026-06-01T00:00:06.000Z" }
+  ];
+  const sources = [
+    {
+      id: "source-1",
+      url: "https://browserbase.com/",
+      title: "Browserbase",
+      domain: "browserbase.com",
+      sourceType: "company_site",
+      fetchedAt: "2026-06-01T00:00:03.000Z",
+      snippet: "Browserbase turns browser automation into agent infrastructure."
+    }
+  ];
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
       domain: "browserbase.com",
       slug: "browserbase",
       card: browserbaseCard(),
       sections: [],
-      events: [],
-      sources: [],
+      events,
+      sources,
       runs: {
-        basics: { slug: "browserbase", domain: "browserbase.com", mode: "basics", status: "running", startedAt },
+        basics: { slug: "browserbase", domain: "browserbase.com", mode: "basics", status: "running", startedAt, events },
         analysis: { slug: "browserbase", domain: "browserbase.com", mode: "analysis", status: "idle" }
       }
     });
@@ -438,7 +455,8 @@ async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0
       domain: "browserbase.com",
       status: "running",
       mode: "basics",
-      startedAt
+      startedAt,
+      events
     });
   });
   await page.goto("/sidepanel.html");
@@ -451,6 +469,14 @@ test("profile-finishing shimmer keeps text readable and sweeps over time", async
   const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
   await expect(runningCard).toBeVisible({ timeout: 10_000 });
   await expect(runningCard).toContainText("Getting the profile ready");
+  const profileProgress = page.locator(".cs-research-progress");
+  await expect(profileProgress.locator(".cs-build-compact")).toBeVisible();
+  await expect(profileProgress).toContainText("Building the profile");
+  await expect(profileProgress).toContainText("Starter profile ready");
+  await expect(profileProgress).toContainText("5 sources found");
+  await expect(profileProgress).not.toContainText("Saved a starter profile");
+  await expect(profileProgress).not.toContainText("Also:");
+  await expect(profileProgress.locator(".cs-build-meta")).toHaveCount(0);
 
   const sheen = runningCard.locator(".cs-layer-running-sheen");
   await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");

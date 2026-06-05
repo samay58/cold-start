@@ -32,6 +32,13 @@ import {
   formatOptionalNumber
 } from "./extension-format";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
+import {
+  acceptedSourceCountFromEvents,
+  generationStageIndexFromEvents,
+  RESEARCH_PROGRESS_STAGES,
+  researchEventStageIndex
+} from "./research-progress";
+import { SourcePassInstrument } from "./SourcePassInstrument";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -231,37 +238,6 @@ function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
       <span>{tooltip.body}</span>
     </div>
   );
-}
-
-function readableRunEvent(event: ExtensionResearchRunEvent) {
-  if (event.type === "card.partial") {
-    return "Saved a starter profile";
-  }
-  if (event.type === "card.saved" || event.type === "card.enriched") {
-    return "Saved the profile";
-  }
-  if (event.type === "source.found") {
-    const count = event.metadata.acceptedCount ?? event.metadata.sourceCount;
-    return typeof count === "number" && Number.isFinite(count) ? `Found ${count} sources` : "Found useful sources";
-  }
-  if (event.type === "source.enrichment") {
-    return "Checked deeper sources";
-  }
-  if (event.type === "contacts.requested" || event.type === "contacts.started") {
-    return "Checking people";
-  }
-  if (event.type === "contacts.enriched") {
-    const count = event.metadata.emailCount;
-    return typeof count === "number" && Number.isFinite(count) ? `Found ${count} work emails` : "Found work emails";
-  }
-
-  return event.message
-    .replace(/\baccepted sources\b/gi, "sources")
-    .replace(/\bcompany profile\b/gi, "profile")
-    .replace(/\bcompany card\b/gi, "profile")
-    .replace(/\bthe card\b/gi, "the profile")
-    .replace(/\bcard\b/gi, "profile")
-    .replace(/\basync contact enrichment\b/gi, "people lookup");
 }
 
 function expandedProfileSummary(value: string | null | undefined, fallback: string) {
@@ -979,24 +955,33 @@ function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
 function ResearchProgressPanel({
   events = [],
   isRunning,
+  isProfileRunning,
   resolvedCount,
   sources = [],
   totalCount
 }: {
   events?: ExtensionResearchRunEvent[] | undefined;
   isRunning: boolean;
+  isProfileRunning: boolean;
   resolvedCount: number;
   sources?: ExtensionSourceSummary[] | undefined;
   totalCount: number;
 }) {
-  const meaningfulEvents = events
-    .map((event) => ({ id: event.id, message: readableRunEvent(event) }))
-    .filter((event, index, all) => all.findIndex((candidate) => candidate.message === event.message) === index);
-  const latestEvent = meaningfulEvents[0] ?? null;
-  const secondaryEvent = meaningfulEvents.find((event) => event.id !== latestEvent?.id) ?? null;
+  const eventSourceCount = acceptedSourceCountFromEvents(events);
+  const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
+  const activeIndex = generationStageIndexFromEvents(events) ?? (sourceCount > 0 ? 1 : 0);
   const stateCopy = isRunning ? "Researching" : "Research saved";
-  const sourceCopy = sources.length > 0 ? `${plural(sources.length, "source")} found` : "Looking for useful sources";
+  const sourceCopy = sourceCount > 0 ? `${plural(sourceCount, "source")} found` : "Looking for useful sources";
   const sectionCopy = `${resolvedCount} of ${totalCount} sections ready`;
+  const stageNote =
+    activeIndex === 1 && sourceCount > 0
+      ? `${plural(sourceCount, "source")} found`
+      : activeIndex === 2
+        ? "Building the first profile"
+        : activeIndex === 3
+          ? "Filing the final card"
+          : "Looking for useful sources";
+  const showRunChain = isProfileRunning || events.some((event) => researchEventStageIndex(event) !== null);
 
   return (
     <div className="cs-research-progress" aria-label="Research progress">
@@ -1010,12 +995,16 @@ function ResearchProgressPanel({
           </small>
         </div>
       </div>
-      {latestEvent ? (
-        <div className="cs-research-progress-event" role="status">
-          {latestEvent.message}
-        </div>
+      {showRunChain ? (
+        <SourcePassInstrument
+          activeIndex={activeIndex}
+          complete={!isProfileRunning}
+          events={events}
+          stageNote={stageNote}
+          stages={RESEARCH_PROGRESS_STAGES}
+          variant="compact"
+        />
       ) : null}
-      {secondaryEvent ? <p className="cs-research-progress-note">Also: {secondaryEvent.message}</p> : null}
       {sources.length > 0 ? (
         <div className="cs-research-source-strip" aria-label="Recent sources">
           {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
@@ -1179,6 +1168,7 @@ export function ResearchLayerPanel({
   const managerSources = managementSourceCount(card);
   const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
+  const profileRunVisible = Boolean(profileRun);
   const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
   const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
@@ -1230,6 +1220,7 @@ export function ResearchLayerPanel({
           <ResearchProgressPanel
             events={events}
             isRunning={activeRunVisible}
+            isProfileRunning={profileRunVisible}
             resolvedCount={resolvedSectionCount}
             sources={sources}
             totalCount={RESEARCH_LAYER_CARDS.length}

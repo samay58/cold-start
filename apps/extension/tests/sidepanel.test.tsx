@@ -702,7 +702,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Researching");
-    expect(container.textContent).toContain("Finishing up");
+    expect(container.textContent).toContain("Filing the card");
     expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 4 of 4");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
     expect(container.querySelector(".cs-build-bar")).toBeNull();

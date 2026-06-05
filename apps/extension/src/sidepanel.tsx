@@ -32,7 +32,11 @@ import {
   startGenerationAndPoll,
   startSectionGenerationAndPoll
 } from "./sidepanel-network";
-import type { SourcePassStage } from "./SourcePassInstrument";
+import {
+  acceptedSourceCountFromEvents,
+  generationStageIndexFromEvents,
+  RESEARCH_PROGRESS_STAGES
+} from "./research-progress";
 import { reducedSpring, snapSpring } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
@@ -91,41 +95,6 @@ type ActiveSectionRunState = AnalysisRunState & {
   layerId: ResearchLayerId;
 };
 
-function generationStageIndexFromEvents(events: ExtensionResearchRunEvent[]) {
-  const stageByType: Record<string, number> = {
-    "generation.queued": 0,
-    "generation.started": 0,
-    "plan.ready": 0,
-    "source.found": 1,
-    "source.enrichment": 1,
-    "card.partial": 2,
-    "card.saved": 3,
-    "card.enriched": 3,
-    "generation.complete": 3
-  };
-
-  return events.reduce<number | null>((highest, event) => {
-    const stage = stageByType[event.type];
-    return typeof stage === "number" ? Math.max(highest ?? stage, stage) : highest;
-  }, null);
-}
-
-function acceptedSourceCountFromEvents(events: ExtensionResearchRunEvent[]) {
-  for (const event of events) {
-    const count = event.metadata.acceptedCount;
-    if (typeof count === "number" && Number.isFinite(count)) {
-      return count;
-    }
-
-    const matched = event.message.match(/found\s+(\d+)\s+accepted\s+sources/i);
-    if (matched?.[1]) {
-      return Number(matched[1]);
-    }
-  }
-
-  return null;
-}
-
 function generationStageNote({
   activeIndex,
   elapsed,
@@ -156,10 +125,10 @@ function generationStageNote({
   }
 
   if (activeIndex === 2) {
-    return "Sorting the signal";
+    return "Building the first profile";
   }
 
-  return "Saving the profile";
+  return "Filing the final card";
 }
 
 function ExtensionTopbar({
@@ -491,18 +460,13 @@ function GenerationPanel({
   const elapsed = Math.floor(elapsedMs / 1000);
   const events = requestState.events ?? [];
   const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
-  const stages: SourcePassStage[] = [
-    { label: "Finding sources", marker: "01", note: "Looking for useful places to read" },
-    { label: "Reading evidence", marker: "02", note: "Pulling in what matters" },
-    { label: "Making sense", marker: "03", note: "Sorting the signal" },
-    { label: "Finishing up", marker: "04", note: "Saving the profile" }
-  ];
+  const stages = RESEARCH_PROGRESS_STAGES;
   const estimatedStageIndex = requestState.generationStatus === "queued"
     ? elapsedMs / 7000
     : 1 + elapsedMs / 8000;
   const stageIndex = eventStageIndex === null
     ? estimatedStageIndex
-    : eventStageIndex + Math.min(0.82, Math.max(0.28, elapsedMs / 22000));
+    : eventStageIndex;
   const activeIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(stageIndex)));
   const statusText =
     requestState.generationStatus === "queued" && elapsed < 4
