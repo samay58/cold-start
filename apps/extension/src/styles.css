@@ -1502,41 +1502,6 @@ button {
   outline-offset: 4px;
 }
 
-.cs-company-summary-popover {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 9px);
-  z-index: 20;
-  width: min(360px, calc(100vw - 56px));
-  padding: 13px 14px;
-  border: 1px solid rgb(204 199 184 / 0.92);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(250 247 239 / 0.96)),
-    var(--color-plate);
-  box-shadow:
-    0 18px 38px rgb(2 8 18 / 0.14),
-    0 1px 0 rgb(255 255 255 / 0.92) inset;
-  color: rgb(8 25 44 / 0.82);
-  font-size: 12.75px;
-  font-weight: 520;
-  line-height: 1.48;
-  opacity: 0;
-  pointer-events: none;
-  text-align: left;
-  text-decoration: none;
-  transform: translate3d(0, 4px, 0);
-  transition:
-    opacity var(--cs-motion-state) var(--cs-motion-ease-out),
-    transform var(--cs-motion-state) var(--cs-motion-ease-out);
-}
-
-.cs-company-summary-more:hover .cs-company-summary-popover,
-.cs-company-summary-more:focus-visible .cs-company-summary-popover {
-  opacity: 1;
-  transform: translate3d(0, 0, 0);
-}
-
 .cs-company-facts {
   position: relative;
   z-index: 1;
@@ -1546,6 +1511,46 @@ button {
   padding: 12px;
   border-top: 0;
   background: rgb(245 241 230 / 0.42);
+}
+
+.cs-shared-tooltip {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  gap: 5px;
+  padding: 11px 12px 12px;
+  border: 1px solid rgb(204 199 184 / 0.96);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow:
+    0 14px 30px rgb(23 26 31 / 0.13),
+    0 1px 0 rgb(255 255 255 / 0.88) inset;
+  color: var(--color-ink);
+  pointer-events: none;
+  text-align: left;
+  transform: translate3d(0, 0, 0);
+}
+
+.cs-shared-tooltip[data-placement="above"] {
+  transform: translate3d(0, -100%, 0);
+}
+
+.cs-shared-tooltip strong {
+  color: var(--color-seal);
+  font: 680 11px/1.15 var(--font-display);
+}
+
+.cs-shared-tooltip span {
+  color: rgb(23 26 31 / 0.76);
+  font: 500 12.5px/1.42 var(--font-body);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-shared-tooltip[data-animate="true"] {
+    transition:
+      left var(--cs-motion-state) var(--cs-motion-ease-out),
+      top var(--cs-motion-state) var(--cs-motion-ease-out);
+  }
 }
 
 .cs-company-facts div {
@@ -1563,6 +1568,12 @@ button {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.70) inset,
     0 8px 18px rgb(2 8 18 / 0.025);
+  cursor: help;
+}
+
+.cs-company-facts div:focus-visible {
+  outline: 2px solid rgb(110 92 158 / 0.32);
+  outline-offset: 3px;
 }
 
 .cs-company-facts div::after {

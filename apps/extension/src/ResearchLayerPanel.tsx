@@ -9,7 +9,7 @@ import {
 } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
 import { commitSpring, motionTokens, reducedSpring, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
@@ -61,6 +61,27 @@ type ResearchLayerPanelProps = {
   sources?: ExtensionSourceSummary[] | undefined;
 };
 
+type TooltipPlacement = "above" | "below";
+
+type SharedTooltipState = {
+  animate: boolean;
+  body: string;
+  id: string;
+  left: number;
+  placement: TooltipPlacement;
+  title: string;
+  top: number;
+  width: number;
+};
+
+type TooltipTriggerProps = {
+  "aria-describedby": string;
+  onBlur: (event: FocusEvent<HTMLElement>) => void;
+  onFocus: (event: FocusEvent<HTMLElement>) => void;
+  onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
+  onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
+};
+
 const VISIBLE_SOURCE_COUNT = 3;
 const PILE_POSES = [
   { x: 0, y: 0, rotate: -0.35 },
@@ -74,6 +95,7 @@ const PILE_POSES = [
 ];
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
+const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 
 type PilePose = {
   x: number;
@@ -126,6 +148,86 @@ function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function useSharedTooltip(prefersReducedMotion: boolean) {
+  const [tooltip, setTooltip] = useState<SharedTooltipState | null>(null);
+  const previousTooltipId = useRef<string | null>(null);
+
+  function showTooltip(input: {
+    body: string;
+    id: string;
+    placement?: TooltipPlacement;
+    target: HTMLElement;
+    title: string;
+  }) {
+    const rect = input.target.getBoundingClientRect();
+    const width = Math.min(340, Math.max(240, window.innerWidth - 32));
+    const left = clamp(rect.left + rect.width / 2 - width / 2, 16, Math.max(16, window.innerWidth - width - 16));
+    const placement = input.placement ?? "above";
+    const top = placement === "above" ? rect.top - 10 : rect.bottom + 10;
+    const previousId = previousTooltipId.current;
+    previousTooltipId.current = input.id;
+    setTooltip({
+      animate: Boolean(previousId && previousId !== input.id && !prefersReducedMotion),
+      body: input.body,
+      id: input.id,
+      left,
+      placement,
+      title: input.title,
+      top,
+      width
+    });
+  }
+
+  function hideTooltip() {
+    setTooltip(null);
+  }
+
+  function triggerProps(input: {
+    body: string;
+    id: string;
+    placement?: TooltipPlacement;
+    title: string;
+  }): TooltipTriggerProps {
+    return {
+      "aria-describedby": SHARED_TOOLTIP_ID,
+      onBlur: () => hideTooltip(),
+      onFocus: (event) => showTooltip({ ...input, target: event.currentTarget }),
+      onPointerEnter: (event) => showTooltip({ ...input, target: event.currentTarget }),
+      onPointerLeave: () => hideTooltip()
+    };
+  }
+
+  return { tooltip, triggerProps };
+}
+
+function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
+  if (!tooltip) {
+    return null;
+  }
+
+  return (
+    <div
+      className="cs-shared-tooltip"
+      data-animate={tooltip.animate ? "true" : "false"}
+      data-placement={tooltip.placement}
+      id={SHARED_TOOLTIP_ID}
+      role="tooltip"
+      style={{
+        left: tooltip.left,
+        top: tooltip.top,
+        width: tooltip.width
+      }}
+    >
+      <strong>{tooltip.title}</strong>
+      <span>{tooltip.body}</span>
+    </div>
+  );
+}
+
 function readableRunEvent(event: ExtensionResearchRunEvent) {
   if (event.type === "card.partial") {
     return "Saved a starter profile";
@@ -171,19 +273,30 @@ function expandedProfileSummary(value: string | null | undefined, fallback: stri
 
 function ProfileSummary({
   fullSummary,
-  summary
+  summary,
+  tooltipProps
 }: {
   fullSummary: string;
   summary: string;
+  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
 }) {
   const hasMore = fullSummary !== summary;
   return (
     <div className="cs-company-summary-wrap">
       <p className="cs-company-summary">{summary}</p>
       {hasMore ? (
-        <button aria-label="Read the full company description" className="cs-company-summary-more" type="button">
+        <button
+          aria-label="Read the full company description"
+          className="cs-company-summary-more"
+          type="button"
+          {...tooltipProps({
+            body: fullSummary,
+            id: "profile-summary",
+            placement: "above",
+            title: "Description"
+          })}
+        >
           <span>More</span>
-          <span className="cs-company-summary-popover" role="tooltip">{fullSummary}</span>
         </button>
       ) : null}
     </div>
@@ -394,7 +507,17 @@ function profileFacts(card: ColdStartCard): Array<{ label: string; value: string
   return facts.slice(0, 3);
 }
 
-function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
+function factTooltipBody(fact: ReturnType<typeof profileFacts>[number]) {
+  return [fact.value, fact.meta].filter(Boolean).join(" · ");
+}
+
+function FactRibbon({
+  facts,
+  tooltipProps
+}: {
+  facts: ReturnType<typeof profileFacts>;
+  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
+}) {
   if (facts.length === 0) {
     return null;
   }
@@ -402,7 +525,16 @@ function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
   return (
     <dl className="cs-company-facts" aria-label="Core metrics">
       {facts.map((fact) => (
-        <div key={fact.label}>
+        <div
+          key={fact.label}
+          tabIndex={0}
+          {...tooltipProps({
+            body: factTooltipBody(fact),
+            id: `fact-${fact.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+            placement: "below",
+            title: fact.label
+          })}
+        >
           <dt>{fact.label}</dt>
           <dd>{fact.value}</dd>
           {fact.meta ? <small>{fact.meta}</small> : null}
@@ -845,6 +977,7 @@ export function ResearchLayerPanel({
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
+  const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
   const trayPullRaw = useMotionValue(0);
   const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? reducedSpring : snapSpring);
   const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.975, 0.946]);
@@ -980,10 +1113,10 @@ export function ResearchLayerPanel({
             <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
               {websiteLabel(card)}
             </a>
-            <ProfileSummary fullSummary={fullSummary} summary={summary} />
+            <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
           </div>
         </div>
-        <FactRibbon facts={facts} />
+        <FactRibbon facts={facts} tooltipProps={triggerProps} />
         <PeopleLine
           companyDomain={card.domain}
           contactElapsedSeconds={contactElapsedSeconds}
@@ -1179,6 +1312,7 @@ export function ResearchLayerPanel({
           </motion.div>
         </motion.div>
       </motion.section>
+      <SharedTooltip tooltip={tooltip} />
     </main>
     </LayoutGroup>
   );

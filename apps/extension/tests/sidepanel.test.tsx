@@ -608,6 +608,52 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("shows the company description in one shared tooltip overlay", async () => {
+    const card = cardWithManagement("tolans.com");
+    const fullDescription = "Tolan is a voice-first AI companion app for young adults with animated alien characters designed to support emotional wellbeing without mimicking a human therapist while the company keeps its early product motion focused on consumer companionship and daily check-ins rather than a broad enterprise workflow.";
+    card.identity.description = {
+      value: {
+        shortDescription: fullDescription,
+        concept: null,
+        serves: null,
+        mechanism: null
+      },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "tolans.com", fetchMock });
+    const more = container.querySelector(".cs-company-summary-more") as HTMLElement | null;
+    expect(more).toBeTruthy();
+    more!.getBoundingClientRect = () => ({
+      bottom: 120,
+      height: 20,
+      left: 40,
+      right: 90,
+      top: 100,
+      width: 50,
+      x: 40,
+      y: 100,
+      toJSON: () => ({})
+    });
+
+    await act(async () => {
+      more!.focus();
+    });
+    const tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip).toBeTruthy();
+    expect(tooltip?.textContent).toContain("Description");
+    expect(tooltip?.textContent).toContain("animated alien characters");
+    expect(container.querySelectorAll(".cs-company-summary-popover")).toHaveLength(0);
+
+    await act(async () => {
+      more!.blur();
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    await unmount();
+  });
+
   it("does not render the old standalone analysis CTA for a sourced card", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardForDomain("warp.dev")));
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
