@@ -34,9 +34,11 @@ import {
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import {
   acceptedSourceCountFromEvents,
+  buildResearchProgressPlan,
+  currentProfileProgressEvents,
   generationStageIndexFromEvents,
-  RESEARCH_PROGRESS_STAGES,
-  researchEventStageIndex
+  hasTerminalProfileProgressEvent,
+  RESEARCH_PROGRESS_STAGES
 } from "./research-progress";
 import { SourcePassInstrument } from "./SourcePassInstrument";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
@@ -91,25 +93,9 @@ type TooltipTriggerProps = {
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
-const PILE_POSES = [
-  { x: 0, y: 0, rotate: -0.35 },
-  { x: 0, y: 38, rotate: 0.28 },
-  { x: 0, y: 76, rotate: -0.22 },
-  { x: 0, y: 114, rotate: 0.36 },
-  { x: 0, y: 152, rotate: -0.30 },
-  { x: 0, y: 190, rotate: 0.20 },
-  { x: 0, y: 228, rotate: -0.18 },
-  { x: 0, y: 266, rotate: 0.24 }
-];
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
 const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
-
-type PilePose = {
-  x: number;
-  y: number;
-  rotate: number;
-};
 
 function defaultActiveLayers(card: ColdStartCard, canShowResearchLayers: boolean, analysisRun: AnalysisRun | undefined): ResearchLayerId[] {
   return canShowResearchLayers && (card.synthesis || analysisRun) ? ["coreIdea"] : [];
@@ -843,7 +829,6 @@ function DormantPileCard({
   onDragEnd,
   onDragStart,
   onKeyDown,
-  pose,
   previewing,
   snapReady,
   prefersReducedMotion
@@ -856,7 +841,6 @@ function DormantPileCard({
   onDragEnd: (info: PanInfo) => void;
   onDragStart: () => void;
   onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
-  pose: PilePose;
   previewing: boolean;
   snapReady: boolean;
   prefersReducedMotion: boolean | null;
@@ -872,13 +856,10 @@ function DormantPileCard({
     <motion.div
       animate={dragging
         ? {
-            x: pose.x,
-            y: pose.y - (snapReady ? 10 : previewing ? 6 : 3),
-            rotate: pose.rotate - (snapReady ? 0.45 : 0.24),
             scale: snapReady ? 1.018 : 1.01,
             zIndex: 30
           }
-        : { x: pose.x, y: pose.y, rotate: pose.rotate, scale: 1, zIndex: index + 1 }}
+        : { scale: 1, zIndex: index + 1 }}
       aria-label={`Pin ${layer.title}`}
       className="cs-dormant-card"
       data-dragging={dragging ? "true" : "false"}
@@ -886,23 +867,18 @@ function DormantPileCard({
       data-previewing={previewing ? "true" : "false"}
       data-snap-ready={snapReady ? "true" : "false"}
       drag="y"
-      dragConstraints={{ bottom: 0, top: -220 }}
+      dragConstraints={{ bottom: 0, top: -320 }}
       dragElastic={0.035}
       dragMomentum={false}
       dragTransition={{ bounceDamping: 38, bounceStiffness: 720, power: 0.12, timeConstant: 140 }}
-      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.975, y: pose.y - 28 }}
-      layoutId={`research-layer-${layer.id}`}
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.975, y: -8 }}
+      layout
       onClick={onClick}
       onDrag={(_event, info) => onDrag(info)}
       onDragEnd={(_event, info) => onDragEnd(info)}
       onDragStart={onDragStart}
       onKeyDown={onKeyDown}
       role="button"
-      style={{
-        left: 8,
-        right: 8,
-        top: 0
-      }}
       tabIndex={0}
       transition={motionTransition}
       {...feedbackProps}
@@ -952,6 +928,20 @@ function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
   }
 }
 
+function progressPlanHasAttention(plan: ReturnType<typeof buildResearchProgressPlan>) {
+  return plan.some((stage) =>
+    stage.status === "attention" ||
+    stage.status === "failed" ||
+    stage.substeps.some((substep) => substep.status === "attention" || substep.status === "failed")
+  );
+}
+
+function currentProgressProof(plan: ReturnType<typeof buildResearchProgressPlan>, activeIndex: number, fallback: string) {
+  const stage = plan[activeIndex];
+  const latestSubstep = [...(stage?.substeps ?? [])].reverse().find((substep) => substep.status !== "running");
+  return latestSubstep?.message ?? stage?.note ?? fallback;
+}
+
 function ResearchProgressPanel({
   events = [],
   isRunning,
@@ -970,9 +960,6 @@ function ResearchProgressPanel({
   const eventSourceCount = acceptedSourceCountFromEvents(events);
   const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
   const activeIndex = generationStageIndexFromEvents(events) ?? (sourceCount > 0 ? 1 : 0);
-  const stateCopy = isRunning ? "Researching" : "Research saved";
-  const sourceCopy = sourceCount > 0 ? `${plural(sourceCount, "source")} found` : "Looking for useful sources";
-  const sectionCopy = `${resolvedCount} of ${totalCount} sections ready`;
   const stageNote =
     activeIndex === 1 && sourceCount > 0
       ? `${plural(sourceCount, "source")} found`
@@ -981,12 +968,45 @@ function ResearchProgressPanel({
         : activeIndex === 3
           ? "Filing the final card"
           : "Looking for useful sources";
-  const showRunChain = isProfileRunning || events.some((event) => researchEventStageIndex(event) !== null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const plan = buildResearchProgressPlan({
+    activeIndex,
+    complete: !isProfileRunning,
+    events,
+    stageNote,
+    stages: RESEARCH_PROGRESS_STAGES
+  });
+  const currentProfileEvents = currentProfileProgressEvents(events);
+  const profileEventsSeen = currentProfileEvents.length > 0;
+  const profileComplete =
+    !isProfileRunning &&
+    (hasTerminalProfileProgressEvent(events) || (!isRunning && sourceCount > 0 && totalCount > 0 && resolvedCount >= totalCount));
+  const needsAttention = progressPlanHasAttention(plan);
+  const showLiveProgress = needsAttention || (!profileComplete && (isProfileRunning || profileEventsSeen));
+  const showDetailsControl = profileEventsSeen && !needsAttention;
+  const showDetailsTree = needsAttention || detailsOpen;
+  const currentStage = plan[activeIndex];
+  const stateCopy = profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
+  const sourceCopy = sourceCount > 0
+    ? profileComplete
+      ? plural(sourceCount, "source")
+      : `${plural(sourceCount, "source")} found`
+    : "Looking for useful sources";
+  const sectionCopy = profileComplete
+    ? `${resolvedCount} of ${totalCount} sections`
+    : `${resolvedCount} of ${totalCount} sections ready`;
+  const liveStageCopy = needsAttention ? "Needs attention" : currentStage?.label ?? "Researching";
+  const liveProofCopy = currentProgressProof(plan, activeIndex, stageNote);
 
   return (
-    <div className="cs-research-progress" aria-label="Research progress">
+    <div
+      className="cs-research-progress"
+      aria-label="Research progress"
+      data-attention={needsAttention ? "true" : "false"}
+      data-mode={profileComplete ? "receipt" : "live"}
+    >
       <div className="cs-research-progress-main">
-        <span className="cs-research-progress-dot" data-running={isRunning ? "true" : "false"} aria-hidden="true" />
+        <span className="cs-research-progress-dot" data-running={!profileComplete && isRunning ? "true" : "false"} aria-hidden="true" />
         <div>
           <strong>{stateCopy}</strong>
           <small>
@@ -995,17 +1015,33 @@ function ResearchProgressPanel({
           </small>
         </div>
       </div>
-      {showRunChain ? (
+      {showLiveProgress ? (
+        <div className="cs-research-progress-live" aria-live="polite">
+          <span>{liveStageCopy}</span>
+          <small>{liveProofCopy}</small>
+        </div>
+      ) : null}
+      {showDetailsControl ? (
+        <button
+          aria-expanded={detailsOpen}
+          className="cs-research-progress-details-toggle"
+          onClick={() => setDetailsOpen((current) => !current)}
+          type="button"
+        >
+          {detailsOpen ? "Hide details" : "Details"}
+        </button>
+      ) : null}
+      {showDetailsTree ? (
         <SourcePassInstrument
           activeIndex={activeIndex}
-          complete={!isProfileRunning}
+          complete={profileComplete || !isProfileRunning}
           events={events}
           stageNote={stageNote}
           stages={RESEARCH_PROGRESS_STAGES}
           variant="compact"
         />
       ) : null}
-      {sources.length > 0 ? (
+      {sources.length > 0 && (!profileComplete || detailsOpen || needsAttention) ? (
         <div className="cs-research-source-strip" aria-label="Recent sources">
           {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
             <a href={source.url} key={source.id} rel="noreferrer" target="_blank" title={source.snippet}>
@@ -1053,7 +1089,6 @@ export function ResearchLayerPanel({
   const [draggingLayerId, setDraggingLayerId] = useState<ResearchLayerId | null>(null);
   const [snapPreviewId, setSnapPreviewId] = useState<ResearchLayerId | null>(null);
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
-  const snapPreviewLayerId = useRef<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
@@ -1063,9 +1098,6 @@ export function ResearchLayerPanel({
   const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.975, 0.946]);
   const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.988, 0.972]);
   const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -7]);
-  const dropZoneOpacity = useTransform(trayPull, [0, 24, 74], [0.22, 0.58, 1]);
-  const dropZoneScale = useTransform(trayPull, [0, 70, 150], [0.982, 1, 1.018]);
-  const dropZoneY = useTransform(trayPull, [0, 70, 150], [5, 0, -2]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1103,7 +1135,7 @@ export function ResearchLayerPanel({
   }
 
   function toggleExpanded(id: ResearchLayerId) {
-    setExpandedLayerId((current) => current === id ? null : id);
+    setExpandedLayerId(id);
   }
 
   function handleDormantKeyDown(event: KeyboardEvent<HTMLDivElement>, id: ResearchLayerId) {
@@ -1133,7 +1165,6 @@ export function ResearchLayerPanel({
     const pull = Math.max(0, -dampenDragOffset(info.offset.y));
 
     trayPullRaw.set(prefersReducedMotion ? 0 : pull);
-    snapPreviewLayerId.current = nextPreviewId;
     snapReadyLayerId.current = nextReadyId;
     setSnapPreviewId(nextPreviewId);
     setSnapReadyId(nextReadyId);
@@ -1145,7 +1176,6 @@ export function ResearchLayerPanel({
     setDraggingLayerId(null);
     setSnapPreviewId(null);
     setSnapReadyId(null);
-    snapPreviewLayerId.current = null;
     snapReadyLayerId.current = null;
     trayPullRaw.set(0);
 
@@ -1159,11 +1189,8 @@ export function ResearchLayerPanel({
     }
   }
 
-  function pilePose(index: number): PilePose {
-    return PILE_POSES[index % PILE_POSES.length] ?? { x: 0, y: 0, rotate: 0 };
-  }
-
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
+  const draggingLayer = draggingLayerId ? RESEARCH_LAYER_CARDS.find((layer) => layer.id === draggingLayerId) : null;
   const people = managementPeople(card);
   const managerSources = managementSourceCount(card);
   const facts = profileFacts(card);
@@ -1172,7 +1199,12 @@ export function ResearchLayerPanel({
   const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
   const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
-  const dropZoneCopy = snapReadyId ? "Release to add" : snapPreviewId ? "Lift to add" : "Add module";
+  const insertionSlotCopy = draggingLayer ? `Add ${draggingLayer.title}` : "Add module";
+  const insertionSlotHint = snapReadyId
+    ? "Release to place it in Research"
+    : snapPreviewId
+      ? "Keep pulling into Research"
+      : "Lift a module to add it";
   const rawSummary = card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value;
   const summary = compactProfileSummary(rawSummary, card.domain);
   const fullSummary = expandedProfileSummary(rawSummary, card.domain);
@@ -1297,7 +1329,6 @@ export function ResearchLayerPanel({
                 initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.72, scale: 0.985, y: 10 }}
                 key={id}
                 layout
-                layoutId={`research-layer-${id}`}
                 transition={prefersReducedMotion ? { duration: 0 } : commitSpring}
               >
                 <button
@@ -1343,6 +1374,23 @@ export function ResearchLayerPanel({
           </AnimatePresence>
         </div>
 
+        <AnimatePresence initial={false}>
+          {draggingLayerId ? (
+            <motion.div
+              animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+              className="cs-module-insertion-slot"
+              data-preview={snapPreviewId ? "true" : "false"}
+              data-ready={snapReadyId ? "true" : "false"}
+              exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.992 }}
+              initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 8, scale: 0.992 }}
+              transition={prefersReducedMotion ? { duration: 0 } : snapSpring}
+            >
+              <span>{insertionSlotCopy}</span>
+              <small>{insertionSlotHint}</small>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
         {analysisNotice ? (
           <div className="cs-research-notice" role="status">
             <strong>Not enough verified evidence</strong>
@@ -1352,21 +1400,7 @@ export function ResearchLayerPanel({
 
       </section>
 
-      <motion.section
-        className="cs-card-tray"
-        aria-label="Dormant enrichment cards"
-        data-drop-visible={draggingLayerId ? "true" : "false"}
-        data-snap-preview={snapPreviewId ? "true" : "false"}
-        data-snap-ready={snapReadyId ? "true" : "false"}
-      >
-        <motion.div
-          className="cs-drop-zone"
-          aria-hidden={!draggingLayerId}
-          data-label={dropZoneCopy}
-          {...(!draggingLayerId || prefersReducedMotion ? {} : { style: { opacity: dropZoneOpacity, scale: dropZoneScale, y: dropZoneY } })}
-        >
-          {dropZoneCopy}
-        </motion.div>
+      <motion.section className="cs-card-tray" aria-label="Dormant enrichment cards">
         <motion.div
           className="cs-card-pile-motion"
           {...(prefersReducedMotion ? {} : { style: { scaleX: trayScaleX, scaleY: trayScaleY, y: trayLift } })}
@@ -1374,7 +1408,6 @@ export function ResearchLayerPanel({
           <motion.div className="cs-card-pile" layout>
             <AnimatePresence>
               {dormantLayers.map((layer, index) => {
-                const pose = pilePose(index);
                 const dragging = draggingLayerId === layer.id;
                 const previewing = snapPreviewId === layer.id;
                 const snapReady = snapReadyId === layer.id;
@@ -1389,7 +1422,6 @@ export function ResearchLayerPanel({
                     onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
                     onDragStart={() => handleDormantDragStart(layer.id)}
                     onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
-                    pose={pose}
                     previewing={previewing}
                     snapReady={snapReady}
                     prefersReducedMotion={prefersReducedMotion}

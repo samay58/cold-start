@@ -956,6 +956,201 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("keeps profile progress live after card.saved until a terminal profile event arrives", async () => {
+    const domain = "llamaindex.ai";
+    const card = cardForDomain(domain);
+    card.identity.name.value = "LlamaIndex";
+    const sectionIds: ResearchSection["sectionId"][] = [
+      "buyer",
+      "customer_proof",
+      "traction",
+      "financing",
+      "competition",
+      "product",
+      "why_it_matters",
+      "market",
+      "risks"
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "llamaindex",
+          card,
+          sections: sectionIds.map((sectionId, index) =>
+            testSection(domain, sectionId, index < 5 ? "available" : "not_started")
+          ),
+          sources: [],
+          events: [
+            {
+              id: "old-event-complete",
+              runId: "old-run",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "generation.complete",
+              message: "Research run complete",
+              metadata: { mode: "basics" },
+              createdAt: "2026-05-31T23:59:59.000Z"
+            },
+            {
+              id: "event-sources",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "source.found",
+              message: "Found 15 accepted sources",
+              metadata: { mode: "basics", acceptedCount: 15 },
+              createdAt: "2026-06-01T00:00:02.000Z"
+            },
+            {
+              id: "event-saved",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "card.saved",
+              message: "Saved cited company card",
+              metadata: { mode: "basics", sourceCount: 15 },
+              createdAt: "2026-06-01T00:00:03.000Z"
+            }
+          ],
+          runs: {
+            basics: { slug: "llamaindex", domain, mode: "basics", status: "idle" },
+            analysis: { slug: "llamaindex", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      return jsonResponse(card);
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    expect(container.textContent).not.toContain("Research filed");
+    expect(container.textContent).toContain("Filing the card");
+    expect(container.textContent).toContain("Saved cited profile");
+    expect(container.querySelector(".cs-research-progress-live")).not.toBeNull();
+    expect(container.querySelector(".cs-build-tree")).toBeNull();
+    await unmount();
+  });
+
+  it("collapses completed profile progress into a quiet receipt", async () => {
+    const domain = "llamaindex.ai";
+    const card = cardForDomain(domain);
+    card.identity.name.value = "LlamaIndex";
+    const sectionIds: ResearchSection["sectionId"][] = [
+      "buyer",
+      "customer_proof",
+      "traction",
+      "financing",
+      "competition",
+      "product",
+      "why_it_matters",
+      "market",
+      "risks"
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "llamaindex",
+          card,
+          sections: sectionIds.map((sectionId) => testSection(domain, sectionId, "available")),
+          sources: Array.from({ length: 3 }, (_, index) => ({
+            id: `source-${index + 1}`,
+            url: `https://example.com/source-${index + 1}`,
+            title: `Source ${index + 1}`,
+            domain: "example.com",
+            sourceType: "news" as const,
+            fetchedAt: new Date().toISOString(),
+            snippet: "Research source."
+          })),
+          events: [
+            {
+              id: "event-started",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "generation.started",
+              message: "Started company profile",
+              metadata: { mode: "basics" },
+              createdAt: "2026-06-01T00:00:01.000Z"
+            },
+            {
+              id: "event-sources",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "source.found",
+              message: "Found 35 accepted sources",
+              metadata: { mode: "basics", acceptedCount: 35 },
+              createdAt: "2026-06-01T00:00:02.000Z"
+            },
+            {
+              id: "event-saved",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "card.saved",
+              message: "Saved cited company card",
+              metadata: { mode: "basics", sourceCount: 15 },
+              createdAt: "2026-06-01T00:00:03.000Z"
+            },
+            {
+              id: "event-enriched",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "card.enriched",
+              message: "Saved enriched company card",
+              metadata: { mode: "basics", sourceCount: 35 },
+              createdAt: "2026-06-01T00:00:04.000Z"
+            },
+            {
+              id: "event-complete",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "generation.complete",
+              message: "Research run complete",
+              metadata: { mode: "basics" },
+              createdAt: "2026-06-01T00:00:05.000Z"
+            }
+          ],
+          runs: {
+            basics: {
+              slug: "llamaindex",
+              domain,
+              mode: "basics",
+              status: "complete",
+              startedAt: "2026-06-01T00:00:00.000Z",
+              completedAt: "2026-06-01T00:00:05.000Z"
+            },
+            analysis: { slug: "llamaindex", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      return jsonResponse(card);
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    expect(container.textContent).toContain("Research filed");
+    expect(container.textContent).toContain("35 sources");
+    expect(container.textContent).toContain("9 of 9 sections");
+    expect(container.querySelector(".cs-build-tree")).toBeNull();
+    expect(container.textContent).not.toContain("Filed the profile");
+    await unmount();
+  });
+
   it("shows a recovered basics card when the latest run is failed", async () => {
     let cardFetches = 0;
     const fetchMock = vi.fn(async (url: string) => {

@@ -38,6 +38,8 @@ const researchStageByEventType: Record<string, number> = {
   "generation.complete": 3
 };
 
+const terminalProfileProgressEventTypes = new Set(["card.enriched", "generation.complete"]);
+
 function belongsToProfileRun(event: ExtensionResearchRunEvent) {
   if (event.sectionId) {
     return false;
@@ -58,7 +60,7 @@ function metadataNumber(event: ExtensionResearchRunEvent, keys: string[]) {
   return null;
 }
 
-export function researchEventStageIndex(event: ExtensionResearchRunEvent) {
+function researchEventStageIndex(event: ExtensionResearchRunEvent) {
   if (!belongsToProfileRun(event)) {
     return null;
   }
@@ -70,7 +72,7 @@ function profileProgressEvents(events: ExtensionResearchRunEvent[]) {
   return events.filter((event) => researchEventStageIndex(event) !== null);
 }
 
-function currentProfileProgressEvents(events: ExtensionResearchRunEvent[]) {
+export function currentProfileProgressEvents(events: ExtensionResearchRunEvent[]) {
   const candidates = profileProgressEvents(events);
   let latestEvent: ExtensionResearchRunEvent | null = null;
 
@@ -118,8 +120,11 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
   if (event.type === "card.partial") {
     return "Starter profile ready";
   }
-  if (event.type === "card.saved" || event.type === "card.enriched") {
-    return "Filed the profile";
+  if (event.type === "card.saved") {
+    return "Saved cited profile";
+  }
+  if (event.type === "card.enriched") {
+    return "Filled remaining fields";
   }
   if (event.type === "generation.complete") {
     return "Research run complete";
@@ -162,6 +167,10 @@ export function acceptedSourceCountFromEvents(events: ExtensionResearchRunEvent[
   }
 
   return highestCount;
+}
+
+export function hasTerminalProfileProgressEvent(events: ExtensionResearchRunEvent[]) {
+  return currentProfileProgressEvents(events).some((event) => terminalProfileProgressEventTypes.has(event.type));
 }
 
 function statusForStage({
@@ -213,13 +222,22 @@ export function buildResearchProgressPlan({
 
   return stages.map((stage, stageIndex) => {
     const stageEvents = orderedEvents.filter((event) => researchEventStageIndex(event) === stageIndex);
+    const seenSubsteps = new Set<string>();
     const substeps =
       stageEvents.length > 0
-        ? stageEvents.map((event) => ({
-            key: event.id,
-            message: displayResearchEventMessage(event),
-            status: researchEventStatus(event)
-          }))
+        ? stageEvents.flatMap((event) => {
+            const message = displayResearchEventMessage(event);
+            const normalized = message.toLowerCase().replace(/\s+/g, " ").trim();
+            if (seenSubsteps.has(normalized)) {
+              return [];
+            }
+            seenSubsteps.add(normalized);
+            return [{
+              key: event.id,
+              message,
+              status: researchEventStatus(event)
+            }];
+          })
         : stageIndex === safeActiveIndex && !complete
           ? [{ key: `stage-${stage.marker}`, message: stageNote || stage.note, status: "running" as const }]
           : [];

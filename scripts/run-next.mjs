@@ -15,19 +15,21 @@ if (command === "build") {
   assertNoActiveDevServer();
 }
 
-if (command === "dev") {
-  writeDevLock();
-}
-
 const child = spawn(process.execPath, [require.resolve("next/dist/bin/next"), command, ...args], {
   cwd: webAppDir,
   env: process.env,
   stdio: "inherit"
 });
 
+const lockPid = child.pid ?? process.pid;
+
+if (command === "dev") {
+  writeDevLock(undefined, lockPid);
+}
+
 child.on("exit", (code, signal) => {
   if (command === "dev") {
-    clearDevLock();
+    clearDevLock(undefined, lockPid);
   }
 
   if (signal) {

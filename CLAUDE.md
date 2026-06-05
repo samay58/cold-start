@@ -12,7 +12,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
-- `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
+- `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/privacy`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
 - `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
@@ -23,7 +23,7 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
 - `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 
-Data flow: `/api/generate` queues work through Inngest. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
+Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`, currently `generate-status-events-v1`); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
 ## Common Commands
 
@@ -143,6 +143,7 @@ npm run dev:full
 ## Where To Look First
 
 - Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
+- Research-layer sections: `packages/core/src/research-sections.ts` for the section schema, `apps/extension/src/research-layer.ts` and `apps/extension/src/ResearchLayerPanel.tsx` for activation and rendering.
 - Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, `packages/providers/src/provider-budget.ts`, and the provider spike script.
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.

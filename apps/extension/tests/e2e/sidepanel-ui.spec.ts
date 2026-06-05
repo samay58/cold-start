@@ -329,7 +329,7 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
 });
 
-test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {
+test("dragging a dormant card opens a real insertion slot before release", async ({ page }) => {
   const generationRequests: Array<{ confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string }> = [];
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await installChromeShim(page);
@@ -354,9 +354,13 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 34, { steps: 4 });
-  await expect(page.getByText("Lift to add")).toBeVisible();
+  const insertionSlot = page.locator(".cs-module-insertion-slot");
+  await expect(insertionSlot).toBeVisible();
+  await expect(insertionSlot).toContainText("Add Next question");
+  await expect(insertionSlot).toHaveAttribute("data-ready", "false");
+  await expect(page.locator(".cs-drop-zone")).toHaveCount(0);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 8 });
-  await expect(page.getByText("Release to add")).toBeVisible();
+  await expect(insertionSlot).toHaveAttribute("data-ready", "true");
   await page.mouse.up();
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
@@ -366,7 +370,7 @@ test("dragging a dormant card upward snaps it into the active research layer", a
   ]);
 });
 
-test("running card enrichment can be collapsed without stopping the refresh signal", async ({ page }) => {
+test("active research cards keep one module open at a time", async ({ page }) => {
   const emptySignalsCard = browserbaseCard({ signals: [] });
   await installChromeShim(page);
   await mockExtensionApi(page, emptySignalsCard);
@@ -400,9 +404,15 @@ test("running card enrichment can be collapsed without stopping the refresh sign
 
   await signalsHeader.click();
 
+  await expect(activeSignals).toHaveAttribute("data-expanded", "true");
+  await expect(signalsHeader).toHaveAttribute("aria-expanded", "true");
+  await expect(signalsBody).toHaveAttribute("data-expanded", "true");
+
+  const dormantServes = page.locator(".cs-dormant-card", { hasText: "Who pays" });
+  await dormantServes.click();
+  const activeServes = page.locator('.cs-active-enrichment[data-layer-id="serves"]');
+  await expect(activeServes).toHaveAttribute("data-expanded", "true");
   await expect(activeSignals).toHaveAttribute("data-expanded", "false");
-  await expect(signalsHeader).toHaveAttribute("aria-expanded", "false");
-  await expect(signalsBody).toHaveAttribute("data-expanded", "false");
 });
 
 async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0]) {
@@ -470,13 +480,13 @@ test("profile-finishing shimmer keeps text readable and sweeps over time", async
   await expect(runningCard).toBeVisible({ timeout: 10_000 });
   await expect(runningCard).toContainText("Getting the profile ready");
   const profileProgress = page.locator(".cs-research-progress");
-  await expect(profileProgress.locator(".cs-build-compact")).toBeVisible();
+  await expect(profileProgress.locator(".cs-research-progress-live")).toBeVisible();
   await expect(profileProgress).toContainText("Building the profile");
   await expect(profileProgress).toContainText("Starter profile ready");
   await expect(profileProgress).toContainText("5 sources found");
   await expect(profileProgress).not.toContainText("Saved a starter profile");
   await expect(profileProgress).not.toContainText("Also:");
-  await expect(profileProgress.locator(".cs-build-meta")).toHaveCount(0);
+  await expect(profileProgress.locator(".cs-build-compact")).toHaveCount(0);
 
   const sheen = runningCard.locator(".cs-layer-running-sheen");
   await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");

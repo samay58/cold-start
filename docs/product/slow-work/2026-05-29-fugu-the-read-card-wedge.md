@@ -36,7 +36,7 @@ A second, quieter finding matters just as much (see Failure States): the eval's 
 
 All three are extension-only and gated. Each is judged against the spine the product and the brief impose: it must be **measurable against baseline without retrieval-variance confounds**, must **not duplicate Why care / Timing / Next question**, and must **hold citation discipline**.
 
-### Candidate A. The Read (Top Truths) — RECOMMENDED
+### Candidate A. The Read (Top Truths). Recommended
 
 **What it is.** The ranked few-things-that-matter view of the whole evidence pack: 3 to 5 truths in importance order, each with why it ranks there and where it is strong vs thin; the tempting claims we excluded and why; and the single hardest conflict with a working resolution or an explicit abstention.
 
@@ -190,5 +190,28 @@ This is the measurement spine, and it is the reason The Read won over the Contra
 3. Should Deep Read read as an explicit premium tier in the gated surface, or just another gated card that happens to be slow?
 4. Daily run cap and per-card token ceiling: what numbers, given current wallet posture?
 
+## Where we left off (2026-05-29 evening)
+
+The pre-June-7 burn was launched and left running in the background to finish unattended. Picking up later.
+
+State at pause:
+- Background job: Bash task `btcm71d1m` running `run-matrix.mjs` (225 cells: 15 companies x 3 models x 5 repeats). At pause: **56/225 done, 4 errored cells** (handled as holes).
+- Output dir: `eval/fugu-top-truths/runs/2026-05-29T20-17-36-889Z-messy-matrix/`. On completion the runner writes `aggregate.md`, `aggregate.json`, `results.json`. **If those files exist, the burn finished.**
+- Partial medians (NOT final): baseline 13/15, fugu-mini 15/15, fugu-ultra 15/15. Citation integrity 3/3 for every model so far (not discriminating yet).
+
+Built and ready, all under `eval/fugu-top-truths/`:
+- `companies.messy.json` (15 curated high-conflict companies) and 15 frozen bundles in `fixtures/`.
+- `build-bundles.mjs` (Exa bundle builder; relevance-filtered, tier-diverse, ~19k chars/bundle).
+- `score.mjs` with `scoreCitationIntegrity` (resolution + numeric/term support proxy, reported as a separate axis); unit-tested in `score.integrity.test.mjs`.
+- `run-matrix.mjs` (the burn runner; median+spread aggregation, token accounting).
+
+To resume next session:
+1. Check if it finished: `cat eval/fugu-top-truths/runs/2026-05-29T20-17-36-889Z-messy-matrix/aggregate.md` (and `aggregate.json` for per-dimension means).
+2. If finished, write the independent assessment (the actual deliverable). Answer from the data: (a) does Fugu's ~1-2pt edge hold across the messy acqui-hire tail or was it the early clean companies; (b) does ultra ever separate from mini (if not, the orchestration premium is unearned); (c) does citation integrity finally discriminate on Inflection/Adept/Character/Stability, or is the support proxy too lenient and a real LLM-judge support pass is needed.
+3. To burn more free quota before June 7: re-run with `--repeats 10` (or higher `--concurrency`), or add companies to `companies.messy.json`, rebuild bundles, re-run. Each ultra run is ~94k tokens.
+4. To stop the job if still running: `pkill -f run-matrix.mjs`.
+
+Provisional read (confirm against final data, do not overclaim): Fugu (both sizes) edges baseline by ~1-2 points on the structural rubric, but mini is roughly tied with ultra, so the edge looks like decisiveness and terseness that the rubric rewards rather than orchestration value. Integrity shows no model difference. Treat "Fugu is better" as "scores slightly higher on a discipline-and-style rubric," not "smarter or safer," until the messy tail and per-dimension breakdown say otherwise.
+
 ---
-*Captured 2026-05-29. Builds on the 2026-05-27 workflow-fit evaluation. No implementation; this selects the wedge.*
+*Captured 2026-05-29. Builds on the 2026-05-27 workflow-fit evaluation. The wedge analysis above is unchanged; this appendix tracks the deadline-driven burn.*
