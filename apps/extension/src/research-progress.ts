@@ -8,7 +8,7 @@ export type ResearchProgressStage = {
 
 export type ResearchProgressStatus = "pending" | "running" | "done" | "attention" | "failed";
 
-export type ResearchProgressSubstep = {
+type ResearchProgressSubstep = {
   key: string;
   message: string;
   status: ResearchProgressStatus;
@@ -37,8 +37,6 @@ const researchStageByEventType: Record<string, number> = {
   "card.enriched": 3,
   "generation.complete": 3
 };
-
-const terminalResearchEventTypes = new Set(["generation.complete"]);
 
 function belongsToProfileRun(event: ExtensionResearchRunEvent) {
   if (event.sectionId) {
@@ -89,7 +87,7 @@ function currentProfileProgressEvents(events: ExtensionResearchRunEvent[]) {
   return candidates.filter((event) => event.runId === latestEvent.runId);
 }
 
-export function researchEventStatus(event: ExtensionResearchRunEvent): ResearchProgressStatus {
+function researchEventStatus(event: ExtensionResearchRunEvent): ResearchProgressStatus {
   const normalized = `${event.type} ${event.message}`.toLowerCase();
   if (normalized.includes("failed") || normalized.includes("error")) {
     return "failed";
@@ -100,7 +98,7 @@ export function researchEventStatus(event: ExtensionResearchRunEvent): ResearchP
   return "done";
 }
 
-export function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
+function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
   if (event.type === "generation.queued") {
     return "Queued this company";
   }
@@ -164,10 +162,6 @@ export function acceptedSourceCountFromEvents(events: ExtensionResearchRunEvent[
   }
 
   return highestCount;
-}
-
-export function hasTerminalResearchEvent(events: ExtensionResearchRunEvent[]) {
-  return currentProfileProgressEvents(events).some((event) => terminalResearchEventTypes.has(event.type));
 }
 
 function statusForStage({
