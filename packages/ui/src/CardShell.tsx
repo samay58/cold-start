@@ -640,7 +640,6 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
       <header className="cs-card-header">
         <div className="cs-card-filed">
           <span className="cs-filed-stamp">Filed {filedDate}</span>
-          <span className="cs-filed-status">{formatStatusLabel(card.identity.status)}</span>
         </div>
         <h1 className="cs-title" aria-label={title}>{title}</h1>
         {subtitle ? <p className="cs-subtitle">{subtitle}</p> : null}
