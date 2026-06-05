@@ -1329,6 +1329,7 @@ export function SidePanel() {
       return;
     }
 
+    setSectionQueue([]);
     const controller = new AbortController();
     abortAllRequests();
     activeRequest.current = controller;
@@ -1340,7 +1341,12 @@ export function SidePanel() {
       return;
     }
 
-    if (requestState.activeSectionRun?.layerId === layerId || sectionQueue.includes(layerId)) {
+    if (
+      requestState.activeSectionRun?.layerId === layerId ||
+      requestState.profileRun ||
+      requestState.analysisRun ||
+      sectionQueue.includes(layerId)
+    ) {
       return;
     }
 
@@ -1354,6 +1360,8 @@ export function SidePanel() {
       !settings?.apiToken ||
       requestState.status !== "success" ||
       requestState.activeSectionRun ||
+      requestState.profileRun ||
+      requestState.analysisRun ||
       sectionQueue.length === 0
     ) {
       return;
