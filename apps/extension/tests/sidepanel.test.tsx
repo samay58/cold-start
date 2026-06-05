@@ -882,7 +882,7 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("running");
     expect(container.textContent).toContain("Finishing profile");
     expect(container.textContent).toContain("Getting the profile ready");
-    expect(interactiveControls(container).some((button) => button.textContent === "Generate")).toBe(false);
+    expect(interactiveControls(container).some((button) => button.textContent === "Queue")).toBe(false);
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -1094,7 +1094,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("starts real analysis from an analysis-backed enrichment instead of a standalone CTA", async () => {
+  it("queues real analysis when an analysis-backed enrichment is activated", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "linear", status: "queued", mode: "analysis" }, { status: 202 });
@@ -1110,12 +1110,6 @@ describe("SidePanel generation gate", () => {
     expect(coreIdeaButton).toBeTruthy();
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
-    await act(async () => {
-      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -1154,12 +1148,6 @@ describe("SidePanel generation gate", () => {
     );
     await act(async () => {
       coreIdeaButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
-    await act(async () => {
-      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -1209,12 +1197,6 @@ describe("SidePanel generation gate", () => {
 
     await act(async () => {
       marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
-    await act(async () => {
-      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -1284,12 +1266,6 @@ describe("SidePanel generation gate", () => {
     );
     await act(async () => {
       marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    const generateButton = interactiveControls(container).find((button) => button.textContent === "Generate");
-    await act(async () => {
-      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     await flushPromises();
 
@@ -1392,7 +1368,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("opens empty card-backed enrichments without automatically refreshing the company profile", async () => {
+  it("queues empty card-backed enrichments when activated", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
@@ -1416,14 +1392,13 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("No traction signal found yet.");
-    expect(container.textContent).not.toContain("Refreshing");
-    expect(container.textContent).not.toContain("Searching for recent traction and launch signals");
-    expect(generateCalls(fetchMock)).toHaveLength(0);
+    expect(container.textContent).toContain("Refreshing");
+    expect(container.textContent).toContain("Checking recent traction");
+    expect(generateCalls(fetchMock)).toHaveLength(1);
     await unmount();
   });
 
-  it("keeps an empty card-backed enrichment stable instead of promoting it into a running refresh", async () => {
+  it("shows an empty card-backed enrichment as running after activation", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
         return jsonResponse({ slug: "warp", status: "queued", mode: "basics" }, { status: 202 });
@@ -1448,10 +1423,10 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     const signalsCard = container.querySelector<HTMLElement>('[data-layer-id="signals"]');
-    expect(signalsCard?.dataset.state).toBe("empty");
+    expect(signalsCard?.dataset.state).toBe("running");
     expect(signalsCard?.dataset.expanded).toBe("true");
-    expect(container.textContent).toContain("No traction signal found yet.");
-    expect(generateCalls(fetchMock)).toHaveLength(0);
+    expect(container.textContent).toContain("Checking recent traction");
+    expect(generateCalls(fetchMock)).toHaveLength(1);
     await unmount();
   });
 

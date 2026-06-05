@@ -330,9 +330,16 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
 });
 
 test("dragging a dormant card upward snaps it into the active research layer", async ({ page }) => {
+  const generationRequests: Array<{ confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string }> = [];
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCard());
+  page.on("request", (request) => {
+    if (request.method() !== "POST" || !request.url().endsWith("/api/generate")) {
+      return;
+    }
+    generationRequests.push(request.postDataJSON() as { confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string });
+  });
   await openSidePanel(page);
 
   const card = page.locator(".cs-dormant-card", { hasText: "Next question" });
@@ -354,8 +361,9 @@ test("dragging a dormant card upward snaps it into the active research layer", a
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
-  await expect(activeQuestions).toContainText("This section has not been generated yet.");
-  await expect(activeQuestions.getByRole("button", { name: "Generate" })).toBeVisible();
+  await expect.poll(() => generationRequests).toMatchObject([
+    { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
+  ]);
 });
 
 test("running card enrichment can be collapsed without stopping the refresh signal", async ({ page }) => {
@@ -378,7 +386,6 @@ test("running card enrichment can be collapsed without stopping the refresh sign
   await page.keyboard.press("Enter");
 
   const activeSignals = page.locator('.cs-active-enrichment[data-layer-id="signals"]');
-  await activeSignals.getByRole("button", { name: "Refresh" }).click();
   const signalsHeader = activeSignals.locator(".cs-active-enrichment-head");
   const signalsBody = activeSignals.locator(".cs-active-enrichment-body-frame");
   await expect(activeSignals).toHaveAttribute("data-state", "running");
@@ -487,15 +494,15 @@ test("profile-finishing shimmer rests calmly under reduced motion", async ({ pag
   await expect(runningCard.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
 });
 
-test("keyboard activation exposes explicit generation for synthesis-backed cards", async ({ page }) => {
-  const generationRequests: Array<{ mode?: string }> = [];
+test("keyboard activation queues synthesis-backed cards", async ({ page }) => {
+  const generationRequests: Array<{ confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string }> = [];
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCard());
   page.on("request", (request) => {
     if (request.method() !== "POST" || !request.url().endsWith("/api/generate")) {
       return;
     }
-    generationRequests.push(request.postDataJSON() as { mode?: string });
+    generationRequests.push(request.postDataJSON() as { confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string });
   });
   await openSidePanel(page);
 
@@ -503,16 +510,14 @@ test("keyboard activation exposes explicit generation for synthesis-backed cards
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  await page.locator(".cs-active-enrichment", { hasText: "Next question" }).getByRole("button", { name: "Generate" }).click();
   await expect(page.locator(".cs-active-enrichment", { hasText: "Next question" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
-    { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
+    { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
   ]);
 
   const marketCard = page.locator(".cs-dormant-card", { hasText: "Timing" });
   await marketCard.focus();
   await page.keyboard.press("Enter");
-  await page.locator(".cs-active-enrichment", { hasText: "Timing" }).getByRole("button", { name: "Generate" }).click();
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("This section has not been generated yet.");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Queued");
   await expect.poll(() => generationRequests).toHaveLength(1);
 });

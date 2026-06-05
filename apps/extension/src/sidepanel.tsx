@@ -38,6 +38,7 @@ import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
+const SECTION_RUN_CONCURRENCY = 1;
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
 const ResearchLayerPanel = lazy(() =>
   import("./ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
@@ -553,11 +554,13 @@ function SuccessPanel({
   domain,
   onRunSection,
   onRegenerate,
+  queuedLayerIds,
   requestState
 }: {
   domain: string;
   onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
+  queuedLayerIds?: ResearchLayerId[] | undefined;
   requestState: Extract<RequestState, { status: "success" }>;
 }) {
   const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
@@ -582,6 +585,7 @@ function SuccessPanel({
         elapsedSeconds={elapsedSeconds}
         onRunSection={onRunSection}
         onRegenerate={onRegenerate}
+        queuedLayerIds={queuedLayerIds}
         profileElapsedSeconds={profileElapsedSeconds}
         profileRun={requestState.profileRun}
         activeSectionElapsedSeconds={activeSectionElapsedSeconds}
@@ -774,6 +778,7 @@ export function SidePanel() {
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });
+  const [sectionQueue, setSectionQueue] = useState<ResearchLayerId[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
   const sectionGenerationRequest = useRef<AbortController | null>(null);
@@ -782,6 +787,10 @@ export function SidePanel() {
   useEffect(() => {
     markPerformance("cold-start-shell-paint");
   }, []);
+
+  useEffect(() => {
+    setSectionQueue([]);
+  }, [domain]);
 
   useEffect(() => {
     if (requestState.status !== "success" || !domain || !settings) {
@@ -1327,15 +1336,40 @@ export function SidePanel() {
   }
 
   function handleRunSection(layerId: ResearchLayerId) {
-    if (!domain || !settings?.apiToken || requestState.status !== "success" || requestState.activeSectionRun) {
+    if (!domain || !settings?.apiToken || requestState.status !== "success") {
       return;
     }
 
+    if (requestState.activeSectionRun?.layerId === layerId || sectionQueue.includes(layerId)) {
+      return;
+    }
+
+    setSectionQueue((current) => current.includes(layerId) ? current : [...current, layerId]);
+  }
+
+  useEffect(() => {
+    if (
+      SECTION_RUN_CONCURRENCY !== 1 ||
+      !domain ||
+      !settings?.apiToken ||
+      requestState.status !== "success" ||
+      requestState.activeSectionRun ||
+      sectionQueue.length === 0
+    ) {
+      return;
+    }
+
+    const [nextLayerId, ...rest] = sectionQueue;
+    if (!nextLayerId) {
+      return;
+    }
+
+    setSectionQueue(rest);
     const controller = new AbortController();
     abortSectionGenerationRequest();
     sectionGenerationRequest.current = controller;
-    runSectionGenerationWithController(controller, domain, settings, requestState, layerId);
-  }
+    runSectionGenerationWithController(controller, domain, settings, requestState, nextLayerId);
+  }, [abortSectionGenerationRequest, domain, requestState, runSectionGenerationWithController, sectionQueue, settings]);
 
   if (!settings) {
     return (
@@ -1443,6 +1477,7 @@ export function SidePanel() {
       domain={domain}
       onRunSection={handleRunSection}
       onRegenerate={() => handleStartGeneration("basics", true)}
+      queuedLayerIds={sectionQueue}
       requestState={requestState}
     />
   );

@@ -1,9 +1,9 @@
 import { dampenOutsideRange, projectIntent } from "./motion-primitives";
 
-const SNAP_THRESHOLD = -58;
-const SNAP_PREVIEW_THRESHOLD = -24;
-const SNAP_FLICK_VELOCITY = -460;
-const SNAP_PROJECTION_SCALE = 0.18;
+const SNAP_THRESHOLD = -68;
+const SNAP_PREVIEW_THRESHOLD = -32;
+const SNAP_FLICK_VELOCITY = -540;
+const SNAP_PROJECTION_SCALE = 0.16;
 const CLICK_SUPPRESSION_THRESHOLD = 7;
 
 export function dragOffsetShouldSnap(offsetY: number, velocityY = 0) {
@@ -24,5 +24,5 @@ export function projectVelocity(initialVelocity: number, decelerationRate = 0.99
 }
 
 export function dampenDragOffset(offsetY: number) {
-  return dampenOutsideRange(offsetY, [-130, 0], 2.4);
+  return dampenOutsideRange(offsetY, [-150, 0], 2.2);
 }

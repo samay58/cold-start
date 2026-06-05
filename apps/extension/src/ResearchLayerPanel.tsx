@@ -52,6 +52,7 @@ type ResearchLayerPanelProps = {
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
   onRegenerate: () => void;
+  queuedLayerIds?: ResearchLayerId[] | undefined;
   profileElapsedSeconds?: number | undefined;
   profileRun?: AnalysisRun | undefined;
   activeSectionElapsedSeconds?: number | undefined;
@@ -146,6 +147,10 @@ function writePinnedLayerIds(domain: string, ids: ResearchLayerId[]) {
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
+}
+
+function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
+  return status === "needs-analysis" || status === "stale" || status === "failed" || status === "empty";
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1034,6 +1039,7 @@ export function ResearchLayerPanel({
   elapsedSeconds,
   onRunSection,
   onRegenerate,
+  queuedLayerIds = [],
   profileElapsedSeconds = 0,
   profileRun,
   activeSectionElapsedSeconds = 0,
@@ -1088,6 +1094,7 @@ export function ResearchLayerPanel({
 
   function activateLayer(id: ResearchLayerId) {
     const layer = layers.find((candidate) => candidate.id === id);
+    const display = layerDisplayForCard(card, id, sections);
     if (!layer) {
       return;
     }
@@ -1101,7 +1108,9 @@ export function ResearchLayerPanel({
       return next;
     });
     setExpandedLayerId(id);
-
+    if (display && shouldQueueLayerRun(display.status) && !profileRun && !analysisRun) {
+      onRunSection(id);
+    }
   }
 
   function toggleExpanded(id: ResearchLayerId) {
@@ -1237,6 +1246,7 @@ export function ResearchLayerPanel({
 
             const layer = layers.find((candidate) => candidate.id === id);
             const refreshing = Boolean(activeSectionRun?.layerId === id);
+            const queued = queuedLayerIds.includes(id);
             const waitingForProfile = Boolean(profileRun && display.status !== "populated");
             const running = Boolean(
               waitingForProfile ||
@@ -1244,17 +1254,17 @@ export function ResearchLayerPanel({
               (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun))
             );
             const expanded = expandedLayerId === id;
-            const state = running || refreshing ? "running" : display.status;
+            const state = running || refreshing ? "running" : queued ? "queued" : display.status;
             const actionLabel = waitingForProfile
               ? undefined
               : display.status === "stale"
-              ? "Refresh"
+              ? "Queue"
               : display.status === "failed"
-                ? "Retry"
+                ? "Queue"
                 : display.status === "needs-analysis"
-                  ? "Generate"
+                  ? "Queue"
                   : display.status === "empty"
-                    ? "Refresh"
+                    ? "Queue"
                     : undefined;
             const handleLayerAction = actionLabel
               ? () => {
@@ -1263,6 +1273,8 @@ export function ResearchLayerPanel({
               : undefined;
             const statusCopy = waitingForProfile
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
+              : queued
+              ? "Queued"
               : running
               ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
               : refreshing
