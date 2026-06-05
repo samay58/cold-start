@@ -4399,9 +4399,11 @@ body {
 
 .cs-build {
   display: grid;
-  align-content: start;
-  gap: 20px;
-  padding: 20px 24px 24px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  min-height: clamp(430px, calc(100vh - 156px), 680px);
+  gap: clamp(18px, 3vh, 30px);
+  padding: 22px 24px 26px;
 }
 
 .cs-build-head {
@@ -4427,47 +4429,10 @@ body {
   letter-spacing: 0.06em;
 }
 
-.cs-build-bar {
-  position: relative;
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgb(110 92 158 / 0.14);
-  isolation: isolate;
-}
-
-.cs-build-bar-sweep {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 40%;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgb(110 92 158 / 0.30) 30%,
-    var(--color-seal) 50%,
-    rgb(110 92 158 / 0.30) 70%,
-    transparent 100%
-  );
-  transform: translateX(-120%);
-  will-change: transform;
-}
-
-@keyframes cs-build-sweep {
-  from {
-    transform: translateX(-120%);
-  }
-
-  to {
-    transform: translateX(330%);
-  }
-}
-
 .cs-build-tree {
   display: grid;
-  gap: 12px;
+  align-content: space-evenly;
+  gap: clamp(18px, 3.8vh, 34px);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -4549,6 +4514,42 @@ body {
 
 .cs-plan-status[data-status="running"] {
   color: var(--color-seal);
+}
+
+.cs-drizzle-loader {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(2, 7px);
+  grid-template-rows: repeat(2, 7px);
+  gap: 3px;
+  width: 19px;
+  height: 19px;
+  color: var(--color-seal);
+}
+
+.cs-drizzle-loader span {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow: 0 1px 0 rgb(255 253 248 / 0.86) inset;
+  opacity: 0.42;
+}
+
+.cs-drizzle-loader span:nth-child(1) {
+  opacity: 0.92;
+}
+
+.cs-drizzle-loader span:nth-child(2) {
+  opacity: 0.58;
+}
+
+.cs-drizzle-loader span:nth-child(3) {
+  opacity: 0.76;
+}
+
+.cs-drizzle-loader span:nth-child(4) {
+  opacity: 0.36;
 }
 
 .cs-plan-status[data-status="done"] {
@@ -5011,6 +5012,24 @@ body {
   }
 }
 
+@keyframes cs-drizzle-step {
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: translate3d(0, 0, 0);
+  }
+
+  35% {
+    opacity: 0.95;
+    transform: translate3d(0, 1px, 0);
+  }
+
+  70% {
+    opacity: 0.56;
+    transform: translate3d(0, -1px, 0);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .cs-eye-iris {
     animation: cs-eye-scan 3.4s var(--cs-motion-ease-out) infinite;
@@ -5020,12 +5039,20 @@ body {
     animation: cs-eye-blink 5s var(--cs-motion-ease-out) infinite;
   }
 
-  .cs-build-bar-sweep {
-    animation: cs-build-sweep 1.25s linear infinite;
+  .cs-drizzle-loader span {
+    animation: cs-drizzle-step 1.65s steps(1, end) infinite;
   }
 
-  .cs-plan-status[data-status="running"] {
-    animation: cs-progress-cursor-breathe 1.35s var(--cs-motion-ease-out) infinite;
+  .cs-drizzle-loader span:nth-child(2) {
+    animation-delay: 0.18s;
+  }
+
+  .cs-drizzle-loader span:nth-child(3) {
+    animation-delay: 0.36s;
+  }
+
+  .cs-drizzle-loader span:nth-child(4) {
+    animation-delay: 0.54s;
   }
 
   .cs-source-pass-scan.cs-live-progress-scan {
@@ -5046,7 +5073,6 @@ body {
 
   .cs-source-pass-current-marker,
   .cs-source-pass-cursor.cs-live-progress-cursor,
-  .cs-build-bar-sweep,
   .cs-card-pile-motion {
     transition:
       background-color var(--cs-motion-state) var(--cs-motion-ease-out),
@@ -5067,10 +5093,10 @@ body {
 
   .cs-source-pass-fill.cs-live-progress-fill,
   .cs-source-pass-cursor.cs-live-progress-cursor,
-  .cs-build-bar-sweep,
   .cs-eye-loader svg,
   .cs-eye-iris,
   .cs-plan-status,
+  .cs-drizzle-loader span,
   .cs-active-enrichment[data-state="running"] .cs-active-dot,
   .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen,
   .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
@@ -5088,11 +5114,6 @@ body {
   .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen {
     transform: translate3d(-25%, 0, 0);
     opacity: 0.7;
-  }
-
-  .cs-build-bar-sweep {
-    opacity: 0.72;
-    transform: translateX(76%);
   }
 
   /* Reduce: the eye stays open and centered. A single slow blink could be

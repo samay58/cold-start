@@ -496,14 +496,13 @@ function GenerationPanel({
     { label: "Making sense", marker: "03", note: "Sorting the signal" },
     { label: "Finishing up", marker: "04", note: "Saving the profile" }
   ];
-  const estimatedStageProgress = requestState.generationStatus === "queued"
+  const estimatedStageIndex = requestState.generationStatus === "queued"
     ? elapsedMs / 7000
     : 1 + elapsedMs / 8000;
-  const stageProgress = eventStageIndex === null
-    ? estimatedStageProgress
+  const stageIndex = eventStageIndex === null
+    ? estimatedStageIndex
     : eventStageIndex + Math.min(0.82, Math.max(0.28, elapsedMs / 22000));
-  const clampedStageProgress = Math.min(stages.length - 0.12, Math.max(0.22, stageProgress));
-  const activeIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(stageProgress)));
+  const activeIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(stageIndex)));
   const statusText =
     requestState.generationStatus === "queued" && elapsed < 4
       ? "Queued"
@@ -515,7 +514,6 @@ function GenerationPanel({
     events,
     generationStatus: requestState.generationStatus
   }) ?? activeStage?.note ?? "Working from useful sources";
-  const progressPercent = Math.min(97, Math.max(8, (clampedStageProgress / stages.length) * 100));
   return (
     <ExtensionFrame
       className="cs-generation-panel"
@@ -543,7 +541,6 @@ function GenerationPanel({
         <SourcePassInstrument
           activeIndex={activeIndex}
           events={events}
-          progressPercent={progressPercent}
           stageNote={stageNote}
           stages={stages}
         />

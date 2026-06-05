@@ -230,24 +230,21 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await openSidePanel(page);
 
   await expect(page.getByText("Researching")).toBeVisible();
-  await expect(page.locator(".cs-build-bar")).toBeVisible();
+  await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
   await expect(page.locator(".cs-build-tree")).toContainText("Finishing up");
   await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
-  // Prove the loading sweep is actually moving over time, not just declared.
-  const sweep = page.locator(".cs-build-bar-sweep");
-  await expect(sweep).toHaveCSS("animation-name", "cs-build-sweep");
+  // Prove the Drizzle loader is actually changing over time, not just declared.
+  const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
+  await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
   const samples: number[] = [];
   for (let i = 0; i < 3; i += 1) {
-    samples.push(Math.round(await sweep.evaluate((el) => {
-      const transform = getComputedStyle(el).transform;
-      return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
-    })));
+    samples.push(Math.round(Number(await drizzlePixel.evaluate((el) => getComputedStyle(el).opacity)) * 100));
     if (i < 2) {
       await page.waitForTimeout(420);
     }
   }
-  expect(new Set(samples).size, `sweep translateX should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
+  expect(new Set(samples).size, `Drizzle opacity should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
 });
 
 test("progress tree surfaces real research events as substeps", async ({ page }) => {
@@ -324,11 +321,11 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
 
   await openSidePanel(page);
 
-  await expect(page.locator(".cs-build-bar")).toBeVisible();
+  await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
   await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
-  const sweep = page.locator(".cs-build-bar-sweep");
-  await expect(sweep).toHaveCSS("animation-name", "none");
+  const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
+  await expect(drizzlePixel).toHaveCSS("animation-name", "none");
   await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
 });
 

@@ -705,8 +705,8 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("Finishing up");
     expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 4 of 4");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
-    expect(container.querySelector(".cs-build-bar")).not.toBeNull();
-    expect(container.querySelector(".cs-build-bar-sweep")).not.toBeNull();
+    expect(container.querySelector(".cs-build-bar")).toBeNull();
+    expect(container.querySelector(".cs-drizzle-loader")).not.toBeNull();
     expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");

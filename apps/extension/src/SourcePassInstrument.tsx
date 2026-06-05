@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ExtensionResearchRunEvent } from "./extension-config";
-import { clamp, motionTokens, snapSpring } from "./motion-primitives";
+import { motionTokens, snapSpring } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 export type SourcePassStage = {
@@ -12,7 +12,6 @@ export type SourcePassStage = {
 type SourcePassInstrumentProps = {
   activeIndex: number;
   events?: ExtensionResearchRunEvent[];
-  progressPercent: number;
   stageNote: string;
   stages: SourcePassStage[];
 };
@@ -156,6 +155,14 @@ function buildPlan(
 
 function StatusMark({ status }: { status: PlanStatus }) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  if (status === "running") {
+    return (
+      <span className="cs-plan-status" data-status={status}>
+        <DrizzleLoader />
+      </span>
+    );
+  }
+
   return (
     <span className="cs-plan-status" data-status={status}>
       <AnimatePresence mode="wait" initial={false}>
@@ -180,11 +187,6 @@ function StatusMark({ status }: { status: PlanStatus }) {
                 <path d="M9 4.2v5.6" />
                 <path d="M9 13.6h.01" />
               </>
-            ) : status === "running" ? (
-              <>
-                <circle cx="9" cy="9" r="5.2" />
-                <path d="M9 5.8v3.4l2.5 1.4" />
-              </>
             ) : (
               <circle cx="9" cy="9" r="5.2" />
             )}
@@ -195,15 +197,24 @@ function StatusMark({ status }: { status: PlanStatus }) {
   );
 }
 
+function DrizzleLoader() {
+  return (
+    <span className="cs-drizzle-loader" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
 export function SourcePassInstrument({
   activeIndex,
   events = [],
-  progressPercent,
   stageNote,
   stages
 }: SourcePassInstrumentProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const safeProgressPercent = clamp(progressPercent, [0, 100]);
   const safeActiveIndex = stages.length > 0 ? Math.min(Math.max(Math.trunc(activeIndex), 0), stages.length - 1) : 0;
   const activeStage = stages[safeActiveIndex] ?? stages[stages.length - 1];
   const plan = buildPlan(stages, safeActiveIndex, events, stageNote);
@@ -245,19 +256,6 @@ export function SourcePassInstrument({
         <span className="cs-build-step">
           {activeStage?.marker ?? "01"} / {String(stages.length).padStart(2, "0")}
         </span>
-      </div>
-
-      {/* Indeterminate loading bar. Motion-enabled runs sweep; reduced-motion
-          runs hold a visible seal mark so the state still reads as working. */}
-      <div
-        className="cs-build-bar"
-        role="progressbar"
-        aria-label="Research progress"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={Math.round(safeProgressPercent)}
-      >
-        <span className="cs-build-bar-sweep" aria-hidden="true" />
       </div>
 
       <ol className="cs-build-tree">
