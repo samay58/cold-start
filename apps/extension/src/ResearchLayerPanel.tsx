@@ -660,10 +660,26 @@ function LayerContent({
   if (display.items && display.items.length > 0) {
     const evidenceItems = display.items.filter((item) => item.kind !== "question");
     const questionItems = display.items.filter((item) => item.kind === "question");
+    if (display.id === "investors") {
+      return (
+        <>
+          <MoneyLayerItems items={evidenceItems} />
+          {sourceChips}
+        </>
+      );
+    }
+    if (display.id === "signals") {
+      return (
+        <>
+          <SignalLayerItems items={evidenceItems} />
+          {sourceChips}
+        </>
+      );
+    }
     return (
       <>
         {evidenceItems.length > 0 ? (
-          <ul className={`cs-layer-items ${display.id === "investors" ? "cs-layer-items-funding" : ""}`.trim()}>
+          <ul className="cs-layer-items">
             {evidenceItems.map((item) => (
               <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
                 <div>
@@ -717,6 +733,55 @@ function LayerContent({
       <p>{display.body}</p>
       {sourceChips}
     </>
+  );
+}
+
+function MoneyLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
+  const [hero, ...rounds] = items;
+  const heroFigure = hero?.title.toLowerCase() === "total raised" && hero.body
+    ? hero.body.replace(/^Total raised is\s*/i, "").replace(/[.]$/, "")
+    : hero?.title;
+  const heroNote = hero?.title.toLowerCase() === "total raised" ? undefined : hero?.body?.replace(/^Backers:\s*/i, "");
+
+  return (
+    <section className="cs-layer-money-ledger" aria-label="Funding summary">
+      {hero ? (
+        <div className="cs-layer-money-hero">
+          <span>Total raised</span>
+          <strong>{heroFigure}</strong>
+          {heroNote ? <p>{heroNote}</p> : null}
+        </div>
+      ) : null}
+      {rounds.length > 0 ? (
+        <ol>
+          {rounds.map((round) => (
+            <li key={`${round.title}-${round.meta ?? round.body ?? ""}`}>
+              <span>{round.meta ?? "Filed"}</span>
+              <div>
+                <strong>{round.title}</strong>
+                {round.body ? <p>{round.body}</p> : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+}
+
+function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
+  return (
+    <ol className="cs-layer-signal-ledger" aria-label="Recent signals">
+      {items.map((item) => (
+        <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
+          <time>{item.body ?? "Undated"}</time>
+          <div>
+            <strong>{item.title}</strong>
+            {item.meta ? <span>{item.meta}</span> : null}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 

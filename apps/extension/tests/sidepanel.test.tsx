@@ -1344,6 +1344,54 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("renders Money and Signals with bespoke ledger treatments", async () => {
+    const card = cardForDomain("linear.app");
+    card.funding.totalRaisedUsd = { value: 35000000, status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.funding.lastRound = {
+      value: { name: "Series B", amountUsd: 35000000, announcedAt: "2025-09-20", leadInvestors: ["Accel", "Sequoia"] },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+    card.funding.investors = {
+      value: [{ name: "Accel", domain: "accel.com" }, { name: "Sequoia", domain: "sequoiacap.com" }],
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+    card.signals = [
+      {
+        title: "Linear launches planning update",
+        url: "https://news.example/linear-planning",
+        date: "2026-05-15",
+        source: "Example News",
+        category: "launch",
+        citationIds: ["c2"]
+      }
+    ];
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    const moneyButton = interactiveControls(container).find((button) => button.textContent?.includes("Money"));
+    expect(moneyButton).toBeTruthy();
+    await act(async () => {
+      moneyButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.querySelector(".cs-layer-money-ledger")).toBeTruthy();
+    expect(container.textContent).toContain("$35,000,000");
+    expect(container.textContent).toContain("Accel, Sequoia");
+
+    const signalsButton = interactiveControls(container).find((button) => button.textContent?.includes("Signals"));
+    expect(signalsButton).toBeTruthy();
+    await act(async () => {
+      signalsButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(container.querySelector(".cs-layer-signal-ledger")).toBeTruthy();
+    expect(container.textContent).toContain("Linear launches planning update");
+    expect(container.textContent).toContain("2026-05-15");
+    await unmount();
+  });
+
   it("opens empty card-backed enrichments without automatically refreshing the company profile", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
