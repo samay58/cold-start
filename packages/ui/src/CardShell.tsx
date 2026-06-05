@@ -1,7 +1,7 @@
-import type { ColdStartCard, ResolvedFact } from "@cold-start/core";
-import { sourceQualityForSource } from "@cold-start/core";
+import type { ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
+import { RESEARCH_SECTION_DEFINITIONS_BY_ID, sourceQualityForSource } from "@cold-start/core";
 import type { ReactNode } from "react";
-import { CitationMarker } from "./CitationMarker";
+import { CitationGroup } from "./CitationGroup";
 import { FactRow, formatCompactCurrency, formatMediumDate, formatShortDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
 import { SourceDrawer } from "./SourceDrawer";
@@ -9,6 +9,7 @@ import { SourceDrawer } from "./SourceDrawer";
 type PublicCard = Omit<ColdStartCard, "synthesis">;
 type CardShellProps = {
   card: ColdStartCard | PublicCard;
+  sections?: ResearchSection[] | undefined;
   surface: "web" | "extension";
   texture?: ReactNode;
 };
@@ -89,6 +90,14 @@ function formatCacheStatus(value: ColdStartCard["cacheStatus"]) {
 
 function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function stripCitationMarkers(text: string) {
+  return text
+    .replace(/\s*\[(?:c|C|e|seed)?[\w.-]+(?:,\s*(?:c|C|e|seed)?[\w.-]+)*\]/g, "")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function formatAppCurrency(value: number | null | undefined): string {
@@ -484,9 +493,7 @@ function KeyValue({
       <span className="cs-evidence-dot" aria-hidden="true" />
       <span className="cs-key-label">{label}</span>
       <strong className={mono ? "cs-key-number" : undefined}>{children ?? value}</strong>
-      {citationIds.map((id) => (
-        <CitationMarker id={id} key={id} />
-      ))}
+      <CitationGroup citationIds={citationIds} />
     </div>
   );
 }
@@ -505,11 +512,61 @@ function ClaimRow({
       <span className="cs-evidence-dot" aria-hidden="true" />
       <p>
         {children}
-        {citationIds.map((id) => (
-          <CitationMarker id={id} key={id} />
-        ))}
+        <CitationGroup citationIds={citationIds} />
       </p>
     </li>
+  );
+}
+
+function WebResearchSections({ sections = [] }: { sections?: ResearchSection[] | undefined }) {
+  const publicSections = sections
+    .filter((section) => section.visibility === "public")
+    .filter((section) => section.status === "available" || section.status === "stale" || section.status === "empty")
+    .slice(0, 6);
+
+  if (publicSections.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="cs-web-research" aria-labelledby="public-research-heading">
+      <div className="cs-web-section-head">
+        <span className="cs-web-eyebrow">Public research</span>
+        <h2 id="public-research-heading">What the sources say first</h2>
+      </div>
+      <div className="cs-web-research-grid">
+        {publicSections.map((section) => {
+          const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
+          const content = section.content;
+          const items = content?.items.slice(0, 2) ?? [];
+          const isEmpty = section.status === "empty" || !content;
+          const summary = content?.summary ?? items[0]?.text ?? definition.emptyState;
+          const sourceCount = new Set(section.citationIds).size;
+
+          return (
+            <article className="cs-web-research-card" data-state={isEmpty ? "empty" : section.status} key={section.sectionId}>
+              <div className="cs-web-research-card-head">
+                <span className="cs-evidence-dot" aria-hidden="true" />
+                <h3>{definition.title}</h3>
+                <span>{sourceCount > 0 ? countLabel(sourceCount, "source") : "gap"}</span>
+              </div>
+              <p>{stripCitationMarkers(summary)}</p>
+              {items.length > 0 ? (
+                <ul>
+                  {items.map((item) => (
+                    <li key={`${section.sectionId}-${item.label}`}>
+                      <strong>{item.label}</strong>
+                      <span>{stripCitationMarkers(item.text)}</span>
+                      <CitationGroup citationIds={item.citationIds} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -537,7 +594,7 @@ function SourceSignature({ mix }: { mix: ReturnType<typeof citationMix> }) {
   );
 }
 
-export function CardShell({ card, surface, texture }: CardShellProps) {
+export function CardShell({ card, sections, surface, texture }: CardShellProps) {
   if (surface === "extension") {
     return <ExtensionProfile card={card} />;
   }
@@ -620,6 +677,8 @@ export function CardShell({ card, surface, texture }: CardShellProps) {
           {founders.length > 0 ? founders.map((person) => person.name).join(", ") : "not found"}
         </KeyValue>
       </section>
+
+      <WebResearchSections sections={sections} />
 
       <div className="cs-ledger-layout">
         <main className="cs-ledger-main">
@@ -720,8 +779,12 @@ export function CardShell({ card, surface, texture }: CardShellProps) {
         </main>
 
         <aside className="cs-source-rail" aria-label="Source ledger">
-          <SourceDrawer citations={card.citations} marker="Sources" />
+          <SourceDrawer citations={card.citations} marker="Priority sources" priorityLimit={6} />
         </aside>
+      </div>
+
+      <div className="cs-source-ledger-full">
+        <SourceDrawer citations={card.citations} className="cs-source-block-full" marker="Full source ledger" />
       </div>
 
       <footer className="cs-card-footer">

@@ -1,6 +1,6 @@
 export default function LoadingCard() {
   return (
-    <main className="cs-card-page">
+    <main className="cs-card-page" id="main-content">
       <section className="cs-loading-plate" aria-live="polite">
         <div className="cs-loading-topbar">
           <div className="cs-home-brand">

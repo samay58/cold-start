@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
   return (
-    <main className="cs-card-page">
+    <main className="cs-card-page" id="main-content">
       <article className="cs-card">
         <h1 className="cs-title">Privacy</h1>
         <p>Cold Start reads the company domain you ask it to analyze and stores source records and provider results used to generate the cited card.</p>

@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getFullCachedCard: vi.fn(),
-  getPublicCachedCard: vi.fn()
+  getPublicCachedCardProfile: vi.fn()
 }));
 
 vi.mock("../src/lib/cards", () => ({
   getFullCachedCard: mocks.getFullCachedCard,
-  getPublicCachedCard: mocks.getPublicCachedCard
+  getPublicCachedCardProfile: mocks.getPublicCachedCardProfile
 }));
 
 const { generateMetadata } = await import("../src/app/c/[slug]/page");
@@ -18,29 +18,32 @@ function params(slug = "cartesia") {
 
 describe("public card metadata", () => {
   it("uses public card fields for page metadata", async () => {
-    mocks.getPublicCachedCard.mockResolvedValue({
-      slug: "cartesia",
-      domain: "cartesia.ai",
-      identity: {
-        name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["c1"] },
-        oneLiner: {
-          value: "Real-time multimodal intelligence for audio products.",
-          status: "verified",
-          confidence: "high",
-          citationIds: ["c1"]
-        },
-        description: {
-          value: {
-            shortDescription: "Realtime audio intelligence for developers building voice products.",
-            concept: "Low-latency audio intelligence infrastructure.",
-            serves: "Developers building voice agents and speech products.",
-            mechanism: "APIs and models for realtime audio understanding and generation."
+    mocks.getPublicCachedCardProfile.mockResolvedValue({
+      card: {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        identity: {
+          name: { value: "Cartesia", status: "verified", confidence: "high", citationIds: ["c1"] },
+          oneLiner: {
+            value: "Real-time multimodal intelligence for audio products.",
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"]
           },
-          status: "verified",
-          confidence: "high",
-          citationIds: ["c1"]
+          description: {
+            value: {
+              shortDescription: "Realtime audio intelligence for developers building voice products.",
+              concept: "Low-latency audio intelligence infrastructure.",
+              serves: "Developers building voice agents and speech products.",
+              mechanism: "APIs and models for realtime audio understanding and generation."
+            },
+            status: "verified",
+            confidence: "high",
+            citationIds: ["c1"]
+          }
         }
-      }
+      },
+      sections: []
     });
 
     const metadata = await generateMetadata(params());
@@ -54,7 +57,7 @@ describe("public card metadata", () => {
         images: ["/c/cartesia/opengraph-image"]
       }
     });
-    expect(mocks.getPublicCachedCard).toHaveBeenCalledWith("cartesia");
+    expect(mocks.getPublicCachedCardProfile).toHaveBeenCalledWith("cartesia");
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
 });

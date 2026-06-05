@@ -1,5 +1,5 @@
 import type { ResolvedFact } from "@cold-start/core";
-import { CitationMarker } from "./CitationMarker";
+import { CitationGroup } from "./CitationGroup";
 
 const undisclosedText = "not publicly disclosed";
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -182,9 +182,7 @@ export function FactRow<T>({
       <div className="cs-fact-label">{label}</div>
       <div className={mono ? "cs-fact-value cs-mono" : "cs-fact-value"}>
         {format ? format(fact.value) : formatValue(fact.value)}
-        {fact.citationIds.map((id) => (
-          <CitationMarker id={id} key={id} />
-        ))}
+        <CitationGroup citationIds={fact.citationIds} />
       </div>
     </div>
   );

@@ -157,7 +157,8 @@ describe("CardShell", () => {
     expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Apr 2024/).length).toBeGreaterThan(0);
     expect(screen.getByText("NEA, IVP")).toBeTruthy();
-    expect(screen.getByText("Sources")).toBeTruthy();
+    expect(screen.getByText("Priority sources")).toBeTruthy();
+    expect(screen.getByText("Full source ledger")).toBeTruthy();
     expect(screen.getByText("Source mix")).toBeTruthy();
     expect(screen.getByText("1 independent")).toBeTruthy();
     expect(screen.getByText("2 company")).toBeTruthy();
@@ -231,7 +232,9 @@ describe("CardShell", () => {
     render(<CardShell card={unsafeCard} surface="web" />);
 
     expect(screen.getByText("Unsafe signal").closest("a")).toBeNull();
-    expect(screen.getByText("Unsafe citation").closest("a")).toBeNull();
+    for (const node of screen.getAllByText("Unsafe citation")) {
+      expect(node.closest("a")).toBeNull();
+    }
   });
 
   it("degrades sparse public cards without dead sections", () => {

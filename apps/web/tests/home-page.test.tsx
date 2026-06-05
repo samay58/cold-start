@@ -9,6 +9,14 @@ vi.mock("../src/lib/cards", () => ({
   getPublicProfileIndex: mocks.getPublicProfileIndex
 }));
 
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn
+}));
+
+vi.mock("next/server", () => ({
+  connection: vi.fn(async () => undefined)
+}));
+
 const { default: HomePage } = await import("../src/app/page");
 
 function fact<T>(value: T | null, citationIds = value === null ? [] : ["c1"]) {
@@ -134,8 +142,8 @@ function summaryWithDisplayMoney(slug: string, name: string, generatedAt: string
   };
 }
 
-async function renderHome(company?: string) {
-  const element = await HomePage({ searchParams: Promise.resolve(company ? { company } : {}) });
+async function renderHome(searchParams: { company?: string; q?: string; sort?: string } = {}) {
+  const element = await HomePage({ searchParams: Promise.resolve(searchParams) });
   return renderToStaticMarkup(element);
 }
 
@@ -150,7 +158,7 @@ describe("HomePage", () => {
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
     ]);
 
-    const html = await renderHome("cartesia");
+    const html = await renderHome({ company: "cartesia" });
 
     expect(html).toContain('href="/?company=cartesia"');
     expect(html).toContain('aria-current="page"');
@@ -168,7 +176,7 @@ describe("HomePage", () => {
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
     ]);
 
-    const html = await renderHome("missing");
+    const html = await renderHome({ company: "missing" });
 
     expect(html).toContain('aria-label="ElevenLabs preview"');
     expect(html).toContain('href="/c/elevenlabs"');
@@ -188,9 +196,23 @@ describe("HomePage", () => {
       summaryWithDisplayMoney("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
     ]);
 
-    const html = await renderHome("cartesia");
+    const html = await renderHome({ company: "cartesia" });
 
     expect(html).toContain("$91M");
     expect(html).not.toContain("$$91M");
+  });
+
+  it("preserves search and sort state in company links", async () => {
+    mocks.getPublicProfileIndex.mockResolvedValue([
+      summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
+      summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
+    ]);
+
+    const html = await renderHome({ q: "cartesia", sort: "sources" });
+
+    expect(html).toContain('value="cartesia"');
+    expect(html).toContain('href="/?company=cartesia&amp;q=cartesia&amp;sort=sources"');
+    expect(html).toContain("1 match");
+    expect(html).not.toContain("ElevenLabs preview");
   });
 });

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -30,20 +30,6 @@ const plexSans = IBM_Plex_Sans({
   display: "swap"
 });
 
-const plexSerif = IBM_Plex_Serif({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-serif-next",
-  display: "swap"
-});
-
-const plexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-mono-next",
-  display: "swap"
-});
-
 const siteOrigin = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start.semitechie.vc";
 
 export const metadata: Metadata = {
@@ -65,8 +51,11 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} ${umami.variable} ${textual.variable}`} suppressHydrationWarning>
-      <body>{children}</body>
+    <html lang="en" className={`${plexSans.variable} ${umami.variable} ${textual.variable}`} suppressHydrationWarning>
+      <body>
+        <a className="cs-skip-link" href="#main-content">Skip to content</a>
+        {children}
+      </body>
     </html>
   );
 }

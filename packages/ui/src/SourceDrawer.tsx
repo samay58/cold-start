@@ -43,50 +43,67 @@ function hostnameFor(url: string | null | undefined): string | null {
   }
 }
 
-export function SourceDrawer({ citations, marker = "Sources" }: { citations: Citation[]; marker?: string }) {
+function SourceItem({ citation, includeDomId }: { citation: Citation; includeDomId: boolean }) {
+  const href = safeExternalHref(citation.url);
+  const sourceClass = sourceClassForCitation(citation);
+  const host = hostnameFor(citation.url);
+  const fetched = formatMediumDate(citation.fetchedAt);
+
+  return (
+    <li className="cs-source-item" data-class={sourceClass} {...(includeDomId ? { id: sourceDomId(citation.id) } : {})}>
+      <span className="cs-source-marker">[{citation.id}]</span>
+      <span className="cs-source-body">
+        {href ? (
+          <a className="cs-source-title" href={href} target="_blank" rel="noreferrer">{citation.title}</a>
+        ) : (
+          <span className="cs-source-title">{citation.title}</span>
+        )}
+        <span className="cs-source-meta">
+          <span className="cs-source-class">{(citation.sourceQuality ?? sourceQualityForSource(citation)).label}</span>
+          <span className="cs-source-sep"> · </span>
+          {host ? <span className="cs-source-host">{host}</span> : null}
+          {host ? <span className="cs-source-sep"> · </span> : null}
+          <span className="cs-source-date">{fetched}</span>
+        </span>
+      </span>
+    </li>
+  );
+}
+
+export function SourceDrawer({
+  citations,
+  className,
+  marker = "Sources",
+  priorityLimit
+}: {
+  citations: Citation[];
+  className?: string;
+  marker?: string;
+  priorityLimit?: number;
+}) {
   const sortedCitations = [...citations].sort((left, right) => {
     const leftQuality = left.sourceQuality ?? sourceQualityForSource(left);
     const rightQuality = right.sourceQuality ?? sourceQualityForSource(right);
     return sourceQualitySortRank(rightQuality.tier) - sourceQualitySortRank(leftQuality.tier);
   });
+  const visibleCitations = typeof priorityLimit === "number" ? sortedCitations.slice(0, priorityLimit) : sortedCitations;
+  const hiddenCount = Math.max(0, sortedCitations.length - visibleCitations.length);
+  const includeDomIds = priorityLimit === undefined;
 
   return (
-    <section className="cs-source-block" aria-label="Sources">
+    <section className={className ? `cs-source-block ${className}` : "cs-source-block"} aria-label="Sources">
       <div className="cs-section-label" data-state="verified">
         <span className="cs-evidence-dot" aria-hidden="true" />
         <h2 className="cs-section-label-text">{marker}</h2>
       </div>
       {citations.length > 0 ? (
         <ol className="cs-source-list">
-          {sortedCitations.map((citation) => {
-            const href = safeExternalHref(citation.url);
-            const sourceClass = sourceClassForCitation(citation);
-            const host = hostnameFor(citation.url);
-            const fetched = formatMediumDate(citation.fetchedAt);
-            return (
-              <li className="cs-source-item" data-class={sourceClass} id={sourceDomId(citation.id)} key={citation.id}>
-                <span className="cs-source-marker">[{citation.id}]</span>
-                <span className="cs-source-body">
-                  {href ? (
-                    <a className="cs-source-title" href={href} target="_blank" rel="noreferrer">{citation.title}</a>
-                  ) : (
-                    <span className="cs-source-title">{citation.title}</span>
-                  )}
-                  <span className="cs-source-meta">
-                    <span className="cs-source-class">{(citation.sourceQuality ?? sourceQualityForSource(citation)).label}</span>
-                    <span className="cs-source-sep"> · </span>
-                    {host ? <span className="cs-source-host">{host}</span> : null}
-                    {host ? <span className="cs-source-sep"> · </span> : null}
-                    <span className="cs-source-date">{fetched}</span>
-                  </span>
-                </span>
-              </li>
-            );
-          })}
+          {visibleCitations.map((citation) => <SourceItem citation={citation} includeDomId={includeDomIds} key={citation.id} />)}
         </ol>
       ) : (
         <p className="cs-empty">No sources on file yet.</p>
       )}
+      {hiddenCount > 0 ? <p className="cs-source-more">{hiddenCount} more in the full ledger below.</p> : null}
     </section>
   );
 }

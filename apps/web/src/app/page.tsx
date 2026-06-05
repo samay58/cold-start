@@ -1,11 +1,13 @@
 import { RESEARCH_SECTION_DEFINITIONS_BY_ID, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import type { PublicCardSummary } from "@cold-start/db";
+import { unstable_cache } from "next/cache";
 import Link from "next/link";
+import { connection } from "next/server";
 import React from "react";
 import { getPublicProfileIndex } from "../lib/cards";
 
 type HomePageProps = {
-  searchParams?: Promise<{ company?: string | string[] }>;
+  searchParams?: Promise<{ company?: string | string[]; q?: string | string[]; sort?: string | string[] }>;
 };
 
 type PublicCard = Omit<ColdStartCard, "synthesis">;
@@ -19,10 +21,28 @@ type SectionPreview = {
   state: "available" | "empty" | "stale";
 };
 
-export const dynamic = "force-dynamic";
+type IndexSort = "recent" | "sources" | "funding" | "name";
+
+export const revalidate = 30;
+
+const visibleCompanyLimit = 72;
+const getCachedPublicProfileIndex = unstable_cache(
+  async () => getPublicProfileIndex(),
+  ["public-profile-index"],
+  { revalidate: 30 }
+);
 
 function selectedCompanyParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function textParam(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+function sortParam(value: string | string[] | undefined): IndexSort {
+  const sort = textParam(value);
+  return sort === "sources" || sort === "funding" || sort === "name" ? sort : "recent";
 }
 
 function selectedSummary(summaries: PublicCardSummary[], slug: string | undefined) {
@@ -86,6 +106,51 @@ function companyMeta(summary: PublicCardSummary) {
   ].filter((item): item is string => Boolean(item));
 }
 
+function matchesQuery(summary: PublicCardSummary, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = [
+    summary.name,
+    summary.domain,
+    summary.slug,
+    summary.lastRoundName,
+    summary.card.identity.description?.value?.shortDescription,
+    summary.card.identity.oneLiner.value
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes(query.toLowerCase());
+}
+
+function sortSummaries(summaries: PublicCardSummary[], sort: IndexSort) {
+  const copy = [...summaries];
+
+  if (sort === "name") {
+    return copy.sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  if (sort === "sources") {
+    return copy.sort((left, right) => right.sourceCount - left.sourceCount || left.name.localeCompare(right.name));
+  }
+
+  if (sort === "funding") {
+    return copy.sort((left, right) => (right.totalRaisedUsd ?? -1) - (left.totalRaisedUsd ?? -1) || left.name.localeCompare(right.name));
+  }
+
+  return copy.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt));
+}
+
+function companyHref(slug: string, query: { q: string; sort: IndexSort }) {
+  const params = new URLSearchParams({ company: slug });
+  if (query.q) {
+    params.set("q", query.q);
+  }
+  if (query.sort !== "recent") {
+    params.set("sort", query.sort);
+  }
+  return `/?${params.toString()}`;
+}
+
 function sectionPreview(section: ResearchSection, card: PublicCard): SectionPreview {
   const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
   const content = section.content;
@@ -106,11 +171,11 @@ function sectionPreview(section: ResearchSection, card: PublicCard): SectionPrev
   };
 }
 
-function CompanyRow({ selected, summary }: { selected: boolean; summary: PublicCardSummary }) {
+function CompanyRow({ query, selected, summary }: { query: { q: string; sort: IndexSort }; selected: boolean; summary: PublicCardSummary }) {
   const meta = companyMeta(summary);
 
   return (
-    <Link aria-current={selected ? "page" : undefined} className="cs-company-row" data-selected={selected ? "true" : "false"} href={`/?company=${summary.slug}`}>
+    <Link aria-current={selected ? "page" : undefined} className="cs-company-row" data-selected={selected ? "true" : "false"} href={companyHref(summary.slug, query)}>
       <span className="cs-company-row-main">
         <strong>{summary.name}</strong>
         <small>{summary.domain}</small>
@@ -180,6 +245,7 @@ function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
 
         <div className="cs-index-actions">
           <Link className="cs-index-primary" href={`/c/${summary.slug}`}>Open full card</Link>
+          <a className="cs-index-secondary" href={`https://${summary.domain}`} target="_blank" rel="noreferrer">Visit site</a>
         </div>
       </div>
 
@@ -200,7 +266,7 @@ function ProfilePreview({ summary }: { summary: PublicCardSummary }) {
 
 function EmptyState() {
   return (
-    <main className="cs-home">
+    <main className="cs-home" id="main-content">
       <section className="cs-index-empty" aria-label="Cold Start">
         <div className="cs-brand-lockup">
           <span aria-hidden="true" />
@@ -214,42 +280,86 @@ function EmptyState() {
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const summaries = await getPublicProfileIndex();
+  await connection();
+  const summaries = await getCachedPublicProfileIndex();
 
   if (summaries.length === 0) {
     return <EmptyState />;
   }
 
   const params = searchParams ? await searchParams : {};
-  const selected = selectedSummary(summaries, selectedCompanyParam(params.company));
-  const orderedSummaries = selected ? [selected, ...summaries.filter((summary) => summary.slug !== selected.slug)] : summaries;
+  const query = {
+    q: textParam(params.q),
+    sort: sortParam(params.sort)
+  };
+  const requestedCompany = selectedCompanyParam(params.company);
+  const filteredSummaries = sortSummaries(summaries.filter((summary) => matchesQuery(summary, query.q)), query.sort);
+  const selected = filteredSummaries.length > 0 ? selectedSummary(filteredSummaries, requestedCompany) : null;
+  const orderedSummaries = selected
+    ? [selected, ...filteredSummaries.filter((summary) => summary.slug !== selected.slug)]
+    : filteredSummaries;
+  const visibleSummaries = orderedSummaries.slice(0, visibleCompanyLimit);
+  const hiddenCount = Math.max(0, orderedSummaries.length - visibleSummaries.length);
 
   return (
-    <main className="cs-home">
+    <main className="cs-home" id="main-content">
       <section className="cs-index-shell" aria-label="Cold Start public profiles">
         <header className="cs-index-masthead">
           <div className="cs-brand-lockup">
             <span aria-hidden="true" />
             <strong>Cold Start</strong>
           </div>
-          <h1>Sourced company cards for first-pass diligence.</h1>
-          <p>Facts stay public. Judgment stays gated. The index below is a working shelf of profiles that cleared the source gate.</p>
-          <span>{countLabel(summaries.length, "profile")}</span>
+          <div className="cs-index-masthead-copy">
+            <h1>Sourced company cards for first-pass diligence.</h1>
+            <p>Facts stay public. Judgment stays gated. Use the shelf to scan source-backed profiles, then open the full public card when something earns another minute.</p>
+          </div>
+          <div className="cs-index-masthead-count">
+            <strong>{summaries.length}</strong>
+            <span>profiles filed</span>
+          </div>
         </header>
 
         <aside className="cs-index-list" aria-label="Companies">
           <div className="cs-index-list-head">
             <h2>Companies</h2>
-            <span>{summaries.length}</span>
+            <span>{countLabel(filteredSummaries.length, "match", "matches")}</span>
           </div>
+          <form className="cs-index-controls" action="/" method="get">
+            <label>
+              <span>Search</span>
+              <input autoComplete="off" name="q" type="search" defaultValue={query.q} placeholder="browserbase, ai, funding…" />
+            </label>
+            <label>
+              <span>Sort</span>
+              <select name="sort" defaultValue={query.sort}>
+                <option value="recent">Recently filed</option>
+                <option value="sources">Most sources</option>
+                <option value="funding">Most funding</option>
+                <option value="name">Company name</option>
+              </select>
+            </label>
+            <button type="submit">Apply</button>
+          </form>
           <nav className="cs-company-list" aria-label="Select company">
-            {orderedSummaries.map((summary) => (
-              <CompanyRow key={summary.slug} selected={selected?.slug === summary.slug} summary={summary} />
+            {visibleSummaries.map((summary) => (
+              <CompanyRow key={summary.slug} query={query} selected={selected?.slug === summary.slug} summary={summary} />
             ))}
           </nav>
+          {hiddenCount > 0 ? (
+            <p className="cs-index-list-note">
+              Showing {visibleSummaries.length} of {orderedSummaries.length}. Search to narrow the shelf.
+            </p>
+          ) : null}
         </aside>
 
-        {selected ? <ProfilePreview summary={selected} /> : null}
+        {selected ? (
+          <ProfilePreview summary={selected} />
+        ) : (
+          <section className="cs-index-no-results">
+            <h2>No matching profiles.</h2>
+            <p>Try a company, domain, round name, or category term.</p>
+          </section>
+        )}
       </section>
     </main>
   );

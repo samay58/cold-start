@@ -2,8 +2,7 @@ import { CardShell } from "@cold-start/ui";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { getPublicCachedCard } from "../../../lib/cards";
-import { CardTexture } from "../../CardTexture";
+import { getPublicCachedCardProfile } from "../../../lib/cards";
 
 type CompanyCardPageProps = {
   params: Promise<{ slug: string }>;
@@ -12,21 +11,21 @@ type CompanyCardPageProps = {
 const defaultDescription = "Sourced company context card.";
 export const revalidate = 15;
 
-const getPublicCardForPage = cache((slug: string) => getPublicCachedCard(slug));
+const getPublicCardForPage = cache((slug: string) => getPublicCachedCardProfile(slug));
 
 function metadataTitle(name: string) {
   return `${name} | Cold Start`;
 }
 
-function metadataDescription(card: Awaited<ReturnType<typeof getPublicCachedCard>>) {
-  return card?.identity.description?.value?.shortDescription ?? card?.identity.oneLiner.value ?? defaultDescription;
+function metadataDescription(card: Awaited<ReturnType<typeof getPublicCardForPage>>) {
+  return card?.card.identity.description?.value?.shortDescription ?? card?.card.identity.oneLiner.value ?? defaultDescription;
 }
 
 export async function generateMetadata({ params }: CompanyCardPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const card = await getPublicCardForPage(slug);
-  const name = card?.identity.name.value ?? slug;
-  const description = metadataDescription(card);
+  const profile = await getPublicCardForPage(slug);
+  const name = profile?.card.identity.name.value ?? slug;
+  const description = metadataDescription(profile);
   const title = metadataTitle(name);
 
   return {
@@ -49,15 +48,15 @@ export async function generateMetadata({ params }: CompanyCardPageProps): Promis
 
 export default async function CompanyCardPage({ params }: CompanyCardPageProps) {
   const { slug } = await params;
-  const card = await getPublicCardForPage(slug);
+  const profile = await getPublicCardForPage(slug);
 
-  if (!card) {
+  if (!profile) {
     notFound();
   }
 
   return (
-    <main className="cs-card-page">
-      <CardShell card={card} surface="web" texture={<CardTexture />} />
+    <main className="cs-card-page" id="main-content">
+      <CardShell card={profile.card} sections={profile.sections} surface="web" texture={<span aria-hidden="true" className="cs-card-texture" />} />
     </main>
   );
 }

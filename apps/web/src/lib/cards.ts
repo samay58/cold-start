@@ -3,6 +3,7 @@ import {
   createDb,
   findCardBySlug,
   findPublicCardBySlug,
+  findResearchSectionsBySlug,
   latestProviderFailureSummary,
   listPublicCardSummaries,
   type ProviderFailureSummary,
@@ -15,6 +16,28 @@ export async function getPublicCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);
   const card = await findPublicCardBySlug(db, slug, { allowStale: true });
   return card && hasUsablePublicProfile(card) ? materializeFundingFromCitations(card) : null;
+}
+
+export async function getPublicCachedCardProfile(slug: string) {
+  const db = createDb(webEnv().DATABASE_URL);
+  const [rawCard, storedSections] = await Promise.all([
+    findPublicCardBySlug(db, slug, { allowStale: true }),
+    findResearchSectionsBySlug(db, slug)
+  ]);
+  const card = rawCard && hasUsablePublicProfile(rawCard) ? materializeFundingFromCitations(rawCard) : null;
+
+  if (!card) {
+    return null;
+  }
+
+  return {
+    card,
+    sections: mergeStoredResearchSectionsWithLegacy({
+      card,
+      storedSections: storedSections.filter((section) => section.visibility === "public"),
+      includeGated: false
+    })
+  };
 }
 
 export async function getFullCachedCard(slug: string) {
