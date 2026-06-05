@@ -1,5 +1,5 @@
 import type { Citation } from "@cold-start/core";
-import { sourceQualityForSource } from "@cold-start/core";
+import { sourceQualityForSource, sourceQualityTierRank } from "@cold-start/core";
 import { formatMediumDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
 import { sourceDomId } from "./sourceDomId";
@@ -20,20 +20,6 @@ function sourceClassForCitation(citation: Citation): SourceClass {
   return "company";
 }
 
-function sourceQualitySortRank(tier: NonNullable<Citation["sourceQuality"]>["tier"]) {
-  const rank: Record<NonNullable<Citation["sourceQuality"]>["tier"], number> = {
-    independent_technical: 7,
-    independent_analysis: 6,
-    independent_report: 5,
-    primary_company: 4,
-    press_release: 2,
-    enrichment: 1,
-    unknown: 0
-  };
-
-  return rank[tier];
-}
-
 function hostnameFor(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
@@ -41,6 +27,19 @@ function hostnameFor(url: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+function uniqueCitations(citations: Citation[]) {
+  const seen = new Set<string>();
+
+  return citations.filter((citation) => {
+    if (seen.has(citation.id)) {
+      return false;
+    }
+
+    seen.add(citation.id);
+    return true;
+  });
 }
 
 function SourceItem({ citation, includeDomId }: { citation: Citation; includeDomId: boolean }) {
@@ -81,11 +80,11 @@ export function SourceDrawer({
   marker?: string;
   priorityLimit?: number;
 }) {
-  const sortedCitations = [...citations].sort((left, right) => {
+  const sortedCitations = uniqueCitations([...citations].sort((left, right) => {
     const leftQuality = left.sourceQuality ?? sourceQualityForSource(left);
     const rightQuality = right.sourceQuality ?? sourceQualityForSource(right);
-    return sourceQualitySortRank(rightQuality.tier) - sourceQualitySortRank(leftQuality.tier);
-  });
+    return sourceQualityTierRank(rightQuality.tier) - sourceQualityTierRank(leftQuality.tier);
+  }));
   const visibleCitations = typeof priorityLimit === "number" ? sortedCitations.slice(0, priorityLimit) : sortedCitations;
   const hiddenCount = Math.max(0, sortedCitations.length - visibleCitations.length);
   const includeDomIds = priorityLimit === undefined;
@@ -96,7 +95,7 @@ export function SourceDrawer({
         <span className="cs-evidence-dot" aria-hidden="true" />
         <h2 className="cs-section-label-text">{marker}</h2>
       </div>
-      {citations.length > 0 ? (
+      {sortedCitations.length > 0 ? (
         <ol className="cs-source-list">
           {visibleCitations.map((citation) => <SourceItem citation={citation} includeDomId={includeDomIds} key={citation.id} />)}
         </ol>

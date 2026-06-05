@@ -35,7 +35,7 @@ const pressReleaseHosts = [
   "einpresswire.com",
 ];
 
-export function sourceQualityRank(source: SourceQualityInput): number {
+export function sourceQualityTierRank(tier: SourceQualityTier): number {
   const rank: Record<SourceQualityTier, number> = {
     independent_technical: 7,
     independent_analysis: 6,
@@ -46,7 +46,11 @@ export function sourceQualityRank(source: SourceQualityInput): number {
     unknown: 0,
   };
 
-  return rank[sourceQualityForSource(source).tier];
+  return rank[tier];
+}
+
+export function sourceQualityRank(source: SourceQualityInput): number {
+  return sourceQualityTierRank(sourceQualityForSource(source).tier);
 }
 
 export function sourceQualityForSource(source: SourceQualityInput): SourceQuality {

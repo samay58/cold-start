@@ -1,5 +1,5 @@
 import type { ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
-import { RESEARCH_SECTION_DEFINITIONS_BY_ID, sourceQualityForSource } from "@cold-start/core";
+import { RESEARCH_SECTION_DEFINITIONS_BY_ID, sourceQualityForSource, sourceQualityTierRank } from "@cold-start/core";
 import type { ReactNode } from "react";
 import { CitationGroup } from "./CitationGroup";
 import { FactRow, formatCompactCurrency, formatMediumDate, formatShortDate } from "./FactRow";
@@ -7,6 +7,7 @@ import { safeExternalHref } from "./safeExternalHref";
 import { SourceDrawer } from "./SourceDrawer";
 
 type PublicCard = Omit<ColdStartCard, "synthesis">;
+type CardCitation = ColdStartCard["citations"][number];
 type CardShellProps = {
   card: ColdStartCard | PublicCard;
   sections?: ResearchSection[] | undefined;
@@ -51,7 +52,7 @@ function classifyRound(round: FundingRound): SourceClass {
 
 function citationMix(card: ColdStartCard | PublicCard): { independent: number; reporting: number; company: number; total: number } {
   const counts = { independent: 0, reporting: 0, company: 0, total: 0 };
-  for (const citation of card.citations) {
+  for (const citation of sortedCitations(card)) {
     counts.total += 1;
     const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
     if (tier === "independent_technical" || tier === "independent_analysis") {
@@ -161,22 +162,25 @@ function sourceClassForCitation(citation: ColdStartCard["citations"][number]): S
   return "company";
 }
 
-function sortedCitations(card: ColdStartCard | PublicCard) {
-  const rank: Record<NonNullable<ColdStartCard["citations"][number]["sourceQuality"]>["tier"], number> = {
-    independent_technical: 7,
-    independent_analysis: 6,
-    independent_report: 5,
-    primary_company: 4,
-    press_release: 2,
-    enrichment: 1,
-    unknown: 0
-  };
+function citationRank(citation: CardCitation) {
+  return sourceQualityTierRank((citation.sourceQuality ?? sourceQualityForSource(citation)).tier);
+}
 
-  return [...card.citations].sort((left, right) => {
-    const leftQuality = left.sourceQuality ?? sourceQualityForSource(left);
-    const rightQuality = right.sourceQuality ?? sourceQualityForSource(right);
-    return rank[rightQuality.tier] - rank[leftQuality.tier];
+function uniqueCitations(citations: CardCitation[]) {
+  const seen = new Set<string>();
+
+  return citations.filter((citation) => {
+    if (seen.has(citation.id)) {
+      return false;
+    }
+
+    seen.add(citation.id);
+    return true;
   });
+}
+
+function sortedCitations(card: ColdStartCard | PublicCard) {
+  return uniqueCitations([...card.citations].sort((left, right) => citationRank(right) - citationRank(left)));
 }
 
 function ExtensionMetric({

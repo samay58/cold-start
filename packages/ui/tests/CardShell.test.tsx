@@ -210,6 +210,25 @@ describe("CardShell", () => {
     expect(items[0]?.getAttribute("data-class")).toBe("independent");
   });
 
+  it("deduplicates repeated citation ids before rendering source ledgers", () => {
+    const duplicatedCard: ColdStartCard = {
+      ...card,
+      citations: [
+        ...card.citations,
+        {
+          ...card.citations[1]!,
+          title: "Duplicate funding source"
+        }
+      ]
+    };
+
+    const { container } = render(<CardShell card={publicCard(duplicatedCard)} surface="web" />);
+
+    expect(container.querySelectorAll('.cs-source-block-full .cs-source-item[id="source-c2"]')).toHaveLength(1);
+    expect(screen.queryByText("Duplicate funding source")).toBeNull();
+    expect(screen.getByText("3 sources on file")).toBeTruthy();
+  });
+
   it("renders unsafe signal and citation URLs as plain text", () => {
     const unsafeCard: ColdStartCard = {
       ...card,
