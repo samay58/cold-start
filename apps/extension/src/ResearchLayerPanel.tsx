@@ -311,6 +311,31 @@ function peopleEmailCount(people: CardPerson[]) {
   return people.filter((person) => person.email).length;
 }
 
+function emailKind(email: string, companyDomain: string) {
+  const domain = email.split("@")[1]?.toLowerCase().replace(/^www\./, "") ?? "";
+  const targetDomain = companyDomain.toLowerCase().replace(/^www\./, "");
+  if (domain === targetDomain) {
+    return "work";
+  }
+  if (["gmail.com", "icloud.com", "me.com", "outlook.com", "hotmail.com", "yahoo.com", "proton.me", "protonmail.com"].includes(domain)) {
+    return "personal";
+  }
+  return "other domain";
+}
+
+function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
+  const emails = people.flatMap((person) => person.email ? [person.email] : []);
+  if (emails.length === 0) {
+    return "No email found";
+  }
+
+  const workCount = emails.filter((email) => emailKind(email, companyDomain) === "work").length;
+  if (workCount === emails.length) {
+    return `${workCount} work email${workCount === 1 ? "" : "s"}`;
+  }
+  return `${emails.length} email${emails.length === 1 ? "" : "s"} found`;
+}
+
 function managementConfidence(card: ColdStartCard) {
   const confidenceRank = { high: 3, medium: 2, low: 1 } as const;
   return [card.team.founders, card.team.keyExecs]
@@ -388,12 +413,14 @@ function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
 }
 
 function PeopleLine({
+  companyDomain,
   contactElapsedSeconds = 0,
   contactRun,
   confidence,
   people,
   sourceCount
 }: {
+  companyDomain: string;
   contactElapsedSeconds?: number;
   contactRun?: AnalysisRun | undefined;
   confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
@@ -413,9 +440,7 @@ function PeopleLine({
   const emailCount = peopleEmailCount(people);
   const contactStatus = contactRun
     ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
-    : emailCount > 0
-      ? `${emailCount} verified work email${emailCount === 1 ? "" : "s"}`
-      : "No verified work email found";
+    : peopleEmailSummary(people, companyDomain);
   const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
 
   function copyEmail(email: string) {
@@ -446,6 +471,7 @@ function PeopleLine({
               {person.email ? (
                 <span className="cs-person-email">
                   <a href={`mailto:${person.email}`}>{person.email}</a>
+                  <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
                   <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
                 </span>
               ) : null}
@@ -959,6 +985,7 @@ export function ResearchLayerPanel({
         </div>
         <FactRibbon facts={facts} />
         <PeopleLine
+          companyDomain={card.domain}
           contactElapsedSeconds={contactElapsedSeconds}
           contactRun={contactRun}
           confidence={managementConfidence(card)}

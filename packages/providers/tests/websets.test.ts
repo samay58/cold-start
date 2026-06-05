@@ -39,7 +39,7 @@ describe("websets people email enrichment", () => {
       },
       enrichments: [
         {
-          description: "Current professional work email for this person at sycamore.so. Return null if the only email found belongs to a previous employer, school, investor, or non-sycamore.so domain.",
+          description: "Current professional email for this person at sycamore.so. Return the best current email even when it is personal or on another domain. Return null only when the email clearly belongs to a previous employer, school, investor, or unrelated company.",
           format: "email"
         }
       ]
@@ -47,7 +47,7 @@ describe("websets people email enrichment", () => {
     expect(JSON.stringify(request.body)).not.toContain("Ignored Fourth");
   });
 
-  it("accepts target-domain emails and rejects stale employer emails", async () => {
+  it("accepts current emails and rejects stale employer emails", async () => {
     const fetchJson = vi.fn(async (request: { method: string; url: string }) => {
       if (request.method === "POST") {
         return { id: "ws_1", object: "webset", dashboardUrl: "https://websets.exa.ai/ws_1" };
@@ -86,6 +86,26 @@ describe("websets people email enrichment", () => {
             id: "item_2",
             properties: {
               type: "person",
+              url: "https://linkedin.com/in/tolan-founder",
+              person: {
+                name: "Quinten Farmer",
+                position: "Founder & CEO at Sycamore Labs",
+                company: { name: "Sycamore Labs" }
+              }
+            },
+            enrichments: [
+              {
+                status: "completed",
+                format: "email",
+                result: ["quintendf@gmail.com"],
+                references: [{ title: "Quinten Farmer", url: "https://linkedin.com/in/tolan-founder" }]
+              }
+            ]
+          },
+          {
+            id: "item_3",
+            properties: {
+              type: "person",
               url: "https://linkedin.com/in/sri-viswanath",
               person: {
                 name: "Sri Viswanath",
@@ -113,7 +133,8 @@ describe("websets people email enrichment", () => {
       domain: "sycamore.so",
       peopleHints: [
         { name: "Sri Viswanath", role: "Founder & CEO" },
-        { name: "Amrit Baveja", role: "Founding Team" }
+        { name: "Amrit Baveja", role: "Founding Team" },
+        { name: "Quinten Farmer", role: "Founder & CEO" }
       ],
       fetchJson
     });
@@ -121,10 +142,10 @@ describe("websets people email enrichment", () => {
     expect(result.skipped).toBe(false);
     expect(result.failures).toEqual([]);
     expect(result.trace).toMatchObject({
-      sourceCount: 1,
-      factCount: 1,
-      itemCount: 2,
-      acceptedEmailCount: 1,
+      sourceCount: 2,
+      factCount: 2,
+      itemCount: 3,
+      acceptedEmailCount: 2,
       rejectedEmailCount: 1
     });
     expect(result.facts).toEqual([
@@ -138,6 +159,19 @@ describe("websets people email enrichment", () => {
             role: "Founding Team",
             email: "amrit@sycamore.so",
             sourceUrl: "https://linkedin.com/in/amrit-baveja-693046147"
+          })
+        ]
+      }),
+      expect.objectContaining({
+        path: "team.founders",
+        provider: "websets",
+        endpoint: "exa_websets_people_email",
+        value: [
+          expect.objectContaining({
+            name: "Quinten Farmer",
+            role: "Founder & CEO",
+            email: "quintendf@gmail.com",
+            sourceUrl: "https://linkedin.com/in/tolan-founder"
           })
         ]
       })
@@ -155,6 +189,13 @@ describe("websets people email enrichment", () => {
         role: "Founding Team",
         discoverySource: "people_hint",
         emailFound: "amrit@sycamore.so",
+        emailSource: "websets"
+      },
+      {
+        name: "Quinten Farmer",
+        role: "Founder & CEO",
+        discoverySource: "people_hint",
+        emailFound: "quintendf@gmail.com",
         emailSource: "websets"
       }
     ]);

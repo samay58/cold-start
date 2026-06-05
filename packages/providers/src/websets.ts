@@ -135,7 +135,7 @@ export function buildWebsetsPeopleContactRequest(input: {
       },
       enrichments: [
         {
-          description: `Current professional work email for this person at ${input.domain}. Return null if the only email found belongs to a previous employer, school, investor, or non-${input.domain} domain.`,
+          description: `Current professional email for this person at ${input.domain}. Return the best current email even when it is personal or on another domain. Return null only when the email clearly belongs to a previous employer, school, investor, or unrelated company.`,
           format: "email",
           metadata: {
             domain: input.domain,
@@ -319,9 +319,15 @@ function parseWebsetsItems(input: {
     const sourceUrl = supportedUrl(item.properties?.url) ? item.properties?.url as string : input.dashboardUrl;
     const emails = emailsFromEnrichments(item.enrichments);
     observedEmailCount += emails.length;
-    const targetEmails = emails.filter((email) => emailDomainMatches(email, input.domain));
-    rejectedEmailCount += emails.length - targetEmails.length;
-    const email = targetEmails[0];
+    const targetEmail = emails.find((candidate) => emailDomainMatches(candidate, input.domain));
+    const currentCompanyMatch = itemMatchesTargetCompany(item, input.domain);
+    if (!currentCompanyMatch && !targetEmail) {
+      rejectedEmailCount += emails.length;
+      continue;
+    }
+
+    const email = targetEmail ?? emails[0];
+    rejectedEmailCount += email ? emails.length - 1 : emails.length;
     if (!email) {
       continue;
     }
@@ -449,8 +455,28 @@ function normalizeDomain(value: string) {
   return value.toLowerCase().replace(/^www\./, "");
 }
 
+function companyTermsFromDomain(domain: string) {
+  const normalizedDomain = normalizeDomain(domain);
+  const root = normalizedDomain.split(".")[0] ?? normalizedDomain;
+  return Array.from(new Set([normalizedDomain, root].filter((term) => term.length >= 2)));
+}
+
 function emailDomainMatches(email: string, domain: string) {
   return normalizeDomain(email.split("@")[1] ?? "") === normalizeDomain(domain);
+}
+
+function normalizeCompanyText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9.]+/g, " ").trim();
+}
+
+function itemMatchesTargetCompany(item: WebsetsItem, domain: string) {
+  const haystack = normalizeCompanyText([
+    item.properties?.person?.company?.name,
+    item.properties?.person?.position,
+    item.properties?.description
+  ].filter(Boolean).join(" "));
+  const terms = companyTermsFromDomain(domain);
+  return terms.some((term) => haystack.includes(normalizeCompanyText(term)));
 }
 
 function normalizePersonName(value: string) {

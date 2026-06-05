@@ -3577,6 +3577,20 @@ body,
   font-size: 10px;
 }
 
+.cs-person-email-kind {
+  min-height: 20px;
+  border: 1px solid rgb(204 199 184 / 0.72);
+  border-radius: 6px;
+  padding: 2px 6px;
+  background: rgb(247 245 238 / 0.86);
+  color: rgb(23 26 31 / 0.62);
+  font-size: 9.5px;
+  font-weight: 680;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .cs-layer-running-copy {
   position: relative;
   gap: 8px;
@@ -3926,6 +3940,11 @@ body {
 .cs-person-email button {
   min-height: 20px;
   font-size: 9.5px;
+}
+
+.cs-person-email-kind {
+  min-height: 18px;
+  font-size: 9px;
 }
 
 .cs-person-contact-state {

@@ -579,7 +579,8 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("2 sources");
     expect(container.textContent).toContain("Jessica Lessin");
     expect(container.textContent).toContain("jessica@theinformation.com");
-    expect(container.textContent).toContain("1 verified work email");
+    expect(container.textContent).toContain("1 work email");
+    expect(container.textContent).toContain("work");
     expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeTruthy();
     expect(container.textContent).toContain("Matthew Resnick");
     expect(container.textContent).toContain("Amir Efrati");
@@ -587,6 +588,23 @@ describe("SidePanel generation gate", () => {
     const peopleLine = container.querySelector(".cs-people-line");
     expect(peopleLine?.textContent?.match(/Jessica Lessin/g)).toHaveLength(1);
     expect(container.querySelector(".cs-management-team")).toBeNull();
+    await unmount();
+  });
+
+  it("labels personal contact emails instead of hiding them", async () => {
+    const card = cardWithManagement("tolans.com");
+    card.identity.name = { value: "Tolan", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.team.founders.value = [
+      { name: "Quinten Farmer", role: "Co-founder & CEO", sourceUrl: "https://linkedin.com/in/quinten", email: "quintendf@gmail.com" }
+    ];
+    card.team.keyExecs.value = [];
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "tolans.com", fetchMock });
+
+    expect(container.textContent).toContain("1 email found");
+    expect(container.textContent).toContain("quintendf@gmail.com");
+    expect(container.textContent).toContain("personal");
+    expect(container.textContent).not.toContain("No verified work email found");
     await unmount();
   });
 
