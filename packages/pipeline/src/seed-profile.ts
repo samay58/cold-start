@@ -139,14 +139,13 @@ export function fallbackSectionsFromEvidence(
     snippet: entry.supportingSnippets[0] ?? entry.rawText.slice(0, 280)
   }));
   const firstCitation = citations[0];
-  const firstCitationTitle = firstCitation?.title.trim();
 
   return {
     identity: {
       ...skeleton.identity,
       name: firstCitation
         ? {
-            value: firstCitationTitle && firstCitationTitle !== firstCitation.url ? firstCitationTitle : readableNameFromDomain(skeleton.domain),
+            value: readableNameFromDomain(skeleton.domain),
             status: "inferred",
             confidence: "low",
             citationIds: [firstCitation.id]

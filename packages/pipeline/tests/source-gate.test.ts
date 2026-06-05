@@ -67,6 +67,36 @@ describe("filterSourcesForDomain", () => {
     expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
   });
 
+  it("rejects trusted reporting when it is about a nearby but different company", () => {
+    const result = filterSourcesForDomain({
+      domain: "wabi.ai",
+      sources: [
+        {
+          url: "https://techcrunch.com/2026/05/01/waabi-raises-1b",
+          title: "Waabi raises $1B and expands into robotaxis with Uber",
+          sourceType: "news",
+          fetchedAt: "2026-06-04T00:00:00.000Z",
+          intent: "funding",
+          rawText: "Waabi is an autonomous-trucking company working with Uber."
+        },
+        {
+          url: "https://wabi.ai",
+          title: "Wabi",
+          sourceType: "company_site",
+          fetchedAt: "2026-06-04T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Wabi.ai helps teams build AI workflows."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual(["https://wabi.ai"]);
+    expect(result.rejected[0]).toMatchObject({
+      reason: "low_relevance",
+      source: expect.objectContaining({ url: "https://techcrunch.com/2026/05/01/waabi-raises-1b" })
+    });
+  });
+
   it("summarizes accepted and rejected sources without raw source text", () => {
     const result = filterSourcesForDomain({
       domain: "cartesia.ai",

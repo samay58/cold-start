@@ -86,7 +86,7 @@ function sourceRejectionReason(
     return null;
   }
 
-  if (!hostMatchesTarget && !isTrustedIndependentHost(parsed.host) && !mentionsTarget(source, target)) {
+  if (!hostMatchesTarget && !mentionsTarget(source, target)) {
     return "low_relevance";
   }
 

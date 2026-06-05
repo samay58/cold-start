@@ -4,6 +4,7 @@ import {
   buildSkeletonCard,
   cardWithExtractedSections,
   type ExtractedCardSections,
+  fallbackSectionsFromEvidence,
   finalizeGeneratedCard,
   generateCardForDomain,
   generateCardForDomainWithTrace,
@@ -41,6 +42,25 @@ describe("buildSkeletonCard", () => {
 
     expect(card.identity.oneLiner.citationIds).toEqual([]);
     expect(card.funding.totalRaisedUsd.citationIds).toEqual([]);
+  });
+
+  it("uses the domain-derived company name when fallback evidence starts with a news headline", () => {
+    const skeleton = buildSkeletonCard("wabi.ai");
+    const sections = fallbackSectionsFromEvidence(skeleton, [
+      {
+        id: "e1",
+        url: "https://techcrunch.com/2026/05/01/waabi-raises-1b",
+        title: "Waabi raises $1B and expands into robotaxis with Uber | TechCrunch",
+        sourceType: "news",
+        fetchedAt: "2026-06-04T00:00:00.000Z",
+        intents: ["funding"],
+        authorityScore: 12,
+        rawText: "Waabi raised $1 billion and works on autonomous trucking.",
+        supportingSnippets: ["Waabi raised $1 billion and works on autonomous trucking."]
+      }
+    ]);
+
+    expect(sections?.identity.name.value).toBe("Wabi");
   });
 });
 
