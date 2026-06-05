@@ -36,6 +36,7 @@ export type ResearchLayerDisplay = {
   items?: Array<{
     title: string;
     body?: string;
+    kind?: "evidence" | "question";
     meta?: string;
   }> | undefined;
   rows?: Array<{
@@ -212,11 +213,13 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
   const items = content.items.map((item) => ({
     title: item.label,
     body: stripCitationMarkers(item.text),
+    kind: "evidence" as const,
     ...(item.meta ? { meta: item.meta } : {})
   }));
   const questions = content.questions.map((question, index) => ({
     title: `Question ${index + 1}`,
-    body: stripCitationMarkers(question)
+    body: stripCitationMarkers(question),
+    kind: "question" as const
   }));
   const rows = section.sectionId === "market" && content.napkinMath
     ? [
@@ -445,7 +448,8 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       body: textFromList(card.synthesis.openQuestions, "No open questions survived verification."),
       items: card.synthesis.openQuestions.map((question, index) => ({
         title: `Question ${index + 1}`,
-        body: stripCitationMarkers(question)
+        body: stripCitationMarkers(question),
+        kind: "question" as const
       })),
       sources: [],
       sourceCount: 0,

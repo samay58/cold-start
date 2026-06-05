@@ -2368,6 +2368,74 @@ button {
   letter-spacing: 0.05em;
 }
 
+.cs-layer-questions {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgb(110 92 158 / 0.18);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(247 245 238 / 0.68)),
+    rgb(110 92 158 / 0.035);
+}
+
+.cs-layer-questions-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-seal);
+}
+
+.cs-layer-questions-head > span {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid rgb(110 92 158 / 0.28);
+  border-radius: 6px;
+  background: rgb(255 253 248 / 0.82);
+  font: 650 12px/1 var(--font-text);
+}
+
+.cs-layer-questions-head strong {
+  font: 680 13px/1.18 var(--font-display);
+}
+
+.cs-layer-questions ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-layer-questions li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding-top: 8px;
+  border-top: 1px solid rgb(204 199 184 / 0.58);
+}
+
+.cs-layer-questions li > span {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1px solid rgb(204 199 184 / 0.78);
+  border-radius: 5px;
+  color: var(--color-seal);
+  font: 600 10px/1 var(--font-text);
+}
+
+.cs-layer-questions p {
+  margin: 1px 0 0;
+  color: rgb(23 26 31 / 0.74);
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
 .cs-intake-panel .cs-panel-header h1 {
   font-size: 27px;
 }

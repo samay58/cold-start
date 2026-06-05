@@ -658,19 +658,39 @@ function LayerContent({
   );
 
   if (display.items && display.items.length > 0) {
+    const evidenceItems = display.items.filter((item) => item.kind !== "question");
+    const questionItems = display.items.filter((item) => item.kind === "question");
     return (
       <>
-        <ul className={`cs-layer-items ${display.id === "investors" ? "cs-layer-items-funding" : ""}`.trim()}>
-          {display.items.map((item) => (
-            <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
-              <div>
-                <strong>{item.title}</strong>
-                {item.body ? <p>{item.body}</p> : null}
-              </div>
-              {item.meta ? <span>{item.meta}</span> : null}
-            </li>
-          ))}
-        </ul>
+        {evidenceItems.length > 0 ? (
+          <ul className={`cs-layer-items ${display.id === "investors" ? "cs-layer-items-funding" : ""}`.trim()}>
+            {evidenceItems.map((item) => (
+              <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
+                <div>
+                  <strong>{item.title}</strong>
+                  {item.body ? <p>{item.body}</p> : null}
+                </div>
+                {item.meta ? <span>{item.meta}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {questionItems.length > 0 ? (
+          <section className="cs-layer-questions" aria-label="Open questions">
+            <div className="cs-layer-questions-head">
+              <span aria-hidden="true">?</span>
+              <strong>Open questions</strong>
+            </div>
+            <ol>
+              {questionItems.map((item) => (
+                <li key={`${item.title}-${item.body ?? ""}`}>
+                  <span>{item.title.replace(/^Question\s+/i, "")}</span>
+                  {item.body ? <p>{item.body}</p> : null}
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
         {sourceChips}
       </>
     );

@@ -1326,6 +1326,24 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("groups open questions separately from evidence rows", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+    const nextQuestionButton = interactiveControls(container).find((button) => button.textContent?.includes("Next question"));
+    expect(nextQuestionButton).toBeTruthy();
+
+    await act(async () => {
+      nextQuestionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const questionGroup = container.querySelector(".cs-layer-questions");
+    expect(questionGroup).toBeTruthy();
+    expect(questionGroup?.textContent).toContain("Open questions");
+    expect(questionGroup?.textContent).toContain("Who owns the budget?");
+    expect(container.querySelector('[data-layer-id="openQuestions"] .cs-layer-items')).toBeNull();
+    await unmount();
+  });
+
   it("opens empty card-backed enrichments without automatically refreshing the company profile", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
