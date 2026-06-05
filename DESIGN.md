@@ -13,7 +13,7 @@ The direction inherits the Signal Ledger's evidence discipline and adds the auth
 - **Signal Ledger:** disciplined but flat. Plex Sans everywhere, blue-and-gold accents, and clean rules read as competent default rather than authored.
 - **Compliance software:** the ever-present risk. If trust becomes badges, filters, gray tables, and disclaimers, the product loses all warmth and judgment.
 
-The Catalogue Card keeps the evidence discipline and earns its character from specific choices: the At Umami display face, one chosen seal color, classification marks, filed and vetted stamps, and a parchment surface that survives scrutiny. Taste comes from those choices, not from chrome.
+The Catalogue Card keeps the evidence discipline and earns its character from specific choices: a sharp grotesk display voice on the public web surface, At Umami inside the extension workbench, one chosen seal color, classification marks, filed and vetted stamps, and a parchment surface that survives scrutiny. Taste comes from those choices, not from chrome.
 
 ## Core Ethos
 
@@ -29,24 +29,24 @@ The page has editorial judgment, but it is not magazine cosplay. It has instrume
 
 ## Typography
 
-Use three families, each with a narrow job. Two are licensed faces from arillatype.studio, self-hosted as variable webfonts on both surfaces.
+Use three active roles, each with a narrow job. The public web surface uses a GT America-ready grotesk display stack. The extension keeps At Umami as its display face. At Textual remains the shared evidence face.
 
 | Role | Face | How it is used |
 |------|------|----------------|
-| Display | `At Umami` 600-800 | Company name, hero headings, and section labels. Heavy and rounded; the load-bearing taste signal. Distinctly display, never used as body. |
+| Display | Public web: `GT America` if the licensed webfont is present, otherwise `IBM Plex Sans` 700-780. Extension: `At Umami` 600-800. | Company name, hero headings, and section labels. Public web should feel like crisp editorial-tech grotesk, not a rounded poster. Extension can keep the warmer catalogue-card voice. |
 | Body | `IBM Plex Sans` 400-760 | Navigation, labels, buttons, tables, metadata, body copy, values, claims. Clear, slightly engineered, not precious. Tabular figures on for numbers. |
 | Receipt / evidence | `At Textual` 400-600 | Call numbers, source marks, run-step indices, and the small index-card numerics. A licensed monospaced face: the receipt nod, never a generic code font. |
 
 At Textual is the precision face. Do not turn the surface into monospace. The contrast only works when the receipt marks feel earned. `Berkeley Mono` / `IBM Plex Mono` remain defined as `--font-mono` for dense numeric ledgers, but At Textual carries the index-card character.
 
-Headings use sentence case, not shouty labels. A section can say `Money`, `People`, `Proof`, `Risk`, or `Sources`. It should not say `THE NUMBERS`, `WHO SAID YES`, or anything that reads like a concept poster. Section labels render in At Umami in the seal color; dense field labels stay small body at `0.04em` to `0.14em`.
+Headings use sentence case, not shouty labels. A section can say `Money`, `People`, `Proof`, `Risk`, or `Sources`. It should not say `THE NUMBERS`, `WHO SAID YES`, or anything that reads like a concept poster. Section labels render in the active display face in the seal color; dense field labels stay small body at `0.04em` to `0.14em`.
 
 Type scale:
 
 | Token | Size | Use |
 |------|------|-----|
-| `display` | `clamp(52px, 7vw, 88px)` web, `clamp(28px, 6vw, 34px)` panel | Company name. At Umami 770-800, tight tracking. |
-| `section` | `13px-17px` | Section labels. At Umami 600 in the seal color, sentence case. |
+| `display` | `clamp(50px, 6.4vw, 82px)` web, `clamp(28px, 6vw, 34px)` panel | Company name. Public web uses the grotesk display stack at 700-780 with tight tracking; panel uses At Umami 770-800. |
+| `section` | `13px-17px` | Section labels. Active display face in the seal color, sentence case. |
 | `claim` | `15px-18px` | Short sourced thesis text. IBM Plex Sans 400-500. |
 | `body` | `12px-16px` | Core reading text. IBM Plex Sans 400-500. |
 | `receipt` | `9px-13px` | Call numbers, source marks, step indices, dates. At Textual, tabular. |
@@ -56,7 +56,7 @@ Kill on sight: Inter, Geist, Roboto, Space Grotesk, JetBrains Mono, Fraunces, Mo
 Prompt wording for typography:
 
 ```text
-Use At Umami (heavy rounded display) for the company name, hero headings, and section labels, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual (a licensed monospaced face) only for call numbers, source marks, step indices, and small index-card numerics. Keep labels sentence case. Avoid wide all-caps section styling, zine typography, generic code mono as a voice, Fraunces, Space Grotesk, JetBrains Mono, Inter, Geist, Roboto, and generic compressed display fonts.
+Use the public web grotesk display stack for the website company name, hero headings, and section labels. If a licensed GT America webfont is added, it should own `--font-gt-america-next`; until then IBM Plex Sans carries that role. Keep At Umami for the extension workbench display voice, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual only for call numbers, source marks, step indices, and small index-card numerics. Keep labels sentence case. Avoid wide all-caps section styling, zine typography, generic code mono as a voice, Fraunces, Space Grotesk, JetBrains Mono, Inter, Geist, Roboto, and generic compressed display fonts.
 ```
 
 ## Color System
@@ -172,7 +172,7 @@ Primary public surface. Field background outside, plate background inside, 6px r
 
 ### Header Stack
 
-Company name, domain, and generation metadata. The name is the only display-scale text, set in At Umami. A filed stamp and a seal call number sit alongside; the call number and generated state use At Textual so the reader understands they are machine-resolved facts.
+Company name, domain, and generation metadata. The name is the only display-scale text. On public web it uses the grotesk display stack; in the extension it uses At Umami. A filed stamp and a seal call number sit alongside; the call number and generated state use At Textual so the reader understands they are machine-resolved facts.
 
 ### Key Value Strip
 
@@ -315,7 +315,7 @@ Sentences should be declarative. Claims must carry citations. If a statement can
 Use this when asking an image model to extend the current app:
 
 ```text
-Design a UX concept for Cold Start as a kept catalogue card. The product is an investor research surface for sourced company context, not a dashboard, zine, or chat UI. Surface is warm parchment (paper #F4EDDC on manila ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for the top edge, call number, filed and vetted stamps, and section labels. Source quality appears through tiny evidence marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. Typography uses At Umami (heavy rounded display) for the company name and section labels, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual (a licensed monospaced face) only for call numbers, source marks, and step indices. The public card is a two-zone record with a filed stamp, display company name, and key values at top, evidence-led ruled sections below, a source ledger as tracings, and a rotated vetted stamp in the footer, sitting on a faint stacked-card shadow over the manila ground. The extension is a compact workbench with expandable research module rows, real generation events, source counts, and cited outputs in the same language. Use 6px radii, 1px rules, dense but breathable grids, classification dots, citation markers like [1], and mechanical state motion. No dark mode, no gradient accent fields, no glass, no hazard yellow, no SaaS blue-purple palette, no zine typography, no ASCII charts, no decorative icons, no soft SaaS shadows, no Fraunces, no Mona Sans, no Space Grotesk, no JetBrains Mono, no Inter, no Geist, no Roboto.
+Design a UX concept for Cold Start as a kept catalogue card. The product is an investor research surface for sourced company context, not a dashboard, zine, or chat UI. Surface is warm parchment (paper #F4EDDC on manila ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for the top edge, call number, filed and vetted stamps, and section labels. Source quality appears through tiny evidence marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. Typography uses a GT America-ready grotesk display stack for the public web company name and section labels, At Umami for extension display moments, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual only for call numbers, source marks, and step indices. The public card is a two-zone record with a filed stamp, display company name, and key values at top, evidence-led ruled sections below, a source ledger as tracings, and a rotated vetted stamp in the footer, sitting on a faint stacked-card shadow over the manila ground. The extension is a compact workbench with expandable research module rows, real generation events, source counts, and cited outputs in the same language. Use 6px radii, 1px rules, dense but breathable grids, classification dots, citation markers like [1], and mechanical state motion. No dark mode, no gradient accent fields, no glass, no hazard yellow, no SaaS blue-purple palette, no zine typography, no ASCII charts, no decorative icons, no soft SaaS shadows, no Fraunces, no Mona Sans, no Space Grotesk, no JetBrains Mono, no Inter, no Geist, no Roboto.
 ```
 
 ## Implementation Plan

@@ -1,6 +1,10 @@
 @import "@cold-start/ui/tokens.css";
 @import "tailwindcss";
 
+:root {
+  --font-display: var(--font-gt-america-next, "GT America"), var(--font-plex-sans-next, "IBM Plex Sans"), sans-serif;
+}
+
 html,
 body {
   margin: 0;
@@ -118,10 +122,10 @@ a {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(40px, 6.2vw, 86px);
-  font-weight: 680;
-  letter-spacing: -0.035em;
-  line-height: 0.94;
+  font-size: clamp(38px, 5.8vw, 78px);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
 }
 
 .cs-index-masthead p {
@@ -298,10 +302,10 @@ a {
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: clamp(58px, 9vw, 116px);
-  font-weight: 690;
-  letter-spacing: -0.045em;
-  line-height: 0.9;
+  font-size: clamp(56px, 8vw, 104px);
+  font-weight: 780;
+  letter-spacing: -0.06em;
+  line-height: 0.93;
   overflow-wrap: anywhere;
 }
 
@@ -588,8 +592,8 @@ a {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 42px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-weight: 760;
+  letter-spacing: -0.045em;
   line-height: 1;
 }
 
@@ -722,13 +726,12 @@ a {
 .cs-index-preview-main h1,
 .cs-index-empty h1,
 .cs-loading-body h1 {
-  letter-spacing: 0;
   text-wrap: balance;
 }
 
 .cs-index-masthead h1 {
   max-width: 680px;
-  font-size: 58px;
+  font-size: clamp(44px, 4.8vw, 62px);
 }
 
 .cs-index-masthead p {
@@ -773,8 +776,8 @@ a {
 
 .cs-index-preview-main h1 {
   max-width: 820px;
-  font-size: clamp(64px, 7vw, 92px);
-  line-height: 0.95;
+  font-size: clamp(58px, 6.6vw, 84px);
+  line-height: 0.96;
   overflow-wrap: normal;
   word-break: normal;
 }
@@ -833,7 +836,7 @@ a {
   }
 
   .cs-index-masthead h1 {
-    font-size: 42px;
+    font-size: 40px;
   }
 
   .cs-index-masthead p {
@@ -843,8 +846,9 @@ a {
   .cs-index-preview-main h1,
   .cs-index-empty h1,
   .cs-loading-body h1 {
-    font-size: 46px;
-    line-height: 1;
+    font-size: 44px;
+    letter-spacing: -0.05em;
+    line-height: 0.98;
   }
 
   .cs-index-facts {

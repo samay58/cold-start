@@ -1180,10 +1180,10 @@
 .cs-card[data-surface="web"] .cs-title {
   max-width: none;
   font-family: var(--font-display);
-  font-size: clamp(52px, 7vw, 88px);
-  font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 0.88;
+  font-size: clamp(50px, 6.4vw, 82px);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.94;
   color: var(--cat-ink);
 }
 
@@ -1276,9 +1276,9 @@
 .cs-card[data-surface="web"] .cs-source-block .cs-section-label-text {
   font-family: var(--font-display);
   font-style: normal;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.018em;
   color: var(--color-seal);
 }
 
@@ -1456,8 +1456,8 @@
 
 .cs-card[data-surface="web"] .cs-title {
   max-width: 760px;
-  font-size: 70px;
-  letter-spacing: 0;
+  font-size: clamp(56px, 5.8vw, 78px);
+  letter-spacing: -0.055em;
   line-height: 0.96;
   text-wrap: balance;
 }
@@ -1522,9 +1522,9 @@
   margin: 0;
   color: var(--cat-ink);
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 650;
-  letter-spacing: 0;
+  font-size: 26px;
+  font-weight: 760;
+  letter-spacing: -0.04em;
   line-height: 1.05;
 }
 

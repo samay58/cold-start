@@ -4,16 +4,7 @@ import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-// Licensed display + text faces (arillatype.studio), self-hosted as variable webfonts.
-const umami = localFont({
-  src: [
-    { path: "../../public/fonts/AtUmamiVAR.woff2", weight: "100 900", style: "normal" },
-    { path: "../../public/fonts/AtUmamiItalicVAR.woff2", weight: "100 900", style: "italic" }
-  ],
-  variable: "--font-umami-next",
-  display: "swap"
-});
-
+// Licensed evidence face (arillatype.studio), self-hosted as a variable webfont.
 const textual = localFont({
   src: [
     { path: "../../public/fonts/AtTextualVAR.woff2", weight: "100 900", style: "normal" },
@@ -51,7 +42,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${umami.variable} ${textual.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${plexSans.variable} ${textual.variable}`} suppressHydrationWarning>
       <body>
         <a className="cs-skip-link" href="#main-content">Skip to content</a>
         {children}
