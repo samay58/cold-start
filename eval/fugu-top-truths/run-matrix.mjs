@@ -173,7 +173,7 @@ function renderMarkdown({ run, summary, perCompany, models }) {
 
   lines.push("", "## Per-company median total (and integrity)", "", `| Company | ${models.join(" | ")} |`, `|---|${models.map(() => "---:").join("|")}|`);
   for (const row of perCompany) {
-    const cells = models.map((m) => (row[m] ? `${row[m].medianTotal} (i${row[m].medianIntegrity})` : "—"));
+    const cells = models.map((m) => (row[m] ? `${row[m].medianTotal} (i${row[m].medianIntegrity})` : "-"));
     lines.push(`| ${row.company} | ${cells.join(" | ")} |`);
   }
 

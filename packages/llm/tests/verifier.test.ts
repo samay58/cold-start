@@ -212,7 +212,7 @@ describe("verifySynthesis", () => {
     const client = {
       messages: {
         create: async () => ({
-          content: [{ type: "text", text: 'Sure — here are the verification results:\n[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
+          content: [{ type: "text", text: 'Sure, here are the verification results:\n[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
         })
       }
     } as unknown as Anthropic;

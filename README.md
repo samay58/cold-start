@@ -1,23 +1,34 @@
 # Cold Start
 
-Cold Start turns the company site already open in your browser into a sourced company card.
+Cold Start turns the company site already open in your browser into a sourced company profile.
 
-The public page shows facts only: what the company does, who runs it, funding, signals, comparables, and sources. The Chrome extension adds the private investor read after the basics hold: why the company might matter, which claims have support, and what questions are worth asking on a first call.
+A generic screen can say Turbopuffer is a serverless vector database. Cold Start is for the sharper read: who buys it, what workload they have, why the old approach hurts, what changed recently, and which sources support the claim.
 
-If Cold Start cannot support a claim, it lowers confidence, leaves the field blank, or says the fact was not found. The product should feel fast, inspectable, and trustworthy.
+The public profile lives at `/c/{slug}` and shows sourced facts only. The Chrome extension adds the private investor read: why the company might matter, which claims have support, and what questions belong in the first call.
+
+The rule is simple. If Cold Start cannot support a claim, it lowers confidence, leaves the field blank, or says the fact was not found. A thin honest profile is better than a confident-looking one full of guesses.
 
 ## Shape
 
-- `apps/web`: Next.js app, public card routes, extension API, generation API, and Inngest handler.
-- `apps/extension`: Chrome MV3 side panel.
-- `packages/core`: card schema, trust rules, source quality, and public redaction.
-- `packages/db`: Drizzle schema and repository layer.
-- `packages/providers`: Direct Exa, StableEnrich, AgentCash, and source adapters.
-- `packages/llm`: extraction, synthesis, verifier, and research-plan logic.
-- `packages/pipeline`: card generation orchestration.
-- `packages/ui`: shared card UI and source components.
+Cold Start has two surfaces:
 
-Read `SPEC.md` for product truth, `DESIGN.md` for visual truth, `INTENT.md` for behavior intent, and `SECURITY.md` before touching auth or secrets.
+- Public profiles at `/c/{slug}`.
+- A Chrome side panel for generating and reading the profile while you are on the company site.
+
+The public profile is the artifact. The extension is the workbench.
+
+The monorepo is split by responsibility:
+
+- `apps/web`: Next.js app, public profile routes, extension API, generation API, and Inngest handler.
+- `apps/extension`: Chrome MV3 side panel.
+- `packages/core`: profile schema, trust rules, source quality, slug helpers, and public redaction.
+- `packages/db`: Drizzle schema and Postgres repository layer.
+- `packages/providers`: Direct Exa, StableEnrich, AgentCash, SEC EDGAR, and source adapters.
+- `packages/llm`: Anthropic client, extraction, synthesis, verifier, research-plan, and investor taste logic.
+- `packages/pipeline`: profile generation orchestration, evidence ledger, cost tracking, and conflict resolution.
+- `packages/ui`: shared profile UI and source components.
+
+Read `SPEC.md` for product truth, `DESIGN.md` for visual truth, `INTENT.md` for behavior intent, and `SECURITY.md` before changing auth, env handling, dependencies, or anything that could expose tokens.
 
 ## Local Setup
 
@@ -25,10 +36,17 @@ Run from the repo root.
 
 ```bash
 npm ci
-cp .env.example .env.local
 ```
 
-Set at least:
+Create local env only if it does not already exist:
+
+```bash
+[ -f .env.local ] || cp .env.example .env.local
+```
+
+If `.env.local` exists, do not overwrite it. Compare it to `.env.example` and fill only the missing values.
+
+Minimum local values:
 
 ```bash
 ANTHROPIC_API_KEY=...
@@ -39,7 +57,9 @@ ALLOWED_EXTENSION_ORIGINS=chrome-extension://*,http://localhost:5173
 EXTENSION_API_TOKEN=local-extension-token
 ```
 
-AgentCash uses a local wallet in development and `X402_PRIVATE_KEY` in deployed environments.
+Provider keys are only needed for live generation. UI work, typechecks, and most tests can run without them.
+
+AgentCash uses local wallet state in development and `X402_PRIVATE_KEY` in deployed environments.
 
 ```bash
 npx agentcash@latest balance
@@ -49,12 +69,12 @@ npx agentcash@latest redeem <YOUR-CODE>
 Generation behavior is controlled by startup env vars. Restart the app and Inngest worker after changing them.
 
 ```bash
-CONTACT_ENRICHMENT_ENABLED=true          # false disables deferred contact enrichment
-CONTACT_ENRICHMENT_TIER=named-only       # named-only, full, or off
-CHEAP_FIRST_EXA_ENABLED=true             # run Direct Exa before paid StableEnrich Exa probes
-PER_RUN_AGENTCASH_BUDGET_USD=0.30        # optional override; defaults to 0.30 basics and 0.50 analysis
-ANALYSIS_SYNTHESIS_MIN_CITATIONS=8       # set 0 to disable the analysis evidence gate
-EXTRACTION_EVIDENCE_BUDGET_CHARS=24000   # raise high, e.g. 1000000, to disable source text budgeting
+CONTACT_ENRICHMENT_ENABLED=true
+CONTACT_ENRICHMENT_TIER=named-only
+CHEAP_FIRST_EXA_ENABLED=true
+PER_RUN_AGENTCASH_BUDGET_USD=0.30
+ANALYSIS_SYNTHESIS_MIN_CITATIONS=8
+EXTRACTION_EVIDENCE_BUDGET_CHARS=24000
 ```
 
 ## Run Locally
@@ -72,7 +92,7 @@ Start the app and worker:
 npm run dev:full
 ```
 
-`dev:full` loads `.env.local`, applies Drizzle migrations, then runs Next and the Inngest worker together. Restart it after changing extension auth env vars.
+`dev:full` loads the repo-root `.env.local`, applies Drizzle migrations, starts Next, and starts the Inngest worker. Restart it after changing env vars.
 
 Useful alternates:
 
@@ -82,7 +102,7 @@ npm run dev:inngest
 npm run db:migrate
 ```
 
-## Generate A Card
+## Generate A Profile
 
 ```bash
 curl -i -X POST http://localhost:3000/api/generate \
@@ -111,7 +131,7 @@ curl -s http://localhost:3000/api/extension/cards/cartesia \
   -H 'authorization: Bearer local-extension-token' | jq '.domain, has("synthesis")'
 ```
 
-Expected: unauthenticated access is `403`; authenticated local access returns the card and can include synthesis.
+Expected: unauthenticated access is `403`; authenticated local access returns the full profile and can include synthesis.
 
 ## Load The Extension
 
@@ -159,35 +179,42 @@ npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
 
 Generation trace and production QA commands live in `docs/qa/generation-trace-and-production-qa.md`.
 
-Anthropic cost controls:
+## Cost And Model Controls
 
 - `ANTHROPIC_MODEL` is the default model for every LLM stage.
 - `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages when set.
-- `EXTRACTION_EVIDENCE_BUDGET_CHARS` caps variable source text sent to extraction and research-section prompts. High-trust sources keep priority: filings, independent analysis, company pages, news, then enrichment.
-- `ANALYSIS_SYNTHESIS_MIN_CITATIONS` gates analysis synthesis when the public evidence is too thin. A gated run records `trace.synthesis.gateMessage` and does not call synthesis or verifier.
-- Generation traces record LLM call count, token usage, cache reads/writes, model, latency, and estimated USD per call.
-- Provider endpoint budgets, timeouts, expected facts, and stop conditions live in `packages/providers/src/provider-budget.ts` and are copied into StableEnrich endpoint traces.
+- `EXTRACTION_EVIDENCE_BUDGET_CHARS` caps variable source text sent to extraction and research-section prompts.
+- `ANALYSIS_SYNTHESIS_MIN_CITATIONS` gates analysis synthesis when the public evidence is too thin.
+- Generation traces record LLM call count, token usage, cache reads and writes, model, latency, and estimated USD per call.
+- Provider endpoint budgets, timeouts, expected facts, and stop conditions live in `packages/providers/src/provider-budget.ts`.
 - Real AgentCash spend is recorded from wallet snapshots as `trace.costUsdAgentcash` and `trace.providers.stableenrich.walletDeltaUsd` when wallet reads succeed.
 
 ## Trust Contract
 
+These rules matter more than making the profile look complete.
+
 - Public API responses derive the public card from `cards.card_json` at read time. `cards.public_card_json` remains a compatibility cache, not the source of truth.
 - Cache reads honor section TTLs: identity 7d, signals 6h, synthesis 24h. `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
 - Non-null `ResolvedFact.value` requires citation refs, and every ref must resolve to `citations[]`.
-- Public `/api/cards/{slug}` never includes `synthesis`. Extension routes require extension auth before returning gated synthesis.
-- The verifier is strict. Unsupported or contradicted synthesis claims are dropped; bull and bear arrays may contain 0-3 supported claims after verification.
+- Public `/api/cards/{slug}` never includes `synthesis`.
+- Extension routes require extension auth before returning gated synthesis.
+- The verifier is strict. Unsupported or contradicted synthesis claims are dropped.
 
 ## Deployment And Security
 
 The internal deployment runbook is `docs/deployment.md`.
 
-Current internal origin:
+Current web origin:
+
+```text
+https://cold-start.semitechie.vc
+```
+
+Current extension API fallback:
 
 ```text
 https://cold-start-samay58s-projects.vercel.app
 ```
-
-The future custom domain target is `coldstart.semitechie.vc`.
 
 Never paste production tokens into docs, commits, screenshots, issues, or PRs. The local token `local-extension-token` is only for local development.
 

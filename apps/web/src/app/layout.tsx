@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans } from "next/font/google";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
+import { webOrigin } from "../lib/site-origin";
 import "./globals.css";
 
 // Licensed evidence face (arillatype.studio), self-hosted as a variable webfont.
@@ -21,10 +22,8 @@ const plexSans = IBM_Plex_Sans({
   display: "swap"
 });
 
-const siteOrigin = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start.semitechie.vc";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteOrigin),
+  metadataBase: new URL(webOrigin()),
   title: "Cold Start",
   description: "Sourced company context cards.",
   icons: {

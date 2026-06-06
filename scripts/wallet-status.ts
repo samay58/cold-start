@@ -6,7 +6,7 @@
 //
 // This is the daily-eyeball-it tool. Run it before a generation push, run it after, run it when
 // the app feels broken. The wallet draining without warning is what made the 2026-05-26 inkeep run
-// "useless" — every provider failed silently with INSUFFICIENT_BALANCE.
+// "useless": every provider failed silently with INSUFFICIENT_BALANCE.
 
 import { existsSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { webOrigin } from "../lib/site-origin";
 
-const siteUrl = process.env.NEXT_PUBLIC_WEB_ORIGIN?.trim() || "https://cold-start.semitechie.vc";
+const siteUrl = webOrigin();
 
 export default function robots(): MetadataRoute.Robots {
   return {

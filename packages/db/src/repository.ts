@@ -198,8 +198,8 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
 export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
   const [cardRows, sectionRows] = await Promise.all([
     db
-    .select({ cardJson: cards.cardJson })
-    .from(cards)
+      .select({ cardJson: cards.cardJson })
+      .from(cards)
       .orderBy(desc(cards.generatedAt)),
     db
       .select({
