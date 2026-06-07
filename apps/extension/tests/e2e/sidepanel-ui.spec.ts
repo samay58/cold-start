@@ -6,6 +6,7 @@ import {
   installChromeShim,
   mockExtensionApi
 } from "./fixtures";
+import { dragWithSamples, expectPointerAttached } from "./interaction-probes";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
@@ -374,6 +375,37 @@ test("dragging a dormant card opens a real insertion slot before release", async
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
   ]);
+});
+
+test("dormant card drag stays attached across pile depth", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await openSidePanel(page);
+
+  for (const [label, slug] of [
+    ["Who pays", "first"],
+    ["Money", "middle"],
+    ["Next question", "last"]
+  ] as const) {
+    const card = page.locator(".cs-dormant-card", { hasText: label });
+    await card.scrollIntoViewIfNeeded();
+    await expect(card).toBeVisible();
+
+    const samples = await dragWithSamples({
+      card,
+      deltas: [
+        { label: "initial", y: -12 },
+        { label: "mid", y: -42 },
+        { label: "ready", y: -116 }
+      ],
+      page,
+      screenshotPrefix: `cold-start-drag-${slug}`
+    });
+    expectPointerAttached(samples);
+    await page.mouse.up();
+    await expect(page.locator(".cs-active-enrichment", { hasText: label })).toBeVisible();
+  }
 });
 
 test("short dormant-card drag settles without click activation", async ({ page }) => {
