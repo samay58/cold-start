@@ -97,6 +97,28 @@ const card: ColdStartCard = {
   citations: sections.citations
 };
 
+function signal(title: string) {
+  return {
+    title,
+    url: `https://modal.com/${title.toLowerCase().replace(/\s+/g, "-")}`,
+    date: "2026-05-27",
+    source: "Modal",
+    category: "launch" as const,
+    citationIds: ["c1"]
+  };
+}
+
+function comparable(name: string, domain: string) {
+  return {
+    name,
+    domain,
+    oneLiner: `${name} provides adjacent AI infrastructure.`,
+    basis: "Adjacent AI infrastructure workflow.",
+    confidence: "medium" as const,
+    citationIds: ["c1"]
+  };
+}
+
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({})),
   findCardBySlug: vi.fn(),
@@ -154,6 +176,7 @@ vi.mock("@cold-start/providers", () => ({
 }));
 
 vi.mock("@cold-start/llm", () => ({
+  BLOCK_ENRICHMENT_IDS: ["description", "funding", "team", "signals", "comparables"],
   anthropicModel: () => "claude-test",
   anthropicModelForStage: () => "claude-test",
   createAnthropicClient: () => ({}),
@@ -379,6 +402,93 @@ describe("generate-card contact dispatch", () => {
     } finally {
       restoreClock();
     }
+  });
+
+  it("targets late enrichment probes to blocks still missing after the generated card", async () => {
+    const teamGapSections = {
+      ...sections,
+      team: {
+        ...sections.team,
+        founders: {
+          ...sections.team.founders,
+          value: [{ name: "Erik Bernhardsson", role: null, sourceUrl: null }]
+        }
+      },
+      signals: [signal("Launched new GPU capacity"), signal("Expanded enterprise workloads")],
+      comparables: [
+        comparable("Runpod", "runpod.io"),
+        comparable("Replicate", "replicate.com"),
+        comparable("Lambda", "lambdalabs.com")
+      ]
+    };
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: {
+        ...card,
+        team: teamGapSections.team,
+        signals: teamGapSections.signals,
+        comparables: teamGapSections.comparables
+      },
+      sections: teamGapSections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: {
+          sourceCount: 1,
+          evidenceCount: 1,
+          citationCount: 1,
+          fallbackUsed: false
+        }
+      }
+    });
+
+    await runBasicsGeneration("true");
+
+    expect(mocks.fetchStableenrichEnrichmentSources).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skipProbeNames: [
+          "exa_recent_signals",
+          "exa_competition",
+          "exa_independent_analysis",
+          "exa_find_similar"
+        ]
+      })
+    );
+  });
+
+  it("skips late enrichment when the generated card already has complete blocks", async () => {
+    const completeSections = {
+      ...sections,
+      signals: [signal("Launched new GPU capacity"), signal("Expanded enterprise workloads")],
+      comparables: [
+        comparable("Runpod", "runpod.io"),
+        comparable("Replicate", "replicate.com"),
+        comparable("Lambda", "lambdalabs.com")
+      ]
+    };
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: {
+        ...card,
+        signals: completeSections.signals,
+        comparables: completeSections.comparables
+      },
+      sections: completeSections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: {
+          sourceCount: 1,
+          evidenceCount: 1,
+          citationCount: 1,
+          fallbackUsed: false
+        }
+      }
+    });
+
+    const { names } = await runBasicsGeneration("true");
+
+    expect(names).not.toContain("fetch-enrichment-sources");
+    expect(names).not.toContain("enrich-card");
+    expect(names).not.toContain("upsert-enriched-card");
+    expect(mocks.fetchStableenrichEnrichmentSources).not.toHaveBeenCalled();
+    expect(mocks.enrichExtractedSectionsForDomain).not.toHaveBeenCalled();
   });
 
   it("dispatches contact enrichment from a stored final card when the seed card is underfilled", async () => {

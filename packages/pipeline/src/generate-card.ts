@@ -511,6 +511,10 @@ function blockNeedsEnrichment(block: BlockEnrichmentId, sections: ExtractedCardS
   }
 }
 
+export function blocksNeedingEnrichmentForSections(sections: ExtractedCardSections): BlockEnrichmentId[] {
+  return BLOCK_ENRICHMENT_IDS.filter((block) => blockNeedsEnrichment(block, sections));
+}
+
 async function runBlockEnrichments(
   sections: ExtractedCardSections,
   input: {
@@ -527,7 +531,7 @@ async function runBlockEnrichments(
     return { sections };
   }
 
-  const requestedBlocks = BLOCK_ENRICHMENT_IDS.filter((block) => blockNeedsEnrichment(block, sections));
+  const requestedBlocks = blocksNeedingEnrichmentForSections(sections);
   if (requestedBlocks.length === 0) {
     return { sections };
   }

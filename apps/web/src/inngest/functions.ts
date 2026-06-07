@@ -49,6 +49,7 @@ import {
   GenerateCardTraceError,
   extractedCardSectionsSchema,
   buildSeedProfileCard,
+  blocksNeedingEnrichmentForSections,
   cardWithExtractedSections,
   enrichExtractedSectionsForDomain,
   generateCardForDomainWithTrace,
@@ -56,6 +57,7 @@ import {
   sourceGateTrace,
   totalGenerationCost,
   type BlockEnrichmentPatch,
+  type BlockEnrichmentId,
   type CostLine,
   type EvidenceLedgerEntry,
   type ExtractedCardSections,
@@ -546,6 +548,28 @@ function stableenrichExaSkipsForDirectCoverage(input: {
     skips.push("exa_recent_signals");
   }
   return skips;
+}
+
+const stableenrichLateEnrichmentProbeNames: StableenrichProbeName[] = [
+  "exa_recent_signals",
+  "exa_competition",
+  "exa_independent_analysis",
+  "exa_find_similar",
+  "firecrawl_about",
+  "firecrawl_team"
+];
+
+const stableenrichLateEnrichmentProbesByBlock: Record<BlockEnrichmentId, StableenrichProbeName[]> = {
+  description: ["exa_independent_analysis", "firecrawl_about"],
+  funding: ["exa_recent_signals", "exa_independent_analysis"],
+  team: ["firecrawl_about", "firecrawl_team"],
+  signals: ["exa_recent_signals", "exa_independent_analysis"],
+  comparables: ["exa_competition", "exa_find_similar", "exa_independent_analysis"]
+};
+
+function stableenrichLateEnrichmentSkipsForBlocks(blocks: BlockEnrichmentId[]): StableenrichProbeName[] {
+  const allowed = new Set(blocks.flatMap((block) => stableenrichLateEnrichmentProbesByBlock[block]));
+  return stableenrichLateEnrichmentProbeNames.filter((name) => !allowed.has(name));
 }
 
 async function fetchContactSourcesForBasics(input: {
@@ -1688,126 +1712,144 @@ export const generateCardFunction = inngest.createFunction(
       }
 
       if (mode === "basics") {
-        currentStage = "fetch-enrichment-sources";
-        const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
-          const result = await timed(async () => {
-            const remainingBudgetUsd = remainingAgentcashBudgetUsd({
-              ceilingUsd: agentcashBudgetCeiling,
-              endpoints: trace.providers?.stableenrich?.endpoints
-            });
-            const stableResult = await fetchStableenrichEnrichmentSources({
-              env: stableEnv,
-              domain,
-              researchPlan,
-              maxBudgetUsd: remainingBudgetUsd
-            });
-            const sources = mergeSources(acceptedSources, stableResult.sources);
-            const sourceGate = filterSourcesForDomain({ domain, sources });
-            const initialStable = trace.providers?.stableenrich ?? sourceResult.value.trace.providers.stableenrich;
-            return {
-              sources: sourceGate.accepted,
-              providerFacts: stableResult.facts,
-              trace: {
-                providers: {
-                  ...sourceResult.value.trace.providers,
-                  stableenrich: {
-                    sourceCount: (initialStable?.sourceCount ?? 0) + stableResult.sources.length,
-                    factCount: (initialStable?.factCount ?? 0) + stableResult.facts.length,
-                    failureCount: (initialStable?.failureCount ?? 0) + stableResult.failures.length,
-                    ...(initialStable?.budgetCeilingHit || stableResult.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
-                    endpoints: [...(initialStable?.endpoints ?? []), ...withStableenrichEndpointBudgets(stableResult.endpoints)]
+        const lateEnrichmentBlocks = blocksNeedingEnrichmentForSections(generatedSections);
+        const lateEnrichmentSkipProbeNames = stableenrichLateEnrichmentSkipsForBlocks(lateEnrichmentBlocks);
+        if (lateEnrichmentBlocks.length === 0) {
+          assertTerminalCardQuality(mode, cardToStore);
+          trace.steps = {
+            ...trace.steps,
+            "fetch-enrichment-sources": skippedStep("generated card already filled enrichment blocks"),
+            "enrich-card": skippedStep("generated card already filled enrichment blocks")
+          };
+        } else {
+          currentStage = "fetch-enrichment-sources";
+          const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {
+            const result = await timed(async () => {
+              const remainingBudgetUsd = remainingAgentcashBudgetUsd({
+                ceilingUsd: agentcashBudgetCeiling,
+                endpoints: trace.providers?.stableenrich?.endpoints
+              });
+              const stableResult = await fetchStableenrichEnrichmentSources({
+                env: stableEnv,
+                domain,
+                researchPlan,
+                maxBudgetUsd: remainingBudgetUsd,
+                ...(lateEnrichmentSkipProbeNames.length > 0 ? { skipProbeNames: lateEnrichmentSkipProbeNames } : {})
+              });
+              const sources = mergeSources(acceptedSources, stableResult.sources);
+              const sourceGate = filterSourcesForDomain({ domain, sources });
+              const initialStable = trace.providers?.stableenrich ?? sourceResult.value.trace.providers.stableenrich;
+              return {
+                sources: sourceGate.accepted,
+                providerFacts: stableResult.facts,
+                trace: {
+                  providers: {
+                    ...sourceResult.value.trace.providers,
+                    stableenrich: {
+                      sourceCount: (initialStable?.sourceCount ?? 0) + stableResult.sources.length,
+                      factCount: (initialStable?.factCount ?? 0) + stableResult.facts.length,
+                      failureCount: (initialStable?.failureCount ?? 0) + stableResult.failures.length,
+                      ...(initialStable?.budgetCeilingHit || stableResult.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
+                      skippedProbeNames: Array.from(new Set([
+                        ...(initialStable?.skippedProbeNames ?? []),
+                        ...lateEnrichmentSkipProbeNames
+                      ])),
+                      endpoints: [...(initialStable?.endpoints ?? []), ...withStableenrichEndpointBudgets(stableResult.endpoints)]
+                    },
+                    mergedSourceCount: sources.length
                   },
-                  mergedSourceCount: sources.length
+                  sourceGate: sourceGateTrace(sourceGate)
+                }
+              };
+            });
+
+            return {
+              value: result.value,
+              tracePatch: {
+                steps: {
+                  "fetch-enrichment-sources": completedStep(result.durationMs)
                 },
-                sourceGate: sourceGateTrace(sourceGate)
+                providers: result.value.trace.providers,
+                sourceGate: result.value.trace.sourceGate
               }
             };
           });
+          mergeTracePatch(trace, enrichmentSourceResult.tracePatch);
+          await recordEvent("enrichment-sources-fetched", "source.enrichment", `Checked deeper enrichment sources`, {
+            sourceCount: enrichmentSourceResult.value.sources.length,
+            providerFactCount: enrichmentSourceResult.value.providerFacts.length,
+            missingBlocks: lateEnrichmentBlocks,
+            skippedProbeNames: lateEnrichmentSkipProbeNames
+          }, null);
 
-          return {
-            value: result.value,
-            tracePatch: {
-              steps: {
-                "fetch-enrichment-sources": completedStep(result.durationMs)
-              },
-              providers: result.value.trace.providers,
-              sourceGate: result.value.trace.sourceGate
-            }
-          };
-        });
-        mergeTracePatch(trace, enrichmentSourceResult.tracePatch);
-        await recordEvent("enrichment-sources-fetched", "source.enrichment", `Checked deeper enrichment sources`, {
-          sourceCount: enrichmentSourceResult.value.sources.length,
-          providerFactCount: enrichmentSourceResult.value.providerFacts.length
-        }, null);
+          currentStage = "enrich-card";
+          const enriched = await step.run("enrich-card", async () => {
+            const result = await timed(async () => {
+              const providerFactMerge = applyProviderFactCandidates(generatedSections, enrichmentSourceResult.value.providerFacts);
+              return enrichExtractedSectionsForDomain({
+                domain,
+                researchPlan,
+                sections: providerFactMerge.sections,
+                sources: enrichmentSourceResult.value.sources,
+                enrichSections: enrichSectionsForCard
+              }).then((enrichment) => ({ ...enrichment, providerFactMerge }));
+            });
 
-        currentStage = "enrich-card";
-        const enriched = await step.run("enrich-card", async () => {
-          const result = await timed(async () => {
-            const providerFactMerge = applyProviderFactCandidates(generatedSections, enrichmentSourceResult.value.providerFacts);
-            return enrichExtractedSectionsForDomain({
-              domain,
-              researchPlan,
-              sections: providerFactMerge.sections,
-              sources: enrichmentSourceResult.value.sources,
-              enrichSections: enrichSectionsForCard
-            }).then((enrichment) => ({ ...enrichment, providerFactMerge }));
-          });
-
-          return {
-            value: result.value,
-            tracePatch: {
-              steps: {
-                "enrich-card": completedStep(result.durationMs)
+            return {
+              value: result.value,
+              tracePatch: {
+                steps: {
+                  "enrich-card": completedStep(result.durationMs)
+                }
               }
-            }
-          };
-        });
-        mergeTracePatch(trace, enriched.tracePatch);
+            };
+          });
+          mergeTracePatch(trace, enriched.tracePatch);
 
-        generatedSections = enriched.value.sections;
-        generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
-        sourcesToRecord = enrichmentSourceResult.value.sources;
-        if (trace.extraction) {
-          trace.extraction = {
-            ...trace.extraction,
-            sourceCount: sourcesToRecord.length,
-            citationCount: generatedSections.citations.length,
-            providerFactCandidateCount:
-              (trace.extraction.providerFactCandidateCount ?? 0) + enriched.value.providerFactMerge.trace.candidateCount,
-            providerFactAppliedCount:
-              (trace.extraction.providerFactAppliedCount ?? 0) + enriched.value.providerFactMerge.trace.appliedCount,
-            providerFactPaths: [
-              ...(trace.extraction.providerFactPaths ?? []),
-              ...enriched.value.providerFactMerge.trace.paths
-            ],
-            providerFactAppliedByEndpoint: mergeEndpointFactCounts(
-              trace.extraction.providerFactAppliedByEndpoint,
-              enriched.value.providerFactMerge.trace.appliedByEndpoint
-            ),
-            ...(enriched.value.trace ? { blockEnrichment: enriched.value.trace } : {})
-          };
+          generatedSections = enriched.value.sections;
+          generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
+          sourcesToRecord = enrichmentSourceResult.value.sources;
+          if (trace.extraction) {
+            trace.extraction = {
+              ...trace.extraction,
+              sourceCount: sourcesToRecord.length,
+              citationCount: generatedSections.citations.length,
+              providerFactCandidateCount:
+                (trace.extraction.providerFactCandidateCount ?? 0) + enriched.value.providerFactMerge.trace.candidateCount,
+              providerFactAppliedCount:
+                (trace.extraction.providerFactAppliedCount ?? 0) + enriched.value.providerFactMerge.trace.appliedCount,
+              providerFactPaths: [
+                ...(trace.extraction.providerFactPaths ?? []),
+                ...enriched.value.providerFactMerge.trace.paths
+              ],
+              providerFactAppliedByEndpoint: mergeEndpointFactCounts(
+                trace.extraction.providerFactAppliedByEndpoint,
+                enriched.value.providerFactMerge.trace.appliedByEndpoint
+              ),
+              ...(enriched.value.trace ? { blockEnrichment: enriched.value.trace } : {})
+            };
+          }
+          applyStableenrichEndpointYield(trace, enriched.value.providerFactMerge.trace.appliedByEndpoint);
+
+          cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
+          assertTerminalCardQuality(mode, cardToStore);
+          const stored = await step.run("upsert-enriched-card", async () => ({
+            row: await upsertCard(db, cardToStore),
+            milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+          }));
+          const storedRow = stored.row;
+          await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
+          await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
+          await step.run("record-enriched-sources", () =>
+            recordSourcesForCard(db, storedRow.id, sourcesToRecord),
+          );
+          await recordEvent("enriched-card-saved", "card.enriched", "Saved enriched company card", {
+            citationCount: cardToStore.citations.length,
+            sourceCount: sourcesToRecord.length
+          }, null);
+          await requestContactEnrichmentForStoredCard(cardToStore, "enriched-card");
+          writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
         }
-        applyStableenrichEndpointYield(trace, enriched.value.providerFactMerge.trace.appliedByEndpoint);
-
-        cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
-        assertTerminalCardQuality(mode, cardToStore);
-        const stored = await step.run("upsert-enriched-card", async () => ({
-          row: await upsertCard(db, cardToStore),
-          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-        }));
-        const storedRow = stored.row;
-        await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
-        await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
-        await step.run("record-enriched-sources", () =>
-          recordSourcesForCard(db, storedRow.id, sourcesToRecord),
-        );
-        await recordEvent("enriched-card-saved", "card.enriched", "Saved enriched company card", {
-          citationCount: cardToStore.citations.length,
-          sourceCount: sourcesToRecord.length
-        }, null);
-        await requestContactEnrichmentForStoredCard(cardToStore, "enriched-card");
-        writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
       }
 
       if (mode === "analysis" && analysisReadyMs !== null) {
