@@ -1493,22 +1493,27 @@ button {
   padding: 0;
   border: 0;
   background: transparent;
-  cursor: help;
+  cursor: pointer;
   text-align: left;
 }
 
 .cs-company-summary-cue {
   display: inline-flex;
+  align-items: center;
   margin-top: 6px;
+  padding: 3px 6px;
+  border: 1px solid rgb(110 92 158 / 0.20);
+  border-radius: 6px;
+  background: rgb(110 92 158 / 0.055);
   color: var(--color-seal);
-  font: 650 11.5px/1.2 var(--font-body);
-  text-decoration: underline;
-  text-decoration-color: rgb(110 92 158 / 0.30);
-  text-underline-offset: 3px;
+  font: 700 9.5px/1.1 var(--font-receipt);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .cs-company-summary-trigger:hover .cs-company-summary-cue {
-  text-decoration-color: rgb(110 92 158 / 0.56);
+  border-color: rgb(110 92 158 / 0.34);
+  background: rgb(110 92 158 / 0.08);
 }
 
 .cs-company-summary-trigger:focus-visible {
@@ -1583,7 +1588,6 @@ button {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.70) inset,
     0 8px 18px rgb(2 8 18 / 0.025);
-  cursor: help;
 }
 
 .cs-company-facts div:focus-visible {
@@ -2688,7 +2692,7 @@ button {
 }
 
 .cs-people-person[aria-describedby] {
-  cursor: help;
+  cursor: default;
 }
 
 .cs-people-person:focus-visible {

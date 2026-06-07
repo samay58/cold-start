@@ -284,6 +284,26 @@ function expandedProfileSummary(value: string | null | undefined, fallback: stri
   return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
 }
 
+function profileSummaryText(card: ColdStartCard) {
+  const description = card.identity.description?.value;
+  const fallback = card.identity.oneLiner.value;
+  const visible = description?.shortDescription ?? fallback;
+  const fullParts = [
+    description?.shortDescription,
+    description?.concept,
+    description?.serves,
+    description?.mechanism
+  ]
+    .map((part) => part?.replace(/\s+/g, " ").trim())
+    .filter((part): part is string => Boolean(part));
+  const uniqueFullParts = Array.from(new Set(fullParts));
+
+  return {
+    full: uniqueFullParts.length > 0 ? uniqueFullParts.join(" ") : visible,
+    visible
+  };
+}
+
 function ProfileSummary({
   fullSummary,
   summary,
@@ -309,7 +329,7 @@ function ProfileSummary({
           })}
         >
           <span className="cs-company-summary">{summary}</span>
-          <span className="cs-company-summary-cue" aria-hidden="true">More</span>
+          <span className="cs-company-summary-cue" aria-hidden="true">Full description</span>
         </button>
       ) : (
         <p className="cs-company-summary">{summary}</p>
@@ -1347,9 +1367,9 @@ export function ResearchLayerPanel({
     : snapPreviewId
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
-  const rawSummary = card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value;
-  const summary = compactProfileSummary(rawSummary, card.domain);
-  const fullSummary = expandedProfileSummary(rawSummary, card.domain);
+  const profileSummary = profileSummaryText(card);
+  const summary = compactProfileSummary(profileSummary.visible, card.domain);
+  const fullSummary = expandedProfileSummary(profileSummary.full, card.domain);
 
   if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;

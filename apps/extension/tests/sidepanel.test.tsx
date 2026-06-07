@@ -669,6 +669,46 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("uses structured description fields for the full summary tooltip", async () => {
+    const card = cardWithManagement("decagon.ai");
+    card.identity.name = { value: "Decagon", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.identity.description = {
+      value: {
+        shortDescription: "Decagon sells AI agents that handle end-to-end customer support interactions...",
+        concept: "AI agents for enterprise customer support.",
+        serves: "Support, product, and operations teams at software companies.",
+        mechanism: "The agents resolve tickets, execute backend actions, and escalate cases when automation is not enough."
+      },
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "decagon.ai", fetchMock });
+    const summaryTrigger = container.querySelector(".cs-company-summary-trigger") as HTMLElement | null;
+    expect(summaryTrigger).toBeTruthy();
+    summaryTrigger!.getBoundingClientRect = () => ({
+      bottom: 120,
+      height: 20,
+      left: 40,
+      right: 320,
+      top: 100,
+      width: 280,
+      x: 40,
+      y: 100,
+      toJSON: () => ({})
+    });
+
+    await act(async () => {
+      summaryTrigger!.focus();
+    });
+
+    const tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.textContent).toContain("enterprise customer support");
+    expect(tooltip?.textContent).toContain("execute backend actions");
+    await unmount();
+  });
+
   it("does not turn core metric cells into tooltip triggers", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardWithManagement("theinformation.com")));
     const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
