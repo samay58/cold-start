@@ -122,8 +122,8 @@ function dormantStackNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
   return String(catalogIndex).padStart(2, "0");
 }
 
-function defaultActiveLayers(card: ColdStartCard, canShowResearchLayers: boolean, analysisRun: AnalysisRun | undefined): ResearchLayerId[] {
-  return canShowResearchLayers && (card.synthesis || analysisRun) ? ["coreIdea"] : [];
+function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: boolean): ResearchLayerId[] {
+  return canShowResearchLayers && hasInvestorLens ? ["coreIdea"] : [];
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -142,6 +142,21 @@ function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[
     }
   }
   return record;
+}
+
+function mergeLayerIds(...groups: Array<readonly ResearchLayerId[] | null | undefined>): ResearchLayerId[] {
+  const merged: ResearchLayerId[] = [];
+  const seen = new Set<ResearchLayerId>();
+  for (const group of groups) {
+    for (const id of group ?? []) {
+      if (seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      merged.push(id);
+    }
+  }
+  return merged;
 }
 
 function readPinnedLayerIds(domain: string, fallback: ResearchLayerId[], callback: (ids: ResearchLayerId[]) => void) {
@@ -1136,9 +1151,17 @@ export function ResearchLayerPanel({
   const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
   const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
-  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => defaultActiveLayers(card, canShowResearchLayers, analysisRun));
+  const hasInvestorLens = Boolean(card.synthesis || analysisRun);
+  const defaultLayerIds = useMemo(
+    () => defaultActiveLayers(canShowResearchLayers, hasInvestorLens),
+    [canShowResearchLayers, hasInvestorLens]
+  );
+  const activeSectionLayerId = activeSectionRun?.layerId;
+  const lastSectionLayerRef = useRef<{ domain: string; layerId: ResearchLayerId } | null>(null);
+  const pendingLayerActivationsRef = useRef<{ domain: string; ids: ResearchLayerId[] }>({ domain: card.domain, ids: [] });
+  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => defaultLayerIds);
   const [expandedLayerId, setExpandedLayerId] = useState<ResearchLayerId | null>(() => {
-    if (canStartInvestorLens && (card.synthesis || analysisRun)) {
+    if (canStartInvestorLens && hasInvestorLens) {
       return "coreIdea";
     }
 
@@ -1153,18 +1176,41 @@ export function ResearchLayerPanel({
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
   useEffect(() => {
+    lastSectionLayerRef.current = null;
+    pendingLayerActivationsRef.current = { domain: card.domain, ids: [] };
+  }, [card.domain]);
+
+  useEffect(() => {
     let cancelled = false;
-    readPinnedLayerIds(card.domain, defaultActiveLayers(card, canShowResearchLayers, analysisRun), (ids) => {
+    readPinnedLayerIds(card.domain, defaultLayerIds, (ids) => {
       if (cancelled) {
         return;
       }
-      setActiveLayerIds(ids);
-      setExpandedLayerId((current) => current && ids.includes(current) ? current : ids[0] ?? null);
+      const sectionLayerId = lastSectionLayerRef.current?.domain === card.domain
+        ? lastSectionLayerRef.current.layerId
+        : null;
+      const pendingLayerIds = pendingLayerActivationsRef.current.domain === card.domain
+        ? pendingLayerActivationsRef.current.ids
+        : [];
+      const nextIds = mergeLayerIds(ids, sectionLayerId ? [sectionLayerId] : null, pendingLayerIds);
+      setActiveLayerIds(nextIds);
+      setExpandedLayerId((current) => sectionLayerId ?? (current && nextIds.includes(current) ? current : nextIds[0] ?? null));
     });
     return () => {
       cancelled = true;
     };
-  }, [analysisRun, canShowResearchLayers, card]);
+  }, [card.domain, defaultLayerIds]);
+
+  useEffect(() => {
+    const layerId = activeSectionLayerId;
+    if (!layerId) {
+      return;
+    }
+
+    lastSectionLayerRef.current = { domain: card.domain, layerId };
+    setActiveLayerIds((current) => current.includes(layerId) ? current : [...current, layerId]);
+    setExpandedLayerId(layerId);
+  }, [activeSectionLayerId, card.domain]);
 
   function activateLayer(id: ResearchLayerId) {
     const layer = layers.find((candidate) => candidate.id === id);
@@ -1173,6 +1219,13 @@ export function ResearchLayerPanel({
       return;
     }
 
+    pendingLayerActivationsRef.current = {
+      domain: card.domain,
+      ids: mergeLayerIds(
+        pendingLayerActivationsRef.current.domain === card.domain ? pendingLayerActivationsRef.current.ids : [],
+        [id]
+      )
+    };
     setActiveLayerIds((current) => {
       if (current.includes(id)) {
         return current;
@@ -1251,8 +1304,8 @@ export function ResearchLayerPanel({
   const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
   const profileRunVisible = Boolean(profileRun);
-  const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
-  const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
+  const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
+  const showResearchProgress = profileOrAnalysisRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
@@ -1306,7 +1359,7 @@ export function ResearchLayerPanel({
         {showResearchProgress ? (
           <ResearchProgressPanel
             events={events}
-            isRunning={activeRunVisible}
+            isRunning={profileOrAnalysisRunVisible}
             isProfileRunning={profileRunVisible}
             resolvedCount={resolvedSectionCount}
             sources={sources}
@@ -1352,14 +1405,14 @@ export function ResearchLayerPanel({
             const statusCopy = waitingForProfile
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
               : queued
-              ? "Queued"
-              : running
-              ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
-              : refreshing
-                ? layer?.source === "analysis"
-                  ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
-                  : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
-                : sourceLabel(display.sourceCount);
+                ? "Queued"
+                : refreshing
+                  ? layer?.source === "analysis"
+                    ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
+                    : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
+                  : running
+                    ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
+                    : sourceLabel(display.sourceCount);
             const runningCopy = waitingForProfile
               ? "Getting the profile ready"
               : refreshing
@@ -1448,7 +1501,7 @@ export function ResearchLayerPanel({
 
         {analysisNotice ? (
           <div className="cs-research-notice" role="status">
-            <strong>Not enough verified evidence</strong>
+            <strong>Research status</strong>
             <p>{analysisNotice}</p>
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import { companySlugFromDomain, hasUsablePublicProfile, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { companySlugFromDomain, hasUsablePublicProfile, layerIdForSection, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, PointerEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -27,10 +27,12 @@ import {
   isActiveRun,
   markPerformance,
   pollGenerationUntilCard,
+  resumeSectionGenerationAndPoll,
   sectionsForCard,
   startedAtMs,
-  startGenerationAndPoll,
-  startSectionGenerationAndPoll
+  startBasicsGenerationAndPoll,
+  startSectionGenerationAndPoll,
+  type GenerationStatusListener
 } from "./sidepanel-network";
 import {
   acceptedSourceCountFromEvents,
@@ -94,6 +96,11 @@ type AnalysisRunState = {
 type ActiveSectionRunState = AnalysisRunState & {
   layerId: ResearchLayerId;
 };
+
+function runningSectionLayerId(sections: ResearchSection[]) {
+  const section = sections.find((candidate) => candidate.status === "running");
+  return section ? layerIdForSection(section.sectionId) : null;
+}
 
 function generationStageNote({
   activeIndex,
@@ -803,7 +810,7 @@ export function SidePanel() {
     latestCard: ColdStartCard,
     startedAt: number
   ) => {
-    void pollGenerationUntilCard(
+    return pollGenerationUntilCard(
       generationDomain,
       generationSettings,
       controller.signal,
@@ -838,7 +845,7 @@ export function SidePanel() {
         if (!controller.signal.aborted) {
           setRequestState((current) => {
             if (current.status !== "success") {
-              return { status: "success", card: result.card, sections: result.sections };
+              return current;
             }
 
             const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
@@ -860,21 +867,20 @@ export function SidePanel() {
       });
   }, []);
 
-  const runGenerationWithController = useCallback((
+  const runBasicsGenerationWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    mode: "basics",
     confirmStart: boolean
   ) => {
+    const mode = "basics" as const;
     const startedAt = Date.now();
     setRequestState({ status: "generating", generationStatus: "queued", mode, startedAt });
 
-    void startGenerationAndPoll(
+    void startBasicsGenerationAndPoll(
       generationDomain,
       generationSettings,
       controller.signal,
-      mode,
       confirmStart,
       (generationStatus, update) => {
         if (!controller.signal.aborted) {
@@ -896,18 +902,15 @@ export function SidePanel() {
           const successState = result.analysisNotice
             ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
             : { status: "success" as const, card: result.card, sections: result.sections };
-          if (mode === "basics") {
-            setRequestState({
-              ...successState,
-              contactRun: { generationStatus: "running", startedAt },
-              profileRun: { generationStatus: "running", startedAt }
-            });
-            watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
-            return;
-          }
-
-          setRequestState(successState);
+          setRequestState({
+            ...successState,
+            contactRun: { generationStatus: "running", startedAt },
+            profileRun: { generationStatus: "running", startedAt }
+          });
+          return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
+
+        return undefined;
       })
       .catch((caught: unknown) => {
         if (controller.signal.aborted) {
@@ -933,38 +936,54 @@ export function SidePanel() {
     generationDomain: string,
     generationSettings: Settings,
     currentState: Extract<RequestState, { status: "success" }>,
-    layerId: ResearchLayerId
+    layerId: ResearchLayerId,
+    behavior: "start" | "resume" = "start"
   ) => {
     const startedAt = Date.now();
     const activeSectionRun: ActiveSectionRunState = {
-      generationStatus: "queued",
+      generationStatus: behavior === "resume" ? "running" : "queued",
       layerId,
       startedAt
     };
 
     setRequestState({ ...currentState, activeSectionRun });
 
-    void startSectionGenerationAndPoll(
-      generationDomain,
-      generationSettings,
-      controller.signal,
-      sectionIdForLayer(layerId),
-      currentState.card,
-      (generationStatus) => {
-        if (!controller.signal.aborted) {
-          setRequestState((current) => current.status === "success"
-            ? {
-                ...current,
-                activeSectionRun: {
-                  generationStatus: generationStatus === "queued" ? "queued" : "running",
-                  layerId,
-                  startedAt
-                }
+    const sectionId = sectionIdForLayer(layerId);
+    const handleGenerationStatus: GenerationStatusListener = (generationStatus) => {
+      if (!controller.signal.aborted) {
+        setRequestState((current) => current.status === "success"
+          ? {
+              ...current,
+              activeSectionRun: {
+                generationStatus: generationStatus === "queued" ? "queued" : "running",
+                layerId,
+                startedAt
               }
-            : current);
-        }
-      },
-    )
+            }
+          : current);
+      }
+    };
+    const sectionRequest = behavior === "resume"
+      ? resumeSectionGenerationAndPoll(
+          generationDomain,
+          generationSettings,
+          controller.signal,
+          sectionId,
+          currentState.card,
+          currentState.sections,
+          handleGenerationStatus,
+        )
+      : startSectionGenerationAndPoll(
+          generationDomain,
+          generationSettings,
+          controller.signal,
+          sectionId,
+          currentState.card,
+          currentState.sections,
+          handleGenerationStatus,
+        );
+
+    void sectionRequest
       .then((result) => {
         if (!controller.signal.aborted) {
           setRequestState((current) => {
@@ -972,7 +991,7 @@ export function SidePanel() {
               return { status: "success", card: result.card, sections: result.sections };
             }
 
-            const { activeSectionRun: _activeSectionRun, ...nextState } = current;
+            const { activeSectionRun: _activeSectionRun, analysisNotice: _analysisNotice, ...nextState } = current;
             return {
               ...nextState,
               card: result.card,
@@ -1072,16 +1091,16 @@ export function SidePanel() {
       });
   }, [clearActiveRequest]);
 
-  const resumeGenerationWithController = useCallback((
+  const resumeBasicsGenerationWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    mode: "basics",
     generationStatus: "queued" | "running",
     runStartedAt?: string,
     latestCard: ColdStartCard | null = null,
     events: ExtensionResearchRunEvent[] = []
   ) => {
+    const mode = "basics" as const;
     const startedAt = startedAtMs(runStartedAt);
     setRequestState({ status: "generating", events, generationStatus, mode, startedAt });
 
@@ -1197,7 +1216,7 @@ export function SidePanel() {
 
         if (card) {
           if (!hasUsablePublicProfile(card)) {
-            runGenerationWithController(controller, domain, settings, "basics", true);
+            runBasicsGenerationWithController(controller, domain, settings, true);
             return;
           }
 
@@ -1229,18 +1248,26 @@ export function SidePanel() {
             return;
           }
 
-          setRequestState(
-            analysisStatus.status === "failed" && !card.synthesis
-              ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE }
-              : { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [] }
-          );
+          const successState: Extract<RequestState, { status: "success" }> = analysisStatus.status === "failed" && !card.synthesis
+            ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE }
+            : { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [] };
+          const runningLayerId = runningSectionLayerId(bootstrapSections);
+          if (runningLayerId) {
+            const sectionController = new AbortController();
+            sectionGenerationRequest.current = sectionController;
+            clearActiveRequest(controller);
+            runSectionGenerationWithController(sectionController, domain, settings, successState, runningLayerId, "resume");
+            return;
+          }
+
+          setRequestState(successState);
           clearActiveRequest(controller);
           return;
         }
 
         const basicsStatus = bootstrap.runs.basics;
         if (isActiveRun(basicsStatus.status)) {
-          resumeGenerationWithController(controller, domain, settings, "basics", basicsStatus.status, basicsStatus.startedAt, null, bootstrap.events ?? []);
+          resumeBasicsGenerationWithController(controller, domain, settings, basicsStatus.status, basicsStatus.startedAt, null, bootstrap.events ?? []);
           return;
         }
 
@@ -1282,13 +1309,14 @@ export function SidePanel() {
     clearActiveRequest,
     domain,
     resumeAnalysisWithController,
-    resumeGenerationWithController,
-    runGenerationWithController,
+    resumeBasicsGenerationWithController,
+    runBasicsGenerationWithController,
+    runSectionGenerationWithController,
     settings,
     watchBasicsCompletionWithController
   ]);
 
-  function handleStartGeneration(mode: "basics", confirmStart: boolean) {
+  function handleStartGeneration(confirmStart: boolean) {
     if (!domain || !settings?.apiToken) {
       return;
     }
@@ -1297,7 +1325,7 @@ export function SidePanel() {
     const controller = new AbortController();
     abortAllRequests();
     activeRequest.current = controller;
-    runGenerationWithController(controller, domain, settings, mode, confirmStart);
+    runBasicsGenerationWithController(controller, domain, settings, confirmStart);
   }
 
   function handleRunSection(layerId: ResearchLayerId) {
@@ -1391,7 +1419,7 @@ export function SidePanel() {
       <StartGenerationPanel
         domain={domain}
         onEditSettings={() => setShowSettings(true)}
-        onStart={() => handleStartGeneration("basics", true)}
+        onStart={() => handleStartGeneration(true)}
       />
     );
   }
@@ -1405,7 +1433,7 @@ export function SidePanel() {
       <ExtensionFrame
         actions={
           <>
-            <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
+            <button className="cs-extension-button" onClick={() => handleStartGeneration(true)} type="button">
               Check again
             </button>
             <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
@@ -1427,7 +1455,7 @@ export function SidePanel() {
       <ExtensionFrame
         actions={
           <>
-            <button className="cs-extension-button" onClick={() => handleStartGeneration("basics", true)} type="button">
+            <button className="cs-extension-button" onClick={() => handleStartGeneration(true)} type="button">
               Try again
             </button>
             <button className="cs-extension-link-button" onClick={() => setShowSettings(true)} type="button">
@@ -1448,7 +1476,7 @@ export function SidePanel() {
     <SuccessPanel
       domain={domain}
       onRunSection={handleRunSection}
-      onRegenerate={() => handleStartGeneration("basics", true)}
+      onRegenerate={() => handleStartGeneration(true)}
       queuedLayerIds={sectionQueue}
       requestState={requestState}
     />

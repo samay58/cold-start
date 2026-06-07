@@ -57,7 +57,7 @@ export type GenerationRunSummary = {
   slug: string;
   domain: string;
   mode: GenerationMode;
-  jobKind?: GenerationJobKind | string;
+  jobKind: GenerationJobKind | string;
   status: GenerationStatus;
   id?: string;
   error?: string | null;
@@ -75,7 +75,7 @@ type GenerationRunRow = {
   slug: string;
   domain: string;
   mode: GenerationMode;
-  jobKind?: string;
+  jobKind: string;
   status: GenerationStatus;
   id?: string;
   error?: string | null;
@@ -410,8 +410,15 @@ export async function retireStaleResearchSections(db: ColdStartDb, input: { slug
 export async function findActiveGenerationRunBySlug(
   db: ColdStartDb,
   slug: string,
-  mode: GenerationMode = "analysis"
+  mode: GenerationMode,
+  jobKind?: GenerationJobKind
 ): Promise<(GenerationRunSummary & { status: ActiveGenerationStatus }) | null> {
+  const filters = [
+    eq(generationRuns.slug, slug),
+    eq(generationRuns.mode, mode),
+    ...(jobKind ? [eq(generationRuns.jobKind, jobKind)] : []),
+    inArray(generationRuns.status, ["queued", "running"])
+  ];
   const rows = await db
     .select({
       id: generationRuns.id,
@@ -429,7 +436,7 @@ export async function findActiveGenerationRunBySlug(
       completedAt: generationRuns.completedAt
     })
     .from(generationRuns)
-    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
+    .where(and(...filters))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];
@@ -444,8 +451,15 @@ export async function findActiveGenerationRunBySlug(
 export async function findActiveGenerationRunStatusBySlug(
   db: ColdStartDb,
   slug: string,
-  mode: GenerationMode = "analysis"
+  mode: GenerationMode,
+  jobKind?: GenerationJobKind
 ): Promise<(GenerationRunStatusSummary & { status: ActiveGenerationStatus }) | null> {
+  const filters = [
+    eq(generationRuns.slug, slug),
+    eq(generationRuns.mode, mode),
+    ...(jobKind ? [eq(generationRuns.jobKind, jobKind)] : []),
+    inArray(generationRuns.status, ["queued", "running"])
+  ];
   const rows = await db
     .select({
       id: generationRuns.id,
@@ -460,7 +474,7 @@ export async function findActiveGenerationRunStatusBySlug(
       completedAt: generationRuns.completedAt
     })
     .from(generationRuns)
-    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), inArray(generationRuns.status, ["queued", "running"])))
+    .where(and(...filters))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];
@@ -697,7 +711,7 @@ export async function latestProviderFailureSummary(
       startedAt: generationRuns.startedAt
     })
     .from(generationRuns)
-    .where(eq(generationRuns.slug, slug))
+    .where(and(eq(generationRuns.slug, slug), inArray(generationRuns.jobKind, ["basics", "analysis"])))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
 
@@ -746,8 +760,10 @@ function categorizeProviderError(error: string | undefined): string {
 export async function findLatestGenerationRunBySlug(
   db: ColdStartDb,
   slug: string,
-  mode: GenerationMode = "analysis"
+  mode: GenerationMode,
+  jobKind?: GenerationJobKind
 ): Promise<GenerationRunSummary | null> {
+  const lookupJobKind = jobKind ?? mode;
   const rows = await db
     .select({
       id: generationRuns.id,
@@ -765,7 +781,7 @@ export async function findLatestGenerationRunBySlug(
       completedAt: generationRuns.completedAt
     })
     .from(generationRuns)
-    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode)))
+    .where(and(eq(generationRuns.slug, slug), eq(generationRuns.mode, mode), eq(generationRuns.jobKind, lookupJobKind)))
     .orderBy(desc(generationRuns.startedAt))
     .limit(1);
   const row = rows[0];
@@ -776,8 +792,8 @@ export async function findLatestGenerationRunBySlug(
 export async function findLatestGenerationRunStatusBySlug(
   db: ColdStartDb,
   slug: string,
-  mode: GenerationMode = "analysis",
-  jobKind?: string
+  mode: GenerationMode,
+  jobKind?: GenerationJobKind
 ): Promise<GenerationRunStatusSummary | null> {
   const lookupJobKind = jobKind ?? mode;
   const filters = [
@@ -811,12 +827,13 @@ export async function retireStaleGenerationRuns(
   db: ColdStartDb,
   input: {
     slug: string;
-    mode?: GenerationMode;
+    mode: GenerationMode;
+    jobKind?: GenerationJobKind;
     now?: Date;
     staleAfterMs?: number;
   }
 ) {
-  const mode = input.mode ?? "analysis";
+  const { mode } = input;
   const now = input.now ?? new Date();
   const staleAfterMs = input.staleAfterMs ?? generationRunStaleAfterMs;
   const cutoff = new Date(now.getTime() - staleAfterMs);
@@ -832,6 +849,7 @@ export async function retireStaleGenerationRuns(
       and(
         eq(generationRuns.slug, input.slug),
         eq(generationRuns.mode, mode),
+        ...(input.jobKind ? [eq(generationRuns.jobKind, input.jobKind)] : []),
         inArray(generationRuns.status, ["queued", "running"]),
         lt(generationRuns.startedAt, cutoff)
       )
@@ -970,8 +988,8 @@ export async function markGenerationRun(
   input: {
     slug: string;
     domain: string;
-    mode?: GenerationMode;
-    jobKind?: GenerationJobKind;
+    mode: GenerationMode;
+    jobKind: GenerationJobKind;
     status: GenerationStatus;
     error?: string;
     costUsd?: number;
@@ -980,8 +998,7 @@ export async function markGenerationRun(
     inngestRunId?: string;
   }
 ) {
-  const mode = input.mode ?? "analysis";
-  const jobKind = input.jobKind ?? mode;
+  const { mode, jobKind } = input;
   const values = {
     slug: input.slug,
     domain: input.domain,
@@ -1085,7 +1102,7 @@ function generationRunSummary(row: GenerationRunResultRow): GenerationRunSummary
     slug: row.slug,
     domain: row.domain,
     mode: row.mode,
-    ...(row.jobKind !== undefined ? { jobKind: row.jobKind } : {}),
+    jobKind: row.jobKind,
     status: row.status,
     ...(row.error !== undefined ? { error: row.error } : {}),
     ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),
@@ -1103,7 +1120,7 @@ function generationRunStatusSummary(row: GenerationRunStatusResultRow): Generati
     slug: row.slug,
     domain: row.domain,
     mode: row.mode,
-    ...(row.jobKind !== undefined ? { jobKind: row.jobKind } : {}),
+    jobKind: row.jobKind,
     status: row.status,
     ...(row.error !== undefined ? { error: row.error } : {}),
     ...(row.costUsd !== undefined ? { costUsd: row.costUsd } : {}),

@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import {
@@ -44,7 +45,7 @@ type CardFetchResult =
   | { status: "missing"; statusCode: number; surface: "extension" | "public"; error: string }
   | { status: "skipped"; surface: "none"; error: string };
 
-type GenerationRunColumns = {
+export type GenerationRunColumns = {
   jobKind: boolean;
   traceJson: boolean;
 };
@@ -156,21 +157,31 @@ async function fetchCard(domain: string): Promise<CardFetchResult> {
 
 async function latestRuns(client: Client) {
   const columns = await generationRunColumns(client);
-  const result = await client.query<RunRow>(
-    `select distinct on (domain, mode)
-            id, slug, domain, mode, ${columns.jobKind ? "job_kind" : "mode as job_kind"},
-            status, error, started_at, completed_at,
-            ${columns.traceJson ? "trace_json" : "null::jsonb as trace_json"}
-       from generation_runs
-       where domain = any($1)
-       order by domain, mode, started_at desc`,
-    [QA_COMPANIES]
-  );
+  const result = await client.query<RunRow>(latestQaRunsQuery(QA_COMPANIES, columns));
   const byKey = new Map<string, RunRow>();
   for (const row of result.rows) {
     byKey.set(`${row.domain}:${row.mode}`, row);
   }
   return byKey;
+}
+
+export function latestQaRunsQuery(domains: readonly string[], columns: GenerationRunColumns) {
+  const profileJobFilter = columns.jobKind
+    ? `
+         and job_kind = mode::text
+         and job_kind in ('basics', 'analysis')`
+    : "";
+
+  return {
+    text: `select distinct on (domain, mode)
+            id, slug, domain, mode, ${columns.jobKind ? "job_kind" : "mode as job_kind"},
+            status, error, started_at, completed_at,
+            ${columns.traceJson ? "trace_json" : "null::jsonb as trace_json"}
+       from generation_runs
+       where domain = any($1)${profileJobFilter}
+       order by domain, mode, started_at desc`,
+    values: [domains]
+  };
 }
 
 async function generationRunColumns(client: Client): Promise<GenerationRunColumns> {
@@ -270,7 +281,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

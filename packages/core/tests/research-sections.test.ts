@@ -4,6 +4,7 @@ import {
   RESEARCH_SECTION_DEFINITIONS,
   deriveLegacyResearchSectionsFromCard,
   mergeStoredResearchSectionsWithLegacy,
+  researchSectionJobKind,
   researchSectionSchema
 } from "../src/index";
 
@@ -100,6 +101,11 @@ describe("research section registry", () => {
     expect(traction?.generationPrompt).toContain("Look creatively for traction without guessing");
     expect(competition?.generationPrompt).toContain("frontier AI labs");
     expect(market?.generationPrompt).toContain("Use bottom-up thinking first");
+  });
+
+  it("keeps section generation job kinds in the section registry", () => {
+    expect(researchSectionJobKind("market")).toBe("section:market");
+    expect(researchSectionJobKind("why_it_matters")).toBe("section:why_it_matters");
   });
 
   it("derives compatible section state from an existing card", () => {

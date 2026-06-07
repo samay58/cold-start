@@ -50,6 +50,13 @@
       "when": 1779986771780,
       "tag": "0006_first_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780838828780,
+      "tag": "0007_slippery_killraven",
+      "breakpoints": true
     }
   ]
 }

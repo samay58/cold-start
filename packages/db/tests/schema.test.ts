@@ -11,4 +11,10 @@ describe("database schema", () => {
     expect(generationRuns).toBeDefined();
     expect(researchSections).toBeDefined();
   });
+
+  it("requires generation run job kind to be explicit", () => {
+    expect(generationRuns.jobKind.default).toBeUndefined();
+    expect(generationRuns.jobKind.hasDefault).toBe(false);
+    expect(generationRuns.jobKind.notNull).toBe(true);
+  });
 });

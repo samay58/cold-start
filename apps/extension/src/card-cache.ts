@@ -20,14 +20,19 @@ export function readCachedCard(domain: string, settings: Settings): Promise<Cold
   return new Promise((resolve) => {
     chrome.storage.session.get(key, (items) => {
       const cached = items[key] as CachedCard | undefined;
+      if (!cached) {
+        resolve(null);
+        return;
+      }
+
       if (
-        !cached ||
         cached.domain !== domain ||
         cached.apiOrigin !== settings.apiOrigin ||
         cached.contractVersion !== COLD_START_API_CONTRACT_VERSION ||
-        !cached.card
+        !cached.card ||
+        cached.card.domain !== domain
       ) {
-        resolve(null);
+        chrome.storage.session.remove(key, () => resolve(null));
         return;
       }
 
@@ -43,7 +48,7 @@ export function readCachedCard(domain: string, settings: Settings): Promise<Cold
 
 export function writeCachedCard(domain: string, settings: Settings, card: ColdStartCard): Promise<void> {
   const key = cardCacheKey(domain, settings);
-  if (!hasUsablePublicProfile(card)) {
+  if (card.domain !== domain || !hasUsablePublicProfile(card)) {
     return new Promise((resolve) => {
       chrome.storage.session.remove(key, resolve);
     });

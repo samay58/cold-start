@@ -8,6 +8,7 @@ import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionCitationIssues,
   researchSectionHasReaderFacingEvidence,
+  researchSectionJobKind,
   hasInvestorUsableProfile,
   hasUsablePublicProfile,
   publicProfileQuality,
@@ -132,9 +133,6 @@ const WEBSETS_ENV_KEYS = [
   "EXA_WEBSETS_BASE_URL",
 ] as const satisfies ReadonlyArray<keyof WebsetsEnv>;
 
-const PUBLIC_RESEARCH_SECTION_IDS = ["buyer", "customer_proof", "traction", "financing", "competition", "product"] as const;
-const GATED_RESEARCH_SECTION_IDS = ["why_it_matters", "market", "risks"] as const;
-
 function stableenrichEnvFromProcess(): StableenrichEnv {
   return readEnvSubset(STABLEENRICH_ENV_KEYS);
 }
@@ -154,7 +152,14 @@ type ContactEnrichmentTier = "named-only" | "full" | "off";
 const CONTACT_ENRICHMENT_EVENT_NAME = "card/contact-enrichment.requested" as const;
 
 function generationModeForRun(input: unknown): GenerationMode {
-  return input === "analysis" ? "analysis" : "basics";
+  if (input === undefined || input === null || input === "") {
+    return "basics";
+  }
+  if (input === "basics" || input === "analysis") {
+    return input;
+  }
+
+  throw new Error(`invalid generation mode: ${String(input).slice(0, 80)}`);
 }
 
 function directExaEnabled() {
@@ -1092,8 +1097,16 @@ function pipelineBlockPatch(input: Awaited<ReturnType<typeof extractCompanyBlock
   return patch;
 }
 
-function rawSlugForRun(input: unknown): string {
+function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   if (typeof input !== "string" || input.trim().length === 0) {
+    if (typeof domainInput === "string" && domainInput.trim().length > 0) {
+      try {
+        return companySlugFromDomain(canonicalCompanyDomain(domainInput)).slice(0, 120);
+      } catch {
+        return "unknown";
+      }
+    }
+
     return "unknown";
   }
 
@@ -1101,8 +1114,16 @@ function rawSlugForRun(input: unknown): string {
 }
 
 function parseEventSectionId(input: unknown): ResearchSectionId | null {
+  if (input === undefined || input === null || input === "") {
+    return null;
+  }
+
   const parsed = researchSectionIdSchema.safeParse(input);
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) {
+    throw new Error(`invalid research section id: ${String(input).slice(0, 80)}`);
+  }
+
+  return parsed.data;
 }
 
 export const generateCardFunction = inngest.createFunction(
@@ -1116,9 +1137,9 @@ export const generateCardFunction = inngest.createFunction(
 
     let domain: string;
     let slug: string;
-    const mode = generationModeForRun(event.data.mode);
-    const requestedSectionId = parseEventSectionId(event.data.sectionId);
-    const jobKind: GenerationTrace["jobKind"] = requestedSectionId ? `section:${requestedSectionId}` : mode;
+    let mode: GenerationMode = "basics";
+    let requestedSectionId: ResearchSectionId | null = null;
+    let jobKind: GenerationTrace["jobKind"] = "basics";
     const trace: GenerationTrace = {
       jobKind,
       mode,
@@ -1129,13 +1150,23 @@ export const generateCardFunction = inngest.createFunction(
       steps: {}
     };
 
+    let currentStage = "validate-mode";
     try {
+      mode = generationModeForRun(event.data.mode);
+      jobKind = mode;
+      trace.mode = mode;
+      trace.jobKind = jobKind;
+      currentStage = "validate-section-id";
+      requestedSectionId = parseEventSectionId(event.data.sectionId);
+      jobKind = requestedSectionId ? researchSectionJobKind(requestedSectionId) : mode;
+      trace.jobKind = jobKind;
+      currentStage = "canonicalize-domain";
       domain = canonicalCompanyDomain(event.data.domain);
       slug = companySlugFromDomain(domain);
     } catch (error) {
       await step.run("mark-invalid-generation", () =>
         markGenerationRun(db, {
-          slug: rawSlugForRun(event.data.slug),
+          slug: rawSlugForRun(event.data.slug, event.data.domain),
           domain: rawDomainForRun(event.data.domain),
           mode,
           jobKind,
@@ -1144,7 +1175,7 @@ export const generateCardFunction = inngest.createFunction(
           traceJson: {
             ...trace,
             failure: {
-              stage: "canonicalize-domain",
+              stage: currentStage,
               message: boundedErrorMessage(error),
               ...(error instanceof Error ? { className: error.name } : {})
             }
@@ -1171,7 +1202,7 @@ export const generateCardFunction = inngest.createFunction(
     );
     generationRunDbId = runningGenerationRun?.id ?? null;
 
-    let currentStage = "plan-research";
+    currentStage = "plan-research";
     const eventRunId = () => generationRunDbId ?? trace.inngest?.runId ?? `${slug}:${jobKind}`;
     const recordEvent = (
       name: string,
@@ -1914,23 +1945,18 @@ export const generateCardFunction = inngest.createFunction(
           ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
         })
       );
-      await step.run("mark-research-sections-failed", () =>
-        Promise.all(
-          (requestedSectionId
-            ? [requestedSectionId]
-            : mode === "analysis" ? GATED_RESEARCH_SECTION_IDS : PUBLIC_RESEARCH_SECTION_IDS
-          ).map((sectionId) =>
-            markResearchSectionFailed(db, {
-              slug,
-              domain,
-              sectionId,
-              visibility: mode === "analysis" ? "gated" : "public",
-              error: boundedErrorMessage(error),
-              runId: generationRunDbId
-            })
-          )
-        )
-      );
+      if (requestedSectionId) {
+        await step.run("mark-research-section-failed", () =>
+          markResearchSectionFailed(db, {
+            slug,
+            domain,
+            sectionId: requestedSectionId,
+            visibility: RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].visibility,
+            error: boundedErrorMessage(error),
+            runId: generationRunDbId
+          }).catch(() => null)
+        );
+      }
       await recordEvent("generation-failed", requestedSectionId ? "section.failed" : "generation.failed", boundedErrorMessage(error), {
         stage: currentStage
       });

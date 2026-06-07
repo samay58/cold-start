@@ -1,0 +1,1 @@
+ALTER TABLE "generation_runs" ALTER COLUMN "job_kind" DROP DEFAULT;

@@ -109,7 +109,7 @@ export const generationRuns = pgTable(
     slug: text("slug").notNull(),
     domain: text("domain").notNull(),
     mode: generationModeEnum("mode").default("analysis").notNull(),
-    jobKind: text("job_kind").default("analysis").notNull(),
+    jobKind: text("job_kind").notNull(),
     status: generationStatusEnum("status").notNull(),
     error: text("error"),
     costUsd: numeric("cost_usd", { precision: 10, scale: 4 }),

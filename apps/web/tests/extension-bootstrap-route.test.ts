@@ -130,6 +130,7 @@ describe("GET /api/extension/bootstrap", () => {
         slug: "cartesia",
         domain: "cartesia.ai",
         mode: "basics",
+        jobKind: "basics",
         status: "complete",
         costUsd: "0.13",
         startedAt: new Date("2026-05-18T12:00:00.000Z"),
@@ -141,6 +142,7 @@ describe("GET /api/extension/bootstrap", () => {
         slug: "cartesia",
         domain: "cartesia.ai",
         mode: "analysis",
+        jobKind: "analysis",
         status: "running",
         startedAt: new Date("2026-05-18T12:00:05.000Z"),
         traceJson: { oversized: true }
@@ -181,6 +183,8 @@ describe("GET /api/extension/bootstrap", () => {
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "basics" });
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "analysis" });
     expect(mocks.retireStaleResearchSections).toHaveBeenCalledWith(mocks.db, { slug: "cartesia" });
+    expect(mocks.findLatestGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "basics", "basics");
+    expect(mocks.findLatestGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "analysis", "analysis");
     expect(response.headers.get("Server-Timing")).toContain("db");
   });
 
@@ -197,6 +201,7 @@ describe("GET /api/extension/bootstrap", () => {
         slug: "llamaindex",
         domain: "llamaindex.ai",
         mode: "basics",
+        jobKind: "basics",
         status: "running",
         startedAt: new Date("2026-05-26T20:00:00.000Z")
       })

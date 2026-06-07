@@ -60,6 +60,20 @@ export function sectionsForCard(card: ColdStartCard, storedSections: ResearchSec
   });
 }
 
+function carryForwardSections(sections: ResearchSection[]) {
+  return sections.filter((section) => {
+    if (section.status === "not_started") {
+      return false;
+    }
+
+    if (section.status === "empty") {
+      return Boolean(section.generatedAt || section.runId);
+    }
+
+    return true;
+  });
+}
+
 function underfilledBasicsMessage(card: ColdStartCard) {
   const quality = publicProfileQuality(card);
   const gaps = [
@@ -89,7 +103,7 @@ async function fetchCard(domain: string, settings: Settings, signal: AbortSignal
   return parseCardResponse(response);
 }
 
-export async function fetchBootstrap(domain: string, settings: Settings, signal: AbortSignal) {
+export async function fetchBootstrap(domain: string, settings: Settings, signal: AbortSignal, storedSections: ResearchSection[] = []) {
   const request = buildBootstrapRequest(domain, settings, signal, chrome.runtime.id);
   markPerformance("cold-start-bootstrap-start");
   try {
@@ -97,15 +111,15 @@ export async function fetchBootstrap(domain: string, settings: Settings, signal:
     const parsed = await parseBootstrapResponse(response);
     markPerformance("cold-start-bootstrap-end");
     if (!parsed.runs || !("card" in parsed)) {
-      return fetchBootstrapSerially(domain, settings, signal);
+      return fetchBootstrapSerially(domain, settings, signal, storedSections);
     }
     return {
       ...parsed,
-      sections: parsed.card ? sectionsForCard(parsed.card, parsed.sections ?? []) : []
+      sections: parsed.card ? sectionsForCard(parsed.card, parsed.sections ?? carryForwardSections(storedSections)) : []
     };
   } catch (caught) {
     if (caught instanceof ApiError && (caught.status === 404 || caught.status === 405)) {
-      const fallback = await fetchBootstrapSerially(domain, settings, signal);
+      const fallback = await fetchBootstrapSerially(domain, settings, signal, storedSections);
       markPerformance("cold-start-bootstrap-end");
       return fallback;
     }
@@ -136,7 +150,8 @@ async function requestRunStatusOrIdle(
 async function fetchBootstrapSerially(
   domain: string,
   settings: Settings,
-  signal: AbortSignal
+  signal: AbortSignal,
+  storedSections: ResearchSection[] = []
 ): Promise<ExtensionBootstrapResponse> {
   let card: ColdStartCard | null = null;
   let slug = "";
@@ -160,7 +175,7 @@ async function fetchBootstrapSerially(
     domain,
     slug: card?.slug ?? safeSlug,
     card,
-    sections: card ? sectionsForCard(card) : [],
+    sections: card ? sectionsForCard(card, carryForwardSections(storedSections)) : [],
     runs: { basics, analysis }
   };
 }
@@ -463,45 +478,28 @@ export async function pollGenerationUntilCard(
   throw new ApiError("Still researching this company. It is taking longer than usual; check again in a moment and the card will be ready.", 202);
 }
 
-export async function startGenerationAndPoll(
+export async function startBasicsGenerationAndPoll(
   domain: string,
   settings: Settings,
   signal: AbortSignal,
-  mode: GenerationStatus["mode"],
   confirmStart: boolean,
-  onGenerationStatus: GenerationStatusListener,
-  options: { forceRefresh?: boolean; latestCard?: ColdStartCard | null; latestSections?: ResearchSection[]; waitForRunCompletion?: boolean } = {}
+  onGenerationStatus: GenerationStatusListener
 ): Promise<GenerationPollResult> {
-  let latestCard = options.latestCard ?? null;
-  if (mode === "analysis" && !latestCard) {
-    try {
-      latestCard = await fetchCard(domain, settings, signal);
-    } catch (caught) {
-      if (!isMissingCard(caught)) {
-        throw caught;
-      }
-    }
-  }
-
-  const generation = await requestGeneration(domain, settings, signal, mode, confirmStart, options.forceRefresh);
+  const generation = await requestGeneration(domain, settings, signal, "basics", confirmStart);
   onGenerationStatus(generation.status, { events: generation.events });
 
   if (generation.status === "cached") {
     const card = await fetchCard(domain, settings, signal);
-    assertUsableBasicsCard(mode, card);
-    return { card, sections: sectionsForCard(card, options.latestSections ?? []) };
+    assertUsableBasicsCard("basics", card);
+    return { card, sections: sectionsForCard(card) };
   }
 
   return pollGenerationUntilCard(
     domain,
     settings,
     signal,
-    mode,
-    onGenerationStatus,
-    latestCard,
-    options.waitForRunCompletion ?? false,
-    undefined,
-    options.latestSections ?? []
+    "basics",
+    onGenerationStatus
   );
 }
 
@@ -511,17 +509,44 @@ export async function startSectionGenerationAndPoll(
   signal: AbortSignal,
   sectionId: ResearchSectionId,
   latestCard: ColdStartCard,
+  latestSections: ResearchSection[],
   onGenerationStatus: GenerationStatusListener
+): Promise<SectionGenerationPollResult> {
+  const mode = modeForSection(sectionId);
+  const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
+  onGenerationStatus(generation.status, { events: generation.events });
+
+  return pollSectionGenerationUntilSettled(domain, settings, signal, sectionId, latestCard, onGenerationStatus, latestSections);
+}
+
+export async function resumeSectionGenerationAndPoll(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  sectionId: ResearchSectionId,
+  latestCard: ColdStartCard,
+  latestSections: ResearchSection[],
+  onGenerationStatus: GenerationStatusListener
+): Promise<SectionGenerationPollResult> {
+  onGenerationStatus("running");
+  return pollSectionGenerationUntilSettled(domain, settings, signal, sectionId, latestCard, onGenerationStatus, latestSections);
+}
+
+async function pollSectionGenerationUntilSettled(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  sectionId: ResearchSectionId,
+  latestCard: ColdStartCard,
+  onGenerationStatus: GenerationStatusListener,
+  latestSections: ResearchSection[] = []
 ): Promise<SectionGenerationPollResult> {
   const mode = modeForSection(sectionId);
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
   const pollStartedAt = Date.now();
   let pollCount = 0;
   let currentCard = latestCard;
-  let currentSections = sectionsForCard(latestCard);
-
-  const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
-  onGenerationStatus(generation.status, { events: generation.events });
+  let currentSections = sectionsForCard(latestCard, latestSections);
 
   while (Date.now() < deadline) {
     if (pollCount > 0) {
@@ -529,10 +554,10 @@ export async function startSectionGenerationAndPoll(
     }
     pollCount += 1;
 
-    const bootstrap = await fetchBootstrap(domain, settings, signal);
+    const bootstrap = await fetchBootstrap(domain, settings, signal, currentSections);
     if (bootstrap.card) {
       currentCard = bootstrap.card;
-      currentSections = bootstrap.sections ?? sectionsForCard(bootstrap.card);
+      currentSections = bootstrap.sections ?? sectionsForCard(bootstrap.card, currentSections);
     }
 
     const section = sectionFromList(currentSections, sectionId);
@@ -569,13 +594,14 @@ export async function startSectionGenerationAndPoll(
     }
 
     if (runStatus?.status === "complete") {
+      const message = "Section run completed, but no saved section result was returned.";
       const sections = withLocalSectionFailure(
         currentCard,
         currentSections,
         sectionId,
-        "Section run completed, but no saved section result was returned."
+        message
       );
-      return { card: currentCard, sections };
+      return { card: currentCard, sections, analysisNotice: message };
     }
   }
 

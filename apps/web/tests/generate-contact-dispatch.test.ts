@@ -245,6 +245,14 @@ async function runBasicsGeneration(
   contactEnabled: string,
   harnessOptions: Parameters<typeof stepHarness>[0] = {}
 ) {
+  return runGeneration(contactEnabled, harnessOptions);
+}
+
+async function runGeneration(
+  contactEnabled: string,
+  harnessOptions: Parameters<typeof stepHarness>[0] = {},
+  eventData: { domain: string; mode?: unknown; sectionId?: string } = { domain: "modal.com", mode: "basics" }
+) {
   vi.resetModules();
   process.env.DATABASE_URL = "postgres://cold-start-test";
   process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
@@ -257,7 +265,7 @@ async function runBasicsGeneration(
     event: {
       id: "evt_modal",
       ts: Date.parse(generatedAt),
-      data: { domain: "modal.com", mode: "basics" }
+      data: eventData
     },
     runId: "inngest-run",
     step: harness.step
@@ -521,6 +529,96 @@ describe("generate-card contact dispatch", () => {
     );
     expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-card"));
     expect(names).not.toContain("fetch-contact-sources");
+  });
+
+  it("preserves saved research sections when late basics enrichment fails", async () => {
+    mocks.fetchStableenrichEnrichmentSources.mockRejectedValue(new Error("late enrichment failed"));
+
+    await expect(runBasicsGeneration("true")).rejects.toThrow("late enrichment failed");
+
+    expect(mocks.upsertCard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      domain: "modal.com"
+    }));
+    expect(mocks.upsertResearchSections).toHaveBeenCalled();
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      mode: "basics",
+      jobKind: "basics",
+      status: "failed",
+      error: "late enrichment failed"
+    }));
+    expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
+  });
+
+  it("fails malformed section events instead of treating them as profile generation", async () => {
+    await expect(runGeneration("true", {}, { domain: "modal.com", mode: "analysis", sectionId: "not_a_section" }))
+      .rejects.toThrow("invalid research section id: not_a_section");
+
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      domain: "modal.com",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "failed",
+      error: "invalid research section id: not_a_section",
+      traceJson: expect.objectContaining({
+        failure: expect.objectContaining({
+          stage: "validate-section-id",
+          message: "invalid research section id: not_a_section"
+        })
+      })
+    }));
+    expect(mocks.findCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.generateCardForDomainWithTrace).not.toHaveBeenCalled();
+    expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
+  });
+
+  it("fails malformed generation modes instead of silently running basics", async () => {
+    await expect(runGeneration("true", {}, { domain: "modal.com", mode: "analysys" }))
+      .rejects.toThrow("invalid generation mode: analysys");
+
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      domain: "modal.com",
+      mode: "basics",
+      jobKind: "basics",
+      status: "failed",
+      error: "invalid generation mode: analysys",
+      traceJson: expect.objectContaining({
+        failure: expect.objectContaining({
+          stage: "validate-mode",
+          message: "invalid generation mode: analysys"
+        })
+      })
+    }));
+    expect(mocks.findCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.generateCardForDomainWithTrace).not.toHaveBeenCalled();
+    expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
+  });
+
+  it("keeps requested section cleanup best-effort when section generation fails", async () => {
+    mocks.findCardBySlug.mockResolvedValue(null);
+    mocks.markResearchSectionFailed.mockRejectedValue(new Error("section cleanup unavailable"));
+
+    await expect(runGeneration("true", {}, { domain: "modal.com", mode: "analysis", sectionId: "market" }))
+      .rejects.toThrow("profile not found");
+
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      mode: "analysis",
+      jobKind: "section:market",
+      status: "failed",
+      error: "profile not found"
+    }));
+    expect(mocks.markResearchSectionFailed).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      domain: "modal.com",
+      sectionId: "market",
+      visibility: "gated",
+      error: "profile not found",
+      runId: "generation-run-id"
+    }));
   });
 
   it("does not dispatch contact enrichment when disabled", async () => {

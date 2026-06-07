@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
@@ -159,15 +160,21 @@ function hasSummary(card: ColdStartCard | null) {
 }
 
 async function latestRuns(client: Client, domains: string[]) {
-  const result = await client.query<RunRow>(
-    `select distinct on (domain, mode)
+  const result = await client.query<RunRow>(latestOptimizerRunsQuery(domains));
+  return result.rows;
+}
+
+export function latestOptimizerRunsQuery(domains: readonly string[]) {
+  return {
+    text: `select distinct on (domain, mode)
             domain, mode, job_kind, status, started_at, completed_at, trace_json
        from generation_runs
        where domain = any($1)
+         and job_kind = mode::text
+         and job_kind in ('basics', 'analysis')
        order by domain, mode, started_at desc`,
-    [domains]
-  );
-  return result.rows;
+    values: [domains]
+  };
 }
 
 async function latestCards(client: Client, domains: string[]) {
@@ -375,7 +382,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

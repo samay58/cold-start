@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ColdStartCard } from "./card";
+import type { GenerationJobKind } from "./generation-trace";
 
 export const researchSectionIdSchema = z.enum([
   "buyer",
@@ -223,6 +224,10 @@ export function sectionDefinitionForLayer(id: ResearchLayerId): ResearchSectionD
 
 export function layerIdForSection(id: ResearchSectionId): ResearchLayerId {
   return RESEARCH_SECTION_DEFINITIONS_BY_ID[id].layerId;
+}
+
+export function researchSectionJobKind(id: ResearchSectionId): GenerationJobKind {
+  return `section:${id}`;
 }
 
 export function researchSectionIdsForVisibility(visibility: ResearchSectionVisibility): ResearchSectionId[] {

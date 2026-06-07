@@ -129,8 +129,8 @@ export async function GET(request: Request) {
   const [card, storedSections, basicsRun, analysisRun, sources, events] = await Promise.all([
     findCardBySlug(db, slug, { allowStale: true }),
     findResearchSectionsBySlug(db, slug),
-    findLatestGenerationRunStatusBySlug(db, slug, "basics"),
-    findLatestGenerationRunStatusBySlug(db, slug, "analysis"),
+    findLatestGenerationRunStatusBySlug(db, slug, "basics", "basics"),
+    findLatestGenerationRunStatusBySlug(db, slug, "analysis", "analysis"),
     findSourceSummariesBySlug(db, slug, { limit: 24 }),
     findResearchRunEventsBySlug(db, slug, { limit: 30 }).catch(() => [])
   ]);

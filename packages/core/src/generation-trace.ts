@@ -3,12 +3,6 @@ import { z } from "zod";
 export type GenerationJobKind =
   | "basics"
   | "analysis"
-  | "signals"
-  | "customers"
-  | "serves"
-  | "mechanism"
-  | "competition"
-  | "openQuestions"
   | "section:buyer"
   | "section:customer_proof"
   | "section:traction"
