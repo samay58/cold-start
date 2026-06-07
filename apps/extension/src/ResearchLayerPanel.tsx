@@ -1212,17 +1212,17 @@ export function ResearchLayerPanel({
     suppressClickFor.current = id;
   }
 
-  function handleDormantDrag(id: ResearchLayerId, info: PanInfo) {
-    const nextPreviewId = dragOffsetShouldPreview(info.offset.y) ? id : null;
-    const nextReadyId = dragOffsetShouldSnap(info.offset.y, info.velocity.y) ? id : null;
+  function handleDormantDrag(id: ResearchLayerId, info: PanInfo, index: number) {
+    const nextPreviewId = dragOffsetShouldPreview(info.offset.y, index) ? id : null;
+    const nextReadyId = dragOffsetShouldSnap(info.offset.y, info.velocity.y, index) ? id : null;
 
     snapReadyLayerId.current = nextReadyId;
     setSnapPreviewId(nextPreviewId);
     setSnapReadyId(nextReadyId);
   }
 
-  function handleDormantDragEnd(id: ResearchLayerId, info: PanInfo) {
-    const shouldSnap = snapReadyLayerId.current === id || dragOffsetShouldSnap(info.offset.y, info.velocity.y);
+  function handleDormantDragEnd(id: ResearchLayerId, info: PanInfo, index: number) {
+    const shouldSnap = snapReadyLayerId.current === id || dragOffsetShouldSnap(info.offset.y, info.velocity.y, index);
 
     setDraggingLayerId(null);
     setSnapPreviewId(null);
@@ -1479,8 +1479,8 @@ export function ResearchLayerPanel({
                     key={layer.id}
                     layer={layer}
                     onClick={() => handleDormantClick(layer.id)}
-                    onDrag={(info) => handleDormantDrag(layer.id, info)}
-                    onDragEnd={(info) => handleDormantDragEnd(layer.id, info)}
+                    onDrag={(info) => handleDormantDrag(layer.id, info, index)}
+                    onDragEnd={(info) => handleDormantDragEnd(layer.id, info, index)}
                     onDragStart={() => handleDormantDragStart(layer.id)}
                     onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
                     previewing={previewing}

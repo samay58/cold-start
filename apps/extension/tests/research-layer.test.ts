@@ -492,9 +492,14 @@ describe("research layer model", () => {
   it("uses stable drag thresholds for card pinning", () => {
     expect(dragOffsetShouldPreview(-32)).toBe(true);
     expect(dragOffsetShouldPreview(-31)).toBe(false);
+    expect(dragOffsetShouldPreview(-68, 3)).toBe(true);
+    expect(dragOffsetShouldPreview(-67, 3)).toBe(false);
     expect(dragOffsetShouldSnap(-68)).toBe(true);
     expect(dragOffsetShouldSnap(-67)).toBe(false);
+    expect(dragOffsetShouldSnap(-152, 0, 3)).toBe(true);
+    expect(dragOffsetShouldSnap(-151, 0, 3)).toBe(false);
     expect(dragOffsetShouldSnap(-34, -540)).toBe(true);
+    expect(dragOffsetShouldSnap(-70, -540, 3)).toBe(true);
     expect(dragOffsetShouldSnap(-59, -120)).toBe(true);
     expect(dragOffsetShouldSnap(-40, -40)).toBe(false);
     expect(dragOffsetShouldSuppressClick({ x: 0, y: -6 })).toBe(false);

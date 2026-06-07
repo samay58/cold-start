@@ -29,7 +29,7 @@ export async function dragWithSamples({
   screenshotPrefix
 }: {
   card: Locator;
-  deltas: Array<{ label: string; y: number }>;
+  deltas: ReadonlyArray<{ label: string; y: number }>;
   page: Page;
   screenshotPrefix?: string;
 }) {

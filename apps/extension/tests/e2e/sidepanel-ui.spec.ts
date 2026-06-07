@@ -440,13 +440,13 @@ test("dragging a dormant card opens a real insertion slot before release", async
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 34, { steps: 4 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 104, { steps: 8 });
   const insertionSlot = page.locator(".cs-module-insertion-slot");
   await expect(insertionSlot).toBeVisible();
   await expect(insertionSlot).toContainText("File Next question");
   await expect(insertionSlot).toHaveAttribute("data-ready", "false");
   await expect(page.locator(".cs-drop-zone")).toHaveCount(0);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 8 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 232, { steps: 12 });
   await expect(insertionSlot).toHaveAttribute("data-ready", "true");
   await page.mouse.up();
 
@@ -463,28 +463,49 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
   await mockExtensionApi(page, browserbaseCardWithSynthesis());
   await openSidePanel(page);
 
-  for (const [label, slug] of [
-    ["Who pays", "first"],
-    ["Money", "middle"],
-    ["Next question", "last"]
-  ] as const) {
-    const card = page.locator(".cs-dormant-card", { hasText: label });
-    await card.scrollIntoViewIfNeeded();
-    await expect(card).toBeVisible();
-
-    const samples = await dragWithSamples({
-      card,
+  for (const scenario of [
+    {
       deltas: [
         { label: "initial", y: -12 },
         { label: "mid", y: -42 },
         { label: "ready", y: -116 }
       ],
+      label: "Who pays",
+      slug: "first"
+    },
+    {
+      deltas: [
+        { label: "initial", y: -24 },
+        { label: "mid", y: -96 },
+        { label: "ready", y: -180 }
+      ],
+      label: "Money",
+      slug: "middle"
+    },
+    {
+      deltas: [
+        { label: "initial", y: -32 },
+        { label: "mid", y: -140 },
+        { label: "ready", y: -248 }
+      ],
+      label: "Next question",
+      slug: "last"
+    }
+  ] as const) {
+    const card = page.locator(".cs-dormant-card", { hasText: scenario.label });
+    await card.scrollIntoViewIfNeeded();
+    await expect(card).toBeVisible();
+
+    const samples = await dragWithSamples({
+      card,
+      deltas: scenario.deltas,
       page,
-      screenshotPrefix: `cold-start-drag-${slug}`
+      screenshotPrefix: `cold-start-drag-${scenario.slug}`
     });
     expectPointerAttached(samples);
     await page.mouse.up();
-    await expect(page.locator(".cs-active-enrichment", { hasText: label })).toBeVisible();
+    await expect(page.locator(".cs-active-enrichment", { hasText: scenario.label })).toBeVisible();
+    await expect(page.locator(".cs-dormant-card", { hasText: scenario.label })).toHaveCount(0);
   }
 });
 
@@ -558,6 +579,7 @@ test("active research cards keep one module open at a time", async ({ page }) =>
   const activeServes = page.locator('.cs-active-enrichment[data-layer-id="serves"]');
   await expect(activeServes).toHaveAttribute("data-expanded", "true");
   await expect(activeSignals).toHaveAttribute("data-expanded", "false");
+  await expect(page.locator(".cs-dormant-card", { hasText: "Who pays" })).toHaveCount(0);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-active-transition.png" });
 });
 
