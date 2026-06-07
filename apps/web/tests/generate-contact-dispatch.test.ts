@@ -187,24 +187,41 @@ vi.mock("@cold-start/pipeline", async () => {
   };
 });
 
-function stepHarness() {
+function stepHarness(options: {
+  replayNowMs?: number;
+  stepNowMs?: Record<string, number>;
+} = {}) {
   const names: string[] = [];
+  let nowMs = options.replayNowMs ?? Date.now();
+  const dateNowSpy = options.stepNowMs
+    ? vi.spyOn(Date, "now").mockImplementation(() => nowMs)
+    : null;
   const sendEvent = vi.fn(async (name: string) => {
     names.push(name);
   });
   return {
     names,
+    restoreClock: () => dateNowSpy?.mockRestore(),
     step: {
       run: vi.fn(async (name: string, fn: () => unknown) => {
         names.push(name);
-        return fn();
+        const stepNow = options.stepNowMs?.[name];
+        if (stepNow !== undefined) {
+          nowMs = stepNow;
+        }
+        const value = await fn();
+        nowMs = options.replayNowMs ?? nowMs;
+        return value;
       }),
       sendEvent
     }
   };
 }
 
-async function runBasicsGeneration(contactEnabled: string) {
+async function runBasicsGeneration(
+  contactEnabled: string,
+  harnessOptions: Parameters<typeof stepHarness>[0] = {}
+) {
   vi.resetModules();
   process.env.DATABASE_URL = "postgres://cold-start-test";
   process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
@@ -212,7 +229,7 @@ async function runBasicsGeneration(contactEnabled: string) {
   process.env.CONTACT_ENRICHMENT_TIER = "named-only";
 
   const { generateCardFunction } = await import("../src/inngest/functions");
-  const harness = stepHarness();
+  const harness = stepHarness(harnessOptions);
   await generateCardFunction.fn({
     event: {
       id: "evt_modal",
@@ -335,6 +352,33 @@ describe("generate-card contact dispatch", () => {
     );
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
+  });
+
+  it("records the saved seed card as the first usable profile across replay", async () => {
+    const requestedAtMs = Date.parse(generatedAt);
+    const { restoreClock } = await runBasicsGeneration("true", {
+      replayNowMs: requestedAtMs + 120_000,
+      stepNowMs: {
+        "upsert-seed-card": requestedAtMs + 12_000,
+        "upsert-card": requestedAtMs + 80_000,
+        "upsert-enriched-card": requestedAtMs + 110_000
+      }
+    });
+
+    try {
+      const persistCall = mocks.updateGenerationRunTrace.mock.calls.at(-1);
+      expect(persistCall).toBeDefined();
+
+      const patch = persistCall?.[1]?.patch as
+        | ((trace: unknown) => { milestones?: { seedCardMs?: number; firstUsableCardMs?: number } })
+        | undefined;
+      const persisted = patch?.({ jobKind: "basics", mode: "basics" });
+
+      expect(persisted?.milestones?.seedCardMs).toBe(12_000);
+      expect(persisted?.milestones?.firstUsableCardMs).toBe(12_000);
+    } finally {
+      restoreClock();
+    }
   });
 
   it("dispatches contact enrichment from a stored final card when the seed card is underfilled", async () => {

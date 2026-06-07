@@ -39,8 +39,26 @@ export function requestedAtMsFromGenerationEvent(event: GenerationEventTimestamp
     ?? fallbackNowMs;
 }
 
-function milestoneElapsedMs(requestedAtMs: number, nowMs = Date.now()) {
+export function generationMilestoneElapsedMs(requestedAtMs: number, nowMs = Date.now()) {
   return Math.max(1, Math.round(nowMs - requestedAtMs));
+}
+
+export function writeGenerationMilestoneValue(
+  trace: GenerationTrace,
+  name: GenerationMilestoneName,
+  valueMs: number
+) {
+  const existing = trace.milestones?.[name];
+  if (typeof existing === "number" && Number.isFinite(existing)) {
+    return existing;
+  }
+
+  const value = Math.max(1, Math.round(valueMs));
+  trace.milestones = {
+    ...trace.milestones,
+    [name]: value
+  };
+  return value;
 }
 
 export function writeGenerationMilestone(
@@ -49,17 +67,7 @@ export function writeGenerationMilestone(
   requestedAtMs: number,
   nowMs = Date.now()
 ) {
-  const existing = trace.milestones?.[name];
-  if (typeof existing === "number" && Number.isFinite(existing)) {
-    return existing;
-  }
-
-  const value = milestoneElapsedMs(requestedAtMs, nowMs);
-  trace.milestones = {
-    ...trace.milestones,
-    [name]: value
-  };
-  return value;
+  return writeGenerationMilestoneValue(trace, name, generationMilestoneElapsedMs(requestedAtMs, nowMs));
 }
 
 export function mergeGenerationTrace(

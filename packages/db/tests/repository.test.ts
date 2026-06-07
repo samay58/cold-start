@@ -757,6 +757,29 @@ describe("generation run status snapshots", () => {
     expect(snapshot).not.toHaveProperty("inngestEventId");
     expect(snapshot).not.toHaveProperty("inngestRunId");
   });
+
+  it("defaults latest run status lookups to the profile job kind", async () => {
+    let whereCondition: unknown;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: (condition: unknown) => {
+            whereCondition = condition;
+            return {
+              orderBy: () => ({
+                limit: async () => []
+              })
+            };
+          }
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await findLatestGenerationRunStatusBySlug(db, "cartesia", "basics");
+
+    const values = sqlParamValues(whereCondition);
+    expect(values.filter((value) => value === "basics")).toHaveLength(2);
+  });
 });
 
 describe("research run evidence summaries", () => {

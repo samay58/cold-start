@@ -86,11 +86,12 @@ import { inngest } from "./client";
 import {
   applyStableenrichWalletTrace,
   completedStep,
+  generationMilestoneElapsedMs,
   mergeGenerationTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
   skippedStep,
-  writeGenerationMilestone,
+  writeGenerationMilestoneValue,
   type ProviderTrace
 } from "./generation-trace";
 
@@ -842,8 +843,14 @@ export const contactEnrichmentFunction = inngest.createFunction(
 
       const contactCard = cardWithExtractedSections(existingCard, contactEnriched.value.sections);
       const cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
+      let contactsReadyMs: number | null = null;
       if (canStoreCardSnapshot("basics", cardToStore)) {
-        const contactRow = await step.run("upsert-contact-card", () => upsertCard(db, cardToStore));
+        const contactStore = await step.run("upsert-contact-card", async () => ({
+          row: await upsertCard(db, cardToStore),
+          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+        }));
+        contactsReadyMs = contactStore.milestoneMs;
+        const contactRow = contactStore.row;
         await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, cardToStore));
         await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-contact-sources", () =>
@@ -853,7 +860,11 @@ export const contactEnrichmentFunction = inngest.createFunction(
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", cardToStore);
       }
 
-      writeGenerationMilestone(trace, "contactsReadyMs", requestedAtMs);
+      writeGenerationMilestoneValue(
+        trace,
+        "contactsReadyMs",
+        contactsReadyMs ?? generationMilestoneElapsedMs(requestedAtMs)
+      );
       if (parentGenerationRunId) {
         await step.run("update-parent-contact-trace", () =>
           updateGenerationRunTrace(db, {
@@ -1525,7 +1536,11 @@ export const generateCardFunction = inngest.createFunction(
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
         if (canStoreCardSnapshot(mode, seedCardToStore)) {
-          const seedRow = await step.run("upsert-seed-card", () => upsertCard(db, seedCardToStore));
+          const seedStore = await step.run("upsert-seed-card", async () => ({
+            row: await upsertCard(db, seedCardToStore),
+            milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+          }));
+          const seedRow = seedStore.row;
           await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
           await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(seedCardToStore)));
           await step.run("record-seed-sources", () => recordSourcesForCard(db, seedRow.id, acceptedSources));
@@ -1533,7 +1548,8 @@ export const generateCardFunction = inngest.createFunction(
             citationCount: seedCardToStore.citations.length,
             sourceCount: acceptedSources.length
           }, null);
-          writeGenerationMilestone(trace, "seedCardMs", requestedAtMs);
+          writeGenerationMilestoneValue(trace, "seedCardMs", seedStore.milestoneMs);
+          writeGenerationMilestoneValue(trace, "firstUsableCardMs", seedStore.milestoneMs);
           await requestContactEnrichmentForStoredCard(seedCardToStore, "seed-card");
         } else {
           noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
@@ -1644,9 +1660,14 @@ export const generateCardFunction = inngest.createFunction(
       let sourcesToRecord = clean.value.sources;
 
       let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
+      let analysisReadyMs: number | null = null;
 
       if (canStoreCardSnapshot(mode, cardToStore)) {
-        const storedRow = await step.run("upsert-card", () => upsertCard(db, cardToStore));
+        const stored = await step.run("upsert-card", async () => ({
+          row: await upsertCard(db, cardToStore),
+          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+        }));
+        const storedRow = stored.row;
         await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
         await step.run("record-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-sources", () =>
@@ -1657,8 +1678,10 @@ export const generateCardFunction = inngest.createFunction(
           sourceCount: sourcesToRecord.length
         }, null);
         if (mode === "basics") {
-          writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
+          writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
           await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
+        } else {
+          analysisReadyMs = stored.milestoneMs;
         }
       } else {
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-generated-card", cardToStore);
@@ -1769,7 +1792,11 @@ export const generateCardFunction = inngest.createFunction(
 
         cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
         assertTerminalCardQuality(mode, cardToStore);
-        const storedRow = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
+        const stored = await step.run("upsert-enriched-card", async () => ({
+          row: await upsertCard(db, cardToStore),
+          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+        }));
+        const storedRow = stored.row;
         await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
         await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-enriched-sources", () =>
@@ -1780,11 +1807,11 @@ export const generateCardFunction = inngest.createFunction(
           sourceCount: sourcesToRecord.length
         }, null);
         await requestContactEnrichmentForStoredCard(cardToStore, "enriched-card");
-        writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs);
+        writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
       }
 
-      if (mode === "analysis") {
-        writeGenerationMilestone(trace, "analysisReadyMs", requestedAtMs);
+      if (mode === "analysis" && analysisReadyMs !== null) {
+        writeGenerationMilestoneValue(trace, "analysisReadyMs", analysisReadyMs);
       }
 
       const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());

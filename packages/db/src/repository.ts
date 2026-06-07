@@ -779,10 +779,11 @@ export async function findLatestGenerationRunStatusBySlug(
   mode: GenerationMode = "analysis",
   jobKind?: string
 ): Promise<GenerationRunStatusSummary | null> {
+  const lookupJobKind = jobKind ?? mode;
   const filters = [
     eq(generationRuns.slug, slug),
     eq(generationRuns.mode, mode),
-    ...(jobKind ? [eq(generationRuns.jobKind, jobKind)] : [])
+    eq(generationRuns.jobKind, lookupJobKind)
   ];
   const rows = await db
     .select({
