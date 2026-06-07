@@ -1475,6 +1475,9 @@ button {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+  color: var(--color-muted);
+  font-size: 13.5px;
+  line-height: 1.42;
 }
 
 .cs-company-summary-wrap {
@@ -1482,22 +1485,34 @@ button {
   max-width: 34rem;
 }
 
-.cs-company-summary-more {
+.cs-company-summary-trigger {
   position: relative;
-  margin-top: 7px;
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  padding: 0;
   border: 0;
   background: transparent;
+  cursor: help;
+  text-align: left;
+}
+
+.cs-company-summary-cue {
+  display: inline-flex;
+  margin-top: 6px;
   color: var(--color-seal);
-  cursor: pointer;
   font: 650 11.5px/1.2 var(--font-body);
-  padding: 0;
   text-decoration: underline;
   text-decoration-color: rgb(110 92 158 / 0.30);
   text-underline-offset: 3px;
 }
 
-.cs-company-summary-more:focus-visible {
-  border-radius: 4px;
+.cs-company-summary-trigger:hover .cs-company-summary-cue {
+  text-decoration-color: rgb(110 92 158 / 0.56);
+}
+
+.cs-company-summary-trigger:focus-visible {
+  border-radius: 6px;
   outline: 2px solid rgb(110 92 158 / 0.34);
   outline-offset: 4px;
 }
@@ -2670,6 +2685,15 @@ button {
   border: 1px solid rgb(212 197 158 / 0.48);
   border-radius: 6px;
   background: rgb(252 250 245 / 0.44);
+}
+
+.cs-people-person[aria-describedby] {
+  cursor: help;
+}
+
+.cs-people-person:focus-visible {
+  outline: 2px solid rgb(110 92 158 / 0.28);
+  outline-offset: 2px;
 }
 
 .cs-people-person[data-has-email="true"] {

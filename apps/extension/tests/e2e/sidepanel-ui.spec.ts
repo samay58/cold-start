@@ -64,18 +64,19 @@ test("summary tooltip opens from keyboard focus and clears on blur", async ({ pa
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const more = page.getByRole("button", { name: "Read the full company description" });
-  await expect(more).toBeVisible();
-  await more.focus();
+  const summary = page.locator(".cs-company-summary-trigger");
+  await expect(summary).toBeVisible();
+  await expect(summary).toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
+  await summary.focus();
   await expectFocusedElementVisible(page);
 
   const tooltip = page.locator("#cs-company-shared-tooltip");
   await expect(tooltip).toBeVisible();
   await expect(tooltip).toContainText("Description");
   await expect(tooltip).toContainText("managed browser workbench");
-  await expect(tooltip).toHaveAttribute("data-placement", "above");
+  await expect(tooltip).toHaveAttribute("data-placement", "below");
 
-  await more.evaluate((element) => {
+  await summary.evaluate((element) => {
     (element as HTMLButtonElement).blur();
   });
   await expect(tooltip).toHaveCount(0);
@@ -237,10 +238,20 @@ test("core metrics and people stay compact in the company context", async ({ pag
   await expect(facts.getByText("Employees")).toBeVisible();
   await expect(facts.locator("dd").filter({ hasText: /^6$/ })).toBeVisible();
   await expect(facts.getByText("2026-04-27")).toBeVisible();
+  await expect(facts.locator("> div").first()).not.toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
   await expect(management.getByText("Charlie Holtz")).toHaveCount(1);
   await expect(management.getByText("Jackson de Campos")).toBeVisible();
   await expect(management.getByText("2 sources")).toBeVisible();
   await expect(page.locator(".cs-management-team")).toHaveCount(0);
+
+  const charlie = page.locator(".cs-people-person", { hasText: "Charlie Holtz" });
+  await expect(charlie).toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
+  await charlie.focus();
+  const peopleTooltip = page.locator("#cs-company-shared-tooltip");
+  await expect(peopleTooltip).toBeVisible();
+  await expect(peopleTooltip).toContainText("Charlie Holtz");
+  await expect(peopleTooltip).toContainText("Co-founder & CEO");
+  await expect(peopleTooltip).toHaveAttribute("data-placement", "above");
 
   const factsBox = await facts.boundingBox();
   const managementBox = await management.boundingBox();

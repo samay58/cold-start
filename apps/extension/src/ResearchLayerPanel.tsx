@@ -232,7 +232,13 @@ function useSharedTooltip(prefersReducedMotion: boolean) {
   }): TooltipTriggerProps {
     return {
       "aria-describedby": SHARED_TOOLTIP_ID,
-      onBlur: () => hideTooltip(),
+      onBlur: (event) => {
+        const nextTarget = event.relatedTarget;
+        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+          return;
+        }
+        hideTooltip();
+      },
       onFocus: (event) => showTooltip({ ...input, target: event.currentTarget }),
       onPointerEnter: (event) => showTooltip({ ...input, target: event.currentTarget }),
       onPointerLeave: () => hideTooltip()
@@ -290,22 +296,24 @@ function ProfileSummary({
   const hasMore = fullSummary !== summary;
   return (
     <div className="cs-company-summary-wrap">
-      <p className="cs-company-summary">{summary}</p>
       {hasMore ? (
         <button
           aria-label="Read the full company description"
-          className="cs-company-summary-more"
+          className="cs-company-summary-trigger"
           type="button"
           {...tooltipProps({
             body: fullSummary,
             id: "profile-summary",
-            placement: "above",
+            placement: "below",
             title: "Description"
           })}
         >
-          <span>More</span>
+          <span className="cs-company-summary">{summary}</span>
+          <span className="cs-company-summary-cue" aria-hidden="true">More</span>
         </button>
-      ) : null}
+      ) : (
+        <p className="cs-company-summary">{summary}</p>
+      )}
     </div>
   );
 }
@@ -443,6 +451,35 @@ function emailKind(email: string, companyDomain: string) {
   return "other domain";
 }
 
+function sentenceCase(value: string) {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function sourceHostLabel(sourceUrl: string | null | undefined) {
+  if (!sourceUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./i, "");
+  } catch {
+    return null;
+  }
+}
+
+function personTooltipBody(person: CardPerson, companyDomain: string) {
+  const emailStatus = person.email
+    ? `${sentenceCase(emailKind(person.email, companyDomain))} email found.`
+    : "No verified email found yet.";
+  const source = sourceHostLabel(person.sourceUrl);
+
+  return [
+    `${personRole(person)}.`,
+    emailStatus,
+    source ? `Source: ${source}.` : null
+  ].filter(Boolean).join(" ");
+}
+
 function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
   const emails = people.flatMap((person) => person.email ? [person.email] : []);
   if (emails.length === 0) {
@@ -514,17 +551,7 @@ function profileFacts(card: ColdStartCard): Array<{ label: string; value: string
   return facts.slice(0, 3);
 }
 
-function factTooltipBody(fact: ReturnType<typeof profileFacts>[number]) {
-  return [fact.value, fact.meta].filter(Boolean).join(" · ");
-}
-
-function FactRibbon({
-  facts,
-  tooltipProps
-}: {
-  facts: ReturnType<typeof profileFacts>;
-  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
-}) {
+function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
   if (facts.length === 0) {
     return null;
   }
@@ -532,16 +559,7 @@ function FactRibbon({
   return (
     <dl className="cs-company-facts" aria-label="Core metrics">
       {facts.map((fact) => (
-        <div
-          key={fact.label}
-          tabIndex={0}
-          {...tooltipProps({
-            body: factTooltipBody(fact),
-            id: `fact-${fact.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-            placement: "below",
-            title: fact.label
-          })}
-        >
+        <div key={fact.label}>
           <dt>{fact.label}</dt>
           <dd>{fact.value}</dd>
           {fact.meta ? <small>{fact.meta}</small> : null}
@@ -557,7 +575,8 @@ function PeopleLine({
   contactRun,
   confidence,
   people,
-  sourceCount
+  sourceCount,
+  tooltipProps
 }: {
   companyDomain: string;
   contactElapsedSeconds?: number;
@@ -565,6 +584,7 @@ function PeopleLine({
   confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
   people: CardPerson[];
   sourceCount: number;
+  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
 }) {
   if (people.length === 0) {
     return null;
@@ -597,29 +617,43 @@ function PeopleLine({
         </span>
       </div>
       <div className="cs-people-line-list">
-        {visiblePeople.map((person) => (
-          <article
-            className="cs-people-person"
-            data-has-email={person.email ? "true" : "false"}
-            key={`${person.name}-${person.email ?? person.role ?? "person"}`}
-          >
-            <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
-            <span className="cs-person-main">
-              <span className="cs-people-name">{person.name}</span>
-              <span className="cs-people-role">{personRole(person)}</span>
-              {person.email ? (
-                <span className="cs-person-email">
-                  <a href={`mailto:${person.email}`}>{person.email}</a>
-                  <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
-                  <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
-                </span>
-              ) : null}
-            </span>
-            <span className="cs-person-contact-state" aria-hidden="true">
-              {person.email ? "@" : ""}
-            </span>
-          </article>
-        ))}
+        {visiblePeople.map((person) => {
+          const name = person.name.trim();
+          const tooltip = name
+            ? tooltipProps({
+              body: personTooltipBody(person, companyDomain),
+              id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+              placement: "above",
+              title: name
+            })
+            : undefined;
+
+          return (
+            <article
+              className="cs-people-person"
+              data-has-email={person.email ? "true" : "false"}
+              key={`${person.name}-${person.email ?? person.role ?? "person"}`}
+              tabIndex={tooltip ? 0 : undefined}
+              {...tooltip}
+            >
+              <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
+              <span className="cs-person-main">
+                <span className="cs-people-name">{person.name}</span>
+                <span className="cs-people-role">{personRole(person)}</span>
+                {person.email ? (
+                  <span className="cs-person-email">
+                    <a href={`mailto:${person.email}`}>{person.email}</a>
+                    <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
+                    <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
+                  </span>
+                ) : null}
+              </span>
+              <span className="cs-person-contact-state" aria-hidden="true">
+                {person.email ? "@" : ""}
+              </span>
+            </article>
+          );
+        })}
         {hiddenPeopleCount > 0 ? (
           <span className="cs-people-more">
             +{hiddenPeopleCount}
@@ -1340,7 +1374,7 @@ export function ResearchLayerPanel({
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
           </div>
         </div>
-        <FactRibbon facts={facts} tooltipProps={triggerProps} />
+        <FactRibbon facts={facts} />
         <PeopleLine
           companyDomain={card.domain}
           contactElapsedSeconds={contactElapsedSeconds}
@@ -1348,6 +1382,7 @@ export function ResearchLayerPanel({
           confidence={managementConfidence(card)}
           people={people}
           sourceCount={managerSources}
+          tooltipProps={triggerProps}
         />
       </section>
 

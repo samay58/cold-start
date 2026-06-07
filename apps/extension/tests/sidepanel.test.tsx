@@ -622,7 +622,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("shows the company description in one shared tooltip overlay", async () => {
+  it("shows the company description from the visible summary in one shared tooltip overlay", async () => {
     const card = cardWithManagement("tolans.com");
     const fullDescription = "Tolan is a voice-first AI companion app for young adults with animated alien characters designed to support emotional wellbeing without mimicking a human therapist while the company keeps its early product motion focused on consumer companionship and daily check-ins rather than a broad enterprise workflow.";
     card.identity.description = {
@@ -638,22 +638,23 @@ describe("SidePanel generation gate", () => {
     };
     const fetchMock = vi.fn(async () => jsonResponse(card));
     const { container, unmount } = await renderSidePanel({ domain: "tolans.com", fetchMock });
-    const more = container.querySelector(".cs-company-summary-more") as HTMLElement | null;
-    expect(more).toBeTruthy();
-    more!.getBoundingClientRect = () => ({
+    const summaryTrigger = container.querySelector(".cs-company-summary-trigger") as HTMLElement | null;
+    expect(summaryTrigger).toBeTruthy();
+    expect(summaryTrigger?.getAttribute("aria-describedby")).toBe("cs-company-shared-tooltip");
+    summaryTrigger!.getBoundingClientRect = () => ({
       bottom: 120,
       height: 20,
       left: 40,
-      right: 90,
+      right: 320,
       top: 100,
-      width: 50,
+      width: 280,
       x: 40,
       y: 100,
       toJSON: () => ({})
     });
 
     await act(async () => {
-      more!.focus();
+      summaryTrigger!.focus();
     });
     const tooltip = container.querySelector(".cs-shared-tooltip");
     expect(tooltip).toBeTruthy();
@@ -662,7 +663,79 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelectorAll(".cs-company-summary-popover")).toHaveLength(0);
 
     await act(async () => {
-      more!.blur();
+      summaryTrigger!.blur();
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    await unmount();
+  });
+
+  it("does not turn core metric cells into tooltip triggers", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithManagement("theinformation.com")));
+    const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
+    const metricCells = Array.from(container.querySelectorAll("dl[aria-label='Core metrics'] > div")) as HTMLElement[];
+
+    expect(metricCells.length).toBeGreaterThan(0);
+    for (const cell of metricCells) {
+      expect(cell.getAttribute("aria-describedby")).toBeNull();
+      expect(cell.getAttribute("tabindex")).toBeNull();
+    }
+
+    await act(async () => {
+      metricCells[0]!.focus();
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    await unmount();
+  });
+
+  it("shows honest placeholder tooltips for visible people but not the overflow row", async () => {
+    const card = cardWithManagement("theinformation.com");
+    card.team.keyExecs.value = [
+      ...(card.team.keyExecs.value ?? []),
+      { name: "Jill Abramson", role: "Advisor", sourceUrl: "https://linkedin.com/in/jill" },
+      { name: "Martin Peers", role: "Columnist", sourceUrl: "https://theinformation.com/team" },
+      { name: "Wayne Ma", role: "Reporter", sourceUrl: "https://theinformation.com/team" }
+    ];
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
+    const personRows = Array.from(container.querySelectorAll(".cs-people-person")) as HTMLElement[];
+    const jessica = personRows.find((row) => row.textContent?.includes("Jessica Lessin"));
+
+    expect(personRows).toHaveLength(4);
+    expect(jessica).toBeTruthy();
+    expect(jessica?.getAttribute("aria-describedby")).toBe("cs-company-shared-tooltip");
+    jessica!.getBoundingClientRect = () => ({
+      bottom: 220,
+      height: 44,
+      left: 48,
+      right: 360,
+      top: 176,
+      width: 312,
+      x: 48,
+      y: 176,
+      toJSON: () => ({})
+    });
+
+    await act(async () => {
+      jessica!.focus();
+    });
+    const tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip).toBeTruthy();
+    expect(tooltip?.textContent).toContain("Jessica Lessin");
+    expect(tooltip?.textContent).toContain("Founder");
+    expect(tooltip?.textContent).toContain("Work email found.");
+
+    await act(async () => {
+      jessica!.blur();
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+
+    const overflow = container.querySelector(".cs-people-more") as HTMLElement | null;
+    expect(overflow).toBeTruthy();
+    expect(overflow?.getAttribute("aria-describedby")).toBeNull();
+    expect(overflow?.getAttribute("tabindex")).toBeNull();
+
+    await act(async () => {
+      overflow!.focus();
     });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
     await unmount();
