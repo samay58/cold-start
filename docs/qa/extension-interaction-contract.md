@@ -50,6 +50,19 @@ the Catalogue Card direction in `DESIGN.md`.
 | Active module body | CSS `grid-template-rows` | Acceptable | Short, local, non-pointer-driven expansion. |
 | Running sheen | CSS keyframes | Acceptable | Decorative progress cue disabled under reduced motion. |
 | Source pass/progress | CSS keyframes and small transforms | Acceptable | Scoped to progress affordances and covered by reduced-motion tests. |
+| Start screen entrance | Framer one-shot opacity/y/filter | Acceptable | Not gesture-driven; keep short and non-blocking. |
+| Start screen pointer glow | Framer springed motion values | Acceptable | Decorative only; disabled by reduced-motion spring settings. |
+| Shared tooltip | CSS top/left transition | Acceptable | Small surface, only used to keep tooltip continuity between triggers. |
+
+## Known Exceptions
+
+- `.cs-active-enrichment-body-frame` uses `grid-template-rows` for local expand
+  and collapse. This is allowed because it is not pointer-driven and keeps module
+  contents accessible in normal document flow.
+- Small static `filter` and `backdrop-filter` treatments exist on isolated
+  surfaces. Do not animate them continuously.
+- Box-shadow may change on small interactive cards and buttons as feedback. Do
+  not animate large-container shadows during gestures.
 
 ## Acceptance Checklist
 
