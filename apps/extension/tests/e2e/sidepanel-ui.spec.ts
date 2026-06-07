@@ -376,6 +376,33 @@ test("dragging a dormant card opens a real insertion slot before release", async
   ]);
 });
 
+test("short dormant-card drag settles without click activation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await openSidePanel(page);
+
+  const card = page.locator(".cs-dormant-card", { hasText: "Who pays" });
+  await expect(card).toBeVisible();
+
+  const box = await card.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) {
+    return;
+  }
+
+  const startX = box.x + box.width / 2;
+  const startY = box.y + box.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, startY - 24, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(page.locator(".cs-module-insertion-slot")).toHaveCount(0);
+  await expect(page.locator(".cs-dormant-card", { hasText: "Who pays" })).toBeVisible();
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Who pays" })).toHaveCount(0);
+});
+
 test("active research cards keep one module open at a time", async ({ page }) => {
   const emptySignalsCard = browserbaseCard({ signals: [] });
   await installChromeShim(page);

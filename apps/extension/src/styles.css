@@ -1607,6 +1607,8 @@ button {
 }
 
 .cs-research-layer {
+  position: relative;
+  z-index: 2;
   overflow: hidden;
 }
 
@@ -2221,9 +2223,14 @@ button {
 }
 
 .cs-module-insertion-slot {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 20;
   display: grid;
   gap: 3px;
-  margin: 0 12px 12px;
+  margin: 0;
   padding: 12px 14px;
   border: 1px solid rgb(216 208 191 / 0.82);
   border-radius: 8px;
@@ -2233,6 +2240,7 @@ button {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.82) inset,
     0 12px 24px rgb(2 8 18 / 0.045);
+  pointer-events: none;
 }
 
 .cs-module-insertion-slot[data-preview="true"] {
@@ -5175,6 +5183,7 @@ body {
   .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
   .cs-research-progress-dot[data-running="true"],
   .cs-card-pile-motion,
+  .cs-dormant-card-frame,
   .cs-dormant-card {
     animation: none;
     transition: none;
@@ -5250,6 +5259,7 @@ body {
 /* Dormant research cards: a controlled filing pile, not a row list. */
 .cs-card-tray {
   position: relative;
+  z-index: 1;
   min-height: 0;
   margin-top: 4px;
   padding: 10px 8px 14px;
@@ -5262,6 +5272,10 @@ body {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.74) inset,
     0 8px 18px rgb(23 26 31 / 0.045);
+}
+
+.cs-card-tray[data-dragging="true"] {
+  z-index: 30;
 }
 
 .cs-card-tray::before {
@@ -5357,15 +5371,26 @@ body {
   transform: translateY(8px) rotate(0.14deg) scaleX(0.986);
 }
 
-.cs-dormant-card {
+.cs-dormant-card-frame {
   position: relative;
   z-index: 1;
+  margin-top: -2px;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.cs-dormant-card-frame:first-child {
+  margin-top: 0;
+}
+
+.cs-dormant-card {
+  position: relative;
   display: grid;
   grid-template-columns: 9px 30px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   min-height: 52px;
-  margin-top: -2px;
+  margin-top: 0;
   padding: 9px 11px 9px 10px;
   overflow: hidden;
   border: 1px solid rgb(195 183 154 / 0.64);
@@ -5384,10 +5409,6 @@ body {
   contain: paint;
   transform-origin: center;
   will-change: transform;
-}
-
-.cs-dormant-card:first-child {
-  margin-top: 0;
 }
 
 .cs-dormant-card::before {
@@ -5576,10 +5597,14 @@ body {
 }
 
 .cs-module-insertion-slot {
-  position: relative;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  z-index: 20;
   display: grid;
   gap: 3px;
-  margin: 2px 12px 12px;
+  margin: 0;
   padding: 10px 12px 10px 14px;
   overflow: hidden;
   border: 1px solid rgb(195 183 154 / 0.62);
@@ -5590,6 +5615,7 @@ body {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.78) inset,
     0 7px 14px rgb(23 26 31 / 0.045);
+  pointer-events: none;
 }
 
 .cs-module-insertion-slot::before {
@@ -5688,11 +5714,13 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .cs-card-pile-motion,
+  .cs-dormant-card-frame,
   .cs-dormant-card {
     animation: none;
     transition: none;
   }
 
+  .cs-dormant-card-frame,
   .cs-dormant-card {
     will-change: auto;
   }

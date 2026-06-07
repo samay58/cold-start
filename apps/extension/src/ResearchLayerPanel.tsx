@@ -7,10 +7,10 @@ import {
   type PublicProfileQuality,
   type ResearchSection
 } from "@cold-start/core";
-import { AnimatePresence, LayoutGroup, motion, useMotionValue, useSpring, useTransform, type PanInfo } from "framer-motion";
+import { AnimatePresence, LayoutGroup, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
-import { commitSpring, motionTokens, reducedSpring, snapSpring } from "./motion-primitives";
+import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -19,7 +19,6 @@ import {
   type ResearchLayerId
 } from "./research-layer";
 import {
-  dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
@@ -871,66 +870,83 @@ function DormantPileCard({
   snapReady: boolean;
   prefersReducedMotion: boolean | null;
 }) {
+  const dragY = useMotionValue(0);
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const depth = dormantPileDepth(index);
   const stackNumber = dormantStackNumber(layer);
   const actionLabel = layer.source === "analysis" ? "Lens" : "";
   const restingMotion = prefersReducedMotion
-    ? { x: Math.round(depth.x / 2), y: 0, rotate: 0, scale: 1, zIndex: depth.zIndex }
-    : { x: depth.x, y: depth.y, rotate: depth.rotate, scale: depth.scale, zIndex: depth.zIndex };
+    ? { x: Math.round(depth.x / 2), y: 0, rotate: 0, scale: 1 }
+    : { x: depth.x, y: depth.y, rotate: depth.rotate, scale: depth.scale };
   const activeMotion = {
     x: 0,
-    y: snapReady ? -2 : 0,
+    y: 0,
     rotate: 0,
-    scale: snapReady ? 1.024 : 1.014,
-    zIndex: 120
+    scale: snapReady ? 1.018 : 1.012
   };
-  const feedbackProps = !prefersReducedMotion
+  const feedbackProps = !prefersReducedMotion && !dragging
     ? {
-        whileTap: { scale: dragging ? 1.004 : 0.996 }
+        whileTap: { scale: 0.996 }
       }
     : {};
+
+  function settleDragY() {
+    if (prefersReducedMotion) {
+      dragY.set(0);
+      return;
+    }
+
+    void animate(dragY, 0, snapSpring);
+  }
 
   return (
     <motion.div
       animate={dragging ? activeMotion : restingMotion}
-      aria-label={`File ${layer.title} into Research`}
-      className="cs-dormant-card"
-      data-dragging={dragging ? "true" : "false"}
-      data-index={index}
-      data-layer-source={layer.source}
-      data-previewing={previewing ? "true" : "false"}
-      data-snap-ready={snapReady ? "true" : "false"}
-      drag="y"
-      dragConstraints={{ bottom: 0, top: -320 }}
-      dragElastic={0.035}
-      dragMomentum={false}
-      dragTransition={{ bounceDamping: 38, bounceStiffness: 720, power: 0.12, timeConstant: 140 }}
+      className="cs-dormant-card-frame"
       exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.975, y: -8 }}
-      layout
-      onClick={onClick}
-      onDrag={(_event, info) => onDrag(info)}
-      onDragEnd={(_event, info) => onDragEnd(info)}
-      onDragStart={onDragStart}
-      onKeyDown={onKeyDown}
-      role="button"
-      tabIndex={0}
+      style={{ zIndex: dragging ? 120 : depth.zIndex }}
       transition={motionTransition}
-      {...feedbackProps}
     >
-      <span className="cs-card-grip" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </span>
-      <span className="cs-dormant-card-index" aria-hidden="true">
-        <span>{stackNumber}</span>
-      </span>
-      <span className="cs-dormant-card-copy">
-        <strong>{layer.title}</strong>
-        <small>{layer.description}</small>
-      </span>
-      <span className="cs-card-action-mark" aria-hidden="true">{actionLabel}</span>
+      <motion.div
+        aria-label={`File ${layer.title} into Research`}
+        className="cs-dormant-card"
+        data-dragging={dragging ? "true" : "false"}
+        data-index={index}
+        data-layer-source={layer.source}
+        data-previewing={previewing ? "true" : "false"}
+        data-snap-ready={snapReady ? "true" : "false"}
+        drag="y"
+        dragConstraints={{ bottom: 0, top: -320 }}
+        dragElastic={0.035}
+        dragMomentum={false}
+        dragTransition={{ bounceDamping: 38, bounceStiffness: 720, power: 0.12, timeConstant: 140 }}
+        onClick={onClick}
+        onDrag={(_event, info) => onDrag(info)}
+        onDragEnd={(_event, info) => {
+          onDragEnd(info);
+          settleDragY();
+        }}
+        onDragStart={onDragStart}
+        onKeyDown={onKeyDown}
+        role="button"
+        style={{ y: dragY }}
+        tabIndex={0}
+        {...feedbackProps}
+      >
+        <span className="cs-card-grip" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+        <span className="cs-dormant-card-index" aria-hidden="true">
+          <span>{stackNumber}</span>
+        </span>
+        <span className="cs-dormant-card-copy">
+          <strong>{layer.title}</strong>
+          <small>{layer.description}</small>
+        </span>
+        <span className="cs-card-action-mark" aria-hidden="true">{actionLabel}</span>
+      </motion.div>
     </motion.div>
   );
 }
@@ -1135,11 +1151,6 @@ export function ResearchLayerPanel({
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
-  const trayPullRaw = useMotionValue(0);
-  const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? reducedSpring : snapSpring);
-  const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.984, 0.962]);
-  const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.992, 0.98]);
-  const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -5]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1188,7 +1199,7 @@ export function ResearchLayerPanel({
   }
 
   function handleDormantClick(id: ResearchLayerId) {
-    if (suppressClickFor.current) {
+    if (suppressClickFor.current === id) {
       suppressClickFor.current = null;
       return;
     }
@@ -1198,15 +1209,13 @@ export function ResearchLayerPanel({
 
   function handleDormantDragStart(id: ResearchLayerId) {
     setDraggingLayerId(id);
-    trayPullRaw.set(0);
+    suppressClickFor.current = id;
   }
 
   function handleDormantDrag(id: ResearchLayerId, info: PanInfo) {
     const nextPreviewId = dragOffsetShouldPreview(info.offset.y) ? id : null;
     const nextReadyId = dragOffsetShouldSnap(info.offset.y, info.velocity.y) ? id : null;
-    const pull = Math.max(0, -dampenDragOffset(info.offset.y));
 
-    trayPullRaw.set(prefersReducedMotion ? 0 : pull);
     snapReadyLayerId.current = nextReadyId;
     setSnapPreviewId(nextPreviewId);
     setSnapReadyId(nextReadyId);
@@ -1219,11 +1228,15 @@ export function ResearchLayerPanel({
     setSnapPreviewId(null);
     setSnapReadyId(null);
     snapReadyLayerId.current = null;
-    trayPullRaw.set(0);
 
     if (dragOffsetShouldSuppressClick(info.offset)) {
       suppressClickFor.current = id;
     }
+    window.setTimeout(() => {
+      if (suppressClickFor.current === id) {
+        suppressClickFor.current = null;
+      }
+    }, 250);
 
     if (shouldSnap) {
       suppressClickFor.current = id;
@@ -1425,7 +1438,7 @@ export function ResearchLayerPanel({
               data-ready={snapReadyId ? "true" : "false"}
               exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.992 }}
               initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 8, scale: 0.992 }}
-              transition={prefersReducedMotion ? { duration: 0 } : snapSpring}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
             >
               <span>{insertionSlotCopy}</span>
               <small>{insertionSlotHint}</small>
@@ -1452,11 +1465,8 @@ export function ResearchLayerPanel({
           <span>Research stack</span>
           <small>{dormantLayers.length} waiting</small>
         </div>
-        <motion.div
-          className="cs-card-pile-motion"
-          {...(prefersReducedMotion ? {} : { style: { scaleX: trayScaleX, scaleY: trayScaleY, y: trayLift } })}
-        >
-          <motion.div className="cs-card-pile" layout>
+        <div className="cs-card-pile-motion">
+          <div className="cs-card-pile">
             <AnimatePresence>
               {dormantLayers.map((layer, index) => {
                 const dragging = draggingLayerId === layer.id;
@@ -1480,8 +1490,8 @@ export function ResearchLayerPanel({
                 );
               })}
             </AnimatePresence>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </motion.section>
       <SharedTooltip tooltip={tooltip} />
     </main>
