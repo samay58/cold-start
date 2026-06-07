@@ -118,9 +118,9 @@ function dormantPileDepth(index: number) {
   };
 }
 
-function dormantCallNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
+function dormantStackNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
   const catalogIndex = RESEARCH_LAYER_CARDS.findIndex((candidate) => candidate.id === layer.id) + 1;
-  return `CS ${String(catalogIndex).padStart(2, "0")}`;
+  return String(catalogIndex).padStart(2, "0");
 }
 
 function defaultActiveLayers(card: ColdStartCard, canShowResearchLayers: boolean, analysisRun: AnalysisRun | undefined): ResearchLayerId[] {
@@ -873,8 +873,7 @@ function DormantPileCard({
 }) {
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
   const depth = dormantPileDepth(index);
-  const callNumber = dormantCallNumber(layer);
-  const sourceLabel = layer.source === "analysis" ? "Lens" : "Card";
+  const stackNumber = dormantStackNumber(layer);
   const actionLabel = layer.source === "analysis" ? "Lens" : "";
   const restingMotion = prefersReducedMotion
     ? { x: Math.round(depth.x / 2), y: 0, rotate: 0, scale: 1, zIndex: depth.zIndex }
@@ -925,8 +924,7 @@ function DormantPileCard({
         <span />
       </span>
       <span className="cs-dormant-card-index" aria-hidden="true">
-        <span>{callNumber}</span>
-        <i>{sourceLabel}</i>
+        <span>{stackNumber}</span>
       </span>
       <span className="cs-dormant-card-copy">
         <strong>{layer.title}</strong>

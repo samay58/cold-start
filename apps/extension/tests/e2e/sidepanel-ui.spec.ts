@@ -26,6 +26,8 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByLabel("Research card stack")).toBeVisible();
   await expect(page.locator(".cs-card-tray-head")).toContainText("Research stack");
   await expect(page.locator(".cs-dormant-card").first()).toHaveAttribute("aria-label", /File .* into Research/);
+  await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("02");
+  await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
   await expect(page.getByText("Browserbase turns browser automation into agent infrastructure")).toBeVisible();
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
