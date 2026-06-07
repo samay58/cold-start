@@ -23,6 +23,10 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.locator(".cs-research-brand")).toHaveCount(0);
   await expect(page.locator(".cs-extension-brand")).toHaveCount(0);
   await expect(page.locator(".cs-extension-mark")).toHaveCount(0);
+  await expect(page.getByLabel("Research card stack")).toBeVisible();
+  await expect(page.locator(".cs-card-tray-head")).toContainText("Research stack");
+  await expect(page.locator(".cs-dormant-card").first()).toHaveAttribute("aria-label", /File .* into Research/);
+  await expect(page.locator(".cs-card-plus")).toHaveCount(0);
   await expect(page.getByText("Browserbase turns browser automation into agent infrastructure")).toBeVisible();
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
   await expect(page.getByText("[c1]")).toHaveCount(0);
@@ -356,7 +360,7 @@ test("dragging a dormant card opens a real insertion slot before release", async
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 34, { steps: 4 });
   const insertionSlot = page.locator(".cs-module-insertion-slot");
   await expect(insertionSlot).toBeVisible();
-  await expect(insertionSlot).toContainText("Add Next question");
+  await expect(insertionSlot).toContainText("File Next question");
   await expect(insertionSlot).toHaveAttribute("data-ready", "false");
   await expect(page.locator(".cs-drop-zone")).toHaveCount(0);
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 8 });

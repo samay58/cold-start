@@ -146,7 +146,7 @@ The page width should feel deliberate:
 
 ### Extension Panel
 
-The Chrome extension is a workbench. It keeps the current company pinned at the top, then shows research modules as inspectable rows. The old pile metaphor is retired.
+The Chrome extension is a compact workbench. It keeps the current company pinned at the top, shows active research as inspectable modules, and keeps dormant modules in a controlled pile of catalogue cards waiting to be filed. The pile metaphor is active product language: tactile, precise, and readable rather than chaotic.
 
 Module rows have four parts:
 
@@ -333,7 +333,7 @@ Build this in five passes. Do not continue implementing the Ray Gun assets unles
    - Keep public synthesis hidden.
 
 3. **Extension workbench**
-   - Replace the pile/tray metaphor with expandable research module rows.
+   - Keep active research as expandable module rows and dormant research as a controlled filing-card pile.
    - Move running analysis state into the active module.
    - Preserve the existing backend contract: basics and analysis first, future per-module jobs later.
 

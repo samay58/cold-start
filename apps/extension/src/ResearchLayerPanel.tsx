@@ -96,6 +96,32 @@ const VISIBLE_SOURCE_COUNT = 3;
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
 const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
+const DORMANT_PILE_DEPTHS = [
+  { x: 0, y: 0, rotate: -0.18 },
+  { x: -3, y: -1, rotate: 0.38 },
+  { x: 3, y: -2, rotate: -0.46 },
+  { x: -2, y: -2, rotate: 0.28 },
+  { x: 2, y: -3, rotate: -0.32 },
+  { x: -1, y: -3, rotate: 0.22 },
+  { x: 1, y: -4, rotate: -0.24 },
+  { x: -2, y: -4, rotate: 0.18 },
+  { x: 2, y: -5, rotate: -0.16 }
+] as const;
+
+function dormantPileDepth(index: number) {
+  const depth = DORMANT_PILE_DEPTHS[index % DORMANT_PILE_DEPTHS.length] ?? DORMANT_PILE_DEPTHS[0];
+  const settledIndex = Math.min(index, 8);
+  return {
+    ...depth,
+    scale: 1 - settledIndex * 0.002,
+    zIndex: 80 - index
+  };
+}
+
+function dormantCallNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
+  const catalogIndex = RESEARCH_LAYER_CARDS.findIndex((candidate) => candidate.id === layer.id) + 1;
+  return `CS ${String(catalogIndex).padStart(2, "0")}`;
+}
 
 function defaultActiveLayers(card: ColdStartCard, canShowResearchLayers: boolean, analysisRun: AnalysisRun | undefined): ResearchLayerId[] {
   return canShowResearchLayers && (card.synthesis || analysisRun) ? ["coreIdea"] : [];
@@ -846,6 +872,20 @@ function DormantPileCard({
   prefersReducedMotion: boolean | null;
 }) {
   const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
+  const depth = dormantPileDepth(index);
+  const callNumber = dormantCallNumber(layer);
+  const sourceLabel = layer.source === "analysis" ? "Lens" : "Card";
+  const actionLabel = layer.source === "analysis" ? "Lens" : "";
+  const restingMotion = prefersReducedMotion
+    ? { x: Math.round(depth.x / 2), y: 0, rotate: 0, scale: 1, zIndex: depth.zIndex }
+    : { x: depth.x, y: depth.y, rotate: depth.rotate, scale: depth.scale, zIndex: depth.zIndex };
+  const activeMotion = {
+    x: 0,
+    y: snapReady ? -2 : 0,
+    rotate: 0,
+    scale: snapReady ? 1.024 : 1.014,
+    zIndex: 120
+  };
   const feedbackProps = !prefersReducedMotion
     ? {
         whileTap: { scale: dragging ? 1.004 : 0.996 }
@@ -854,16 +894,12 @@ function DormantPileCard({
 
   return (
     <motion.div
-      animate={dragging
-        ? {
-            scale: snapReady ? 1.018 : 1.01,
-            zIndex: 30
-          }
-        : { scale: 1, zIndex: index + 1 }}
-      aria-label={`Pin ${layer.title}`}
+      animate={dragging ? activeMotion : restingMotion}
+      aria-label={`File ${layer.title} into Research`}
       className="cs-dormant-card"
       data-dragging={dragging ? "true" : "false"}
       data-index={index}
+      data-layer-source={layer.source}
       data-previewing={previewing ? "true" : "false"}
       data-snap-ready={snapReady ? "true" : "false"}
       drag="y"
@@ -883,12 +919,20 @@ function DormantPileCard({
       transition={motionTransition}
       {...feedbackProps}
     >
-      <span className="cs-card-grip" aria-hidden="true">⋮</span>
+      <span className="cs-card-grip" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span className="cs-dormant-card-index" aria-hidden="true">
+        <span>{callNumber}</span>
+        <i>{sourceLabel}</i>
+      </span>
       <span className="cs-dormant-card-copy">
         <strong>{layer.title}</strong>
         <small>{layer.description}</small>
       </span>
-      {layer.source === "analysis" ? <span className="cs-card-plus" aria-hidden="true">+</span> : null}
+      <span className="cs-card-action-mark" aria-hidden="true">{actionLabel}</span>
     </motion.div>
   );
 }
@@ -1095,9 +1139,9 @@ export function ResearchLayerPanel({
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
   const trayPullRaw = useMotionValue(0);
   const trayPull = useSpring(trayPullRaw, prefersReducedMotion ? reducedSpring : snapSpring);
-  const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.975, 0.946]);
-  const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.988, 0.972]);
-  const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -7]);
+  const trayScaleX = useTransform(trayPull, [0, 70, 150], [1, 0.984, 0.962]);
+  const trayScaleY = useTransform(trayPull, [0, 70, 150], [1, 0.992, 0.98]);
+  const trayLift = useTransform(trayPull, [0, 70, 150], [0, -2, -5]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1199,12 +1243,12 @@ export function ResearchLayerPanel({
   const activeRunVisible = Boolean(profileRun || analysisRun || activeSectionRun);
   const showResearchProgress = activeRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
-  const insertionSlotCopy = draggingLayer ? `Add ${draggingLayer.title}` : "Add module";
+  const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
-    ? "Release to place it in Research"
+    ? "Release to file it in Research"
     : snapPreviewId
-      ? "Keep pulling into Research"
-      : "Lift a module to add it";
+      ? "Keep pulling toward the filing space"
+      : "Lift a card to file it";
   const rawSummary = card.identity.description?.value?.shortDescription ?? card.identity.oneLiner.value;
   const summary = compactProfileSummary(rawSummary, card.domain);
   const fullSummary = expandedProfileSummary(rawSummary, card.domain);
@@ -1400,7 +1444,16 @@ export function ResearchLayerPanel({
 
       </section>
 
-      <motion.section className="cs-card-tray" aria-label="Dormant enrichment cards">
+      <motion.section
+        className="cs-card-tray"
+        aria-label="Research card stack"
+        data-dragging={draggingLayerId ? "true" : "false"}
+        data-ready={snapReadyId ? "true" : "false"}
+      >
+        <div className="cs-card-tray-head">
+          <span>Research stack</span>
+          <small>{dormantLayers.length} waiting</small>
+        </div>
         <motion.div
           className="cs-card-pile-motion"
           {...(prefersReducedMotion ? {} : { style: { scaleX: trayScaleX, scaleY: trayScaleY, y: trayLift } })}

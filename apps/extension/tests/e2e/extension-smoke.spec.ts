@@ -15,6 +15,7 @@ const extensionDist = path.resolve(process.cwd(), "dist");
 test("built MV3 extension boots and renders a cached card", async () => {
   test.skip(!existsSync(path.join(extensionDist, "manifest.json")), "Run npm run build before extension smoke.");
 
+  const cachedCard = browserbaseCardWithSynthesis();
   const userDataDir = path.join(os.tmpdir(), `cold-start-extension-smoke-${Date.now()}`);
   mkdirSync(userDataDir, { recursive: true });
 
@@ -29,8 +30,19 @@ test("built MV3 extension boots and renders a cached card", async () => {
   });
 
   try {
+    await context.route("**/api/extension/bootstrap?**", async (route) => {
+      await fulfillJson(route, {
+        domain: "browserbase.com",
+        slug: "browserbase",
+        card: cachedCard,
+        runs: {
+          basics: { slug: "browserbase", domain: "browserbase.com", mode: "basics", status: "idle" },
+          analysis: { slug: "browserbase", domain: "browserbase.com", mode: "analysis", status: "idle" }
+        }
+      });
+    });
     await context.route("**/api/extension/cards/**", async (route) => {
-      await fulfillJson(route, browserbaseCardWithSynthesis());
+      await fulfillJson(route, cachedCard);
     });
     await context.route("**/api/generate?**", async (route) => {
       await fulfillJson(route, {
@@ -58,7 +70,8 @@ test("built MV3 extension boots and renders a cached card", async () => {
     await page.reload();
     await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
     await expect(page.getByLabel("Research layer")).toBeVisible();
-    await expect(page.getByRole("link", { name: "browserbase.com" })).toBeVisible();
+    await expect(page.getByLabel("Research card stack")).toBeVisible();
+    await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toBeVisible();
   } finally {
     await context.close();
     await rm(userDataDir, { recursive: true, force: true });
