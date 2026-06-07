@@ -6,7 +6,7 @@ import {
   installChromeShim,
   mockExtensionApi
 } from "./fixtures";
-import { dragWithSamples, expectPointerAttached } from "./interaction-probes";
+import { dragWithSamples, expectFocusedElementVisible, expectPointerAttached } from "./interaction-probes";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
@@ -34,6 +34,71 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
   await expect(page.getByText("[c1]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
+});
+
+test("summary tooltip opens from keyboard focus and clears on blur", async ({ page }) => {
+  const longSummary = [
+    "Browserbase gives AI teams a managed browser workbench for agents that need to navigate real sites, preserve session state, and observe what happened after each run.",
+    "It packages browser sessions, proxies, instrumentation, and automation APIs so developers can file the messy web-navigation layer behind one infrastructure surface.",
+    "The company matters when agent products move from demos to repeatable workflows that need stable browsers, traceable logs, and a clean handoff back to human operators."
+  ].join(" ");
+  const card = browserbaseCard({
+    identity: {
+      ...browserbaseCard().identity,
+      description: {
+        value: {
+          shortDescription: longSummary,
+          concept: "Managed browser infrastructure for AI agent workflows.",
+          serves: "AI application developers and automation teams.",
+          mechanism: "Hosted browser sessions, proxies, observability, and automation APIs."
+        },
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1", "c2", "c3"]
+      }
+    }
+  });
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const more = page.getByRole("button", { name: "Read the full company description" });
+  await expect(more).toBeVisible();
+  await more.focus();
+  await expectFocusedElementVisible(page);
+
+  const tooltip = page.locator("#cs-company-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("Description");
+  await expect(tooltip).toContainText("managed browser workbench");
+  await expect(tooltip).toHaveAttribute("data-placement", "above");
+
+  await more.evaluate((element) => {
+    (element as HTMLButtonElement).blur();
+  });
+  await expect(tooltip).toHaveCount(0);
+});
+
+test("keyboard-reachable controls keep visible focus targets", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await openSidePanel(page);
+
+  const controls = [
+    page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
+    page.locator(".cs-dormant-card", { hasText: "Who pays" }),
+    page.locator(".cs-dormant-card", { hasText: "Money" }),
+    page.locator(".cs-dormant-card", { hasText: "Next question" })
+  ];
+
+  for (const control of controls) {
+    await control.scrollIntoViewIfNeeded();
+    await control.focus();
+    await expect(control).toBeFocused();
+    await expectFocusedElementVisible(page);
+  }
 });
 
 test("no-source partial card auto-regenerates before rendering the dossier", async ({ page }) => {
@@ -336,6 +401,21 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
 });
 
+test("reduced motion keeps the research stack legible and still", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await openSidePanel(page);
+
+  const stack = page.getByLabel("Research card stack");
+  const topCard = page.locator(".cs-dormant-card").first();
+  await expect(stack).toBeVisible();
+  await expect(topCard).toBeVisible();
+  await expect(topCard).toHaveCSS("animation-name", "none");
+  await expect(page.locator(".cs-dormant-card-frame").first()).toHaveCSS("animation-name", "none");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-reduced-motion-rest.png" });
+});
+
 test("dragging a dormant card opens a real insertion slot before release", async ({ page }) => {
   const generationRequests: Array<{ confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string }> = [];
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -478,6 +558,7 @@ test("active research cards keep one module open at a time", async ({ page }) =>
   const activeServes = page.locator('.cs-active-enrichment[data-layer-id="serves"]');
   await expect(activeServes).toHaveAttribute("data-expanded", "true");
   await expect(activeSignals).toHaveAttribute("data-expanded", "false");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-active-transition.png" });
 });
 
 async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0]) {
@@ -552,6 +633,7 @@ test("profile-finishing shimmer keeps text readable and sweeps over time", async
   await expect(profileProgress).not.toContainText("Saved a starter profile");
   await expect(profileProgress).not.toContainText("Also:");
   await expect(profileProgress.locator(".cs-build-compact")).toHaveCount(0);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-profile-finishing.png" });
 
   const sheen = runningCard.locator(".cs-layer-running-sheen");
   await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");

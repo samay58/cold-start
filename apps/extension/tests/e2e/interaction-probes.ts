@@ -8,6 +8,20 @@ export type DragSample = {
   transform: string;
 };
 
+export type FocusSample = {
+  bottom: number;
+  display: string;
+  height: number;
+  left: number;
+  right: number;
+  tagName: string;
+  top: number;
+  visibility: string;
+  viewportHeight: number;
+  viewportWidth: number;
+  width: number;
+};
+
 export async function dragWithSamples({
   card,
   deltas,
@@ -70,4 +84,43 @@ export function expectPointerAttached(samples: DragSample[], maxDelta = 3) {
       `${sample.label} should stay attached to pointer, got ${sample.deltaFromPointer}px`
     ).toBeLessThanOrEqual(maxDelta);
   }
+}
+
+export async function expectFocusedElementVisible(page: Page) {
+  const sample = await page.evaluate<FocusSample | null>(() => {
+    const element = document.activeElement as HTMLElement | null;
+    if (!element || element === document.body) {
+      return null;
+    }
+
+    const rect = element.getBoundingClientRect();
+    const styles = getComputedStyle(element);
+    return {
+      bottom: rect.bottom,
+      display: styles.display,
+      height: rect.height,
+      left: rect.left,
+      right: rect.right,
+      tagName: element.tagName,
+      top: rect.top,
+      visibility: styles.visibility,
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
+      width: rect.width
+    };
+  });
+
+  expect(sample, "keyboard focus should land on a concrete element").not.toBeNull();
+  if (!sample) {
+    return;
+  }
+
+  expect(sample.display, `${sample.tagName} focus should not be display:none`).not.toBe("none");
+  expect(sample.visibility, `${sample.tagName} focus should not be hidden`).not.toBe("hidden");
+  expect(sample.width, `${sample.tagName} focus should have visible width`).toBeGreaterThan(0);
+  expect(sample.height, `${sample.tagName} focus should have visible height`).toBeGreaterThan(0);
+  expect(sample.bottom, `${sample.tagName} focus should not be above the viewport`).toBeGreaterThan(0);
+  expect(sample.right, `${sample.tagName} focus should not be left of the viewport`).toBeGreaterThan(0);
+  expect(sample.top, `${sample.tagName} focus should not be below the viewport`).toBeLessThan(sample.viewportHeight);
+  expect(sample.left, `${sample.tagName} focus should not be right of the viewport`).toBeLessThan(sample.viewportWidth);
 }
