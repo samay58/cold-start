@@ -594,14 +594,8 @@ test("active research cards keep one module open at a time", async ({ page }) =>
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-active-transition.png" });
 });
 
-async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0]) {
+async function openReadyProfileWithActiveBasics(page: Parameters<typeof installChromeShim>[0]) {
   await installChromeShim(page, { activeDomain: "browserbase.com" });
-  // Pin "Why care" (coreIdea) so an analysis section is open while basics is still running.
-  await page.addInitScript(() => {
-    (window as unknown as { chrome: { storage: { local: { set: (i: Record<string, unknown>) => void } } } })
-      .chrome.storage.local.set({ coldStartPinnedResearchLayers: { "browserbase.com": ["coreIdea"] } });
-  });
-
   const startedAt = new Date(Date.now() - 32_000).toISOString();
   const events = [
     { id: "profile-e1", runId: "profile-r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "plan.ready", message: "Research plan ready", metadata: { mode: "basics" }, createdAt: "2026-06-01T00:00:01.000Z" },
@@ -637,7 +631,7 @@ async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0
   await page.route("**/api/extension/cards/**", async (route) => {
     await fulfillJson(route, browserbaseCard());
   });
-  // Keep basics "running" so profileRun never resolves and waitingForProfile stays true.
+  // Keep basics running after card.partial to prove readiness no longer waits for final enrichment.
   await page.route("**/api/generate?**", async (route) => {
     await fulfillJson(route, {
       slug: "browserbase",
@@ -651,63 +645,33 @@ async function openProfileFinishing(page: Parameters<typeof installChromeShim>[0
   await page.goto("/sidepanel.html");
 }
 
-test("profile-finishing shimmer keeps text readable and sweeps over time", async ({ page }) => {
+test("card.partial makes the starter profile usable while basics finalizes", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
-  await openProfileFinishing(page);
+  await openReadyProfileWithActiveBasics(page);
 
-  const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
-  await expect(runningCard).toBeVisible({ timeout: 10_000 });
-  await expect(runningCard).toContainText("Getting the profile ready");
+  await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
   const profileProgress = page.locator(".cs-research-progress");
-  await expect(profileProgress.locator(".cs-research-progress-live")).toBeVisible();
-  await expect(profileProgress).toContainText("Building the profile");
+  await expect(profileProgress).toHaveAttribute("data-mode", "receipt");
+  await expect(profileProgress).toContainText("Research filed");
+  await expect(profileProgress).toContainText("5 sources");
+  await profileProgress.getByRole("button", { name: "Details" }).click();
   await expect(profileProgress).toContainText("Starter profile ready");
-  await expect(profileProgress).toContainText("5 sources found");
   await expect(profileProgress).not.toContainText("Saved a starter profile");
   await expect(profileProgress).not.toContainText("Also:");
-  await expect(profileProgress.locator(".cs-build-compact")).toHaveCount(0);
-  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-profile-finishing.png" });
-
-  const sheen = runningCard.locator(".cs-layer-running-sheen");
-  await expect(sheen).toHaveCSS("animation-name", "cs-layer-sheen-slide");
-  await expect(sheen).toHaveCSS("animation-play-state", "running");
-  await expect(sheen).not.toHaveCSS("background-image", "none");
-  // Text reads as solid ink, not a transparent clipped gradient.
-  await expect(runningCard.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
-  await expect(runningCard.locator(".cs-layer-running-text")).not.toHaveCSS("-webkit-text-fill-color", "rgba(0, 0, 0, 0)");
-
-  // Prove motion: sample the sheen's translateX at intervals that are not a
-  // multiple of the 1.85s period, so identical readings would mean it is stuck.
-  const readTx = () =>
-    sheen.evaluate((el) => {
-      const transform = getComputedStyle(el).transform;
-      if (!transform || transform === "none") {
-        return 0;
-      }
-      return new DOMMatrixReadOnly(transform).m41;
-    });
-
-  const samples: number[] = [];
-  for (let i = 0; i < 3; i += 1) {
-    samples.push(Math.round(await readTx()));
-    if (i < 2) {
-      await page.waitForTimeout(620);
-    }
-  }
-  const distinct = new Set(samples);
-  expect(distinct.size, `sheen translateX should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
+  await expect(page.locator(".cs-active-enrichment[data-state='running']")).toHaveCount(0);
+  await expect(page.getByText("Getting the profile ready")).toHaveCount(0);
+  await expect(page.getByText("Finishing profile")).toHaveCount(0);
+  await expect(page.locator(".cs-dormant-card", { hasText: "Why care" })).toBeVisible();
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-starter-profile-ready.png" });
 });
 
-test("profile-finishing shimmer rests calmly under reduced motion", async ({ page }) => {
+test("starter profile readiness does not show profile-finishing motion under reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await openProfileFinishing(page);
+  await openReadyProfileWithActiveBasics(page);
 
-  const runningCard = page.locator(".cs-active-enrichment[data-state='running']").first();
-  await expect(runningCard).toBeVisible({ timeout: 10_000 });
-  const sheen = runningCard.locator(".cs-layer-running-sheen");
-  await expect(sheen).toHaveCSS("animation-name", "none");
-  // Text stays solid and readable in reduced motion too.
-  await expect(runningCard.locator(".cs-layer-running-text")).toHaveCSS("background-image", "none");
+  await expect(page.locator(".cs-active-enrichment[data-state='running']")).toHaveCount(0);
+  await expect(page.locator(".cs-layer-running-sheen")).toHaveCount(0);
+  await expect(page.getByText("Getting the profile ready")).toHaveCount(0);
 });
 
 test("keyboard activation queues synthesis-backed cards", async ({ page }) => {

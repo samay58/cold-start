@@ -38,7 +38,7 @@ const researchStageByEventType: Record<string, number> = {
   "generation.complete": 3
 };
 
-const terminalProfileProgressEventTypes = new Set(["card.enriched", "generation.complete"]);
+const terminalProfileProgressEventTypes = new Set(["card.partial", "card.enriched", "generation.complete"]);
 
 function belongsToProfileRun(event: ExtensionResearchRunEvent) {
   if (event.sectionId) {

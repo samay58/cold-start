@@ -1,6 +1,6 @@
 import { COLD_START_API_CONTRACT_VERSION, type ColdStartCard } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readCachedCard, writeCachedCard } from "../src/card-cache";
+import { clearCachedCards, readCachedCard, writeCachedCard } from "../src/card-cache";
 import type { Settings } from "../src/extension-config";
 
 const settings: Settings = {
@@ -53,36 +53,77 @@ function cardForDomain(domain: string): ColdStartCard {
   };
 }
 
-function installSessionStorage(items: Record<string, unknown>) {
+function cardWithSynthesis(domain: string): ColdStartCard {
+  const card = cardForDomain(domain);
+  return {
+    ...card,
+    team: {
+      ...card.team,
+      founders: {
+        value: [{
+          name: "Founder One",
+          role: "Co-founder",
+          sourceUrl: `https://${domain}/team`,
+          email: "founder@example.com"
+        }],
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      }
+    },
+    synthesis: {
+      whyItMatters: { text: "Linear has a cited wedge [c1].", citationIds: ["c1"] },
+      bullCase: [{ text: "The product has cited demand [c1].", citationIds: ["c1"] }],
+      bearCase: [],
+      openQuestions: ["Who owns budget?"]
+    }
+  };
+}
+
+function installStorage(input: {
+  local?: Record<string, unknown>;
+  session?: Record<string, unknown>;
+}) {
+  const localItems = input.local ?? {};
+  const sessionItems = input.session ?? {};
+
+  function storageArea(items: Record<string, unknown>) {
+    return {
+      get: (keys: string | string[] | null, callback: (stored: Record<string, unknown>) => void) => {
+        if (keys === null) {
+          callback({ ...items });
+          return;
+        }
+
+        const keyList = Array.isArray(keys) ? keys : [keys];
+        callback(Object.fromEntries(keyList.map((key) => [key, items[key]])));
+      },
+      set: (nextItems: Record<string, unknown>, callback?: () => void) => {
+        Object.assign(items, nextItems);
+        callback?.();
+      },
+      remove: (keys: string | string[], callback?: () => void) => {
+        for (const key of Array.isArray(keys) ? keys : [keys]) {
+          delete items[key];
+        }
+        callback?.();
+      }
+    };
+  }
+
   vi.stubGlobal("chrome", {
     storage: {
-      session: {
-        get: (keys: string | string[] | null, callback: (stored: Record<string, unknown>) => void) => {
-          if (keys === null) {
-            callback({ ...items });
-            return;
-          }
-
-          const keyList = Array.isArray(keys) ? keys : [keys];
-          callback(Object.fromEntries(keyList.map((key) => [key, items[key]])));
-        },
-        set: (nextItems: Record<string, unknown>, callback?: () => void) => {
-          Object.assign(items, nextItems);
-          callback?.();
-        },
-        remove: (keys: string | string[], callback?: () => void) => {
-          for (const key of Array.isArray(keys) ? keys : [keys]) {
-            delete items[key];
-          }
-          callback?.();
-        }
-      }
+      local: storageArea(localItems),
+      session: storageArea(sessionItems)
     }
   });
+
+  return { localItems, sessionItems };
 }
 
 describe("card cache", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -96,7 +137,7 @@ describe("card cache", () => {
         storedAt: Date.now()
       }
     };
-    installSessionStorage(items);
+    installStorage({ session: items });
 
     await expect(readCachedCard("linear.app", settings)).resolves.toBeNull();
     expect(items[cacheKey("linear.app")]).toBeUndefined();
@@ -113,10 +154,94 @@ describe("card cache", () => {
         storedAt: Date.now()
       }
     };
-    installSessionStorage(items);
+    installStorage({ session: items });
 
     await writeCachedCard("linear.app", settings, cardForDomain("cartesia.ai"));
 
     expect(items[key]).toBeUndefined();
+  });
+
+  it("falls back to a durable local card when the session cache is empty", async () => {
+    const key = cacheKey("linear.app");
+    const { localItems } = installStorage({
+      local: {
+        [key]: {
+          apiOrigin: settings.apiOrigin,
+          card: cardForDomain("linear.app"),
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.now()
+        }
+      }
+    });
+
+    await expect(readCachedCard("linear.app", settings)).resolves.toMatchObject({
+      domain: "linear.app"
+    });
+    expect(localItems[key]).toBeDefined();
+  });
+
+  it("strips synthesis from durable storage while keeping the session cache fast", async () => {
+    const key = cacheKey("linear.app");
+    const { localItems, sessionItems } = installStorage({});
+
+    await writeCachedCard("linear.app", settings, cardWithSynthesis("linear.app"));
+
+    expect((sessionItems[key] as { card?: ColdStartCard } | undefined)?.card?.synthesis).toBeDefined();
+    expect((localItems[key] as { card?: ColdStartCard } | undefined)?.card?.synthesis).toBeUndefined();
+    expect((localItems[key] as { card?: ColdStartCard } | undefined)?.card?.team.founders.value?.[0]).not.toHaveProperty("email");
+  });
+
+  it("removes stale durable cards instead of rendering them", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00.000Z"));
+    const key = cacheKey("linear.app");
+    const { localItems } = installStorage({
+      local: {
+        [key]: {
+          apiOrigin: settings.apiOrigin,
+          card: cardForDomain("linear.app"),
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.parse("2026-06-06T11:00:00.000Z")
+        }
+      }
+    });
+
+    await expect(readCachedCard("linear.app", settings)).resolves.toBeNull();
+    expect(localItems[key]).toBeUndefined();
+  });
+
+  it("removes impossible future durable cards instead of extending the ttl", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-07T12:00:00.000Z"));
+    const key = cacheKey("linear.app");
+    const { localItems } = installStorage({
+      local: {
+        [key]: {
+          apiOrigin: settings.apiOrigin,
+          card: cardForDomain("linear.app"),
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.parse("2026-06-07T12:06:00.000Z")
+        }
+      }
+    });
+
+    await expect(readCachedCard("linear.app", settings)).resolves.toBeNull();
+    expect(localItems[key]).toBeUndefined();
+  });
+
+  it("clears cached cards from both session and durable storage", async () => {
+    const key = cacheKey("linear.app");
+    const { localItems, sessionItems } = installStorage({
+      local: { [key]: { domain: "linear.app" } },
+      session: { [key]: { domain: "linear.app" } }
+    });
+
+    await clearCachedCards();
+
+    expect(localItems[key]).toBeUndefined();
+    expect(sessionItems[key]).toBeUndefined();
   });
 });

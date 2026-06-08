@@ -290,6 +290,12 @@ async function renderSidePanel(input: {
         set: (items: Record<string, unknown>, callback?: () => void) => {
           Object.assign(storedLocal, items);
           callback?.();
+        },
+        remove: (keys: string | string[], callback?: () => void) => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            delete storedLocal[key];
+          }
+          callback?.();
         }
       },
       session: {
@@ -544,6 +550,83 @@ describe("SidePanel generation gate", () => {
       }
     }));
     await flushPromises();
+    await unmount();
+  });
+
+  it("renders a durable local card before network revalidation", async () => {
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
+    const cachedCard = cardForDomain("linear.app");
+    cachedCard.identity.name.value = "Cached Linear";
+    const serverCard = cardForDomain("linear.app");
+    serverCard.identity.name.value = "Server Linear";
+    const resolvedApiOrigin = storedApiOriginOrDefault(
+      settings.coldStartApiOrigin,
+      defaultApiOrigin(import.meta.env)
+    );
+    const cacheKey = `coldStartCard:${encodeURIComponent(resolvedApiOrigin)}:${encodeURIComponent("linear.app")}`;
+    let resolveBootstrap: ((response: Response) => void) | undefined;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => {
+      resolveBootstrap = resolve;
+    }));
+    const { container, unmount } = await renderSidePanel({
+      domain: "linear.app",
+      fetchMock,
+      storedLocal: {
+        [cacheKey]: {
+          apiOrigin: resolvedApiOrigin,
+          card: cachedCard,
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.now()
+        }
+      }
+    });
+
+    expect(container.textContent).toContain("Cached Linear");
+    expect(container.textContent).not.toContain("Server Linear");
+    resolveBootstrap?.(jsonResponse({
+      domain: "linear.app",
+      slug: "linear",
+      card: serverCard,
+      runs: {
+        basics: { slug: "linear", domain: "linear.app", mode: "basics", status: "complete" },
+        analysis: { slug: "linear", domain: "linear.app", mode: "analysis", status: "idle" }
+      }
+    }));
+    await flushPromises();
+
+    expect(container.textContent).toContain("Server Linear");
+    await unmount();
+  });
+
+  it("keeps a durable local card visible when bootstrap revalidation fails", async () => {
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
+    const cachedCard = cardForDomain("linear.app");
+    cachedCard.identity.name.value = "Cached Linear";
+    const resolvedApiOrigin = storedApiOriginOrDefault(
+      settings.coldStartApiOrigin,
+      defaultApiOrigin(import.meta.env)
+    );
+    const cacheKey = `coldStartCard:${encodeURIComponent(resolvedApiOrigin)}:${encodeURIComponent("linear.app")}`;
+    const fetchMock = vi.fn(async () => {
+      throw new Error("bootstrap unavailable");
+    });
+    const { container, unmount } = await renderSidePanel({
+      domain: "linear.app",
+      fetchMock,
+      storedLocal: {
+        [cacheKey]: {
+          apiOrigin: resolvedApiOrigin,
+          card: cachedCard,
+          contractVersion: COLD_START_API_CONTRACT_VERSION,
+          domain: "linear.app",
+          storedAt: Date.now()
+        }
+      }
+    });
+
+    expect(container.textContent).toContain("Cached Linear");
+    expect(container.textContent).toContain("Could not check for a fresher profile");
     await unmount();
   });
 
@@ -965,7 +1048,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("blocks section generation while the company profile run is still active", async () => {
+  it("keeps research cards available when a usable profile exists during active basics finalization", async () => {
     vi.useFakeTimers();
     const domain = "llamaindex.ai";
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -996,20 +1079,10 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    const whyButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Why care")
-    );
-    expect(whyButton).toBeTruthy();
-
-    await act(async () => {
-      whyButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("running");
-    expect(container.textContent).toContain("Finishing profile");
-    expect(container.textContent).toContain("Getting the profile ready");
-    expect(interactiveControls(container).some((button) => button.textContent === "Queue")).toBe(false);
+    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).not.toBe("running");
+    expect(container.textContent).not.toContain("Finishing profile");
+    expect(container.textContent).not.toContain("Getting the profile ready");
+    expect(container.textContent).toContain("9 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -1077,7 +1150,7 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Researching");
+    expect(container.textContent).toContain("Research saved");
     expect(container.textContent).toContain("2 sources found");
     expect(container.textContent).toContain("Found 2 sources");
     await unmount();

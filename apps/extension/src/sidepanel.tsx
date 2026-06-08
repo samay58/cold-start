@@ -46,6 +46,7 @@ import "./styles.css";
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const SECTION_RUN_CONCURRENCY = 1;
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
+const STALE_CACHE_NOTICE = "Could not check for a fresher profile. Showing the saved profile.";
 const ResearchLayerPanel = lazy(() =>
   import("./ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
 );
@@ -824,10 +825,6 @@ export function SidePanel() {
                 contactRun: {
                   generationStatus: generationStatus === "queued" ? "queued" : "running",
                   startedAt
-                },
-                profileRun: {
-                  generationStatus: generationStatus === "queued" ? "queued" : "running",
-                  startedAt
                 }
               }
             : current);
@@ -848,7 +845,7 @@ export function SidePanel() {
               return current;
             }
 
-            const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
+            const { contactRun: _contactRun, ...nextState } = current;
             return { ...nextState, card: result.card, sections: sectionsForCard(result.card, current.sections) };
           });
         }
@@ -860,7 +857,7 @@ export function SidePanel() {
               return current;
             }
 
-            const { contactRun: _contactRun, profileRun: _profileRun, ...nextState } = current;
+            const { contactRun: _contactRun, ...nextState } = current;
             return nextState;
           });
         }
@@ -904,8 +901,7 @@ export function SidePanel() {
             : { status: "success" as const, card: result.card, sections: result.sections };
           setRequestState({
             ...successState,
-            contactRun: { generationStatus: "running", startedAt },
-            profileRun: { generationStatus: "running", startedAt }
+            contactRun: { generationStatus: "running", startedAt }
           });
           return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
@@ -1127,12 +1123,17 @@ export function SidePanel() {
     )
       .then((result) => {
         if (!controller.signal.aborted) {
-          setRequestState(
-            result.analysisNotice
-              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
-              : { status: "success", card: result.card, sections: result.sections }
-          );
+          const successState = result.analysisNotice
+            ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+            : { status: "success" as const, card: result.card, sections: result.sections };
+          setRequestState({
+            ...successState,
+            contactRun: { generationStatus: "running", startedAt }
+          });
+          return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
+
+        return undefined;
       })
       .catch((caught: unknown) => {
         if (controller.signal.aborted) {
@@ -1151,7 +1152,7 @@ export function SidePanel() {
       .finally(() => {
         clearActiveRequest(controller);
       });
-  }, [clearActiveRequest]);
+  }, [clearActiveRequest, watchBasicsCompletionWithController]);
 
   useEffect(() => {
     let mounted = true;
@@ -1238,10 +1239,6 @@ export function SidePanel() {
               contactRun: {
                 generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
                 startedAt
-              },
-              profileRun: {
-                generationStatus: basicsStatus.status === "queued" ? "queued" : "running",
-                startedAt
               }
             });
             watchBasicsCompletionWithController(controller, domain, settings, card, startedAt);
@@ -1289,6 +1286,9 @@ export function SidePanel() {
 
         if (showedCachedCard) {
           clearActiveRequest(controller);
+          setRequestState((current) => current.status === "success"
+            ? { ...current, analysisNotice: STALE_CACHE_NOTICE }
+            : current);
           return;
         }
 

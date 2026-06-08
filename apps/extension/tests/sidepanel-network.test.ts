@@ -1,7 +1,9 @@
+// @vitest-environment jsdom
+
 import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { startSectionGenerationAndPoll } from "../src/sidepanel-network";
-import type { Settings } from "../src/extension-config";
+import { pollGenerationUntilCard, startSectionGenerationAndPoll } from "../src/sidepanel-network";
+import type { ExtensionResearchRunEvent, Settings } from "../src/extension-config";
 
 const settings: Settings = {
   apiOrigin: "http://localhost:3000",
@@ -84,9 +86,142 @@ function storedCustomerProofSection(domain: string): ResearchSection {
   };
 }
 
+function eventFor(domain: string, type: string, createdAt: string): ExtensionResearchRunEvent {
+  return {
+    id: `${type}-${createdAt}`,
+    runId: "run-basics",
+    slug: domain.split(".")[0] ?? domain,
+    domain,
+    sectionId: null,
+    type,
+    message: type === "card.partial" ? "Saved first usable company card" : "Found 2 sources",
+    metadata: type === "card.partial" ? { citationCount: 6 } : { sourceCount: 2 },
+    createdAt
+  };
+}
+
 describe("section generation polling", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("waits for a card milestone before fetching the full card during active basics polling", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const eventsByPoll: ExtensionResearchRunEvent[][] = [
+      [eventFor(domain, "source.found", "2026-06-07T12:00:01.000Z")],
+      [eventFor(domain, "source.found", "2026-06-07T12:00:02.000Z")],
+      [
+        eventFor(domain, "source.found", "2026-06-07T12:00:02.000Z"),
+        eventFor(domain, "card.partial", "2026-06-07T12:00:03.000Z")
+      ]
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        const events = eventsByPoll.shift() ?? eventsByPoll.at(-1) ?? [];
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          status: "running",
+          mode: "basics",
+          events
+        });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(cardForDomain(domain));
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "basics",
+      vi.fn()
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/extension/cards/"))).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(350);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/extension/cards/"))).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(350);
+    await expect(resultPromise).resolves.toMatchObject({
+      card: { domain }
+    });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/extension/cards/"))).toHaveLength(1);
+  });
+
+  it("does not refetch the same card milestone on every completion-watch poll", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const partialEvent = eventFor(domain, "card.partial", "2026-06-07T12:00:03.000Z");
+    const completeEvent = eventFor(domain, "generation.complete", "2026-06-07T12:00:09.000Z");
+    const statusResponses: Array<{
+      status: "running" | "complete";
+      events: ExtensionResearchRunEvent[];
+    }> = [
+      { status: "running", events: [partialEvent] },
+      { status: "running", events: [partialEvent] },
+      { status: "running", events: [partialEvent] },
+      { status: "complete", events: [partialEvent, completeEvent] }
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        const nextStatus = statusResponses.shift() ?? { status: "complete" as const, events: [partialEvent, completeEvent] };
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          mode: "basics",
+          ...nextStatus
+        });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(cardForDomain(domain));
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    const onInterimCard = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const cardRequests = () => fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/extension/cards/"));
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "basics",
+      vi.fn(),
+      null,
+      true,
+      onInterimCard
+    );
+
+    await vi.waitFor(() => expect(cardRequests()).toHaveLength(1));
+    expect(onInterimCard).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(350);
+    expect(cardRequests()).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(350);
+    expect(cardRequests()).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(350);
+    await expect(resultPromise).resolves.toMatchObject({
+      card: { domain }
+    });
+    expect(cardRequests()).toHaveLength(2);
+    expect(onInterimCard).toHaveBeenCalledTimes(1);
   });
 
   it("preserves known section rows when bootstrap omits sections during polling", async () => {

@@ -31,6 +31,8 @@ import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
 // this deadline is hit on a still-active run the panel shows a calm "still researching" state and a
 // recheck loads the cached card, rather than a hard failure.
 const GENERATION_TIMEOUT_MS = 7 * 60 * 1000;
+const CARD_READY_EVENT_TYPES = new Set(["card.partial", "card.saved", "card.enriched", "generation.complete"]);
+const ACTIVE_BASICS_CARD_FETCH_FALLBACK_INTERVAL = 6;
 
 export type GenerationPollResult = {
   card: ColdStartCard;
@@ -219,6 +221,34 @@ export function isActiveRun(status: GenerationRunStatus["status"]): status is "q
   return status === "queued" || status === "running";
 }
 
+function cardReadyEventKey(event: ExtensionResearchRunEvent) {
+  return `${event.id}:${event.type}:${event.createdAt}`;
+}
+
+function latestCardReadyEvent(events: ExtensionResearchRunEvent[] | undefined) {
+  return events
+    ?.filter((event) => CARD_READY_EVENT_TYPES.has(event.type))
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
+    .at(-1) ?? null;
+}
+
+function shouldFetchCardForActiveBasics(
+  runStatus: GenerationRunStatus,
+  pollCount: number,
+  lastFetchedCardReadyEventKey: string | null
+) {
+  const latestReadyEvent = latestCardReadyEvent(runStatus.events);
+  const latestReadyEventKey = latestReadyEvent ? cardReadyEventKey(latestReadyEvent) : null;
+  if (latestReadyEventKey && latestReadyEventKey !== lastFetchedCardReadyEventKey) {
+    return { shouldFetch: true, readyEventKey: latestReadyEventKey };
+  }
+
+  return {
+    shouldFetch: pollCount % ACTIVE_BASICS_CARD_FETCH_FALLBACK_INTERVAL === 0,
+    readyEventKey: latestReadyEventKey
+  };
+}
+
 function analysisCardIsComplete(card: ColdStartCard, requiresMarketStructure: boolean) {
   if (!card.synthesis) {
     return false;
@@ -338,7 +368,8 @@ export async function pollGenerationUntilCard(
   let pollCount = 0;
   let currentCard = latestCard;
   let currentSections = latestCard ? sectionsForCard(latestCard, latestSections) : latestSections;
-  let requireRunCompletion = waitForRunCompletion;
+  let lastFetchedCardReadyEventKey: string | null = null;
+  const requireRunCompletion = waitForRunCompletion;
   const requiresMarketStructure = Boolean(
     mode === "analysis" && latestCard?.synthesis && !latestCard.synthesis.marketStructureAndTiming
   );
@@ -370,33 +401,48 @@ export async function pollGenerationUntilCard(
     }
     pollCount += 1;
 
-    if (mode === "basics" && requireRunCompletion) {
+    if (mode === "basics") {
       let runStatus: GenerationRunStatus | null = null;
       try {
         runStatus = await requestGenerationStatus(domain, settings, signal, mode);
       } catch (caught) {
         if (isMissingGenerationStatusRoute(caught)) {
-          requireRunCompletion = false;
+          const card = await fetchAvailableCard();
+          if (card && hasUsablePublicProfile(card)) {
+            const sections = updateCurrentCard(card);
+            return { card, sections };
+          }
+
+          continue;
         } else {
           throw caught;
         }
       }
 
-      if (!requireRunCompletion || !runStatus) {
-        continue;
-      }
-
-      if (isActiveRun(runStatus.status)) {
+      if (runStatus && isActiveRun(runStatus.status)) {
         onGenerationStatus(runStatus.status, { events: runStatus.events });
-        const card = await fetchAvailableCard();
-        if (card && hasUsablePublicProfile(card)) {
-          const sections = updateCurrentCard(card);
-          onInterimCard?.({ card, sections });
+
+        const cardFetch = shouldFetchCardForActiveBasics(runStatus, pollCount, lastFetchedCardReadyEventKey);
+        if (cardFetch.shouldFetch) {
+          const card = await fetchAvailableCard();
+          if (card && hasUsablePublicProfile(card)) {
+            if (cardFetch.readyEventKey) {
+              lastFetchedCardReadyEventKey = cardFetch.readyEventKey;
+            }
+            const sections = updateCurrentCard(card);
+            if (requireRunCompletion) {
+              onInterimCard?.({ card, sections });
+              continue;
+            }
+
+            return { card, sections };
+          }
         }
+
         continue;
       }
 
-      if (runStatus.status === "failed") {
+      if (runStatus?.status === "failed") {
         const card = await fetchAvailableCard();
         if (card && hasUsablePublicProfile(card)) {
           return { card, sections: updateCurrentCard(card) };
@@ -405,9 +451,14 @@ export async function pollGenerationUntilCard(
         throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
       }
 
-      if (runStatus.status === "complete") {
+      if (runStatus?.status === "complete") {
         const card = await fetchCard(domain, settings, signal);
         assertUsableBasicsCard(mode, card);
+        return { card, sections: updateCurrentCard(card) };
+      }
+
+      const card = await fetchAvailableCard();
+      if (card && hasUsablePublicProfile(card)) {
         return { card, sections: updateCurrentCard(card) };
       }
 
@@ -417,17 +468,11 @@ export async function pollGenerationUntilCard(
     try {
       const card = await fetchCard(domain, settings, signal);
 
-      if (mode === "basics") {
-        if (hasUsablePublicProfile(card)) {
-          return { card, sections: updateCurrentCard(card) };
-        }
-      } else if (analysisCardIsComplete(card, requiresMarketStructure)) {
+      if (analysisCardIsComplete(card, requiresMarketStructure)) {
         return { card, sections: updateCurrentCard(card) };
       }
 
-      if (mode !== "basics") {
-        updateCurrentCard(card);
-      }
+      updateCurrentCard(card);
     } catch (caught) {
       if (!isMissingCard(caught)) {
         throw caught;
@@ -448,7 +493,7 @@ export async function pollGenerationUntilCard(
     if (isActiveRun(runStatus.status)) {
       onGenerationStatus(runStatus.status, { events: runStatus.events });
     } else if (runStatus.status === "failed") {
-      if (mode === "analysis" && currentCard) {
+      if (currentCard) {
         return {
           card: currentCard,
           sections: currentSections,
@@ -456,17 +501,8 @@ export async function pollGenerationUntilCard(
         };
       }
 
-      const card = await fetchAvailableCard();
-      if (card && mode === "basics" && hasUsablePublicProfile(card)) {
-        return { card, sections: updateCurrentCard(card) };
-      }
-
       throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
-    } else if (mode === "basics" && runStatus.status === "complete") {
-      const card = await fetchCard(domain, settings, signal);
-      assertUsableBasicsCard(mode, card);
-      return { card, sections: updateCurrentCard(card) };
-    } else if (mode === "analysis" && runStatus.status === "complete" && currentCard && analysisCardIsComplete(currentCard, requiresMarketStructure)) {
+    } else if (runStatus.status === "complete" && currentCard && analysisCardIsComplete(currentCard, requiresMarketStructure)) {
       return {
         card: currentCard,
         sections: currentSections,
