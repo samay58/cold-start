@@ -22,7 +22,8 @@ describe("extension formatting", () => {
     );
 
     expect(summary.length).toBeLessThanOrEqual(223);
-    expect(summary.endsWith("...")).toBe(true);
+    expect(summary.endsWith("...")).toBe(false);
+    expect(summary).toMatch(/[.!?]$/);
     expect(summary).not.toContain("workspace...");
   });
 });

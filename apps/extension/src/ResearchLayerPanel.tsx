@@ -25,6 +25,7 @@ import {
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
 import {
+  cleanSummaryText,
   compactProfileSummary,
   formatElapsed,
   formatOptionalCurrency,
@@ -122,8 +123,12 @@ function dormantStackNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
   return String(catalogIndex).padStart(2, "0");
 }
 
-function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: boolean): ResearchLayerId[] {
-  return canShowResearchLayers && hasInvestorLens ? ["coreIdea"] : [];
+function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: boolean, hasSynthesis: boolean): ResearchLayerId[] {
+  if (!canShowResearchLayers || !hasInvestorLens) {
+    return [];
+  }
+
+  return hasSynthesis ? ["openQuestions", "coreIdea"] : ["coreIdea"];
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -273,34 +278,26 @@ function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
 }
 
 function expandedProfileSummary(value: string | null | undefined, fallback: string) {
-  const normalized = (value ?? "").replace(/\s+/g, " ").trim() || fallback.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 360) {
-    return normalized;
-  }
-
-  const sliced = normalized.slice(0, 361);
-  const lastSpace = sliced.lastIndexOf(" ");
-  const trimmed = (lastSpace > 180 ? sliced.slice(0, lastSpace) : normalized.slice(0, 360)).trim();
-  return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
+  return cleanSummaryText(value ?? "") || cleanSummaryText(fallback);
 }
 
 function profileSummaryText(card: ColdStartCard) {
   const description = card.identity.description?.value;
   const fallback = card.identity.oneLiner.value;
-  const visible = description?.shortDescription ?? fallback;
+  const visible = description?.shortDescription ?? fallback ?? "";
   const fullParts = [
     description?.shortDescription,
     description?.concept,
     description?.serves,
     description?.mechanism
   ]
-    .map((part) => part?.replace(/\s+/g, " ").trim())
+    .map((part) => cleanSummaryText(part ?? ""))
     .filter((part): part is string => Boolean(part));
   const uniqueFullParts = Array.from(new Set(fullParts));
 
   return {
     full: uniqueFullParts.length > 0 ? uniqueFullParts.join(" ") : visible,
-    visible
+    visible: cleanSummaryText(visible)
   };
 }
 
@@ -317,20 +314,22 @@ function ProfileSummary({
   return (
     <div className="cs-company-summary-wrap">
       {hasMore ? (
-        <button
-          aria-label="Read the full company description"
-          className="cs-company-summary-trigger"
-          type="button"
-          {...tooltipProps({
-            body: fullSummary,
-            id: "profile-summary",
-            placement: "below",
-            title: "Description"
-          })}
-        >
-          <span className="cs-company-summary">{summary}</span>
-          <span className="cs-company-summary-cue" aria-hidden="true">Full description</span>
-        </button>
+        <p className="cs-company-summary">
+          {summary}{" "}
+          <button
+            aria-label="Read the full company description"
+            className="cs-company-summary-more"
+            type="button"
+            {...tooltipProps({
+              body: fullSummary,
+              id: "profile-summary",
+              placement: "below",
+              title: "Description"
+            })}
+          >
+            (more)
+          </button>
+        </p>
       ) : (
         <p className="cs-company-summary">{summary}</p>
       )}
@@ -1071,6 +1070,7 @@ function currentProgressProof(plan: ReturnType<typeof buildResearchProgressPlan>
 
 function ResearchProgressPanel({
   events = [],
+  isFinalizingProfile,
   isRunning,
   isProfileRunning,
   resolvedCount,
@@ -1078,6 +1078,7 @@ function ResearchProgressPanel({
   totalCount
 }: {
   events?: ExtensionResearchRunEvent[] | undefined;
+  isFinalizingProfile: boolean;
   isRunning: boolean;
   isProfileRunning: boolean;
   resolvedCount: number;
@@ -1113,11 +1114,17 @@ function ResearchProgressPanel({
   const showDetailsControl = profileEventsSeen && !needsAttention;
   const showDetailsTree = needsAttention || detailsOpen;
   const currentStage = plan[activeIndex];
-  const stateCopy = profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
+  const stateCopy = isFinalizingProfile
+    ? "Starter profile ready"
+    : profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
   const sourceCopy = sourceCount > 0
-    ? profileComplete
+    ? isFinalizingProfile
+      ? `Filling in contacts/details · ${plural(sourceCount, "source")}`
+      : profileComplete
       ? plural(sourceCount, "source")
       : `${plural(sourceCount, "source")} found`
+    : isFinalizingProfile
+      ? "Filling in contacts/details"
     : "Looking for useful sources";
   const sectionCopy = profileComplete
     ? `${resolvedCount} of ${totalCount} sections`
@@ -1207,8 +1214,8 @@ export function ResearchLayerPanel({
   const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
   const hasInvestorLens = Boolean(card.synthesis || analysisRun);
   const defaultLayerIds = useMemo(
-    () => defaultActiveLayers(canShowResearchLayers, hasInvestorLens),
-    [canShowResearchLayers, hasInvestorLens]
+    () => defaultActiveLayers(canShowResearchLayers, hasInvestorLens, Boolean(card.synthesis)),
+    [canShowResearchLayers, hasInvestorLens, card.synthesis]
   );
   const activeSectionLayerId = activeSectionRun?.layerId;
   const lastSectionLayerRef = useRef<{ domain: string; layerId: ResearchLayerId } | null>(null);
@@ -1289,7 +1296,7 @@ export function ResearchLayerPanel({
       return next;
     });
     setExpandedLayerId(id);
-    if (display && shouldQueueLayerRun(display.status) && !profileRun && !analysisRun) {
+    if (display && shouldQueueLayerRun(display.status) && !profileRun) {
       onRunSection(id);
     }
   }
@@ -1359,7 +1366,8 @@ export function ResearchLayerPanel({
   const activeCount = activeLayerIds.length;
   const profileRunVisible = Boolean(profileRun);
   const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
-  const showResearchProgress = profileOrAnalysisRunVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
+  const finalizingProfileVisible = Boolean(contactRun && !profileRun);
+  const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
   const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
@@ -1414,6 +1422,7 @@ export function ResearchLayerPanel({
         {showResearchProgress ? (
           <ResearchProgressPanel
             events={events}
+            isFinalizingProfile={finalizingProfileVisible}
             isRunning={profileOrAnalysisRunVisible}
             isProfileRunning={profileRunVisible}
             resolvedCount={resolvedSectionCount}
@@ -1439,10 +1448,15 @@ export function ResearchLayerPanel({
               display.status === "running" ||
               (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun))
             );
+            const visiblyQueued = queued && !running && !refreshing;
+            const queuedBehindAnalysis = visiblyQueued && Boolean(analysisRun);
+            const queuedBehindSection = visiblyQueued && Boolean(activeSectionRun);
             const expanded = expandedLayerId === id;
-            const state = running || refreshing ? "running" : queued ? "queued" : display.status;
+            const state = running || refreshing ? "running" : visiblyQueued ? "queued" : display.status;
             const actionLabel = waitingForProfile
               ? undefined
+              : visiblyQueued
+                ? undefined
               : display.status === "stale"
               ? "Queue"
               : display.status === "failed"
@@ -1459,8 +1473,12 @@ export function ResearchLayerPanel({
               : undefined;
             const statusCopy = waitingForProfile
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
-              : queued
-                ? "Queued"
+              : visiblyQueued
+                ? queuedBehindAnalysis
+                  ? "Queued behind investor lens"
+                  : queuedBehindSection
+                    ? "Queued behind current card"
+                    : "Queued"
                 : refreshing
                   ? layer?.source === "analysis"
                     ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
@@ -1479,6 +1497,17 @@ export function ResearchLayerPanel({
                   ? "Checking recent traction"
                   : "Refreshing the evidence"
               : "Reading cited sources";
+            const contentDisplay = queuedBehindAnalysis
+              ? {
+                  ...display,
+                  body: "This card will run after the current analysis finishes."
+                }
+              : queuedBehindSection
+                ? {
+                    ...display,
+                    body: "This card will run after the active research card finishes."
+                  }
+                : display;
             const bodyId = `research-layer-${id}-body`;
 
             return (
@@ -1524,7 +1553,7 @@ export function ResearchLayerPanel({
                   <div className="cs-active-enrichment-body">
                     <LayerContent
                       actionLabel={actionLabel}
-                      display={display}
+                      display={contentDisplay}
                       onAction={running || refreshing ? undefined : handleLayerAction}
                       running={running || refreshing}
                       runningCopy={runningCopy}

@@ -1336,7 +1336,6 @@ export function SidePanel() {
     if (
       requestState.activeSectionRun?.layerId === layerId ||
       requestState.profileRun ||
-      requestState.analysisRun ||
       sectionQueue.includes(layerId)
     ) {
       return;

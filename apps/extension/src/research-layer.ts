@@ -57,6 +57,7 @@ type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
+  { id: "openQuestions", title: "Next question", description: "Best use of attention", source: "analysis" },
   { id: "coreIdea", title: "Why care", description: "Cited investment read", source: "analysis" },
   { id: "serves", title: "Who pays", description: "Buyer and workflow", source: "card" },
   { id: "marketStructureTiming", title: "Timing", description: "Budget, trigger, profit pool", source: "analysis" },
@@ -64,8 +65,7 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "signals", title: "Signals", description: "Recent momentum", source: "card" },
   { id: "investors", title: "Money", description: "Rounds, backers, price context", source: "card" },
   { id: "competition", title: "Comps", description: "Alternatives and durability", source: "card" },
-  { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" },
-  { id: "openQuestions", title: "Next question", description: "What still needs proof", source: "analysis" }
+  { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" }
 ];
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
@@ -217,7 +217,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     ...(item.meta ? { meta: item.meta } : {})
   }));
   const questions = content.questions.map((question, index) => ({
-    title: `Question ${index + 1}`,
+    title: titleForQuestion(question) || `Question ${index + 1}`,
     body: stripCitationMarkers(question),
     kind: "question" as const
   }));
@@ -262,6 +262,94 @@ function dedupeStrings(values: string[]) {
   }
 
   return unique;
+}
+
+function titleForQuestion(question: string) {
+  const normalized = question.toLowerCase();
+  if (/\b(budget|buyer|pay|pays|procurement|economic buyer|owner)\b/.test(normalized)) {
+    return "Budget owner";
+  }
+  if (/\b(customer|customers|pilot|deployment|deployments|adoption|usage|expansion|retention|reference)\b/.test(normalized)) {
+    return "Expansion proof";
+  }
+  if (/\b(moat|durab|defend|defensible|incumbent|bundle|bundling|competition|competitive|compete|substitute)\b/.test(normalized)) {
+    return "Durability";
+  }
+  if (/\b(arr|revenue|pricing|gross margin|margin|monetiz|unit economics|burn|runway)\b/.test(normalized)) {
+    return "Revenue quality";
+  }
+  if (/\b(model|technical|accuracy|latency|inference|data|architecture|performance|reliability)\b/.test(normalized)) {
+    return "Technical edge";
+  }
+  if (/\b(security|compliance|legal|regulat|privacy|risk)\b/.test(normalized)) {
+    return "Trust hurdle";
+  }
+  if (/\b(channel|partner|distribution|nvidia|cloud|platform)\b/.test(normalized)) {
+    return "Distribution path";
+  }
+  return "Conviction driver";
+}
+
+function cleanQuestionBody(question: string) {
+  return stripCitationMarkers(question)
+    .replace(/\s+/g, " ")
+    .replace(/^\s*(?:question\s*\d+[:.)-]?|ask[:.)-]?)\s*/i, "")
+    .replace(/\s*(?:\.{3}|…)\s*$/u, "")
+    .trim()
+    .replace(/[.!?]*$/, "?");
+}
+
+function isGenericRevenueQuestion(question: string) {
+  const normalized = question.toLowerCase();
+  return /\b(arr|revenue)\b/.test(normalized) && /\b(not public|undisclosed|not disclosed|verify|validate)\b/.test(normalized);
+}
+
+function priorityForQuestion(question: string) {
+  const normalized = question.toLowerCase();
+  if (/\b(customer|pilot|deployment|adoption|usage|retention|expansion|budget|buyer|procurement|moat|durab|competition|bundle)\b/.test(normalized)) {
+    return 0;
+  }
+  if (/\b(model|technical|accuracy|latency|inference|security|compliance|distribution|partner)\b/.test(normalized)) {
+    return 1;
+  }
+  if (isGenericRevenueQuestion(question)) {
+    return 3;
+  }
+  return 2;
+}
+
+function prioritizedOpenQuestionItems(questions: string[]) {
+  const seen = new Set<string>();
+  return questions
+    .map((question, index) => {
+      const cleanedBody = cleanQuestionBody(question);
+      const genericRevenue = isGenericRevenueQuestion(cleanedBody);
+      const body = genericRevenue
+        ? "What revenue quality, retention, and margin evidence would change the read?"
+        : cleanedBody;
+      return {
+        body,
+        index,
+        priority: genericRevenue ? 3 : priorityForQuestion(body),
+        title: genericRevenue ? "Revenue quality" : titleForQuestion(body)
+      };
+    })
+    .filter((item) => {
+      const key = `${item.title}:${item.body.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
+      if (!item.body || item.body === "?" || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => left.priority - right.priority || left.index - right.index)
+    .slice(0, 4)
+    .map((item) => ({
+      title: item.title,
+      body: item.body,
+      kind: "question" as const,
+      meta: "Next best use of time"
+    }));
 }
 
 function normalizeCompanyTerm(value: string | null | undefined) {
@@ -442,18 +530,15 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       };
     }
 
+    const items = prioritizedOpenQuestionItems(card.synthesis.openQuestions);
     return {
       id,
       title: layer.title,
-      body: textFromList(card.synthesis.openQuestions, "No open questions survived verification."),
-      items: card.synthesis.openQuestions.map((question, index) => ({
-        title: `Question ${index + 1}`,
-        body: stripCitationMarkers(question),
-        kind: "question" as const
-      })),
+      body: textFromList(items.map((item) => item.body ?? item.title), "No open questions survived verification."),
+      items,
       sources: [],
       sourceCount: 0,
-      status: card.synthesis.openQuestions.length > 0 ? "populated" : "empty"
+      status: items.length > 0 ? "populated" : "empty"
     };
   }
 

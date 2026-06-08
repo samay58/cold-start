@@ -32,19 +32,35 @@ export function formatOptionalCurrency(value: number | null | undefined): string
 }
 
 export function compactProfileSummary(value: string | null | undefined, fallback: string): string {
-  const normalized = (value ?? "").replace(/\s+/g, " ").trim();
-  const safeFallback = fallback.replace(/\s+/g, " ").trim();
+  const normalized = cleanSummaryText(value ?? "");
+  const safeFallback = cleanSummaryText(fallback);
   if (!normalized) {
     return safeFallback;
   }
 
   const sentence = firstSentence(normalized);
-  return clampAtWord(sentence || normalized, 220) || safeFallback;
+  return completeSentence(clampAtWord(sentence || normalized, 220) || safeFallback);
+}
+
+export function cleanSummaryText(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\s*(?:\.{3}|…)\s*$/u, "")
+    .trim();
 }
 
 function firstSentence(value: string): string {
   const match = value.match(/^(.+?[.!?])(?:\s|$)/);
   return (match?.[1] ?? value).trim();
+}
+
+function completeSentence(value: string): string {
+  const cleaned = cleanSummaryText(value).replace(/[,:;]+$/, "").trim();
+  if (!cleaned) {
+    return cleaned;
+  }
+
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
 function clampAtWord(value: string, maxLength: number): string {
@@ -55,5 +71,5 @@ function clampAtWord(value: string, maxLength: number): string {
   const sliced = value.slice(0, maxLength + 1);
   const lastSpace = sliced.lastIndexOf(" ");
   const trimmed = (lastSpace > 80 ? sliced.slice(0, lastSpace) : value.slice(0, maxLength)).trim();
-  return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
+  return trimmed.replace(/[.,;:!?]+$/, "");
 }

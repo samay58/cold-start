@@ -1473,6 +1473,7 @@ button {
 .cs-company-summary {
   display: -webkit-box;
   overflow: hidden;
+  margin-top: 9px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
   color: var(--color-muted);
@@ -1485,41 +1486,29 @@ button {
   max-width: 34rem;
 }
 
-.cs-company-summary-trigger {
-  position: relative;
-  display: block;
-  width: 100%;
-  margin-top: 9px;
-  padding: 0;
+.cs-company-summary-more {
+  display: inline;
+  padding: 0 1px;
   border: 0;
   background: transparent;
   cursor: pointer;
-  text-align: left;
-}
-
-.cs-company-summary-cue {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 6px;
-  padding: 3px 6px;
-  border: 1px solid rgb(110 92 158 / 0.20);
-  border-radius: 6px;
-  background: rgb(110 92 158 / 0.055);
   color: var(--color-seal);
-  font: 700 9.5px/1.1 var(--font-receipt);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font: 650 12.5px/1 var(--font-body);
+  letter-spacing: 0;
+  text-decoration: underline;
+  text-decoration-color: rgb(110 92 158 / 0.24);
+  text-underline-offset: 2px;
 }
 
-.cs-company-summary-trigger:hover .cs-company-summary-cue {
-  border-color: rgb(110 92 158 / 0.34);
-  background: rgb(110 92 158 / 0.08);
+.cs-company-summary-more:hover {
+  color: rgb(88 72 132);
+  text-decoration-color: rgb(110 92 158 / 0.54);
 }
 
-.cs-company-summary-trigger:focus-visible {
-  border-radius: 6px;
+.cs-company-summary-more:focus-visible {
+  border-radius: 4px;
   outline: 2px solid rgb(110 92 158 / 0.34);
-  outline-offset: 4px;
+  outline-offset: 2px;
 }
 
 .cs-company-facts {
@@ -1538,6 +1527,8 @@ button {
   z-index: 80;
   display: grid;
   gap: 5px;
+  max-height: min(280px, calc(100vh - 32px));
+  overflow: auto;
   padding: 11px 12px 12px;
   border: 1px solid rgb(204 199 184 / 0.96);
   border-radius: 6px;

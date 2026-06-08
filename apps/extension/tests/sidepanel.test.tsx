@@ -721,9 +721,13 @@ describe("SidePanel generation gate", () => {
     };
     const fetchMock = vi.fn(async () => jsonResponse(card));
     const { container, unmount } = await renderSidePanel({ domain: "tolans.com", fetchMock });
-    const summaryTrigger = container.querySelector(".cs-company-summary-trigger") as HTMLElement | null;
+    const summary = container.querySelector(".cs-company-summary");
+    const summaryTrigger = container.querySelector(".cs-company-summary-more") as HTMLElement | null;
+    expect(summary?.textContent).not.toContain("...");
     expect(summaryTrigger).toBeTruthy();
+    expect(summaryTrigger?.textContent).toBe("(more)");
     expect(summaryTrigger?.getAttribute("aria-describedby")).toBe("cs-company-shared-tooltip");
+    expect(container.querySelector(".cs-company-summary-trigger")).toBeNull();
     summaryTrigger!.getBoundingClientRect = () => ({
       bottom: 120,
       height: 20,
@@ -743,6 +747,7 @@ describe("SidePanel generation gate", () => {
     expect(tooltip).toBeTruthy();
     expect(tooltip?.textContent).toContain("Description");
     expect(tooltip?.textContent).toContain("animated alien characters");
+    expect(tooltip?.textContent).not.toMatch(/\.\.\.$/);
     expect(container.querySelectorAll(".cs-company-summary-popover")).toHaveLength(0);
 
     await act(async () => {
@@ -768,8 +773,10 @@ describe("SidePanel generation gate", () => {
     };
     const fetchMock = vi.fn(async () => jsonResponse(card));
     const { container, unmount } = await renderSidePanel({ domain: "decagon.ai", fetchMock });
-    const summaryTrigger = container.querySelector(".cs-company-summary-trigger") as HTMLElement | null;
+    const summary = container.querySelector(".cs-company-summary");
+    const summaryTrigger = container.querySelector(".cs-company-summary-more") as HTMLElement | null;
     expect(summaryTrigger).toBeTruthy();
+    expect(summary?.textContent).not.toContain("...");
     summaryTrigger!.getBoundingClientRect = () => ({
       bottom: 120,
       height: 20,
@@ -789,6 +796,7 @@ describe("SidePanel generation gate", () => {
     const tooltip = container.querySelector(".cs-shared-tooltip");
     expect(tooltip?.textContent).toContain("enterprise customer support");
     expect(tooltip?.textContent).toContain("execute backend actions");
+    expect(tooltip?.textContent).not.toContain("...");
     await unmount();
   });
 
@@ -918,6 +926,7 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector(".cs-build-bar")).toBeNull();
     expect(container.querySelector(".cs-drizzle-loader")).not.toBeNull();
     expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
+    expect(container.querySelector(".cs-card-tray")).toBeNull();
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");
     expect(container.textContent).not.toContain("Generate Cartesia?");
@@ -1056,6 +1065,28 @@ describe("SidePanel generation gate", () => {
         return jsonResponse({ error: "company profile is still generating" }, { status: 409 });
       }
 
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "llamaindex",
+          domain,
+          mode: "basics",
+          status: "running",
+          events: [
+            {
+              id: "event-partial",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "card.partial",
+              message: "Starter profile ready",
+              metadata: { mode: "basics", citationCount: 4 },
+              createdAt: new Date().toISOString()
+            }
+          ]
+        });
+      }
+
       if (String(url).includes("/api/extension/bootstrap")) {
         return jsonResponse({
           domain,
@@ -1082,7 +1113,48 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).not.toBe("running");
     expect(container.textContent).not.toContain("Finishing profile");
     expect(container.textContent).not.toContain("Getting the profile ready");
+    expect(container.textContent).toContain("Starter profile ready");
+    expect(container.textContent).toContain("Filling in contacts/details");
     expect(container.textContent).toContain("9 waiting");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
+  it("queues a research card behind an active analysis run with a clear reason", async () => {
+    vi.useFakeTimers();
+    const domain = "linear.app";
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "queued", mode: "analysis" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          status: "running",
+          mode: "analysis",
+          startedAt: new Date(Date.now() - 42_000).toISOString()
+        });
+      }
+
+      return jsonResponse(cardForDomain(domain));
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const nextQuestionButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Next question")
+    );
+    expect(nextQuestionButton).toBeTruthy();
+
+    await act(async () => {
+      nextQuestionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.dataset.state).toBe("queued");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("Queued behind investor lens");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("This card will run after the current analysis finishes.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

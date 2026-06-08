@@ -202,7 +202,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     visibility: "gated",
     staleAfterMs: DAY_MS,
     emptyState: "No supported risks or diligence questions found yet.",
-    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Every risk must point to evidence or missing evidence. Return up to 4 risks and up to 3 questions written like a human investor would ask.")
+    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Every risk must point to evidence or missing evidence. Prioritize the 2 to 4 questions that would change conviction or save the most investor time. Do not default to ARR or revenue-not-public unless that is the most specific uncertainty for this company. Return up to 4 risks and up to 3 concise questions written like a human investor would ask.")
   }
 ];
 

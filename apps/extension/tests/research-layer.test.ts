@@ -83,6 +83,7 @@ function baseCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
 describe("research layer model", () => {
   it("ships only useful activatable cards in stable order", () => {
     expect(RESEARCH_LAYER_CARDS.map((card) => card.id)).toEqual([
+      "openQuestions",
       "coreIdea",
       "serves",
       "marketStructureTiming",
@@ -90,10 +91,10 @@ describe("research layer model", () => {
       "signals",
       "investors",
       "competition",
-      "mechanism",
-      "openQuestions"
+      "mechanism"
     ]);
     expect(RESEARCH_LAYER_CARDS.map((card) => card.title)).toEqual([
+      "Next question",
       "Why care",
       "Who pays",
       "Timing",
@@ -101,8 +102,7 @@ describe("research layer model", () => {
       "Signals",
       "Money",
       "Comps",
-      "Product",
-      "Next question"
+      "Product"
     ]);
   });
 
@@ -160,6 +160,34 @@ describe("research layer model", () => {
       status: "populated"
     });
     expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
+  });
+
+  it("prioritizes open questions as concise focus areas instead of generic ARR fallback", () => {
+    const card = baseCard({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [{ text: "Developers already show adoption [c1].", citationIds: ["c1"] }],
+        bearCase: [{ text: "Distribution may be compressed by incumbent developer tools [c1].", citationIds: ["c1"] }],
+        openQuestions: [
+          "ARR is not public; verify revenue.",
+          "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?",
+          "How durable is the wedge if IDEs and issue trackers bundle terminal agents?",
+          "Who owns the budget when this moves from developer tool to team workflow?"
+        ]
+      }
+    });
+
+    const display = layerDisplayForCard(card, "openQuestions");
+
+    expect(display?.items?.map((item) => item.title)).toEqual([
+      "Expansion proof",
+      "Durability",
+      "Budget owner",
+      "Revenue quality"
+    ]);
+    expect(display?.items).toHaveLength(4);
+    expect(display?.items?.[0]?.body).toContain("expansion beyond individual developers");
+    expect(display?.items?.[3]?.body).not.toBe("ARR is not public; verify revenue.");
   });
 
   it("renders market structure and timing from verified synthesis fields", () => {

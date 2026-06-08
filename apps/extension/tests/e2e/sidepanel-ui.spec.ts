@@ -27,7 +27,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByLabel("Research card stack")).toBeVisible();
   await expect(page.locator(".cs-card-tray-head")).toContainText("Research stack");
   await expect(page.locator(".cs-dormant-card").first()).toHaveAttribute("aria-label", /File .* into Research/);
-  await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("02");
+  await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("03");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
   await expect(page.getByText("Browserbase turns browser automation into agent infrastructure")).toBeVisible();
@@ -64,8 +64,9 @@ test("summary tooltip opens from keyboard focus and clears on blur", async ({ pa
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const summary = page.locator(".cs-company-summary-trigger");
+  const summary = page.locator(".cs-company-summary-more");
   await expect(summary).toBeVisible();
+  await expect(summary).toHaveText("(more)");
   await expect(summary).toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
   await summary.focus();
   await expectFocusedElementVisible(page);
@@ -89,9 +90,9 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
+    page.locator(".cs-active-enrichment", { hasText: "Next question" }).getByRole("button"),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
-    page.locator(".cs-dormant-card", { hasText: "Money" }),
-    page.locator(".cs-dormant-card", { hasText: "Next question" })
+    page.locator(".cs-dormant-card", { hasText: "Money" })
   ];
 
   for (const control of controls) {
@@ -451,7 +452,7 @@ test("dragging a dormant card opens a real insertion slot before release", async
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 104, { steps: 8 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 48, { steps: 8 });
   const insertionSlot = page.locator(".cs-module-insertion-slot");
   await expect(insertionSlot).toBeVisible();
   await expect(insertionSlot).toContainText("File Next question");
@@ -499,7 +500,7 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
         { label: "mid", y: -140 },
         { label: "ready", y: -248 }
       ],
-      label: "Next question",
+      label: "Product",
       slug: "last"
     }
   ] as const) {
@@ -652,7 +653,8 @@ test("card.partial makes the starter profile usable while basics finalizes", asy
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
   const profileProgress = page.locator(".cs-research-progress");
   await expect(profileProgress).toHaveAttribute("data-mode", "receipt");
-  await expect(profileProgress).toContainText("Research filed");
+  await expect(profileProgress).toContainText("Starter profile ready");
+  await expect(profileProgress).toContainText("Filling in contacts/details");
   await expect(profileProgress).toContainText("5 sources");
   await profileProgress.getByRole("button", { name: "Details" }).click();
   await expect(profileProgress).toContainText("Starter profile ready");

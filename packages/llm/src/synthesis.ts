@@ -213,7 +213,9 @@ export const synthesisSystemPrompt = [
   "Do not leave bearCase empty when any cited risk, uncertainty, missing proof point, or unresolved diligence question exists on the card.",
   "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
   "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
-  "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk."
+  "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk.",
+  "openQuestions should be the 3 highest-ROI diligence prompts for this specific company. Prioritize questions that would change conviction: buyer, workflow, wedge durability, customer proof, procurement friction, margin/compute pressure, market structure, financing risk, or missing evidence.",
+  "Do not default to ARR/revenue-not-public unless it is genuinely the most important company-specific uncertainty. If revenue matters, ask about revenue quality, retention, pricing power, or margin evidence."
 ].join(" ");
 
 type ToolUseLike = {
