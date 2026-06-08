@@ -166,7 +166,8 @@ function summarize(row: Row, includeQuality: boolean) {
       : "-",
     llm: llmCalls !== undefined ? String(llmCalls) : "-",
     agentcash: agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
-    anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
+    anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : "-",
+    runCost: row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
     budget: stableenrichBudget !== undefined ? `$${stableenrichBudget.toFixed(4)}` : "-",
     ...(includeQuality ? { quality: formatGenerationQualityFlags(flagsFor(row)) } : {}),
     error: compactError(row.error ?? trace?.failure?.message ?? null)
@@ -188,6 +189,7 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "llm",
     "agentcash",
     "anthropic",
+    "runCost",
     "budget",
     ...(includeQuality ? ["quality"] : []),
     "error"

@@ -141,6 +141,7 @@ const mocks = vi.hoisted(() => ({
   fetchWebsetsPeopleEmailSources: vi.fn(),
   agentcashWalletSnapshot: vi.fn(),
   providerBudgetForEndpoint: vi.fn(),
+  synthesizeResearchSection: vi.fn(),
   buildSeedProfileCard: vi.fn(),
   enrichExtractedSectionsForDomain: vi.fn(),
   generateCardForDomainWithTrace: vi.fn(),
@@ -183,7 +184,7 @@ vi.mock("@cold-start/llm", () => ({
   extractCompanyBlockClaims: vi.fn(),
   extractCompanyClaims: vi.fn(),
   fallbackResearchPlan: vi.fn(() => ({ searchQueries: {} })),
-  synthesizeResearchSection: vi.fn(),
+  synthesizeResearchSection: mocks.synthesizeResearchSection,
   synthesizeCard: vi.fn(),
   verifySynthesis: vi.fn()
 }));
@@ -212,6 +213,7 @@ vi.mock("@cold-start/pipeline", async () => {
 
 function stepHarness(options: {
   replayNowMs?: number;
+  replayedStepResults?: Record<string, unknown>;
   stepNowMs?: Record<string, number>;
 } = {}) {
   const names: string[] = [];
@@ -228,6 +230,9 @@ function stepHarness(options: {
     step: {
       run: vi.fn(async (name: string, fn: () => unknown) => {
         names.push(name);
+        if (Object.prototype.hasOwnProperty.call(options.replayedStepResults ?? {}, name)) {
+          return options.replayedStepResults?.[name];
+        }
         const stepNow = options.stepNowMs?.[name];
         if (stepNow !== undefined) {
           nowMs = stepNow;
@@ -327,6 +332,24 @@ describe("generate-card contact dispatch", () => {
       facts: [],
       failures: [],
       endpoints: []
+    });
+    mocks.findSourcesBySlug.mockResolvedValue([{
+      url: "https://modal.com",
+      title: "Modal",
+      sourceType: "company_site",
+      fetchedAt: generatedAt,
+      rawText: "Modal runs serverless compute for AI teams."
+    }]);
+    mocks.synthesizeResearchSection.mockResolvedValue({
+      status: "available",
+      summary: "Modal serves AI engineering teams running compute-heavy workloads.",
+      items: [{
+        label: "Buyer",
+        text: "AI engineering teams use Modal for serverless compute. [c1]",
+        citationIds: ["c1"]
+      }],
+      questions: ["Which workloads create repeated paid usage?"],
+      confidence: "medium"
     });
     mocks.buildSeedProfileCard.mockReturnValue({
       card,
@@ -618,6 +641,80 @@ describe("generate-card contact dispatch", () => {
       visibility: "gated",
       error: "profile not found",
       runId: "generation-run-id"
+    }));
+  });
+
+  it("persists LLM trace and Anthropic cost from a replayed section step result", async () => {
+    const llmCall = {
+      stage: "synthesis" as const,
+      label: "research-section:market",
+      model: "claude-test",
+      status: "ok" as const,
+      durationMs: 250,
+      inputTokens: 1200,
+      outputTokens: 300,
+      estimatedCostUsd: 0.019456
+    };
+    const section = {
+      slug: "modal",
+      domain: "modal.com",
+      sectionId: "market",
+      visibility: "gated",
+      status: "available",
+      content: {
+        status: "available",
+        summary: "Modal serves AI engineering teams running compute-heavy workloads.",
+        items: [{
+          label: "Buyer",
+          text: "AI engineering teams use Modal for serverless compute. [c1]",
+          citationIds: ["c1"]
+        }],
+        questions: ["Which workloads create repeated paid usage?"],
+        confidence: "medium"
+      },
+      citationIds: ["c1"],
+      sourceIds: ["c1"],
+      runId: "generation-run-id",
+      error: null,
+      generatedAt,
+      staleAt: null
+    };
+
+    await runGeneration("true", {
+      replayedStepResults: {
+        "generate-section": {
+          value: section,
+          tracePatch: {
+            steps: {
+              "generate-section": {
+                status: "complete",
+                durationMs: 250
+              }
+            },
+            llm: {
+              calls: [llmCall],
+              totalEstimatedCostUsd: 0.019456
+            }
+          }
+        }
+      }
+    }, { domain: "modal.com", mode: "analysis", sectionId: "market" });
+
+    expect(mocks.synthesizeResearchSection).not.toHaveBeenCalled();
+    expect(mocks.upsertResearchSection).toHaveBeenCalledWith(expect.anything(), section);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      slug: "modal",
+      mode: "analysis",
+      jobKind: "section:market",
+      status: "complete",
+      costUsd: 0.0195,
+      traceJson: expect.objectContaining({
+        costUsdAnthropic: 0.019456,
+        llm: {
+          calls: [llmCall],
+          totalEstimatedCostUsd: 0.019456
+        }
+      })
     }));
   });
 

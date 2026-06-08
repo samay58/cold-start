@@ -1,6 +1,7 @@
 import type { GenerationTrace } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
+  mergeTracePatch,
   mergeGenerationTrace,
   requestedAtMsFromGenerationEvent,
   writeGenerationMilestone
@@ -105,5 +106,40 @@ describe("generation milestone telemetry", () => {
     expect(merged.providers?.emailDiscovery).toEqual(childTrace.providers?.emailDiscovery);
     expect(merged.steps?.["fetch-sources"]?.status).toBe("complete");
     expect(merged.costUsdAnthropic).toBe(0.12);
+  });
+
+  it("sums LLM cost across durable step trace patches", () => {
+    const trace: GenerationTrace = { jobKind: "analysis", mode: "analysis" };
+
+    mergeTracePatch(trace, {
+      llm: {
+        calls: [{
+          stage: "extract_full",
+          label: "extract",
+          model: "claude-test",
+          status: "ok",
+          durationMs: 100,
+          estimatedCostUsd: 0.012345
+        }],
+        totalEstimatedCostUsd: 0.012345
+      }
+    });
+    mergeTracePatch(trace, {
+      llm: {
+        calls: [{
+          stage: "synthesis",
+          label: "section:market",
+          model: "claude-test",
+          status: "ok",
+          durationMs: 200,
+          estimatedCostUsd: 0.006789
+        }],
+        totalEstimatedCostUsd: 0.006789
+      }
+    });
+
+    expect(trace.llm?.calls).toHaveLength(2);
+    expect(trace.llm?.totalEstimatedCostUsd).toBe(0.019134);
+    expect(trace.costUsdAnthropic).toBe(0.019134);
   });
 });

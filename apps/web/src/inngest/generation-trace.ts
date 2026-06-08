@@ -1,5 +1,6 @@
 import {
   type GenerationTrace,
+  type GenerationLlmCallTrace,
   type GenerationTraceStep
 } from "@cold-start/core";
 import type { GenerateCardTracePatch } from "@cold-start/pipeline";
@@ -18,6 +19,34 @@ type GenerationEventTimestamp = {
 type WalletSnapshotResult =
   | { ok: true; snapshot: { totalBalanceUsd: number } }
   | { ok: false; error: string };
+
+function totalEstimatedLlmCostUsd(calls: GenerationLlmCallTrace[]) {
+  const total = calls.reduce((sum, call) => sum + (call.estimatedCostUsd ?? 0), 0);
+  return total > 0 ? Number(total.toFixed(6)) : undefined;
+}
+
+export function llmTracePatchFromCalls(calls: GenerationLlmCallTrace[]): GenerationTracePatch {
+  if (calls.length === 0) {
+    return {};
+  }
+
+  const totalEstimatedCostUsd = totalEstimatedLlmCostUsd(calls);
+  return {
+    llm: {
+      calls,
+      ...(totalEstimatedCostUsd !== undefined ? { totalEstimatedCostUsd } : {})
+    }
+  };
+}
+
+export function anthropicGenerationCostUsdFromTrace(trace: GenerationTrace) {
+  const costUsd =
+    trace.costUsdAnthropic
+    ?? trace.llm?.totalEstimatedCostUsd
+    ?? (trace.llm ? totalEstimatedLlmCostUsd(trace.llm.calls) : undefined);
+
+  return costUsd === undefined ? undefined : Number(costUsd.toFixed(4));
+}
 
 function timestampMs(input: unknown): number | null {
   if (typeof input === "number" && Number.isFinite(input) && input > 0) {
@@ -132,14 +161,17 @@ export function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTraceP
   }
 
   if ("llm" in patch && patch.llm) {
+    const previousTotalEstimatedCostUsd = trace.llm?.totalEstimatedCostUsd;
     trace.llm = {
-      calls: [...(trace.llm?.calls ?? []), ...patch.llm.calls],
-      ...(patch.llm.totalEstimatedCostUsd !== undefined
-        ? { totalEstimatedCostUsd: patch.llm.totalEstimatedCostUsd }
-        : trace.llm?.totalEstimatedCostUsd !== undefined
-          ? { totalEstimatedCostUsd: trace.llm.totalEstimatedCostUsd }
-          : {})
+      calls: [...(trace.llm?.calls ?? []), ...patch.llm.calls]
     };
+    const totalEstimatedCostUsd =
+      totalEstimatedLlmCostUsd(trace.llm.calls)
+      ?? patch.llm.totalEstimatedCostUsd
+      ?? previousTotalEstimatedCostUsd;
+    if (totalEstimatedCostUsd !== undefined) {
+      trace.llm.totalEstimatedCostUsd = totalEstimatedCostUsd;
+    }
     if (trace.llm.totalEstimatedCostUsd !== undefined) {
       trace.costUsdAnthropic = trace.llm.totalEstimatedCostUsd;
     }

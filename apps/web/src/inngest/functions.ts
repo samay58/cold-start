@@ -43,6 +43,7 @@ import {
   synthesizeResearchSection,
   synthesizeCard,
   verifySynthesis,
+  type AnthropicTelemetrySink,
   type ResearchSectionEvidenceSource,
 } from "@cold-start/llm";
 import {
@@ -56,7 +57,6 @@ import {
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
   sourceGateTrace,
-  totalGenerationCost,
   type BlockEnrichmentPatch,
   type BlockEnrichmentId,
   type CostLine,
@@ -88,8 +88,10 @@ import { boundedErrorMessage } from "../lib/errors";
 import { inngest } from "./client";
 import {
   applyStableenrichWalletTrace,
+  anthropicGenerationCostUsdFromTrace,
   completedStep,
   generationMilestoneElapsedMs,
+  llmTracePatchFromCalls,
   mergeGenerationTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
@@ -327,23 +329,44 @@ function peopleEmailCount(sections: ExtractedCardSections) {
   ].filter((person) => Boolean(person.email)).length;
 }
 
-function recordLlmCall(trace: GenerationTrace, costLines: CostLine[], call: GenerationLlmCallTrace) {
-  const calls = [...(trace.llm?.calls ?? []), call];
-  const totalEstimatedCostUsd = Number(
-    calls.reduce((sum, item) => sum + (item.estimatedCostUsd ?? 0), 0).toFixed(6)
-  );
-  trace.llm = {
-    calls,
-    ...(totalEstimatedCostUsd > 0 ? { totalEstimatedCostUsd } : {})
-  };
-
+function costLineForLlmCall(call: GenerationLlmCallTrace): CostLine | null {
   if (call.estimatedCostUsd !== undefined && call.estimatedCostUsd > 0) {
-    costLines.push({
+    return {
       label: `anthropic:${call.stage}:${call.label}:${call.model}`,
       usd: call.estimatedCostUsd
-    });
+    };
   }
-  trace.costUsdAnthropic = totalEstimatedCostUsd;
+
+  return null;
+}
+
+function createStepLlmTelemetryCollector() {
+  const calls: GenerationLlmCallTrace[] = [];
+  const costLines: CostLine[] = [];
+  const telemetry: AnthropicTelemetrySink = (call) => {
+    calls.push(call);
+    const costLine = costLineForLlmCall(call);
+    if (costLine) {
+      costLines.push(costLine);
+    }
+  };
+
+  return {
+    telemetry,
+    costLines,
+    tracePatch: () => llmTracePatchFromCalls(calls)
+  };
+}
+
+function generationRunAnthropicCostUsd(trace: GenerationTrace, fallback = 0) {
+  // generation_runs.cost_usd is the estimated Anthropic generation cost. Observed AgentCash spend
+  // stays in trace.costUsdAgentcash / trace.providers.stableenrich.walletDeltaUsd.
+  return anthropicGenerationCostUsdFromTrace(trace) ?? fallback;
+}
+
+function cardWithTraceCost(card: ColdStartCard, trace: GenerationTrace) {
+  const costUsd = anthropicGenerationCostUsdFromTrace(trace);
+  return costUsd === undefined ? card : { ...card, generationCostUsd: costUsd };
 }
 
 async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
@@ -1283,70 +1306,92 @@ export const generateCardFunction = inngest.createFunction(
       const blockModel = anthropicModelForStage("extract_block", defaultModel);
       const synthesisModel = anthropicModelForStage("synthesis", defaultModel);
       const verifierModel = anthropicModelForStage("verify", defaultModel);
-      const costLines: CostLine[] = [];
-      const telemetry = (call: GenerationLlmCallTrace) => recordLlmCall(trace, costLines, call);
 
       if (requestedSectionId) {
         currentStage = "generate-section";
         const sectionResult = await step.run("generate-section", async () => {
+          const llmTelemetry = createStepLlmTelemetryCollector();
           const result = await timed(async () => {
-            const existingCardForSection = await findCardBySlug(db, slug, { allowStale: true });
-            if (!existingCardForSection || !hasUsablePublicProfile(existingCardForSection)) {
-              throw new Error("profile not found");
+            try {
+              const existingCardForSection = await findCardBySlug(db, slug, { allowStale: true });
+              if (!existingCardForSection || !hasUsablePublicProfile(existingCardForSection)) {
+                throw new Error("profile not found");
+              }
+
+              const storedSources = await findSourcesBySlug(db, slug);
+              const evidence = evidenceForSection(existingCardForSection, storedSources);
+              if (evidence.length === 0) {
+                return {
+                  ok: true as const,
+                  value: generatedEmptySection(
+                    existingCardForSection,
+                    requestedSectionId,
+                    generationRunDbId
+                  )
+                };
+              }
+
+              const content = await synthesizeResearchSection({
+                client: anthropic,
+                definition: RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId],
+                evidence,
+                model: synthesisModel,
+                company: {
+                  domain,
+                  name: existingCardForSection.identity.name.value ?? domain
+                },
+                telemetry: llmTelemetry.telemetry
+              });
+
+              return {
+                ok: true as const,
+                value: sectionFromGeneratedContent(
+                  existingCardForSection,
+                  requestedSectionId,
+                  content,
+                  generationRunDbId
+                )
+              };
+            } catch (error) {
+              return {
+                ok: false as const,
+                error: boundedErrorMessage(error)
+              };
             }
-
-            const storedSources = await findSourcesBySlug(db, slug);
-            const evidence = evidenceForSection(existingCardForSection, storedSources);
-            if (evidence.length === 0) {
-              return generatedEmptySection(
-                existingCardForSection,
-                requestedSectionId,
-                generationRunDbId
-              );
-            }
-
-            const content = await synthesizeResearchSection({
-              client: anthropic,
-              definition: RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId],
-              evidence,
-              model: synthesisModel,
-              company: {
-                domain,
-                name: existingCardForSection.identity.name.value ?? domain
-              },
-              telemetry
-            });
-
-            return sectionFromGeneratedContent(
-              existingCardForSection,
-              requestedSectionId,
-              content,
-              generationRunDbId
-            );
           });
+          const llmTracePatch = llmTelemetry.tracePatch();
 
           return {
             value: result.value,
             tracePatch: {
+              ...llmTracePatch,
               steps: {
-                "generate-section": completedStep(result.durationMs)
+                "generate-section": result.value.ok
+                  ? completedStep(result.durationMs)
+                  : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
               }
             }
           };
         });
         mergeTracePatch(trace, sectionResult.tracePatch);
+        if ("ok" in sectionResult.value && !sectionResult.value.ok) {
+          throw new Error(sectionResult.value.error);
+        }
+        const generatedSection = "ok" in sectionResult.value
+          ? sectionResult.value.value
+          : sectionResult.value;
 
-        await step.run("upsert-generated-section", () => upsertResearchSection(db, sectionResult.value));
+        await step.run("upsert-generated-section", () => upsertResearchSection(db, generatedSection));
         await recordEvent(
           "section-saved",
-          sectionResult.value.status === "available" ? "section.available" : "section.empty",
-          sectionResult.value.status === "available"
+          generatedSection.status === "available" ? "section.available" : "section.empty",
+          generatedSection.status === "available"
             ? `Saved ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`
             : `No strong evidence found for ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`,
           {
-            citationCount: sectionResult.value.citationIds.length,
-            sourceCount: sectionResult.value.sourceIds.length,
-            status: sectionResult.value.status
+            citationCount: generatedSection.citationIds.length,
+            sourceCount: generatedSection.sourceIds.length,
+            status: generatedSection.status
           },
           requestedSectionId
         );
@@ -1357,7 +1402,7 @@ export const generateCardFunction = inngest.createFunction(
             mode,
             jobKind,
             status: "complete",
-            costUsd: totalGenerationCost(costLines),
+            costUsd: generationRunAnthropicCostUsd(trace),
             traceJson: trace,
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
@@ -1611,7 +1656,7 @@ export const generateCardFunction = inngest.createFunction(
         }
       }
 
-      const extractSectionsForCard = async ({ domain: candidateDomain, sources, evidenceLedger }: {
+      const extractSectionsForCard = (telemetry: AnthropicTelemetrySink) => async ({ domain: candidateDomain, sources, evidenceLedger }: {
         domain: string;
         sources: ProviderSource[];
         evidenceLedger: EvidenceLedgerEntry[];
@@ -1627,7 +1672,7 @@ export const generateCardFunction = inngest.createFunction(
           telemetry,
         });
       };
-      const enrichSectionsForCard = async ({ block, domain: candidateDomain, sources, evidenceLedger, currentSections }: {
+      const enrichSectionsForCard = (telemetry: AnthropicTelemetrySink) => async ({ block, domain: candidateDomain, sources, evidenceLedger, currentSections }: {
         block: Parameters<typeof extractCompanyBlockClaims>[0]["block"];
         domain: string;
         sources: ProviderSource[];
@@ -1649,7 +1694,7 @@ export const generateCardFunction = inngest.createFunction(
             telemetry,
           })
         );
-      const runCardAttempt = async (options: {
+      const runCardAttempt = async (llmTelemetry: ReturnType<typeof createStepLlmTelemetryCollector>, options: {
         skipBlockEnrichment?: boolean;
         sources?: ProviderSource[];
         providerFacts?: ProviderFactCandidate[];
@@ -1660,13 +1705,13 @@ export const generateCardFunction = inngest.createFunction(
             providerFacts: options.providerFacts ?? providerFacts,
             ...(options.skipBlockEnrichment !== undefined ? { skipBlockEnrichment: options.skipBlockEnrichment } : {}),
             fetchSources: async () => options.sources ?? acceptedSources,
-            extractSections: extractSectionsForCard,
-            enrichSections: enrichSectionsForCard,
-            costLines,
+            extractSections: extractSectionsForCard(llmTelemetry.telemetry),
+            enrichSections: enrichSectionsForCard(llmTelemetry.telemetry),
+            costLines: llmTelemetry.costLines,
             ...(mode === "analysis"
               ? {
-                  synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model: synthesisModel, card, telemetry }),
-                  verify: async (claims, sources) => verifySynthesis({ client: anthropic, model: verifierModel, claims, sources, telemetry }),
+                  synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model: synthesisModel, card, telemetry: llmTelemetry.telemetry }),
+                  verify: async (claims, sources) => verifySynthesis({ client: anthropic, model: verifierModel, claims, sources, telemetry: llmTelemetry.telemetry }),
                   synthesisRequired: true,
                 }
               : {}),
@@ -1690,13 +1735,16 @@ export const generateCardFunction = inngest.createFunction(
 
       currentStage = "generate-card";
       const clean = await step.run("generate-card", async () => {
+        const llmTelemetry = createStepLlmTelemetryCollector();
         const result = await timed(() =>
-          runCardAttempt({ skipBlockEnrichment: mode === "basics" || reuseExistingForAnalysis })
+          runCardAttempt(llmTelemetry, { skipBlockEnrichment: mode === "basics" || reuseExistingForAnalysis })
         );
+        const llmTracePatch = llmTelemetry.tracePatch();
         return {
           value: result.value,
           tracePatch: {
             ...result.value.tracePatch,
+            ...llmTracePatch,
             steps: {
               "generate-card": completedStep(result.durationMs)
             }
@@ -1710,7 +1758,7 @@ export const generateCardFunction = inngest.createFunction(
         throw new Error(clean.value.error);
       }
 
-      let generatedCard: ColdStartCard = clean.value.card;
+      let generatedCard: ColdStartCard = cardWithTraceCost(clean.value.card, trace);
       let generatedSections = clean.value.sections;
       let sourcesToRecord = clean.value.sources;
 
@@ -1815,30 +1863,50 @@ export const generateCardFunction = inngest.createFunction(
 
           currentStage = "enrich-card";
           const enriched = await step.run("enrich-card", async () => {
+            const llmTelemetry = createStepLlmTelemetryCollector();
             const result = await timed(async () => {
-              const providerFactMerge = applyProviderFactCandidates(generatedSections, enrichmentSourceResult.value.providerFacts);
-              return enrichExtractedSectionsForDomain({
-                domain,
-                researchPlan,
-                sections: providerFactMerge.sections,
-                sources: enrichmentSourceResult.value.sources,
-                enrichSections: enrichSectionsForCard
-              }).then((enrichment) => ({ ...enrichment, providerFactMerge }));
+              try {
+                const providerFactMerge = applyProviderFactCandidates(generatedSections, enrichmentSourceResult.value.providerFacts);
+                const enrichment = await enrichExtractedSectionsForDomain({
+                  domain,
+                  researchPlan,
+                  sections: providerFactMerge.sections,
+                  sources: enrichmentSourceResult.value.sources,
+                  enrichSections: enrichSectionsForCard(llmTelemetry.telemetry)
+                });
+                return {
+                  ok: true as const,
+                  value: { ...enrichment, providerFactMerge }
+                };
+              } catch (error) {
+                return {
+                  ok: false as const,
+                  error: boundedErrorMessage(error)
+                };
+              }
             });
+            const llmTracePatch = llmTelemetry.tracePatch();
 
             return {
               value: result.value,
               tracePatch: {
+                ...llmTracePatch,
                 steps: {
-                  "enrich-card": completedStep(result.durationMs)
+                  "enrich-card": result.value.ok
+                    ? completedStep(result.durationMs)
+                    : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
                 }
               }
             };
           });
           mergeTracePatch(trace, enriched.tracePatch);
+          if (!enriched.value.ok) {
+            throw new Error(enriched.value.error);
+          }
+          const enrichedValue = enriched.value.value;
 
-          generatedSections = enriched.value.sections;
-          generatedCard = cardWithExtractedSections(generatedCard, generatedSections);
+          generatedSections = enrichedValue.sections;
+          generatedCard = cardWithTraceCost(cardWithExtractedSections(generatedCard, generatedSections), trace);
           sourcesToRecord = enrichmentSourceResult.value.sources;
           if (trace.extraction) {
             trace.extraction = {
@@ -1846,21 +1914,21 @@ export const generateCardFunction = inngest.createFunction(
               sourceCount: sourcesToRecord.length,
               citationCount: generatedSections.citations.length,
               providerFactCandidateCount:
-                (trace.extraction.providerFactCandidateCount ?? 0) + enriched.value.providerFactMerge.trace.candidateCount,
+                (trace.extraction.providerFactCandidateCount ?? 0) + enrichedValue.providerFactMerge.trace.candidateCount,
               providerFactAppliedCount:
-                (trace.extraction.providerFactAppliedCount ?? 0) + enriched.value.providerFactMerge.trace.appliedCount,
+                (trace.extraction.providerFactAppliedCount ?? 0) + enrichedValue.providerFactMerge.trace.appliedCount,
               providerFactPaths: [
                 ...(trace.extraction.providerFactPaths ?? []),
-                ...enriched.value.providerFactMerge.trace.paths
+                ...enrichedValue.providerFactMerge.trace.paths
               ],
               providerFactAppliedByEndpoint: mergeEndpointFactCounts(
                 trace.extraction.providerFactAppliedByEndpoint,
-                enriched.value.providerFactMerge.trace.appliedByEndpoint
+                enrichedValue.providerFactMerge.trace.appliedByEndpoint
               ),
-              ...(enriched.value.trace ? { blockEnrichment: enriched.value.trace } : {})
+              ...(enrichedValue.trace ? { blockEnrichment: enrichedValue.trace } : {})
             };
           }
-          applyStableenrichEndpointYield(trace, enriched.value.providerFactMerge.trace.appliedByEndpoint);
+          applyStableenrichEndpointYield(trace, enrichedValue.providerFactMerge.trace.appliedByEndpoint);
 
           cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
           assertTerminalCardQuality(mode, cardToStore);
@@ -1897,6 +1965,7 @@ export const generateCardFunction = inngest.createFunction(
           })
         );
       }
+      const finalGenerationCostUsd = generationRunAnthropicCostUsd(trace, cardToStore.generationCostUsd);
       await step.run("mark-generation-complete", () =>
         markGenerationRun(db, {
           slug,
@@ -1904,14 +1973,14 @@ export const generateCardFunction = inngest.createFunction(
           mode,
           jobKind,
           status: "complete",
-          costUsd: cardToStore.generationCostUsd,
+          costUsd: finalGenerationCostUsd,
           ...(generationRunDbId ? {} : { traceJson: trace }),
           ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
           ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
         })
       );
       await recordEvent("generation-complete", "generation.complete", "Research run complete", {
-        costUsd: cardToStore.generationCostUsd,
+        costUsd: finalGenerationCostUsd,
         mode
       }, null);
 
