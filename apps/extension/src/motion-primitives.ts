@@ -6,12 +6,6 @@ export const motionTokens = {
   stateMs: 0.2
 } as const;
 
-export const reducedSpring = {
-  stiffness: 1000,
-  damping: 100,
-  mass: 0.1
-} as const;
-
 // Workhorse springs sit just under critical damping (zeta ~0.91) so committed motion
 // settles fast but keeps a breath of follow-through. Reference tunings: the source-pass
 // substep spring (500/30/0.62, zeta 0.85) and the pile drag bounce (zeta 0.71).

@@ -317,7 +317,8 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
   await expect(page.locator(".cs-build-tree")).toContainText("Filing the card");
-  await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
+  // No wall-clock estimation: with no run events, progress holds at the first stage.
+  await expect(page.locator(".cs-build-meta")).toContainText("Step 1 of 4");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
@@ -407,9 +408,11 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
 
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-meta")).toContainText("Step 4 of 4");
+  await expect(page.locator(".cs-build-meta")).toContainText("Step 1 of 4");
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
-  await expect(drizzlePixel).toHaveCSS("animation-name", "none");
+  // Reduced motion is a reduction, not a freeze: the loader breathes in place
+  // instead of stepping spatially.
+  await expect(drizzlePixel).toHaveCSS("animation-name", "cs-reduced-breathe");
   await expect(page.locator(".cs-plan-status[data-status='running']").first()).toBeVisible();
 });
 
@@ -464,6 +467,11 @@ test("dragging a dormant card opens a real insertion slot before release", async
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
+  // Synthesis-backed cards never auto-fire a section run on filing; they open the
+  // investor-lens gate and wait for an explicit Queue.
+  await expect(activeQuestions).toContainText("Activate the investor lens");
+  expect(generationRequests).toHaveLength(0);
+  await activeQuestions.getByRole("button", { name: "Queue" }).click();
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
   ]);
@@ -692,7 +700,12 @@ test("keyboard activation queues synthesis-backed cards", async ({ page }) => {
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Next question" })).toContainText("Synthesizing");
+  // Keyboard filing opens the lens gate; the explicit Queue action starts the run.
+  const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
+  await expect(activeQuestions).toContainText("Activate the investor lens");
+  expect(generationRequests).toHaveLength(0);
+  await activeQuestions.getByRole("button", { name: "Queue" }).click();
+  await expect(activeQuestions).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
   ]);

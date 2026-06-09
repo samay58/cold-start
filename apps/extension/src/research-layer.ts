@@ -50,7 +50,7 @@ export type ResearchLayerDisplay = {
   status: ResearchLayerDisplayStatus;
 };
 
-export type ResearchSourceClass = "independent" | "reporting" | "company";
+type ResearchSourceClass = "independent" | "reporting" | "company";
 
 type ResearchLayerSourceReference = {
   id: string;
