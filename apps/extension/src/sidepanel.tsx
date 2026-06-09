@@ -75,6 +75,7 @@ type RequestState =
       activeSectionRun?: ActiveSectionRunState;
       events?: ExtensionResearchRunEvent[];
       sources?: ExtensionSourceSummary[];
+      cachedAtMs?: number;
     }
   | { status: "pending"; domain: string }
   | { status: "error"; message: string };
@@ -557,6 +558,7 @@ function SuccessPanel({
         profileRun={requestState.profileRun}
         activeSectionElapsedSeconds={activeSectionElapsedSeconds}
         activeSectionRun={requestState.activeSectionRun}
+        cachedAtMs={requestState.cachedAtMs}
       />
     </Suspense>
   );
@@ -1169,10 +1171,17 @@ export function SidePanel() {
     void (async () => {
       let showedCachedCard = false;
 
-      const cachedCard = await readCachedCard(domain, settings).catch(() => null);
-      if (cachedCard && !controller.signal.aborted) {
+      const cachedEntry = await readCachedCard(domain, settings).catch(() => null);
+      if (cachedEntry && !controller.signal.aborted) {
         showedCachedCard = true;
-        setRequestState({ status: "success", card: cachedCard, sections: sectionsForCard(cachedCard), events: [], sources: [] });
+        setRequestState({
+          status: "success",
+          card: cachedEntry.card,
+          sections: sectionsForCard(cachedEntry.card),
+          events: [],
+          sources: [],
+          cachedAtMs: cachedEntry.storedAtMs
+        });
       }
 
       try {

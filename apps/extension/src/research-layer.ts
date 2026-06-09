@@ -17,8 +17,8 @@ import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-
 export type { ResearchLayerId } from "@cold-start/core";
 
 type ResearchLayerSource = "card" | "analysis";
-type ResearchLayerAvailability = "available" | "needs-analysis" | "empty";
-type ResearchLayerDisplayStatus = "populated" | "needs-analysis" | "empty" | "running" | "failed" | "stale";
+type ResearchLayerAvailability = "available" | "ready" | "empty";
+type ResearchLayerDisplayStatus = "saved" | "ready" | "empty" | "running" | "failed" | "stale";
 
 export type ResearchLayerCard = {
   id: ResearchLayerId;
@@ -50,12 +50,15 @@ export type ResearchLayerDisplay = {
   status: ResearchLayerDisplayStatus;
 };
 
+export type ResearchSourceClass = "independent" | "reporting" | "company";
+
 type ResearchLayerSourceReference = {
   id: string;
   domain: string;
   href: string;
   title: string;
   qualityLabel: string;
+  sourceClass: ResearchSourceClass;
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
@@ -159,12 +162,18 @@ function citationSources(card: ColdStartCard, citationIds: readonly string[] = [
     }
 
     seenSourceKeys.add(sourceKey);
+    const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
     sources.push({
       id: citation.id,
       domain: domainFromHref(href),
       href,
       title: citation.title,
-      qualityLabel: citation.sourceQuality?.label ?? sourceQualityForSource(citation).label
+      qualityLabel: citation.sourceQuality?.label ?? sourceQualityForSource(citation).label,
+      sourceClass: tier === "independent_technical" || tier === "independent_analysis"
+        ? "independent"
+        : tier === "independent_report"
+          ? "reporting"
+          : "company"
     });
   }
 
@@ -181,6 +190,12 @@ function displaySourceCount(sources: ResearchLayerSourceReference[]) {
 
 function sectionForLayer(sections: ResearchSection[] | undefined, id: ResearchLayerId) {
   return sections?.find((section) => section.sectionId === sectionIdForLayer(id)) ?? null;
+}
+
+// Card-derived layers reuse the section definitions' empty-state copy so the truth-telling
+// language lives in exactly one place.
+function emptyBodyForLayer(id: ResearchLayerId) {
+  return RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionIdForLayer(id)].emptyState;
 }
 
 function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, section: ResearchSection): ResearchLayerDisplay {
@@ -220,7 +235,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
       body: "This section has not been generated yet.",
       sources,
       sourceCount: displaySourceCount(sources),
-      status: "needs-analysis"
+      status: "ready"
     };
   }
 
@@ -229,7 +244,6 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
       id: layer.id,
       title,
       body: definition.emptyState,
-      rows: [{ label: "Evidence gap", value: definition.emptyState }],
       sources,
       sourceCount: displaySourceCount(sources),
       status: "empty"
@@ -259,7 +273,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     ...(rows ? { rows } : {}),
     sources,
     sourceCount: displaySourceCount(sources),
-    status: section.status === "stale" ? "stale" : "populated"
+    status: section.status === "stale" ? "stale" : "saved"
   };
 }
 
@@ -405,25 +419,25 @@ export function layersForCard(card: ColdStartCard, sections?: ResearchSection[])
         availability: section.status === "available" || section.status === "stale"
           ? "available"
           : section.status === "not_started" || section.status === "running"
-            ? "needs-analysis"
+            ? "ready"
             : "empty"
       };
     }
 
     if (layer.source === "analysis" && !card.synthesis) {
-      return { ...layer, availability: "needs-analysis" };
+      return { ...layer, availability: "ready" };
     }
 
     const display = layerDisplayForCard(card, layer.id, sections);
-    if (layer.source === "analysis" && display?.status === "needs-analysis" && !canAnalyze) {
-      return { ...layer, availability: "needs-analysis" };
+    if (layer.source === "analysis" && display?.status === "ready" && !canAnalyze) {
+      return { ...layer, availability: "ready" };
     }
 
     return {
       ...layer,
-      availability: display?.status === "populated"
+      availability: display?.status === "saved"
         ? "available"
-        : display?.status === "needs-analysis" ? "needs-analysis" : "empty"
+        : display?.status === "ready" ? "ready" : "empty"
     };
   });
 }
@@ -447,7 +461,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
         body: "Activate the investor lens to weigh the bull and bear case.",
         sources: [],
         sourceCount: 0,
-        status: "needs-analysis"
+        status: "ready"
       };
     }
 
@@ -465,7 +479,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       ...(items.length > 0 ? { items } : {}),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: items.length > 0 ? "populated" : "empty"
+      status: items.length > 0 ? "saved" : "empty"
     };
   }
 
@@ -477,7 +491,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
         body: "Activate the investor lens to synthesize the core idea from cited evidence.",
         sources: [],
         sourceCount: 0,
-        status: "needs-analysis"
+        status: "ready"
       };
     }
 
@@ -488,7 +502,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       body: stripCitationMarkers(card.synthesis.whyItMatters.text),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: "populated"
+      status: "saved"
     };
   }
 
@@ -500,7 +514,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
         body: "Activate the investor lens to assess market structure and timing.",
         sources: [],
         sourceCount: 0,
-        status: "needs-analysis"
+        status: "ready"
       };
     }
 
@@ -511,7 +525,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
         body: "Market structure analysis has not been generated for this card yet.",
         sources: [],
         sourceCount: 0,
-        status: "needs-analysis"
+        status: "ready"
       };
     }
 
@@ -524,7 +538,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       items: rows.map((row) => ({ title: row.title, body: row.body })),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: rows.length > 0 ? "populated" : "empty"
+      status: rows.length > 0 ? "saved" : "empty"
     };
   }
 
@@ -536,7 +550,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
         body: "Activate the investor lens to surface open questions.",
         sources: [],
         sourceCount: 0,
-        status: "needs-analysis"
+        status: "ready"
       };
     }
 
@@ -548,7 +562,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       items,
       sources: [],
       sourceCount: 0,
-      status: items.length > 0 ? "populated" : "empty"
+      status: items.length > 0 ? "saved" : "empty"
     };
   }
 
@@ -559,13 +573,11 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     return {
       id,
       title: layer.title,
-      body: serves ?? "Customer and buyer segmentation is not extracted yet.",
-      rows: serves
-        ? [{ label: "Buyer / user", value: serves }]
-        : [{ label: "Evidence gap", value: "No customer-specific field exists on this card yet." }],
+      body: serves ?? emptyBodyForLayer(id),
+      ...(serves ? { rows: [{ label: "Buyer / user", value: serves }] } : {}),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: serves ? "populated" : "empty"
+      status: serves ? "saved" : "empty"
     };
   }
 
@@ -573,7 +585,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     const description = card.identity.description;
     const concept = description?.value?.concept;
     const shortDescription = description?.value?.shortDescription;
-    const body = concept ?? shortDescription ?? card.identity.oneLiner.value ?? "Served job is not yet available from cited sources.";
+    const body = concept ?? shortDescription ?? card.identity.oneLiner.value ?? emptyBodyForLayer(id);
     const sources = citationSources(card, concept || shortDescription ? description?.citationIds : card.identity.oneLiner.citationIds);
     return {
       id,
@@ -582,7 +594,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       rows: body ? [{ label: "Job served", value: body }] : undefined,
       sources,
       sourceCount: displaySourceCount(sources),
-      status: concept || shortDescription || card.identity.oneLiner.value ? "populated" : "empty"
+      status: concept || shortDescription || card.identity.oneLiner.value ? "saved" : "empty"
     };
   }
 
@@ -591,7 +603,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     return {
       id,
       title: layer.title,
-      body: card.signals[0]?.title ?? "No recent cited signals found yet.",
+      body: card.signals[0]?.title ?? emptyBodyForLayer(id),
       items: card.signals.slice(0, 3).map((signal) => ({
         title: signal.title,
         meta: `${signal.source} · ${signal.category}`,
@@ -599,7 +611,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       })),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: card.signals.length > 0 ? "populated" : "empty"
+      status: card.signals.length > 0 ? "saved" : "empty"
     };
   }
 
@@ -632,14 +644,14 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
           })),
           sources: evidenceSources,
           sourceCount: displaySourceCount(evidenceSources),
-          status: "populated",
+          status: "saved",
         };
       }
 
       return {
         id,
         title: layer.title,
-        body: "No cited fundraising history yet.",
+        body: emptyBodyForLayer(id),
         sources: [],
         sourceCount: 0,
         status: "empty",
@@ -683,7 +695,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       items,
       sources,
       sourceCount: displaySourceCount(sources),
-      status: "populated",
+      status: "saved",
     };
   }
 
@@ -695,7 +707,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       title: layer.title,
       body: comparables.length > 0
         ? comparables.map((company) => `${company.name} (${company.domain})`).join(", ")
-        : "Comparables not yet available.",
+        : emptyBodyForLayer(id),
       items: comparables.slice(0, 4).map((company) => ({
         title: company.name,
         meta: company.domain,
@@ -703,7 +715,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       })),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: comparables.length > 0 ? "populated" : "empty"
+      status: comparables.length > 0 ? "saved" : "empty"
     };
   }
 
@@ -713,11 +725,11 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     return {
       id,
       title: layer.title,
-      body: mechanism ?? "Product and technology context not yet available from cited sources.",
+      body: mechanism ?? emptyBodyForLayer(id),
       rows: mechanism ? [{ label: "How it works", value: mechanism }] : undefined,
       sources,
       sourceCount: displaySourceCount(sources),
-      status: mechanism ? "populated" : "empty"
+      status: mechanism ? "saved" : "empty"
     };
   }
 

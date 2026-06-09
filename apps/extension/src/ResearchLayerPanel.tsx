@@ -70,6 +70,7 @@ type ResearchLayerPanelProps = {
   sections?: ResearchSection[] | undefined;
   events?: ExtensionResearchRunEvent[] | undefined;
   sources?: ExtensionSourceSummary[] | undefined;
+  cachedAtMs?: number | undefined;
 };
 
 type TooltipPlacement = "above" | "below";
@@ -189,7 +190,7 @@ function sourceLabel(count: number) {
 }
 
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
-  return status === "needs-analysis" || status === "stale" || status === "failed" || status === "empty";
+  return status === "ready" || status === "stale" || status === "failed" || status === "empty";
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1053,6 +1054,15 @@ function DormantPileCard({
   );
 }
 
+function formatSavedDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "earlier";
+  }
+
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
+}
+
 function analysisLayerIsRunning(card: ColdStartCard, id: ResearchLayerId, analysisRun: AnalysisRun | undefined) {
   if (!analysisRun) {
     return false;
@@ -1239,9 +1249,14 @@ export function ResearchLayerPanel({
   activeSectionRun,
   sections,
   events,
-  sources
+  sources,
+  cachedAtMs
 }: ResearchLayerPanelProps) {
   const companyName = readableCompanyName(card);
+  const isStaleRead = card.cacheStatus === "stale" || cachedAtMs !== undefined;
+  const freshnessLabel = isStaleRead
+    ? `Saved ${formatSavedDate(card.generatedAt)}${profileRun || analysisRun || activeSectionRun ? " · refreshing" : ""}`
+    : null;
   const canStartInvestorLens = canRunInvestorAnalysis(card);
   const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
@@ -1404,7 +1419,7 @@ export function ResearchLayerPanel({
   const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
   const finalizingProfileVisible = Boolean(contactRun && !profileRun);
   const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
-  const resolvedSectionCount = layers.filter((layer) => layer.availability !== "needs-analysis").length;
+  const resolvedSectionCount = layers.filter((layer) => layer.availability !== "ready").length;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
     ? "Release to file it in Research"
@@ -1435,6 +1450,7 @@ export function ResearchLayerPanel({
             <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
               {websiteLabel(card)}
             </a>
+            {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
           </div>
         </div>
@@ -1481,8 +1497,8 @@ export function ResearchLayerPanel({
             // Open Questions and The Case come from the consolidated synthesis, so while an
             // analysis run is active they wait behind the investor lens instead of firing a
             // per-section run of their own.
-            const waitingForLens = Boolean(isSynthesisLayer(id) && display.status === "needs-analysis" && analysisRun);
-            const waitingForProfile = Boolean(profileRun && display.status !== "populated");
+            const waitingForLens = Boolean(isSynthesisLayer(id) && display.status === "ready" && analysisRun);
+            const waitingForProfile = Boolean(profileRun && display.status !== "saved");
             const running = Boolean(
               waitingForProfile ||
               display.status === "running" ||
@@ -1501,7 +1517,7 @@ export function ResearchLayerPanel({
               ? "Queue"
               : display.status === "failed"
                 ? "Queue"
-                : display.status === "needs-analysis"
+                : display.status === "ready"
                   ? "Queue"
                   : display.status === "empty"
                     ? "Queue"
@@ -1525,7 +1541,11 @@ export function ResearchLayerPanel({
                     : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
                   : running
                     ? `Synthesizing · ${formatElapsed(elapsedSeconds)}`
-                    : sourceLabel(display.sourceCount);
+                    : display.status === "failed"
+                      ? "Run failed"
+                      : display.status === "empty"
+                        ? "Not found"
+                        : sourceLabel(display.sourceCount);
             const runningCopy = waitingForProfile
               ? "Getting the profile ready"
               : refreshing
@@ -1556,6 +1576,7 @@ export function ResearchLayerPanel({
                 className="cs-active-enrichment"
                 data-expanded={expanded ? "true" : "false"}
                 data-layer-id={id}
+                data-source-class={display.sources[0]?.sourceClass ?? "none"}
                 data-state={state}
                 exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: -8 }}
                 initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0.72, scale: 0.985, y: 10 }}

@@ -1783,7 +1783,7 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("populated");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("saved");
     expect(container.querySelector(".cs-research-notice")).toBeNull();
     expect(generateCalls(fetchMock)).toHaveLength(2);
     await unmount();
@@ -1858,7 +1858,7 @@ describe("SidePanel generation gate", () => {
       await vi.advanceTimersByTimeAsync(1_600);
     });
     await flushPromises();
-    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("populated");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).toBe("saved");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

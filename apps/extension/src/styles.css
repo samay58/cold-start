@@ -4874,12 +4874,54 @@ body {
     0 6px 18px rgb(23 26 31 / 0.035);
 }
 
+/* The module dot is semantic, not decorative: neutral at rest, evidence-colored only
+   when the saved section actually carries that class of source, oxide on failure. */
 .cs-active-dot::after {
   position: absolute;
   inset: 10px;
+  border: 1px solid rgb(107 98 86 / 0.55);
   border-radius: 999px;
-  background: var(--color-verified);
+  background: transparent;
   content: "";
+}
+
+.cs-active-enrichment[data-state="saved"] .cs-active-dot::after,
+.cs-active-enrichment[data-state="stale"] .cs-active-dot::after {
+  border: 0;
+  background: var(--color-seal);
+}
+
+.cs-active-enrichment[data-state="saved"][data-source-class="independent"] .cs-active-dot::after {
+  background: var(--color-verified);
+}
+
+.cs-active-enrichment[data-state="saved"][data-source-class="reporting"] .cs-active-dot::after {
+  border: 1px solid var(--color-reported);
+  background: transparent;
+}
+
+.cs-active-enrichment[data-state="saved"][data-source-class="company"] .cs-active-dot::after {
+  background: var(--color-company);
+}
+
+.cs-active-enrichment[data-state="running"] .cs-active-dot::after {
+  border: 0;
+  background: var(--color-seal);
+}
+
+.cs-active-enrichment[data-state="failed"] .cs-active-dot::after {
+  border: 0;
+  background: var(--color-conflict);
+  opacity: 0.85;
+}
+
+.cs-active-enrichment[data-state="failed"] .cs-active-enrichment-head small {
+  color: var(--color-conflict);
+}
+
+.cs-active-enrichment[data-state="empty"] .cs-active-dot::after {
+  border: 1px solid rgb(107 98 86 / 0.45);
+  background: transparent;
 }
 
 .cs-active-enrichment[data-state="running"] {
@@ -5708,4 +5750,23 @@ body {
 
 .cs-panel-stage-scene {
   min-height: 100vh;
+}
+
+/* Freshness mark: a quiet filed stamp, not an alert. Shown only when the read is
+   explicitly a saved/stale card; gains a "refreshing" suffix while a run updates it. */
+.cs-freshness-mark {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 3px 7px 2px;
+  border: 1px solid rgb(204 199 184 / 0.9);
+  border-radius: 3px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  vertical-align: middle;
+  white-space: nowrap;
 }

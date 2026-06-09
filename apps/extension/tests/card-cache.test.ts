@@ -176,7 +176,7 @@ describe("card cache", () => {
     });
 
     await expect(readCachedCard("linear.app", settings)).resolves.toMatchObject({
-      domain: "linear.app"
+      card: { domain: "linear.app" }
     });
     expect(localItems[key]).toBeDefined();
   });

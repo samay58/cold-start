@@ -94,13 +94,19 @@ function cachedCard(domain: string, settings: Settings, card: ColdStartCard): Ca
   };
 }
 
-export async function readCachedCard(domain: string, settings: Settings): Promise<ColdStartCard | null> {
+export type CachedCardEntry = {
+  card: ColdStartCard;
+  /** When this card was stored locally; lets the panel mark a cached read as such. */
+  storedAtMs: number;
+};
+
+export async function readCachedCard(domain: string, settings: Settings): Promise<CachedCardEntry | null> {
   const key = cardCacheKey(domain, settings);
   const sessionCached = await getCachedCard("session", key);
 
   if (sessionCached) {
     if (cachedCardIsValid({ cached: sessionCached, domain, settings, scope: "session" })) {
-      return sessionCached.card;
+      return { card: sessionCached.card, storedAtMs: sessionCached.storedAt };
     }
 
     await removeCachedCard("session", key);
@@ -117,7 +123,7 @@ export async function readCachedCard(domain: string, settings: Settings): Promis
   }
 
   await setCachedCard("session", key, localCached);
-  return localCached.card;
+  return { card: localCached.card, storedAtMs: localCached.storedAt };
 }
 
 function removeCachedCardFromAllScopes(key: string): Promise<void> {

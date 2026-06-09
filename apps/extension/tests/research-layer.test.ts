@@ -116,25 +116,25 @@ describe("research layer model", () => {
 
   it("marks synthesis-backed cards as needing analysis until synthesis exists", () => {
     const layers = layersForCard(baseCard());
-    expect(layers.find((layer) => layer.id === "coreIdea")?.availability).toBe("needs-analysis");
-    expect(layers.find((layer) => layer.id === "openQuestions")?.availability).toBe("needs-analysis");
+    expect(layers.find((layer) => layer.id === "coreIdea")?.availability).toBe("ready");
+    expect(layers.find((layer) => layer.id === "openQuestions")?.availability).toBe("ready");
   });
 
   it("derives populated display data from real card fields", () => {
     expect(layerDisplayForCard(baseCard(), "customers")).toMatchObject({
       body: "Developers and engineering teams.",
       sourceCount: 1,
-      status: "populated"
+      status: "saved"
     });
     expect(layerDisplayForCard(baseCard(), "serves")).toMatchObject({
       body: "AI-native terminal collaboration layer.",
       sourceCount: 1,
-      status: "populated"
+      status: "saved"
     });
     expect(layerDisplayForCard(baseCard(), "signals")).toMatchObject({
       body: "Warp launches AI features",
       sourceCount: 1,
-      status: "populated"
+      status: "saved"
     });
   });
 
@@ -159,7 +159,7 @@ describe("research layer model", () => {
           title: "Warp"
         }
       ],
-      status: "populated"
+      status: "saved"
     });
     expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
   });
@@ -222,7 +222,7 @@ describe("research layer model", () => {
       title: "Timing",
       body: "The buyer budget is contact-center automation spend.",
       sourceCount: 1,
-      status: "populated"
+      status: "saved"
     });
     expect(layerDisplayForCard(card, "marketStructureTiming")?.items).toEqual([
       { title: "Buyer budget", body: "The buyer budget is contact-center automation spend." },
@@ -240,12 +240,12 @@ describe("research layer model", () => {
       }
     });
 
-    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("needs-analysis");
+    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("ready");
     expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
       title: "Timing",
       body: "Market structure analysis has not been generated for this card yet.",
       sourceCount: 0,
-      status: "needs-analysis"
+      status: "ready"
     });
   });
 
@@ -418,7 +418,7 @@ describe("research layer model", () => {
 
     const display = layerDisplayForCard(card, "investors");
 
-    expect(display?.status).toBe("populated");
+    expect(display?.status).toBe("saved");
     expect(display?.body).toContain("disclosed");
     expect(display?.items?.map((item) => item.title)).toEqual([
       "$91M disclosed across 2 rounds",
@@ -480,7 +480,7 @@ describe("research layer model", () => {
 
     const display = layerDisplayForCard(card, "investors");
 
-    expect(display?.status).toBe("populated");
+    expect(display?.status).toBe("saved");
     expect(display?.sourceCount).toBeGreaterThan(0);
     expect(display?.items?.[0]?.title).toContain("$600M");
     expect(display?.items?.[0]?.body).toContain("completed with $600M injection");
@@ -512,7 +512,7 @@ describe("research layer model", () => {
       ],
     }), "competition");
 
-    expect(display?.status).toBe("populated");
+    expect(display?.status).toBe("saved");
     expect(display?.items?.map((item) => item.title)).toEqual(["ReadMe"]);
     expect(display?.sourceCount).toBe(1);
     expect(display?.sources[0]).toMatchObject({ domain: "readme.com", href: "https://readme.com" });
