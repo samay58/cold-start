@@ -55,7 +55,7 @@ button {
 
 .cs-extension-rule {
   height: 1px;
-  background: rgb(169 195 199 / 0.42);
+  background: rgb(204 199 184 / 0.42);
 }
 
 .cs-brand-mark {
@@ -125,7 +125,7 @@ button {
   width: 44px;
   height: 44px;
   border: 1px solid rgb(110 92 158 / 0.18);
-  border-radius: 10px;
+  border-radius: 6px;
   background: var(--color-plate);
   box-shadow: inset 0 0 0 1px rgb(110 92 158 / 0.08);
   color: var(--color-ink);
@@ -150,7 +150,7 @@ button {
   color: var(--color-ink);
   flex: 0 0 auto;
   box-shadow:
-    0 10px 24px rgb(2 8 18 / 0.07),
+    0 6px 18px rgb(23 26 31 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.76) inset;
 }
 
@@ -186,9 +186,9 @@ button {
   width: 44px;
   height: 44px;
   border-color: rgb(110 92 158 / 0.18);
-  border-radius: 10px;
+  border-radius: 6px;
   box-shadow:
-    0 12px 26px rgb(2 8 18 / 0.08),
+    0 6px 18px rgb(23 26 31 / 0.08),
     inset 0 0 0 1px rgb(110 92 158 / 0.08);
 }
 
@@ -306,7 +306,7 @@ button {
   background: var(--color-ink);
   color: var(--color-plate);
   box-shadow:
-    0 12px 26px rgb(2 8 18 / 0.14),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.14) inset;
 }
 
@@ -350,7 +350,7 @@ button {
   inset: 8px;
   z-index: 0;
   border: 1px solid rgb(216 213 202 / 0.82);
-  border-radius: 10px;
+  border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(252 250 245 / 0.90)),
     var(--color-plate);
@@ -393,7 +393,7 @@ button {
   border: 0;
   border-radius: 7px;
   background: rgb(252 250 245 / 0.72);
-  color: #4f5358;
+  color: var(--color-muted);
   cursor: pointer;
   font-size: 18px;
   font-weight: 780;
@@ -409,7 +409,7 @@ button {
 .cs-start-hero h1 {
   max-width: 240px;
   margin: 0;
-  color: #050505;
+  color: var(--color-ink);
   font-family: var(--font-display);
   font-size: clamp(42px, 11.8vw, 54px);
   font-weight: 700;
@@ -419,7 +419,7 @@ button {
 
 .cs-start-hero p {
   margin: 14px 0 0;
-  color: #4f5662;
+  color: var(--color-muted);
   font-size: 14px;
   line-height: 1.42;
 }
@@ -437,52 +437,18 @@ button {
   width: 100%;
   height: 44px;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 780;
   line-height: 1;
   justify-content: space-between;
   min-width: 0;
-  border: 1px solid rgb(5 6 7 / 0.96);
-  background:
-    linear-gradient(180deg, #1d1f21, #070809 74%),
-    #070809;
+  border: 1px solid var(--color-ink);
+  background: var(--color-ink);
   color: var(--color-plate);
   padding: 0 15px 0 17px;
-  box-shadow:
-    0 14px 26px rgb(2 8 18 / 0.20),
-    inset 0 1px 0 rgb(255 255 255 / 0.18),
-    inset 1px 1px 0 rgb(255 255 255 / 0.08),
-    inset -1px -2px 0 rgb(0 0 0 / 0.42),
-    inset 0 -8px 18px rgb(0 0 0 / 0.28);
-}
-
-.cs-start-primary::before {
-  position: absolute;
-  inset: -35%;
-  background: radial-gradient(
-    var(--cs-button-splash-position, circle at 50% 50%),
-    rgb(110 92 158 / 0.55),
-    rgb(110 92 158 / 0.18) 24%,
-    transparent 54%
-  );
-  content: "";
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--cs-motion-feedback) var(--cs-motion-ease-out);
-}
-
-.cs-start-primary::after {
-  position: absolute;
-  inset: 1px;
-  border-radius: 7px;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 36%),
-    linear-gradient(90deg, transparent, rgb(255 255 255 / 0.10), transparent);
-  content: "";
-  opacity: 0.48;
-  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.08);
 }
 
 .cs-start-primary span {
@@ -521,7 +487,7 @@ button {
   background:
     linear-gradient(180deg, rgb(255 254 250 / 0.98), rgb(247 242 232 / 0.92)),
     var(--color-plate);
-  box-shadow: 0 8px 18px rgb(2 8 18 / 0.08);
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.08);
 }
 
 .cs-start-company-logo .cs-company-logo-fallback {
@@ -564,12 +530,11 @@ button {
 }
 
 .cs-start-status {
-  color: #6e6e76;
-  font-size: 10px;
-  font-weight: 760;
-  letter-spacing: 0.14em;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 640;
+  letter-spacing: 0.02em;
   line-height: 1;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -615,7 +580,7 @@ button {
     var(--color-plate);
   padding: 8px 12px;
   box-shadow:
-    0 14px 30px rgb(2 8 18 / 0.075),
+    0 6px 18px rgb(23 26 31 / 0.075),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -639,47 +604,22 @@ button {
   transform: rotate(-0.34deg) translateX(12px);
 }
 
-.cs-start-pass-icon {
+.cs-start-pass-index {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 38px;
   height: 38px;
-  border: 1px solid;
-  border-radius: 9px;
-  flex-shrink: 0;
-}
-
-.cs-start-pass-icon svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
-}
-
-.cs-start-pass-card[data-tone="people"] .cs-start-pass-icon {
-  border-color: #d8e6fa;
-  background: #eaf3ff;
+  border: 1px solid var(--cat-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
   color: var(--color-seal);
-}
-
-.cs-start-pass-card[data-tone="business"] .cs-start-pass-icon {
-  border-color: rgb(14 107 91 / 0.20);
-  background: rgb(14 107 91 / 0.08);
-  color: var(--color-verified);
-}
-
-.cs-start-pass-card[data-tone="signals"] .cs-start-pass-icon {
-  border-color: #e3ddf5;
-  background: #f2eeff;
-  color: #4a3f72;
-}
-
-.cs-start-pass-card[data-tone="questions"] .cs-start-pass-icon {
-  border-color: #f0ddc3;
-  background: #fff0df;
-  color: #c86a00;
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
 .cs-start-pass-copy {
@@ -709,19 +649,13 @@ button {
   white-space: nowrap;
 }
 
-.cs-start-pass-marker {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 30px;
-  height: 24px;
-  border: 1px solid rgb(216 213 202 / 0.72);
-  border-radius: 8px;
-  background: rgb(255 255 255 / 0.34);
-  color: #696b72;
-  font-size: 10px;
-  font-weight: 760;
-  letter-spacing: 0.08em;
+.cs-start-pass-seal {
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border: 1px solid rgb(110 92 158 / 0.55);
+  border-radius: 1px;
+  background: rgb(110 92 158 / 0.16);
 }
 
 .cs-intake-panel .cs-panel-header {
@@ -729,14 +663,14 @@ button {
   align-items: center;
   gap: 18px;
   padding: 24px 2px 20px;
-  border-bottom: 1px solid rgb(169 195 199 / 0.42);
+  border-bottom: 1px solid rgb(204 199 184 / 0.42);
 }
 
 .cs-intake-panel .cs-panel-brand-mark,
 .cs-intake-panel .cs-panel-company-logo {
   width: 56px;
   height: 56px;
-  border-radius: 9px;
+  border-radius: 6px;
 }
 
 .cs-intake-panel .cs-panel-brand-mark {
@@ -745,17 +679,17 @@ button {
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(246 241 231 / 0.90)),
     var(--color-plate);
   box-shadow:
-    0 14px 30px rgb(2 8 18 / 0.08),
+    0 6px 18px rgb(23 26 31 / 0.08),
     inset 0 0 0 1px rgb(110 92 158 / 0.08);
 }
 
 .cs-intake-panel .cs-extension-kicker {
   margin-bottom: 8px;
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 720;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.06em;
 }
 
 .cs-intake-panel .cs-panel-header h1 {
@@ -781,7 +715,7 @@ button {
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(250 247 239 / 0.74)),
     var(--color-plate);
   box-shadow:
-    0 12px 30px rgb(2 8 18 / 0.045),
+    0 6px 18px rgb(23 26 31 / 0.045),
     0 1px 0 rgb(255 255 255 / 0.78) inset;
   padding: 16px;
 }
@@ -964,19 +898,19 @@ button {
   gap: 12px;
   align-items: center;
   padding: 14px 14px 16px;
-  border-bottom: 1px solid rgb(169 195 199 / 0.48);
+  border-bottom: 1px solid rgb(204 199 184 / 0.48);
 }
 
 .cs-generation-logo {
   width: 44px;
   height: 44px;
   border-color: rgb(110 92 158 / 0.16);
-  border-radius: 10px;
+  border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(245 249 248 / 0.86)),
     rgb(252 250 245 / 0.90);
   box-shadow:
-    0 14px 30px rgb(2 8 18 / 0.08),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.90) inset;
 }
 
@@ -984,13 +918,9 @@ button {
   position: absolute;
   inset: 8px;
   z-index: 1;
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 44% 34%, rgb(255 255 255 / 0.28), transparent 36%),
-    linear-gradient(135deg, rgb(10 10 10 / 0.92), rgb(110 92 158 / 0.86));
-  box-shadow:
-    0 8px 18px rgb(110 92 158 / 0.16),
-    0 0 0 1px rgb(255 255 255 / 0.28) inset;
+  border: 1px solid rgb(110 92 158 / 0.22);
+  border-radius: 4px;
+  background: var(--color-plate);
   content: "";
 }
 
@@ -998,9 +928,6 @@ button {
   inset: 20%;
   width: 60%;
   height: 60%;
-  filter:
-    drop-shadow(0 1px 2px rgb(2 8 18 / 0.32))
-    drop-shadow(0 0 6px rgb(255 255 255 / 0.18));
 }
 
 .cs-generation-logo .cs-company-logo-fallback {
@@ -1075,15 +1002,10 @@ button {
   min-height: 168px;
   overflow: hidden;
   padding: 0;
-  border: 1px solid rgb(192 213 225 / 0.86);
-  border-radius: 9px;
-  background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.88), rgb(252 250 245 / 0.74)),
-    rgb(252 250 245 / 0.78);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 14px 34px rgb(2 8 18 / 0.06),
-    0 1px 0 rgb(255 255 255 / 0.86) inset;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.06);
 }
 
 .cs-live-card-refined::before {
@@ -1106,14 +1028,13 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px 12px;
-  border-bottom: 1px solid rgb(190 211 220 / 0.48);
-  color: rgb(113 128 145);
+  border-bottom: 1px solid rgb(204 199 184 / 0.6);
+  color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .cs-live-field-head span:last-child {
@@ -1195,7 +1116,7 @@ button {
   margin: 14px 16px 4px;
   overflow: visible;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   isolation: isolate;
 }
@@ -1206,8 +1127,7 @@ button {
   right: 0;
   top: 50%;
   height: 2px;
-  background: linear-gradient(90deg, rgb(204 221 234 / 0.72), rgb(214 225 236 / 0.92), rgb(204 221 234 / 0.72));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.74);
+  background: rgb(204 199 184 / 0.85);
   content: "";
   transform: translateY(-50%);
 }
@@ -1220,29 +1140,12 @@ button {
   position: absolute;
   left: 0;
   top: 50%;
-  height: 4px;
+  height: 2px;
   min-width: 26px;
   overflow: hidden;
-  border-radius: 999px;
-  background:
-    linear-gradient(90deg, var(--color-seal), rgb(110 92 158 / 0.96), var(--color-seal)),
-    var(--color-seal);
-  background-size: 180% 100%;
-  box-shadow:
-    0 0 0 1px rgb(110 92 158 / 0.08),
-    0 8px 18px rgb(110 92 158 / 0.14);
+  border-radius: 1px;
+  background: var(--color-seal);
   transform: translateY(-50%);
-}
-
-.cs-live-progress-fill::after {
-  position: absolute;
-  top: -6px;
-  bottom: -6px;
-  left: 0;
-  width: 70px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.74), transparent);
-  content: "";
-  transform: translateX(-90px);
 }
 
 .cs-live-progress-cursor {
@@ -1250,12 +1153,10 @@ button {
   top: 50%;
   width: 14px;
   height: 14px;
-  border: 3px solid rgb(232 241 255 / 0.96);
+  border: 2px solid var(--color-plate);
   border-radius: 999px;
   background: var(--color-seal);
-  box-shadow:
-    0 0 0 8px rgb(110 92 158 / 0.08),
-    0 8px 18px rgb(110 92 158 / 0.20);
+  box-shadow: 0 0 0 1px rgb(110 92 158 / 0.35);
   transform: translate(-50%, -50%);
 }
 
@@ -1296,10 +1197,10 @@ button {
 .cs-company-facts dt,
 .cs-research-layer-head,
 .cs-card-grip {
-  font-family: var(--font-mono);
+  font-family: var(--font-body);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 640;
+  letter-spacing: 0.06em;
 }
 
 .cs-company-context,
@@ -1307,7 +1208,7 @@ button {
   border: 1px solid var(--color-rule);
   border-radius: 8px;
   background: rgb(252 250 245 / 0.82);
-  box-shadow: 0 10px 34px rgb(2 8 18 / 0.06), 0 1px 0 rgb(255 255 255 / 0.65) inset;
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.06), 0 1px 0 rgb(255 255 255 / 0.65) inset;
 }
 
 .cs-research-shell-partial {
@@ -1321,7 +1222,7 @@ button {
   align-items: start;
   margin-top: 4px;
   padding: 24px 26px 26px;
-  border-top: 1px solid rgb(169 195 199 / 0.42);
+  border-top: 1px solid rgb(204 199 184 / 0.42);
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.54), rgb(250 250 247 / 0.10)),
     transparent;
@@ -1437,7 +1338,7 @@ button {
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(242 237 226 / 0.92)),
     var(--color-plate);
   box-shadow:
-    0 16px 32px rgb(2 8 18 / 0.10),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.86) inset,
     inset 0 0 0 1px rgb(255 255 255 / 0.40);
 }
@@ -1534,7 +1435,7 @@ button {
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow:
-    0 14px 30px rgb(23 26 31 / 0.13),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.88) inset;
   color: var(--color-ink);
   pointer-events: none;
@@ -1578,7 +1479,7 @@ button {
     rgb(252 250 245 / 0.76);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.70) inset,
-    0 8px 18px rgb(2 8 18 / 0.025);
+    0 6px 18px rgb(23 26 31 / 0.025);
 }
 
 .cs-company-facts div:focus-visible {
@@ -1666,7 +1567,7 @@ button {
     rgb(110 92 158 / 0.055);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.82) inset,
-    0 5px 12px rgb(2 8 18 / 0.04);
+    0 5px 12px rgb(23 26 31 / 0.04);
 }
 
 .cs-research-progress-dot::after {
@@ -1709,7 +1610,7 @@ button {
   border: 1px solid rgb(204 199 184 / 0.74);
   border-radius: 7px;
   background: rgb(255 253 248 / 0.58);
-  color: rgb(8 25 44 / 0.78);
+  color: rgb(23 26 31 / 0.78);
   font-size: 12px;
   line-height: 1.35;
 }
@@ -1843,7 +1744,7 @@ button {
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.80), rgb(250 247 239 / 0.72)),
     var(--color-plate);
-  box-shadow: 0 9px 24px rgb(2 8 18 / 0.05), 0 1px 0 rgb(255 255 255 / 0.78) inset;
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.05), 0 1px 0 rgb(255 255 255 / 0.78) inset;
 }
 
 .cs-active-enrichment::before {
@@ -2117,13 +2018,13 @@ button {
   align-items: center;
   max-width: 132px;
   min-height: 22px;
-  border: 1px solid rgb(110 92 158 / 0.20);
-  border-radius: 6px;
-  background: rgb(110 92 158 / 0.055);
-  color: var(--color-seal);
-  font-family: var(--font-mono);
+  border: 1px solid rgb(204 199 184 / 0.80);
+  border-radius: 4px;
+  background: var(--color-plate);
+  color: var(--color-muted);
+  font-family: var(--font-text);
   font-size: 9px;
-  font-weight: 720;
+  font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1;
   overflow: hidden;
@@ -2200,7 +2101,7 @@ button {
     rgb(250 250 247 / 0.16);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.58) inset,
-    0 18px 40px rgb(2 8 18 / 0.028) inset;
+    0 18px 40px rgb(23 26 31 / 0.028) inset;
 }
 
 .cs-dormant-card {
@@ -2223,7 +2124,7 @@ button {
   user-select: none;
   -webkit-user-select: none;
   box-shadow:
-    0 13px 22px rgb(2 8 18 / 0.085),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.88) inset;
   contain: paint;
   transform-origin: center;
@@ -2249,7 +2150,7 @@ button {
     var(--color-plate);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.82) inset,
-    0 12px 24px rgb(2 8 18 / 0.045);
+    0 6px 18px rgb(23 26 31 / 0.045);
   pointer-events: none;
 }
 
@@ -2265,7 +2166,7 @@ button {
   box-shadow:
     0 0 0 3px rgb(110 92 158 / 0.06),
     0 1px 0 rgb(255 255 255 / 0.88) inset,
-    0 14px 28px rgb(2 8 18 / 0.06);
+    0 6px 18px rgb(23 26 31 / 0.06);
 }
 
 .cs-module-insertion-slot span {
@@ -2298,7 +2199,7 @@ button {
 .cs-dormant-card[data-dragging="true"] {
   border-color: rgb(110 92 158 / 0.38);
   box-shadow:
-    0 24px 42px rgb(2 8 18 / 0.16),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 3px rgb(110 92 158 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
@@ -2334,7 +2235,7 @@ button {
 }
 
 .cs-extension-rule {
-  background: rgb(169 195 199 / 0.34);
+  background: rgb(204 199 184 / 0.34);
 }
 
 .cs-icon-button {
@@ -2669,7 +2570,7 @@ button {
 .cs-live-card-refined {
   min-height: 168px;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 6px;
 }
 
 .cs-live-field {
@@ -2850,7 +2751,7 @@ button {
 .cs-active-enrichment {
   border-radius: 7px;
   box-shadow:
-    0 7px 18px rgb(2 8 18 / 0.035),
+    0 6px 18px rgb(23 26 31 / 0.035),
     0 1px 0 rgb(255 255 255 / 0.76) inset;
 }
 
@@ -2955,21 +2856,19 @@ button {
     radial-gradient(circle at 86% 0%, rgb(110 92 158 / 0.06), transparent 24%),
     linear-gradient(180deg, rgb(255 253 248 / 0.10), rgb(230 241 255 / 0.08)),
     rgb(250 250 247 / 0.08);
-  box-shadow: 0 12px 28px rgb(2 8 18 / 0.016) inset;
+  box-shadow: 0 12px 28px rgb(23 26 31 / 0.016) inset;
 }
 
 .cs-dormant-card {
   grid-template-columns: 8px minmax(0, 1fr) 18px;
   gap: 10px;
   min-height: 42px;
-  border-color: rgb(190 211 220 / 0.44);
+  border-color: rgb(204 199 184 / 0.60);
   border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(244 250 253 / 0.94)),
-    var(--color-plate);
+  background: var(--color-plate);
   padding: 8px 10px;
   box-shadow:
-    0 8px 15px rgb(2 8 18 / 0.075),
+    0 6px 18px rgb(23 26 31 / 0.075),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
 }
 
@@ -2996,37 +2895,47 @@ button {
 
 .cs-dormant-card[data-dragging="true"] {
   box-shadow:
-    0 16px 28px rgb(2 8 18 / 0.13),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 2px rgb(110 92 158 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
-@keyframes cs-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes cs-reduced-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
   }
 }
 
 @keyframes cs-progress-cursor-breathe {
   0%,
   100% {
-    box-shadow:
-      0 0 0 6px rgb(110 92 158 / 0.07),
-      0 0 16px rgb(110 92 158 / 0.22),
-      0 5px 12px rgb(2 8 18 / 0.12);
+    box-shadow: 0 0 0 1px rgb(110 92 158 / 0.30);
   }
 
   52% {
-    box-shadow:
-      0 0 0 9px rgb(110 92 158 / 0.11),
-      0 0 22px rgb(110 92 158 / 0.30),
-      0 5px 12px rgb(2 8 18 / 0.12);
+    box-shadow: 0 0 0 3px rgb(110 92 158 / 0.18);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cs-active-enrichment-body-frame {
-    transition: none;
+  /* Reduce shortens the expand/collapse to a quick fade; it does not freeze it. */
+  .cs-active-enrichment-body-frame,
+  .cs-active-enrichment-body-frame[data-expanded="true"] {
+    transition:
+      grid-template-rows 100ms ease,
+      opacity 90ms ease,
+      visibility 0s linear 100ms;
+  }
+
+  .cs-active-enrichment-body-frame[data-expanded="true"] {
+    transition:
+      grid-template-rows 100ms ease,
+      opacity 90ms ease;
   }
 }
 
@@ -3316,7 +3225,7 @@ body,
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.88)),
     rgb(252 250 245 / 0.92);
   box-shadow:
-    0 18px 38px rgb(2 8 18 / 0.08),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
 }
 
@@ -3334,12 +3243,11 @@ body,
 }
 
 .cs-generation-status {
-  color: rgb(14 14 14 / 0.56);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 760;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .cs-generation-hero h1 {
@@ -3379,28 +3287,23 @@ body,
   margin: 0 4px;
   min-height: 360px;
   border-color: rgb(216 208 191 / 0.82);
-  background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.88), rgb(252 250 245 / 0.72)),
-    rgb(255 253 248 / 0.72);
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 18px 38px rgb(2 8 18 / 0.07),
-    0 1px 0 rgb(255 255 255 / 0.84) inset;
+  background: var(--color-plate);
+  box-shadow: 0 6px 18px rgb(23 26 31 / 0.07);
 }
 
 .cs-live-field-head {
   padding: 15px 18px 10px;
   border-bottom: 0;
-  color: rgb(14 14 14 / 0.62);
-  font-family: var(--font-mono);
+  color: var(--color-muted);
+  font-family: var(--font-body);
   font-size: 11px;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.04em;
 }
 
 .cs-live-field-head span:last-child {
   color: var(--color-seal);
   font-size: 13px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.02em;
 }
 
 .cs-run-steps {
@@ -3410,14 +3313,14 @@ body,
 .cs-run-steps li {
   grid-template-columns: 48px minmax(0, 1fr) 18px;
   min-height: 46px;
-  color: rgb(8 25 44 / 0.88);
+  color: rgb(23 26 31 / 0.88);
   font-family: var(--font-display);
   font-size: 17px;
   font-weight: 520;
 }
 
 .cs-run-step-index {
-  color: rgb(8 25 44 / 0.48);
+  color: rgb(23 26 31 / 0.48);
   font-family: var(--font-body);
   font-size: 13px;
   letter-spacing: 0.08em;
@@ -3435,7 +3338,7 @@ body,
     linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(252 250 245 / 0.83)),
     var(--color-plate);
   box-shadow:
-    0 17px 36px rgb(2 8 18 / 0.065),
+    0 6px 18px rgb(23 26 31 / 0.065),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
@@ -3458,7 +3361,7 @@ body,
   border-color: rgb(14 14 14 / 0.13);
   border-radius: 8px;
   box-shadow:
-    0 14px 26px rgb(2 8 18 / 0.09),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.84) inset;
 }
 
@@ -3480,7 +3383,7 @@ body,
   display: inline-flex;
   max-width: 100%;
   margin-top: 8px;
-  color: #6e5c9e;
+  color: var(--color-seal);
   font-size: 14px;
   font-weight: 650;
   line-height: 1.2;
@@ -3492,7 +3395,7 @@ body,
 
 .cs-company-domain::after {
   margin-left: 8px;
-  color: #6e5c9e;
+  color: var(--color-seal);
   content: "↗";
   font-size: 12px;
 }
@@ -3500,7 +3403,7 @@ body,
 .cs-company-context-main p:not(.cs-research-label) {
   max-width: 42rem;
   margin-top: 12px;
-  color: rgb(8 25 44 / 0.72);
+  color: rgb(23 26 31 / 0.72);
   font-size: 14px;
   line-height: 1.48;
 }
@@ -3535,10 +3438,10 @@ body,
 .cs-company-facts dt,
 .cs-people-line-label,
 .cs-research-layer-head {
-  color: rgb(8 25 44 / 0.72);
-  font-family: var(--font-mono);
-  font-weight: 760;
-  letter-spacing: 0.15em;
+  color: rgb(23 26 31 / 0.72);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .cs-company-facts dd {
@@ -3550,7 +3453,7 @@ body,
 }
 
 .cs-company-facts small {
-  color: rgb(8 25 44 / 0.56);
+  color: rgb(23 26 31 / 0.56);
   font-family: var(--font-body);
   font-size: 12px;
 }
@@ -3567,7 +3470,7 @@ body,
 }
 
 .cs-people-line-source {
-  color: rgb(8 25 44 / 0.65);
+  color: rgb(23 26 31 / 0.65);
   font-family: var(--font-body);
   font-size: 12px;
   font-weight: 650;
@@ -3632,7 +3535,7 @@ body,
 }
 
 .cs-people-role {
-  color: rgb(8 25 44 / 0.62);
+  color: rgb(23 26 31 / 0.62);
   font-size: 12.5px;
   line-height: 1.28;
 }
@@ -3666,7 +3569,7 @@ body,
   border-color: rgb(110 92 158 / 0.18);
   border-radius: 999px;
   background: rgb(255 253 248 / 0.88);
-  color: rgb(8 25 44 / 0.62);
+  color: rgb(23 26 31 / 0.62);
   font-family: var(--font-body);
   font-size: 10px;
   padding: 0 8px;
@@ -3710,13 +3613,13 @@ body,
     linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(252 250 245 / 0.84)),
     var(--color-plate);
   box-shadow:
-    0 9px 22px rgb(2 8 18 / 0.045),
+    0 6px 18px rgb(23 26 31 / 0.045),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
 .cs-active-enrichment[data-expanded="true"] {
   box-shadow:
-    0 15px 34px rgb(2 8 18 / 0.07),
+    0 6px 18px rgb(23 26 31 / 0.07),
     0 0 0 1px rgb(110 92 158 / 0.06),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
@@ -3730,7 +3633,7 @@ body,
 
 .cs-active-enrichment[data-state="running"][data-expanded="false"] {
   box-shadow:
-    0 9px 22px rgb(2 8 18 / 0.05),
+    0 6px 18px rgb(23 26 31 / 0.05),
     0 0 0 1px rgb(110 92 158 / 0.055),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
@@ -3761,7 +3664,7 @@ body,
   left: 18px;
   top: 18px;
   bottom: 14px;
-  background: rgb(8 25 44 / 0.12);
+  background: rgb(23 26 31 / 0.12);
 }
 
 .cs-active-enrichment-head {
@@ -3784,7 +3687,7 @@ body,
 }
 
 .cs-active-enrichment small {
-  color: rgb(8 25 44 / 0.62);
+  color: rgb(23 26 31 / 0.62);
   font-size: 12px;
 }
 
@@ -3795,7 +3698,7 @@ body,
 .cs-active-enrichment-body p,
 .cs-layer-rows dd,
 .cs-layer-items p {
-  color: rgb(8 25 44 / 0.88);
+  color: rgb(23 26 31 / 0.88);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -3810,7 +3713,7 @@ body,
 }
 
 .cs-layer-rows dt {
-  color: rgb(8 25 44 / 0.62);
+  color: rgb(23 26 31 / 0.62);
   letter-spacing: 0.12em;
 }
 
@@ -3826,7 +3729,7 @@ body,
 }
 
 .cs-layer-items span {
-  color: rgb(8 25 44 / 0.58);
+  color: rgb(23 26 31 / 0.58);
   font-size: 10px;
 }
 
@@ -3939,7 +3842,7 @@ body,
     linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(252 250 245 / 0.95)),
     var(--color-plate);
   box-shadow:
-    0 13px 24px rgb(2 8 18 / 0.085),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.88) inset;
 }
 
@@ -3996,10 +3899,6 @@ body,
     transform: translateY(-1px);
   }
 
-  .cs-start-primary:hover::before {
-    opacity: 1;
-  }
-
   .cs-cache-slug-link:hover {
     color: rgb(86 70 132);
     text-decoration-color: rgb(110 92 158 / 0.58);
@@ -4016,7 +3915,7 @@ body,
 
   .cs-dormant-card:hover {
     box-shadow:
-      0 12px 20px rgb(2 8 18 / 0.10),
+      0 6px 18px rgb(23 26 31 / 0.08),
       0 1px 0 rgb(255 255 255 / 0.90) inset;
   }
 }
@@ -4105,7 +4004,7 @@ body {
 .cs-company-context-main p:not(.cs-research-label) {
   max-width: 34rem;
   margin-top: 10px;
-  color: rgb(8 25 44 / 0.68);
+  color: rgb(23 26 31 / 0.68);
   font-size: 12.75px;
   line-height: 1.42;
 }
@@ -4126,7 +4025,7 @@ body {
 .cs-people-line-label,
 .cs-research-layer-head {
   font-size: 10px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.05em;
 }
 
 .cs-company-facts dd {
@@ -4347,7 +4246,7 @@ body {
     linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(252 250 245 / 0.86)),
     var(--color-plate);
   box-shadow:
-    0 18px 38px rgb(2 8 18 / 0.07),
+    0 6px 18px rgb(23 26 31 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
 }
 
@@ -4372,8 +4271,8 @@ body {
 .cs-source-pass-head span:last-child {
   color: var(--color-seal);
   font-size: 13px;
-  font-weight: 820;
-  letter-spacing: 0.14em;
+  font-weight: 740;
+  letter-spacing: 0.02em;
 }
 
 .cs-source-pass-now {
@@ -4413,7 +4312,7 @@ body {
 
 .cs-source-pass-now p {
   margin: 5px 0 0;
-  color: rgb(8 25 44 / 0.58);
+  color: rgb(23 26 31 / 0.58);
   font-family: var(--font-body);
   font-size: 11.5px;
   font-weight: 680;
@@ -4440,9 +4339,7 @@ body {
   right: 0;
   top: 50%;
   height: 2px;
-  background:
-    linear-gradient(90deg, rgb(178 203 219 / 0.72), rgb(215 226 236 / 0.96), rgb(178 203 219 / 0.72));
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.82);
+  background: rgb(204 199 184 / 0.85);
   content: "";
   transform: translateY(-50%);
 }
@@ -4453,15 +4350,10 @@ body {
   top: 50%;
   width: 100%;
   min-width: 0;
-  height: 5px;
+  height: 3px;
   overflow: hidden;
-  border-radius: 999px;
-  background:
-    linear-gradient(90deg, rgb(110 92 158 / 0.92), var(--color-seal)),
-    var(--color-seal);
-  box-shadow:
-    0 0 0 1px rgb(110 92 158 / 0.10),
-    0 10px 20px rgb(110 92 158 / 0.16);
+  border-radius: 1px;
+  background: var(--color-seal);
   transform: translateY(-50%) scaleX(var(--cs-source-pass-scale, 0.08));
   transform-origin: left center;
   will-change: transform;
@@ -4797,7 +4689,7 @@ body {
 .cs-build-compact .cs-build-substeps li {
   grid-template-columns: 14px minmax(0, 1fr);
   gap: 7px;
-  color: rgb(8 25 44 / 0.82);
+  color: rgb(23 26 31 / 0.82);
   font-size: 11px;
   font-weight: 600;
 }
@@ -4825,41 +4717,18 @@ body {
   opacity: 1;
 }
 
-.cs-source-pass-fill.cs-live-progress-fill::after {
-  position: absolute;
-  top: -7px;
-  bottom: -7px;
-  left: 0;
-  width: 46px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.46), transparent);
-  content: "";
-  opacity: 0.42;
-  transform: translateX(calc((100cqw - 46px) * 0.72));
-}
-
 .cs-source-pass-cursor.cs-live-progress-cursor {
   position: absolute;
   left: 0;
   top: 50%;
-  width: 16px;
-  height: 16px;
-  border: 3px solid rgb(234 242 255 / 0.98);
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-plate);
   border-radius: 999px;
   background: var(--color-seal);
-  box-shadow:
-    0 0 0 calc(7px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(110 92 158 / 0.08),
-    0 9px 18px rgb(110 92 158 / 0.22);
-  transform: translate3d(calc((100cqw - 16px) * var(--cs-source-pass-progress, 0.08)), -50%, 0);
+  box-shadow: 0 0 0 calc(1px + (var(--cs-source-pass-tension, 0.4) * 1px)) rgb(110 92 158 / 0.30);
+  transform: translate3d(calc((100cqw - 14px) * var(--cs-source-pass-progress, 0.08)), -50%, 0);
   will-change: transform, box-shadow;
-}
-
-.cs-source-pass-cursor::after {
-  position: absolute;
-  inset: 4px;
-  border-radius: inherit;
-  background: rgb(255 255 255 / 0.76);
-  content: "";
-  opacity: 0.6;
 }
 
 .cs-source-pass-scan.cs-live-progress-scan {
@@ -4867,10 +4736,9 @@ body {
   left: 0;
   top: 50%;
   width: 112px;
-  height: 18px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.78), rgb(110 92 158 / 0.36), transparent);
-  filter: blur(0.25px);
+  height: 10px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.16), transparent);
   opacity: 0;
   pointer-events: none;
   transform: translate(-104px, -50%);
@@ -4926,7 +4794,7 @@ body {
 }
 
 .cs-source-pass-steps small {
-  color: rgb(8 25 44 / 0.48);
+  color: rgb(23 26 31 / 0.48);
   font-size: 10.5px;
   font-weight: 650;
   letter-spacing: 0;
@@ -4942,7 +4810,7 @@ body {
 .cs-dormant-card[data-previewing="true"] {
   border-color: rgb(110 92 158 / 0.30);
   box-shadow:
-    0 15px 28px rgb(2 8 18 / 0.12),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 1px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
@@ -4953,7 +4821,7 @@ body {
     linear-gradient(180deg, rgb(255 253 248 / 0.99), rgb(247 245 238 / 0.96)),
     var(--color-plate);
   box-shadow:
-    0 19px 34px rgb(2 8 18 / 0.14),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 2px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.94) inset;
 }
@@ -4997,13 +4865,13 @@ body {
   height: 30px;
   margin-right: 0;
   border: 1px solid rgb(216 208 191 / 0.58);
-  border-radius: 9px;
+  border-radius: 6px;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(247 245 238 / 0.62)),
     rgb(110 92 158 / 0.055);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.82) inset,
-    0 7px 14px rgb(2 8 18 / 0.035);
+    0 6px 18px rgb(23 26 31 / 0.035);
 }
 
 .cs-active-dot::after {
@@ -5022,7 +4890,7 @@ body {
 }
 
 .cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
-  border-radius: 9px;
+  border-radius: 6px;
   background:
     linear-gradient(90deg, rgb(110 92 158 / 0.035), transparent 70%),
     rgb(255 253 248 / 0.50);
@@ -5076,7 +4944,7 @@ body {
   border: 1px solid rgb(204 199 184 / 0.60);
   border-radius: 999px;
   background: rgb(247 245 238 / 0.72);
-  color: rgb(8 25 44 / 0.58);
+  color: rgb(23 26 31 / 0.58);
   font-family: var(--font-text);
   font-size: 9.5px;
   letter-spacing: 0.05em;
@@ -5255,21 +5123,40 @@ body {
   }
 
   .cs-source-pass-fill.cs-live-progress-fill,
-  .cs-source-pass-cursor.cs-live-progress-cursor,
   .cs-eye-loader svg,
   .cs-eye-iris,
+  .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen,
+  .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
+  .cs-active-enrichment[data-state="running"] .cs-layer-skeleton {
+    animation: none;
+    transition: none;
+  }
+
+  /* Reduce is a tasteful reduction, never a freeze: running marks trade spatial
+     motion for a slow in-place opacity breathe, so "still working" stays legible. */
   .cs-plan-status,
   .cs-drizzle-loader span,
   .cs-active-enrichment[data-state="running"] .cs-active-dot,
-  .cs-active-enrichment[data-state="running"] .cs-layer-running-sheen,
-  .cs-active-enrichment[data-state="running"][data-expanded="false"]::after,
-  .cs-active-enrichment[data-state="running"] .cs-layer-skeleton,
   .cs-research-progress-dot[data-running="true"],
+  .cs-source-pass-cursor.cs-live-progress-cursor {
+    animation: cs-reduced-breathe 1.6s ease-in-out infinite;
+    transition: none;
+  }
+
+  .cs-drizzle-loader span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .cs-drizzle-loader span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  /* Pile cards keep a short opacity fade on enter/exit; rotation stays off. */
   .cs-card-pile-motion,
   .cs-dormant-card-frame,
   .cs-dormant-card {
     animation: none;
-    transition: none;
+    transition: opacity 100ms ease;
   }
 
   /* Reduce: the sheen rests as a soft static highlight instead of sweeping.
@@ -5354,7 +5241,7 @@ body {
     var(--cat-paper);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.74) inset,
-    0 8px 18px rgb(23 26 31 / 0.045);
+    0 6px 18px rgb(23 26 31 / 0.045);
 }
 
 .cs-card-tray[data-dragging="true"] {
@@ -5483,7 +5370,7 @@ body {
     var(--cat-paper);
   color: var(--color-ink);
   box-shadow:
-    0 7px 13px rgb(23 26 31 / 0.072),
+    0 6px 18px rgb(23 26 31 / 0.072),
     0 1px 0 rgb(255 255 255 / 0.86) inset;
   cursor: grab;
   touch-action: none;
@@ -5644,14 +5531,14 @@ body {
   outline-offset: 3px;
   box-shadow:
     0 0 0 4px rgb(110 92 158 / 0.08),
-    0 8px 16px rgb(23 26 31 / 0.09),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.90) inset;
 }
 
 .cs-dormant-card[data-dragging="true"] {
   border-color: rgb(110 92 158 / 0.48);
   box-shadow:
-    0 15px 26px rgb(23 26 31 / 0.15),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 3px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
@@ -5663,7 +5550,7 @@ body {
 .cs-dormant-card[data-previewing="true"] {
   border-color: rgb(110 92 158 / 0.34);
   box-shadow:
-    0 12px 22px rgb(23 26 31 / 0.12),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 1px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.90) inset;
 }
@@ -5674,7 +5561,7 @@ body {
     linear-gradient(180deg, rgb(255 253 248 / 0.99), rgb(247 245 238 / 0.96)),
     var(--cat-paper);
   box-shadow:
-    0 17px 30px rgb(23 26 31 / 0.16),
+    0 6px 18px rgb(23 26 31 / 0.08),
     0 0 0 3px rgb(110 92 158 / 0.10),
     0 1px 0 rgb(255 255 255 / 0.94) inset;
 }
@@ -5697,7 +5584,7 @@ body {
     var(--cat-paper);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.78) inset,
-    0 7px 14px rgb(23 26 31 / 0.045);
+    0 6px 18px rgb(23 26 31 / 0.045);
   pointer-events: none;
 }
 
@@ -5740,7 +5627,7 @@ body {
   box-shadow:
     0 0 0 3px rgb(110 92 158 / 0.08),
     0 1px 0 rgb(255 255 255 / 0.88) inset,
-    0 9px 18px rgb(23 26 31 / 0.065);
+    0 6px 18px rgb(23 26 31 / 0.065);
 }
 
 .cs-module-insertion-slot[data-ready="true"]::before {
@@ -5751,7 +5638,7 @@ body {
   .cs-dormant-card:hover {
     border-color: rgb(156 151 138 / 0.72);
     box-shadow:
-      0 10px 18px rgb(23 26 31 / 0.10),
+      0 6px 18px rgb(23 26 31 / 0.08),
       0 1px 0 rgb(255 255 255 / 0.90) inset;
   }
 
@@ -5812,4 +5699,13 @@ body {
   .cs-card-tray[data-dragging="true"] .cs-card-pile::after {
     transform: none;
   }
+}
+
+.cs-panel-stage {
+  position: relative;
+  min-height: 100vh;
+}
+
+.cs-panel-stage-scene {
+  min-height: 100vh;
 }

@@ -118,6 +118,7 @@ npm run dev:full
 - Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
 - Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
 - Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
+- `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only — do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
 - Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). The pipeline records mode as `jobKind` in generation traces. `analysis` runs require synthesis to be present (see commit `249e606`).
 - The extension and API share a contract version pinned in `packages/core/api-contract.json`. Web responses send `x-cold-start-api-contract`; extension requests send `x-cold-start-client-contract`. Bump the version and rebuild the extension whenever route shapes change.
 - When adding a card field, update schema, extraction, pipeline assembly, and UI together.

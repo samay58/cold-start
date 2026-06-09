@@ -669,6 +669,36 @@ a {
   width: fit-content;
 }
 
+/* A quiet seal glint passes through the loading title. Under reduced motion the
+   class stays a plain ink title (no sweep), which is a real state, not a freeze. */
+@media (prefers-reduced-motion: no-preference) {
+  .cs-loading-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-ink) 0%,
+      var(--color-ink) 42%,
+      rgb(110 92 158 / 0.55) 50%,
+      var(--color-ink) 58%,
+      var(--color-ink) 100%
+    );
+    background-size: 240% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: cs-loading-shimmer-sweep 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes cs-loading-shimmer-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
 .cs-loading-stages {
   display: grid;
   gap: 0;

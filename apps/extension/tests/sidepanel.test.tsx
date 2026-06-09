@@ -360,6 +360,16 @@ async function renderSidePanel(input: {
         }
       });
       await flushPromises();
+      // The presence-gated panel swap (loading -> gate) needs a real frame to commit,
+      // not just drained microtasks.
+      await act(async () => {
+        if (vi.isFakeTimers()) {
+          await vi.advanceTimersByTimeAsync(50);
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      });
+      await flushPromises();
     },
     async unmount() {
       await act(async () => {
@@ -921,7 +931,8 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Researching");
     expect(container.textContent).toContain("Filing the card");
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 4 of 4");
+    // No wall-clock stage estimation: with no run events yet, progress holds at the first stage.
+    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 1 of 4");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
     expect(container.querySelector(".cs-build-bar")).toBeNull();
     expect(container.querySelector(".cs-drizzle-loader")).not.toBeNull();

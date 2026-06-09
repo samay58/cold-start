@@ -1,9 +1,8 @@
 import { companySlugFromDomain, hasUsablePublicProfile, layerIdForSection, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { FormEvent, PointerEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { motion, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
-import type { MotionStyle } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ApiError,
   defaultApiOrigin,
@@ -39,7 +38,7 @@ import {
   generationStageIndexFromEvents,
   RESEARCH_PROGRESS_STAGES
 } from "./research-progress";
-import { reducedSpring, snapSpring } from "./motion-primitives";
+import { motionTokens, snapSpring } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
 
@@ -425,29 +424,29 @@ function ProgressBackground() {
           {prefersReducedMotion ? (
             <ProgressStaticMeshGradient
               className="cs-generation-mesh-shader"
-              colors={["#f7f5ee", "#f4eddc", "#d9d0e8", "#6e5c9e", "#fffdf8"]}
+              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"]}
               fit="cover"
               grainMixer={0.42}
               grainOverlay={0.08}
-              mixing={0.74}
+              mixing={0.62}
               positions={32}
               scale={1.18}
-              waveX={0.22}
+              waveX={0.14}
               waveXShift={0.28}
-              waveY={0.16}
+              waveY={0.10}
               waveYShift={0.62}
             />
           ) : (
             <ProgressMeshGradient
               className="cs-generation-mesh-shader"
-              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#d9d0e8", "#6e5c9e"]}
-              distortion={0.36}
+              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"]}
+              distortion={0.18}
               fit="cover"
               grainMixer={0.35}
               grainOverlay={0.06}
               scale={1.16}
-              speed={0.16}
-              swirl={0.28}
+              speed={0.07}
+              swirl={0.12}
             />
           )}
         </Suspense>
@@ -467,15 +466,11 @@ function GenerationPanel({
   const elapsedMs = useElapsedMilliseconds(true, requestState.startedAt, 120);
   const elapsed = Math.floor(elapsedMs / 1000);
   const events = requestState.events ?? [];
+  // Honest progress: hold at the last event-derived stage. No wall-clock estimation —
+  // the tree advances only when a real generation event says so.
   const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const stages = RESEARCH_PROGRESS_STAGES;
-  const estimatedStageIndex = requestState.generationStatus === "queued"
-    ? elapsedMs / 7000
-    : 1 + elapsedMs / 8000;
-  const stageIndex = eventStageIndex === null
-    ? estimatedStageIndex
-    : eventStageIndex;
-  const activeIndex = Math.min(stages.length - 1, Math.max(0, Math.floor(stageIndex)));
+  const activeIndex = Math.min(stages.length - 1, Math.max(0, eventStageIndex ?? 0));
   const statusText =
     requestState.generationStatus === "queued" && elapsed < 4
       ? "Queued"
@@ -578,11 +573,16 @@ function StartGenerationPanel({
 }) {
   const companyName = readableCompanyNameFromDomain(domain);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const mouseX = useSpring(useMotionValue(50), prefersReducedMotion ? reducedSpring : snapSpring);
-  const mouseY = useSpring(useMotionValue(50), prefersReducedMotion ? reducedSpring : snapSpring);
-  const splashPosition = useMotionTemplate`circle at ${mouseX}% ${mouseY}%`;
+  // Reduced motion keeps the intake alive with an opacity-only fade-in; the full
+  // entrance adds y travel, blur, and spring follow-through.
   const entrance = prefersReducedMotion
-    ? undefined
+    ? {
+        hidden: { opacity: 0 },
+        visible: (index: number) => ({
+          opacity: 1,
+          transition: { delay: index * 0.03, duration: 0.12, ease: "easeOut" as const }
+        })
+      }
     : {
         hidden: { opacity: 0, y: 8, filter: "blur(4px)" },
         visible: (index: number) => ({
@@ -592,49 +592,40 @@ function StartGenerationPanel({
           transition: { delay: index * 0.055, ...snapSpring }
         })
       };
-  const entranceProps = (index: number) => entrance
-    ? { animate: "visible" as const, custom: index, initial: "hidden" as const, variants: entrance }
-    : {};
-  const buttonPressProps = prefersReducedMotion ? {} : { whileTap: { scale: 0.985, y: 1 } };
+  const entranceProps = (index: number) => ({
+    animate: "visible" as const,
+    custom: index,
+    initial: "hidden" as const,
+    variants: entrance
+  });
+  const buttonPressProps = prefersReducedMotion
+    ? { whileTap: { opacity: 0.88 } }
+    : { whileTap: { scale: 0.985, y: 1 } };
   const sourcePassSections = [
     {
       description: "Founders and operators",
       marker: "01",
-      tone: "people",
       title: "People"
     },
     {
       description: "Strategy and focus",
       marker: "02",
-      tone: "business",
       title: "Business"
     },
     {
       description: "Customers and progress",
       marker: "03",
-      tone: "signals",
       title: "Traction"
     },
     {
       description: "Risks and unknowns",
       marker: "04",
-      tone: "questions",
       title: "Questions"
     }
   ] as const;
   const tagline = companyName
     ? `Know ${companyName} like a professional investor would.`
     : "Know this company like a professional investor would.";
-
-  function updateButtonPointer(event: PointerEvent<HTMLButtonElement>) {
-    if (prefersReducedMotion) {
-      return;
-    }
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    mouseX.set(((event.clientX - bounds.left) / bounds.width) * 100);
-    mouseY.set(((event.clientY - bounds.top) / bounds.height) * 100);
-  }
 
   return (
     <ExtensionFrame
@@ -658,8 +649,6 @@ function StartGenerationPanel({
           <motion.button
             className="cs-start-primary"
             onClick={onStart}
-            onPointerMove={updateButtonPointer}
-            style={{ "--cs-button-splash-position": splashPosition } as unknown as MotionStyle}
             type="button"
             {...buttonPressProps}
           >
@@ -696,42 +685,17 @@ function StartGenerationPanel({
         {sourcePassSections.map((section, index) => (
           <motion.article
             className="cs-start-pass-card"
-            data-tone={section.tone}
             key={section.title}
             {...entranceProps(4 + index)}
           >
-            <span className="cs-start-pass-icon" aria-hidden="true">
-              {section.tone === "people" ? (
-                <svg height="23" viewBox="0 0 24 24" width="23">
-                  <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path d="M16 11a3 3 0 0 0 0-6" />
-                  <path d="M3.5 19c0-3.1 2-5 4.5-5s4.5 1.9 4.5 5" />
-                  <path d="M14 14.2c2.4.5 4 2.2 4 4.8" />
-                </svg>
-              ) : section.tone === "business" ? (
-                <svg height="23" viewBox="0 0 24 24" width="23">
-                  <path d="M12 3.5v17" />
-                  <path d="M4.8 8.4h14.4" />
-                  <path d="M7 17.2 12 8.4l5 8.8" />
-                  <path d="M7 17.2h10" />
-                </svg>
-              ) : section.tone === "signals" ? (
-                <svg height="24" viewBox="0 0 24 24" width="24">
-                  <path d="M3 13h4l2.2-8 4 15 2.3-8H21" />
-                </svg>
-              ) : (
-                <svg height="23" viewBox="0 0 24 24" width="23">
-                  <path d="M12 17h.01" />
-                  <path d="M9.6 8.5A2.8 2.8 0 0 1 12 7.2c1.7 0 3 1.1 3 2.6 0 1.2-.7 1.9-1.7 2.5-.8.5-1.3 1-1.3 2.1" />
-                  <path d="M4.8 20.2h14.4L12 3.8 4.8 20.2Z" />
-                </svg>
-              )}
+            <span className="cs-start-pass-index" aria-hidden="true">
+              {section.marker}
             </span>
             <span className="cs-start-pass-copy">
               <strong>{section.title}</strong>
               <span>{section.description}</span>
             </span>
-            <span className="cs-start-pass-marker">{section.marker}</span>
+            <span className="cs-start-pass-seal" aria-hidden="true" />
           </motion.article>
         ))}
       </motion.section>
@@ -747,6 +711,7 @@ function shouldResumeAnalysisRun(
 }
 
 export function SidePanel() {
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });
@@ -1409,26 +1374,27 @@ export function SidePanel() {
     );
   }
 
-  if (requestState.status === "loading" || requestState.status === "idle") {
-    return <LoadingPanel apiOrigin={settings.apiOrigin} domain={domain} onSettings={() => setShowSettings(true)} />;
-  }
+  let panel: ReactNode;
+  let panelKey: string;
 
-  if (requestState.status === "readyToGenerate") {
-    return (
+  if (requestState.status === "loading" || requestState.status === "idle") {
+    panelKey = "loading";
+    panel = <LoadingPanel apiOrigin={settings.apiOrigin} domain={domain} onSettings={() => setShowSettings(true)} />;
+  } else if (requestState.status === "readyToGenerate") {
+    panelKey = "ready";
+    panel = (
       <StartGenerationPanel
         domain={domain}
         onEditSettings={() => setShowSettings(true)}
         onStart={() => handleStartGeneration(true)}
       />
     );
-  }
-
-  if (requestState.status === "generating") {
-    return <GenerationPanel domain={domain} requestState={requestState} />;
-  }
-
-  if (requestState.status === "pending") {
-    return (
+  } else if (requestState.status === "generating") {
+    panelKey = "generating";
+    panel = <GenerationPanel domain={domain} requestState={requestState} />;
+  } else if (requestState.status === "pending") {
+    panelKey = "pending";
+    panel = (
       <ExtensionFrame
         actions={
           <>
@@ -1447,10 +1413,9 @@ export function SidePanel() {
         <p className="cs-extension-note">Cold Start is still working on this company. It is taking a little longer than usual; check again in a moment.</p>
       </ExtensionFrame>
     );
-  }
-
-  if (requestState.status === "error") {
-    return (
+  } else if (requestState.status === "error") {
+    panelKey = "error";
+    panel = (
       <ExtensionFrame
         actions={
           <>
@@ -1469,16 +1434,44 @@ export function SidePanel() {
         <p className="cs-extension-error">{requestState.message}</p>
       </ExtensionFrame>
     );
+  } else {
+    panelKey = "success";
+    panel = (
+      <SuccessPanel
+        domain={domain}
+        onRunSection={handleRunSection}
+        onRegenerate={() => handleStartGeneration(true)}
+        queuedLayerIds={sectionQueue}
+        requestState={requestState}
+      />
+    );
   }
 
+  // The generation -> card handoff is the most important state change in the panel;
+  // it arrives with a short crossfade instead of a hard cut. Sync presence (not
+  // mode="wait") so rapid status flips can never wedge the swap: the next panel mounts
+  // immediately while the old one fades out on top. Reduced motion keeps a calm
+  // opacity-only fade rather than freezing the transition.
   return (
-    <SuccessPanel
-      domain={domain}
-      onRunSection={handleRunSection}
-      onRegenerate={() => handleStartGeneration(true)}
-      queuedLayerIds={sectionQueue}
-      requestState={requestState}
-    />
+    <div className="cs-panel-stage">
+      <AnimatePresence initial={false}>
+        <motion.div
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          className="cs-panel-stage-scene"
+          data-panel={panelKey}
+          exit={
+            prefersReducedMotion
+              ? { opacity: 0, position: "absolute", inset: 0, zIndex: 1 }
+              : { opacity: 0, y: -4, position: "absolute", inset: 0, zIndex: 1 }
+          }
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+          key={panelKey}
+          transition={{ duration: prefersReducedMotion ? 0.12 : 0.18, ease: motionTokens.ease }}
+        >
+          {panel}
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 

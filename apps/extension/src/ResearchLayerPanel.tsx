@@ -973,7 +973,7 @@ function DormantPileCard({
   prefersReducedMotion: boolean | null;
 }) {
   const dragY = useMotionValue(0);
-  const motionTransition = prefersReducedMotion ? { duration: 0 } : snapSpring;
+  const motionTransition = prefersReducedMotion ? { duration: 0.1, ease: "easeOut" as const } : snapSpring;
   const depth = dormantPileDepth(index);
   const stackNumber = dormantStackNumber(layer);
   const actionLabel = layer.source === "analysis" ? "Lens" : "";
@@ -1019,7 +1019,7 @@ function DormantPileCard({
         data-snap-ready={snapReady ? "true" : "false"}
         drag="y"
         dragConstraints={{ bottom: 0, top: -320 }}
-        dragElastic={0.035}
+        dragElastic={0.16}
         dragMomentum={false}
         dragTransition={{ bounceDamping: 38, bounceStiffness: 720, power: 0.12, timeConstant: 140 }}
         onClick={onClick}
@@ -1558,10 +1558,10 @@ export function ResearchLayerPanel({
                 data-layer-id={id}
                 data-state={state}
                 exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: -8 }}
-                initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0.72, scale: 0.985, y: 10 }}
+                initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0.72, scale: 0.985, y: 10 }}
                 key={id}
                 layout
-                transition={prefersReducedMotion ? { duration: 0 } : commitSpring}
+                transition={prefersReducedMotion ? { duration: 0.1, ease: "easeOut" } : commitSpring}
               >
                 <button
                   aria-controls={bodyId}
@@ -1578,7 +1578,7 @@ export function ResearchLayerPanel({
                   <motion.span
                     animate={{ rotate: expanded ? 180 : 0 }}
                     className="cs-active-chevron"
-                    transition={{ duration: prefersReducedMotion ? 0 : motionTokens.feedbackMs, ease: motionTokens.easeOut }}
+                    transition={{ duration: prefersReducedMotion ? 0.1 : motionTokens.feedbackMs, ease: motionTokens.easeOut }}
                     aria-hidden="true"
                   >
                     ⌄
@@ -1614,8 +1614,8 @@ export function ResearchLayerPanel({
               data-preview={snapPreviewId ? "true" : "false"}
               data-ready={snapReadyId ? "true" : "false"}
               exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.992 }}
-              initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, y: 8, scale: 0.992 }}
-              transition={prefersReducedMotion ? { duration: 0 } : { duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
+              initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.992 }}
+              transition={prefersReducedMotion ? { duration: 0.1, ease: "easeOut" } : { duration: motionTokens.stateMs, ease: motionTokens.easeOut }}
             >
               <span>{insertionSlotCopy}</span>
               <small>{insertionSlotHint}</small>
