@@ -1,4 +1,5 @@
 import { CardShell } from "@cold-start/ui";
+import { CardTexture } from "../../CardTexture";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
@@ -56,7 +57,7 @@ export default async function CompanyCardPage({ params }: CompanyCardPageProps) 
 
   return (
     <main className="cs-card-page" id="main-content">
-      <CardShell card={profile.card} sections={profile.sections} surface="web" texture={<span aria-hidden="true" className="cs-card-texture" />} />
+      <CardShell card={profile.card} sections={profile.sections} surface="web" texture={<CardTexture />} />
     </main>
   );
 }

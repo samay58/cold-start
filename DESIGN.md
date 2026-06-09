@@ -97,7 +97,7 @@ The default shape is a catalogue card, not a floating SaaS card. Use 6px radius 
 
 Surfaces have 1px rules, not decorative borders. Rules can be stronger where they carry structure. A ledger table can use horizontal rules every row; a prose section may use only one opening rule. Do not wrap every section in a card.
 
-The public card ships a real parchment texture via `@paper-design/shaders-react`, scoped to the card surface as a near-static WebGL island (`apps/web/src/app/CardTexture.tsx`). It must survive scrutiny at 1x and disappear at reading distance. It degrades to the flat `--cat-paper` fill under SSR, no-WebGL, and `prefers-reduced-motion`, with no layout shift. The side panel uses the flat parchment fill; it does not load the shader.
+The public card ships a real parchment texture via `@paper-design/shaders-react`, scoped to the card surface as a near-static WebGL island (`apps/web/src/app/CardTexture.tsx`). It must survive scrutiny at 1x and disappear at reading distance. It degrades to the flat `--cat-paper` fill under SSR, no-WebGL, and `prefers-reduced-motion`, with no layout shift. The side panel's resting surfaces use the flat parchment fill. The one exception is the generation moment: while a profile is being built, the progress panel may load a single retuned mesh field in the parchment-and-seal palette, drifting slowly and grounded, never a SaaS gradient wash. Under reduced motion it renders as a calm still field, not a frozen one.
 
 The catalogue motifs carry the authorship:
 
@@ -157,12 +157,15 @@ Module rows have four parts:
 
 Activation expands a module in place. Running state stays inside that module. No separate global analysis page once a profile exists.
 
-Motion should feel mechanical:
+Motion should feel snappy, elegant, and characterful, built on grounded physics rather than mechanical easings:
 
-- Expand/collapse: 180-240ms, transform and opacity.
+- Committed state changes ride stiff, well-damped springs tuned just under critical damping (zeta roughly 0.85-1.0): they settle fast and keep a breath of follow-through. No cartoon bounce, but not sterile either.
+- Drag uses real physics language: velocity projection to read intent, square-root rubber-band give at the edges, and a spring settle on release.
+- Expand/collapse: 150-240ms, transform and opacity.
 - Running source events: quiet vertical replacement, not a ticker marquee.
-- Drag is optional. If kept, rotation stays under 1deg and exists only to clarify handoff.
-- No scattered type, no card collisions, no bounce, no expressive chaos.
+- Panel-level state handoffs (generation finishing, the card arriving) crossfade; the most important state change in the product never hard-cuts.
+- Drag rotation stays under 1.5deg and exists only to clarify handoff. No scattered type, no card collisions, no expressive chaos.
+- `prefers-reduced-motion` is a tasteful reduction, never a freeze: spatial travel and rotation go away, but short opacity fades and in-place breathing stay, so running states remain legibly alive.
 
 ## Components
 

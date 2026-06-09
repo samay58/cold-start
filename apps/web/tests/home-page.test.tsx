@@ -164,7 +164,7 @@ describe("HomePage", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('aria-label="Cartesia preview"');
     expect(html).toContain('href="/c/cartesia"');
-    expect(html).toContain("Buyer &amp; Use Case");
+    expect(html).toContain("Who pays");
     expect(html).toContain("3 sources");
     expect(html).toContain("Investors screening generated company profiles.");
     expect(html).not.toContain("cold-start-samay58s-projects.vercel.app");

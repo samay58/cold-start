@@ -16,9 +16,9 @@ export default function LoadingCard() {
             <h1 className="cs-loading-shimmer">Loading sourced facts.</h1>
           </div>
           <div className="cs-loading-stages">
-            <p><span>01</span> Resolve identity</p>
-            <p><span>02</span> Read sources</p>
-            <p><span>03</span> Render profile</p>
+            <p><span>01</span> Finding sources</p>
+            <p><span>02</span> Reading evidence</p>
+            <p><span>03</span> Filing the card</p>
           </div>
         </div>
       </section>

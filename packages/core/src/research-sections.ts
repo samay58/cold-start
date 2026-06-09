@@ -128,7 +128,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "buyer",
     layerId: "serves",
-    title: "Buyer & Use Case",
+    title: "Who pays",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No buyer or use-case evidence found yet.",
@@ -137,7 +137,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "customer_proof",
     layerId: "customers",
-    title: "Customer Proof",
+    title: "Proof",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No named customer proof found yet.",
@@ -155,7 +155,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "financing",
     layerId: "investors",
-    title: "Financing & Valuation",
+    title: "Money",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No financing evidence found yet.",
@@ -164,7 +164,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "competition",
     layerId: "competition",
-    title: "Competitive Position",
+    title: "Comps",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No useful competitive evidence found yet.",
@@ -173,7 +173,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
   {
     id: "product",
     layerId: "mechanism",
-    title: "Product & Technology",
+    title: "Product",
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No product or technology evidence found yet.",

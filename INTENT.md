@@ -131,19 +131,19 @@ The gated card adds:
 
 The description model is especially important. It is not a slogan field. It tries to capture what the company does, the non-obvious product concept, the buyer and use case, and the product or technology that makes it work.
 
-The extension research layer should use investor-screen language:
+The extension research layer should use investor-screen language, in the short label set both surfaces render:
 
-- Why It Matters
-- Product & Technology
-- Buyer & Use Case
-- Market Structure & Timing
-- Customer Proof
-- Traction
-- Financing & Valuation
-- Competitive Position
-- Business Model & Unit Economics, once the backend supports it with real evidence
-- Strategic Relevance, once the backend supports it with real evidence
-- Risks & Diligence
+- Why care
+- Product
+- Who pays
+- Timing
+- Proof
+- Signals
+- Money
+- Comps
+- Unit economics, once the backend supports it with real evidence
+- Strategic relevance, once the backend supports it with real evidence
+- Next question
 
 ## Architecture Intent
 
