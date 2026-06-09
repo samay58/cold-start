@@ -1,3 +1,5 @@
+import type { CitationLedger } from "./CitationLedger";
+import { CitationAnchor } from "./CitationMarker";
 import { sourceDomId } from "./sourceDomId";
 
 function uniqueCitationIds(ids: string[]) {
@@ -6,9 +8,11 @@ function uniqueCitationIds(ids: string[]) {
 
 export function CitationGroup({
   citationIds,
+  ledger,
   maxVisible = 1
 }: {
   citationIds: string[];
+  ledger?: CitationLedger | undefined;
   maxVisible?: number;
 }) {
   const ids = uniqueCitationIds(citationIds);
@@ -23,9 +27,7 @@ export function CitationGroup({
   return (
     <span className="cs-citation-group" aria-label={`${ids.length} ${ids.length === 1 ? "source" : "sources"}`}>
       {visible.map((id) => (
-        <a className="cs-citation" href={`#${sourceDomId(id)}`} aria-label={`Source ${id}`} key={id}>
-          [{id}]
-        </a>
+        <CitationAnchor entry={ledger?.get(id) ?? null} id={id} key={id} />
       ))}
       {hiddenCount > 0 ? (
         <a className="cs-citation cs-citation-more" href={`#${sourceDomId(firstHidden)}`} aria-label={`${hiddenCount} more ${hiddenCount === 1 ? "source" : "sources"}`}>

@@ -152,7 +152,8 @@ describe("CardShell", () => {
     expect(screen.getByText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
     expect(screen.getByText(/Low-latency speech models exposed as developer infrastructure/)).toBeTruthy();
     expect(screen.getByText(/Developers building voice agents and audio applications/)).toBeTruthy();
-    expect(screen.getAllByText("[c1]").length).toBeGreaterThan(0);
+    // Inline markers render the 1-based ledger index, not the raw evidence id.
+    expect(screen.getAllByText("[1]").length).toBeGreaterThan(0);
     expect(screen.getByText("$91M")).toBeTruthy();
     expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Apr 2024/).length).toBeGreaterThan(0);
@@ -252,7 +253,12 @@ describe("CardShell", () => {
 
     expect(screen.getByText("Unsafe signal").closest("a")).toBeNull();
     for (const node of screen.getAllByText("Unsafe citation")) {
-      expect(node.closest("a")).toBeNull();
+      // The title may sit inside an internal #source anchor (citation popover),
+      // but it must never be wrapped in a link to the unsafe URL itself.
+      const anchor = node.closest("a");
+      if (anchor) {
+        expect(anchor.getAttribute("href") ?? "").toMatch(/^#/);
+      }
     }
   });
 

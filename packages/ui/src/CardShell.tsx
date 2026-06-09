@@ -1,13 +1,14 @@
 import type { ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
-import { RESEARCH_SECTION_DEFINITIONS_BY_ID, sourceQualityForSource, sourceQualityTierRank } from "@cold-start/core";
+import { RESEARCH_SECTION_DEFINITIONS_BY_ID, sourceQualityForSource } from "@cold-start/core";
 import type { ReactNode } from "react";
 import { CitationGroup } from "./CitationGroup";
+import type { CitationLedger } from "./CitationLedger";
+import { buildCitationLedger, sortedUniqueCitations, sourceClassForCitation } from "./CitationLedger";
 import { FactRow, formatCompactCurrency, formatMediumDate, formatShortDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
 import { SourceDrawer } from "./SourceDrawer";
 
 type PublicCard = Omit<ColdStartCard, "synthesis">;
-type CardCitation = ColdStartCard["citations"][number];
 type CardShellProps = {
   card: ColdStartCard | PublicCard;
   sections?: ResearchSection[] | undefined;
@@ -111,15 +112,7 @@ function formatAppDate(value: string | null | undefined): string {
 
 type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
 
-function evidenceStateForFact(fact: ResolvedFact<unknown> | undefined): EvidenceState {
-  if (!fact || fact.value === null) {
-    return "unknown";
-  }
-
-  if (fact.status === "mixed") {
-    return "conflict";
-  }
-
+function evidenceStateFromConfidence(fact: ResolvedFact<unknown>): EvidenceState {
   if (fact.status === "inferred" || fact.confidence === "low") {
     return "company";
   }
@@ -129,6 +122,41 @@ function evidenceStateForFact(fact: ResolvedFact<unknown> | undefined): Evidence
   }
 
   return "verified";
+}
+
+// The inline classification dot encodes the SOURCE CLASS of the strongest citation
+// backing the fact, so it always agrees with the ledger rows it points at. Conflict
+// stays driven by resolver status. Confidence is only a fallback for legacy facts
+// whose citations cannot be resolved.
+function evidenceStateForFact(fact: ResolvedFact<unknown> | undefined, ledger?: CitationLedger): EvidenceState {
+  if (!fact || fact.value === null) {
+    return "unknown";
+  }
+
+  if (fact.status === "mixed") {
+    return "conflict";
+  }
+
+  const classes = ledger
+    ? fact.citationIds.flatMap((id) => {
+        const entry = ledger.get(id);
+        return entry ? [entry.sourceClass] : [];
+      })
+    : [];
+
+  if (classes.length === 0) {
+    return evidenceStateFromConfidence(fact);
+  }
+
+  if (classes.includes("independent")) {
+    return "verified";
+  }
+
+  if (classes.includes("reporting")) {
+    return "reported";
+  }
+
+  return "company";
 }
 
 function factStateLabel(fact: ResolvedFact<unknown> | undefined, missing = "Not found") {
@@ -151,36 +179,8 @@ function hasPeople(fact: ColdStartCard["team"]["founders"] | ColdStartCard["team
   return Array.isArray(fact.value) && fact.value.length > 0;
 }
 
-function sourceClassForCitation(citation: ColdStartCard["citations"][number]): SourceClass {
-  const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
-  if (tier === "independent_technical" || tier === "independent_analysis") {
-    return "independent";
-  }
-  if (tier === "independent_report") {
-    return "reporting";
-  }
-  return "company";
-}
-
-function citationRank(citation: CardCitation) {
-  return sourceQualityTierRank((citation.sourceQuality ?? sourceQualityForSource(citation)).tier);
-}
-
-function uniqueCitations(citations: CardCitation[]) {
-  const seen = new Set<string>();
-
-  return citations.filter((citation) => {
-    if (seen.has(citation.id)) {
-      return false;
-    }
-
-    seen.add(citation.id);
-    return true;
-  });
-}
-
 function sortedCitations(card: ColdStartCard | PublicCard) {
-  return uniqueCitations([...card.citations].sort((left, right) => citationRank(right) - citationRank(left)));
+  return sortedUniqueCitations(card.citations);
 }
 
 function ExtensionMetric({
@@ -481,6 +481,7 @@ function KeyValue({
   children,
   citationIds = [],
   label,
+  ledger,
   mono = false,
   state = "verified",
   value
@@ -488,6 +489,7 @@ function KeyValue({
   children?: ReactNode;
   citationIds?: string[];
   label: string;
+  ledger?: CitationLedger | undefined;
   mono?: boolean;
   state?: EvidenceState;
   value?: ReactNode;
@@ -497,7 +499,7 @@ function KeyValue({
       <span className="cs-evidence-dot" aria-hidden="true" />
       <span className="cs-key-label">{label}</span>
       <strong className={mono ? "cs-key-number" : undefined}>{children ?? value}</strong>
-      <CitationGroup citationIds={citationIds} />
+      <CitationGroup citationIds={citationIds} ledger={ledger} />
     </div>
   );
 }
@@ -505,10 +507,12 @@ function KeyValue({
 function ClaimRow({
   children,
   citationIds = [],
+  ledger,
   state = "verified"
 }: {
   children: ReactNode;
   citationIds?: string[] | undefined;
+  ledger?: CitationLedger | undefined;
   state?: EvidenceState | undefined;
 }) {
   return (
@@ -516,13 +520,13 @@ function ClaimRow({
       <span className="cs-evidence-dot" aria-hidden="true" />
       <p>
         {children}
-        <CitationGroup citationIds={citationIds} />
+        <CitationGroup citationIds={citationIds} ledger={ledger} />
       </p>
     </li>
   );
 }
 
-function WebResearchSections({ sections = [] }: { sections?: ResearchSection[] | undefined }) {
+function WebResearchSections({ ledger, sections = [] }: { ledger?: CitationLedger | undefined; sections?: ResearchSection[] | undefined }) {
   const publicSections = sections
     .filter((section) => section.visibility === "public")
     .filter((section) => section.status === "available" || section.status === "stale" || section.status === "empty")
@@ -561,7 +565,7 @@ function WebResearchSections({ sections = [] }: { sections?: ResearchSection[] |
                     <li key={`${section.sectionId}-${item.label}`}>
                       <strong>{item.label}</strong>
                       <span>{stripCitationMarkers(item.text)}</span>
-                      <CitationGroup citationIds={item.citationIds} />
+                      <CitationGroup citationIds={item.citationIds} ledger={ledger} />
                     </li>
                   ))}
                 </ul>
@@ -608,6 +612,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
   const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
   const rounds = recentFundingRounds(card);
   const mix = citationMix(card);
+  const ledger = buildCitationLedger(card.citations);
   const filedDate = formatMediumDate(card.generatedAt);
   const hasRounds = rounds.length > 0;
   const hasSignals = card.signals.length > 0;
@@ -661,44 +666,44 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
       </header>
 
       <section className="cs-key-values" aria-label="Key facts">
-        <KeyValue citationIds={card.funding.totalRaisedUsd.citationIds} label="Raised" mono state={evidenceStateForFact(card.funding.totalRaisedUsd)}>
+        <KeyValue citationIds={card.funding.totalRaisedUsd.citationIds} label="Raised" ledger={ledger} mono state={evidenceStateForFact(card.funding.totalRaisedUsd, ledger)}>
           {formatMetricCurrency(totalRaised)}
         </KeyValue>
-        <KeyValue citationIds={card.funding.lastRound.citationIds} label="Last round" mono state={evidenceStateForFact(card.funding.lastRound)}>
+        <KeyValue citationIds={card.funding.lastRound.citationIds} label="Last round" ledger={ledger} mono state={evidenceStateForFact(card.funding.lastRound, ledger)}>
           {lastRound ? `${lastRound.name} · ${formatMetricCurrency(lastRound.amountUsd)}` : "not found"}
         </KeyValue>
-        <KeyValue citationIds={card.team.headcount.citationIds} label="Headcount" mono state={evidenceStateForFact(card.team.headcount)}>
+        <KeyValue citationIds={card.team.headcount.citationIds} label="Headcount" ledger={ledger} mono state={evidenceStateForFact(card.team.headcount, ledger)}>
           {headcount ? `${headcount.value} · ${formatShortDate(headcount.asOf)}` : "not found"}
         </KeyValue>
-        <KeyValue citationIds={card.identity.hq.citationIds} label="HQ" state={evidenceStateForFact(card.identity.hq)}>
+        <KeyValue citationIds={card.identity.hq.citationIds} label="HQ" ledger={ledger} state={evidenceStateForFact(card.identity.hq, ledger)}>
           {hq ? `${hq.city}, ${hq.country}` : "not found"}
         </KeyValue>
-        <KeyValue citationIds={card.identity.foundedYear.citationIds} label="Founded" mono state={evidenceStateForFact(card.identity.foundedYear)}>
+        <KeyValue citationIds={card.identity.foundedYear.citationIds} label="Founded" ledger={ledger} mono state={evidenceStateForFact(card.identity.foundedYear, ledger)}>
           {card.identity.foundedYear.value ?? "not found"}
         </KeyValue>
-        <KeyValue citationIds={card.team.founders.citationIds} label="Founders" state={evidenceStateForFact(card.team.founders)}>
+        <KeyValue citationIds={card.team.founders.citationIds} label="Founders" ledger={ledger} state={evidenceStateForFact(card.team.founders, ledger)}>
           {founders.length > 0 ? founders.map((person) => person.name).join(", ") : "not found"}
         </KeyValue>
       </section>
 
-      <WebResearchSections sections={sections} />
+      <WebResearchSections ledger={ledger} sections={sections} />
 
       <div className="cs-ledger-layout">
         <main className="cs-ledger-main">
           {description && (description.concept || description.serves || description.mechanism) ? (
             <section className="cs-section" aria-labelledby="proof-heading">
-              <SectionLabel text="Proof" state={evidenceStateForFact(card.identity.description)} />
+              <SectionLabel text="Proof" state={evidenceStateForFact(card.identity.description, ledger)} />
               <h2 id="proof-heading" className="cs-sr-only">Proof.</h2>
               <ul className="cs-claim-list">
-                {description.concept ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Product: {description.concept}</ClaimRow> : null}
-                {description.serves ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Who pays: {description.serves}</ClaimRow> : null}
-                {description.mechanism ? <ClaimRow citationIds={card.identity.description?.citationIds} state={evidenceStateForFact(card.identity.description)}>Technology: {description.mechanism}</ClaimRow> : null}
+                {description.concept ? <ClaimRow citationIds={card.identity.description?.citationIds} ledger={ledger} state={evidenceStateForFact(card.identity.description, ledger)}>Product: {description.concept}</ClaimRow> : null}
+                {description.serves ? <ClaimRow citationIds={card.identity.description?.citationIds} ledger={ledger} state={evidenceStateForFact(card.identity.description, ledger)}>Who pays: {description.serves}</ClaimRow> : null}
+                {description.mechanism ? <ClaimRow citationIds={card.identity.description?.citationIds} ledger={ledger} state={evidenceStateForFact(card.identity.description, ledger)}>Technology: {description.mechanism}</ClaimRow> : null}
               </ul>
             </section>
           ) : null}
 
           <section className="cs-section" aria-labelledby="money-heading">
-            <SectionLabel text="Money" state={evidenceStateForFact(card.funding.totalRaisedUsd)} />
+            <SectionLabel text="Money" state={evidenceStateForFact(card.funding.totalRaisedUsd, ledger)} />
             <h2 id="money-heading" className="cs-sr-only">Money.</h2>
             {hasRounds ? (
               <ol className="cs-evidence-table">
@@ -725,15 +730,15 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
           </section>
 
           <section className="cs-section" aria-labelledby="people-heading">
-            <SectionLabel text="People" state={evidenceStateForFact(card.team.founders)} />
+            <SectionLabel text="People" state={evidenceStateForFact(card.team.founders, ledger)} />
             <h2 id="people-heading" className="cs-sr-only">People.</h2>
             <div className="cs-fact-grid">
-              <FactRow label="Domain" fact={staticFact(card.domain)} mono />
-              {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} mono /> : null}
-              {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} mono /> : null}
-              <FactRow label="Founders" fact={card.team.founders} />
-              <FactRow label="Key execs" fact={card.team.keyExecs} />
-              <FactRow label="Investors" fact={card.funding.investors} />
+              <FactRow label="Domain" fact={staticFact(card.domain)} ledger={ledger} mono />
+              {card.identity.websiteUrl ? <FactRow label="Website" fact={card.identity.websiteUrl} ledger={ledger} mono /> : null}
+              {card.identity.linkedinUrl ? <FactRow label="LinkedIn" fact={card.identity.linkedinUrl} ledger={ledger} mono /> : null}
+              <FactRow label="Founders" fact={card.team.founders} ledger={ledger} />
+              <FactRow label="Key execs" fact={card.team.keyExecs} ledger={ledger} />
+              <FactRow label="Investors" fact={card.funding.investors} ledger={ledger} />
             </div>
           </section>
 
@@ -745,7 +750,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
                 {card.signals.map((signal) => {
                   const href = safeExternalHref(signal.url);
                   return (
-                    <ClaimRow citationIds={signal.citationIds} key={`${signal.url}-${signal.title}`} state="reported">
+                    <ClaimRow citationIds={signal.citationIds} key={`${signal.url}-${signal.title}`} ledger={ledger} state="reported">
                       <span className="cs-claim-date">{formatShortDate(signal.date)}</span>{" "}
                       {href ? (
                         <a href={href} target="_blank" rel="noreferrer">{signal.title}</a>
@@ -766,7 +771,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
               <h2 id="comps-heading" className="cs-sr-only">Comps.</h2>
               <ul className="cs-claim-list">
                 {card.comparables.map((comparable) => (
-                  <ClaimRow citationIds={comparable.citationIds} key={`${comparable.domain}-${comparable.name}`} state="reported">
+                  <ClaimRow citationIds={comparable.citationIds} key={`${comparable.domain}-${comparable.name}`} ledger={ledger} state="reported">
                     <strong>{comparable.name}</strong>: {comparable.basis ?? comparable.oneLiner}
                     <span className="cs-claim-meta"> {comparable.domain}</span>
                   </ClaimRow>
@@ -782,12 +787,12 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
         </main>
 
         <aside className="cs-source-rail" aria-label="Source ledger">
-          <SourceDrawer citations={card.citations} marker="Priority sources" priorityLimit={6} />
+          <SourceDrawer citations={card.citations} ledger={ledger} marker="Priority sources" priorityLimit={6} />
         </aside>
       </div>
 
       <div className="cs-source-ledger-full">
-        <SourceDrawer citations={card.citations} className="cs-source-block-full" marker="Full source ledger" />
+        <SourceDrawer citations={card.citations} className="cs-source-block-full" ledger={ledger} marker="Full source ledger" />
       </div>
 
       <footer className="cs-card-footer">

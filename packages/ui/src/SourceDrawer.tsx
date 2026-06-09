@@ -1,56 +1,28 @@
 import type { Citation } from "@cold-start/core";
-import { sourceQualityForSource, sourceQualityTierRank } from "@cold-start/core";
+import { sourceQualityForSource } from "@cold-start/core";
+import type { CitationLedger } from "./CitationLedger";
+import { citationHostname, sortedUniqueCitations, sourceClassForCitation } from "./CitationLedger";
 import { formatMediumDate } from "./FactRow";
 import { safeExternalHref } from "./safeExternalHref";
 import { sourceDomId } from "./sourceDomId";
 
-type SourceClass = "independent" | "reporting" | "company";
-
-function sourceClassForCitation(citation: Citation): SourceClass {
-  const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
-
-  if (tier === "independent_technical" || tier === "independent_analysis") {
-    return "independent";
-  }
-
-  if (tier === "independent_report") {
-    return "reporting";
-  }
-
-  return "company";
-}
-
-function hostnameFor(url: string | null | undefined): string | null {
-  if (!url) return null;
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
-function uniqueCitations(citations: Citation[]) {
-  const seen = new Set<string>();
-
-  return citations.filter((citation) => {
-    if (seen.has(citation.id)) {
-      return false;
-    }
-
-    seen.add(citation.id);
-    return true;
-  });
-}
-
-function SourceItem({ citation, includeDomId }: { citation: Citation; includeDomId: boolean }) {
+function SourceItem({
+  citation,
+  displayIndex,
+  includeDomId
+}: {
+  citation: Citation;
+  displayIndex: number;
+  includeDomId: boolean;
+}) {
   const href = safeExternalHref(citation.url);
   const sourceClass = sourceClassForCitation(citation);
-  const host = hostnameFor(citation.url);
+  const host = citationHostname(citation.url);
   const fetched = formatMediumDate(citation.fetchedAt);
 
   return (
     <li className="cs-source-item" data-class={sourceClass} {...(includeDomId ? { id: sourceDomId(citation.id) } : {})}>
-      <span className="cs-source-marker">[{citation.id}]</span>
+      <span className="cs-source-marker">[{displayIndex}]</span>
       <span className="cs-source-body">
         {href ? (
           <a className="cs-source-title" href={href} target="_blank" rel="noreferrer">{citation.title}</a>
@@ -72,19 +44,17 @@ function SourceItem({ citation, includeDomId }: { citation: Citation; includeDom
 export function SourceDrawer({
   citations,
   className,
+  ledger,
   marker = "Sources",
   priorityLimit
 }: {
   citations: Citation[];
   className?: string;
+  ledger?: CitationLedger | undefined;
   marker?: string;
   priorityLimit?: number;
 }) {
-  const sortedCitations = uniqueCitations([...citations].sort((left, right) => {
-    const leftQuality = left.sourceQuality ?? sourceQualityForSource(left);
-    const rightQuality = right.sourceQuality ?? sourceQualityForSource(right);
-    return sourceQualityTierRank(rightQuality.tier) - sourceQualityTierRank(leftQuality.tier);
-  }));
+  const sortedCitations = sortedUniqueCitations(citations);
   const visibleCitations = typeof priorityLimit === "number" ? sortedCitations.slice(0, priorityLimit) : sortedCitations;
   const hiddenCount = Math.max(0, sortedCitations.length - visibleCitations.length);
   const includeDomIds = priorityLimit === undefined;
@@ -97,7 +67,14 @@ export function SourceDrawer({
       </div>
       {sortedCitations.length > 0 ? (
         <ol className="cs-source-list">
-          {visibleCitations.map((citation) => <SourceItem citation={citation} includeDomId={includeDomIds} key={citation.id} />)}
+          {visibleCitations.map((citation, index) => (
+            <SourceItem
+              citation={citation}
+              displayIndex={ledger?.get(citation.id)?.displayIndex ?? index + 1}
+              includeDomId={includeDomIds}
+              key={citation.id}
+            />
+          ))}
         </ol>
       ) : (
         <p className="cs-empty">No sources on file yet.</p>

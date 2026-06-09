@@ -1,4 +1,5 @@
 import type { ColdStartCard } from "@cold-start/core";
+import { sourceQualityForSource } from "@cold-start/core";
 
 export type OpenGraphPublicCard = Omit<ColdStartCard, "synthesis">;
 
@@ -7,12 +8,21 @@ export type OpenGraphFact = {
   value: string;
 };
 
+export type OpenGraphSourceMix = {
+  independent: number;
+  reporting: number;
+  company: number;
+};
+
 export type OpenGraphModel = {
+  callNumber: string;
   citations: number;
   description: string;
   domainLabel: string;
   facts: OpenGraphFact[];
+  filedLabel: string | null;
   initial: string;
+  mix: OpenGraphSourceMix;
   name: string;
   sourceSummary: string;
   titleFontSize: number;
@@ -118,16 +128,55 @@ function factCandidates(card: OpenGraphPublicCard | null, citations: number): Op
   ].filter((fact): fact is OpenGraphFact => Boolean(fact)).slice(0, 4);
 }
 
+function filedLabel(card: OpenGraphPublicCard | null) {
+  const generatedAt = card?.generatedAt;
+  if (!generatedAt) {
+    return null;
+  }
+
+  const parsed = new Date(generatedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(parsed).replace(",", "");
+}
+
+function sourceMix(card: OpenGraphPublicCard | null): OpenGraphSourceMix {
+  const mix = { independent: 0, reporting: 0, company: 0 };
+
+  for (const citation of card?.citations ?? []) {
+    const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
+    if (tier === "independent_technical" || tier === "independent_analysis") {
+      mix.independent += 1;
+    } else if (tier === "independent_report") {
+      mix.reporting += 1;
+    } else {
+      mix.company += 1;
+    }
+  }
+
+  return mix;
+}
+
 export function buildOpenGraphModel(card: OpenGraphPublicCard | null, slug: string): OpenGraphModel {
   const name = card?.identity.name.value?.trim() || nameFromSlug(slug);
   const citations = card?.citations.length ?? 0;
 
   return {
+    callNumber: `CS · ${slug.toUpperCase()}`,
     citations,
     description: imageDescription(card),
     domainLabel: card?.domain ?? "public company card",
     facts: factCandidates(card, citations),
+    filedLabel: filedLabel(card),
     initial: initialForName(name),
+    mix: sourceMix(card),
     name,
     sourceSummary: `${citations} cited ${citations === 1 ? "source" : "sources"}, via Cold Start.`,
     titleFontSize: titleFontSize(name),

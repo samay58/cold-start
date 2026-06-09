@@ -1,5 +1,6 @@
 import type { ResolvedFact } from "@cold-start/core";
 import { CitationGroup } from "./CitationGroup";
+import type { CitationLedger } from "./CitationLedger";
 
 const undisclosedText = "not publicly disclosed";
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -169,11 +170,13 @@ export function formatValue(value: unknown): string {
 export function FactRow<T>({
   label,
   fact,
+  ledger,
   mono = false,
   format
 }: {
   label: string;
   fact: ResolvedFact<T>;
+  ledger?: CitationLedger | undefined;
   mono?: boolean;
   format?: (value: T | null) => string;
 }) {
@@ -182,7 +185,7 @@ export function FactRow<T>({
       <div className="cs-fact-label">{label}</div>
       <div className={mono ? "cs-fact-value cs-mono" : "cs-fact-value"}>
         {format ? format(fact.value) : formatValue(fact.value)}
-        <CitationGroup citationIds={fact.citationIds} />
+        <CitationGroup citationIds={fact.citationIds} ledger={ledger} />
       </div>
     </div>
   );

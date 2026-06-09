@@ -18,7 +18,7 @@
   --cat-paper: #f4eddc;
   --cat-paper-edge: #c9bea4;
   --cat-ink: #20201e;
-  --cat-muted: #786f62;
+  --cat-muted: #6b6256;
   --cat-rule: #d8ceb6;
   --cat-rule-strong: #c3b79a;
   --color-seal: #6e5c9e;
@@ -984,7 +984,7 @@
   color: var(--cat-ink);
 }
 
-/* Citation markers: ink hairline, source-class color, no wash */
+/* Citation markers: ink hairline, source-class color from the cited source, no wash */
 .cs-card[data-surface="web"] .cs-citation {
   border-color: color-mix(in srgb, currentColor 30%, transparent);
   background: transparent;
@@ -993,10 +993,112 @@
   font-weight: 600;
 }
 
+.cs-citation[data-class="independent"] {
+  color: var(--color-verified);
+}
+
+.cs-citation[data-class="reporting"] {
+  color: var(--color-reported);
+}
+
+.cs-citation[data-class="company"] {
+  color: var(--color-company);
+}
+
 .cs-card[data-surface="web"] .cs-citation:hover,
 .cs-card[data-surface="web"] .cs-citation:focus-visible {
   background: var(--color-seal);
   color: #fff;
+}
+
+/* Compact source popover on hover/focus: title, publisher, date, class. */
+.cs-citation {
+  position: relative;
+}
+
+.cs-citation-popover {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  gap: 4px;
+  min-width: 200px;
+  max-width: 264px;
+  padding: 9px 11px 10px;
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: var(--shadow-popover);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 480;
+  letter-spacing: 0;
+  line-height: 1.35;
+  opacity: 0;
+  pointer-events: none;
+  text-align: left;
+  transform: translate(-50%, 2px);
+  visibility: hidden;
+  white-space: normal;
+}
+
+.cs-citation:hover .cs-citation-popover,
+.cs-citation:focus-visible .cs-citation-popover {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-citation-popover {
+    transition: opacity 110ms ease, transform 110ms ease, visibility 0s linear 110ms;
+  }
+
+  .cs-citation:hover .cs-citation-popover,
+  .cs-citation:focus-visible .cs-citation-popover {
+    transition: opacity 110ms ease, transform 110ms ease;
+  }
+}
+
+.cs-citation-popover-title {
+  font-weight: 640;
+}
+
+.cs-citation-popover-meta {
+  display: flex;
+  gap: 6px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+}
+
+.cs-citation-popover-class {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-muted);
+  font-size: 10.5px;
+}
+
+.cs-citation-popover-class .cs-evidence-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+}
+
+.cs-citation-popover-class[data-class="independent"] .cs-evidence-dot {
+  background: var(--color-verified);
+}
+
+.cs-citation-popover-class[data-class="reporting"] .cs-evidence-dot {
+  border: 1px solid var(--color-reported);
+  background: transparent;
+}
+
+.cs-citation-popover-class[data-class="company"] .cs-evidence-dot {
+  background: linear-gradient(90deg, var(--color-company) 50%, transparent 50%);
+  border: 1px solid var(--color-company);
 }
 
 /* Source rail / tracings */

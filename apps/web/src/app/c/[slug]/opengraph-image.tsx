@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getPublicCachedCard } from "../../../lib/cards";
-import { buildOpenGraphModel, type OpenGraphFact } from "./opengraph-model";
+import { buildOpenGraphModel, type OpenGraphFact, type OpenGraphSourceMix } from "./opengraph-model";
 
 export const alt = "Cold Start company context card";
 
@@ -15,42 +15,69 @@ type OpenGraphImageProps = {
   params: Promise<{ slug: string }>;
 };
 
+// Catalogue Card palette (DESIGN.md): parchment on manila ground, one seal accent,
+// evidence colors only as small classification marks.
 const colors = {
   company: "#9B6A1E",
-  field: "#F7F5EE",
-  focus: "#D7B84A",
-  ink: "#171A1F",
-  muted: "#68706A",
-  plate: "#FFFDF8",
+  ground: "#E4DCC8",
+  ink: "#20201E",
+  muted: "#6B6256",
+  paper: "#F4EDDC",
   reported: "#315F9D",
-  rule: "#CCC7B8",
-  ruleStrong: "#9C978A",
+  rule: "#D8CEB6",
+  ruleStrong: "#C3B79A",
+  seal: "#6E5C9E",
   verified: "#0E6B5B"
 };
 
 const fontSans = "IBM Plex Sans, Arial, sans-serif";
-const fontSerif = "IBM Plex Serif, Georgia, serif";
 const fontMono = "Berkeley Mono, IBM Plex Mono, monospace";
 
-function SourcePill({ citations }: { citations: number }) {
+function ClassificationDot({ kind }: { kind: "independent" | "reporting" | "company" }) {
+  const base = {
+    borderRadius: 2,
+    display: "flex",
+    height: 10,
+    width: 10
+  } as const;
+
+  if (kind === "independent") {
+    return <div style={{ ...base, background: colors.verified }} />;
+  }
+
+  if (kind === "reporting") {
+    return <div style={{ ...base, background: "transparent", border: `2px solid ${colors.reported}` }} />;
+  }
+
   return (
-    <div
-      style={{
-        alignItems: "center",
-        border: `1px solid ${colors.ruleStrong}`,
-        borderRadius: 4,
-        color: colors.reported,
-        display: "flex",
-        fontFamily: fontMono,
-        fontSize: 17,
-        fontWeight: 600,
-        gap: 10,
-        lineHeight: 1,
-        padding: "11px 14px"
-      }}
-    >
-      <span style={{ background: colors.verified, borderRadius: 2, display: "flex", height: 8, width: 8 }} />
-      {citations} {citations === 1 ? "source" : "sources"}
+    <div style={{ ...base, border: `2px solid ${colors.company}`, background: "transparent", position: "relative", overflow: "hidden", display: "flex" }}>
+      <div style={{ background: colors.company, display: "flex", height: "100%", width: "50%" }} />
+    </div>
+  );
+}
+
+function SourceMixRow({ citations, mix }: { citations: number; mix: OpenGraphSourceMix }) {
+  const rows = [
+    { count: mix.independent, kind: "independent" as const, label: "verified" },
+    { count: mix.reporting, kind: "reporting" as const, label: "reported" },
+    { count: mix.company, kind: "company" as const, label: "company" }
+  ].filter((row) => row.count > 0);
+
+  return (
+    <div style={{ alignItems: "center", display: "flex", flexDirection: "row", gap: 22 }}>
+      {rows.map((row) => (
+        <div key={row.kind} style={{ alignItems: "center", display: "flex", flexDirection: "row", gap: 9 }}>
+          <ClassificationDot kind={row.kind} />
+          <div style={{ color: colors.muted, display: "flex", fontFamily: fontSans, fontSize: 17, fontWeight: 500 }}>
+            {row.count} {row.label}
+          </div>
+        </div>
+      ))}
+      {rows.length === 0 ? (
+        <div style={{ color: colors.muted, display: "flex", fontFamily: fontSans, fontSize: 17 }}>
+          {citations} {citations === 1 ? "source" : "sources"} on file
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -70,13 +97,15 @@ function FactCell({ fact }: { fact: OpenGraphFact }) {
     >
       <div
         style={{
+          alignItems: "center",
           color: colors.muted,
+          display: "flex",
+          flexDirection: "row",
           fontFamily: fontSans,
           fontSize: 14,
           fontWeight: 600,
-          letterSpacing: 0,
-          lineHeight: 1,
-          textTransform: "none"
+          gap: 8,
+          lineHeight: 1
         }}
       >
         {fact.label}
@@ -85,9 +114,9 @@ function FactCell({ fact }: { fact: OpenGraphFact }) {
         style={{
           color: colors.ink,
           display: "flex",
-          fontFamily: fontMono,
+          fontFamily: fontSans,
           fontSize: fact.value.length > 24 ? 21 : 25,
-          fontWeight: 600,
+          fontWeight: 650,
           lineHeight: 1.1,
           maxHeight: 58,
           overflow: "hidden"
@@ -108,195 +137,197 @@ export default async function Image({ params }: OpenGraphImageProps) {
     (
       <div
         style={{
-          background: colors.field,
+          background: colors.ground,
           color: colors.ink,
           display: "flex",
           flexDirection: "column",
           fontFamily: fontSans,
           height: "100%",
           overflow: "hidden",
-          padding: "36px 46px 30px",
+          padding: "34px 44px 30px",
           position: "relative",
           width: "100%"
         }}
       >
         <div
           style={{
-            background: colors.plate,
-            border: `1px solid ${colors.rule}`,
+            background: colors.paper,
+            border: `1px solid ${colors.ruleStrong}`,
             borderRadius: 6,
+            boxShadow: `10px 12px 0 rgba(32, 32, 30, 0.10)`,
             display: "flex",
             flexDirection: "column",
             height: "100%",
-            padding: "25px 28px 24px",
+            overflow: "hidden",
             position: "relative",
             width: "100%"
           }}
         >
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexDirection: "row",
-              gap: 14,
-              height: 40,
-              width: "100%"
-            }}
-          >
-            <div
-              style={{
-                alignItems: "center",
-                background: colors.focus,
-                border: `1px solid ${colors.ink}`,
-                borderRadius: 3,
-                display: "flex",
-                fontFamily: fontMono,
-                fontSize: 13,
-                fontWeight: 700,
-                height: 32,
-                justifyContent: "center",
-                letterSpacing: 0,
-                width: 32
-              }}
-            >
-              CS
-            </div>
-            <div
-              style={{
-                color: colors.ink,
-                display: "flex",
-                fontFamily: fontSans,
-                fontSize: 15,
-                fontWeight: 650,
-                letterSpacing: 0,
-                lineHeight: 1,
-                textTransform: "none"
-              }}
-            >
-              Cold Start
-            </div>
-            <div style={{ flex: 1 }} />
-            <div
-              style={{
-                color: colors.muted,
-                display: "flex",
-                fontFamily: fontMono,
-                fontSize: 16,
-                fontWeight: 500,
-                letterSpacing: 0,
-                lineHeight: 1
-              }}
-            >
-              {model.domainLabel}
-            </div>
-          </div>
+          {/* Seal top edge */}
+          <div style={{ background: colors.seal, display: "flex", height: 5, width: "100%" }} />
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              marginTop: 42,
-              width: 850
-            }}
-          >
+          <div style={{ display: "flex", flex: 1, flexDirection: "column", padding: "22px 30px 24px" }}>
             <div
               style={{
-                color: colors.ink,
+                alignItems: "flex-start",
                 display: "flex",
-                fontFamily: fontSans,
-                fontSize: model.titleFontSize,
-                fontWeight: 700,
-                letterSpacing: -1.2,
-                lineHeight: 0.92,
-                maxHeight: 215,
-                overflow: "hidden"
+                flexDirection: "row",
+                width: "100%"
               }}
             >
-              {model.name}
+              <div style={{ alignItems: "center", display: "flex", flexDirection: "row", gap: 12 }}>
+                <div
+                  style={{
+                    color: colors.ink,
+                    display: "flex",
+                    fontFamily: fontSans,
+                    fontSize: 17,
+                    fontWeight: 700,
+                    lineHeight: 1
+                  }}
+                >
+                  Cold Start
+                </div>
+                <div style={{ color: colors.muted, display: "flex", fontFamily: fontSans, fontSize: 16, lineHeight: 1 }}>
+                  Index
+                </div>
+              </div>
+              <div style={{ flex: 1 }} />
+              <div style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", gap: 6 }}>
+                <div
+                  style={{
+                    color: colors.seal,
+                    display: "flex",
+                    fontFamily: fontMono,
+                    fontSize: 17,
+                    fontWeight: 600,
+                    lineHeight: 1
+                  }}
+                >
+                  {model.callNumber}
+                </div>
+                <div style={{ color: colors.muted, display: "flex", fontFamily: fontMono, fontSize: 13, lineHeight: 1 }}>
+                  {model.citations} sources on file
+                </div>
+              </div>
             </div>
+
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 30, width: 920 }}>
+              {model.filedLabel ? (
+                <div
+                  style={{
+                    alignItems: "center",
+                    border: `1px solid ${colors.seal}`,
+                    borderRadius: 3,
+                    color: colors.seal,
+                    display: "flex",
+                    fontFamily: fontMono,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    letterSpacing: 1,
+                    lineHeight: 1,
+                    marginBottom: 18,
+                    padding: "7px 10px 6px",
+                    width: "fit-content"
+                  }}
+                >
+                  FILED {model.filedLabel.toUpperCase()}
+                </div>
+              ) : null}
+              <div
+                style={{
+                  color: colors.ink,
+                  display: "flex",
+                  fontFamily: fontSans,
+                  fontSize: model.titleFontSize,
+                  fontWeight: 700,
+                  letterSpacing: -1.2,
+                  lineHeight: 0.92,
+                  maxHeight: 215,
+                  overflow: "hidden"
+                }}
+              >
+                {model.name}
+              </div>
+              <div
+                style={{
+                  color: colors.ink,
+                  display: "flex",
+                  fontFamily: fontSans,
+                  fontSize: 27,
+                  fontWeight: 400,
+                  lineHeight: 1.3,
+                  marginTop: 18,
+                  maxHeight: 110,
+                  overflow: "hidden",
+                  width: 820
+                }}
+              >
+                {model.description}
+              </div>
+              <div style={{ display: "flex", marginTop: 18 }}>
+                <SourceMixRow citations={model.citations} mix={model.mix} />
+              </div>
+            </div>
+
             <div
               style={{
-                color: colors.ink,
+                borderBottom: `1px solid ${colors.rule}`,
+                borderTop: `1px solid ${colors.ruleStrong}`,
                 display: "flex",
-                fontFamily: fontSerif,
-                fontSize: 29,
-                fontWeight: 400,
-                lineHeight: 1.28,
-                marginTop: 22,
-                maxHeight: 112,
+                flexDirection: "row",
+                height: 104,
+                marginTop: "auto",
                 overflow: "hidden",
-                width: 790
+                width: "100%"
               }}
             >
-              {model.description}
-            </div>
-          </div>
-
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexDirection: "row",
-              gap: 16,
-              marginTop: 26
-            }}
-          >
-            <div
-              style={{
-                alignItems: "center",
-                background: colors.field,
-                border: `1px solid ${colors.rule}`,
-                borderRadius: 4,
-                display: "flex",
-                fontFamily: fontMono,
-                fontSize: 40,
-                fontWeight: 700,
-                height: 84,
-                justifyContent: "center",
-                width: 84
-              }}
-            >
-              {model.initial}
-            </div>
-            <SourcePill citations={model.citations} />
-          </div>
-
-          <div
-            style={{
-              background: colors.plate,
-              borderBottom: `1px solid ${colors.rule}`,
-              borderTop: `1px solid ${colors.ruleStrong}`,
-              display: "flex",
-              flexDirection: "row",
-              height: 104,
-              marginTop: "auto",
-              overflow: "hidden",
-              width: "100%"
-            }}
-          >
-            <div style={{ background: colors.verified, display: "flex", flexShrink: 0, height: "100%", width: 12 }} />
-            <div style={{ display: "flex", flexDirection: "row", flex: 1 }}>
               {model.facts.map((fact) => (
                 <FactCell key={`${fact.label}-${fact.value}`} fact={fact} />
               ))}
+              <div style={{ flex: 1 }} />
+              {model.citations > 0 ? (
+                <div
+                  style={{
+                    alignItems: "center",
+                    alignSelf: "center",
+                    border: `2px solid ${colors.seal}`,
+                    borderRadius: 4,
+                    color: colors.seal,
+                    display: "flex",
+                    fontFamily: fontMono,
+                    fontSize: 16,
+                    fontWeight: 700,
+                    letterSpacing: 2,
+                    lineHeight: 1,
+                    marginRight: 18,
+                    padding: "9px 12px 8px",
+                    transform: "rotate(-5deg)"
+                  }}
+                >
+                  VETTED
+                </div>
+              ) : null}
             </div>
-          </div>
 
-          <div
-            style={{
-              alignItems: "center",
-              display: "flex",
-              flexDirection: "row",
-              gap: 16,
-              height: 34,
-              marginTop: 20,
-              width: "100%"
-            }}
-          >
-            <div style={{ background: colors.focus, border: `1px solid ${colors.ink}`, borderRadius: 2, display: "flex", height: 12, width: 12 }} />
-            <div style={{ background: colors.rule, display: "flex", flex: 1, height: 1 }} />
-            <div style={{ color: colors.muted, display: "flex", fontFamily: fontMono, fontSize: 14, fontWeight: 500, letterSpacing: 0 }}>
-              <span style={{ fontWeight: 700 }}>Source:</span>&nbsp;{model.sourceSummary}
+            <div
+              style={{
+                alignItems: "center",
+                display: "flex",
+                flexDirection: "row",
+                gap: 16,
+                height: 30,
+                marginTop: 18,
+                width: "100%"
+              }}
+            >
+              <div style={{ color: colors.muted, display: "flex", fontFamily: fontMono, fontSize: 14, lineHeight: 1 }}>
+                {model.domainLabel}
+              </div>
+              <div style={{ background: colors.rule, display: "flex", flex: 1, height: 1 }} />
+              <div style={{ color: colors.muted, display: "flex", fontFamily: fontMono, fontSize: 14, fontWeight: 500 }}>
+                {model.sourceSummary}
+              </div>
             </div>
           </div>
         </div>
