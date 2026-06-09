@@ -115,7 +115,7 @@ function FactCell({ fact }: { fact: OpenGraphFact }) {
           color: colors.ink,
           display: "flex",
           fontFamily: fontSans,
-          fontSize: fact.value.length > 24 ? 21 : 25,
+          fontSize: fact.value.length > 14 ? 21 : 25,
           fontWeight: 650,
           lineHeight: 1.1,
           maxHeight: 58,
@@ -131,8 +131,11 @@ function FactCell({ fact }: { fact: OpenGraphFact }) {
 export default async function Image({ params }: OpenGraphImageProps) {
   const { slug } = await params;
   const card = await getPublicCachedCard(slug);
-  const model = buildOpenGraphModel(card, slug);
+  return renderOpenGraphImage(buildOpenGraphModel(card, slug));
+}
 
+// Pure render path, kept separate so the satori output can be exercised without a database.
+export function renderOpenGraphImage(model: ReturnType<typeof buildOpenGraphModel>) {
   return new ImageResponse(
     (
       <div
@@ -228,7 +231,7 @@ export default async function Image({ params }: OpenGraphImageProps) {
                     lineHeight: 1,
                     marginBottom: 18,
                     padding: "7px 10px 6px",
-                    width: "fit-content"
+                    alignSelf: "flex-start"
                   }}
                 >
                   FILED {model.filedLabel.toUpperCase()}
