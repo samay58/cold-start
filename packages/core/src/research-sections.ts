@@ -11,7 +11,8 @@ export const researchSectionIdSchema = z.enum([
   "product",
   "why_it_matters",
   "market",
-  "risks"
+  "risks",
+  "the_case"
 ]);
 
 export const researchSectionStatusSchema = z.enum(["not_started", "running", "available", "empty", "failed", "stale"]);
@@ -25,7 +26,8 @@ export const researchLayerIdSchema = z.enum([
   "investors",
   "competition",
   "mechanism",
-  "openQuestions"
+  "openQuestions",
+  "theCase"
 ]);
 
 export type ResearchSectionId = z.infer<typeof researchSectionIdSchema>;
@@ -63,7 +65,6 @@ export const researchSectionContentSchema = z.object({
   status: z.enum(["available", "empty"]),
   summary: z.string().min(1).nullable(),
   items: z.array(researchSectionItemSchema),
-  questions: z.array(z.string().min(1)).default([]),
   confidence: z.enum(["high", "medium", "low"]),
   competitorCountHighQuality: z.number().int().nonnegative().optional(),
   crowdedness: z.enum(["sparse", "moderate", "crowded", "brutally_crowded"]).optional(),
@@ -115,6 +116,7 @@ const sharedPromptRules = [
   "Prefer not disclosed over guessing.",
   "Every claim needs citation ids.",
   "Write like a sharp investor writing for another human.",
+  "Never use an em dash. Use a period or a semicolon instead.",
   "Short, concrete, useful."
 ].join("\n");
 
@@ -157,7 +159,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No financing evidence found yet.",
-    generationPrompt: prompt("Write Financing & Valuation. Find total raised, last round, valuation if disclosed, investors, round date, strategic backers, and conflicting numbers. Never estimate valuation. Never infer total raised. If sources conflict, show the conflict. Return one compact summary, up to 4 financing rows, and one open question if unclear.")
+    generationPrompt: prompt("Write Financing & Valuation. Find total raised, last round, valuation if disclosed, investors, round date, strategic backers, and conflicting numbers. Never estimate valuation. Never infer total raised. If sources conflict, show the conflict. Return one compact summary and up to 4 financing rows.")
   },
   {
     id: "competition",
@@ -202,7 +204,18 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     visibility: "gated",
     staleAfterMs: DAY_MS,
     emptyState: "No supported risks or diligence questions found yet.",
-    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Every risk must point to evidence or missing evidence. Prioritize the 2 to 4 questions that would change conviction or save the most investor time. Do not default to ARR or revenue-not-public unless that is the most specific uncertainty for this company. Return up to 4 risks and up to 3 concise questions written like a human investor would ask.")
+    generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Every risk must point to evidence or missing evidence. Do not default to ARR or revenue-not-public unless that is the most specific uncertainty for this company. Return up to 4 risks.")
+  },
+  // The Case renders from card.synthesis (bull + bear) in the surfaces, so this section is
+  // never generated or derived; its generationPrompt is a latent fallback only.
+  {
+    id: "the_case",
+    layerId: "theCase",
+    title: "The Case",
+    visibility: "gated",
+    staleAfterMs: DAY_MS,
+    emptyState: "No supported bull or bear case survived verification.",
+    generationPrompt: prompt("Write The Case. State the bull case and the bear case side by side using only verified synthesis claims. Each line ends with citation ids. Do not invent claims. Do not pad to a fixed count.")
   }
 ];
 
@@ -242,14 +255,13 @@ function citedContent(input: {
   sectionId: ResearchSectionId;
   summary: string | null;
   items?: ResearchSectionContent["items"];
-  questions?: string[];
   confidence?: ResearchSectionContent["confidence"];
   citationIds?: string[];
   generatedAt?: string | null;
 }): ResearchSection {
   const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[input.sectionId];
   const citationIds = Array.from(new Set(input.citationIds ?? input.items?.flatMap((item) => item.citationIds) ?? []));
-  const hasContent = Boolean(input.summary || (input.items?.length ?? 0) > 0 || (input.questions?.length ?? 0) > 0);
+  const hasContent = Boolean(input.summary || (input.items?.length ?? 0) > 0);
   return {
     slug: input.slug,
     domain: input.domain,
@@ -260,7 +272,6 @@ function citedContent(input: {
       status: hasContent ? "available" : "empty",
       summary: input.summary,
       items: input.items ?? [],
-      questions: input.questions ?? [],
       confidence: input.confidence ?? (hasContent ? "medium" : "low")
     },
     citationIds,
@@ -284,7 +295,6 @@ export function emptyResearchSectionForCard(card: ColdStartCard, sectionId: Rese
       status: "empty",
       summary: null,
       items: [],
-      questions: [],
       confidence: "low"
     },
     citationIds: [],
@@ -394,17 +404,10 @@ export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): Resea
     card.synthesis?.marketStructureAndTiming
       ? citedContent({ slug: card.slug, domain: card.domain, sectionId: "market", summary: marketRows[0]?.text ?? null, items: marketRows, confidence: marketRows.length > 0 ? "medium" : "low" })
       : emptyResearchSectionForCard(card, "market", "not_started"),
-    card.synthesis
-      ? citedContent({
-          slug: card.slug,
-          domain: card.domain,
-          sectionId: "risks",
-          summary: card.synthesis.bearCase[0]?.text ?? null,
-          items: card.synthesis.bearCase.map((claim, index) => ({ label: `Risk ${index + 1}`, text: claim.text, citationIds: claim.citationIds })),
-          questions: card.synthesis.openQuestions,
-          confidence: card.synthesis.bearCase.length > 0 || card.synthesis.openQuestions.length > 0 ? "medium" : "low"
-        })
-      : emptyResearchSectionForCard(card, "risks", "not_started")
+    // Open Questions and The Case render from card.synthesis directly (synthesis branches),
+    // so the risks and the_case sections are not derived. Placeholders keep the maps total.
+    emptyResearchSectionForCard(card, "risks", "not_started"),
+    emptyResearchSectionForCard(card, "the_case", "not_started")
   ];
 }
 

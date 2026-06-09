@@ -88,7 +88,7 @@ function card(): ColdStartCard {
       whyItMatters: { text: "Cartesia has cited evidence.", citationIds: ["c1"] },
       bullCase: [],
       bearCase: [],
-      openQuestions: ["What traction is disclosed?"]
+      openQuestions: [{ question: "What traction is disclosed?", category: "adoption_proof" }]
     }
   };
 }

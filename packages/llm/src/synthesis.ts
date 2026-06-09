@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
-import { synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
+import { questionCategorySchema, synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 
@@ -8,6 +8,16 @@ const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
 const citationMarkerRegex = /\[([A-Za-z0-9_-]+)\]/g;
 const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
+const questionCategoryValues = questionCategorySchema.options;
+const openQuestionToolSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    question: nonEmptyStringSchema,
+    category: { type: "string", enum: questionCategoryValues }
+  },
+  required: ["question", "category"]
+} as const;
 
 const sourcedTextSchema = {
   type: "object",
@@ -199,7 +209,7 @@ export const synthesisTool = {
       bullCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
       bearCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
       marketStructureAndTiming: marketStructureAndTimingToolSchema,
-      openQuestions: { type: "array", minItems: 3, maxItems: 3, items: nonEmptyStringSchema }
+      openQuestions: { type: "array", minItems: 3, maxItems: 3, items: openQuestionToolSchema }
     },
     required: ["whyItMatters", "bullCase", "bearCase", "marketStructureAndTiming", "openQuestions"]
   }
@@ -214,8 +224,12 @@ export const synthesisSystemPrompt = [
   "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
   "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
   "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk.",
-  "openQuestions should be the 3 highest-ROI diligence prompts for this specific company. Prioritize questions that would change conviction: buyer, workflow, wedge durability, customer proof, procurement friction, margin/compute pressure, market structure, financing risk, or missing evidence.",
-  "Do not default to ARR/revenue-not-public unless it is genuinely the most important company-specific uncertainty. If revenue matters, ask about revenue quality, retention, pricing power, or margin evidence."
+  "openQuestions are the 3 questions that would most change an investor's conviction on this company, written in a what-would-you-need-to-believe frame. Each question names the belief the case depends on and the specific evidence that would confirm or kill it.",
+  "Every open question must reference something concrete on this card: a named buyer, product, competitor, number, or claim. Reject generic diligence that could be pasted onto any startup.",
+  "Do not ask to request financials or verify ARR as a question. If economics matter, ask about retention, pricing power, margin, or customer concentration with a specific reason.",
+  "Give each open question exactly one category from this fixed set, chosen by what the question tests: buyer_budget, adoption_proof, durability, unit_economics, technical_edge, market_timing, trust_regulation.",
+  "The 3 questions must be distinct. Do not ask the same thing twice in different words.",
+  "Never use an em dash anywhere. Use a period or a semicolon instead."
 ].join(" ");
 
 type ToolUseLike = {

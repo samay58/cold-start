@@ -72,7 +72,6 @@ const sectionTool = {
           required: ["label", "text", "citationIds"]
         }
       },
-      questions: { type: "array", items: nonEmptyStringSchema },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
       competitorCountHighQuality: { type: "integer", minimum: 0 },
       crowdedness: { type: "string", enum: ["sparse", "moderate", "crowded", "brutally_crowded"] },
@@ -121,7 +120,7 @@ const sectionTool = {
       },
       topDownCrossCheck: { anyOf: [nonEmptyStringSchema, { type: "null" }] }
     },
-    required: ["status", "summary", "items", "questions", "confidence"]
+    required: ["status", "summary", "items", "confidence"]
   }
 } satisfies Tool;
 
@@ -169,7 +168,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
     "You write one saved Cold Start research section.",
     "Use only the evidence JSON supplied by the user.",
     "Use citationIds exactly as provided. Do not invent citationIds.",
-    "If evidence is too weak, return status empty, summary null, no items, no questions, and confidence low.",
+    "If evidence is too weak, return status empty, summary null, no items, and confidence low.",
     "Prefer fewer strong points over complete-looking filler."
   ].join("\n");
 

@@ -2462,30 +2462,94 @@ button {
 }
 
 .cs-layer-questions li {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 9px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding-top: 8px;
   border-top: 1px solid rgb(204 199 184 / 0.58);
 }
 
-.cs-layer-questions li > span {
-  display: inline-grid;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border: 1px solid rgb(204 199 184 / 0.78);
-  border-radius: 5px;
+.cs-question-tag {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid rgb(110 92 158 / 0.28);
+  border-radius: 999px;
+  background: rgb(110 92 158 / 0.07);
   color: var(--color-seal);
-  font: 600 10px/1 var(--font-text);
+  font: 600 10.5px/1.3 var(--font-text);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cs-layer-questions p {
-  margin: 1px 0 0;
-  color: rgb(23 26 31 / 0.74);
+  margin: 0;
+  color: rgb(23 26 31 / 0.78);
   font-size: 12.5px;
   line-height: 1.42;
+}
+
+.cs-layer-case {
+  display: grid;
+  gap: 12px;
+}
+
+.cs-layer-case-side {
+  display: grid;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid rgb(204 199 184 / 0.5);
+  border-radius: 6px;
+  background: rgb(255 253 248 / 0.6);
+}
+
+.cs-layer-case-side h4 {
+  margin: 0;
+  font: 680 13px/1.18 var(--font-display);
+}
+
+.cs-layer-case-bull h4 {
+  color: var(--color-verified);
+}
+
+.cs-layer-case-bear h4 {
+  color: var(--color-conflict);
+}
+
+.cs-layer-case-side ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-layer-case-side li {
+  position: relative;
+  padding-left: 13px;
+  color: rgb(23 26 31 / 0.82);
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
+.cs-layer-case-side li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.cs-layer-case-bull li::before {
+  background: var(--color-verified);
+}
+
+.cs-layer-case-bear li::before {
+  background: var(--color-conflict);
 }
 
 .cs-layer-money-ledger {

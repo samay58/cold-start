@@ -11,7 +11,8 @@ export type GenerationJobKind =
   | "section:product"
   | "section:why_it_matters"
   | "section:market"
-  | "section:risks";
+  | "section:risks"
+  | "section:the_case";
 
 export type GenerationTraceStep = {
   status: "started" | "complete" | "failed" | "skipped";
@@ -50,6 +51,9 @@ export type GenerationLlmCallTrace = {
   stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify";
   label: string;
   model: string;
+  // Section this call paid for, when it is a per-section pass. Lets cost tie back
+  // to the section model without parsing the label string.
+  sectionId?: string;
   status: "ok" | "failed";
   durationMs: number;
   inputTokens?: number;
@@ -80,6 +84,19 @@ export type GenerationEmailDiscoveryTrace = {
 
 export type GenerationSourceRejection = GenerationSourceTrace & {
   reason: GenerationSourceRejectionReason;
+};
+
+// How a research section was produced this run: "deep" = a per-section LLM pass ran;
+// "derived" = built from existing card data with no LLM call. Absence means the section
+// was not touched this run.
+export type GenerationSectionProvenance = "deep" | "derived";
+
+export type GenerationSectionTrace = {
+  sectionId: string;
+  provenance: GenerationSectionProvenance;
+  status: "available" | "empty" | "failed" | "skipped";
+  estimatedCostUsd?: number;
+  durationMs?: number;
 };
 
 export type GenerationTrace = {
@@ -163,6 +180,9 @@ export type GenerationTrace = {
     claimCountAfterVerify: number;
     gateMessage?: string;
   };
+  // Per-section provenance and cost for the section model. A derived section is
+  // recorded as "derived", never as "deep".
+  sections?: GenerationSectionTrace[];
   failure?: {
     stage: string;
     message: string;

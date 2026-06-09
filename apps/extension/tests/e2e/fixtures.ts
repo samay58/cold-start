@@ -110,7 +110,7 @@ export function browserbaseCardWithSynthesis(): ColdStartCard {
       },
       bullCase: [{ text: "Developers need reliable browser sessions for AI workflows [c3].", citationIds: ["c3"] }],
       bearCase: [],
-      openQuestions: ["Can Browserbase defend against cloud providers bundling browser runtimes?"]
+      openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }]
     }
   });
 }

@@ -111,7 +111,7 @@ const card: ColdStartCard = {
     },
     bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }],
     bearCase: [{ text: "Competition is intense [c2].", citationIds: ["c2"] }],
-    openQuestions: ["Which buyer owns the budget?"]
+    openQuestions: [{ question: "Which buyer owns the budget?", category: "buyer_budget" }]
   }
 };
 

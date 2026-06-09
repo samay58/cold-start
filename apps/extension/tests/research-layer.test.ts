@@ -85,6 +85,7 @@ describe("research layer model", () => {
     expect(RESEARCH_LAYER_CARDS.map((card) => card.id)).toEqual([
       "openQuestions",
       "coreIdea",
+      "theCase",
       "serves",
       "marketStructureTiming",
       "customers",
@@ -96,6 +97,7 @@ describe("research layer model", () => {
     expect(RESEARCH_LAYER_CARDS.map((card) => card.title)).toEqual([
       "Next question",
       "Why care",
+      "The case",
       "Who pays",
       "Timing",
       "Proof",
@@ -142,7 +144,7 @@ describe("research layer model", () => {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
         bullCase: [{ text: "Developers already show adoption.", citationIds: ["c1"] }],
         bearCase: [],
-        openQuestions: ["Can it expand beyond developers?"]
+        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }]
       }
     });
 
@@ -162,17 +164,16 @@ describe("research layer model", () => {
     expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
   });
 
-  it("prioritizes open questions as concise focus areas instead of generic ARR fallback", () => {
+  it("labels open questions from the model category and rewrites a generic revenue ask", () => {
     const card = baseCard({
       synthesis: {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
         bullCase: [{ text: "Developers already show adoption [c1].", citationIds: ["c1"] }],
         bearCase: [{ text: "Distribution may be compressed by incumbent developer tools [c1].", citationIds: ["c1"] }],
         openQuestions: [
-          "ARR is not public; verify revenue.",
-          "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?",
-          "How durable is the wedge if IDEs and issue trackers bundle terminal agents?",
-          "Who owns the budget when this moves from developer tool to team workflow?"
+          { question: "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?", category: "adoption_proof" },
+          { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", category: "durability" },
+          { question: "ARR is not public; verify revenue.", category: "unit_economics" }
         ]
       }
     });
@@ -180,14 +181,14 @@ describe("research layer model", () => {
     const display = layerDisplayForCard(card, "openQuestions");
 
     expect(display?.items?.map((item) => item.title)).toEqual([
-      "Expansion proof",
+      "Adoption & proof",
       "Durability",
-      "Budget owner",
-      "Revenue quality"
+      "Unit economics"
     ]);
-    expect(display?.items).toHaveLength(4);
+    expect(display?.items).toHaveLength(3);
     expect(display?.items?.[0]?.body).toContain("expansion beyond individual developers");
-    expect(display?.items?.[3]?.body).not.toBe("ARR is not public; verify revenue.");
+    expect(display?.items?.[2]?.body).not.toBe("ARR is not public; verify revenue.");
+    expect(display?.items?.[2]?.body).toContain("revenue quality, retention, and margin");
   });
 
   it("renders market structure and timing from verified synthesis fields", () => {
@@ -204,7 +205,7 @@ describe("research layer model", () => {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
-        openQuestions: ["Can it expand beyond developers?"],
+        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }],
         marketStructureAndTiming: {
           buyerBudget,
           painSeverity: null,
@@ -235,7 +236,7 @@ describe("research layer model", () => {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
-        openQuestions: ["Can it expand beyond developers?"]
+        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }]
       }
     });
 
@@ -254,7 +255,7 @@ describe("research layer model", () => {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
-        openQuestions: ["Can it expand beyond developers?"],
+        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }],
         marketStructureAndTiming: {
           buyerBudget: null,
           painSeverity: null,

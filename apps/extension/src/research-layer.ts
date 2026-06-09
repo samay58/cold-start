@@ -7,6 +7,8 @@ import {
   sourceQualityRank,
   type Citation,
   type ColdStartCard,
+  type OpenQuestion,
+  type QuestionCategory,
   type ResearchLayerId,
   type ResearchSection
 } from "@cold-start/core";
@@ -59,6 +61,7 @@ type ResearchLayerSourceReference = {
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "openQuestions", title: "Next question", description: "Best use of attention", source: "analysis" },
   { id: "coreIdea", title: "Why care", description: "Cited investment read", source: "analysis" },
+  { id: "theCase", title: "The case", description: "Bull and bear, side by side", source: "analysis" },
   { id: "serves", title: "Who pays", description: "Buyer and workflow", source: "card" },
   { id: "marketStructureTiming", title: "Timing", description: "Budget, trigger, profit pool", source: "analysis" },
   { id: "customers", title: "Proof", description: "Adoption evidence", source: "card" },
@@ -67,6 +70,29 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "competition", title: "Comps", description: "Alternatives and durability", source: "card" },
   { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" }
 ];
+
+// Open Questions and The Case render from card.synthesis directly, never from a stored
+// section, because they are cross-section syntheses with no per-section source. The other
+// gated layers (Why Care, Timing) stay section-backed so per-section runs still populate them.
+const SYNTHESIS_LAYER_IDS = new Set<ResearchLayerId>(["openQuestions", "theCase"]);
+
+export function isSynthesisLayer(id: ResearchLayerId): boolean {
+  return SYNTHESIS_LAYER_IDS.has(id);
+}
+
+const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
+  buyer_budget: "Buyer & budget",
+  adoption_proof: "Adoption & proof",
+  durability: "Durability",
+  unit_economics: "Unit economics",
+  technical_edge: "Technical edge",
+  market_timing: "Market & timing",
+  trust_regulation: "Trust & regulation"
+};
+
+function labelForCategory(category: QuestionCategory | null): string {
+  return category ? QUESTION_CATEGORY_LABELS[category] : "Open question";
+}
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
   return coreSectionIdForLayer(id);
@@ -216,11 +242,6 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     kind: "evidence" as const,
     ...(item.meta ? { meta: item.meta } : {})
   }));
-  const questions = content.questions.map((question, index) => ({
-    title: titleForQuestion(question) || `Question ${index + 1}`,
-    body: stripCitationMarkers(question),
-    kind: "question" as const
-  }));
   const rows = section.sectionId === "market" && content.napkinMath
     ? [
         { label: "Formula", value: content.napkinMath.formula },
@@ -233,8 +254,8 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
   return {
     id: layer.id,
     title,
-    body: stripCitationMarkers(content.summary ?? items[0]?.body ?? questions[0]?.body ?? definition.emptyState),
-    ...(items.length > 0 || questions.length > 0 ? { items: [...items, ...questions] } : {}),
+    body: stripCitationMarkers(content.summary ?? items[0]?.body ?? definition.emptyState),
+    ...(items.length > 0 ? { items } : {}),
     ...(rows ? { rows } : {}),
     sources,
     sourceCount: displaySourceCount(sources),
@@ -264,34 +285,9 @@ function dedupeStrings(values: string[]) {
   return unique;
 }
 
-function titleForQuestion(question: string) {
-  const normalized = question.toLowerCase();
-  if (/\b(budget|buyer|pay|pays|procurement|economic buyer|owner)\b/.test(normalized)) {
-    return "Budget owner";
-  }
-  if (/\b(customer|customers|pilot|deployment|deployments|adoption|usage|expansion|retention|reference)\b/.test(normalized)) {
-    return "Expansion proof";
-  }
-  if (/\b(moat|durab|defend|defensible|incumbent|bundle|bundling|competition|competitive|compete|substitute)\b/.test(normalized)) {
-    return "Durability";
-  }
-  if (/\b(arr|revenue|pricing|gross margin|margin|monetiz|unit economics|burn|runway)\b/.test(normalized)) {
-    return "Revenue quality";
-  }
-  if (/\b(model|technical|accuracy|latency|inference|data|architecture|performance|reliability)\b/.test(normalized)) {
-    return "Technical edge";
-  }
-  if (/\b(security|compliance|legal|regulat|privacy|risk)\b/.test(normalized)) {
-    return "Trust hurdle";
-  }
-  if (/\b(channel|partner|distribution|nvidia|cloud|platform)\b/.test(normalized)) {
-    return "Distribution path";
-  }
-  return "Conviction driver";
-}
-
 function cleanQuestionBody(question: string) {
   return stripCitationMarkers(question)
+    .replace(/\s*[—–]\s*/g, "; ")
     .replace(/\s+/g, " ")
     .replace(/^\s*(?:question\s*\d+[:.)-]?|ask[:.)-]?)\s*/i, "")
     .replace(/\s*(?:\.{3}|…)\s*$/u, "")
@@ -304,48 +300,32 @@ function isGenericRevenueQuestion(question: string) {
   return /\b(arr|revenue)\b/.test(normalized) && /\b(not public|undisclosed|not disclosed|verify|validate)\b/.test(normalized);
 }
 
-function priorityForQuestion(question: string) {
-  const normalized = question.toLowerCase();
-  if (/\b(customer|pilot|deployment|adoption|usage|retention|expansion|budget|buyer|procurement|moat|durab|competition|bundle)\b/.test(normalized)) {
-    return 0;
-  }
-  if (/\b(model|technical|accuracy|latency|inference|security|compliance|distribution|partner)\b/.test(normalized)) {
-    return 1;
-  }
-  if (isGenericRevenueQuestion(question)) {
-    return 3;
-  }
-  return 2;
-}
-
-function prioritizedOpenQuestionItems(questions: string[]) {
+// The model already emits the 3 highest-conviction questions in priority order, so we
+// keep its order. We only clean the text, rewrite a generic revenue ask, dedupe, and
+// attach the model's category label.
+function prioritizedOpenQuestionItems(questions: OpenQuestion[]) {
   const seen = new Set<string>();
   return questions
-    .map((question, index) => {
-      const cleanedBody = cleanQuestionBody(question);
+    .map((entry) => {
+      const cleanedBody = cleanQuestionBody(entry.question);
       const genericRevenue = isGenericRevenueQuestion(cleanedBody);
       const body = genericRevenue
         ? "What revenue quality, retention, and margin evidence would change the read?"
         : cleanedBody;
-      return {
-        body,
-        index,
-        priority: genericRevenue ? 3 : priorityForQuestion(body),
-        title: genericRevenue ? "Revenue quality" : titleForQuestion(body)
-      };
+      const category: QuestionCategory | null = genericRevenue ? "unit_economics" : entry.category;
+      return { body, category };
     })
     .filter((item) => {
-      const key = `${item.title}:${item.body.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
+      const key = item.body.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       if (!item.body || item.body === "?" || seen.has(key)) {
         return false;
       }
       seen.add(key);
       return true;
     })
-    .sort((left, right) => left.priority - right.priority || left.index - right.index)
-    .slice(0, 4)
+    .slice(0, 3)
     .map((item) => ({
-      title: item.title,
+      title: labelForCategory(item.category),
       body: item.body,
       kind: "question" as const,
       meta: "Next best use of time"
@@ -419,7 +399,7 @@ export function layersForCard(card: ColdStartCard, sections?: ResearchSection[])
   const canAnalyze = canRunInvestorAnalysis(card);
   return RESEARCH_LAYER_CARDS.map((layer) => {
     const section = sectionForLayer(sections, layer.id);
-    if (section) {
+    if (section && !SYNTHESIS_LAYER_IDS.has(layer.id)) {
       return {
         ...layer,
         availability: section.status === "available" || section.status === "stale"
@@ -455,8 +435,38 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
   }
 
   const section = sectionForLayer(sections, id);
-  if (section) {
+  if (section && !SYNTHESIS_LAYER_IDS.has(id)) {
     return displayFromSection(card, layer, section);
+  }
+
+  if (id === "theCase") {
+    if (!card.synthesis) {
+      return {
+        id,
+        title: layer.title,
+        body: "Activate the investor lens to weigh the bull and bear case.",
+        sources: [],
+        sourceCount: 0,
+        status: "needs-analysis"
+      };
+    }
+
+    const bull = card.synthesis.bullCase;
+    const bear = card.synthesis.bearCase;
+    const sources = citationSources(card, [...bull, ...bear].flatMap((claim) => claim.citationIds));
+    const items = [
+      ...bull.map((claim) => ({ title: "Bull", body: stripCitationMarkers(claim.text), kind: "evidence" as const, meta: "bull" })),
+      ...bear.map((claim) => ({ title: "Bear", body: stripCitationMarkers(claim.text), kind: "evidence" as const, meta: "bear" }))
+    ];
+    return {
+      id,
+      title: layer.title,
+      body: stripCitationMarkers(bull[0]?.text ?? bear[0]?.text ?? "No supported case survived verification."),
+      ...(items.length > 0 ? { items } : {}),
+      sources,
+      sourceCount: displaySourceCount(sources),
+      status: items.length > 0 ? "populated" : "empty"
+    };
   }
 
   if (id === "coreIdea") {

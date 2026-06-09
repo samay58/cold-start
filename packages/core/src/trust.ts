@@ -187,7 +187,7 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
     whyItMatters,
     bullCase: supportedTextItems(card.synthesis.bullCase, validIds).slice(0, 3),
     bearCase: supportedTextItems(card.synthesis.bearCase, validIds).slice(0, 3),
-    openQuestions: card.synthesis.openQuestions.filter((question) => question.trim().length > 0).slice(0, 3),
+    openQuestions: card.synthesis.openQuestions.filter((entry) => entry.question.trim().length > 0).slice(0, 3),
     ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
   };
 

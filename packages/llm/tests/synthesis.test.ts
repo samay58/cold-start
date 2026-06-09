@@ -33,7 +33,11 @@ const validSynthesisPayload = {
     expansionPath: null,
     timingRisk: null
   },
-  openQuestions: ["How strong is retention?", "What is gross margin?", "How concentrated is revenue?"]
+  openQuestions: [
+    { question: "How strong is retention?", category: "adoption_proof" },
+    { question: "What is gross margin?", category: "unit_economics" },
+    { question: "How concentrated is revenue?", category: "unit_economics" }
+  ]
 };
 
 describe("synthesisTool", () => {
@@ -48,10 +52,26 @@ describe("synthesisTool", () => {
       type: "string",
       minLength: 1
     });
-    expect(synthesisTool.input_schema.properties.openQuestions.items).toMatchObject({
-      type: "string",
-      minLength: 1
+    const openQuestionsItems = synthesisTool.input_schema.properties.openQuestions.items;
+    expect(openQuestionsItems).toMatchObject({
+      type: "object",
+      properties: {
+        question: { type: "string", minLength: 1 },
+        category: { type: "string" }
+      },
+      required: ["question", "category"]
     });
+    expect(openQuestionsItems.properties.category.enum).toEqual(
+      expect.arrayContaining([
+        "buyer_budget",
+        "adoption_proof",
+        "durability",
+        "unit_economics",
+        "technical_edge",
+        "market_timing",
+        "trust_regulation"
+      ])
+    );
   });
 });
 
@@ -348,7 +368,7 @@ describe("parseSynthesisToolUse", () => {
           {
             type: "tool_use",
             name: "emit_investor_synthesis",
-            input: { ...validSynthesisPayload, openQuestions: [...validSynthesisPayload.openQuestions, "What else matters?"] }
+            input: { ...validSynthesisPayload, openQuestions: [...validSynthesisPayload.openQuestions, { question: "What else matters?", category: "buyer_budget" }] }
           }
         ]
       })

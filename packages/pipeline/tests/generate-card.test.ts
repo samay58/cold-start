@@ -201,7 +201,7 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase: [bullCase],
         bearCase: [bearCase],
-        openQuestions: ["What customer traction has Cartesia disclosed?"]
+        openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
       })
     } as unknown as GenerateCardDeps);
 
@@ -269,7 +269,7 @@ describe("generateCardForDomain", () => {
           whyItMatters,
           bullCase: [],
           bearCase: [],
-          openQuestions: ["What customer traction has Cartesia disclosed?"]
+          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
         };
       },
       verify: async () => {
@@ -303,7 +303,7 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase: [bullCase],
         bearCase: [bearCase],
-        openQuestions: ["What customer traction has Cartesia disclosed?"]
+        openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
       }),
       verify: async () => [
         { ...whyItMatters, status: "unsupported" },
@@ -337,7 +337,7 @@ describe("generateCardForDomain", () => {
           whyItMatters,
           bullCase: [bullCase],
           bearCase: [],
-          openQuestions: ["What customer traction has Cartesia disclosed?"]
+          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
         }),
         verify: async () => [
           { ...whyItMatters, status: "unsupported" },
@@ -376,7 +376,11 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase,
         bearCase,
-        openQuestions: ["What is retention?", "What is margin?", "What is concentration?"]
+        openQuestions: [
+          { question: "What is retention?", category: "adoption_proof" },
+          { question: "What is margin?", category: "unit_economics" },
+          { question: "What is concentration?", category: "unit_economics" }
+        ]
       }),
       verify: async () => [
         { ...whyItMatters, status: "supported" },
@@ -419,7 +423,11 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase,
         bearCase,
-        openQuestions: ["What is retention?", "What is margin?", "What is concentration?"]
+        openQuestions: [
+          { question: "What is retention?", category: "adoption_proof" },
+          { question: "What is margin?", category: "unit_economics" },
+          { question: "What is concentration?", category: "unit_economics" }
+        ]
       }),
       verify: async () => [
         { ...whyItMatters, status: "supported" },
@@ -454,7 +462,7 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase: [],
         bearCase: [],
-        openQuestions: ["Which buyer owns the budget?"],
+        openQuestions: [{ question: "Which buyer owns the budget?", category: "buyer_budget" }],
         marketStructureAndTiming: {
           buyerBudget,
           painSeverity,
@@ -1252,7 +1260,7 @@ describe("generateCardForDomain", () => {
         whyItMatters,
         bullCase: [bullCase],
         bearCase: [],
-        openQuestions: ["What buyer owns expansion?"]
+        openQuestions: [{ question: "What buyer owns expansion?", category: "buyer_budget" }]
       }),
       verify: async () => [
         { ...whyItMatters, status: "supported" },

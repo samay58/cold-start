@@ -880,7 +880,7 @@ describe("POST /api/generate", () => {
         whyItMatters: { text: "Existing synthesis [c1].", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
-        openQuestions: ["What changed?"],
+        openQuestions: [{ question: "What changed?", category: "buyer_budget" }],
       },
     });
     mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);

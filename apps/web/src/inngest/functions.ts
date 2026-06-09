@@ -437,7 +437,6 @@ function sectionFromGeneratedContent(card: ColdStartCard, sectionId: ResearchSec
       status: "empty",
       summary: null,
       items: [],
-      questions: [],
       confidence: "low"
     },
     citationIds,
@@ -1380,6 +1379,29 @@ export const generateCardFunction = inngest.createFunction(
         const generatedSection = "ok" in sectionResult.value
           ? sectionResult.value.value
           : sectionResult.value;
+
+        // Tie this section pass to the section model. Only "deep" when the LLM actually ran;
+        // the empty-evidence path above returns a section with no call, so it reads "derived".
+        // Attribute the run's Anthropic spend (the lone LLM call here is this section) to it.
+        const sectionLlmRan = (trace.llm?.calls ?? []).some((call) => call.label.startsWith("research-section:"));
+        const sectionTraceStatus = generatedSection.status === "available"
+          ? "available"
+          : generatedSection.status === "failed"
+            ? "failed"
+            : "empty";
+        trace.sections = [{
+          sectionId: requestedSectionId,
+          provenance: sectionLlmRan ? "deep" : "derived",
+          status: sectionTraceStatus,
+          estimatedCostUsd: generationRunAnthropicCostUsd(trace)
+        }];
+        if (sectionLlmRan) {
+          for (const call of trace.llm?.calls ?? []) {
+            if (call.label.startsWith("research-section:")) {
+              call.sectionId = requestedSectionId;
+            }
+          }
+        }
 
         await step.run("upsert-generated-section", () => upsertResearchSection(db, generatedSection));
         await recordEvent(

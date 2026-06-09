@@ -74,7 +74,6 @@ function storedCustomerProofSection(domain: string): ResearchSection {
         text: "Linear has stored customer proof from a prior run [c1].",
         citationIds: ["c1"]
       }],
-      questions: [],
       confidence: "medium"
     },
     citationIds: ["c1"],

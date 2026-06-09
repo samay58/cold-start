@@ -11,7 +11,7 @@ const baseSynthesis = {
   whyItMatters: { text: "Cartesia is relevant because real-time voice is a live infra wedge [c1].", citationIds: ["c1"] },
   bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }],
   bearCase: [{ text: "Competition is intense [needs_verification].", citationIds: [] }],
-  openQuestions: ["Which buyer owns the budget?"]
+  openQuestions: [{ question: "Which buyer owns the budget?", category: "buyer_budget" }]
 } satisfies NonNullable<ColdStartCard["synthesis"]>;
 
 const baseCard: ColdStartCard = {
@@ -52,6 +52,31 @@ const baseCard: ColdStartCard = {
   ],
   synthesis: baseSynthesis
 };
+
+describe("openQuestions back-compat", () => {
+  it("normalizes legacy string open questions to the structured shape on read", () => {
+    const legacyCard = {
+      ...baseCard,
+      synthesis: { ...baseSynthesis, openQuestions: ["What proof of retention exists?"] }
+    } as unknown;
+    const parsed = coldStartCardSchema.parse(legacyCard);
+    expect(parsed.synthesis?.openQuestions).toEqual([
+      { question: "What proof of retention exists?", category: null }
+    ]);
+  });
+
+  it("keeps legacy string open questions readable through stripUnsupportedSynthesis", () => {
+    const legacyCard = coldStartCardSchema.parse({
+      ...baseCard,
+      synthesis: { ...baseSynthesis, openQuestions: ["What proof of retention exists?", "Who owns the budget?"] }
+    } as unknown);
+    const stripped = stripUnsupportedSynthesis(legacyCard);
+    expect(stripped.synthesis?.openQuestions.map((entry) => entry.question)).toEqual([
+      "What proof of retention exists?",
+      "Who owns the budget?"
+    ]);
+  });
+});
 
 describe("publicCard", () => {
   it("omits synthesis from the public tier", () => {

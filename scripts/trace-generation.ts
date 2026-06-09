@@ -241,6 +241,14 @@ function printDetail(row: Row) {
     }
   }
 
+  if (trace.sections && trace.sections.length > 0) {
+    console.log("\nsections");
+    for (const section of trace.sections) {
+      const cost = section.estimatedCostUsd !== undefined ? ` ~$${section.estimatedCostUsd.toFixed(4)} anthropic` : "";
+      console.log(`- ${section.sectionId}: ${section.provenance} (${section.status})${cost}`);
+    }
+  }
+
   if (trace.providers) {
     const emailDiscovery = trace.providers.emailDiscovery;
     if (Array.isArray(emailDiscovery) && emailDiscovery.length > 0) {

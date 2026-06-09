@@ -113,7 +113,7 @@ const card: ColdStartCard = {
     whyItMatters: { text: "Cartesia is relevant because real-time voice is a live infra wedge [c1].", citationIds: ["c1"] },
     bullCase: [{ text: "The company has a credible infra wedge [c1].", citationIds: ["c1"] }],
     bearCase: [],
-    openQuestions: ["Which buyer owns the budget?"]
+    openQuestions: [{ question: "Which buyer owns the budget?", category: "buyer_budget" }]
   }
 };
 

@@ -177,7 +177,7 @@ function cardWithSynthesis(domain: string): ColdStartCard {
       whyItMatters: { text: "The company has a supported wedge [c1].", citationIds: ["c1"] },
       bullCase: [{ text: "Demand is visible in cited sources [c1].", citationIds: ["c1"] }],
       bearCase: [],
-      openQuestions: ["Who owns the budget?"]
+      openQuestions: [{ question: "Who owns the budget?", category: "buyer_budget" }]
     }
   };
 }
@@ -1115,7 +1115,7 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).not.toContain("Getting the profile ready");
     expect(container.textContent).toContain("Starter profile ready");
     expect(container.textContent).toContain("Filling in contacts/details");
-    expect(container.textContent).toContain("9 waiting");
+    expect(container.textContent).toContain("10 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -1417,7 +1417,7 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Research filed");
     expect(container.textContent).toContain("35 sources");
-    expect(container.textContent).toContain("9 of 9 sections");
+    expect(container.textContent).toContain("8 of 10 sections");
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     expect(container.textContent).not.toContain("Filed the profile");
     await unmount();
@@ -1700,7 +1700,6 @@ describe("SidePanel generation gate", () => {
           text: "Teams are replacing brittle manual tracking [c1].",
           citationIds: ["c1"]
         }],
-        questions: [],
         confidence: "medium"
       },
       citationIds: ["c1"],
@@ -1794,7 +1793,6 @@ describe("SidePanel generation gate", () => {
           text: "Issue tracking is where product teams coordinate work [c1].",
           citationIds: ["c1"]
         }],
-        questions: [],
         confidence: "medium"
       },
       citationIds: ["c1"],

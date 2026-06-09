@@ -87,11 +87,38 @@ export const marketStructureAndTimingSchema = z.object({
   timingRisk: sourcedTextSchema.nullable()
 });
 
+// Fixed, shared taxonomy for open questions. The model assigns one category per
+// question so the labels stay consistent across every card; a client-side keyword
+// guess would not. `null` is reserved for legacy cards generated before categories.
+export const questionCategorySchema = z.enum([
+  "buyer_budget",
+  "adoption_proof",
+  "durability",
+  "unit_economics",
+  "technical_edge",
+  "market_timing",
+  "trust_regulation"
+]);
+export type QuestionCategory = z.infer<typeof questionCategorySchema>;
+
+export const openQuestionSchema = z.object({
+  question: z.string().min(1),
+  category: questionCategorySchema.nullable().catch(null)
+});
+export type OpenQuestion = z.infer<typeof openQuestionSchema>;
+
+// Tolerant read shape: accept a legacy bare string (pre-category cards) or a
+// structured entry, and normalize both to { question, category }.
+const openQuestionEntrySchema = z.union([
+  openQuestionSchema,
+  z.string().min(1).transform((question): OpenQuestion => ({ question, category: null }))
+]);
+
 export const synthesisSchema = z.object({
   whyItMatters: sourcedTextSchema,
   bullCase: z.array(sourcedTextSchema),
   bearCase: z.array(sourcedTextSchema),
-  openQuestions: z.array(z.string().min(1)),
+  openQuestions: z.array(openQuestionEntrySchema),
   marketStructureAndTiming: marketStructureAndTimingSchema.optional()
 });
 

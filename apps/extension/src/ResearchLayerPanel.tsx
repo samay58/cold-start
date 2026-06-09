@@ -13,6 +13,7 @@ import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
 import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
+  isSynthesisLayer,
   layerDisplayForCard,
   layersForCard,
   type ResearchLayerDisplay,
@@ -736,6 +737,14 @@ function LayerContent({
         </>
       );
     }
+    if (display.id === "theCase") {
+      return (
+        <>
+          <TheCaseLayerItems items={evidenceItems} />
+          {sourceChips}
+        </>
+      );
+    }
     return (
       <>
         {evidenceItems.length > 0 ? (
@@ -760,7 +769,7 @@ function LayerContent({
             <ol>
               {questionItems.map((item) => (
                 <li key={`${item.title}-${item.body ?? ""}`}>
-                  <span>{item.title.replace(/^Question\s+/i, "")}</span>
+                  <span className="cs-question-tag">{item.title}</span>
                   {item.body ? <p>{item.body}</p> : null}
                 </li>
               ))}
@@ -842,6 +851,31 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
         </li>
       ))}
     </ol>
+  );
+}
+
+function TheCaseLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
+  const bull = items.filter((item) => item.meta === "bull");
+  const bear = items.filter((item) => item.meta === "bear");
+  return (
+    <div className="cs-layer-case" aria-label="Bull and bear case">
+      {bull.length > 0 ? (
+        <section className="cs-layer-case-side cs-layer-case-bull">
+          <h4>Bull</h4>
+          <ul>
+            {bull.map((item) => <li key={item.body}>{item.body}</li>)}
+          </ul>
+        </section>
+      ) : null}
+      {bear.length > 0 ? (
+        <section className="cs-layer-case-side cs-layer-case-bear">
+          <h4>Bear</h4>
+          <ul>
+            {bear.map((item) => <li key={item.body}>{item.body}</li>)}
+          </ul>
+        </section>
+      ) : null}
+    </div>
   );
 }
 
@@ -1296,7 +1330,9 @@ export function ResearchLayerPanel({
       return next;
     });
     setExpandedLayerId(id);
-    if (display && shouldQueueLayerRun(display.status) && !profileRun) {
+    // Open Questions and The Case come from the consolidated synthesis (investor lens),
+    // not a per-section run, so activating them must not queue a section job.
+    if (display && shouldQueueLayerRun(display.status) && !profileRun && !isSynthesisLayer(id)) {
       onRunSection(id);
     }
   }
@@ -1368,7 +1404,7 @@ export function ResearchLayerPanel({
   const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
   const finalizingProfileVisible = Boolean(contactRun && !profileRun);
   const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
-  const resolvedSectionCount = sections?.filter((section) => section.status !== "not_started" && section.status !== "running").length ?? 0;
+  const resolvedSectionCount = layers.filter((layer) => layer.availability !== "needs-analysis").length;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
     ? "Release to file it in Research"
@@ -1442,13 +1478,17 @@ export function ResearchLayerPanel({
             const layer = layers.find((candidate) => candidate.id === id);
             const refreshing = Boolean(activeSectionRun?.layerId === id);
             const queued = queuedLayerIds.includes(id);
+            // Open Questions and The Case come from the consolidated synthesis, so while an
+            // analysis run is active they wait behind the investor lens instead of firing a
+            // per-section run of their own.
+            const waitingForLens = Boolean(isSynthesisLayer(id) && display.status === "needs-analysis" && analysisRun);
             const waitingForProfile = Boolean(profileRun && display.status !== "populated");
             const running = Boolean(
               waitingForProfile ||
               display.status === "running" ||
               (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun))
             );
-            const visiblyQueued = queued && !running && !refreshing;
+            const visiblyQueued = (queued || waitingForLens) && !running && !refreshing;
             const queuedBehindAnalysis = visiblyQueued && Boolean(analysisRun);
             const queuedBehindSection = visiblyQueued && Boolean(activeSectionRun);
             const expanded = expandedLayerId === id;

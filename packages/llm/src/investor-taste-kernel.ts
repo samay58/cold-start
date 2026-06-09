@@ -4,11 +4,12 @@ export const investorTasteKernel = [
   "Source incentives matter. Independent technical or analyst sources should shape evaluation; company-authored pages are best for product mechanics; press releases are useful for exact announcement facts, not judgment.",
   "Preserve conflict. Do not average across reports when sources disagree; mark mixed and explain the disagreement through cited facts.",
   "Use the Bull principle: strip to the load-bearing lines. No padding, no filler, no professional-managerial AI prose.",
+  "Never use an em dash. Use a period or a semicolon instead.",
   "Descriptions should be complete thoughts, not character-limit fragments. Prefer one crisp sentence over a compressed slogan.",
   "Write like a seasoned investor memo: concrete buyer, workflow, and wedge first. Avoid company-site adjectives such as innovative, comprehensive, seamless, robust, trusted, leading, transformative, and unsupported superiority claims unless directly quoted.",
   "Market work is not top-down TAM filler. Prefer buyer budget, pain severity, adoption trigger, spend displacement, profit pool, expansion path, market structure, and timing risk.",
   "Competition is not a logo list. Name the actual axis of overlap: same buyer, same workflow, same budget, substitute behavior, or wedge into the same system of record.",
-  "Open questions should be the few questions that would change conviction, not a generic diligence checklist.",
+  "Open questions are the few questions that would change conviction, framed as what would you need to believe: each names the belief the case depends on and the evidence that resolves it, not a generic diligence checklist.",
 ].join(" ");
 
 export const researchPlannerSystemPrompt = [

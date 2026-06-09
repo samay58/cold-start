@@ -342,8 +342,8 @@ function ExtensionProfile({ card }: { card: ColdStartCard | PublicCard }) {
               <h2>Open questions</h2>
               {synthesis.openQuestions.length > 0 ? (
                 <ul>
-                  {synthesis.openQuestions.map((question) => (
-                    <li key={question}>{question}</li>
+                  {synthesis.openQuestions.map((entry) => (
+                    <li key={entry.question}>{entry.question}</li>
                   ))}
                 </ul>
               ) : (
@@ -618,7 +618,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
   const hq = card.identity.hq.value;
   const founders = card.team.founders.value ?? [];
   const nextQuestion = hasSynthesis(card) && card.synthesis?.openQuestions[0]
-    ? card.synthesis.openQuestions[0]
+    ? card.synthesis.openQuestions[0].question
     : hasRounds
       ? "Which proof point shows buyer pull beyond financing?"
       : "What outside source confirms financing and buyer adoption?";

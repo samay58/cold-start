@@ -11,7 +11,7 @@ describe("preserveExistingBasics", () => {
         whyItMatters: { text: "Cited thesis [c1].", citationIds: ["c1"] },
         bullCase: [{ text: "Bull case [c1].", citationIds: ["c1"] }],
         bearCase: [{ text: "Bear case [c1].", citationIds: ["c1"] }],
-        openQuestions: ["What must be checked next?"],
+        openQuestions: [{ question: "What must be checked next?", category: "buyer_budget" }],
       },
     };
     const next = buildSkeletonCard("cognition.ai");
@@ -26,7 +26,7 @@ describe("preserveExistingBasics", () => {
         whyItMatters: { text: "Old cited thesis [c1].", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
-        openQuestions: ["Old question?"],
+        openQuestions: [{ question: "Old question?", category: "buyer_budget" }],
       },
     };
     const next = {
@@ -35,7 +35,7 @@ describe("preserveExistingBasics", () => {
         whyItMatters: { text: "Fresh cited thesis [c2].", citationIds: ["c2"] },
         bullCase: [{ text: "Fresh bull case [c2].", citationIds: ["c2"] }],
         bearCase: [],
-        openQuestions: ["Fresh question?"],
+        openQuestions: [{ question: "Fresh question?", category: "buyer_budget" }],
       },
     };
 

@@ -79,7 +79,7 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
 }
 
 describe("research section registry", () => {
-  it("defines the nine visible research sections", () => {
+  it("defines the visible research sections", () => {
     expect(RESEARCH_SECTION_DEFINITIONS.map((section) => section.id)).toEqual([
       "buyer",
       "customer_proof",
@@ -89,7 +89,8 @@ describe("research section registry", () => {
       "product",
       "why_it_matters",
       "market",
-      "risks"
+      "risks",
+      "the_case"
     ]);
   });
 
@@ -182,7 +183,7 @@ describe("research section registry", () => {
       storedSections: [stored]
     });
 
-    expect(sections).toHaveLength(9);
+    expect(sections).toHaveLength(10);
     expect(sections.find((section) => section.sectionId === "why_it_matters")).toMatchObject({
       status: "running",
       runId: "run-1"

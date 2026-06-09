@@ -177,7 +177,7 @@ describe("GET /api/extension/bootstrap", () => {
         }
       }
     });
-    expect(body.sections).toHaveLength(9);
+    expect(body.sections).toHaveLength(10);
     expect(body.sections.find((section: { sectionId: string }) => section.sectionId === "why_it_matters")).toMatchObject(sections[0]);
     expect(JSON.stringify(body)).not.toContain("traceJson");
     expect(mocks.retireStaleGenerationRuns).toHaveBeenCalledWith(mocks.db, { slug: "cartesia", mode: "basics" });

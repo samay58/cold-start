@@ -75,7 +75,7 @@ function cardWithSynthesis(domain: string): ColdStartCard {
       whyItMatters: { text: "Linear has a cited wedge [c1].", citationIds: ["c1"] },
       bullCase: [{ text: "The product has cited demand [c1].", citationIds: ["c1"] }],
       bearCase: [],
-      openQuestions: ["Who owns budget?"]
+      openQuestions: [{ question: "Who owns budget?", category: "buyer_budget" }]
     }
   };
 }
