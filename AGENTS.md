@@ -23,7 +23,7 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
 - `experiments/`: exploratory work outside the npm workspace graph. Treat `experiments/activegraph-coldstart` as scratch unless it is promoted into a deterministic eval.
 
-Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`, currently `generate-status-events-v1`); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
+Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
 ## Common Commands
 
@@ -83,7 +83,7 @@ npm run dev:full
 ## Auth And Deployment Notes
 
 - Local extension setup can use API origin `http://localhost:3000` and API token `local-extension-token` only when the extension is explicitly built for local development.
-- Current default extension and internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`.
+- Current public web origin is `https://cold-start.semitechie.vc`. The extension API fallback and internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`.
 - Deployed extension setup uses the token in `.vercel/extension-api-token.production.local`. Its value must match Vercel `EXTENSION_API_TOKEN`.
 - `VITE_COLD_START_API_ORIGIN` is a build-time extension variable, not a deployed web-app runtime variable.
 - Restart `dev:full` after changing extension auth env vars. A running Next process will not pick them up.
@@ -110,6 +110,7 @@ npm run dev:full
 - Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The traced helper attaches the `extended-cache-ttl-2025-04-11` beta header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m`. Verify with `npm run verify:cache-ttl` after SDK upgrades.
 - `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed StableEnrich calls do not retry by design: AgentCash is paid per-call, so blind retry on opaque CLI errors can multiply cost on both transient and non-transient failures.
 - Generation-run `traceJson` is validated via `generationTraceSchema.safeParse` at read time. Corrupt rows produce `traceJson: null` with a structured warn, never a malformed object downstream.
+- `ANTHROPIC_MODEL` sets the default model for every LLM stage; `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages (see README "Cost And Model Controls").
 
 ## Where To Look First
 

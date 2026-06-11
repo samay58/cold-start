@@ -23,7 +23,7 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
 - `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 
-Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`, currently `generate-status-events-v1`); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
+Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
 ## Common Commands
 
@@ -102,7 +102,7 @@ npm run dev:full
 ## Auth And Deployment Notes
 
 - Local extension setup can use API origin `http://localhost:3000` and API token `local-extension-token` only when the extension is explicitly built for local development.
-- Current default extension and internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`.
+- Current public web origin is `https://cold-start.semitechie.vc`. The extension API fallback and internal deployed origin is `https://cold-start-samay58s-projects.vercel.app`.
 - Deployed extension setup uses the token in `.vercel/extension-api-token.production.local`. Its value must match Vercel `EXTENSION_API_TOKEN`.
 - `VITE_COLD_START_API_ORIGIN` is a build-time extension variable, not a deployed web-app runtime variable.
 - Restart `dev:full` after changing extension auth env vars. A running Next process will not pick them up.
@@ -118,7 +118,7 @@ npm run dev:full
 - Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
 - Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
 - Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
-- `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only — do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
+- `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only; do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
 - Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). The pipeline records mode as `jobKind` in generation traces. `analysis` runs require synthesis to be present (see commit `249e606`).
 - The extension and API share a contract version pinned in `packages/core/api-contract.json`. Web responses send `x-cold-start-api-contract`; extension requests send `x-cold-start-client-contract`. Bump the version and rebuild the extension whenever route shapes change.
 - When adding a card field, update schema, extraction, pipeline assembly, and UI together.
@@ -128,6 +128,7 @@ npm run dev:full
 - ESLint uses flat config at the repo root (`eslint.config.mjs`). New packages inherit root rules unless they add their own config.
 - Provider endpoint cost, timeout, and stop conditions are registered in `packages/providers/src/provider-budget.ts`. Wire new stableenrich endpoints there before adding them to the pipeline.
 - Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions.
+- `ANTHROPIC_MODEL` sets the default model for every LLM stage; `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages (see README "Cost And Model Controls").
 - Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The `createTracedAnthropicMessage` helper attaches the `anthropic-beta: extended-cache-ttl-2025-04-11` header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m` to roll back without redeploy. Verify with `npm run verify:cache-ttl` after SDK upgrades.
 - `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed stableenrich calls do not retry by design: AgentCash is paid per-call, so a blind retry on opaque CLI errors can multiply cost on transient AND non-transient failures. Failures are recorded as structured `StableenrichProbeFailure` entries in `allSettledLimited` results; the pipeline degrades gracefully on them.
 - Generation-run `traceJson` is validated via `generationTraceSchema.safeParse` at read time. Corrupt rows produce `traceJson: null` with a structured warn, never a malformed object downstream.
