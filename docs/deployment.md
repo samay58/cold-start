@@ -8,7 +8,7 @@ Current internal API origin:
 https://cold-start-samay58s-projects.vercel.app
 ```
 
-The future custom domain target remains `https://coldstart.semitechie.vc`. Use the Vercel project URL above until DNS is wired and `NEXT_PUBLIC_WEB_ORIGIN` is changed deliberately.
+The public web origin is `https://cold-start.semitechie.vc` (live; `NEXT_PUBLIC_WEB_ORIGIN` and the code default in `apps/web/src/lib/site-origin.ts` both point at it). The Vercel project URL above remains the extension API fallback and internal testing origin.
 
 ## Recommended Shape
 
@@ -141,7 +141,7 @@ STABLEENRICH_AGENTCASH_TIMEOUT_MS
 For current internal production testing:
 
 ```text
-NEXT_PUBLIC_WEB_ORIGIN=https://cold-start-samay58s-projects.vercel.app
+NEXT_PUBLIC_WEB_ORIGIN=https://cold-start.semitechie.vc
 PUBLIC_GENERATION_ENABLED=false
 ALLOWED_EXTENSION_ORIGINS=chrome-extension://<your-loaded-extension-id>
 CHROME_EXTENSION_ID=<your-loaded-extension-id>
