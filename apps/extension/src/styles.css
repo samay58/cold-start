@@ -2500,8 +2500,7 @@ button {
   overflow: hidden;
 }
 
-.cs-layer-money-ledger li,
-.cs-layer-signal-ledger li {
+.cs-layer-money-ledger li {
   display: grid;
   grid-template-columns: 68px minmax(0, 1fr);
   gap: 11px;
@@ -2513,22 +2512,19 @@ button {
   border-top: 1px solid rgb(204 199 184 / 0.58);
 }
 
-.cs-layer-money-ledger li > span,
-.cs-layer-signal-ledger time {
+.cs-layer-money-ledger li > span {
   color: rgb(23 26 31 / 0.52);
   font: 560 10px/1.25 var(--font-text);
   letter-spacing: 0.04em;
 }
 
-.cs-layer-money-ledger li strong,
-.cs-layer-signal-ledger strong {
+.cs-layer-money-ledger li strong {
   display: block;
   color: var(--color-ink);
   font: 720 12.5px/1.22 var(--font-body);
 }
 
-.cs-layer-money-ledger li p,
-.cs-layer-signal-ledger span {
+.cs-layer-money-ledger li p {
   display: block;
   margin: 4px 0 0;
   color: rgb(23 26 31 / 0.64);
@@ -2536,19 +2532,67 @@ button {
   line-height: 1.35;
 }
 
+/* Signals: one row per event, headline first, metadata quiet beneath it. */
 .cs-layer-signal-ledger li {
-  grid-template-columns: 76px minmax(0, 1fr);
+  display: block;
+  padding: 10px 12px 9px;
 }
 
-.cs-layer-signal-ledger time::before {
+.cs-layer-signal-ledger strong {
+  display: block;
+  color: var(--color-ink);
+  font: 600 13px/1.4 var(--font-body);
+  letter-spacing: -0.005em;
+}
+
+.cs-layer-signal-ledger li > p {
+  margin: 3px 0 0;
+  color: rgb(23 26 31 / 0.66);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.cs-signal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 7px;
+  margin-top: 5px;
+  color: rgb(23 26 31 / 0.56);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.cs-signal-dot {
   display: inline-block;
+  flex: none;
   width: 6px;
   height: 6px;
-  margin-right: 6px;
   border-radius: 2px;
   background: var(--color-reported);
-  content: "";
-  vertical-align: 1px;
+}
+
+.cs-signal-dot[data-class="independent"] {
+  background: var(--color-verified);
+}
+
+.cs-signal-dot[data-class="company"] {
+  background: var(--color-company);
+}
+
+.cs-signal-meta time {
+  color: rgb(23 26 31 / 0.58);
+  font: 560 10px/1.3 var(--font-text);
+  letter-spacing: 0.04em;
+}
+
+.cs-signal-corroboration {
+  padding: 1.5px 5px;
+  border: 1px solid rgb(110 92 158 / 0.42);
+  border-radius: 4px;
+  color: var(--color-seal);
+  font: 600 9.5px/1.3 var(--font-text);
+  letter-spacing: 0.05em;
 }
 
 .cs-intake-panel .cs-panel-header h1 {

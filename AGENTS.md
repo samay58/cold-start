@@ -56,6 +56,7 @@ npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles
 npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)
 npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
 npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
+npm run repair:signal-clusters          # tsx scripts/repair-signal-clusters.ts (re-cluster stored card signals; --apply to write, --slug for one card)
 npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
 npm run verify:cache-ttl                # tsx scripts/verify-cache-ttl.ts (confirm 1h Anthropic cache header)
 npm run evo:generation-benchmark        # cost/latency report over recent runs; add --gate to fail on regression
@@ -119,6 +120,7 @@ npm run dev:full
 - `packages/core/src/card.ts` is load-bearing. Every non-null citation-bearing fact needs citation refs, and every ref must resolve to the top-level `citations[]`.
 - Public reads derive from `cards.card_json` at request time (the legacy `public_card_json` compatibility column was dropped in migration 0006).
 - Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
+- Signals are one-per-event with corroboration carried in `citationIds`: duplicate coverage of the same announcement is clustered by `clusterSignals` (`packages/core/src/signal-clusters.mjs`, plain dependency-free JS shared verbatim with the eval scorer), applied in `finalizeGeneratedCard` and `cardWithExtractedSections`, capped at 6, ordered date-descending. The UI derives corroboration counts from `citationIds.length`; the provider-matrix report tracks a distinct-event ratio so one-signal-per-article extraction can never pass silently.
 - Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
 - `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only; do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
 - Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). The pipeline records mode as `jobKind` in generation traces. `analysis` runs require synthesis to be present (see commit `249e606`).

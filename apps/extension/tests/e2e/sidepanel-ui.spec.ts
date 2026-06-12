@@ -3,6 +3,7 @@ import {
   browserbaseCard,
   browserbaseCardWithSynthesis,
   fulfillJson,
+  granolaCard,
   installChromeShim,
   mockExtensionApi
 } from "./fixtures";
@@ -35,6 +36,37 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByText("[c1]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
+});
+
+test("granola signals module clusters duplicate raise coverage into corroborated events", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "granola.ai" });
+  await mockExtensionApi(page, granolaCard());
+  await openSidePanel(page);
+
+  await expect(page.getByRole("heading", { name: "Granola" })).toBeVisible();
+  const dormantSignals = page.locator(".cs-dormant-card", { hasText: "Signals" });
+  await dormantSignals.scrollIntoViewIfNeeded();
+  await dormantSignals.focus();
+  await page.keyboard.press("Enter");
+
+  const active = page.locator('.cs-active-enrichment[data-layer-id="signals"]');
+  await expect(active).toBeVisible();
+  await expect(active).toHaveAttribute("data-expanded", "true");
+
+  // 10 raw signals, 8 covering the same raise: the module renders 3 events with honest counts.
+  await expect(active.locator(".cs-active-enrichment-head small")).toHaveText("3 events · 10 sources");
+  const rows = active.locator(".cs-layer-signal-ledger li");
+  await expect(rows).toHaveCount(3);
+  await expect(active.getByText("×8 corroborated")).toBeVisible();
+  // Headlines lead each row; category words stay in the quiet metadata line, never bolded.
+  await expect(rows.locator("strong").first()).not.toHaveText(/^(funding|news|launch|hiring|filing|github|other)$/);
+  await expect(active.getByText("Granola raises $125M at $1.5B valuation", { exact: false })).toBeVisible();
+  await expect(rows.filter({ hasText: "raises $125M" })).toHaveCount(1);
+
+  await active.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(450);
+  await active.screenshot({ path: "/private/tmp/cold-start-granola-signals.png" });
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-granola-panel.png" });
 });
 
 test("summary tooltip opens from keyboard focus and clears on blur", async ({ page }) => {

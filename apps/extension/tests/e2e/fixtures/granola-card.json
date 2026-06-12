@@ -1,0 +1,458 @@
+{
+  "slug": "granola",
+  "domain": "granola.ai",
+  "generatedAt": "2026-06-12T16:00:00.150Z",
+  "generationCostUsd": 0.0176,
+  "cacheStatus": "hit",
+  "identity": {
+    "hq": {
+      "value": {
+        "city": "London",
+        "country": "United Kingdom"
+      },
+      "status": "inferred",
+      "confidence": "medium",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "name": {
+      "value": "Granola",
+      "status": "inferred",
+      "confidence": "high",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "status": "private",
+    "logoUrl": "https://zenprospect-production.s3.amazonaws.com/uploads/pictures/69ae04d722a43f0001cdc017/picture",
+    "oneLiner": {
+      "value": "Granola is an AI-powered notepad designed to enhance meeting notes with background transcription and AI augmentation.",
+      "status": "inferred",
+      "confidence": "medium",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "websiteUrl": {
+      "value": "http://www.granola.ai",
+      "status": "inferred",
+      "confidence": "high",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "description": {
+      "value": {
+        "serves": null,
+        "concept": null,
+        "mechanism": null,
+        "shortDescription": "Granola is an AI-powered notepad designed to enhance meeting notes with background transcription and AI augmentation."
+      },
+      "status": "inferred",
+      "confidence": "medium",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "foundedYear": {
+      "value": 2023,
+      "status": "inferred",
+      "confidence": "medium",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "linkedinUrl": {
+      "value": "http://www.linkedin.com/company/meetgranola",
+      "status": "inferred",
+      "confidence": "medium",
+      "citationIds": [
+        "p1"
+      ]
+    }
+  },
+  "funding": {
+    "rounds": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "low",
+      "citationIds": []
+    },
+    "investors": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "low",
+      "citationIds": []
+    },
+    "lastRound": {
+      "value": {
+        "name": "Series C",
+        "amountUsd": null,
+        "announcedAt": "2026-03-01T00:00:00.000+00:00",
+        "leadInvestors": []
+      },
+      "status": "inferred",
+      "confidence": "low",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    "totalRaisedUsd": {
+      "value": 196920000,
+      "status": "inferred",
+      "confidence": "low",
+      "citationIds": [
+        "p1"
+      ]
+    }
+  },
+  "team": {
+    "founders": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "low",
+      "citationIds": []
+    },
+    "keyExecs": {
+      "value": null,
+      "status": "unknown",
+      "confidence": "low",
+      "citationIds": []
+    },
+    "headcount": {
+      "value": {
+        "asOf": "2026-06-12",
+        "value": 120
+      },
+      "status": "inferred",
+      "confidence": "low",
+      "citationIds": [
+        "p1"
+      ]
+    }
+  },
+  "signals": [
+    {
+      "url": "https://thenextweb.com/news/granola-series-c-meeting-ai-enterprise-context",
+      "date": "2026-03-25",
+      "title": "Granola raises $125M at $1.5B valuation to turn meetings into enterprise AI context",
+      "source": "TNW",
+      "category": "funding",
+      "citationIds": [
+        "e1"
+      ]
+    },
+    {
+      "url": "https://techcrunch.com/2026/03/25/granola-raises-125m-hits-1-5b-valuation-as-it-expands-from-meeting-notetaker-to-enterprise-ai-app/",
+      "date": "2026-03-25",
+      "title": "Granola raises $125M, hits $1.5B valuation as it expands from meeting notetaker to enterprise AI app",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": [
+        "e2"
+      ]
+    },
+    {
+      "url": "https://tech.eu/2026/03/25/granola-raises-125m-at-1-5bn-valuation/",
+      "date": "2026-03-25",
+      "title": "Granola raises $125M at $1.5BN valuation",
+      "source": "Tech.eu",
+      "category": "funding",
+      "citationIds": [
+        "e3"
+      ]
+    },
+    {
+      "url": "https://www.granola.ai/blog/series-c",
+      "date": "2026-03-25",
+      "title": "Granola raises $125M to put your company's context to work",
+      "source": "Granola (company blog)",
+      "category": "funding",
+      "citationIds": [
+        "e13"
+      ]
+    },
+    {
+      "url": "https://venturebeat.com/business/granola-launches-ai-workspace-for-teams-and-raises-43m-series-b",
+      "date": "2025-05-14",
+      "title": "Granola Launches AI Workspace for Teams and Raises $43M Series B",
+      "source": "VentureBeat",
+      "category": "funding",
+      "citationIds": [
+        "e4"
+      ]
+    },
+    {
+      "url": "https://pathfounders.com/p/after-hitting-a-1-5-billion-valuation-granolas-next-move",
+      "date": "2026-03-27",
+      "title": "After hitting a $1.5 Billion valuation, Granola's next move could be company-specific AI models",
+      "source": "Pathfounders",
+      "category": "news",
+      "citationIds": [
+        "e6"
+      ]
+    },
+    {
+      "url": "https://www.reworked.co/digital-workplace/granola-raises-125m-launches-enterprise-context-tools/",
+      "date": "2026-03-25",
+      "title": "Granola Lands $125M to Turn Meetings Into AI Memory",
+      "source": "Reworked",
+      "category": "news",
+      "citationIds": [
+        "e7"
+      ]
+    },
+    {
+      "url": "https://technotrenz.com/news/granola-raises-125m/",
+      "date": "2026-03-26",
+      "title": "Granola Raises $125M, Achieves $1.5B Valuation",
+      "source": "technotrenz.com",
+      "category": "funding",
+      "citationIds": [
+        "p2"
+      ]
+    },
+    {
+      "url": "https://worktechjournal.com/granola-series-c-spaces-api-mcp-team-notes/",
+      "date": "2026-05-08",
+      "title": "Granola Raises $125M, Launches Spaces, API, and MCP for Team Note Sharing – WORKTECHJOURNAL",
+      "source": "worktechjournal.com",
+      "category": "launch",
+      "citationIds": [
+        "p3"
+      ]
+    },
+    {
+      "url": "https://www.epicenter.to/p/building-a-wrapper-that-lasts",
+      "date": "2026-05-04",
+      "title": "Granola AI: How a Meeting Notes App Became a $1.5B Company",
+      "source": "epicenter.to",
+      "category": "news",
+      "citationIds": [
+        "p4"
+      ]
+    }
+  ],
+  "comparables": [
+    {
+      "name": "Fireflies.ai",
+      "basis": "Same buyer (knowledge workers), same workflow (meeting transcription and notes), same budget (productivity tools). Fireflies has 16M+ users and a $1B valuation. Granola differentiates on no-bot approach.",
+      "domain": "fireflies.ai",
+      "oneLiner": "AI meeting assistant that joins calls as a bot to transcribe, summarize, and search conversations.",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e7"
+      ]
+    },
+    {
+      "name": "Otter.ai",
+      "basis": "Same buyer and workflow. Otter has been in market since 2016 with significant brand recognition.",
+      "domain": "otter.ai",
+      "oneLiner": "AI meeting transcription and note-taking service that joins calls as a bot.",
+      "confidence": "high",
+      "citationIds": [
+        "e1"
+      ]
+    },
+    {
+      "name": "Read AI",
+      "basis": "Same buyer and workflow. Read AI is also moving toward action-oriented features beyond notes.",
+      "domain": "read.ai",
+      "oneLiner": "AI meeting intelligence platform providing summaries, analytics, and action items.",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e6"
+      ]
+    },
+    {
+      "name": "Quill",
+      "basis": "Same buyer and workflow.",
+      "domain": "quill.chat",
+      "oneLiner": "AI meeting assistant that provides transcription, summaries, and integrations.",
+      "confidence": "medium",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e6"
+      ]
+    },
+    {
+      "name": "Glean",
+      "basis": "Approaches the same problem from enterprise knowledge management side; potential overlap as Granola positions as a context layer.",
+      "domain": "glean.com",
+      "oneLiner": "Enterprise AI search and knowledge management platform.",
+      "confidence": "medium",
+      "citationIds": [
+        "e1"
+      ]
+    },
+    {
+      "name": "Mem.ai",
+      "basis": "Approaches meeting context from knowledge management angle.",
+      "domain": "mem.ai",
+      "oneLiner": "AI-powered workspace for notes and knowledge management.",
+      "confidence": "medium",
+      "citationIds": [
+        "e1"
+      ]
+    }
+  ],
+  "citations": [
+    {
+      "id": "e1",
+      "url": "https://thenextweb.com/news/granola-series-c-meeting-ai-enterprise-context",
+      "title": "Granola raises $125M at $1.5B valuation to turn meetings into enterprise AI context | TNW",
+      "snippet": "Granola, the London-based AI meeting app that records conversations without dropping a bot into the call, has raised $125 million in a Series C round led by Danny Rimer at Index Ventures, with participation from Mamoon Hamid at Kleiner Perkins. The round values the company at $1.5 billion, a sixfold increase from its $250 million valuation less than a year ago, and brings total funding to $192 million.",
+      "fetchedAt": "2026-06-12T15:58:23.291Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e2",
+      "url": "https://techcrunch.com/2026/03/25/granola-raises-125m-hits-1-5b-valuation-as-it-expands-from-meeting-notetaker-to-enterprise-ai-app/",
+      "title": "Granola raises $125M, hits $1.5B valuation as it expands from meeting notetaker to enterprise AI app | TechCrunch",
+      "snippet": "Users might not like bots in meetings visibly taking notes, but a lot of them don't mind if an app on someone's computer is doing the transcription. That's the core reason behind Granola's popularity, which helped it secure $125 million in Series C funding led by Danny Rimer at Index Ventures, with participation from Mamoon Hamid at Kleiner Perkins. This has tipped the company's valuation to $1.5 billion, it said, up from $250 million as of the last round.",
+      "fetchedAt": "2026-06-12T15:58:23.291Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e3",
+      "url": "https://tech.eu/2026/03/25/granola-raises-125m-at-1-5bn-valuation/",
+      "title": "Granola raises $125M at $1.5BN valuation - Tech.eu",
+      "snippet": "Granola, the AI note-taking app, has bagged a $125m funding round, elevating its valuation to $1.5bn, hitting unicorn status, it announced today.",
+      "fetchedAt": "2026-06-12T15:58:23.292Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e4",
+      "url": "https://venturebeat.com/business/granola-launches-ai-workspace-for-teams-and-raises-43m-series-b",
+      "title": "Granola Launches AI Workspace for Teams and Raises $43M Series B | VentureBeat",
+      "snippet": "The launch also coincides with the announcement that Granola has raised $43 million in Series B funding led by Nat Friedman and Daniel Gross from NFDG... Granola was founded in March 2023 by Chris Pedregal and Sam Stephenson... In May 2023 they raised a $4.25M Seed round from Lightspeed Venture Partners, betaworks and FirstMinute, and raised a further $20M Series A in October 2024, led by Spark Capital.",
+      "fetchedAt": "2026-06-12T15:58:23.292Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e5",
+      "url": "https://www.founded.com/granola-ai-note-taking-app-valuation/",
+      "title": "AI note-taking app Granola hits $1.5B valuation, up from $250M in under a year",
+      "snippet": "Granola, a London-based AI note-taking app, has surged to a $1.5 billion valuation just a year after being valued at $250 million, following a fresh $125 million raise.",
+      "fetchedAt": "2026-06-12T15:58:23.292Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e6",
+      "url": "https://pathfounders.com/p/after-hitting-a-1-5-billion-valuation-granolas-next-move",
+      "title": "After hitting a $1.5 Billion valuation, Granola's next move could be company-specific AI models",
+      "snippet": "The UK-based startup raised a $125 million Series C led by Index Ventures, with participation from Kleiner Perkins. Existing investors Lightspeed, Spark, and NFDG also joined. It's now raised $192 million in total.",
+      "fetchedAt": "2026-06-12T15:58:23.292Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e7",
+      "url": "https://www.reworked.co/digital-workplace/granola-raises-125m-launches-enterprise-context-tools/",
+      "title": "Granola Lands $125M to Turn Meetings Into AI Memory",
+      "snippet": "Granola went from a $250 million valuation to a $1.5 billion valuation in under a year. Today the AI note taking tool announced a $125 million Series C led by Danny Rimer at Index Ventures, with participation from Mamoon Hamid at Kleiner Perkins. Existing investors Lightspeed, Spark and NFDG also participated.",
+      "fetchedAt": "2026-06-12T15:58:23.292Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e8",
+      "url": "https://www.granola.ai/",
+      "title": "Granola — The AI Notepad for back-to-back meetings",
+      "snippet": "Granola — The AI Notepad for back-to-back meetings",
+      "fetchedAt": "2026-06-12T15:58:37.723Z",
+      "sourceType": "company_site"
+    },
+    {
+      "id": "e11",
+      "url": "https://linkedin.com/in/pedregal",
+      "title": "Christopher Pedregal",
+      "snippet": "CEO at Granola, Founder of Socratic and Stack (Google)... Granola employs 80 people (+395.2% YoY), founded in 2023. Headquartered in London, United Kingdom.",
+      "fetchedAt": "2026-06-12T15:58:23.291Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e12",
+      "url": "https://linkedin.com/in/jameshfisher",
+      "title": "Jim Fisher",
+      "snippet": "Founding Engineer at Granola... Granola employs 80 people (+395.2% YoY), founded in 2023. Headquartered in London, United Kingdom.",
+      "fetchedAt": "2026-06-12T15:58:23.291Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "e13",
+      "url": "https://www.granola.ai/blog/series-c",
+      "title": "Granola raises $125M to put your company's context to work | Granola",
+      "snippet": "Today we're announcing our $125M Series C at a $1.5bn valuation, led by Danny Rimer at Index Ventures, with participation from Mamoon Hamid at Kleiner Perkins. Our existing investors at Lightspeed, Spark and NFDG have all partnered with us again.",
+      "fetchedAt": "2026-06-12T15:58:23.291Z",
+      "sourceType": "company_site"
+    },
+    {
+      "id": "e16",
+      "url": "agentcash:org_enrichment",
+      "title": "org_enrichment",
+      "snippet": "Granola is an AI-powered notepad designed to enhance meeting notes with background transcription and AI augmentation. Founded in early 2023 by Chris Pedregal and Sam... total_funding: 196.9M",
+      "fetchedAt": "2026-06-12T15:58:37.724Z",
+      "sourceType": "enrichment"
+    },
+    {
+      "id": "p1",
+      "url": "https://stableenrich.dev/api/apollo/org-enrich?domain=granola.ai",
+      "title": "Apollo org enrichment for granola.ai",
+      "snippet": "{\"organization\":{\"id\":\"64402e6d491edb011e16970d\",\"name\":\"Granola\",\"website_url\":\"http://www.granola.ai\",\"angellist_url\":null,\"linkedin_url\":\"http://www.linkedin.com/company/meetgranola\",\"twitter_url\":\"https://twitter.com/meetgranola\",\"facebook_url\":null,\"primary_phone\":{},\"langua",
+      "fetchedAt": "2026-06-12T15:58:37.724Z",
+      "sourceType": "enrichment"
+    },
+    {
+      "id": "p2",
+      "url": "https://technotrenz.com/news/granola-raises-125m/",
+      "title": "Granola Raises $125M, Achieves $1.5B Valuation",
+      "snippet": "{\"id\":\"https://technotrenz.com/news/granola-raises-125m/\",\"title\":\"Granola Raises $125M, Achieves $1.5B Valuation\",\"url\":\"https://technotrenz.com/news/granola-raises-125m/\",\"publishedDate\":\"2026-03-26T13:53:59.000Z\",\"author\":\"Aruna Madrekar\",\"image\":\"https://technotrenz.com/wp-co",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "p3",
+      "url": "https://worktechjournal.com/granola-series-c-spaces-api-mcp-team-notes/",
+      "title": "Granola Raises $125M, Launches Spaces, API, and MCP for Team Note Sharing – WORKTECHJOURNAL",
+      "snippet": "{\"id\":\"https://worktechjournal.com/granola-series-c-spaces-api-mcp-team-notes/\",\"title\":\"Granola Raises $125M, Launches Spaces, API, and MCP for Team Note Sharing – WORKTECHJOURNAL\",\"url\":\"https://worktechjournal.com/granola-series-c-spaces-api-mcp-team-notes/\",\"publishedDate\":\"2",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "p4",
+      "url": "https://www.epicenter.to/p/building-a-wrapper-that-lasts",
+      "title": "Granola AI: How a Meeting Notes App Became a $1.5B Company",
+      "snippet": "{\"id\":\"https://www.epicenter.to/p/building-a-wrapper-that-lasts\",\"title\":\"Granola AI: How a Meeting Notes App Became a $1.5B Company\",\"url\":\"https://www.epicenter.to/p/building-a-wrapper-that-lasts\",\"publishedDate\":\"2026-05-04T13:31:03.000Z\",\"author\":\"Shounak Banerjee\",\"image\":\"h",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "b1",
+      "url": "https://www.startupriders.com/p/granola-growth-playbook",
+      "title": "Granola's Growth Playbook: $0 to $1.5B in 3 Years",
+      "snippet": "Granola's Growth Playbook: $0 to $1.5B in 3 Years",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "b2",
+      "url": "https://www.yipitdata.com/resources/blog/granola-vs-fathom-otter-fireflies-ai-notetaking",
+      "title": "Is Granola the breakout leader in AI note taking? (2026 data) — YipitData",
+      "snippet": "Is Granola the breakout leader in AI note taking? (2026 data) — YipitData",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "news"
+    },
+    {
+      "id": "b3",
+      "url": "agentcash:apollo_people_search",
+      "title": "apollo_people_search",
+      "snippet": "{\"people\":[{\"id\":\"66f2bb628106670001f2f0bc\",\"first_name\":\"Michael\",\"last_name_obfuscated\":\"Al***m\",\"title\":\"COO\"},{\"id\":\"66f856cdf0579b00010c39de\",\"first_name\":\"Nikola\",\"last_name_obfuscated\":\"Ot***c\",\"title\":\"Chief Technology Officer\"},{\"id\":\"66ee41ac06e67b0001eab8cb\",\"first_name\":\"Christopher\",\"last_name_obfuscated\":\"Pe***l\",\"title\":\"CEO\"},{\"id\":\"57def91da6da987af125e7b2\",\"first_name\":\"Sam\",\"last_name_obfuscated\":\"St***n\",\"title\":\"Founder\"},{\"id\":\"60cb6cab7b85eb000175c8ed\",\"first_name\":\"Tikhon\",\"last_name_obfuscated\":\"Be***o\",\"title\":\"Founding Engineer\"},{\"id\":\"66d34a35711bd8000100035d\",\"first_name\":\"Tanya\",\"last_name_obfuscated\":\"Er***a\",\"title\":\"Founding Designer\"},{\"id\":\"57d36f35f651252bf1d3eb23\",\"first_name\":\"Ruari\",\"last_name_obfuscated\":\"Sh***d\",\"title\":\"Founding Designer\"},{\"id\":\"68d646034c29950001a09a3a\",\"first_name\":\"Jonathan\",\"last_name_obfuscated\":\"Me***a\",\"title\":\"Founding Engineer\"},{\"id\":\"5a86f1529d7968a52aff3b99\",\"first_name\":\"Jim\",\"last_name_obfuscated\":\"Fi***r\",\"title\":\"Founding Engineer\"},{\"id\":\"5e87e6ead6abb4000168c49d\",\"first_name\":\"Nyal\",\"last_name_obfuscated\":\"Sa***q\",\"title\":\"Founding Engineer\"}]}",
+      "fetchedAt": "2026-06-12T15:59:47.467Z",
+      "sourceType": "enrichment"
+    }
+  ]
+}

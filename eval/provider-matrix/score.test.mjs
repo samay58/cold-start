@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { aggregate, scoreCitationDiscipline, scoreFillRate, scoreFundingFaithfulness, scoreVerify } from "./score.mjs";
+import { aggregate, scoreCitationDiscipline, scoreFillRate, scoreFundingFaithfulness, scoreSignalRedundancy, scoreVerify } from "./score.mjs";
 
 const fact = (value, citationIds = ["c1"]) => ({ value, status: "verified", confidence: "high", citationIds });
 
@@ -129,6 +129,49 @@ describe("scoreVerify", () => {
     assert.equal(score.falseDropRate, 0.5);
     assert.equal(score.echoViolations, 1);
     assert.equal(score.claimIndexCoverage, 0.5);
+  });
+});
+
+describe("scoreSignalRedundancy", () => {
+  const signal = (title, date, citationId, category = "funding") => ({
+    title,
+    url: `https://example.com/${citationId}`,
+    date,
+    source: "Outlet",
+    category,
+    citationIds: [citationId],
+  });
+
+  it("scores one-signal-per-article extraction well below 1", () => {
+    const score = scoreSignalRedundancy(
+      {
+        signals: [
+          signal("Acme raises $125M at $1.5B valuation", "2026-03-25", "e1"),
+          signal("Acme raises $125M, hits $1.5B valuation", "2026-03-25", "e2"),
+          signal("Acme Raises $125M, Achieves $1.5B Valuation", "2026-03-26", "e3"),
+          signal("Acme launches workspace product", "2026-05-01", "e4", "launch"),
+        ],
+      },
+      { companyDomain: "acme.com" }
+    );
+    assert.equal(score.signalCount, 4);
+    assert.equal(score.eventCount, 2);
+    assert.equal(score.distinctEventRatio, 0.5);
+  });
+
+  it("scores distinct events as 1", () => {
+    const score = scoreSignalRedundancy({
+      signals: [
+        signal("Acme raises $20M Series A", "2024-05-07", "e1"),
+        signal("Acme launches enterprise tier", "2026-02-01", "e2", "launch"),
+      ],
+    });
+    assert.equal(score.distinctEventRatio, 1);
+  });
+
+  it("returns a null ratio when no signals were emitted", () => {
+    assert.equal(scoreSignalRedundancy({ signals: [] }).distinctEventRatio, null);
+    assert.equal(scoreSignalRedundancy({}).distinctEventRatio, null);
   });
 });
 

@@ -1,4 +1,5 @@
 import {
+  clusterSignals,
   type ColdStartCard,
   coldStartCardSchema,
   materializeFundingFromCitations,
@@ -199,6 +200,7 @@ export function finalizeGeneratedCard(card: ColdStartCard): ColdStartCard {
   );
   return {
     ...trusted,
+    signals: clusterSignals(trusted.signals, { companyDomain: trusted.domain, companyName: trusted.identity.name.value }),
     comparables: trusted.comparables.filter((comparable) => isUsableComparableForCompany(trusted, comparable)),
   };
 }

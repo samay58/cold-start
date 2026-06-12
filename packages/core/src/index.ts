@@ -6,6 +6,7 @@ export * from "./generation-quality";
 export * from "./generation-trace";
 export * from "./intelligence";
 export * from "./research-sections";
+export * from "./signal-clusters.mjs";
 export * from "./slug";
 export * from "./source-quality";
 export * from "./trust";

@@ -1,7 +1,10 @@
-// Pure scoring functions for the provider-matrix replay harness. Dependency-free so
-// score.test.mjs runs under the root `node --test eval/**/*.test.mjs` pass. Schema validity is
-// the runner's job (it calls the real stage functions, which zod-parse); these functions judge
-// the parsed output against the frozen bundle and the production reference card.
+// Pure scoring functions for the provider-matrix replay harness. Dependency-free (the one
+// import below is itself plain JS) so score.test.mjs runs under the root
+// `node --test eval/**/*.test.mjs` pass. Schema validity is the runner's job (it calls the real
+// stage functions, which zod-parse); these functions judge the parsed output against the frozen
+// bundle and the production reference card.
+
+import { signalClusterStats } from "../../packages/core/src/signal-clusters.mjs";
 
 function resolvedFactEntries(sections) {
   const entries = [];
@@ -151,11 +154,19 @@ export function scoreFillRate(sections) {
   return { filled, total: fillRateFields.length, fillRate: Number((filled / fillRateFields.length).toFixed(4)) };
 }
 
-export function scoreExtraction({ sections, bundleSourceUrls, bundleText }) {
+// Signal redundancy: how many distinct events the emitted signals describe, clustered with the
+// exact pure function the pipeline uses. A model that extracts one signal per article instead of
+// one per event scores well below 1 here (granola regressed to 0.3 before the pipeline dedup).
+export function scoreSignalRedundancy(sections, options = {}) {
+  return signalClusterStats(sections?.signals ?? [], options);
+}
+
+export function scoreExtraction({ sections, bundleSourceUrls, bundleText, companyDomain }) {
   return {
     citationDiscipline: scoreCitationDiscipline(sections, bundleSourceUrls),
     fundingFaithfulness: scoreFundingFaithfulness(sections, bundleText),
     fillRate: scoreFillRate(sections),
+    signalRedundancy: scoreSignalRedundancy(sections, { companyDomain }),
   };
 }
 

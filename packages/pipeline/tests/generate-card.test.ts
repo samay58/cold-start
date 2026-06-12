@@ -1434,6 +1434,77 @@ describe("finalizeGeneratedCard", () => {
 
     expect(finalizeGeneratedCard(card).identity.name.value).toBeNull();
   });
+
+  it("clusters duplicate raise coverage into one corroborated signal", () => {
+    // The real granola failure shape: one March 2026 raise extracted once per outlet, including
+    // a wrong-date member and a mislabeled launch member, plus one genuinely distinct event.
+    const skeleton = buildSkeletonCard("granola.ai");
+    const citationFor = (id: string, url: string) => ({
+      id,
+      url,
+      title: id,
+      fetchedAt: "2026-06-01T00:00:00.000Z",
+      sourceType: "news" as const,
+    });
+    const card = {
+      ...skeleton,
+      citations: [
+        citationFor("e1", "https://thenextweb.com/news/granola-series-c"),
+        citationFor("e2", "https://techcrunch.com/2026/03/25/granola-raises-125m/"),
+        citationFor("p2", "https://technotrenz.com/news/granola-raises-125m/"),
+        citationFor("p3", "https://worktechjournal.com/granola-series-c-spaces/"),
+        citationFor("e4", "https://venturebeat.com/business/granola-43m-series-b"),
+      ],
+      signals: [
+        {
+          title: "Granola raises $125M at $1.5B valuation to turn meetings into enterprise AI context",
+          url: "https://thenextweb.com/news/granola-series-c",
+          date: "2026-03-25",
+          source: "TNW",
+          category: "funding" as const,
+          citationIds: ["e1"],
+        },
+        {
+          title: "Granola raises $125M, hits $1.5B valuation as it expands from meeting notetaker",
+          url: "https://techcrunch.com/2026/03/25/granola-raises-125m/",
+          date: "2026-03-25",
+          source: "TechCrunch",
+          category: "funding" as const,
+          citationIds: ["e2"],
+        },
+        {
+          title: "Granola Raises $125M, Achieves $1.5B Valuation",
+          url: "https://technotrenz.com/news/granola-raises-125m/",
+          date: "2026-03-26",
+          source: "technotrenz.com",
+          category: "funding" as const,
+          citationIds: ["p2"],
+        },
+        {
+          title: "Granola Raises $125M, Launches Spaces, API, and MCP for Team Note Sharing",
+          url: "https://worktechjournal.com/granola-series-c-spaces/",
+          date: "2026-05-08",
+          source: "worktechjournal.com",
+          category: "launch" as const,
+          citationIds: ["p3"],
+        },
+        {
+          title: "Granola Launches AI Workspace for Teams and Raises $43M Series B",
+          url: "https://venturebeat.com/business/granola-43m-series-b",
+          date: "2025-05-14",
+          source: "VentureBeat",
+          category: "funding" as const,
+          citationIds: ["e4"],
+        },
+      ],
+    };
+
+    const finalized = finalizeGeneratedCard(card);
+    expect(finalized.signals).toHaveLength(2);
+    expect(finalized.signals[0]?.citationIds).toEqual(expect.arrayContaining(["e1", "e2", "p2", "p3"]));
+    expect(finalized.signals[0]?.date).toBe("2026-03-25");
+    expect(finalized.signals[1]?.citationIds).toEqual(["e4"]);
+  });
 });
 
 describe("cardWithExtractedSections", () => {

@@ -1,6 +1,11 @@
 import { createRequire } from "node:module";
 import type { ColdStartCard } from "@cold-start/core";
 import type { Page, Route } from "@playwright/test";
+// Real production card pulled read-only on 2026-06-12: 10 raw signals where 8 cover the same
+// March 2026 $125M raise. The regression fixture for signal corroboration clustering.
+export function granolaCard(): ColdStartCard {
+  return structuredClone(require("./fixtures/granola-card.json")) as ColdStartCard;
+}
 
 export const QA_API_ORIGIN = "https://cold-start-samay58s-projects.vercel.app";
 export const QA_TOKEN = "qa-extension-token";

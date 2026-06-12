@@ -1,6 +1,7 @@
 import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   canRunInvestorAnalysis,
+  clusterSignals,
   fundingEvidenceFromCitations,
   sectionIdForLayer as coreSectionIdForLayer,
   sourceQualityForSource,
@@ -12,7 +13,7 @@ import {
   type ResearchLayerId,
   type ResearchSection
 } from "@cold-start/core";
-import { formatCompactCurrency, formatShortDate, safeExternalHref } from "@cold-start/ui";
+import { formatCompactCurrency, formatMediumDate, formatShortDate, safeExternalHref } from "@cold-start/ui";
 
 export type { ResearchLayerId } from "@cold-start/core";
 
@@ -40,6 +41,9 @@ export type ResearchLayerDisplay = {
     body?: string;
     kind?: "evidence" | "question";
     meta?: string;
+    date?: string;
+    corroboration?: number;
+    sourceClass?: ResearchSourceClass;
   }> | undefined;
   rows?: Array<{
     label: string;
@@ -47,6 +51,8 @@ export type ResearchLayerDisplay = {
   }> | undefined;
   sources: ResearchLayerSourceReference[];
   sourceCount: number;
+  // Honest module-header copy ("3 events · 10 sources"); falls back to the source count.
+  statusLine?: string | undefined;
   status: ResearchLayerDisplayStatus;
 };
 
@@ -198,6 +204,68 @@ function emptyBodyForLayer(id: ResearchLayerId) {
   return RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionIdForLayer(id)].emptyState;
 }
 
+function bestSourceClass(card: ColdStartCard, citationIds: readonly string[]): ResearchSourceClass | undefined {
+  // citationSources orders by source quality, so the first entry carries the strongest class.
+  return citationSources(card, citationIds)[0]?.sourceClass;
+}
+
+function countNoun(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function eventsAndSourcesLine(eventCount: number, sourceCount: number) {
+  return sourceCount > 0
+    ? `${countNoun(eventCount, "event")} · ${countNoun(sourceCount, "source")}`
+    : countNoun(eventCount, "event");
+}
+
+const SIGNAL_CATEGORIES = new Set(["news", "hiring", "launch", "funding", "filing", "github", "other"]);
+const LEGACY_DATED_TITLE = /^(\d{4}-\d{2}(?:-\d{2})?):\s+(.*)$/;
+
+type SectionItem = NonNullable<ResearchSection["content"]>["items"][number];
+type DisplayItem = NonNullable<ResearchLayerDisplay["items"]>[number];
+
+// Traction items arrive in three stored shapes: the current derived shape (headline in label,
+// "date · category · source" in meta), the legacy derived shape (category in label, "DATE: TITLE"
+// in text), and deep LLM-authored items (label headline plus explanation text). All three render
+// headline-first with quiet metadata.
+function tractionDisplayItem(card: ColdStartCard, item: SectionItem): DisplayItem {
+  const corroboration = item.citationIds.length;
+  const sourceClass = bestSourceClass(card, item.citationIds);
+  const base = {
+    kind: "evidence" as const,
+    ...(corroboration > 1 ? { corroboration } : {}),
+    ...(sourceClass ? { sourceClass } : {})
+  };
+
+  const metaParts = (item.meta ?? "").split(" · ");
+  if (metaParts.length >= 2 && /^\d{4}(?:-\d{2}){1,2}$/.test(metaParts[0] ?? "")) {
+    return {
+      ...base,
+      title: item.label,
+      date: formatMediumDate(metaParts[0]),
+      meta: [...metaParts.slice(2), metaParts[1]].filter(Boolean).join(" · ")
+    };
+  }
+
+  const legacy = item.text.match(LEGACY_DATED_TITLE);
+  if (legacy && SIGNAL_CATEGORIES.has(item.label)) {
+    return {
+      ...base,
+      title: stripCitationMarkers(legacy[2] ?? item.text),
+      date: formatMediumDate(legacy[1]),
+      meta: [item.meta, item.label].filter(Boolean).join(" · ")
+    };
+  }
+
+  return {
+    ...base,
+    title: item.label,
+    ...(item.text !== item.label ? { body: stripCitationMarkers(item.text) } : {}),
+    ...(item.meta ? { meta: item.meta } : {})
+  };
+}
+
 function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, section: ResearchSection): ResearchLayerDisplay {
   const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
   const sources = citationSources(card, section.citationIds);
@@ -250,12 +318,16 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     };
   }
 
-  const items = content.items.map((item) => ({
-    title: item.label,
-    body: stripCitationMarkers(item.text),
-    kind: "evidence" as const,
-    ...(item.meta ? { meta: item.meta } : {})
-  }));
+  const items = content.items.map((item) =>
+    section.sectionId === "traction"
+      ? tractionDisplayItem(card, item)
+      : {
+          title: item.label,
+          body: stripCitationMarkers(item.text),
+          kind: "evidence" as const,
+          ...(item.meta ? { meta: item.meta } : {})
+        }
+  );
   const rows = section.sectionId === "market" && content.napkinMath
     ? [
         { label: "Formula", value: content.napkinMath.formula },
@@ -268,11 +340,14 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
   return {
     id: layer.id,
     title,
-    body: stripCitationMarkers(content.summary ?? items[0]?.body ?? definition.emptyState),
+    body: stripCitationMarkers(content.summary ?? items[0]?.body ?? items[0]?.title ?? definition.emptyState),
     ...(items.length > 0 ? { items } : {}),
     ...(rows ? { rows } : {}),
     sources,
     sourceCount: displaySourceCount(sources),
+    ...(section.sectionId === "traction" && items.length > 0
+      ? { statusLine: eventsAndSourcesLine(items.length, displaySourceCount(sources)) }
+      : {}),
     status: section.status === "stale" ? "stale" : "saved"
   };
 }
@@ -442,6 +517,20 @@ export function layersForCard(card: ColdStartCard, sections?: ResearchSection[])
   });
 }
 
+// The card is canonical for signals: stored traction rows are usually derived projections of
+// card.signals (runId null), and the card-direct path renders clustered, corroborated events
+// straight from the typed data. A stored section only wins while a run is in flight, after a
+// failure, or when it carries deep LLM-authored content (runId set).
+function signalsRenderFromCard(card: ColdStartCard, section: ResearchSection) {
+  if (section.status === "running" || section.status === "failed") {
+    return false;
+  }
+  if (section.runId) {
+    return false;
+  }
+  return card.signals.length > 0;
+}
+
 export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, sections?: ResearchSection[]): ResearchLayerDisplay | null {
   const layer = RESEARCH_LAYER_CARDS.find((candidate) => candidate.id === id);
   if (!layer) {
@@ -449,7 +538,11 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
   }
 
   const section = sectionForLayer(sections, id);
-  if (section && !SYNTHESIS_LAYER_IDS.has(id)) {
+  if (
+    section &&
+    !SYNTHESIS_LAYER_IDS.has(id) &&
+    !(id === "signals" && signalsRenderFromCard(card, section))
+  ) {
     return displayFromSection(card, layer, section);
   }
 
@@ -599,19 +692,31 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
   }
 
   if (id === "signals") {
-    const sources = citationSources(card, card.signals.flatMap((signal) => signal.citationIds));
+    const clustered = clusterSignals(card.signals, {
+      companyDomain: card.domain,
+      companyName: card.identity.name.value
+    });
+    const sources = citationSources(card, clustered.flatMap((signal) => signal.citationIds));
+    const items = clustered.map((signal) => {
+      const sourceClass = bestSourceClass(card, signal.citationIds);
+      return {
+        title: signal.title,
+        kind: "evidence" as const,
+        date: formatMediumDate(signal.date),
+        meta: [signal.source, signal.category].filter(Boolean).join(" · "),
+        ...(signal.citationIds.length > 1 ? { corroboration: signal.citationIds.length } : {}),
+        ...(sourceClass ? { sourceClass } : {})
+      };
+    });
     return {
       id,
       title: layer.title,
-      body: card.signals[0]?.title ?? emptyBodyForLayer(id),
-      items: card.signals.slice(0, 3).map((signal) => ({
-        title: signal.title,
-        meta: `${signal.source} · ${signal.category}`,
-        body: signal.date
-      })),
+      body: clustered[0]?.title ?? emptyBodyForLayer(id),
+      ...(items.length > 0 ? { items } : {}),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: card.signals.length > 0 ? "saved" : "empty"
+      ...(items.length > 0 ? { statusLine: eventsAndSourcesLine(items.length, displaySourceCount(sources)) } : {}),
+      status: clustered.length > 0 ? "saved" : "empty"
     };
   }
 

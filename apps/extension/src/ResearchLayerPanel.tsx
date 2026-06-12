@@ -843,12 +843,17 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
   return (
     <ol className="cs-layer-signal-ledger" aria-label="Recent signals">
       {items.map((item) => (
-        <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
-          <time>{item.body ?? "Undated"}</time>
-          <div>
-            <strong>{item.title}</strong>
-            {item.meta ? <span>{item.meta}</span> : null}
-          </div>
+        <li key={`${item.title}-${item.date ?? item.meta ?? ""}`}>
+          <strong>{item.title}</strong>
+          {item.body ? <p>{item.body}</p> : null}
+          <span className="cs-signal-meta">
+            <i className="cs-signal-dot" data-class={item.sourceClass ?? "reporting"} aria-hidden="true" />
+            {item.date ? <time>{item.date}</time> : null}
+            {item.meta ? <span className="cs-signal-source">{item.meta}</span> : null}
+            {item.corroboration && item.corroboration > 1 ? (
+              <span className="cs-signal-corroboration">{`×${item.corroboration} corroborated`}</span>
+            ) : null}
+          </span>
         </li>
       ))}
     </ol>
@@ -1545,7 +1550,7 @@ export function ResearchLayerPanel({
                       ? "Run failed"
                       : display.status === "empty"
                         ? "Not found"
-                        : sourceLabel(display.sourceCount);
+                        : display.statusLine ?? sourceLabel(display.sourceCount);
             const runningCopy = waitingForProfile
               ? "Getting the profile ready"
               : refreshing

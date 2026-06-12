@@ -2174,7 +2174,9 @@ describe("SidePanel generation gate", () => {
     });
     expect(container.querySelector(".cs-layer-signal-ledger")).toBeTruthy();
     expect(container.textContent).toContain("Linear launches planning update");
-    expect(container.textContent).toContain("2026-05-15");
+    // Dates render quietly under the headline in receipt face, not as a raw ISO column.
+    expect(container.querySelector(".cs-signal-meta time")?.textContent).toBe("May 15 2026");
+    expect(container.querySelector(".cs-layer-signal-ledger strong")?.textContent).toBe("Linear launches planning update");
     await unmount();
   });
 

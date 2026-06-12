@@ -322,6 +322,123 @@ describe("research layer model", () => {
     expect(display?.sourceCount).toBe(0);
   });
 
+  it("clusters duplicate raise coverage into one corroborated signal row", () => {
+    const card = baseCard({
+      signals: [
+        {
+          title: "Warp raises $50M at $400M valuation to expand agentic terminal",
+          url: "https://techcrunch.com/warp-series-b",
+          date: "2026-04-02",
+          source: "TechCrunch",
+          category: "funding",
+          citationIds: ["c1"]
+        },
+        {
+          title: "Warp raises $50M Series B led by Sequoia",
+          url: "https://thenextweb.com/warp-series-b",
+          date: "2026-04-03",
+          source: "TNW",
+          category: "funding",
+          citationIds: ["c2"]
+        },
+        {
+          title: "Warp ships agent mode for long-running tasks",
+          url: "https://warp.dev/blog/agent-mode",
+          date: "2026-05-10",
+          source: "Warp",
+          category: "launch",
+          citationIds: ["c3"]
+        }
+      ],
+      citations: [
+        { id: "c1", url: "https://techcrunch.com/warp-series-b", title: "TechCrunch", fetchedAt: "2026-05-11T12:00:00.000Z", sourceType: "news" },
+        { id: "c2", url: "https://thenextweb.com/warp-series-b", title: "TNW", fetchedAt: "2026-05-11T12:00:00.000Z", sourceType: "news" },
+        { id: "c3", url: "https://warp.dev/blog/agent-mode", title: "Warp", fetchedAt: "2026-05-11T12:00:00.000Z", sourceType: "company_site" }
+      ]
+    });
+
+    const display = layerDisplayForCard(card, "signals");
+
+    expect(display?.items).toHaveLength(2);
+    expect(display?.statusLine).toBe("2 events · 3 sources");
+    const raise = display?.items?.find((item) => item.title.includes("$50M"));
+    expect(raise?.corroboration).toBe(2);
+    expect(raise?.date).toBe("Apr 2 2026");
+    expect(raise?.meta).toContain("TechCrunch");
+    const launch = display?.items?.find((item) => item.title.includes("agent mode"));
+    expect(launch?.corroboration).toBeUndefined();
+    expect(launch?.sourceClass).toBe("company");
+  });
+
+  it("ignores a derived stored traction section in favor of clustered card signals", () => {
+    const derivedSection: ResearchSection = {
+      slug: "warp",
+      domain: "warp.dev",
+      sectionId: "traction",
+      visibility: "public",
+      status: "available",
+      content: {
+        status: "available",
+        summary: "2026-05-10: Warp launches AI features",
+        items: [
+          { label: "launch", text: "2026-05-10: Warp launches AI features", citationIds: ["c1"], meta: "Warp" },
+          { label: "launch", text: "2026-05-10: Warp launches AI features again", citationIds: ["c1"], meta: "Warp" }
+        ],
+        confidence: "medium"
+      },
+      citationIds: ["c1"],
+      sourceIds: [],
+      runId: null,
+      error: null,
+      generatedAt: null,
+      staleAt: null
+    };
+
+    const display = layerDisplayForCard(baseCard(), "signals", [derivedSection]);
+
+    // Card has one signal; the stale two-item derived projection does not win.
+    expect(display?.items).toHaveLength(1);
+    expect(display?.items?.[0]?.title).toBe("Warp launches AI features");
+    expect(display?.items?.[0]?.date).toBe("May 10 2026");
+  });
+
+  it("prefers a deep LLM-authored traction section and renders legacy items headline-first", () => {
+    const deepSection: ResearchSection = {
+      slug: "warp",
+      domain: "warp.dev",
+      sectionId: "traction",
+      visibility: "public",
+      status: "available",
+      content: {
+        status: "available",
+        summary: "Warp shows real adoption momentum.",
+        items: [
+          { label: "launch", text: "2026-05-10: Warp launches AI features", citationIds: ["c1"], meta: "Warp" },
+          { label: "Senior hires accelerate", text: "Three staff engineers joined from Google in one quarter.", citationIds: ["c1"] }
+        ],
+        confidence: "medium"
+      },
+      citationIds: ["c1"],
+      sourceIds: [],
+      runId: "run-7",
+      error: null,
+      generatedAt: "2026-05-11T12:00:00.000Z",
+      staleAt: null
+    };
+
+    const display = layerDisplayForCard(baseCard(), "signals", [deepSection]);
+
+    expect(display?.items).toHaveLength(2);
+    // Legacy "DATE: TITLE" item is unpacked: headline in the title slot, date quiet.
+    expect(display?.items?.[0]?.title).toBe("Warp launches AI features");
+    expect(display?.items?.[0]?.date).toBe("May 10 2026");
+    expect(display?.items?.[0]?.meta).toBe("Warp · launch");
+    // Deep-authored item keeps its label headline and explanation body.
+    expect(display?.items?.[1]?.title).toBe("Senior hires accelerate");
+    expect(display?.items?.[1]?.body).toBe("Three staff engineers joined from Google in one quarter.");
+    expect(display?.statusLine).toBe("2 events · 1 source");
+  });
+
   it("never renders a raw section error as card body", () => {
     const zodCrud =
       '[ { "code": "custom", "message": "Citation ref does not resolve: e19", "path": [ "identity", "name", "citationIds", 0 ] } ]';

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ColdStartCard } from "./card";
 import type { GenerationJobKind } from "./generation-trace";
+import { clusterSignals } from "./signal-clusters.mjs";
 
 export const researchSectionIdSchema = z.enum([
   "buyer",
@@ -324,10 +325,32 @@ function hasReaderFacingEvidence(card: ColdStartCard, citationIds: string[]) {
   });
 }
 
+// Signals are clustered one-per-event before they become traction items, so a stored derived
+// section never re-inflates an event into one row per covering outlet. The item shape is
+// headline-first: label and text carry the title, meta carries "date · category · source" so
+// renderers can keep metadata quiet. Older stored rows ("DATE: TITLE" in text, category in
+// label) still parse; consumers stay tolerant of both shapes.
+const TRACTION_ITEM_META_SEPARATOR = " · ";
+
+function tractionItemsFromSignals(card: ColdStartCard): ResearchSectionContent["items"] {
+  const clustered = clusterSignals(card.signals, {
+    companyDomain: card.domain,
+    companyName: card.identity.name.value
+  });
+
+  return clustered.map((signal) => ({
+    label: signal.title,
+    text: signal.title,
+    citationIds: signal.citationIds,
+    meta: [signal.date, signal.category, signal.source].join(TRACTION_ITEM_META_SEPARATOR)
+  }));
+}
+
 export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
   const description = card.identity.description?.value;
   const descriptionCitationIds = card.identity.description?.citationIds ?? card.identity.oneLiner.citationIds;
   const descriptionHasReaderEvidence = hasReaderFacingEvidence(card, descriptionCitationIds);
+  const tractionItems = tractionItemsFromSignals(card);
   const fundingEvidence = [
     card.funding.totalRaisedUsd.value ? {
       label: "Total raised",
@@ -363,18 +386,13 @@ export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): Resea
         })
       : emptyResearchSectionForCard(card, "buyer"),
     emptyResearchSectionForCard(card, "customer_proof"),
-    card.signals.length > 0
+    tractionItems.length > 0
       ? citedContent({
           slug: card.slug,
           domain: card.domain,
           sectionId: "traction",
-          summary: card.signals[0]?.title ?? "Recent signals found.",
-          items: card.signals.map((signal) => ({
-            label: signal.category,
-            text: `${signal.date}: ${signal.title}`,
-            citationIds: signal.citationIds,
-            meta: signal.source
-          })),
+          summary: tractionItems[0]?.label ?? "Recent signals found.",
+          items: tractionItems,
           confidence: "medium"
         })
       : emptyResearchSectionForCard(card, "traction"),

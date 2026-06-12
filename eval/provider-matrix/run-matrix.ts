@@ -159,7 +159,7 @@ async function main() {
               const score =
                 stage === "verify"
                   ? scoreVerify({ results: output, claims })
-                  : scoreExtraction({ sections: output, bundleSourceUrls, bundleText });
+                  : scoreExtraction({ sections: output, bundleSourceUrls, bundleText, companyDomain: fixture.domain });
               return {
                 ...base,
                 ok: true,
@@ -231,8 +231,8 @@ async function main() {
     `Fixtures: ${fixtures.map((fixture) => fixture.slug).join(", ")}`,
     `Repeats per cell: ${k}`,
     "",
-    "| Model | Stage | Cells | Parse ok | Retried | Median cost | Median latency | Citation violations (med) | Funding match (med) | Fill rate (med) | False-drop (med) |",
-    "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    "| Model | Stage | Cells | Parse ok | Retried | Median cost | Median latency | Citation violations (med) | Funding match (med) | Fill rate (med) | Distinct events (med) | False-drop (med) |",
+    "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
   ];
 
   for (const model of models) {
@@ -258,6 +258,9 @@ async function main() {
           fmt(aggregate(extractionScores.map((score) => score.fundingFaithfulness.matchRate))),
           // Fill rate measures whole-card coverage; a single-block patch fills its block only.
           stage === "extract_full" ? fmt(aggregate(extractionScores.map((score) => score.fillRate.fillRate))) : "-",
+          // Distinct-event ratio: 1 means one signal per event; one-signal-per-article regresses
+          // toward 0 and must never pass the matrix silently again.
+          fmt(aggregate(extractionScores.map((score) => score.signalRedundancy.distinctEventRatio))),
           fmt(aggregate(verifyScores.map((score) => score.falseDropRate))),
         ].join(" | ").replace(/^/, "| ").replace(/$/, " |")
       );

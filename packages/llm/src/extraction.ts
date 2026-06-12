@@ -276,6 +276,7 @@ export const extractionSystemPrompt = [
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
   "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, buyer and use case, or product and technology.",
   "Ban brochure language: innovative, comprehensive, seamless, robust, advanced, trusted by, commitment to, designed to enhance, and with ease. Replace with the supported fact or omit the sentence.",
+  "One signal per underlying event. When several sources cover the same announcement, emit it once and cite every supporting source in that signal's citationIds. Never emit one signal per article.",
   "Treat source incentives as evidence: independent technical and independent analysis sources should shape qualitative framing more than press releases; company-authored sources are strongest for exact product mechanics, not evaluative claims.",
   "Prefer primary company pages for product mechanics, recent funding/news sources for round data, and independent analysis for market framing. Surface conflicts as mixed rather than averaging."
 ].join(" ");
@@ -780,7 +781,7 @@ const blockGuidance: Record<BlockEnrichmentId, string> = {
   team:
     "Extract founders, CEO, and current management team. Include public work emails only when explicitly present in cited professional sources or provider enrichment. Do not guess email patterns or personal email addresses.",
   signals:
-    "Extract recent traction signals: launches, customers, hiring, partnerships, funding, filings, technical releases, and credible news. Prefer dated sources and avoid generic profile blurbs.",
+    "Extract recent traction signals: launches, customers, hiring, partnerships, funding, filings, technical releases, and credible news. Prefer dated sources and avoid generic profile blurbs. One signal per underlying event: when several sources cover the same announcement, emit it once and cite every supporting source in that signal's citationIds, never one signal per article.",
   comparables:
     "Pick 3 to 5 real competitors or close adjacencies. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis must name one concrete overlap with the target: same buyer, same workflow, same product category, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support real overlap, return fewer rather than fabricate.",
 };

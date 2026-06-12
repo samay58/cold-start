@@ -124,8 +124,9 @@ describe("research section registry", () => {
       content: {
         items: [
           {
-            label: "launch",
-            text: "2026-05-10: Warp launches AI features"
+            label: "Warp launches AI features",
+            text: "Warp launches AI features",
+            meta: "2026-05-10 · launch · Warp"
           }
         ]
       }

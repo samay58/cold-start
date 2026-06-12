@@ -1,4 +1,5 @@
 import {
+  clusterSignals,
   type ColdStartCard,
   coldStartCardSchema,
   type GenerationTrace,
@@ -876,7 +877,7 @@ export function cardWithExtractedSections(card: ColdStartCard, sections: Extract
       identity: sections.identity,
       funding: sections.funding,
       team: sections.team,
-      signals: sections.signals,
+      signals: clusterSignals(sections.signals, { companyDomain: card.domain, companyName: sections.identity.name.value }),
       comparables: sections.comparables,
       citations: sections.citations
     })
