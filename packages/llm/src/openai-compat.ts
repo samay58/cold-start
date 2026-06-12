@@ -234,12 +234,12 @@ export async function createTracedOpenAiCompatMessage(input: {
   stage: Parameters<typeof buildLlmCallTrace>[0]["stage"];
   telemetry?: AnthropicTelemetrySink | undefined;
 }): Promise<Message> {
-  const config = providerConfigFor(input.resolved.provider);
-  const body = openAiCompatBodyFromAnthropicParams(input.params, input.resolved.model, config.extraBody);
   const startedAt = Date.now();
 
   let payload: OpenAiCompatResponse;
   try {
+    const config = providerConfigFor(input.resolved.provider);
+    const body = openAiCompatBodyFromAnthropicParams(input.params, input.resolved.model, config.extraBody);
     payload = await postChatCompletion({
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,

@@ -104,7 +104,20 @@ describe("scoreVerify", () => {
     assert.equal(score.claimIndexCoverage, 1);
   });
 
-  it("counts drops, echo violations, and missing claimIndex", () => {
+  it("matches results without claimIndex by text and citations, like production applyVerifierResults", () => {
+    const score = scoreVerify({
+      results: [
+        { text: "Claim A [c1].", citationIds: ["c1"], status: "supported" },
+        { text: "Claim B [c1].", citationIds: ["c1"], status: "supported" },
+      ],
+      claims,
+    });
+    assert.equal(score.supportedRate, 1);
+    assert.equal(score.falseDropRate, 0);
+    assert.equal(score.claimIndexCoverage, 0);
+  });
+
+  it("counts drops and echo violations, crediting index-less results via the text fallback", () => {
     const score = scoreVerify({
       results: [
         { claimIndex: 0, text: "Claim A [c1].", citationIds: ["c2"], status: "unsupported" },
@@ -112,8 +125,8 @@ describe("scoreVerify", () => {
       ],
       claims,
     });
-    assert.equal(score.supportedRate, 0);
-    assert.equal(score.falseDropRate, 1);
+    assert.equal(score.supportedRate, 0.5);
+    assert.equal(score.falseDropRate, 0.5);
     assert.equal(score.echoViolations, 1);
     assert.equal(score.claimIndexCoverage, 0.5);
   });

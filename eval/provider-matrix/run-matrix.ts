@@ -14,6 +14,9 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore plain JS helper shared with scripts/run-next.mjs
+import { loadRepoRootEnv } from "../../scripts/load-root-env.mjs";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { GenerationLlmCallTrace, SourcedText } from "@cold-start/core";
 import {
@@ -35,19 +38,6 @@ import type { ProviderMatrixFixture } from "./build-bundles";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(__dirname, "fixtures");
 const runsDir = path.join(__dirname, "runs");
-
-function loadEnvFile(filePath: string) {
-  if (!existsSync(filePath)) {
-    return;
-  }
-  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (!match || process.env[match[1]]) {
-      continue;
-    }
-    process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
-  }
-}
 
 function argValue(name: string, fallback: string) {
   const index = process.argv.indexOf(name);
@@ -108,7 +98,7 @@ async function runPool<T>(tasks: Array<() => Promise<T>>, concurrency: number): 
 }
 
 async function main() {
-  loadEnvFile(path.resolve(process.cwd(), ".env.local"));
+  loadRepoRootEnv();
 
   const models = listArg("--models", ["claude-sonnet-4-6", "claude-haiku-4-5", "deepseek/deepseek-v4-flash"]);
   const stages = listArg("--stages", ["extract_full", "extract_block", "verify"]) as Stage[];

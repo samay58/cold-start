@@ -170,11 +170,21 @@ export function scoreVerify({ results, claims }) {
       byIndex.set(result.claimIndex, result);
     }
   }
+  // Mirror production applyVerifierResults: when the verifier omits claimIndex, match results
+  // back to claims by text + citation ids instead of scoring them as drops.
+  const byKey = new Map();
+  for (const result of results) {
+    if (typeof result.claimIndex !== "number") {
+      byKey.set(JSON.stringify([result.text, [...(result.citationIds ?? [])].sort()]), result);
+    }
+  }
+  const resultForClaim = (claim, index) =>
+    byIndex.get(index) ?? byKey.get(JSON.stringify([claim.text, [...claim.citationIds].sort()]));
 
   let supported = 0;
   let echoViolations = 0;
   for (let index = 0; index < claims.length; index += 1) {
-    const result = byIndex.get(index);
+    const result = resultForClaim(claims[index], index);
     if (result?.status === "supported") {
       supported += 1;
     }

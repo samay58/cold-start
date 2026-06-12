@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anthropicModelForStage, estimateAnthropicCostUsd } from "../src/index";
+import { estimateAnthropicCostUsd } from "../src/index";
 
 describe("estimateAnthropicCostUsd", () => {
   it("prices uncached, cache-read, cache-write, and output tokens by model family", () => {
@@ -26,19 +26,3 @@ describe("estimateAnthropicCostUsd", () => {
   });
 });
 
-describe("anthropicModelForStage", () => {
-  it("prefers a stage-specific model over the default model", () => {
-    const previous = process.env.ANTHROPIC_VERIFIER_MODEL;
-    process.env.ANTHROPIC_VERIFIER_MODEL = "claude-haiku-4-5";
-
-    try {
-      expect(anthropicModelForStage("verify", "claude-sonnet-4-6")).toBe("claude-haiku-4-5");
-    } finally {
-      if (previous === undefined) {
-        delete process.env.ANTHROPIC_VERIFIER_MODEL;
-      } else {
-        process.env.ANTHROPIC_VERIFIER_MODEL = previous;
-      }
-    }
-  });
-});

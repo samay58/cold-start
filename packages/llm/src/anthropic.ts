@@ -9,16 +9,6 @@ export type AnthropicCallStage = GenerationLlmCallTrace["stage"];
 
 export type { AnthropicTelemetrySink } from "./call-trace";
 
-const modelEnvByStage: Record<AnthropicCallStage, string> = {
-  research_plan: "ANTHROPIC_RESEARCH_PLAN_MODEL",
-  extract_full: "ANTHROPIC_EXTRACT_MODEL",
-  extract_block: "ANTHROPIC_BLOCK_MODEL",
-  synthesis: "ANTHROPIC_SYNTHESIS_MODEL",
-  verify: "ANTHROPIC_VERIFIER_MODEL",
-  // research_section split off from synthesis when provider routing landed; the legacy env
-  // resolver keeps the old aliasing.
-  research_section: "ANTHROPIC_SYNTHESIS_MODEL",
-};
 
 export function createAnthropicClient(apiKey = process.env.ANTHROPIC_API_KEY) {
   if (!apiKey) {
@@ -34,10 +24,6 @@ export function anthropicModel(model = process.env.ANTHROPIC_MODEL) {
   }
 
   return model;
-}
-
-export function anthropicModelForStage(stage: AnthropicCallStage, fallback = process.env.ANTHROPIC_MODEL) {
-  return anthropicModel(process.env[modelEnvByStage[stage]] ?? fallback);
 }
 
 // Shared cache_control for stable system prompts. Defaults to "1h" (verified to land via the

@@ -4,7 +4,6 @@ import {
   buildWebsetsPeopleContactRequest,
   createPeopleEmailWebset,
   estimateWebsetsCostUsd,
-  fetchWebsetsPeopleEmailSources,
   missingWebsetsConfig,
   pollPeopleEmailWebset
 } from "../src/websets";
@@ -131,14 +130,27 @@ describe("websets people email enrichment", () => {
       };
     });
 
-    const result = await fetchWebsetsPeopleEmailSources({
+    const peopleHints = [
+      { name: "Sri Viswanath", role: "Founder & CEO" },
+      { name: "Amrit Baveja", role: "Founding Team" },
+      { name: "Quinten Farmer", role: "Founder & CEO" }
+    ];
+    const created = await createPeopleEmailWebset({
       env: { EXA_WEBSETS_API_KEY: "exa-key" },
       domain: "sycamore.so",
-      peopleHints: [
-        { name: "Sri Viswanath", role: "Founder & CEO" },
-        { name: "Amrit Baveja", role: "Founding Team" },
-        { name: "Quinten Farmer", role: "Founder & CEO" }
-      ],
+      peopleHints,
+      externalId: "cold-start-contact-sycamore",
+      fetchJson
+    });
+    if (created.skipped) {
+      throw new Error("expected webset creation");
+    }
+    const result = await pollPeopleEmailWebset({
+      env: { EXA_WEBSETS_API_KEY: "exa-key" },
+      domain: "sycamore.so",
+      peopleHints,
+      websetId: created.websetId,
+      dashboardUrl: created.dashboardUrl,
       fetchJson
     });
 
@@ -204,16 +216,16 @@ describe("websets people email enrichment", () => {
     ]);
   });
 
-  it("polls boundedly until the Webset item enrichment is available", async () => {
+  it("a later poll picks up items that were not ready earlier", async () => {
+    let listCalls = 0;
     const fetchJson = vi.fn(async (request: { method: string }) => {
       if (request.method === "POST") {
         return { id: "ws_1", object: "webset" };
       }
-
-      if (fetchJson.mock.calls.filter(([call]) => call.method === "GET").length === 1) {
+      listCalls += 1;
+      if (listCalls === 1) {
         return { data: [], hasMore: false, nextCursor: null };
       }
-
       return {
         data: [
           {
@@ -231,18 +243,19 @@ describe("websets people email enrichment", () => {
       };
     });
 
-    const result = await fetchWebsetsPeopleEmailSources({
+    const pollInput = {
       env: { EXA_WEBSETS_API_KEY: "exa-key" },
       domain: "sycamore.so",
       peopleHints: [{ name: "Amrit Baveja", role: "Founding Team" }],
-      fetchJson,
-      pollAttempts: 2,
-      pollIntervalMs: 0
-    });
+      websetId: "ws_1",
+      fetchJson
+    };
+    const first = await pollPeopleEmailWebset(pollInput);
+    expect(first.trace).toMatchObject({ itemCount: 0, acceptedEmailCount: 0, requestCount: 1 });
 
-    expect(fetchJson.mock.calls.filter(([request]) => request.method === "GET")).toHaveLength(2);
-    expect(result.trace).toMatchObject({ acceptedEmailCount: 1, itemCount: 1 });
-    expect(result.facts[0]?.value).toEqual([
+    const second = await pollPeopleEmailWebset(pollInput);
+    expect(second.trace).toMatchObject({ acceptedEmailCount: 1, itemCount: 1 });
+    expect(second.facts[0]?.value).toEqual([
       expect.objectContaining({ name: "Amrit Baveja", email: "amrit@sycamore.so" })
     ]);
   });

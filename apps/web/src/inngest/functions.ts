@@ -72,7 +72,6 @@ import {
   fetchStableenrichFastSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
-  fetchWebsetsPeopleEmailSources,
   pollPeopleEmailWebset,
   providerBudgetForEndpoint,
   type DirectExaEnv,
@@ -610,21 +609,15 @@ async function fetchContactSourcesForBasics(input: {
   maxStableenrichBudgetUsd?: number | undefined;
   peopleHints: PeopleEmailHint[];
   stableEnv: StableenrichEnv;
-  websetsEnabled: boolean;
-  websetsEnv: WebsetsEnv;
-  websetsExternalId?: string;
-  // When true, the caller owns the webset lifecycle (create early, poll durably with
-  // step.sleep). The websets path still suppresses the StableEnrich email probes, but no
-  // inline webset fetch happens here.
-  websetsHandledExternally?: boolean;
+  // True when the caller runs the webset lifecycle (create early, poll durably). It suppresses
+  // the StableEnrich email probes; websets results merge in after the durable poll.
+  websetsOwnsEmailPath: boolean;
 }) {
-  const useWebsetsContactPath = input.websetsEnabled && Boolean(input.websetsEnv.EXA_WEBSETS_API_KEY?.trim());
-  const fetchWebsetsInline = useWebsetsContactPath && !input.websetsHandledExternally;
-  const [directContactResult, stableContactResult, websetsContactResult] = await Promise.allSettled([
+  const [directContactResult, stableContactResult] = await Promise.allSettled([
     directExaEnabled()
       ? fetchDirectExaContactSources({ env: input.directExaEnv, domain: input.domain, peopleHints: input.peopleHints })
       : Promise.resolve({ sources: [], facts: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 }),
-    useWebsetsContactPath
+    input.websetsOwnsEmailPath
       ? Promise.resolve({
           sources: [],
           facts: [],
@@ -649,49 +642,19 @@ async function fetchContactSourcesForBasics(input: {
           peopleHints: input.peopleHints,
           maxBudgetUsd: input.maxStableenrichBudgetUsd
         }),
-    fetchWebsetsInline
-      ? fetchWebsetsPeopleEmailSources({
-          env: input.websetsEnv,
-          domain: input.domain,
-          peopleHints: input.peopleHints,
-          ...(input.websetsExternalId ? { externalId: input.websetsExternalId } : {})
-        })
-      : Promise.resolve({
-          sources: [],
-          facts: [],
-          failures: [],
-          skipped: true,
-          emailDiscovery: [],
-          trace: {
-            skipped: true,
-            sourceCount: 0,
-            factCount: 0,
-            failureCount: 0
-          }
-        })
   ]);
   const directContactSources = directContactResult.status === "fulfilled" ? directContactResult.value.sources : [];
   const directContactFacts = directContactResult.status === "fulfilled" ? directContactResult.value.facts : [];
   const directContactFailureCount = directContactResult.status === "fulfilled" ? directContactResult.value.failures.length : 1;
   const stableContactSources = stableContactResult.status === "fulfilled" ? stableContactResult.value.sources : [];
   const stableContactFacts = stableContactResult.status === "fulfilled" ? stableContactResult.value.facts : [];
-  const websetsContactSources = websetsContactResult.status === "fulfilled" ? websetsContactResult.value.sources : [];
-  const websetsContactFacts = websetsContactResult.status === "fulfilled" ? websetsContactResult.value.facts : [];
-  const websetsTrace = websetsContactResult.status === "fulfilled"
-    ? websetsContactResult.value.trace
-    : {
-        skipped: false,
-        sourceCount: 0,
-        factCount: 0,
-        failureCount: 1
-      };
   const stableContactFailures = stableContactResult.status === "fulfilled"
     ? stableContactResult.value.failures
     : [{ name: "stableenrich" as const, endpointUrl: "stableenrich", error: boundedErrorMessage(stableContactResult.reason) }];
   const stableContactEndpoints = stableContactResult.status === "fulfilled"
     ? withStableenrichEndpointBudgets(stableContactResult.value.endpoints)
     : [failedStableenrichEndpoint(stableContactResult.reason)];
-  const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources, websetsContactSources);
+  const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources);
   const sourceGate = filterSourcesForDomain({ domain: input.domain, sources });
   const initialDirectExa = input.initialProviders.directExa ?? { skipped: true, sourceCount: 0, failureCount: 0 };
   const directContactRequestCount = directContactResult.status === "fulfilled" ? directContactResult.value.requestCount ?? 0 : 0;
@@ -700,13 +663,10 @@ async function fetchContactSourcesForBasics(input: {
   const stableEmailDiscovery = stableContactResult.status === "fulfilled"
     ? stableContactResult.value.emailDiscovery ?? []
     : [];
-  const websetsEmailDiscovery = websetsContactResult.status === "fulfilled"
-    ? websetsContactResult.value.emailDiscovery ?? []
-    : [];
 
   return {
     sources: sourceGate.accepted,
-    providerFacts: [...websetsContactFacts, ...stableContactFacts, ...directContactFacts],
+    providerFacts: [...stableContactFacts, ...directContactFacts],
     trace: {
       providers: {
         ...input.initialProviders,
@@ -724,11 +684,11 @@ async function fetchContactSourcesForBasics(input: {
           endpoints: [...(initialStable?.endpoints ?? []), ...stableContactEndpoints],
           ...(stableContactResult.status === "fulfilled" && stableContactResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {})
         },
-        websets: websetsTrace,
+        // The durable websets poll in contactEnrichmentFunction overwrites this node when the
+        // websets path is active; here it only marks that no inline fetch happened.
+        websets: { skipped: true, sourceCount: 0, factCount: 0, failureCount: 0 },
         mergedSourceCount: sources.length,
-        ...([...websetsEmailDiscovery, ...stableEmailDiscovery].length > 0
-          ? { emailDiscovery: [...websetsEmailDiscovery, ...stableEmailDiscovery] }
-          : {})
+        ...(stableEmailDiscovery.length > 0 ? { emailDiscovery: stableEmailDiscovery } : {})
       },
       sourceGate: sourceGateTrace(sourceGate)
     }
@@ -843,13 +803,14 @@ export const contactEnrichmentFunction = inngest.createFunction(
       const directExaEnv = directExaEnvFromProcess();
       const websetsEnv = websetsEnvFromProcess();
       const websetsExternalId = `cold-start-contact-${slug}-${parentGenerationRunId ?? trace.inngest?.runId ?? requestedAtMs}`;
+      const websetsOwnsEmailPath = runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED && Boolean(websetsEnv.EXA_WEBSETS_API_KEY?.trim());
 
       // Websets are async agent searches: create the webset first so it works while the other
       // contact providers run, then poll durably below. The old inline fetch gave it ~4.5s and
       // recorded 0 items on every production run.
       currentStage = "create-websets-contact-search";
       const websetCreated: { skipped: true; reason: string } | { skipped: false; websetId: string; dashboardUrl: string | null; endpointUrl: string } =
-        runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED
+        websetsOwnsEmailPath
           ? await step.run("create-websets-contact-search", async () => {
               try {
                 return await createPeopleEmailWebset({ env: websetsEnv, domain, peopleHints, externalId: websetsExternalId });
@@ -857,7 +818,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
                 return { skipped: true as const, reason: boundedErrorMessage(error) };
               }
             })
-          : { skipped: true, reason: "EXA_WEBSETS_CONTACTS_ENABLED=false" };
+          : { skipped: true, reason: "websets contacts disabled or EXA_WEBSETS_API_KEY missing" };
 
       currentStage = "fetch-contact-sources";
       const contactSourceResult = await step.run("fetch-contact-sources", async () => {
@@ -873,10 +834,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
             }),
             peopleHints,
             stableEnv,
-            websetsEnabled: runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED,
-            websetsEnv,
-            websetsExternalId,
-            websetsHandledExternally: true
+            websetsOwnsEmailPath
           })
         );
 
@@ -916,7 +874,9 @@ export const contactEnrichmentFunction = inngest.createFunction(
             })
           );
           pollsMade = attempt;
-          if ((websetsLate.trace.acceptedEmailCount ?? 0) > 0 || websetsLate.trace.failureCount > 0) {
+          // Transient poll failures (timeouts, 5xx) do not end the window; the attempts cap
+          // bounds the spend either way.
+          if ((websetsLate.trace.acceptedEmailCount ?? 0) > 0) {
             break;
           }
         }

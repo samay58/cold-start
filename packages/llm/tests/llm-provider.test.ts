@@ -86,10 +86,13 @@ describe("modelForStage", () => {
     expect(modelForStage("verify")).toBe("claude-sonnet-4-6");
   });
 
-  it("aliases research_section to ANTHROPIC_SYNTHESIS_MODEL when its own env is unset", () => {
+  it("aliases research_section to the synthesis model chain when its own env is unset", () => {
     process.env.ANTHROPIC_MODEL = "claude-sonnet-4-6";
     process.env.ANTHROPIC_SYNTHESIS_MODEL = "claude-haiku-4-5";
     expect(modelForStage("research_section")).toBe("claude-haiku-4-5");
+
+    process.env.LLM_SYNTHESIS_MODEL = "deepseek/deepseek-v4-pro";
+    expect(modelForStage("research_section")).toBe("deepseek/deepseek-v4-pro");
 
     process.env.LLM_RESEARCH_SECTION_MODEL = "deepseek/deepseek-v4-flash";
     expect(modelForStage("research_section")).toBe("deepseek/deepseek-v4-flash");

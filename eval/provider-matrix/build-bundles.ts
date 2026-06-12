@@ -60,7 +60,7 @@ async function main() {
   }
 
   const limit = Number(argValue("--limit", "10"));
-  const since = argValue("--since", "");
+  const since = argValue("--since", "") || null;
   const slugs = argValue("--slugs", "")
     .split(",")
     .map((slug) => slug.trim())
@@ -87,7 +87,7 @@ async function main() {
               SELECT c.id, c.slug, c.domain, c.card_json, c.generated_at::text
               FROM cards c
               WHERE EXISTS (SELECT 1 FROM sources s WHERE s.card_id = c.id)
-                AND ($1 = '' OR c.generated_at >= $1::timestamptz)
+                AND ($1::timestamptz IS NULL OR c.generated_at >= $1::timestamptz)
               ORDER BY c.generated_at DESC
               LIMIT $2`,
             values: [since, limit],

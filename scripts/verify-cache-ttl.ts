@@ -10,27 +10,13 @@
 //   ANTHROPIC_CACHE_TTL=1h npm run verify:cache-ttl
 //   ANTHROPIC_CACHE_TTL=5m npm run verify:cache-ttl
 
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import Anthropic from "@anthropic-ai/sdk";
 
 import { anthropicSystemCacheControl, createTracedAnthropicMessage } from "@cold-start/llm";
 
-function loadRootEnv() {
-  const envPath = resolve(process.cwd(), ".env.local");
-  if (!existsSync(envPath)) {
-    return;
-  }
-
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    if (!match || process.env[match[1]]) {
-      continue;
-    }
-    process.env[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, "");
-  }
-}
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore plain JS helper shared with scripts/run-next.mjs
+import { loadRepoRootEnv } from "./load-root-env.mjs";
 
 // ~3000 tokens of stable system content. This is above the 1024/2048 token minimums Anthropic
 // requires for ephemeral caching. A run-unique nonce forces a fresh cache entry per invocation,
@@ -56,7 +42,7 @@ type AnthropicUsage = {
 };
 
 async function main() {
-  loadRootEnv();
+  loadRepoRootEnv();
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
