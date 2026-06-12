@@ -38,6 +38,10 @@ const envSchema = z.object({
   CONTACT_ENRICHMENT_ENABLED: envBoolean(true),
   CONTACT_ENRICHMENT_TIER: z.enum(["named-only", "full", "off"]).default("named-only"),
   EXA_WEBSETS_CONTACTS_ENABLED: envBoolean(false),
+  // Durable websets polling window: attempts x interval. Websets are async agent searches that
+  // need minutes, not seconds; the defaults give them ~2 minutes via Inngest step.sleep.
+  WEBSETS_POLL_ATTEMPTS: optionalEnvNumber(1),
+  WEBSETS_POLL_INTERVAL_SECONDS: optionalEnvNumber(1),
   CHEAP_FIRST_EXA_ENABLED: envBoolean(true),
   PER_RUN_AGENTCASH_BUDGET_USD: optionalEnvNumber(),
   ANALYSIS_SYNTHESIS_MIN_CITATIONS: optionalEnvNumber(),
@@ -57,6 +61,8 @@ function parseWebEnv() {
     CONTACT_ENRICHMENT_ENABLED: process.env.CONTACT_ENRICHMENT_ENABLED,
     CONTACT_ENRICHMENT_TIER: process.env.CONTACT_ENRICHMENT_TIER,
     EXA_WEBSETS_CONTACTS_ENABLED: process.env.EXA_WEBSETS_CONTACTS_ENABLED,
+    WEBSETS_POLL_ATTEMPTS: process.env.WEBSETS_POLL_ATTEMPTS,
+    WEBSETS_POLL_INTERVAL_SECONDS: process.env.WEBSETS_POLL_INTERVAL_SECONDS,
     CHEAP_FIRST_EXA_ENABLED: process.env.CHEAP_FIRST_EXA_ENABLED,
     PER_RUN_AGENTCASH_BUDGET_USD: process.env.PER_RUN_AGENTCASH_BUDGET_USD,
     ANALYSIS_SYNTHESIS_MIN_CITATIONS: process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS,

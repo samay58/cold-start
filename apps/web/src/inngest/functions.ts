@@ -35,11 +35,11 @@ import {
 } from "@cold-start/db";
 import {
   anthropicModel,
-  anthropicModelForStage,
   createAnthropicClient,
   extractCompanyBlockClaims,
   extractCompanyClaims,
   fallbackResearchPlan,
+  modelForStage,
   synthesizeResearchSection,
   synthesizeCard,
   verifySynthesis,
@@ -65,6 +65,7 @@ import {
   type GenerateCardTracePatch
 } from "@cold-start/pipeline";
 import {
+  createPeopleEmailWebset,
   fetchDirectExaContactSources,
   fetchDirectExaFundamentalsSources,
   fetchStableenrichEnrichmentSources,
@@ -72,6 +73,7 @@ import {
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   fetchWebsetsPeopleEmailSources,
+  pollPeopleEmailWebset,
   providerBudgetForEndpoint,
   type DirectExaEnv,
   type PeopleEmailHint,
@@ -80,6 +82,7 @@ import {
   type StableenrichEnv,
   type StableenrichProbeName,
   type WebsetsEnv,
+  type WebsetsPeopleEmailResult,
   agentcashWalletSnapshot
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -610,12 +613,17 @@ async function fetchContactSourcesForBasics(input: {
   websetsEnabled: boolean;
   websetsEnv: WebsetsEnv;
   websetsExternalId?: string;
+  // When true, the caller owns the webset lifecycle (create early, poll durably with
+  // step.sleep). The websets path still suppresses the StableEnrich email probes, but no
+  // inline webset fetch happens here.
+  websetsHandledExternally?: boolean;
 }) {
   const useWebsetsContactPath = input.websetsEnabled && Boolean(input.websetsEnv.EXA_WEBSETS_API_KEY?.trim());
+  const fetchWebsetsInline = useWebsetsContactPath && !input.websetsHandledExternally;
   const [directContactResult, stableContactResult, websetsContactResult] = await Promise.allSettled([
     directExaEnabled()
       ? fetchDirectExaContactSources({ env: input.directExaEnv, domain: input.domain, peopleHints: input.peopleHints })
-      : Promise.resolve({ sources: [], facts: [], failures: [], skipped: true }),
+      : Promise.resolve({ sources: [], facts: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 }),
     useWebsetsContactPath
       ? Promise.resolve({
           sources: [],
@@ -641,7 +649,7 @@ async function fetchContactSourcesForBasics(input: {
           peopleHints: input.peopleHints,
           maxBudgetUsd: input.maxStableenrichBudgetUsd
         }),
-    useWebsetsContactPath
+    fetchWebsetsInline
       ? fetchWebsetsPeopleEmailSources({
           env: input.websetsEnv,
           domain: input.domain,
@@ -686,6 +694,8 @@ async function fetchContactSourcesForBasics(input: {
   const sources = mergeSources(input.acceptedSources, directContactSources, stableContactSources, websetsContactSources);
   const sourceGate = filterSourcesForDomain({ domain: input.domain, sources });
   const initialDirectExa = input.initialProviders.directExa ?? { skipped: true, sourceCount: 0, failureCount: 0 };
+  const directContactRequestCount = directContactResult.status === "fulfilled" ? directContactResult.value.requestCount ?? 0 : 0;
+  const directContactCostUsd = directContactResult.status === "fulfilled" ? directContactResult.value.estimatedCostUsd ?? 0 : 0;
   const initialStable = input.initialProviders.stableenrich;
   const stableEmailDiscovery = stableContactResult.status === "fulfilled"
     ? stableContactResult.value.emailDiscovery ?? []
@@ -703,7 +713,9 @@ async function fetchContactSourcesForBasics(input: {
         directExa: {
           skipped: initialDirectExa.skipped && (directContactResult.status === "fulfilled" ? directContactResult.value.skipped : false),
           sourceCount: initialDirectExa.sourceCount + directContactSources.length,
-          failureCount: initialDirectExa.failureCount + directContactFailureCount
+          failureCount: initialDirectExa.failureCount + directContactFailureCount,
+          requestCount: (initialDirectExa.requestCount ?? 0) + directContactRequestCount,
+          estimatedCostUsd: Number(((initialDirectExa.estimatedCostUsd ?? 0) + directContactCostUsd).toFixed(4))
         },
         stableenrich: {
           sourceCount: (initialStable?.sourceCount ?? 0) + stableContactSources.length,
@@ -830,6 +842,23 @@ export const contactEnrichmentFunction = inngest.createFunction(
       const stableEnv = stableenrichEnvFromProcess();
       const directExaEnv = directExaEnvFromProcess();
       const websetsEnv = websetsEnvFromProcess();
+      const websetsExternalId = `cold-start-contact-${slug}-${parentGenerationRunId ?? trace.inngest?.runId ?? requestedAtMs}`;
+
+      // Websets are async agent searches: create the webset first so it works while the other
+      // contact providers run, then poll durably below. The old inline fetch gave it ~4.5s and
+      // recorded 0 items on every production run.
+      currentStage = "create-websets-contact-search";
+      const websetCreated: { skipped: true; reason: string } | { skipped: false; websetId: string; dashboardUrl: string | null; endpointUrl: string } =
+        runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED
+          ? await step.run("create-websets-contact-search", async () => {
+              try {
+                return await createPeopleEmailWebset({ env: websetsEnv, domain, peopleHints, externalId: websetsExternalId });
+              } catch (error) {
+                return { skipped: true as const, reason: boundedErrorMessage(error) };
+              }
+            })
+          : { skipped: true, reason: "EXA_WEBSETS_CONTACTS_ENABLED=false" };
+
       currentStage = "fetch-contact-sources";
       const contactSourceResult = await step.run("fetch-contact-sources", async () => {
         const result = await timed(() =>
@@ -846,7 +875,8 @@ export const contactEnrichmentFunction = inngest.createFunction(
             stableEnv,
             websetsEnabled: runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED,
             websetsEnv,
-            websetsExternalId: `cold-start-contact-${slug}-${parentGenerationRunId ?? trace.inngest?.runId ?? requestedAtMs}`
+            websetsExternalId,
+            websetsHandledExternally: true
           })
         );
 
@@ -867,10 +897,63 @@ export const contactEnrichmentFunction = inngest.createFunction(
         providerFactCount: contactSourceResult.value.providerFacts.length
       });
 
+      currentStage = "poll-websets-contact-search";
+      let websetsLate: WebsetsPeopleEmailResult | null = null;
+      if (!websetCreated.skipped) {
+        const pollAttempts = Math.max(1, Math.min(20, runtimeEnv.WEBSETS_POLL_ATTEMPTS ?? 6));
+        const pollIntervalSeconds = Math.max(1, Math.min(120, runtimeEnv.WEBSETS_POLL_INTERVAL_SECONDS ?? 20));
+        let pollsMade = 0;
+
+        for (let attempt = 1; attempt <= pollAttempts; attempt += 1) {
+          await step.sleep(`websets-wait-${attempt}`, `${pollIntervalSeconds}s`);
+          websetsLate = await step.run(`poll-websets-${attempt}`, () =>
+            pollPeopleEmailWebset({
+              env: websetsEnv,
+              domain,
+              peopleHints,
+              websetId: websetCreated.websetId,
+              dashboardUrl: websetCreated.dashboardUrl
+            })
+          );
+          pollsMade = attempt;
+          if ((websetsLate.trace.acceptedEmailCount ?? 0) > 0 || websetsLate.trace.failureCount > 0) {
+            break;
+          }
+        }
+
+        if (websetsLate) {
+          mergeTracePatch(trace, {
+            providers: {
+              websets: {
+                ...websetsLate.trace,
+                requestCount: 1 + pollsMade
+              },
+              ...(websetsLate.emailDiscovery.length > 0
+                ? { emailDiscovery: [...(trace.providers?.emailDiscovery ?? []), ...websetsLate.emailDiscovery] }
+                : {})
+            }
+          });
+          await recordEvent(
+            "websets-polled",
+            "contacts.websets",
+            `Websets returned ${websetsLate.trace.acceptedEmailCount ?? 0} verified emails after ${pollsMade} poll${pollsMade === 1 ? "" : "s"}`,
+            {
+              acceptedEmailCount: websetsLate.trace.acceptedEmailCount ?? 0,
+              itemCount: websetsLate.trace.itemCount ?? 0,
+              polls: pollsMade
+            }
+          );
+        }
+      }
+      const websetsLateSources = websetsLate
+        ? filterSourcesForDomain({ domain, sources: websetsLate.sources }).accepted
+        : [];
+      const contactProviderFacts = [...contactSourceResult.value.providerFacts, ...(websetsLate?.facts ?? [])];
+
       currentStage = "enrich-contacts";
       const contactEnriched = await step.run("enrich-contacts", async () => {
         const result = await timed(() => {
-          const providerFactMerge = applyProviderFactCandidates(baseSections, contactSourceResult.value.providerFacts);
+          const providerFactMerge = applyProviderFactCandidates(baseSections, contactProviderFacts);
           return {
             sections: extractedCardSectionsSchema.parse(providerFactMerge.sections),
             providerFactMerge
@@ -905,7 +988,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
         await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, cardToStore));
         await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-contact-sources", () =>
-          recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSourceResult.value.sources))
+          recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSourceResult.value.sources, websetsLateSources))
         );
       } else {
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", cardToStore);
@@ -1301,10 +1384,11 @@ export const generateCardFunction = inngest.createFunction(
     try {
       const anthropic = createAnthropicClient();
       const defaultModel = anthropicModel();
-      const extractModel = anthropicModelForStage("extract_full", defaultModel);
-      const blockModel = anthropicModelForStage("extract_block", defaultModel);
-      const synthesisModel = anthropicModelForStage("synthesis", defaultModel);
-      const verifierModel = anthropicModelForStage("verify", defaultModel);
+      const extractModel = modelForStage("extract_full", defaultModel);
+      const blockModel = modelForStage("extract_block", defaultModel);
+      const synthesisModel = modelForStage("synthesis", defaultModel);
+      const verifierModel = modelForStage("verify", defaultModel);
+      const sectionModel = modelForStage("research_section", defaultModel);
 
       if (requestedSectionId) {
         currentStage = "generate-section";
@@ -1334,7 +1418,7 @@ export const generateCardFunction = inngest.createFunction(
                 client: anthropic,
                 definition: RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId],
                 evidence,
-                model: synthesisModel,
+                model: sectionModel,
                 company: {
                   domain,
                   name: existingCardForSection.identity.name.value ?? domain
@@ -1465,7 +1549,7 @@ export const generateCardFunction = inngest.createFunction(
           let stableSkipProbeNames: StableenrichProbeName[] = [];
           const directPromise = directExaEnabled()
             ? fetchDirectExaFundamentalsSources({ env: directExaEnv, domain })
-            : Promise.resolve({ sources: [], failures: [], skipped: true });
+            : Promise.resolve({ sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 });
           let directResult: PromiseSettledResult<Awaited<ReturnType<typeof fetchDirectExaFundamentalsSources>>>;
           let stableResult: PromiseSettledResult<Awaited<ReturnType<typeof fetchStableenrichFastSources>>>;
 
@@ -1524,7 +1608,9 @@ export const generateCardFunction = inngest.createFunction(
               directExa: {
                 skipped: directResult.status === "fulfilled" ? directResult.value.skipped : false,
                 sourceCount: directSources.length,
-                failureCount: directResult.status === "fulfilled" ? directResult.value.failures.length : 1
+                failureCount: directResult.status === "fulfilled" ? directResult.value.failures.length : 1,
+                requestCount: directResult.status === "fulfilled" ? directResult.value.requestCount : 0,
+                estimatedCostUsd: directResult.status === "fulfilled" ? directResult.value.estimatedCostUsd : 0
               },
               stableenrich: {
                 sourceCount: stableSources.length,

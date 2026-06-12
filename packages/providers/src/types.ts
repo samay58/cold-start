@@ -20,7 +20,7 @@ export type DirectExaEnv = Partial<
 >;
 
 export type WebsetsEnv = Partial<
-  Record<"EXA_WEBSETS_API_KEY" | "EXA_WEBSETS_BASE_URL", string>
+  Record<"EXA_WEBSETS_API_KEY" | "EXA_WEBSETS_BASE_URL" | "EXA_WEBSETS_CREDIT_USD", string>
 >;
 
 export type PeopleEmailHint = {

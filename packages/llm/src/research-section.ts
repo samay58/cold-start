@@ -176,7 +176,7 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
     client: input.client,
     label: `research-section:${input.definition.id}`,
     model: input.model,
-    stage: "synthesis",
+    stage: "research_section",
     telemetry: input.telemetry,
     params: {
       model: input.model,

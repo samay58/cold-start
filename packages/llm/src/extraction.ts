@@ -9,6 +9,7 @@ import {
 } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { withSchemaRetry } from "./llm-provider";
 import {
   budgetEvidenceSources,
   compactEvidenceText,
@@ -733,40 +734,42 @@ export async function extractCompanyClaims(input: {
   evidence: ExtractionEvidence;
   telemetry?: AnthropicTelemetrySink;
 }) {
-  const response: Message = await createTracedAnthropicMessage({
-    client: input.client,
-    label: "extract-company-claims",
-    model: input.model,
-    stage: "extract_full",
-    telemetry: input.telemetry,
-    params: {
+  return withSchemaRetry(input.model, async () => {
+    const response: Message = await createTracedAnthropicMessage({
+      client: input.client,
+      label: "extract-company-claims",
       model: input.model,
-      max_tokens: 4000,
-      temperature: 0,
-      system: [
-        {
-          type: "text",
-          text: extractionSystemPrompt,
-          cache_control: anthropicSystemCacheControl()
-        }
-      ],
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
-            }
-          ]
-        }
-      ],
-      tools: [extractionTool],
-      tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
-    },
-  });
+      stage: "extract_full",
+      telemetry: input.telemetry,
+      params: {
+        model: input.model,
+        max_tokens: 4000,
+        temperature: 0,
+        system: [
+          {
+            type: "text",
+            text: extractionSystemPrompt,
+            cache_control: anthropicSystemCacheControl()
+          }
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
+              }
+            ]
+          }
+        ],
+        tools: [extractionTool],
+        tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
+      },
+    });
 
-  return parseExtractionToolUse(response);
+    return parseExtractionToolUse(response);
+  });
 }
 
 const blockGuidance: Record<BlockEnrichmentId, string> = {
@@ -789,48 +792,50 @@ export async function extractCompanyBlockClaims(input: {
   evidence: ExtractionEvidence & { currentSections?: ExtractedCardSections };
   telemetry?: AnthropicTelemetrySink;
 }) {
-  const response: Message = await createTracedAnthropicMessage({
-    client: input.client,
-    label: `extract-block:${input.block}`,
-    model: input.model,
-    stage: "extract_block",
-    telemetry: input.telemetry,
-    params: {
+  return withSchemaRetry(input.model, async () => {
+    const response: Message = await createTracedAnthropicMessage({
+      client: input.client,
+      label: `extract-block:${input.block}`,
       model: input.model,
-      max_tokens: 1800,
-      temperature: 0,
-      system: [
-        {
-          type: "text",
-          text: [
-            investorTasteKernel,
-            "You extract one Cold Start card block from public cited evidence.",
-            "Return only claims supported by citations in this prompt. Use null or omit fields when evidence is missing.",
-            "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
-            blockGuidance[input.block],
-          ].join(" "),
-          cache_control: anthropicSystemCacheControl(),
-        }
-      ],
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                blockId: input.block,
-                ...evidenceForExtractionPrompt(input.evidence, { scope: "block" }),
-                ...(input.evidence.currentSections ? { currentSections: input.evidence.currentSections } : {}),
-              })
-            }
-          ]
-        }
-      ],
-      tools: [blockEnrichmentTool],
-      tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
-    },
-  });
+      stage: "extract_block",
+      telemetry: input.telemetry,
+      params: {
+        model: input.model,
+        max_tokens: 1800,
+        temperature: 0,
+        system: [
+          {
+            type: "text",
+            text: [
+              investorTasteKernel,
+              "You extract one Cold Start card block from public cited evidence.",
+              "Return only claims supported by citations in this prompt. Use null or omit fields when evidence is missing.",
+              "Do not backfill from general knowledge. Do not infer funding, leaders, emails, customers, or competitors without source support.",
+              blockGuidance[input.block],
+            ].join(" "),
+            cache_control: anthropicSystemCacheControl(),
+          }
+        ],
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  blockId: input.block,
+                  ...evidenceForExtractionPrompt(input.evidence, { scope: "block" }),
+                  ...(input.evidence.currentSections ? { currentSections: input.evidence.currentSections } : {}),
+                })
+              }
+            ]
+          }
+        ],
+        tools: [blockEnrichmentTool],
+        tool_choice: { type: "tool", name: BLOCK_EXTRACTION_TOOL_NAME }
+      },
+    });
 
-  return parseBlockEnrichmentToolUse(response);
+    return parseBlockEnrichmentToolUse(response);
+  });
 }

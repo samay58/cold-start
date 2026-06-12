@@ -48,9 +48,12 @@ export type GenerationProviderEndpointTrace = {
 };
 
 export type GenerationLlmCallTrace = {
-  stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify";
+  stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify" | "research_section";
   label: string;
   model: string;
+  // LLM provider that served the call ("anthropic", "deepseek", ...). Absent on rows
+  // written before provider routing existed; absence means anthropic.
+  provider?: string;
   // Section this call paid for, when it is a per-section pass. Lets cost tie back
   // to the section model without parsing the label string.
   sectionId?: string;
@@ -118,6 +121,11 @@ export type GenerationTrace = {
       skipped: boolean;
       sourceCount: number;
       failureCount: number;
+      // Successful /search requests this run and their estimated spend. Direct Exa bills
+      // the Exa account directly (not AgentCash), so without these fields the spend is
+      // invisible to run telemetry.
+      requestCount?: number;
+      estimatedCostUsd?: number;
     };
     stableenrich?: {
       sourceCount: number;
@@ -141,6 +149,10 @@ export type GenerationTrace = {
       rejectedEmailCount?: number;
       websetId?: string;
       dashboardUrl?: string;
+      // API requests made and estimated credit spend. Websets bills the Exa account directly
+      // (not AgentCash), so these make the spend visible in run telemetry.
+      requestCount?: number;
+      estimatedCostUsd?: number;
     };
     mergedSourceCount?: number;
     emailDiscovery?: GenerationEmailDiscoveryTrace[];

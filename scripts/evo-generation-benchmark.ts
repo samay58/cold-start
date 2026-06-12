@@ -132,8 +132,10 @@ function milestone(run: RunRow, name: keyof NonNullable<GenerationTrace["milesto
 function runCostUsd(run: RunRow) {
   const agentcashCost = run.trace_json?.costUsdAgentcash ?? run.trace_json?.providers?.stableenrich?.walletDeltaUsd;
   const anthropicCost = run.trace_json?.costUsdAnthropic ?? run.trace_json?.llm?.totalEstimatedCostUsd;
+  // Direct Exa bills the Exa account directly; traces older than the field report 0.
+  const directExaCost = run.trace_json?.providers?.directExa?.estimatedCostUsd ?? 0;
   if (typeof agentcashCost === "number" && Number.isFinite(agentcashCost)) {
-    return Number((agentcashCost + (anthropicCost ?? 0)).toFixed(6));
+    return Number((agentcashCost + (anthropicCost ?? 0) + directExaCost).toFixed(6));
   }
 
   if (run.cost_usd !== null) {

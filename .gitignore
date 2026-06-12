@@ -8,6 +8,8 @@ coverage/
 eval/runs/
 eval/activegraph-runs/
 eval/fugu-top-truths/runs/
+eval/provider-matrix/fixtures/
+eval/provider-matrix/runs/
 .pytest_cache/
 .venv/
 .env

@@ -113,12 +113,40 @@ INNGEST_SIGNING_KEY
 These are not required for normal deploys. Set them only when you have a reason to.
 
 ```text
+# Per-stage LLM provider routing. Accepts provider-prefixed model strings
+# (deepseek/deepseek-v4-flash); unprefixed strings are Anthropic models. Each falls back to its
+# ANTHROPIC_* counterpart below, then ANTHROPIC_MODEL. LLM_RESEARCH_SECTION_MODEL falls back to
+# ANTHROPIC_SYNTHESIS_MODEL. Rollback from any provider flip = unset the var and redeploy
+# (Vercel env changes only apply to new deployments).
+LLM_EXTRACT_MODEL
+LLM_BLOCK_MODEL
+LLM_VERIFIER_MODEL
+LLM_SYNTHESIS_MODEL
+LLM_RESEARCH_SECTION_MODEL
+LLM_RESEARCH_PLAN_MODEL
+
+# Credentials and tuning for non-Anthropic providers. DEEPSEEK_BASE_URL defaults to
+# https://api.deepseek.com; the adapter disables DeepSeek thinking mode automatically.
+DEEPSEEK_API_KEY
+DEEPSEEK_BASE_URL
+LLM_OPENAI_COMPAT_TIMEOUT_MS
+
 # Per-stage Anthropic model overrides. Each falls back to ANTHROPIC_MODEL if unset.
 ANTHROPIC_RESEARCH_PLAN_MODEL
 ANTHROPIC_EXTRACT_MODEL
 ANTHROPIC_BLOCK_MODEL
 ANTHROPIC_SYNTHESIS_MODEL
 ANTHROPIC_VERIFIER_MODEL
+
+# Exa Websets contact enrichment. Websets are async agent searches; the contact function
+# creates the webset early and polls durably (attempts x seconds, defaults 6 x 20s).
+# EXA_WEBSETS_CREDIT_USD tunes cost telemetry to the billing plan (default: Starter rate).
+EXA_WEBSETS_CONTACTS_ENABLED
+EXA_WEBSETS_API_KEY
+EXA_WEBSETS_BASE_URL
+WEBSETS_POLL_ATTEMPTS
+WEBSETS_POLL_INTERVAL_SECONDS
+EXA_WEBSETS_CREDIT_USD
 
 # Prompt cache TTL on stable system prompts. Defaults to "1h"; verified end-to-end against the
 # Anthropic API via scripts/verify-cache-ttl.ts. The traced LLM helper attaches the

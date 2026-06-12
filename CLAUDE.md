@@ -52,6 +52,8 @@ npm run eval:golden                     # node eval/run-golden.mjs against the s
 npm run eval:fugu:top-truths            # node eval/fugu-top-truths/run.mjs (Fugu top-truths eval)
 npm run eval:fugu:build-bundles         # node eval/fugu-top-truths/build-bundles.mjs (prep model-input bundles)
 npm run eval:fugu:matrix                # node eval/fugu-top-truths/run-matrix.mjs (mini/ultra/baseline comparison)
+npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles.ts (freeze prod evidence fixtures, read-only DB)
+npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)
 npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
 npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
 npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
@@ -60,7 +62,7 @@ npm run evo:generation-benchmark        # cost/latency report over recent runs; 
 npm run evo:ux-benchmark                # Playwright UX report (load, layout shift, overflow); add --gate to fail on regression
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs those same steps individually on Node 24, so a green local `check` should mean green CI.
 
 Single test examples:
 
@@ -115,7 +117,7 @@ npm run dev:full
 - Public `/api/cards/{slug}` must never return `synthesis`.
 - Extension `/api/extension/cards/{slug}` requires `x-cold-start-extension-id` and `authorization: Bearer $EXTENSION_API_TOKEN`, then returns synthesis when present.
 - `packages/core/src/card.ts` is load-bearing. Every non-null citation-bearing fact needs citation refs, and every ref must resolve to the top-level `citations[]`.
-- Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
+- Public reads derive from `cards.card_json` at request time (the legacy `public_card_json` compatibility column was dropped in migration 0006).
 - Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
 - Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
 - `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only; do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
@@ -127,8 +129,8 @@ npm run dev:full
 - Current visual guidance lives in `DESIGN.md`: the Catalogue Card. At Umami display, IBM Plex Sans body, At Textual receipt/evidence accent, one dusty-lilac seal accent (`--color-seal #6E5C9E`), warm parchment surface, classification dots, and filed/vetted stamps. The public card and the extension side panel share this language. Archived Signal Ledger, Paper, parchment, Ray Gun, and older motion directions under `docs/brand/archive/` are historical only.
 - ESLint uses flat config at the repo root (`eslint.config.mjs`). New packages inherit root rules unless they add their own config.
 - Provider endpoint cost, timeout, and stop conditions are registered in `packages/providers/src/provider-budget.ts`. Wire new stableenrich endpoints there before adding them to the pipeline.
-- Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions.
-- `ANTHROPIC_MODEL` sets the default model for every LLM stage; `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages (see README "Cost And Model Controls").
+- Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions. Total run cost is four streams: `costUsdAnthropic` (all LLM spend, any provider), `costUsdAgentcash` (StableEnrich wallet delta), `providers.directExa.estimatedCostUsd` (Direct Exa bills the Exa account at ~$0.007/search), and `providers.websets.estimatedCostUsd` (Websets credits, ~12/item; rate tunable via EXA_WEBSETS_CREDIT_USD). The Exa-billed fields are tracked since June 2026; older traces report nothing.
+- LLM providers are swappable per pipeline stage. `modelForStage(stage)` in `packages/llm/src/llm-provider.ts` resolves `LLM_<STAGE>_MODEL` → `ANTHROPIC_<STAGE>_MODEL` → `ANTHROPIC_MODEL`. Model strings may carry a provider prefix (`deepseek/deepseek-v4-flash`); unprefixed strings are Anthropic. `createTracedAnthropicMessage` dispatches prefixed models to the OpenAI-compat adapter (`packages/llm/src/openai-compat.ts`, raw fetch, retries, telemetry); the Anthropic path is unchanged. Non-Anthropic pricing lives in `packages/llm/src/pricing.ts`; add a row there for every new eval-matrix model. The `research_section` stage falls back to `ANTHROPIC_SYNTHESIS_MODEL` (it was split from `synthesis` for routing). Read `docs/anthropic-llm-call-map.md` before touching any of this.
 - Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The `createTracedAnthropicMessage` helper attaches the `anthropic-beta: extended-cache-ttl-2025-04-11` header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m` to roll back without redeploy. Verify with `npm run verify:cache-ttl` after SDK upgrades.
 - `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed stableenrich calls do not retry by design: AgentCash is paid per-call, so a blind retry on opaque CLI errors can multiply cost on transient AND non-transient failures. Failures are recorded as structured `StableenrichProbeFailure` entries in `allSettledLimited` results; the pipeline degrades gracefully on them.
 - Generation-run `traceJson` is validated via `generationTraceSchema.safeParse` at read time. Corrupt rows produce `traceJson: null` with a structured warn, never a malformed object downstream.
@@ -138,7 +140,7 @@ npm run dev:full
 
 - Neon is the production Postgres target because it pairs cleanly with Vercel and keeps server operations light.
 - Drizzle is the ORM. Schema lives in `packages/db/src/schema.ts`; migrations live in `packages/db/drizzle/`.
-- The full card is stored as JSONB in `cards.card_json` and `cards.public_card_json` for cheap whole-card reads.
+- The full card is stored as JSONB in `cards.card_json` for cheap whole-card reads.
 - `sources`, `citations`, `claims`, and `generation_runs` are normalized so evals and debugging can query across cards.
 - When adding a field, decide whether it belongs only in card JSON or also needs normalized rows for cross-card querying.
 
@@ -150,7 +152,7 @@ npm run dev:full
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
 - Background work: `apps/web/src/inngest/functions.ts`.
-- Generation QA: `scripts/trace-generation.ts` for one-shot pipeline traces, `scripts/qa-generation-suite.ts` for batch runs over fixture companies. Both expect `.env.local` sourced.
+- Generation QA: `scripts/trace-generation.ts` for one-shot pipeline traces, `scripts/qa-generation-suite.ts` for batch runs over fixture companies. Each self-loads its env file (`trace-generation` reads `.env.local`; `qa-generation-suite` reads `.env.production.migrate.local`, falling back to `.env.local`). Playbook: `docs/qa/generation-trace-and-production-qa.md`.
 
 ## Cross-References
 

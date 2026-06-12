@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildDirectExaContactRequests,
   buildDirectExaFundamentalsRequests,
+  DIRECT_EXA_SEARCH_COST_USD,
   fetchDirectExaContactSources,
   fetchDirectExaFundamentalsSources,
   missingDirectExaConfig,
@@ -64,7 +65,24 @@ describe("fetchDirectExaFundamentalsSources", () => {
       },
     });
 
-    expect(result).toEqual({ sources: [], failures: [], skipped: true });
+    expect(result).toEqual({ sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 });
+  });
+
+  it("counts successful requests and estimates direct Exa spend", async () => {
+    const result = await fetchDirectExaFundamentalsSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "cartesia.ai",
+      fetchJson: async (request) => {
+        if (request.name === "exa_direct_news") {
+          throw new Error("Direct Exa request failed with 502");
+        }
+        return { results: [] };
+      },
+    });
+
+    expect(result.requestCount).toBe(3);
+    expect(result.estimatedCostUsd).toBeCloseTo(3 * DIRECT_EXA_SEARCH_COST_USD, 6);
+    expect(result.failures).toHaveLength(1);
   });
 
   it("maps Exa results into URL-backed sources with basics retrieval intents", async () => {

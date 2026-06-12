@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   buildWebsetsPeopleContactRequest,
+  createPeopleEmailWebset,
+  estimateWebsetsCostUsd,
   fetchWebsetsPeopleEmailSources,
-  missingWebsetsConfig
+  missingWebsetsConfig,
+  pollPeopleEmailWebset
 } from "../src/websets";
 
 describe("websets people email enrichment", () => {
@@ -242,5 +245,103 @@ describe("websets people email enrichment", () => {
     expect(result.facts[0]?.value).toEqual([
       expect.objectContaining({ name: "Amrit Baveja", email: "amrit@sycamore.so" })
     ]);
+  });
+});
+
+describe("createPeopleEmailWebset and pollPeopleEmailWebset", () => {
+  const item = {
+    id: "item_1",
+    properties: {
+      type: "person",
+      url: "https://linkedin.com/in/sri",
+      person: { name: "Sri Viswanath", position: "CEO", company: { name: "Sycamore" } }
+    },
+    enrichments: [{ status: "completed", format: "email", result: ["sri@sycamore.so"] }]
+  };
+
+  it("creates the webset and returns its id without polling", async () => {
+    const fetchJson = vi.fn(async () => ({ id: "ws_9", dashboardUrl: "https://websets.exa.ai/ws_9" }));
+    const created = await createPeopleEmailWebset({
+      env: { EXA_WEBSETS_API_KEY: "exa-key" },
+      domain: "sycamore.so",
+      peopleHints: [{ name: "Sri Viswanath", role: "CEO" }],
+      externalId: "cold-start-contact-sycamore",
+      fetchJson
+    });
+
+    expect(created).toEqual({
+      skipped: false,
+      websetId: "ws_9",
+      dashboardUrl: "https://websets.exa.ai/ws_9",
+      endpointUrl: "https://api.exa.ai/websets/v0/websets"
+    });
+    expect(fetchJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips creation without a key or named people", async () => {
+    const noKey = await createPeopleEmailWebset({
+      env: {},
+      domain: "sycamore.so",
+      peopleHints: [{ name: "Sri Viswanath" }],
+      externalId: "x"
+    });
+    expect(noKey.skipped).toBe(true);
+
+    const noPeople = await createPeopleEmailWebset({
+      env: { EXA_WEBSETS_API_KEY: "exa-key" },
+      domain: "sycamore.so",
+      peopleHints: [],
+      externalId: "x"
+    });
+    expect(noPeople.skipped).toBe(true);
+  });
+
+  it("polls once, parses items, and reports request count and estimated cost", async () => {
+    const fetchJson = vi.fn(async () => ({ data: [item] }));
+    const result = await pollPeopleEmailWebset({
+      env: { EXA_WEBSETS_API_KEY: "exa-key" },
+      domain: "sycamore.so",
+      peopleHints: [{ name: "Sri Viswanath", role: "CEO" }],
+      websetId: "ws_9",
+      dashboardUrl: "https://websets.exa.ai/ws_9",
+      fetchJson
+    });
+
+    expect(fetchJson).toHaveBeenCalledTimes(1);
+    expect(result.emailDiscovery[0]).toMatchObject({ name: "Sri Viswanath", emailFound: "sri@sycamore.so", emailSource: "websets" });
+    expect(result.facts).toHaveLength(1);
+    expect(result.trace).toMatchObject({
+      itemCount: 1,
+      acceptedEmailCount: 1,
+      requestCount: 1,
+      websetId: "ws_9"
+    });
+    // 1 item x (10 result + 2 enrichment) credits at the default Starter rate
+    expect(result.trace.estimatedCostUsd).toBeCloseTo(0.0735, 4);
+  });
+
+  it("degrades a poll failure to a failure-shaped result", async () => {
+    const fetchJson = vi.fn(async () => {
+      throw new Error("Websets request failed with 503");
+    });
+    const result = await pollPeopleEmailWebset({
+      env: { EXA_WEBSETS_API_KEY: "exa-key" },
+      domain: "sycamore.so",
+      peopleHints: [{ name: "Sri Viswanath" }],
+      websetId: "ws_9",
+      fetchJson
+    });
+
+    expect(result.failures).toHaveLength(1);
+    expect(result.trace.failureCount).toBe(1);
+    expect(result.trace.requestCount).toBe(1);
+  });
+});
+
+describe("estimateWebsetsCostUsd", () => {
+  it("prices items at 12 credits on the default Starter rate and honors the env override", () => {
+    expect(estimateWebsetsCostUsd(3)).toBeCloseTo(0.2205, 4);
+    expect(estimateWebsetsCostUsd(3, { EXA_WEBSETS_CREDIT_USD: "0.00449" })).toBeCloseTo(0.1616, 4);
+    expect(estimateWebsetsCostUsd(0)).toBe(0);
   });
 });

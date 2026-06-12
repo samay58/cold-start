@@ -39,7 +39,9 @@
     "eval:golden": "node eval/run-golden.mjs",
     "eval:fugu:top-truths": "node eval/fugu-top-truths/run.mjs",
     "eval:fugu:build-bundles": "node eval/fugu-top-truths/build-bundles.mjs",
-    "eval:fugu:matrix": "node eval/fugu-top-truths/run-matrix.mjs"
+    "eval:fugu:matrix": "node eval/fugu-top-truths/run-matrix.mjs",
+    "eval:providers:bundles": "tsx eval/provider-matrix/build-bundles.ts",
+    "eval:providers:matrix": "tsx eval/provider-matrix/run-matrix.ts"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

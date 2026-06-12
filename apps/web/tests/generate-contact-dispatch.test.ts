@@ -179,7 +179,7 @@ vi.mock("@cold-start/providers", () => ({
 vi.mock("@cold-start/llm", () => ({
   BLOCK_ENRICHMENT_IDS: ["description", "funding", "team", "signals", "comparables"],
   anthropicModel: () => "claude-test",
-  anthropicModelForStage: () => "claude-test",
+  modelForStage: () => "claude-test",
   createAnthropicClient: () => ({}),
   extractCompanyBlockClaims: vi.fn(),
   extractCompanyClaims: vi.fn(),

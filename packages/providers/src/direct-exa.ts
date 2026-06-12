@@ -3,6 +3,16 @@ import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSour
 
 const defaultExaBaseUrl = "https://api.exa.ai";
 
+// Exa bills the account behind DIRECT_EXA_API_KEY directly (not AgentCash), so spend here is
+// invisible to wallet telemetry unless we estimate it ourselves. Current published pricing
+// (verified 2026-06-11, post 2026-03-03 update): $7 per 1k search requests including 10 results
+// with text and highlights. Every request this module builds stays at or under 10 results.
+export const DIRECT_EXA_SEARCH_COST_USD = 0.007;
+
+function directExaCostUsd(requestCount: number) {
+  return Number((requestCount * DIRECT_EXA_SEARCH_COST_USD).toFixed(4));
+}
+
 export type DirectExaProbeName =
   | "exa_direct_company"
   | "exa_direct_people"
@@ -27,6 +37,9 @@ export type DirectExaSourcesResult = {
   sources: ProviderSource[];
   failures: DirectExaFailure[];
   skipped: boolean;
+  // Successful /search requests and their estimated spend. Failed requests are assumed unbilled.
+  requestCount: number;
+  estimatedCostUsd: number;
 };
 
 export type DirectExaContactSourcesResult = DirectExaSourcesResult & {
@@ -158,7 +171,7 @@ export async function fetchDirectExaFundamentalsSources(input: {
   fetchJson?: FetchJson;
 }): Promise<DirectExaSourcesResult> {
   if (missingDirectExaConfig(input.env).length > 0) {
-    return { sources: [], failures: [], skipped: true };
+    return { sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
   }
 
   const fetchJson = input.fetchJson ?? directExaJson;
@@ -169,9 +182,12 @@ export async function fetchDirectExaFundamentalsSources(input: {
       payload: await fetchJson(request),
     }))
   );
+  const requestCount = settled.filter((result) => result.status === "fulfilled").length;
 
   return {
     skipped: false,
+    requestCount,
+    estimatedCostUsd: directExaCostUsd(requestCount),
     sources: settled.flatMap((result) => {
       if (result.status !== "fulfilled") {
         return [];
@@ -207,12 +223,12 @@ export async function fetchDirectExaContactSources(input: {
   fetchJson?: FetchJson;
 }): Promise<DirectExaContactSourcesResult> {
   if (missingDirectExaConfig(input.env).length > 0) {
-    return { sources: [], facts: [], failures: [], skipped: true };
+    return { sources: [], facts: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
   }
 
   const peopleHints = normalizeNamedPeopleEmailHints(input.peopleHints);
   if (peopleHints.length === 0) {
-    return { sources: [], facts: [], failures: [], skipped: true };
+    return { sources: [], facts: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
   }
 
   const fetchJson = input.fetchJson ?? directExaJson;
@@ -223,9 +239,12 @@ export async function fetchDirectExaContactSources(input: {
       payload: await fetchJson(request),
     }))
   );
+  const requestCount = settled.filter((result) => result.status === "fulfilled").length;
 
   return {
     skipped: false,
+    requestCount,
+    estimatedCostUsd: directExaCostUsd(requestCount),
     sources: settled.flatMap((result) => {
       if (result.status !== "fulfilled") {
         return [];

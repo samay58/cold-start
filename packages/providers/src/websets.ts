@@ -4,6 +4,18 @@ import type { PeopleEmailHint, ProviderFactCandidate, ProviderSource, WebsetsEnv
 const defaultWebsetsBaseUrl = "https://api.exa.ai";
 const MAX_WEBSETS_PEOPLE = 3;
 
+// Websets bills in credits: ~10 per webset result plus ~2 per enrichment row (one email
+// enrichment per item here). Credit USD depends on the plan tier; default assumes Starter
+// ($49 / 8,000 credits). Override via EXA_WEBSETS_CREDIT_USD when the plan changes.
+const WEBSETS_CREDITS_PER_ITEM = 10 + 2;
+const DEFAULT_WEBSETS_CREDIT_USD = 0.006125;
+
+export function estimateWebsetsCostUsd(itemCount: number, env?: WebsetsEnv): number {
+  const configured = Number(env?.EXA_WEBSETS_CREDIT_USD);
+  const creditUsd = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_WEBSETS_CREDIT_USD;
+  return Number((itemCount * WEBSETS_CREDITS_PER_ITEM * creditUsd).toFixed(4));
+}
+
 export type WebsetsRequest = {
   method: "GET" | "POST";
   url: string;
@@ -39,8 +51,16 @@ export type WebsetsPeopleEmailResult = {
     rejectedEmailCount?: number;
     websetId?: string;
     dashboardUrl?: string;
+    // API requests made and estimated credit spend (see estimateWebsetsCostUsd). Websets bills
+    // the Exa account directly, so without these the spend is invisible to run telemetry.
+    requestCount?: number;
+    estimatedCostUsd?: number;
   };
 };
+
+export type WebsetsCreateResult =
+  | { skipped: true; reason: string }
+  | { skipped: false; websetId: string; dashboardUrl: string | null; endpointUrl: string };
 
 type FetchJson = (request: WebsetsRequest) => Promise<unknown>;
 
@@ -151,6 +171,133 @@ export function buildWebsetsPeopleContactRequest(input: {
   };
 }
 
+// Creates the webset and returns immediately. Websets are asynchronous agent searches that take
+// tens of seconds to minutes to materialize items; callers that can wait durably (Inngest steps)
+// should create early, do other work, then poll with pollPeopleEmailWebset.
+export async function createPeopleEmailWebset(input: {
+  env: WebsetsEnv;
+  domain: string;
+  peopleHints: PeopleEmailHint[];
+  externalId: string;
+  fetchJson?: FetchJson;
+}): Promise<WebsetsCreateResult> {
+  if (missingWebsetsConfig(input.env).length > 0) {
+    return { skipped: true, reason: "EXA_WEBSETS_API_KEY is not configured" };
+  }
+
+  const people = normalizeNamedPeopleEmailHints(input.peopleHints).slice(0, MAX_WEBSETS_PEOPLE);
+  if (people.length === 0) {
+    return { skipped: true, reason: "no named people to search" };
+  }
+
+  const createRequest = buildWebsetsPeopleContactRequest({
+    env: input.env,
+    domain: input.domain,
+    peopleHints: people,
+    externalId: input.externalId
+  });
+  const created = objectRecord(await (input.fetchJson ?? websetsJson)(createRequest));
+  return {
+    skipped: false,
+    websetId: stringValue(created?.id) ?? input.externalId,
+    dashboardUrl: stringValue(created?.dashboardUrl) ?? null,
+    endpointUrl: createRequest.url
+  };
+}
+
+// One list-and-parse pass over an existing webset. No sleeps; the caller owns the wait between
+// attempts. Failures degrade to a failure-shaped result, never a throw.
+export async function pollPeopleEmailWebset(input: {
+  env: WebsetsEnv;
+  domain: string;
+  peopleHints: PeopleEmailHint[];
+  websetId: string;
+  dashboardUrl?: string | null;
+  fetchJson?: FetchJson;
+}): Promise<WebsetsPeopleEmailResult> {
+  const people = normalizeNamedPeopleEmailHints(input.peopleHints).slice(0, MAX_WEBSETS_PEOPLE);
+  const discovery: WebsetsPeopleEmailResult["emailDiscovery"] = people.map((person) => ({
+    name: person.name,
+    role: person.role ?? null,
+    discoverySource: "people_hint" as const,
+    emailFound: null,
+    emailSource: null
+  }));
+  const listRequest: WebsetsRequest = {
+    method: "GET",
+    url: `${websetsBaseUrl(input.env)}/websets/v0/websets/${encodeURIComponent(input.websetId)}/items?limit=10`,
+    headers: websetsHeaders(input.env)
+  };
+  const dashboardUrl = input.dashboardUrl ?? null;
+
+  try {
+    const listed = objectRecord(await (input.fetchJson ?? websetsJson)(listRequest));
+    const items = Array.isArray(listed?.data) ? listed.data.flatMap((item) => {
+      const record = objectRecord(item);
+      return record ? [record as WebsetsItem] : [];
+    }) : [];
+    const parsed = parseWebsetsItems({
+      domain: input.domain,
+      people,
+      items,
+      dashboardUrl: dashboardUrl ?? listRequest.url,
+      fetchedAt: new Date().toISOString()
+    });
+
+    for (const entry of discovery) {
+      const found = parsed.accepted.find((candidate) => namesMatch(candidate.name, entry.name));
+      if (found) {
+        entry.emailFound = found.email;
+        entry.emailSource = "websets";
+      }
+    }
+
+    const facts = factCandidatesFromAccepted(input.domain, parsed.accepted, dashboardUrl ?? listRequest.url);
+    return {
+      sources: parsed.sources,
+      facts,
+      failures: [],
+      skipped: false,
+      emailDiscovery: discovery,
+      trace: {
+        skipped: false,
+        sourceCount: parsed.sources.length,
+        factCount: facts.length,
+        failureCount: 0,
+        itemCount: items.length,
+        acceptedEmailCount: parsed.accepted.length,
+        rejectedEmailCount: parsed.rejectedEmailCount,
+        websetId: input.websetId,
+        ...(dashboardUrl ? { dashboardUrl } : {}),
+        requestCount: 1,
+        estimatedCostUsd: estimateWebsetsCostUsd(items.length, input.env)
+      }
+    };
+  } catch (error) {
+    return {
+      sources: [],
+      facts: [],
+      failures: [
+        {
+          name: "exa_websets_people_email",
+          endpointUrl: listRequest.url,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      ],
+      skipped: false,
+      emailDiscovery: discovery,
+      trace: {
+        skipped: false,
+        sourceCount: 0,
+        factCount: 0,
+        failureCount: 1,
+        websetId: input.websetId,
+        requestCount: 1
+      }
+    };
+  }
+}
+
 export async function fetchWebsetsPeopleEmailSources(input: {
   env: WebsetsEnv;
   domain: string;
@@ -173,50 +320,36 @@ export async function fetchWebsetsPeopleEmailSources(input: {
     return emptyResult({ skipped: true, emailDiscovery: discovery });
   }
 
-  const fetchJson = input.fetchJson ?? websetsJson;
   const externalId = input.externalId ?? `cold-start-contact-${input.domain.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${Date.now().toString(36)}`;
-  const createRequest = buildWebsetsPeopleContactRequest({
-    env: input.env,
-    domain: input.domain,
-    peopleHints: people,
-    externalId
-  });
 
   try {
-    const created = objectRecord(await fetchJson(createRequest));
-    const websetId = stringValue(created?.id) ?? externalId;
-    const dashboardUrl = stringValue(created?.dashboardUrl);
+    const created = await createPeopleEmailWebset({
+      env: input.env,
+      domain: input.domain,
+      peopleHints: people,
+      externalId,
+      ...(input.fetchJson ? { fetchJson: input.fetchJson } : {})
+    });
+    if (created.skipped) {
+      return emptyResult({ skipped: true, emailDiscovery: discovery });
+    }
+
     const pollAttempts = Math.max(1, Math.min(5, input.pollAttempts ?? 3));
     const pollIntervalMs = Math.max(0, Math.min(10_000, input.pollIntervalMs ?? 1_500));
-    let items: WebsetsItem[] = [];
-    let parsed = parseWebsetsItems({
-      domain: input.domain,
-      people,
-      items,
-      dashboardUrl: dashboardUrl ?? createRequest.url,
-      fetchedAt: new Date().toISOString()
-    });
+    let result: WebsetsPeopleEmailResult | null = null;
 
     for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
-      const listRequest: WebsetsRequest = {
-        method: "GET",
-        url: `${websetsBaseUrl(input.env)}/websets/v0/websets/${encodeURIComponent(websetId)}/items?limit=10`,
-        headers: websetsHeaders(input.env)
-      };
-      const listed = objectRecord(await fetchJson(listRequest));
-      items = Array.isArray(listed?.data) ? listed.data.flatMap((item) => {
-        const record = objectRecord(item);
-        return record ? [record as WebsetsItem] : [];
-      }) : [];
-      parsed = parseWebsetsItems({
+      result = await pollPeopleEmailWebset({
+        env: input.env,
         domain: input.domain,
-        people,
-        items,
-        dashboardUrl: dashboardUrl ?? createRequest.url,
-        fetchedAt: new Date().toISOString()
+        peopleHints: people,
+        websetId: created.websetId,
+        dashboardUrl: created.dashboardUrl,
+        ...(input.fetchJson ? { fetchJson: input.fetchJson } : {})
       });
 
-      if (parsed.accepted.length > 0 || parsed.observedEmailCount > 0 || attempt === pollAttempts - 1) {
+      const observedEmails = (result.trace.acceptedEmailCount ?? 0) + (result.trace.rejectedEmailCount ?? 0);
+      if ((result.trace.acceptedEmailCount ?? 0) > 0 || observedEmails > 0 || attempt === pollAttempts - 1) {
         break;
       }
       if (pollIntervalMs > 0) {
@@ -224,31 +357,15 @@ export async function fetchWebsetsPeopleEmailSources(input: {
       }
     }
 
-    for (const entry of discovery) {
-      const found = parsed.accepted.find((candidate) => namesMatch(candidate.name, entry.name));
-      if (found) {
-        entry.emailFound = found.email;
-        entry.emailSource = "websets";
-      }
+    if (!result) {
+      return emptyResult({ skipped: true, emailDiscovery: discovery });
     }
 
-    const facts = factCandidatesFromAccepted(input.domain, parsed.accepted, dashboardUrl ?? createRequest.url);
     return {
-      sources: parsed.sources,
-      facts,
-      failures: [],
-      skipped: false,
-      emailDiscovery: discovery,
+      ...result,
       trace: {
-        skipped: false,
-        sourceCount: parsed.sources.length,
-        factCount: facts.length,
-        failureCount: 0,
-        itemCount: items.length,
-        acceptedEmailCount: parsed.accepted.length,
-        rejectedEmailCount: parsed.rejectedEmailCount,
-        websetId,
-        ...(dashboardUrl ? { dashboardUrl } : {})
+        ...result.trace,
+        requestCount: 1 + (result.trace.requestCount ?? 0)
       }
     };
   } catch (error) {
@@ -258,7 +375,7 @@ export async function fetchWebsetsPeopleEmailSources(input: {
       failures: [
         {
           name: "exa_websets_people_email",
-          endpointUrl: createRequest.url,
+          endpointUrl: `${websetsBaseUrl(input.env)}/websets/v0/websets`,
           error: error instanceof Error ? error.message : String(error)
         }
       ],
@@ -268,7 +385,8 @@ export async function fetchWebsetsPeopleEmailSources(input: {
         skipped: false,
         sourceCount: 0,
         factCount: 0,
-        failureCount: 1
+        failureCount: 1,
+        requestCount: 1
       }
     };
   }

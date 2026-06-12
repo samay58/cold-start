@@ -1,21 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { GenerationLlmCallTrace } from "@cold-start/core";
+import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
+import { parseModelString } from "./llm-provider";
+import { createTracedOpenAiCompatMessage } from "./openai-compat";
 
 export type AnthropicCallStage = GenerationLlmCallTrace["stage"];
 
-type AnthropicUsage = {
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_creation_input_tokens?: number;
-  cache_read_input_tokens?: number;
-  cache_creation?: {
-    ephemeral_5m_input_tokens?: number;
-    ephemeral_1h_input_tokens?: number;
-  };
-};
-
-export type AnthropicTelemetrySink = (call: GenerationLlmCallTrace) => void;
+export type { AnthropicTelemetrySink } from "./call-trace";
 
 const modelEnvByStage: Record<AnthropicCallStage, string> = {
   research_plan: "ANTHROPIC_RESEARCH_PLAN_MODEL",
@@ -23,6 +15,9 @@ const modelEnvByStage: Record<AnthropicCallStage, string> = {
   extract_block: "ANTHROPIC_BLOCK_MODEL",
   synthesis: "ANTHROPIC_SYNTHESIS_MODEL",
   verify: "ANTHROPIC_VERIFIER_MODEL",
+  // research_section split off from synthesis when provider routing landed; the legacy env
+  // resolver keeps the old aliasing.
+  research_section: "ANTHROPIC_SYNTHESIS_MODEL",
 };
 
 export function createAnthropicClient(apiKey = process.env.ANTHROPIC_API_KEY) {
@@ -112,36 +107,17 @@ function callTrace(input: {
   status: GenerationLlmCallTrace["status"];
   usage?: AnthropicUsage;
 }): GenerationLlmCallTrace {
-  const estimatedCostUsd = estimateAnthropicCostUsd(input.model, input.usage);
-  return {
-    stage: input.stage,
-    label: input.label,
-    model: input.model,
-    status: input.status,
-    durationMs: input.durationMs,
-    ...(input.usage?.input_tokens !== undefined ? { inputTokens: input.usage.input_tokens } : {}),
-    ...(input.usage?.output_tokens !== undefined ? { outputTokens: input.usage.output_tokens } : {}),
-    ...(input.usage?.cache_creation_input_tokens !== undefined
-      ? { cacheCreationInputTokens: input.usage.cache_creation_input_tokens }
-      : {}),
-    ...(input.usage?.cache_read_input_tokens !== undefined ? { cacheReadInputTokens: input.usage.cache_read_input_tokens } : {}),
-    ...(input.usage?.cache_creation
-      ? {
-          cacheCreation: {
-            ...(input.usage.cache_creation.ephemeral_5m_input_tokens !== undefined
-              ? { ephemeral5mInputTokens: input.usage.cache_creation.ephemeral_5m_input_tokens }
-              : {}),
-            ...(input.usage.cache_creation.ephemeral_1h_input_tokens !== undefined
-              ? { ephemeral1hInputTokens: input.usage.cache_creation.ephemeral_1h_input_tokens }
-              : {}),
-          },
-        }
-      : {}),
-    ...(estimatedCostUsd !== undefined ? { estimatedCostUsd } : {}),
-    ...(input.error ? { error: input.error instanceof Error ? input.error.message.slice(0, 300) : String(input.error).slice(0, 300) } : {}),
-  };
+  return buildLlmCallTrace({
+    ...input,
+    provider: "anthropic",
+    estimatedCostUsd: estimateAnthropicCostUsd(input.model, input.usage),
+  });
 }
 
+// Provider-aware chokepoint. Unprefixed model strings run the Anthropic path exactly as before;
+// "provider/model" strings (e.g. "deepseek/deepseek-v4-flash") route to the OpenAI-compat
+// adapter, which translates the same Anthropic-native params. The `client` argument is unused on
+// non-Anthropic routes; keeping the signature avoids churn at every call site.
 export async function createTracedAnthropicMessage(input: {
   client: Anthropic;
   label: string;
@@ -150,6 +126,17 @@ export async function createTracedAnthropicMessage(input: {
   stage: AnthropicCallStage;
   telemetry?: AnthropicTelemetrySink | undefined;
 }): Promise<Message> {
+  const resolved = parseModelString(input.model);
+  if (resolved.provider !== "anthropic") {
+    return createTracedOpenAiCompatMessage({
+      label: input.label,
+      params: { ...input.params, model: resolved.model },
+      resolved,
+      stage: input.stage,
+      telemetry: input.telemetry,
+    });
+  }
+
   const startedAt = Date.now();
   // Attach the extended-cache-ttl beta header only when the resolved TTL is 1h. The API silently
   // downgrades to 5m without it; the beta name is in the SDK's known list (AnthropicBeta).
@@ -158,14 +145,14 @@ export async function createTracedAnthropicMessage(input: {
       ? { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } }
       : undefined;
   try {
-    const response = (await input.client.messages.create(input.params, requestOptions)) as Message & {
+    const response = (await input.client.messages.create({ ...input.params, model: resolved.model }, requestOptions)) as Message & {
       usage?: AnthropicUsage;
     };
     input.telemetry?.(
       callTrace({
         durationMs: Date.now() - startedAt,
         label: input.label,
-        model: input.model,
+        model: resolved.model,
         stage: input.stage,
         status: "ok",
         usage: response.usage,
@@ -178,7 +165,7 @@ export async function createTracedAnthropicMessage(input: {
         durationMs: Date.now() - startedAt,
         error,
         label: input.label,
-        model: input.model,
+        model: resolved.model,
         stage: input.stage,
         status: "failed",
       }),

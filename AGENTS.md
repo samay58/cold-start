@@ -13,7 +13,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
 - `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/privacy`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
-- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`.
+- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
 - `packages/providers`: AgentCash and StableEnrich wrappers, direct Exa, Firecrawl, SEC EDGAR, and provider budget registry.
@@ -21,7 +21,7 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `packages/pipeline`: card generation orchestration, evidence ledger, cost tracking, and conflict resolution.
 - `packages/ui`: shared React card primitives and `tokens.css`.
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
-- `experiments/`: exploratory work outside the npm workspace graph. Treat `experiments/activegraph-coldstart` as scratch unless it is promoted into a deterministic eval.
+- `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 
 Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
@@ -36,7 +36,7 @@ npm run dev                             # web app only
 npm run dev:extension                   # Vite dev server for the extension
 npm run build                           # build all workspaces
 npm run typecheck                       # tsc --noEmit across workspaces
-npm run test                            # vitest across workspaces, then node:test evals
+npm run test                            # vitest across workspaces, then `node --test` over eval/*.test.mjs and eval/**/*.test.mjs
 npm run lint                            # ESLint flat-config check
 npm run check                           # full local/CI gate
 npm run knip                            # unused dependency/export check
@@ -44,31 +44,52 @@ npm run secrets:check                   # scan tracked surfaces for accidental s
 npm run audit:deps                      # guarded production dependency audit
 npm run db:generate                     # drizzle-kit generate
 npm run db:migrate                      # drizzle-kit migrate
-npm run trace:generation                # inspect recent generation traces
-npm run qa:generation                   # production generation QA suite
-npm run eval:golden                     # golden-company eval harness
+npm run db:migrate:production           # scripts/migrate-production.mjs against prod DB
+npm run dev:fresh                       # wipe apps/web/.next + .cold-start, then dev:full
+npm run trace:generation                # tsx scripts/trace-generation.ts (single-run debug)
+npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
+npm run eval:golden                     # node eval/run-golden.mjs against the seed set
+npm run eval:fugu:top-truths            # node eval/fugu-top-truths/run.mjs (Fugu top-truths eval)
+npm run eval:fugu:build-bundles         # node eval/fugu-top-truths/build-bundles.mjs (prep model-input bundles)
+npm run eval:fugu:matrix                # node eval/fugu-top-truths/run-matrix.mjs (mini/ultra/baseline comparison)
+npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles.ts (freeze prod evidence fixtures, read-only DB)
+npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)
+npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
+npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
+npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
+npm run verify:cache-ttl                # tsx scripts/verify-cache-ttl.ts (confirm 1h Anthropic cache header)
+npm run evo:generation-benchmark        # cost/latency report over recent runs; add --gate to fail on regression
+npm run evo:ux-benchmark                # Playwright UX report (load, layout shift, overflow); add --gate to fail on regression
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs those same steps individually on Node 24, so a green local `check` should mean green CI.
 
 Single test examples:
 
 ```bash
 npm test -w @cold-start/pipeline -- generate-card
 npm test -w @cold-start/pipeline -- -t "verifier drops"
+node --test eval/some-file.test.mjs           # node:test files under eval/ run after vitest in `npm run test`
 ```
 
-Extension QA:
+Local Postgres (host port `55432`, not `5432`):
 
 ```bash
-npm run qa:extension:ui -w @cold-start/extension
-npm run qa:extension:smoke -w @cold-start/extension
+docker-compose up -d postgres                 # bring up local DB
+docker-compose down                           # stop it
 ```
 
 Provider smoke, paid path:
 
 ```bash
 npm run spike:stableenrich -w @cold-start/providers -- cartesia.ai
+```
+
+Extension QA (Playwright):
+
+```bash
+npm run qa:extension:ui -w @cold-start/extension     # mounts the side panel via vite.sidepanel.config.ts with a Chrome API shim
+npm run qa:extension:smoke -w @cold-start/extension  # builds extension, then loads the MV3 bundle in Playwright
 ```
 
 Local stack:
@@ -87,7 +108,7 @@ npm run dev:full
 - Deployed extension setup uses the token in `.vercel/extension-api-token.production.local`. Its value must match Vercel `EXTENSION_API_TOKEN`.
 - `VITE_COLD_START_API_ORIGIN` is a build-time extension variable, not a deployed web-app runtime variable.
 - Restart `dev:full` after changing extension auth env vars. A running Next process will not pick them up.
-- Production must keep `PUBLIC_GENERATION_ENABLED=false` and use a real `CHROME_EXTENSION_ID` plus a non-wildcard `ALLOWED_EXTENSION_ORIGINS`. `apps/web/src/lib/extension-auth.ts` fails closed on `local-dev`/wildcard sentinels in production; preserve that behavior. Bearer comparison is timing-safe.
+- Production must keep `PUBLIC_GENERATION_ENABLED=false` and use a real `CHROME_EXTENSION_ID` plus a non-wildcard `ALLOWED_EXTENSION_ORIGINS`. `apps/web/src/lib/extension-auth.ts` fails closed on `local-dev`/wildcard sentinels in production; preserve that behavior.
 - Read `SECURITY.md` before changing auth, env handling, dependency versions, or anything that could expose tokens.
 
 ## Conventions
@@ -96,21 +117,32 @@ npm run dev:full
 - Public `/api/cards/{slug}` must never return `synthesis`.
 - Extension `/api/extension/cards/{slug}` requires `x-cold-start-extension-id` and `authorization: Bearer $EXTENSION_API_TOKEN`, then returns synthesis when present.
 - `packages/core/src/card.ts` is load-bearing. Every non-null citation-bearing fact needs citation refs, and every ref must resolve to the top-level `citations[]`.
-- Public reads derive from `cards.card_json` at request time. `cards.public_card_json` is a temporary compatibility cache, not authority.
+- Public reads derive from `cards.card_json` at request time (the legacy `public_card_json` compatibility column was dropped in migration 0006).
 - Cache reads enforce section TTLs by mode: `basics` needs fresh identity and signals; `analysis` also needs fresh synthesis.
 - Verifier drops stay dropped. `synthesis.bullCase` and `synthesis.bearCase` are 0-3 supported claims after verification, not shape-padded lists.
 - `synthesis.openQuestions` entries are structured `{question, category}` with a model-assigned category taxonomy; the schema tolerates legacy bare-string entries by normalizing them to `category: null`. Open Questions and The Case (bull/bear) render from `synthesis` only; do not reintroduce per-section question blocks or client-side category classifiers (consolidated in commit `6d09930`).
-- Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). Generation runs carry mode and job kind in traces.
-- The extension and API share a contract version pinned in `packages/core/api-contract.json`. Bump the version and rebuild the extension whenever route shapes change.
+- Generation has two modes: `basics` (sourced public card, can be cached) and `analysis` (extension-gated, adds synthesis). The pipeline records mode as `jobKind` in generation traces. `analysis` runs require synthesis to be present (see commit `249e606`).
+- The extension and API share a contract version pinned in `packages/core/api-contract.json`. Web responses send `x-cold-start-api-contract`; extension requests send `x-cold-start-client-contract`. Bump the version and rebuild the extension whenever route shapes change.
 - When adding a card field, update schema, extraction, pipeline assembly, and UI together.
 - Extension build output goes to `apps/extension/dist`; load that folder unpacked in Chrome.
 - If the side panel shows the wrong API origin, rebuild the extension. Use the deployed origin by default; use `VITE_COLD_START_API_ORIGIN=http://localhost:3000 VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true` only for local development. Reload `apps/extension/dist` in `chrome://extensions`, then reopen the side panel.
 - Current visual guidance lives in `DESIGN.md`: the Catalogue Card. At Umami display, IBM Plex Sans body, At Textual receipt/evidence accent, one dusty-lilac seal accent (`--color-seal #6E5C9E`), warm parchment surface, classification dots, and filed/vetted stamps. The public card and the extension side panel share this language. Archived Signal Ledger, Paper, parchment, Ray Gun, and older motion directions under `docs/brand/archive/` are historical only.
-- Provider endpoint cost, timeout, expected facts, and stop conditions live in `packages/providers/src/provider-budget.ts`. Register new StableEnrich endpoints there before adding them to the pipeline.
-- Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The traced helper attaches the `extended-cache-ttl-2025-04-11` beta header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m`. Verify with `npm run verify:cache-ttl` after SDK upgrades.
-- `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed StableEnrich calls do not retry by design: AgentCash is paid per-call, so blind retry on opaque CLI errors can multiply cost on both transient and non-transient failures.
+- ESLint uses flat config at the repo root (`eslint.config.mjs`). New packages inherit root rules unless they add their own config.
+- Provider endpoint cost, timeout, and stop conditions are registered in `packages/providers/src/provider-budget.ts`. Wire new stableenrich endpoints there before adding them to the pipeline.
+- Generation cost telemetry: `packages/core/src/generation-trace.ts` defines the trace shape, `packages/pipeline/src/cost.ts` tallies per-run Anthropic spend. Use both together when debugging cost regressions. Total run cost is three streams: `costUsdAnthropic` (all LLM spend, any provider), `costUsdAgentcash` (StableEnrich wallet delta), `providers.directExa.estimatedCostUsd` (Direct Exa bills the Exa account at ~$0.007/search), and `providers.websets.estimatedCostUsd` (Websets credits, ~12/item; rate tunable via EXA_WEBSETS_CREDIT_USD). The Exa-billed fields are tracked since June 2026; older traces report nothing.
+- LLM providers are swappable per pipeline stage. `modelForStage(stage)` in `packages/llm/src/llm-provider.ts` resolves `LLM_<STAGE>_MODEL` → `ANTHROPIC_<STAGE>_MODEL` → `ANTHROPIC_MODEL`. Model strings may carry a provider prefix (`deepseek/deepseek-v4-flash`); unprefixed strings are Anthropic. `createTracedAnthropicMessage` dispatches prefixed models to the OpenAI-compat adapter (`packages/llm/src/openai-compat.ts`, raw fetch, retries, telemetry); the Anthropic path is unchanged. Non-Anthropic pricing lives in `packages/llm/src/pricing.ts`; add a row there for every new eval-matrix model. The `research_section` stage falls back to `ANTHROPIC_SYNTHESIS_MODEL` (it was split from `synthesis` for routing). Read `docs/anthropic-llm-call-map.md` before touching any of this.
+- Stable Anthropic system prompts use 1h ephemeral cache by default via `anthropicSystemCacheControl()`. The `createTracedAnthropicMessage` helper attaches the `anthropic-beta: extended-cache-ttl-2025-04-11` header when TTL is 1h; without it the API silently downgrades to 5m. Override via `ANTHROPIC_CACHE_TTL=5m` to roll back without redeploy. Verify with `npm run verify:cache-ttl` after SDK upgrades.
+- `direct-exa` HTTP requests retry transient 429/5xx and network errors twice with backoff. 4xx auth/payment failures do NOT retry. AgentCash-backed stableenrich calls do not retry by design: AgentCash is paid per-call, so a blind retry on opaque CLI errors can multiply cost on transient AND non-transient failures. Failures are recorded as structured `StableenrichProbeFailure` entries in `allSettledLimited` results; the pipeline degrades gracefully on them.
 - Generation-run `traceJson` is validated via `generationTraceSchema.safeParse` at read time. Corrupt rows produce `traceJson: null` with a structured warn, never a malformed object downstream.
-- `ANTHROPIC_MODEL` sets the default model for every LLM stage; `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, and `ANTHROPIC_RESEARCH_PLAN_MODEL` override individual stages (see README "Cost And Model Controls").
+- Bearer token comparison in `apps/web/src/lib/extension-auth.ts` is timing-safe (`crypto.timingSafeEqual`).
+
+## Data Layer
+
+- Neon is the production Postgres target because it pairs cleanly with Vercel and keeps server operations light.
+- Drizzle is the ORM. Schema lives in `packages/db/src/schema.ts`; migrations live in `packages/db/drizzle/`.
+- The full card is stored as JSONB in `cards.card_json` for cheap whole-card reads.
+- `sources`, `citations`, `claims`, and `generation_runs` are normalized so evals and debugging can query across cards.
+- When adding a field, decide whether it belongs only in card JSON or also needs normalized rows for cross-card querying.
 
 ## Where To Look First
 
@@ -120,12 +152,15 @@ npm run dev:full
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
 - Background work: `apps/web/src/inngest/functions.ts`.
-- Generation QA: `scripts/trace-generation.ts`, `scripts/qa-generation-suite.ts`, and `docs/qa/generation-trace-and-production-qa.md`.
+- Generation QA: `scripts/trace-generation.ts` for one-shot pipeline traces, `scripts/qa-generation-suite.ts` for batch runs over fixture companies. Each self-loads its env file (`trace-generation` reads `.env.local`; `qa-generation-suite` reads `.env.production.migrate.local`, falling back to `.env.local`). Playbook: `docs/qa/generation-trace-and-production-qa.md`.
 
 ## Cross-References
 
 - `README.md`: local setup, smoke tests, and deployed extension setup.
 - `docs/deployment.md`: Vercel, Neon, Inngest, and extension deployment.
+- `docs/qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
 - `SPEC.md`: product spec.
 - `DESIGN.md`: visual system.
+- `INTENT.md`: product intent and non-goals.
+- `CLAUDE.md`: Claude Code-facing parallel of this file; keep the two in sync when changing shared guidance.
 - `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`: original implementation plan.
