@@ -2,9 +2,15 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import {
   citationSchema as coreCitationSchema,
+  clampCompleteDescriptionSentence,
+  cleanDescriptionText,
   coldStartCardObjectSchema,
   comparableSchema as coreComparableSchema,
+  completeDescriptionSentence,
   type CompanyDescription,
+  descriptionSentences,
+  firstDescriptionSentence,
+  isWeakDescriptionLabel,
   signalSchema as coreSignalSchema,
 } from "@cold-start/core";
 import { z } from "zod";
@@ -606,78 +612,8 @@ function normalizeOptionalDescriptionSentence(value: unknown): string | null {
   return completeDescriptionSentence(firstDescriptionSentence(cleanDescriptionText(value)));
 }
 
-function cleanDescriptionText(value: string): string {
-  return value
-    .replace(/\s+/g, " ")
-    .replace(/\.{3,}|…/gu, ".")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\.{2,}/g, ".")
-    .trim()
-    .replace(/\s*[,;:-]+\s*$/u, "")
-    .trim();
-}
-
-function firstDescriptionSentence(value: string): string {
-  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
-  return (match?.[1] ?? value).trim();
-}
-
-function descriptionSentences(value: string, limit: number): string[] {
-  const matches = value.match(/[^.!?]+[.!?]+(?:\s|$)/g);
-  if (!matches) {
-    return value ? [value] : [];
-  }
-
-  return matches.slice(0, limit).map((sentence) => sentence.trim()).filter(Boolean);
-}
-
-function completeDescriptionSentence(value: string | null | undefined): string | null {
-  const cleaned = cleanDescriptionText(value ?? "");
-  if (!cleaned) {
-    return null;
-  }
-
-  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
-}
-
 function clampCompleteSentence(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-
-  const clipped = value.slice(0, maxLength + 1);
-  const boundary = clipped.lastIndexOf(" ");
-  const trimmed = (boundary > 90 ? clipped.slice(0, boundary) : value.slice(0, maxLength)).trim();
-  return completeDescriptionSentence(trimmed.replace(/[.,;:!?]+$/u, "")) ?? value;
-}
-
-function isWeakDescriptionLabel(value: string): boolean {
-  const normalized = cleanDescriptionText(value).toLowerCase();
-  const words = normalized.split(/\s+/).filter(Boolean);
-  if (words.length < 4) {
-    return true;
-  }
-  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) {
-    return true;
-  }
-
-  const labelWords = new Set([
-    "ai",
-    "agent",
-    "answer",
-    "browser",
-    "company",
-    "copilot",
-    "erp",
-    "infrastructure",
-    "platform",
-    "security",
-    "software",
-    "solution",
-    "startup",
-    "tool",
-  ]);
-  return words.length <= 5 && words.every((word) => labelWords.has(word.replace(/[^a-z0-9-]/g, "")));
+  return clampCompleteDescriptionSentence(value, maxLength) ?? value;
 }
 
 function normalizeFunding(input: unknown) {

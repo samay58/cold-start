@@ -5,6 +5,7 @@
 
 const SIGNAL_CLUSTER_CAP = 6;
 const SIGNAL_CLUSTER_DATE_WINDOW_DAYS = 5;
+const SIGNAL_CLUSTER_RAISE_AMOUNT_WINDOW_DAYS = 60;
 const TITLE_OVERLAP_THRESHOLD = 0.6;
 
 const STOPWORDS = new Set([
@@ -159,9 +160,9 @@ function sameEvent(left, right) {
     }
   }
 
-  // The same disclosed raise amount is event-defining even when an outlet recycles the headline
-  // weeks later or mislabels the category (launch coverage that leads with the raise).
-  if (sharedRaiseAmount) {
+  // The same disclosed raise amount is event-defining when coverage recycles the headline weeks
+  // later or mislabels the category, but not across separate rounds years apart.
+  if (sharedRaiseAmount && datesWithinWindow(left.dateMs, right.dateMs, SIGNAL_CLUSTER_RAISE_AMOUNT_WINDOW_DAYS)) {
     return true;
   }
   if (sharedAmounts.size > 0 && datesWithinWindow(left.dateMs, right.dateMs, SIGNAL_CLUSTER_DATE_WINDOW_DAYS)) {

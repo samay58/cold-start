@@ -64,4 +64,48 @@ describe("applyProviderFactCandidates", () => {
     expect(result.trace.appliedCount).toBe(1);
     expect(result.trace.appliedByEndpoint).toEqual({ apollo_org_search: 1 });
   });
+
+  it("skips weak or incomplete provider descriptions without adding citations", () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const result = applyProviderFactCandidates(
+      {
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: skeleton.signals,
+        comparables: skeleton.comparables,
+        citations: skeleton.citations
+      },
+      [
+        providerFact({
+          path: "identity.description",
+          endpoint: "org_enrichment",
+          value: {
+            shortDescription: "AI platform",
+            expandedDescription: "A product suite for",
+            concept: null,
+            serves: null,
+            mechanism: null
+          }
+        }),
+        providerFact({
+          path: "identity.description",
+          endpoint: "apollo_org_search",
+          value: {
+            shortDescription: "Cartesia builds voice infrastructure for developers shipping real-time audio products over",
+            expandedDescription: "Cartesia helps developers ship real-time voice products.",
+            concept: null,
+            serves: null,
+            mechanism: null
+          }
+        })
+      ]
+    );
+
+    expect(result.sections.identity.description).toBeUndefined();
+    expect(result.sections.identity.oneLiner.value).toBeNull();
+    expect(result.sections.citations).toHaveLength(0);
+    expect(result.trace.appliedCount).toBe(0);
+    expect(result.trace.appliedByEndpoint).toEqual({});
+  });
 });

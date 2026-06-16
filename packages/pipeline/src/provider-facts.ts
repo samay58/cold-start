@@ -1,4 +1,13 @@
-import type { ColdStartCard, ResolvedFact } from "@cold-start/core";
+import {
+  clampCompleteDescriptionSentence,
+  cleanDescriptionText,
+  completeDescriptionSentence,
+  descriptionSentences,
+  firstDescriptionSentence,
+  isWeakDescriptionLabel,
+  type ColdStartCard,
+  type ResolvedFact
+} from "@cold-start/core";
 import type { ProviderFactCandidate } from "@cold-start/providers";
 
 export type ProviderFactMergeTrace = {
@@ -106,15 +115,15 @@ function firstSentence(value: string | null | undefined, maxLength = 180) {
     return null;
   }
 
-  const match = trimmed.match(/^.+?[.!?](?:\s|$)/);
-  const sentence = completeSentence((match?.[0] ?? trimmed).trim());
+  const sentence = completeDescriptionSentence(firstDescriptionSentence(trimmed));
+  if (!sentence) {
+    return null;
+  }
   if (sentence.length <= maxLength) {
     return sentence;
   }
 
-  const clipped = sentence.slice(0, maxLength).trimEnd();
-  const boundary = clipped.lastIndexOf(" ");
-  return completeSentence(clipped.slice(0, boundary > 80 ? boundary : maxLength).trimEnd());
+  return clampCompleteDescriptionSentence(sentence, maxLength);
 }
 
 function expandedDescription(value: string | null | undefined) {
@@ -127,49 +136,25 @@ function expandedDescription(value: string | null | undefined) {
     return null;
   }
 
-  const matches = cleaned.match(/[^.!?]+[.!?]+(?:\s|$)/g);
-  const sentences = (matches ?? [cleaned]).slice(0, 3).map((sentence) => sentence.trim()).filter(Boolean);
+  const sentences = descriptionSentences(cleaned, 3);
   const joined = sentences.join(" ");
-  return joined ? completeSentence(joined) : null;
+  return joined ? completeDescriptionSentence(joined) : null;
 }
 
-function cleanDescriptionText(value: string) {
-  return value
-    .replace(/\s+/g, " ")
-    .replace(/\.{3,}|…/gu, ".")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\.{2,}/g, ".")
-    .trim()
-    .replace(/\s*[,;:-]+\s*$/u, "")
-    .trim();
-}
+type DescriptionValue = NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>;
 
-function completeSentence(value: string) {
-  const cleaned = cleanDescriptionText(value);
-  if (!cleaned) {
-    return cleaned;
+function sanitizeDescriptionValue(value: DescriptionValue): DescriptionValue | null {
+  const shortDescription = firstSentence(value.shortDescription);
+  if (!shortDescription || isWeakDescriptionLabel(shortDescription)) {
+    return null;
   }
 
-  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
-}
-
-function sanitizeDescriptionFact(
-  fact: ResolvedFact<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>>,
-): ResolvedFact<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>> {
-  if (!fact.value) {
-    return fact;
-  }
-
-  const value = fact.value;
   return {
-    ...fact,
-    value: {
-      shortDescription: firstSentence(value.shortDescription) ?? value.shortDescription,
-      expandedDescription: expandedDescription(value.expandedDescription),
-      concept: firstSentence(value.concept),
-      serves: firstSentence(value.serves),
-      mechanism: firstSentence(value.mechanism),
-    },
+    shortDescription,
+    expandedDescription: expandedDescription(value.expandedDescription),
+    concept: firstSentence(value.concept),
+    serves: firstSentence(value.serves),
+    mechanism: firstSentence(value.mechanism),
   };
 }
 
@@ -293,16 +278,23 @@ export function applyProviderFactCandidates(
         });
         break;
       case "identity.description":
-        applyFact(candidate as ProviderFactCandidate<NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>>, () => shouldFill(next.identity.description), (fact) => {
-          const sanitizedFact = sanitizeDescriptionFact(fact);
+        if (shouldFill(next.identity.description)) {
+          const descriptionCandidate = candidate as ProviderFactCandidate<DescriptionValue>;
+          const sanitizedValue = sanitizeDescriptionValue(descriptionCandidate.value);
+          if (!sanitizedValue) {
+            break;
+          }
+          const citationId = citationIdFor(descriptionCandidate);
+          const sanitizedFact = resolved({ ...descriptionCandidate, value: sanitizedValue }, citationId);
           next.identity.description = sanitizedFact;
           if (shouldFill(next.identity.oneLiner)) {
             next.identity.oneLiner = {
               ...sanitizedFact,
-              value: sanitizedFact.value?.shortDescription ?? null,
+              value: sanitizedValue.shortDescription,
             };
           }
-        });
+          markApplied(candidate);
+        }
         break;
       case "funding.totalRaisedUsd":
         applyFact(candidate as ProviderFactCandidate<number>, () => shouldFill(next.funding.totalRaisedUsd), (fact) => {

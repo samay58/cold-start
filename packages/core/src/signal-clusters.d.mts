@@ -6,6 +6,7 @@ export type ClusterableSignal = {
   url: string;
   date: string;
   source: string;
+  category: string;
   citationIds: string[];
 };
 

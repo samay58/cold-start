@@ -278,6 +278,29 @@ describe("clusterSignals", () => {
     expect(clusterSignals(launches, granolaOptions)).toHaveLength(2);
   });
 
+  it("does not merge separate funding rounds just because the amounts match", () => {
+    const rounds: Signal[] = [
+      {
+        url: "https://example.com/seed",
+        date: "2023-02-01",
+        title: "Acme raises $20M seed round for workflow automation",
+        source: "Outlet A",
+        category: "funding",
+        citationIds: ["c1"]
+      },
+      {
+        url: "https://example.com/series-a",
+        date: "2026-02-01",
+        title: "Acme raises $20M Series A to expand enterprise workflow automation",
+        source: "Outlet B",
+        category: "funding",
+        citationIds: ["c2"]
+      }
+    ];
+
+    expect(clusterSignals(rounds, { companyDomain: "acme.com", companyName: "Acme" })).toHaveLength(2);
+  });
+
   it("tolerates unparseable dates without crashing", () => {
     const odd: Signal[] = [
       {

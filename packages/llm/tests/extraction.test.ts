@@ -378,7 +378,7 @@ describe("parseExtractionToolUse", () => {
   });
 
   it("normalizes description prose into complete sentences without ellipses", () => {
-    const description = "A research workspace for technical diligence over";
+    const description = "A research workspace for technical diligence teams";
     const payload = parseExtractionToolUse({
       content: [
         {
@@ -412,7 +412,7 @@ describe("parseExtractionToolUse", () => {
     expect(payload.identity.description?.value?.concept).toBe("Evidence-led diligence workspace.");
   });
 
-  it("drops empty or category-label short descriptions", () => {
+  it("drops empty, category-label, or incomplete short descriptions", () => {
     const payload = parseExtractionToolUse({
       content: [
         {
@@ -441,6 +441,35 @@ describe("parseExtractionToolUse", () => {
     });
 
     expect(payload.identity.description).toEqual(unknownFact);
+
+    const incomplete = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: "A research workspace for technical diligence over",
+                  expandedDescription: "The workspace helps investors inspect technical diligence materials.",
+                  concept: null,
+                  serves: null,
+                  mechanism: null,
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"],
+              },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(incomplete.identity.description).toEqual(unknownFact);
   });
 
   it("defaults omitted optional list sections to empty arrays", () => {
