@@ -1,16 +1,16 @@
 # Cold Start
 
-Cold Start is a Chrome extension that helps you understand a private company quickly.
+Here is the thing about researching a private company. You open the website. You search the name. You check funding, look for the founders, skim a press release from two years ago, and read a news blurb that does not say much. Twenty minutes later, you have eleven browser tabs and a rough sense that the company exists.
 
-Open a company website, run Cold Start, and the side panel builds the first read a strong private investor would want: what the company does, who buys it, why it might matter, what proof exists, what changed recently, and what questions you should ask next.
+The raw facts are often public. They are just scattered, and the judgment you need lives in the gaps between them: why this company might matter, whether the traction is real, what proof exists, and what question you should ask first.
+
+Cold Start is built for that problem. Open the company's website, run the Chrome extension, and the side panel builds the first read a strong private investor would want.
 
 It also saves a sourced public page at `/c/{slug}`. That page is the fact base. The extension is the product.
 
 ## Why We Built It
 
-Most company research starts in tabs. You open the website, search the company, check funding, look for founders, skim recent news, and try to figure out what is actually going on. The raw facts are scattered, and the important judgment usually lives between the facts.
-
-Cold Start is built for that first serious read. It should answer:
+Cold Start is for the first serious read. It should answer:
 
 - What does this company do, in plain English?
 - Who runs it?
@@ -19,7 +19,7 @@ Cold Start is built for that first serious read. It should answer:
 - What product, funding, customer, team, and traction evidence is actually public?
 - What changed recently?
 - Which sources support each material claim?
-- What would be the next good diligence question?
+- What is the right next diligence question?
 
 The product bias is simple: facts first, citations always, judgment only after the evidence holds. A thin honest read is better than a confident-looking one full of guesses.
 
@@ -50,11 +50,11 @@ Cold Start also creates a public web card at `/c/{slug}` and a public API respon
 
 The extension can read the full card after auth and add the private investor synthesis. The public page stays factual and source-backed.
 
-## What It Solves
+## What It Is And Is Not
 
-Cold Start is for the moment before a call, memo, partner conversation, or first-pass screen. It does not try to replace diligence. It tries to make the first 10 minutes sharper.
+Cold Start is for the moment before a call, memo, partner conversation, or first-pass screen. It is not trying to replace diligence. It is trying to make the first 10 minutes sharper.
 
-It is not a CRM, outbound tool, chatbot, scoring engine, or investment recommendation system. It is a research companion for quickly getting from "I am on this company's website" to "I understand the business well enough to ask a good next question."
+It is not a CRM, outbound tool, chatbot, scoring engine, or investment recommendation system. It is a research companion for getting quickly from "I am on this company's website" to "I understand the business well enough to ask a good next question."
 
 ## How It Works
 
