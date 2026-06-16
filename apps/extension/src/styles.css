@@ -1372,11 +1372,7 @@ button {
 }
 
 .cs-company-summary {
-  display: -webkit-box;
-  overflow: hidden;
   margin-top: 9px;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
   color: var(--color-muted);
   font-size: 13.5px;
   line-height: 1.42;

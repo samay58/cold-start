@@ -23,6 +23,8 @@ const sections = {
     description: {
       value: {
         shortDescription: "Modal runs serverless compute for AI workloads.",
+        expandedDescription:
+          "Modal runs serverless compute for AI teams. Developers use it to run containers and batch jobs without managing their own GPU or CPU infrastructure.",
         concept: "Serverless compute",
         serves: "AI engineering teams",
         mechanism: "On-demand containers"

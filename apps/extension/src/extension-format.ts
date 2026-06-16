@@ -1,3 +1,5 @@
+import type { ColdStartCard } from "@cold-start/core";
+
 export const INSUFFICIENT_EVIDENCE_NOTICE =
   "Not enough verified evidence for an investor lens yet.";
 
@@ -39,13 +41,36 @@ export function compactProfileSummary(value: string | null | undefined, fallback
   }
 
   const sentence = firstSentence(normalized);
-  return completeSentence(clampAtWord(sentence || normalized, 220) || safeFallback);
+  return completeSentence(sentence || normalized || safeFallback);
 }
 
-export function cleanSummaryText(value: string): string {
+type ProfileSummaryCard = {
+  domain: string;
+  identity: Pick<ColdStartCard["identity"], "description" | "oneLiner">;
+};
+type ProfileDescriptionValue = NonNullable<NonNullable<ColdStartCard["identity"]["description"]>["value"]>;
+
+export function profileSummaryCopy(card: ProfileSummaryCard): { fullSummary: string; summary: string } {
+  const description = card.identity.description?.value;
+  const summary = compactProfileSummary(description?.shortDescription ?? card.identity.oneLiner.value, card.domain);
+  const expanded = completeSentence(description?.expandedDescription ?? "");
+  const structuredFallback = structuredDescriptionFallback(description);
+  const fullSummary = meaningfullyLonger(expanded, summary)
+    ? expanded
+    : meaningfullyLonger(structuredFallback, summary)
+      ? structuredFallback
+      : summary;
+
+  return { fullSummary, summary };
+}
+
+function cleanSummaryText(value: string): string {
   return value
     .replace(/\s+/g, " ")
-    .replace(/\s*(?:\.{3}|…)\s*$/u, "")
+    .replace(/\.{3,}|…/gu, ".")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\.{2,}/g, ".")
+    .replace(/\s*[,;:-]+\s*$/u, "")
     .trim();
 }
 
@@ -63,13 +88,34 @@ function completeSentence(value: string): string {
   return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
-function clampAtWord(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
+function structuredDescriptionFallback(description: ProfileDescriptionValue | null | undefined): string {
+  if (!description) {
+    return "";
   }
 
-  const sliced = value.slice(0, maxLength + 1);
-  const lastSpace = sliced.lastIndexOf(" ");
-  const trimmed = (lastSpace > 80 ? sliced.slice(0, lastSpace) : value.slice(0, maxLength)).trim();
-  return trimmed.replace(/[.,;:!?]+$/, "");
+  const parts = [
+    description.concept,
+    description.serves,
+    description.mechanism
+  ].map((part) => completeSentence(part ?? "")).filter(Boolean);
+  return Array.from(new Set(parts)).join(" ");
+}
+
+function meaningfullyLonger(candidate: string, summary: string): boolean {
+  const normalizedCandidate = normalizeForComparison(candidate);
+  const normalizedSummary = normalizeForComparison(summary);
+  if (!normalizedCandidate || normalizedCandidate === normalizedSummary) {
+    return false;
+  }
+
+  const extraLength = cleanSummaryText(candidate).length - cleanSummaryText(summary).length;
+  return extraLength >= 36 || sentenceCount(candidate) > sentenceCount(summary);
+}
+
+function sentenceCount(value: string): number {
+  return (cleanSummaryText(value).match(/[^.!?]+[.!?]+(?:\s|$)/g) ?? []).length;
+}
+
+function normalizeForComparison(value: string): string {
+  return cleanSummaryText(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

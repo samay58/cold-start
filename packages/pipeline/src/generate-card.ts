@@ -274,12 +274,14 @@ function mergeDescriptionFact(
 
   const mergedValue = {
     shortDescription: existing.value.shortDescription || candidate.value.shortDescription,
+    expandedDescription: existing.value.expandedDescription ?? candidate.value.expandedDescription,
     concept: existing.value.concept ?? candidate.value.concept,
     serves: existing.value.serves ?? candidate.value.serves,
     mechanism: existing.value.mechanism ?? candidate.value.mechanism,
   };
   const addedBlockField =
     mergedValue.shortDescription !== existing.value.shortDescription ||
+    mergedValue.expandedDescription !== existing.value.expandedDescription ||
     mergedValue.concept !== existing.value.concept ||
     mergedValue.serves !== existing.value.serves ||
     mergedValue.mechanism !== existing.value.mechanism;
@@ -493,7 +495,7 @@ function blockNeedsEnrichment(block: BlockEnrichmentId, sections: ExtractedCardS
   switch (block) {
     case "description": {
       const description = sections.identity.description?.value;
-      return !description || !description.concept || !description.serves || !description.mechanism;
+      return !description || !description.expandedDescription || !description.concept || !description.serves || !description.mechanism;
     }
     case "funding":
       return (

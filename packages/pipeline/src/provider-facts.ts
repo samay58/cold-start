@@ -101,16 +101,56 @@ function firstSentence(value: string | null | undefined, maxLength = 180) {
     return null;
   }
 
-  const trimmed = value.replace(/\s+/g, " ").trim();
+  const trimmed = cleanDescriptionText(value);
+  if (!trimmed) {
+    return null;
+  }
+
   const match = trimmed.match(/^.+?[.!?](?:\s|$)/);
-  const sentence = (match?.[0] ?? trimmed).trim();
+  const sentence = completeSentence((match?.[0] ?? trimmed).trim());
   if (sentence.length <= maxLength) {
     return sentence;
   }
 
   const clipped = sentence.slice(0, maxLength).trimEnd();
   const boundary = clipped.lastIndexOf(" ");
-  return `${clipped.slice(0, boundary > 80 ? boundary : maxLength).trimEnd()}.`;
+  return completeSentence(clipped.slice(0, boundary > 80 ? boundary : maxLength).trimEnd());
+}
+
+function expandedDescription(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = cleanDescriptionText(value);
+  if (!cleaned) {
+    return null;
+  }
+
+  const matches = cleaned.match(/[^.!?]+[.!?]+(?:\s|$)/g);
+  const sentences = (matches ?? [cleaned]).slice(0, 3).map((sentence) => sentence.trim()).filter(Boolean);
+  const joined = sentences.join(" ");
+  return joined ? completeSentence(joined) : null;
+}
+
+function cleanDescriptionText(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\.{3,}|…/gu, ".")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\.{2,}/g, ".")
+    .trim()
+    .replace(/\s*[,;:-]+\s*$/u, "")
+    .trim();
+}
+
+function completeSentence(value: string) {
+  const cleaned = cleanDescriptionText(value);
+  if (!cleaned) {
+    return cleaned;
+  }
+
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
 function sanitizeDescriptionFact(
@@ -125,6 +165,7 @@ function sanitizeDescriptionFact(
     ...fact,
     value: {
       shortDescription: firstSentence(value.shortDescription) ?? value.shortDescription,
+      expandedDescription: expandedDescription(value.expandedDescription),
       concept: firstSentence(value.concept),
       serves: firstSentence(value.serves),
       mechanism: firstSentence(value.mechanism),

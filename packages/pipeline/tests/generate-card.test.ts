@@ -96,6 +96,8 @@ describe("buildSeedProfileCard", () => {
           path: "identity.description",
           value: {
             shortDescription: "Cartesia builds real-time multimodal intelligence for voice agents.",
+            expandedDescription:
+              "Cartesia builds real-time multimodal intelligence for teams shipping voice agents. Its model APIs support low-latency speech workflows where natural conversation depends on response speed.",
             concept: null,
             serves: null,
             mechanism: null
@@ -115,6 +117,7 @@ describe("buildSeedProfileCard", () => {
 
     expect(seeded.card.identity.name.value).toBe("Cartesia");
     expect(seeded.card.identity.oneLiner.value).toBe("Cartesia builds real-time multimodal intelligence for voice agents.");
+    expect(seeded.card.identity.description?.value?.expandedDescription).toContain("low-latency speech workflows");
     expect(seeded.card.citations.length).toBeGreaterThan(0);
     expect(seeded.trace.providerFactAppliedCount).toBe(2);
   });
@@ -141,7 +144,9 @@ describe("buildSeedProfileCard", () => {
           path: "identity.description",
           value: {
             shortDescription:
-              "Oboe is an AI-native learning platform that creates personalized educational courses on any topic. Founded by Michael Mignano and Nir Zicherman, Oboe aims to enhance learning experiences through AI-powered tutors, eliminating the need for human instructors or pre-recorded content. The platform generates structured, chapter-based curricula that adapt to individual user goals, prior knowledge, learning styles, and available time.",
+              "Oboe is a personalized learning platform that creates educational courses on any topic. Founded by Michael Mignano and Nir Zicherman, Oboe aims to enhance learning experiences through AI-powered tutors, eliminating the need for human instructors or pre-recorded content. The platform generates structured, chapter-based curricula that adapt to individual user goals, prior knowledge, learning styles, and available time.",
+            expandedDescription:
+              "Oboe creates personalized educational courses on any topic for individual learners and training teams. It uses AI tutors and generated curricula to replace static course catalogs with lessons that adapt to each user's goals, prior knowledge, learning style, and available time...",
             concept:
               "Oboe helps users create personalized educational courses on any topic with AI-generated curricula and tutors. It also supports quizzes, flashcards, games, and multiple learning formats.",
             serves:
@@ -164,6 +169,8 @@ describe("buildSeedProfileCard", () => {
 
     const description = seeded.card.identity.description?.value;
     expect(description?.shortDescription.length).toBeLessThanOrEqual(180);
+    expect(description?.expandedDescription).not.toContain("...");
+    expect(description?.expandedDescription?.split(".").filter(Boolean).length).toBeLessThanOrEqual(3);
     expect(description?.concept?.split(".").filter(Boolean)).toHaveLength(1);
     expect(description?.serves?.split(".").filter(Boolean)).toHaveLength(1);
     expect(description?.mechanism?.split(".").filter(Boolean)).toHaveLength(1);
@@ -781,6 +788,8 @@ describe("generateCardForDomain", () => {
               description: {
                 value: {
                   shortDescription: "Zo Computer provides cloud computers that users and AI agents can share.",
+                  expandedDescription:
+                    "Zo Computer provides cloud computers that users and AI agents can share. It gives researchers, builders, and AI-heavy knowledge workers a persistent hosted workspace for handoffs between people and agents.",
                   concept: "A persistent cloud computer for human and AI collaboration.",
                   serves: "Researchers, builders, and AI-heavy knowledge workers.",
                   mechanism: "Runs a hosted workspace that can be controlled by the user and their AI agent.",
@@ -941,6 +950,8 @@ describe("generateCardForDomain", () => {
         description: {
           value: {
             shortDescription: "Zo Computer provides cloud computers for people and AI agents.",
+            expandedDescription:
+              "Zo Computer provides cloud computers for people and AI agents. It gives researchers and builders a hosted workspace they can access through the browser.",
             concept: "A persistent cloud computer.",
             serves: "Researchers and builders.",
             mechanism: "Hosts a browser-accessible workspace.",

@@ -28,6 +28,8 @@ const validExtractionPayload = {
     description: {
       value: {
         shortDescription: "Real-time voice AI infrastructure for developers building low-latency audio products.",
+        expandedDescription:
+          "Cartesia builds voice AI infrastructure for developers shipping low-latency audio products. Its models and APIs support voice agents, audio interfaces, and real-time speech workflows where delay changes the user experience.",
         concept: "Low-latency speech models exposed as developer infrastructure.",
         serves: "Developers building voice agents and audio applications.",
         mechanism: "APIs and models for real-time speech generation and understanding."
@@ -143,9 +145,11 @@ describe("extractionTool", () => {
       type: "object",
       properties: {
         shortDescription: { type: "string", minLength: 1 },
+        expandedDescription: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
         concept: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
       }
     });
+    expect(identity.properties.description.properties.value.anyOf[0].required).toContain("expandedDescription");
   });
 });
 
@@ -171,7 +175,9 @@ describe("extractionSystemPrompt", () => {
     expect(extractionSystemPrompt).toContain("Do not write generic category labels");
     expect(extractionSystemPrompt).toContain("mechanically reconciled");
     expect(extractionSystemPrompt).toContain("source incentives");
-    expect(extractionSystemPrompt).toContain("18 to 30 words");
+    expect(extractionSystemPrompt).toContain("18 to 24 words");
+    expect(extractionSystemPrompt).toContain("expandedDescription");
+    expect(extractionSystemPrompt).toContain("Never use literal ellipses");
     expect(extractionSystemPrompt).toContain("Never stuff feature lists into the overview");
     expect(extractionSystemPrompt).toContain("Ban brochure language");
   });
@@ -352,6 +358,8 @@ describe("parseExtractionToolUse", () => {
               description: {
                 value: {
                   shortDescription: "Domain-specific AI for law firms and in-house legal teams.",
+                  expandedDescription:
+                    "The company builds domain-specific AI for law firms and in-house legal teams. It supports case, contract, and research workflows where legal accuracy matters more than generic chat.",
                   concept: "A legal workflow layer built around case and contract work.",
                   serves: "Law firms and in-house legal teams.",
                   mechanism: "AI assistants and workflow agents embedded into legal tasks."
@@ -369,7 +377,7 @@ describe("parseExtractionToolUse", () => {
     expect(payload.identity.oneLiner.value).toBe("Domain-specific AI for law firms and in-house legal teams.");
   });
 
-  it("does not rewrite description prose during normalization", () => {
+  it("normalizes description prose into complete sentences without ellipses", () => {
     const description = "A research workspace for technical diligence over";
     const payload = parseExtractionToolUse({
       content: [
@@ -383,7 +391,9 @@ describe("parseExtractionToolUse", () => {
               description: {
                 value: {
                   shortDescription: description,
-                  concept: null,
+                  expandedDescription:
+                    "The workspace helps investors and operators inspect technical diligence materials. It keeps evidence, claims, and follow-up questions in one place so teams can reason from sourced context...",
+                  concept: "Evidence-led diligence workspace...",
                   serves: null,
                   mechanism: null
                 },
@@ -397,7 +407,40 @@ describe("parseExtractionToolUse", () => {
       ]
     });
 
-    expect(payload.identity.description?.value?.shortDescription).toBe(description);
+    expect(payload.identity.description?.value?.shortDescription).toBe(`${description}.`);
+    expect(payload.identity.description?.value?.expandedDescription).not.toContain("...");
+    expect(payload.identity.description?.value?.concept).toBe("Evidence-led diligence workspace.");
+  });
+
+  it("drops empty or category-label short descriptions", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: "AI platform",
+                  expandedDescription: "AI platform for companies.",
+                  concept: null,
+                  serves: null,
+                  mechanism: null,
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"],
+              },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(payload.identity.description).toEqual(unknownFact);
   });
 
   it("defaults omitted optional list sections to empty arrays", () => {

@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0001: Follow A Company Generation</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ground: #f8f6ef;
+      --paper: #fffdf8;
+      --ink: #20201e;
+      --muted: #68635b;
+      --line: #d8cfbd;
+      --seal: #6e5c9e;
+      --green: #0e6b5b;
+      --blue: #315f9d;
+      --red: #b63a2a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 40px 22px 64px;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 22px;
+      margin-bottom: 26px;
+    }
+    .kicker {
+      color: var(--seal);
+      font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 38px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    .lede {
+      max-width: 780px;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    section {
+      margin: 22px 0;
+      padding: 20px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-size: 21px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    p { margin: 10px 0; }
+    ol, ul { margin: 10px 0 0; padding-left: 22px; }
+    li { margin: 9px 0; }
+    code {
+      font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.94em;
+      background: #f4efe3;
+      border: 1px solid #e4dac8;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+    pre {
+      overflow-x: auto;
+      background: #272420;
+      color: #fffaf0;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    a { color: var(--seal); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .flow div {
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbf7ed;
+    }
+    .flow strong {
+      display: block;
+      color: var(--seal);
+      margin-bottom: 6px;
+    }
+    .quiz button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fffaf0;
+      color: var(--ink);
+      padding: 9px 11px;
+      margin: 6px 6px 0 0;
+      font: inherit;
+      cursor: pointer;
+    }
+    .quiz button:hover { border-color: var(--seal); }
+    .answer {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 6px;
+      background: #f4efe3;
+      color: var(--ink);
+      min-height: 48px;
+    }
+    .answer.good { border-left: 4px solid var(--green); }
+    .answer.warn { border-left: 4px solid var(--red); }
+    .small { color: var(--muted); font-size: 14px; }
+    @media (max-width: 760px) {
+      main { padding: 28px 16px 44px; }
+      h1 { font-size: 30px; }
+      .flow { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="kicker">LESSON 0001 · COLD START</div>
+      <h1>Follow one company generation from request to stored card</h1>
+      <p class="lede">By the end of this lesson, you should be able to explain the main write path in plain English and know which file to open when something in generation behaves oddly.</p>
+    </header>
+
+    <section>
+      <h2>The product idea behind the code</h2>
+      <p>Cold Start exists to answer one question quickly: is this company worth the next ten minutes of investor attention?</p>
+      <p>That goal creates the architecture. The system needs a fast public card first, because a useful sourced profile is valuable even before deep analysis. Then the extension can ask for stronger investor synthesis once enough evidence exists.</p>
+      <p>So the code is split into two lanes: <code>basics</code> for the sourced public profile, and <code>analysis</code> or <code>section:{id}</code> for gated investor reads.</p>
+    </section>
+
+    <section>
+      <h2>The main path</h2>
+      <div class="flow">
+        <div><strong>1. Request</strong><code>POST /api/generate</code> checks the domain, mode, auth, confirmation, cache, and active runs.</div>
+        <div><strong>2. Queue</strong>The route writes a queued generation row, records an event, and sends an Inngest event.</div>
+        <div><strong>3. Work</strong><code>generateCardFunction</code> fetches sources, calls the pipeline, records traces, and saves the result.</div>
+        <div><strong>4. Build</strong><code>generate-card.ts</code> extracts facts, merges provider facts, enriches weak blocks, and validates the card.</div>
+        <div><strong>5. Store</strong><code>repository.ts</code> writes the card JSON, evidence, sources, TTLs, sections, and run state.</div>
+        <div><strong>6. Read</strong>The public API strips private synthesis. The extension API returns the full card only after auth.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Walk the code</h2>
+      <ol>
+        <li>Start at <a href="../apps/web/src/app/api/generate/route.ts">apps/web/src/app/api/generate/route.ts</a>. The key idea is policy: should this request be allowed, served from cache, blocked, or queued?</li>
+        <li>Move to <a href="../apps/web/src/inngest/functions.ts">apps/web/src/inngest/functions.ts</a>. The key idea is orchestration: one worker owns the run, records events, calls providers, and injects LLM functions into the pipeline.</li>
+        <li>Open <a href="../packages/pipeline/src/generate-card.ts">packages/pipeline/src/generate-card.ts</a>. The key idea is correctness: build a typed card, gate synthesis, and drop unsupported claims.</li>
+        <li>Open <a href="../packages/core/src/card.ts">packages/core/src/card.ts</a>. The key idea is contract: a non-null fact without citation IDs is invalid.</li>
+        <li>Open <a href="../packages/db/src/repository.ts">packages/db/src/repository.ts</a>. The key idea is persistence: <code>cards.card_json</code> is the source of truth, with freshness and run state around it.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>The most important mental model</h2>
+      <p>Think of generation as a factory with inspectors at every station.</p>
+      <p>The provider layer brings in raw material. The LLM extracts structured facts. The pipeline checks whether the facts have citations. The trust layer strips or downgrades weak claims. The public route removes private synthesis. The extension can show more only when authenticated.</p>
+      <p>The product promise is not "we always fill every field." The promise is: if the product says something, it can show where it came from.</p>
+    </section>
+
+    <section>
+      <h2>Mini exercise</h2>
+      <p>Imagine you click the extension on <code>cartesia.ai</code> and the side panel says the profile is still generating. Which file do you open first?</p>
+      <div class="quiz">
+        <button data-answer="wrong">packages/core/src/card.ts</button>
+        <button data-answer="right">apps/web/src/app/api/generate/route.ts</button>
+        <button data-answer="maybe">apps/extension/src/research-layer.ts</button>
+        <div id="answer" class="answer">Pick one.</div>
+      </div>
+      <p class="small">After you answer, ask the agent to walk the file with you line by line. That is the fastest next step.</p>
+    </section>
+
+    <section>
+      <h2>Answer key</h2>
+      <p>Start with <code>apps/web/src/app/api/generate/route.ts</code> if the question is about whether a run was queued, cached, blocked, or already active. Move to <code>apps/web/src/inngest/functions.ts</code> if the run exists but the worker behavior is unclear. Move to <code>apps/extension/src/research-layer.ts</code> only when the backend data looks right but the panel is presenting it oddly.</p>
+    </section>
+  </main>
+  <script>
+    const answer = document.getElementById("answer");
+    for (const button of document.querySelectorAll("button[data-answer]")) {
+      button.addEventListener("click", () => {
+        const kind = button.dataset.answer;
+        answer.className = kind === "right" ? "answer good" : "answer warn";
+        if (kind === "right") {
+          answer.textContent = "Yes. Start at the route because the symptom is about request and run state: cached, queued, active, blocked, or accepted.";
+        } else if (kind === "maybe") {
+          answer.textContent = "That file matters later. It tells you how stored data becomes panel modules, but it does not tell you why generation is still running.";
+        } else {
+          answer.textContent = "That schema matters for card validity. For a still-generating state, start with the route and run records first.";
+        }
+      });
+    }
+  </script>
+</body>
+</html>

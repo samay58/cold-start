@@ -1372,13 +1372,16 @@ function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandid
     facts.push(providerFact("identity.foundedYear", foundedYear, result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "medium" }));
   }
 
-  const shortDescription = stringValue(organization.short_description) ?? stringValue(organization.seo_description);
+  const seoDescription = stringValue(organization.seo_description);
+  const shortDescription = stringValue(organization.short_description) ?? seoDescription;
+  const expandedDescription = stringValue(organization.description) ?? (seoDescription && seoDescription !== shortDescription ? seoDescription : null);
   if (shortDescription) {
     facts.push(
       providerFact(
         "identity.description",
         {
           shortDescription,
+          expandedDescription,
           concept: null,
           serves: null,
           mechanism: null,

@@ -26,11 +26,10 @@ import {
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
 import {
-  cleanSummaryText,
-  compactProfileSummary,
   formatElapsed,
   formatOptionalCurrency,
-  formatOptionalNumber
+  formatOptionalNumber,
+  profileSummaryCopy
 } from "./extension-format";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import {
@@ -277,30 +276,6 @@ function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
       <span>{tooltip.body}</span>
     </div>
   );
-}
-
-function expandedProfileSummary(value: string | null | undefined, fallback: string) {
-  return cleanSummaryText(value ?? "") || cleanSummaryText(fallback);
-}
-
-function profileSummaryText(card: ColdStartCard) {
-  const description = card.identity.description?.value;
-  const fallback = card.identity.oneLiner.value;
-  const visible = description?.shortDescription ?? fallback ?? "";
-  const fullParts = [
-    description?.shortDescription,
-    description?.concept,
-    description?.serves,
-    description?.mechanism
-  ]
-    .map((part) => cleanSummaryText(part ?? ""))
-    .filter((part): part is string => Boolean(part));
-  const uniqueFullParts = Array.from(new Set(fullParts));
-
-  return {
-    full: uniqueFullParts.length > 0 ? uniqueFullParts.join(" ") : visible,
-    visible: cleanSummaryText(visible)
-  };
 }
 
 function ProfileSummary({
@@ -1431,9 +1406,7 @@ export function ResearchLayerPanel({
     : snapPreviewId
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
-  const profileSummary = profileSummaryText(card);
-  const summary = compactProfileSummary(profileSummary.visible, card.domain);
-  const fullSummary = expandedProfileSummary(profileSummary.full, card.domain);
+  const { fullSummary, summary } = profileSummaryCopy(card);
 
   if (!canShowResearchLayers) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;

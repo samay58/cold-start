@@ -78,6 +78,33 @@ describe("openQuestions back-compat", () => {
   });
 });
 
+describe("company description back-compat", () => {
+  it("parses legacy cards that do not have expanded descriptions", () => {
+    const parsed = coldStartCardSchema.parse({
+      ...baseCard,
+      identity: {
+        ...baseCard.identity,
+        description: {
+          value: {
+            shortDescription: "Cartesia builds real-time voice AI infrastructure for developers.",
+            concept: "Low-latency speech models exposed as developer infrastructure.",
+            serves: "Developers building voice agents and audio applications.",
+            mechanism: "APIs and models for real-time speech generation and understanding.",
+          },
+          status: "verified",
+          confidence: "high",
+          citationIds: ["c1"],
+        },
+      },
+    } as unknown);
+
+    expect(parsed.identity.description?.value?.shortDescription).toBe(
+      "Cartesia builds real-time voice AI infrastructure for developers."
+    );
+    expect(parsed.identity.description?.value?.expandedDescription).toBeUndefined();
+  });
+});
+
 describe("publicCard", () => {
   it("omits synthesis from the public tier", () => {
     expect(publicCard(baseCard)).not.toHaveProperty("synthesis");

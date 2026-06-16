@@ -125,11 +125,12 @@ const descriptionValueSchema = {
   additionalProperties: false,
   properties: {
     shortDescription: nonEmptyStringSchema,
+    expandedDescription: nullableNonEmptyStringSchema,
     concept: nullableNonEmptyStringSchema,
     serves: nullableNonEmptyStringSchema,
     mechanism: nullableNonEmptyStringSchema,
   },
-  required: ["shortDescription", "concept", "serves", "mechanism"],
+  required: ["shortDescription", "expandedDescription", "concept", "serves", "mechanism"],
 } as const;
 
 const citationSchema = {
@@ -269,11 +270,13 @@ export const extractionSystemPrompt = [
   "You extract investor-grade public company facts from a structured evidence ledger and raw public sources.",
   "Drop unsupported claims. Every material fact must map to citation IDs. Use null for missing facts.",
   "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
-  "Description standard: identity.description.shortDescription must be one complete sentence, ideally 18 to 30 words, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
-  "Use identity.description.concept for the non-obvious product idea, serves for buyer and use case, and mechanism for product and technology when sources support those details. Keep each field to one sentence and one idea.",
+  "Description standard: identity.description.shortDescription must be one complete sentence, roughly 18 to 24 words and no more than about 170 characters, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
+  "identity.description.expandedDescription must be two or three complete sentences in plain English. Explain what the company does, who uses or buys it, what workflow or pain it addresses, and the nuance that matters. Use concrete nouns, clean causal language, and no brochure copy.",
+  "Use identity.description.concept for the non-obvious product idea, serves for buyer and use case, and mechanism for product and technology when sources support those details. Keep each structured field to one complete sentence and one idea.",
   "Use identity.websiteUrl for the canonical public website when a provider or source returns it. Use identity.linkedinUrl only for the company LinkedIn page, never a person profile.",
   "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be the same kind of short complete sentence, not a paragraph.",
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
+  "Never end any description field with an incomplete phrase. Never use literal ellipses or trailing dots to imply omitted text.",
   "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, buyer and use case, or product and technology.",
   "Ban brochure language: innovative, comprehensive, seamless, robust, advanced, trusted by, commitment to, designed to enhance, and with ease. Replace with the supported fact or omit the sentence.",
   "One signal per underlying event. When several sources cover the same announcement, emit it once and cite every supporting source in that signal's citationIds. Never emit one signal per article.",
@@ -558,16 +561,123 @@ function normalizeIdentity(input: unknown) {
 
 function normalizeDescriptionValue(value: unknown): CompanyDescription | null {
   const record = objectRecord(value);
-  if (typeof record.shortDescription !== "string" || record.shortDescription.trim().length === 0) {
+  const shortDescription = normalizeShortDescription(record.shortDescription);
+  if (!shortDescription) {
     return null;
   }
 
   return {
-    shortDescription: record.shortDescription.trim(),
-    concept: typeof record.concept === "string" && record.concept.trim().length > 0 ? record.concept.trim() : null,
-    serves: typeof record.serves === "string" && record.serves.trim().length > 0 ? record.serves.trim() : null,
-    mechanism: typeof record.mechanism === "string" && record.mechanism.trim().length > 0 ? record.mechanism.trim() : null,
+    shortDescription,
+    expandedDescription: normalizeExpandedDescription(record.expandedDescription),
+    concept: normalizeOptionalDescriptionSentence(record.concept),
+    serves: normalizeOptionalDescriptionSentence(record.serves),
+    mechanism: normalizeOptionalDescriptionSentence(record.mechanism),
   };
+}
+
+function normalizeShortDescription(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const sentence = completeDescriptionSentence(firstDescriptionSentence(cleanDescriptionText(value)));
+  if (!sentence || isWeakDescriptionLabel(sentence)) {
+    return null;
+  }
+
+  return clampCompleteSentence(sentence, 170);
+}
+
+function normalizeExpandedDescription(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const cleaned = cleanDescriptionText(value);
+  const sentences = descriptionSentences(cleaned, 3);
+  return completeDescriptionSentence(sentences.join(" "));
+}
+
+function normalizeOptionalDescriptionSentence(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  return completeDescriptionSentence(firstDescriptionSentence(cleanDescriptionText(value)));
+}
+
+function cleanDescriptionText(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\.{3,}|…/gu, ".")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\.{2,}/g, ".")
+    .trim()
+    .replace(/\s*[,;:-]+\s*$/u, "")
+    .trim();
+}
+
+function firstDescriptionSentence(value: string): string {
+  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
+  return (match?.[1] ?? value).trim();
+}
+
+function descriptionSentences(value: string, limit: number): string[] {
+  const matches = value.match(/[^.!?]+[.!?]+(?:\s|$)/g);
+  if (!matches) {
+    return value ? [value] : [];
+  }
+
+  return matches.slice(0, limit).map((sentence) => sentence.trim()).filter(Boolean);
+}
+
+function completeDescriptionSentence(value: string | null | undefined): string | null {
+  const cleaned = cleanDescriptionText(value ?? "");
+  if (!cleaned) {
+    return null;
+  }
+
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+}
+
+function clampCompleteSentence(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const clipped = value.slice(0, maxLength + 1);
+  const boundary = clipped.lastIndexOf(" ");
+  const trimmed = (boundary > 90 ? clipped.slice(0, boundary) : value.slice(0, maxLength)).trim();
+  return completeDescriptionSentence(trimmed.replace(/[.,;:!?]+$/u, "")) ?? value;
+}
+
+function isWeakDescriptionLabel(value: string): boolean {
+  const normalized = cleanDescriptionText(value).toLowerCase();
+  const words = normalized.split(/\s+/).filter(Boolean);
+  if (words.length < 4) {
+    return true;
+  }
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized)) {
+    return true;
+  }
+
+  const labelWords = new Set([
+    "ai",
+    "agent",
+    "answer",
+    "browser",
+    "company",
+    "copilot",
+    "erp",
+    "infrastructure",
+    "platform",
+    "security",
+    "software",
+    "solution",
+    "startup",
+    "tool",
+  ]);
+  return words.length <= 5 && words.every((word) => labelWords.has(word.replace(/[^a-z0-9-]/g, "")));
 }
 
 function normalizeFunding(input: unknown) {
@@ -775,7 +885,7 @@ export async function extractCompanyClaims(input: {
 
 const blockGuidance: Record<BlockEnrichmentId, string> = {
   description:
-    "Fill identity.description fields for the product idea, buyer and use case, and product and technology. shortDescription must be one crisp sentence, ideally 18 to 30 words, and must not become a feature list. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
+    "Fill identity.description fields for both display layers and the structured product facts. shortDescription must be one complete sentence, roughly 18 to 24 words and under about 170 characters. expandedDescription must be two or three complete sentences explaining what the company does, who uses or buys it, what workflow or pain it addresses, and what nuance matters. Keep concept, serves, and mechanism as one complete sentence each. Never use literal ellipses or incomplete endings. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
   funding:
     "Build the funding ledger before any totals. For each cited round, capture the round name, the exact USD amount whenever the source states one (do not round-number guess; record explicit figures verbatim), the announcedAt date, and the named leads in leadInvestors. For funding.investors, enumerate every named investor across every round (leads and participating both), deduped, with their domain when the source provides it. For totalRaisedUsd, fill it only when a cited source states the cumulative total explicitly or when every round in the ledger has a cited amount you can sum without overlap. Prefer recent reporting from Reuters, Bloomberg, TechCrunch, The Information, Crunchbase News, PitchBook, and Forbes; company press releases and investor posts are acceptable for exact announcement facts. Demote aggregator pages that lack a primary citation.",
   team:

@@ -467,7 +467,7 @@ function GenerationPanel({
   const elapsedMs = useElapsedMilliseconds(true, requestState.startedAt, 120);
   const elapsed = Math.floor(elapsedMs / 1000);
   const events = requestState.events ?? [];
-  // Honest progress: hold at the last event-derived stage. No wall-clock estimation —
+  // Honest progress: hold at the last event-derived stage. No wall-clock estimation;
   // the tree advances only when a real generation event says so.
   const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const stages = RESEARCH_PROGRESS_STAGES;

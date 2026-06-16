@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cold Start Runtime Map</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #fbfaf6;
+      --ink: #20201e;
+      --muted: #64615a;
+      --line: #d9d2c3;
+      --seal: #6e5c9e;
+      --green: #0e6b5b;
+      --blue: #315f9d;
+      --red: #b63a2a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+      line-height: 1.45;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 40px 24px 56px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+    .lede {
+      max-width: 760px;
+      margin: 0 0 28px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      background: #fffdf8;
+    }
+    h2 {
+      margin: 0 0 12px;
+      color: var(--seal);
+      font-size: 18px;
+    }
+    ol, ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    li { margin: 8px 0; }
+    code {
+      font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.94em;
+      color: #272420;
+    }
+    .rule {
+      display: inline-block;
+      min-width: 72px;
+      margin-right: 8px;
+      color: var(--muted);
+      font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 12px;
+    }
+    .trust strong { color: var(--green); }
+    .private strong { color: var(--blue); }
+    .danger strong { color: var(--red); }
+    a { color: var(--seal); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    @media (max-width: 760px) {
+      main { padding: 28px 16px 40px; }
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 28px; }
+    }
+    @media print {
+      body { background: white; }
+      main { padding: 0; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Cold Start Runtime Map</h1>
+    <p class="lede">The shortest honest map: Cold Start turns a domain into one cited card, stores that card, shows public facts on the web, and lets the extension request gated investor analysis when the evidence is strong enough.</p>
+
+    <div class="grid">
+      <section>
+        <h2>One Company Request</h2>
+        <ol>
+          <li><span class="rule">request</span><code>POST /api/generate</code> validates domain, mode, auth, cache, and active runs.</li>
+          <li><span class="rule">queue</span>The route writes a queued <code>generation_runs</code> row and sends <code>card/generate.requested</code> to Inngest.</li>
+          <li><span class="rule">worker</span><code>generateCardFunction</code> marks the run running, records events, fetches sources, and calls the pipeline.</li>
+          <li><span class="rule">pipeline</span><code>generate-card.ts</code> extracts cited facts, merges provider facts, enriches thin blocks, and validates the card.</li>
+          <li><span class="rule">store</span><code>repository.ts</code> writes <code>cards.card_json</code>, evidence rows, sources, TTLs, and run traces.</li>
+          <li><span class="rule">read</span>The public page strips synthesis. The extension can read the full card after auth.</li>
+        </ol>
+      </section>
+
+      <section class="trust">
+        <h2>Trust Contract</h2>
+        <ul>
+          <li><strong>Every non-null material fact needs citations.</strong> This is enforced by the Zod schema in <code>packages/core/src/card.ts</code>.</li>
+          <li><strong>Public reads remove synthesis and emails.</strong> That happens through <code>publicCard()</code> in <code>packages/core/src/trust.ts</code>.</li>
+          <li><strong>Weak synthesis is dropped.</strong> The synthesis gate and verifier live in <code>packages/pipeline/src/generate-card.ts</code>.</li>
+          <li><strong>Stale data is explicit.</strong> The repository marks cached cards as <code>stale</code> when TTLs expire.</li>
+        </ul>
+      </section>
+
+      <section class="private">
+        <h2>Public vs Extension</h2>
+        <ul>
+          <li><code>/api/cards/{slug}</code> returns public facts only.</li>
+          <li><code>/api/extension/cards/{slug}</code> requires extension identity and token, then returns the full card.</li>
+          <li>Research modules are partly derived from the card and partly stored as <code>research_sections</code>.</li>
+          <li><code>openQuestions</code> and <code>theCase</code> render from consolidated synthesis, not separate section jobs.</li>
+        </ul>
+      </section>
+
+      <section class="danger">
+        <h2>Where To Look First</h2>
+        <ul>
+          <li><code>packages/core/src/card.ts</code> for data shape and citation validation.</li>
+          <li><code>apps/web/src/app/api/generate/route.ts</code> for request policy and queueing.</li>
+          <li><code>apps/web/src/inngest/functions.ts</code> for orchestration.</li>
+          <li><code>packages/pipeline/src/generate-card.ts</code> for generation correctness.</li>
+          <li><code>packages/db/src/repository.ts</code> for storage, cache, run state, and events.</li>
+          <li><code>apps/extension/src/research-layer.ts</code> for what the reader sees.</li>
+        </ul>
+      </section>
+    </div>
+
+    <p class="lede" style="margin-top:28px;">Ask the agent to walk any file from top to bottom when a concept is fuzzy. The fastest way to learn this repo is to keep tying each code branch back to the product promise: useful facts first, cited evidence always, investor synthesis only when gated and supported.</p>
+  </main>
+</body>
+</html>

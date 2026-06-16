@@ -180,6 +180,43 @@ describe("clusterSignals", () => {
     expect(twice).toEqual(once);
   });
 
+  it("converges when a merged representative matches a signal its members missed", () => {
+    // The decagon prod shape: the company-blog member donates the modal date while the
+    // independent member donates the title, and only the COMPOSED representative (valuation
+    // amount + moved date) matches the third article. One greedy pass leaves two rows; the
+    // fixed-point iteration must finish the merge.
+    const signals: Signal[] = [
+      {
+        url: "https://decagon.ai/blog/series-c",
+        date: "2026-01-28",
+        title: "Decagon raises $250M Series C",
+        source: "decagon.ai",
+        category: "funding",
+        citationIds: ["c1"]
+      },
+      {
+        url: "https://siliconangle.com/decagon-raises-250m",
+        date: "2026-01-20",
+        title: "Decagon AI raises $250M at $4.5B valuation to scale AI concierge platform",
+        source: "siliconangle.com",
+        category: "funding",
+        citationIds: ["c2"]
+      },
+      {
+        url: "https://businesswire.com/decagon-valuation",
+        date: "2026-01-28",
+        title: "Decagon's Valuation Triples to $4.5 Billion as it Ushers in the Age of AI Concierge",
+        source: "businesswire.com",
+        category: "funding",
+        citationIds: ["c3"]
+      }
+    ];
+
+    const clustered = clusterSignals(signals, { companyDomain: "decagon.ai", companyName: "Decagon" });
+    expect(clustered).toHaveLength(1);
+    expect(clustered[0]?.citationIds).toEqual(expect.arrayContaining(["c1", "c2", "c3"]));
+  });
+
   it("caps the final list at six events", () => {
     const many: Signal[] = Array.from({ length: 9 }, (_, index) => ({
       url: `https://example.com/event-${index}`,

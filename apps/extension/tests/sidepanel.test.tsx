@@ -464,7 +464,7 @@ describe("SidePanel generation gate", () => {
     card.identity.name = { value: "Hanover Park", status: "verified", confidence: "high", citationIds: ["c1"] };
     card.identity.oneLiner = {
       value:
-        "Hanover Park is an AI-native fund administrator for private equity and venture capital firms. It combines fund accounting, portfolio management, LP portals, analytics, modelling, security workflows, client support, capital calls, distributions, and full-service accounting into one platform.",
+        "Hanover Park is an automated fund administrator for private equity and venture capital firms. It combines fund accounting, portfolio management, LP portals, analytics, modelling, security workflows, client support, capital calls, distributions, and full-service accounting into one platform.",
       status: "verified",
       confidence: "high",
       citationIds: ["c1"]
@@ -474,7 +474,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "hanoverpark.com", fetchMock });
     const visibleSummary = container.querySelector(".cs-company-summary");
 
-    expect(visibleSummary?.textContent).toContain("Hanover Park is an AI-native fund administrator for private equity and venture capital firms.");
+    expect(visibleSummary?.textContent).toContain("Hanover Park is an automated fund administrator for private equity and venture capital firms.");
     expect(visibleSummary?.textContent).not.toContain("full-service accounting into one platform");
     await unmount();
   });
@@ -715,12 +715,14 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("shows the company description from the visible summary in one shared tooltip overlay", async () => {
+  it("shows the expanded company description in one shared tooltip overlay", async () => {
     const card = cardWithManagement("tolans.com");
-    const fullDescription = "Tolan is a voice-first AI companion app for young adults with animated alien characters designed to support emotional wellbeing without mimicking a human therapist while the company keeps its early product motion focused on consumer companionship and daily check-ins rather than a broad enterprise workflow.";
+    const shortDescription = "Tolan makes a voice-first AI companion app for young adults.";
+    const expandedDescription = "Tolan makes a voice-first AI companion app for young adults. Its animated alien characters support daily check-ins and emotional wellbeing without trying to mimic a human therapist.";
     card.identity.description = {
       value: {
-        shortDescription: fullDescription,
+        shortDescription,
+        expandedDescription,
         concept: null,
         serves: null,
         mechanism: null

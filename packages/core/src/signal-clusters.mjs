@@ -219,17 +219,7 @@ function clusterRepresentative(members, companyDomain) {
   };
 }
 
-/**
- * Cluster signals that describe the same underlying event into one signal per event, merging
- * citationIds across corroborating coverage. Output is capped and ordered by date descending.
- */
-export function clusterSignals(signals, options = {}) {
-  if (!Array.isArray(signals) || signals.length === 0) {
-    return [];
-  }
-
-  const cap = options.cap ?? SIGNAL_CLUSTER_CAP;
-  const ignoredTerms = companyTerms(options);
+function clusterOnce(signals, ignoredTerms, companyDomain) {
   const members = signals.map((signal) => ({
     signal,
     tokens: titleTokens(signal.title, ignoredTerms),
@@ -247,8 +237,35 @@ export function clusterSignals(signals, options = {}) {
     }
   }
 
-  return clusters
-    .map((cluster) => clusterRepresentative(cluster, options.companyDomain))
+  return clusters.map((cluster) => clusterRepresentative(cluster, companyDomain));
+}
+
+/**
+ * Cluster signals that describe the same underlying event into one signal per event, merging
+ * citationIds across corroborating coverage. Output is capped and ordered by date descending.
+ */
+export function clusterSignals(signals, options = {}) {
+  if (!Array.isArray(signals) || signals.length === 0) {
+    return [];
+  }
+
+  const cap = options.cap ?? SIGNAL_CLUSTER_CAP;
+  const ignoredTerms = companyTerms(options);
+
+  // Greedy single-link clustering is not a fixed point on its own: a merged representative
+  // (modal date from one member, title from another) can match a signal its original members
+  // missed. Iterate until stable so the output is order-independent and re-running is a no-op.
+  let clustered = [...signals];
+  for (let pass = 0; pass < signals.length; pass += 1) {
+    const next = clusterOnce(clustered, ignoredTerms, options.companyDomain);
+    const stable = next.length === clustered.length;
+    clustered = next;
+    if (stable) {
+      break;
+    }
+  }
+
+  return clustered
     .sort((left, right) => {
       const leftMs = parseDateMs(left.date);
       const rightMs = parseDateMs(right.date);
