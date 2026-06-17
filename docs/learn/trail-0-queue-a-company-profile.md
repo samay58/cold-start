@@ -149,22 +149,22 @@ The important idea is that the request did not directly return a finished profil
 
 ## In the code
 
-- `apps/web/src/app/api/generate/route.ts:146` parses the request body, chooses mode, checks auth, normalizes the domain, reads cache state, creates the queued run, and sends the Inngest event.
-- `apps/web/src/app/api/generate/route.ts:215` returns a cached response when a usable stored card already exists.
-- `apps/web/src/app/api/generate/route.ts:251` records a queued run and a `generation.queued` event.
-- `apps/web/src/app/api/generate/route.ts:307` sends `card/generate.requested` to Inngest.
-- `apps/web/src/inngest/functions.ts:1073` defines the generation worker.
-- `apps/web/src/inngest/functions.ts:1205` writes the started event that the UI can show.
-- `apps/web/src/inngest/functions.ts:1329` starts source fetching.
-- `apps/web/src/inngest/functions.ts:1378` merges provider sources and applies the source gate.
-- `apps/web/src/inngest/functions.ts:1474` records the accepted-source count.
-- `apps/web/src/inngest/functions.ts:1490` builds and stores the seed profile card for basics mode.
-- `apps/web/src/inngest/functions.ts:1587` calls the full card-generation pipeline.
-- `apps/web/src/inngest/functions.ts:1648` stores the final generated card and its evidence.
-- `packages/pipeline/src/generate-card.ts:699` turns accepted sources into a validated `ColdStartCard`.
-- `packages/pipeline/src/generate-card.ts:729` refuses to continue silently when no citations survive extraction.
-- `packages/pipeline/src/generate-card.ts:763` validates the card against the shared schema.
-- `packages/llm/src/extraction.ts:266` defines the extraction rules the model must follow.
-- `packages/llm/src/extraction.ts:730` calls the extraction model with the structured extraction tool.
-- `packages/core/src/card.ts:98` defines the main card object schema.
-- `packages/db/src/repository.ts:843` writes the card snapshot to the database.
+- `apps/web/src/app/api/generate/route.ts:208` handles `POST /api/generate`: parse body, choose mode, check auth, normalize the domain, read cache state, create the queued run, and send the Inngest event.
+- `apps/web/src/app/api/generate/route.ts:290` returns a cached response when a usable stored card already exists.
+- `apps/web/src/app/api/generate/route.ts:351` records a queued run and a `generation.queued` event.
+- `apps/web/src/app/api/generate/route.ts:418` sends `card/generate.requested` to Inngest.
+- `apps/web/src/inngest/functions.ts:333` defines the generation worker and preserves the `generate-card` function id plus `card/generate.requested` event.
+- `apps/web/src/inngest/functions.ts:476` writes the started event that the UI can show.
+- `apps/web/src/inngest/functions.ts:621` keeps the `fetch-sources` step boundary; `apps/web/src/inngest/source-fetching.ts:104` owns Direct Exa, StableEnrich, budget, merge, and source-gate mechanics inside that boundary.
+- `apps/web/src/inngest/functions.ts:646` records the accepted-source count.
+- `apps/web/src/inngest/functions.ts:663` builds the seed profile card for basics mode.
+- `apps/web/src/inngest/functions.ts:700` stores the seed card snapshot when it is safe to show.
+- `apps/web/src/inngest/functions.ts:764` calls the full card-generation pipeline with injected extraction, block enrichment, synthesis, and verifier functions.
+- `apps/web/src/inngest/functions.ts:830` stores the final generated card and its evidence.
+- `packages/pipeline/src/generate-card.ts:706` turns accepted sources into a validated `ColdStartCard`.
+- `packages/pipeline/src/generate-card.ts:736` refuses to continue silently when no citations survive extraction.
+- `packages/pipeline/src/generate-card.ts:770` validates the card against the shared schema.
+- `packages/llm/src/extraction.ts:328` defines the extraction tool schema the model must return.
+- `packages/llm/src/extraction.ts:778` calls the extraction model with the structured extraction tool.
+- `packages/core/src/card.ts:125` defines the main card object schema.
+- `packages/db/src/repositories/cards.ts:188` writes the card snapshot to the database; `packages/db/src/repository.ts` remains the compatibility import surface.

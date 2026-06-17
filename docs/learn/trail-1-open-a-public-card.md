@@ -92,22 +92,22 @@ The "Open questions" block is safe on the public card because it falls back to a
 
 - `apps/web/src/app/c/[slug]/page.tsx:15` caches the public-card helper call for the page render.
 - `apps/web/src/app/c/[slug]/page.tsx:25` builds page metadata from the public card.
-- `apps/web/src/app/c/[slug]/page.tsx:50` reads the slug, fetches the public card, returns `notFound()` when missing, and renders `CardShell` with `surface="web"`.
-- `apps/web/src/lib/cards.ts:14` defines `getPublicCachedCard`.
-- `apps/web/src/lib/cards.ts:16` reads the card through `findPublicCardBySlug` with stale reads allowed.
-- `apps/web/src/lib/cards.ts:17` requires a usable public profile and materializes funding from citations before returning.
-- `packages/db/src/repository.ts:52` defines the public-card schema as the main card shape without `synthesis`.
-- `packages/db/src/repository.ts:172` reads one stored card row by slug for the public path.
-- `packages/db/src/repository.ts:195` returns the sanitized public card through the public schema.
+- `apps/web/src/app/c/[slug]/page.tsx:50` reads the slug, fetches the public card, returns `notFound()` when missing, and renders `CardShell` with `surface="web"` at line 60.
+- `apps/web/src/lib/cards.ts:15` defines `getPublicCachedCard`.
+- `apps/web/src/lib/cards.ts:17` reads the card through `findPublicCardBySlug` with stale reads allowed.
+- `apps/web/src/lib/cards.ts:18` requires a usable public profile and materializes funding from citations before returning.
+- `packages/db/src/repositories/cards.ts:49` defines the public-card schema as the main card shape without `synthesis`.
+- `packages/db/src/repositories/cards.ts:101` reads one stored card row by slug for the public path.
+- `packages/db/src/repositories/cards.ts:124` returns the sanitized public card through the public schema.
 - `packages/core/src/trust.ts:197` removes synthesis and person emails from the public card.
 - `packages/core/src/card-quality.ts:176` defines the usable-public-profile check.
 - `packages/core/src/funding-evidence.ts:277` turns closed cited financing evidence into displayable funding fields when structured funding is missing.
 - `apps/web/src/app/api/cards/[slug]/route.ts:8` defines the public JSON route.
 - `apps/web/src/app/api/cards/[slug]/route.ts:14` fetches the public card and provider-failure summary in parallel.
 - `apps/web/src/app/api/cards/[slug]/route.ts:22` sets short public cache headers.
-- `packages/ui/src/CardShell.tsx:25` checks whether a card includes synthesis.
-- `packages/ui/src/CardShell.tsx:540` renders the public web card branch.
-- `packages/ui/src/CardShell.tsx:559` falls back to a generic public open question when synthesis is absent.
-- `packages/ui/src/CardShell.tsx:603` renders the public key facts.
-- `packages/ui/src/CardShell.tsx:722` renders the source ledger.
-- `packages/ui/src/CardShell.tsx:734` prints the public-card footer.
+- `packages/ui/src/CardShell.tsx:28` checks whether a card includes synthesis.
+- `packages/ui/src/CardShell.tsx:605` renders the public web card branch.
+- `packages/ui/src/CardShell.tsx:625` falls back to a generic public open question when synthesis is absent.
+- `packages/ui/src/CardShell.tsx:668` renders the public key facts.
+- `packages/ui/src/CardShell.tsx:789` renders the source ledger.
+- `packages/ui/src/CardShell.tsx:798` prints the public-card footer.

@@ -23,7 +23,7 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
 - `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 
-Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` calls `packages/pipeline/src/generate-card.ts`. The pipeline calls providers and LLM packages, then writes through `packages/db`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
+Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` registers the Inngest workers and owns event names, step names, retry boundaries, and trace merging. Source fetching, contact enrichment, section generation, storage guards, env helpers, and provider trace helpers live in neighboring `apps/web/src/inngest/*` modules. Full card assembly stays in `packages/pipeline/src/generate-card.ts`, which receives injected provider and LLM functions. DB callers still import through `packages/db/src/repository.ts`, a compatibility barrel over focused repository modules under `packages/db/src/repositories/`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
 ## Common Commands
 
@@ -151,9 +151,9 @@ npm run dev:full
 - Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
 - Research-layer sections: `packages/core/src/research-sections.ts` for the section schema, `apps/extension/src/research-layer.ts` and `apps/extension/src/ResearchLayerPanel.tsx` for activation and rendering.
 - Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, `packages/providers/src/provider-budget.ts`, and the provider spike script.
-- Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`.
+- Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`, and `apps/web/src/inngest/provider-trace.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
-- Background work: `apps/web/src/inngest/functions.ts`.
+- Background work: `apps/web/src/inngest/functions.ts` for worker registration and step boundaries, `apps/web/src/inngest/source-fetching.ts` for Direct Exa, StableEnrich, budgets, and source-gate orchestration, `apps/web/src/inngest/contact-enrichment.ts` for async people/email enrichment, `apps/web/src/inngest/research-section-generation.ts` for section jobs, and `apps/web/src/inngest/card-storage.ts` for storage compatibility guards.
 - Generation QA: `scripts/trace-generation.ts` for one-shot pipeline traces, `scripts/qa-generation-suite.ts` for batch runs over fixture companies. Each self-loads its env file (`trace-generation` reads `.env.local`; `qa-generation-suite` reads `.env.production.migrate.local`, falling back to `.env.local`). Playbook: `docs/qa/generation-trace-and-production-qa.md`.
 
 ## Cross-References

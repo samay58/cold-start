@@ -24,13 +24,15 @@ trails:
     title: "Queue a sourced company profile"
     estimated_minutes: 16
     covers:
-      - apps/web/src/app/api/generate/route.ts:146
-      - apps/web/src/inngest/functions.ts:1073
-      - apps/web/src/inngest/functions.ts:1329
-      - packages/pipeline/src/generate-card.ts:699
-      - packages/llm/src/extraction.ts:730
-      - packages/db/src/repository.ts:843
-      - packages/core/src/card.ts:98
+      - apps/web/src/app/api/generate/route.ts:208
+      - apps/web/src/inngest/functions.ts:333
+      - apps/web/src/inngest/source-fetching.ts:104
+      - apps/web/src/inngest/functions.ts:700
+      - apps/web/src/inngest/functions.ts:764
+      - packages/pipeline/src/generate-card.ts:706
+      - packages/llm/src/extraction.ts:778
+      - packages/db/src/repositories/cards.ts:188
+      - packages/core/src/card.ts:125
     why: "The dominant write path. It shows how one domain becomes one cited card."
 
   - id: trail-1-open-a-public-card
@@ -39,9 +41,9 @@ trails:
     covers:
       - apps/web/src/app/c/[slug]/page.tsx:50
       - apps/web/src/lib/cards.ts:14
-      - packages/db/src/repository.ts:172
+      - packages/db/src/repositories/cards.ts:101
       - apps/web/src/app/api/cards/[slug]/route.ts:8
-      - packages/ui/src/CardShell.tsx:540
+      - packages/ui/src/CardShell.tsx:605
     why: "Shows the read path most people see first, including cache handling and read-time redaction."
 
 refs:
@@ -50,16 +52,16 @@ refs:
     why: "The main data contract. Citation-bearing facts, synthesis shape, and validation all start here."
 
   - id: ref-generation-worker
-    module: apps/web/src/inngest/functions.ts
-    why: "The orchestration spine for runs, budgets, events, snapshots, and section jobs."
+    module: apps/web/src/inngest/functions.ts, apps/web/src/inngest/source-fetching.ts, apps/web/src/inngest/contact-enrichment.ts, apps/web/src/inngest/research-section-generation.ts
+    why: "The orchestration spine for run events, step boundaries, source fetching, contact enrichment, snapshots, and section jobs."
 
   - id: ref-generate-card
     module: packages/pipeline/src/generate-card.ts
     why: "Where extracted sections become a card, weak synthesis gets gated, and verifier drops stay dropped."
 
   - id: ref-repository
-    module: packages/db/src/repository.ts
-    why: "Owns TTL cache rules, generation-run state, section persistence, and evidence writes."
+    module: packages/db/src/repository.ts, packages/db/src/repositories/
+    why: "Compatibility exports live in repository.ts; focused repository modules own TTL cache rules, generation-run state, section persistence, sources, and evidence writes."
 
   - id: ref-research-sections
     module: packages/core/src/research-sections.ts

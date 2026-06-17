@@ -2,13 +2,13 @@
 
 Every place Cold Start calls Anthropic's API or any LLM. First mapped at commit `66362f0` (2026-06-11); updated the same day for per-stage provider routing. Line numbers drift; the stable identifiers are the trace `stage`, `label`, and `provider` values, which are recorded on every call.
 
-The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 148 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly six call functions wrapping that chokepoint, five of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there are two more direct Anthropic callers (a cache diagnostic script and an eval baseline), one non-Anthropic LLM (Sakana Fugu, eval only), and the provider-matrix replay harness which calls the same six functions over frozen fixtures.
+The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 134 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly six call functions wrapping that chokepoint, five of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there are two more direct Anthropic callers (a cache diagnostic script and an eval baseline), one non-Anthropic LLM (Sakana Fugu, eval only), and the provider-matrix replay harness which calls the same six functions over frozen fixtures.
 
 ## The chokepoint and routing: packages/llm/src/
 
 Four files own the client, routing, caching, cost estimation, and telemetry:
 
-- **`anthropic.ts`**: the chokepoint. `createTracedAnthropicMessage` (line 121) resolves the model string; unprefixed models run the Anthropic path exactly as before (1h-cache beta header, `estimateAnthropicCostUsd`); prefixed models (`deepseek/...`) delegate to the adapter with the same Anthropic-native params. The `client` argument is unused on non-Anthropic routes (kept to avoid call-site churn). `createAnthropicClient` builds the SDK client from `ANTHROPIC_API_KEY`; `anthropicModel` reads `ANTHROPIC_MODEL` (`claude-sonnet-4-6` currently). `modelForStage` in `llm-provider.ts` is the only stage-to-model resolver.
+- **`anthropic.ts`**: the chokepoint. `createTracedAnthropicMessage` (line 107) resolves the model string; unprefixed models run the Anthropic path exactly as before (1h-cache beta header, `estimateAnthropicCostUsd`); prefixed models (`deepseek/...`) delegate to the adapter with the same Anthropic-native params. The `client` argument is unused on non-Anthropic routes (kept to avoid call-site churn). `createAnthropicClient` builds the SDK client from `ANTHROPIC_API_KEY`; `anthropicModel` reads `ANTHROPIC_MODEL` (`claude-sonnet-4-6` currently). `modelForStage` in `llm-provider.ts` is the only stage-to-model resolver.
 - **`llm-provider.ts`**: routing. `parseModelString` splits `provider/model` on the first slash (unprefixed = anthropic). `modelForStage` is the canonical per-stage resolver (env chains below). `providerConfigFor` maps a provider to its key/base-URL envs, with defaults for `deepseek` (incl. the mandatory `thinking: {type:"disabled"}` extra body; DeepSeek v4 defaults to thinking-enabled, which rejects the `temperature` our stages send), `fireworks`, `together`, and a generic `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` scheme for anything else. `withSchemaRetry` re-asks ONCE when a non-Anthropic model returns unparseable output (ZodError, JSON SyntaxError, missing tool use); Anthropic calls never retry, preserving the original semantics.
 - **`openai-compat.ts`**: the adapter. Raw fetch to `{baseUrl}/chat/completions` (no SDK dependency), translating Anthropic-native params (system blocks → system message, `cache_control` dropped since these providers prefix-cache automatically, forced `tool_choice {type:"tool"}` → `{type:"function"}`) and translating responses back to the Message shape the stage parsers read (`tool_calls` → `tool_use` blocks). Usage maps DeepSeek's `prompt_cache_hit/miss_tokens` into the Anthropic usage shape. Retries mirror direct-exa: 3 attempts on 429/5xx/network/timeout, none on other 4xx. Timeout 120s, env `LLM_OPENAI_COMPAT_TIMEOUT_MS`.
 - **`pricing.ts`**: non-Anthropic pricing registry (DeepSeek v4-flash/pro rows, verified 2026-06-11). Unknown models → trace omits `estimatedCostUsd`. The Anthropic table stays in `anthropic.ts` (haiku 1/5, sonnet 3/15, opus-4-5/6/7 5/25, other opus 15/75 USD per million, cache-creation multipliers 1.25x/2x, cache-read 0.1x). **Add a pricing row whenever a model joins the eval matrix.**
@@ -36,8 +36,8 @@ Every one funnels through the chokepoint. All use forced tool choice for structu
 | # | Function | File:line | Stage | Label | Max tokens | Temp | Tool | Status |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `planCompanyResearch` | `research-plan.ts:128` | `research_plan` | `research-plan` | 1200 | 0 | `emit_research_plan` | DORMANT |
-| 2 | `extractCompanyClaims` | `extraction.ts:731` | `extract_full` | `extract-company-claims` | 4000 | 0 | `emit_company_claims` | live |
-| 3 | `extractCompanyBlockClaims` | `extraction.ts:788` | `extract_block` | `extract-block:{block}` | 1800 | 0 | `emit_block_claims` | live |
+| 2 | `extractCompanyClaims` | `extraction.ts:778` | `extract_full` | `extract-company-claims` | 4000 | 0 | `emit_company_claims` | live |
+| 3 | `extractCompanyBlockClaims` | `extraction.ts:835` | `extract_block` | `extract-block:{block}` | 1800 | 0 | `emit_block_claims` | live |
 | 4 | `synthesizeCard` | `synthesis.ts:285` | `synthesis` | `synthesize-card` | 2500 | 0.2 | `emit_investor_synthesis` | live |
 | 5 | `verifySynthesis` | `verifier.ts:100` | `verify` | `verify-synthesis` | 2000 | 0 | none (JSON text) | live |
 | 6 | `synthesizeResearchSection` | `research-section.ts:165` | `research_section` | `research-section:{sectionId}` | 1800 | 0 | `emit_research_section` | live |
@@ -53,17 +53,17 @@ Purposes:
 5. **Synthesis verification**: LLM-as-judge over the synthesis claims against citation snippets, returning supported/contradicted/unsupported per claim. `applyVerifierResults` (`verifier.ts:56`) then drops everything not exactly-once-supported; the pipeline never restores drops.
 6. **Research section**: write one extension research-layer section (schema in `packages/core/src/research-sections.ts`) from stored card evidence, with permission to return `status: "empty"` when evidence is weak. It has its own `research_section` stage (split from `synthesis` when provider routing landed) and its own `LLM_RESEARCH_SECTION_MODEL` env, falling back to `ANTHROPIC_SYNTHESIS_MODEL` so unset envs preserve the old aliasing. Traces written before the split carry stage `synthesis` with a `research-section:` label prefix.
 
-## Where production calls happen: apps/web/src/inngest/functions.ts
+## Where production calls happen: apps/web/src/inngest/
 
-The orchestrator is `generateCardFunction` (line 1151). It builds the client and resolves the five live stage models once per run via `modelForStage` (lines 1306-1312, including `sectionModel` for `research_section`), then injects closures into the pipeline. `packages/pipeline/src/generate-card.ts` never imports any LLM client itself; it sequences the injected functions.
+The worker registration and step boundaries live in `apps/web/src/inngest/functions.ts`. `generateCardFunction` (line 333) builds the client and resolves the five live stage models once per run via `modelForStage` (lines 486-490, including `sectionModel` for `research_section`), then injects closures into the pipeline. The section branch delegates the pure evidence-to-section work to `apps/web/src/inngest/research-section-generation.ts`, but the Inngest `generate-section` step, trace merge, and event writes stay in `functions.ts`. `packages/pipeline/src/generate-card.ts` never imports any LLM client itself; it sequences the injected functions.
 
 Call wiring, in run order:
 
-- `plan-research` step (line 1443): `fallbackResearchPlan(domain)`. No LLM call.
-- Section job branch (line 1309): when the generation event carries a `requestedSectionId`, the run does only `synthesizeResearchSection` (line 1333) over stored card evidence and returns. If evidence is empty the run saves an empty section with no LLM call, and the trace marks provenance `derived` instead of `deep` (line 1386).
-- `extractSectionsForCard` (line 1681): wraps `extractCompanyClaims` (line 1690). When `mode === "analysis"` and the existing stored card is investor-usable (`reuseExistingForAnalysis`), it reparses the existing card instead and makes no call (line 1686).
-- `enrichSectionsForCard` (line 1697): wraps `extractCompanyBlockClaims` (line 1705). Driven by `runBlockEnrichments` in `generate-card.ts:518`: only blocks failing `blockNeedsEnrichment` checks run, in parallel via `Promise.all`, max five. Skipped entirely when `skipBlockEnrichment` (basics mode, or analysis reuse; line 1762).
-- `synthesize` and `verify` closures (lines 1735-1736): injected only when `mode === "analysis"`, with `synthesisRequired: true`. The pipeline's `verifiedSynthesisForCard` (`generate-card.ts:648`) calls them back-to-back: one synthesis call, then one verify call over all synthesis claims, then drops.
+- `plan-research` step (`functions.ts:603`): `fallbackResearchPlan(domain)`. No LLM call.
+- Section job branch (`functions.ts:493`): when the generation event carries a `requestedSectionId`, the run does only `generateStoredResearchSection` inside `step.run("generate-section")`. That helper calls `synthesizeResearchSection` in `research-section-generation.ts:125` over stored card evidence and returns. If evidence is empty it saves an empty section with no LLM call, and the trace marks provenance `derived` instead of `deep` (`functions.ts:551`).
+- `extractSectionsForCard` (`functions.ts:720`): wraps `extractCompanyClaims` (`functions.ts:729`). When `mode === "analysis"` and the existing stored card is investor-usable (`reuseExistingForAnalysis`), it reparses the existing card instead and makes no call (`functions.ts:725`).
+- `enrichSectionsForCard` (`functions.ts:736`): wraps `extractCompanyBlockClaims` (`functions.ts:744`). Driven by `runBlockEnrichments` in `generate-card.ts:521`: only blocks failing `blockNeedsEnrichment` checks run, in parallel via `Promise.all`, max five. Skipped entirely when `skipBlockEnrichment` (basics mode, or analysis reuse; `functions.ts:801`).
+- `synthesize` and `verify` closures (`functions.ts:774-775`): injected only when `mode === "analysis"`, with `synthesisRequired: true`. The pipeline's `verifiedSynthesisForCard` (`generate-card.ts:651`) calls them back-to-back: one synthesis call, then one verify call over all synthesis claims, then drops.
 
 Expected Anthropic calls per run:
 
@@ -74,7 +74,7 @@ Expected Anthropic calls per run:
 | `analysis`, reusing stored profile | 2 (1 `synthesis` + 1 `verify`) |
 | Section job | 1 or 0 (`research-section:{id}`, skipped when evidence is empty) |
 
-`contactEnrichmentFunction` (line 730) makes zero LLM calls; it is StableEnrich-only. The seed profile step (`seed-profile-card`, line 1625, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
+`contactEnrichmentFunction` (`apps/web/src/inngest/contact-enrichment.ts:313`) makes zero LLM calls; it is provider-only. The seed profile step (`seed-profile-card`, `functions.ts:663`, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
 
 ## Direct Anthropic callers outside production
 
