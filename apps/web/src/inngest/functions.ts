@@ -225,6 +225,72 @@ function cardWithTraceCost(card: ColdStartCard, trace: GenerationTrace) {
   return costUsd === undefined ? card : { ...card, generationCostUsd: costUsd };
 }
 
+const progressSourceCategoryOrder = [
+  "company site",
+  "docs",
+  "funding coverage",
+  "product page",
+  "people source",
+  "customer proof",
+  "filing",
+  "news",
+  "database"
+] as const;
+
+type ProgressSourceCategory = typeof progressSourceCategoryOrder[number];
+
+function sourceTextForProgress(source: ProviderSource) {
+  return `${source.url} ${source.title} ${source.rawText ?? ""}`.toLowerCase();
+}
+
+function progressCategoryForSource(source: ProviderSource): ProgressSourceCategory | null {
+  const text = sourceTextForProgress(source);
+
+  if (source.sourceType === "company_site") {
+    if (/\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text)) {
+      return "docs";
+    }
+    if (/\bproduct\b|\bpricing\b|\bplatform\b|\bapi\b/.test(text)) {
+      return "product page";
+    }
+    return "company site";
+  }
+
+  if (source.sourceType === "news") {
+    if (/\bfunding\b|\braised\b|series [a-z]\b|\bround\b|\binvestors?\b|\bvaluation\b/.test(text)) {
+      return "funding coverage";
+    }
+    return "news";
+  }
+
+  if (source.sourceType === "filing") {
+    return "filing";
+  }
+
+  if (source.sourceType === "github") {
+    return "product page";
+  }
+
+  if (source.sourceType === "enrichment" || source.sourceType === "rdap") {
+    return "database";
+  }
+
+  return null;
+}
+
+function progressSourceCategories(sources: ProviderSource[]) {
+  const categories = new Set<ProgressSourceCategory>();
+
+  for (const source of sources) {
+    const category = progressCategoryForSource(source);
+    if (category) {
+      categories.add(category);
+    }
+  }
+
+  return progressSourceCategoryOrder.filter((category) => categories.has(category));
+}
+
 async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
   return Promise.all(
     sources.map((source) =>
@@ -647,7 +713,8 @@ export const generateCardFunction = inngest.createFunction(
         acceptedCount: sourceResult.value.sources.length,
         rejectedCount: sourceResult.value.trace.sourceGate.rejectedCount,
         directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
-        stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount
+        stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount,
+        sourceCategories: progressSourceCategories(sourceResult.value.sources)
       }, null);
 
       // Failure count is tracked for observability, but not converted into cost until live costs are measured.

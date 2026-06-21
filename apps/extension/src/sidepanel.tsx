@@ -117,7 +117,7 @@ function generationStageNote({
   const acceptedCount = acceptedSourceCountFromEvents(events);
 
   if (generationStatus === "queued" && elapsed < 4) {
-    return "Waiting for a worker";
+    return "Company queued";
   }
 
   if (activeIndex === 1 && acceptedCount !== null) {
@@ -125,18 +125,18 @@ function generationStageNote({
   }
 
   if (activeIndex === 0) {
-    return "Looking for useful sources";
+    return "Checking company, product, funding, and proof sources";
   }
 
   if (activeIndex === 1) {
-    return "Reading what came in";
+    return "Checking funding, product, people, and customer proof";
   }
 
   if (activeIndex === 2) {
-    return "Building the first profile";
+    return "Building first cited profile";
   }
 
-  return "Filing the final card";
+  return "Saving with sources attached";
 }
 
 function ExtensionTopbar({
@@ -482,7 +482,7 @@ function GenerationPanel({
     elapsed,
     events,
     generationStatus: requestState.generationStatus
-  }) ?? activeStage?.note ?? "Working from useful sources";
+  }) ?? activeStage?.note ?? "Checking company, product, funding, and proof sources";
   return (
     <ExtensionFrame
       className="cs-generation-panel"

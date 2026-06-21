@@ -348,7 +348,13 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
   await expect(page.getByText("Researching")).toBeVisible();
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-tree")).toContainText("Filing the card");
+  await expect(page.locator(".cs-build-tree")).toContainText("Sources");
+  await expect(page.locator(".cs-build-tree")).toContainText("Checking company, product, funding, and proof sources");
+  await expect(page.locator(".cs-build-tree")).toContainText("Filed");
+  await expect(page.locator(".cs-build-tree")).not.toContainText("Looking for useful places to read");
+  await expect(page.locator(".cs-build-tree")).not.toContainText("Pulling in what matters");
+  await expect(page.locator(".cs-build-tree")).not.toContainText("Turning evidence into a card");
+  await expect(page.locator(".cs-build-tree")).not.toContainText("Saving the final profile");
   // No wall-clock estimation: with no run events, progress holds at the first stage.
   await expect(page.locator(".cs-build-meta")).toContainText("Step 1 of 4");
   // Prove the Drizzle loader is actually changing over time, not just declared.
@@ -396,11 +402,11 @@ test("progress tree surfaces real research events as substeps", async ({ page })
 
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible({ timeout: 10_000 });
-  await expect(tree).toContainText("Picked a research plan");
-  await expect(tree).toContainText("Found 12 sources");
-  await expect(tree).toContainText("Starter profile ready");
+  await expect(tree).not.toContainText("Picked a research plan");
+  await expect(tree).toContainText("12 sources found");
+  await expect(tree).toContainText("First cited profile ready - 7 citations");
   await expect(tree).not.toContainText("Started async contact enrichment");
-  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "Starter profile ready" })).toBeVisible();
+  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First cited profile ready" })).toHaveCount(0);
 });
 
 test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {

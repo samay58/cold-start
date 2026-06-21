@@ -1089,7 +1089,7 @@ function progressPlanHasAttention(plan: ReturnType<typeof buildResearchProgressP
 function currentProgressProof(plan: ReturnType<typeof buildResearchProgressPlan>, activeIndex: number, fallback: string) {
   const stage = plan[activeIndex];
   const latestSubstep = [...(stage?.substeps ?? [])].reverse().find((substep) => substep.status !== "running");
-  return latestSubstep?.message ?? stage?.note ?? fallback;
+  return latestSubstep?.message ?? stage?.proofLine ?? fallback;
 }
 
 function ResearchProgressPanel({
@@ -1116,15 +1116,16 @@ function ResearchProgressPanel({
     activeIndex === 1 && sourceCount > 0
       ? `${plural(sourceCount, "source")} found`
       : activeIndex === 2
-        ? "Building the first profile"
+        ? "Building first cited profile"
         : activeIndex === 3
-          ? "Filing the final card"
-          : "Looking for useful sources";
+          ? "Saving with sources attached"
+          : "Checking company, product, funding, and proof sources";
   const [detailsOpen, setDetailsOpen] = useState(false);
   const plan = buildResearchProgressPlan({
     activeIndex,
     complete: !isProfileRunning,
     events,
+    sources,
     stageNote,
     stages: RESEARCH_PROGRESS_STAGES
   });
@@ -1149,7 +1150,7 @@ function ResearchProgressPanel({
       : `${plural(sourceCount, "source")} found`
     : isFinalizingProfile
       ? "Filling in contacts/details"
-    : "Looking for useful sources";
+    : "Checking company, product, funding, and proof sources";
   const sectionCopy = profileComplete
     ? `${resolvedCount} of ${totalCount} sections`
     : `${resolvedCount} of ${totalCount} sections ready`;
@@ -1194,6 +1195,7 @@ function ResearchProgressPanel({
           activeIndex={activeIndex}
           complete={profileComplete || !isProfileRunning}
           events={events}
+          sources={sources}
           stageNote={stageNote}
           stages={RESEARCH_PROGRESS_STAGES}
           variant="compact"

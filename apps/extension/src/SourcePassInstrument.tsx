@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import type { ExtensionResearchRunEvent } from "./extension-config";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { motionTokens, snapSpring } from "./motion-primitives";
 import {
   buildResearchProgressPlan,
@@ -14,6 +14,7 @@ type SourcePassInstrumentProps = {
   activeIndex: number;
   complete?: boolean;
   events?: ExtensionResearchRunEvent[];
+  sources?: ExtensionSourceSummary[];
   stageNote: string;
   stages: SourcePassStage[];
   variant?: "full" | "compact";
@@ -111,6 +112,7 @@ export function SourcePassInstrument({
   activeIndex,
   complete = false,
   events = [],
+  sources = [],
   stageNote,
   stages,
   variant = "full"
@@ -122,6 +124,7 @@ export function SourcePassInstrument({
     activeIndex: safeActiveIndex,
     complete,
     events,
+    sources,
     stageNote,
     stages
   });
@@ -183,7 +186,7 @@ export function SourcePassInstrument({
               <StatusMark status={stage.status} />
               <div className="cs-build-stage-copy">
                 <strong>{stage.label}</strong>
-                <span>{stage.note}</span>
+                <span>{stage.proofLine}</span>
               </div>
             </div>
             {stage.substeps.length > 0 ? (
@@ -208,7 +211,7 @@ export function SourcePassInstrument({
           Step {safeActiveIndex + 1} of {stages.length}
         </p>
       ) : null}
-      <p className="sr-only">{activeStage?.label}. {stageNote}</p>
+      <p className="sr-only">{activeStage?.label}. {plan[safeActiveIndex]?.proofLine ?? stageNote}</p>
     </div>
   );
 }

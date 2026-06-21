@@ -932,7 +932,13 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     expect(container.textContent).toContain("Researching");
-    expect(container.textContent).toContain("Filing the card");
+    expect(container.textContent).toContain("Sources");
+    expect(container.textContent).toContain("Checking company, product, funding, and proof sources");
+    expect(container.textContent).toContain("Filed");
+    expect(container.textContent).not.toContain("Looking for useful places to read");
+    expect(container.textContent).not.toContain("Pulling in what matters");
+    expect(container.textContent).not.toContain("Turning evidence into a card");
+    expect(container.textContent).not.toContain("Saving the final profile");
     // No wall-clock stage estimation: with no run events yet, progress holds at the first stage.
     expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 1 of 4");
     expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
@@ -991,7 +997,7 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 2 of 4");
-    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Found 8 sources");
+    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
     await unmount();
   });
 
@@ -1237,7 +1243,14 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Research saved");
     expect(container.textContent).toContain("2 sources found");
-    expect(container.textContent).toContain("Found 2 sources");
+    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
+    expect(detailsButton).not.toBeNull();
+    await act(async () => {
+      detailsButton?.click();
+    });
+    await flushPromises();
+    expect(container.textContent).toContain("Company site and funding coverage found");
+    expect(container.textContent).not.toContain("Found 2 sources");
     await unmount();
   });
 
@@ -1314,8 +1327,8 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
     expect(container.textContent).not.toContain("Research filed");
-    expect(container.textContent).toContain("Filing the card");
-    expect(container.textContent).toContain("Saved cited profile");
+    expect(container.textContent).toContain("Filed");
+    expect(container.textContent).toContain("Saved with sources attached");
     expect(container.querySelector(".cs-research-progress-live")).not.toBeNull();
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     await unmount();
