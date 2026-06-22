@@ -97,10 +97,6 @@ import {
   stableenrichLateEnrichmentSkipsForBlocks
 } from "./source-fetching";
 
-export { preserveExistingBasics, prepareCardForStorage, underfilledBasicsErrorMessage } from "./card-storage";
-export { buildContactEnrichmentRequestedEvent, contactEnrichmentFunction } from "./contact-enrichment";
-export { contactEnrichmentEnabled } from "./env";
-
 type GenerationMode = "basics" | "analysis";
 type TimedResult<T> = { durationMs: number; value: T };
 

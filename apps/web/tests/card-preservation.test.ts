@@ -1,7 +1,7 @@
 import { buildSkeletonCard } from "@cold-start/pipeline";
 import { describe, expect, it } from "vitest";
 import { hasUsablePublicProfile } from "@cold-start/core";
-import { prepareCardForStorage, preserveExistingBasics, underfilledBasicsErrorMessage } from "../src/inngest/functions";
+import { prepareCardForStorage, preserveExistingBasics, underfilledBasicsErrorMessage } from "../src/inngest/card-storage";
 
 describe("preserveExistingBasics", () => {
   it("keeps existing synthesis when a basics refresh rewrites public facts", () => {

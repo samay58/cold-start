@@ -1,6 +1,7 @@
 import { serve } from "inngest/next";
 import { inngest } from "../../../inngest/client";
-import { contactEnrichmentFunction, generateCardFunction } from "../../../inngest/functions";
+import { generateCardFunction } from "../../../inngest/functions";
+import { contactEnrichmentFunction } from "../../../inngest/contact-enrichment";
 
 export const maxDuration = 300;
 

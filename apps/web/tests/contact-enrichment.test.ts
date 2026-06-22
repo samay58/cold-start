@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  buildContactEnrichmentRequestedEvent,
-  contactEnrichmentEnabled
-} from "../src/inngest/functions";
+import { buildContactEnrichmentRequestedEvent } from "../src/inngest/contact-enrichment";
+import { contactEnrichmentEnabled } from "../src/inngest/env";
 
 describe("contact enrichment dispatch", () => {
   it("honors the CONTACT_ENRICHMENT_ENABLED kill switch", () => {
