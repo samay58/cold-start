@@ -31,7 +31,7 @@ import {
   formatOptionalNumber,
   profileSummaryCopy
 } from "./extension-format";
-import { firstReadForCard, firstReadIsFiled, type FirstRead } from "./first-read";
+import { firstReadForCard, firstReadIsFiled, firstReadIsPending, type FirstRead } from "./first-read";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import {
   acceptedSourceCountFromEvents,
@@ -196,7 +196,9 @@ function metadataSourceCount(event: ExtensionResearchRunEvent) {
 }
 
 function filedSourceCount(events: ExtensionResearchRunEvent[], sources: ExtensionSourceSummary[]) {
-  for (const event of [...events].reverse()) {
+  const profileEvents = currentProfileProgressEvents(events);
+
+  for (const event of [...profileEvents].reverse()) {
     if (event.type !== "card.saved" && event.type !== "card.enriched") {
       continue;
     }
@@ -1502,7 +1504,7 @@ export function ResearchLayerPanel({
   const { fullSummary, summary } = profileSummaryCopy(card);
   const firstRead = firstReadForCard({ card, events, sources });
   const firstReadFiled = firstReadIsFiled(events);
-  const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || events.some((event) => event.type === "card.partial"));
+  const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || firstReadIsPending(events));
   const showFirstRead = firstReadShouldPayoff && !firstReadFiled;
   const showFiledFirstRead = firstReadFiled;
   const firstReadSourceCount = filedSourceCount(events, sources);

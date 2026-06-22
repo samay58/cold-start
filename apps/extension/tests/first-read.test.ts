@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
-import { firstReadForCard } from "../src/first-read";
+import { firstReadForCard, firstReadIsFiled, firstReadIsPending } from "../src/first-read";
 
 function card(input: {
   concept?: string | null;
@@ -132,5 +132,64 @@ describe("firstReadForCard", () => {
 
     expect(read.productLine).toBe("Exa builds search and research infrastructure for AI products.");
     expect([read.productLine, read.buyerLine, read.missingProofLine].join(" ")).not.toMatch(/AI-native|emerging leader|agentic|platform for everyone/i);
+  });
+});
+
+describe("first-read event state", () => {
+  it("scopes saved/enriched signals to the latest profile run", () => {
+    const oldRunSaved = event({
+      createdAt: "2026-06-20T01:00:00.000Z",
+      id: "old-saved",
+      metadata: { sourceCount: 3 },
+      runId: "run-old",
+      type: "card.saved"
+    });
+    const activeRunPartial = event({
+      createdAt: "2026-06-21T00:00:00.000Z",
+      id: "active-partial",
+      runId: "run-new",
+      type: "card.partial"
+    });
+
+    expect(firstReadIsFiled([oldRunSaved, activeRunPartial])).toBe(false);
+    expect(firstReadIsPending([oldRunSaved, activeRunPartial])).toBe(true);
+  });
+
+  it("respects latest filed event when the active run is newer", () => {
+    const activeRunPartial = event({
+      createdAt: "2026-06-20T01:00:00.000Z",
+      id: "active-partial",
+      runId: "run-new",
+      type: "card.partial"
+    });
+    const newerRunSaved = event({
+      createdAt: "2026-06-21T00:00:00.000Z",
+      id: "new-saved",
+      runId: "run-new",
+      type: "card.saved"
+    });
+
+    expect(firstReadIsFiled([activeRunPartial, newerRunSaved])).toBe(true);
+    expect(firstReadIsPending([activeRunPartial, newerRunSaved])).toBe(false);
+  });
+
+  it("uses metadata from the latest profile run for evidence categories", () => {
+    const cardData = card({});
+    const oldRunFundingEvent = event({
+      createdAt: "2026-06-20T00:00:00.000Z",
+      id: "old-funding",
+      runId: "run-old",
+      type: "source.found",
+      metadata: { sourceCategory: "funding coverage" }
+    });
+    const activeRunEvent = event({
+      createdAt: "2026-06-21T00:00:00.000Z",
+      id: "active-partial",
+      runId: "run-new",
+      type: "card.partial",
+      metadata: {}
+    });
+
+    expect(firstReadForCard({ card: cardData, events: [oldRunFundingEvent, activeRunEvent] }).evidenceCategories).toEqual(["company profile"]);
   });
 });

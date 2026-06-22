@@ -1,5 +1,6 @@
 import type { ColdStartCard } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
+import { currentProfileProgressEvents } from "./research-progress";
 
 export type FirstRead = {
   productLine: string;
@@ -26,6 +27,32 @@ const evidenceCategoryRank = new Map(
     "company profile"
   ].map((category, index) => [category, index])
 );
+
+const firstReadFiledEventTypes = new Set(["card.saved", "card.enriched"]);
+const firstReadPendingEventTypes = new Set(["card.partial"]);
+
+function latestProfileRunEvents(events: ExtensionResearchRunEvent[]) {
+  return currentProfileProgressEvents(events);
+}
+
+function terminalFirstReadState(events: ExtensionResearchRunEvent[]) {
+  const profileEvents = latestProfileRunEvents(events);
+  let state: string | null = null;
+  let stateTime: string | null = null;
+
+  for (const event of profileEvents) {
+    if (!firstReadFiledEventTypes.has(event.type) && !firstReadPendingEventTypes.has(event.type)) {
+      continue;
+    }
+
+    if (!stateTime || event.createdAt.localeCompare(stateTime) >= 0) {
+      state = event.type;
+      stateTime = event.createdAt;
+    }
+  }
+
+  return state;
+}
 
 function normalizeText(value: string | null | undefined) {
   const normalized = value?.replace(/\s+/g, " ").trim() ?? "";
@@ -104,6 +131,7 @@ function normalizeEvidenceCategory(value: string) {
 
 function evidenceCategoriesForRead(sources: ExtensionSourceSummary[], events: ExtensionResearchRunEvent[]) {
   const categories = new Set<string>();
+  const profileEvents = latestProfileRunEvents(events);
 
   for (const source of sources) {
     const category = evidenceCategoryForSource(source);
@@ -113,7 +141,7 @@ function evidenceCategoriesForRead(sources: ExtensionSourceSummary[], events: Ex
   }
 
   if (categories.size === 0) {
-    for (const event of events) {
+    for (const event of profileEvents) {
       const values = [
         event.metadata.sourceCategory,
         event.metadata.sourceCategoryLabel,
@@ -162,5 +190,11 @@ export function firstReadForCard({
 }
 
 export function firstReadIsFiled(events: ExtensionResearchRunEvent[] = []) {
-  return events.some((event) => event.type === "card.saved" || event.type === "card.enriched");
+  const state = terminalFirstReadState(events);
+  return state === "card.saved" || state === "card.enriched";
+}
+
+export function firstReadIsPending(events: ExtensionResearchRunEvent[] = []) {
+  const state = terminalFirstReadState(events);
+  return state === "card.partial";
 }
