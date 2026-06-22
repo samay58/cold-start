@@ -24,7 +24,7 @@ import {
   recordCardEvidence,
   retireStaleGenerationRuns,
   upsertCard
-} from "../src/repository";
+} from "../src/index";
 import { citations, claims, researchRunEvents, sources } from "../src/schema";
 
 const generatedAt = "2026-05-06T12:00:00.000Z";

@@ -233,7 +233,7 @@ Read these files when validating or changing intent-critical behavior:
 - LLM behavior: `packages/llm/src/investor-taste-kernel.ts`, `packages/llm/src/research-plan.ts`, `packages/llm/src/extraction.ts`, `packages/llm/src/synthesis.ts`, `packages/llm/src/verifier.ts`.
 - Public/gated API split: `apps/web/src/app/api/cards/[slug]/route.ts`, `apps/web/src/app/api/extension/cards/[slug]/route.ts`, `apps/web/src/lib/extension-auth.ts`.
 - Generation queue: `apps/web/src/app/api/generate/route.ts`, `apps/web/src/inngest/functions.ts`.
-- Persistence: `packages/db/src/schema.ts`, `packages/db/src/repository.ts`.
+- Persistence: `packages/db/src/schema.ts`, `packages/db/src/repositories/`.
 - UI surfaces: `packages/ui/src/CardShell.tsx`, `packages/ui/src/SynthesisSection.tsx`, `packages/ui/src/SourceDrawer.tsx`, `apps/extension/src/sidepanel.tsx`.
 
 ## Questions For Samay
