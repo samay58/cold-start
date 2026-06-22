@@ -1,4 +1,4 @@
-import { sourceQualityForSource, sourceQualityRank, type ColdStartCard, type SourceQualityTier } from "@cold-start/core";
+import { newsworthyTitlePattern, sourceQualityForSource, sourceQualityRank, titleMentionsCompany, type ColdStartCard, type SourceQualityTier } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { currentProfileProgressEvents } from "./research-progress";
 
@@ -36,10 +36,6 @@ export type FirstRead = {
   substantive: boolean;
   status: "ready";
 };
-
-// Headline-shaped titles we can surface as proof straight from a source, before any LLM
-// extraction. Matches funding/launch/M&A language, not a company's homepage tagline.
-const newsworthyTitlePattern = /\b(raise[sd]?|raising|funding|seed|series\s+[a-z]\b|round|\$[\d.]|\d+\s*(?:m|mn|million|b|bn|billion)\b|backed by|valuation|valued at|acqui(?:re[sd]?|sition)|launch(?:e[sd])?|unveil[sed]*|announce[sd]?|partner(?:s|ed)?\s+with|going public|ipo)\b/i;
 
 const fillerPattern = /\b(ai-native|agentic|emerging leader|next[-\s]?generation|platform for everyone|all-in-one|end-to-end|revolutionizing|transforming|unlocking)\b/i;
 const boilerplatePattern = /\b(platform|solution)\s+(for|that)\s+(everyone|businesses of all sizes)\b/i;
@@ -179,19 +175,14 @@ function buildEvidence(sources: FirstReadSourceLike[]) {
   };
 }
 
-function titleMentionsCompany(title: string, card: ColdStartCard) {
-  const haystack = title.toLowerCase();
-  const name = card.identity.name.value?.trim().toLowerCase();
-  const root = card.domain.replace(/^www\./i, "").split(".")[0]?.toLowerCase() ?? "";
-  return Boolean((name && name.length >= 3 && haystack.includes(name)) || (root.length >= 3 && haystack.includes(root)));
-}
-
 // A headline read straight off the strongest source title, before any LLM extraction. This is
 // what makes the early state useful: "Runloop raises $7M seed" beats "11 sources filed". The
-// title must actually name the company, so a mismatched aggregator headline is never surfaced.
+// classifier and entity match come from core (newsworthyTitlePattern, titleMentionsCompany) so
+// the title must actually name the company and a mismatched aggregator headline is never surfaced.
 function proofReadFromSources(sources: FirstReadSourceLike[], card: ColdStartCard) {
+  const company = { name: card.identity.name.value, domain: card.domain };
   const ranked = sources
-    .filter((source) => source.title && newsworthyTitlePattern.test(source.title) && titleMentionsCompany(source.title, card))
+    .filter((source) => source.title && newsworthyTitlePattern.test(source.title) && titleMentionsCompany(source.title, company))
     .sort((left, right) => sourceQualityRank(right) - sourceQualityRank(left));
 
   for (const source of ranked) {

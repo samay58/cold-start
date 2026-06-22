@@ -5,6 +5,7 @@ export * from "./description-normalization";
 export * from "./funding-evidence";
 export * from "./generation-quality";
 export * from "./generation-trace";
+export * from "./headline";
 export * from "./intelligence";
 export * from "./research-sections";
 export * from "./signal-clusters.mjs";
