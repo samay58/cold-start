@@ -17,12 +17,10 @@ import {
   markResearchSectionFailed,
   recordResearchRunEvent,
   recordCardEvidence,
-  recordSource,
   updateGenerationRunTrace,
   upsertCard,
   upsertResearchSection,
-  upsertResearchSections,
-  type ColdStartDb
+  upsertResearchSections
 } from "@cold-start/db";
 import {
   anthropicModel,
@@ -94,6 +92,7 @@ import {
 import {
   fetchInitialSourcesForGeneration,
   fetchLateEnrichmentSources,
+  recordSourcesForCard,
   sectionsWithSourceCitations,
   stableenrichLateEnrichmentSkipsForBlocks
 } from "./source-fetching";
@@ -252,21 +251,6 @@ function progressSourceCategories(sources: ProviderSource[]) {
   }
 
   return progressSourceCategoryOrder.filter((category) => categories.has(category));
-}
-
-async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
-  return Promise.all(
-    sources.map((source) =>
-      recordSource(db, {
-        cardId,
-        url: source.url,
-        title: source.title,
-        sourceType: source.sourceType,
-        fetchedAt: source.fetchedAt,
-        rawText: source.rawText,
-      }),
-    ),
-  );
 }
 
 function pipelineBlockPatch(input: Awaited<ReturnType<typeof extractCompanyBlockClaims>>): BlockEnrichmentPatch {
@@ -594,6 +578,9 @@ export const generateCardFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, sectionResult.tracePatch);
+        // The `"ok" in ...` guard is not dead code: Inngest replays a memoized step result across
+        // deploys, so a run started on an older build can return `value` as the raw section instead
+        // of today's `{ ok, value }` envelope. Handle both shapes (see the replayed-step-result test).
         if ("ok" in sectionResult.value && !sectionResult.value.ok) {
           throw new Error(sectionResult.value.error);
         }

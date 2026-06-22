@@ -250,7 +250,7 @@ export function evidenceForExtractionPrompt(
 
   const evidenceLedger = evidence.evidenceLedger?.slice(0, ledgerLimit).map((entry) => ({
     ...entry,
-    supportingSnippets: entry.supportingSnippets.map((snippet) => truncateEvidenceText(snippet, maxPromptSnippetLength)),
+    supportingSnippets: entry.supportingSnippets.map((snippet) => compactEvidenceText(snippet, maxPromptSnippetLength)),
   }));
   const priorityUrls = new Set(evidenceLedger?.map((entry) => entry.url) ?? []);
   const sourcePool =
@@ -769,10 +769,6 @@ function filterArray<T>(value: unknown, schema: z.ZodType<T>) {
     const parsed = schema.safeParse(item);
     return parsed.success ? [parsed.data] : [];
   });
-}
-
-function truncateEvidenceText(value: string, maxLength: number) {
-  return compactEvidenceText(value, maxLength);
 }
 
 export async function extractCompanyClaims(input: {

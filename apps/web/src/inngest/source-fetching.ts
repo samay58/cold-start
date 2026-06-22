@@ -17,7 +17,7 @@ import {
   type StableenrichEnv,
   type StableenrichProbeName
 } from "@cold-start/providers";
-import type { StoredSource } from "@cold-start/db";
+import { recordSource, type ColdStartDb, type StoredSource } from "@cold-start/db";
 
 import type { webEnv } from "../lib/env";
 import { boundedErrorMessage } from "../lib/errors";
@@ -44,6 +44,23 @@ export function mergeSources(...groups: ProviderSource[][]): ProviderSource[] {
   }
 
   return Array.from(byUrl.values());
+}
+
+// Persist the fetched sources against a stored card. Shared by the basics/analysis worker and the
+// async contact-enrichment worker so the field mapping stays in one place.
+export function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
+  return Promise.all(
+    sources.map((source) =>
+      recordSource(db, {
+        cardId,
+        url: source.url,
+        title: source.title,
+        sourceType: source.sourceType,
+        fetchedAt: source.fetchedAt,
+        rawText: source.rawText,
+      }),
+    ),
+  );
 }
 
 export function providerSourcesFromStoredSources(storedSources: StoredSource[]): ProviderSource[] {

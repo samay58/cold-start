@@ -1560,7 +1560,6 @@ export function ResearchLayerPanel({
     }
     firstReadMarkedVisible.current = true;
     markPerformance("cold-start-first-read-visible");
-    markPerformance("cold-start-first-read-visible-ms");
   }, [showFirstRead]);
 
   if (!canShowResearchLayers && !showFirstRead && !showFiledFirstRead) {

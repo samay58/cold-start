@@ -148,9 +148,13 @@ function normalizeSourceCategory(value: string): BoundedSourceCategory | null {
   return boundedSourceCategories.find((category) => category === normalized) ?? null;
 }
 
+// Shared docs-page heuristic. First Read reuses this so the classifier lives in one place.
+export function textLooksLikeDocs(text: string): boolean {
+  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text.toLowerCase());
+}
+
 function sourceLooksLikeDocs(source: Pick<ExtensionSourceSummary, "domain" | "snippet" | "title" | "url">) {
-  const text = `${source.domain} ${source.title} ${source.snippet} ${source.url}`.toLowerCase();
-  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text);
+  return textLooksLikeDocs(`${source.domain} ${source.title} ${source.snippet} ${source.url}`);
 }
 
 function sourceLooksLikeFunding(source: Pick<ExtensionSourceSummary, "domain" | "snippet" | "title" | "url">) {

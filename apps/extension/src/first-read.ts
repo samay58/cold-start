@@ -1,6 +1,6 @@
 import { newsworthyTitlePattern, sourceQualityForSource, sourceQualityRank, titleMentionsCompany, type ColdStartCard, type SourceQualityTier } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
-import { currentProfileProgressEvents } from "./research-progress";
+import { currentProfileProgressEvents, textLooksLikeDocs } from "./research-progress";
 
 // First Read works off a unified source list: the live `sources` prop when present, plus the
 // card's own citations (always available). A normalized shape lets both feed evidence + proof.
@@ -105,7 +105,7 @@ function domainFromUrl(url: string) {
 }
 
 function looksLikeDocs(source: FirstReadSourceLike) {
-  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(`${source.title} ${source.url}`.toLowerCase());
+  return textLooksLikeDocs(`${source.title} ${source.url}`);
 }
 
 // Classify by core's source-quality tier rather than raw sourceType, so a tertiary aggregator

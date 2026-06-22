@@ -10,11 +10,9 @@ import {
   findSourcesBySlug,
   recordCardEvidence,
   recordResearchRunEvent,
-  recordSource,
   updateGenerationRunTrace,
   upsertCard,
-  upsertResearchSections,
-  type ColdStartDb
+  upsertResearchSections
 } from "@cold-start/db";
 import {
   applyProviderFactCandidates,
@@ -72,6 +70,7 @@ import {
 import {
   mergeSources,
   providerSourcesFromStoredSources,
+  recordSourcesForCard,
   sectionsWithSourceCitations
 } from "./source-fetching";
 
@@ -165,21 +164,6 @@ function peopleEmailCount(sections: ExtractedCardSections) {
     ...(sections.team.founders.value ?? []),
     ...(sections.team.keyExecs.value ?? [])
   ].filter((person) => Boolean(person.email)).length;
-}
-
-async function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: ProviderSource[]) {
-  return Promise.all(
-    sources.map((source) =>
-      recordSource(db, {
-        cardId,
-        url: source.url,
-        title: source.title,
-        sourceType: source.sourceType,
-        fetchedAt: source.fetchedAt,
-        rawText: source.rawText,
-      }),
-    ),
-  );
 }
 
 async function fetchContactSourcesForBasics(input: {
