@@ -1,9 +1,7 @@
-// Headline classification for the extension's First Read slip, kept behind a single tested
-// boundary in core so the regex and entity match are not redefined inside a render path and
-// cannot be quietly broadened. The heuristic still runs client-side in the extension: the slip
-// reads live source titles during the seed window, before any LLM extraction has landed, so the
-// classifier has to live where that read happens. Centralizing it does not move it server-side;
-// it removes the duplication and pins the regex with a test.
+// Headline classification for the extension's First Read slip. It runs client-side: the slip
+// reads live source titles during the seed window, before any LLM extraction lands, so the
+// classifier has to live where that read happens. It sits in core only to lift the regex and
+// entity match out of the render path and pin them with a test, not to move them server-side.
 
 // Headline-shaped titles surfaced as proof straight from a source title. Matches funding, launch,
 // and M&A language, not a company's homepage tagline. Do not broaden this set: every added term

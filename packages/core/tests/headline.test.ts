@@ -36,9 +36,8 @@ describe("newsworthyTitlePattern", () => {
   });
 
   it("stays narrow: tempting adjacent terms are deliberately excluded", () => {
-    // These read as company news but are not funding, launch, or M&A. Adding any of them would
-    // widen the slip's unverified surface, which the review ruled out. This test fails the moment
-    // someone broadens the pattern to cover them.
+    // These read as company news but are not funding, launch, or M&A. The slip surfaces matches
+    // unverified, so the pattern stays narrow; this test fails the moment someone broadens it.
     const excluded = [
       "Exa is hiring engineers",
       "Runloop expands to Europe",
