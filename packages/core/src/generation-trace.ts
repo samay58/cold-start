@@ -113,7 +113,6 @@ export type GenerationTrace = {
   milestones?: {
     seedCardMs?: number;
     firstUsableCardMs?: number;
-    firstReadLaneMs?: number;
     contactsReadyMs?: number;
     analysisReadyMs?: number;
   };
@@ -125,16 +124,6 @@ export type GenerationTrace = {
       // Successful /search requests this run and their estimated spend. Direct Exa bills
       // the Exa account directly (not AgentCash), so without these fields the spend is
       // invisible to run telemetry.
-      requestCount?: number;
-      estimatedCostUsd?: number;
-    };
-    // Bounded Exa instant/fast lane that renders First Read before the full source batch.
-    // Tracked separately so its latency and Exa-billed spend are visible without being
-    // folded into the main directExa numbers.
-    firstReadLane?: {
-      skipped: boolean;
-      sourceCount: number;
-      failureCount: number;
       requestCount?: number;
       estimatedCostUsd?: number;
     };

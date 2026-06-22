@@ -1,6 +1,6 @@
 # First Read Fast Payoff Design
 
-Status: frontend rebuild shipped (Evidence Receipt model); provider lane still open and gated on timing
+Status: frontend rebuild shipped (Evidence Receipt model); provider lane built then removed after adversarial review (dead-on-arrival)
 Date: 2026-06-21
 Related teardown: `docs/qa/exa-sidebar-demo-teardown.md`
 Related shipped work: `409c85b` artifact-led research progress
@@ -561,3 +561,9 @@ Adding a paid provider step before the source batch finishes is the exact "provi
 3. If it misses, add the dedicated first-read lane from the "Provider Expansion Option" section above, flag-gated and off in production until QA confirms it beats the seed card on first-read latency without thinning the evidence.
 
 The guardrail holds: deep providers stay forbidden before first read, and no new provider ships unless a timing test proves it earns its cost.
+
+### Resolution (2026-06-22): lane built, then removed
+
+The flag-gated lane was built (`FIRST_READ_LANE_ENABLED`, a bounded Exa instant/fast fetch, a separate trace milestone, and an early seed-card store). An adversarial review then found it dead-on-arrival: `buildSeedProfileCard` writes a single citation, so the lane card never cleared the `substantive` bar and First Read stayed hidden during the lane phase. It was off by default, unproven, and carried byte-for-byte provider duplication plus a dead source-write step.
+
+It was removed in full rather than patched. The user-visible First Read renders off the normal seed card and is unaffected. If the seed card is later shown to miss the timing target, rebuild the lane from the "Provider Expansion Option" section, but route its stored card through `sectionsWithSourceCitations` so it actually carries the evidence trail.

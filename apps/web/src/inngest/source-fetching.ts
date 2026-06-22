@@ -6,7 +6,6 @@ import {
   type ExtractedCardSections
 } from "@cold-start/pipeline";
 import {
-  fetchDirectExaFirstReadSources,
   fetchDirectExaFundamentalsSources,
   fetchStableenrichEnrichmentSources,
   fetchStableenrichFastSources,
@@ -143,32 +142,6 @@ const stableenrichLateEnrichmentProbesByBlock: Record<BlockEnrichmentId, Stablee
 export function stableenrichLateEnrichmentSkipsForBlocks(blocks: BlockEnrichmentId[]): StableenrichProbeName[] {
   const allowed = new Set(blocks.flatMap((block) => stableenrichLateEnrichmentProbesByBlock[block]));
   return stableenrichLateEnrichmentProbeNames.filter((name) => !allowed.has(name));
-}
-
-export type FirstReadLaneResult = {
-  sources: ProviderSource[];
-  trace: NonNullable<NonNullable<GenerationTrace["providers"]>["firstReadLane"]>;
-};
-
-// First-read lane: bounded Exa instant/fast fetch, domain-gated, returning accepted sources
-// plus a separate cost/latency trace. It never throws; the provider call resolves failures
-// rather than rejecting, so a slow or failing lane can never fail the basics run.
-export async function fetchFirstReadLaneSources(input: {
-  domain: string;
-  directExaEnv: DirectExaEnv;
-}): Promise<FirstReadLaneResult> {
-  const result = await fetchDirectExaFirstReadSources({ env: input.directExaEnv, domain: input.domain });
-  const sourceGate = filterSourcesForDomain({ domain: input.domain, sources: result.sources });
-  return {
-    sources: sourceGate.accepted,
-    trace: {
-      skipped: result.skipped,
-      sourceCount: sourceGate.accepted.length,
-      failureCount: result.failures.length,
-      requestCount: result.requestCount,
-      estimatedCostUsd: result.estimatedCostUsd
-    }
-  };
 }
 
 export async function fetchInitialSourcesForGeneration(input: {

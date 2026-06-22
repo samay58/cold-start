@@ -1,11 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildDirectExaContactRequests,
-  buildDirectExaFirstReadRequests,
   buildDirectExaFundamentalsRequests,
   DIRECT_EXA_SEARCH_COST_USD,
   fetchDirectExaContactSources,
-  fetchDirectExaFirstReadSources,
   fetchDirectExaFundamentalsSources,
   missingDirectExaConfig,
   normalizeNamedPeopleEmailHints,
@@ -54,57 +52,6 @@ describe("buildDirectExaFundamentalsRequests", () => {
       query: expect.stringContaining("recent launch hiring customers"),
       numResults: 6,
     });
-  });
-});
-
-describe("buildDirectExaFirstReadRequests", () => {
-  it("builds a bounded, highlights-only instant+fast pair for the first-read lane", () => {
-    const requests = buildDirectExaFirstReadRequests({ DIRECT_EXA_API_KEY: "exa-key" }, "cartesia.ai");
-
-    expect(requests.map((request) => request.name)).toEqual(["exa_direct_company", "exa_direct_news"]);
-    expect(requests[0]?.body).toMatchObject({ type: "instant", category: "company", numResults: 3 });
-    expect(requests[1]?.body).toMatchObject({ type: "fast", category: "news", numResults: 3 });
-    // First read uses highlights, not full text, to stay cheap and fast.
-    expect(requests.every((request) => (request.body.contents as { text?: boolean }).text === undefined)).toBe(true);
-    expect(requests.every((request) => "highlights" in (request.body.contents as Record<string, unknown>))).toBe(true);
-  });
-});
-
-describe("fetchDirectExaFirstReadSources", () => {
-  it("skips cleanly when DIRECT_EXA_API_KEY is missing", async () => {
-    const result = await fetchDirectExaFirstReadSources({
-      env: {},
-      domain: "cartesia.ai",
-      fetchJson: async () => {
-        throw new Error("should not fetch without a key");
-      },
-    });
-
-    expect(result).toEqual({ sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 });
-  });
-
-  it("tracks first-read spend separately and isolates a failing request from the run", async () => {
-    const result = await fetchDirectExaFirstReadSources({
-      env: { DIRECT_EXA_API_KEY: "exa-key" },
-      domain: "cartesia.ai",
-      fetchJson: async (request) => {
-        if (request.name === "exa_direct_news") {
-          throw new Error("Direct Exa request failed with 502");
-        }
-        return {
-          results: [
-            { url: "https://www.cartesia.ai/about", title: "About Cartesia", highlights: ["what it does"] },
-          ],
-        };
-      },
-    });
-
-    // The lane never throws: a failing request becomes a recorded failure, not a rejection.
-    expect(result.skipped).toBe(false);
-    expect(result.requestCount).toBe(1);
-    expect(result.estimatedCostUsd).toBeCloseTo(DIRECT_EXA_SEARCH_COST_USD, 6);
-    expect(result.failures).toHaveLength(1);
-    expect(result.sources[0]).toMatchObject({ url: "https://www.cartesia.ai/about", sourceType: "company_site" });
   });
 });
 
