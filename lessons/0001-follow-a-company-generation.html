@@ -3,21 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lesson 0001: Follow A Company Generation</title>
+  <title>Lesson 0001: Follow a Company Generation</title>
   <style>
     :root {
       color-scheme: light;
-      --ground: #f8f6ef;
+      --ground: #f7f4ec;
       --paper: #fffdf8;
       --ink: #20201e;
-      --muted: #68635b;
+      --muted: #625e56;
       --line: #d8cfbd;
       --seal: #6e5c9e;
       --green: #0e6b5b;
       --blue: #315f9d;
       --red: #b63a2a;
+      --field: #f1eadb;
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       background: var(--ground);
@@ -25,182 +30,374 @@
       font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
       line-height: 1.55;
     }
+
     main {
       max-width: 980px;
       margin: 0 auto;
       padding: 40px 22px 64px;
     }
+
     header {
-      border-bottom: 1px solid var(--line);
       padding-bottom: 22px;
-      margin-bottom: 26px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 28px;
     }
-    .kicker {
+
+    .label {
+      margin-bottom: 10px;
       color: var(--seal);
       font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
       font-size: 12px;
-      margin-bottom: 12px;
     }
+
     h1 {
+      max-width: 760px;
       margin: 0;
-      font-size: 38px;
+      font-size: 40px;
       line-height: 1.08;
       letter-spacing: 0;
     }
+
     .lede {
-      max-width: 780px;
+      max-width: 760px;
       margin: 14px 0 0;
       color: var(--muted);
       font-size: 18px;
     }
+
     section {
-      margin: 22px 0;
+      margin: 18px 0;
       padding: 20px;
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 8px;
     }
+
     h2 {
-      margin: 0 0 12px;
-      font-size: 21px;
-      line-height: 1.2;
+      margin: 0 0 10px;
+      font-size: 22px;
+      line-height: 1.22;
       letter-spacing: 0;
     }
-    p { margin: 10px 0; }
-    ol, ul { margin: 10px 0 0; padding-left: 22px; }
-    li { margin: 9px 0; }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ol,
+    ul {
+      margin: 10px 0 0;
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 9px 0;
+    }
+
+    a {
+      color: var(--seal);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
     code {
+      padding: 1px 4px;
+      border: 1px solid #e3d8c4;
+      border-radius: 4px;
+      background: #f5efe3;
+      color: #272420;
       font-family: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
       font-size: 0.94em;
-      background: #f4efe3;
-      border: 1px solid #e4dac8;
-      border-radius: 4px;
-      padding: 1px 4px;
     }
+
     pre {
       overflow-x: auto;
+      margin: 12px 0 0;
+      padding: 14px;
+      border-radius: 8px;
       background: #272420;
       color: #fffaf0;
-      border-radius: 8px;
-      padding: 14px;
       font-size: 13px;
       line-height: 1.45;
     }
+
     pre code {
-      background: transparent;
-      border: 0;
       padding: 0;
+      border: 0;
+      background: transparent;
       color: inherit;
     }
-    a { color: var(--seal); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-    .flow {
+
+    .map {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 14px;
     }
-    .flow div {
-      min-height: 88px;
+
+    .step {
+      min-height: 116px;
+      padding: 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 12px;
       background: #fbf7ed;
     }
-    .flow strong {
+
+    .step strong {
       display: block;
-      color: var(--seal);
       margin-bottom: 6px;
+      color: var(--seal);
     }
+
+    .plain-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    .plain-table th,
+    .plain-table td {
+      padding: 10px 8px;
+      border-top: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .plain-table th {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .callout {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--green);
+      background: var(--field);
+      border-radius: 6px;
+    }
+
     .quiz button {
       appearance: none;
+      margin: 6px 6px 0 0;
+      padding: 9px 11px;
       border: 1px solid var(--line);
       border-radius: 6px;
       background: #fffaf0;
       color: var(--ink);
-      padding: 9px 11px;
-      margin: 6px 6px 0 0;
       font: inherit;
       cursor: pointer;
     }
-    .quiz button:hover { border-color: var(--seal); }
+
+    .quiz button:hover {
+      border-color: var(--seal);
+    }
+
     .answer {
+      min-height: 52px;
       margin-top: 12px;
       padding: 12px;
       border-radius: 6px;
-      background: #f4efe3;
-      color: var(--ink);
-      min-height: 48px;
+      background: var(--field);
     }
-    .answer.good { border-left: 4px solid var(--green); }
-    .answer.warn { border-left: 4px solid var(--red); }
-    .small { color: var(--muted); font-size: 14px; }
+
+    .answer.good {
+      border-left: 4px solid var(--green);
+    }
+
+    .answer.warn {
+      border-left: 4px solid var(--red);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
     @media (max-width: 760px) {
-      main { padding: 28px 16px 44px; }
-      h1 { font-size: 30px; }
-      .flow { grid-template-columns: 1fr; }
+      main {
+        padding: 28px 16px 44px;
+      }
+
+      h1 {
+        font-size: 31px;
+      }
+
+      .map {
+        grid-template-columns: 1fr;
+      }
+
+      .plain-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      main {
+        padding: 0;
+      }
+
+      section {
+        break-inside: avoid;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <header>
-      <div class="kicker">LESSON 0001 · COLD START</div>
-      <h1>Follow one company generation from request to stored card</h1>
-      <p class="lede">By the end of this lesson, you should be able to explain the main write path in plain English and know which file to open when something in generation behaves oddly.</p>
+      <div class="label">LESSON 0001 · COLD START</div>
+      <h1>Follow one company generation from request to saved card</h1>
+      <p class="lede">This is the first path to learn. A user asks for a company. Cold Start decides whether to run, fetches evidence, builds a cited card, saves it, and leaves enough trace data for us to understand what happened.</p>
     </header>
 
     <section>
-      <h2>The product idea behind the code</h2>
-      <p>Cold Start exists to answer one question quickly: is this company worth the next ten minutes of investor attention?</p>
-      <p>That goal creates the architecture. The system needs a fast public card first, because a useful sourced profile is valuable even before deep analysis. Then the extension can ask for stronger investor synthesis once enough evidence exists.</p>
-      <p>So the code is split into two lanes: <code>basics</code> for the sourced public profile, and <code>analysis</code> or <code>section:{id}</code> for gated investor reads.</p>
+      <h2>Why this path matters</h2>
+      <p>Cold Start is not trying to write a nice company summary from memory. It is trying to build a useful first read from sources the product can point back to.</p>
+      <p>That shapes the code. The app has to answer four questions in order:</p>
+      <ol>
+        <li>Do we need to run, or do we already have a fresh card?</li>
+        <li>Which sources are good enough to use for this company?</li>
+        <li>Which facts can we extract with citations?</li>
+        <li>What should be saved, shown publicly, or kept behind the extension?</li>
+      </ol>
+      <div class="callout">The useful mental model: generation is a job with receipts. The card is the output. The trace explains how that output was made.</div>
     </section>
 
     <section>
-      <h2>The main path</h2>
-      <div class="flow">
-        <div><strong>1. Request</strong><code>POST /api/generate</code> checks the domain, mode, auth, confirmation, cache, and active runs.</div>
-        <div><strong>2. Queue</strong>The route writes a queued generation row, records an event, and sends an Inngest event.</div>
-        <div><strong>3. Work</strong><code>generateCardFunction</code> fetches sources, calls the pipeline, records traces, and saves the result.</div>
-        <div><strong>4. Build</strong><code>generate-card.ts</code> extracts facts, merges provider facts, enriches weak blocks, and validates the card.</div>
-        <div><strong>5. Store</strong><code>repository.ts</code> writes the card JSON, evidence, sources, TTLs, sections, and run state.</div>
-        <div><strong>6. Read</strong>The public API strips private synthesis. The extension API returns the full card only after auth.</div>
+      <h2>The whole path</h2>
+      <div class="map">
+        <div class="step">
+          <strong>1. Request</strong>
+          <code>POST /api/generate</code> parses the domain, mode, optional section, confirmation flag, and extension auth.
+        </div>
+        <div class="step">
+          <strong>2. Cache and active run check</strong>
+          The route checks whether a usable card already exists or whether a run is already queued or running.
+        </div>
+        <div class="step">
+          <strong>3. Queue</strong>
+          If work is needed, the route writes a queued row in <code>generation_runs</code>, records a user-visible event, and sends <code>card/generate.requested</code> to Inngest.
+        </div>
+        <div class="step">
+          <strong>4. Worker</strong>
+          <code>generateCardFunction</code> marks the run as running, starts the trace, fetches sources, calls the card pipeline, and records progress.
+        </div>
+        <div class="step">
+          <strong>5. Card build</strong>
+          The pipeline turns accepted sources into a typed <code>ColdStartCard</code>. Facts without citations do not get to pretend they are known.
+        </div>
+        <div class="step">
+          <strong>6. Save and read</strong>
+          The database stores the full card JSON. Public reads remove synthesis. The extension can read the fuller card after auth.
+        </div>
       </div>
     </section>
 
     <section>
-      <h2>Walk the code</h2>
-      <ol>
-        <li>Start at <a href="../apps/web/src/app/api/generate/route.ts">apps/web/src/app/api/generate/route.ts</a>. The key idea is policy: should this request be allowed, served from cache, blocked, or queued?</li>
-        <li>Move to <a href="../apps/web/src/inngest/functions.ts">apps/web/src/inngest/functions.ts</a>. The key idea is orchestration: one worker owns the run, records events, calls providers, and injects LLM functions into the pipeline.</li>
-        <li>Open <a href="../packages/pipeline/src/generate-card.ts">packages/pipeline/src/generate-card.ts</a>. The key idea is correctness: build a typed card, gate synthesis, and drop unsupported claims.</li>
-        <li>Open <a href="../packages/core/src/card.ts">packages/core/src/card.ts</a>. The key idea is contract: a non-null fact without citation IDs is invalid.</li>
-        <li>Open <a href="../packages/db/src/repository.ts">packages/db/src/repository.ts</a>. The key idea is persistence: <code>cards.card_json</code> is the source of truth, with freshness and run state around it.</li>
-      </ol>
+      <h2>Where to look</h2>
+      <table class="plain-table">
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>First file</th>
+            <th>What it tells you</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Was the run queued, cached, blocked, or already active?</td>
+            <td><a href="../apps/web/src/app/api/generate/route.ts">apps/web/src/app/api/generate/route.ts</a></td>
+            <td>The request policy. This file decides whether the app starts work.</td>
+          </tr>
+          <tr>
+            <td>What happened during the slow part?</td>
+            <td><a href="../apps/web/src/inngest/functions.ts">apps/web/src/inngest/functions.ts</a></td>
+            <td>The worker path. It owns run state, events, source fetching, pipeline calls, storage, and failure handling.</td>
+          </tr>
+          <tr>
+            <td>Where do provider calls and source filtering happen?</td>
+            <td><a href="../apps/web/src/inngest/source-fetching.ts">apps/web/src/inngest/source-fetching.ts</a></td>
+            <td>Direct Exa, StableEnrich, provider budget traces, source merging, and the source gate.</td>
+          </tr>
+          <tr>
+            <td>How does source text become a card?</td>
+            <td><a href="../packages/pipeline/src/generate-card.ts">packages/pipeline/src/generate-card.ts</a></td>
+            <td>The card build. It assembles facts, citations, synthesis, verifier results, and trace patches.</td>
+          </tr>
+          <tr>
+            <td>What shape is a valid card?</td>
+            <td><a href="../packages/core/src/card.ts">packages/core/src/card.ts</a></td>
+            <td>The schema. This is where citation-bearing facts, synthesis, signals, team, funding, and validation rules meet.</td>
+          </tr>
+          <tr>
+            <td>Where are runs, traces, cards, and events stored?</td>
+            <td><a href="../packages/db/src/repository.ts">packages/db/src/repository.ts</a></td>
+            <td>The compatibility export for the DB layer. The actual functions now live under <code>packages/db/src/repositories/</code>.</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <section>
-      <h2>The most important mental model</h2>
-      <p>Think of generation as a factory with inspectors at every station.</p>
-      <p>The provider layer brings in raw material. The LLM extracts structured facts. The pipeline checks whether the facts have citations. The trust layer strips or downgrades weak claims. The public route removes private synthesis. The extension can show more only when authenticated.</p>
-      <p>The product promise is not "we always fill every field." The promise is: if the product says something, it can show where it came from.</p>
+      <h2>What the trace gives us</h2>
+      <p>Your instinct about the runs is right. We do not have to guess what happened after <code>generate-card</code>. The app stores run state and timing data.</p>
+      <p>The important pieces live in <code>generation_runs.trace_json</code>:</p>
+      <ul>
+        <li><code>steps</code>: named steps such as planning, source fetching, card generation, enrichment, and storage, with durations when available.</li>
+        <li><code>milestones</code>: user-facing timing points such as first usable card, contacts ready, or analysis ready.</li>
+        <li><code>providers</code>: source counts, failures, endpoint yield, wallet deltas, and estimated provider spend.</li>
+        <li><code>llm.calls</code>: model, stage, provider, token counts, duration, status, and estimated cost for model calls.</li>
+        <li><code>sourceGate</code>: accepted and rejected source counts, plus examples.</li>
+        <li><code>extraction</code> and <code>synthesis</code>: how many citations survived, whether fallback was used, and whether synthesis was gated or verified.</li>
+        <li><code>failure</code>: where a failed run broke and what message was recorded.</li>
+      </ul>
+      <p>So the teaching path should use both sources: code for how the system is supposed to work, traces for what actually happened in a run.</p>
     </section>
 
     <section>
-      <h2>Mini exercise</h2>
-      <p>Imagine you click the extension on <code>cartesia.ai</code> and the side panel says the profile is still generating. Which file do you open first?</p>
+      <h2>Try it locally</h2>
+      <p>If your local stack is running and your env has the needed keys, this queues a basics run:</p>
+      <pre><code>curl -i -X POST http://localhost:3000/api/generate \
+  -H 'content-type: application/json' \
+  -d '{"domain":"cartesia.ai","confirmStart":true}'</code></pre>
+      <p>The response should usually be one of three things:</p>
+      <ul>
+        <li><code>cached</code>: a usable stored card already exists.</li>
+        <li><code>queued</code>: the route created a run and handed work to Inngest.</li>
+        <li><code>running</code>: a run already exists, so the app returns the current state instead of starting a duplicate.</li>
+      </ul>
+      <p class="small">A real run can spend provider or LLM money. For learning, it is fine to read the path first and run commands later.</p>
+    </section>
+
+    <section>
+      <h2>Quick check</h2>
+      <p>The side panel says a company profile is still generating. Which file do you open first?</p>
       <div class="quiz">
-        <button data-answer="wrong">packages/core/src/card.ts</button>
-        <button data-answer="right">apps/web/src/app/api/generate/route.ts</button>
-        <button data-answer="maybe">apps/extension/src/research-layer.ts</button>
+        <button data-answer="schema">packages/core/src/card.ts</button>
+        <button data-answer="route">apps/web/src/app/api/generate/route.ts</button>
+        <button data-answer="extension">apps/extension/src/research-layer.ts</button>
         <div id="answer" class="answer">Pick one.</div>
       </div>
-      <p class="small">After you answer, ask the agent to walk the file with you line by line. That is the fastest next step.</p>
+      <p class="small">After this, ask the agent to walk the chosen file with you. The point is not to memorize file names. The point is to learn what each layer owns.</p>
     </section>
 
     <section>
       <h2>Answer key</h2>
-      <p>Start with <code>apps/web/src/app/api/generate/route.ts</code> if the question is about whether a run was queued, cached, blocked, or already active. Move to <code>apps/web/src/inngest/functions.ts</code> if the run exists but the worker behavior is unclear. Move to <code>apps/extension/src/research-layer.ts</code> only when the backend data looks right but the panel is presenting it oddly.</p>
+      <p>Start with <code>apps/web/src/app/api/generate/route.ts</code>. A still-generating state is first a run-state question. The route tells you whether the request was cached, queued, running, blocked, or handed to Inngest.</p>
+      <p>If the route did queue a run, move to <code>apps/web/src/inngest/functions.ts</code> and the latest <code>generation_runs.trace_json</code>. That pair tells you what the worker tried, how long each step took, which providers returned useful data, and where the run failed or finished.</p>
     </section>
   </main>
   <script>
@@ -208,13 +405,14 @@
     for (const button of document.querySelectorAll("button[data-answer]")) {
       button.addEventListener("click", () => {
         const kind = button.dataset.answer;
-        answer.className = kind === "right" ? "answer good" : "answer warn";
-        if (kind === "right") {
-          answer.textContent = "Yes. Start at the route because the symptom is about request and run state: cached, queued, active, blocked, or accepted.";
-        } else if (kind === "maybe") {
-          answer.textContent = "That file matters later. It tells you how stored data becomes panel modules, but it does not tell you why generation is still running.";
+        answer.className = kind === "route" ? "answer good" : "answer warn";
+
+        if (kind === "route") {
+          answer.textContent = "Yes. Start with the route because it owns cache, active-run checks, auth, confirmation, queueing, and the response state.";
+        } else if (kind === "schema") {
+          answer.textContent = "The schema matters once a card exists or validation fails. A still-generating message starts as a run-state question.";
         } else {
-          answer.textContent = "That schema matters for card validity. For a still-generating state, start with the route and run records first.";
+          answer.textContent = "The extension file matters if the backend state is correct but the panel presents it badly. It is not the first stop for queue or run status.";
         }
       });
     }
