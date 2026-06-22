@@ -13,6 +13,7 @@
     "spike:stableenrich": "tsx scripts/spike-stableenrich.ts"
   },
   "dependencies": {
+    "@cold-start/core": "file:../core",
     "agentcash": "0.14.4"
   },
   "devDependencies": {

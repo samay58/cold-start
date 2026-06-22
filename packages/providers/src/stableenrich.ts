@@ -1,3 +1,4 @@
+import type { SignalCategory } from "@cold-start/core";
 import { agentcashJson } from "./agentcash";
 import { providerBudgetForEndpoint } from "./provider-budget";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
@@ -2385,7 +2386,7 @@ function signalFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
   });
 }
 
-function signalCategory(value: string): "news" | "hiring" | "launch" | "funding" | "filing" | "github" | "other" {
+function signalCategory(value: string): SignalCategory {
   const normalized = value.toLowerCase();
   if (/\b(funding|raised|series|seed|valuation|investor|round)\b/.test(normalized)) {
     return "funding";
