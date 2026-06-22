@@ -4,6 +4,7 @@ import {
   clusterSignals,
   fundingEvidenceFromCitations,
   sectionIdForLayer as coreSectionIdForLayer,
+  signalCategorySchema,
   sourceQualityForSource,
   sourceQualityRank,
   type Citation,
@@ -219,7 +220,9 @@ function eventsAndSourcesLine(eventCount: number, sourceCount: number) {
     : countNoun(eventCount, "event");
 }
 
-const SIGNAL_CATEGORIES = new Set(["news", "hiring", "launch", "funding", "filing", "github", "other"]);
+// Runtime gate over arbitrary stored labels, so it is a Set<string>; the values derive from the
+// core taxonomy so this gate cannot silently drift from the schema.
+const SIGNAL_CATEGORIES = new Set<string>(signalCategorySchema.options);
 const LEGACY_DATED_TITLE = /^(\d{4}-\d{2}(?:-\d{2})?):\s+(.*)$/;
 
 type SectionItem = NonNullable<ResearchSection["content"]>["items"][number];

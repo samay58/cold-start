@@ -11,6 +11,7 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
+  signalCategorySchema,
   signalSchema as coreSignalSchema,
 } from "@cold-start/core";
 import { z } from "zod";
@@ -204,7 +205,7 @@ const signalSchema = {
     url: urlStringSchema,
     date: nonEmptyStringSchema,
     source: nonEmptyStringSchema,
-    category: { type: "string", enum: ["news", "hiring", "launch", "funding", "filing", "github", "other"] },
+    category: { type: "string", enum: [...signalCategorySchema.options] },
     citationIds: { type: "array", items: nonEmptyStringSchema }
   },
   required: ["title", "url", "date", "source", "category", "citationIds"]

@@ -54,12 +54,18 @@ export const personSchema = z.object({
   email: z.string().email().nullable().optional()
 });
 
+// One taxonomy for signal categories. Every consumer (the extraction wire contract, the
+// extension's runtime gate) derives from signalCategorySchema.options so the set cannot drift
+// apart by hand.
+export const signalCategorySchema = z.enum(["news", "hiring", "launch", "funding", "filing", "github", "other"]);
+export type SignalCategory = z.infer<typeof signalCategorySchema>;
+
 export const signalSchema = z.object({
   title: z.string().min(1),
   url: z.string().url(),
   date: z.string().min(1),
   source: z.string().min(1),
-  category: z.enum(["news", "hiring", "launch", "funding", "filing", "github", "other"]),
+  category: signalCategorySchema,
   citationIds: z.array(z.string().min(1))
 });
 
