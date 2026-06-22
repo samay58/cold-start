@@ -158,14 +158,38 @@ describe("firstReadForCard", () => {
       card: card({ serves: null, noCitations: true }),
       summary: SUMMARY,
       sources: [
-        source({ domain: "runloop.ai", sourceType: "company_site", title: "Runloop home" }),
-        source({ domain: "techcrunch.com", sourceType: "news", title: "Runloop raises $7M seed", url: "https://techcrunch.com/runloop" })
+        source({ domain: "exa.ai", sourceType: "company_site", title: "Exa home" }),
+        source({ domain: "techcrunch.com", sourceType: "news", title: "Exa raises $7M seed", url: "https://techcrunch.com/exa" })
       ]
     });
 
     expect(read.readKind).toBe("proof");
     expect(read.readLabel).toBe("Latest proof");
-    expect(read.read).toBe("Runloop raises $7M seed.");
+    expect(read.read).toBe("Exa raises $7M seed.");
+  });
+
+  it("does not let a news headline earn the green independent class", () => {
+    // sourceQualityForSource promotes a news title containing "analysis" to independent_analysis;
+    // First Read must keep it as reporting so the independent count stays honest.
+    const read = firstReadForCard({
+      card: card({ serves: null, noCitations: true }),
+      summary: SUMMARY,
+      sources: [source({ domain: "techcrunch.com", sourceType: "news", title: "Exa platform analysis", url: "https://techcrunch.com/exa" })]
+    });
+
+    expect(read.evidence[0]).toMatchObject({ domain: "techcrunch.com", cls: "reported" });
+    expect(read.independentCount).toBe(0);
+  });
+
+  it("does not surface a proof headline that does not name the company", () => {
+    const read = firstReadForCard({
+      card: card({ serves: null, noCitations: true }), // company is Exa
+      summary: SUMMARY,
+      sources: [source({ domain: "aggregator.com", sourceType: "news", title: "Acme raises $50M Series C", url: "https://aggregator.com/acme" })]
+    });
+
+    expect(read.readKind).not.toBe("proof");
+    expect(read.read).not.toContain("Acme");
   });
 
   it("surfaces the freshest dated signal as proof when buyer is not source-backed", () => {

@@ -47,12 +47,8 @@ const boilerplatePattern = /\b(platform|solution)\s+(for|that)\s+(everyone|busin
 const firstReadFiledEventTypes = new Set(["card.saved", "card.enriched"]);
 const firstReadPendingEventTypes = new Set(["card.partial"]);
 
-function latestProfileRunEvents(events: ExtensionResearchRunEvent[]) {
-  return currentProfileProgressEvents(events);
-}
-
 function terminalFirstReadState(events: ExtensionResearchRunEvent[]) {
-  const profileEvents = latestProfileRunEvents(events);
+  const profileEvents = currentProfileProgressEvents(events);
   let state: string | null = null;
   let stateTime: string | null = null;
 
@@ -122,9 +118,12 @@ function looksLikeDocs(source: FirstReadSourceLike) {
 function markForTier(tier: SourceQualityTier, source: FirstReadSourceLike): { label: string; cls: FirstReadMarkClass } {
   switch (tier) {
     case "independent_technical":
-      return { label: "technical", cls: "independent" };
     case "independent_analysis":
-      return { label: "analysis", cls: "independent" };
+      // The green independent class must be earned by the host, not by a news headline that
+      // happens to contain "analysis" or "deep dive". Generic news stays reporting.
+      return source.sourceType === "news"
+        ? { label: "report", cls: "reported" }
+        : { label: tier === "independent_technical" ? "technical" : "analysis", cls: "independent" };
     case "independent_report":
       return { label: "report", cls: "reported" };
     case "primary_company":
@@ -180,11 +179,19 @@ function buildEvidence(sources: FirstReadSourceLike[]) {
   };
 }
 
+function titleMentionsCompany(title: string, card: ColdStartCard) {
+  const haystack = title.toLowerCase();
+  const name = card.identity.name.value?.trim().toLowerCase();
+  const root = card.domain.replace(/^www\./i, "").split(".")[0]?.toLowerCase() ?? "";
+  return Boolean((name && name.length >= 3 && haystack.includes(name)) || (root.length >= 3 && haystack.includes(root)));
+}
+
 // A headline read straight off the strongest source title, before any LLM extraction. This is
-// what makes the early state useful: "Runloop raises $7M seed" beats "11 sources filed".
-function proofReadFromSources(sources: FirstReadSourceLike[]) {
+// what makes the early state useful: "Runloop raises $7M seed" beats "11 sources filed". The
+// title must actually name the company, so a mismatched aggregator headline is never surfaced.
+function proofReadFromSources(sources: FirstReadSourceLike[], card: ColdStartCard) {
   const ranked = sources
-    .filter((source) => source.title && newsworthyTitlePattern.test(source.title))
+    .filter((source) => source.title && newsworthyTitlePattern.test(source.title) && titleMentionsCompany(source.title, card))
     .sort((left, right) => sourceQualityRank(right) - sourceQualityRank(left));
 
   for (const source of ranked) {
@@ -236,7 +243,6 @@ export function firstReadForCard({
   summary = ""
 }: {
   card: ColdStartCard;
-  events?: ExtensionResearchRunEvent[];
   sources?: ExtensionSourceSummary[];
   summary?: string;
 }): FirstRead {
@@ -255,7 +261,7 @@ export function firstReadForCard({
     readLabel = "Who it's for";
   } else {
     // Prefer a dated signal headline, then a headline read straight off the strongest source.
-    const proof = proofReadForCard(card) ?? proofReadFromSources(unified);
+    const proof = proofReadForCard(card) ?? proofReadFromSources(unified, card);
     if (proof && !isNearDuplicate(proof, summary)) {
       read = proof;
       readKind = "proof";

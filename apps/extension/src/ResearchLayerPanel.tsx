@@ -1542,8 +1542,11 @@ export function ResearchLayerPanel({
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
   const { fullSummary, summary } = profileSummaryCopy(card);
-  const firstRead = firstReadForCard({ card, events, sources, summary });
-  const firstReadFiled = firstReadIsFiled(events);
+  const firstRead = firstReadForCard({ card, sources, summary });
+  // First Read files when the basics card is saved. Derive that from the card's terminal
+  // cacheStatus as well as events, because the live-generation success state can arrive without
+  // events and the slip would otherwise stay "Still filing" until the panel is reopened.
+  const firstReadFiled = firstReadIsFiled(events) || card.cacheStatus === "hit";
   const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || firstReadIsPending(events));
   // Only surface First Read once it has something concrete to say. Otherwise it reads as a
   // "still generating / don't know yet" filler card, which is worse than the calm progress panel.

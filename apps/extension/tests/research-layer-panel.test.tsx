@@ -7,13 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ResearchLayerPanel } from "../src/ResearchLayerPanel";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
-function card(): ColdStartCard {
+function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
   return {
     slug: "exa",
     domain: "exa.ai",
     generatedAt: "2026-06-21T00:00:00.000Z",
     generationCostUsd: 0,
-    cacheStatus: "partial",
+    cacheStatus,
     identity: {
       name: { value: "Exa", status: "verified", confidence: "high", citationIds: ["c1"] },
       websiteUrl: { value: "https://exa.ai/", status: "verified", confidence: "high", citationIds: ["c1"] },
@@ -101,22 +101,26 @@ function stubReducedMotion(matches: boolean) {
   })));
 }
 
-async function renderPanel(input: { complete?: boolean; reducedMotion?: boolean } = {}) {
+async function renderPanel(input: { complete?: boolean; reducedMotion?: boolean; filedViaCacheStatus?: boolean } = {}) {
   if (input.reducedMotion) {
     stubReducedMotion(true);
   }
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  const events = [
-    event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9 }, type: "card.partial" }),
-    ...(input.complete ? [event({ id: "saved", metadata: { citationCount: 8, sourceCount: 12 }, type: "card.saved" })] : [])
-  ];
+  // filedViaCacheStatus simulates the live-generation success state: the terminal "card.saved"
+  // event is dropped, but the basics card arrives terminal ("hit"). The slip must still file.
+  const events = input.filedViaCacheStatus
+    ? [event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9 }, type: "card.partial" })]
+    : [
+        event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9 }, type: "card.partial" }),
+        ...(input.complete ? [event({ id: "saved", metadata: { citationCount: 8, sourceCount: 12 }, type: "card.saved" })] : [])
+      ];
 
   await act(async () => {
     root.render(
       <ResearchLayerPanel
-        card={card()}
+        card={card(input.filedViaCacheStatus ? "hit" : "partial")}
         contactRun={input.complete ? undefined : { generationStatus: "running", startedAt: Date.now() }}
         elapsedSeconds={0}
         events={events}
@@ -210,6 +214,16 @@ describe("ResearchLayerPanel first read", () => {
     expect(filed).not.toBeNull();
     expect(filed?.textContent).toContain("First read filed");
     expect(filed?.textContent).toContain("12 sources");
+    await unmount();
+  });
+
+  it("files the first read off the terminal card even when the saved event never arrives", async () => {
+    const { container, unmount } = await renderPanel({ filedViaCacheStatus: true });
+
+    // The live-generation success state can drop terminal events; a "hit" card must still file
+    // rather than leaving the slip stuck on "Still filing".
+    expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    expect(container.querySelector("[aria-label='First read filed']")).not.toBeNull();
     await unmount();
   });
 });
