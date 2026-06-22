@@ -13,7 +13,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
 - `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/privacy`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
-- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
+- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate. First Read (`src/first-read.ts`) is a temporary, source-backed evidence slip rendered inside that panel: it reads as the delta over the company overview (what evidence has landed, the one thing it lets you say, the biggest gap), works off the live `sources` prop plus card citations, and classifies headline newsworthiness via the shared `headline` util in `packages/core` — keep that classifier in core, not duplicated in the extension.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
 - `packages/providers`: AgentCash and StableEnrich wrappers, direct Exa, Firecrawl, SEC EDGAR, and provider budget registry.
@@ -151,6 +151,7 @@ npm run dev:full
 
 - Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
 - Research-layer sections: `packages/core/src/research-sections.ts` for the section schema, `apps/extension/src/research-layer.ts` and `apps/extension/src/ResearchLayerPanel.tsx` for activation and rendering.
+- First Read evidence slip: `apps/extension/src/first-read.ts` for the slip logic, `packages/core/src/headline.ts` (tested in `packages/core/tests/headline.test.ts`) for the headline/newsworthiness classifier.
 - Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, `packages/providers/src/provider-budget.ts`, and the provider spike script.
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`, and `apps/web/src/inngest/provider-trace.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
