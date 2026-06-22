@@ -36,7 +36,12 @@ function card(): ColdStartCard {
     },
     funding: {
       totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: {
+        value: { name: "Series A", amountUsd: null, announcedAt: null, leadInvestors: [] },
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
       investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
     },
     team: {
@@ -83,7 +88,23 @@ function source(input: Partial<ExtensionSourceSummary> & Pick<ExtensionSourceSum
   };
 }
 
-async function renderPanel(input: { complete?: boolean } = {}) {
+function stubReducedMotion(matches: boolean) {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn()
+  })));
+}
+
+async function renderPanel(input: { complete?: boolean; reducedMotion?: boolean } = {}) {
+  if (input.reducedMotion) {
+    stubReducedMotion(true);
+  }
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -150,7 +171,7 @@ describe("ResearchLayerPanel first read", () => {
     vi.unstubAllGlobals();
   });
 
-  it("pins a first read above the research stack while basics continue", async () => {
+  it("pins an incremental first read above the research stack while basics continue", async () => {
     const { container, unmount } = await renderPanel();
     const firstRead = container.querySelector("[aria-label='First read']");
     const researchLayer = container.querySelector("[aria-label='Research layer']");
@@ -158,11 +179,26 @@ describe("ResearchLayerPanel first read", () => {
     expect(firstRead).not.toBeNull();
     expect(researchLayer).not.toBeNull();
     expect(firstRead?.textContent).toContain("First read");
-    expect(firstRead?.textContent).toContain("Exa builds search and research infrastructure for AI products.");
+    // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(firstRead?.textContent).toContain("company site");
-    expect(firstRead?.textContent).toContain("funding coverage");
+    expect(firstRead?.textContent).toContain("Filed so far");
+    expect(firstRead?.textContent).toContain("techcrunch.com");
+    expect(firstRead?.textContent).toContain("independent");
+    expect(firstRead?.textContent).toContain("Not yet proven");
+    // Never restates the company summary sentence shown in the header above it.
+    expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
     expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await unmount();
+  });
+
+  it("keeps the first read legible under reduced motion", async () => {
+    const { container, unmount } = await renderPanel({ reducedMotion: true });
+    const firstRead = container.querySelector("[aria-label='First read']");
+
+    expect(firstRead).not.toBeNull();
+    expect(firstRead?.textContent).toContain("First read");
+    expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
+    expect(firstRead?.querySelector("[aria-label='Sources filed so far']")).not.toBeNull();
     await unmount();
   });
 
@@ -173,7 +209,7 @@ describe("ResearchLayerPanel first read", () => {
     const filed = container.querySelector("[aria-label='First read filed']");
     expect(filed).not.toBeNull();
     expect(filed?.textContent).toContain("First read filed");
-    expect(filed?.textContent).toContain("Product / buyer / 12 sources");
+    expect(filed?.textContent).toContain("12 sources");
     await unmount();
   });
 });

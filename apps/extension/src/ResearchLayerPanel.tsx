@@ -344,6 +344,11 @@ function FirstReadSlip({
   firstRead: FirstRead;
   prefersReducedMotion: boolean;
 }) {
+  const ledgerCount = firstRead.independentCount > 0
+    ? `${firstRead.independentCount} of ${firstRead.sourceCount} independent`
+    : sourceLabel(firstRead.sourceCount);
+  const hiddenSources = firstRead.sourceCount - firstRead.evidence.length;
+
   return (
     <motion.section
       aria-label="First read"
@@ -355,40 +360,54 @@ function FirstReadSlip({
       layoutId="first-read-filed-slip"
       transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.56, ease: [0.21, 1, 0.35, 1] }}
     >
-      <div className="cs-first-read-head">
-        <span>First read</span>
-        <small>Source-backed seed</small>
-      </div>
-      <div className="cs-first-read-body">
-        <div className="cs-first-read-line">
-          <span>Product</span>
-          <p>{firstRead.productLine}</p>
+      <header className="cs-first-read-head">
+        <span className="cs-first-read-title">First read</span>
+        <span className="cs-first-read-flag">Still filing</span>
+      </header>
+      <p className="cs-first-read-read" data-kind={firstRead.readKind}>
+        <span className="cs-first-read-read-label">{firstRead.readLabel}</span>
+        {firstRead.read}
+      </p>
+      {firstRead.evidence.length > 0 ? (
+        <div className="cs-first-read-ledger" aria-label="Sources filed so far">
+          <div className="cs-first-read-ledger-head">
+            <span>Filed so far</span>
+            <span>{ledgerCount}</span>
+          </div>
+          <ul>
+            {firstRead.evidence.map((item) => (
+              <li key={item.id}>
+                <i className="cs-first-read-mark-dot" data-class={item.cls} aria-hidden="true" />
+                <a href={item.href} rel="noreferrer" target="_blank">{item.domain}</a>
+                <span className="cs-first-read-mark">{item.label}</span>
+              </li>
+            ))}
+            {hiddenSources > 0 ? (
+              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more filed`}</li>
+            ) : null}
+          </ul>
         </div>
-        <div className="cs-first-read-line">
-          <span>Buyer</span>
-          <p>{firstRead.buyerLine}</p>
-        </div>
-      </div>
-      <div className="cs-first-read-evidence" aria-label="First read evidence">
-        {firstRead.evidenceCategories.map((category) => (
-          <span key={category}>{category}</span>
-        ))}
-      </div>
-      <p className="cs-first-read-missing">Still checking: {firstRead.missingProofLine}</p>
+      ) : (
+        <p className="cs-first-read-ledger-empty">Filing the first sources.</p>
+      )}
+      <p className="cs-first-read-gap">
+        <span className="cs-first-read-gap-label">Not yet proven</span>
+        {firstRead.gap}
+      </p>
     </motion.section>
   );
 }
 
 function FirstReadFiledReceipt({
-  firstRead,
   prefersReducedMotion,
   sourceCount
 }: {
-  firstRead: FirstRead;
   prefersReducedMotion: boolean;
   sourceCount: number;
 }) {
-  const evidenceLabel = sourceCount > 0 ? sourceLabel(sourceCount) : firstRead.evidenceCategories[0] ?? "sources";
+  // The receipt total comes from the saved run; independence is only trustworthy in
+  // the live slip where it is counted from the same source set. Keep the stamp clean.
+  const meta = sourceCount > 0 ? sourceLabel(sourceCount) : "Filed with sources";
 
   return (
     <motion.div
@@ -401,7 +420,7 @@ function FirstReadFiledReceipt({
       transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
     >
       <span className="cs-first-read-filed-stamp">First read filed</span>
-      <span className="cs-first-read-filed-meta">Product / buyer / {evidenceLabel}</span>
+      <span className="cs-first-read-filed-meta">{meta}</span>
     </motion.div>
   );
 }
@@ -1502,7 +1521,7 @@ export function ResearchLayerPanel({
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
   const { fullSummary, summary } = profileSummaryCopy(card);
-  const firstRead = firstReadForCard({ card, events, sources });
+  const firstRead = firstReadForCard({ card, events, sources, summary });
   const firstReadFiled = firstReadIsFiled(events);
   const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || firstReadIsPending(events));
   const showFirstRead = firstReadShouldPayoff && !firstReadFiled;
@@ -1542,7 +1561,6 @@ export function ResearchLayerPanel({
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
             {showFiledFirstRead ? (
               <FirstReadFiledReceipt
-                firstRead={firstRead}
                 prefersReducedMotion={prefersReducedMotion}
                 sourceCount={firstReadSourceCount}
               />

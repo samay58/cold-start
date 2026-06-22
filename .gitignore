@@ -26,3 +26,6 @@ test-results/
 
 # Local motion/design reference examples (incl. licensed Devouring Details prototypes); not for redistribution
 docs/motion-references/
+
+# Large QA capture videos stay local; keep the small JPG frames + notes in git.
+*.mp4
