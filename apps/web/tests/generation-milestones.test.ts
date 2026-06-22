@@ -28,6 +28,18 @@ describe("generation milestone telemetry", () => {
     );
   });
 
+  it("records the first-read lane milestone ahead of the seed and first-usable card", () => {
+    const requestedAtMs = Date.parse("2026-06-22T20:08:33.000Z");
+    const trace: GenerationTrace = { jobKind: "basics", mode: "basics" };
+
+    writeGenerationMilestone(trace, "firstReadLaneMs", requestedAtMs, requestedAtMs + 6_000);
+    writeGenerationMilestone(trace, "seedCardMs", requestedAtMs, requestedAtMs + 24_000);
+    writeGenerationMilestone(trace, "firstUsableCardMs", requestedAtMs, requestedAtMs + 24_000);
+
+    expect(trace.milestones?.firstReadLaneMs).toBe(6_000);
+    expect(trace.milestones?.firstReadLaneMs ?? Infinity).toBeLessThan(trace.milestones?.seedCardMs ?? 0);
+  });
+
   it("keeps first usable card time stable when an Inngest replay writes the same milestone again", () => {
     const requestedAtMs = Date.parse("2026-05-27T20:08:33.000Z");
     const trace: GenerationTrace = { jobKind: "basics", mode: "basics" };

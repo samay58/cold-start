@@ -1,6 +1,12 @@
-import type { GenerationTrace } from "@cold-start/core";
-import { filterSourcesForDomain, sourceGateTrace, type BlockEnrichmentId } from "@cold-start/pipeline";
+import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
 import {
+  filterSourcesForDomain,
+  sourceGateTrace,
+  type BlockEnrichmentId,
+  type ExtractedCardSections
+} from "@cold-start/pipeline";
+import {
+  fetchDirectExaFirstReadSources,
   fetchDirectExaFundamentalsSources,
   fetchStableenrichEnrichmentSources,
   fetchStableenrichFastSources,
@@ -14,7 +20,7 @@ import {
 } from "@cold-start/providers";
 import type { StoredSource } from "@cold-start/db";
 
-import { webEnv } from "../lib/env";
+import type { webEnv } from "../lib/env";
 import { boundedErrorMessage } from "../lib/errors";
 import { directExaEnabled } from "./env";
 import { withStableenrichEndpointBudgets } from "./provider-trace";
@@ -49,6 +55,44 @@ export function providerSourcesFromStoredSources(storedSources: StoredSource[]):
     fetchedAt: source.fetchedAt,
     rawText: source.rawText
   }));
+}
+
+export function sectionsWithSourceCitations(card: ColdStartCard, sources: ProviderSource[]): ExtractedCardSections {
+  const citations = [...card.citations];
+  const existingUrls = new Set(citations.map((citation) => citation.url));
+  let sourceIndex = 1;
+
+  for (const source of sources.filter((candidate) => candidate.sourceType !== "enrichment").slice(0, 12)) {
+    if (existingUrls.has(source.url)) {
+      continue;
+    }
+
+    let id = `s${sourceIndex}`;
+    sourceIndex += 1;
+    while (citations.some((citation) => citation.id === id)) {
+      id = `s${sourceIndex}`;
+      sourceIndex += 1;
+    }
+
+    citations.push({
+      id,
+      url: source.url,
+      title: source.title,
+      fetchedAt: source.fetchedAt,
+      sourceType: source.sourceType,
+      ...(source.rawText ? { snippet: source.rawText.slice(0, 700) } : {})
+    });
+    existingUrls.add(source.url);
+  }
+
+  return {
+    identity: card.identity,
+    funding: card.funding,
+    team: card.team,
+    signals: card.signals,
+    comparables: card.comparables,
+    citations
+  };
 }
 
 function stableenrichExaSkipsForDirectCoverage(input: {
@@ -99,6 +143,32 @@ const stableenrichLateEnrichmentProbesByBlock: Record<BlockEnrichmentId, Stablee
 export function stableenrichLateEnrichmentSkipsForBlocks(blocks: BlockEnrichmentId[]): StableenrichProbeName[] {
   const allowed = new Set(blocks.flatMap((block) => stableenrichLateEnrichmentProbesByBlock[block]));
   return stableenrichLateEnrichmentProbeNames.filter((name) => !allowed.has(name));
+}
+
+export type FirstReadLaneResult = {
+  sources: ProviderSource[];
+  trace: NonNullable<NonNullable<GenerationTrace["providers"]>["firstReadLane"]>;
+};
+
+// First-read lane: bounded Exa instant/fast fetch, domain-gated, returning accepted sources
+// plus a separate cost/latency trace. It never throws; the provider call resolves failures
+// rather than rejecting, so a slow or failing lane can never fail the basics run.
+export async function fetchFirstReadLaneSources(input: {
+  domain: string;
+  directExaEnv: DirectExaEnv;
+}): Promise<FirstReadLaneResult> {
+  const result = await fetchDirectExaFirstReadSources({ env: input.directExaEnv, domain: input.domain });
+  const sourceGate = filterSourcesForDomain({ domain: input.domain, sources: result.sources });
+  return {
+    sources: sourceGate.accepted,
+    trace: {
+      skipped: result.skipped,
+      sourceCount: sourceGate.accepted.length,
+      failureCount: result.failures.length,
+      requestCount: result.requestCount,
+      estimatedCostUsd: result.estimatedCostUsd
+    }
+  };
 }
 
 export async function fetchInitialSourcesForGeneration(input: {

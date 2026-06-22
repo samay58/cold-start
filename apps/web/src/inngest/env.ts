@@ -53,6 +53,13 @@ export function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
 }
 
+// The first-read lane is opt-in and OFF unless explicitly enabled. Production must keep it
+// unset/false until timing QA confirms it beats the seed card on first-read latency. Unlike
+// directExaEnabled (default on), this defaults off so it never bills extra Exa calls by accident.
+export function firstReadLaneEnabled() {
+  return process.env.FIRST_READ_LANE_ENABLED === "true";
+}
+
 export function contactEnrichmentEnabled(input: {
   CONTACT_ENRICHMENT_ENABLED: boolean;
   CONTACT_ENRICHMENT_TIER: ContactEnrichmentTier;

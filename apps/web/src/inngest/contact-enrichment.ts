@@ -69,7 +69,11 @@ import {
   failedStableenrichEndpoint,
   withStableenrichEndpointBudgets
 } from "./provider-trace";
-import { mergeSources, providerSourcesFromStoredSources } from "./source-fetching";
+import {
+  mergeSources,
+  providerSourcesFromStoredSources,
+  sectionsWithSourceCitations
+} from "./source-fetching";
 
 const CONTACT_ENRICHMENT_EVENT_NAME = "card/contact-enrichment.requested" as const;
 
@@ -120,44 +124,6 @@ function rawSlugForRun(input: unknown, domainInput?: unknown): string {
 
 function stringValue(input: unknown): string | null {
   return typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
-}
-
-function sectionsWithSourceCitations(card: ColdStartCard, sources: ProviderSource[]): ExtractedCardSections {
-  const citations = [...card.citations];
-  const existingUrls = new Set(citations.map((citation) => citation.url));
-  let sourceIndex = 1;
-
-  for (const source of sources.filter((candidate) => candidate.sourceType !== "enrichment").slice(0, 12)) {
-    if (existingUrls.has(source.url)) {
-      continue;
-    }
-
-    let id = `s${sourceIndex}`;
-    sourceIndex += 1;
-    while (citations.some((citation) => citation.id === id)) {
-      id = `s${sourceIndex}`;
-      sourceIndex += 1;
-    }
-
-    citations.push({
-      id,
-      url: source.url,
-      title: source.title,
-      fetchedAt: source.fetchedAt,
-      sourceType: source.sourceType,
-      ...(source.rawText ? { snippet: source.rawText.slice(0, 700) } : {})
-    });
-    existingUrls.add(source.url);
-  }
-
-  return {
-    identity: card.identity,
-    funding: card.funding,
-    team: card.team,
-    signals: card.signals,
-    comparables: card.comparables,
-    citations
-  };
 }
 
 function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHint[] {

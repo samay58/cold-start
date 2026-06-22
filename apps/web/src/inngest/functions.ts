@@ -83,6 +83,7 @@ import {
 import {
   contactEnrichmentEnabled,
   directExaEnvFromProcess,
+  firstReadLaneEnabled,
   stableenrichEnvFromProcess
 } from "./env";
 import {
@@ -92,8 +93,10 @@ import {
   remainingAgentcashBudgetUsd
 } from "./provider-trace";
 import {
+  fetchFirstReadLaneSources,
   fetchInitialSourcesForGeneration,
   fetchLateEnrichmentSources,
+  sectionsWithSourceCitations,
   stableenrichLateEnrichmentSkipsForBlocks
 } from "./source-fetching";
 
@@ -145,44 +148,6 @@ function rawDomainForRun(input: unknown): string {
   }
 
   return input.trim().slice(0, 253);
-}
-
-function sectionsWithSourceCitations(card: ColdStartCard, sources: ProviderSource[]): ExtractedCardSections {
-  const citations = [...card.citations];
-  const existingUrls = new Set(citations.map((citation) => citation.url));
-  let sourceIndex = 1;
-
-  for (const source of sources.filter((candidate) => candidate.sourceType !== "enrichment").slice(0, 12)) {
-    if (existingUrls.has(source.url)) {
-      continue;
-    }
-
-    let id = `s${sourceIndex}`;
-    sourceIndex += 1;
-    while (citations.some((citation) => citation.id === id)) {
-      id = `s${sourceIndex}`;
-      sourceIndex += 1;
-    }
-
-    citations.push({
-      id,
-      url: source.url,
-      title: source.title,
-      fetchedAt: source.fetchedAt,
-      sourceType: source.sourceType,
-      ...(source.rawText ? { snippet: source.rawText.slice(0, 700) } : {})
-    });
-    existingUrls.add(source.url);
-  }
-
-  return {
-    identity: card.identity,
-    funding: card.funding,
-    team: card.team,
-    signals: card.signals,
-    comparables: card.comparables,
-    citations
-  };
 }
 
 function costLineForLlmCall(call: GenerationLlmCallTrace): CostLine | null {
@@ -683,6 +648,52 @@ export const generateCardFunction = inngest.createFunction(
       }, null);
       const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
       const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
+
+      // First-read lane (opt-in, OFF in production). A bounded Exa instant/fast fetch that
+      // builds and stores an early seed card so the side panel renders First Read before the
+      // full source batch finishes. Best-effort: any failure is swallowed so it can never fail
+      // the basics run, and the normal pipeline below still produces the richer card.
+      if (mode === "basics" && firstReadLaneEnabled() && !reuseExistingForAnalysis) {
+        try {
+          currentStage = "first-read-lane";
+          const laneResult = await step.run("first-read-lane-fetch", async () => {
+            const result = await timed(() => fetchFirstReadLaneSources({ domain, directExaEnv }));
+            return {
+              value: result.value,
+              tracePatch: {
+                steps: { "first-read-lane-fetch": completedStep(result.durationMs) },
+                providers: { firstReadLane: result.value.trace }
+              }
+            };
+          });
+          mergeTracePatch(trace, laneResult.tracePatch);
+
+          const laneSources = laneResult.value.sources.filter(Boolean) as ProviderSource[];
+          if (laneSources.length > 0) {
+            const laneSeedCard = buildSeedProfileCard({ domain, sources: laneSources, providerFacts: [] }).card;
+            const laneCardToStore = prepareCardSnapshotForStorage(mode, existingCard, laneSeedCard);
+            if (canStoreCardSnapshot(mode, laneCardToStore)) {
+              const laneStore = await step.run("upsert-first-read-card", async () => ({
+                row: await upsertCard(db, laneCardToStore),
+                milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+              }));
+              const laneRow = laneStore.row;
+              await step.run("record-first-read-evidence", () => recordCardEvidence(db, laneRow.id, laneCardToStore));
+              await step.run("record-first-read-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(laneCardToStore)));
+              await step.run("record-first-read-sources", () => recordSourcesForCard(db, laneRow.id, laneSources));
+              await recordEvent("first-read-saved", "card.partial", "Saved first read", {
+                citationCount: laneCardToStore.citations.length,
+                sourceCount: laneSources.length,
+                sourceCategories: progressSourceCategories(laneSources)
+              }, null);
+              writeGenerationMilestoneValue(trace, "firstReadLaneMs", laneStore.milestoneMs);
+            }
+          }
+        } catch (error) {
+          // Best-effort lane. Record nothing fatal; the standard path below still runs.
+          void boundedErrorMessage(error);
+        }
+      }
 
       currentStage = "fetch-sources";
       const sourceResult = await step.run("fetch-sources", async () => {

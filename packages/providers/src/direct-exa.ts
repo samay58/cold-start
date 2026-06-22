@@ -124,6 +124,108 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
   ];
 }
 
+// The first-read lane is a bounded, fast subset of the fundamentals fetch. It runs before
+// the full source batch so the side panel can render First Read sooner. It uses the fastest
+// Exa tiers (instant/fast), highlights instead of full text, and few results per request, so
+// it stays cheap and quick. It reuses the existing probe names so intent mapping is unchanged.
+export function buildDirectExaFirstReadRequests(env: DirectExaEnv, domain: string): DirectExaRequest[] {
+  const apiKey = env.DIRECT_EXA_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("Missing direct Exa config: DIRECT_EXA_API_KEY");
+  }
+
+  const url = `${(env.DIRECT_EXA_BASE_URL?.trim() || defaultExaBaseUrl).replace(/\/+$/, "")}/search`;
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+  const contents = {
+    highlights: { highlightsPerUrl: 2, numSentences: 2 },
+  };
+
+  return [
+    {
+      name: "exa_direct_company",
+      url,
+      headers,
+      body: {
+        query: `${domain} company what it does who it is for`,
+        type: "instant",
+        category: "company",
+        numResults: 3,
+        contents,
+      },
+    },
+    {
+      name: "exa_direct_news",
+      url,
+      headers,
+      body: {
+        query: `${domain} funding round launch customers recent news`,
+        type: "fast",
+        category: "news",
+        numResults: 3,
+        contents: {
+          ...contents,
+          livecrawl: "fallback",
+          maxAgeHours: 24 * 120,
+        },
+      },
+    },
+  ];
+}
+
+export async function fetchDirectExaFirstReadSources(input: {
+  env: DirectExaEnv;
+  domain: string;
+  fetchJson?: FetchJson;
+}): Promise<DirectExaSourcesResult> {
+  if (missingDirectExaConfig(input.env).length > 0) {
+    return { sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
+  }
+
+  const fetchJson = input.fetchJson ?? directExaJson;
+  const requests = buildDirectExaFirstReadRequests(input.env, input.domain);
+  const settled = await Promise.allSettled(
+    requests.map(async (request) => ({
+      request,
+      payload: await fetchJson(request),
+    }))
+  );
+  const requestCount = settled.filter((result) => result.status === "fulfilled").length;
+
+  return {
+    skipped: false,
+    requestCount,
+    estimatedCostUsd: directExaCostUsd(requestCount),
+    sources: settled.flatMap((result) => {
+      if (result.status !== "fulfilled") {
+        return [];
+      }
+
+      return providerSourcesFromDirectExa(result.value.request, result.value.payload, input.domain);
+    }),
+    failures: settled.flatMap((result, index) => {
+      if (result.status === "fulfilled") {
+        return [];
+      }
+
+      const request = requests[index];
+      if (!request) {
+        return [];
+      }
+
+      return [
+        {
+          name: request.name,
+          endpointUrl: request.url,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        },
+      ];
+    }),
+  };
+}
+
 export function buildDirectExaContactRequests(
   env: DirectExaEnv,
   domain: string,
