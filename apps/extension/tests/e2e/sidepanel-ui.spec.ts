@@ -505,14 +505,16 @@ test("dragging a dormant card opens a real insertion slot before release", async
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
-  // Synthesis-backed cards never auto-fire a section run on filing; they open the
-  // investor-lens gate and wait for an explicit Queue.
+  // Filing an analysis layer opens the investor-lens gate and fires nothing until the explicit
+  // Lens control. That control runs one full analysis (no sectionId), which fills all four
+  // analysis layers, instead of a per-section run whose output the UI never reads.
   await expect(activeQuestions).toContainText("Activate the investor lens");
   expect(generationRequests).toHaveLength(0);
-  await activeQuestions.getByRole("button", { name: "Queue" }).click();
+  await activeQuestions.getByRole("button", { name: "Lens" }).click();
   await expect.poll(() => generationRequests).toMatchObject([
-    { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
+    { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
+  expect(generationRequests[0]?.sectionId).toBeUndefined();
 });
 
 test("dormant card drag stays attached across pile depth", async ({ page }) => {
@@ -722,7 +724,7 @@ test("starter profile readiness does not show profile-finishing motion under red
   await expect(page.getByText("Getting the profile ready")).toHaveCount(0);
 });
 
-test("keyboard activation queues synthesis-backed cards", async ({ page }) => {
+test("keyboard activation runs the investor lens for analysis layers", async ({ page }) => {
   const generationRequests: Array<{ confirmStart?: boolean; domain?: string; mode?: string; sectionId?: string }> = [];
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCard());
@@ -738,19 +740,22 @@ test("keyboard activation queues synthesis-backed cards", async ({ page }) => {
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  // Keyboard filing opens the lens gate; the explicit Queue action starts the run.
+  // Keyboard filing opens the lens gate; the explicit Lens action starts one full analysis run.
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toContainText("Activate the investor lens");
   expect(generationRequests).toHaveLength(0);
-  await activeQuestions.getByRole("button", { name: "Queue" }).click();
+  await activeQuestions.getByRole("button", { name: "Lens" }).click();
   await expect(activeQuestions).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
-    { confirmStart: true, domain: "browserbase.com", mode: "analysis", sectionId: "risks" }
+    { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
+  expect(generationRequests[0]?.sectionId).toBeUndefined();
 
+  // The single lens run fills every analysis layer, so filing another analysis layer while it runs
+  // reads as synthesizing too and never starts a second run.
   const marketCard = page.locator(".cs-dormant-card", { hasText: "Timing" });
   await marketCard.focus();
   await page.keyboard.press("Enter");
-  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Queued");
+  await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toHaveLength(1);
 });

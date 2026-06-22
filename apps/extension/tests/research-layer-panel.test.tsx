@@ -126,6 +126,7 @@ async function renderPanel(input: { complete?: boolean; reducedMotion?: boolean;
         events={events}
         onRegenerate={() => undefined}
         onRunSection={() => undefined}
+        onRunAnalysis={() => undefined}
         sources={[
           source({ domain: "exa.ai", sourceType: "company_site" }),
           source({ domain: "docs.exa.ai", sourceType: "company_site" }),

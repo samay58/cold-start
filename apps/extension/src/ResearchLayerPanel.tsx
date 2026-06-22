@@ -62,6 +62,7 @@ type ResearchLayerPanelProps = {
   contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
+  onRunAnalysis: () => void;
   onRegenerate: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
   profileElapsedSeconds?: number | undefined;
@@ -1175,18 +1176,6 @@ function formatSavedDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
 }
 
-function analysisLayerIsRunning(card: ColdStartCard, id: ResearchLayerId, analysisRun: AnalysisRun | undefined) {
-  if (!analysisRun) {
-    return false;
-  }
-
-  if (!card.synthesis) {
-    return id === "coreIdea";
-  }
-
-  return id === "marketStructureTiming" && !card.synthesis.marketStructureAndTiming;
-}
-
 function plural(value: number, singular: string, pluralWord = `${singular}s`) {
   return `${value} ${value === 1 ? singular : pluralWord}`;
 }
@@ -1355,6 +1344,7 @@ export function ResearchLayerPanel({
   contactRun,
   elapsedSeconds,
   onRunSection,
+  onRunAnalysis,
   onRegenerate,
   queuedLayerIds = [],
   profileElapsedSeconds = 0,
@@ -1460,8 +1450,10 @@ export function ResearchLayerPanel({
       return next;
     });
     setExpandedLayerId(id);
-    // Open Questions and The Case come from the consolidated synthesis (investor lens),
-    // not a per-section run, so activating them must not queue a section job.
+    // Open Questions and The Case come from the consolidated synthesis (investor lens), not a
+    // per-section run, so activating them must not queue a section job; their explicit Lens control
+    // starts the full analysis instead. Card and section-backed analysis layers still run their
+    // own section on activation.
     if (display && shouldQueueLayerRun(display.status) && !profileRun && !isSynthesisLayer(id)) {
       onRunSection(id);
     }
@@ -1636,40 +1628,46 @@ export function ResearchLayerPanel({
             }
 
             const layer = layers.find((candidate) => candidate.id === id);
+            const isAnalysisLayer = layer?.source === "analysis";
+            const isSynthesisLayerId = isSynthesisLayer(id);
             const refreshing = Boolean(activeSectionRun?.layerId === id);
             const queued = queuedLayerIds.includes(id);
-            // Open Questions and The Case come from the consolidated synthesis, so while an
-            // analysis run is active they wait behind the investor lens instead of firing a
-            // per-section run of their own.
-            const waitingForLens = Boolean(isSynthesisLayer(id) && display.status === "ready" && analysisRun);
+            // The investor lens is one full-analysis run that produces card.synthesis, which feeds
+            // every analysis layer. So while the lens runs, each analysis layer reads as
+            // synthesizing rather than queued behind it. Card layers keep their own per-section
+            // queue, and the section-backed analysis layers (Why care, Timing) still refresh from a
+            // per-section run.
+            const runningUnderLens = Boolean(isAnalysisLayer && analysisRun && display.status !== "saved");
             const waitingForProfile = Boolean(profileRun && display.status !== "saved");
             const running = Boolean(
               waitingForProfile ||
               display.status === "running" ||
-              (layer?.source === "analysis" && analysisLayerIsRunning(card, id, analysisRun))
+              runningUnderLens
             );
-            const visiblyQueued = (queued || waitingForLens) && !running && !refreshing;
+            const visiblyQueued = queued && !running && !refreshing;
             const queuedBehindAnalysis = visiblyQueued && Boolean(analysisRun);
             const queuedBehindSection = visiblyQueued && Boolean(activeSectionRun);
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : visiblyQueued ? "queued" : display.status;
-            const actionLabel = waitingForProfile
+            // Open Questions and The Case have no per-section source, so their control runs the full
+            // investor lens. Every other layer (including the section-backed analysis layers) keeps
+            // its per-section "Queue".
+            const canRunLens = isSynthesisLayerId && canStartInvestorLens && !card.synthesis;
+            const actionLabel = waitingForProfile || visiblyQueued
               ? undefined
-              : visiblyQueued
-                ? undefined
-              : display.status === "stale"
-              ? "Queue"
-              : display.status === "failed"
-                ? "Queue"
-                : display.status === "ready"
+              : isSynthesisLayerId
+                ? canRunLens && display.status === "ready" ? "Lens" : undefined
+                : display.status === "stale" || display.status === "failed" || display.status === "ready" || display.status === "empty"
                   ? "Queue"
-                  : display.status === "empty"
-                    ? "Queue"
-                    : undefined;
+                  : undefined;
             const handleLayerAction = actionLabel
-              ? () => {
-                  onRunSection(id);
-                }
+              ? isSynthesisLayerId
+                ? () => {
+                    onRunAnalysis();
+                  }
+                : () => {
+                    onRunSection(id);
+                  }
               : undefined;
             const statusCopy = waitingForProfile
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
@@ -1680,7 +1678,7 @@ export function ResearchLayerPanel({
                     ? "Queued behind current card"
                     : "Queued"
                 : refreshing
-                  ? layer?.source === "analysis"
+                  ? isAnalysisLayer
                     ? `Synthesizing · ${formatElapsed(activeSectionElapsedSeconds)}`
                     : `Refreshing · ${formatElapsed(activeSectionElapsedSeconds)}`
                   : running
@@ -1693,14 +1691,14 @@ export function ResearchLayerPanel({
             const runningCopy = waitingForProfile
               ? "Getting the profile ready"
               : refreshing
-              ? layer?.source === "analysis"
-                ? "Reading the evidence"
-                : id === "competition"
-                ? "Looking for adjacent companies"
-                : id === "signals"
-                  ? "Checking recent traction"
-                  : "Refreshing the evidence"
-              : "Reading cited sources";
+                ? isAnalysisLayer
+                  ? "Reading the evidence"
+                  : id === "competition"
+                    ? "Looking for adjacent companies"
+                    : id === "signals"
+                      ? "Checking recent traction"
+                      : "Refreshing the evidence"
+                : "Reading cited sources";
             const contentDisplay = queuedBehindAnalysis
               ? {
                   ...display,

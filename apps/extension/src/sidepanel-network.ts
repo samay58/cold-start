@@ -539,6 +539,36 @@ export async function startBasicsGenerationAndPoll(
   );
 }
 
+export async function startAnalysisGenerationAndPoll(
+  domain: string,
+  settings: Settings,
+  signal: AbortSignal,
+  confirmStart: boolean,
+  latestCard: ColdStartCard,
+  latestSections: ResearchSection[],
+  onGenerationStatus: GenerationStatusListener
+): Promise<GenerationPollResult> {
+  const generation = await requestGeneration(domain, settings, signal, "analysis", confirmStart);
+  onGenerationStatus(generation.status, { events: generation.events });
+
+  if (generation.status === "cached") {
+    const card = await fetchCard(domain, settings, signal);
+    return { card, sections: sectionsForCard(card, latestSections) };
+  }
+
+  return pollGenerationUntilCard(
+    domain,
+    settings,
+    signal,
+    "analysis",
+    onGenerationStatus,
+    latestCard,
+    false,
+    undefined,
+    latestSections
+  );
+}
+
 export async function startSectionGenerationAndPoll(
   domain: string,
   settings: Settings,

@@ -1139,7 +1139,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("queues a research card behind an active analysis run with a clear reason", async () => {
+  it("shows an analysis layer synthesizing under the active investor lens", async () => {
     vi.useFakeTimers();
     const domain = "linear.app";
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -1171,9 +1171,10 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.dataset.state).toBe("queued");
-    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("Queued behind investor lens");
-    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("This card will run after the current analysis finishes.");
+    // The lens fills every analysis layer at once, so Open Questions reads as synthesizing under
+    // the active run rather than queued behind it, and activating it starts no extra generation.
+    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.dataset.state).toBe("running");
+    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("Synthesizing");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

@@ -1,4 +1,4 @@
-import { companySlugFromDomain, hasUsablePublicProfile, layerIdForSection, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { canRunInvestorAnalysis, companySlugFromDomain, hasUsablePublicProfile, layerIdForSection, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -29,6 +29,7 @@ import {
   resumeSectionGenerationAndPoll,
   sectionsForCard,
   startedAtMs,
+  startAnalysisGenerationAndPoll,
   startBasicsGenerationAndPoll,
   startSectionGenerationAndPoll,
   type GenerationStatusListener
@@ -521,12 +522,14 @@ function GenerationPanel({
 function SuccessPanel({
   domain,
   onRunSection,
+  onRunAnalysis,
   onRegenerate,
   queuedLayerIds,
   requestState
 }: {
   domain: string;
   onRunSection: (layerId: ResearchLayerId) => void;
+  onRunAnalysis: () => void;
   onRegenerate: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
   requestState: Extract<RequestState, { status: "success" }>;
@@ -552,6 +555,7 @@ function SuccessPanel({
         contactRun={requestState.contactRun}
         elapsedSeconds={elapsedSeconds}
         onRunSection={onRunSection}
+        onRunAnalysis={onRunAnalysis}
         onRegenerate={onRegenerate}
         queuedLayerIds={queuedLayerIds}
         profileElapsedSeconds={profileElapsedSeconds}
@@ -1054,6 +1058,73 @@ export function SidePanel() {
       });
   }, [clearActiveRequest]);
 
+  const runAnalysisGenerationWithController = useCallback((
+    controller: AbortController,
+    generationDomain: string,
+    generationSettings: Settings,
+    currentState: Extract<RequestState, { status: "success" }>
+  ) => {
+    const startedAt = Date.now();
+    setRequestState({ ...currentState, analysisRun: { generationStatus: "queued", startedAt } });
+
+    void startAnalysisGenerationAndPoll(
+      generationDomain,
+      generationSettings,
+      controller.signal,
+      true,
+      currentState.card,
+      currentState.sections,
+      (generationStatus) => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => current.status === "success"
+            ? {
+                ...current,
+                analysisRun: {
+                  generationStatus: generationStatus === "queued" ? "queued" : "running",
+                  startedAt
+                }
+              }
+            : current);
+        }
+      }
+    )
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setRequestState((current) => {
+            if (current.status !== "success") {
+              return { status: "success", card: result.card, sections: result.sections };
+            }
+
+            const { analysisRun: _analysisRun, ...nextState } = current;
+            return {
+              ...nextState,
+              card: result.card,
+              sections: sectionsForCard(result.card, current.sections),
+              ...(result.analysisNotice ? { analysisNotice: result.analysisNotice } : {})
+            };
+          });
+        }
+      })
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message = caught instanceof Error ? caught.message : String(caught);
+        setRequestState((current) => {
+          if (current.status !== "success") {
+            return { status: "error", message: readableCardError(message, generationSettings.apiOrigin) };
+          }
+
+          const { analysisRun: _analysisRun, ...nextState } = current;
+          return { ...nextState, analysisNotice: readableCardError(message, generationSettings.apiOrigin) };
+        });
+      })
+      .finally(() => {
+        clearActiveRequest(controller);
+      });
+  }, [clearActiveRequest]);
+
   const resumeBasicsGenerationWithController = useCallback((
     controller: AbortController,
     generationDomain: string,
@@ -1318,6 +1389,28 @@ export function SidePanel() {
     setSectionQueue((current) => current.includes(layerId) ? current : [...current, layerId]);
   }
 
+  function handleRunAnalysis() {
+    if (!domain || !settings?.apiToken || requestState.status !== "success") {
+      return;
+    }
+
+    if (
+      requestState.analysisRun ||
+      requestState.profileRun ||
+      requestState.activeSectionRun ||
+      requestState.card.synthesis ||
+      !canRunInvestorAnalysis(requestState.card)
+    ) {
+      return;
+    }
+
+    setSectionQueue([]);
+    const controller = new AbortController();
+    abortAllRequests();
+    activeRequest.current = controller;
+    runAnalysisGenerationWithController(controller, domain, settings, requestState);
+  }
+
   useEffect(() => {
     if (
       SECTION_RUN_CONCURRENCY !== 1 ||
@@ -1449,6 +1542,7 @@ export function SidePanel() {
       <SuccessPanel
         domain={domain}
         onRunSection={handleRunSection}
+        onRunAnalysis={handleRunAnalysis}
         onRegenerate={() => handleStartGeneration(true)}
         queuedLayerIds={sectionQueue}
         requestState={requestState}
