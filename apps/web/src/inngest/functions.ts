@@ -501,6 +501,39 @@ export const generateCardFunction = inngest.createFunction(
       }, null);
     };
 
+    // One card-storage sequence for seed, generated, and enriched snapshots. Step ids are passed
+    // in verbatim, not derived from a prefix: Inngest memoizes by step id, so changing them would
+    // disrupt runs in flight during a deploy. Callers keep their own milestone writes.
+    const storeCardSnapshot = async (input: {
+      cardToStore: ColdStartCard;
+      sources: ProviderSource[];
+      steps: { upsert: string; evidence: string; sections: string; sources: string };
+      event: { stepId: string; type: "card.partial" | "card.saved" | "card.enriched"; message: string };
+      skipNoteId: string;
+      contactTrigger: string | null;
+    }): Promise<{ milestoneMs: number } | null> => {
+      if (!canStoreCardSnapshot(mode, input.cardToStore)) {
+        noteSkippedUnderfilledSnapshot(trace, input.skipNoteId, input.cardToStore);
+        return null;
+      }
+      const stored = await step.run(input.steps.upsert, async () => ({
+        row: await upsertCard(db, input.cardToStore),
+        milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+      }));
+      const rowId = stored.row.id;
+      await step.run(input.steps.evidence, () => recordCardEvidence(db, rowId, input.cardToStore));
+      await step.run(input.steps.sections, () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(input.cardToStore)));
+      await step.run(input.steps.sources, () => recordSourcesForCard(db, rowId, input.sources));
+      await recordEvent(input.event.stepId, input.event.type, input.event.message, {
+        citationCount: input.cardToStore.citations.length,
+        sourceCount: input.sources.length
+      }, null);
+      if (input.contactTrigger) {
+        await requestContactEnrichmentForStoredCard(input.cardToStore, input.contactTrigger);
+      }
+      return { milestoneMs: stored.milestoneMs };
+    };
+
     await recordEvent(
       "generation-started",
       requestedSectionId ? "section.started" : "generation.started",
@@ -726,24 +759,17 @@ export const generateCardFunction = inngest.createFunction(
         seedCard = seedProfileResult.value.card;
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
-        if (canStoreCardSnapshot(mode, seedCardToStore)) {
-          const seedStore = await step.run("upsert-seed-card", async () => ({
-            row: await upsertCard(db, seedCardToStore),
-            milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-          }));
-          const seedRow = seedStore.row;
-          await step.run("record-seed-card-evidence", () => recordCardEvidence(db, seedRow.id, seedCardToStore));
-          await step.run("record-seed-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(seedCardToStore)));
-          await step.run("record-seed-sources", () => recordSourcesForCard(db, seedRow.id, acceptedSources));
-          await recordEvent("seed-card-saved", "card.partial", "Saved first usable company card", {
-            citationCount: seedCardToStore.citations.length,
-            sourceCount: acceptedSources.length
-          }, null);
+        const seedStore = await storeCardSnapshot({
+          cardToStore: seedCardToStore,
+          sources: acceptedSources,
+          steps: { upsert: "upsert-seed-card", evidence: "record-seed-card-evidence", sections: "record-seed-research-sections", sources: "record-seed-sources" },
+          event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card" },
+          skipNoteId: "skip-underfilled-seed-card",
+          contactTrigger: "seed-card"
+        });
+        if (seedStore) {
           writeGenerationMilestoneValue(trace, "seedCardMs", seedStore.milestoneMs);
           writeGenerationMilestoneValue(trace, "firstUsableCardMs", seedStore.milestoneMs);
-          await requestContactEnrichmentForStoredCard(seedCardToStore, "seed-card");
-        } else {
-          noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-seed-card", seedCardToStore);
         }
       }
 
@@ -856,29 +882,20 @@ export const generateCardFunction = inngest.createFunction(
       let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
       let analysisReadyMs: number | null = null;
 
-      if (canStoreCardSnapshot(mode, cardToStore)) {
-        const stored = await step.run("upsert-card", async () => ({
-          row: await upsertCard(db, cardToStore),
-          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-        }));
-        const storedRow = stored.row;
-        await step.run("record-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
-        await step.run("record-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
-        await step.run("record-sources", () =>
-          recordSourcesForCard(db, storedRow.id, sourcesToRecord),
-        );
-        await recordEvent("card-saved", "card.saved", "Saved cited company card", {
-          citationCount: cardToStore.citations.length,
-          sourceCount: sourcesToRecord.length
-        }, null);
+      const generatedStore = await storeCardSnapshot({
+        cardToStore,
+        sources: sourcesToRecord,
+        steps: { upsert: "upsert-card", evidence: "record-card-evidence", sections: "record-research-sections", sources: "record-sources" },
+        event: { stepId: "card-saved", type: "card.saved", message: "Saved cited company card" },
+        skipNoteId: "skip-underfilled-generated-card",
+        contactTrigger: mode === "basics" ? "stored-card" : null
+      });
+      if (generatedStore) {
         if (mode === "basics") {
-          writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
-          await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
+          writeGenerationMilestoneValue(trace, "firstUsableCardMs", generatedStore.milestoneMs);
         } else {
-          analysisReadyMs = stored.milestoneMs;
+          analysisReadyMs = generatedStore.milestoneMs;
         }
-      } else {
-        noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-generated-card", cardToStore);
       }
 
       if (mode === "basics") {
@@ -1001,22 +1018,17 @@ export const generateCardFunction = inngest.createFunction(
 
           cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
           assertTerminalCardQuality(mode, cardToStore);
-          const stored = await step.run("upsert-enriched-card", async () => ({
-            row: await upsertCard(db, cardToStore),
-            milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-          }));
-          const storedRow = stored.row;
-          await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, storedRow.id, cardToStore));
-          await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
-          await step.run("record-enriched-sources", () =>
-            recordSourcesForCard(db, storedRow.id, sourcesToRecord),
-          );
-          await recordEvent("enriched-card-saved", "card.enriched", "Saved enriched company card", {
-            citationCount: cardToStore.citations.length,
-            sourceCount: sourcesToRecord.length
-          }, null);
-          await requestContactEnrichmentForStoredCard(cardToStore, "enriched-card");
-          writeGenerationMilestoneValue(trace, "firstUsableCardMs", stored.milestoneMs);
+          const enrichedStore = await storeCardSnapshot({
+            cardToStore,
+            sources: sourcesToRecord,
+            steps: { upsert: "upsert-enriched-card", evidence: "record-enriched-card-evidence", sections: "record-enriched-research-sections", sources: "record-enriched-sources" },
+            event: { stepId: "enriched-card-saved", type: "card.enriched", message: "Saved enriched company card" },
+            skipNoteId: "skip-underfilled-enriched-card",
+            contactTrigger: "enriched-card"
+          });
+          if (enrichedStore) {
+            writeGenerationMilestoneValue(trace, "firstUsableCardMs", enrichedStore.milestoneMs);
+          }
         }
       }
 
