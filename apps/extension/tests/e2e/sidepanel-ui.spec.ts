@@ -106,7 +106,7 @@ test("summary tooltip opens from keyboard focus and clears on blur", async ({ pa
   const tooltip = page.locator("#cs-company-shared-tooltip");
   await expect(tooltip).toBeVisible();
   await expect(tooltip).toContainText("Description");
-  await expect(tooltip).toContainText("managed browser workbench");
+  await expect(tooltip).toContainText("Managed browser infrastructure for AI agent workflows");
   await expect(tooltip).toHaveAttribute("data-placement", "below");
 
   await summary.evaluate((element) => {

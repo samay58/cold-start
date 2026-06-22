@@ -31,6 +31,7 @@ import {
   formatOptionalNumber,
   profileSummaryCopy
 } from "./extension-format";
+import { firstReadForCard, firstReadIsFiled, type FirstRead } from "./first-read";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import {
   acceptedSourceCountFromEvents,
@@ -40,6 +41,7 @@ import {
   hasTerminalProfileProgressEvent,
   RESEARCH_PROGRESS_STAGES
 } from "./research-progress";
+import { markPerformance } from "./sidepanel-network";
 import { SourcePassInstrument } from "./SourcePassInstrument";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
@@ -188,6 +190,25 @@ function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
 }
 
+function metadataSourceCount(event: ExtensionResearchRunEvent) {
+  const value = event.metadata.sourceCount;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function filedSourceCount(events: ExtensionResearchRunEvent[], sources: ExtensionSourceSummary[]) {
+  for (const event of [...events].reverse()) {
+    if (event.type !== "card.saved" && event.type !== "card.enriched") {
+      continue;
+    }
+    const count = metadataSourceCount(event);
+    if (count !== null) {
+      return count;
+    }
+  }
+
+  return sources.length;
+}
+
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
 }
@@ -311,6 +332,75 @@ function ProfileSummary({
         <p className="cs-company-summary">{summary}</p>
       )}
     </div>
+  );
+}
+
+function FirstReadSlip({
+  firstRead,
+  prefersReducedMotion
+}: {
+  firstRead: FirstRead;
+  prefersReducedMotion: boolean;
+}) {
+  return (
+    <motion.section
+      aria-label="First read"
+      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+      className="cs-first-read"
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -18 }}
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: 10 }}
+      layout
+      layoutId="first-read-filed-slip"
+      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.56, ease: [0.21, 1, 0.35, 1] }}
+    >
+      <div className="cs-first-read-head">
+        <span>First read</span>
+        <small>Source-backed seed</small>
+      </div>
+      <div className="cs-first-read-body">
+        <div className="cs-first-read-line">
+          <span>Product</span>
+          <p>{firstRead.productLine}</p>
+        </div>
+        <div className="cs-first-read-line">
+          <span>Buyer</span>
+          <p>{firstRead.buyerLine}</p>
+        </div>
+      </div>
+      <div className="cs-first-read-evidence" aria-label="First read evidence">
+        {firstRead.evidenceCategories.map((category) => (
+          <span key={category}>{category}</span>
+        ))}
+      </div>
+      <p className="cs-first-read-missing">Still checking: {firstRead.missingProofLine}</p>
+    </motion.section>
+  );
+}
+
+function FirstReadFiledReceipt({
+  firstRead,
+  prefersReducedMotion,
+  sourceCount
+}: {
+  firstRead: FirstRead;
+  prefersReducedMotion: boolean;
+  sourceCount: number;
+}) {
+  const evidenceLabel = sourceCount > 0 ? sourceLabel(sourceCount) : firstRead.evidenceCategories[0] ?? "sources";
+
+  return (
+    <motion.div
+      aria-label="First read filed"
+      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+      className="cs-first-read-filed"
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
+      layout
+      layoutId="first-read-filed-slip"
+      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
+    >
+      <span className="cs-first-read-filed-stamp">First read filed</span>
+      <span className="cs-first-read-filed-meta">Product / buyer / {evidenceLabel}</span>
+    </motion.div>
   );
 }
 
@@ -1230,8 +1320,8 @@ export function ResearchLayerPanel({
   activeSectionElapsedSeconds = 0,
   activeSectionRun,
   sections,
-  events,
-  sources,
+  events = [],
+  sources = [],
   cachedAtMs
 }: ResearchLayerPanelProps) {
   const companyName = readableCompanyName(card);
@@ -1264,6 +1354,7 @@ export function ResearchLayerPanel({
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
+  const firstReadMarkedVisible = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
@@ -1400,7 +1491,7 @@ export function ResearchLayerPanel({
   const profileRunVisible = Boolean(profileRun);
   const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
   const finalizingProfileVisible = Boolean(contactRun && !profileRun);
-  const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || (sources?.length ?? 0) > 0 || (events?.length ?? 0) > 0;
+  const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || sources.length > 0 || events.length > 0;
   const resolvedSectionCount = layers.filter((layer) => layer.availability !== "ready").length;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
@@ -1409,8 +1500,23 @@ export function ResearchLayerPanel({
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
   const { fullSummary, summary } = profileSummaryCopy(card);
+  const firstRead = firstReadForCard({ card, events, sources });
+  const firstReadFiled = firstReadIsFiled(events);
+  const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || events.some((event) => event.type === "card.partial"));
+  const showFirstRead = firstReadShouldPayoff && !firstReadFiled;
+  const showFiledFirstRead = firstReadFiled;
+  const firstReadSourceCount = filedSourceCount(events, sources);
 
-  if (!canShowResearchLayers) {
+  useEffect(() => {
+    if (!showFirstRead || firstReadMarkedVisible.current) {
+      return;
+    }
+    firstReadMarkedVisible.current = true;
+    markPerformance("cold-start-first-read-visible");
+    markPerformance("cold-start-first-read-visible-ms");
+  }, [showFirstRead]);
+
+  if (!canShowResearchLayers && !showFirstRead && !showFiledFirstRead) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
@@ -1432,6 +1538,13 @@ export function ResearchLayerPanel({
             </a>
             {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
+            {showFiledFirstRead ? (
+              <FirstReadFiledReceipt
+                firstRead={firstRead}
+                prefersReducedMotion={prefersReducedMotion}
+                sourceCount={firstReadSourceCount}
+              />
+            ) : null}
           </div>
         </div>
         <FactRibbon facts={facts} />
@@ -1445,6 +1558,12 @@ export function ResearchLayerPanel({
           tooltipProps={triggerProps}
         />
       </section>
+
+      <AnimatePresence initial={false}>
+        {showFirstRead ? (
+          <FirstReadSlip firstRead={firstRead} prefersReducedMotion={prefersReducedMotion} />
+        ) : null}
+      </AnimatePresence>
 
       <section className="cs-research-layer" aria-label="Research layer">
         <div className="cs-research-layer-head">

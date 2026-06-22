@@ -1408,6 +1408,148 @@ button {
   outline-offset: 2px;
 }
 
+.cs-first-read {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  gap: 13px;
+  margin: 0 12px 12px;
+  padding: 15px 16px 14px;
+  overflow: hidden;
+  border: 1px solid rgb(204 190 151 / 0.88);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.94), rgb(248 244 234 / 0.88)),
+    var(--color-plate);
+  box-shadow:
+    0 8px 22px rgb(44 36 19 / 0.055),
+    0 1px 0 rgb(255 255 255 / 0.82) inset;
+}
+
+.cs-first-read::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: rgb(110 92 158 / 0.58);
+  content: "";
+}
+
+.cs-first-read::after {
+  position: absolute;
+  right: 12px;
+  bottom: 9px;
+  width: 64px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.28));
+  content: "";
+}
+
+.cs-first-read-head,
+.cs-first-read-filed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.cs-first-read-head span,
+.cs-first-read-filed-stamp {
+  color: var(--color-seal);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.cs-first-read-head small,
+.cs-first-read-filed-meta {
+  color: rgb(23 26 31 / 0.58);
+  font: 670 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-first-read-body {
+  display: grid;
+  gap: 10px;
+}
+
+.cs-first-read-line {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.cs-first-read-line span {
+  color: rgb(23 26 31 / 0.52);
+  font: 700 10px/1.25 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-first-read-line p {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.36;
+}
+
+.cs-first-read-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 1px;
+}
+
+.cs-first-read-evidence span {
+  padding: 4px 7px 5px;
+  border: 1px solid rgb(110 92 158 / 0.18);
+  border-radius: 999px;
+  background: rgb(110 92 158 / 0.065);
+  color: rgb(72 62 100);
+  font-size: 10.5px;
+  font-weight: 690;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.cs-first-read-missing {
+  margin: 0;
+  color: rgb(23 26 31 / 0.62);
+  font-size: 12px;
+  font-weight: 590;
+  line-height: 1.35;
+}
+
+.cs-first-read-filed {
+  width: fit-content;
+  max-width: 100%;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 9px 7px 10px;
+  border: 1px solid rgb(110 92 158 / 0.20);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(244 239 228 / 0.62)),
+    rgb(110 92 158 / 0.045);
+}
+
+.cs-first-read-filed-stamp {
+  flex: 0 0 auto;
+  font-size: 12.5px;
+}
+
+.cs-first-read-filed-meta {
+  overflow: hidden;
+  max-width: 19rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cs-company-facts {
   position: relative;
   z-index: 1;
