@@ -29,13 +29,25 @@ type ResearchRunEventRow = {
   createdAt: Date;
 };
 
-function researchRunEventFromRow(row: ResearchRunEventRow): ResearchRunEvent {
+// Fail soft on a stored sectionId that no longer parses (taxonomy drift) rather than throwing and
+// failing the whole events query, matching the generation-trace read path.
+function researchRunEventFromRow(row: ResearchRunEventRow): ResearchRunEvent | null {
+  let sectionId: ResearchSectionId | null = null;
+  if (row.sectionId) {
+    const parsed = researchSectionIdSchema.safeParse(row.sectionId);
+    if (!parsed.success) {
+      console.warn("[repository] dropping research event with corrupt sectionId", { slug: row.slug, sectionId: row.sectionId });
+      return null;
+    }
+    sectionId = parsed.data;
+  }
+
   return {
     id: row.id,
     runId: row.runId,
     slug: row.slug,
     domain: row.domain,
-    sectionId: row.sectionId ? researchSectionIdSchema.parse(row.sectionId) : null,
+    sectionId,
     type: row.type,
     message: row.message,
     metadata: row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
@@ -95,7 +107,7 @@ export async function findResearchRunEventsBySlug(
     .orderBy(desc(researchRunEvents.createdAt))
     .limit(options.limit ?? 30);
 
-  return rows.map(researchRunEventFromRow);
+  return rows.flatMap((row) => researchRunEventFromRow(row) ?? []);
 }
 
 export async function findResearchRunEventsByRunId(
@@ -120,5 +132,5 @@ export async function findResearchRunEventsByRunId(
     .orderBy(desc(researchRunEvents.createdAt))
     .limit(options.limit ?? 12);
 
-  return rows.map(researchRunEventFromRow);
+  return rows.flatMap((row) => researchRunEventFromRow(row) ?? []);
 }

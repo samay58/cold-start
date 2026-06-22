@@ -154,6 +154,9 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
 
   for (const row of sectionRows) {
     const section = researchSectionFromRow(row);
+    if (!section) {
+      continue;
+    }
     sectionsBySlug.set(section.slug, [...(sectionsBySlug.get(section.slug) ?? []), section]);
   }
 

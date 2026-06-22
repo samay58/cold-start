@@ -29,7 +29,7 @@ export async function findResearchSectionsBySlug(db: ColdStartDb, slug: string):
     .from(researchSections)
     .where(eq(researchSections.slug, slug));
 
-  return rows.map(researchSectionFromRow);
+  return rows.flatMap((row) => researchSectionFromRow(row) ?? []);
 }
 
 export async function upsertResearchSection(db: ColdStartDb, section: ResearchSection): Promise<ResearchSection | null> {
