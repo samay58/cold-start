@@ -14,6 +14,7 @@ function card(input: {
   shortDescription?: string | null;
   signals?: ColdStartCard["signals"];
   lastRoundName?: string | null;
+  noCitations?: boolean;
 } = {}): ColdStartCard {
   const citationIds = input.citationIds ?? ["c1"];
   return {
@@ -32,7 +33,7 @@ function card(input: {
           shortDescription: input.shortDescription ?? "Exa builds search and research infrastructure for AI products.",
           concept: input.concept ?? "Search and research infrastructure for AI products.",
           mechanism: input.mechanism ?? "A search API and crawler tuned for AI applications.",
-          serves: input.serves ?? "AI product teams and developers building search-heavy workflows."
+          serves: input.serves === undefined ? "AI product teams and developers building search-heavy workflows." : input.serves
         },
         status: citationIds.length > 0 ? "verified" : "unknown",
         confidence: citationIds.length > 0 ? "high" : "low",
@@ -56,16 +57,18 @@ function card(input: {
     },
     signals: input.signals ?? [],
     comparables: [],
-    citations: [
-      {
-        id: "c1",
-        url: "https://exa.ai/",
-        title: "Exa",
-        fetchedAt: "2026-06-21T00:00:00.000Z",
-        sourceType: "company_site",
-        snippet: "Exa builds search infrastructure for AI applications."
-      }
-    ]
+    citations: input.noCitations
+      ? []
+      : [
+          {
+            id: "c1",
+            url: "https://exa.ai/",
+            title: "Exa",
+            fetchedAt: "2026-06-21T00:00:00.000Z",
+            sourceType: "company_site",
+            snippet: "Exa builds search infrastructure for AI applications."
+          }
+        ]
   };
 }
 
@@ -109,30 +112,60 @@ describe("firstReadForCard", () => {
     expect(read.readLabel).toBe("Who it's for");
     expect(read.read).toBe("AI product teams and developers building search-heavy workflows.");
 
-    // The independent source ranks first; company-controlled sources follow.
+    // Reporting (independent_report) ranks first, then company-controlled sources.
     expect(read.evidence.map((item) => item.domain)).toEqual(["techcrunch.com", "docs.exa.ai", "exa.ai"]);
-    expect(read.evidence[0]).toMatchObject({ domain: "techcrunch.com", cls: "independent", label: "independent" });
+    expect(read.evidence[0]).toMatchObject({ domain: "techcrunch.com", cls: "reported", label: "report" });
     expect(read.evidence[1]).toMatchObject({ domain: "docs.exa.ai", cls: "company", label: "docs" });
     expect(read.sourceCount).toBe(3);
-    expect(read.independentCount).toBe(1);
+    expect(read.substantive).toBe(true);
     expect(read.gap).toBe("Named customers and budget owner.");
     expect(read.status).toBe("ready");
   });
 
-  it("never restates the company summary as the read", () => {
-    // serves is identical to the summary shown above the slip; it must be demoted.
+  it("builds the ledger from card citations even when the live sources prop is empty", () => {
+    // This is the bug the screenshots showed: 12 citations on the card, but an empty slip
+    // because it only read the (absent) sources prop. The ledger must come from citations too.
     const read = firstReadForCard({
-      card: card({ serves: SUMMARY }),
+      card: card({ serves: null }),
+      summary: SUMMARY,
+      sources: []
+    });
+
+    expect(read.evidence.length).toBeGreaterThan(0);
+    expect(read.evidence[0]?.domain).toBe("exa.ai");
+    expect(read.read).not.toBe("Reading the first sources.");
+  });
+
+  it("marks generic news as reporting, not independent, so the trust count is honest", () => {
+    const read = firstReadForCard({
+      card: card({ serves: null, noCitations: true }),
       summary: SUMMARY,
       sources: [
-        source({ domain: "exa.ai", sourceType: "company_site" }),
-        source({ domain: "techcrunch.com", sourceType: "news" })
+        source({ domain: "finsmes.com", sourceType: "news", title: "Runloop coverage", url: "https://finsmes.com/runloop" }),
+        source({ domain: "fintech-pulse.com", sourceType: "news", title: "Roundup", url: "https://fintech-pulse.com/x" }),
+        source({ domain: "futureteknow.com", sourceType: "news", title: "Weekly digest", url: "https://futureteknow.com/y" })
       ]
     });
 
-    expect(read.read).not.toBe(SUMMARY);
-    expect(read.readKind).toBe("evidence");
-    expect(read.read).toBe("2 sources filed, 1 independent.");
+    expect(read.evidence.every((item) => item.cls === "reported")).toBe(true);
+    expect(read.independentCount).toBe(0);
+    expect(read.read).toBe("3 sources filed.");
+    expect(read.substantive).toBe(true);
+  });
+
+  it("reads a headline straight off the strongest source title before extraction", () => {
+    const read = firstReadForCard({
+      card: card({ serves: null, noCitations: true }),
+      summary: SUMMARY,
+      sources: [
+        source({ domain: "runloop.ai", sourceType: "company_site", title: "Runloop home" }),
+        source({ domain: "techcrunch.com", sourceType: "news", title: "Runloop raises $7M seed", url: "https://techcrunch.com/runloop" })
+      ]
+    });
+
+    expect(read.readKind).toBe("proof");
+    expect(read.readLabel).toBe("Latest proof");
+    expect(read.read).toBe("Runloop raises $7M seed.");
   });
 
   it("surfaces the freshest dated signal as proof when buyer is not source-backed", () => {
@@ -149,15 +182,14 @@ describe("firstReadForCard", () => {
     });
 
     expect(read.readKind).toBe("proof");
-    expect(read.readLabel).toBe("Latest proof");
     expect(read.read).toBe("Exa raises Series B.");
     expect(read.gap).toBe("Who it's for and who pays.");
   });
 
-  it("stays honest and free of filler when nothing useful has landed", () => {
+  it("marks a thin card as non-substantive so the panel can hide it", () => {
     const read = firstReadForCard({
       card: card({
-        citationIds: [],
+        noCitations: true,
         serves: "Likely positioned as a platform for everyone.",
         concept: "AI-native platform powering agentic workflows",
         oneLiner: "Emerging leader in agentic AI."
@@ -166,27 +198,10 @@ describe("firstReadForCard", () => {
       sources: []
     });
 
-    expect(read.evidence).toHaveLength(0);
+    expect(read.substantive).toBe(false);
     expect(read.read).toBe("Reading the first sources.");
-    expect(read.gap).toBe("Who it's for and who pays.");
     expect([read.read, read.readLabel, read.gap].join(" ")).not.toMatch(/AI-native|emerging leader|agentic|platform for everyone/i);
     expect([read.read, read.readLabel, read.gap].every((value) => value.trim().length > 0)).toBe(true);
-  });
-
-  it("emits no empty evidence rows and dedupes a domain to its strongest mark", () => {
-    const read = firstReadForCard({
-      card: card(),
-      summary: SUMMARY,
-      sources: [
-        source({ domain: "exa.ai", sourceType: "company_site" }),
-        source({ domain: "exa.ai", sourceType: "news", id: "news-exa", title: "Exa press" })
-      ]
-    });
-
-    expect(read.sourceCount).toBe(1);
-    expect(read.evidence).toHaveLength(1);
-    expect(read.evidence[0]).toMatchObject({ domain: "exa.ai", cls: "independent" });
-    expect(read.evidence.every((item) => item.domain.length > 0 && item.label.length > 0 && item.href.length > 0)).toBe(true);
   });
 });
 

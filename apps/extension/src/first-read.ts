@@ -1,6 +1,10 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { sourceQualityForSource, sourceQualityRank, type ColdStartCard, type SourceQualityTier } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { currentProfileProgressEvents } from "./research-progress";
+
+// First Read works off a unified source list: the live `sources` prop when present, plus the
+// card's own citations (always available). A normalized shape lets both feed evidence + proof.
+type FirstReadSourceLike = { id: string; url: string; title: string; sourceType: ColdStartCard["citations"][number]["sourceType"] };
 
 // First Read is a temporary, source-backed evidence slip. It must read as the delta
 // over the company overview, never a restatement of it: what evidence has actually
@@ -26,20 +30,22 @@ export type FirstRead = {
   sourceCount: number;
   independentCount: number;
   gap: string;
+  // True only when the slip has something concrete to say: a source-backed buyer read,
+  // a real proof headline, or a real evidence trail. The panel hides First Read until this
+  // is true so it never appears as a "still generating / don't know yet" filler card.
+  substantive: boolean;
   status: "ready";
 };
+
+// Headline-shaped titles we can surface as proof straight from a source, before any LLM
+// extraction. Matches funding/launch/M&A language, not a company's homepage tagline.
+const newsworthyTitlePattern = /\b(raise[sd]?|raising|funding|seed|series\s+[a-z]\b|round|\$[\d.]|\d+\s*(?:m|mn|million|b|bn|billion)\b|backed by|valuation|valued at|acqui(?:re[sd]?|sition)|launch(?:e[sd])?|unveil[sed]*|announce[sd]?|partner(?:s|ed)?\s+with|going public|ipo)\b/i;
 
 const fillerPattern = /\b(ai-native|agentic|emerging leader|next[-\s]?generation|platform for everyone|all-in-one|end-to-end|revolutionizing|transforming|unlocking)\b/i;
 const boilerplatePattern = /\b(platform|solution)\s+(for|that)\s+(everyone|businesses of all sizes)\b/i;
 
 const firstReadFiledEventTypes = new Set(["card.saved", "card.enriched"]);
 const firstReadPendingEventTypes = new Set(["card.partial"]);
-
-const markClassRank: Record<FirstReadMarkClass, number> = {
-  independent: 0,
-  company: 1,
-  reported: 2
-};
 
 function latestProfileRunEvents(events: ExtensionResearchRunEvent[]) {
   return currentProfileProgressEvents(events);
@@ -98,62 +104,96 @@ function hasCitations(citationIds: string[] | undefined) {
   return (citationIds?.length ?? 0) > 0;
 }
 
-function sourceLooksLikeDocs(source: Pick<ExtensionSourceSummary, "domain" | "snippet" | "title" | "url">) {
-  const text = `${source.domain} ${source.title} ${source.snippet} ${source.url}`.toLowerCase();
-  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text);
-}
-
-function evidenceMarkForSource(source: ExtensionSourceSummary): { label: string; cls: FirstReadMarkClass } {
-  switch (source.sourceType) {
-    case "filing":
-      return { label: "filing", cls: "independent" };
-    case "news":
-      return { label: "independent", cls: "independent" };
-    case "company_site":
-      return sourceLooksLikeDocs(source) ? { label: "docs", cls: "company" } : { label: "company", cls: "company" };
-    case "github":
-      return { label: "code", cls: "company" };
-    case "enrichment":
-    case "rdap":
-      return { label: "database", cls: "reported" };
-    default:
-      return { label: "reported", cls: "reported" };
+function domainFromUrl(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return "";
   }
 }
 
-function buildEvidence(sources: ExtensionSourceSummary[]) {
-  const byDomain = new Map<string, FirstReadEvidence>();
+function looksLikeDocs(source: FirstReadSourceLike) {
+  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(`${source.title} ${source.url}`.toLowerCase());
+}
+
+// Classify by core's source-quality tier rather than raw sourceType, so a tertiary aggregator
+// (independent_report) is honestly marked as reporting, not promoted to the green independent
+// class. Only genuine independent technical/analysis sources earn "independent".
+function markForTier(tier: SourceQualityTier, source: FirstReadSourceLike): { label: string; cls: FirstReadMarkClass } {
+  switch (tier) {
+    case "independent_technical":
+      return { label: "technical", cls: "independent" };
+    case "independent_analysis":
+      return { label: "analysis", cls: "independent" };
+    case "independent_report":
+      return { label: "report", cls: "reported" };
+    case "primary_company":
+      return { label: looksLikeDocs(source) ? "docs" : "company", cls: "company" };
+    case "press_release":
+      return { label: "PR", cls: "reported" };
+    case "enrichment":
+      return { label: "database", cls: "reported" };
+    default:
+      return { label: "source", cls: "reported" };
+  }
+}
+
+function unifiedSources(card: ColdStartCard, sources: ExtensionSourceSummary[]): FirstReadSourceLike[] {
+  const live = sources.map((source) => ({ id: source.id, url: source.url, title: source.title, sourceType: source.sourceType }));
+  const cited = (card.citations ?? []).map((citation) => ({
+    id: citation.id,
+    url: citation.url,
+    title: citation.title,
+    sourceType: citation.sourceType
+  }));
+  return [...live, ...cited];
+}
+
+function buildEvidence(sources: FirstReadSourceLike[]) {
+  const byDomain = new Map<string, FirstReadEvidence & { rank: number }>();
 
   for (const source of sources) {
-    const domain = source.domain?.toLowerCase().replace(/^www\./, "").trim();
+    const domain = domainFromUrl(source.url);
     if (!domain) {
       continue;
     }
 
-    const mark = evidenceMarkForSource(source);
-    const candidate: FirstReadEvidence = {
-      id: source.id,
-      domain,
-      label: mark.label,
-      cls: mark.cls,
-      href: source.url
-    };
+    const tier = sourceQualityForSource(source).tier;
+    const mark = markForTier(tier, source);
+    const rank = sourceQualityRank(source);
+    const candidate = { id: source.id, domain, label: mark.label, cls: mark.cls, href: source.url, rank };
     const existing = byDomain.get(domain);
-    // Keep the strongest classification when one domain appears as several sources.
-    if (!existing || markClassRank[candidate.cls] < markClassRank[existing.cls]) {
+    // Keep the strongest source when one domain appears more than once.
+    if (!existing || rank > existing.rank) {
       byDomain.set(domain, candidate);
     }
   }
 
   const ordered = [...byDomain.values()].sort(
-    (left, right) => markClassRank[left.cls] - markClassRank[right.cls] || left.domain.localeCompare(right.domain)
+    (left, right) => right.rank - left.rank || left.domain.localeCompare(right.domain)
   );
 
   return {
-    evidence: ordered.slice(0, 4),
+    evidence: ordered.slice(0, 4).map(({ rank: _rank, ...item }) => item),
     sourceCount: ordered.length,
     independentCount: ordered.filter((item) => item.cls === "independent").length
   };
+}
+
+// A headline read straight off the strongest source title, before any LLM extraction. This is
+// what makes the early state useful: "Runloop raises $7M seed" beats "11 sources filed".
+function proofReadFromSources(sources: FirstReadSourceLike[]) {
+  const ranked = sources
+    .filter((source) => source.title && newsworthyTitlePattern.test(source.title))
+    .sort((left, right) => sourceQualityRank(right) - sourceQualityRank(left));
+
+  for (const source of ranked) {
+    const headline = normalizeText(source.title);
+    if (headline) {
+      return headline;
+    }
+  }
+  return null;
 }
 
 function buyerReadForCard(card: ColdStartCard) {
@@ -200,7 +240,8 @@ export function firstReadForCard({
   sources?: ExtensionSourceSummary[];
   summary?: string;
 }): FirstRead {
-  const { evidence, sourceCount, independentCount } = buildEvidence(sources);
+  const unified = unifiedSources(card, sources);
+  const { evidence, sourceCount, independentCount } = buildEvidence(unified);
   const buyer = buyerReadForCard(card);
   const buyerProven = buyer !== null;
 
@@ -213,13 +254,18 @@ export function firstReadForCard({
     readKind = "buyer";
     readLabel = "Who it's for";
   } else {
-    const proof = proofReadForCard(card);
+    // Prefer a dated signal headline, then a headline read straight off the strongest source.
+    const proof = proofReadForCard(card) ?? proofReadFromSources(unified);
     if (proof && !isNearDuplicate(proof, summary)) {
       read = proof;
       readKind = "proof";
       readLabel = "Latest proof";
     }
   }
+
+  // The slip is worth showing only when it carries a real read or a real evidence trail.
+  // A bare "reading the first sources" with nothing filed is not a payoff, so it stays hidden.
+  const substantive = readKind !== "evidence" || evidence.length >= 3;
 
   return {
     read,
@@ -229,6 +275,7 @@ export function firstReadForCard({
     sourceCount,
     independentCount,
     gap: gapForCard(card, buyerProven),
+    substantive,
     status: "ready"
   };
 }

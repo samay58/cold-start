@@ -1426,15 +1426,15 @@ button {
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
-/* Signature: a single seal hairline. The filed-slip mark, not a left ribbon. */
-.cs-first-read::after {
+/* Signature: a single seal hairline that draws on entrance. The filed-slip mark, not a ribbon. */
+.cs-first-read-seal {
   position: absolute;
   right: 14px;
   bottom: 10px;
   width: 56px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.3));
-  content: "";
+  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.42));
+  transform-origin: right center;
 }
 
 .cs-first-read-head,

@@ -349,27 +349,48 @@ function FirstReadSlip({
     : sourceLabel(firstRead.sourceCount);
   const hiddenSources = firstRead.sourceCount - firstRead.evidence.length;
 
+  const reduce = prefersReducedMotion;
+  // Spring in, then file each block with a short stagger, like a slip dropping into a folder.
+  const section = reduce
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12, ease: "easeOut" as const } }
+    : {
+        initial: "hidden" as const,
+        animate: "show" as const,
+        exit: { opacity: 0, y: -16, scale: 0.94, transition: { duration: 0.3, ease: motionTokens.easeOut } },
+        variants: {
+          hidden: { opacity: 0, y: 12, scale: 0.985 },
+          show: { opacity: 1, y: 0, scale: 1, transition: { ...commitSpring, staggerChildren: 0.05, delayChildren: 0.04 } }
+        }
+      };
+  const block = reduce ? {} : { variants: { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: snapSpring } } };
+
   return (
     <motion.section
       aria-label="First read"
-      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       className="cs-first-read"
-      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -18 }}
-      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.985, y: 10 }}
       layout
       layoutId="first-read-filed-slip"
-      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.56, ease: [0.21, 1, 0.35, 1] }}
+      {...section}
     >
-      <header className="cs-first-read-head">
+      {reduce ? (
+        <span className="cs-first-read-seal" aria-hidden="true" />
+      ) : (
+        <motion.span
+          className="cs-first-read-seal"
+          aria-hidden="true"
+          variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1, transition: { ...commitSpring, delay: 0.16 } } }}
+        />
+      )}
+      <motion.header className="cs-first-read-head" {...block}>
         <span className="cs-first-read-title">First read</span>
         <span className="cs-first-read-flag">Still filing</span>
-      </header>
-      <p className="cs-first-read-read" data-kind={firstRead.readKind}>
+      </motion.header>
+      <motion.p className="cs-first-read-read" data-kind={firstRead.readKind} {...block}>
         <span className="cs-first-read-read-label">{firstRead.readLabel}</span>
         {firstRead.read}
-      </p>
+      </motion.p>
       {firstRead.evidence.length > 0 ? (
-        <div className="cs-first-read-ledger" aria-label="Sources filed so far">
+        <motion.div className="cs-first-read-ledger" aria-label="Sources filed so far" {...block}>
           <div className="cs-first-read-ledger-head">
             <span>Filed so far</span>
             <span>{ledgerCount}</span>
@@ -386,14 +407,14 @@ function FirstReadSlip({
               <li className="cs-first-read-ledger-more">{`+${hiddenSources} more filed`}</li>
             ) : null}
           </ul>
-        </div>
+        </motion.div>
       ) : (
-        <p className="cs-first-read-ledger-empty">Filing the first sources.</p>
+        <motion.p className="cs-first-read-ledger-empty" {...block}>Filing the first sources.</motion.p>
       )}
-      <p className="cs-first-read-gap">
+      <motion.p className="cs-first-read-gap" {...block}>
         <span className="cs-first-read-gap-label">Not yet proven</span>
         {firstRead.gap}
-      </p>
+      </motion.p>
     </motion.section>
   );
 }
@@ -1524,7 +1545,9 @@ export function ResearchLayerPanel({
   const firstRead = firstReadForCard({ card, events, sources, summary });
   const firstReadFiled = firstReadIsFiled(events);
   const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || firstReadIsPending(events));
-  const showFirstRead = firstReadShouldPayoff && !firstReadFiled;
+  // Only surface First Read once it has something concrete to say. Otherwise it reads as a
+  // "still generating / don't know yet" filler card, which is worse than the calm progress panel.
+  const showFirstRead = firstReadShouldPayoff && !firstReadFiled && firstRead.substantive;
   const showFiledFirstRead = firstReadFiled;
   const firstReadSourceCount = filedSourceCount(events, sources);
 

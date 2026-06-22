@@ -181,9 +181,9 @@ describe("ResearchLayerPanel first read", () => {
     expect(firstRead?.textContent).toContain("First read");
     // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
+    expect(firstRead?.textContent).toContain("Who it's for");
     expect(firstRead?.textContent).toContain("Filed so far");
     expect(firstRead?.textContent).toContain("techcrunch.com");
-    expect(firstRead?.textContent).toContain("independent");
     expect(firstRead?.textContent).toContain("Not yet proven");
     // Never restates the company summary sentence shown in the header above it.
     expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
