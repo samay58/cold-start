@@ -449,6 +449,23 @@ describe("POST /api/generate", () => {
     expect(mocks.createDb).not.toHaveBeenCalled();
   });
 
+  it("rejects synthesis-only sections (risks, the_case) as standalone section jobs", async () => {
+    for (const sectionId of ["risks", "the_case"]) {
+      const response = await POST(
+        generateRequest("cartesia.ai", {
+          sectionId,
+          confirmStart: true,
+          extensionAuth: true
+        })
+      );
+
+      const body = (await response.json()) as { error?: string };
+      expect(response.status).toBe(400);
+      expect(body.error).toContain("cannot run as a standalone section job");
+    }
+    expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
   it("requires confirmation for extension-authenticated public section generation", async () => {
     const response = await POST(
       generateRequest("cartesia.ai", {

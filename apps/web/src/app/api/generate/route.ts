@@ -4,6 +4,7 @@ import {
   companySlugFromDomain,
   researchSectionJobKind,
   hasUsablePublicProfile,
+  isSynthesisOnlySectionId,
   researchSectionIdSchema,
   type GenerationJobKind,
   type ResearchSectionId
@@ -53,7 +54,12 @@ function parseSectionId(input: unknown): ResearchSectionId | null {
     return null;
   }
 
-  return researchSectionIdSchema.parse(input);
+  const sectionId = researchSectionIdSchema.parse(input);
+  if (isSynthesisOnlySectionId(sectionId)) {
+    throw new Error(`section ${sectionId} renders from synthesis and cannot run as a standalone section job`);
+  }
+
+  return sectionId;
 }
 
 function modeForSection(sectionId: ResearchSectionId): GenerationMode {

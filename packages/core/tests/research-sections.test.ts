@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "../src/index";
 import {
   RESEARCH_SECTION_DEFINITIONS,
+  SYNTHESIS_ONLY_SECTION_IDS,
   deriveLegacyResearchSectionsFromCard,
+  isSynthesisOnlySectionId,
   mergeStoredResearchSectionsWithLegacy,
   researchSectionJobKind,
   researchSectionSchema
@@ -107,6 +109,14 @@ describe("research section registry", () => {
   it("keeps section generation job kinds in the section registry", () => {
     expect(researchSectionJobKind("market")).toBe("section:market");
     expect(researchSectionJobKind("why_it_matters")).toBe("section:why_it_matters");
+  });
+
+  it("marks the synthesis-rendered sections as off-limits for standalone dispatch", () => {
+    expect([...SYNTHESIS_ONLY_SECTION_IDS]).toEqual(["risks", "the_case"]);
+    expect(isSynthesisOnlySectionId("risks")).toBe(true);
+    expect(isSynthesisOnlySectionId("the_case")).toBe(true);
+    expect(isSynthesisOnlySectionId("market")).toBe(false);
+    expect(isSynthesisOnlySectionId("why_it_matters")).toBe(false);
   });
 
   it("derives compatible section state from an existing card", () => {

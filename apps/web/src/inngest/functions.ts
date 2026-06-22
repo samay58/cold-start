@@ -7,6 +7,7 @@ import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionJobKind,
   hasInvestorUsableProfile,
+  isSynthesisOnlySectionId,
   researchSectionIdSchema,
   type ResearchSectionId
 } from "@cold-start/core";
@@ -334,6 +335,10 @@ function parseEventSectionId(input: unknown): ResearchSectionId | null {
   const parsed = researchSectionIdSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(`invalid research section id: ${String(input).slice(0, 80)}`);
+  }
+
+  if (isSynthesisOnlySectionId(parsed.data)) {
+    throw new Error(`section ${parsed.data} renders from synthesis and cannot run as a standalone section job`);
   }
 
   return parsed.data;

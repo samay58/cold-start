@@ -207,8 +207,9 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     emptyState: "No supported risks or diligence questions found yet.",
     generationPrompt: prompt("Write Risks & Diligence. Find what could break the case: adoption, budget owner, procurement friction, competition, technical risk, margin pressure, regulation, customer concentration, platform dependency, funding/runway, or unclear proof. Do not write generic risks. Every risk must point to evidence or missing evidence. Do not default to ARR or revenue-not-public unless that is the most specific uncertainty for this company. Return up to 4 risks.")
   },
-  // The Case renders from card.synthesis (bull + bear) in the surfaces, so this section is
-  // never generated or derived; its generationPrompt is a latent fallback only.
+  // The Case renders from card.synthesis (bull + bear) in the surfaces, never from a per-section
+  // run, so it is blocked from standalone dispatch (SYNTHESIS_ONLY_SECTION_IDS) and is neither
+  // generated nor derived. Its generationPrompt is a latent fallback only.
   {
     id: "the_case",
     layerId: "theCase",
@@ -242,6 +243,15 @@ export function layerIdForSection(id: ResearchSectionId): ResearchLayerId {
 
 export function researchSectionJobKind(id: ResearchSectionId): GenerationJobKind {
   return `section:${id}`;
+}
+
+// risks (Open Questions) and the_case (The Case) render from card.synthesis, produced by the
+// full investor-lens run, never from a per-section run. They stay valid section ids for storage
+// and layer mapping, but must never be dispatched as standalone section jobs.
+export const SYNTHESIS_ONLY_SECTION_IDS: readonly ResearchSectionId[] = ["risks", "the_case"];
+
+export function isSynthesisOnlySectionId(id: ResearchSectionId): boolean {
+  return SYNTHESIS_ONLY_SECTION_IDS.includes(id);
 }
 
 export function researchSectionIdsForVisibility(visibility: ResearchSectionVisibility): ResearchSectionId[] {
