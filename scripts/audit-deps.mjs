@@ -50,7 +50,12 @@ const allowedAdvisorySources = new Set([
   1120911,
   1120913,
   1120921,
-  1120922
+  1120922,
+  // Vercel CLI's @vercel/node hard-pins undici 5.x; keep visible until upstream moves to 6.27+.
+  1121242,
+  1121245,
+  1121250,
+  1121255
 ]);
 
 const result = spawnSync("npm", ["audit", "--omit=dev", "--json"], {

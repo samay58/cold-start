@@ -4,7 +4,7 @@ import { hasUsablePublicProfile } from "@cold-start/core";
 import { prepareCardForStorage, preserveExistingBasics, underfilledBasicsErrorMessage } from "../src/inngest/card-storage";
 
 describe("preserveExistingBasics", () => {
-  it("keeps existing synthesis when a basics refresh rewrites public facts", () => {
+  it("drops existing synthesis when a basics refresh rewrites public facts", () => {
     const existing = {
       ...buildSkeletonCard("cognition.ai"),
       synthesis: {
@@ -16,7 +16,7 @@ describe("preserveExistingBasics", () => {
     };
     const next = buildSkeletonCard("cognition.ai");
 
-    expect(preserveExistingBasics(existing, next).synthesis).toEqual(existing.synthesis);
+    expect(preserveExistingBasics(existing, next).synthesis).toBeUndefined();
   });
 
   it("uses fresh synthesis when an analysis run produces one", () => {

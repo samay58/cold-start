@@ -32,7 +32,7 @@ export function preserveExistingBasics(existing: ColdStartCard | null, next: Col
 
   const citations = new Map(existing.citations.map((citation) => [citation.id, citation]));
   next.citations.forEach((citation) => citations.set(citation.id, citation));
-  const synthesis = next.synthesis ?? existing.synthesis;
+  const synthesis = next.synthesis;
   const websiteUrl = preserveOptionalFact(existing.identity.websiteUrl, next.identity.websiteUrl);
   const linkedinUrl = preserveOptionalFact(existing.identity.linkedinUrl, next.identity.linkedinUrl);
   const description = preserveOptionalFact(existing.identity.description, next.identity.description);
