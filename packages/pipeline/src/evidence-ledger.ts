@@ -106,7 +106,7 @@ function authorityScore(source: ProviderSource, domain: string) {
   };
   const qualityRank = sourceQualityRank(source);
   const hostBonus = source.sourceType !== "company_site" && sourceHostMatchesDomain(source.url, domain) ? 1 : 0;
-  const intentBonus = source.intent === "funding" || source.intent === "independent_analysis" ? 1 : 0;
+  const intentBonus = source.intent === "funding" ? 1 : 0;
 
   return base[source.sourceType] + hostBonus + intentBonus + qualityRank;
 }

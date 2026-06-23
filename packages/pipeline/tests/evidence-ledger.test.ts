@@ -89,4 +89,31 @@ describe("buildEvidenceLedger", () => {
     expect(ledger[0]?.url).toBe("https://www.finextra.com/pressarticle/hanover-park-profile");
     expect(ledger[1]?.url).toBe("https://hanoverpark.com");
   });
+
+  it("does not let investor-authored analysis tie stronger independent judgment through intent bonuses", () => {
+    const ledger = buildEvidenceLedger({
+      domain: "notion.so",
+      sources: [
+        {
+          url: "https://firstmark.com/story/notion-market-map",
+          title: "Notion market map",
+          sourceType: "news",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "An investor-authored market map mentions Notion and the broader productivity market.",
+        },
+        {
+          url: "https://sacrainsights.com/company/notion",
+          title: "Notion revenue analysis",
+          sourceType: "news",
+          fetchedAt: "2026-05-19T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Sacra analyzes Notion revenue, customers, product strategy, and market position.",
+        },
+      ],
+    });
+
+    expect(ledger[0]?.url).toBe("https://sacrainsights.com/company/notion");
+    expect(ledger[1]?.url).toBe("https://firstmark.com/story/notion-market-map");
+  });
 });

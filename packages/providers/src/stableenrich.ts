@@ -222,8 +222,10 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_independent_analysis",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.independentAnalysis ?? `${domain} independent analysis Sacra blog market map deep dive`,
-        numResults: 4,
+        query:
+          queries?.independentAnalysis ??
+          `${domain} independent analysis market map deep dive analyst report technical benchmark expert transcript investor research revenue funding traction customers`,
+        numResults: 6,
       },
     },
     {

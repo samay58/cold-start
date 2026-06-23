@@ -1,4 +1,5 @@
 import type { Citation } from "./card";
+import { sourceAuthorityCategoriesForHost } from "./source-authority";
 
 export type SourceQualityTier =
   | "independent_technical"
@@ -17,23 +18,6 @@ export type SourceQuality = {
 };
 
 type SourceQualityInput = Pick<Citation, "url" | "title" | "sourceType">;
-
-const independentTechnicalHosts = [
-  "substack.com",
-  "sacrainsights.com",
-  "stratechery.com",
-  "latentspace.ai",
-  "interconnects.ai",
-  "newsletter.pragmaticengineer.com",
-];
-
-const pressReleaseHosts = [
-  "prnewswire.com",
-  "businesswire.com",
-  "globenewswire.com",
-  "accesswire.com",
-  "einpresswire.com",
-];
 
 export function sourceQualityTierRank(tier: SourceQualityTier): number {
   const rank: Record<SourceQualityTier, number> = {
@@ -55,6 +39,7 @@ export function sourceQualityRank(source: SourceQualityInput): number {
 
 export function sourceQualityForSource(source: SourceQualityInput): SourceQuality {
   const hostname = hostnameForUrl(source.url);
+  const categories = new Set(sourceAuthorityCategoriesForHost(hostname));
   const searchable = `${source.url} ${source.title}`.toLowerCase();
 
   if (source.sourceType === "enrichment") {
@@ -66,7 +51,7 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
     };
   }
 
-  if (pressReleaseHosts.some((host) => hostname.endsWith(host)) || /\bpress release\b/.test(searchable)) {
+  if (categories.has("pressRelease") || /\bpress release\b/.test(searchable)) {
     return {
       tier: "press_release",
       label: "Company PR",
@@ -75,10 +60,79 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
     };
   }
 
-  if (
-    independentTechnicalHosts.some((host) => hostname.endsWith(host)) ||
-    /\b(technical deep dive|architecture|benchmark|teardown|field notes)\b/.test(searchable)
-  ) {
+  if (categories.has("specialistTechnical")) {
+    return {
+      tier: "independent_technical",
+      label: "Independent technical",
+      rationale: "Technically grounded third-party source with less incentive to launder company positioning.",
+      incentive: "Editorial or analyst judgment.",
+    };
+  }
+
+  if (categories.has("publicRecord")) {
+    return {
+      tier: "independent_report",
+      label: "Public record",
+      rationale: "Primary public record or regulator-published source. Strong for facts, not interpretation.",
+      incentive: "Regulated or public-interest disclosure.",
+    };
+  }
+
+  if (categories.has("specialistAnalysis") || categories.has("analystResearch")) {
+    return {
+      tier: "independent_analysis",
+      label: "Independent analysis",
+      rationale: "Third-party framing source. Useful for market structure and category judgment.",
+      incentive: "Editorial or analyst judgment.",
+    };
+  }
+
+  if (categories.has("ventureFirm")) {
+    return {
+      tier: "independent_report",
+      label: "Investor-authored",
+      rationale: "Useful for market framing, funding context, and thesis context. Not neutral evaluation.",
+      incentive: "Investor and portfolio incentives.",
+    };
+  }
+
+  if (categories.has("expertTranscript")) {
+    return {
+      tier: "independent_report",
+      label: "Expert transcript",
+      rationale: "Useful for operator, investor, or expert context. Treat statements as interview evidence, not audited facts.",
+      incentive: "Guest, host, and editorial incentives.",
+    };
+  }
+
+  if (categories.has("communitySignal")) {
+    return {
+      tier: "independent_report",
+      label: "Community signal",
+      rationale: "Useful for practitioner sentiment and early technical adoption signals. Needs corroboration.",
+      incentive: "Community discussion and anecdotal incentives.",
+    };
+  }
+
+  if (categories.has("reputableReporting") || categories.has("professionalAndFundingDatabase")) {
+    return {
+      tier: "independent_report",
+      label: "Independent report",
+      rationale: "Third-party reporting or database context.",
+      incentive: "Editorial, data-provider, or platform incentives.",
+    };
+  }
+
+  if (categories.has("developerPlatform")) {
+    return {
+      tier: "independent_report",
+      label: "Developer artifact",
+      rationale: "Useful technical artifact or ecosystem signal. Interpret authorship and repository ownership carefully.",
+      incentive: "Platform or repository incentives.",
+    };
+  }
+
+  if (/\b(technical deep dive|architecture|benchmark|teardown|field notes)\b/.test(searchable)) {
     return {
       tier: "independent_technical",
       label: "Independent technical",

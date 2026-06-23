@@ -1,24 +1,10 @@
-import type {
-  GenerationSourceRejection,
-  GenerationSourceRejectionReason,
-  GenerationSourceTrace
+import {
+  isTrustedSourceGateHost,
+  type GenerationSourceRejection,
+  type GenerationSourceRejectionReason,
+  type GenerationSourceTrace
 } from "@cold-start/core";
 import type { ProviderSource } from "@cold-start/providers";
-
-const trustedIndependentHosts = [
-  "techcrunch.com",
-  "businesswire.com",
-  "prnewswire.com",
-  "globenewswire.com",
-  "finsmes.com",
-  "crunchbase.com",
-  "linkedin.com",
-  "github.com",
-  "a16z.com",
-  "indexventures.com",
-  "sequoiacap.com",
-  "kleinerperkins.com"
-];
 
 export type SourceGateResult = {
   accepted: ProviderSource[];
@@ -124,12 +110,12 @@ function rootLabel(host: string) {
   return host.split(".")[0]?.replace(/[^a-z0-9]/g, "") ?? "";
 }
 
-function isTrustedIndependentHost(host: string) {
-  return trustedIndependentHosts.some((trusted) => host === trusted || host.endsWith(`.${trusted}`));
+function isTrustedSourceGateHostForAmbiguity(host: string) {
+  return isTrustedSourceGateHost(host);
 }
 
 function looksLikeWrongSameNameDomain(hostRoot: string, targetRoot: string, host: string) {
-  if (!hostRoot || !targetRoot || isTrustedIndependentHost(host)) {
+  if (!hostRoot || !targetRoot || isTrustedSourceGateHostForAmbiguity(host)) {
     return false;
   }
 

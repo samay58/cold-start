@@ -63,6 +63,19 @@ describe("buildStableenrichRequests", () => {
       query: expect.stringContaining("competitors alternatives"),
       numResults: 5,
     });
+    expect(requests[5]?.body).toMatchObject({
+      query: expect.stringContaining("independent analysis"),
+      numResults: 6,
+    });
+    expect(requests[5]?.body).toMatchObject({
+      query: expect.stringContaining("technical benchmark"),
+    });
+    expect(requests[5]?.body).toMatchObject({
+      query: expect.stringContaining("expert transcript"),
+    });
+    expect(requests[5]?.body).toMatchObject({
+      query: expect.stringContaining("investor research"),
+    });
     expect(requests[7]?.body).toEqual({ url: "https://cartesia.ai" });
     expect(requests[8]?.body).toEqual({ url: "https://cartesia.ai/about" });
     expect(requests[9]?.body).toEqual({ url: "https://cartesia.ai/team" });

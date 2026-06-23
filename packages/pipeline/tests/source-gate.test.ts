@@ -67,6 +67,127 @@ describe("filterSourcesForDomain", () => {
     expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
   });
 
+  it("keeps specialist independent analysis hosts that look name-adjacent to the target", () => {
+    const result = filterSourcesForDomain({
+      domain: "sacra.com",
+      sources: [
+        {
+          url: "https://sacrainsights.com/company/sacra",
+          title: "Sacra company profile",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "Sacra.com sells private-company revenue research and market data."
+        },
+        {
+          url: "https://sacradata.io/about",
+          title: "Sacra Data",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Sacra Data is a different company with a similar name."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual(["https://sacrainsights.com/company/sacra"]);
+    expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
+  });
+
+  it("keeps incentive-bearing VC firm analysis trusted for gating without relying on a tiny hand-picked firm list", () => {
+    const result = filterSourcesForDomain({
+      domain: "round.com",
+      sources: [
+        {
+          url: "https://firstround.com/review/how-round-com-built-its-early-team",
+          title: "How Round.com built its early team",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "Round.com used founder-led hiring to build its first product team."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual([
+      "https://firstround.com/review/how-round-com-built-its-early-team"
+    ]);
+  });
+
+  it("keeps independent benchmark sources instead of treating name overlap as a wrong company", () => {
+    const result = filterSourcesForDomain({
+      domain: "bench.com",
+      sources: [
+        {
+          url: "https://www.swebench.com/",
+          title: "SWE-bench Verified leaderboard",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "Bench.com is not the benchmark publisher, but benchmark results can still be useful context."
+        },
+        {
+          url: "https://benchly.io/about",
+          title: "Benchly",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Benchly is a different company with a similar name."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual(["https://www.swebench.com/"]);
+    expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
+  });
+
+  it("keeps high-signal newsletter and transcript sources without making every similar domain trusted", () => {
+    const result = filterSourcesForDomain({
+      domain: "view.com",
+      sources: [
+        {
+          url: "https://www.exponentialview.co/p/the-next-24-months-in-ai",
+          title: "The next 24 months in AI",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "View.com is mentioned as one example in the broader AI adoption market."
+        },
+        {
+          url: "https://viewdata.io/about",
+          title: "View Data",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "View Data is a different company with a similar name."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual([
+      "https://www.exponentialview.co/p/the-next-24-months-in-ai"
+    ]);
+    expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
+  });
+
+  it("keeps expert transcript sources in the shared authority registry wired into the gate", () => {
+    const result = filterSourcesForDomain({
+      domain: "loss.com",
+      sources: [
+        {
+          url: "https://colossus.com/article/inside-notion/",
+          title: "Inside Notion",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "Loss.com appears in the conversation as a customer example."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual(["https://colossus.com/article/inside-notion/"]);
+  });
+
   it("rejects trusted reporting when it is about a nearby but different company", () => {
     const result = filterSourcesForDomain({
       domain: "wabi.ai",
