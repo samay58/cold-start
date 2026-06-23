@@ -1,5 +1,5 @@
 import type { FirstPayoff } from "@cold-start/core";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, type Transition } from "framer-motion";
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
@@ -101,8 +101,8 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
   const animateIn = prefersReducedMotion
     ? { opacity: 1 }
     : { opacity: 1, scale: 1, y: 0 };
-  const transition = prefersReducedMotion
-    ? { duration: 0.12, ease: "easeOut" }
+  const transition: Transition = prefersReducedMotion
+    ? { duration: 0.12, ease: [0.16, 1, 0.3, 1] }
     : { type: "spring" as const, stiffness: 520, damping: 38, mass: 0.54 };
 
   return (
