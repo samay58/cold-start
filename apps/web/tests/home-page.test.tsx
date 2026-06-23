@@ -103,7 +103,7 @@ describe("HomePage", () => {
     mocks.getPublicProfileIndex.mockReset();
   });
 
-  it("renders a focused receipt landing page with curated examples", async () => {
+  it("renders a spare receipt landing page with curated examples", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([
       summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z"),
@@ -112,13 +112,19 @@ describe("HomePage", () => {
 
     const html = await renderHome();
 
-    expect(html).toContain("Company facts, with receipts.");
-    expect(html).toContain("Public facts. Private synthesis.");
-    expect(html).toContain("Every material claim cites a source.");
+    expect(html).toContain("Before the memo, check the receipt.");
+    expect(html).toContain("Public facts. Private judgment.");
+    expect(html).toContain("Open Browserbase");
     expect(html).toContain('href="/c/browserbase"');
     expect(html).toContain('href="/c/cartesia"');
-    expect(html).toContain("Browserbase builds sourced company context infrastructure.");
+    expect(html).toContain("Browserbase");
+    expect(html).toContain("Cartesia");
+    expect(html).not.toContain("Browserbase builds sourced company context infrastructure.");
     expect(html).not.toContain("ElevenLabs");
+    expect(html).not.toContain("Public receipt");
+    expect(html).not.toContain("Extension lens");
+    expect(html).not.toContain("Receipts worth opening.");
+    expect(html).not.toContain("Every material claim cites a source.");
     expect(html).not.toContain("Companies");
     expect(html).not.toContain("Search");
     expect(html).not.toContain("Sort");
@@ -133,9 +139,9 @@ describe("HomePage", () => {
 
     const html = await renderHome();
 
-    expect(html).toContain("Company facts, with receipts.");
+    expect(html).toContain("Before the memo, check the receipt.");
     expect(html).toContain("Request access");
-    expect(html).not.toContain("View example receipt");
+    expect(html).not.toContain("Open Browserbase");
     expect(html).not.toContain("ElevenLabs");
     expect(html).not.toContain("Examples");
     expect(html).not.toContain("Search");
