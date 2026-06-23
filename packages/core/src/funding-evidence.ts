@@ -1,4 +1,5 @@
 import type { Citation, ColdStartCard, ResolvedFact } from "./card";
+import { stripCitationMarkers } from "./citation-text";
 import { sourceQualityRank } from "./source-quality";
 
 export type CitationFundingEvidence = {
@@ -17,14 +18,6 @@ function normalizeCompanyTerm(value: string | null | undefined) {
     .replace(/^www\./, "")
     .replace(/\b(ai|inc|labs|company|corp|corporation|llc|ltd)\b/g, "")
     .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function stripCitationMarkers(text: string) {
-  return text
-    .replace(/\s*\[(?:c|C)?[\w.-]+(?:,\s*(?:c|C)?[\w.-]+)*\]/g, "")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\s{2,}/g, " ")
     .trim();
 }
 

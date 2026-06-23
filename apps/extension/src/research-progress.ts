@@ -1,3 +1,4 @@
+import { parseFirstPayoff, type FirstPayoff } from "@cold-start/core";
 import type { ExtensionResearchRunEvent } from "./extension-config";
 import type { ExtensionSourceSummary } from "./extension-config";
 
@@ -23,7 +24,7 @@ export type ResearchProgressStagePlan = ResearchProgressStage & {
 
 export const RESEARCH_PROGRESS_STAGES: ResearchProgressStage[] = [
   { label: "Sources", marker: "01", note: "Checking company, product, funding, and proof sources" },
-  { label: "Evidence", marker: "02", note: "Waiting for sources" },
+  { label: "Proof", marker: "02", note: "Waiting for sources" },
   { label: "Profile", marker: "03", note: "Waiting for evidence" },
   { label: "Filed", marker: "04", note: "Waiting for profile" }
 ];
@@ -229,6 +230,57 @@ function capitalizeFirst(value: string) {
   return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
 }
 
+const firstPayoffSourceClassRank: Record<FirstPayoff["evidenceSoFar"][number]["sourceClass"], number> = {
+  company_site: 0,
+  docs: 1,
+  funding: 2,
+  customer_proof: 3,
+  people: 4,
+  registry: 5,
+  news: 6,
+  database: 7,
+  jobs: 8,
+  other: 9
+};
+
+const firstPayoffSourceClassLabel: Record<FirstPayoff["evidenceSoFar"][number]["sourceClass"], string> = {
+  company_site: "company site",
+  customer_proof: "customer proof",
+  database: "database",
+  docs: "docs",
+  funding: "funding",
+  jobs: "jobs",
+  news: "news",
+  other: "source",
+  people: "people",
+  registry: "registry"
+};
+
+function cleanNeedText(text: string) {
+  const trimmed = text.replace(/[.。]+$/u, "").trim();
+  return trimmed ? `${trimmed.slice(0, 1).toLowerCase()}${trimmed.slice(1)}` : "stronger proof";
+}
+
+function firstPayoffProgressLine(event: ExtensionResearchRunEvent) {
+  const firstPayoff = parseFirstPayoff(event.metadata.firstPayoff);
+  if (!firstPayoff || firstPayoff.status === "substantive_first_read") {
+    return null;
+  }
+
+  if (firstPayoff.entityConfidence === "needs_check") {
+    return "Checking the company match before filing a read";
+  }
+
+  const classes = [...new Set(firstPayoff.evidenceSoFar.map((item) => item.sourceClass))]
+    .sort((left, right) => firstPayoffSourceClassRank[left] - firstPayoffSourceClassRank[right])
+    .map((sourceClass) => firstPayoffSourceClassLabel[sourceClass]);
+  if (classes.length === 0) {
+    return `Need ${cleanNeedText(firstPayoff.stillChecking.text)}`;
+  }
+
+  return `Filed ${sentenceList(classes)}; need ${cleanNeedText(firstPayoff.stillChecking.text)}`;
+}
+
 function sourceArtifactLine({
   events,
   sources
@@ -283,6 +335,13 @@ function proofLineForStage({
   }
 
   if (index === 1) {
+    const firstPayoffEvent = latestEventOfType(events, "first_payoff.receipt") ?? latestEventOfType(events, "first_payoff.withheld");
+    if (firstPayoffEvent) {
+      const firstPayoffLine = firstPayoffProgressLine(firstPayoffEvent);
+      if (firstPayoffLine) {
+        return firstPayoffLine;
+      }
+    }
     if (events.some((event) => event.type === "source.enrichment")) {
       return "Funding, product, people, and customer proof checked";
     }
@@ -325,13 +384,13 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
     return "Checked deeper sources";
   }
   if (event.type === "first_payoff.receipt") {
-    return "Evidence receipt ready";
+    return firstPayoffProgressLine(event);
   }
   if (event.type === "first_payoff.ready") {
     return null;
   }
   if (event.type === "first_payoff.withheld") {
-    return "Evidence receipt held";
+    return firstPayoffProgressLine(event);
   }
   if (event.type === "card.partial") {
     return citationArtifactLine(event);

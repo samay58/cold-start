@@ -750,7 +750,7 @@ test("card.partial makes the starter profile usable while basics finalizes", asy
 
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
   const profileProgress = page.locator(".cs-research-progress");
-  await expect(profileProgress).toHaveAttribute("data-mode", "receipt");
+  await expect(profileProgress).toHaveAttribute("data-mode", "filed");
   await expect(profileProgress).toContainText("Starter profile ready");
   await expect(profileProgress).toContainText("Filling in contacts/details");
   await expect(profileProgress).toContainText("5 sources");

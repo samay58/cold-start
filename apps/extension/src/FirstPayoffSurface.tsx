@@ -1,4 +1,5 @@
 import type { FirstPayoff } from "@cold-start/core";
+import { motion, useReducedMotion } from "framer-motion";
 
 function sourceLabel(count: number) {
   return `${count} ${count === 1 ? "source" : "sources"}`;
@@ -84,50 +85,70 @@ function displayEvidence(evidence: FirstPayoff["evidenceSoFar"]) {
 }
 
 export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }) {
+  const prefersReducedMotion = useReducedMotion();
   const claim = firstPayoff.status === "substantive_first_read" ? primaryClaim(firstPayoff) : null;
+  if (!claim) {
+    return null;
+  }
+
   const evidence = displayEvidence(firstPayoff.evidenceSoFar);
   const visibleEvidence = evidence.slice(0, 3);
   const hiddenSources = Math.max(0, evidence.length - visibleEvidence.length);
   const ledgerCount = sourceLabel(firstPayoff.evidenceSoFar.length);
-  const isFirstRead = Boolean(claim);
-  const receiptCopy = firstPayoff.entityConfidence === "needs_check"
-    ? "Sources are arriving. Holding the read until the entity match is clean."
-    : "Sources are in. Holding the read until there is a clean cited claim.";
+  const entrance = prefersReducedMotion
+    ? { opacity: 1 }
+    : { opacity: 0, scale: 0.985, y: -8 };
+  const animateIn = prefersReducedMotion
+    ? { opacity: 1 }
+    : { opacity: 1, scale: 1, y: 0 };
+  const transition = prefersReducedMotion
+    ? { duration: 0.12, ease: "easeOut" }
+    : { type: "spring" as const, stiffness: 520, damping: 38, mass: 0.54 };
 
   return (
-    <section
-      aria-label={isFirstRead ? "First read" : "Evidence receipt"}
+    <motion.section
+      aria-label="First read"
+      animate={animateIn}
       className="cs-first-read"
       data-status={firstPayoff.status}
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.99, y: -4 }}
+      initial={entrance}
+      layout
+      transition={transition}
     >
-      <span className="cs-first-read-seal" aria-hidden="true" />
+      <motion.span
+        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scaleX: 1 }}
+        aria-hidden="true"
+        className="cs-first-read-seal"
+        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scaleX: 0.18 }}
+        transition={prefersReducedMotion ? { duration: 0.12 } : { delay: 0.08, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+      />
       <header className="cs-first-read-head">
-        <span className="cs-first-read-title">{isFirstRead ? "First Read" : "Evidence receipt"}</span>
-        <span className="cs-first-read-flag">{isFirstRead ? "Early read" : firstPayoff.status === "withheld" ? "Claim withheld" : "Card filing"}</span>
+        <span className="cs-first-read-title">First read</span>
+        <span className="cs-first-read-flag">Early</span>
       </header>
-      {claim ? (
-        <p className="cs-first-read-read" data-kind={claim.claimKind}>
-          <span className="cs-first-read-read-label">{claimLabel(claim.claimKind)}</span>
-          {claim.text}
-        </p>
-      ) : (
-        <p className="cs-first-read-read" data-kind="receipt">
-          {receiptCopy}
-        </p>
-      )}
+      <p className="cs-first-read-read" data-kind={claim.claimKind}>
+        <span className="cs-first-read-read-label">{claimLabel(claim.claimKind)}</span>
+        {claim.text}
+      </p>
       {firstPayoff.evidenceSoFar.length > 0 ? (
         <div className="cs-first-read-ledger" aria-label="Sources filed so far">
           <div className="cs-first-read-ledger-head">
-            <span>Sources in hand</span>
+            <span>Sources</span>
             <span>{ledgerCount}</span>
           </div>
           <ul>
-            {visibleEvidence.map((item) => (
-              <li key={item.sourceId}>
+            {visibleEvidence.map((item, index) => (
+              <motion.li
+                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -5 }}
+                key={item.sourceId}
+                transition={prefersReducedMotion ? { duration: 0.12 } : { delay: 0.08 + index * 0.035, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
                 <i className="cs-first-read-mark-dot" data-class={evidenceMarkClass(item.quality)} aria-hidden="true" />
                 <a href={item.url} rel="noreferrer" target="_blank">{item.domain}</a>
                 <span className="cs-first-read-mark">{[...item.classes].join(" / ")}</span>
-              </li>
+              </motion.li>
             ))}
             {hiddenSources > 0 ? (
               <li className="cs-first-read-ledger-more">{`+${hiddenSources} more ${hiddenSources === 1 ? "domain" : "domains"}`}</li>
@@ -138,9 +159,9 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
         <p className="cs-first-read-ledger-empty">Filing the first sources.</p>
       )}
       <p className="cs-first-read-gap">
-        <span className="cs-first-read-gap-label">Still checking</span>
+        <span className="cs-first-read-gap-label">Needs</span>
         {firstPayoff.stillChecking.text}
       </p>
-    </section>
+    </motion.section>
   );
 }

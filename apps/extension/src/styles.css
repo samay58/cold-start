@@ -1753,7 +1753,7 @@ button {
     var(--color-plate);
 }
 
-.cs-research-progress[data-mode="receipt"] {
+.cs-research-progress[data-mode="filed"] {
   gap: 7px;
   padding: 12px 14px;
   background:
@@ -5632,7 +5632,7 @@ body {
 /* ============================================================
    Catalogue character, mirrors the web public card (DESIGN.md).
    Display (At Umami) on hero names and section labels (seal),
-   At Textual only as the receipt/index accent, Plex Sans body
+   At Textual only as the evidence/index accent, Plex Sans body
    everywhere else. The character is the heavy display name, the
    single dusty-lilac seal accent, classification dots, and rules.
    ============================================================ */
@@ -5669,7 +5669,7 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Receipt / index marks: At Textual, the one earned mono accent. */
+/* Evidence / index marks: At Textual, the one earned mono accent. */
 .cs-run-step-index,
 .cs-generation-run-time strong,
 .cs-source-chip {

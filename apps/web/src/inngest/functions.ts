@@ -733,8 +733,8 @@ export const generateCardFunction = inngest.createFunction(
           firstPayoff.status === "substantive_first_read"
             ? "Early evidence ready"
             : firstPayoff.status === "withheld"
-              ? "Evidence receipt held"
-              : "Evidence receipt ready",
+              ? "Source check held"
+              : "Sources checked",
           { firstPayoff },
           null
         );

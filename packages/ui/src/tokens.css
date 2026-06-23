@@ -1494,7 +1494,7 @@
   }
 }
 
-/* Company Fact Receipt v1: one public artifact, one source ledger. */
+/* Public card: one sourced company artifact, one source ledger. */
 .cs-card[data-surface="web"] .cs-card-brand-index {
   letter-spacing: 0.08em;
 }
@@ -1524,13 +1524,13 @@
   font-weight: 600;
 }
 
-.cs-card[data-surface="web"] .cs-receipt-notes {
+.cs-card[data-surface="web"] .cs-evidence-notes {
   margin-left: clamp(18px, 3vw, 42px);
   margin-right: clamp(18px, 3vw, 42px);
   padding-bottom: 8px;
 }
 
-.cs-card[data-surface="web"] .cs-receipt-notes .cs-section-label-text {
+.cs-card[data-surface="web"] .cs-evidence-notes .cs-section-label-text {
   color: var(--cat-ink);
   font-size: 24px;
 }
@@ -1575,7 +1575,7 @@
 }
 
 @media (max-width: 700px) {
-  .cs-card[data-surface="web"] .cs-receipt-notes {
+  .cs-card[data-surface="web"] .cs-evidence-notes {
     margin-left: 16px;
     margin-right: 16px;
   }

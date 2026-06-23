@@ -1,5 +1,6 @@
 import {
   isTrustedSourceGateHost,
+  normalizeAuthorityHost,
   sourceTargetAliasesForDomain,
   sourceTargetContextTermsForDomain,
   type GenerationSourceRejection,
@@ -23,8 +24,8 @@ export function filterSourcesForDomain(input: {
 }): SourceGateResult {
   const accepted: ProviderSource[] = [];
   const rejected: SourceGateResult["rejected"] = [];
-  const targetDomain = normalizeHost(input.domain);
-  const targetRoot = rootLabel(targetDomain);
+  const targetDomain = normalizeAuthorityHost(input.domain);
+  const targetRoot = compactRootLabel(targetDomain);
   const targetAliases = sourceTargetAliasesForDomain(targetDomain, input.companyName);
   const targetContextTerms = sourceTargetContextTermsForDomain(targetDomain);
 
@@ -100,27 +101,21 @@ function parseSourceUrl(url: string) {
       return null;
     }
 
-    const host = normalizeHost(parsed.hostname);
-    return { host, root: rootLabel(host) };
+    const host = normalizeAuthorityHost(parsed.hostname);
+    return { host, root: compactRootLabel(host) };
   } catch {
     return null;
   }
 }
 
-function normalizeHost(value: string) {
-  return value.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]?.toLowerCase() ?? "";
-}
-
-function rootLabel(host: string) {
+// Strip separators so collisions like aurora-data and auroradata collapse to one root.
+// Distinct from source-target's aliasRootLabel, which keeps separators for alias splitting.
+function compactRootLabel(host: string) {
   return host.split(".")[0]?.replace(/[^a-z0-9]/g, "") ?? "";
 }
 
-function isTrustedSourceGateHostForAmbiguity(host: string) {
-  return isTrustedSourceGateHost(host);
-}
-
 function looksLikeWrongSameNameDomain(hostRoot: string, targetRoot: string, host: string) {
-  if (!hostRoot || !targetRoot || isTrustedSourceGateHostForAmbiguity(host)) {
+  if (!hostRoot || !targetRoot || isTrustedSourceGateHost(host)) {
     return false;
   }
 

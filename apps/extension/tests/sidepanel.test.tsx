@@ -1336,7 +1336,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("collapses completed profile progress into a quiet receipt", async () => {
+  it("collapses completed profile progress into a quiet filed state", async () => {
     const domain = "llamaindex.ai";
     const card = cardForDomain(domain);
     card.identity.name.value = "LlamaIndex";
@@ -2099,7 +2099,7 @@ describe("SidePanel generation gate", () => {
     });
     expect(container.querySelector(".cs-layer-signal-ledger")).toBeTruthy();
     expect(container.textContent).toContain("Linear launches planning update");
-    // Dates render quietly under the headline in receipt face, not as a raw ISO column.
+    // Dates render quietly under the headline, not as a raw ISO column.
     expect(container.querySelector(".cs-signal-meta time")?.textContent).toBe("May 15 2026");
     expect(container.querySelector(".cs-layer-signal-ledger strong")?.textContent).toBe("Linear launches planning update");
     await unmount();

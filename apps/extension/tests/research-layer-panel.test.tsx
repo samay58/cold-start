@@ -254,7 +254,7 @@ describe("ResearchLayerPanel first read", () => {
     const { container, unmount } = await renderPanel();
 
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
-    expect(container.querySelector("[aria-label='Evidence receipt']")).toBeNull();
+    expect(container.querySelector(".cs-first-read")).toBeNull();
     await unmount();
   });
 
@@ -265,13 +265,13 @@ describe("ResearchLayerPanel first read", () => {
 
     expect(firstRead).not.toBeNull();
     expect(researchLayer).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First Read");
+    expect(firstRead?.textContent).toContain("First read");
     // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("Who it's for");
-    expect(firstRead?.textContent).toContain("Sources in hand");
+    expect(firstRead?.textContent).toContain("Sources");
     expect(firstRead?.textContent).toContain("techcrunch.com");
-    expect(firstRead?.textContent).toContain("Still checking");
+    expect(firstRead?.textContent).toContain("Needs");
     // Never restates the company summary sentence shown in the header above it.
     expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
     expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -283,7 +283,7 @@ describe("ResearchLayerPanel first read", () => {
     const firstRead = container.querySelector("[aria-label='First read']");
 
     expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First Read");
+    expect(firstRead?.textContent).toContain("First read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.querySelector("[aria-label='Sources filed so far']")).not.toBeNull();
     await unmount();
@@ -303,33 +303,25 @@ describe("ResearchLayerPanel first read", () => {
   it("files the first read off the terminal card even when the saved event never arrives", async () => {
     const { container, unmount } = await renderPanel({ filedViaCacheStatus: true });
 
-    // The live-generation success state can drop terminal events; a "hit" card must still file
-    // rather than leaving the slip stuck in the temporary receipt state.
+    // The live-generation success state can drop terminal events; a "hit" card must still file.
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
     expect(container.querySelector("[aria-label='Sources checked']")).not.toBeNull();
     await unmount();
   });
 
-  it("renders an Evidence Receipt from firstPayoff receipt without the First Read label", async () => {
+  it("does not render a source-only firstPayoff artifact as a separate card", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "receipt" });
-    const receipt = container.querySelector("[aria-label='Evidence receipt']");
 
-    expect(receipt).not.toBeNull();
-    expect(receipt?.textContent).toContain("Evidence receipt");
-    expect(receipt?.textContent).toContain("exa.ai");
-    expect(receipt?.textContent).toContain("Still checking");
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    expect(container.querySelector(".cs-first-read")).toBeNull();
     await unmount();
   });
 
-  it("groups repeated source domains inside the receipt", async () => {
+  it("keeps source-only firstPayoff evidence out of the main stack even when domains repeat", async () => {
     const { container, unmount } = await renderPanel({ duplicateEvidence: true, firstPayoffStatus: "receipt" });
-    const receipt = container.querySelector("[aria-label='Evidence receipt']");
-    const text = receipt?.textContent ?? "";
 
-    expect(receipt).not.toBeNull();
-    expect(text.match(/exa\.ai/g)).toHaveLength(1);
-    expect(text).toContain("Company / Docs");
+    expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    expect(container.querySelector(".cs-first-read")).toBeNull();
     await unmount();
   });
 
@@ -338,19 +330,17 @@ describe("ResearchLayerPanel first read", () => {
     const firstRead = container.querySelector("[aria-label='First read']");
 
     expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First Read");
+    expect(firstRead?.textContent).toContain("First read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("techcrunch.com");
     await unmount();
   });
 
-  it("keeps the receipt visible and hides First Read when firstPayoff is withheld", async () => {
+  it("does not render withheld firstPayoff artifacts as user-facing cards", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "withheld" });
-    const receipt = container.querySelector("[aria-label='Evidence receipt']");
 
-    expect(receipt).not.toBeNull();
-    expect(receipt?.textContent).toContain("Evidence receipt");
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    expect(container.querySelector(".cs-first-read")).toBeNull();
     await unmount();
   });
 

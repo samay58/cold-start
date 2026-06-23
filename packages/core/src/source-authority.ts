@@ -249,8 +249,6 @@ export const sourceAuthorityRegistry = {
 
 export type SourceAuthorityCategory = keyof typeof sourceAuthorityRegistry;
 
-const sourceGateTrustedCategories = new Set(Object.keys(sourceAuthorityRegistry) as SourceAuthorityCategory[]);
-
 export function normalizeAuthorityHost(value: string) {
   return value
     .replace(/^https?:\/\//i, "")
@@ -271,5 +269,5 @@ export function sourceAuthorityCategoriesForHost(host: string): SourceAuthorityC
 }
 
 export function isTrustedSourceGateHost(host: string) {
-  return sourceAuthorityCategoriesForHost(host).some((category) => sourceGateTrustedCategories.has(category));
+  return sourceAuthorityCategoriesForHost(host).length > 0;
 }

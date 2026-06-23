@@ -370,7 +370,7 @@ function ProfileSummary({
   );
 }
 
-function SourcesCheckedReceipt({
+function SourcesCheckedStamp({
   prefersReducedMotion,
   sourceCount
 }: {
@@ -386,7 +386,7 @@ function SourcesCheckedReceipt({
       className="cs-first-read-filed"
       initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
       layout
-      layoutId="sources-checked-receipt"
+      layoutId="sources-checked"
       transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
     >
       <span className="cs-first-read-filed-stamp">Sources checked</span>
@@ -1298,7 +1298,7 @@ function ResearchProgressPanel({
       className="cs-research-progress"
       aria-label="Research progress"
       data-attention={needsAttention ? "true" : "false"}
-      data-mode={profileComplete ? "receipt" : "live"}
+      data-mode={profileComplete ? "filed" : "live"}
     >
       <div className="cs-research-progress-main">
         <span className="cs-research-progress-dot" data-running={!profileComplete && isRunning ? "true" : "false"} aria-hidden="true" />
@@ -1551,7 +1551,7 @@ export function ResearchLayerPanel({
   const { fullSummary, summary } = profileSummaryCopy(card);
   const firstPayoff = firstPayoffForEvents(events);
   const firstPayoffFiled = firstPayoffIsFiled(events) || (!firstPayoff && card.cacheStatus === "hit");
-  const showFirstPayoff = Boolean(firstPayoff && !firstPayoffFiled);
+  const showFirstPayoff = Boolean(firstPayoff?.status === "substantive_first_read" && !firstPayoffFiled);
   const showSourcesChecked = firstPayoffFiled;
   const firstPayoffSourceCount = filedSourceCount(events, sources);
   const investorRead = investorReadForCard(card);
@@ -1587,7 +1587,7 @@ export function ResearchLayerPanel({
             {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
             {showSourcesChecked ? (
-              <SourcesCheckedReceipt
+              <SourcesCheckedStamp
                 prefersReducedMotion={prefersReducedMotion}
                 sourceCount={firstPayoffSourceCount}
               />

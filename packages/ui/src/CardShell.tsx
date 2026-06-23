@@ -1,5 +1,5 @@
 import type { ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
-import { sourceQualityForSource } from "@cold-start/core";
+import { sourceQualityForSource, stripCitationMarkers } from "@cold-start/core";
 import type { ReactNode } from "react";
 import { CitationGroup } from "./CitationGroup";
 import type { CitationLedger } from "./CitationLedger";
@@ -46,18 +46,7 @@ function citationMix(card: ColdStartCard | PublicCard): { independent: number; r
   const counts = { independent: 0, reporting: 0, company: 0, vendor: 0, unknown: 0, total: 0 };
   for (const citation of sortedCitations(card)) {
     counts.total += 1;
-    const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
-    if (tier === "independent_technical" || tier === "independent_analysis") {
-      counts.independent += 1;
-    } else if (tier === "independent_report") {
-      counts.reporting += 1;
-    } else if (tier === "primary_company" || tier === "press_release") {
-      counts.company += 1;
-    } else if (tier === "enrichment") {
-      counts.vendor += 1;
-    } else {
-      counts.unknown += 1;
-    }
+    counts[sourceClassForCitation(citation)] += 1;
   }
   return counts;
 }
@@ -85,15 +74,7 @@ function countLabel(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function stripCitationMarkers(text: string) {
-  return text
-    .replace(/\s*\[(?:c|C|e|seed)?[\w.-]+(?:,\s*(?:c|C|e|seed)?[\w.-]+)*\]/g, "")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-function publicReceiptText(text: string, limit = 260) {
+function publicEvidenceText(text: string, limit = 260) {
   const cleaned = stripCitationMarkers(text);
   if (cleaned.length <= limit) {
     return cleaned;
@@ -662,7 +643,7 @@ function publicEvidenceNotesForSections(
         })
           ? "reported"
           : citationIds.some((id) => ledger.get(id)?.sourceClass === "company") ? "company" : "unknown",
-        text: publicReceiptText(text),
+        text: publicEvidenceText(text),
         title
       }];
     });
@@ -728,7 +709,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
         <div className="cs-card-brand" aria-label="Cold Start">
           <span className="cs-brand-aperture" aria-hidden="true" />
           <span className="cs-card-brand-name">Cold Start</span>
-          <span className="cs-card-brand-index">Public fact receipt</span>
+          <span className="cs-card-brand-index">Sourced company card</span>
         </div>
         <div className="cs-card-callno">
           <span className="cs-card-callno-id">{callNumber}</span>
@@ -768,7 +749,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
       ) : null}
 
       {evidenceNotes.length > 0 ? (
-        <section className="cs-section cs-receipt-notes" aria-labelledby="evidence-notes-heading">
+        <section className="cs-section cs-evidence-notes" aria-labelledby="evidence-notes-heading">
           <div className="cs-section-label" data-state="reported">
             <span className="cs-evidence-dot" aria-hidden="true" />
             <h2 className="cs-section-label-text" id="evidence-notes-heading">Evidence notes</h2>

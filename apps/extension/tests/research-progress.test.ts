@@ -38,7 +38,7 @@ describe("artifact-led research progress", () => {
       stages: RESEARCH_PROGRESS_STAGES
     });
 
-    expect(plan.map((stage) => stage.label)).toEqual(["Sources", "Evidence", "Profile", "Filed"]);
+    expect(plan.map((stage) => stage.label)).toEqual(["Sources", "Proof", "Profile", "Filed"]);
     expect(plan.map((stage) => stage.proofLine)).toEqual([
       "Checking company, product, funding, and proof sources",
       "Waiting for sources",
@@ -106,6 +106,74 @@ describe("artifact-led research progress", () => {
     });
 
     expect(plan[0]?.proofLine).toBe("Company site, docs, and funding coverage found");
+  });
+
+  it("turns source-only firstPayoff into a useful proof line without receipt copy", () => {
+    const firstPayoff = {
+      status: "receipt",
+      slug: "exa",
+      domain: "exa.ai",
+      generatedAt: "2026-06-21T00:00:00.000Z",
+      generatedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+      entityConfidence: "high",
+      entityConfidenceReason: "Company-controlled source matches the current domain.",
+      evidenceSoFar: [
+        {
+          sourceId: "company",
+          url: "https://exa.ai",
+          domain: "exa.ai",
+          title: "Exa",
+          sourceClass: "company_site",
+          quality: "company",
+          arrivedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+          entityMatched: true
+        },
+        {
+          sourceId: "docs",
+          url: "https://docs.exa.ai",
+          domain: "docs.exa.ai",
+          title: "Exa docs",
+          sourceClass: "docs",
+          quality: "company",
+          arrivedAtMs: Date.parse("2026-06-21T00:00:01.000Z"),
+          entityMatched: true
+        },
+        {
+          sourceId: "funding",
+          url: "https://techcrunch.com/exa",
+          domain: "techcrunch.com",
+          title: "Exa raises funding",
+          sourceClass: "funding",
+          quality: "reported",
+          arrivedAtMs: Date.parse("2026-06-21T00:00:02.000Z"),
+          entityMatched: true
+        }
+      ],
+      stillChecking: { text: "Named customer proof.", missingEvidenceClass: "customer_proof" },
+      suppressionReasons: ["no_incremental_claim"]
+    };
+    const plan = buildResearchProgressPlan({
+      activeIndex: 1,
+      events: [
+        event({
+          id: "sources",
+          message: "Found 12 accepted sources",
+          metadata: { acceptedCount: 12 },
+          type: "source.found"
+        }),
+        event({
+          id: "payoff",
+          message: "Sources checked",
+          metadata: { firstPayoff },
+          type: "first_payoff.receipt"
+        })
+      ],
+      stageNote: "unused",
+      stages: RESEARCH_PROGRESS_STAGES
+    });
+
+    expect(plan[1]?.proofLine).toBe("Filed company site, docs, and funding; need named customer proof");
+    expect(plan[1]?.substeps.map((substep) => substep.message)).toEqual([]);
   });
 
   it("shows first cited profile readiness with citation count", () => {

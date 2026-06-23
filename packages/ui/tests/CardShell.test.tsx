@@ -177,7 +177,7 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(card)} sections={publicSections} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getByText("Public fact receipt")).toBeTruthy();
+    expect(screen.getByText("Sourced company card")).toBeTruthy();
     expect(screen.getByText("Real-time voice AI platform")).toBeTruthy();
     // Inline markers render the 1-based ledger index, not the raw evidence id.
     expect(screen.getAllByText("[1]").length).toBeGreaterThan(0);
