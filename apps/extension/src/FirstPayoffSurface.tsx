@@ -29,7 +29,7 @@ function sourceClassLabel(sourceClass: FirstPayoff["evidenceSoFar"][number]["sou
 }
 
 function primaryClaim(firstPayoff: FirstPayoff) {
-  return firstPayoff.whoItSeemsFor ?? firstPayoff.whatItDoes ?? firstPayoff.proofHeadline ?? null;
+  return firstPayoff.proofHeadline ?? firstPayoff.whoItSeemsFor ?? firstPayoff.whatItDoes ?? null;
 }
 
 function claimLabel(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["claimKind"]) {

@@ -76,6 +76,63 @@ describe("buildFirstPayoff", () => {
     expect(payoff.suppressionReasons).toEqual([]);
   });
 
+  it("uses provider JSON text as support instead of suppressing a clean proof headline", () => {
+    const payoff = buildFirstPayoff({
+      domain: "odyssey.ml",
+      slug: "odyssey",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-funding",
+          title: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push",
+          url: "https://theaiinsider.tech/odyssey-series-b",
+          rawText: JSON.stringify({
+            title: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push",
+            text: "Odyssey closed a $310 million Series B at a $1.45 billion valuation with backing from Amazon."
+          })
+        })
+      ]
+    });
+
+    expect(payoff.status).toBe("substantive_first_read");
+    expect(payoff.proofHeadline).toMatchObject({
+      text: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push.",
+      supportingText: "Odyssey closed a $310 million Series B at a $1.45 billion valuation with backing from Amazon.",
+      sourceIds: ["src-funding"],
+      claimKind: "proof_headline"
+    });
+    expect(payoff.suppressionReasons).toEqual([]);
+  });
+
+  it("uses a short article excerpt to support a proof headline", () => {
+    const payoff = buildFirstPayoff({
+      domain: "odyssey.ml",
+      slug: "odyssey",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-funding",
+          title: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push",
+          url: "https://theaiinsider.tech/odyssey-series-b",
+          rawText: JSON.stringify({
+            text: [
+              "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push",
+              "Newsletter",
+              "Odyssey, the world model AI startup founded by autonomous vehicle veterans Oliver Cameron and Jeff Hawke, has closed a $310 million Series B round at a $1.45 billion valuation."
+            ].join("\n\n")
+          })
+        })
+      ]
+    });
+
+    expect(payoff.status).toBe("substantive_first_read");
+    expect(payoff.proofHeadline).toMatchObject({
+      text: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push.",
+      supportingText: "Odyssey, the world model AI startup founded by autonomous vehicle veterans Oliver Cameron and Jeff Hawke, has closed a $310 million Series B round at a $1.45 billion valuation."
+    });
+    expect(payoff.suppressionReasons).toEqual([]);
+  });
+
   it("withholds First Read when the only proof headline names the wrong company", () => {
     const payoff = buildFirstPayoff({
       domain: "runloop.ai",

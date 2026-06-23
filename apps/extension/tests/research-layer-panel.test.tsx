@@ -101,7 +101,11 @@ function stubReducedMotion(matches: boolean) {
   })));
 }
 
-function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld", duplicateEvidence = false) {
+function firstPayoff(
+  status: "receipt" | "substantive_first_read" | "withheld",
+  duplicateEvidence = false,
+  includeProofHeadline = false
+) {
   const evidenceSoFar: FirstPayoff["evidenceSoFar"] = [
     {
       sourceId: "company_site-exa.ai",
@@ -164,7 +168,19 @@ function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld", 
             citationIds: ["c1"],
             sourceClass: "company_site",
             claimKind: "who_it_serves"
-          }
+          },
+          ...(includeProofHeadline
+            ? {
+                proofHeadline: {
+                  text: "Exa raises funding for search infrastructure.",
+                  supportingText: "Exa raised funding to build search infrastructure for AI products.",
+                  sourceIds: ["news-techcrunch.com"],
+                  citationIds: [],
+                  sourceClass: "funding",
+                  claimKind: "proof_headline"
+                }
+              }
+            : {})
         }
       : {})
   };
@@ -174,6 +190,7 @@ async function renderPanel(input: {
   complete?: boolean;
   duplicateEvidence?: boolean;
   firstPayoffStatus?: "receipt" | "substantive_first_read" | "withheld";
+  includeProofHeadline?: boolean;
   reducedMotion?: boolean;
   filedViaCacheStatus?: boolean;
 } = {}) {
@@ -183,7 +200,7 @@ async function renderPanel(input: {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  const payoff = input.firstPayoffStatus ? firstPayoff(input.firstPayoffStatus, input.duplicateEvidence) : null;
+  const payoff = input.firstPayoffStatus ? firstPayoff(input.firstPayoffStatus, input.duplicateEvidence, input.includeProofHeadline) : null;
   const events = input.filedViaCacheStatus
     ? [event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9, ...(payoff ? { firstPayoff: payoff } : {}) }, type: "card.partial" })]
     : [
@@ -275,6 +292,17 @@ describe("ResearchLayerPanel first read", () => {
     // Never restates the company summary sentence shown in the header above it.
     expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
     expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    await unmount();
+  });
+
+  it("prefers proof headlines over generic audience copy when both are available", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", includeProofHeadline: true });
+    const firstRead = container.querySelector("[aria-label='First read']");
+
+    expect(firstRead).not.toBeNull();
+    expect(firstRead?.textContent).toContain("Latest proof");
+    expect(firstRead?.textContent).toContain("Exa raises funding for search infrastructure.");
+    expect(firstRead?.textContent).not.toContain("Who it's for");
     await unmount();
   });
 

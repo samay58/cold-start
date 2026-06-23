@@ -104,7 +104,37 @@ function normalizeSentence(value: string) {
 }
 
 function sourceText(source: FirstPayoffSource) {
-  return source.rawText ?? source.snippet ?? source.title;
+  return readableSourceText(source.rawText) ?? readableSourceText(source.snippet) ?? source.title;
+}
+
+function readableSourceText(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!looksLikeJsonObject(trimmed)) {
+    return trimmed;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return trimmed;
+    }
+    const record = parsed as Record<string, unknown>;
+    const text = stringField(record, "text") ?? stringField(record, "summary") ?? stringField(record, "description");
+    return text?.trim() || trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
+function looksLikeJsonObject(value: string) {
+  return value.startsWith("{") && value.endsWith("}");
+}
+
+function stringField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+  return typeof value === "string" ? value : null;
 }
 
 function evidenceQuality(tier: SourceQualityTier): FirstPayoffEvidence["quality"] {
@@ -165,16 +195,19 @@ function citationIdsForSource(source: FirstPayoffSource, card?: ColdStartCard): 
   return card.citations.filter((citation) => citation.url === source.url).map((citation) => citation.id);
 }
 
-function firstUsefulLine(rawText: string, domain: string) {
+function firstUsefulLine(rawText: string, domain: string, skipTexts: string[] = []) {
+  const skipped = new Set(skipTexts.map((text) => normalizeComparableText(text)).filter(Boolean));
   return rawText
     .replace(/\\[nrt]/g, " ")
     .split(/\r?\n|(?<=[.!?])\s+/)
     .map((line) => line.replace(/[#*_`>[\]{}()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
     .find((line) => {
       const lower = line.toLowerCase();
+      const comparable = normalizeComparableText(line);
       return (
         line.length >= 28 &&
         line.length <= 220 &&
+        !skipped.has(comparable) &&
         !rawPayloadPattern.test(line) &&
         !directoryCategoryPattern.test(line) &&
         !lower.includes("cookie") &&
@@ -183,6 +216,10 @@ function firstUsefulLine(rawText: string, domain: string) {
         !lower.includes(domain.toLowerCase())
       );
     }) ?? null;
+}
+
+function normalizeComparableText(value: string) {
+  return value.toLowerCase().replace(/[.。]+$/u, "").replace(/\s+/g, " ").trim();
 }
 
 function isBadClaimText(text: string) {
@@ -266,7 +303,8 @@ function buildProofClaim({
     return { reason: "wrong_or_ambiguous_entity" };
   }
   const text = normalizeSentence(source.title);
-  const supportingText = normalizeSentence(sourceText(source));
+  const supportingLine = firstUsefulLine(sourceText(source), domain, [source.title]) ?? sourceText(source);
+  const supportingText = normalizeSentence(supportingLine);
   if (!text || !supportingText) {
     return { reason: "claim_not_source_supported" };
   }
