@@ -1,5 +1,6 @@
 import {
   sourceQualityForSource,
+  stripCitationMarkers,
   type Citation,
   type ColdStartCard,
   type SourcedText
@@ -22,14 +23,6 @@ export type InvestorReadDisplay = {
 
 const TIMING_NOT_FOUND_COPY = "Timing not found";
 const NO_SUPPORTED_BREAK_COPY = "No verified break-risk yet. Treat this as incomplete until buyer, substitute, or adoption risk is tested.";
-
-function stripInvestorLensCitationMarkers(text: string) {
-  return text
-    .replace(/\s*\[(?:c|C)?[\w.-]+(?:,\s*(?:c|C)?[\w.-]+)*\]/g, "")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
 
 export function sourcePostureForCitation(citation: Citation | undefined): SourcePosture {
   if (!citation) {
@@ -143,7 +136,7 @@ function proofChips(card: ColdStartCard) {
     : [card.synthesis.whyItMatters]
   ).slice(0, 2);
   return proofClaims.map((claim) => ({
-    label: stripInvestorLensCitationMarkers(claim.text),
+    label: stripCitationMarkers(claim.text),
     sourcePosture: strongestPosture(card, claim.citationIds)
   }));
 }
@@ -164,10 +157,10 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
   const timingMissing = timingIsNotFound(card);
 
   return {
-    whyItMightMatter: stripInvestorLensCitationMarkers(card.synthesis.whyItMatters.text),
+    whyItMightMatter: stripCitationMarkers(card.synthesis.whyItMatters.text),
     evidenceThatHolds: proofChips(card),
     whatCouldBreak: card.synthesis.bearCase[0]
-      ? stripInvestorLensCitationMarkers(card.synthesis.bearCase[0].text)
+      ? stripCitationMarkers(card.synthesis.bearCase[0].text)
       : NO_SUPPORTED_BREAK_COPY,
     bestNextQuestion: card.synthesis.openQuestions[0]?.question ?? "No ranked open question survived verification.",
     evidenceStatus: evidenceStatusLine(card, claims, timingMissing),

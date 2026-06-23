@@ -7,6 +7,7 @@ import {
   signalCategorySchema,
   sourceQualityForSource,
   sourceQualityRank,
+  stripCitationMarkers,
   type Citation,
   type ColdStartCard,
   type OpenQuestion,
@@ -105,14 +106,6 @@ function labelForCategory(category: QuestionCategory | null): string {
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
   return coreSectionIdForLayer(id);
-}
-
-function stripCitationMarkers(text: string) {
-  return text
-    .replace(/\s*\[(?:c|C)?[\w.-]+(?:,\s*(?:c|C)?[\w.-]+)*\]/g, "")
-    .replace(/\s+([.,;:!?])/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim();
 }
 
 function domainFromHref(href: string) {
