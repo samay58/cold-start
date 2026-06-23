@@ -21,7 +21,7 @@ export type InvestorReadDisplay = {
 };
 
 const TIMING_NOT_FOUND_COPY = "Timing not found";
-const NO_SUPPORTED_BREAK_COPY = "No supported break-risk survived verification.";
+const NO_SUPPORTED_BREAK_COPY = "No verified break-risk yet. Treat this as incomplete until buyer, substitute, or adoption risk is tested.";
 
 function stripInvestorLensCitationMarkers(text: string) {
   return text
@@ -138,7 +138,10 @@ function proofChips(card: ColdStartCard) {
     return [];
   }
 
-  const proofClaims = [card.synthesis.whyItMatters, ...card.synthesis.bullCase].slice(0, 3);
+  const proofClaims = (card.synthesis.bullCase.length > 0
+    ? card.synthesis.bullCase
+    : [card.synthesis.whyItMatters]
+  ).slice(0, 2);
   return proofClaims.map((claim) => ({
     label: stripInvestorLensCitationMarkers(claim.text),
     sourcePosture: strongestPosture(card, claim.citationIds)

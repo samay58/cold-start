@@ -135,7 +135,7 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     ...card,
     citations: card.citations.map((citation) => ({
       ...citation,
-      sourceQuality: citation.sourceQuality ?? sourceQualityForSource(citation)
+      sourceQuality: citation.sourceQuality ?? sourceQualityForSource(citation, { targetDomain: card.domain })
     })),
     identity: {
       ...card.identity,

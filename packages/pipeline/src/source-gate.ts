@@ -1,5 +1,7 @@
 import {
   isTrustedSourceGateHost,
+  sourceTargetAliasesForDomain,
+  sourceTargetContextTermsForDomain,
   type GenerationSourceRejection,
   type GenerationSourceRejectionReason,
   type GenerationSourceTrace
@@ -16,15 +18,18 @@ export type SourceGateResult = {
 
 export function filterSourcesForDomain(input: {
   domain: string;
+  companyName?: string | null;
   sources: ProviderSource[];
 }): SourceGateResult {
   const accepted: ProviderSource[] = [];
   const rejected: SourceGateResult["rejected"] = [];
   const targetDomain = normalizeHost(input.domain);
   const targetRoot = rootLabel(targetDomain);
+  const targetAliases = sourceTargetAliasesForDomain(targetDomain, input.companyName);
+  const targetContextTerms = sourceTargetContextTermsForDomain(targetDomain);
 
   for (const source of input.sources) {
-    const reason = sourceRejectionReason(source, { targetDomain, targetRoot });
+    const reason = sourceRejectionReason(source, { targetDomain, targetRoot, targetAliases, targetContextTerms });
     if (reason) {
       rejected.push({ source, reason });
     } else {
@@ -49,7 +54,7 @@ export function sourceGateTrace(result: SourceGateResult) {
 
 function sourceRejectionReason(
   source: ProviderSource,
-  target: { targetDomain: string; targetRoot: string }
+  target: { targetDomain: string; targetRoot: string; targetAliases: string[]; targetContextTerms: string[] }
 ): GenerationSourceRejectionReason | null {
   const parsed = parseSourceUrl(source.url);
 
@@ -130,9 +135,44 @@ function looksLikeWrongSameNameDomain(hostRoot: string, targetRoot: string, host
   return Math.abs(hostRoot.length - targetRoot.length) <= 1 && levenshteinDistance(hostRoot, targetRoot) <= 1;
 }
 
-function mentionsTarget(source: ProviderSource, target: { targetDomain: string; targetRoot: string }) {
+function mentionsTarget(source: ProviderSource, target: { targetDomain: string; targetRoot: string; targetAliases: string[]; targetContextTerms: string[] }) {
   const searchable = `${source.title} ${source.rawText}`.toLowerCase();
-  return searchable.includes(target.targetDomain) || searchable.includes(target.targetRoot);
+  return target.targetAliases.some((alias) => mentionsAlias(searchable, alias, target.targetRoot, target.targetContextTerms));
+}
+
+function mentionsAlias(searchable: string, alias: string, targetRoot: string, targetContextTerms: string[]) {
+  const normalizedAlias = alias.trim().toLowerCase();
+  if (!normalizedAlias) {
+    return false;
+  }
+
+  if (normalizedAlias.includes(".") || normalizedAlias === targetRoot) {
+    return searchable.includes(normalizedAlias);
+  }
+
+  if (!normalizedAlias.includes(" ") && targetContextTerms.length > 0) {
+    return wordBoundaryMatch(searchable, normalizedAlias) &&
+      targetContextTerms.some((term) => phraseBoundaryMatch(searchable, term));
+  }
+
+  return phraseBoundaryMatch(searchable, normalizedAlias);
+}
+
+function wordBoundaryMatch(searchable: string, word: string) {
+  return new RegExp(`(^|[^a-z0-9])${escapeRegExp(word)}([^a-z0-9]|$)`, "i").test(searchable);
+}
+
+function phraseBoundaryMatch(searchable: string, phrase: string) {
+  const pattern = phrase
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(escapeRegExp)
+    .join("\\s+");
+  return new RegExp(`(^|[^a-z0-9])${pattern}([^a-z0-9]|$)`, "i").test(searchable);
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function levenshteinDistance(left: string, right: string) {

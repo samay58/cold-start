@@ -117,6 +117,68 @@ describe("buildFirstPayoff", () => {
     expect(payoff.suppressionReasons).toContain("marketing_filler");
   });
 
+  it("does not turn raw provider payload text into a First Read claim", () => {
+    const payoff = buildFirstPayoff({
+      domain: "getfreed.ai",
+      slug: "getfreed",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Freed",
+          url: "https://getfreed.ai",
+          rawText: "{\"id\":\" Freed Feed Inc. \\n\\nFreed is a Hospitals and Health Care company.\"}"
+        }),
+        source({
+          id: "src-funding",
+          title: "GetFreed raises funding for clinical AI assistant",
+          url: "https://businesswire.com/getfreed-funding",
+          rawText: "{\"id\":\"GetFreed raises funding for clinical AI assistant\"}"
+        })
+      ]
+    });
+
+    expect(payoff.status).toBe("receipt");
+    expect(payoff.whatItDoes).toBeUndefined();
+    expect(payoff.proofHeadline).toBeUndefined();
+    expect(payoff.suppressionReasons).toContain("claim_not_source_supported");
+  });
+
+  it("dedupes repeated receipt entries for the same source URL and class", () => {
+    const payoff = buildFirstPayoff({
+      domain: "getfreed.ai",
+      slug: "getfreed",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-home-a",
+          sourceType: "company_site",
+          title: "Freed",
+          url: "https://getfreed.ai/",
+          rawText: "Freed"
+        }),
+        source({
+          id: "src-home-b",
+          sourceType: "company_site",
+          title: "Freed home",
+          url: "https://getfreed.ai",
+          rawText: "Freed home"
+        }),
+        source({
+          id: "src-docs",
+          sourceType: "company_site",
+          title: "Freed docs",
+          url: "https://getfreed.ai/docs",
+          rawText: "Freed API documentation for clinical workflows."
+        })
+      ]
+    });
+
+    expect(payoff.evidenceSoFar.map((item) => item.domain)).toEqual(["getfreed.ai", "getfreed.ai"]);
+    expect(payoff.evidenceSoFar.map((item) => item.sourceClass)).toEqual(["company_site", "docs"]);
+  });
+
   it("can be stored on generation trace JSON for later QA", () => {
     const firstPayoff = buildFirstPayoff({
       domain: "runloop.ai",

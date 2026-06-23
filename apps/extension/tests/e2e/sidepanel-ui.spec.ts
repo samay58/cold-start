@@ -21,6 +21,7 @@ test("cached card renders the research layer without old analyze affordances", a
 
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
   await expect(page.getByLabel("Research layer")).toBeVisible();
+  await expect(page.locator(".cs-investor-lens-control")).toHaveCount(0);
   await expect(page.locator(".cs-company-logo img")).toHaveAttribute("src", /icons\.duckduckgo\.com\/ip3\/browserbase\.com\.ico/);
   await expect(page.locator(".cs-research-brand")).toHaveCount(0);
   await expect(page.locator(".cs-extension-brand")).toHaveCount(0);
@@ -28,7 +29,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByLabel("Research card stack")).toBeVisible();
   await expect(page.locator(".cs-card-tray-head")).toContainText("Research stack");
   await expect(page.locator(".cs-dormant-card").first()).toHaveAttribute("aria-label", /File .* into Research/);
-  await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("03");
+  await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("01");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Investor Read" })).toContainText(
@@ -38,6 +39,54 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.getByText("[c1]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
+});
+
+test("investor read stays bounded and readable with long synthesis", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: {
+      text: "Physician burnout from documentation is a documented operational crisis for health systems, and ambient AI scribes are the first workflow-native solution that does not ask doctors to change the clinical visit [c1].",
+      citationIds: ["c1"]
+    },
+    bullCase: [
+      {
+        text: "Rush University Medical Center's expansion to an enterprise-wide rollout after a successful pilot is proof that the product can move from department-level trial to broad health-system deployment [c2].",
+        citationIds: ["c2"]
+      },
+      {
+        text: "EHR vendors are actively selecting preferred ambient AI partners, which makes channel position and workflow integration more important than generic model quality [c3].",
+        citationIds: ["c3"]
+      }
+    ],
+    bearCase: [],
+    openQuestions: [
+      {
+        question: "What is the average number of active physician seats per health system customer, and what does seat utilization look like 12 months after go-live?",
+        category: "buyer_budget"
+      }
+    ]
+  };
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const investorRead = page.getByRole("article", { name: "Investor Read" });
+  await expect(investorRead).toBeVisible();
+  await expect(investorRead).toContainText("Rush University Medical Center");
+  await expect(investorRead).toContainText("EHR vendors are actively selecting");
+
+  const proofRows = investorRead.locator(".cs-investor-read-proof span");
+  await expect(proofRows).toHaveCount(2);
+  await expect(proofRows.first()).toHaveCSS("white-space", "normal");
+
+  const hasNoHorizontalOverflow = await investorRead.evaluate((element) =>
+    element.scrollWidth <= element.clientWidth + 1
+  );
+  expect(hasNoHorizontalOverflow).toBe(true);
+
+  await investorRead.screenshot({ path: "/private/tmp/cold-start-investor-read-long.png" });
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-investor-read-long-panel.png" });
 });
 
 test("granola signals module clusters duplicate raise coverage into corroborated events", async ({ page }) => {
@@ -124,7 +173,7 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
-    page.locator(".cs-active-enrichment", { hasText: "Next question" }).getByRole("button"),
+    page.locator(".cs-active-enrichment", { hasText: "The case" }).getByRole("button"),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
     page.locator(".cs-dormant-card", { hasText: "Money" })
   ];

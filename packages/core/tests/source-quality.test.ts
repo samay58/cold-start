@@ -38,6 +38,36 @@ describe("sourceQualityForSource", () => {
     });
   });
 
+  it("treats target-domain pages fetched as news as company-authored", () => {
+    expect(
+      sourceQualityForSource(
+        {
+          url: "https://www.notablehealth.com/customers/inova-health",
+          title: "Inova Health taps Notable to utilize intelligent AI agents",
+          sourceType: "news",
+        },
+        { targetDomain: "notablehealth.com" },
+      ),
+    ).toMatchObject({
+      tier: "primary_company",
+      label: "Company-authored",
+      incentive: "Company positioning.",
+    });
+  });
+
+  it("does not treat LinkedIn as independent company judgment", () => {
+    expect(
+      sourceQualityForSource({
+        url: "https://www.linkedin.com/company/notable-health",
+        title: "Notable LinkedIn",
+        sourceType: "news",
+      }),
+    ).toMatchObject({
+      tier: "enrichment",
+      label: "Professional profile",
+    });
+  });
+
   it("never upgrades company-site sources to independent labels", () => {
     expect(
       sourceQualityForSource({

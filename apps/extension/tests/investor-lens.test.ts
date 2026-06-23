@@ -124,15 +124,37 @@ describe("investor lens display", () => {
     });
     expect(display?.evidenceThatHolds).toEqual([
       {
-        label: "Warp could matter if terminal work becomes the control plane for engineering agents.",
-        sourcePosture: "independent"
-      },
-      {
         label: "The wedge is a daily developer workflow rather than a separate planning surface.",
         sourcePosture: "independent"
       }
     ]);
     expect(display?.evidenceStatus).toBe("Lens filed · 4 supported claims · independent evidence");
+  });
+
+  it("uses the thesis as proof only when no sharper bull claim survived", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: {
+          text: "Warp could matter if terminal work becomes the control plane for engineering agents [c2].",
+          citationIds: ["c2"]
+        },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [
+          {
+            question: "Who owns the budget if Warp moves from individual developers into team workflows?",
+            category: "buyer_budget"
+          }
+        ]
+      }
+    }));
+
+    expect(display?.evidenceThatHolds).toEqual([
+      {
+        label: "Warp could matter if terminal work becomes the control plane for engineering agents.",
+        sourcePosture: "independent"
+      }
+    ]);
   });
 
   it("marks timing as not found when market timing is absent", () => {

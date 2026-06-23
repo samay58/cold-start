@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { type ColdStartCard } from "@cold-start/core";
+import { type ColdStartCard, type FirstPayoff } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -101,7 +101,42 @@ function stubReducedMotion(matches: boolean) {
   })));
 }
 
-function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld") {
+function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld", duplicateEvidence = false) {
+  const evidenceSoFar: FirstPayoff["evidenceSoFar"] = [
+    {
+      sourceId: "company_site-exa.ai",
+      citationId: "c1",
+      url: "https://exa.ai/",
+      domain: "exa.ai",
+      title: "Exa",
+      sourceClass: "company_site",
+      quality: "company",
+      arrivedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+      entityMatched: true
+    },
+    {
+      sourceId: "news-techcrunch.com",
+      url: "https://techcrunch.com/exa",
+      domain: "techcrunch.com",
+      title: "Exa raises funding",
+      sourceClass: "funding",
+      quality: "reported",
+      arrivedAtMs: Date.parse("2026-06-21T00:00:01.000Z"),
+      entityMatched: true
+    }
+  ];
+  if (duplicateEvidence) {
+    evidenceSoFar.push({
+      sourceId: "docs-exa.ai",
+      url: "https://exa.ai/docs",
+      domain: "exa.ai",
+      title: "Exa docs",
+      sourceClass: "docs",
+      quality: "company",
+      arrivedAtMs: Date.parse("2026-06-21T00:00:02.000Z"),
+      entityMatched: true
+    });
+  }
   const base = {
     slug: "exa",
     domain: "exa.ai",
@@ -109,29 +144,7 @@ function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld") 
     generatedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
     entityConfidence: "high",
     entityConfidenceReason: "Current domain and source text match Exa.",
-    evidenceSoFar: [
-      {
-        sourceId: "company_site-exa.ai",
-        citationId: "c1",
-        url: "https://exa.ai/",
-        domain: "exa.ai",
-        title: "Exa",
-        sourceClass: "company_site",
-        quality: "company",
-        arrivedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
-        entityMatched: true
-      },
-      {
-        sourceId: "news-techcrunch.com",
-        url: "https://techcrunch.com/exa",
-        domain: "techcrunch.com",
-        title: "Exa raises funding",
-        sourceClass: "funding",
-        quality: "reported",
-        arrivedAtMs: Date.parse("2026-06-21T00:00:01.000Z"),
-        entityMatched: true
-      }
-    ],
+    evidenceSoFar,
     stillChecking: {
       text: "Independent customer proof.",
       missingEvidenceClass: "customer_proof"
@@ -159,6 +172,7 @@ function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld") 
 
 async function renderPanel(input: {
   complete?: boolean;
+  duplicateEvidence?: boolean;
   firstPayoffStatus?: "receipt" | "substantive_first_read" | "withheld";
   reducedMotion?: boolean;
   filedViaCacheStatus?: boolean;
@@ -169,7 +183,7 @@ async function renderPanel(input: {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  const payoff = input.firstPayoffStatus ? firstPayoff(input.firstPayoffStatus) : null;
+  const payoff = input.firstPayoffStatus ? firstPayoff(input.firstPayoffStatus, input.duplicateEvidence) : null;
   const events = input.filedViaCacheStatus
     ? [event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9, ...(payoff ? { firstPayoff: payoff } : {}) }, type: "card.partial" })]
     : [
@@ -255,7 +269,7 @@ describe("ResearchLayerPanel first read", () => {
     // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("Who it's for");
-    expect(firstRead?.textContent).toContain("Filed so far");
+    expect(firstRead?.textContent).toContain("Sources in hand");
     expect(firstRead?.textContent).toContain("techcrunch.com");
     expect(firstRead?.textContent).toContain("Still checking");
     // Never restates the company summary sentence shown in the header above it.
@@ -290,7 +304,7 @@ describe("ResearchLayerPanel first read", () => {
     const { container, unmount } = await renderPanel({ filedViaCacheStatus: true });
 
     // The live-generation success state can drop terminal events; a "hit" card must still file
-    // rather than leaving the slip stuck on "Still filing".
+    // rather than leaving the slip stuck in the temporary receipt state.
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
     expect(container.querySelector("[aria-label='Sources checked']")).not.toBeNull();
     await unmount();
@@ -301,10 +315,21 @@ describe("ResearchLayerPanel first read", () => {
     const receipt = container.querySelector("[aria-label='Evidence receipt']");
 
     expect(receipt).not.toBeNull();
-    expect(receipt?.textContent).toContain("Evidence arriving");
+    expect(receipt?.textContent).toContain("Evidence receipt");
     expect(receipt?.textContent).toContain("exa.ai");
     expect(receipt?.textContent).toContain("Still checking");
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    await unmount();
+  });
+
+  it("groups repeated source domains inside the receipt", async () => {
+    const { container, unmount } = await renderPanel({ duplicateEvidence: true, firstPayoffStatus: "receipt" });
+    const receipt = container.querySelector("[aria-label='Evidence receipt']");
+    const text = receipt?.textContent ?? "";
+
+    expect(receipt).not.toBeNull();
+    expect(text.match(/exa\.ai/g)).toHaveLength(1);
+    expect(text).toContain("Company / Docs");
     await unmount();
   });
 
@@ -324,7 +349,7 @@ describe("ResearchLayerPanel first read", () => {
     const receipt = container.querySelector("[aria-label='Evidence receipt']");
 
     expect(receipt).not.toBeNull();
-    expect(receipt?.textContent).toContain("Evidence arriving");
+    expect(receipt?.textContent).toContain("Evidence receipt");
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
     await unmount();
   });

@@ -101,6 +101,21 @@ describe("buildStableenrichRequests", () => {
     expect(requests[4]?.body).toMatchObject({ query: "harvey legal AI competitors" });
     expect(requests[5]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
   });
+
+  it("uses readable company-name aliases in default Exa queries", () => {
+    const notableRequests = buildStableenrichRequests({}, "notablehealth.com");
+    const sailRequests = buildStableenrichRequests({}, "sailresearch.com");
+
+    expect(notableRequests[0]?.body).toMatchObject({
+      query: expect.stringContaining('"Notable"'),
+    });
+    expect(notableRequests[5]?.body).toMatchObject({
+      query: expect.stringContaining('"Notable Health"'),
+    });
+    expect(sailRequests[5]?.body).toMatchObject({
+      query: expect.stringContaining('"Sail Research"'),
+    });
+  });
 });
 
 describe("runStableenrichProbe", () => {

@@ -67,6 +67,90 @@ describe("filterSourcesForDomain", () => {
     expect(result.rejected[0]).toMatchObject({ reason: "ambiguous_same_name_domain" });
   });
 
+  it("keeps Notable Health coverage that uses the company name instead of the compact domain root", () => {
+    const result = filterSourcesForDomain({
+      domain: "notablehealth.com",
+      sources: [
+        {
+          url: "https://techcrunch.com/2021/11/03/notable-which-makes-rpa-based-tools-to-speed-up-healthcare-admin-raises-100m-at-a-600m-valuation/",
+          title: "Notable raises $100M to speed up healthcare admin",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "funding",
+          rawText: "Notable makes automation tools for healthcare administration and raised $100 million."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual([
+      "https://techcrunch.com/2021/11/03/notable-which-makes-rpa-based-tools-to-speed-up-healthcare-admin-raises-100m-at-a-600m-valuation/"
+    ]);
+  });
+
+  it("keeps Sail Research coverage that spells the company name with a space", () => {
+    const result = filterSourcesForDomain({
+      domain: "sailresearch.com",
+      sources: [
+        {
+          url: "https://newsletter.foundersysk.com/p/your-showcase-primer-serval-keycard",
+          title: "Your showcase primer: Serval, Keycard, and Sail Research",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "independent_analysis",
+          rawText: "Sail Research builds AI tooling for enterprise workflows."
+        }
+      ]
+    });
+
+    expect(result.accepted.map((source) => source.url)).toEqual([
+      "https://newsletter.foundersysk.com/p/your-showcase-primer-serval-keycard"
+    ]);
+  });
+
+  it("still rejects unknown same-name domains even when target aliases are broader", () => {
+    const result = filterSourcesForDomain({
+      domain: "notablehealth.com",
+      sources: [
+        {
+          url: "https://notablehealthcare.io/about",
+          title: "Notable Healthcare",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Notable Healthcare is a different company with a similar name."
+        }
+      ]
+    });
+
+    expect(result.accepted).toEqual([]);
+    expect(result.rejected[0]).toMatchObject({
+      reason: "ambiguous_same_name_domain",
+      source: expect.objectContaining({ url: "https://notablehealthcare.io/about" })
+    });
+  });
+
+  it("does not accept a short-name alias without target-company context", () => {
+    const result = filterSourcesForDomain({
+      domain: "notablehealth.com",
+      sources: [
+        {
+          url: "https://designblog.io/notable-design-studio",
+          title: "Notable design studio profile",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Notable is a graphic design studio in Portland with no connection to hospitals or patient workflows."
+        }
+      ]
+    });
+
+    expect(result.accepted).toEqual([]);
+    expect(result.rejected[0]).toMatchObject({
+      reason: "low_relevance",
+      source: expect.objectContaining({ url: "https://designblog.io/notable-design-studio" })
+    });
+  });
+
   it("keeps specialist independent analysis hosts that look name-adjacent to the target", () => {
     const result = filterSourcesForDomain({
       domain: "sacra.com",

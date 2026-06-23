@@ -1,4 +1,4 @@
-import type { SignalCategory } from "@cold-start/core";
+import { sourceSearchSubjectForDomain, type SignalCategory } from "@cold-start/core";
 import { agentcashJson } from "./agentcash";
 import { providerBudgetForEndpoint } from "./provider-budget";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
@@ -176,13 +176,14 @@ export function missingStableenrichConfig(env: StableenrichEnv): string[] {
 export function buildStableenrichRequests(env: StableenrichEnv, domain: string, researchPlan?: ProviderResearchPlan): StableenrichProbe[] {
   requireStableenrichConfig(env);
   const queries = researchPlan?.searchQueries;
+  const searchSubject = sourceSearchSubjectForDomain(domain);
 
   return [
     {
       name: "exa_funding_history",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.funding ?? `${domain} funding raised Series valuation investors led by latest round total raised`,
+        query: queries?.funding ?? `${searchSubject} funding raised Series valuation investors led by latest round total raised`,
         numResults: 8,
       },
     },
@@ -190,7 +191,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_company_profile",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.companyProfile ?? `${domain} what does the company do product customers platform investor profile`,
+        query: queries?.companyProfile ?? `${searchSubject} what does the company do product customers platform investor profile`,
         numResults: 5,
       },
     },
@@ -198,7 +199,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_management_team",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.managementTeam ?? `${domain} founders CEO leadership management team contact email`,
+        query: queries?.managementTeam ?? `${searchSubject} founders CEO leadership management team contact email`,
         numResults: 5,
       },
     },
@@ -206,7 +207,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_recent_signals",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.recentSignals ?? `${domain} recent launch customers hiring funding product partnership traction`,
+        query: queries?.recentSignals ?? `${searchSubject} recent launch customers hiring funding product partnership traction`,
         numResults: 5,
       },
     },
@@ -214,7 +215,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       name: "exa_competition",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
       body: {
-        query: queries?.comparables ?? `${domain} competitors alternatives similar companies market map`,
+        query: queries?.comparables ?? `${searchSubject} competitors alternatives similar companies market map`,
         numResults: 5,
       },
     },
@@ -224,7 +225,7 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       body: {
         query:
           queries?.independentAnalysis ??
-          `${domain} independent analysis market map deep dive analyst report technical benchmark expert transcript investor research revenue funding traction customers`,
+          `${searchSubject} independent analysis market map deep dive analyst report technical benchmark expert transcript investor research revenue funding traction customers`,
         numResults: 6,
       },
     },

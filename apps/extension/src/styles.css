@@ -1412,28 +1412,28 @@ button {
   position: relative;
   z-index: 3;
   display: grid;
-  gap: 12px;
-  margin: 0 12px 12px;
-  padding: 14px 15px 13px;
+  gap: 9px;
+  margin: 0 16px 10px;
+  padding: 11px 12px 10px;
   overflow: hidden;
-  border: 1px solid rgb(204 190 151 / 0.82);
-  border-radius: 8px;
+  border: 1px solid rgb(204 190 151 / 0.62);
+  border-radius: 6px;
   background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.95), rgb(248 244 234 / 0.9)),
+    linear-gradient(180deg, rgb(255 253 248 / 0.9), rgb(248 244 234 / 0.76)),
     var(--color-plate);
   box-shadow:
-    0 8px 22px rgb(44 36 19 / 0.05),
+    0 5px 14px rgb(44 36 19 / 0.035),
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
 /* Signature: a single seal hairline that draws on entrance. The filed-slip mark, not a ribbon. */
 .cs-first-read-seal {
   position: absolute;
-  right: 14px;
-  bottom: 10px;
-  width: 56px;
+  right: 12px;
+  top: 0;
+  width: 46px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.42));
+  background: linear-gradient(90deg, transparent, rgb(110 92 158 / 0.48));
   transform-origin: right center;
 }
 
@@ -1442,7 +1442,7 @@ button {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -1450,8 +1450,8 @@ button {
 .cs-first-read-filed-stamp {
   color: var(--color-seal);
   font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 640;
+  font-size: 13px;
+  font-weight: 660;
   letter-spacing: 0.005em;
 }
 
@@ -1460,9 +1460,9 @@ button {
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;
-  color: rgb(23 26 31 / 0.5);
-  font-size: 11px;
-  font-weight: 560;
+  color: rgb(23 26 31 / 0.48);
+  font-size: 10.5px;
+  font-weight: 540;
 }
 
 .cs-first-read-flag::before {
@@ -1476,24 +1476,26 @@ button {
 .cs-first-read-read {
   margin: 0;
   color: var(--color-ink);
-  font-size: 13.5px;
-  font-weight: 560;
-  line-height: 1.4;
+  font-size: 12.5px;
+  font-weight: 520;
+  line-height: 1.36;
 }
 
 .cs-first-read-read-label {
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   color: var(--color-seal);
   font-family: var(--font-display);
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 10.75px;
+  font-weight: 620;
   letter-spacing: 0.005em;
 }
 
 .cs-first-read-ledger {
   display: grid;
-  gap: 6px;
+  gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid rgb(204 199 184 / 0.54);
 }
 
 .cs-first-read-ledger-head {
@@ -1501,19 +1503,19 @@ button {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  color: rgb(23 26 31 / 0.5);
-  font-size: 11px;
-  font-weight: 560;
+  color: rgb(23 26 31 / 0.46);
+  font-size: 10.5px;
+  font-weight: 540;
 }
 
 .cs-first-read-ledger-head span:first-child {
   color: var(--color-seal);
-  font-weight: 600;
+  font-weight: 620;
 }
 
 .cs-first-read-ledger ul {
   display: grid;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1523,14 +1525,14 @@ button {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
 .cs-first-read-mark-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
   background: var(--color-reported);
 }
 
@@ -1545,7 +1547,7 @@ button {
 .cs-first-read-ledger li a {
   overflow: hidden;
   color: var(--color-ink);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 560;
   text-decoration: none;
   text-overflow: ellipsis;
@@ -1558,16 +1560,17 @@ button {
 
 .cs-first-read-mark {
   flex: 0 0 auto;
-  color: rgb(23 26 31 / 0.5);
-  font: 540 9.5px/1 var(--font-text);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: rgb(23 26 31 / 0.46);
+  font: 540 10px/1 var(--font-body);
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .cs-first-read-ledger-more {
   display: block;
+  padding-left: 12px;
   color: rgb(23 26 31 / 0.45);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 540;
 }
 
@@ -1580,8 +1583,8 @@ button {
 
 .cs-first-read-gap {
   margin: 0;
-  color: rgb(23 26 31 / 0.66);
-  font-size: 12.5px;
+  color: rgb(23 26 31 / 0.58);
+  font-size: 11.5px;
   font-weight: 540;
   line-height: 1.35;
 }
@@ -1589,7 +1592,7 @@ button {
 .cs-first-read-gap-label {
   margin-right: 6px;
   color: var(--color-company);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 620;
 }
 
@@ -6174,4 +6177,164 @@ body {
   line-height: 1;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.cs-investor-read,
+.cs-investor-read * {
+  min-width: 0;
+}
+
+.cs-investor-read {
+  gap: 12px;
+  overflow: hidden;
+  border-color: rgb(204 199 184 / 0.88);
+  border-top-color: var(--color-seal);
+  border-top-width: 2px;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.96), rgb(250 247 239 / 0.88)),
+    var(--color-plate);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.84) inset,
+    0 8px 20px rgb(23 26 31 / 0.045);
+  padding: 15px 16px 14px;
+}
+
+.cs-investor-read-head {
+  display: block;
+}
+
+.cs-investor-read-head div {
+  display: grid;
+  gap: 3px;
+}
+
+.cs-investor-read-head span {
+  font-size: 18px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.cs-investor-read-head small {
+  color: rgb(23 26 31 / 0.58);
+  font-family: var(--font-text);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.cs-investor-read-lede {
+  max-width: 64rem;
+  font-size: 13.5px;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+
+.cs-investor-read-proof {
+  display: grid;
+  gap: 6px;
+  padding: 9px 0 0;
+  border-top: 1px solid rgb(204 199 184 / 0.62);
+}
+
+.cs-investor-read-proof strong {
+  color: rgb(23 26 31 / 0.56);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: none;
+}
+
+.cs-investor-read-proof span {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  max-width: none;
+  border: 0;
+  border-radius: 6px;
+  background: rgb(255 253 248 / 0.62);
+  color: rgb(23 26 31 / 0.78);
+  font-size: 12px;
+  line-height: 1.42;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  padding: 7px 8px;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.cs-investor-read-proof span i {
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: rgb(107 98 86 / 0.64);
+}
+
+.cs-investor-read-proof span[data-posture="independent"] {
+  background: rgb(14 107 91 / 0.055);
+}
+
+.cs-investor-read-proof span[data-posture="independent"] i {
+  background: var(--color-verified);
+}
+
+.cs-investor-read-proof span[data-posture="reporting"] i {
+  background: var(--color-reported);
+}
+
+.cs-investor-read-proof span[data-posture="company-authored"] i {
+  background: var(--color-company);
+}
+
+.cs-investor-read-proof span[data-posture="enrichment"] i {
+  background: var(--color-seal);
+}
+
+.cs-investor-read-grid {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgb(204 199 184 / 0.62);
+  border-radius: 6px;
+  background: rgb(247 245 238 / 0.48);
+}
+
+.cs-investor-read-grid div {
+  gap: 5px;
+  border-top: 0;
+  padding: 9px 10px 10px;
+}
+
+.cs-investor-read-grid div + div {
+  border-top: 1px solid rgb(204 199 184 / 0.62);
+}
+
+.cs-investor-read-grid dt {
+  color: rgb(23 26 31 / 0.54);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.cs-investor-read-grid dd {
+  font-size: 12.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 720px) {
+  .cs-investor-read-grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+
+  .cs-investor-read-grid div + div {
+    border-top: 0;
+    border-left: 1px solid rgb(204 199 184 / 0.62);
+  }
 }

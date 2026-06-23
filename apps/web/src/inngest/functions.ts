@@ -731,21 +731,13 @@ export const generateCardFunction = inngest.createFunction(
               ? "first_payoff.withheld"
               : "first_payoff.receipt",
           firstPayoff.status === "substantive_first_read"
-            ? "First Read ready"
+            ? "Early evidence ready"
             : firstPayoff.status === "withheld"
-              ? "First Read withheld"
+              ? "Evidence receipt held"
               : "Evidence receipt ready",
           { firstPayoff },
           null
         );
-        if (generationRunDbId) {
-          await step.run("persist-first-payoff-trace", () =>
-            updateGenerationRunTrace(db, {
-              id: generationRunDbId,
-              patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
-            })
-          );
-        }
       }
 
       if (mode === "basics") {
@@ -794,14 +786,6 @@ export const generateCardFunction = inngest.createFunction(
           ...(sourceEvent?.id ? { sourceEventId: sourceEvent.id } : {})
         });
         trace.firstPayoff = firstPayoff;
-        if (generationRunDbId) {
-          await step.run("persist-seed-first-payoff-trace", () =>
-            updateGenerationRunTrace(db, {
-              id: generationRunDbId,
-              patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
-            })
-          );
-        }
         const seedStore = await storeCardSnapshot({
           cardToStore: seedCardToStore,
           sources: acceptedSources,

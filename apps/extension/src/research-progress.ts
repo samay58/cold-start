@@ -328,10 +328,10 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
     return "Evidence receipt ready";
   }
   if (event.type === "first_payoff.ready") {
-    return "First Read ready";
+    return null;
   }
   if (event.type === "first_payoff.withheld") {
-    return "First Read withheld";
+    return "Evidence receipt held";
   }
   if (event.type === "card.partial") {
     return citationArtifactLine(event);

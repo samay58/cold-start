@@ -116,4 +116,42 @@ describe("buildEvidenceLedger", () => {
     expect(ledger[0]?.url).toBe("https://sacrainsights.com/company/notion");
     expect(ledger[1]?.url).toBe("https://firstmark.com/story/notion-market-map");
   });
+
+  it("ranks independent reporting ahead of target-domain news pages and LinkedIn profiles", () => {
+    const ledger = buildEvidenceLedger({
+      domain: "notablehealth.com",
+      sources: [
+        {
+          url: "https://www.notablehealth.com/blog/inova-health-ai-agents",
+          title: "Inova Health taps Notable to utilize intelligent AI agents",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "recent_signals",
+          rawText: "Notable says Inova Health will use its AI agents for administrative workflows.",
+        },
+        {
+          url: "https://www.linkedin.com/company/notable-health",
+          title: "Notable LinkedIn",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "management_team",
+          rawText: "Notable is a healthcare automation company on LinkedIn.",
+        },
+        {
+          url: "https://techcrunch.com/2021/11/03/notable-which-makes-rpa-based-tools-to-speed-up-healthcare-admin-raises-100m-at-a-600m-valuation/",
+          title: "Notable raises $100M to speed up healthcare admin",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "funding",
+          rawText: "Notable raised $100 million for healthcare automation tools.",
+        },
+      ],
+    });
+
+    expect(ledger.map((entry) => entry.url)).toEqual([
+      "https://techcrunch.com/2021/11/03/notable-which-makes-rpa-based-tools-to-speed-up-healthcare-admin-raises-100m-at-a-600m-valuation/",
+      "https://www.notablehealth.com/blog/inova-health-ai-agents",
+      "https://www.linkedin.com/company/notable-health",
+    ]);
+  });
 });

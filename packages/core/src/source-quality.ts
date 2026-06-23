@@ -1,5 +1,6 @@
 import type { Citation } from "./card";
 import { sourceAuthorityCategoriesForHost } from "./source-authority";
+import { targetHostMatchesDomain } from "./source-target";
 
 export type SourceQualityTier =
   | "independent_technical"
@@ -18,6 +19,9 @@ export type SourceQuality = {
 };
 
 type SourceQualityInput = Pick<Citation, "url" | "title" | "sourceType">;
+type SourceQualityOptions = {
+  targetDomain?: string;
+};
 
 export function sourceQualityTierRank(tier: SourceQualityTier): number {
   const rank: Record<SourceQualityTier, number> = {
@@ -33,11 +37,11 @@ export function sourceQualityTierRank(tier: SourceQualityTier): number {
   return rank[tier];
 }
 
-export function sourceQualityRank(source: SourceQualityInput): number {
-  return sourceQualityTierRank(sourceQualityForSource(source).tier);
+export function sourceQualityRank(source: SourceQualityInput, options: SourceQualityOptions = {}): number {
+  return sourceQualityTierRank(sourceQualityForSource(source, options).tier);
 }
 
-export function sourceQualityForSource(source: SourceQualityInput): SourceQuality {
+export function sourceQualityForSource(source: SourceQualityInput, options: SourceQualityOptions = {}): SourceQuality {
   const hostname = hostnameForUrl(source.url);
   const categories = new Set(sourceAuthorityCategoriesForHost(hostname));
   const searchable = `${source.url} ${source.title}`.toLowerCase();
@@ -51,13 +55,8 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
     };
   }
 
-  if (source.sourceType === "company_site") {
-    return {
-      tier: "primary_company",
-      label: "Company-authored",
-      rationale: "Best for product mechanics and official facts, weaker for claims about importance.",
-      incentive: "Company positioning.",
-    };
+  if (source.sourceType === "company_site" || targetHostMatchesDomain(hostname, options.targetDomain)) {
+    return companyAuthoredQuality();
   }
 
   if (categories.has("pressRelease") || /\bpress release\b/.test(searchable)) {
@@ -111,6 +110,15 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
       label: "Expert transcript",
       rationale: "Useful for operator, investor, or expert context. Treat statements as interview evidence, not audited facts.",
       incentive: "Guest, host, and editorial incentives.",
+    };
+  }
+
+  if (isLinkedInHost(hostname)) {
+    return {
+      tier: "enrichment",
+      label: "Professional profile",
+      rationale: "Useful for company presence and people evidence. Weak for market, traction, or evaluative claims.",
+      incentive: "Self-reported professional-network data.",
     };
   }
 
@@ -174,6 +182,19 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
     rationale: "Source incentive not classified.",
     incentive: "Unknown.",
   };
+}
+
+function companyAuthoredQuality(): SourceQuality {
+  return {
+    tier: "primary_company",
+    label: "Company-authored",
+    rationale: "Best for product mechanics and official facts, weaker for claims about importance.",
+    incentive: "Company positioning.",
+  };
+}
+
+function isLinkedInHost(hostname: string) {
+  return hostname === "linkedin.com" || hostname.endsWith(".linkedin.com");
 }
 
 function hostnameForUrl(url: string) {

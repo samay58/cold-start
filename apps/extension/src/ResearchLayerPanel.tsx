@@ -135,7 +135,7 @@ function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: bo
     return [];
   }
 
-  return hasSynthesis ? ["openQuestions", "coreIdea"] : ["coreIdea"];
+  return hasSynthesis ? ["theCase", "marketStructureTiming"] : ["coreIdea"];
 }
 
 function investorLensControlState({
@@ -940,9 +940,13 @@ function InvestorLensControl({
   onRunAnalysis: () => void;
   profileRun?: AnalysisRun | undefined;
 }) {
+  if (card.synthesis) {
+    return null;
+  }
+
   const state = investorLensControlState({ analysisRun, card, profileRun });
   return (
-    <div className="cs-investor-lens-control" data-filed={card.synthesis ? "true" : "false"}>
+    <div className="cs-investor-lens-control">
       <div>
         <strong>Investor Lens</strong>
         <span>{state.reason}</span>
@@ -963,14 +967,18 @@ function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
   return (
     <article className="cs-investor-read" aria-label="Investor Read">
       <div className="cs-investor-read-head">
-        <span>Investor Read</span>
-        <small>{read.evidenceStatus}</small>
+        <div>
+          <span>Investor Read</span>
+          <small>{read.evidenceStatus}</small>
+        </div>
       </div>
       <p className="cs-investor-read-lede">{read.whyItMightMatter}</p>
       {read.evidenceThatHolds.length > 0 ? (
-        <div className="cs-investor-read-proof" aria-label="Evidence that holds">
+        <div className="cs-investor-read-proof" aria-label="Evidence that held">
+          <strong>Evidence that held</strong>
           {read.evidenceThatHolds.map((chip) => (
             <span data-posture={chip.sourcePosture} key={`${chip.sourcePosture}-${chip.label}`}>
+              <i aria-hidden="true" />
               {chip.label}
             </span>
           ))}

@@ -12,7 +12,19 @@ function evidenceMarkClass(quality: FirstPayoff["evidenceSoFar"][number]["qualit
 }
 
 function sourceClassLabel(sourceClass: FirstPayoff["evidenceSoFar"][number]["sourceClass"]) {
-  return sourceClass.replace(/_/g, " ");
+  const labels: Record<FirstPayoff["evidenceSoFar"][number]["sourceClass"], string> = {
+    company_site: "Company",
+    customer_proof: "Customer",
+    database: "Database",
+    docs: "Docs",
+    funding: "Funding",
+    jobs: "Jobs",
+    news: "News",
+    other: "Source",
+    people: "People",
+    registry: "Registry"
+  };
+  return labels[sourceClass];
 }
 
 function primaryClaim(firstPayoff: FirstPayoff) {
@@ -29,11 +41,58 @@ function claimLabel(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["cla
   return "Latest proof";
 }
 
+function evidenceRank(quality: FirstPayoff["evidenceSoFar"][number]["quality"]) {
+  if (quality === "source_of_record" || quality === "independent") {
+    return 3;
+  }
+  if (quality === "reported") {
+    return 2;
+  }
+  return 1;
+}
+
+function displayEvidence(evidence: FirstPayoff["evidenceSoFar"]) {
+  const grouped = new Map<string, {
+    classes: Set<string>;
+    domain: string;
+    quality: FirstPayoff["evidenceSoFar"][number]["quality"];
+    sourceId: string;
+    url: string;
+  }>();
+
+  for (const item of evidence) {
+    const existing = grouped.get(item.domain);
+    if (!existing) {
+      grouped.set(item.domain, {
+        classes: new Set([sourceClassLabel(item.sourceClass)]),
+        domain: item.domain,
+        quality: item.quality,
+        sourceId: item.sourceId,
+        url: item.url
+      });
+      continue;
+    }
+    existing.classes.add(sourceClassLabel(item.sourceClass));
+    if (evidenceRank(item.quality) > evidenceRank(existing.quality)) {
+      existing.quality = item.quality;
+      existing.sourceId = item.sourceId;
+      existing.url = item.url;
+    }
+  }
+
+  return [...grouped.values()];
+}
+
 export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }) {
   const claim = firstPayoff.status === "substantive_first_read" ? primaryClaim(firstPayoff) : null;
-  const hiddenSources = Math.max(0, firstPayoff.evidenceSoFar.length - 4);
+  const evidence = displayEvidence(firstPayoff.evidenceSoFar);
+  const visibleEvidence = evidence.slice(0, 3);
+  const hiddenSources = Math.max(0, evidence.length - visibleEvidence.length);
   const ledgerCount = sourceLabel(firstPayoff.evidenceSoFar.length);
   const isFirstRead = Boolean(claim);
+  const receiptCopy = firstPayoff.entityConfidence === "needs_check"
+    ? "Sources are arriving. Holding the read until the entity match is clean."
+    : "Sources are in. Holding the read until there is a clean cited claim.";
 
   return (
     <section
@@ -43,8 +102,8 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
     >
       <span className="cs-first-read-seal" aria-hidden="true" />
       <header className="cs-first-read-head">
-        <span className="cs-first-read-title">{isFirstRead ? "First Read" : "Evidence arriving"}</span>
-        <span className="cs-first-read-flag">{firstPayoff.status === "withheld" ? "Read withheld" : "Still filing"}</span>
+        <span className="cs-first-read-title">{isFirstRead ? "First Read" : "Evidence receipt"}</span>
+        <span className="cs-first-read-flag">{isFirstRead ? "Early read" : firstPayoff.status === "withheld" ? "Claim withheld" : "Card filing"}</span>
       </header>
       {claim ? (
         <p className="cs-first-read-read" data-kind={claim.claimKind}>
@@ -53,28 +112,25 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
         </p>
       ) : (
         <p className="cs-first-read-read" data-kind="receipt">
-          <span className="cs-first-read-read-label">Evidence Receipt</span>
-          {firstPayoff.entityConfidence === "needs_check"
-            ? "Checking that the sources match this company."
-            : "Reached source evidence before the full profile is ready."}
+          {receiptCopy}
         </p>
       )}
       {firstPayoff.evidenceSoFar.length > 0 ? (
         <div className="cs-first-read-ledger" aria-label="Sources filed so far">
           <div className="cs-first-read-ledger-head">
-            <span>Filed so far</span>
+            <span>Sources in hand</span>
             <span>{ledgerCount}</span>
           </div>
           <ul>
-            {firstPayoff.evidenceSoFar.slice(0, 4).map((item) => (
+            {visibleEvidence.map((item) => (
               <li key={item.sourceId}>
                 <i className="cs-first-read-mark-dot" data-class={evidenceMarkClass(item.quality)} aria-hidden="true" />
                 <a href={item.url} rel="noreferrer" target="_blank">{item.domain}</a>
-                <span className="cs-first-read-mark">{sourceClassLabel(item.sourceClass)}</span>
+                <span className="cs-first-read-mark">{[...item.classes].join(" / ")}</span>
               </li>
             ))}
             {hiddenSources > 0 ? (
-              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more filed`}</li>
+              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more ${hiddenSources === 1 ? "domain" : "domains"}`}</li>
             ) : null}
           </ul>
         </div>

@@ -80,6 +80,8 @@ export type FirstPayoffSource = {
 
 const marketingFillerPattern = /\b(ai-native|agentic|next[-\s]?generation|transforming|revolutionizing|all-in-one|end-to-end|unlocking|emerging leader)\b/i;
 const investmentLanguagePattern = /\b(attractive|compelling|could matter|bull case|bear case|risk|winner|underwrite|invest)\b/i;
+const rawPayloadPattern = /(^\s*(?:\[|{))|(?:["']?[a-zA-Z0-9_-]+["']?\s*:\s*(?:["'{]|\[))|(?:\\[nrt])/;
+const directoryCategoryPattern = /\bis an?\s+[A-Z][A-Za-z]+(?:\s+(?:and|&)?\s*[A-Z][A-Za-z]+)*\s+company\b/;
 
 function domainFromUrl(url: string) {
   try {
@@ -94,7 +96,7 @@ function sourceIdFor(source: FirstPayoffSource, index: number) {
 }
 
 function normalizeSentence(value: string) {
-  const normalized = value.replace(/\s+/g, " ").trim();
+  const normalized = value.replace(/\\[nrt]/g, " ").replace(/\s+/g, " ").trim();
   if (!normalized) {
     return null;
   }
@@ -165,13 +167,16 @@ function citationIdsForSource(source: FirstPayoffSource, card?: ColdStartCard): 
 
 function firstUsefulLine(rawText: string, domain: string) {
   return rawText
+    .replace(/\\[nrt]/g, " ")
     .split(/\r?\n|(?<=[.!?])\s+/)
-    .map((line) => line.replace(/[#*_`>[\]()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
+    .map((line) => line.replace(/[#*_`>[\]{}()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
     .find((line) => {
       const lower = line.toLowerCase();
       return (
         line.length >= 28 &&
         line.length <= 220 &&
+        !rawPayloadPattern.test(line) &&
+        !directoryCategoryPattern.test(line) &&
         !lower.includes("cookie") &&
         !lower.includes("javascript") &&
         !lower.includes("captcha") &&
@@ -181,6 +186,12 @@ function firstUsefulLine(rawText: string, domain: string) {
 }
 
 function isBadClaimText(text: string) {
+  if (rawPayloadPattern.test(text)) {
+    return "claim_not_source_supported" as const;
+  }
+  if (directoryCategoryPattern.test(text)) {
+    return "marketing_filler" as const;
+  }
   if (text.length > 220) {
     return "too_long" as const;
   }
@@ -191,6 +202,44 @@ function isBadClaimText(text: string) {
     return "marketing_filler" as const;
   }
   return null;
+}
+
+function looksLikeRawProviderPayload(text: string) {
+  return (
+    (/^\s*(?:\[|\{)/.test(text) && /["']?[a-zA-Z0-9_-]+["']?\s*:/.test(text)) ||
+    /\\[nrt]/.test(text)
+  );
+}
+
+function normalizedEvidenceKey(evidence: FirstPayoffEvidence) {
+  const cleanUrl = (() => {
+    try {
+      const url = new URL(evidence.url);
+      url.hash = "";
+      url.search = "";
+      url.pathname = url.pathname.replace(/\/+$/u, "") || "/";
+      return url.toString().toLowerCase();
+    } catch {
+      return evidence.url.toLowerCase();
+    }
+  })();
+  return `${cleanUrl}:${evidence.sourceClass}`;
+}
+
+function dedupeEvidence(evidence: FirstPayoffEvidence[]) {
+  const seen = new Set<string>();
+  const deduped: FirstPayoffEvidence[] = [];
+
+  for (const item of evidence) {
+    const key = normalizedEvidenceKey(item);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(item);
+  }
+
+  return deduped;
 }
 
 function buildProofClaim({
@@ -225,6 +274,10 @@ function buildProofClaim({
   if (badReason) {
     return { reason: badReason };
   }
+  const badSupportingReason = isBadClaimText(supportingText);
+  if (badSupportingReason) {
+    return { reason: badSupportingReason };
+  }
   return {
     claim: {
       text,
@@ -252,6 +305,9 @@ function buildWhatItDoesClaim({
 }): { claim?: FirstPayoffClaim; reason?: FirstPayoffSuppressionReason } {
   if (source.sourceType !== "company_site" || !evidence.entityMatched) {
     return {};
+  }
+  if (looksLikeRawProviderPayload(sourceText(source))) {
+    return { reason: "claim_not_source_supported" };
   }
   const line = firstUsefulLine(sourceText(source), domain);
   const text = line ? normalizeSentence(line) : null;
@@ -333,9 +389,10 @@ export function buildFirstPayoff(input: {
       entityMatched: sourceEntityMatched(source, input.domain, card?.identity.name.value)
     }];
   });
-  const entity = entityConfidenceFor(evidence);
+  const displayEvidence = dedupeEvidence(evidence);
+  const entity = entityConfidenceFor(displayEvidence);
   const reasons = new Set<FirstPayoffSuppressionReason>();
-  if (evidence.length === 0) {
+  if (displayEvidence.length === 0) {
     reasons.add("no_sources");
   }
   if (entity.entityConfidence === "needs_check") {
@@ -374,7 +431,7 @@ export function buildFirstPayoff(input: {
   }
   const status: FirstPayoff["status"] = primaryClaim
     ? "substantive_first_read"
-    : evidence.length > 0 && !reasons.has("entity_needs_check")
+    : displayEvidence.length > 0 && !reasons.has("entity_needs_check")
       ? "receipt"
       : "withheld";
 
@@ -387,8 +444,8 @@ export function buildFirstPayoff(input: {
     ...(input.sourceEventId ? { sourceEventId: input.sourceEventId } : {}),
     ...(input.cardEventId ? { cardEventId: input.cardEventId } : {}),
     ...entity,
-    evidenceSoFar: evidence.slice(0, 4),
-    stillChecking: stillCheckingFor(evidence, entity.entityConfidence),
+    evidenceSoFar: displayEvidence.slice(0, 4),
+    stillChecking: stillCheckingFor(displayEvidence, entity.entityConfidence),
     ...(whatItDoes ? { whatItDoes } : {}),
     ...(proofHeadline ? { proofHeadline } : {}),
     suppressionReasons: [...reasons]

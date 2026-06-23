@@ -1,3 +1,4 @@
+import { sourceSearchSubjectForDomain } from "@cold-start/core";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
 
@@ -67,6 +68,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
     text: true,
     highlights: { highlightsPerUrl: 2, numSentences: 2 },
   };
+  const searchSubject = sourceSearchSubjectForDomain(domain);
 
   return [
     {
@@ -74,7 +76,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${domain} company profile domain headquarters founded what does the company do`,
+        query: `${searchSubject} company profile domain headquarters founded what does the company do`,
         type: "instant",
         category: "company",
         numResults: 5,
@@ -86,7 +88,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${domain} founders CEO management team executives leadership`,
+        query: `${searchSubject} founders CEO management team executives leadership`,
         type: "instant",
         category: "people",
         numResults: 6,
@@ -98,7 +100,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${domain} funding rounds investors total raised valuation latest round`,
+        query: `${searchSubject} funding rounds investors total raised valuation latest round`,
         type: "fast",
         category: "news",
         numResults: 8,
@@ -110,7 +112,7 @@ export function buildDirectExaFundamentalsRequests(env: DirectExaEnv, domain: st
       url,
       headers,
       body: {
-        query: `${domain} recent launch hiring customers product news`,
+        query: `${searchSubject} recent launch hiring customers product news`,
         type: "fast",
         category: "news",
         numResults: 6,
