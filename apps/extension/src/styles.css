@@ -4851,13 +4851,15 @@ body {
 }
 
 .cs-build-stage-copy span {
+  display: -webkit-box;
   overflow: hidden;
   color: var(--color-muted);
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-wrap: pretty;
 }
 
 .cs-plan-status {
