@@ -1,7 +1,7 @@
 import type { Citation } from "@cold-start/core";
 import { sourceQualityForSource, sourceQualityTierRank } from "@cold-start/core";
 
-export type CitationSourceClass = "independent" | "reporting" | "company";
+export type CitationSourceClass = "independent" | "reporting" | "company" | "vendor" | "unknown";
 
 export function sourceClassForCitation(citation: Citation): CitationSourceClass {
   const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
@@ -14,7 +14,15 @@ export function sourceClassForCitation(citation: Citation): CitationSourceClass 
     return "reporting";
   }
 
-  return "company";
+  if (tier === "primary_company" || tier === "press_release") {
+    return "company";
+  }
+
+  if (tier === "enrichment") {
+    return "vendor";
+  }
+
+  return "unknown";
 }
 
 export type CitationLedgerEntry = {

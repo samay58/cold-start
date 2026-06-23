@@ -42,8 +42,8 @@ function classifyRound(round: FundingRound): SourceClass {
   return "independent";
 }
 
-function citationMix(card: ColdStartCard | PublicCard): { independent: number; reporting: number; company: number; total: number } {
-  const counts = { independent: 0, reporting: 0, company: 0, total: 0 };
+function citationMix(card: ColdStartCard | PublicCard): { independent: number; reporting: number; company: number; vendor: number; unknown: number; total: number } {
+  const counts = { independent: 0, reporting: 0, company: 0, vendor: 0, unknown: 0, total: 0 };
   for (const citation of sortedCitations(card)) {
     counts.total += 1;
     const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
@@ -53,6 +53,10 @@ function citationMix(card: ColdStartCard | PublicCard): { independent: number; r
       counts.reporting += 1;
     } else if (tier === "primary_company" || tier === "press_release") {
       counts.company += 1;
+    } else if (tier === "enrichment") {
+      counts.vendor += 1;
+    } else {
+      counts.unknown += 1;
     }
   }
   return counts;
@@ -87,6 +91,22 @@ function stripCitationMarkers(text: string) {
     .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function publicReceiptText(text: string, limit = 260) {
+  const cleaned = stripCitationMarkers(text);
+  if (cleaned.length <= limit) {
+    return cleaned;
+  }
+
+  const firstSentence = cleaned.match(/^.{120,260}?[.!?](?=\s|$)/)?.[0];
+  if (firstSentence) {
+    return firstSentence;
+  }
+
+  const clipped = cleaned.slice(0, limit);
+  const lastSpace = clipped.lastIndexOf(" ");
+  return `${clipped.slice(0, lastSpace > 120 ? lastSpace : limit).trim()}...`;
 }
 
 function formatAppCurrency(value: number | null | undefined): string {
@@ -539,7 +559,11 @@ function publicEvidenceStatusForFact(fact: ResolvedFact<unknown> | undefined, le
     return "reported";
   }
 
-  return "company";
+  if (uniqueClasses.has("company")) {
+    return "company";
+  }
+
+  return "unknown";
 }
 
 function factValue<T>(fact: ResolvedFact<T>, formatter: (value: T) => string): string | null {
@@ -547,7 +571,9 @@ function factValue<T>(fact: ResolvedFact<T>, formatter: (value: T) => string): s
 }
 
 function formatRound(round: FundingRound) {
-  return [round.name, round.amountUsd ? formatCompactCurrency(round.amountUsd) : null].filter(Boolean).join(" · ");
+  const rawName = round.name.trim();
+  const roundName = /venture\s*\(round not specified\)/i.test(rawName) ? "Latest round" : rawName;
+  return [roundName, round.amountUsd ? formatCompactCurrency(round.amountUsd) : null].filter(Boolean).join(" · ");
 }
 
 function publicFactRowsForCard(card: ColdStartCard | PublicCard, ledger: CitationLedger): PublicFactRow[] {
@@ -630,8 +656,13 @@ function publicEvidenceNotesForSections(
 
       return [{
         citationIds,
-        state: citationIds.some((id) => ledger.get(id)?.sourceClass !== "company") ? "reported" : "company",
-        text: stripCitationMarkers(text),
+        state: citationIds.some((id) => {
+          const sourceClass = ledger.get(id)?.sourceClass;
+          return sourceClass === "independent" || sourceClass === "reporting";
+        })
+          ? "reported"
+          : citationIds.some((id) => ledger.get(id)?.sourceClass === "company") ? "company" : "unknown",
+        text: publicReceiptText(text),
         title
       }];
     });
@@ -652,7 +683,9 @@ function SourceSignature({ mix }: { mix: ReturnType<typeof citationMix> }) {
   const rows = [
     { className: "independent", count: mix.independent, label: "independent" },
     { className: "reporting", count: mix.reporting, label: "reported" },
-    { className: "company", count: mix.company, label: "company" }
+    { className: "company", count: mix.company, label: "company" },
+    { className: "vendor", count: mix.vendor, label: "data vendor" },
+    { className: "unknown", count: mix.unknown, label: "unclassified" }
   ].filter((row) => row.count > 0);
 
   if (rows.length === 0) {
@@ -679,7 +712,7 @@ export function CardShell({ card, sections, surface, texture }: CardShellProps) 
 
   const title = card.identity.name.value ?? card.domain;
   const description = card.identity.description?.value ?? null;
-  const subtitle = description?.shortDescription ?? card.identity.oneLiner.value ?? "";
+  const subtitle = card.identity.oneLiner.value ?? description?.shortDescription ?? "";
   const mix = citationMix(card);
   const ledger = buildCitationLedger(card.citations);
   const filedDate = formatMediumDate(card.generatedAt);

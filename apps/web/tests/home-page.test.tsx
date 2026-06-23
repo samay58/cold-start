@@ -117,7 +117,7 @@ describe("HomePage", () => {
     expect(html).toContain("Every material claim cites a source.");
     expect(html).toContain('href="/c/browserbase"');
     expect(html).toContain('href="/c/cartesia"');
-    expect(html).toContain("Browserbase builds sourced company context for investors.");
+    expect(html).toContain("Browserbase builds sourced company context infrastructure.");
     expect(html).not.toContain("ElevenLabs");
     expect(html).not.toContain("Companies");
     expect(html).not.toContain("Search");

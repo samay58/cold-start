@@ -262,6 +262,16 @@
   background: color-mix(in srgb, currentColor 52%, transparent);
 }
 
+.cs-source-signature-item[data-class="vendor"],
+.cs-source-signature-item[data-class="unknown"] {
+  color: var(--cat-muted);
+}
+
+.cs-source-signature-item[data-class="vendor"] > span,
+.cs-source-signature-item[data-class="unknown"] > span {
+  background: color-mix(in srgb, currentColor 24%, transparent);
+}
+
 .cs-key-values {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -306,6 +316,12 @@
 [data-class="company"] > .cs-evidence-dot {
   background: color-mix(in srgb, currentColor 52%, transparent);
   color: var(--color-company);
+}
+
+[data-class="vendor"] > .cs-evidence-dot,
+[data-class="unknown"] > .cs-evidence-dot {
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  color: var(--cat-muted);
 }
 
 [data-state="conflict"] > .cs-evidence-dot {
@@ -588,6 +604,12 @@
   color: var(--color-company);
 }
 
+.cs-source-item[data-class="vendor"]::before,
+.cs-source-item[data-class="unknown"]::before {
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  color: var(--cat-muted);
+}
+
 .cs-source-marker,
 .cs-source-body,
 .cs-source-title,
@@ -611,6 +633,11 @@
 
 .cs-source-item[data-class="company"] .cs-source-marker {
   color: var(--color-company);
+}
+
+.cs-source-item[data-class="vendor"] .cs-source-marker,
+.cs-source-item[data-class="unknown"] .cs-source-marker {
+  color: var(--cat-muted);
 }
 
 .cs-source-title {
@@ -1005,6 +1032,11 @@
   color: var(--color-company);
 }
 
+.cs-citation[data-class="vendor"],
+.cs-citation[data-class="unknown"] {
+  color: var(--cat-muted);
+}
+
 .cs-card[data-surface="web"] .cs-citation:hover,
 .cs-card[data-surface="web"] .cs-citation:focus-visible {
   background: var(--color-seal);
@@ -1099,6 +1131,12 @@
 .cs-citation-popover-class[data-class="company"] .cs-evidence-dot {
   background: linear-gradient(90deg, var(--color-company) 50%, transparent 50%);
   border: 1px solid var(--color-company);
+}
+
+.cs-citation-popover-class[data-class="vendor"] .cs-evidence-dot,
+.cs-citation-popover-class[data-class="unknown"] .cs-evidence-dot {
+  background: color-mix(in srgb, var(--cat-muted) 20%, transparent);
+  border: 1px solid var(--cat-muted);
 }
 
 /* Source rail / tracings */

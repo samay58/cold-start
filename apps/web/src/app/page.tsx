@@ -22,8 +22,8 @@ function curatedExamples(summaries: PublicCardSummary[]) {
 }
 
 function descriptionFor(summary: PublicCardSummary) {
-  return summary.card.identity.description?.value?.shortDescription
-    ?? summary.card.identity.oneLiner.value
+  return summary.card.identity.oneLiner.value
+    ?? summary.card.identity.description?.value?.shortDescription
     ?? "Sourced public company facts with citations.";
 }
 
