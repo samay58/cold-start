@@ -151,6 +151,25 @@ describe("filterSourcesForDomain", () => {
     });
   });
 
+  it("rejects a generic-stem alias corroborated only by a common suffix word", () => {
+    const result = filterSourcesForDomain({
+      domain: "globaltech.com",
+      sources: [
+        {
+          url: "https://news.example.com/supply-chains",
+          title: "Global supply chains and the tech sector",
+          sourceType: "news",
+          fetchedAt: "2026-06-23T00:00:00.000Z",
+          intent: "company_profile",
+          rawText: "Global supply chain disruptions hit the tech sector this quarter, with no mention of any specific company."
+        }
+      ]
+    });
+
+    expect(result.accepted).toEqual([]);
+    expect(result.rejected[0]).toMatchObject({ reason: "low_relevance" });
+  });
+
   it("keeps specialist independent analysis hosts that look name-adjacent to the target", () => {
     const result = filterSourcesForDomain({
       domain: "sacra.com",
