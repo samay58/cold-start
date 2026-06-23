@@ -103,7 +103,7 @@ describe("HomePage", () => {
     mocks.getPublicProfileIndex.mockReset();
   });
 
-  it("renders a spare receipt landing page with curated examples", async () => {
+  it("renders a plain public index of generated profiles", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([
       summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z"),
@@ -112,15 +112,19 @@ describe("HomePage", () => {
 
     const html = await renderHome();
 
-    expect(html).toContain("Before the memo, check the receipt.");
-    expect(html).toContain("Public facts. Private judgment.");
-    expect(html).toContain("Open Browserbase");
+    expect(html).toContain("Sourced company profiles");
+    expect(html).toContain("Generated from the Chrome extension.");
+    expect(html).toContain("Public pages show facts and sources. Investor synthesis stays private.");
+    expect(html).toContain("Open latest profile");
+    expect(html).toContain('href="/c/elevenlabs"');
     expect(html).toContain('href="/c/browserbase"');
     expect(html).toContain('href="/c/cartesia"');
+    expect(html).toContain("ElevenLabs");
     expect(html).toContain("Browserbase");
     expect(html).toContain("Cartesia");
     expect(html).not.toContain("Browserbase builds sourced company context infrastructure.");
-    expect(html).not.toContain("ElevenLabs");
+    expect(html).not.toContain("Before the memo, check the receipt.");
+    expect(html).not.toContain("Public facts. Private judgment.");
     expect(html).not.toContain("Public receipt");
     expect(html).not.toContain("Extension lens");
     expect(html).not.toContain("Receipts worth opening.");
@@ -132,18 +136,16 @@ describe("HomePage", () => {
     expect(html).not.toContain("public sections");
   });
 
-  it("hides unavailable examples instead of falling back to newest profiles", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([
-      summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z")
-    ]);
+  it("keeps the page quiet when no public profiles are available", async () => {
+    mocks.getPublicProfileIndex.mockResolvedValue([]);
 
     const html = await renderHome();
 
-    expect(html).toContain("Before the memo, check the receipt.");
+    expect(html).toContain("Sourced company profiles");
     expect(html).toContain("Request access");
-    expect(html).not.toContain("Open Browserbase");
+    expect(html).not.toContain("Open latest profile");
     expect(html).not.toContain("ElevenLabs");
-    expect(html).not.toContain("Examples");
+    expect(html).not.toContain("Generated profiles");
     expect(html).not.toContain("Search");
   });
 });

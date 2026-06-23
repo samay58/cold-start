@@ -5,8 +5,6 @@ import { connection } from "next/server";
 import React from "react";
 import { getPublicProfileIndex } from "../lib/cards";
 
-const exampleSlugs = ["browserbase", "cartesia"] as const;
-
 export const revalidate = 30;
 
 const getCachedPublicProfileIndex = unstable_cache(
@@ -14,12 +12,6 @@ const getCachedPublicProfileIndex = unstable_cache(
   ["public-profile-index"],
   { revalidate: 30 }
 );
-
-function curatedExamples(summaries: PublicCardSummary[]) {
-  return exampleSlugs
-    .map((slug) => summaries.find((summary) => summary.slug === slug))
-    .filter((summary): summary is PublicCardSummary => Boolean(summary));
-}
 
 function checkedDate(value: string) {
   const parsed = new Date(value);
@@ -35,10 +27,11 @@ function checkedDate(value: string) {
   }).format(parsed).replace(",", "");
 }
 
-function ExampleReceipt({ summary }: { summary: PublicCardSummary }) {
+function PublicProfileRow({ summary }: { summary: PublicCardSummary }) {
   return (
-    <Link className="cs-home-example" href={`/c/${summary.slug}`}>
+    <Link className="cs-home-profile" href={`/c/${summary.slug}`}>
       <span>{summary.name}</span>
+      <small>{summary.domain}</small>
       <small>{summary.sourceCount} sources · Checked {checkedDate(summary.generatedAt)}</small>
     </Link>
   );
@@ -46,9 +39,8 @@ function ExampleReceipt({ summary }: { summary: PublicCardSummary }) {
 
 export default async function HomePage() {
   await connection();
-  const examples = curatedExamples(await getCachedPublicProfileIndex());
-  const primaryExample = examples[0] ?? null;
-  const primaryExampleLabel = primaryExample ? `Open ${primaryExample.name}` : null;
+  const profiles = await getCachedPublicProfileIndex();
+  const latestProfile = profiles[0] ?? null;
 
   return (
     <main className="cs-home" id="main-content">
@@ -60,27 +52,26 @@ export default async function HomePage() {
           </div>
 
           <div className="cs-home-copy">
-            <p className="cs-home-eyebrow">Public facts. Private judgment.</p>
-            <h1>Before the memo, check the receipt.</h1>
+            <p className="cs-home-eyebrow">Generated from the Chrome extension.</p>
+            <h1>Sourced company profiles</h1>
             <p>
-              Cold Start shows what is known, who said it, and when it was checked.
-              The extension keeps the investor read private.
+              Public pages show facts and sources. Investor synthesis stays private.
             </p>
 
             <div className="cs-home-actions" aria-label="Primary actions">
-              {primaryExample && primaryExampleLabel ? (
-                <Link className="cs-home-primary" href={`/c/${primaryExample.slug}`}>{primaryExampleLabel}</Link>
+              {latestProfile ? (
+                <Link className="cs-home-primary" href={`/c/${latestProfile.slug}`}>Open latest profile</Link>
               ) : null}
               <a className="cs-home-secondary" href="mailto:samay@semitechie.vc?subject=Cold%20Start%20access">Request access</a>
             </div>
           </div>
         </header>
 
-        {examples.length > 0 ? (
-          <section className="cs-home-examples" aria-label="Example receipts">
-            <div className="cs-home-example-list">
-              {examples.map((summary) => (
-                <ExampleReceipt key={summary.slug} summary={summary} />
+        {profiles.length > 0 ? (
+          <section className="cs-home-profiles" aria-label="Generated profiles">
+            <div className="cs-home-profile-list">
+              {profiles.map((summary) => (
+                <PublicProfileRow key={summary.slug} summary={summary} />
               ))}
             </div>
           </section>

@@ -922,7 +922,7 @@ a {
 }
 
 .cs-home-eyebrow,
-.cs-home-example small {
+.cs-home-profile small {
   color: var(--color-seal);
   font-family: var(--font-text);
   font-size: 11px;
@@ -988,19 +988,19 @@ a {
   color: var(--color-ink);
 }
 
-.cs-home-examples {
+.cs-home-profiles {
   display: grid;
   margin-left: calc(128px + clamp(24px, 6vw, 88px));
   border-top: 1px solid var(--color-rule-strong);
 }
 
-.cs-home-example-list {
+.cs-home-profile-list {
   display: grid;
 }
 
-.cs-home-example {
+.cs-home-profile {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
+  grid-template-columns: minmax(120px, 0.74fr) minmax(120px, 0.46fr) max-content;
   gap: clamp(12px, 2vw, 24px);
   align-items: baseline;
   min-width: 0;
@@ -1013,7 +1013,7 @@ a {
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 
-.cs-home-example span {
+.cs-home-profile span {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: clamp(22px, 2.6vw, 34px);
@@ -1022,33 +1022,33 @@ a {
   line-height: 1;
 }
 
-.cs-home-example small {
+.cs-home-profile small {
   min-width: 0;
   color: var(--color-muted);
   font-size: 12px;
   line-height: 1.35;
 }
 
-.cs-home-example small {
+.cs-home-profile small:last-child {
   justify-self: end;
   color: var(--color-seal);
   text-align: right;
 }
 
-.cs-home-example:hover,
-.cs-home-example:focus-visible {
+.cs-home-profile:hover,
+.cs-home-profile:focus-visible {
   color: var(--color-seal);
   transform: translateX(2px);
 }
 
 .cs-home-primary:active,
 .cs-home-secondary:active,
-.cs-home-example:active {
+.cs-home-profile:active {
   transform: scale(0.96);
 }
 
-.cs-home-example:hover,
-.cs-home-example:focus-visible,
+.cs-home-profile:hover,
+.cs-home-profile:focus-visible,
 .cs-home-primary:focus-visible,
 .cs-home-secondary:focus-visible {
   outline: 2px solid var(--color-seal);
@@ -1064,7 +1064,7 @@ a {
     justify-content: flex-start;
   }
 
-  .cs-home-examples {
+  .cs-home-profiles {
     margin-left: 0;
   }
 }
@@ -1079,12 +1079,13 @@ a {
     line-height: 0.98;
   }
 
-  .cs-home-example {
+  .cs-home-profile {
     grid-template-columns: 1fr;
     gap: 5px;
   }
 
-  .cs-home-example small {
+  .cs-home-profile small,
+  .cs-home-profile small:last-child {
     justify-self: start;
     text-align: left;
   }
