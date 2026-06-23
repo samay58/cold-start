@@ -159,7 +159,7 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
         <p className="cs-first-read-ledger-empty">Filing the first sources.</p>
       )}
       <p className="cs-first-read-gap">
-        <span className="cs-first-read-gap-label">Needs</span>
+        <span className="cs-first-read-gap-label">Needs</span>{" "}
         {firstPayoff.stillChecking.text}
       </p>
     </motion.section>

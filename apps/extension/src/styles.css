@@ -1426,7 +1426,6 @@ button {
     0 1px 0 rgb(255 255 255 / 0.82) inset;
 }
 
-/* Signature: a single seal hairline that draws on entrance. The filed-slip mark, not a ribbon. */
 .cs-first-read-seal {
   position: absolute;
   right: 12px;
