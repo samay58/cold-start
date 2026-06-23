@@ -580,7 +580,7 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
         { label: "mid", y: -42 },
         { label: "ready", y: -116 }
       ],
-      label: "Who pays",
+      label: "Next question",
       slug: "first"
     },
     {
@@ -589,7 +589,7 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
         { label: "mid", y: -96 },
         { label: "ready", y: -180 }
       ],
-      label: "Money",
+      label: "Proof",
       slug: "middle"
     },
     {
