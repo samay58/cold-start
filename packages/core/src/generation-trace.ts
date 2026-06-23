@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { FirstPayoff } from "./first-payoff";
 
 export type GenerationJobKind =
   | "basics"
@@ -116,6 +117,7 @@ export type GenerationTrace = {
     contactsReadyMs?: number;
     analysisReadyMs?: number;
   };
+  firstPayoff?: FirstPayoff;
   providers?: {
     directExa?: {
       skipped: boolean;
@@ -212,6 +214,7 @@ export const generationTraceSchema = z
     steps: z.record(z.unknown()).optional(),
     inngest: z.unknown().optional(),
     milestones: z.unknown().optional(),
+    firstPayoff: z.unknown().optional(),
     providers: z.unknown().optional(),
     llm: z.unknown().optional(),
     sourceGate: z.unknown().optional(),

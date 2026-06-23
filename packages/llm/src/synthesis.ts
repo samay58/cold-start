@@ -15,9 +15,12 @@ const openQuestionToolSchema = {
   additionalProperties: false,
   properties: {
     question: nonEmptyStringSchema,
-    category: { type: "string", enum: questionCategoryValues }
+    category: { type: "string", enum: questionCategoryValues },
+    testsBelief: nonEmptyStringSchema,
+    evidenceBasis: nonEmptyStringSchema,
+    wouldChangeReadIf: nonEmptyStringSchema
   },
-  required: ["question", "category"]
+  required: ["question", "category", "testsBelief", "evidenceBasis", "wouldChangeReadIf"]
 } as const;
 
 const sourcedTextSchema = {
@@ -82,18 +85,18 @@ function sameCitationMultiset(left: string[], right: string[]) {
 }
 
 const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
-  const fixedLengthArrays = [
-    { path: ["bullCase"], value: synthesis.bullCase, label: "bullCase" },
-    { path: ["bearCase"], value: synthesis.bearCase, label: "bearCase" },
-    { path: ["openQuestions"], value: synthesis.openQuestions, label: "openQuestions" }
+  const rangedArrays = [
+    { path: ["bullCase"], value: synthesis.bullCase, label: "bullCase", min: 0, max: 2 },
+    { path: ["bearCase"], value: synthesis.bearCase, label: "bearCase", min: 0, max: 2 },
+    { path: ["openQuestions"], value: synthesis.openQuestions, label: "openQuestions", min: 1, max: 3 }
   ];
 
-  for (const item of fixedLengthArrays) {
-    if (item.value.length !== 3) {
+  for (const item of rangedArrays) {
+    if (item.value.length < item.min || item.value.length > item.max) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: item.path,
-        message: `${item.label} must contain exactly 3 items`
+        message: `${item.label} must contain ${item.min} to ${item.max} items`
       });
     }
   }
@@ -207,10 +210,10 @@ export const synthesisTool = {
     additionalProperties: false,
     properties: {
       whyItMatters: sourcedTextSchema,
-      bullCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
-      bearCase: { type: "array", minItems: 3, maxItems: 3, items: sourcedTextSchema },
+      bullCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextSchema },
+      bearCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextSchema },
       marketStructureAndTiming: marketStructureAndTimingToolSchema,
-      openQuestions: { type: "array", minItems: 3, maxItems: 3, items: openQuestionToolSchema }
+      openQuestions: { type: "array", minItems: 1, maxItems: 3, items: openQuestionToolSchema }
     },
     required: ["whyItMatters", "bullCase", "bearCase", "marketStructureAndTiming", "openQuestions"]
   }
@@ -221,15 +224,18 @@ export const synthesisSystemPrompt = [
   "whyItMatters and every bull and bear bullet must end with citation markers.",
   "Use only citation IDs present in card.citations; do not cite evidence ledger IDs such as [e1].",
   "Treat source incentives as part of the judgment: independent technical and independent analysis sources deserve more weight for market and product evaluation than press releases or company-authored claims.",
-  "Do not leave bearCase empty when any cited risk, uncertainty, missing proof point, or unresolved diligence question exists on the card.",
+  "Only include bull or bear claims that change diligence. Empty bullCase or bearCase is allowed when no supported claim exists.",
   "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
   "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
+  "Timing must stay null unless a cited source supports a real mechanism such as buyer urgency, regulation, cost curve, platform shift, workflow trigger, or budget migration.",
   "Do not write top-down TAM or CAGR filler. Prefer buyer budget, pain severity, adoption trigger, market structure, profit pool, expansion path, and timing risk.",
-  "openQuestions are the 3 questions that would most change an investor's conviction on this company, written in a what-would-you-need-to-believe frame. Each question names the belief the case depends on and the specific evidence that would confirm or kill it.",
+  "Bull claims must name a buyer, workflow, mechanism, proof, or missing proof. Bear claims must name what breaks and how to test it.",
+  "openQuestions are the 1 to 3 questions that would most change an investor's conviction on this company, written in a what-would-you-need-to-believe frame.",
+  "Every open question must name who to ask, the belief it tests, the cited evidence basis, and what answer would change the read.",
   "Every open question must reference something concrete on this card: a named buyer, product, competitor, number, or claim. Reject generic diligence that could be pasted onto any startup.",
   "Do not ask to request financials or verify ARR as a question. If economics matter, ask about retention, pricing power, margin, or customer concentration with a specific reason.",
   "Give each open question exactly one category from this fixed set, chosen by what the question tests: buyer_budget, adoption_proof, durability, unit_economics, technical_edge, market_timing, trust_regulation.",
-  "The 3 questions must be distinct. Do not ask the same thing twice in different words.",
+  "Questions must be distinct. Do not ask the same thing twice in different words.",
   "Never use an em dash anywhere. Use a period or a semicolon instead."
 ].join(" ");
 

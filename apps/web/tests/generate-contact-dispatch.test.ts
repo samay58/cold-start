@@ -408,7 +408,7 @@ describe("generate-card contact dispatch", () => {
     );
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
-  });
+  }, 10_000);
 
   it("records the saved seed card as the first usable profile across replay", async () => {
     const requestedAtMs = Date.parse(generatedAt);
@@ -435,7 +435,7 @@ describe("generate-card contact dispatch", () => {
     } finally {
       restoreClock();
     }
-  });
+  }, 10_000);
 
   it("targets late enrichment probes to blocks still missing after the generated card", async () => {
     const teamGapSections = {

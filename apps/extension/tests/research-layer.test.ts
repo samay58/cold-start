@@ -230,7 +230,7 @@ describe("research layer model", () => {
     ]);
   });
 
-  it("treats stale synthesis without market structure as needing analysis", () => {
+  it("treats missing market timing as honestly absent after synthesis", () => {
     const card = baseCard({
       synthesis: {
         whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
@@ -240,12 +240,12 @@ describe("research layer model", () => {
       }
     });
 
-    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("ready");
+    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("empty");
     expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
       title: "Timing",
-      body: "Market structure analysis has not been generated for this card yet.",
+      body: "Timing not found · Current sources did not support a timing read.",
       sourceCount: 0,
-      status: "ready"
+      status: "empty"
     });
   });
 
@@ -270,10 +270,42 @@ describe("research layer model", () => {
 
     expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("empty");
     expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      body: "No market structure claims survived verification.",
+      body: "Timing not found · Current sources did not support a timing read.",
       sourceCount: 0,
       status: "empty"
     });
+  });
+
+  it("renders the case as a compact tension map", () => {
+    const card = baseCard({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [{ text: "Developer teams may standardize terminal workflows around Warp [c1].", citationIds: ["c1"] }],
+        bearCase: [{ text: "It breaks if IDE agents absorb terminal workflows before Warp owns budgets [c1].", citationIds: ["c1"] }],
+        openQuestions: [{ question: "Who owns the budget for team-wide terminal workflows?", category: "buyer_budget" }]
+      }
+    });
+
+    expect(layerDisplayForCard(card, "theCase")?.items).toEqual([
+      {
+        title: "If true",
+        body: "Developer teams may standardize terminal workflows around Warp.",
+        kind: "evidence",
+        meta: "bull"
+      },
+      {
+        title: "It breaks if",
+        body: "It breaks if IDE agents absorb terminal workflows before Warp owns budgets.",
+        kind: "evidence",
+        meta: "bear"
+      },
+      {
+        title: "Test",
+        body: "Who owns the budget for team-wide terminal workflows?",
+        kind: "question",
+        meta: "Next diligence question"
+      }
+    ]);
   });
 
   it("orders displayed sources by source quality before chip truncation", () => {

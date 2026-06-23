@@ -109,7 +109,10 @@ export type QuestionCategory = z.infer<typeof questionCategorySchema>;
 
 export const openQuestionSchema = z.object({
   question: z.string().min(1),
-  category: questionCategorySchema.nullable().catch(null)
+  category: questionCategorySchema.nullable().catch(null),
+  testsBelief: z.string().min(1).optional(),
+  evidenceBasis: z.string().min(1).optional(),
+  wouldChangeReadIf: z.string().min(1).optional()
 });
 export type OpenQuestion = z.infer<typeof openQuestionSchema>;
 

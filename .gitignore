@@ -29,3 +29,7 @@ docs/motion-references/
 
 # Large QA capture videos stay local; keep the small JPG frames + notes in git.
 *.mp4
+
+# Private research prompts and working notes. Local only, not for GitHub or deployment.
+docs/product/research/private-prompts/
+docs/product/research/private-analysis/

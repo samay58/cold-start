@@ -1,4 +1,5 @@
 import {
+  analysisBlockedReason,
   canRunInvestorAnalysis,
   fundingEvidenceFromCitations,
   hasUsablePublicProfile,
@@ -31,8 +32,10 @@ import {
   formatOptionalNumber,
   profileSummaryCopy
 } from "./extension-format";
-import { firstReadForCard, firstReadIsFiled, firstReadIsPending, type FirstRead } from "./first-read";
+import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
+import { FirstPayoffSurface } from "./FirstPayoffSurface";
+import { investorReadForCard, type InvestorReadDisplay } from "./investor-lens";
 import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,
@@ -133,6 +136,35 @@ function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: bo
   }
 
   return hasSynthesis ? ["openQuestions", "coreIdea"] : ["coreIdea"];
+}
+
+function investorLensControlState({
+  analysisRun,
+  card,
+  profileRun
+}: {
+  analysisRun?: AnalysisRun | undefined;
+  card: ColdStartCard;
+  profileRun?: AnalysisRun | undefined;
+}) {
+  if (card.synthesis) {
+    return { disabled: true, label: "Investor Lens filed", reason: "Synthesis is saved for this card." };
+  }
+
+  if (profileRun) {
+    return { disabled: true, label: "Run investor lens", reason: "Finish Basics before running Investor Lens." };
+  }
+
+  if (analysisRun) {
+    return { disabled: true, label: "Investor Lens running", reason: "Reading cited sources for the investor read." };
+  }
+
+  const blockedReason = analysisBlockedReason(card);
+  if (blockedReason) {
+    return { disabled: true, label: "Run investor lens", reason: blockedReason };
+  }
+
+  return { disabled: false, label: "Run investor lens", reason: "Build the investor read, case, timing, and next diligence question." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -338,110 +370,26 @@ function ProfileSummary({
   );
 }
 
-function FirstReadSlip({
-  firstRead,
-  prefersReducedMotion
-}: {
-  firstRead: FirstRead;
-  prefersReducedMotion: boolean;
-}) {
-  const ledgerCount = firstRead.independentCount > 0
-    ? `${firstRead.independentCount} of ${firstRead.sourceCount} independent`
-    : sourceLabel(firstRead.sourceCount);
-  const hiddenSources = firstRead.sourceCount - firstRead.evidence.length;
-
-  const reduce = prefersReducedMotion;
-  // Spring in, then file each block with a short stagger, like a slip dropping into a folder.
-  const section = reduce
-    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, transition: { duration: 0.12, ease: "easeOut" as const } }
-    : {
-        initial: "hidden" as const,
-        animate: "show" as const,
-        exit: { opacity: 0, y: -16, scale: 0.94, transition: { duration: 0.3, ease: motionTokens.easeOut } },
-        variants: {
-          hidden: { opacity: 0, y: 12, scale: 0.985 },
-          show: { opacity: 1, y: 0, scale: 1, transition: { ...commitSpring, staggerChildren: 0.05, delayChildren: 0.04 } }
-        }
-      };
-  const block = reduce ? {} : { variants: { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0, transition: snapSpring } } };
-
-  return (
-    <motion.section
-      aria-label="First read"
-      className="cs-first-read"
-      layout
-      layoutId="first-read-filed-slip"
-      {...section}
-    >
-      {reduce ? (
-        <span className="cs-first-read-seal" aria-hidden="true" />
-      ) : (
-        <motion.span
-          className="cs-first-read-seal"
-          aria-hidden="true"
-          variants={{ hidden: { scaleX: 0 }, show: { scaleX: 1, transition: { ...commitSpring, delay: 0.16 } } }}
-        />
-      )}
-      <motion.header className="cs-first-read-head" {...block}>
-        <span className="cs-first-read-title">First read</span>
-        <span className="cs-first-read-flag">Still filing</span>
-      </motion.header>
-      <motion.p className="cs-first-read-read" data-kind={firstRead.readKind} {...block}>
-        <span className="cs-first-read-read-label">{firstRead.readLabel}</span>
-        {firstRead.read}
-      </motion.p>
-      {firstRead.evidence.length > 0 ? (
-        <motion.div className="cs-first-read-ledger" aria-label="Sources filed so far" {...block}>
-          <div className="cs-first-read-ledger-head">
-            <span>Filed so far</span>
-            <span>{ledgerCount}</span>
-          </div>
-          <ul>
-            {firstRead.evidence.map((item) => (
-              <li key={item.id}>
-                <i className="cs-first-read-mark-dot" data-class={item.cls} aria-hidden="true" />
-                <a href={item.href} rel="noreferrer" target="_blank">{item.domain}</a>
-                <span className="cs-first-read-mark">{item.label}</span>
-              </li>
-            ))}
-            {hiddenSources > 0 ? (
-              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more filed`}</li>
-            ) : null}
-          </ul>
-        </motion.div>
-      ) : (
-        <motion.p className="cs-first-read-ledger-empty" {...block}>Filing the first sources.</motion.p>
-      )}
-      <motion.p className="cs-first-read-gap" {...block}>
-        <span className="cs-first-read-gap-label">Not yet proven</span>
-        {firstRead.gap}
-      </motion.p>
-    </motion.section>
-  );
-}
-
-function FirstReadFiledReceipt({
+function SourcesCheckedReceipt({
   prefersReducedMotion,
   sourceCount
 }: {
   prefersReducedMotion: boolean;
   sourceCount: number;
 }) {
-  // The receipt total comes from the saved run; independence is only trustworthy in
-  // the live slip where it is counted from the same source set. Keep the stamp clean.
   const meta = sourceCount > 0 ? sourceLabel(sourceCount) : "Filed with sources";
 
   return (
     <motion.div
-      aria-label="First read filed"
+      aria-label="Sources checked"
       animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       className="cs-first-read-filed"
       initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
       layout
-      layoutId="first-read-filed-slip"
+      layoutId="sources-checked-receipt"
       transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
     >
-      <span className="cs-first-read-filed-stamp">First read filed</span>
+      <span className="cs-first-read-filed-stamp">Sources checked</span>
       <span className="cs-first-read-filed-meta">{meta}</span>
     </motion.div>
   );
@@ -849,7 +797,7 @@ function LayerContent({
     if (display.id === "theCase") {
       return (
         <>
-          <TheCaseLayerItems items={evidenceItems} />
+          <TheCaseLayerItems items={display.items} />
           {sourceChips}
         </>
       );
@@ -969,27 +917,76 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
 }
 
 function TheCaseLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
-  const bull = items.filter((item) => item.meta === "bull");
-  const bear = items.filter((item) => item.meta === "bear");
   return (
-    <div className="cs-layer-case" aria-label="Bull and bear case">
-      {bull.length > 0 ? (
-        <section className="cs-layer-case-side cs-layer-case-bull">
-          <h4>Bull</h4>
-          <ul>
-            {bull.map((item) => <li key={item.body}>{item.body}</li>)}
-          </ul>
+    <div className="cs-layer-case" aria-label="Investment case tension map">
+      {items.map((item) => (
+        <section className="cs-layer-case-side" data-kind={item.meta ?? item.kind ?? "evidence"} key={`${item.title}-${item.body ?? ""}`}>
+          <h4>{item.title}</h4>
+          {item.body ? <p>{item.body}</p> : null}
         </section>
-      ) : null}
-      {bear.length > 0 ? (
-        <section className="cs-layer-case-side cs-layer-case-bear">
-          <h4>Bear</h4>
-          <ul>
-            {bear.map((item) => <li key={item.body}>{item.body}</li>)}
-          </ul>
-        </section>
-      ) : null}
+      ))}
     </div>
+  );
+}
+
+function InvestorLensControl({
+  analysisRun,
+  card,
+  onRunAnalysis,
+  profileRun
+}: {
+  analysisRun?: AnalysisRun | undefined;
+  card: ColdStartCard;
+  onRunAnalysis: () => void;
+  profileRun?: AnalysisRun | undefined;
+}) {
+  const state = investorLensControlState({ analysisRun, card, profileRun });
+  return (
+    <div className="cs-investor-lens-control" data-filed={card.synthesis ? "true" : "false"}>
+      <div>
+        <strong>Investor Lens</strong>
+        <span>{state.reason}</span>
+      </div>
+      <button
+        className="cs-investor-lens-button"
+        disabled={state.disabled}
+        onClick={onRunAnalysis}
+        type="button"
+      >
+        {state.label}
+      </button>
+    </div>
+  );
+}
+
+function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
+  return (
+    <article className="cs-investor-read" aria-label="Investor Read">
+      <div className="cs-investor-read-head">
+        <span>Investor Read</span>
+        <small>{read.evidenceStatus}</small>
+      </div>
+      <p className="cs-investor-read-lede">{read.whyItMightMatter}</p>
+      {read.evidenceThatHolds.length > 0 ? (
+        <div className="cs-investor-read-proof" aria-label="Evidence that holds">
+          {read.evidenceThatHolds.map((chip) => (
+            <span data-posture={chip.sourcePosture} key={`${chip.sourcePosture}-${chip.label}`}>
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <dl className="cs-investor-read-grid">
+        <div>
+          <dt>Could break</dt>
+          <dd>{read.whatCouldBreak}</dd>
+        </div>
+        <div>
+          <dt>Next question</dt>
+          <dd>{read.bestNextQuestion}</dd>
+        </div>
+      </dl>
+    </article>
   );
 }
 
@@ -1007,6 +1004,7 @@ function PartialProfilePanel({
   const body = quality.hasCitations
     ? "A few cited facts landed, but not enough to open the research layer."
     : "No cited source survived. Rebuild the public record.";
+  const lensReason = analysisBlockedReason(card) ?? "Basics must finish before Investor Lens can run.";
 
   return (
     <main className="cs-research-shell cs-research-shell-partial">
@@ -1029,6 +1027,15 @@ function PartialProfilePanel({
         <button className="cs-extension-button" onClick={onRegenerate} type="button">
           Regenerate profile
         </button>
+        <div className="cs-investor-lens-control cs-investor-lens-control-partial">
+          <div>
+            <strong>Investor Lens</strong>
+            <span>{lensReason}</span>
+          </div>
+          <button className="cs-investor-lens-button" disabled type="button">
+            Run investor lens
+          </button>
+        </div>
       </section>
     </main>
   );
@@ -1386,7 +1393,7 @@ export function ResearchLayerPanel({
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
-  const firstReadMarkedVisible = useRef(false);
+  const firstPayoffMarkedVisible = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
@@ -1534,27 +1541,22 @@ export function ResearchLayerPanel({
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
   const { fullSummary, summary } = profileSummaryCopy(card);
-  const firstRead = firstReadForCard({ card, sources, summary });
-  // First Read files when the basics card is saved. Derive that from the card's terminal
-  // cacheStatus as well as events, because the live-generation success state can arrive without
-  // events and the slip would otherwise stay "Still filing" until the panel is reopened.
-  const firstReadFiled = firstReadIsFiled(events) || card.cacheStatus === "hit";
-  const firstReadShouldPayoff = Boolean(contactRun || profileRun || analysisRun || card.cacheStatus === "partial" || firstReadIsPending(events));
-  // Only surface First Read once it has something concrete to say. Otherwise it reads as a
-  // "still generating / don't know yet" filler card, which is worse than the calm progress panel.
-  const showFirstRead = firstReadShouldPayoff && !firstReadFiled && firstRead.substantive;
-  const showFiledFirstRead = firstReadFiled;
-  const firstReadSourceCount = filedSourceCount(events, sources);
+  const firstPayoff = firstPayoffForEvents(events);
+  const firstPayoffFiled = firstPayoffIsFiled(events) || (!firstPayoff && card.cacheStatus === "hit");
+  const showFirstPayoff = Boolean(firstPayoff && !firstPayoffFiled);
+  const showSourcesChecked = firstPayoffFiled;
+  const firstPayoffSourceCount = filedSourceCount(events, sources);
+  const investorRead = investorReadForCard(card);
 
   useEffect(() => {
-    if (!showFirstRead || firstReadMarkedVisible.current) {
+    if (!showFirstPayoff || firstPayoffMarkedVisible.current) {
       return;
     }
-    firstReadMarkedVisible.current = true;
+    firstPayoffMarkedVisible.current = true;
     markPerformance("cold-start-first-read-visible");
-  }, [showFirstRead]);
+  }, [showFirstPayoff]);
 
-  if (!canShowResearchLayers && !showFirstRead && !showFiledFirstRead) {
+  if (!canShowResearchLayers && !showFirstPayoff && !showSourcesChecked) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
@@ -1576,10 +1578,10 @@ export function ResearchLayerPanel({
             </a>
             {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
-            {showFiledFirstRead ? (
-              <FirstReadFiledReceipt
+            {showSourcesChecked ? (
+              <SourcesCheckedReceipt
                 prefersReducedMotion={prefersReducedMotion}
-                sourceCount={firstReadSourceCount}
+                sourceCount={firstPayoffSourceCount}
               />
             ) : null}
           </div>
@@ -1597,8 +1599,8 @@ export function ResearchLayerPanel({
       </section>
 
       <AnimatePresence initial={false}>
-        {showFirstRead ? (
-          <FirstReadSlip firstRead={firstRead} prefersReducedMotion={prefersReducedMotion} />
+        {showFirstPayoff && firstPayoff ? (
+          <FirstPayoffSurface firstPayoff={firstPayoff} />
         ) : null}
       </AnimatePresence>
 
@@ -1607,6 +1609,12 @@ export function ResearchLayerPanel({
           <span>Research</span>
           <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
+        <InvestorLensControl
+          analysisRun={analysisRun}
+          card={card}
+          onRunAnalysis={onRunAnalysis}
+          profileRun={profileRun}
+        />
         {showResearchProgress ? (
           <ResearchProgressPanel
             events={events}
@@ -1620,6 +1628,7 @@ export function ResearchLayerPanel({
         ) : null}
 
         <div className="cs-active-enrichments">
+          {investorRead ? <InvestorReadCard read={investorRead} /> : null}
           <AnimatePresence initial={false}>
           {activeLayerIds.map((id) => {
             const display = layerDisplayForCard(card, id, sections);
@@ -1649,25 +1658,17 @@ export function ResearchLayerPanel({
             const queuedBehindSection = visiblyQueued && Boolean(activeSectionRun);
             const expanded = expandedLayerId === id;
             const state = running || refreshing ? "running" : visiblyQueued ? "queued" : display.status;
-            // Open Questions and The Case have no per-section source, so their control runs the full
-            // investor lens. Every other layer (including the section-backed analysis layers) keeps
-            // its per-section "Queue".
-            const canRunLens = isSynthesisLayerId && canStartInvestorLens && !card.synthesis;
             const actionLabel = waitingForProfile || visiblyQueued
               ? undefined
               : isSynthesisLayerId
-                ? canRunLens && display.status === "ready" ? "Lens" : undefined
+                ? undefined
                 : display.status === "stale" || display.status === "failed" || display.status === "ready" || display.status === "empty"
                   ? "Queue"
                   : undefined;
             const handleLayerAction = actionLabel
-              ? isSynthesisLayerId
-                ? () => {
-                    onRunAnalysis();
-                  }
-                : () => {
-                    onRunSection(id);
-                  }
+              ? () => {
+                  onRunSection(id);
+                }
               : undefined;
             const statusCopy = waitingForProfile
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`

@@ -7,13 +7,10 @@ const validSynthesisPayload = {
   whyItMatters: { text: "Cartesia is building real-time voice infrastructure [c1].", citationIds: ["c1"] },
   bullCase: [
     { text: "The company has a focused voice AI wedge [c1].", citationIds: ["c1"] },
-    { text: "Its public product surface targets developer adoption [c1].", citationIds: ["c1"] },
-    { text: "The category has clear enterprise demand [c1].", citationIds: ["c1"] }
+    { text: "Its public product surface targets developer adoption [c1].", citationIds: ["c1"] }
   ],
   bearCase: [
-    { text: "The public sources do not prove durable differentiation [c1].", citationIds: ["c1"] },
-    { text: "Pricing power is not visible from the cited material [c1].", citationIds: ["c1"] },
-    { text: "Customer concentration is still an open risk [c1].", citationIds: ["c1"] }
+    { text: "The public sources do not prove durable differentiation [c1].", citationIds: ["c1"] }
   ],
   marketStructureAndTiming: {
     buyerBudget: {
@@ -34,9 +31,20 @@ const validSynthesisPayload = {
     timingRisk: null
   },
   openQuestions: [
-    { question: "How strong is retention?", category: "adoption_proof" },
-    { question: "What is gross margin?", category: "unit_economics" },
-    { question: "How concentrated is revenue?", category: "unit_economics" }
+    {
+      question: "How strong is retention?",
+      category: "adoption_proof",
+      testsBelief: "Developer teams keep using the product after initial integration.",
+      evidenceBasis: "Public product evidence shows a developer wedge.",
+      wouldChangeReadIf: "Retention cohorts show repeat production usage."
+    },
+    {
+      question: "What is gross margin?",
+      category: "unit_economics",
+      testsBelief: "The infrastructure wedge can become profitable at scale.",
+      evidenceBasis: "The product is infrastructure-heavy.",
+      wouldChangeReadIf: "Unit costs decline as usage expands."
+    }
   ]
 };
 
@@ -57,9 +65,12 @@ describe("synthesisTool", () => {
       type: "object",
       properties: {
         question: { type: "string", minLength: 1 },
-        category: { type: "string" }
+        category: { type: "string" },
+        testsBelief: { type: "string", minLength: 1 },
+        evidenceBasis: { type: "string", minLength: 1 },
+        wouldChangeReadIf: { type: "string", minLength: 1 }
       },
-      required: ["question", "category"]
+      required: ["question", "category", "testsBelief", "evidenceBasis", "wouldChangeReadIf"]
     });
     expect(openQuestionsItems.properties.category.enum).toEqual(
       expect.arrayContaining([
@@ -76,10 +87,11 @@ describe("synthesisTool", () => {
 });
 
 describe("synthesisSystemPrompt", () => {
-  it("uses source incentives and pushes against empty skeptical evidence", () => {
+  it("uses source incentives and allows sparse skeptical evidence", () => {
     expect(synthesisSystemPrompt).toContain("source incentives");
     expect(synthesisSystemPrompt).toContain("independent technical");
-    expect(synthesisSystemPrompt).toContain("Do not leave bearCase empty");
+    expect(synthesisSystemPrompt).toContain("Empty bullCase or bearCase is allowed");
+    expect(synthesisSystemPrompt).toContain("Only include bull or bear claims that change diligence");
     expect(synthesisSystemPrompt).toContain("do not cite evidence ledger IDs");
   });
 });
@@ -287,42 +299,30 @@ describe("parseSynthesisToolUse", () => {
     ).toThrow();
   });
 
-  it("rejects short synthesis arrays", () => {
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: { ...validSynthesisPayload, bullCase: validSynthesisPayload.bullCase.slice(0, 2) }
-          }
-        ]
-      })
-    ).toThrow("bullCase must contain exactly 3 items");
+  it("allows sparse bull and bear arrays but requires at least one open question", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: { ...validSynthesisPayload, bullCase: [], bearCase: [] }
+        }
+      ]
+    });
 
+    expect(payload.bullCase).toEqual([]);
+    expect(payload.bearCase).toEqual([]);
     expect(() =>
       parseSynthesisToolUse({
         content: [
           {
             type: "tool_use",
             name: "emit_investor_synthesis",
-            input: { ...validSynthesisPayload, bearCase: validSynthesisPayload.bearCase.slice(0, 2) }
+            input: { ...validSynthesisPayload, openQuestions: [] }
           }
         ]
       })
-    ).toThrow("bearCase must contain exactly 3 items");
-
-    expect(() =>
-      parseSynthesisToolUse({
-        content: [
-          {
-            type: "tool_use",
-            name: "emit_investor_synthesis",
-            input: { ...validSynthesisPayload, openQuestions: validSynthesisPayload.openQuestions.slice(0, 2) }
-          }
-        ]
-      })
-    ).toThrow("openQuestions must contain exactly 3 items");
+    ).toThrow("openQuestions must contain 1 to 3 items");
   });
 
   it("rejects long synthesis arrays", () => {
@@ -342,7 +342,7 @@ describe("parseSynthesisToolUse", () => {
           }
         ]
       })
-    ).toThrow("bullCase must contain exactly 3 items");
+    ).toThrow("bullCase must contain 0 to 2 items");
 
     expect(() =>
       parseSynthesisToolUse({
@@ -354,13 +354,14 @@ describe("parseSynthesisToolUse", () => {
               ...validSynthesisPayload,
               bearCase: [
                 ...validSynthesisPayload.bearCase,
-                { text: "The company has an additional diligence risk [c1].", citationIds: ["c1"] }
+                { text: "The company has an additional diligence risk [c1].", citationIds: ["c1"] },
+                { text: "The company has a second additional diligence risk [c1].", citationIds: ["c1"] }
               ]
             }
           }
         ]
       })
-    ).toThrow("bearCase must contain exactly 3 items");
+    ).toThrow("bearCase must contain 0 to 2 items");
 
     expect(() =>
       parseSynthesisToolUse({
@@ -368,11 +369,30 @@ describe("parseSynthesisToolUse", () => {
           {
             type: "tool_use",
             name: "emit_investor_synthesis",
-            input: { ...validSynthesisPayload, openQuestions: [...validSynthesisPayload.openQuestions, { question: "What else matters?", category: "buyer_budget" }] }
+            input: {
+              ...validSynthesisPayload,
+              openQuestions: [
+                ...validSynthesisPayload.openQuestions,
+                {
+                  question: "What else matters?",
+                  category: "buyer_budget",
+                  testsBelief: "Budget ownership is clear.",
+                  evidenceBasis: "The buyer is visible on the card.",
+                  wouldChangeReadIf: "A budget owner confirms expansion."
+                },
+                {
+                  question: "What proof matters?",
+                  category: "adoption_proof",
+                  testsBelief: "Adoption is durable.",
+                  evidenceBasis: "The card shows product usage evidence.",
+                  wouldChangeReadIf: "Usage expands across teams."
+                }
+              ]
+            }
           }
         ]
       })
-    ).toThrow("openQuestions must contain exactly 3 items");
+    ).toThrow("openQuestions must contain 1 to 3 items");
   });
 });
 

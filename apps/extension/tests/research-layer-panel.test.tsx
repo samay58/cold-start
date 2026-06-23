@@ -101,19 +101,79 @@ function stubReducedMotion(matches: boolean) {
   })));
 }
 
-async function renderPanel(input: { complete?: boolean; reducedMotion?: boolean; filedViaCacheStatus?: boolean } = {}) {
+function firstPayoff(status: "receipt" | "substantive_first_read" | "withheld") {
+  const base = {
+    slug: "exa",
+    domain: "exa.ai",
+    generatedAt: "2026-06-21T00:00:00.000Z",
+    generatedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+    entityConfidence: "high",
+    entityConfidenceReason: "Current domain and source text match Exa.",
+    evidenceSoFar: [
+      {
+        sourceId: "company_site-exa.ai",
+        citationId: "c1",
+        url: "https://exa.ai/",
+        domain: "exa.ai",
+        title: "Exa",
+        sourceClass: "company_site",
+        quality: "company",
+        arrivedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+        entityMatched: true
+      },
+      {
+        sourceId: "news-techcrunch.com",
+        url: "https://techcrunch.com/exa",
+        domain: "techcrunch.com",
+        title: "Exa raises funding",
+        sourceClass: "funding",
+        quality: "reported",
+        arrivedAtMs: Date.parse("2026-06-21T00:00:01.000Z"),
+        entityMatched: true
+      }
+    ],
+    stillChecking: {
+      text: "Independent customer proof.",
+      missingEvidenceClass: "customer_proof"
+    },
+    suppressionReasons: status === "withheld" ? ["no_incremental_claim"] : []
+  };
+
+  return {
+    ...base,
+    status,
+    ...(status === "substantive_first_read"
+      ? {
+          whoItSeemsFor: {
+            text: "AI product teams and developers building search-heavy workflows.",
+            supportingText: "Exa serves AI product teams and developers building search-heavy workflows.",
+            sourceIds: ["company_site-exa.ai"],
+            citationIds: ["c1"],
+            sourceClass: "company_site",
+            claimKind: "who_it_serves"
+          }
+        }
+      : {})
+  };
+}
+
+async function renderPanel(input: {
+  complete?: boolean;
+  firstPayoffStatus?: "receipt" | "substantive_first_read" | "withheld";
+  reducedMotion?: boolean;
+  filedViaCacheStatus?: boolean;
+} = {}) {
   if (input.reducedMotion) {
     stubReducedMotion(true);
   }
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  // filedViaCacheStatus simulates the live-generation success state: the terminal "card.saved"
-  // event is dropped, but the basics card arrives terminal ("hit"). The slip must still file.
+  const payoff = input.firstPayoffStatus ? firstPayoff(input.firstPayoffStatus) : null;
   const events = input.filedViaCacheStatus
-    ? [event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9 }, type: "card.partial" })]
+    ? [event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9, ...(payoff ? { firstPayoff: payoff } : {}) }, type: "card.partial" })]
     : [
-        event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9 }, type: "card.partial" }),
+        event({ id: "partial", metadata: { citationCount: 5, sourceCount: 9, ...(payoff ? { firstPayoff: payoff } : {}) }, type: "card.partial" }),
         ...(input.complete ? [event({ id: "saved", metadata: { citationCount: 8, sourceCount: 12 }, type: "card.saved" })] : [])
       ];
 
@@ -176,20 +236,28 @@ describe("ResearchLayerPanel first read", () => {
     vi.unstubAllGlobals();
   });
 
-  it("pins an incremental first read above the research stack while basics continue", async () => {
+  it("does not render stale client-derived First Read without a firstPayoff artifact", async () => {
     const { container, unmount } = await renderPanel();
+
+    expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    expect(container.querySelector("[aria-label='Evidence receipt']")).toBeNull();
+    await unmount();
+  });
+
+  it("pins an incremental firstPayoff read above the research stack while basics continue", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
     const firstRead = container.querySelector("[aria-label='First read']");
     const researchLayer = container.querySelector("[aria-label='Research layer']");
 
     expect(firstRead).not.toBeNull();
     expect(researchLayer).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First read");
+    expect(firstRead?.textContent).toContain("First Read");
     // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("Who it's for");
     expect(firstRead?.textContent).toContain("Filed so far");
     expect(firstRead?.textContent).toContain("techcrunch.com");
-    expect(firstRead?.textContent).toContain("Not yet proven");
+    expect(firstRead?.textContent).toContain("Still checking");
     // Never restates the company summary sentence shown in the header above it.
     expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
     expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -197,11 +265,11 @@ describe("ResearchLayerPanel first read", () => {
   });
 
   it("keeps the first read legible under reduced motion", async () => {
-    const { container, unmount } = await renderPanel({ reducedMotion: true });
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", reducedMotion: true });
     const firstRead = container.querySelector("[aria-label='First read']");
 
     expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First read");
+    expect(firstRead?.textContent).toContain("First Read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.querySelector("[aria-label='Sources filed so far']")).not.toBeNull();
     await unmount();
@@ -211,9 +279,9 @@ describe("ResearchLayerPanel first read", () => {
     const { container, unmount } = await renderPanel({ complete: true });
 
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
-    const filed = container.querySelector("[aria-label='First read filed']");
+    const filed = container.querySelector("[aria-label='Sources checked']");
     expect(filed).not.toBeNull();
-    expect(filed?.textContent).toContain("First read filed");
+    expect(filed?.textContent).toContain("Sources checked");
     expect(filed?.textContent).toContain("12 sources");
     await unmount();
   });
@@ -224,7 +292,51 @@ describe("ResearchLayerPanel first read", () => {
     // The live-generation success state can drop terminal events; a "hit" card must still file
     // rather than leaving the slip stuck on "Still filing".
     expect(container.querySelector("[aria-label='First read']")).toBeNull();
-    expect(container.querySelector("[aria-label='First read filed']")).not.toBeNull();
+    expect(container.querySelector("[aria-label='Sources checked']")).not.toBeNull();
+    await unmount();
+  });
+
+  it("renders an Evidence Receipt from firstPayoff receipt without the First Read label", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "receipt" });
+    const receipt = container.querySelector("[aria-label='Evidence receipt']");
+
+    expect(receipt).not.toBeNull();
+    expect(receipt?.textContent).toContain("Evidence arriving");
+    expect(receipt?.textContent).toContain("exa.ai");
+    expect(receipt?.textContent).toContain("Still checking");
+    expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    await unmount();
+  });
+
+  it("renders First Read only for substantive_first_read artifacts", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
+    const firstRead = container.querySelector("[aria-label='First read']");
+
+    expect(firstRead).not.toBeNull();
+    expect(firstRead?.textContent).toContain("First Read");
+    expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
+    expect(firstRead?.textContent).toContain("techcrunch.com");
+    await unmount();
+  });
+
+  it("keeps the receipt visible and hides First Read when firstPayoff is withheld", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "withheld" });
+    const receipt = container.querySelector("[aria-label='Evidence receipt']");
+
+    expect(receipt).not.toBeNull();
+    expect(receipt?.textContent).toContain("Evidence arriving");
+    expect(container.querySelector("[aria-label='First read']")).toBeNull();
+    await unmount();
+  });
+
+  it("does not file firstPayoff just because a card.partial fetch returned cacheStatus hit", async () => {
+    const { container, unmount } = await renderPanel({
+      filedViaCacheStatus: true,
+      firstPayoffStatus: "substantive_first_read"
+    });
+
+    expect(container.querySelector("[aria-label='First read']")).not.toBeNull();
+    expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
     await unmount();
   });
 });

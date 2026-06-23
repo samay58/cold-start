@@ -31,7 +31,9 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("03");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
-  await expect(page.getByText("Browserbase turns browser automation into agent infrastructure")).toBeVisible();
+  await expect(page.getByRole("article", { name: "Investor Read" })).toContainText(
+    "Browserbase turns browser automation into agent infrastructure"
+  );
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
   await expect(page.getByText("[c1]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Analyze" })).toHaveCount(0);
@@ -505,12 +507,11 @@ test("dragging a dormant card opens a real insertion slot before release", async
 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toBeVisible();
-  // Filing an analysis layer opens the investor-lens gate and fires nothing until the explicit
-  // Lens control. That control runs one full analysis (no sectionId), which fills all four
-  // analysis layers, instead of a per-section run whose output the UI never reads.
-  await expect(activeQuestions).toContainText("Activate the investor lens");
+  // Filing an analysis layer opens the investor-lens gate and fires nothing until the global
+  // Lens control. That control runs one full analysis with no sectionId.
+  await expect(activeQuestions).toContainText("Run Investor Lens");
   expect(generationRequests).toHaveLength(0);
-  await activeQuestions.getByRole("button", { name: "Lens" }).click();
+  await page.getByRole("button", { name: "Run investor lens" }).click();
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
@@ -740,11 +741,11 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   await openQuestions.focus();
   await page.keyboard.press("Enter");
 
-  // Keyboard filing opens the lens gate; the explicit Lens action starts one full analysis run.
+  // Keyboard filing opens the lens gate; the explicit global Lens action starts one full analysis run.
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
-  await expect(activeQuestions).toContainText("Activate the investor lens");
+  await expect(activeQuestions).toContainText("Run Investor Lens");
   expect(generationRequests).toHaveLength(0);
-  await activeQuestions.getByRole("button", { name: "Lens" }).click();
+  await page.getByRole("button", { name: "Run investor lens" }).click();
   await expect(activeQuestions).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }

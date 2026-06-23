@@ -81,10 +81,9 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" }
 ];
 
-// Open Questions and The Case render from card.synthesis directly, never from a stored
-// section, because they are cross-section syntheses with no per-section source. The other
-// gated layers (Why Care, Timing) stay section-backed so per-section runs still populate them.
-const SYNTHESIS_LAYER_IDS = new Set<ResearchLayerId>(["openQuestions", "theCase"]);
+// These layers render from the consolidated investor lens. They should not create standalone
+// section work before synthesis exists.
+const SYNTHESIS_LAYER_IDS = new Set<ResearchLayerId>(["openQuestions", "coreIdea", "theCase", "marketStructureTiming"]);
 
 export function isSynthesisLayer(id: ResearchLayerId): boolean {
   return SYNTHESIS_LAYER_IDS.has(id);
@@ -554,28 +553,31 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       return {
         id,
         title: layer.title,
-        body: "Activate the investor lens to weigh the bull and bear case.",
+        body: "Run Investor Lens to weigh the bull and bear case.",
         sources: [],
         sourceCount: 0,
         status: "ready"
       };
     }
 
-    const bull = card.synthesis.bullCase;
-    const bear = card.synthesis.bearCase;
-    const sources = citationSources(card, [...bull, ...bear].flatMap((claim) => claim.citationIds));
+    const bull = card.synthesis.bullCase[0] ?? null;
+    const bear = card.synthesis.bearCase[0] ?? null;
+    const question = card.synthesis.openQuestions[0]?.question ?? null;
+    const evidenceClaims = [bull, bear].filter((claim): claim is NonNullable<typeof bull> => Boolean(claim));
+    const sources = citationSources(card, evidenceClaims.flatMap((claim) => claim.citationIds));
     const items = [
-      ...bull.map((claim) => ({ title: "Bull", body: stripCitationMarkers(claim.text), kind: "evidence" as const, meta: "bull" })),
-      ...bear.map((claim) => ({ title: "Bear", body: stripCitationMarkers(claim.text), kind: "evidence" as const, meta: "bear" }))
+      ...(bull ? [{ title: "If true", body: stripCitationMarkers(bull.text), kind: "evidence" as const, meta: "bull" }] : []),
+      ...(bear ? [{ title: "It breaks if", body: stripCitationMarkers(bear.text), kind: "evidence" as const, meta: "bear" }] : []),
+      ...(question ? [{ title: "Test", body: cleanQuestionBody(question), kind: "question" as const, meta: "Next diligence question" }] : [])
     ];
     return {
       id,
       title: layer.title,
-      body: stripCitationMarkers(bull[0]?.text ?? bear[0]?.text ?? "No supported case survived verification."),
+      body: stripCitationMarkers(bull?.text ?? bear?.text ?? question ?? "No supported case survived verification."),
       ...(items.length > 0 ? { items } : {}),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: items.length > 0 ? "saved" : "empty"
+      status: evidenceClaims.length > 0 || question ? "saved" : "empty"
     };
   }
 
@@ -584,7 +586,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       return {
         id,
         title: layer.title,
-        body: "Activate the investor lens to synthesize the core idea from cited evidence.",
+        body: "Run Investor Lens to synthesize the core idea from cited evidence.",
         sources: [],
         sourceCount: 0,
         status: "ready"
@@ -607,7 +609,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       return {
         id,
         title: layer.title,
-        body: "Activate the investor lens to assess market structure and timing.",
+        body: "Run Investor Lens to assess market structure and timing.",
         sources: [],
         sourceCount: 0,
         status: "ready"
@@ -618,10 +620,10 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       return {
         id,
         title: layer.title,
-        body: "Market structure analysis has not been generated for this card yet.",
+        body: "Timing not found · Current sources did not support a timing read.",
         sources: [],
         sourceCount: 0,
-        status: "ready"
+        status: "empty"
       };
     }
 
@@ -630,7 +632,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     return {
       id,
       title: layer.title,
-      body: rows[0]?.body ?? "No market structure claims survived verification.",
+      body: rows[0]?.body ?? "Timing not found · Current sources did not support a timing read.",
       items: rows.map((row) => ({ title: row.title, body: row.body })),
       sources,
       sourceCount: displaySourceCount(sources),
@@ -643,7 +645,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       return {
         id,
         title: layer.title,
-        body: "Activate the investor lens to surface open questions.",
+        body: "Run Investor Lens to surface open questions.",
         sources: [],
         sourceCount: 0,
         status: "ready"

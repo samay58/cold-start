@@ -35,10 +35,10 @@ function summary(slug: string, name: string, generatedAt: string) {
     domain,
     name,
     generatedAt,
-    sourceCount: slug === "cartesia" ? 3 : 2,
-    totalRaisedUsd: slug === "cartesia" ? 91_000_000 : null,
-    lastRoundName: slug === "cartesia" ? "Series B" : null,
-    headcount: slug === "cartesia" ? 42 : null,
+    sourceCount: slug === "browserbase" ? 21 : 8,
+    totalRaisedUsd: slug === "browserbase" ? 67_500_000 : 191_000_000,
+    lastRoundName: slug === "browserbase" ? "Series B" : "Venture Round",
+    headcount: slug === "browserbase" ? 50 : 75,
     card: {
       slug,
       domain,
@@ -47,7 +47,7 @@ function summary(slug: string, name: string, generatedAt: string) {
       generationCostUsd: 0.12,
       identity: {
         name: fact(name),
-        websiteUrl: fact(`https://${slug}.ai`),
+        websiteUrl: fact(`https://${domain}`),
         logoUrl: null,
         oneLiner: fact(`${name} builds sourced company context infrastructure.`),
         description: {
@@ -66,84 +66,35 @@ function summary(slug: string, name: string, generatedAt: string) {
         status: "private" as const
       },
       funding: {
-        totalRaisedUsd: fact(slug === "cartesia" ? 91_000_000 : null, slug === "cartesia" ? ["c2"] : []),
+        totalRaisedUsd: fact(slug === "browserbase" ? 67_500_000 : 191_000_000, ["c2"]),
         lastRound: {
-          value: slug === "cartesia" ? { name: "Series B", amountUsd: 63_000_000, announcedAt: "2025-04-23", leadInvestors: ["NEA"] } : null,
-          status: slug === "cartesia" ? "verified" as const : "unknown" as const,
-          confidence: slug === "cartesia" ? "high" as const : "low" as const,
-          citationIds: slug === "cartesia" ? ["c2"] : []
+          value: slug === "browserbase"
+            ? { name: "Series B", amountUsd: 40_000_000, announcedAt: "2025-06-17", leadInvestors: ["Notable Capital"] }
+            : { name: "Venture Round", amountUsd: 100_000_000, announcedAt: "2025-11", leadInvestors: [] },
+          status: "verified" as const,
+          confidence: "high" as const,
+          citationIds: ["c2"]
         },
         investors: fact([])
       },
       team: {
         founders: fact([]),
         keyExecs: fact([]),
-        headcount: fact(slug === "cartesia" ? { value: 42, asOf: "2026-05-06" } : null, slug === "cartesia" ? ["c3"] : [])
+        headcount: fact({ value: slug === "browserbase" ? 50 : 75, asOf: "2026-05-06" }, ["c3"])
       },
-      signals: [
-        {
-          title: `${name} launches a product`,
-          url: "https://example.com/signal",
-          date: "2026-05-01",
-          source: "Example",
-          category: "launch",
-          citationIds: ["c2"]
-        }
-      ],
+      signals: [],
       comparables: [],
       citations: [
         { id: "c1", url: "https://example.com/one", title: `${name} site`, fetchedAt: generatedAt, sourceType: "company_site" as const },
         { id: "c2", url: "https://example.com/two", title: `${name} funding`, fetchedAt: generatedAt, sourceType: "news" as const }
       ]
     },
-    sections: [
-      {
-        slug,
-        domain,
-        sectionId: "buyer",
-        visibility: "public",
-        status: "available",
-        content: {
-          status: "available",
-          summary: "Investors screening generated company profiles.",
-          items: [{ label: "Buyer", text: "Investors screening generated company profiles.", citationIds: ["c1"] }],
-          questions: [],
-          confidence: "high"
-        },
-        citationIds: ["c1"],
-        sourceIds: ["c1"],
-        runId: null,
-        error: null,
-        generatedAt,
-        staleAt: null
-      },
-      {
-        slug,
-        domain,
-        sectionId: "traction",
-        visibility: "public",
-        status: "empty",
-        content: { status: "empty", summary: null, items: [], questions: [], confidence: "low" },
-        citationIds: [],
-        sourceIds: [],
-        runId: null,
-        error: null,
-        generatedAt,
-        staleAt: null
-      }
-    ]
+    sections: []
   };
 }
 
-function summaryWithDisplayMoney(slug: string, name: string, generatedAt: string) {
-  return {
-    ...summary(slug, name, generatedAt),
-    totalRaisedUsd: "$$91M" as unknown as number
-  };
-}
-
-async function renderHome(searchParams: { company?: string; q?: string; sort?: string } = {}) {
-  const element = await HomePage({ searchParams: Promise.resolve(searchParams) });
+async function renderHome() {
+  const element = await HomePage();
   return renderToStaticMarkup(element);
 }
 
@@ -152,67 +103,41 @@ describe("HomePage", () => {
     mocks.getPublicProfileIndex.mockReset();
   });
 
-  it("renders the profile index and selected company preview", async () => {
+  it("renders a focused receipt landing page with curated examples", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([
       summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
-      summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
+      summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z"),
+      summary("browserbase", "Browserbase", "2026-05-22T12:00:00.000Z")
     ]);
-
-    const html = await renderHome({ company: "cartesia" });
-
-    expect(html).toContain('href="/?company=cartesia"');
-    expect(html).toContain('aria-current="page"');
-    expect(html).toContain('aria-label="Cartesia preview"');
-    expect(html).toContain('href="/c/cartesia"');
-    expect(html).toContain("Who pays");
-    expect(html).toContain("3 sources");
-    expect(html).toContain("Investors screening generated company profiles.");
-    expect(html).not.toContain("cold-start-samay58s-projects.vercel.app");
-  });
-
-  it("falls back to the newest profile when the query is invalid", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([
-      summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
-      summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
-    ]);
-
-    const html = await renderHome({ company: "missing" });
-
-    expect(html).toContain('aria-label="ElevenLabs preview"');
-    expect(html).toContain('href="/c/elevenlabs"');
-  });
-
-  it("renders an honest empty state when no profiles clear the source gate", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([]);
 
     const html = await renderHome();
 
-    expect(html).toContain("No sourced profiles yet");
-    expect(html).toContain("Generate a company from the extension");
+    expect(html).toContain("Company facts, with receipts.");
+    expect(html).toContain("Public facts. Private synthesis.");
+    expect(html).toContain("Every material claim cites a source.");
+    expect(html).toContain('href="/c/browserbase"');
+    expect(html).toContain('href="/c/cartesia"');
+    expect(html).toContain("Browserbase builds sourced company context for investors.");
+    expect(html).not.toContain("ElevenLabs");
+    expect(html).not.toContain("Companies");
+    expect(html).not.toContain("Search");
+    expect(html).not.toContain("Sort");
+    expect(html).not.toContain("profiles filed");
+    expect(html).not.toContain("public sections");
   });
 
-  it("normalizes display money from stored cards", async () => {
+  it("hides unavailable examples instead of falling back to newest profiles", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([
-      summaryWithDisplayMoney("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
+      summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z")
     ]);
 
-    const html = await renderHome({ company: "cartesia" });
+    const html = await renderHome();
 
-    expect(html).toContain("$91M");
-    expect(html).not.toContain("$$91M");
-  });
-
-  it("preserves search and sort state in company links", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([
-      summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
-      summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z")
-    ]);
-
-    const html = await renderHome({ q: "cartesia", sort: "sources" });
-
-    expect(html).toContain('value="cartesia"');
-    expect(html).toContain('href="/?company=cartesia&amp;q=cartesia&amp;sort=sources"');
-    expect(html).toContain("1 match");
-    expect(html).not.toContain("ElevenLabs preview");
+    expect(html).toContain("Company facts, with receipts.");
+    expect(html).toContain("Request access");
+    expect(html).not.toContain("View example receipt");
+    expect(html).not.toContain("ElevenLabs");
+    expect(html).not.toContain("Examples");
+    expect(html).not.toContain("Search");
   });
 });

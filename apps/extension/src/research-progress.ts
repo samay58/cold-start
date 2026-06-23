@@ -52,6 +52,9 @@ const researchStageByEventType: Record<string, number> = {
   "plan.ready": 0,
   "source.found": 1,
   "source.enrichment": 1,
+  "first_payoff.receipt": 1,
+  "first_payoff.ready": 2,
+  "first_payoff.withheld": 1,
   "card.partial": 2,
   "card.saved": 3,
   "card.enriched": 3,
@@ -148,8 +151,8 @@ function normalizeSourceCategory(value: string): BoundedSourceCategory | null {
   return boundedSourceCategories.find((category) => category === normalized) ?? null;
 }
 
-// Shared docs-page heuristic. First Read reuses this so the classifier lives in one place.
-export function textLooksLikeDocs(text: string): boolean {
+// Shared docs-page heuristic for source progress bucketing.
+function textLooksLikeDocs(text: string): boolean {
   return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text.toLowerCase());
 }
 
@@ -320,6 +323,15 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
   }
   if (event.type === "source.enrichment") {
     return "Checked deeper sources";
+  }
+  if (event.type === "first_payoff.receipt") {
+    return "Evidence receipt ready";
+  }
+  if (event.type === "first_payoff.ready") {
+    return "First Read ready";
+  }
+  if (event.type === "first_payoff.withheld") {
+    return "First Read withheld";
   }
   if (event.type === "card.partial") {
     return citationArtifactLine(event);

@@ -137,6 +137,34 @@ function sparseCard(): ColdStartCard {
   };
 }
 
+const publicSections = [
+  {
+    slug: "cartesia",
+    domain: "cartesia.ai",
+    sectionId: "buyer" as const,
+    visibility: "public" as const,
+    status: "available" as const,
+    content: {
+      status: "available" as const,
+      summary: "Developers building voice agents and audio applications use the platform for low-latency speech infrastructure.",
+      items: [
+        {
+          label: "Buyer",
+          text: "Developers building voice agents and audio applications use the platform for low-latency speech infrastructure.",
+          citationIds: ["c3"]
+        }
+      ],
+      confidence: "high" as const
+    },
+    citationIds: ["c3"],
+    sourceIds: ["c3"],
+    runId: null,
+    error: null,
+    generatedAt: "2026-05-06T12:00:00.000Z",
+    staleAt: null
+  }
+];
+
 function expectRemovedLanguageAbsent() {
   expect(screen.queryByText(/Bear case/i)).toBeNull();
   expect(screen.queryByText(/Against/i)).toBeNull();
@@ -146,30 +174,33 @@ function expectRemovedLanguageAbsent() {
 
 describe("CardShell", () => {
   it("renders public facts and omits synthesis when the public card has no synthesis", () => {
-    render(<CardShell card={publicCard(card)} surface="web" />);
+    render(<CardShell card={publicCard(card)} sections={publicSections} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
+    expect(screen.getByText("Public fact receipt")).toBeTruthy();
     expect(screen.getByText("Real-time voice AI infrastructure for developers building low-latency audio products.")).toBeTruthy();
-    expect(screen.getByText(/Low-latency speech models exposed as developer infrastructure/)).toBeTruthy();
-    expect(screen.getByText(/Developers building voice agents and audio applications/)).toBeTruthy();
     // Inline markers render the 1-based ledger index, not the raw evidence id.
     expect(screen.getAllByText("[1]").length).toBeGreaterThan(0);
     expect(screen.getByText("$91M")).toBeTruthy();
-    expect(screen.getAllByText("$63M").length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Apr 2024/).length).toBeGreaterThan(0);
-    expect(screen.getByText("NEA, IVP")).toBeTruthy();
-    expect(screen.getByText("Priority sources")).toBeTruthy();
-    expect(screen.getByText("Full source ledger")).toBeTruthy();
+    expect(screen.getByText("Series B · $63M")).toBeTruthy();
+    expect(screen.getByText("Evidence notes")).toBeTruthy();
+    expect(screen.getByText(/Who uses it/)).toBeTruthy();
+    expect(screen.getByText("Source ledger")).toBeTruthy();
+    expect(screen.queryByText("Priority sources")).toBeNull();
+    expect(screen.queryByText("Full source ledger")).toBeNull();
+    expect(screen.queryByText("What the sources say first")).toBeNull();
+    expect(screen.queryByText("Open questions")).toBeNull();
     expect(screen.getByText("Source mix")).toBeTruthy();
     expect(screen.getByText("1 independent")).toBeTruthy();
     expect(screen.getByText("2 company")).toBeTruthy();
-    expect(screen.getByText("Cartesia launches Sonic")).toBeTruthy();
-    expect(screen.getByText(/Example News · launch/)).toBeTruthy();
     expect(screen.getAllByText(/May 6 2026/).length).toBeGreaterThan(0);
     expect(screen.getByText("2023")).toBeTruthy();
-    expect(screen.getAllByText("Kleiner Perkins").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Company-authored").length).toBeGreaterThan(0);
+    expect(screen.getByText("Public facts only. Private synthesis lives in the extension.")).toBeTruthy();
+    expect(screen.getByText("Open in the extension for the investor lens")).toBeTruthy();
     expect(screen.queryByLabelText("Investor lens")).toBeNull();
     expect(screen.queryByText(/Supported ·/i)).toBeNull();
+    expect(screen.queryByText(/hit cache/i)).toBeNull();
     expectRemovedLanguageAbsent();
   });
 
@@ -227,7 +258,8 @@ describe("CardShell", () => {
 
     expect(container.querySelectorAll('.cs-source-block-full .cs-source-item[id="source-c2"]')).toHaveLength(1);
     expect(screen.queryByText("Duplicate funding source")).toBeNull();
-    expect(screen.getByText("3 sources on file")).toBeTruthy();
+    expect(screen.getAllByText("3 cited sources").length).toBeGreaterThan(0);
+    expect(screen.getByText("Source ledger")).toBeTruthy();
   });
 
   it("renders unsafe signal and citation URLs as plain text", () => {
@@ -251,7 +283,7 @@ describe("CardShell", () => {
 
     render(<CardShell card={unsafeCard} surface="web" />);
 
-    expect(screen.getByText("Unsafe signal").closest("a")).toBeNull();
+    expect(screen.queryByText("Unsafe signal")).toBeNull();
     for (const node of screen.getAllByText("Unsafe citation")) {
       // The title may sit inside an internal #source anchor (citation popover),
       // but it must never be wrapped in a link to the unsafe URL itself.
@@ -266,13 +298,26 @@ describe("CardShell", () => {
     render(<CardShell card={publicCard(sparseCard())} surface="web" />);
 
     expect(screen.getByRole("heading", { name: "Cartesia" })).toBeTruthy();
-    expect(screen.getAllByText("not found").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("not found")).toBeNull();
+    expect(screen.getByText("Missing public evidence")).toBeTruthy();
+    expect(
+      screen.getByText(
+        (_, node) =>
+          node?.tagName.toLowerCase() === "p" &&
+          node.textContent?.includes(
+            "Missing public evidence: Financing was not verified from the public sources checked.",
+          ) === true,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("Not verified")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Capitalisation." })).toBeNull();
     expect(screen.queryByRole("heading", { name: "In motion." })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Comps" })).toBeNull();
     expect(screen.queryByText(/No cited funding rounds/i)).toBeNull();
     expect(screen.queryByText(/No cited public signals/i)).toBeNull();
     expect(screen.queryByText(/No comparable companies/i)).toBeNull();
+    expect(screen.queryByText("Open questions")).toBeNull();
+    expect(screen.queryByText("Priority sources")).toBeNull();
     expectRemovedLanguageAbsent();
   });
 

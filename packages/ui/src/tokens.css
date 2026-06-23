@@ -1455,3 +1455,99 @@
     justify-content: flex-start;
   }
 }
+
+/* Company Fact Receipt v1: one public artifact, one source ledger. */
+.cs-card[data-surface="web"] .cs-card-brand-index {
+  letter-spacing: 0.08em;
+}
+
+.cs-card[data-surface="web"] .cs-key-values {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.cs-card[data-surface="web"] .cs-key-value {
+  min-height: 118px;
+}
+
+.cs-card[data-surface="web"] .cs-key-status {
+  grid-column: 2;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cs-card[data-surface="web"] .cs-claim-status {
+  display: block;
+  margin-top: 8px;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cs-card[data-surface="web"] .cs-receipt-notes {
+  margin-left: clamp(18px, 3vw, 42px);
+  margin-right: clamp(18px, 3vw, 42px);
+  padding-bottom: 8px;
+}
+
+.cs-card[data-surface="web"] .cs-receipt-notes .cs-section-label-text {
+  color: var(--cat-ink);
+  font-size: 24px;
+}
+
+.cs-card[data-surface="web"] .cs-source-ledger-full {
+  margin-top: 34px;
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full {
+  padding: 16px;
+  background: rgb(255 253 248 / 0.46);
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full .cs-source-list {
+  grid-template-columns: 1fr;
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full .cs-source-item {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full .cs-source-item::before {
+  top: 17px;
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full .cs-source-marker {
+  grid-column: 1;
+  padding-left: 14px;
+}
+
+.cs-card[data-surface="web"] .cs-source-block-full .cs-source-body {
+  grid-column: 2;
+}
+
+.cs-footer-cta {
+  color: var(--color-seal);
+  font-weight: 700;
+  text-decoration-color: color-mix(in srgb, var(--color-seal) 48%, transparent);
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .cs-card[data-surface="web"] .cs-receipt-notes {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+
+  .cs-card[data-surface="web"] .cs-source-block-full .cs-source-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-card[data-surface="web"] .cs-source-block-full .cs-source-marker,
+  .cs-card[data-surface="web"] .cs-source-block-full .cs-source-body {
+    grid-column: 1;
+  }
+}

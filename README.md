@@ -75,12 +75,12 @@ domain or active browser tab
   -> section jobs can fill individual research cards
 ```
 
-Generation has two modes:
+Generation uses `mode` for the profile tier:
 
 - `basics`: creates the public card. It can be useful even when synthesis is absent.
 - `analysis`: upgrades an existing card with gated synthesis when enough public evidence exists.
 
-Section jobs use the same generation endpoint with a `sectionId`. Public sections can render in the web and extension surfaces. Gated sections require extension auth.
+The normal extension flow starts with `basics`. Later investor-lens work uses `analysis`. Section jobs use the same generation endpoint with a `sectionId`; their `jobKind` records the exact section, while `mode` still tracks whether the section is public/basic or gated/analysis.
 
 The database stores one full card in `cards.card_json`. Public reads strip gated fields at read time, so the public page never exposes private synthesis.
 

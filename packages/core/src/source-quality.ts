@@ -51,6 +51,15 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
     };
   }
 
+  if (source.sourceType === "company_site") {
+    return {
+      tier: "primary_company",
+      label: "Company-authored",
+      rationale: "Best for product mechanics and official facts, weaker for claims about importance.",
+      incentive: "Company positioning.",
+    };
+  }
+
   if (categories.has("pressRelease") || /\bpress release\b/.test(searchable)) {
     return {
       tier: "press_release",
@@ -147,15 +156,6 @@ export function sourceQualityForSource(source: SourceQualityInput): SourceQualit
       label: "Independent analysis",
       rationale: "Third-party framing source. Useful for market structure and category judgment.",
       incentive: "Editorial or analyst judgment.",
-    };
-  }
-
-  if (source.sourceType === "company_site") {
-    return {
-      tier: "primary_company",
-      label: "Company-authored",
-      rationale: "Best for product mechanics and official facts, weaker for claims about importance.",
-      incentive: "Company positioning.",
     };
   }
 

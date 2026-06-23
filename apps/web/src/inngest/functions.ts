@@ -1,6 +1,8 @@
 import {
   companySlugFromDomain,
+  buildFirstPayoff,
   type ColdStartCard,
+  type FirstPayoff,
   type GenerationTrace,
   type GenerationLlmCallTrace,
   deriveLegacyResearchSectionsFromCard,
@@ -493,7 +495,7 @@ export const generateCardFunction = inngest.createFunction(
       cardToStore: ColdStartCard;
       sources: ProviderSource[];
       steps: { upsert: string; evidence: string; sections: string; sources: string };
-      event: { stepId: string; type: "card.partial" | "card.saved" | "card.enriched"; message: string };
+      event: { stepId: string; type: "card.partial" | "card.saved" | "card.enriched"; message: string; metadata?: Record<string, unknown> };
       skipNoteId: string;
       contactTrigger: string | null;
     }): Promise<{ milestoneMs: number } | null> => {
@@ -511,7 +513,8 @@ export const generateCardFunction = inngest.createFunction(
       await step.run(input.steps.sources, () => recordSourcesForCard(db, rowId, input.sources));
       await recordEvent(input.event.stepId, input.event.type, input.event.message, {
         citationCount: input.cardToStore.citations.length,
-        sourceCount: input.sources.length
+        sourceCount: input.sources.length,
+        ...(input.event.metadata ?? {})
       }, null);
       if (input.contactTrigger) {
         await requestContactEnrichmentForStoredCard(input.cardToStore, input.contactTrigger);
@@ -693,7 +696,7 @@ export const generateCardFunction = inngest.createFunction(
         };
       });
       mergeTracePatch(trace, sourceResult.tracePatch);
-      await recordEvent("sources-fetched", "source.found", `Found ${sourceResult.value.sources.length} accepted sources`, {
+      const sourceEvent = await recordEvent("sources-fetched", "source.found", `Found ${sourceResult.value.sources.length} accepted sources`, {
         acceptedCount: sourceResult.value.sources.length,
         rejectedCount: sourceResult.value.trace.sourceGate.rejectedCount,
         directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
@@ -709,6 +712,41 @@ export const generateCardFunction = inngest.createFunction(
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
       let seedCard: ColdStartCard | null = null;
+      let firstPayoff: FirstPayoff | null = null;
+
+      if (mode === "basics") {
+        firstPayoff = buildFirstPayoff({
+          slug,
+          domain,
+          sources: acceptedSources,
+          generatedAtMs: Date.now(),
+          ...(sourceEvent?.id ? { sourceEventId: sourceEvent.id } : {})
+        });
+        trace.firstPayoff = firstPayoff;
+        await recordEvent(
+          "first-payoff",
+          firstPayoff.status === "substantive_first_read"
+            ? "first_payoff.ready"
+            : firstPayoff.status === "withheld"
+              ? "first_payoff.withheld"
+              : "first_payoff.receipt",
+          firstPayoff.status === "substantive_first_read"
+            ? "First Read ready"
+            : firstPayoff.status === "withheld"
+              ? "First Read withheld"
+              : "Evidence receipt ready",
+          { firstPayoff },
+          null
+        );
+        if (generationRunDbId) {
+          await step.run("persist-first-payoff-trace", () =>
+            updateGenerationRunTrace(db, {
+              id: generationRunDbId,
+              patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+            })
+          );
+        }
+      }
 
       if (mode === "basics") {
         currentStage = "seed-profile-card";
@@ -747,11 +785,28 @@ export const generateCardFunction = inngest.createFunction(
         seedCard = seedProfileResult.value.card;
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
+        firstPayoff = buildFirstPayoff({
+          slug,
+          domain,
+          sources: acceptedSources,
+          card: seedCardToStore,
+          generatedAtMs: Date.now(),
+          ...(sourceEvent?.id ? { sourceEventId: sourceEvent.id } : {})
+        });
+        trace.firstPayoff = firstPayoff;
+        if (generationRunDbId) {
+          await step.run("persist-seed-first-payoff-trace", () =>
+            updateGenerationRunTrace(db, {
+              id: generationRunDbId,
+              patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+            })
+          );
+        }
         const seedStore = await storeCardSnapshot({
           cardToStore: seedCardToStore,
           sources: acceptedSources,
           steps: { upsert: "upsert-seed-card", evidence: "record-seed-card-evidence", sections: "record-seed-research-sections", sources: "record-seed-sources" },
-          event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card" },
+          event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card", metadata: { firstPayoff } },
           skipNoteId: "skip-underfilled-seed-card",
           contactTrigger: "seed-card"
         });

@@ -26,6 +26,7 @@ import {
   finalizeGeneratedCard,
   unknownFact
 } from "./seed-profile";
+import { applySynthesisUsefulnessGate } from "./synthesis-quality";
 
 type CardSynthesis = NonNullable<ColdStartCard["synthesis"]>;
 type MarketStructureAndTiming = NonNullable<CardSynthesis["marketStructureAndTiming"]>;
@@ -690,16 +691,24 @@ async function verifiedSynthesisForCard(
   };
 
   return whyItMatters
-    ? {
-        tracePatch,
-        synthesis: {
+    ? (() => {
+        const gated = applySynthesisUsefulnessGate({
           whyItMatters,
           bullCase,
           bearCase,
           openQuestions: synthesis.openQuestions,
           ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
+        });
+        const synthesisTrace = tracePatch.synthesis;
+        if (synthesisTrace) {
+          synthesisTrace.claimCountAfterVerify = 1 + gated.synthesis.bullCase.length + gated.synthesis.bearCase.length +
+            marketStructureClaims(gated.synthesis).length;
         }
-      }
+        return {
+          tracePatch,
+          synthesis: gated.synthesis
+        };
+      })()
     : { tracePatch };
 }
 

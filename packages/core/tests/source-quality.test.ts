@@ -38,6 +38,19 @@ describe("sourceQualityForSource", () => {
     });
   });
 
+  it("never upgrades company-site sources to independent labels", () => {
+    expect(
+      sourceQualityForSource({
+        url: "https://semianalysis.com/about",
+        title: "SemiAnalysis company technical deep dive",
+        sourceType: "company_site",
+      }),
+    ).toMatchObject({
+      tier: "primary_company",
+      label: "Company-authored",
+    });
+  });
+
   it("recognizes specialist AI and market-analysis sources without treating every Substack as technical", () => {
     const semianalysis = {
       url: "https://semianalysis.com/2026/01/01/inference-economics",
