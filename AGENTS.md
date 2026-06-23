@@ -13,7 +13,7 @@ Treat `SPEC.md` as the product and technical source of truth. Treat `DESIGN.md` 
 This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package dependencies use `file:` links, so package changes are picked up after one root `npm ci`.
 
 - `apps/web`: Next.js 15 App Router app (Tailwind v4, React 19). Hosts `/c/{slug}`, `/privacy`, `/api/cards/{slug}`, `/api/extension/cards/{slug}`, `/api/extension/bootstrap`, `/api/generate`, and `/api/inngest`.
-- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate.
+- `apps/extension`: Chrome MV3 side panel built with Vite, CRXJS, React 19, and Framer Motion. The active research-layer surface lives in `src/research-layer.ts`, `src/research-layer-motion.ts`, and `src/ResearchLayerPanel.tsx`; keep research module activation and pinning there rather than a separate analysis gate. First Payoff is the source-backed evidence slip in that panel: core logic and schema live in `packages/core/src/first-payoff.ts`, rendered by `src/FirstPayoffSurface.tsx`, with `src/first-payoff-events.ts` deriving the slip from progress events; it classifies headline newsworthiness via the shared `headline` util in `packages/core`, so keep that classifier in core. The investor lens (`src/investor-lens.ts`) renders synthesis on the analysis layers, voiced by the `investor-taste-kernel` system prompt in `packages/llm/src/investor-taste-kernel.ts`.
 - `packages/core`: typed `ColdStartCard` schema, trust/source quality helpers, and slug helpers.
 - `packages/db`: Drizzle ORM and Postgres repository layer. Local Postgres uses host port `55432`.
 - `packages/providers`: AgentCash and StableEnrich wrappers, direct Exa, Firecrawl, SEC EDGAR, and provider budget registry.
@@ -150,6 +150,8 @@ npm run dev:full
 
 - Card field: `packages/core/src/card.ts`, `packages/llm/src/extraction.ts`, `packages/pipeline/src/generate-card.ts`, `packages/ui/src/CardShell.tsx`.
 - Research-layer sections: `packages/core/src/research-sections.ts` for the section schema, `apps/extension/src/research-layer.ts` and `apps/extension/src/ResearchLayerPanel.tsx` for activation and rendering.
+- First Payoff evidence slip: `packages/core/src/first-payoff.ts` (tested in `packages/core/tests/first-payoff.test.ts`) for the slip logic and schema, `apps/extension/src/FirstPayoffSurface.tsx` for rendering with `src/first-payoff-events.ts` deriving the slip from progress events, and `packages/core/src/headline.ts` (tested in `packages/core/tests/headline.test.ts`) for the headline/newsworthiness classifier.
+- Investor lens: `apps/extension/src/investor-lens.ts` (tested in `apps/extension/tests/investor-lens.test.ts`) for the synthesis display and source posture, `packages/llm/src/investor-taste-kernel.ts` for the system-prompt voice.
 - Provider issue: `packages/providers/src/stableenrich.ts`, `packages/providers/src/direct-exa.ts`, `packages/providers/src/provider-budget.ts`, and the provider spike script.
 - Pipeline run debugging: `packages/pipeline/src/generate-card.ts`, `packages/pipeline/src/evidence-ledger.ts`, `packages/pipeline/src/cost.ts`, and `apps/web/src/inngest/provider-trace.ts`.
 - Auth/gate behavior: `apps/web/src/lib/extension-auth.ts` and the route files under `apps/web/src/app/api/`.
