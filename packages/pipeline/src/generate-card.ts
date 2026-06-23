@@ -684,32 +684,27 @@ async function verifiedSynthesisForCard(
       required: deps.synthesisRequired === true,
       produced: Boolean(whyItMatters),
       claimCountBeforeVerify,
-      claimCountAfterVerify: whyItMatters
-        ? 1 + bullCase.length + bearCase.length + marketStructureClaims({ ...synthesis, marketStructureAndTiming }).length
-        : 0
+      claimCountAfterVerify: 0
     }
   };
 
-  return whyItMatters
-    ? (() => {
-        const gated = applySynthesisUsefulnessGate({
-          whyItMatters,
-          bullCase,
-          bearCase,
-          openQuestions: synthesis.openQuestions,
-          ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
-        });
-        const synthesisTrace = tracePatch.synthesis;
-        if (synthesisTrace) {
-          synthesisTrace.claimCountAfterVerify = 1 + gated.synthesis.bullCase.length + gated.synthesis.bearCase.length +
-            marketStructureClaims(gated.synthesis).length;
-        }
-        return {
-          tracePatch,
-          synthesis: gated.synthesis
-        };
-      })()
-    : { tracePatch };
+  if (!whyItMatters) {
+    return { tracePatch };
+  }
+
+  const gated = applySynthesisUsefulnessGate({
+    whyItMatters,
+    bullCase,
+    bearCase,
+    openQuestions: synthesis.openQuestions,
+    ...(marketStructureAndTiming ? { marketStructureAndTiming } : {})
+  });
+  if (tracePatch.synthesis) {
+    tracePatch.synthesis.claimCountAfterVerify = 1 + gated.synthesis.bullCase.length + gated.synthesis.bearCase.length +
+      marketStructureClaims(gated.synthesis).length;
+    tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
+  }
+  return { tracePatch, synthesis: gated.synthesis };
 }
 
 export async function generateCardForDomainWithTrace(

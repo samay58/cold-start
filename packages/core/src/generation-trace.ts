@@ -192,6 +192,7 @@ export type GenerationTrace = {
     produced: boolean;
     claimCountBeforeVerify: number;
     claimCountAfterVerify: number;
+    usefulnessDroppedClaims?: number;
     gateMessage?: string;
   };
   // Per-section provenance and cost for the section model. A derived section is

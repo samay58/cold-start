@@ -1293,7 +1293,8 @@ describe("generateCardForDomain", () => {
       required: true,
       produced: true,
       claimCountBeforeVerify: 2,
-      claimCountAfterVerify: 1
+      claimCountAfterVerify: 1,
+      usefulnessDroppedClaims: 0
     });
   });
 
