@@ -1,5 +1,15 @@
 @import "@cold-start/ui/tokens.css";
+@import "./theme.tokens.css";
 @import "./fonts.css";
+
+/*
+ * Cascade order for the extension. Token files stay unlayered so the
+ * theme.tokens.css aliases (imported after the shared tokens) keep winning,
+ * and so [data-theme="dark"] semantic overrides apply by specificity. Author
+ * rules move into these layers surface-by-surface as each is tokenized
+ * (Phase 4); unmigrated rules stay unlayered and keep their current cascade.
+ */
+@layer base, primitives, surfaces, components, states, utilities;
 
 * {
   box-sizing: border-box;

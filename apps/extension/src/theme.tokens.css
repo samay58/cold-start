@@ -1,0 +1,165 @@
+/*
+ * Extension theme tokens. Scoped to the Chrome side panel only.
+ *
+ * This file is imported by apps/extension/src/styles.css AFTER
+ * @cold-start/ui/tokens.css, so its :root aliases win over the shared light
+ * tokens. The dark override block lives here and NOWHERE in
+ * packages/ui/src/tokens.css, because that file is shared with the web app
+ * (apps/web/src/app/globals.css) and the public card stays light.
+ *
+ * Tiers:
+ *   1 primitives   raw palette atoms, referenced only inside this file
+ *   2 semantic     role tokens the components consume (--cs-*)
+ *   3 derived      elevation, sheen, tint, selection, chrome (--cs-*)
+ * Legacy --color-* / --cat-* names are aliased onto the semantic tier so the
+ * existing 6k-line stylesheet keeps working unchanged. Dark overrides the
+ * semantic + derived tiers only.
+ *
+ * Light values below are identical to the current shared tokens, so adding
+ * this file is a no-op until [data-theme="dark"] is set (Phase 2+).
+ */
+
+:root {
+  /* UA-painted surfaces (scrollbars, form controls, spellcheck) follow the
+   * resolved theme. This is not the app theme switch; data-theme is. */
+  color-scheme: light;
+
+  /* ---- Tier 1: primitives (light) ---- */
+  --cs-paper-field: #f7f5ee;
+  --cs-paper-plate: #fffdf8;
+  --cs-ink-900: #171a1f;
+  --cs-ink-500: #68706a;
+  --cs-line-300: #ccc7b8;
+  --cs-line-500: #9c978a;
+  --cs-lilac-500: #6e5c9e;
+
+  /* ---- Tier 2: semantic roles (light) ---- */
+  --cs-bg: var(--cs-paper-field);
+  --cs-surface-1: var(--cs-paper-plate);
+  --cs-surface-2: #fffdf8;
+  --cs-surface-sunken: #efece1;
+  --cs-text-1: var(--cs-ink-900);
+  --cs-text-2: var(--cs-ink-500);
+  --cs-rule: var(--cs-line-300);
+  --cs-rule-strong: var(--cs-line-500);
+  --cs-accent-seal: var(--cs-lilac-500);
+
+  --cs-cat-ground: #e4dcc8;
+  --cs-cat-paper: #f4eddc;
+  --cs-cat-paper-edge: #c9bea4;
+  --cs-cat-ink: #20201e;
+  --cs-cat-muted: #6b6256;
+  --cs-cat-rule: #d8ceb6;
+  --cs-cat-rule-strong: #c3b79a;
+
+  --cs-evidence-verified: #0e6b5b;
+  --cs-evidence-reported: #315f9d;
+  --cs-evidence-company: #9b6a1e;
+  --cs-evidence-conflict: #b63a2a;
+  --cs-focus: #d7b84a;
+
+  /* ---- Tier 3: derived (light) ---- */
+  --cs-edge-highlight: rgb(255 253 248 / 0.7);
+  --cs-edge-highlight-strong: rgb(255 255 255 / 0.85);
+  --cs-inset-shadow: rgb(23 26 31 / 0.08);
+  --cs-shadow-pickup: 0 6px 18px rgb(23 26 31 / 0.08);
+  --cs-shadow-popover: 0 10px 26px rgb(23 26 31 / 0.10), 0 0 0 1px var(--cs-rule);
+  --cs-seal-tint-08: color-mix(in oklab, var(--cs-accent-seal) 8%, transparent);
+  --cs-seal-tint-18: color-mix(in oklab, var(--cs-accent-seal) 18%, transparent);
+  --cs-selection-bg: color-mix(in oklab, var(--cs-accent-seal) 22%, transparent);
+  --cs-selection-text: var(--cs-text-1);
+  --cs-scrollbar-thumb: #c3b79a;
+  --cs-scrollbar-track: #efece1;
+  --cs-logo-chip-bg: linear-gradient(180deg, #fffdf8, #f4eddc);
+  --cs-logo-chip-ink: #171a1f;
+  --cs-logo-chip-border: #c9bea4;
+  --paper-grain-opacity: 0.18;
+
+  /* ---- Legacy aliases onto the semantic tier (keeps existing CSS working) ---- */
+  --color-field: var(--cs-bg);
+  --color-plate: var(--cs-surface-1);
+  --color-ink: var(--cs-text-1);
+  --color-muted: var(--cs-text-2);
+  --color-rule: var(--cs-rule);
+  --color-rule-strong: var(--cs-rule-strong);
+  --color-seal: var(--cs-accent-seal);
+  --color-verified: var(--cs-evidence-verified);
+  --color-reported: var(--cs-evidence-reported);
+  --color-company: var(--cs-evidence-company);
+  --color-conflict: var(--cs-evidence-conflict);
+  --color-focus: var(--cs-focus);
+
+  --cat-ground: var(--cs-cat-ground);
+  --cat-paper: var(--cs-cat-paper);
+  --cat-paper-edge: var(--cs-cat-paper-edge);
+  --cat-ink: var(--cs-cat-ink);
+  --cat-muted: var(--cs-cat-muted);
+  --cat-rule: var(--cs-cat-rule);
+  --cat-rule-strong: var(--cs-cat-rule-strong);
+
+  --shadow-popover: var(--cs-shadow-popover);
+  --shadow-pickup: var(--cs-shadow-pickup);
+}
+
+/*
+ * Dark theme. Warm sumi-leaning paper at night (Phase 0 candidate C).
+ * Anchored on kyoto-sumi, brand dusty-lilac seal kept true, evidence accents
+ * tuned from sumi's ANSI set for hue separation. Contrast verified in
+ * docs/theme-sources.md. Inert until data-theme="dark" is set on <html>.
+ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---- Tier 1: primitives (dark) ---- */
+  --cs-paper-field: #1b1612;
+  --cs-paper-plate: #241d18;
+  --cs-ink-900: #e8ddc9;
+  --cs-ink-500: #ac9e88;
+  --cs-line-300: #5e5142;
+  --cs-line-500: #80705a;
+  --cs-lilac-500: #bba8df;
+
+  /* ---- Tier 2: semantic roles (dark) ---- */
+  --cs-bg: var(--cs-paper-field);
+  --cs-surface-1: var(--cs-paper-plate);
+  --cs-surface-2: #2c241d;
+  --cs-surface-sunken: #15110d;
+  --cs-text-1: var(--cs-ink-900);
+  --cs-text-2: var(--cs-ink-500);
+  --cs-rule: var(--cs-line-300);
+  --cs-rule-strong: var(--cs-line-500);
+  --cs-accent-seal: var(--cs-lilac-500);
+
+  --cs-cat-ground: #16120e;
+  --cs-cat-paper: #241d18;
+  --cs-cat-paper-edge: #80705a;
+  --cs-cat-ink: #e8ddc9;
+  --cs-cat-muted: #ac9e88;
+  --cs-cat-rule: #5e5142;
+  --cs-cat-rule-strong: #80705a;
+
+  --cs-evidence-verified: #7fc2b2;
+  --cs-evidence-reported: #94acd6;
+  --cs-evidence-company: #d8ac60;
+  --cs-evidence-conflict: #dd8678;
+  --cs-focus: #dbbb4f;
+
+  /* ---- Tier 3: derived (dark) ----
+   * The light theme's white inset sheens cannot carry over. On dark they
+   * become a faint warm amber edge lift plus a real dark contact shadow.
+   * Carried-over white sheens read as glossy plastic, not paper.
+   */
+  --cs-edge-highlight: rgb(239 222 190 / 0.07);
+  --cs-edge-highlight-strong: rgb(239 222 190 / 0.11);
+  --cs-inset-shadow: rgb(8 6 4 / 0.38);
+  --cs-shadow-pickup: 0 10px 26px rgb(8 6 4 / 0.34), 0 1px 0 var(--cs-edge-highlight) inset;
+  --cs-shadow-popover: 0 16px 40px rgb(8 6 4 / 0.46), 0 0 0 1px var(--cs-rule-strong);
+  --cs-selection-bg: color-mix(in oklab, var(--cs-accent-seal) 34%, transparent);
+  --cs-selection-text: #f2e8d7;
+  --cs-scrollbar-thumb: #6b5c49;
+  --cs-scrollbar-track: #15110d;
+  --cs-logo-chip-bg: linear-gradient(180deg, rgb(205 189 156 / 0.98), rgb(182 165 132 / 0.96));
+  --cs-logo-chip-ink: #171a1f;
+  --cs-logo-chip-border: #8e7b5f;
+  --paper-grain-opacity: 0.10;
+}

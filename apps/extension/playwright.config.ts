@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     {
       name: "sidepanel-ui",
-      testMatch: /sidepanel-ui\.spec\.ts/
+      testMatch: /sidepanel-(ui|dark)\.spec\.ts/
     }
   ],
   webServer: {
