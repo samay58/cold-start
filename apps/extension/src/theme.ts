@@ -1,22 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { DARK_READER_STORAGE_KEY, type DarkReaderSignal } from "./dark-reader-bridge";
 
 export type ThemePreference = "auto" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
-export type ThemeReason = "manual" | "dark-reader" | "system" | "default";
-export type { DarkReaderSignal };
+export type ThemeReason = "manual" | "system" | "default";
 
 const PREFERENCE_KEY = "coldStartThemePreference";
 const EFFECTIVE_MIRROR_KEY = "coldStartThemeEffective";
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 
 /*
- * Precedence: manual override > Dark Reader (active tab) > OS prefers dark >
- * light. An "unknown" Dark Reader signal never forces light; it falls through.
+ * Precedence: manual override > OS prefers dark > light. The panel is a
+ * chrome-extension:// document, so OS appearance is the only ambient signal it
+ * can read; the manual toggle covers everything else.
  */
 export function resolveTheme(
   preference: ThemePreference,
-  darkReader: DarkReaderSignal,
   osPrefersDark: boolean
 ): { theme: ResolvedTheme; reason: ThemeReason } {
   if (preference === "dark") {
@@ -24,9 +22,6 @@ export function resolveTheme(
   }
   if (preference === "light") {
     return { theme: "light", reason: "manual" };
-  }
-  if (darkReader === "on") {
-    return { theme: "dark", reason: "dark-reader" };
   }
   if (osPrefersDark) {
     return { theme: "dark", reason: "system" };
@@ -112,66 +107,7 @@ export function useResolvedThemeValue(): ResolvedTheme {
   return theme;
 }
 
-function isDarkReaderSignal(value: unknown): value is DarkReaderSignal {
-  return value === "on" || value === "off" || value === "unknown";
-}
-
-/*
- * Read the active tab's Dark Reader signal the worker stored in session storage,
- * and ask the worker to probe on mount. Missing chrome APIs (the test harness)
- * resolve to "unknown", which never forces light.
- */
-export function useDarkReaderSignal(): DarkReaderSignal {
-  const [signal, setSignal] = useState<DarkReaderSignal>("unknown");
-
-  useEffect(() => {
-    let active = true;
-
-    try {
-      chrome.storage.session.get([DARK_READER_STORAGE_KEY], (items) => {
-        if (active && isDarkReaderSignal(items[DARK_READER_STORAGE_KEY])) {
-          setSignal(items[DARK_READER_STORAGE_KEY]);
-        }
-      });
-    } catch {
-      /* no chrome storage in this context */
-    }
-
-    try {
-      chrome.runtime?.sendMessage?.({ type: "coldStart:probeDarkReader" });
-    } catch {
-      /* worker may be unavailable */
-    }
-
-    function onChanged(changes: Record<string, chrome.storage.StorageChange>, area: string) {
-      if (area === "session" && changes[DARK_READER_STORAGE_KEY]) {
-        const next = changes[DARK_READER_STORAGE_KEY].newValue;
-        if (isDarkReaderSignal(next)) {
-          setSignal(next);
-        }
-      }
-    }
-
-    try {
-      chrome.storage?.onChanged?.addListener(onChanged);
-    } catch {
-      /* no chrome storage in this context */
-    }
-
-    return () => {
-      active = false;
-      try {
-        chrome.storage?.onChanged?.removeListener(onChanged);
-      } catch {
-        /* ignore */
-      }
-    };
-  }, []);
-
-  return signal;
-}
-
-export function useTheme(darkReaderSignal: DarkReaderSignal = "unknown") {
+export function useTheme() {
   const [preference, setPreferenceState] = useState<ThemePreference>(readMirrorPreference);
   const [systemDark, setSystemDark] = useState<boolean>(osPrefersDark);
 
@@ -190,7 +126,7 @@ export function useTheme(darkReaderSignal: DarkReaderSignal = "unknown") {
     return () => query.removeEventListener("change", update);
   }, []);
 
-  const { theme, reason } = resolveTheme(preference, darkReaderSignal, systemDark);
+  const { theme, reason } = resolveTheme(preference, systemDark);
 
   useEffect(() => {
     applyResolvedTheme(theme, reason);

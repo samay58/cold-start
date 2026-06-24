@@ -85,7 +85,7 @@ Evidence color appears as tiny marks: square dots, short ticks, citation bracket
 
 The seal is the only decorative color, and it earns that by being a single, restrained accent used as a verb, not a SaaS blue-purple system: no gradient accent fields, no tinted buttons, no glow. The public web card is light only; the extension side panel is the one dark surface, a warm paper dark mode that reads as the same catalogue card under a dimmed reading lamp. No hazard yellow. No glass. Shadows are rare and shallow; structure comes from rule weight, alignment, parchment texture, and spacing.
 
-Extension dark mode: the side panel ships a warm paper dark mode anchored on the Kyoto sumi night palette (ground #1B1612, aged off-white ink #E8DDC9, lifted dusty-lilac seal #BBA8DF, evidence hues retuned for a dark ground). It activates on OS dark and, best effort, when Dark Reader is darkening the active tab; a manual Auto/Light/Dark control in settings always wins. White inset sheens become a faint warm amber edge lift, never glossy white. Full token map and rationale in `docs/theme-sources.md`; product spec in `docs/product/extension-dark-mode-spec-2026-06-24.md`. The public web card stays light.
+Extension dark mode: the side panel ships a warm paper dark mode anchored on the Kyoto sumi night palette (ground #1B1612, aged off-white ink #E8DDC9, lifted dusty-lilac seal #BBA8DF, evidence hues retuned for a dark ground). It activates on OS dark; a manual Auto/Light/Dark control in settings always wins. White inset sheens become a faint warm amber edge lift, never glossy white. Full token map and rationale in `docs/theme-sources.md`; product spec in `docs/product/extension-dark-mode-spec-2026-06-24.md`. The public web card stays light.
 
 Prompt wording for color:
 

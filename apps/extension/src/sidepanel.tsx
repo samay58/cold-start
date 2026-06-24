@@ -21,7 +21,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
-import { useDarkReaderSignal, useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
+import { useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -316,7 +316,7 @@ function ThemeToggle({
           </button>
         ))}
       </div>
-      <p className="cs-theme-toggle-hint">Auto follows your browser and Dark Reader.</p>
+      <p className="cs-theme-toggle-hint">Auto follows your browser.</p>
     </fieldset>
   );
 }
@@ -774,8 +774,7 @@ function shouldResumeAnalysisRun(
 
 export function SidePanel() {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const darkReaderSignal = useDarkReaderSignal();
-  const { preference: themePreference, setPreference: setThemePreference } = useTheme(darkReaderSignal);
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });

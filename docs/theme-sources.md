@@ -159,5 +159,9 @@ so the light card is untouched. The people-and-fact-cell state is now captured i
 
 - Confirm `prefers-color-scheme: dark` inside the MV3 side panel reflects OS/browser dark in
   Chrome and Dia.
-- Confirm Dark Reader DOM markers (`html[data-darkreader-scheme]` = `dark`/`dimmed`) on a real
-  darkened tab in Dia. Deferred to the Phase 6 bridge.
+
+Note: an earlier Phase 6 added an active-tab Dark Reader probe (the `scripting` permission plus
+a worker bridge) to auto-flip the panel when Dark Reader darkened the page. It was removed during
+the 2026-06-24 review tightening: it was flaky by design (it fell through to "unknown" whenever the
+activeTab grant was stale), and the manual Auto/Light/Dark toggle plus OS dark already cover the
+case. The panel now resolves theme from manual preference then OS appearance only.
