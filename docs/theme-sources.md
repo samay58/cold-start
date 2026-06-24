@@ -128,6 +128,33 @@ Catalogue aliases (extension borrows): `--cat-ground #16120E`, `--cat-paper #241
 `--cat-paper-edge #80705A`, `--cat-ink #E8DDC9`, `--cat-muted #AC9E88`, `--cat-rule #5E5142`,
 `--cat-rule-strong #80705A`.
 
+## Border and surface-lift correction (2026-06-24, live-observed)
+
+Candidate C shipped with a near-black surface lift (about 1.08:1 plate over field) on
+the theory that edge highlight, grain, and shadow would carry separation. On real
+cards (a generated Mercor dossier) that proved too subtle: People rows, the
+Employees/Round/HQ fact cells, the research module rows, and the research stack tiles
+all lost their edges. Two of the light border tokens had also collapsed onto the dark
+ground value, so those borders were invisible rather than faint. The fix raises the
+dark surface and border tokens only; light is unchanged.
+
+New dark values and their measured contrast (WCAG 2.1, in code):
+
+| Token role | before | after | ratio after |
+|---|---|---|---|
+| raised paper fill vs ground #1b1612 | #2a221b (1.15:1) | #322a20 | 1.27:1 |
+| hairline `--cs-rule` vs fill | #5e5142 (1.80:1) | #8a7660 | 3.25:1 (4.14:1 vs ground) |
+| required border `--cs-rule-strong` vs fill | #80705a (2.90:1) | #9c8870 | 4.15:1 (5.27:1 vs ground) |
+| research-module border (was ground value) | #1c1712 (invisible) | #a89678 @0.82 | 3.80:1 vs fill |
+| primary ink on fill | | #e8ddc9 | 10.50:1 |
+| secondary muted on fill | | #ac9e88 | 5.38:1 |
+
+People rows and the research stack tiles carry the company-amber and seal hues, which
+stay put; only their dark carrying alpha lifts (people border 0.48 to 0.62 = 3.54:1,
+has-email seal 0.18 to 0.44, dormant card 0.22 to 0.58 = 3.28:1) in a dark-only block
+so the light card is untouched. The people-and-fact-cell state is now captured in
+`tests/e2e/sidepanel-dark.spec.ts` to lock the regression.
+
 ## Open verification (live, needs the browser)
 
 - Confirm `prefers-color-scheme: dark` inside the MV3 side panel reflects OS/browser dark in

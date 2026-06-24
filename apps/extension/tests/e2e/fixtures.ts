@@ -120,6 +120,44 @@ export function browserbaseCardWithSynthesis(): ColdStartCard {
   });
 }
 
+// Card with a populated management team so the People rows render. A mix of
+// people with and without email exercises both border variants (default amber
+// and the has-email seal tint), which is where dark borders were hardest to see.
+export function browserbaseCardWithPeople(): ColdStartCard {
+  return browserbaseCard({
+    team: {
+      founders: {
+        value: [
+          { name: "Paul Klein", role: "Co-founder & CEO", sourceUrl: "https://browserbase.com/team", email: "paul@browserbase.com" },
+          { name: "Nat Miletic", role: "Co-founder & CTO", sourceUrl: "https://browserbase.com/team", email: "nat@browserbase.com" }
+        ],
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      },
+      keyExecs: {
+        value: [
+          { name: "Danielle Cordova", role: "Head of Engineering", sourceUrl: "https://browserbase.com/team", email: null },
+          { name: "Marcus Webb", role: "Head of Go-to-Market", sourceUrl: "https://browserbase.com/team", email: null }
+        ],
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
+      headcount: { value: 24, status: "verified", confidence: "medium", citationIds: ["c2"] }
+    },
+    synthesis: {
+      whyItMatters: {
+        text: "Browserbase turns browser automation into agent infrastructure [c1].",
+        citationIds: ["c1", "c2"]
+      },
+      bullCase: [{ text: "Developers need reliable browser sessions for AI workflows [c3].", citationIds: ["c3"] }],
+      bearCase: [],
+      openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }]
+    }
+  });
+}
+
 export async function installChromeShim(page: Page, seed: ChromeStorageSeed = {}) {
   await page.addInitScript((input) => {
     type Listener = (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, areaName: string) => void;

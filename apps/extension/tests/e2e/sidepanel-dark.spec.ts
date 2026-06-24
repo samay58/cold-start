@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  browserbaseCardWithPeople,
   browserbaseCardWithSynthesis,
   fulfillJson,
   granolaCard,
@@ -54,6 +55,20 @@ test("dark: research layer with synthesis", async ({ page }) => {
   await expect(page.getByLabel("Research layer")).toBeVisible();
   await page.waitForTimeout(250);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-research.png" });
+});
+
+test("dark: people rows and fact cells keep visible edges", async ({ page }) => {
+  await seedDark(page);
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openDark(page);
+
+  await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
+  const people = page.locator(".cs-people-person");
+  await expect(people.first()).toBeVisible();
+  await people.first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-people.png" });
 });
 
 test("dark: start gate for an ungenerated company", async ({ page }) => {

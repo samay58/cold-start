@@ -6437,3 +6437,19 @@ body {
 :root[data-theme="dark"] .cs-company-logo-mark .cs-company-logo-fallback {
   color: var(--cs-logo-chip-ink);
 }
+
+/* Sub-element borders that carry the company-amber and seal hues read too soft
+ * on dark at their light-tuned alpha. The hue stays put; only the carrying alpha
+ * lifts so People rows and research stack tiles keep visible edges. Dark only,
+ * so the light card is unchanged. */
+:root[data-theme="dark"] .cs-people-person {
+  border-color: rgb(var(--cs-c-212-197-158) / 0.62);
+}
+
+:root[data-theme="dark"] .cs-people-person[data-has-email="true"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.44);
+}
+
+:root[data-theme="dark"] .cs-dormant-card {
+  border-color: rgb(var(--cs-c-170-143-86) / 0.58);
+}
