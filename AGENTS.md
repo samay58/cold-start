@@ -22,6 +22,8 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `packages/ui`: shared React card primitives and `tokens.css`.
 - `eval/golden-companies.seed.json`: starter 50-company eval set.
 - `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
+- `lessons/`: standalone HTML walkthroughs of how the system works (e.g. `0001-follow-a-company-generation.html`). Educational only, not part of the build or tests.
+- `docs/learn/`: generated narrative learn pack (`manifest.yml` plus `trail-*.md` walkthroughs). Educational only, not part of the build or tests.
 
 Data flow: `/api/generate` queues work through Inngest and streams generation status events back to the caller (the contract version is pinned in `packages/core/api-contract.json`; read that file for the current value rather than trusting any literal here); the extension and web progress feeds render those events. `apps/web/src/inngest/functions.ts` registers the Inngest workers and owns event names, step names, retry boundaries, and trace merging. Source fetching, contact enrichment, section generation, storage guards, env helpers, and provider trace helpers live in neighboring `apps/web/src/inngest/*` modules. Full card assembly stays in `packages/pipeline/src/generate-card.ts`, which receives injected provider and LLM functions. DB callers import through `packages/db/src/index.ts`, which re-exports the focused repository modules under `packages/db/src/repositories/`. Public card routes strip synthesis. Extension card routes return synthesis only after `apps/web/src/lib/extension-auth.ts` accepts the request.
 
@@ -163,6 +165,7 @@ npm run dev:full
 - `README.md`: local setup, smoke tests, and deployed extension setup.
 - `docs/deployment.md`: Vercel, Neon, Inngest, and extension deployment.
 - `docs/qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
+- `docs/product/`: dated product specs, direction reviews, and tuning playbooks (e.g. `cost-quality-optimization-playbook`, `diagnose-iterate-craft-playbook`, the public-artifact and investor-lens reviews). Read the relevant dated review before reworking a product surface.
 - `SPEC.md`: product spec.
 - `DESIGN.md`: visual system.
 - `INTENT.md`: product intent and non-goals.
