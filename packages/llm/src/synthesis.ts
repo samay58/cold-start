@@ -4,6 +4,7 @@ import { questionCategorySchema, synthesisSchema, type ColdStartCard, type Sourc
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { withSchemaRetry } from "./llm-provider";
+import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
 const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
@@ -239,25 +240,13 @@ export const synthesisSystemPrompt = [
   "Never use an em dash anywhere. Use a period or a semicolon instead."
 ].join(" ");
 
-type ToolUseLike = {
-  type: string;
-  name?: string;
-  input?: unknown;
-  id?: string;
-  text?: string;
-};
-
 export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
-  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === SYNTHESIS_TOOL_NAME);
-  if (!toolUse) {
-    throw new Error("No emit_investor_synthesis tool use returned");
-  }
-
-  if (toolUse.input === undefined) {
-    throw new Error("emit_investor_synthesis tool use returned no input");
-  }
-
-  return citedSynthesisSchema.parse(normalizeSynthesisCitations(synthesisSchema.parse(toolUse.input)));
+  return parseToolUse(
+    message,
+    SYNTHESIS_TOOL_NAME,
+    citedSynthesisSchema,
+    (input) => normalizeSynthesisCitations(synthesisSchema.parse(input))
+  );
 }
 
 function synthesisClaims(synthesis: NonNullable<ColdStartCard["synthesis"]>): SourcedText[] {

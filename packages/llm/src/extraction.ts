@@ -25,6 +25,7 @@ import {
 } from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import type { ResearchPlan } from "./research-plan";
+import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EXTRACTION_TOOL_NAME = "emit_company_claims";
 const BLOCK_EXTRACTION_TOOL_NAME = "emit_block_claims";
@@ -392,30 +393,6 @@ export const blockEnrichmentTool = {
     required: ["blockId", "citations"],
   }
 } satisfies Tool;
-
-type ToolUseLike = {
-  type: string;
-  name?: string;
-  input?: unknown;
-  id?: string;
-  text?: string;
-};
-
-function parseToolUse<T>(
-  message: { content: ToolUseLike[] },
-  toolName: string,
-  schema: { parse: (input: unknown) => T },
-  normalize: (input: unknown) => unknown
-): T {
-  const toolUse = message.content.find((block) => block.type === "tool_use" && block.name === toolName);
-  if (!toolUse) {
-    throw new Error(`No ${toolName} tool use returned`);
-  }
-  if (toolUse.input === undefined) {
-    throw new Error(`${toolName} tool use returned no input`);
-  }
-  return schema.parse(normalize(toolUse.input));
-}
 
 export function parseExtractionToolUse(message: { content: ToolUseLike[] }) {
   return parseToolUse(message, EXTRACTION_TOOL_NAME, extractedCardSectionsSchema, normalizeExtractionInput);
