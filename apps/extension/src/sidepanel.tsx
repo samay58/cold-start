@@ -21,7 +21,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
-import { useTheme, type ThemePreference } from "./theme";
+import { useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -447,8 +447,15 @@ function LoadingPanel({
   );
 }
 
+// The shader takes colors as JS props, so CSS tokens cannot reach it. Pass a
+// warm-dark mesh on dark; the CSS fallback gradient flips via tokens already.
+const MESH_COLORS_LIGHT = ["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"];
+const MESH_COLORS_DARK = ["#1b1612", "#241d18", "#2c241d", "#241d18", "#bba8df"];
+
 function ProgressBackground() {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const resolvedTheme = useResolvedThemeValue();
+  const meshColors = resolvedTheme === "dark" ? MESH_COLORS_DARK : MESH_COLORS_LIGHT;
   const [shaderEnabled, setShaderEnabled] = useState(false);
 
   useEffect(() => {
@@ -473,7 +480,7 @@ function ProgressBackground() {
           {prefersReducedMotion ? (
             <ProgressStaticMeshGradient
               className="cs-generation-mesh-shader"
-              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"]}
+              colors={meshColors}
               fit="cover"
               grainMixer={0.42}
               grainOverlay={0.08}
@@ -488,7 +495,7 @@ function ProgressBackground() {
           ) : (
             <ProgressMeshGradient
               className="cs-generation-mesh-shader"
-              colors={["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"]}
+              colors={meshColors}
               distortion={0.18}
               fit="cover"
               grainMixer={0.35}

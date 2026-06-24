@@ -6412,3 +6412,28 @@ body {
     color: var(--color-muted);
   }
 }
+
+/*
+ * Phase 5 special-case dark surfaces. Kept unlayered so these higher-specificity
+ * dark rules win over the unlayered light component rules they refine.
+ */
+
+/* Paper grain reads as warm fiber lift on dark, not multiply darkening. */
+:root[data-theme="dark"] .cs-loading-panel::after,
+:root[data-theme="dark"] .cs-start-panel::after {
+  mix-blend-mode: screen;
+  opacity: 0.05;
+}
+
+/* Company logos keep a muted parchment mat on dark so dark or transparent marks
+ * stay visible; third-party marks are never inverted. The fallback initial goes
+ * dark to read on the parchment. */
+:root[data-theme="dark"] .cs-company-logo-mark {
+  background: var(--cs-logo-chip-bg);
+  border-color: var(--cs-logo-chip-border);
+  color: var(--cs-logo-chip-ink);
+}
+
+:root[data-theme="dark"] .cs-company-logo-mark .cs-company-logo-fallback {
+  color: var(--cs-logo-chip-ink);
+}

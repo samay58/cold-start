@@ -89,6 +89,28 @@ export function applyResolvedTheme(theme: ResolvedTheme, reason: ThemeReason) {
   }
 }
 
+/*
+ * Read-only view of the resolved theme for code that needs the value but must
+ * not drive it (the generation shader passes colors as JS props). Observes the
+ * data-theme attribute the controller writes.
+ */
+export function useResolvedThemeValue(): ResolvedTheme {
+  const [theme, setTheme] = useState<ResolvedTheme>(() =>
+    typeof document !== "undefined" && document.documentElement.dataset.theme === "dark" ? "dark" : "light"
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setTheme(root.dataset.theme === "dark" ? "dark" : "light");
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
+}
+
 export function useTheme(darkReaderSignal: DarkReaderSignal = "unknown") {
   const [preference, setPreferenceState] = useState<ThemePreference>(readMirrorPreference);
   const [systemDark, setSystemDark] = useState<boolean>(osPrefersDark);
