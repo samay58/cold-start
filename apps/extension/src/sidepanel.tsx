@@ -21,7 +21,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
-import { useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
+import { useDarkReaderSignal, useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -774,7 +774,8 @@ function shouldResumeAnalysisRun(
 
 export function SidePanel() {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
+  const darkReaderSignal = useDarkReaderSignal();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme(darkReaderSignal);
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });

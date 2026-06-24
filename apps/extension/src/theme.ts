@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { DARK_READER_STORAGE_KEY, type DarkReaderSignal } from "./dark-reader-bridge";
 
 export type ThemePreference = "auto" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 export type ThemeReason = "manual" | "dark-reader" | "system" | "default";
-export type DarkReaderSignal = "on" | "off" | "unknown";
+export type { DarkReaderSignal };
 
 const PREFERENCE_KEY = "coldStartThemePreference";
 const EFFECTIVE_MIRROR_KEY = "coldStartThemeEffective";
@@ -109,6 +110,65 @@ export function useResolvedThemeValue(): ResolvedTheme {
   }, []);
 
   return theme;
+}
+
+function isDarkReaderSignal(value: unknown): value is DarkReaderSignal {
+  return value === "on" || value === "off" || value === "unknown";
+}
+
+/*
+ * Read the active tab's Dark Reader signal the worker stored in session storage,
+ * and ask the worker to probe on mount. Missing chrome APIs (the test harness)
+ * resolve to "unknown", which never forces light.
+ */
+export function useDarkReaderSignal(): DarkReaderSignal {
+  const [signal, setSignal] = useState<DarkReaderSignal>("unknown");
+
+  useEffect(() => {
+    let active = true;
+
+    try {
+      chrome.storage.session.get([DARK_READER_STORAGE_KEY], (items) => {
+        if (active && isDarkReaderSignal(items[DARK_READER_STORAGE_KEY])) {
+          setSignal(items[DARK_READER_STORAGE_KEY]);
+        }
+      });
+    } catch {
+      /* no chrome storage in this context */
+    }
+
+    try {
+      chrome.runtime?.sendMessage?.({ type: "coldStart:probeDarkReader" });
+    } catch {
+      /* worker may be unavailable */
+    }
+
+    function onChanged(changes: Record<string, chrome.storage.StorageChange>, area: string) {
+      if (area === "session" && changes[DARK_READER_STORAGE_KEY]) {
+        const next = changes[DARK_READER_STORAGE_KEY].newValue;
+        if (isDarkReaderSignal(next)) {
+          setSignal(next);
+        }
+      }
+    }
+
+    try {
+      chrome.storage?.onChanged?.addListener(onChanged);
+    } catch {
+      /* no chrome storage in this context */
+    }
+
+    return () => {
+      active = false;
+      try {
+        chrome.storage?.onChanged?.removeListener(onChanged);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
+  return signal;
 }
 
 export function useTheme(darkReaderSignal: DarkReaderSignal = "unknown") {

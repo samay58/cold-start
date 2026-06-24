@@ -80,7 +80,8 @@ describe("background prefetch", () => {
     vi.stubGlobal("chrome", {
       runtime: {
         id: "extension-test-id",
-        onInstalled: { addListener: vi.fn() }
+        onInstalled: { addListener: vi.fn() },
+        onMessage: { addListener: vi.fn() }
       },
       action: {
         onClicked: {
@@ -88,6 +89,11 @@ describe("background prefetch", () => {
             clickListener = listener;
           }
         }
+      },
+      tabs: {
+        onActivated: { addListener: vi.fn() },
+        onUpdated: { addListener: vi.fn() },
+        query: vi.fn(async () => [])
       },
       sidePanel: {
         open: vi.fn(),

@@ -19,7 +19,7 @@ export function extensionManifest(env: ConfigEnv) {
     name: "Cold Start",
     version: "0.1.0",
     description: "Sourced company context cards from the current tab.",
-    permissions: ["sidePanel", "activeTab", "storage"],
+    permissions: ["sidePanel", "activeTab", "storage", "scripting"],
     icons: {
       16: "icons/icon-16.png",
       32: "icons/icon-32.png",
