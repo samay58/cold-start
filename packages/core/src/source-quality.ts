@@ -11,7 +11,7 @@ export type SourceQualityTier =
   | "enrichment"
   | "unknown";
 
-export type SourceQuality = {
+type SourceQuality = {
   tier: SourceQualityTier;
   label: string;
   rationale: string;

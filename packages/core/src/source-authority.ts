@@ -1,4 +1,4 @@
-export const sourceAuthorityRegistry = {
+const sourceAuthorityRegistry = {
   // Source-gate trust is intentionally broader than source-quality rank. A host
   // listed here can survive same-name ambiguity, but incentive-aware quality
   // classification still decides how much judgment it should carry.
@@ -247,7 +247,7 @@ export const sourceAuthorityRegistry = {
   ]
 } as const;
 
-export type SourceAuthorityCategory = keyof typeof sourceAuthorityRegistry;
+type SourceAuthorityCategory = keyof typeof sourceAuthorityRegistry;
 
 export function normalizeAuthorityHost(value: string) {
   return value
