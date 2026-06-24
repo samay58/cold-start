@@ -85,6 +85,18 @@ test("dark: signals ledger with corroborated events", async ({ page }) => {
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-signals.png" });
 });
 
+test("dark: settings panel with appearance toggle", async ({ page }) => {
+  await seedDark(page);
+  await installChromeShim(page, { apiToken: "" });
+  await mockExtensionApi(page, null);
+  await openDark(page);
+
+  const toggle = page.locator(".cs-theme-toggle");
+  await expect(toggle).toBeVisible();
+  await expect(toggle.getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-settings.png" });
+});
+
 test("dark: running generation progress", async ({ page }) => {
   await seedDark(page);
   await installChromeShim(page, { activeDomain: "cartesia.ai" });

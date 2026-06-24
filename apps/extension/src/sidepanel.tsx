@@ -21,6 +21,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
+import { useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -284,12 +285,52 @@ function useElapsedMilliseconds(active: boolean, startedAt: number | undefined, 
 }
 
 
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" }
+];
+
+function ThemeToggle({
+  preference,
+  onChange
+}: {
+  preference: ThemePreference;
+  onChange: (preference: ThemePreference) => void;
+}) {
+  return (
+    <fieldset className="cs-theme-toggle">
+      <legend>Appearance</legend>
+      <div className="cs-theme-toggle-options" role="radiogroup" aria-label="Theme">
+        {THEME_OPTIONS.map((option) => (
+          <button
+            aria-checked={preference === option.value}
+            className="cs-theme-toggle-option"
+            data-active={preference === option.value}
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            role="radio"
+            type="button"
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <p className="cs-theme-toggle-hint">Auto follows your browser and Dark Reader.</p>
+    </fieldset>
+  );
+}
+
 function SettingsForm({
   initialSettings,
-  onSave
+  onSave,
+  themePreference,
+  onThemePreferenceChange
 }: {
   initialSettings: Settings;
   onSave: (settings: Settings) => void;
+  themePreference?: ThemePreference;
+  onThemePreferenceChange?: (preference: ThemePreference) => void;
 }) {
   const [apiOrigin, setApiOrigin] = useState(initialSettings.apiOrigin);
   const [apiToken, setApiToken] = useState(initialSettings.apiToken);
@@ -353,6 +394,10 @@ function SettingsForm({
           <button className="cs-extension-button" type="submit">Save</button>
         </div>
       </div>
+
+      {themePreference && onThemePreferenceChange ? (
+        <ThemeToggle onChange={onThemePreferenceChange} preference={themePreference} />
+      ) : null}
     </form>
   );
 }
@@ -722,6 +767,7 @@ function shouldResumeAnalysisRun(
 
 export function SidePanel() {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const [domain, setDomain] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requestState, setRequestState] = useState<RequestState>({ status: "idle" });
@@ -1460,6 +1506,8 @@ export function SidePanel() {
             setShowSettings(false);
           });
         }}
+        onThemePreferenceChange={setThemePreference}
+        themePreference={themePreference}
       />
     );
   }
