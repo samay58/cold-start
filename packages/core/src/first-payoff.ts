@@ -372,6 +372,41 @@ function buildWhatItDoesClaim({
   };
 }
 
+function buildWhoServesClaim({
+  card,
+  evidence,
+  source,
+  sourceId
+}: {
+  card: ColdStartCard | undefined;
+  evidence: FirstPayoffEvidence;
+  source: FirstPayoffSource;
+  sourceId: string;
+}): { claim?: FirstPayoffClaim; reason?: FirstPayoffSuppressionReason } {
+  const serves = card?.identity.description?.value?.serves?.trim();
+  if (!serves || source.sourceType !== "company_site" || !evidence.entityMatched) {
+    return {};
+  }
+  const text = normalizeSentence(serves);
+  if (!text) {
+    return {};
+  }
+  const badReason = isBadClaimText(text);
+  if (badReason) {
+    return { reason: badReason };
+  }
+  return {
+    claim: {
+      text,
+      supportingText: text,
+      sourceIds: [sourceId],
+      citationIds: card?.identity.description?.citationIds ?? [],
+      sourceClass: evidence.sourceClass,
+      claimKind: "who_it_serves"
+    }
+  };
+}
+
 function stillCheckingFor(evidence: FirstPayoffEvidence[], entityConfidence: FirstPayoff["entityConfidence"]): FirstPayoff["stillChecking"] {
   if (entityConfidence === "needs_check") {
     return { text: "Confirming this is the right company.", missingEvidenceClass: "entity" };
@@ -438,6 +473,7 @@ export function buildFirstPayoff(input: {
   }
 
   let whatItDoes: FirstPayoffClaim | undefined;
+  let whoItSeemsFor: FirstPayoffClaim | undefined;
   let proofHeadline: FirstPayoffClaim | undefined;
   input.sources.forEach((source, index) => {
     const sourceId = sourceIdFor(source, index);
@@ -453,6 +489,14 @@ export function buildFirstPayoff(input: {
         reasons.add(result.reason);
       }
     }
+    if (!whoItSeemsFor) {
+      const result = buildWhoServesClaim({ card, evidence: sourceEvidence, source, sourceId });
+      if (result.claim) {
+        whoItSeemsFor = result.claim;
+      } else if (result.reason) {
+        reasons.add(result.reason);
+      }
+    }
     if (!proofHeadline) {
       const result = buildProofClaim({ card, domain: input.domain, evidence: sourceEvidence, source, sourceId });
       if (result.claim) {
@@ -462,6 +506,12 @@ export function buildFirstPayoff(input: {
       }
     }
   });
+
+  // Do not show the same line twice when the description's "serves" sentence
+  // collapses to the what-it-does line.
+  if (whoItSeemsFor && whatItDoes && whoItSeemsFor.text.toLowerCase() === whatItDoes.text.toLowerCase()) {
+    whoItSeemsFor = undefined;
+  }
 
   const primaryClaim = whatItDoes ?? proofHeadline;
   if (!primaryClaim) {
@@ -485,6 +535,7 @@ export function buildFirstPayoff(input: {
     evidenceSoFar: displayEvidence.slice(0, 4),
     stillChecking: stillCheckingFor(displayEvidence, entity.entityConfidence),
     ...(whatItDoes ? { whatItDoes } : {}),
+    ...(whoItSeemsFor ? { whoItSeemsFor } : {}),
     ...(proofHeadline ? { proofHeadline } : {}),
     suppressionReasons: [...reasons]
   });

@@ -1,8 +1,49 @@
 import { describe, expect, it } from "vitest";
+import type { ColdStartCard } from "../src/index";
 import { buildFirstPayoff } from "../src/first-payoff";
 import { generationTraceSchema } from "../src/generation-trace";
 
 const generatedAtMs = Date.parse("2026-06-23T12:00:00.000Z");
+
+function fact<T>(value: T) {
+  return { value, status: "verified" as const, confidence: "medium" as const, citationIds: ["c1"] };
+}
+
+function cardWithServes(serves: string): ColdStartCard {
+  return {
+    slug: "browserbase",
+    domain: "browserbase.com",
+    generatedAt: "2026-06-23T12:00:00.000Z",
+    generationCostUsd: 0,
+    cacheStatus: "hit",
+    identity: {
+      name: fact("Browserbase"),
+      logoUrl: null,
+      oneLiner: fact("Browser infrastructure for AI agents."),
+      description: {
+        value: {
+          shortDescription: "Browser infrastructure for AI agents.",
+          concept: "A hosted browser runtime for AI agents.",
+          serves,
+          mechanism: "Managed browser sessions behind one API."
+        },
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
+      hq: fact({ city: "San Francisco", country: "United States" }),
+      foundedYear: fact(2024),
+      status: "private"
+    },
+    funding: { totalRaisedUsd: fact(null), lastRound: fact(null), investors: fact(null) },
+    team: { founders: fact([]), keyExecs: fact([]), headcount: fact(null) },
+    signals: [],
+    comparables: [],
+    citations: [
+      { id: "c1", url: "https://browserbase.com", title: "Browserbase", fetchedAt: "2026-06-23T12:00:00.000Z", sourceType: "company_site" }
+    ]
+  } as ColdStartCard;
+}
 
 function source(input: {
   id: string;
@@ -234,6 +275,52 @@ describe("buildFirstPayoff", () => {
 
     expect(payoff.evidenceSoFar.map((item) => item.domain)).toEqual(["getfreed.ai", "getfreed.ai"]);
     expect(payoff.evidenceSoFar.map((item) => item.sourceClass)).toEqual(["company_site", "docs"]);
+  });
+
+  it("builds a who-it-serves claim from the card description and cites it", () => {
+    const payoff = buildFirstPayoff({
+      domain: "browserbase.com",
+      slug: "browserbase",
+      generatedAtMs,
+      card: cardWithServes("AI agent developers and automation teams."),
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Browserbase",
+          url: "https://browserbase.com",
+          rawText: "Browserbase runs managed headless browser sessions for AI agents to navigate the web."
+        })
+      ]
+    });
+
+    expect(payoff.whoItSeemsFor).toMatchObject({
+      text: "AI agent developers and automation teams.",
+      claimKind: "who_it_serves",
+      sourceIds: ["src-home"],
+      citationIds: ["c1"]
+    });
+  });
+
+  it("drops the who-it-serves claim when it collapses to the what-it-does line", () => {
+    const payoff = buildFirstPayoff({
+      domain: "browserbase.com",
+      slug: "browserbase",
+      generatedAtMs,
+      card: cardWithServes("Browserbase runs managed headless browser sessions for AI agents to navigate the web."),
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Browserbase",
+          url: "https://browserbase.com",
+          rawText: "Browserbase runs managed headless browser sessions for AI agents to navigate the web."
+        })
+      ]
+    });
+
+    expect(payoff.whatItDoes?.text).toBe("Browserbase runs managed headless browser sessions for AI agents to navigate the web.");
+    expect(payoff.whoItSeemsFor).toBeUndefined();
   });
 
   it("can be stored on generation trace JSON for later QA", () => {
