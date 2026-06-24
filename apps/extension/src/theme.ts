@@ -79,7 +79,7 @@ function persistPreference(preference: ThemePreference) {
   }
 }
 
-export function applyResolvedTheme(theme: ResolvedTheme, reason: ThemeReason) {
+function applyResolvedTheme(theme: ResolvedTheme, reason: ThemeReason) {
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.dataset.themeReason = reason;

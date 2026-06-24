@@ -83,6 +83,9 @@
   "knip": {
     "ignoreDependencies": [
       "inngest-cli"
+    ],
+    "ignore": [
+      "apps/extension/public/theme-boot.js"
     ]
   }
 }
