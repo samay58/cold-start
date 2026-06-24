@@ -713,31 +713,44 @@ export const generateCardFunction = inngest.createFunction(
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
       let seedCard: ColdStartCard | null = null;
       let firstPayoff: FirstPayoff | null = null;
+      // First payoff is a best-effort early flourish, not on the critical path.
+      // Build it off untrusted provider sources behind a guard so a malformed
+      // source cannot abort the whole generation.
+      const buildFirstPayoffSafely = (input: Parameters<typeof buildFirstPayoff>[0]): FirstPayoff | null => {
+        try {
+          return buildFirstPayoff(input);
+        } catch (error) {
+          console.warn("[generation] first payoff build failed; continuing without it", error);
+          return null;
+        }
+      };
 
       if (mode === "basics") {
-        firstPayoff = buildFirstPayoff({
+        firstPayoff = buildFirstPayoffSafely({
           slug,
           domain,
           sources: acceptedSources,
           generatedAtMs: Date.now(),
           ...(sourceEvent?.id ? { sourceEventId: sourceEvent.id } : {})
         });
-        trace.firstPayoff = firstPayoff;
-        await recordEvent(
-          "first-payoff",
-          firstPayoff.status === "substantive_first_read"
-            ? "first_payoff.ready"
-            : firstPayoff.status === "withheld"
-              ? "first_payoff.withheld"
-              : "first_payoff.receipt",
-          firstPayoff.status === "substantive_first_read"
-            ? "Early evidence ready"
-            : firstPayoff.status === "withheld"
-              ? "Source check held"
-              : "Sources checked",
-          { firstPayoff },
-          null
-        );
+        if (firstPayoff) {
+          trace.firstPayoff = firstPayoff;
+          await recordEvent(
+            "first-payoff",
+            firstPayoff.status === "substantive_first_read"
+              ? "first_payoff.ready"
+              : firstPayoff.status === "withheld"
+                ? "first_payoff.withheld"
+                : "first_payoff.receipt",
+            firstPayoff.status === "substantive_first_read"
+              ? "Early evidence ready"
+              : firstPayoff.status === "withheld"
+                ? "Source check held"
+                : "Sources checked",
+            { firstPayoff },
+            null
+          );
+        }
       }
 
       if (mode === "basics") {
@@ -777,7 +790,7 @@ export const generateCardFunction = inngest.createFunction(
         seedCard = seedProfileResult.value.card;
 
         const seedCardToStore = prepareCardSnapshotForStorage(mode, existingCard, seedCard);
-        firstPayoff = buildFirstPayoff({
+        firstPayoff = buildFirstPayoffSafely({
           slug,
           domain,
           sources: acceptedSources,
@@ -785,7 +798,9 @@ export const generateCardFunction = inngest.createFunction(
           generatedAtMs: Date.now(),
           ...(sourceEvent?.id ? { sourceEventId: sourceEvent.id } : {})
         });
-        trace.firstPayoff = firstPayoff;
+        if (firstPayoff) {
+          trace.firstPayoff = firstPayoff;
+        }
         const seedStore = await storeCardSnapshot({
           cardToStore: seedCardToStore,
           sources: acceptedSources,

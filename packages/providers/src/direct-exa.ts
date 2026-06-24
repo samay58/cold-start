@@ -284,6 +284,9 @@ export async function fetchDirectExaContactSources(input: {
 
 const DIRECT_EXA_MAX_ATTEMPTS = 3;
 const DIRECT_EXA_BACKOFF_MS = [500, 1500];
+// Wall-clock bound per attempt. Without it a stalled connection never settles,
+// so the retry loop cannot advance and one stuck request burns the step budget.
+const DIRECT_EXA_TIMEOUT_MS = 20_000;
 
 function isRetryableDirectExaStatus(status: number) {
   return status === 429 || (status >= 500 && status < 600);
@@ -311,9 +314,10 @@ async function directExaJson(request: DirectExaRequest): Promise<unknown> {
         method: "POST",
         headers: request.headers,
         body: JSON.stringify(request.body),
+        signal: AbortSignal.timeout(DIRECT_EXA_TIMEOUT_MS),
       });
     } catch (error) {
-      // Network-level failure (DNS, connection reset, abort). Retryable.
+      // Network-level failure (DNS, connection reset, timeout abort). Retryable.
       lastError = error;
       const isLastAttempt = attempt === DIRECT_EXA_MAX_ATTEMPTS - 1;
       if (isLastAttempt) {
