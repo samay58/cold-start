@@ -144,7 +144,7 @@ export function browserbaseCardWithPeople(): ColdStartCard {
         confidence: "medium",
         citationIds: ["c1"]
       },
-      headcount: { value: 24, status: "verified", confidence: "medium", citationIds: ["c2"] }
+      headcount: { value: { value: 24, asOf: "2026-05-01" }, status: "verified", confidence: "medium", citationIds: ["c2"] }
     },
     synthesis: {
       whyItMatters: {

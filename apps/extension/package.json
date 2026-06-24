@@ -9,7 +9,7 @@
     "qa:extension:smoke": "npm run build && playwright test --config=playwright.smoke.config.ts --project=extension-smoke",
     "qa:extension:ui": "playwright test --project=sidepanel-ui",
     "audit:css": "node scripts/audit-css-literals.mjs",
-    "test": "vitest run --passWithNoTests",
+    "test": "npm run audit:css && vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
