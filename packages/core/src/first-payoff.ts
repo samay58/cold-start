@@ -10,7 +10,7 @@ export const firstPayoffEvidenceSchema = z.object({
   domain: z.string().min(1),
   title: z.string().min(1),
   sourceClass: z.enum(["company_site", "docs", "funding", "news", "people", "registry", "jobs", "customer_proof", "database", "other"]),
-  quality: z.enum(["company", "reported", "independent", "source_of_record"]),
+  quality: z.enum(["company", "reported", "independent"]),
   arrivedAtMs: z.number().int().nonnegative(),
   entityMatched: z.boolean()
 });

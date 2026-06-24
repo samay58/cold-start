@@ -6,7 +6,7 @@ function sourceLabel(count: number) {
 }
 
 function evidenceMarkClass(quality: FirstPayoff["evidenceSoFar"][number]["quality"]) {
-  if (quality === "independent" || quality === "source_of_record") {
+  if (quality === "independent") {
     return "independent";
   }
   return quality === "company" ? "company" : "reported";
@@ -43,7 +43,7 @@ function claimLabel(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["cla
 }
 
 function evidenceRank(quality: FirstPayoff["evidenceSoFar"][number]["quality"]) {
-  if (quality === "source_of_record" || quality === "independent") {
+  if (quality === "independent") {
     return 3;
   }
   if (quality === "reported") {
