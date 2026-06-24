@@ -85,6 +85,42 @@ test("dark: signals ledger with corroborated events", async ({ page }) => {
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-signals.png" });
 });
 
+test("auto preference resolves OS dark to a system-driven dark theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await page.goto("/sidepanel.html");
+  await expect(page.locator("#root > *")).toHaveCount(1);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-reason", "system");
+});
+
+test("flipping the OS scheme updates the theme live", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithSynthesis());
+  await page.goto("/sidepanel.html");
+  await expect(page.locator("#root > *")).toHaveCount(1);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-reason", "system");
+});
+
+test("a manual preference overrides the OS scheme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await installChromeShim(page, { apiToken: "" });
+  await mockExtensionApi(page, null);
+  await page.goto("/sidepanel.html");
+  await expect(page.locator(".cs-theme-toggle")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  await page.getByRole("radio", { name: "Light" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator("html")).toHaveAttribute("data-theme-reason", "manual");
+});
+
 test("dark: settings panel with appearance toggle", async ({ page }) => {
   await seedDark(page);
   await installChromeShim(page, { apiToken: "" });
