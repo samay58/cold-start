@@ -359,27 +359,34 @@ export async function updateGenerationRunTrace(
     patch: (trace: GenerationTrace | null) => GenerationTrace;
   }
 ) {
-  const [existing] = await db
-    .select({
-      slug: generationRuns.slug,
-      traceJson: generationRuns.traceJson
-    })
-    .from(generationRuns)
-    .where(eq(generationRuns.id, input.id))
-    .limit(1);
+  // Read-modify-write of one run's trace. The basics worker and the
+  // contact-enrichment worker patch the same parent run concurrently, so lock
+  // the row for the duration to serialize their patches; without the lock one
+  // worker's milestones can clobber the other's.
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({
+        slug: generationRuns.slug,
+        traceJson: generationRuns.traceJson
+      })
+      .from(generationRuns)
+      .where(eq(generationRuns.id, input.id))
+      .for("update")
+      .limit(1);
 
-  if (!existing) {
-    return null;
-  }
+    if (!existing) {
+      return null;
+    }
 
-  const traceJson = input.patch(safeParseTraceJson(existing.traceJson, existing.slug));
-  const [row] = await db
-    .update(generationRuns)
-    .set({ traceJson })
-    .where(eq(generationRuns.id, input.id))
-    .returning();
+    const traceJson = input.patch(safeParseTraceJson(existing.traceJson, existing.slug));
+    const [row] = await tx
+      .update(generationRuns)
+      .set({ traceJson })
+      .where(eq(generationRuns.id, input.id))
+      .returning();
 
-  return row ?? null;
+    return row ?? null;
+  });
 }
 
 function safeParseTraceJson(value: unknown, slug: string): GenerationTrace | null {
