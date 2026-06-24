@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ColdStartCard, Citation } from "./card";
 import { newsworthyTitlePattern, titleMentionsCompany } from "./headline";
+import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding } from "./source-class";
 import { sourceQualityForSource, type SourceQualityTier } from "./source-quality";
 
 export const firstPayoffEvidenceSchema = z.object({
@@ -151,15 +152,15 @@ function evidenceQuality(tier: SourceQualityTier): FirstPayoffEvidence["quality"
 }
 
 function sourceClassFor(source: FirstPayoffSource): FirstPayoffEvidence["sourceClass"] {
-  const text = `${source.intent ?? ""} ${source.url} ${source.title}`.toLowerCase();
+  const text = `${source.intent ?? ""} ${source.url} ${source.title}`;
   if (source.sourceType === "company_site") {
-    return /\bdocs?\b|documentation|api|developer|quickstart/.test(text) ? "docs" : "company_site";
+    return textLooksLikeDocs(text) ? "docs" : "company_site";
   }
   if (source.sourceType === "news") {
-    if (/\bfunding\b|\braised\b|series [a-z]\b|\bround\b|\binvestors?\b|\bvaluation\b/.test(text)) {
+    if (textLooksLikeFunding(text)) {
       return "funding";
     }
-    if (/\bcustomer\b|\bcustomers\b|\bcase study\b|\bdeploy(?:s|ed|ment)\b/.test(text)) {
+    if (textLooksLikeCustomerProof(text)) {
       return "customer_proof";
     }
     return "news";

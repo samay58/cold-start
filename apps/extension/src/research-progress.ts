@@ -1,4 +1,4 @@
-import { parseFirstPayoff, type FirstPayoff } from "@cold-start/core";
+import { parseFirstPayoff, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
 import type { ExtensionResearchRunEvent } from "./extension-config";
 import type { ExtensionSourceSummary } from "./extension-config";
 
@@ -152,18 +152,12 @@ function normalizeSourceCategory(value: string): BoundedSourceCategory | null {
   return boundedSourceCategories.find((category) => category === normalized) ?? null;
 }
 
-// Shared docs-page heuristic for source progress bucketing.
-function textLooksLikeDocs(text: string): boolean {
-  return /\bdocs?\b|documentation|developer|api reference|quickstart|guide/.test(text.toLowerCase());
-}
-
 function sourceLooksLikeDocs(source: Pick<ExtensionSourceSummary, "domain" | "snippet" | "title" | "url">) {
   return textLooksLikeDocs(`${source.domain} ${source.title} ${source.snippet} ${source.url}`);
 }
 
 function sourceLooksLikeFunding(source: Pick<ExtensionSourceSummary, "domain" | "snippet" | "title" | "url">) {
-  const text = `${source.domain} ${source.title} ${source.snippet} ${source.url}`.toLowerCase();
-  return /\bfunding\b|\braised\b|series [a-z]\b|\bround\b|\binvestors?\b|\bvaluation\b/.test(text);
+  return textLooksLikeFunding(`${source.domain} ${source.title} ${source.snippet} ${source.url}`);
 }
 
 function categoryForSource(source: ExtensionSourceSummary): BoundedSourceCategory | null {

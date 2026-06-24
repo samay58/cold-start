@@ -13,6 +13,7 @@ export * from "./research-sections";
 export * from "./signal-clusters.mjs";
 export * from "./slug";
 export * from "./source-authority";
+export * from "./source-class";
 export * from "./source-quality";
 export * from "./source-target";
 export * from "./trust";
