@@ -1,38 +1,36 @@
 import type { FirstPayoff } from "@cold-start/core";
 import { motion, useReducedMotion, type Transition } from "framer-motion";
+import { useRef, useState } from "react";
+import type { FocusEvent as ReactFocusEvent } from "react";
 
-function sourceLabel(count: number) {
-  return `${count} ${count === 1 ? "source" : "sources"}`;
+type Evidence = FirstPayoff["evidenceSoFar"][number];
+
+const sourceClassLabel: Record<Evidence["sourceClass"], string> = {
+  company_site: "Company site",
+  customer_proof: "Customer",
+  database: "Database",
+  docs: "Docs",
+  funding: "Funding",
+  jobs: "Jobs",
+  news: "News",
+  other: "Source",
+  people: "People",
+  registry: "Registry"
+};
+
+function markClass(quality: Evidence["quality"]) {
+  return quality === "independent" ? "independent" : quality === "company" ? "company" : "reported";
 }
 
-function evidenceMarkClass(quality: FirstPayoff["evidenceSoFar"][number]["quality"]) {
-  if (quality === "independent") {
-    return "independent";
-  }
-  return quality === "company" ? "company" : "reported";
-}
-
-function sourceClassLabel(sourceClass: FirstPayoff["evidenceSoFar"][number]["sourceClass"]) {
-  const labels: Record<FirstPayoff["evidenceSoFar"][number]["sourceClass"], string> = {
-    company_site: "Company",
-    customer_proof: "Customer",
-    database: "Database",
-    docs: "Docs",
-    funding: "Funding",
-    jobs: "Jobs",
-    news: "News",
-    other: "Source",
-    people: "People",
-    registry: "Registry"
-  };
-  return labels[sourceClass];
+function qualityRank(quality: Evidence["quality"]) {
+  return quality === "independent" ? 3 : quality === "reported" ? 2 : 1;
 }
 
 function primaryClaim(firstPayoff: FirstPayoff) {
   return firstPayoff.proofHeadline ?? firstPayoff.whoItSeemsFor ?? firstPayoff.whatItDoes ?? null;
 }
 
-function claimLabel(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["claimKind"]) {
+function claimKicker(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["claimKind"]) {
   if (claimKind === "who_it_serves") {
     return "Who it's for";
   }
@@ -42,126 +40,109 @@ function claimLabel(claimKind: NonNullable<ReturnType<typeof primaryClaim>>["cla
   return "Latest proof";
 }
 
-function evidenceRank(quality: FirstPayoff["evidenceSoFar"][number]["quality"]) {
-  if (quality === "independent") {
-    return 3;
-  }
-  if (quality === "reported") {
-    return 2;
-  }
-  return 1;
-}
-
-function displayEvidence(evidence: FirstPayoff["evidenceSoFar"]) {
-  const grouped = new Map<string, {
-    classes: Set<string>;
-    domain: string;
-    quality: FirstPayoff["evidenceSoFar"][number]["quality"];
-    sourceId: string;
-    url: string;
-  }>();
-
+// One quiet line per source domain: best-quality class wins, so a docs page and a homepage on the
+// same domain read as one entry rather than two.
+function quietSources(evidence: Evidence[]) {
+  const byDomain = new Map<string, { domain: string; url: string; label: string; quality: Evidence["quality"] }>();
   for (const item of evidence) {
-    const existing = grouped.get(item.domain);
+    const existing = byDomain.get(item.domain);
     if (!existing) {
-      grouped.set(item.domain, {
-        classes: new Set([sourceClassLabel(item.sourceClass)]),
-        domain: item.domain,
-        quality: item.quality,
-        sourceId: item.sourceId,
-        url: item.url
-      });
+      byDomain.set(item.domain, { domain: item.domain, url: item.url, label: sourceClassLabel[item.sourceClass], quality: item.quality });
       continue;
     }
-    existing.classes.add(sourceClassLabel(item.sourceClass));
-    if (evidenceRank(item.quality) > evidenceRank(existing.quality)) {
+    if (qualityRank(item.quality) > qualityRank(existing.quality)) {
       existing.quality = item.quality;
-      existing.sourceId = item.sourceId;
       existing.url = item.url;
+      existing.label = sourceClassLabel[item.sourceClass];
     }
   }
-
-  return [...grouped.values()];
+  return [...byDomain.values()];
 }
 
+// A filed slip that peeks out from under the progress card. Collapsed it is one lilac-seamed tab;
+// hover, focus, or tap slides the cited read open. Tap pins it open for touch; hover and keyboard
+// focus open it transiently.
 export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }) {
   const prefersReducedMotion = useReducedMotion();
+  const [open, setOpen] = useState(false);
+  const pinned = useRef(false);
   const claim = firstPayoff.status === "substantive_first_read" ? primaryClaim(firstPayoff) : null;
   if (!claim) {
     return null;
   }
 
-  const evidence = displayEvidence(firstPayoff.evidenceSoFar);
-  const visibleEvidence = evidence.slice(0, 3);
-  const hiddenSources = Math.max(0, evidence.length - visibleEvidence.length);
-  const ledgerCount = sourceLabel(firstPayoff.evidenceSoFar.length);
-  const entrance = prefersReducedMotion
-    ? { opacity: 1 }
-    : { opacity: 0, scale: 0.985, y: -8 };
-  const animateIn = prefersReducedMotion
-    ? { opacity: 1 }
-    : { opacity: 1, scale: 1, y: 0 };
+  const sources = quietSources(firstPayoff.evidenceSoFar);
+  const visibleSources = sources.slice(0, 3);
+  const hiddenSources = Math.max(0, sources.length - visibleSources.length);
+
+  function expand() {
+    setOpen(true);
+  }
+  function collapse() {
+    if (!pinned.current) {
+      setOpen(false);
+    }
+  }
+  function toggle() {
+    pinned.current = !pinned.current;
+    setOpen(pinned.current);
+  }
+  function handleBlur(event: ReactFocusEvent<HTMLElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      return;
+    }
+    pinned.current = false;
+    setOpen(false);
+  }
+
+  // Entrance slides the slip down from under the card above; exit is shorter and calmer, so it reads
+  // as filed away rather than dismissed. Reduced motion keeps the state change as a plain fade.
+  const initial = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -12 };
+  const animate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const exitTransition: Transition = prefersReducedMotion ? { duration: 0.12 } : { duration: 0.26, ease: [0.4, 0, 0.2, 1] };
+  const exit = prefersReducedMotion ? { opacity: 0, transition: exitTransition } : { opacity: 0, y: -6, transition: exitTransition };
   const transition: Transition = prefersReducedMotion
-    ? { duration: 0.12, ease: [0.16, 1, 0.3, 1] }
-    : { type: "spring" as const, stiffness: 520, damping: 38, mass: 0.54 };
+    ? { duration: 0.16, ease: [0.16, 1, 0.3, 1] }
+    : { type: "spring", stiffness: 460, damping: 34, mass: 0.62 };
 
   return (
     <motion.section
-      aria-label="First cited read"
-      animate={animateIn}
-      className="cs-first-read"
-      data-status={firstPayoff.status}
-      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.99, y: -4 }}
-      initial={entrance}
-      layout
+      aria-label="Early read"
+      animate={animate}
+      className="cs-early-read"
+      data-open={open ? "true" : "false"}
+      exit={exit}
+      initial={initial}
+      onBlur={handleBlur}
+      onFocus={expand}
+      onPointerEnter={expand}
+      onPointerLeave={collapse}
       transition={transition}
     >
-      <motion.span
-        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scaleX: 1 }}
-        aria-hidden="true"
-        className="cs-first-read-seal"
-        initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scaleX: 0.18 }}
-        transition={prefersReducedMotion ? { duration: 0.12 } : { delay: 0.08, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-      />
-      <header className="cs-first-read-head">
-        <span className="cs-first-read-title">First cited read</span>
-        <span className="cs-first-read-flag">Early</span>
-      </header>
-      <p className="cs-first-read-read" data-kind={claim.claimKind}>
-        <span className="cs-first-read-read-label">{claimLabel(claim.claimKind)}</span>
-        {claim.text}
-      </p>
-      {firstPayoff.evidenceSoFar.length > 0 ? (
-        <div className="cs-first-read-ledger" aria-label="Sources filed so far">
-          <div className="cs-first-read-ledger-head">
-            <span>Sources</span>
-            <span>{ledgerCount}</span>
-          </div>
-          <ul>
-            {visibleEvidence.map((item, index) => (
-              <motion.li
-                animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-                initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: -5 }}
-                key={item.sourceId}
-                transition={prefersReducedMotion ? { duration: 0.12 } : { delay: 0.08 + index * 0.035, duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <i className="cs-first-read-mark-dot" data-class={evidenceMarkClass(item.quality)} aria-hidden="true" />
-                <a href={item.url} rel="noreferrer" target="_blank">{item.domain}</a>
-                <span className="cs-first-read-mark">{[...item.classes].join(" / ")}</span>
-              </motion.li>
-            ))}
-            {hiddenSources > 0 ? (
-              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more source ${hiddenSources === 1 ? "domain" : "domains"}`}</li>
-            ) : null}
-          </ul>
+      <button aria-expanded={open} className="cs-early-read-tab" onClick={toggle} type="button">
+        <span className="cs-early-read-tab-label">Early read</span>
+        <span aria-hidden="true" className="cs-early-read-chevron" />
+      </button>
+      <div className="cs-early-read-reveal">
+        <div className="cs-early-read-body">
+          <p className="cs-early-read-claim">
+            <span className="cs-early-read-kicker">{claimKicker(claim.claimKind)}</span>
+            {claim.text}
+          </p>
+          {visibleSources.length > 0 ? (
+            <ul aria-label="Sources" className="cs-early-read-sources">
+              {visibleSources.map((item) => (
+                <li key={item.domain}>
+                  <i aria-hidden="true" className="cs-early-read-dot" data-class={markClass(item.quality)} />
+                  <a href={item.url} rel="noreferrer" target="_blank">{item.domain}</a>
+                  <span className="cs-early-read-class">{item.label}</span>
+                </li>
+              ))}
+              {hiddenSources > 0 ? <li className="cs-early-read-more">{`+${hiddenSources}`}</li> : null}
+            </ul>
+          ) : null}
         </div>
-      ) : (
-        <p className="cs-first-read-ledger-empty">Filing first sources</p>
-      )}
-      <p className="cs-first-read-gap">
-        <span className="cs-first-read-gap-label">Needs checking</span>{" "}
-        {firstPayoff.stillChecking.text}
-      </p>
+      </div>
     </motion.section>
   );
 }

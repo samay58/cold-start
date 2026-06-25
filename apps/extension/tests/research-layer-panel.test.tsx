@@ -270,25 +270,26 @@ describe("ResearchLayerPanel first read", () => {
   it("does not render stale client-derived First Read without a firstPayoff artifact", async () => {
     const { container, unmount } = await renderPanel();
 
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
-    expect(container.querySelector(".cs-first-read")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
+    expect(container.querySelector(".cs-early-read")).toBeNull();
     await unmount();
   });
 
   it("pins an incremental firstPayoff read above the research stack while basics continue", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const firstRead = container.querySelector("[aria-label='First cited read']");
+    const firstRead = container.querySelector("[aria-label='Early read']");
     const researchLayer = container.querySelector("[aria-label='Research layer']");
 
     expect(firstRead).not.toBeNull();
     expect(researchLayer).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First cited read");
-    // Incremental content the overview does not show: the buyer read, named sources, weight marks, and the gap.
+    expect(firstRead?.textContent).toContain("Early read");
+    // Incremental content the overview does not show: the buyer read, named sources, and weight marks.
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("Who it's for");
-    expect(firstRead?.textContent).toContain("Sources");
     expect(firstRead?.textContent).toContain("techcrunch.com");
-    expect(firstRead?.textContent).toContain("Needs checking");
+    // The generic "still checking" line is dropped from the read; it is not useful chrome here.
+    expect(firstRead?.textContent).not.toContain("Needs checking");
+    expect(firstRead?.textContent).not.toContain("Independent customer proof");
     // Never restates the company summary sentence shown in the header above it.
     expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
     expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -297,7 +298,7 @@ describe("ResearchLayerPanel first read", () => {
 
   it("prefers proof headlines over generic audience copy when both are available", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", includeProofHeadline: true });
-    const firstRead = container.querySelector("[aria-label='First cited read']");
+    const firstRead = container.querySelector("[aria-label='Early read']");
 
     expect(firstRead).not.toBeNull();
     expect(firstRead?.textContent).toContain("Latest proof");
@@ -306,21 +307,66 @@ describe("ResearchLayerPanel first read", () => {
     await unmount();
   });
 
-  it("keeps the first read legible under reduced motion", async () => {
+  it("collapses by default and opens on hover, keyboard focus, and tap", async () => {
+    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
+    const slip = container.querySelector<HTMLElement>("[aria-label='Early read']");
+    const tab = slip?.querySelector<HTMLButtonElement>(".cs-early-read-tab");
+
+    expect(slip?.getAttribute("data-open")).toBe("false");
+    expect(tab).not.toBeNull();
+
+    // Keyboard focus opens the slip; blurring away closes it.
+    await act(async () => {
+      tab!.focus();
+    });
+    expect(slip?.getAttribute("data-open")).toBe("true");
+    await act(async () => {
+      tab!.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("false");
+
+    // Hover opens it; hovering away closes it again (React derives enter/leave from over/out).
+    await act(async () => {
+      slip!.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: document.body }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("true");
+    await act(async () => {
+      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("false");
+
+    // Tap pins it open so it survives a pointer leaving the slip, then a second tap files it away.
+    await act(async () => {
+      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("true");
+    await act(async () => {
+      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("true");
+    await act(async () => {
+      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(slip?.getAttribute("data-open")).toBe("false");
+    await unmount();
+  });
+
+  it("keeps the early read legible and reachable under reduced motion", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", reducedMotion: true });
-    const firstRead = container.querySelector("[aria-label='First cited read']");
+    const firstRead = container.querySelector("[aria-label='Early read']");
 
     expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First cited read");
+    expect(firstRead?.textContent).toContain("Early read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(firstRead?.querySelector("[aria-label='Sources filed so far']")).not.toBeNull();
+    expect(firstRead?.querySelector("[aria-label='Sources']")).not.toBeNull();
+    expect(firstRead?.querySelector(".cs-early-read-tab")).not.toBeNull();
     await unmount();
   });
 
   it("files the first read into the company context after the full profile is ready", async () => {
     const { container, unmount } = await renderPanel({ complete: true });
 
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
     const filed = container.querySelector("[aria-label='Sources checked']");
     expect(filed).not.toBeNull();
     expect(filed?.textContent).toContain("Sources checked");
@@ -332,7 +378,7 @@ describe("ResearchLayerPanel first read", () => {
     const { container, unmount } = await renderPanel({ filedViaCacheStatus: true });
 
     // The live-generation success state can drop terminal events; a "hit" card must still file.
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
     expect(container.querySelector("[aria-label='Sources checked']")).not.toBeNull();
     await unmount();
   });
@@ -340,25 +386,25 @@ describe("ResearchLayerPanel first read", () => {
   it("does not render a source-only firstPayoff artifact as a separate card", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "receipt" });
 
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
-    expect(container.querySelector(".cs-first-read")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
+    expect(container.querySelector(".cs-early-read")).toBeNull();
     await unmount();
   });
 
   it("keeps source-only firstPayoff evidence out of the main stack even when domains repeat", async () => {
     const { container, unmount } = await renderPanel({ duplicateEvidence: true, firstPayoffStatus: "receipt" });
 
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
-    expect(container.querySelector(".cs-first-read")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
+    expect(container.querySelector(".cs-early-read")).toBeNull();
     await unmount();
   });
 
-  it("renders First Read only for substantive_first_read artifacts", async () => {
+  it("renders the early read only for substantive_first_read artifacts", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const firstRead = container.querySelector("[aria-label='First cited read']");
+    const firstRead = container.querySelector("[aria-label='Early read']");
 
     expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("First cited read");
+    expect(firstRead?.textContent).toContain("Early read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.textContent).toContain("techcrunch.com");
     await unmount();
@@ -367,8 +413,8 @@ describe("ResearchLayerPanel first read", () => {
   it("does not render withheld firstPayoff artifacts as user-facing cards", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "withheld" });
 
-    expect(container.querySelector("[aria-label='First cited read']")).toBeNull();
-    expect(container.querySelector(".cs-first-read")).toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
+    expect(container.querySelector(".cs-early-read")).toBeNull();
     await unmount();
   });
 
@@ -378,7 +424,7 @@ describe("ResearchLayerPanel first read", () => {
       firstPayoffStatus: "substantive_first_read"
     });
 
-    expect(container.querySelector("[aria-label='First cited read']")).not.toBeNull();
+    expect(container.querySelector("[aria-label='Early read']")).not.toBeNull();
     expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
     await unmount();
   });

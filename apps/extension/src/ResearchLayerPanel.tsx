@@ -383,14 +383,14 @@ function SourcesCheckedStamp({
     <motion.div
       aria-label="Sources checked"
       animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-      className="cs-first-read-filed"
+      className="cs-early-read-filed"
       initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
       layout
       layoutId="sources-checked"
       transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
     >
-      <span className="cs-first-read-filed-stamp">Sources checked</span>
-      <span className="cs-first-read-filed-meta">{meta}</span>
+      <span className="cs-early-read-filed-stamp">Sources checked</span>
+      <span className="cs-early-read-filed-meta">{meta}</span>
     </motion.div>
   );
 }

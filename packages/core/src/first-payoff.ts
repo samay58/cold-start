@@ -280,6 +280,85 @@ function dedupeEvidence(evidence: FirstPayoffEvidence[]) {
   return deduped;
 }
 
+function companyLabel(domain: string, card?: ColdStartCard) {
+  const name = card?.identity.name.value?.trim();
+  if (name && name.toLowerCase() !== domain.replace(/^www\./i, "").toLowerCase()) {
+    return name;
+  }
+  const root = domain.replace(/^www\./i, "").split(".")[0] ?? domain;
+  return (
+    root
+      .split(/[-_]+/)
+      .filter(Boolean)
+      .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+      .join(" ") || domain
+  );
+}
+
+function normalizeMoney(numStr: string, unit: string): string | null {
+  const value = numStr.replace(/,/g, "");
+  if (!/^\d+(\.\d+)?$/.test(value)) {
+    return null;
+  }
+  const u = unit.toLowerCase();
+  const suffix = u.startsWith("b") ? "B" : u.startsWith("m") ? "M" : u === "k" || u === "thousand" ? "K" : null;
+  if (!suffix) {
+    return null;
+  }
+  const clean = value.replace(/\.0+$/, "");
+  return `$${clean}${suffix}`;
+}
+
+// A money token already scaled (M/B/K). A token reads as a valuation only when "valuation"
+// or "valued" sits next to it, so the raise amount is never mistaken for the valuation.
+function extractMoney(text: string): { amount: string | null; valuation: string | null } {
+  const re = /\$\s?(\d[\d,]*(?:\.\d+)?)\s?(k|thousand|m|mn|mm|million|b|bn|billion)\b/gi;
+  let amount: string | null = null;
+  let valuation: string | null = null;
+  for (const match of text.matchAll(re)) {
+    const label = normalizeMoney(match[1] ?? "", match[2] ?? "");
+    if (!label) {
+      continue;
+    }
+    const index = match.index ?? 0;
+    const context = text.slice(Math.max(0, index - 20), index + match[0].length + 20).toLowerCase();
+    if (/valuat|valued/.test(context)) {
+      valuation ??= label;
+    } else {
+      amount ??= label;
+    }
+  }
+  return { amount, valuation };
+}
+
+function extractRound(text: string): string | null {
+  const match = text.match(/\b(pre[-\s]?seed|seed|series\s+([a-h]))\b/i);
+  if (!match) {
+    return null;
+  }
+  if (/series/i.test(match[1] ?? "")) {
+    return `Series ${(match[2] ?? "").toUpperCase()}`;
+  }
+  return /pre/i.test(match[1] ?? "") ? "pre-seed" : "seed";
+}
+
+// Deterministic plain-English funding read. The raw article title is never surfaced; we recompose
+// one clean sentence from the structured facts it carries, or return null so the caller suppresses.
+function buildFundingRead(company: string, facts: { amount: string | null; round: string | null; valuation: string | null }) {
+  const { amount, round, valuation } = facts;
+  if (!amount && !round) {
+    return null;
+  }
+  const tail = valuation ? ` at a ${valuation} valuation` : "";
+  if (amount && round) {
+    return `${company} reported ${amount} in ${round} funding${tail}.`;
+  }
+  if (amount) {
+    return `${company} reported new funding of ${amount}${tail}.`;
+  }
+  return `${company} reported a new ${round} round${tail}.`;
+}
+
 function buildProofClaim({
   card,
   domain,
@@ -303,19 +382,34 @@ function buildProofClaim({
   if (!evidence.entityMatched) {
     return { reason: "wrong_or_ambiguous_entity" };
   }
-  const text = normalizeSentence(source.title);
   const supportingLine = firstUsefulLine(sourceText(source), domain, [source.title]) ?? sourceText(source);
   const supportingText = normalizeSentence(supportingLine);
-  if (!text || !supportingText) {
+  if (!supportingText) {
+    return { reason: "claim_not_source_supported" };
+  }
+  const badSupportingReason = isBadClaimText(supportingText);
+  if (badSupportingReason) {
+    return { reason: badSupportingReason };
+  }
+
+  const titleMoney = extractMoney(source.title);
+  const supportMoney = extractMoney(supportingText);
+  const read = buildFundingRead(companyLabel(domain, card), {
+    amount: titleMoney.amount ?? supportMoney.amount,
+    valuation: titleMoney.valuation ?? supportMoney.valuation,
+    round: extractRound(source.title) ?? extractRound(supportingText)
+  });
+  if (!read) {
+    // Newsworthy, but not a cleanly structured funding event. Suppress rather than echo the headline.
+    return { reason: "no_incremental_claim" };
+  }
+  const text = normalizeSentence(read);
+  if (!text) {
     return { reason: "claim_not_source_supported" };
   }
   const badReason = isBadClaimText(text);
   if (badReason) {
     return { reason: badReason };
-  }
-  const badSupportingReason = isBadClaimText(supportingText);
-  if (badSupportingReason) {
-    return { reason: badSupportingReason };
   }
   return {
     claim: {

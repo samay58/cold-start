@@ -108,13 +108,58 @@ describe("buildFirstPayoff", () => {
 
     expect(payoff.status).toBe("substantive_first_read");
     expect(payoff.proofHeadline).toMatchObject({
-      text: "Runloop raises $7M seed to build test environments for coding agents.",
+      text: "Runloop reported $7M in seed funding.",
       supportingText: "Runloop raised a $7M seed round to build cloud test environments for AI coding agents.",
       sourceIds: ["src-news"],
       citationIds: [],
       claimKind: "proof_headline"
     });
+    // The recomposed read never echoes the raw article title.
+    expect(payoff.proofHeadline?.text).not.toContain("raises $7M seed to build");
     expect(payoff.suppressionReasons).toEqual([]);
+  });
+
+  it("recomposes a noisy funding headline into one plain-English read without the raw title or publisher", () => {
+    const payoff = buildFirstPayoff({
+      domain: "you.com",
+      slug: "you",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-funding",
+          title: "You.com raises $100M in series C funding at $1.5B valuation to scale AI search infrastructure - Tech Startups",
+          url: "https://techstartups.com/you-series-c",
+          rawText: "You.com raised $100M in a Series C round at a $1.5B valuation to scale its AI search infrastructure."
+        })
+      ]
+    });
+
+    expect(payoff.status).toBe("substantive_first_read");
+    expect(payoff.proofHeadline?.text).toBe("You reported $100M in Series C funding at a $1.5B valuation.");
+    expect(payoff.proofHeadline?.text).not.toContain("Tech Startups");
+    expect(payoff.proofHeadline?.text).not.toContain("to scale AI search infrastructure");
+    expect(payoff.proofHeadline?.text).not.toContain("raises");
+    expect(payoff.suppressionReasons).toEqual([]);
+  });
+
+  it("suppresses a newsworthy non-funding headline instead of echoing it as a read", () => {
+    const payoff = buildFirstPayoff({
+      domain: "acme.com",
+      slug: "acme",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-launch",
+          title: "Acme launches Acme Cloud, its new developer platform",
+          url: "https://techblog.com/acme-launch",
+          rawText: "Acme launched Acme Cloud, a new developer platform, this week."
+        })
+      ]
+    });
+
+    expect(payoff.status).toBe("receipt");
+    expect(payoff.proofHeadline).toBeUndefined();
+    expect(payoff.suppressionReasons).toContain("no_incremental_claim");
   });
 
   it("uses provider JSON text as support instead of suppressing a clean proof headline", () => {
@@ -137,11 +182,12 @@ describe("buildFirstPayoff", () => {
 
     expect(payoff.status).toBe("substantive_first_read");
     expect(payoff.proofHeadline).toMatchObject({
-      text: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push.",
+      text: "Odyssey reported $310M in Series B funding at a $1.45B valuation.",
       supportingText: "Odyssey closed a $310 million Series B at a $1.45 billion valuation with backing from Amazon.",
       sourceIds: ["src-funding"],
       claimKind: "proof_headline"
     });
+    expect(payoff.proofHeadline?.text).not.toContain("Closes");
     expect(payoff.suppressionReasons).toEqual([]);
   });
 
@@ -168,7 +214,7 @@ describe("buildFirstPayoff", () => {
 
     expect(payoff.status).toBe("substantive_first_read");
     expect(payoff.proofHeadline).toMatchObject({
-      text: "Odyssey Closes $310M Series B at $1.45B Valuation as Amazon Backs World Model AI Push.",
+      text: "Odyssey reported $310M in Series B funding at a $1.45B valuation.",
       supportingText: "Odyssey, the world model AI startup founded by autonomous vehicle veterans Oliver Cameron and Jeff Hawke, has closed a $310 million Series B round at a $1.45 billion valuation."
     });
     expect(payoff.suppressionReasons).toEqual([]);
