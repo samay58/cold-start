@@ -70,7 +70,7 @@ type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "openQuestions", title: "Next question", description: "Best use of attention", source: "analysis" },
+  { id: "openQuestions", title: "Next question", description: "Highest-priority diligence gap", source: "analysis" },
   { id: "coreIdea", title: "Why care", description: "Cited investment read", source: "analysis" },
   { id: "theCase", title: "The case", description: "Bull and bear, side by side", source: "analysis" },
   { id: "serves", title: "Who pays", description: "Buyer and workflow", source: "card" },
@@ -79,7 +79,7 @@ export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
   { id: "signals", title: "Signals", description: "Recent momentum", source: "card" },
   { id: "investors", title: "Money", description: "Rounds, backers, price context", source: "card" },
   { id: "competition", title: "Comps", description: "Alternatives and durability", source: "card" },
-  { id: "mechanism", title: "Product", description: "What is differentiated", source: "card" }
+  { id: "mechanism", title: "Product", description: "What makes it different", source: "card" }
 ];
 
 // These layers render from the consolidated investor lens. They should not create standalone

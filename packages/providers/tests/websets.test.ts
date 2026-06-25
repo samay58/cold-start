@@ -329,8 +329,8 @@ describe("createPeopleEmailWebset and pollPeopleEmailWebset", () => {
       requestCount: 1,
       websetId: "ws_9"
     });
-    // 1 item x (10 result + 2 enrichment) credits at the default Starter rate
-    expect(result.trace.estimatedCostUsd).toBeCloseTo(0.0735, 4);
+    // 1 item x (10 result + 5 email enrichment) credits at the default Starter rate
+    expect(result.trace.estimatedCostUsd).toBeCloseTo(0.0919, 4);
   });
 
   it("degrades a poll failure to a failure-shaped result", async () => {
@@ -352,9 +352,9 @@ describe("createPeopleEmailWebset and pollPeopleEmailWebset", () => {
 });
 
 describe("estimateWebsetsCostUsd", () => {
-  it("prices items at 12 credits on the default Starter rate and honors the env override", () => {
-    expect(estimateWebsetsCostUsd(3)).toBeCloseTo(0.2205, 4);
-    expect(estimateWebsetsCostUsd(3, { EXA_WEBSETS_CREDIT_USD: "0.00449" })).toBeCloseTo(0.1616, 4);
+  it("prices email-enriched items at 15 credits on the default Starter rate and honors the env override", () => {
+    expect(estimateWebsetsCostUsd(3)).toBeCloseTo(0.2756, 4);
+    expect(estimateWebsetsCostUsd(3, { EXA_WEBSETS_CREDIT_USD: "0.00449" })).toBeCloseTo(0.2021, 4);
     expect(estimateWebsetsCostUsd(0)).toBe(0);
   });
 });

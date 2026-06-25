@@ -79,7 +79,7 @@ Pricing-table verification:
 | Anthropic Sonnet | `$3/M` input, `$15/M` output, 1h cache write 2x input, cache read 0.1x input | Official Anthropic pricing page, accessed 2026-06-23. Code matches the published Sonnet and cache multipliers. |
 | DeepSeek v4 flash | `$0.14/M` cache miss input, `$0.0028/M` cache hit input, `$0.28/M` output | Official DeepSeek Models and Pricing page, accessed 2026-06-23. Code matches. |
 | Direct Exa Search | `$0.007/request` | Official Exa pricing and changelog, accessed 2026-06-23. Code matches `$7/1k requests`. |
-| Websets | Code uses 12 credits per item at `$49/8,000 credits`, or `$0.0735/item` | Official Websets billing, accessed 2026-06-23, says Starter is `$49/month` for 8,000 credits, 10 credits per matching result, and 5 credits per email or phone number. For people email enrichment this implies 15 credits per item, or `$0.091875/item`, unless the implementation has a reason not visible in traces. Treat recorded Websets cost as likely understated by 25% for email-enriched items. |
+| Websets | June 23 traces used 12 credits per item at `$49/8,000 credits`, or `$0.0735/item` | Official Websets billing, accessed 2026-06-23, says Starter is `$49/month` for 8,000 credits, 10 credits per matching result, and 5 credits per email or phone number. For people email enrichment this implies 15 credits per item, or `$0.091875/item`, unless the implementation has a reason not visible in traces. Treat recorded Websets cost as likely understated by 25% for email-enriched items. Live code was corrected to 15 credits on 2026-06-25. |
 
 Do not blindly trust these fields:
 
@@ -87,7 +87,7 @@ Do not blindly trust these fields:
 |---|---|
 | `generation_runs.cost_usd` | Historically named for LLM/Anthropic spend. It does not include AgentCash, Direct Exa, or Websets. Use component traces instead. |
 | StableEnrich endpoint `estimatedCostUsd` | Registry budget, not observed wallet spend. Use `walletDeltaUsd` when present. |
-| Websets `estimatedCostUsd` | Code-derived estimate. Current official billing appears to require 15 credits per email item, while code uses 12 credits. |
+| Websets `estimatedCostUsd` | Code-derived estimate. June 23 traces used 12 credits per email item; live code now uses 15 credits. |
 | Current card quality metrics | Current snapshot, not immutable per-run lineage. Useful directionally, not exact for historical cost-per-fact. |
 | Cache-hit economics | Generation rows capture work, not cheap cached reads. Cached reads are under-instrumented for pricing analysis. |
 
@@ -483,7 +483,7 @@ Highest-priority missing pieces:
 | Cache-hit read telemetry by user/session. | Pricing depends on cached-card reuse, but generation traces only measure cold work. |
 | User-level monthly run counts. | Subscription viability depends more on behavior distribution than single-run median. |
 | Immutable output snapshot per generation run. | Current `cards.card_json` can be overwritten, so exact cost-per-visible-fact by run is not trustworthy. |
-| Official Websets cost reconciliation. | Code assumes 12 credits per item; official billing says 15 credits for result plus email. |
+| Official Websets cost reconciliation. | June 23 traces assumed 12 credits per item; official billing says 15 credits for result plus email. |
 | Per-endpoint marginal quality lift. | Endpoint facts applied is incomplete. We need “would the final card have been worse without this endpoint?” |
 | Failed-run cost accounting. | Failed cold attempts must be counted in abuse and cap logic. |
 | Contact-enrichment value tracking. | Email discovery is expensive; we need to know whether users notice or care. |
@@ -512,7 +512,7 @@ Confirmed from code:
 | Direct Exa `$0.007/request`. | `packages/providers/src/direct-exa.ts:6-13`. |
 | StableEnrich endpoint budgets `$0.01` or `$0.02`. | `packages/providers/src/provider-budget.ts:22-196`. |
 | AgentCash ceilings `$0.30` basics, `$0.50` analysis. | `apps/web/src/inngest/provider-trace.ts:68-77`. |
-| Websets estimator 12 credits/item at `$0.006125/credit`. | `packages/providers/src/websets.ts:7-17`. |
+| Websets estimator 15 credits/email-enriched item at `$0.006125/credit`. | `packages/providers/src/websets.ts:7-17`. |
 | Anthropic cost estimator and cache multipliers. | `packages/llm/src/anthropic.ts:46-84`. |
 | DeepSeek v4 flash pricing table. | `packages/llm/src/pricing.ts:20-50`. |
 
@@ -593,7 +593,7 @@ Local code citations:
 |---|---|
 | Trace includes provider endpoint, LLM, Direct Exa, StableEnrich, Websets, and top-level cost fields. | `packages/core/src/generation-trace.ts:36-71`, `:105-165`. |
 | Direct Exa cost estimate is `$0.007/request`. | `packages/providers/src/direct-exa.ts:6-13`. |
-| Websets code estimate is 12 credits per item at `$0.006125/credit`. | `packages/providers/src/websets.ts:7-17`. |
+| Websets code estimate is 15 credits per email-enriched item at `$0.006125/credit`. | `packages/providers/src/websets.ts:7-17`. |
 | StableEnrich endpoint budgets are `$0.01` or `$0.02`. | `packages/providers/src/provider-budget.ts:22-196`. |
 | AgentCash default ceilings are `$0.30` basics and `$0.50` analysis. | `apps/web/src/inngest/provider-trace.ts:68-77`. |
 | Anthropic estimator uses model family pricing and cache multipliers. | `packages/llm/src/anthropic.ts:46-84`. |

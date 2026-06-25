@@ -148,11 +148,11 @@ function investorLensControlState({
   profileRun?: AnalysisRun | undefined;
 }) {
   if (card.synthesis) {
-    return { disabled: true, label: "Investor Lens filed", reason: "Synthesis is saved for this card." };
+    return { disabled: true, label: "Investor Lens filed", reason: "Investor read is saved for this card." };
   }
 
   if (profileRun) {
-    return { disabled: true, label: "Run investor lens", reason: "Finish Basics before running Investor Lens." };
+    return { disabled: true, label: "Run Investor Lens", reason: "The cited profile must finish before Investor Lens can run." };
   }
 
   if (analysisRun) {
@@ -161,10 +161,10 @@ function investorLensControlState({
 
   const blockedReason = analysisBlockedReason(card);
   if (blockedReason) {
-    return { disabled: true, label: "Run investor lens", reason: blockedReason };
+    return { disabled: true, label: "Run Investor Lens", reason: blockedReason };
   }
 
-  return { disabled: false, label: "Run investor lens", reason: "Build the investor read, case, timing, and next diligence question." };
+  return { disabled: false, label: "Run Investor Lens", reason: "Build the investor read, case, timing, and next diligence question." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -560,7 +560,7 @@ function personTooltipBody(person: CardPerson, companyDomain: string) {
 function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
   const emails = people.flatMap((person) => person.email ? [person.email] : []);
   if (emails.length === 0) {
-    return "No email found";
+    return "No verified email found";
   }
 
   const workCount = emails.filter((email) => emailKind(email, companyDomain) === "work").length;
@@ -918,7 +918,7 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
 
 function TheCaseLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
   return (
-    <div className="cs-layer-case" aria-label="Investment case tension map">
+    <div className="cs-layer-case" aria-label="Bull and bear case">
       {items.map((item) => (
         <section className="cs-layer-case-side" data-kind={item.meta ?? item.kind ?? "evidence"} key={`${item.title}-${item.body ?? ""}`}>
           <h4>{item.title}</h4>
@@ -1010,9 +1010,9 @@ function PartialProfilePanel({
   const companyName = readableCompanyName(card);
   const status = quality.hasCitations ? "Profile saved with gaps" : "No cited profile yet";
   const body = quality.hasCitations
-    ? "A few cited facts landed, but not enough to open the research layer."
-    : "No cited source survived. Rebuild the public record.";
-  const lensReason = analysisBlockedReason(card) ?? "Basics must finish before Investor Lens can run.";
+    ? "Some cited facts were saved, but not enough to open Research."
+    : "No cited sources were saved. Rebuild the profile from public sources.";
+  const lensReason = analysisBlockedReason(card) ?? "The cited profile must finish before Investor Lens can run.";
 
   return (
     <main className="cs-research-shell cs-research-shell-partial">
@@ -1041,7 +1041,7 @@ function PartialProfilePanel({
             <span>{lensReason}</span>
           </div>
           <button className="cs-investor-lens-button" disabled type="button">
-            Run investor lens
+            Run Investor Lens
           </button>
         </div>
       </section>
@@ -1280,12 +1280,12 @@ function ResearchProgressPanel({
     : profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
   const sourceCopy = sourceCount > 0
     ? isFinalizingProfile
-      ? `Filling in contacts/details · ${plural(sourceCount, "source")}`
+      ? `Filling in contacts and details · ${plural(sourceCount, "source")}`
       : profileComplete
       ? plural(sourceCount, "source")
       : `${plural(sourceCount, "source")} found`
     : isFinalizingProfile
-      ? "Filling in contacts/details"
+      ? "Filling in contacts and details"
     : "Checking company, product, funding, and proof sources";
   const sectionCopy = profileComplete
     ? `${resolvedCount} of ${totalCount} sections`
@@ -1682,7 +1682,7 @@ export function ResearchLayerPanel({
               ? `Finishing profile · ${formatElapsed(profileElapsedSeconds)}`
               : visiblyQueued
                 ? queuedBehindAnalysis
-                  ? "Queued behind investor lens"
+                  ? "Queued behind Investor Lens"
                   : queuedBehindSection
                     ? "Queued behind current card"
                     : "Queued"

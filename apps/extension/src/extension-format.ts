@@ -1,7 +1,7 @@
 import type { ColdStartCard } from "@cold-start/core";
 
 export const INSUFFICIENT_EVIDENCE_NOTICE =
-  "Not enough verified evidence for an investor lens yet.";
+  "Not enough cited evidence for Investor Lens yet.";
 
 export function formatElapsed(seconds: number): string {
   const minutes = Math.floor(seconds / 60);

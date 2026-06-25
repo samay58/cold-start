@@ -107,7 +107,7 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
 
   return (
     <motion.section
-      aria-label="First read"
+      aria-label="First cited read"
       animate={animateIn}
       className="cs-first-read"
       data-status={firstPayoff.status}
@@ -124,7 +124,7 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
         transition={prefersReducedMotion ? { duration: 0.12 } : { delay: 0.08, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       />
       <header className="cs-first-read-head">
-        <span className="cs-first-read-title">First read</span>
+        <span className="cs-first-read-title">First cited read</span>
         <span className="cs-first-read-flag">Early</span>
       </header>
       <p className="cs-first-read-read" data-kind={claim.claimKind}>
@@ -151,15 +151,15 @@ export function FirstPayoffSurface({ firstPayoff }: { firstPayoff: FirstPayoff }
               </motion.li>
             ))}
             {hiddenSources > 0 ? (
-              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more ${hiddenSources === 1 ? "domain" : "domains"}`}</li>
+              <li className="cs-first-read-ledger-more">{`+${hiddenSources} more source ${hiddenSources === 1 ? "domain" : "domains"}`}</li>
             ) : null}
           </ul>
         </div>
       ) : (
-        <p className="cs-first-read-ledger-empty">Filing the first sources.</p>
+        <p className="cs-first-read-ledger-empty">Filing first sources</p>
       )}
       <p className="cs-first-read-gap">
-        <span className="cs-first-read-gap-label">Needs</span>{" "}
+        <span className="cs-first-read-gap-label">Needs checking</span>{" "}
         {firstPayoff.stillChecking.text}
       </p>
     </motion.section>

@@ -4,10 +4,11 @@ import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSour
 
 const defaultExaBaseUrl = "https://api.exa.ai";
 
-// Exa bills the account behind DIRECT_EXA_API_KEY directly (not AgentCash), so spend here is
-// invisible to wallet telemetry unless we estimate it ourselves. Current published pricing
-// (verified 2026-06-11, post 2026-03-03 update): $7 per 1k search requests including 10 results
-// with text and highlights. Every request this module builds stays at or under 10 results.
+// Exa bills the account behind DIRECT_EXA_API_KEY directly, not through AgentCash.
+// Estimate source: https://exa.ai/pricing and https://exa.ai/docs/changelog
+// Current published price is $7 per 1k Search requests with up to 10 results,
+// text, and highlights included. Calculation: 7 / 1_000 = $0.007/search.
+// Keep docs/product/research/provider-cost-assumptions.md in sync if this changes.
 export const DIRECT_EXA_SEARCH_COST_USD = 0.007;
 
 function directExaCostUsd(requestCount: number) {

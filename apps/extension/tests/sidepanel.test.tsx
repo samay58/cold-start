@@ -1134,7 +1134,7 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).not.toContain("Finishing profile");
     expect(container.textContent).not.toContain("Getting the profile ready");
     expect(container.textContent).toContain("Starter profile ready");
-    expect(container.textContent).toContain("Filling in contacts/details");
+    expect(container.textContent).toContain("Filling in contacts and details");
     expect(container.textContent).toContain("10 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
@@ -1651,7 +1651,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run investor lens"
+      (button) => button.textContent === "Run Investor Lens"
     );
     expect(lensButton).toBeTruthy();
     await act(async () => {
@@ -1980,7 +1980,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run investor lens"
+      (button) => button.textContent === "Run Investor Lens"
     );
     await act(async () => {
       lensButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -2305,7 +2305,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run investor lens"
+      (button) => button.textContent === "Run Investor Lens"
     );
     await act(async () => {
       lensButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -2320,7 +2320,7 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
     expect(container.textContent).toContain("Research status");
-    expect(container.textContent).toContain("Not enough verified evidence for an investor lens yet.");
+    expect(container.textContent).toContain("Not enough cited evidence for Investor Lens yet.");
     await unmount();
   });
 

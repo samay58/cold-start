@@ -42,7 +42,7 @@ Fresh basics cost about `$0.29` median in recorded traces and about `$0.335` med
 
 The big basics cost split is provider-side, not model-side. Across 28 complete basics runs, average recorded cost share was roughly 57 percent Websets, 35 percent AgentCash/StableEnrich, 4 percent LLM, and 4 percent Direct Exa. [2]
 
-Websets accounting is probably understated. The code estimates `10 + 2 = 12` credits per people item, while current official Websets billing says 10 credits per matching result and 5 credits per email or phone number. For email-enriched people results, that implies 15 credits per item unless the implementation has a provider-side discount or behavior not visible in traces. [8][9]
+Websets accounting in the June 23 trace export was probably understated. At the time, the code estimated `10 + 2 = 12` credits per people item, while current official Websets billing says 10 credits per matching result and 5 credits per email or phone number. For email-enriched people results, that implies 15 credits per item unless the implementation has a provider-side discount or behavior not visible in traces. The live estimator was corrected to 15 credits on 2026-06-25. [8][9]
 
 Direct Exa accounting appears aligned with current official pricing. Code uses `$0.007` per search request, and Exa's pricing update says Search with contents is `$7` per 1,000 requests. [10][11]
 
@@ -282,7 +282,7 @@ Basics and Investor Lens should consume separate credits. They have different in
 
 [7] LLM pricing table and OpenAI-compatible routing, `packages/llm/src/pricing.ts`, `packages/llm/src/openai-compat.ts`, and `packages/llm/src/anthropic.ts`, accessed 2026-06-23.
 
-[8] Websets estimator, `packages/providers/src/websets.ts`, accessed 2026-06-23. Key constants: `WEBSETS_CREDITS_PER_ITEM = 10 + 2`, `DEFAULT_WEBSETS_CREDIT_USD = 0.006125`.
+[8] Websets estimator, `packages/providers/src/websets.ts`, accessed 2026-06-23. At report time, key constants were `WEBSETS_CREDITS_PER_ITEM = 10 + 2`, `DEFAULT_WEBSETS_CREDIT_USD = 0.006125`; live code was later corrected to 15 credits per email-enriched item.
 
 [9] Exa Websets billing docs, `https://websets.exa.ai/websets/billing`, accessed 2026-06-23.
 

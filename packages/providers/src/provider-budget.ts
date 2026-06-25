@@ -19,6 +19,10 @@ export type ProviderBudgetRegistry = {
 const exaSearchFanoutTimeoutMs = 18_000;
 const firecrawlSecondaryPageTimeoutMs = 15_000;
 
+// StableEnrich endpoint costs are operator budget estimates for AgentCash-backed probes,
+// not provider invoices. They are used for per-run ceilings and trace explainability.
+// Reconcile against AgentCash wallet deltas before using them for pricing decisions.
+// See docs/product/research/provider-cost-assumptions.md for the assumption trail.
 export const providerBudgetRegistry = {
   stableenrich: {
     exa_funding_history: {

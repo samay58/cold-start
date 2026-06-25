@@ -560,7 +560,7 @@ test("dragging a dormant card opens a real insertion slot before release", async
   // Lens control. That control runs one full analysis with no sectionId.
   await expect(activeQuestions).toContainText("Run Investor Lens");
   expect(generationRequests).toHaveLength(0);
-  await page.getByRole("button", { name: "Run investor lens" }).click();
+  await page.getByRole("button", { name: "Run Investor Lens" }).click();
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
   ]);
@@ -752,7 +752,7 @@ test("card.partial makes the starter profile usable while basics finalizes", asy
   const profileProgress = page.locator(".cs-research-progress");
   await expect(profileProgress).toHaveAttribute("data-mode", "filed");
   await expect(profileProgress).toContainText("Starter profile ready");
-  await expect(profileProgress).toContainText("Filling in contacts/details");
+  await expect(profileProgress).toContainText("Filling in contacts and details");
   await expect(profileProgress).toContainText("5 sources");
   await profileProgress.getByRole("button", { name: "Details" }).click();
   await expect(profileProgress).toContainText("Starter profile ready");
@@ -794,7 +794,7 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   const activeQuestions = page.locator(".cs-active-enrichment", { hasText: "Next question" });
   await expect(activeQuestions).toContainText("Run Investor Lens");
   expect(generationRequests).toHaveLength(0);
-  await page.getByRole("button", { name: "Run investor lens" }).click();
+  await page.getByRole("button", { name: "Run Investor Lens" }).click();
   await expect(activeQuestions).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
