@@ -1420,54 +1420,70 @@ button {
 
 .cs-early-read {
   position: relative;
-  z-index: 2;
-  margin: -8px 12px 12px;
-  border: 1px solid rgb(var(--cs-c-204-190-151) / 0.6);
-  border-top: 2px solid rgb(var(--cs-c-110-92-158) / 0.5);
-  border-radius: 0 0 9px 9px;
+  margin: -4px 12px 12px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.82);
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.9), rgb(var(--cs-c-248-244-234) / 0.74)),
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.9), rgb(var(--cs-c-250-247-239) / 0.74)),
     var(--color-plate);
-  box-shadow:
-    0 6px 16px rgb(var(--cs-c-44-36-19) / 0.04),
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.8) inset;
+  box-shadow: 0 5px 14px rgb(var(--cs-c-44-36-19) / 0.05);
 }
 
+/* Live agent view: the slip docks flush to the bottom of the source-pass instrument so the two read
+   as one continuous card. The instrument squares its bottom corners (rule below), the slip squares
+   its top and drops its top border, and the instrument's own bottom border becomes the hairline
+   between the progress section and the lilac Early read footer. */
+.cs-generation-panel .cs-early-read {
+  margin: 0 4px 6px;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+.cs-live-card-refined:has(+ .cs-early-read) {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* The lilac lives only in this header band; the body below stays parchment. Text is ink for contrast,
+   never lilac-on-lilac. */
 .cs-early-read-tab {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: 100%;
   margin: 0;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border: 0;
-  background: transparent;
-  color: inherit;
+  border-bottom: 1px solid rgb(var(--cs-c-110-92-158) / 0.24);
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-110-92-158) / 0.34), rgb(var(--cs-c-110-92-158) / 0.24)),
+    var(--color-plate);
+  color: var(--color-ink);
   cursor: pointer;
   text-align: left;
 }
 
 .cs-early-read-tab:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.55);
-  outline-offset: 2px;
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.7);
+  outline-offset: -2px;
 }
 
 .cs-early-read-tab-label {
   flex: 0 0 auto;
-  color: var(--color-seal);
+  color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 12.75px;
+  font-size: 12.5px;
   font-weight: 660;
-  letter-spacing: 0.005em;
+  letter-spacing: 0.01em;
 }
 
 .cs-early-read-chevron {
   width: 7px;
   height: 7px;
   margin-left: auto;
-  border-right: 1.5px solid rgb(var(--cs-c-110-92-158) / 0.55);
-  border-bottom: 1.5px solid rgb(var(--cs-c-110-92-158) / 0.55);
+  border-right: 1.5px solid rgb(var(--cs-c-23-26-31-text) / 0.52);
+  border-bottom: 1.5px solid rgb(var(--cs-c-23-26-31-text) / 0.52);
   transform: translateY(-1px) rotate(45deg);
   transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1497,11 +1513,11 @@ button {
   transition:
     opacity 180ms ease,
     transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-    padding-bottom 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    padding 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cs-early-read[data-open="true"] .cs-early-read-body {
-  padding-bottom: 11px;
+  padding: 10px 12px 11px;
   opacity: 1;
   transform: translateY(0);
 }
@@ -1627,7 +1643,7 @@ button {
 
   .cs-early-read-body {
     transform: none;
-    transition: opacity 140ms ease, padding-bottom 140ms ease;
+    transition: opacity 140ms ease, padding 140ms ease;
   }
 
   .cs-early-read[data-open="true"] .cs-early-read-body {
