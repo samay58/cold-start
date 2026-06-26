@@ -1085,6 +1085,11 @@ export const generateCardFunction = inngest.createFunction(
           updateGenerationRunTrace(db, {
             id: generationRunDbId,
             patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+          }).catch((error) => {
+            // Trace persistence is best-effort observability. It must never block the
+            // terminal status write below, or a trace-write failure strands the run "running".
+            console.warn("[generation] trace persist before complete failed; completing anyway", error);
+            return null;
           })
         );
       }
@@ -1121,6 +1126,11 @@ export const generateCardFunction = inngest.createFunction(
           updateGenerationRunTrace(db, {
             id: generationRunDbId,
             patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+          }).catch((error) => {
+            // Same invariant as the success path: a failed trace write must not stop the
+            // run from reaching a terminal "failed" status below.
+            console.warn("[generation] trace persist before fail failed; marking failed anyway", error);
+            return null;
           })
         );
       }

@@ -525,6 +525,11 @@ export const contactEnrichmentFunction = inngest.createFunction(
           updateGenerationRunTrace(db, {
             id: parentGenerationRunId,
             patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+          }).catch((error) => {
+            // Patching the parent run's trace is best-effort. A failure here must not fail
+            // contact enrichment or poison the parent generation run's lifecycle.
+            console.warn("[contact-enrichment] parent trace patch failed; continuing", error);
+            return null;
           })
         );
       }

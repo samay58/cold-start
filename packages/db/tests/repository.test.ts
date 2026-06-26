@@ -23,6 +23,7 @@ import {
   recordResearchRunEvent,
   recordCardEvidence,
   retireStaleGenerationRuns,
+  updateGenerationRunTrace,
   upsertCard
 } from "../src/index";
 import { citations, claims, researchRunEvents, sources } from "../src/schema";
@@ -1232,6 +1233,143 @@ describe("latestProviderFailureSummary", () => {
       topEndpoint: "exa_search_company",
       startedAt: new Date("2026-05-06T12:00:00.000Z")
     });
+  });
+});
+
+describe("updateGenerationRunTrace", () => {
+  const baseTrace: GenerationTrace = {
+    jobKind: "basics",
+    mode: "basics",
+    steps: { "fetch-sources": { status: "complete", durationMs: 1 } }
+  };
+
+  function addStep(stepId: string) {
+    return (trace: GenerationTrace | null): GenerationTrace => {
+      const previous = trace ?? { jobKind: "basics" as const, mode: "basics" as const, steps: {} };
+      return {
+        ...previous,
+        jobKind: "basics",
+        mode: "basics",
+        steps: { ...previous.steps, [stepId]: { status: "complete", durationMs: 1 } }
+      };
+    };
+  }
+
+  it("patches the trace without an interactive transaction so the Neon HTTP driver can run it", async () => {
+    const stored = { id: "run-1", slug: "cartesia", traceJson: baseTrace as unknown };
+    let written: { traceJson?: GenerationTrace } | undefined;
+
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ slug: stored.slug, traceJson: stored.traceJson }]
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: { traceJson?: GenerationTrace }) => {
+          written = values;
+          return {
+            where: () => ({
+              returning: async () => {
+                stored.traceJson = values.traceJson;
+                return [{ ...stored }];
+              }
+            })
+          };
+        }
+      }),
+      transaction: async () => {
+        throw new Error("updateGenerationRunTrace must not use an interactive transaction on neon-http");
+      }
+    } as unknown as ColdStartDb;
+
+    const row = await updateGenerationRunTrace(db, { id: "run-1", patch: addStep("mark-complete") });
+
+    expect(row).not.toBeNull();
+    // Base milestones survive and the patch is applied: a read-modify-write, not a blind overwrite.
+    expect(written?.traceJson?.steps).toHaveProperty("fetch-sources");
+    expect(written?.traceJson?.steps).toHaveProperty("mark-complete");
+  });
+
+  it("re-reads and re-applies when a concurrent patch lands between read and guarded write", async () => {
+    let attempts = 0;
+    let selects = 0;
+    const concurrentTrace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      steps: {
+        "fetch-sources": { status: "complete", durationMs: 1 },
+        "contacts-enriched": { status: "complete", durationMs: 2 }
+      }
+    };
+    const stored = { id: "run-1", slug: "cartesia", traceJson: baseTrace as unknown };
+    let written: { traceJson?: GenerationTrace } | undefined;
+
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => {
+              selects += 1;
+              return [{ slug: stored.slug, traceJson: stored.traceJson }];
+            }
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: { traceJson?: GenerationTrace }) => {
+          written = values;
+          return {
+            where: () => ({
+              returning: async () => {
+                attempts += 1;
+                if (attempts === 1) {
+                  // Guard miss: another worker merged its milestone after our read.
+                  stored.traceJson = concurrentTrace;
+                  return [];
+                }
+                stored.traceJson = values.traceJson;
+                return [{ ...stored }];
+              }
+            })
+          };
+        }
+      }),
+      transaction: async () => {
+        throw new Error("updateGenerationRunTrace must not use an interactive transaction on neon-http");
+      }
+    } as unknown as ColdStartDb;
+
+    const row = await updateGenerationRunTrace(db, { id: "run-1", patch: addStep("mark-complete") });
+
+    expect(row).not.toBeNull();
+    expect(attempts).toBe(2);
+    expect(selects).toBe(2);
+    // The retry merges onto the concurrent writer's trace, so neither contribution is clobbered.
+    expect(written?.traceJson?.steps).toHaveProperty("contacts-enriched");
+    expect(written?.traceJson?.steps).toHaveProperty("mark-complete");
+  });
+
+  it("returns null without writing when the run row is gone", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => []
+          })
+        })
+      }),
+      update: () => {
+        throw new Error("must not update a missing run row");
+      },
+      transaction: async () => {
+        throw new Error("must not open a transaction for a missing run row");
+      }
+    } as unknown as ColdStartDb;
+
+    await expect(updateGenerationRunTrace(db, { id: "missing", patch: addStep("mark-complete") })).resolves.toBeNull();
   });
 });
 

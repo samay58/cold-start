@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { generationTraceSchema, type GenerationJobKind, type GenerationTrace } from "@cold-start/core";
 
@@ -357,21 +357,27 @@ export async function updateGenerationRunTrace(
   input: {
     id: string;
     patch: (trace: GenerationTrace | null) => GenerationTrace;
+    maxAttempts?: number;
   }
 ) {
   // Read-modify-write of one run's trace. The basics worker and the
-  // contact-enrichment worker patch the same parent run concurrently, so lock
-  // the row for the duration to serialize their patches; without the lock one
-  // worker's milestones can clobber the other's.
-  return db.transaction(async (tx) => {
-    const [existing] = await tx
+  // contact-enrichment worker patch the same parent run concurrently, so their
+  // patches must be serialized or one clobbers the other's milestones. The
+  // production Neon HTTP driver supports neither interactive transactions nor
+  // `FOR UPDATE`, so we serialize with optimistic concurrency instead: guard the
+  // write on the trace being unchanged since the read, and on a miss re-read and
+  // re-apply the patch onto the now-current trace. A trace write is best-effort
+  // observability; callers must never let it block a run's terminal status.
+  const maxAttempts = Math.max(1, input.maxAttempts ?? 3);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const [existing] = await db
       .select({
         slug: generationRuns.slug,
         traceJson: generationRuns.traceJson
       })
       .from(generationRuns)
       .where(eq(generationRuns.id, input.id))
-      .for("update")
       .limit(1);
 
     if (!existing) {
@@ -379,14 +385,30 @@ export async function updateGenerationRunTrace(
     }
 
     const traceJson = input.patch(safeParseTraceJson(existing.traceJson, existing.slug));
-    const [row] = await tx
+    const [row] = await db
       .update(generationRuns)
       .set({ traceJson })
-      .where(eq(generationRuns.id, input.id))
+      .where(and(eq(generationRuns.id, input.id), traceJsonUnchanged(existing.traceJson)))
       .returning();
 
-    return row ?? null;
-  });
+    if (row) {
+      return row;
+    }
+    // Guard miss: a concurrent patch landed after our read. Loop to merge onto it.
+  }
+
+  return null;
+}
+
+// SQL guard that matches only when the stored trace still equals the value we
+// read. `jsonb 'null'` (a stored JSON null) is distinct from a NULL column, so
+// the absent-trace case is matched explicitly rather than via a jsonb compare.
+function traceJsonUnchanged(value: unknown) {
+  if (value === null || value === undefined) {
+    return sql`${generationRuns.traceJson} is null`;
+  }
+
+  return sql`${generationRuns.traceJson} is not distinct from ${JSON.stringify(value)}::jsonb`;
 }
 
 function safeParseTraceJson(value: unknown, slug: string): GenerationTrace | null {

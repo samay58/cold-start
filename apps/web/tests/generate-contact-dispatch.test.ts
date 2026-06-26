@@ -306,6 +306,7 @@ describe("generate-card contact dispatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
+    mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.recordCardEvidence.mockResolvedValue(undefined);
     mocks.recordSource.mockResolvedValue(undefined);
@@ -727,5 +728,33 @@ describe("generate-card contact dispatch", () => {
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchDirectExaContactSources).not.toHaveBeenCalled();
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
+  });
+
+  it("still marks the run complete when trace persistence fails", async () => {
+    mocks.updateGenerationRunTrace.mockRejectedValue(
+      new Error("No transactions support in neon-http driver")
+    );
+
+    const { names } = await runBasicsGeneration("true");
+
+    expect(names).toContain("persist-generation-trace-before-complete");
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: "modal", mode: "basics", status: "complete" })
+    );
+  });
+
+  it("still marks the run failed when trace persistence fails in the failure path", async () => {
+    mocks.generateCardForDomainWithTrace.mockRejectedValue(new Error("generation blew up"));
+    mocks.updateGenerationRunTrace.mockRejectedValue(
+      new Error("No transactions support in neon-http driver")
+    );
+
+    await expect(runBasicsGeneration("true")).rejects.toThrow("generation blew up");
+
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ slug: "modal", mode: "basics", status: "failed" })
+    );
   });
 });
