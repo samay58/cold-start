@@ -34,6 +34,7 @@
     "qa:generation": "tsx scripts/qa-generation-suite.ts",
     "repair:sections": "tsx scripts/repair-research-sections.ts",
     "repair:signal-clusters": "tsx scripts/repair-signal-clusters.ts",
+    "repair:stuck-runs": "tsx scripts/repair-stuck-generation-runs.ts",
     "verify:cache-ttl": "tsx scripts/verify-cache-ttl.ts",
     "wallet:status": "tsx scripts/wallet-status.ts",
     "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\"",
