@@ -43,7 +43,7 @@ import {
   prepareCardForStorage
 } from "./card-storage";
 import { inngest } from "./client";
-import { contactEnrichmentEnabled } from "./env";
+import { backgroundConcurrencyLimit, contactEnrichmentEnabled } from "./env";
 import {
   buildContactEnrichmentRequestedEvent,
   cardHasContactTargets
@@ -144,8 +144,13 @@ export function buildBlockEnrichmentRequestedEvent(input: {
   };
 }
 
+const cardEnrichmentConcurrency = backgroundConcurrencyLimit("INNGEST_CARD_ENRICHMENT_CONCURRENCY");
+
 export const cardEnrichmentFunction = inngest.createFunction(
-  { id: "card-block-enrichment" },
+  {
+    id: "card-block-enrichment",
+    ...(cardEnrichmentConcurrency ? { concurrency: { limit: cardEnrichmentConcurrency } } : {})
+  },
   { event: BLOCK_ENRICHMENT_EVENT_NAME },
   async ({ event, runId, step }) => {
     const runtimeEnv = webEnv();
