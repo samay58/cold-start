@@ -26,6 +26,7 @@
     "db:migrate": "npm run db:migrate -w @cold-start/db",
     "db:migrate:production": "node scripts/migrate-production.mjs",
     "trace:generation": "tsx scripts/trace-generation.ts",
+    "measure:first-usable": "tsx scripts/measure-first-usable.ts",
     "optimize:generation": "tsx scripts/optimize-generation.ts",
     "evo:generation-benchmark": "tsx scripts/evo-generation-benchmark.ts",
     "evo:generation-gate": "tsx scripts/evo-generation-benchmark.ts --gate",

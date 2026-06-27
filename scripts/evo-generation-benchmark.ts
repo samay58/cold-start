@@ -45,6 +45,7 @@ type BenchmarkSummary = {
   completeAnalysis: number;
   firstUsableP50Ms: number | null;
   firstUsableP90Ms: number | null;
+  firstUsableSampleCount: number;
   contactsP50Ms: number | null;
   contactsP90Ms: number | null;
   avgRunCostUsd: number | null;
@@ -117,11 +118,6 @@ function percentile(values: number[], pct: number) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
-}
-
-function runDurationMs(run: RunRow) {
-  const end = run.completed_at ?? new Date();
-  return Math.max(0, end.getTime() - run.started_at.getTime());
 }
 
 function milestone(run: RunRow, name: keyof NonNullable<GenerationTrace["milestones"]>) {
@@ -262,7 +258,14 @@ function summarize(input: { domains: string[]; runs: RunRow[]; cards: Map<string
     const cost = runCostUsd(run);
     return cost === null ? [] : [cost];
   });
-  const firstUsable = basicsRuns.map((run) => milestone(run, "firstUsableCardMs") ?? runDurationMs(run));
+  // First-usable latency must measure only runs that actually reached a usable card. A run with no
+  // firstUsableCardMs milestone (failed, reused, or stranded when trace persistence failed) has no
+  // first-usable latency; folding its full duration in conflates failures with slow first usable and
+  // inflates the gate's tail. Mirrors the contactsReady treatment just below.
+  const firstUsable = basicsRuns.flatMap((run) => {
+    const value = milestone(run, "firstUsableCardMs");
+    return value === null ? [] : [value];
+  });
   const contactsReady = basicsRuns.flatMap((run) => {
     const value = milestone(run, "contactsReadyMs");
     return value === null ? [] : [value];
@@ -281,6 +284,7 @@ function summarize(input: { domains: string[]; runs: RunRow[]; cards: Map<string
     completeAnalysis,
     firstUsableP50Ms: percentile(firstUsable, 50),
     firstUsableP90Ms: percentile(firstUsable, 90),
+    firstUsableSampleCount: firstUsable.length,
     contactsP50Ms: percentile(contactsReady, 50),
     contactsP90Ms: percentile(contactsReady, 90),
     avgRunCostUsd: costs.length > 0 ? costs.reduce((sum, cost) => sum + cost, 0) / costs.length : null,

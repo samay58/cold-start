@@ -278,7 +278,14 @@ async function main() {
     const emailTotal = cardsList.reduce((sum, card) => sum + emailCount(card), 0);
     const emailCoverage = peopleTotal > 0 ? emailTotal / peopleTotal : 0;
     const citationCounts = cardsList.map((card) => card?.citations.length ?? 0);
-    const firstUsable = basicsRuns.map((run) => milestone(run, "firstUsableCardMs") ?? runDurationMs(run));
+    // A run that never recorded firstUsableCardMs never produced a usable card, so it has no
+    // first-usable latency. Count only runs that reached the milestone; folding a failed, reused,
+    // or trace-persist-stranded run's full duration in would conflate those with slow first usable
+    // and inflate the tail. Mirrors the contactsReady treatment just below.
+    const firstUsable = basicsRuns.flatMap((run) => {
+      const value = milestone(run, "firstUsableCardMs");
+      return value === null ? [] : [value];
+    });
     const contactsReady = basicsRuns.flatMap((run) => {
       const value = milestone(run, "contactsReadyMs");
       return value === null ? [] : [value];
