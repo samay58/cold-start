@@ -216,7 +216,10 @@ function stripPersonEmails(fact: TeamPeopleFact): TeamPeopleFact {
   return {
     ...fact,
     value: fact.value.map((person) => {
-      const { email: _email, ...publicPerson } = person;
+      // email is gated (extension-only); emailStatus is its provenance and is
+      // meaningless (and slightly leaky) without the address, so drop both.
+      // Public channels (githubUrl/xUrl/personalUrl) are public presence and stay.
+      const { email: _email, emailStatus: _emailStatus, ...publicPerson } = person;
       return publicPerson;
     })
   };

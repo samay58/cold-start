@@ -113,9 +113,12 @@ const personValueSchema = {
     name: nonEmptyStringSchema,
     role: nullableNonEmptyStringSchema,
     sourceUrl: nullableUrlStringSchema,
-    email: nullableEmailStringSchema
+    email: nullableEmailStringSchema,
+    githubUrl: nullableUrlStringSchema,
+    xUrl: nullableUrlStringSchema,
+    personalUrl: nullableUrlStringSchema
   },
-  required: ["name", "role", "sourceUrl", "email"]
+  required: ["name", "role", "sourceUrl", "email", "githubUrl", "xUrl", "personalUrl"]
 } as const;
 
 const headcountValueSchema = {
@@ -714,9 +717,24 @@ function normalizePersonArray(value: unknown) {
         role: typeof record.role === "string" && record.role.trim().length > 0 ? record.role.trim() : null,
         sourceUrl: typeof record.sourceUrl === "string" && record.sourceUrl.trim().length > 0 ? record.sourceUrl.trim() : null,
         email: emailValue(record.email),
+        githubUrl: urlValue(record.githubUrl),
+        xUrl: urlValue(record.xUrl),
+        personalUrl: urlValue(record.personalUrl),
       };
     })
-    .filter((person): person is { name: string; role: string | null; sourceUrl: string | null; email: string | null } => person !== null);
+    .filter(
+      (
+        person
+      ): person is {
+        name: string;
+        role: string | null;
+        sourceUrl: string | null;
+        email: string | null;
+        githubUrl: string | null;
+        xUrl: string | null;
+        personalUrl: string | null;
+      } => person !== null
+    );
 }
 
 function objectRecord(value: unknown): Record<string, unknown> {
@@ -736,6 +754,23 @@ function emailValue(value: unknown) {
 
   const trimmed = value.trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : null;
+}
+
+function urlValue(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return new URL(trimmed).toString();
+  } catch {
+    return null;
+  }
 }
 
 function filterArray<T>(value: unknown, schema: z.ZodType<T>) {

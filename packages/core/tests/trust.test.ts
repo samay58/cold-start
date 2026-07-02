@@ -53,6 +53,50 @@ const baseCard: ColdStartCard = {
   synthesis: baseSynthesis
 };
 
+describe("public card person channels + email provenance", () => {
+  const cardWithContacts: ColdStartCard = {
+    ...baseCard,
+    team: {
+      ...baseCard.team,
+      founders: {
+        value: [
+          {
+            name: "Karan Goel",
+            role: "Co-founder",
+            sourceUrl: "https://cartesia.ai",
+            email: "karan@cartesia.ai",
+            emailStatus: "inferred",
+            githubUrl: "https://github.com/karan",
+            xUrl: "https://x.com/karan",
+            personalUrl: "https://karan.dev"
+          }
+        ],
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      }
+    }
+  };
+
+  it("accepts the new person fields through the schema", () => {
+    const parsed = coldStartCardSchema.parse(cardWithContacts);
+    const founder = parsed.team.founders.value?.[0];
+    expect(founder?.email).toBe("karan@cartesia.ai");
+    expect(founder?.emailStatus).toBe("inferred");
+    expect(founder?.githubUrl).toBe("https://github.com/karan");
+  });
+
+  it("strips email and emailStatus from the public card but keeps public channels", () => {
+    const founder = publicCard(cardWithContacts).team.founders.value?.[0];
+    expect(founder).toBeDefined();
+    expect(founder).not.toHaveProperty("email");
+    expect(founder).not.toHaveProperty("emailStatus");
+    expect(founder?.githubUrl).toBe("https://github.com/karan");
+    expect(founder?.xUrl).toBe("https://x.com/karan");
+    expect(founder?.personalUrl).toBe("https://karan.dev");
+  });
+});
+
 describe("openQuestions back-compat", () => {
   it("normalizes legacy string open questions to the structured shape on read", () => {
     const legacyCard = {

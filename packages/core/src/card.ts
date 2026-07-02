@@ -51,7 +51,15 @@ export const personSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1).nullable(),
   sourceUrl: z.string().url().nullable(),
-  email: z.string().email().nullable().optional()
+  email: z.string().email().nullable().optional(),
+  // Provenance for `email`: "observed" = the exact address appeared in a public
+  // source (e.g. a GitHub commit); "inferred" = constructed from the domain email
+  // pattern and never seen directly. Stripped from the public card alongside email.
+  emailStatus: z.enum(["observed", "inferred"]).nullable().optional(),
+  // Public professional presence. Public-safe (unlike email), so it survives publicCard().
+  githubUrl: z.string().url().nullable().optional(),
+  xUrl: z.string().url().nullable().optional(),
+  personalUrl: z.string().url().nullable().optional()
 });
 
 // One taxonomy for signal categories. Every consumer (the extraction wire contract, the
