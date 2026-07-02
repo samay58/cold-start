@@ -79,6 +79,12 @@ function evidenceSourceTrustRank(source: EvidenceBudgetSource) {
   if (sourceType === "company_site") {
     return 30;
   }
+  // Customer and product proof are the evidence classes the Lens is usually missing.
+  // They rank above generic news so the char budget cannot starve them behind
+  // aggregator coverage, but below company_site and filings.
+  if (intent === "customer_proof" || intent === "product_proof") {
+    return 25;
+  }
   if (sourceType === "news") {
     return 20;
   }

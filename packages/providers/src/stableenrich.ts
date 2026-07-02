@@ -230,6 +230,28 @@ export function buildStableenrichRequests(env: StableenrichEnv, domain: string, 
       },
     },
     {
+      // Customer proof and product proof are judgment evidence, not fact fill. They feed
+      // the Lens and research sections; neither runs in the basics fast tier.
+      name: "exa_customer_proof",
+      url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
+      body: {
+        query:
+          queries?.customerProof ??
+          `${searchSubject} customer case study deployment results rollout named customer in production`,
+        numResults: 5,
+      },
+    },
+    {
+      name: "exa_product_proof",
+      url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SEARCH_URL"),
+      body: {
+        query:
+          queries?.productProof ??
+          `${searchSubject} technical documentation github repository benchmark API architecture how it works`,
+        numResults: 5,
+      },
+    },
+    {
       name: "exa_find_similar",
       url: stableenrichEndpointUrl(env, "STABLEENRICH_EXA_SIMILAR_URL"),
       body: { url: `https://${domain}`, numResults: 8 },
@@ -1245,6 +1267,8 @@ function isExaSearchProbe(name: StableenrichProbe["name"]) {
     name === "exa_recent_signals" ||
     name === "exa_competition" ||
     name === "exa_independent_analysis" ||
+    name === "exa_customer_proof" ||
+    name === "exa_product_proof" ||
     name === "exa_find_similar" ||
     name === "exa_email_search" ||
     name === "exa_leader_discovery"
@@ -1277,6 +1301,10 @@ function intentForProbe(name: StableenrichProbe["name"]): RetrievalIntent {
       return "comparables";
     case "exa_independent_analysis":
       return "independent_analysis";
+    case "exa_customer_proof":
+      return "customer_proof";
+    case "exa_product_proof":
+      return "product_proof";
     case "exa_find_similar":
       return "comparables";
     case "firecrawl_homepage":

@@ -479,11 +479,11 @@ function mergeBlockEnrichmentPatch(
 }
 
 const blockIntents: Record<BlockEnrichmentId, Array<NonNullable<ProviderSource["intent"]>>> = {
-  description: ["homepage", "company_profile", "independent_analysis"],
+  description: ["homepage", "company_profile", "independent_analysis", "product_proof"],
   funding: ["funding"],
   team: ["management_team", "firmographics", "company_profile", "homepage"],
-  signals: ["recent_signals", "funding", "independent_analysis"],
-  comparables: ["comparables", "independent_analysis", "company_profile"],
+  signals: ["recent_signals", "funding", "independent_analysis", "customer_proof"],
+  comparables: ["comparables", "independent_analysis", "company_profile", "product_proof"],
 };
 
 function sourcesForBlock(block: BlockEnrichmentId, sources: ProviderSource[]) {

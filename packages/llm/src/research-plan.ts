@@ -29,8 +29,10 @@ const searchQueriesSchema = {
     recentSignals: nonEmptyStringSchema,
     comparables: nonEmptyStringSchema,
     independentAnalysis: nonEmptyStringSchema,
+    customerProof: nonEmptyStringSchema,
+    productProof: nonEmptyStringSchema,
   },
-  required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis"],
+  required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis", "customerProof", "productProof"],
 } as const;
 
 const researchPlanZodSchema = z.object({
@@ -47,6 +49,8 @@ const researchPlanZodSchema = z.object({
     recentSignals: z.string().min(1),
     comparables: z.string().min(1),
     independentAnalysis: z.string().min(1),
+    customerProof: z.string().min(1),
+    productProof: z.string().min(1),
   }),
   presentationFocus: z.array(z.string().min(1)).min(2).max(5),
 });
@@ -107,6 +111,8 @@ export function fallbackResearchPlan(domain: string): ResearchPlan {
       recentSignals: `${domain} recent launch customers hiring funding product partnership traction`,
       comparables: `${domain} competitors alternatives similar companies market map`,
       independentAnalysis: `${domain} independent analysis technical deep dive market structure buyer budget timing`,
+      customerProof: `${domain} customer case study deployment results rollout named customer in production`,
+      productProof: `${domain} technical documentation github repository benchmark API architecture how it works`,
     },
     presentationFocus: ["product and technology", "buyer and use case", "market structure and timing", "source quality", "funding cadence", "public proof gaps"],
   };

@@ -79,6 +79,26 @@ export const providerBudgetRegistry = {
       maxCallsPerRun: 1,
       stopCondition: "stop after independent analysis source coverage"
     },
+    exa_customer_proof: {
+      endpoint: "exa_customer_proof",
+      mode: "search",
+      // Judgment evidence for the Lens and sections. Expected structured-fact yield is
+      // deliberately thin; the payoff is cited customer proof, not card fields.
+      expectedFacts: ["signals"],
+      timeoutMs: exaSearchFanoutTimeoutMs,
+      estimatedCostUsd: 0.01,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after accepted named-customer or deployment evidence"
+    },
+    exa_product_proof: {
+      endpoint: "exa_product_proof",
+      mode: "search",
+      expectedFacts: ["identity.description"],
+      timeoutMs: exaSearchFanoutTimeoutMs,
+      estimatedCostUsd: 0.01,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after accepted docs, repository, or benchmark evidence"
+    },
     exa_find_similar: {
       endpoint: "exa_find_similar",
       mode: "search",
