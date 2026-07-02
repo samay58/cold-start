@@ -3,6 +3,7 @@ export * from "./card";
 export * from "./card-quality";
 export * from "./citation-text";
 export * from "./description-normalization";
+export * from "./email-pattern";
 export * from "./funding-evidence";
 export * from "./first-payoff";
 export * from "./generation-quality";
