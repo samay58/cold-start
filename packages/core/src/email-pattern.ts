@@ -30,7 +30,7 @@ export function isRoleAlias(localPart: string): boolean {
   }
   // Split on the first structural boundary so "support+github" / "svc-autorelease"
   // are caught by their leading token.
-  const head = normalized.split(/[+._\-]/)[0] ?? normalized;
+  const head = normalized.split(/[+._-]/)[0] ?? normalized;
   return ROLE_ALIASES.has(normalized) || ROLE_ALIASES.has(head);
 }
 

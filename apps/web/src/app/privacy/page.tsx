@@ -33,10 +33,19 @@ export default function PrivacyPage() {
           extension.
         </p>
 
+        <h2>Work emails</h2>
+        <p>
+          Inside the extension, Cold Start may show a founder or exec's work email when public sources support one.
+          Each is labeled as observed (the exact address appeared in a public source, such as a public code commit) or
+          inferred (constructed from the company's email pattern and not seen directly). Work emails are gated to the
+          extension and never appear on the public card. The paid deep-contact lookup runs only when you ask for it.
+        </p>
+
         <h2>What Cold Start does not do</h2>
         <p>
-          It does not collect personal emails, personal phone numbers, or consumer background data. It does not send
-          outbound messages, act as a CRM, track your browsing, or make investment recommendations.
+          It does not collect personal emails, personal phone numbers, or consumer background data, and it does not
+          bulk-export contacts. It does not send outbound messages, act as a CRM, track your browsing, or make
+          investment recommendations.
         </p>
 
         <h2>Questions</h2>

@@ -61,7 +61,7 @@ Cold Start is entering the legacy company-intel category. The goal is to make th
 
 It is not a chatbot. Chat may become an interaction later, but the card is the product object.
 
-It is not a contact scraping or outbound automation tool. The privacy page explicitly says it does not scrape contacts, send outbound messages, act as a CRM, or make investment recommendations.
+It surfaces reachable identity for the people it already found, not a contact database. Inside the extension it shows a founder or exec's public professional presence (GitHub, X, personal site) and a work email when public source signal supports one, each labeled observed (seen in a public source) or inferred (constructed from the company's email pattern). It is not an outbound automation tool or a CRM: it does not bulk-export contacts, send messages, or collect personal emails and phone numbers. Contact emails stay gated to the extension and never appear on the public card. The paid deep-contact path runs only on an explicit user request, never by default.
 
 It is not an investment score. The synthesis can frame support and questions, but it should not imply "invest" or "pass."
 
