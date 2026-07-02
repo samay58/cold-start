@@ -129,6 +129,17 @@ export type GenerationTrace = {
       requestCount?: number;
       estimatedCostUsd?: number;
     };
+    github?: {
+      // Free GitHub commit-email harvest. Bills nothing (public REST API within rate
+      // limits), so estimatedCostUsd is always 0; kept for shape parity with other nodes.
+      org: string | null;
+      reposChecked: number;
+      observedCount: number;
+      inferredCount: number;
+      pattern: string | null;
+      requestCount?: number;
+      estimatedCostUsd?: number;
+    };
     stableenrich?: {
       sourceCount: number;
       factCount?: number;

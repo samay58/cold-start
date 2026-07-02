@@ -306,12 +306,30 @@ function personKey(person: CardPerson) {
   return person.name.trim().toLowerCase();
 }
 
+function mergePersonEmail(existing: CardPerson, candidate: CardPerson): Pick<CardPerson, "email" | "emailStatus"> | Record<string, never> {
+  // Prefer an observed address over an inferred guess for the same person.
+  const observed = [existing, candidate].find((person) => person.email && person.emailStatus === "observed");
+  const chosen = observed ?? [existing, candidate].find((person) => person.email);
+  if (!chosen?.email) {
+    return {};
+  }
+  return { email: chosen.email, emailStatus: chosen.emailStatus ?? null };
+}
+
+function mergePersonChannel(key: "githubUrl" | "xUrl" | "personalUrl", existing: CardPerson, candidate: CardPerson): Partial<CardPerson> {
+  const value = existing[key] ?? candidate[key];
+  return value ? { [key]: value } : {};
+}
+
 function mergePerson(existing: CardPerson, candidate: CardPerson): CardPerson {
   return {
     name: existing.name,
     role: existing.role ?? candidate.role,
     sourceUrl: existing.sourceUrl ?? candidate.sourceUrl,
-    ...(existing.email || candidate.email ? { email: existing.email ?? candidate.email ?? null } : {}),
+    ...mergePersonEmail(existing, candidate),
+    ...mergePersonChannel("githubUrl", existing, candidate),
+    ...mergePersonChannel("xUrl", existing, candidate),
+    ...mergePersonChannel("personalUrl", existing, candidate),
   };
 }
 
@@ -339,7 +357,15 @@ function mergePersonFact(
     }
 
     const merged = mergePerson(current, person);
-    if (merged.role !== current.role || merged.sourceUrl !== current.sourceUrl || merged.email !== current.email) {
+    if (
+      merged.role !== current.role ||
+      merged.sourceUrl !== current.sourceUrl ||
+      merged.email !== current.email ||
+      merged.emailStatus !== current.emailStatus ||
+      merged.githubUrl !== current.githubUrl ||
+      merged.xUrl !== current.xUrl ||
+      merged.personalUrl !== current.personalUrl
+    ) {
       changed = true;
     }
     byName.set(key, merged);

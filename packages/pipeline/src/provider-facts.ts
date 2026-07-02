@@ -67,8 +67,26 @@ function mergePerson(left: Person, right: Person): Person {
     name: left.name,
     role: left.role ?? right.role,
     sourceUrl: left.sourceUrl ?? right.sourceUrl,
-    ...(left.email || right.email ? { email: left.email ?? right.email ?? null } : {}),
+    ...mergeEmail(left, right),
+    ...mergeChannel("githubUrl", left, right),
+    ...mergeChannel("xUrl", left, right),
+    ...mergeChannel("personalUrl", left, right),
   };
+}
+
+// Prefer an observed address over an inferred guess for the same person.
+function mergeEmail(left: Person, right: Person): Pick<Person, "email" | "emailStatus"> | Record<string, never> {
+  const observed = [left, right].find((person) => person.email && person.emailStatus === "observed");
+  const chosen = observed ?? [left, right].find((person) => person.email);
+  if (!chosen?.email) {
+    return {};
+  }
+  return { email: chosen.email, emailStatus: chosen.emailStatus ?? null };
+}
+
+function mergeChannel(key: "githubUrl" | "xUrl" | "personalUrl", left: Person, right: Person): Partial<Person> {
+  const value = left[key] ?? right[key];
+  return value ? { [key]: value } : {};
 }
 
 function appendPeople(

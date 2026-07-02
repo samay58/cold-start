@@ -65,6 +65,52 @@ describe("applyProviderFactCandidates", () => {
     expect(result.trace.appliedByEndpoint).toEqual({ apollo_org_search: 1 });
   });
 
+  it("carries person channels + email provenance and lets observed beat inferred", () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const base = {
+      identity: {
+        ...skeleton.identity,
+        name: { value: "Cartesia", status: "verified" as const, confidence: "high" as const, citationIds: ["c1"] }
+      },
+      funding: skeleton.funding,
+      team: skeleton.team,
+      signals: skeleton.signals,
+      comparables: skeleton.comparables,
+      citations: [
+        { id: "c1", url: "https://cartesia.ai", title: "Cartesia", fetchedAt, sourceType: "company_site" as const }
+      ]
+    };
+
+    const result = applyProviderFactCandidates(base, [
+      providerFact({
+        path: "team.founders",
+        value: [
+          {
+            name: "Karan Goel",
+            role: "Co-founder",
+            sourceUrl: "https://github.com/karan/x/commit/1",
+            email: "karan@cartesia.ai",
+            emailStatus: "inferred",
+            githubUrl: "https://github.com/karan"
+          }
+        ],
+        endpoint: "github_contacts"
+      }),
+      providerFact({
+        path: "team.founders",
+        value: [
+          { name: "Karan Goel", role: null, sourceUrl: null, email: "karan@cartesia.ai", emailStatus: "observed" }
+        ],
+        endpoint: "github_contacts"
+      })
+    ]);
+
+    const founder = result.sections.team.founders.value?.find((person) => person.name === "Karan Goel");
+    expect(founder?.email).toBe("karan@cartesia.ai");
+    expect(founder?.emailStatus).toBe("observed");
+    expect(founder?.githubUrl).toBe("https://github.com/karan");
+  });
+
   it("skips weak or incomplete provider descriptions without adding citations", () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const result = applyProviderFactCandidates(
