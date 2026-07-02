@@ -32,7 +32,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("01");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
-  await expect(page.getByRole("article", { name: "Investor Read" })).toContainText(
+  await expect(page.getByRole("article", { name: "Investor read" })).toContainText(
     "Browserbase turns browser automation into agent infrastructure"
   );
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
@@ -41,7 +41,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
 });
 
-test("investor read stays bounded and readable with long synthesis", async ({ page }) => {
+test("investor read stays bounded and honest with long partial synthesis", async ({ page }) => {
   const card = browserbaseCardWithSynthesis();
   card.synthesis = {
     whyItMatters: {
@@ -52,17 +52,14 @@ test("investor read stays bounded and readable with long synthesis", async ({ pa
       {
         text: "Rush University Medical Center's expansion to an enterprise-wide rollout after a successful pilot is proof that the product can move from department-level trial to broad health-system deployment [c2].",
         citationIds: ["c2"]
-      },
-      {
-        text: "EHR vendors are actively selecting preferred ambient AI partners, which makes channel position and workflow integration more important than generic model quality [c3].",
-        citationIds: ["c3"]
       }
     ],
     bearCase: [],
     openQuestions: [
       {
         question: "What is the average number of active physician seats per health system customer, and what does seat utilization look like 12 months after go-live?",
-        category: "buyer_budget"
+        category: "buyer_budget",
+        wouldChangeReadIf: "Seat utilization holds above pilot levels a year after go-live."
       }
     ]
   };
@@ -71,14 +68,28 @@ test("investor read stays bounded and readable with long synthesis", async ({ pa
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor Read" });
+  const investorRead = page.getByRole("article", { name: "Investor read" });
   await expect(investorRead).toBeVisible();
-  await expect(investorRead).toContainText("Rush University Medical Center");
-  await expect(investorRead).toContainText("EHR vendors are actively selecting");
+  await expect(investorRead).toContainText("Physician burnout from documentation");
 
-  const proofRows = investorRead.locator(".cs-investor-read-proof span");
-  await expect(proofRows).toHaveCount(2);
-  await expect(proofRows.first()).toHaveCSS("white-space", "normal");
+  // The tension pair keeps the surviving bull claim and states the missing bear side honestly.
+  await expect(investorRead).toContainText("If true");
+  await expect(investorRead).toContainText("Rush University Medical Center");
+  await expect(investorRead).toContainText("It breaks if");
+  await expect(investorRead).toContainText("No supported break risk survived verification.");
+
+  // Unsupported timing is a clean not-found row, never an unfinished-generation state.
+  await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");
+  await expect(investorRead).not.toContainText("has not been generated");
+
+  // The ranked question carries its category and what answer would change the read.
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("Buyer & budget");
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("active physician seats");
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("Changes the read if");
+
+  // Source posture is visible: counted marks plus linked source chips.
+  await expect(investorRead.locator(".cs-lens-posture-marks")).toBeVisible();
+  await expect(investorRead.locator(".cs-source-chip").first()).toBeVisible();
 
   const hasNoHorizontalOverflow = await investorRead.evaluate((element) =>
     element.scrollWidth <= element.clientWidth + 1
@@ -173,7 +184,7 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
-    page.locator(".cs-active-enrichment", { hasText: "The case" }).getByRole("button"),
+    page.getByRole("article", { name: "Investor read" }).locator(".cs-source-chip").first(),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
     page.locator(".cs-dormant-card", { hasText: "Money" })
   ];
@@ -612,7 +623,10 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
       page,
       screenshotPrefix: `cold-start-drag-${scenario.slug}`
     });
-    expectPointerAttached(samples);
+    // Pickup intentionally straightens the card to a neutral position, absorbing its resting
+    // pile-depth offset (up to ~5px for deep cards) on top of the drag activation distance.
+    // The budget allows that designed lift while still failing on real pointer detachment.
+    expectPointerAttached(samples, 9);
     await page.mouse.up();
     await expect(page.locator(".cs-active-enrichment", { hasText: scenario.label })).toBeVisible();
     await expect(page.locator(".cs-dormant-card", { hasText: scenario.label })).toHaveCount(0);
@@ -809,3 +823,5 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toHaveLength(1);
 });
+
+

@@ -75,7 +75,7 @@ describe("investor lens display", () => {
     expect(investorReadForCard(card())).toBeNull();
   });
 
-  it("derives a compact investor read from synthesis", () => {
+  it("derives a filed investor read with tension, timing, question, and posture", () => {
     const display = investorReadForCard(card({
       synthesis: {
         whyItMatters: {
@@ -97,7 +97,8 @@ describe("investor lens display", () => {
         openQuestions: [
           {
             question: "Who owns the budget if Warp moves from individual developers into team workflows?",
-            category: "buyer_budget"
+            category: "buyer_budget",
+            wouldChangeReadIf: "A named platform team pays for seats out of a tooling budget."
           }
         ],
         marketStructureAndTiming: {
@@ -116,22 +117,39 @@ describe("investor lens display", () => {
     }));
 
     expect(display).toMatchObject({
-      whyItMightMatter: "Warp could matter if terminal work becomes the control plane for engineering agents.",
-      whatCouldBreak: "It breaks if IDE agents absorb terminal workflows before Warp owns team budgets.",
-      bestNextQuestion: "Who owns the budget if Warp moves from individual developers into team workflows?",
+      receiptLine: "Filed Jun 23 · 4 claims held",
+      lede: {
+        text: "Warp could matter if terminal work becomes the control plane for engineering agents.",
+        sourcePosture: "independent"
+      },
+      holds: {
+        text: "The wedge is a daily developer workflow rather than a separate planning surface.",
+        sourcePosture: "independent"
+      },
+      breaks: {
+        text: "It breaks if IDE agents absorb terminal workflows before Warp owns team budgets.",
+        sourcePosture: "independent"
+      },
+      timing: {
+        field: "Buyer budget",
+        text: "The budget appears to sit with engineering productivity owners.",
+        sourcePosture: "independent",
+        supportedFieldCount: 1
+      },
+      nextQuestion: {
+        question: "Who owns the budget if Warp moves from individual developers into team workflows?",
+        categoryLabel: "Buyer & budget",
+        changesReadIf: "A named platform team pays for seats out of a tooling budget."
+      },
+      independentlyBacked: true,
       supportedClaimCount: 4,
       timingNotFound: false
     });
-    expect(display?.evidenceThatHolds).toEqual([
-      {
-        label: "The wedge is a daily developer workflow rather than a separate planning surface.",
-        sourcePosture: "independent"
-      }
-    ]);
-    expect(display?.evidenceStatus).toBe("Lens filed · 4 supported claims · independent evidence");
+    expect(display?.postureMarks).toEqual([{ posture: "independent", label: "independent", count: 4 }]);
+    expect(display?.sources.map((source) => source.id)).toEqual(["c2"]);
   });
 
-  it("uses the thesis as proof only when no sharper bull claim survived", () => {
+  it("leaves the tension sides empty instead of restating the lede", () => {
     const display = investorReadForCard(card({
       synthesis: {
         whyItMatters: {
@@ -149,12 +167,37 @@ describe("investor lens display", () => {
       }
     }));
 
-    expect(display?.evidenceThatHolds).toEqual([
-      {
-        label: "Warp could matter if terminal work becomes the control plane for engineering agents.",
-        sourcePosture: "independent"
+    expect(display?.holds).toBeNull();
+    expect(display?.breaks).toBeNull();
+    expect(display?.nextQuestion?.changesReadIf).toBeNull();
+    expect(display?.supportedClaimCount).toBe(1);
+  });
+
+  it("prefers trigger and risk over structural fields for the timing row", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        marketStructureAndTiming: {
+          buyerBudget: { text: "Budget sits with platform teams [c1].", citationIds: ["c1"] },
+          painSeverity: null,
+          adoptionTrigger: { text: "Agent rollouts are forcing terminal standardization [c2].", citationIds: ["c2"] },
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk: null
+        }
       }
-    ]);
+    }));
+
+    expect(display?.timing).toMatchObject({
+      field: "Adoption trigger",
+      text: "Agent rollouts are forcing terminal standardization.",
+      sourcePosture: "independent",
+      supportedFieldCount: 2
+    });
   });
 
   it("marks timing as not found when market timing is absent", () => {
@@ -169,8 +212,11 @@ describe("investor lens display", () => {
     const display = investorReadForCard(noTimingCard);
 
     expect(timingIsNotFound(noTimingCard)).toBe(true);
+    expect(display?.timing).toBeNull();
     expect(display?.timingNotFound).toBe(true);
-    expect(display?.evidenceStatus).toBe("Lens filed · 1 supported claim · company-authored evidence · Timing not found");
+    expect(display?.receiptLine).toBe("Filed Jun 23 · 1 claim held");
+    expect(display?.postureMarks).toEqual([{ posture: "company-authored", label: "company", count: 1 }]);
+    expect(display?.independentlyBacked).toBe(false);
   });
 
   it("classifies source posture from citation metadata", () => {

@@ -1019,8 +1019,9 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    expect(container.textContent).toContain("Synthesizing");
-    expect(container.textContent).toContain("Reading cited sources");
+    // The resumed run reads as Investor Lens, one receipt, not generic research progress.
+    expect(container.textContent).toContain("Investor Lens running");
+    expect(container.textContent).toContain("Weighing bull against bear");
     expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);
@@ -2319,8 +2320,14 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
-    expect(container.textContent).toContain("Research status");
-    expect(container.textContent).toContain("Not enough cited evidence for Investor Lens yet.");
+    // The empty verifier outcome files as an honest Lens receipt, not a generic error notice,
+    // and the Lens control stays available for a rerun.
+    expect(container.textContent).toContain("Lens not filed");
+    expect(container.textContent).toContain("No supported investor read survived verification.");
+    expect(container.textContent).not.toContain("Research status");
+    expect(
+      interactiveControls(container).some((button) => button.textContent === "Run Investor Lens")
+    ).toBe(true);
     await unmount();
   });
 

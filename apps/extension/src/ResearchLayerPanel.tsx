@@ -1,6 +1,5 @@
 import {
   analysisBlockedReason,
-  canRunInvestorAnalysis,
   fundingEvidenceFromCitations,
   hasUsablePublicProfile,
   publicProfileQuality,
@@ -27,6 +26,7 @@ import {
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
 import {
+  INSUFFICIENT_EVIDENCE_NOTICE,
   formatElapsed,
   formatOptionalCurrency,
   formatOptionalNumber,
@@ -35,7 +35,7 @@ import {
 import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { FirstPayoffSurface } from "./FirstPayoffSurface";
-import { investorReadForCard, type InvestorReadDisplay } from "./investor-lens";
+import { investorReadForCard, type InvestorReadDisplay, type LensClaim, type SourcePosture } from "./investor-lens";
 import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,
@@ -130,41 +130,27 @@ function dormantStackNumber(layer: (typeof RESEARCH_LAYER_CARDS)[number]) {
   return String(catalogIndex).padStart(2, "0");
 }
 
-function defaultActiveLayers(canShowResearchLayers: boolean, hasInvestorLens: boolean, hasSynthesis: boolean): ResearchLayerId[] {
-  if (!canShowResearchLayers || !hasInvestorLens) {
-    return [];
-  }
-
-  return hasSynthesis ? ["theCase", "marketStructureTiming"] : ["coreIdea"];
-}
+// The memo is the first Lens output; nothing auto-opens from the pile anymore. Modules are
+// browsable detail behind the read, opened by the reader or restored from their pins.
+const DEFAULT_ACTIVE_LAYERS: ResearchLayerId[] = [];
 
 function investorLensControlState({
-  analysisRun,
   card,
   profileRun
 }: {
-  analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
   profileRun?: AnalysisRun | undefined;
 }) {
-  if (card.synthesis) {
-    return { disabled: true, label: "Investor Lens filed", reason: "Investor read is saved for this card." };
-  }
-
   if (profileRun) {
-    return { disabled: true, label: "Run Investor Lens", reason: "The cited profile must finish before Investor Lens can run." };
-  }
-
-  if (analysisRun) {
-    return { disabled: true, label: "Investor Lens running", reason: "Reading cited sources for the investor read." };
+    return { disabled: true, reason: "The cited profile must finish before Investor Lens can run." };
   }
 
   const blockedReason = analysisBlockedReason(card);
   if (blockedReason) {
-    return { disabled: true, label: "Run Investor Lens", reason: blockedReason };
+    return { disabled: true, reason: blockedReason };
   }
 
-  return { disabled: false, label: "Run Investor Lens", reason: "Build the investor read, case, timing, and next diligence question." };
+  return { disabled: false, reason: "Weigh the case, timing, and next question against cited sources." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -246,6 +232,15 @@ function filedSourceCount(events: ExtensionResearchRunEvent[], sources: Extensio
 
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
+}
+
+// The lens running receipt quotes the latest real event from the analysis run when the
+// server has reported one; otherwise it states what the one run weighs.
+function latestAnalysisEventMessage(events: ExtensionResearchRunEvent[]) {
+  const analysisEvents = events
+    .filter((event) => event.metadata.mode === "analysis" && event.message.trim().length > 0)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  return analysisEvents.at(-1)?.message ?? null;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -828,6 +823,11 @@ function LayerContent({
                 <li key={`${item.title}-${item.body ?? ""}`}>
                   <span className="cs-question-tag">{item.title}</span>
                   {item.body ? <p>{item.body}</p> : null}
+                  {item.detail ? (
+                    <small className="cs-question-detail">
+                      <em>Changes the read if</em> {item.detail}
+                    </small>
+                  ) : null}
                 </li>
               ))}
             </ol>
@@ -930,21 +930,15 @@ function TheCaseLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay[
 }
 
 function InvestorLensControl({
-  analysisRun,
   card,
   onRunAnalysis,
   profileRun
 }: {
-  analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
   onRunAnalysis: () => void;
   profileRun?: AnalysisRun | undefined;
 }) {
-  if (card.synthesis) {
-    return null;
-  }
-
-  const state = investorLensControlState({ analysisRun, card, profileRun });
+  const state = investorLensControlState({ card, profileRun });
   return (
     <div className="cs-investor-lens-control">
       <div>
@@ -957,43 +951,145 @@ function InvestorLensControl({
         onClick={onRunAnalysis}
         type="button"
       >
-        {state.label}
+        Run Investor Lens
       </button>
     </div>
   );
 }
 
+function LensRunningCard({
+  elapsedSeconds,
+  latestEventMessage
+}: {
+  elapsedSeconds: number;
+  latestEventMessage: string | null;
+}) {
+  return (
+    <div aria-label="Investor Lens running" className="cs-lens-running" role="status">
+      <span className="cs-lens-running-dot" aria-hidden="true" />
+      <div>
+        <strong>Investor Lens running</strong>
+        <small aria-live="polite">
+          {latestEventMessage ?? "Weighing bull against bear, checking timing support, ranking the next question."}
+          {` · ${formatElapsed(elapsedSeconds)}`}
+        </small>
+      </div>
+    </div>
+  );
+}
+
+function LensNotFiledCard() {
+  return (
+    <div aria-label="Lens not filed" className="cs-lens-notfiled" role="status">
+      <strong>Lens not filed</strong>
+      <p>No supported investor read survived verification. The cited profile stands as is.</p>
+    </div>
+  );
+}
+
+function LensPostureDot({ posture }: { posture: SourcePosture }) {
+  return <i className="cs-lens-dot" data-posture={posture} aria-hidden="true" />;
+}
+
+function LensTensionSide({
+  claim,
+  emptyCopy,
+  label,
+  side
+}: {
+  claim: LensClaim | null;
+  emptyCopy: string;
+  label: string;
+  side: "holds" | "breaks";
+}) {
+  return (
+    <section className="cs-lens-tension-side" data-side={side}>
+      <h4>{label}</h4>
+      {claim ? (
+        <p>
+          <LensPostureDot posture={claim.sourcePosture} />
+          <span>{claim.text}</span>
+        </p>
+      ) : (
+        <p className="cs-lens-none">{emptyCopy}</p>
+      )}
+    </section>
+  );
+}
+
 function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
   return (
-    <article className="cs-investor-read" aria-label="Investor Read">
-      <div className="cs-investor-read-head">
-        <div>
-          <span>Investor Read</span>
-          <small>{read.evidenceStatus}</small>
-        </div>
+    <article className="cs-investor-read" aria-label="Investor read">
+      <header className="cs-investor-read-head">
+        <span>Investor read</span>
+        <small>{read.receiptLine}</small>
+      </header>
+      <p className="cs-investor-read-lede">
+        <LensPostureDot posture={read.lede.sourcePosture} />
+        <span>{read.lede.text}</span>
+      </p>
+      <div className="cs-lens-tension" aria-label="The case">
+        <LensTensionSide
+          claim={read.holds}
+          emptyCopy="No supported bull claim survived verification."
+          label="If true"
+          side="holds"
+        />
+        <LensTensionSide
+          claim={read.breaks}
+          emptyCopy="No supported break risk survived verification."
+          label="It breaks if"
+          side="breaks"
+        />
       </div>
-      <p className="cs-investor-read-lede">{read.whyItMightMatter}</p>
-      {read.evidenceThatHolds.length > 0 ? (
-        <div className="cs-investor-read-proof" aria-label="Evidence that held">
-          <strong>Evidence that held</strong>
-          {read.evidenceThatHolds.map((chip) => (
-            <span data-posture={chip.sourcePosture} key={`${chip.sourcePosture}-${chip.label}`}>
+      <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
+        <h4>Timing</h4>
+        {read.timing ? (
+          <>
+            <p>
+              <LensPostureDot posture={read.timing.sourcePosture} />
+              <span>
+                <em>{read.timing.field}.</em> {read.timing.text}
+              </span>
+            </p>
+            {read.timing.supportedFieldCount > 1 ? (
+              <small>{`+${read.timing.supportedFieldCount - 1} more filed under Timing`}</small>
+            ) : null}
+          </>
+        ) : (
+          <p className="cs-lens-none">Not supported by current sources.</p>
+        )}
+      </section>
+      <section className="cs-lens-question" aria-label="Next question">
+        <h4>
+          Next question
+          {read.nextQuestion?.categoryLabel ? <span>{read.nextQuestion.categoryLabel}</span> : null}
+        </h4>
+        {read.nextQuestion ? (
+          <>
+            <p>{read.nextQuestion.question}</p>
+            {read.nextQuestion.changesReadIf ? (
+              <small>
+                <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+              </small>
+            ) : null}
+          </>
+        ) : (
+          <p className="cs-lens-none">No ranked question survived verification.</p>
+        )}
+      </section>
+      <footer className="cs-lens-posture" aria-label="Source posture">
+        <div className="cs-lens-posture-marks">
+          {read.postureMarks.map((mark) => (
+            <span data-posture={mark.posture} key={mark.posture}>
               <i aria-hidden="true" />
-              {chip.label}
+              {`${mark.count} ${mark.label}`}
             </span>
           ))}
+          {!read.independentlyBacked ? <em>No independent source in this read.</em> : null}
         </div>
-      ) : null}
-      <dl className="cs-investor-read-grid">
-        <div>
-          <dt>Could break</dt>
-          <dd>{read.whatCouldBreak}</dd>
-        </div>
-        <div>
-          <dt>Next question</dt>
-          <dd>{read.bestNextQuestion}</dd>
-        </div>
-      </dl>
+        <SourceChips sources={read.sources} />
+      </footer>
     </article>
   );
 }
@@ -1376,26 +1472,14 @@ export function ResearchLayerPanel({
   const freshnessLabel = isStaleRead
     ? `Saved ${formatSavedDate(card.generatedAt)}${profileRun || analysisRun || activeSectionRun ? " · refreshing" : ""}`
     : null;
-  const canStartInvestorLens = canRunInvestorAnalysis(card);
   const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
   const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
-  const hasInvestorLens = Boolean(card.synthesis || analysisRun);
-  const defaultLayerIds = useMemo(
-    () => defaultActiveLayers(canShowResearchLayers, hasInvestorLens, Boolean(card.synthesis)),
-    [canShowResearchLayers, hasInvestorLens, card.synthesis]
-  );
   const activeSectionLayerId = activeSectionRun?.layerId;
   const lastSectionLayerRef = useRef<{ domain: string; layerId: ResearchLayerId } | null>(null);
   const pendingLayerActivationsRef = useRef<{ domain: string; ids: ResearchLayerId[] }>({ domain: card.domain, ids: [] });
-  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(() => defaultLayerIds);
-  const [expandedLayerId, setExpandedLayerId] = useState<ResearchLayerId | null>(() => {
-    if (canStartInvestorLens && hasInvestorLens) {
-      return "coreIdea";
-    }
-
-    return null;
-  });
+  const [activeLayerIds, setActiveLayerIds] = useState<ResearchLayerId[]>(DEFAULT_ACTIVE_LAYERS);
+  const [expandedLayerId, setExpandedLayerId] = useState<ResearchLayerId | null>(null);
   const [draggingLayerId, setDraggingLayerId] = useState<ResearchLayerId | null>(null);
   const [snapPreviewId, setSnapPreviewId] = useState<ResearchLayerId | null>(null);
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
@@ -1412,7 +1496,7 @@ export function ResearchLayerPanel({
 
   useEffect(() => {
     let cancelled = false;
-    readPinnedLayerIds(card.domain, defaultLayerIds, (ids) => {
+    readPinnedLayerIds(card.domain, DEFAULT_ACTIVE_LAYERS, (ids) => {
       if (cancelled) {
         return;
       }
@@ -1429,7 +1513,7 @@ export function ResearchLayerPanel({
     return () => {
       cancelled = true;
     };
-  }, [card.domain, defaultLayerIds]);
+  }, [card.domain]);
 
   useEffect(() => {
     const layerId = activeSectionLayerId;
@@ -1538,9 +1622,9 @@ export function ResearchLayerPanel({
   const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
   const profileRunVisible = Boolean(profileRun);
-  const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
   const finalizingProfileVisible = Boolean(contactRun && !profileRun);
-  const showResearchProgress = profileOrAnalysisRunVisible || finalizingProfileVisible || sources.length > 0 || events.length > 0;
+  // The Lens has its own running receipt; the research progress panel narrates profile work only.
+  const showResearchProgress = profileRunVisible || finalizingProfileVisible || sources.length > 0 || events.length > 0;
   const resolvedSectionCount = layers.filter((layer) => layer.availability !== "ready").length;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
@@ -1555,6 +1639,11 @@ export function ResearchLayerPanel({
   const showSourcesChecked = firstPayoffFiled;
   const firstPayoffSourceCount = filedSourceCount(events, sources);
   const investorRead = investorReadForCard(card);
+  const lensRunning = Boolean(analysisRun && !card.synthesis);
+  const lensNotFiled = !lensRunning && !card.synthesis && analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE;
+  // The insufficient-evidence outcome gets the Lens receipt; only real errors keep the generic box.
+  const visibleAnalysisNotice = analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE ? undefined : analysisNotice;
+  const lensEventMessage = latestAnalysisEventMessage(events);
 
   useEffect(() => {
     if (!showFirstPayoff || firstPayoffMarkedVisible.current) {
@@ -1617,17 +1706,23 @@ export function ResearchLayerPanel({
           <span>Research</span>
           <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
-        <InvestorLensControl
-          analysisRun={analysisRun}
-          card={card}
-          onRunAnalysis={onRunAnalysis}
-          profileRun={profileRun}
-        />
+        <div className="cs-lens-slot">
+          {lensRunning ? (
+            <LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />
+          ) : investorRead ? (
+            <InvestorReadCard read={investorRead} />
+          ) : (
+            <>
+              {lensNotFiled ? <LensNotFiledCard /> : null}
+              <InvestorLensControl card={card} onRunAnalysis={onRunAnalysis} profileRun={profileRun} />
+            </>
+          )}
+        </div>
         {showResearchProgress ? (
           <ResearchProgressPanel
             events={events}
             isFinalizingProfile={finalizingProfileVisible}
-            isRunning={profileOrAnalysisRunVisible}
+            isRunning={profileRunVisible}
             isProfileRunning={profileRunVisible}
             resolvedCount={resolvedSectionCount}
             sources={sources}
@@ -1636,7 +1731,6 @@ export function ResearchLayerPanel({
         ) : null}
 
         <div className="cs-active-enrichments">
-          {investorRead ? <InvestorReadCard read={investorRead} /> : null}
           <AnimatePresence initial={false}>
           {activeLayerIds.map((id) => {
             const display = layerDisplayForCard(card, id, sections);
@@ -1795,10 +1889,10 @@ export function ResearchLayerPanel({
           ) : null}
         </AnimatePresence>
 
-        {analysisNotice ? (
+        {visibleAnalysisNotice ? (
           <div className="cs-research-notice" role="status">
             <strong>Research status</strong>
-            <p>{analysisNotice}</p>
+            <p>{visibleAnalysisNotice}</p>
           </div>
         ) : null}
 

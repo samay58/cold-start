@@ -1,28 +1,113 @@
 import {
   sourceQualityForSource,
+  sourceQualityRank,
   stripCitationMarkers,
   type Citation,
   type ColdStartCard,
+  type QuestionCategory,
   type SourcedText
 } from "@cold-start/core";
+import { safeExternalHref } from "@cold-start/ui";
 
 export type SourcePosture = "company-authored" | "independent" | "reporting" | "enrichment" | "unknown";
 
-export type InvestorReadDisplay = {
-  whyItMightMatter: string;
-  evidenceThatHolds: Array<{
-    label: string;
-    sourcePosture: SourcePosture;
-  }>;
-  whatCouldBreak: string;
-  bestNextQuestion: string;
-  evidenceStatus: string;
-  supportedClaimCount: number;
-  timingNotFound: boolean;
+const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
+  buyer_budget: "Buyer & budget",
+  adoption_proof: "Adoption & proof",
+  durability: "Durability",
+  unit_economics: "Unit economics",
+  technical_edge: "Technical edge",
+  market_timing: "Market & timing",
+  trust_regulation: "Trust & regulation"
 };
 
-const TIMING_NOT_FOUND_COPY = "Timing not found";
-const NO_SUPPORTED_BREAK_COPY = "No verified break-risk yet. Treat this as incomplete until buyer, substitute, or adoption risk is tested.";
+export function labelForQuestionCategory(category: QuestionCategory | null): string | null {
+  return category ? QUESTION_CATEGORY_LABELS[category] : null;
+}
+
+export function cleanQuestionText(question: string) {
+  return stripCitationMarkers(question)
+    .replace(/\s*[\u2013\u2014]\s*/g, "; ")
+    .replace(/\s+/g, " ")
+    .replace(/^\s*(?:question\s*\d+[:.)-]?|ask[:.)-]?)\s*/i, "")
+    .replace(/\s*(?:\.{3}|…)\s*$/u, "")
+    .trim()
+    .replace(/[.!?]*$/, "?");
+}
+
+export type LensClaim = {
+  text: string;
+  sourcePosture: SourcePosture;
+};
+
+type LensTiming = {
+  field: string;
+  text: string;
+  sourcePosture: SourcePosture;
+  supportedFieldCount: number;
+};
+
+type LensQuestion = {
+  question: string;
+  categoryLabel: string | null;
+  changesReadIf: string | null;
+};
+
+type LensPostureMark = {
+  posture: SourcePosture;
+  label: string;
+  count: number;
+};
+
+// Structurally matches the research-layer source reference so the shared SourceChips
+// component renders memo sources without a cross-module type dependency.
+type LensSource = {
+  id: string;
+  domain: string;
+  href: string;
+  title: string;
+  qualityLabel: string;
+  sourceClass: "independent" | "reporting" | "company";
+};
+
+export type InvestorReadDisplay = {
+  receiptLine: string;
+  lede: LensClaim;
+  holds: LensClaim | null;
+  breaks: LensClaim | null;
+  timing: LensTiming | null;
+  timingNotFound: boolean;
+  nextQuestion: LensQuestion | null;
+  postureMarks: LensPostureMark[];
+  sources: LensSource[];
+  independentlyBacked: boolean;
+  supportedClaimCount: number;
+};
+
+const POSTURE_LABELS: Record<SourcePosture, string> = {
+  independent: "independent",
+  reporting: "reported",
+  "company-authored": "company",
+  enrichment: "enrichment",
+  unknown: "unknown"
+};
+
+const POSTURE_ORDER: SourcePosture[] = ["independent", "reporting", "company-authored", "enrichment", "unknown"];
+
+// The memo shows the single sharpest supported timing field. Trigger and risk carry the
+// most "why now" weight; structural fields follow.
+const TIMING_FIELD_ORDER: Array<{
+  field: keyof NonNullable<NonNullable<ColdStartCard["synthesis"]>["marketStructureAndTiming"]>;
+  label: string;
+}> = [
+  { field: "adoptionTrigger", label: "Adoption trigger" },
+  { field: "timingRisk", label: "Timing risk" },
+  { field: "buyerBudget", label: "Buyer budget" },
+  { field: "painSeverity", label: "Pain severity" },
+  { field: "marketStructure", label: "Market structure" },
+  { field: "profitPool", label: "Profit pool" },
+  { field: "expansionPath", label: "Expansion path" }
+];
 
 export function sourcePostureForCitation(citation: Citation | undefined): SourcePosture {
   if (!citation) {
@@ -62,90 +147,170 @@ function citationLookup(card: ColdStartCard) {
   return new Map(card.citations.map((citation) => [citation.id, citation]));
 }
 
-function strongestPosture(card: ColdStartCard, citationIds: readonly string[]): SourcePosture {
-  const citations = citationLookup(card);
+function strongestPosture(
+  citations: Map<string, Citation>,
+  citationIds: readonly string[]
+): SourcePosture {
   const postures = citationIds.map((id) => sourcePostureForCitation(citations.get(id)));
-  if (postures.includes("independent")) {
-    return "independent";
-  }
-  if (postures.includes("reporting")) {
-    return "reporting";
-  }
-  if (postures.includes("enrichment")) {
-    return "enrichment";
-  }
-  if (postures.includes("company-authored")) {
-    return "company-authored";
+  for (const posture of POSTURE_ORDER) {
+    if (postures.includes(posture)) {
+      return posture;
+    }
   }
   return "unknown";
 }
 
-function postureSummary(card: ColdStartCard, claims: SourcedText[]) {
-  const citations = citationLookup(card);
-  const postures = new Set<SourcePosture>();
-  for (const claim of claims) {
-    for (const citationId of claim.citationIds) {
-      postures.add(sourcePostureForCitation(citations.get(citationId)));
-    }
-  }
-
-  if (postures.has("independent")) {
-    return "independent evidence";
-  }
-  if (postures.has("reporting")) {
-    return "reported evidence";
-  }
-  if (postures.has("enrichment")) {
-    return "enrichment evidence";
-  }
-  if (postures.has("company-authored")) {
-    return "company-authored evidence";
-  }
-  return "source posture unknown";
+function lensClaim(citations: Map<string, Citation>, claim: SourcedText): LensClaim {
+  return {
+    text: stripCitationMarkers(claim.text),
+    sourcePosture: strongestPosture(citations, claim.citationIds)
+  };
 }
 
-function marketClaims(card: ColdStartCard): SourcedText[] {
-  const market = card.synthesis?.marketStructureAndTiming;
-  if (!market) {
-    return [];
-  }
-
-  return Object.values(market).filter((claim): claim is SourcedText => Boolean(claim));
-}
-
-function supportedClaims(card: ColdStartCard) {
+function supportedClaims(card: ColdStartCard): SourcedText[] {
   if (!card.synthesis) {
     return [];
   }
+
+  const market = card.synthesis.marketStructureAndTiming;
+  const marketClaims = market
+    ? Object.values(market).filter((claim): claim is SourcedText => Boolean(claim))
+    : [];
 
   return [
     card.synthesis.whyItMatters,
     ...card.synthesis.bullCase,
     ...card.synthesis.bearCase,
-    ...marketClaims(card)
+    ...marketClaims
   ];
 }
 
-function proofChips(card: ColdStartCard) {
-  if (!card.synthesis) {
-    return [];
+function timingDisplay(card: ColdStartCard, citations: Map<string, Citation>): LensTiming | null {
+  const market = card.synthesis?.marketStructureAndTiming;
+  if (!market) {
+    return null;
   }
 
-  const proofClaims = (card.synthesis.bullCase.length > 0
-    ? card.synthesis.bullCase
-    : [card.synthesis.whyItMatters]
-  ).slice(0, 2);
-  return proofClaims.map((claim) => ({
-    label: stripCitationMarkers(claim.text),
-    sourcePosture: strongestPosture(card, claim.citationIds)
-  }));
+  const supported = TIMING_FIELD_ORDER.flatMap((entry) => {
+    const claim = market[entry.field];
+    return claim ? [{ label: entry.label, claim }] : [];
+  });
+  const first = supported[0];
+  if (!first) {
+    return null;
+  }
+
+  return {
+    field: first.label,
+    text: stripCitationMarkers(first.claim.text),
+    sourcePosture: strongestPosture(citations, first.claim.citationIds),
+    supportedFieldCount: supported.length
+  };
 }
 
-function evidenceStatusLine(card: ColdStartCard, claims: SourcedText[], timingMissing: boolean) {
-  const claimCount = claims.length;
-  const posture = postureSummary(card, claims);
-  const timing = timingMissing ? ` · ${TIMING_NOT_FOUND_COPY}` : "";
-  return `Lens filed · ${claimCount} supported ${claimCount === 1 ? "claim" : "claims"} · ${posture}${timing}`;
+function nextQuestionDisplay(card: ColdStartCard): LensQuestion | null {
+  const entry = card.synthesis?.openQuestions[0];
+  if (!entry) {
+    return null;
+  }
+
+  const changesReadIf = entry.wouldChangeReadIf
+    ? stripCitationMarkers(entry.wouldChangeReadIf).replace(/\s+/g, " ").trim()
+    : null;
+
+  return {
+    question: cleanQuestionText(entry.question),
+    categoryLabel: labelForQuestionCategory(entry.category),
+    changesReadIf: changesReadIf || null
+  };
+}
+
+function postureMarks(citations: Map<string, Citation>, claims: SourcedText[]): LensPostureMark[] {
+  const counts = new Map<SourcePosture, number>();
+  for (const claim of claims) {
+    const posture = strongestPosture(citations, claim.citationIds);
+    counts.set(posture, (counts.get(posture) ?? 0) + 1);
+  }
+
+  return POSTURE_ORDER.flatMap((posture) => {
+    const count = counts.get(posture);
+    return count ? [{ posture, label: POSTURE_LABELS[posture], count }] : [];
+  });
+}
+
+function domainFromHref(href: string) {
+  try {
+    return new URL(href).hostname.replace(/^www\./, "");
+  } catch {
+    return href;
+  }
+}
+
+function sourceDedupeKey(href: string) {
+  try {
+    const parsed = new URL(href);
+    parsed.hash = "";
+    parsed.search = "";
+    parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
+    return parsed.toString().toLowerCase();
+  } catch {
+    return href.toLowerCase();
+  }
+}
+
+function lensSources(citations: Map<string, Citation>, claims: SourcedText[]): LensSource[] {
+  const orderedIds = Array.from(new Set(claims.flatMap((claim) => claim.citationIds))).sort((left, right) => {
+    const leftCitation = citations.get(left);
+    const rightCitation = citations.get(right);
+    return (rightCitation ? sourceQualityRank(rightCitation) : -1) - (leftCitation ? sourceQualityRank(leftCitation) : -1);
+  });
+  const seenSourceKeys = new Set<string>();
+  const sources: LensSource[] = [];
+
+  for (const id of orderedIds) {
+    const citation = citations.get(id);
+    const href = citation ? safeExternalHref(citation.url) : null;
+    if (!citation || !href) {
+      continue;
+    }
+
+    const key = sourceDedupeKey(href);
+    if (seenSourceKeys.has(key)) {
+      continue;
+    }
+
+    seenSourceKeys.add(key);
+    const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
+    sources.push({
+      id: citation.id,
+      domain: domainFromHref(href),
+      href,
+      title: citation.title,
+      qualityLabel: citation.sourceQuality?.label ?? sourceQualityForSource(citation).label,
+      sourceClass: tier === "independent_technical" || tier === "independent_analysis"
+        ? "independent"
+        : tier === "independent_report"
+          ? "reporting"
+          : "company"
+    });
+  }
+
+  return sources;
+}
+
+function filedOn(generatedAt: string): string | null {
+  const parsed = new Date(generatedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
+}
+
+function receiptLine(card: ColdStartCard, claimCount: number) {
+  const date = filedOn(card.generatedAt);
+  const held = `${claimCount} ${claimCount === 1 ? "claim" : "claims"} held`;
+  return [date ? `Filed ${date}` : "Filed", held].join(" · ");
 }
 
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {
@@ -153,18 +318,24 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
     return null;
   }
 
+  const citations = citationLookup(card);
   const claims = supportedClaims(card);
-  const timingMissing = timingIsNotFound(card);
+  const marks = postureMarks(citations, claims);
+  const timing = timingDisplay(card, citations);
+  const bull = card.synthesis.bullCase[0] ?? null;
+  const bear = card.synthesis.bearCase[0] ?? null;
 
   return {
-    whyItMightMatter: stripCitationMarkers(card.synthesis.whyItMatters.text),
-    evidenceThatHolds: proofChips(card),
-    whatCouldBreak: card.synthesis.bearCase[0]
-      ? stripCitationMarkers(card.synthesis.bearCase[0].text)
-      : NO_SUPPORTED_BREAK_COPY,
-    bestNextQuestion: card.synthesis.openQuestions[0]?.question ?? "No ranked open question survived verification.",
-    evidenceStatus: evidenceStatusLine(card, claims, timingMissing),
-    supportedClaimCount: claims.length,
-    timingNotFound: timingMissing
+    receiptLine: receiptLine(card, claims.length),
+    lede: lensClaim(citations, card.synthesis.whyItMatters),
+    holds: bull ? lensClaim(citations, bull) : null,
+    breaks: bear ? lensClaim(citations, bear) : null,
+    timing,
+    timingNotFound: timingIsNotFound(card),
+    nextQuestion: nextQuestionDisplay(card),
+    postureMarks: marks,
+    sources: lensSources(citations, claims),
+    independentlyBacked: marks.some((mark) => mark.posture === "independent" || mark.posture === "reporting"),
+    supportedClaimCount: claims.length
   };
 }
