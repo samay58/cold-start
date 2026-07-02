@@ -73,15 +73,15 @@ type ResearchLayerSourceReference = {
 };
 
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "openQuestions", title: "Next question", description: "Highest-priority diligence gap", source: "analysis" },
-  { id: "coreIdea", title: "Why care", description: "Cited investment read", source: "analysis" },
+  { id: "openQuestions", title: "Next question", description: "The question that would change the read", source: "analysis" },
+  { id: "coreIdea", title: "Why care", description: "Why this company might matter", source: "analysis" },
   { id: "theCase", title: "The case", description: "Bull and bear, side by side", source: "analysis" },
-  { id: "serves", title: "Who pays", description: "Buyer and workflow", source: "card" },
-  { id: "marketStructureTiming", title: "Timing", description: "Budget, trigger, profit pool", source: "analysis" },
-  { id: "customers", title: "Proof", description: "Adoption evidence", source: "card" },
-  { id: "signals", title: "Signals", description: "Recent momentum", source: "card" },
-  { id: "investors", title: "Money", description: "Rounds, backers, price context", source: "card" },
-  { id: "competition", title: "Comps", description: "Alternatives and durability", source: "card" },
+  { id: "serves", title: "Who pays", description: "Who pays and for what work", source: "card" },
+  { id: "marketStructureTiming", title: "Timing", description: "Why now might be the moment", source: "analysis" },
+  { id: "customers", title: "Proof", description: "Named customers and deployments", source: "card" },
+  { id: "signals", title: "Signals", description: "What changed recently", source: "card" },
+  { id: "investors", title: "Money", description: "Who funded it, and at what price", source: "card" },
+  { id: "competition", title: "Comps", description: "The alternatives a buyer weighs", source: "card" },
   { id: "mechanism", title: "Product", description: "What makes it different", source: "card" }
 ];
 
