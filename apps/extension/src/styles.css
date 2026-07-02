@@ -1338,6 +1338,54 @@ button {
   min-width: 0;
 }
 
+.cs-company-kicker {
+  margin: 0 0 4px;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 740;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.cs-company-status-slot {
+  align-self: start;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.cs-company-run-time {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 50px;
+}
+
+.cs-company-run-time span {
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.cs-company-run-time strong {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.cs-company-status-chip {
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
 .cs-company-logo {
   width: 62px;
   height: 62px;

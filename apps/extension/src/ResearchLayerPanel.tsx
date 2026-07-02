@@ -25,7 +25,7 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { CompanyLogo } from "./CompanyLogo";
+import { CompanyHeader } from "./CompanyHeader";
 import { readableCompanyName, websiteLabel } from "./company-display";
 import {
   formatElapsed,
@@ -1075,7 +1075,6 @@ export function ResearchLayerPanel({
   sources = [],
   cachedAtMs
 }: ResearchLayerPanelProps) {
-  const companyName = readableCompanyName(card);
   const isStaleRead = card.cacheStatus === "stale" || cachedAtMs !== undefined;
   const freshnessLabel = isStaleRead
     ? `Saved ${formatSavedDate(card.generatedAt)}${profileRun || analysisRun || activeSectionRun ? " · refreshing" : ""}`
@@ -1275,20 +1274,12 @@ export function ResearchLayerPanel({
   return (
     <LayoutGroup id="cold-start-research-layer">
     <main className="cs-research-shell">
-      <section className="cs-company-context" aria-label="Company context">
-        <div className="cs-company-context-main">
-          <CompanyLogo
-            className="cs-company-logo"
-            domain={card.domain}
-            label={companyName}
-            logoUrl={card.identity.logoUrl}
-          />
-          <div>
-            <h1>{companyName}</h1>
-            <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
-              {websiteLabel(card)}
-            </a>
-            {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
+      <CompanyHeader
+        card={card}
+        domain={card.domain}
+        freshnessLabel={freshnessLabel}
+        identityChildren={
+          <>
             <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
             {showSourcesChecked ? (
               <SourcesCheckedStamp
@@ -1296,8 +1287,10 @@ export function ResearchLayerPanel({
                 sourceCount={firstPayoffSourceCount}
               />
             ) : null}
-          </div>
-        </div>
+          </>
+        }
+        phase="profile"
+      >
         <FactRibbon facts={facts} />
         <PeopleLine
           companyDomain={card.domain}
@@ -1308,7 +1301,7 @@ export function ResearchLayerPanel({
           sourceCount={managerSources}
           tooltipProps={triggerProps}
         />
-      </section>
+      </CompanyHeader>
 
       <AnimatePresence initial={false}>
         {showFirstPayoff && firstPayoff ? (
