@@ -1002,6 +1002,137 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("carries generation events into the success state so the early read survives the handoff", async () => {
+    vi.useFakeTimers();
+    const domain = "cartesia.ai";
+    const startedAtIso = new Date(Date.now() - 20_000).toISOString();
+    const substantivePayoff = {
+      status: "substantive_first_read",
+      slug: "cartesia",
+      domain,
+      generatedAt: new Date().toISOString(),
+      generatedAtMs: Date.now(),
+      entityConfidence: "high",
+      entityConfidenceReason: "Company-controlled source matches the current domain.",
+      evidenceSoFar: [
+        {
+          sourceId: "company_site-cartesia.ai",
+          url: "https://cartesia.ai/",
+          domain,
+          title: "Cartesia",
+          sourceClass: "company_site",
+          quality: "company",
+          arrivedAtMs: Date.now(),
+          entityMatched: true
+        }
+      ],
+      stillChecking: { text: "Independent funding proof.", missingEvidenceClass: "funding" },
+      whoItSeemsFor: {
+        text: "Voice teams shipping real-time agents on constrained devices.",
+        supportingText: "Voice teams shipping real-time agents on constrained devices.",
+        sourceIds: ["company_site-cartesia.ai"],
+        citationIds: [],
+        sourceClass: "company_site",
+        claimKind: "who_it_serves"
+      },
+      suppressionReasons: []
+    };
+    const runEvents = [
+      {
+        id: "event-source",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "source.found",
+        message: "Found 6 accepted sources",
+        metadata: { acceptedCount: 6 },
+        createdAt: "2026-06-30T00:00:01.000Z"
+      },
+      {
+        id: "event-payoff",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "first_payoff.ready",
+        message: "Early read ready",
+        metadata: { firstPayoff: substantivePayoff },
+        createdAt: "2026-06-30T00:00:02.000Z"
+      },
+      {
+        id: "event-partial",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "card.partial",
+        message: "Saved first usable company card",
+        metadata: { citationCount: 4 },
+        createdAt: "2026-06-30T00:00:03.000Z"
+      }
+    ];
+    let statusCalls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "cartesia", domain, status: "queued", mode: "basics" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        if (generateCalls(fetchMock).length === 0) {
+          return jsonResponse({ slug: "cartesia", domain, mode: "basics", status: "idle" });
+        }
+        statusCalls += 1;
+        // The run completes between the handoff and the finalization watcher's first poll,
+        // so the only copy of the run events is the one carried across the transition.
+        return statusCalls === 1
+          ? jsonResponse({
+              slug: "cartesia",
+              domain,
+              status: "running",
+              mode: "basics",
+              startedAt: startedAtIso,
+              events: runEvents
+            })
+          : jsonResponse({
+              slug: "cartesia",
+              domain,
+              status: "complete",
+              mode: "basics",
+              startedAt: startedAtIso,
+              completedAt: new Date().toISOString()
+            });
+      }
+
+      return generateCalls(fetchMock).length > 0
+        ? jsonResponse(cardForDomain(domain))
+        : missingCardResponse();
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const generateButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Begin research"
+    );
+    expect(generateButton).toBeTruthy();
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await flushPromises();
+
+    // The fetched card reports cacheStatus "hit", so without the carried events the read
+    // would file itself the moment the profile view mounted.
+    expect(container.textContent).toContain("Research");
+    const earlyRead = container.querySelector("[aria-label='Early read']");
+    expect(earlyRead).not.toBeNull();
+    expect(earlyRead?.textContent).toContain("Voice teams shipping real-time agents on constrained devices.");
+    expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
+    await unmount();
+  });
+
   it("resumes an active analysis run for a basics card without restarting analysis", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (url: string) => {

@@ -20,8 +20,9 @@ import { clearCachedCards, readCachedCard, writeCachedCard } from "./card-cache"
 import { BrandMark } from "./BrandMark";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
+import { ProgressBackground } from "./ProgressBackground";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
-import { useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
+import { useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -55,12 +56,6 @@ const ResearchLayerPanel = lazy(() =>
 );
 const SourcePassInstrument = lazy(() =>
   import("./SourcePassInstrument").then((module) => ({ default: module.SourcePassInstrument }))
-);
-const ProgressMeshGradient = lazy(() =>
-  import("@paper-design/shaders-react").then((module) => ({ default: module.MeshGradient }))
-);
-const ProgressStaticMeshGradient = lazy(() =>
-  import("@paper-design/shaders-react").then((module) => ({ default: module.StaticMeshGradient }))
 );
 
 type RequestState =
@@ -444,70 +439,6 @@ function LoadingPanel({
         </p>
       </div>
     </ExtensionFrame>
-  );
-}
-
-// The shader takes colors as JS props, so CSS tokens cannot reach it. Pass a
-// warm-dark mesh on dark; the CSS fallback gradient flips via tokens already.
-const MESH_COLORS_LIGHT = ["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"];
-const MESH_COLORS_DARK = ["#1b1612", "#241d18", "#2c241d", "#241d18", "#bba8df"];
-
-function ProgressBackground() {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const resolvedTheme = useResolvedThemeValue();
-  const meshColors = resolvedTheme === "dark" ? MESH_COLORS_DARK : MESH_COLORS_LIGHT;
-  const [shaderEnabled, setShaderEnabled] = useState(false);
-
-  useEffect(() => {
-    if (navigator.userAgent.toLowerCase().includes("jsdom")) {
-      setShaderEnabled(false);
-      return;
-    }
-
-    try {
-      const canvas = document.createElement("canvas");
-      setShaderEnabled(Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl")));
-    } catch {
-      setShaderEnabled(false);
-    }
-  }, []);
-
-  return (
-    <div className="cs-generation-mesh" aria-hidden="true" data-reduced-motion={prefersReducedMotion ? "true" : "false"}>
-      <span className="cs-generation-mesh-fallback" />
-      {shaderEnabled ? (
-        <Suspense fallback={null}>
-          {prefersReducedMotion ? (
-            <ProgressStaticMeshGradient
-              className="cs-generation-mesh-shader"
-              colors={meshColors}
-              fit="cover"
-              grainMixer={0.42}
-              grainOverlay={0.08}
-              mixing={0.62}
-              positions={32}
-              scale={1.18}
-              waveX={0.14}
-              waveXShift={0.28}
-              waveY={0.10}
-              waveYShift={0.62}
-            />
-          ) : (
-            <ProgressMeshGradient
-              className="cs-generation-mesh-shader"
-              colors={meshColors}
-              distortion={0.18}
-              fit="cover"
-              grainMixer={0.35}
-              grainOverlay={0.06}
-              scale={1.16}
-              speed={0.07}
-              swirl={0.12}
-            />
-          )}
-        </Suspense>
-      ) : null}
-    </div>
   );
 }
 
@@ -927,10 +858,13 @@ export function SidePanel() {
           const successState = result.analysisNotice
             ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
             : { status: "success" as const, card: result.card, sections: result.sections };
-          setRequestState({
+          // Generation events carry the Early read and its filing state across the phase change;
+          // dropping them here filed the read prematurely the moment the profile arrived.
+          setRequestState((current) => ({
             ...successState,
+            ...(current.status === "generating" && current.events ? { events: current.events } : {}),
             contactRun: { generationStatus: "running", startedAt }
-          });
+          }));
           return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
 
@@ -1221,10 +1155,13 @@ export function SidePanel() {
           const successState = result.analysisNotice
             ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
             : { status: "success" as const, card: result.card, sections: result.sections };
-          setRequestState({
+          // Generation events carry the Early read and its filing state across the phase change;
+          // dropping them here filed the read prematurely the moment the profile arrived.
+          setRequestState((current) => ({
             ...successState,
+            ...(current.status === "generating" && current.events ? { events: current.events } : {}),
             contactRun: { generationStatus: "running", startedAt }
-          });
+          }));
           return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
 

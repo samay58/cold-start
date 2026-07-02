@@ -10,7 +10,7 @@ import {
 } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
+import type { KeyboardEvent } from "react";
 import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
@@ -26,6 +26,7 @@ import {
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
 import { CompanyLogo } from "./CompanyLogo";
+import { readableCompanyName, websiteLabel } from "./company-display";
 import {
   formatElapsed,
   formatOptionalCurrency,
@@ -45,6 +46,7 @@ import {
   RESEARCH_PROGRESS_STAGES
 } from "./research-progress";
 import { markPerformance } from "./sidepanel-network";
+import { SharedTooltip, useSharedTooltip, type TooltipPlacement, type TooltipTriggerProps } from "./SharedTooltip";
 import { SourcePassInstrument } from "./SourcePassInstrument";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
@@ -78,31 +80,9 @@ type ResearchLayerPanelProps = {
   cachedAtMs?: number | undefined;
 };
 
-type TooltipPlacement = "above" | "below";
-
-type SharedTooltipState = {
-  animate: boolean;
-  body: string;
-  id: string;
-  left: number;
-  placement: TooltipPlacement;
-  title: string;
-  top: number;
-  width: number;
-};
-
-type TooltipTriggerProps = {
-  "aria-describedby": string;
-  onBlur: (event: FocusEvent<HTMLElement>) => void;
-  onFocus: (event: FocusEvent<HTMLElement>) => void;
-  onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
-  onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
-};
-
 const VISIBLE_SOURCE_COUNT = 3;
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
-const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 const DORMANT_PILE_DEPTHS = [
   { x: 0, y: 0, rotate: -0.18 },
   { x: -3, y: -1, rotate: 0.38 },
@@ -248,92 +228,6 @@ function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function useSharedTooltip(prefersReducedMotion: boolean) {
-  const [tooltip, setTooltip] = useState<SharedTooltipState | null>(null);
-  const previousTooltipId = useRef<string | null>(null);
-
-  function showTooltip(input: {
-    body: string;
-    id: string;
-    placement?: TooltipPlacement;
-    target: HTMLElement;
-    title: string;
-  }) {
-    const rect = input.target.getBoundingClientRect();
-    const width = Math.min(340, Math.max(240, window.innerWidth - 32));
-    const left = clamp(rect.left + rect.width / 2 - width / 2, 16, Math.max(16, window.innerWidth - width - 16));
-    const placement = input.placement ?? "above";
-    const top = placement === "above" ? rect.top - 10 : rect.bottom + 10;
-    const previousId = previousTooltipId.current;
-    previousTooltipId.current = input.id;
-    setTooltip({
-      animate: Boolean(previousId && previousId !== input.id && !prefersReducedMotion),
-      body: input.body,
-      id: input.id,
-      left,
-      placement,
-      title: input.title,
-      top,
-      width
-    });
-  }
-
-  function hideTooltip() {
-    setTooltip(null);
-  }
-
-  function triggerProps(input: {
-    body: string;
-    id: string;
-    placement?: TooltipPlacement;
-    title: string;
-  }): TooltipTriggerProps {
-    return {
-      "aria-describedby": SHARED_TOOLTIP_ID,
-      onBlur: (event) => {
-        const nextTarget = event.relatedTarget;
-        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-          return;
-        }
-        hideTooltip();
-      },
-      onFocus: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerEnter: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerLeave: () => hideTooltip()
-    };
-  }
-
-  return { tooltip, triggerProps };
-}
-
-function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
-  if (!tooltip) {
-    return null;
-  }
-
-  return (
-    <div
-      className="cs-shared-tooltip"
-      data-animate={tooltip.animate ? "true" : "false"}
-      data-placement={tooltip.placement}
-      id={SHARED_TOOLTIP_ID}
-      role="tooltip"
-      style={{
-        left: tooltip.left,
-        top: tooltip.top,
-        width: tooltip.width
-      }}
-    >
-      <strong>{tooltip.title}</strong>
-      <span>{tooltip.body}</span>
-    </div>
-  );
-}
-
 function ProfileSummary({
   fullSummary,
   summary,
@@ -393,29 +287,6 @@ function SourcesCheckedStamp({
       <span className="cs-early-read-filed-meta">{meta}</span>
     </motion.div>
   );
-}
-
-function websiteLabel(card: ColdStartCard) {
-  const website = card.identity.websiteUrl?.value ?? `https://${card.domain}`;
-  try {
-    return new URL(website).hostname.replace(/^www\./i, "");
-  } catch {
-    return card.domain;
-  }
-}
-
-function readableCompanyName(card: ColdStartCard) {
-  const extracted = card.identity.name.value?.trim();
-  if (extracted && extracted.toLowerCase() !== card.domain.toLowerCase()) {
-    return extracted;
-  }
-
-  const root = card.domain.replace(/^www\./i, "").split(".")[0] ?? card.domain;
-  return root
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ") || card.domain;
 }
 
 type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
