@@ -6,7 +6,6 @@ describe("extensionManifest", () => {
     const manifest = extensionManifest({ command: "build", mode: "production" });
 
     expect(manifest.host_permissions).toEqual([
-      "https://coldstart.semitechie.vc/*",
       "https://cold-start-samay58s-projects.vercel.app/*"
     ]);
   });
