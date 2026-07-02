@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   browserbaseCard,
+  browserbaseCardWithPeople,
   browserbaseCardWithSynthesis,
   fulfillJson,
   granolaCard,
@@ -934,4 +935,123 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   await expect.poll(() => generationRequests).toHaveLength(1);
 });
 
+
+test("shared tooltip floats beside its trigger instead of falling into the page flow", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const person = page.locator(".cs-people-person").first();
+  await person.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("Co-founder & CEO");
+  // The tooltip is a fixed overlay; the arc shell's positioned-child rule must not capture it.
+  await expect(tooltip).toHaveCSS("position", "fixed");
+  const personBox = await person.boundingBox();
+  const aboveBox = await tooltip.boundingBox();
+  if (!personBox || !aboveBox) {
+    throw new Error("Expected bounding boxes for the person row and its tooltip");
+  }
+  const gapAbove = personBox.y - (aboveBox.y + aboveBox.height);
+  expect(gapAbove).toBeGreaterThanOrEqual(0);
+  expect(gapAbove).toBeLessThan(48);
+
+  const more = page.getByRole("button", { name: "Read the full company description" });
+  await more.hover();
+  await expect(tooltip).toContainText("hosted browser runtime");
+  // The tooltip animates between triggers, so poll until it settles under the affordance.
+  await expect.poll(async () => {
+    const moreBox = await more.boundingBox();
+    const belowBox = await tooltip.boundingBox();
+    if (!moreBox || !belowBox) {
+      return Number.NaN;
+    }
+    return belowBox.y - (moreBox.y + moreBox.height);
+  }).toBeLessThan(48);
+});
+
+test("early read survives the basics generating-to-success handoff", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "browserbase.com" });
+  const startedAt = new Date(Date.now() - 6_000).toISOString();
+  const claim = "Browserbase runs managed browser sessions for AI agents.";
+  const firstPayoff = {
+    status: "substantive_first_read",
+    slug: "browserbase",
+    domain: "browserbase.com",
+    generatedAt: new Date().toISOString(),
+    generatedAtMs: Date.now(),
+    entityConfidence: "high",
+    entityConfidenceReason: "Company-controlled source matches the current domain.",
+    evidenceSoFar: [
+      {
+        sourceId: "company_site-browserbase.com",
+        url: "https://browserbase.com/",
+        domain: "browserbase.com",
+        title: "Browserbase",
+        sourceClass: "company_site",
+        quality: "company",
+        arrivedAtMs: Date.now(),
+        entityMatched: true
+      }
+    ],
+    stillChecking: { text: "Named customer proof.", missingEvidenceClass: "customer_proof" },
+    whatItDoes: {
+      text: claim,
+      supportingText: claim,
+      sourceIds: ["company_site-browserbase.com"],
+      citationIds: [],
+      sourceClass: "company_site",
+      claimKind: "what_it_does"
+    },
+    suppressionReasons: []
+  };
+  const events = [
+    { id: "e1", runId: "r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "source.found", message: "Found 5 accepted sources", metadata: { mode: "basics", acceptedCount: 5 }, createdAt: "2026-06-01T00:00:02.000Z" },
+    { id: "e2", runId: "r1", slug: "browserbase", domain: "browserbase.com", sectionId: null, type: "first_payoff.ready", message: "Early read ready", metadata: { mode: "basics", firstPayoff }, createdAt: "2026-06-01T00:00:04.000Z" }
+  ];
+  let basicsFinished = false;
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "browserbase.com",
+      slug: "browserbase",
+      card: null,
+      events,
+      runs: {
+        basics: { slug: "browserbase", domain: "browserbase.com", status: "running", mode: "basics", startedAt, events },
+        analysis: { slug: "browserbase", domain: "browserbase.com", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    if (basicsFinished) {
+      await fulfillJson(route, browserbaseCard());
+      return;
+    }
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "browserbase",
+      domain: "browserbase.com",
+      status: basicsFinished ? "success" : "running",
+      mode: "basics",
+      startedAt,
+      events
+    });
+  });
+
+  await openSidePanel(page);
+
+  const read = page.getByLabel("Early read");
+  await expect(read).toBeVisible();
+  await expect(read).toContainText(claim);
+
+  basicsFinished = true;
+
+  // The profile phase mounts the research layer; the same read must ride across the remount.
+  await expect(page.getByLabel("Research layer")).toBeVisible({ timeout: 10_000 });
+  await expect(read).toBeVisible();
+  await expect(read).toContainText(claim);
+});
 
