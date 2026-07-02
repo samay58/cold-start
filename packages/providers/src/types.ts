@@ -41,6 +41,8 @@ export type StableenrichProbeName =
   | "exa_recent_signals"
   | "exa_competition"
   | "exa_independent_analysis"
+  | "exa_customer_proof"
+  | "exa_product_proof"
   | "exa_find_similar"
   | "firecrawl_homepage"
   | "firecrawl_about"
@@ -61,6 +63,8 @@ export type RetrievalIntent =
   | "management_team"
   | "recent_signals"
   | "independent_analysis"
+  | "customer_proof"
+  | "product_proof"
   | "comparables"
   | "homepage"
   | "firmographics"
@@ -80,6 +84,8 @@ export type ProviderResearchPlan = {
     recentSignals?: string;
     comparables?: string;
     independentAnalysis?: string;
+    customerProof?: string;
+    productProof?: string;
   };
 };
 

@@ -16,6 +16,7 @@ import {
   type ResearchSection
 } from "@cold-start/core";
 import { formatCompactCurrency, formatMediumDate, formatShortDate, safeExternalHref } from "@cold-start/ui";
+import { cleanQuestionText, labelForQuestionCategory } from "./investor-lens";
 
 export type { ResearchLayerId } from "@cold-start/core";
 
@@ -43,6 +44,8 @@ export type ResearchLayerDisplay = {
     body?: string;
     kind?: "evidence" | "question";
     meta?: string;
+    // Quiet second line under a question: what answer would change the read.
+    detail?: string;
     date?: string;
     corroboration?: number;
     sourceClass?: ResearchSourceClass;
@@ -90,18 +93,8 @@ export function isSynthesisLayer(id: ResearchLayerId): boolean {
   return SYNTHESIS_LAYER_IDS.has(id);
 }
 
-const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
-  buyer_budget: "Buyer & budget",
-  adoption_proof: "Adoption & proof",
-  durability: "Durability",
-  unit_economics: "Unit economics",
-  technical_edge: "Technical edge",
-  market_timing: "Market & timing",
-  trust_regulation: "Trust & regulation"
-};
-
 function labelForCategory(category: QuestionCategory | null): string {
-  return category ? QUESTION_CATEGORY_LABELS[category] : "Open question";
+  return labelForQuestionCategory(category) ?? "Open question";
 }
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
@@ -369,16 +362,6 @@ function dedupeStrings(values: string[]) {
   return unique;
 }
 
-function cleanQuestionBody(question: string) {
-  return stripCitationMarkers(question)
-    .replace(/\s*[—–]\s*/g, "; ")
-    .replace(/\s+/g, " ")
-    .replace(/^\s*(?:question\s*\d+[:.)-]?|ask[:.)-]?)\s*/i, "")
-    .replace(/\s*(?:\.{3}|…)\s*$/u, "")
-    .trim()
-    .replace(/[.!?]*$/, "?");
-}
-
 function isGenericRevenueQuestion(question: string) {
   const normalized = question.toLowerCase();
   return /\b(arr|revenue)\b/.test(normalized) && /\b(not public|undisclosed|not disclosed|verify|validate)\b/.test(normalized);
@@ -386,18 +369,22 @@ function isGenericRevenueQuestion(question: string) {
 
 // The model already emits the 3 highest-conviction questions in priority order, so we
 // keep its order. We only clean the text, rewrite a generic revenue ask, dedupe, and
-// attach the model's category label.
+// attach the model's category label plus, when the model named it, what answer would
+// change the read.
 function prioritizedOpenQuestionItems(questions: OpenQuestion[]) {
   const seen = new Set<string>();
   return questions
     .map((entry) => {
-      const cleanedBody = cleanQuestionBody(entry.question);
+      const cleanedBody = cleanQuestionText(entry.question);
       const genericRevenue = isGenericRevenueQuestion(cleanedBody);
       const body = genericRevenue
         ? "What revenue quality, retention, and margin evidence would change the read?"
         : cleanedBody;
       const category: QuestionCategory | null = genericRevenue ? "unit_economics" : entry.category;
-      return { body, category };
+      const detail = entry.wouldChangeReadIf
+        ? stripCitationMarkers(entry.wouldChangeReadIf).replace(/\s+/g, " ").trim()
+        : "";
+      return { body, category, detail };
     })
     .filter((item) => {
       const key = item.body.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -412,7 +399,7 @@ function prioritizedOpenQuestionItems(questions: OpenQuestion[]) {
       title: labelForCategory(item.category),
       body: item.body,
       kind: "question" as const,
-      meta: "Next best use of time"
+      ...(item.detail ? { detail: item.detail } : {})
     }));
 }
 
@@ -561,7 +548,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
     const items = [
       ...(bull ? [{ title: "If true", body: stripCitationMarkers(bull.text), kind: "evidence" as const, meta: "bull" }] : []),
       ...(bear ? [{ title: "It breaks if", body: stripCitationMarkers(bear.text), kind: "evidence" as const, meta: "bear" }] : []),
-      ...(question ? [{ title: "Test", body: cleanQuestionBody(question), kind: "question" as const, meta: "Next diligence question" }] : [])
+      ...(question ? [{ title: "Test", body: cleanQuestionText(question), kind: "question" as const, meta: "Next diligence question" }] : [])
     ];
     return {
       id,

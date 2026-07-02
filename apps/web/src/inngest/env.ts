@@ -59,3 +59,15 @@ export function contactEnrichmentEnabled(input: {
 }) {
   return input.CONTACT_ENRICHMENT_ENABLED && input.CONTACT_ENRICHMENT_TIER !== "off";
 }
+
+// Optional per-function Inngest concurrency cap for background (post-first-usable) work.
+// Unset, or any non-positive-integer value, means no cap: the function keeps using the
+// account default pool. Only set this against the known Inngest account concurrency limit
+// so background enrichment cannot starve the user-facing generation queue.
+export function backgroundConcurrencyLimit(envVarName: string): number | undefined {
+  const raw = process.env[envVarName];
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) return undefined;
+  return parsed;
+}

@@ -170,6 +170,11 @@ export type GenerationTrace = {
     rejectedCount: number;
     acceptedSamples: GenerationSourceTrace[];
     rejectedSamples: GenerationSourceRejection[];
+    // Per-retrieval-intent yield, keyed by source intent ("funding", "customer_proof", ...).
+    // Sources with no intent count under "none". Absent on traces written before the
+    // per-intent telemetry landed; used to judge probe yield before routing changes.
+    acceptedByIntent?: Record<string, number>;
+    rejectedByIntent?: Record<string, number>;
   };
   extraction?: {
     sourceCount: number;

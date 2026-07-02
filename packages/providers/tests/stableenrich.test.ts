@@ -24,6 +24,8 @@ describe("buildStableenrichRequests", () => {
       "exa_recent_signals",
       "exa_competition",
       "exa_independent_analysis",
+      "exa_customer_proof",
+      "exa_product_proof",
       "exa_find_similar",
       "firecrawl_homepage",
       "firecrawl_about",
@@ -31,6 +33,8 @@ describe("buildStableenrichRequests", () => {
       "org_enrichment",
     ]);
     expect(requests.map((request) => request.url)).toEqual([
+      "https://stableenrich.dev/api/exa/search",
+      "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
       "https://stableenrich.dev/api/exa/search",
@@ -76,9 +80,17 @@ describe("buildStableenrichRequests", () => {
     expect(requests[5]?.body).toMatchObject({
       query: expect.stringContaining("investor research"),
     });
-    expect(requests[7]?.body).toEqual({ url: "https://cartesia.ai" });
-    expect(requests[8]?.body).toEqual({ url: "https://cartesia.ai/about" });
-    expect(requests[9]?.body).toEqual({ url: "https://cartesia.ai/team" });
+    expect(requests[6]?.body).toMatchObject({
+      query: expect.stringContaining("case study"),
+      numResults: 5,
+    });
+    expect(requests[7]?.body).toMatchObject({
+      query: expect.stringContaining("documentation"),
+      numResults: 5,
+    });
+    expect(requests[9]?.body).toEqual({ url: "https://cartesia.ai" });
+    expect(requests[10]?.body).toEqual({ url: "https://cartesia.ai/about" });
+    expect(requests[11]?.body).toEqual({ url: "https://cartesia.ai/team" });
     expect(requests.map((request) => request.name)).not.toContain("apollo_people_search");
   });
 
@@ -91,6 +103,8 @@ describe("buildStableenrichRequests", () => {
         recentSignals: "harvey recent customer launch",
         comparables: "harvey legal AI competitors",
         independentAnalysis: "harvey Sacra ARR analysis",
+        customerProof: "harvey law firm case study deployment",
+        productProof: "harvey technical architecture documentation",
       },
     });
 
@@ -100,6 +114,8 @@ describe("buildStableenrichRequests", () => {
     expect(requests[3]?.body).toMatchObject({ query: "harvey recent customer launch" });
     expect(requests[4]?.body).toMatchObject({ query: "harvey legal AI competitors" });
     expect(requests[5]?.body).toMatchObject({ query: "harvey Sacra ARR analysis" });
+    expect(requests[6]?.body).toMatchObject({ query: "harvey law firm case study deployment" });
+    expect(requests[7]?.body).toMatchObject({ query: "harvey technical architecture documentation" });
   });
 
   it("uses readable company-name aliases in default Exa queries", () => {
@@ -204,6 +220,8 @@ describe("fetchStableenrichSources", () => {
       "news",
       "news",
       "news",
+      "news",
+      "news",
       "company_site",
       "company_site",
       "company_site",
@@ -264,7 +282,7 @@ describe("fetchStableenrichSources", () => {
       },
     });
 
-    expect(result.sources).toHaveLength(10);
+    expect(result.sources).toHaveLength(12);
     expect(result.failures).toEqual([
       {
         name: "firecrawl_homepage",

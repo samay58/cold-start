@@ -27,6 +27,8 @@ const validPlan = {
     recentSignals: "harvey recent customer launches",
     comparables: "harvey legal AI competitors",
     independentAnalysis: "harvey Sacra ARR analysis",
+    customerProof: "harvey law firm case study deployment",
+    productProof: "harvey technical architecture documentation",
   },
   presentationFocus: ["buyer", "workflow", "funding quality"],
 };
@@ -39,7 +41,7 @@ describe("researchPlanTool", () => {
       maxItems: 6,
     });
     expect(researchPlanTool.input_schema.properties.searchQueries).toMatchObject({
-      required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis"],
+      required: ["funding", "companyProfile", "managementTeam", "recentSignals", "comparables", "independentAnalysis", "customerProof", "productProof"],
     });
   });
 });
@@ -60,6 +62,8 @@ describe("fallbackResearchPlan", () => {
     expect(plan.searchQueries.independentAnalysis).toContain("independent analysis");
     expect(plan.searchQueries.managementTeam).toContain("contact email");
     expect(plan.searchQueries.comparables).toContain("competitors");
+    expect(plan.searchQueries.customerProof).toContain("case study");
+    expect(plan.searchQueries.productProof).toContain("documentation");
     expect(investorTasteKernel).toContain("Source incentives matter");
   });
 });

@@ -32,7 +32,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await expect(page.locator(".cs-dormant-card-index").first()).toHaveText("01");
   await expect(page.locator(".cs-dormant-card-index i")).toHaveCount(0);
   await expect(page.locator(".cs-card-plus")).toHaveCount(0);
-  await expect(page.getByRole("article", { name: "Investor Read" })).toContainText(
+  await expect(page.getByRole("article", { name: "Investor read" })).toContainText(
     "Browserbase turns browser automation into agent infrastructure"
   );
   await expect(page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" })).toHaveAttribute("target", "_blank");
@@ -41,7 +41,7 @@ test("cached card renders the research layer without old analyze affordances", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
 });
 
-test("investor read stays bounded and readable with long synthesis", async ({ page }) => {
+test("investor read stays bounded and honest with long partial synthesis", async ({ page }) => {
   const card = browserbaseCardWithSynthesis();
   card.synthesis = {
     whyItMatters: {
@@ -52,17 +52,14 @@ test("investor read stays bounded and readable with long synthesis", async ({ pa
       {
         text: "Rush University Medical Center's expansion to an enterprise-wide rollout after a successful pilot is proof that the product can move from department-level trial to broad health-system deployment [c2].",
         citationIds: ["c2"]
-      },
-      {
-        text: "EHR vendors are actively selecting preferred ambient AI partners, which makes channel position and workflow integration more important than generic model quality [c3].",
-        citationIds: ["c3"]
       }
     ],
     bearCase: [],
     openQuestions: [
       {
         question: "What is the average number of active physician seats per health system customer, and what does seat utilization look like 12 months after go-live?",
-        category: "buyer_budget"
+        category: "buyer_budget",
+        wouldChangeReadIf: "Seat utilization holds above pilot levels a year after go-live."
       }
     ]
   };
@@ -71,14 +68,28 @@ test("investor read stays bounded and readable with long synthesis", async ({ pa
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const investorRead = page.getByRole("article", { name: "Investor Read" });
+  const investorRead = page.getByRole("article", { name: "Investor read" });
   await expect(investorRead).toBeVisible();
-  await expect(investorRead).toContainText("Rush University Medical Center");
-  await expect(investorRead).toContainText("EHR vendors are actively selecting");
+  await expect(investorRead).toContainText("Physician burnout from documentation");
 
-  const proofRows = investorRead.locator(".cs-investor-read-proof span");
-  await expect(proofRows).toHaveCount(2);
-  await expect(proofRows.first()).toHaveCSS("white-space", "normal");
+  // The tension pair keeps the surviving bull claim and states the missing bear side honestly.
+  await expect(investorRead).toContainText("If true");
+  await expect(investorRead).toContainText("Rush University Medical Center");
+  await expect(investorRead).toContainText("It breaks if");
+  await expect(investorRead).toContainText("No supported break risk survived verification.");
+
+  // Unsupported timing is a clean not-found row, never an unfinished-generation state.
+  await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");
+  await expect(investorRead).not.toContainText("has not been generated");
+
+  // The ranked question carries its category and what answer would change the read.
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("Buyer & budget");
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("active physician seats");
+  await expect(investorRead.locator(".cs-lens-question")).toContainText("Changes the read if");
+
+  // Source posture is visible: counted marks plus linked source chips.
+  await expect(investorRead.locator(".cs-lens-posture-marks")).toBeVisible();
+  await expect(investorRead.locator(".cs-source-chip").first()).toBeVisible();
 
   const hasNoHorizontalOverflow = await investorRead.evaluate((element) =>
     element.scrollWidth <= element.clientWidth + 1
@@ -173,7 +184,7 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
-    page.locator(".cs-active-enrichment", { hasText: "The case" }).getByRole("button"),
+    page.getByRole("article", { name: "Investor read" }).locator(".cs-source-chip").first(),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
     page.locator(".cs-dormant-card", { hasText: "Money" })
   ];
@@ -357,12 +368,18 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Get up to speed" })).toBeVisible();
+  // The intake is the profile shell in waiting: real module titles, the sealed lens, one action.
+  await expect(page.getByRole("button", { name: "Begin research" })).toBeVisible();
+  await expect(page.getByText("No profile")).toBeVisible();
+  await expect(page.getByText("Next question")).toBeVisible();
+  await expect(page.locator(".cs-lens-sealed")).toContainText("Investor Lens");
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake.png" });
 });
 
-test("running basics progress shows the source-pass run instrument", async ({ page }) => {
+test("running basics progress shows the research trail", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
@@ -396,18 +413,29 @@ test("running basics progress shows the source-pass run instrument", async ({ pa
 
   await openSidePanel(page);
 
-  await expect(page.getByText("Researching")).toBeVisible();
+  // The persistent header carries the identity and run timer over the mesh field.
+  await expect(page.getByText("Researching").first()).toBeVisible();
+  await expect(page.locator(".cs-company-context[data-phase='building']")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cartesia" })).toBeVisible();
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
+  // The trail holds at its first stage: no wall-clock estimation, segments fill on events only.
+  const trail = page.locator(".cs-research-progress");
+  await expect(trail).toBeVisible();
+  await expect(trail).toContainText("Checking company, product, funding, and proof sources");
+  const track = page.locator(".cs-trail-track");
+  await expect(track).toContainText("Sources");
+  await expect(track).toContainText("Filed");
+  await expect(page.locator(".cs-trail-segment[data-status='running']").first()).toContainText("Sources");
+  await expect(page.locator(".cs-trail-segment[data-status='done']")).toHaveCount(0);
+  // The running segment breathes; motion explains state without a ticker.
+  const runningFill = page.locator(".cs-trail-segment[data-status='running'] .cs-trail-segment-fill").first();
+  await expect(runningFill).toHaveCSS("animation-name", "cs-reduced-breathe");
+  // The full tree waits behind Details, and still carries the honest verbs when opened.
+  await page.locator(".cs-research-progress-details-toggle").click();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-tree")).toContainText("Sources");
   await expect(page.locator(".cs-build-tree")).toContainText("Checking company, product, funding, and proof sources");
-  await expect(page.locator(".cs-build-tree")).toContainText("Filed");
   await expect(page.locator(".cs-build-tree")).not.toContainText("Looking for useful places to read");
   await expect(page.locator(".cs-build-tree")).not.toContainText("Pulling in what matters");
-  await expect(page.locator(".cs-build-tree")).not.toContainText("Turning evidence into a card");
-  await expect(page.locator(".cs-build-tree")).not.toContainText("Saving the final profile");
-  // No wall-clock estimation: with no run events, progress holds at the first stage.
-  await expect(page.locator(".cs-build-meta")).toContainText("Step 1 of 4");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
@@ -451,6 +479,11 @@ test("progress tree surfaces real research events as substeps", async ({ page })
 
   await openSidePanel(page);
 
+  // Events advance the trail without opening the tree...
+  await expect(page.locator(".cs-research-progress")).toContainText("12 sources found");
+  await expect(page.locator(".cs-trail-segment[data-status='done']").first()).toBeVisible();
+  // ...and the tree behind Details carries the substeps.
+  await page.locator(".cs-research-progress-details-toggle").click();
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).not.toContainText("Picked a research plan");
@@ -458,6 +491,92 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(tree).toContainText("First cited profile ready - 7 citations");
   await expect(tree).not.toContainText("Started async contact enrichment");
   await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First cited profile ready" })).toHaveCount(0);
+});
+
+test("building phase files the early read inline under the header", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  const startedAt = new Date(Date.now() - 18_000).toISOString();
+  const firstPayoff = {
+    status: "substantive_first_read",
+    slug: "cartesia",
+    domain: "cartesia.ai",
+    generatedAt: new Date().toISOString(),
+    generatedAtMs: Date.now(),
+    entityConfidence: "high",
+    entityConfidenceReason: "Company-controlled source matches the current domain.",
+    evidenceSoFar: [
+      {
+        sourceId: "company_site-cartesia.ai",
+        url: "https://cartesia.ai/",
+        domain: "cartesia.ai",
+        title: "Cartesia",
+        sourceClass: "company_site",
+        quality: "company",
+        arrivedAtMs: Date.now(),
+        entityMatched: true
+      },
+      {
+        sourceId: "news-techcrunch.com",
+        url: "https://techcrunch.com/cartesia",
+        domain: "techcrunch.com",
+        title: "Cartesia raises funding",
+        sourceClass: "funding",
+        quality: "reported",
+        arrivedAtMs: Date.now(),
+        entityMatched: true
+      }
+    ],
+    stillChecking: { text: "Named customer proof.", missingEvidenceClass: "customer_proof" },
+    whatItDoes: {
+      text: "Cartesia builds real-time voice models for on-device agents.",
+      supportingText: "Cartesia builds real-time voice models for on-device agents.",
+      sourceIds: ["company_site-cartesia.ai"],
+      citationIds: [],
+      sourceClass: "company_site",
+      claimKind: "what_it_does"
+    },
+    suppressionReasons: []
+  };
+  const events = [
+    { id: "e1", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "source.found", message: "Found 9 accepted sources", metadata: { acceptedCount: 9 }, createdAt: "2026-06-01T00:00:02.000Z" },
+    { id: "e2", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "first_payoff.ready", message: "Early read ready", metadata: { firstPayoff }, createdAt: "2026-06-01T00:00:04.000Z" }
+  ];
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "cartesia.ai",
+      slug: "cartesia",
+      card: null,
+      events,
+      runs: {
+        basics: { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events },
+        analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events });
+  });
+
+  await openSidePanel(page);
+
+  // The read is inline and always open: claim, kicker, and source dots with no reveal step,
+  // sitting between the persistent header and the trail.
+  const read = page.getByLabel("Early read");
+  await expect(read).toBeVisible();
+  await expect(read).toContainText("What it does");
+  await expect(read).toContainText("Cartesia builds real-time voice models for on-device agents.");
+  await expect(read.getByLabel("Sources")).toContainText("techcrunch.com");
+  await expect(read.locator("button")).toHaveCount(0);
+  const headerBox = await page.locator(".cs-company-context").boundingBox();
+  const readBox = await read.boundingBox();
+  const trailBox = await page.locator(".cs-research-progress").boundingBox();
+  expect(headerBox?.y).toBeLessThan(readBox?.y ?? 0);
+  expect(readBox?.y).toBeLessThan(trailBox?.y ?? 0);
+  await page.waitForTimeout(300);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-early-read.png" });
 });
 
 test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {
@@ -496,8 +615,10 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await openSidePanel(page);
 
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
+  // The trail stays legible under reduced motion and holds at its first stage.
+  await expect(page.locator(".cs-trail-segment[data-status='running']").first()).toContainText("Sources");
+  await page.locator(".cs-research-progress-details-toggle").click();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-meta")).toContainText("Step 1 of 4");
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   // Reduced motion is a reduction, not a freeze: the loader breathes in place
   // instead of stepping spatially.
@@ -612,7 +733,10 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
       page,
       screenshotPrefix: `cold-start-drag-${scenario.slug}`
     });
-    expectPointerAttached(samples);
+    // Pickup intentionally straightens the card to a neutral position, absorbing its resting
+    // pile-depth offset (up to ~5px for deep cards) on top of the drag activation distance.
+    // The budget allows that designed lift while still failing on real pointer detachment.
+    expectPointerAttached(samples, 9);
     await page.mouse.up();
     await expect(page.locator(".cs-active-enrichment", { hasText: scenario.label })).toBeVisible();
     await expect(page.locator(".cs-dormant-card", { hasText: scenario.label })).toHaveCount(0);
@@ -809,3 +933,5 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   await expect(page.locator(".cs-active-enrichment", { hasText: "Timing" })).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toHaveLength(1);
 });
+
+

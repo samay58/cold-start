@@ -183,6 +183,9 @@ vi.mock("@cold-start/llm", () => ({
   anthropicModel: () => "claude-test",
   modelForStage: () => "claude-test",
   createAnthropicClient: () => ({}),
+  // @cold-start/pipeline re-exports this schema from llm, so the mock must provide it; a passthrough
+  // is enough for the section shapes the tests feed in.
+  extractedCardSectionsSchema: { parse: (value: unknown) => value },
   extractCompanyBlockClaims: vi.fn(),
   extractCompanyClaims: vi.fn(),
   fallbackResearchPlan: vi.fn(() => ({ searchQueries: {} })),
@@ -386,13 +389,15 @@ describe("generate-card contact dispatch", () => {
     mocks.totalGenerationCost.mockReturnValue(0);
   });
 
-  it("dispatches contact enrichment after the seed card is saved", async () => {
+  it("dispatches async block enrichment after the seed card is saved", async () => {
     const { names, step } = await runBasicsGeneration("true");
 
+    // The seed card is already first-usable, so deeper block enrichment is handed to the async worker
+    // (which then dispatches contact enrichment). The main run frees its Inngest slot at first usable.
     expect(step.sendEvent).toHaveBeenCalledWith(
-      "request-contact-enrichment",
+      "request-block-enrichment",
       expect.objectContaining({
-        name: "card/contact-enrichment.requested",
+        name: "card/block-enrichment.requested",
         data: expect.objectContaining({
           domain: "modal.com",
           slug: "modal",
@@ -400,7 +405,10 @@ describe("generate-card contact dispatch", () => {
         })
       })
     );
-    expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-seed-card"));
+    expect(names.indexOf("request-block-enrichment")).toBeGreaterThan(names.indexOf("upsert-seed-card"));
+    expect(names).not.toContain("fetch-enrichment-sources");
+    expect(names).not.toContain("enrich-card");
+    expect(step.sendEvent).not.toHaveBeenCalledWith("request-contact-enrichment", expect.anything());
     expect(mocks.fetchStableenrichFastSources).toHaveBeenCalledWith(
       expect.objectContaining({
         skipProbeNames: ["exa_company_profile"],
@@ -474,18 +482,16 @@ describe("generate-card contact dispatch", () => {
       }
     });
 
-    await runBasicsGeneration("true");
+    const { names, step } = await runBasicsGeneration("true");
 
-    expect(mocks.fetchStableenrichEnrichmentSources).toHaveBeenCalledWith(
-      expect.objectContaining({
-        skipProbeNames: [
-          "exa_recent_signals",
-          "exa_competition",
-          "exa_independent_analysis",
-          "exa_find_similar"
-        ]
-      })
+    // Blocks are still missing, so the main run hands enrichment to the async worker instead of
+    // running it inline (the skip-probe targeting is exercised in card-enrichment.test.ts).
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-block-enrichment",
+      expect.objectContaining({ name: "card/block-enrichment.requested" })
     );
+    expect(mocks.fetchStableenrichEnrichmentSources).not.toHaveBeenCalled();
+    expect(names).not.toContain("enrich-card");
   });
 
   it("skips late enrichment when the generated card already has complete blocks", async () => {
@@ -540,12 +546,14 @@ describe("generate-card contact dispatch", () => {
 
     const { names, step } = await runBasicsGeneration("true");
 
+    // Seed underfilled, so the generated card is the first usable one. Block enrichment still goes to
+    // the async worker, which dispatches contact enrichment downstream.
     expect(names).not.toContain("upsert-seed-card");
     expect(step.sendEvent).toHaveBeenCalledTimes(1);
     expect(step.sendEvent).toHaveBeenCalledWith(
-      "request-contact-enrichment",
+      "request-block-enrichment",
       expect.objectContaining({
-        name: "card/contact-enrichment.requested",
+        name: "card/block-enrichment.requested",
         data: expect.objectContaining({
           domain: "modal.com",
           slug: "modal",
@@ -553,15 +561,23 @@ describe("generate-card contact dispatch", () => {
         })
       })
     );
-    expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-card"));
+    expect(names.indexOf("request-block-enrichment")).toBeGreaterThan(names.indexOf("upsert-card"));
     expect(names).not.toContain("fetch-contact-sources");
   });
 
-  it("preserves saved research sections when late basics enrichment fails", async () => {
+  it("keeps the basics run complete because late enrichment is now async", async () => {
+    // Late enrichment runs in a separate worker, so an enrichment failure can no longer fail the
+    // user-facing basics run. The main run never calls the enrichment providers; it dispatches the
+    // async worker and completes with the already-stored first-usable card.
     mocks.fetchStableenrichEnrichmentSources.mockRejectedValue(new Error("late enrichment failed"));
 
-    await expect(runBasicsGeneration("true")).rejects.toThrow("late enrichment failed");
+    const { step } = await runBasicsGeneration("true");
 
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-block-enrichment",
+      expect.objectContaining({ name: "card/block-enrichment.requested" })
+    );
+    expect(mocks.fetchStableenrichEnrichmentSources).not.toHaveBeenCalled();
     expect(mocks.upsertCard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       slug: "modal",
       domain: "modal.com"
@@ -571,8 +587,7 @@ describe("generate-card contact dispatch", () => {
       slug: "modal",
       mode: "basics",
       jobKind: "basics",
-      status: "failed",
-      error: "late enrichment failed"
+      status: "complete"
     }));
     expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
   });
@@ -721,10 +736,16 @@ describe("generate-card contact dispatch", () => {
     }));
   });
 
-  it("does not dispatch contact enrichment when disabled", async () => {
+  it("dispatches block enrichment but not contact enrichment when contacts are disabled", async () => {
     const { names, step } = await runBasicsGeneration("false");
 
-    expect(step.sendEvent).not.toHaveBeenCalled();
+    // Block enrichment is independent of CONTACT_ENRICHMENT_ENABLED; the async worker decides whether
+    // to dispatch contacts. The main run never dispatches contact enrichment directly.
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-block-enrichment",
+      expect.objectContaining({ name: "card/block-enrichment.requested" })
+    );
+    expect(step.sendEvent).not.toHaveBeenCalledWith("request-contact-enrichment", expect.anything());
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchDirectExaContactSources).not.toHaveBeenCalled();
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
@@ -756,5 +777,116 @@ describe("generate-card contact dispatch", () => {
       expect.anything(),
       expect.objectContaining({ slug: "modal", mode: "basics", status: "failed" })
     );
+  });
+});
+
+async function runBlockEnrichment(
+  contactEnabled: string,
+  data: { domain: string; slug: string; parentGenerationRunId?: string } = {
+    domain: "modal.com",
+    slug: "modal",
+    parentGenerationRunId: "generation-run-id"
+  }
+) {
+  vi.resetModules();
+  process.env.DATABASE_URL = "postgres://cold-start-test";
+  process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
+  process.env.CONTACT_ENRICHMENT_ENABLED = contactEnabled;
+  process.env.CONTACT_ENRICHMENT_TIER = "named-only";
+
+  const { cardEnrichmentFunction } = await import("../src/inngest/card-enrichment");
+  const harness = stepHarness();
+  await cardEnrichmentFunction.fn({
+    event: {
+      id: "evt_enrich",
+      ts: Date.parse(generatedAt),
+      data: { ...data, requestedAtMs: Date.parse(generatedAt) }
+    },
+    runId: "inngest-enrich",
+    step: harness.step
+  } as never);
+
+  return harness;
+}
+
+describe("card block enrichment worker", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.findCardBySlug.mockResolvedValue(card);
+    mocks.findSourcesBySlug.mockResolvedValue([{
+      url: "https://modal.com",
+      title: "Modal",
+      sourceType: "company_site",
+      fetchedAt: generatedAt,
+      rawText: "Modal runs serverless compute for AI teams."
+    }]);
+    mocks.fetchStableenrichEnrichmentSources.mockResolvedValue({ sources: [], facts: [], failures: [], endpoints: [] });
+    mocks.applyProviderFactCandidates.mockReturnValue({
+      sections,
+      trace: { candidateCount: 0, appliedCount: 0, paths: [], appliedByEndpoint: {} }
+    });
+    mocks.enrichExtractedSectionsForDomain.mockResolvedValue({ sections });
+    mocks.upsertCard.mockResolvedValue({ id: "card-row-id" });
+    mocks.recordCardEvidence.mockResolvedValue(undefined);
+    mocks.upsertResearchSections.mockResolvedValue(undefined);
+    mocks.recordResearchRunEvent.mockResolvedValue(null);
+    mocks.updateGenerationRunTrace.mockResolvedValue(null);
+    mocks.providerBudgetForEndpoint.mockReturnValue({ estimatedCostUsd: 0.01, expectedFacts: [], stopCondition: "test" });
+  });
+
+  it("enriches the stored card and then dispatches contact enrichment", async () => {
+    const { names, step } = await runBlockEnrichment("true");
+
+    expect(mocks.enrichExtractedSectionsForDomain).toHaveBeenCalled();
+    expect(names).toContain("upsert-enriched-card");
+    // Contact enrichment is dispatched only after the enriched card is stored, so contact enrichment
+    // reads the block-enriched card and the two async card writes stay serial.
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-contact-enrichment",
+      expect.objectContaining({
+        name: "card/contact-enrichment.requested",
+        data: expect.objectContaining({ domain: "modal.com", slug: "modal", parentGenerationRunId: "generation-run-id" })
+      })
+    );
+    expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-enriched-card"));
+  });
+
+  it("does not dispatch contact enrichment when contacts are disabled", async () => {
+    const { names, step } = await runBlockEnrichment("false");
+
+    expect(names).toContain("upsert-enriched-card");
+    expect(step.sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("skips enrichment when the stored card is missing", async () => {
+    mocks.findCardBySlug.mockResolvedValue(null);
+
+    const { names, step } = await runBlockEnrichment("true");
+
+    expect(names).not.toContain("upsert-enriched-card");
+    expect(mocks.enrichExtractedSectionsForDomain).not.toHaveBeenCalled();
+    expect(step.sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("builds a small replay-safe block enrichment event", async () => {
+    const { buildBlockEnrichmentRequestedEvent } = await import("../src/inngest/card-enrichment");
+    expect(
+      buildBlockEnrichmentRequestedEvent({
+        domain: "modal.com",
+        slug: "modal",
+        requestedAtMs: 1_799_999_000_000,
+        parentGenerationRunId: "run-123",
+        parentInngestRunId: "inngest-456"
+      })
+    ).toEqual({
+      name: "card/block-enrichment.requested",
+      data: {
+        domain: "modal.com",
+        slug: "modal",
+        requestedAtMs: 1_799_999_000_000,
+        parentGenerationRunId: "run-123",
+        parentInngestRunId: "inngest-456"
+      }
+    });
   });
 });

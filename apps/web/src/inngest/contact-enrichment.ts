@@ -44,6 +44,7 @@ import {
 } from "./card-storage";
 import { inngest } from "./client";
 import {
+  backgroundConcurrencyLimit,
   contactEnrichmentEnabled,
   directExaEnabled,
   directExaEnvFromProcess,
@@ -260,8 +261,13 @@ async function fetchContactSourcesForBasics(input: {
   };
 }
 
+const contactEnrichmentConcurrency = backgroundConcurrencyLimit("INNGEST_CONTACT_ENRICHMENT_CONCURRENCY");
+
 export const contactEnrichmentFunction = inngest.createFunction(
-  { id: "contact-enrichment" },
+  {
+    id: "contact-enrichment",
+    ...(contactEnrichmentConcurrency ? { concurrency: { limit: contactEnrichmentConcurrency } } : {})
+  },
   { event: CONTACT_ENRICHMENT_EVENT_NAME },
   async ({ event, runId, step }) => {
     const runtimeEnv = webEnv();

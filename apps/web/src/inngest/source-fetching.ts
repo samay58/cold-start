@@ -143,16 +143,18 @@ const stableenrichLateEnrichmentProbeNames: StableenrichProbeName[] = [
   "exa_recent_signals",
   "exa_competition",
   "exa_independent_analysis",
+  "exa_customer_proof",
+  "exa_product_proof",
   "exa_find_similar",
   "firecrawl_about",
   "firecrawl_team"
 ];
 
 const stableenrichLateEnrichmentProbesByBlock: Record<BlockEnrichmentId, StableenrichProbeName[]> = {
-  description: ["exa_independent_analysis", "firecrawl_about"],
+  description: ["exa_independent_analysis", "exa_product_proof", "firecrawl_about"],
   funding: ["exa_recent_signals", "exa_independent_analysis"],
   team: ["firecrawl_about", "firecrawl_team"],
-  signals: ["exa_recent_signals", "exa_independent_analysis"],
+  signals: ["exa_recent_signals", "exa_customer_proof", "exa_independent_analysis"],
   comparables: ["exa_competition", "exa_find_similar", "exa_independent_analysis"]
 };
 

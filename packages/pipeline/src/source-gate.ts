@@ -49,8 +49,19 @@ export function sourceGateTrace(result: SourceGateResult) {
     rejectedSamples: result.rejected.slice(0, 12).map(({ source, reason }) => ({
       ...sourceTrace(source),
       reason
-    } satisfies GenerationSourceRejection))
+    } satisfies GenerationSourceRejection)),
+    acceptedByIntent: countByIntent(result.accepted),
+    rejectedByIntent: countByIntent(result.rejected.map(({ source }) => source))
   };
+}
+
+function countByIntent(sources: ProviderSource[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const source of sources) {
+    const intent = source.intent ?? "none";
+    counts[intent] = (counts[intent] ?? 0) + 1;
+  }
+  return counts;
 }
 
 function sourceRejectionReason(

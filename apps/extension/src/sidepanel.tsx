@@ -1,5 +1,5 @@
 import { canRunInvestorAnalysis, companySlugFromDomain, hasUsablePublicProfile, layerIdForSection, type ColdStartCard, type ResearchSection } from "@cold-start/core";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
@@ -18,10 +18,11 @@ import {
 } from "./extension-config";
 import { clearCachedCards, readCachedCard, writeCachedCard } from "./card-cache";
 import { BrandMark } from "./BrandMark";
+import { CompanyArc, type CompanyArcState } from "./CompanyArc";
 import { CompanyLogo } from "./CompanyLogo";
-import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
+import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
-import { useResolvedThemeValue, useTheme, type ThemePreference } from "./theme";
+import { useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -35,14 +36,7 @@ import {
   startSectionGenerationAndPoll,
   type GenerationStatusListener
 } from "./sidepanel-network";
-import {
-  acceptedSourceCountFromEvents,
-  generationStageIndexFromEvents,
-  RESEARCH_PROGRESS_STAGES
-} from "./research-progress";
-import { firstPayoffForEvents } from "./first-payoff-events";
-import { FirstPayoffSurface } from "./FirstPayoffSurface";
-import { motionTokens, snapSpring } from "./motion-primitives";
+import { motionTokens } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
 
@@ -50,18 +44,6 @@ const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const SECTION_RUN_CONCURRENCY = 1;
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
 const STALE_CACHE_NOTICE = "Could not check for a fresher profile. Showing the saved profile.";
-const ResearchLayerPanel = lazy(() =>
-  import("./ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
-);
-const SourcePassInstrument = lazy(() =>
-  import("./SourcePassInstrument").then((module) => ({ default: module.SourcePassInstrument }))
-);
-const ProgressMeshGradient = lazy(() =>
-  import("@paper-design/shaders-react").then((module) => ({ default: module.MeshGradient }))
-);
-const ProgressStaticMeshGradient = lazy(() =>
-  import("@paper-design/shaders-react").then((module) => ({ default: module.StaticMeshGradient }))
-);
 
 type RequestState =
   | { status: "idle" }
@@ -105,42 +87,6 @@ type ActiveSectionRunState = AnalysisRunState & {
 function runningSectionLayerId(sections: ResearchSection[]) {
   const section = sections.find((candidate) => candidate.status === "running");
   return section ? layerIdForSection(section.sectionId) : null;
-}
-
-function generationStageNote({
-  activeIndex,
-  elapsed,
-  events,
-  generationStatus
-}: {
-  activeIndex: number;
-  elapsed: number;
-  events: ExtensionResearchRunEvent[];
-  generationStatus: GenerationStatus["status"];
-}) {
-  const acceptedCount = acceptedSourceCountFromEvents(events);
-
-  if (generationStatus === "queued" && elapsed < 4) {
-    return "Company queued";
-  }
-
-  if (activeIndex === 1 && acceptedCount !== null) {
-    return `${acceptedCount} sources found`;
-  }
-
-  if (activeIndex === 0) {
-    return "Checking company, product, funding, and proof sources";
-  }
-
-  if (activeIndex === 1) {
-    return "Checking funding, product, people, and customer proof";
-  }
-
-  if (activeIndex === 2) {
-    return "Building first cited profile";
-  }
-
-  return "Saving with sources attached";
 }
 
 function ExtensionTopbar({
@@ -262,28 +208,6 @@ function saveSettings(settings: Settings): Promise<void> {
     );
   });
 }
-
-function useElapsedSeconds(active: boolean, startedAt?: number) {
-  const elapsedMs = useElapsedMilliseconds(active, startedAt, 1000);
-  return Math.floor(elapsedMs / 1000);
-}
-
-function useElapsedMilliseconds(active: boolean, startedAt: number | undefined, tickMs = 1000) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!active || !startedAt) {
-      return;
-    }
-
-    setNow(Date.now());
-    const interval = window.setInterval(() => setNow(Date.now()), tickMs);
-    return () => window.clearInterval(interval);
-  }, [active, startedAt, tickMs]);
-
-  return startedAt ? Math.max(0, now - startedAt) : 0;
-}
-
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "auto", label: "Auto" },
@@ -443,324 +367,6 @@ function LoadingPanel({
           already exists…
         </p>
       </div>
-    </ExtensionFrame>
-  );
-}
-
-// The shader takes colors as JS props, so CSS tokens cannot reach it. Pass a
-// warm-dark mesh on dark; the CSS fallback gradient flips via tokens already.
-const MESH_COLORS_LIGHT = ["#f7f5ee", "#f4eddc", "#fffdf8", "#f4eddc", "#6e5c9e"];
-const MESH_COLORS_DARK = ["#1b1612", "#241d18", "#2c241d", "#241d18", "#bba8df"];
-
-function ProgressBackground() {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const resolvedTheme = useResolvedThemeValue();
-  const meshColors = resolvedTheme === "dark" ? MESH_COLORS_DARK : MESH_COLORS_LIGHT;
-  const [shaderEnabled, setShaderEnabled] = useState(false);
-
-  useEffect(() => {
-    if (navigator.userAgent.toLowerCase().includes("jsdom")) {
-      setShaderEnabled(false);
-      return;
-    }
-
-    try {
-      const canvas = document.createElement("canvas");
-      setShaderEnabled(Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl")));
-    } catch {
-      setShaderEnabled(false);
-    }
-  }, []);
-
-  return (
-    <div className="cs-generation-mesh" aria-hidden="true" data-reduced-motion={prefersReducedMotion ? "true" : "false"}>
-      <span className="cs-generation-mesh-fallback" />
-      {shaderEnabled ? (
-        <Suspense fallback={null}>
-          {prefersReducedMotion ? (
-            <ProgressStaticMeshGradient
-              className="cs-generation-mesh-shader"
-              colors={meshColors}
-              fit="cover"
-              grainMixer={0.42}
-              grainOverlay={0.08}
-              mixing={0.62}
-              positions={32}
-              scale={1.18}
-              waveX={0.14}
-              waveXShift={0.28}
-              waveY={0.10}
-              waveYShift={0.62}
-            />
-          ) : (
-            <ProgressMeshGradient
-              className="cs-generation-mesh-shader"
-              colors={meshColors}
-              distortion={0.18}
-              fit="cover"
-              grainMixer={0.35}
-              grainOverlay={0.06}
-              scale={1.16}
-              speed={0.07}
-              swirl={0.12}
-            />
-          )}
-        </Suspense>
-      ) : null}
-    </div>
-  );
-}
-
-function GenerationPanel({
-  domain,
-  requestState
-}: {
-  domain: string;
-  requestState: Extract<RequestState, { status: "generating" }>;
-}) {
-  const companyName = readableCompanyNameFromDomain(domain);
-  const elapsedMs = useElapsedMilliseconds(true, requestState.startedAt, 120);
-  const elapsed = Math.floor(elapsedMs / 1000);
-  const events = requestState.events ?? [];
-  const firstPayoff = firstPayoffForEvents(events);
-  // Honest progress: hold at the last event-derived stage. No wall-clock estimation;
-  // the tree advances only when a real generation event says so.
-  const eventStageIndex = requestState.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
-  const stages = RESEARCH_PROGRESS_STAGES;
-  const activeIndex = Math.min(stages.length - 1, Math.max(0, eventStageIndex ?? 0));
-  const statusText =
-    requestState.generationStatus === "queued" && elapsed < 4
-      ? "Queued"
-      : "Researching";
-  const activeStage = stages[activeIndex] ?? stages[stages.length - 1];
-  const stageNote = generationStageNote({
-    activeIndex,
-    elapsed,
-    events,
-    generationStatus: requestState.generationStatus
-  }) ?? activeStage?.note ?? "Checking company, product, funding, and proof sources";
-  return (
-    <ExtensionFrame
-      className="cs-generation-panel"
-      title={domain}
-    >
-      <ProgressBackground />
-      <header className="cs-generation-hero">
-        <CompanyLogo
-          className="cs-generation-logo"
-          domain={domain}
-          label={companyName}
-        />
-        <div>
-          <p className="cs-generation-status">{statusText}</p>
-          <h1>{companyName}</h1>
-          <p className="cs-generation-domain">{domain}</p>
-        </div>
-        <div className="cs-generation-run-time" aria-label={`Elapsed ${formatElapsed(elapsed)}`}>
-          <span>Run</span>
-          <strong>{formatElapsed(elapsed)}</strong>
-        </div>
-      </header>
-
-      <Suspense fallback={<div className="cs-live-card cs-live-card-refined" aria-hidden="true" />}>
-        <SourcePassInstrument
-          activeIndex={activeIndex}
-          events={events}
-          stageNote={stageNote}
-          stages={stages}
-        />
-      </Suspense>
-      {firstPayoff ? <FirstPayoffSurface firstPayoff={firstPayoff} /> : null}
-    </ExtensionFrame>
-  );
-}
-
-function SuccessPanel({
-  domain,
-  onRunSection,
-  onRunAnalysis,
-  onRegenerate,
-  queuedLayerIds,
-  requestState
-}: {
-  domain: string;
-  onRunSection: (layerId: ResearchLayerId) => void;
-  onRunAnalysis: () => void;
-  onRegenerate: () => void;
-  queuedLayerIds?: ResearchLayerId[] | undefined;
-  requestState: Extract<RequestState, { status: "success" }>;
-}) {
-  const elapsedSeconds = useElapsedSeconds(Boolean(requestState.analysisRun), requestState.analysisRun?.startedAt);
-  const contactElapsedSeconds = useElapsedSeconds(Boolean(requestState.contactRun), requestState.contactRun?.startedAt);
-  const profileElapsedSeconds = useElapsedSeconds(Boolean(requestState.profileRun), requestState.profileRun?.startedAt);
-  const activeSectionElapsedSeconds = useElapsedSeconds(
-    Boolean(requestState.activeSectionRun),
-    requestState.activeSectionRun?.startedAt
-  );
-
-  return (
-    <Suspense fallback={<LoadingPanel domain={domain} onSettings={() => undefined} />}>
-      <ResearchLayerPanel
-        analysisNotice={requestState.analysisNotice}
-        analysisRun={requestState.analysisRun}
-        card={requestState.card}
-        sections={requestState.sections}
-        events={requestState.events}
-        sources={requestState.sources}
-        contactElapsedSeconds={contactElapsedSeconds}
-        contactRun={requestState.contactRun}
-        elapsedSeconds={elapsedSeconds}
-        onRunSection={onRunSection}
-        onRunAnalysis={onRunAnalysis}
-        onRegenerate={onRegenerate}
-        queuedLayerIds={queuedLayerIds}
-        profileElapsedSeconds={profileElapsedSeconds}
-        profileRun={requestState.profileRun}
-        activeSectionElapsedSeconds={activeSectionElapsedSeconds}
-        activeSectionRun={requestState.activeSectionRun}
-        cachedAtMs={requestState.cachedAtMs}
-      />
-    </Suspense>
-  );
-}
-
-function StartGenerationPanel({
-  domain,
-  onEditSettings,
-  onStart
-}: {
-  domain: string;
-  onEditSettings: () => void;
-  onStart: () => void;
-}) {
-  const companyName = readableCompanyNameFromDomain(domain);
-  const prefersReducedMotion = usePrefersReducedMotion();
-  // Reduced motion keeps the intake alive with an opacity-only fade-in; the full
-  // entrance adds y travel, blur, and spring follow-through.
-  const entrance = prefersReducedMotion
-    ? {
-        hidden: { opacity: 0 },
-        visible: (index: number) => ({
-          opacity: 1,
-          transition: { delay: index * 0.03, duration: 0.12, ease: "easeOut" as const }
-        })
-      }
-    : {
-        hidden: { opacity: 0, y: 8, filter: "blur(4px)" },
-        visible: (index: number) => ({
-          opacity: 1,
-          y: 0,
-          filter: "blur(0px)",
-          transition: { delay: index * 0.055, ...snapSpring }
-        })
-      };
-  const entranceProps = (index: number) => ({
-    animate: "visible" as const,
-    custom: index,
-    initial: "hidden" as const,
-    variants: entrance
-  });
-  const buttonPressProps = prefersReducedMotion
-    ? { whileTap: { opacity: 0.88 } }
-    : { whileTap: { scale: 0.985, y: 1 } };
-  const sourcePassSections = [
-    {
-      description: "Founders and operators",
-      marker: "01",
-      title: "People"
-    },
-    {
-      description: "Strategy and focus",
-      marker: "02",
-      title: "Business"
-    },
-    {
-      description: "Customers and progress",
-      marker: "03",
-      title: "Traction"
-    },
-    {
-      description: "Risks and unknowns",
-      marker: "04",
-      title: "Questions"
-    }
-  ] as const;
-  const tagline = companyName
-    ? `Know ${companyName} like a professional investor would.`
-    : "Know this company like a professional investor would.";
-
-  return (
-    <ExtensionFrame
-      className="cs-intake-panel cs-start-panel"
-      title={`Open ${companyName}`}
-    >
-      <header className="cs-start-topbar">
-        <button aria-label="Open settings" className="cs-start-settings" onClick={onEditSettings} type="button">
-          <span aria-hidden="true">...</span>
-        </button>
-      </header>
-
-      <motion.section
-        className="cs-start-hero"
-        aria-label={`Build a profile for ${companyName}`}
-        {...entranceProps(0)}
-      >
-        <h1>Get up to speed</h1>
-        <p>{tagline}</p>
-        <motion.div className="cs-start-actions" {...entranceProps(1)}>
-          <motion.button
-            className="cs-start-primary"
-            onClick={onStart}
-            type="button"
-            {...buttonPressProps}
-          >
-            <span>Begin research</span>
-            <svg aria-hidden="true" height="18" viewBox="0 0 18 18" width="18">
-              <path d="M3 9h11" />
-              <path d="m10 4.5 4.5 4.5L10 13.5" />
-            </svg>
-          </motion.button>
-        </motion.div>
-      </motion.section>
-
-      <motion.section
-        className="cs-start-company"
-        aria-label="Current tab"
-        {...entranceProps(2)}
-      >
-        <CompanyLogo className="cs-start-company-logo" domain={domain} label={companyName} />
-        <div className="cs-start-company-copy">
-          <h2>{companyName}</h2>
-          <p>{domain}</p>
-        </div>
-        <span className="cs-start-company-rule" aria-hidden="true" />
-        <span className="cs-start-status">No profile</span>
-      </motion.section>
-
-      <motion.section
-        className="cs-start-pile"
-        aria-label="Source pass scope"
-        {...entranceProps(3)}
-      >
-        <span className="cs-start-pile-back cs-start-pile-back-left" aria-hidden="true" />
-        <span className="cs-start-pile-back cs-start-pile-back-right" aria-hidden="true" />
-        {sourcePassSections.map((section, index) => (
-          <motion.article
-            className="cs-start-pass-card"
-            key={section.title}
-            {...entranceProps(4 + index)}
-          >
-            <span className="cs-start-pass-index" aria-hidden="true">
-              {section.marker}
-            </span>
-            <span className="cs-start-pass-copy">
-              <strong>{section.title}</strong>
-              <span>{section.description}</span>
-            </span>
-            <span className="cs-start-pass-seal" aria-hidden="true" />
-          </motion.article>
-        ))}
-      </motion.section>
     </ExtensionFrame>
   );
 }
@@ -927,10 +533,13 @@ export function SidePanel() {
           const successState = result.analysisNotice
             ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
             : { status: "success" as const, card: result.card, sections: result.sections };
-          setRequestState({
+          // Generation events carry the Early read and its filing state across the phase change;
+          // dropping them here filed the read prematurely the moment the profile arrived.
+          setRequestState((current) => ({
             ...successState,
+            ...(current.status === "generating" && current.events ? { events: current.events } : {}),
             contactRun: { generationStatus: "running", startedAt }
-          });
+          }));
           return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
 
@@ -1221,10 +830,13 @@ export function SidePanel() {
           const successState = result.analysisNotice
             ? { status: "success" as const, card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
             : { status: "success" as const, card: result.card, sections: result.sections };
-          setRequestState({
+          // Generation events carry the Early read and its filing state across the phase change;
+          // dropping them here filed the read prematurely the moment the profile arrived.
+          setRequestState((current) => ({
             ...successState,
+            ...(current.status === "generating" && current.events ? { events: current.events } : {}),
             contactRun: { generationStatus: "running", startedAt }
-          });
+          }));
           return watchBasicsCompletionWithController(controller, generationDomain, generationSettings, result.card, startedAt);
         }
 
@@ -1541,18 +1153,40 @@ export function SidePanel() {
   if (requestState.status === "loading" || requestState.status === "idle") {
     panelKey = "loading";
     panel = <LoadingPanel apiOrigin={settings.apiOrigin} domain={domain} onSettings={() => setShowSettings(true)} />;
-  } else if (requestState.status === "readyToGenerate") {
-    panelKey = "ready";
+  } else if (
+    requestState.status === "readyToGenerate" ||
+    requestState.status === "generating" ||
+    requestState.status === "success"
+  ) {
+    // Intake, building, and profile are one shell with a persistent header, so they share a
+    // single panel key: the arc handles its own phase changes and never crossfades whole panels.
+    panelKey = "company";
+    let arc: CompanyArcState;
+    if (requestState.status === "readyToGenerate") {
+      arc = { phase: "intake" };
+    } else if (requestState.status === "generating") {
+      arc = {
+        phase: "building",
+        events: requestState.events ?? [],
+        generationStatus: requestState.generationStatus,
+        startedAt: requestState.startedAt
+      };
+    } else {
+      const { status: _status, ...profileFields } = requestState;
+      arc = { phase: "profile", ...profileFields };
+    }
     panel = (
-      <StartGenerationPanel
+      <CompanyArc
+        arc={arc}
         domain={domain}
         onEditSettings={() => setShowSettings(true)}
+        onRegenerate={() => handleStartGeneration(true)}
+        onRunAnalysis={handleRunAnalysis}
+        onRunSection={handleRunSection}
         onStart={() => handleStartGeneration(true)}
+        queuedLayerIds={sectionQueue}
       />
     );
-  } else if (requestState.status === "generating") {
-    panelKey = "generating";
-    panel = <GenerationPanel domain={domain} requestState={requestState} />;
   } else if (requestState.status === "pending") {
     panelKey = "pending";
     panel = (
@@ -1574,7 +1208,7 @@ export function SidePanel() {
         <p className="cs-extension-note">Cold Start is still working on this company. It is taking a little longer than usual; check again in a moment.</p>
       </ExtensionFrame>
     );
-  } else if (requestState.status === "error") {
+  } else {
     panelKey = "error";
     panel = (
       <ExtensionFrame
@@ -1595,25 +1229,12 @@ export function SidePanel() {
         <p className="cs-extension-error">{requestState.message}</p>
       </ExtensionFrame>
     );
-  } else {
-    panelKey = "success";
-    panel = (
-      <SuccessPanel
-        domain={domain}
-        onRunSection={handleRunSection}
-        onRunAnalysis={handleRunAnalysis}
-        onRegenerate={() => handleStartGeneration(true)}
-        queuedLayerIds={sectionQueue}
-        requestState={requestState}
-      />
-    );
   }
 
-  // The generation -> card handoff is the most important state change in the panel;
-  // it arrives with a short crossfade instead of a hard cut. Sync presence (not
-  // mode="wait") so rapid status flips can never wedge the swap: the next panel mounts
-  // immediately while the old one fades out on top. Reduced motion keeps a calm
-  // opacity-only fade rather than freezing the transition.
+  // Panel swaps here are entry/exit/error boundaries only: the intake -> building -> profile
+  // arc lives under one key and animates its own regions. Sync presence (not mode="wait") so
+  // rapid status flips can never wedge the swap: the next panel mounts immediately while the
+  // old one fades out on top. Reduced motion keeps a calm opacity-only fade.
   return (
     <div className="cs-panel-stage">
       <AnimatePresence initial={false}>

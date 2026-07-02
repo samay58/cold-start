@@ -45,7 +45,6 @@ import {
   enrichExtractedSectionsForDomain,
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
-  type BlockEnrichmentPatch,
   type CostLine,
   type EvidenceLedgerEntry,
   type ExtractedCardSections,
@@ -59,6 +58,8 @@ import {
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/env";
 import { boundedErrorMessage } from "../lib/errors";
+import { pipelineBlockPatch } from "./block-enrichment-patch";
+import { buildBlockEnrichmentRequestedEvent } from "./card-enrichment";
 import { buildContactEnrichmentRequestedEvent, cardHasContactTargets } from "./contact-enrichment";
 import { inngest } from "./client";
 import {
@@ -250,67 +251,6 @@ function progressSourceCategories(sources: ProviderSource[]) {
   }
 
   return progressSourceCategoryOrder.filter((category) => categories.has(category));
-}
-
-function pipelineBlockPatch(input: Awaited<ReturnType<typeof extractCompanyBlockClaims>>): BlockEnrichmentPatch {
-  const patch: BlockEnrichmentPatch = { citations: input.citations };
-
-  if (input.identity) {
-    const identity: NonNullable<BlockEnrichmentPatch["identity"]> = {};
-    if (input.identity.oneLiner) {
-      identity.oneLiner = input.identity.oneLiner;
-    }
-    if (input.identity.description) {
-      identity.description = input.identity.description;
-    }
-    if (Object.keys(identity).length > 0) {
-      patch.identity = identity;
-    }
-  }
-
-  if (input.funding) {
-    const funding: NonNullable<BlockEnrichmentPatch["funding"]> = {};
-    if (input.funding.totalRaisedUsd) {
-      funding.totalRaisedUsd = input.funding.totalRaisedUsd;
-    }
-    if (input.funding.lastRound) {
-      funding.lastRound = input.funding.lastRound;
-    }
-    if (input.funding.rounds) {
-      funding.rounds = input.funding.rounds;
-    }
-    if (input.funding.investors) {
-      funding.investors = input.funding.investors;
-    }
-    if (Object.keys(funding).length > 0) {
-      patch.funding = funding;
-    }
-  }
-
-  if (input.team) {
-    const team: NonNullable<BlockEnrichmentPatch["team"]> = {};
-    if (input.team.founders) {
-      team.founders = input.team.founders;
-    }
-    if (input.team.keyExecs) {
-      team.keyExecs = input.team.keyExecs;
-    }
-    if (input.team.headcount) {
-      team.headcount = input.team.headcount;
-    }
-    if (Object.keys(team).length > 0) {
-      patch.team = team;
-    }
-  }
-
-  if (input.signals) {
-    patch.signals = input.signals;
-  }
-  if (input.comparables) {
-    patch.comparables = input.comparables;
-  }
-
-  return patch;
 }
 
 function rawSlugForRun(input: unknown, domainInput?: unknown): string {
@@ -712,6 +652,11 @@ export const generateCardFunction = inngest.createFunction(
       const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
       let seedCard: ColdStartCard | null = null;
+      // Tracks whether a first-usable public card is already in the DB (seed or generated passed the
+      // gate). When true, late block enrichment can run in an async worker so this worker frees its
+      // Inngest slot at first usable. When false, the enriched card is the first usable one, so
+      // enrichment stays synchronous here.
+      let firstUsableStored = false;
       let firstPayoff: FirstPayoff | null = null;
       // First payoff is a best-effort early flourish, not on the critical path.
       // Build it off untrusted provider sources behind a guard so a malformed
@@ -807,9 +752,12 @@ export const generateCardFunction = inngest.createFunction(
           steps: { upsert: "upsert-seed-card", evidence: "record-seed-card-evidence", sections: "record-seed-research-sections", sources: "record-seed-sources" },
           event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card", metadata: { firstPayoff } },
           skipNoteId: "skip-underfilled-seed-card",
-          contactTrigger: "seed-card"
+          // Contact enrichment is dispatched once the enrichment path is decided below (or by the async
+          // enrichment worker), so it reads the most complete card and is never double-dispatched.
+          contactTrigger: null
         });
         if (seedStore) {
+          firstUsableStored = true;
           writeGenerationMilestoneValue(trace, "seedCardMs", seedStore.milestoneMs);
           writeGenerationMilestoneValue(trace, "firstUsableCardMs", seedStore.milestoneMs);
         }
@@ -930,10 +878,13 @@ export const generateCardFunction = inngest.createFunction(
         steps: { upsert: "upsert-card", evidence: "record-card-evidence", sections: "record-research-sections", sources: "record-sources" },
         event: { stepId: "card-saved", type: "card.saved", message: "Saved cited company card" },
         skipNoteId: "skip-underfilled-generated-card",
-        contactTrigger: mode === "basics" ? "stored-card" : null
+        // Contacts are dispatched below once the enrichment path is decided (or by the async enrichment
+        // worker), so they read the most complete card and are dispatched exactly once.
+        contactTrigger: null
       });
       if (generatedStore) {
         if (mode === "basics") {
+          firstUsableStored = true;
           writeGenerationMilestoneValue(trace, "firstUsableCardMs", generatedStore.milestoneMs);
         } else {
           analysisReadyMs = generatedStore.milestoneMs;
@@ -950,6 +901,31 @@ export const generateCardFunction = inngest.createFunction(
             "fetch-enrichment-sources": skippedStep("generated card already filled enrichment blocks"),
             "enrich-card": skippedStep("generated card already filled enrichment blocks")
           };
+          await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
+        } else if (firstUsableStored) {
+          // A first-usable card is already stored, so the deeper block enrichment can run in an async
+          // worker. Dispatching it frees this Inngest concurrency slot at first usable instead of
+          // holding it through the ~70s enrichment, which is what lets queued generation requests start
+          // sooner. The async worker stores the enriched card and dispatches contact enrichment.
+          await step.sendEvent(
+            "request-block-enrichment",
+            buildBlockEnrichmentRequestedEvent({
+              domain,
+              slug,
+              requestedAtMs,
+              parentGenerationRunId: generationRunDbId,
+              parentInngestRunId: trace.inngest?.runId ?? null
+            })
+          );
+          trace.steps = {
+            ...trace.steps,
+            "request-block-enrichment": completedStep(0),
+            "fetch-enrichment-sources": skippedStep("dispatched async card enrichment"),
+            "enrich-card": skippedStep("dispatched async card enrichment")
+          };
+          await recordEvent("block-enrichment-requested", "source.enrichment", "Requested async card enrichment", {
+            missingBlocks: lateEnrichmentBlocks
+          }, null);
         } else {
           currentStage = "fetch-enrichment-sources";
           const enrichmentSourceResult = await step.run("fetch-enrichment-sources", async () => {

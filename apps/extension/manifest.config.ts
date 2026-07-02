@@ -1,8 +1,10 @@
 import { defineManifest } from "@crxjs/vite-plugin";
 import type { ConfigEnv } from "vite";
 
+// The retired coldstart.semitechie.vc origin is intentionally absent: extension-config
+// treats it as legacy and remaps stored settings to the current API origin, so granting
+// it here would only widen the reviewed permission surface.
 const PRODUCTION_HOST_PERMISSIONS = [
-  "https://coldstart.semitechie.vc/*",
   "https://cold-start-samay58s-projects.vercel.app/*"
 ];
 

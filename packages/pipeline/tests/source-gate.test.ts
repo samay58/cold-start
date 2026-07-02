@@ -359,7 +359,45 @@ describe("filterSourcesForDomain", () => {
           sourceType: "news",
           reason: "unsupported_protocol"
         }
+      ],
+      acceptedByIntent: { none: 1 },
+      rejectedByIntent: { none: 1 }
+    });
+  });
+
+  it("breaks gate yield down by retrieval intent", () => {
+    const result = filterSourcesForDomain({
+      domain: "cartesia.ai",
+      sources: [
+        {
+          url: "https://cartesia.ai/customers/acme",
+          title: "Acme runs Cartesia in production",
+          sourceType: "company_site",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "customer_proof",
+          rawText: "Acme deployed Cartesia voice models in production."
+        },
+        {
+          url: "https://github.com/cartesia-ai/cartesia-python",
+          title: "cartesia-ai/cartesia-python",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "product_proof",
+          rawText: "Official Cartesia python client library and API documentation."
+        },
+        {
+          url: "https://unrelated.example/post",
+          title: "Unrelated roundup",
+          sourceType: "news",
+          fetchedAt: "2026-05-12T00:00:00.000Z",
+          intent: "customer_proof",
+          rawText: "A list of tools with no mention of the target company."
+        }
       ]
     });
+
+    const trace = sourceGateTrace(result);
+    expect(trace.acceptedByIntent).toEqual({ customer_proof: 1, product_proof: 1 });
+    expect(trace.rejectedByIntent).toEqual({ customer_proof: 1 });
   });
 });

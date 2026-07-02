@@ -429,7 +429,13 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     expect(container.textContent).toContain("No profile");
-    expect(container.textContent).toContain("Get up to speed");
+    // The intake previews the real research modules and the sealed Investor Lens, not
+    // marketing copy or invented card names.
+    expect(container.textContent).not.toContain("Get up to speed");
+    expect(container.textContent).toContain("Next question");
+    expect(container.textContent).toContain("Why care");
+    expect(container.textContent).toContain("Investor Lens");
+    expect(container.textContent).toContain("Runs on the cited profile once it is filed.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Begin research"
     );
@@ -928,10 +934,13 @@ describe("SidePanel generation gate", () => {
       }
 
       cardFetches += 1;
-      return cardFetches > 3 ? jsonResponse(cardForDomain("cartesia.ai")) : missingCardResponse();
+      return cardFetches > 3 ? jsonResponse(cardWithSynthesis("cartesia.ai")) : missingCardResponse();
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
+    // While building, the panel renders run events and the early read only; nothing from the
+    // gated synthesis may appear before the profile phase, even when the stored card has it.
+    expect(container.textContent).not.toContain("supported wedge");
     expect(container.textContent).toContain("Researching");
     expect(container.textContent).toContain("Sources");
     expect(container.textContent).toContain("Checking company, product, funding, and proof sources");
@@ -940,12 +949,15 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).not.toContain("Pulling in what matters");
     expect(container.textContent).not.toContain("Turning evidence into a card");
     expect(container.textContent).not.toContain("Saving the final profile");
-    // No wall-clock stage estimation: with no run events yet, progress holds at the first stage.
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 1 of 4");
-    expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
+    // No wall-clock stage estimation: with no run events yet, the trail holds at the first stage.
+    const runningSegment = container.querySelector(".cs-trail-segment[data-status='running']");
+    expect(runningSegment?.textContent).toContain("Sources");
+    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(0);
+    // The persistent header carries the identity and the run timer; there is no separate hero.
+    expect(container.querySelector(".cs-company-context[data-phase='building']")).not.toBeNull();
+    expect(container.querySelector(".cs-generation-hero")).toBeNull();
     expect(container.querySelector(".cs-build-bar")).toBeNull();
-    expect(container.querySelector(".cs-drizzle-loader")).not.toBeNull();
-    expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
+    expect(container.querySelector(".cs-company-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
     expect(container.querySelector(".cs-card-tray")).toBeNull();
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");
@@ -997,8 +1009,149 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 2 of 4");
+    // The source.found event advances the trail to its second stage and the count surfaces
+    // in the trail copy without opening the details tree.
+    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(1);
+    expect(container.querySelector(".cs-trail-segment[data-status='running']")?.textContent).toContain("Proof");
+    expect(container.querySelector(".cs-research-progress")?.textContent).toContain("8 sources found");
+    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
+    expect(detailsButton).not.toBeNull();
+    await act(async () => {
+      detailsButton?.click();
+    });
+    await flushPromises();
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
+    await unmount();
+  });
+
+  it("carries generation events into the success state so the early read survives the handoff", async () => {
+    vi.useFakeTimers();
+    const domain = "cartesia.ai";
+    const startedAtIso = new Date(Date.now() - 20_000).toISOString();
+    const substantivePayoff = {
+      status: "substantive_first_read",
+      slug: "cartesia",
+      domain,
+      generatedAt: new Date().toISOString(),
+      generatedAtMs: Date.now(),
+      entityConfidence: "high",
+      entityConfidenceReason: "Company-controlled source matches the current domain.",
+      evidenceSoFar: [
+        {
+          sourceId: "company_site-cartesia.ai",
+          url: "https://cartesia.ai/",
+          domain,
+          title: "Cartesia",
+          sourceClass: "company_site",
+          quality: "company",
+          arrivedAtMs: Date.now(),
+          entityMatched: true
+        }
+      ],
+      stillChecking: { text: "Independent funding proof.", missingEvidenceClass: "funding" },
+      whoItSeemsFor: {
+        text: "Voice teams shipping real-time agents on constrained devices.",
+        supportingText: "Voice teams shipping real-time agents on constrained devices.",
+        sourceIds: ["company_site-cartesia.ai"],
+        citationIds: [],
+        sourceClass: "company_site",
+        claimKind: "who_it_serves"
+      },
+      suppressionReasons: []
+    };
+    const runEvents = [
+      {
+        id: "event-source",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "source.found",
+        message: "Found 6 accepted sources",
+        metadata: { acceptedCount: 6 },
+        createdAt: "2026-06-30T00:00:01.000Z"
+      },
+      {
+        id: "event-payoff",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "first_payoff.ready",
+        message: "Early read ready",
+        metadata: { firstPayoff: substantivePayoff },
+        createdAt: "2026-06-30T00:00:02.000Z"
+      },
+      {
+        id: "event-partial",
+        runId: "run-1",
+        slug: "cartesia",
+        domain,
+        sectionId: null,
+        type: "card.partial",
+        message: "Saved first usable company card",
+        metadata: { citationCount: 4 },
+        createdAt: "2026-06-30T00:00:03.000Z"
+      }
+    ];
+    let statusCalls = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "cartesia", domain, status: "queued", mode: "basics" }, { status: 202 });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        if (generateCalls(fetchMock).length === 0) {
+          return jsonResponse({ slug: "cartesia", domain, mode: "basics", status: "idle" });
+        }
+        statusCalls += 1;
+        // The run completes between the handoff and the finalization watcher's first poll,
+        // so the only copy of the run events is the one carried across the transition.
+        return statusCalls === 1
+          ? jsonResponse({
+              slug: "cartesia",
+              domain,
+              status: "running",
+              mode: "basics",
+              startedAt: startedAtIso,
+              events: runEvents
+            })
+          : jsonResponse({
+              slug: "cartesia",
+              domain,
+              status: "complete",
+              mode: "basics",
+              startedAt: startedAtIso,
+              completedAt: new Date().toISOString()
+            });
+      }
+
+      return generateCalls(fetchMock).length > 0
+        ? jsonResponse(cardForDomain(domain))
+        : missingCardResponse();
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const generateButton = Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Begin research"
+    );
+    expect(generateButton).toBeTruthy();
+    await act(async () => {
+      generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    await flushPromises();
+
+    // The fetched card reports cacheStatus "hit", so without the carried events the read
+    // would file itself the moment the profile view mounted.
+    expect(container.textContent).toContain("Research");
+    const earlyRead = container.querySelector("[aria-label='Early read']");
+    expect(earlyRead).not.toBeNull();
+    expect(earlyRead?.textContent).toContain("Voice teams shipping real-time agents on constrained devices.");
+    expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
     await unmount();
   });
 
@@ -1019,8 +1172,9 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    expect(container.textContent).toContain("Synthesizing");
-    expect(container.textContent).toContain("Reading cited sources");
+    // The resumed run reads as Investor Lens, one receipt, not generic research progress.
+    expect(container.textContent).toContain("Investor Lens running");
+    expect(container.textContent).toContain("Weighing bull against bear");
     expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);
@@ -2319,8 +2473,14 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
-    expect(container.textContent).toContain("Research status");
-    expect(container.textContent).toContain("Not enough cited evidence for Investor Lens yet.");
+    // The empty verifier outcome files as an honest Lens receipt, not a generic error notice,
+    // and the Lens control stays available for a rerun.
+    expect(container.textContent).toContain("Lens not filed");
+    expect(container.textContent).toContain("No supported investor read survived verification.");
+    expect(container.textContent).not.toContain("Research status");
+    expect(
+      interactiveControls(container).some((button) => button.textContent === "Run Investor Lens")
+    ).toBe(true);
     await unmount();
   });
 
