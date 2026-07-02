@@ -42,7 +42,7 @@ import {
   RESEARCH_PROGRESS_STAGES
 } from "./research-progress";
 import { firstPayoffForEvents } from "./first-payoff-events";
-import { FirstPayoffSurface } from "./FirstPayoffSurface";
+import { ReadRegion } from "./ReadRegion";
 import { motionTokens, snapSpring } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import "./styles.css";
@@ -501,7 +501,7 @@ function GenerationPanel({
           stages={stages}
         />
       </Suspense>
-      {firstPayoff ? <FirstPayoffSurface firstPayoff={firstPayoff} /> : null}
+      {firstPayoff ? <ReadRegion context="building" firstPayoff={firstPayoff} /> : null}
     </ExtensionFrame>
   );
 }

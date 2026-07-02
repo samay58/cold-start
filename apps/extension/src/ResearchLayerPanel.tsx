@@ -35,8 +35,8 @@ import {
 } from "./extension-format";
 import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
-import { FirstPayoffSurface } from "./FirstPayoffSurface";
 import { investorReadForCard, type InvestorReadDisplay } from "./investor-lens";
+import { ReadRegion } from "./ReadRegion";
 import { currentProfileProgressEvents } from "./research-progress";
 import { ResearchTrail } from "./ResearchTrail";
 import { markPerformance } from "./sidepanel-network";
@@ -1104,7 +1104,6 @@ export function ResearchLayerPanel({
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
-  const firstPayoffMarkedVisible = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
@@ -1259,14 +1258,6 @@ export function ResearchLayerPanel({
   const firstPayoffSourceCount = filedSourceCount(events, sources);
   const investorRead = investorReadForCard(card);
 
-  useEffect(() => {
-    if (!showFirstPayoff || firstPayoffMarkedVisible.current) {
-      return;
-    }
-    firstPayoffMarkedVisible.current = true;
-    markPerformance("cold-start-first-read-visible");
-  }, [showFirstPayoff]);
-
   if (!canShowResearchLayers && !showFirstPayoff && !showSourcesChecked) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
@@ -1305,7 +1296,7 @@ export function ResearchLayerPanel({
 
       <AnimatePresence initial={false}>
         {showFirstPayoff && firstPayoff ? (
-          <FirstPayoffSurface firstPayoff={firstPayoff} />
+          <ReadRegion context="profile" firstPayoff={firstPayoff} />
         ) : null}
       </AnimatePresence>
 

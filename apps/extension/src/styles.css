@@ -1466,9 +1466,11 @@ button {
   outline-offset: 2px;
 }
 
-.cs-early-read {
+/* The inline early read region: the filed slip, always open. The lilac lives only in the head
+   band; the body below stays parchment. Text is ink for contrast, never lilac-on-lilac. */
+.cs-read-region {
   position: relative;
-  margin: -4px 12px 12px;
+  margin: 0 12px 12px;
   overflow: hidden;
   border: 1px solid rgb(var(--cs-c-216-208-191) / 0.82);
   border-radius: 8px;
@@ -1478,43 +1480,15 @@ button {
   box-shadow: 0 5px 14px rgb(var(--cs-c-44-36-19) / 0.05);
 }
 
-/* Live agent view: the slip docks flush to the bottom of the source-pass instrument so the two read
-   as one continuous card. The instrument squares its bottom corners (rule below), the slip squares
-   its top and drops its top border, and the instrument's own bottom border becomes the hairline
-   between the progress section and the lilac Early read footer. */
-.cs-generation-panel .cs-early-read {
-  margin: 0 4px 6px;
-  border-top: 0;
-  border-radius: 0 0 8px 8px;
-}
-
-.cs-live-card-refined:has(+ .cs-early-read) {
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-/* The lilac lives only in this header band; the body below stays parchment. Text is ink for contrast,
-   never lilac-on-lilac. */
-.cs-early-read-tab {
+.cs-read-region-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 100%;
-  margin: 0;
-  padding: 8px 12px;
-  border: 0;
+  padding: 7px 12px;
   border-bottom: 1px solid rgb(var(--cs-c-110-92-158) / 0.24);
   background:
     linear-gradient(180deg, rgb(var(--cs-c-110-92-158) / 0.34), rgb(var(--cs-c-110-92-158) / 0.24)),
     var(--color-plate);
-  color: var(--color-ink);
-  cursor: pointer;
-  text-align: left;
-}
-
-.cs-early-read-tab:focus-visible {
-  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.7);
-  outline-offset: -2px;
 }
 
 .cs-early-read-tab-label {
@@ -1526,48 +1500,18 @@ button {
   letter-spacing: 0.01em;
 }
 
-.cs-early-read-chevron {
-  width: 7px;
-  height: 7px;
-  margin-left: auto;
-  border-right: 1.5px solid rgb(var(--cs-c-23-26-31-text) / 0.52);
-  border-bottom: 1.5px solid rgb(var(--cs-c-23-26-31-text) / 0.52);
-  transform: translateY(-1px) rotate(45deg);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.cs-early-read[data-open="true"] .cs-early-read-chevron {
-  transform: translateY(1px) rotate(-135deg);
-}
-
-.cs-early-read-reveal {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 240ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.cs-early-read[data-open="true"] .cs-early-read-reveal {
-  grid-template-rows: 1fr;
-}
-
-.cs-early-read-body {
+.cs-read-region-body {
   display: grid;
   gap: 9px;
-  min-height: 0;
-  overflow: hidden;
-  padding: 0 12px;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition:
-    opacity 180ms ease,
-    transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
-    padding 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 10px 12px 11px;
 }
 
-.cs-early-read[data-open="true"] .cs-early-read-body {
-  padding: 10px 12px 11px;
-  opacity: 1;
-  transform: translateY(0);
+.cs-read-region-need {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 540;
 }
 
 .cs-early-read-claim {
@@ -1682,25 +1626,6 @@ button {
   font-weight: 540;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cs-early-read-reveal {
-    transition: grid-template-rows 140ms ease;
-  }
-
-  .cs-early-read-body {
-    transform: none;
-    transition: opacity 140ms ease, padding 140ms ease;
-  }
-
-  .cs-early-read[data-open="true"] .cs-early-read-body {
-    transform: none;
-  }
-
-  .cs-early-read-chevron {
-    transition: none;
-  }
 }
 
 .cs-company-facts {

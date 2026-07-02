@@ -307,47 +307,18 @@ describe("ResearchLayerPanel first read", () => {
     await unmount();
   });
 
-  it("collapses by default and opens on hover, keyboard focus, and tap", async () => {
+  it("renders the early read inline and always open, with no reveal interaction required", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const slip = container.querySelector<HTMLElement>("[aria-label='Early read']");
-    const tab = slip?.querySelector<HTMLButtonElement>(".cs-early-read-tab");
+    const region = container.querySelector<HTMLElement>("[aria-label='Early read']");
 
-    expect(slip?.getAttribute("data-open")).toBe("false");
-    expect(tab).not.toBeNull();
-
-    // Keyboard focus opens the slip; blurring away closes it.
-    await act(async () => {
-      tab!.focus();
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      tab!.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
-
-    // Hover opens it; hovering away closes it again (React derives enter/leave from over/out).
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
-
-    // Tap pins it open so it survives a pointer leaving the slip, then a second tap files it away.
-    await act(async () => {
-      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
+    expect(region).not.toBeNull();
+    // The read is a region, not a disclosure: no tab, no chevron, nothing to hover or pin.
+    expect(region?.querySelector("button")).toBeNull();
+    expect(region?.getAttribute("data-open")).toBeNull();
+    // The claim and its sources are readable without any interaction.
+    expect(region?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
+    expect(region?.querySelector("[aria-label='Sources']")).not.toBeNull();
+    expect(region?.querySelector("a[href='https://techcrunch.com/exa']")).not.toBeNull();
     await unmount();
   });
 
@@ -359,7 +330,6 @@ describe("ResearchLayerPanel first read", () => {
     expect(firstRead?.textContent).toContain("Early read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.querySelector("[aria-label='Sources']")).not.toBeNull();
-    expect(firstRead?.querySelector(".cs-early-read-tab")).not.toBeNull();
     await unmount();
   });
 
