@@ -121,7 +121,7 @@ export type ProviderFactCandidate<T = unknown> = {
   status: "verified" | "mixed" | "inferred" | "unknown";
   confidence: "high" | "medium" | "low";
   sourceType: ProviderSource["sourceType"];
-  provider: "stableenrich" | "direct_exa" | "sec_edgar" | "websets";
+  provider: "stableenrich" | "direct_exa" | "sec_edgar" | "websets" | "github";
   endpoint: string;
   citationUrl: string;
   citationTitle: string;

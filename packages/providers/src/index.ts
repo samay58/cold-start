@@ -1,5 +1,6 @@
 export * from "./agentcash";
 export * from "./direct-exa";
+export * from "./github-contacts";
 export * from "./people-hints";
 export * from "./provider-budget";
 export * from "./sec-edgar";
