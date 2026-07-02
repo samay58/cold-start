@@ -48,7 +48,9 @@ type LensTiming = {
   field: string;
   text: string;
   sourcePosture: SourcePosture;
-  supportedFieldCount: number;
+  // The other supported timing fields, in memo order, so the card can file them
+  // behind a "+N more" affordance instead of a bare count.
+  moreFields: Array<{ field: string; text: string }>;
 };
 
 type LensQuestion = {
@@ -208,7 +210,10 @@ function timingDisplay(card: ColdStartCard, citations: Map<string, Citation>): L
     field: first.label,
     text: stripCitationMarkers(first.claim.text),
     sourcePosture: strongestPosture(citations, first.claim.citationIds),
-    supportedFieldCount: supported.length
+    moreFields: supported.slice(1).map((entry) => ({
+      field: entry.label,
+      text: stripCitationMarkers(entry.claim.text)
+    }))
   };
 }
 
@@ -311,10 +316,11 @@ function filedOn(generatedAt: string): string | null {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
 }
 
-function receiptLine(card: ColdStartCard, claimCount: number) {
+// The filed date alone; the claims themselves are on the card, so a held-claims count
+// would be ink without information.
+function receiptLine(card: ColdStartCard) {
   const date = filedOn(card.generatedAt);
-  const held = `${claimCount} ${claimCount === 1 ? "claim" : "claims"} held`;
-  return [date ? `Filed ${date}` : "Filed", held].join(" · ");
+  return date ? `Filed ${date}` : "Filed";
 }
 
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {
@@ -330,7 +336,7 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
   const bear = card.synthesis.bearCase[0] ?? null;
 
   return {
-    receiptLine: receiptLine(card, claims.length),
+    receiptLine: receiptLine(card),
     lede: lensClaim(citations, card.synthesis.whyItMatters),
     holds: bull ? lensClaim(citations, bull) : null,
     breaks: bear ? lensClaim(citations, bear) : null,

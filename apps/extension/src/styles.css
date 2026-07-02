@@ -1294,6 +1294,7 @@ button {
 .cs-shared-tooltip span {
   color: rgb(var(--cs-c-23-26-31-text) / 0.76);
   font: 500 12.5px/1.42 var(--font-body);
+  white-space: pre-line;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1599,13 +1600,17 @@ button {
   margin: 10px 12px 0;
 }
 
+/* Sealed, running, and filed are three states of one card. They share the plate, the
+   radius, and the padding; the top edge takes the seal progressively: rule while sealed,
+   half seal while running, full seal on the filed memo. */
 .cs-investor-lens-control {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
@@ -1661,8 +1666,9 @@ button {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px;
+  padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid rgb(var(--cs-c-110-92-158) / 0.55);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
@@ -1700,10 +1706,12 @@ button {
 .cs-lens-notfiled {
   display: grid;
   gap: 4px;
-  padding: 12px;
-  border: 1px dashed rgb(var(--cs-c-156-151-138) / 0.8);
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
 }
 
 .cs-lens-notfiled strong {
@@ -1721,8 +1729,10 @@ button {
 }
 
 /*
- * The filed memo. A kept index card: seal top edge, ruled sections, classification
- * dots as the only evidence color. Rules and spacing carry the hierarchy, not chrome.
+ * The filed memo, one continuous object: the lede is the largest text and reads first,
+ * the tension pair and the quieter rows share one label-column ledger, and one footer
+ * carries the evidence in classification dots. Rules and type carry the hierarchy, not
+ * chrome; the seal appears once, on the section label and its top edge.
  */
 .cs-investor-read,
 .cs-investor-read * {
@@ -1740,15 +1750,11 @@ button {
   box-shadow:
     0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.8) inset,
     0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05);
-  padding: 13px 14px 12px;
+  padding: 12px 14px;
 }
 
 .cs-investor-read-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 9px;
+  padding-bottom: 8px;
 }
 
 .cs-investor-read-head span {
@@ -1759,29 +1765,25 @@ button {
   letter-spacing: 0.01em;
 }
 
-.cs-investor-read-head small {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
-  font-family: var(--font-text);
-  font-size: 10px;
-  letter-spacing: 0.03em;
-  line-height: 1.35;
-  text-align: right;
-}
-
 .cs-investor-read-lede {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
-  gap: 8px;
+  gap: 9px;
   margin: 0;
   padding-bottom: 12px;
   color: var(--color-ink);
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
+.cs-investor-read-lede .cs-lens-dot {
+  margin-top: 8px;
+}
+
 .cs-lens-dot,
-.cs-lens-posture span i {
+.cs-lens-source i {
   display: inline-block;
   flex: none;
   width: 6px;
@@ -1791,59 +1793,61 @@ button {
   background: var(--color-rule-strong);
 }
 
-.cs-lens-posture span i {
+.cs-lens-source i {
   margin-top: 0;
 }
 
 .cs-lens-dot[data-posture="independent"],
-.cs-lens-posture span[data-posture="independent"] i {
+.cs-lens-source[data-class="independent"] i {
   background: var(--color-verified);
 }
 
 .cs-lens-dot[data-posture="reporting"],
-.cs-lens-posture span[data-posture="reporting"] i {
+.cs-lens-source[data-class="reporting"] i {
   background: var(--color-reported);
 }
 
 .cs-lens-dot[data-posture="company-authored"],
-.cs-lens-posture span[data-posture="company-authored"] i {
+.cs-lens-source[data-class="company"] i {
   background: var(--color-company);
 }
 
-.cs-lens-dot[data-posture="enrichment"],
-.cs-lens-posture span[data-posture="enrichment"] i {
+.cs-lens-dot[data-posture="enrichment"] {
   background: var(--color-seal);
 }
 
-.cs-lens-dot[data-posture="unknown"],
-.cs-lens-posture span[data-posture="unknown"] i {
+.cs-lens-dot[data-posture="unknown"] {
   border: 1px solid var(--color-rule-strong);
   background: transparent;
 }
 
+/* The ledger device: every row is [label | content] on one aligned column, so the
+   tension pair, timing, and the next question read as lines of one memo. */
+.cs-lens-tension-side,
+.cs-lens-timing,
+.cs-lens-question {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: baseline;
+}
+
 .cs-lens-tension {
   display: grid;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
-}
-
-.cs-lens-tension-side {
+  gap: 8px;
   padding: 10px 0;
-}
-
-.cs-lens-tension-side + .cs-lens-tension-side {
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
 }
 
 .cs-lens-tension-side h4,
 .cs-lens-timing h4,
 .cs-lens-question h4 {
-  margin: 0 0 5px;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.56);
-  font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1;
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
 }
 
 .cs-lens-tension-side p,
@@ -1853,7 +1857,7 @@ button {
   gap: 8px;
   margin: 0;
   color: var(--color-ink);
-  font-size: 12.5px;
+  font-size: 12.75px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -1861,6 +1865,7 @@ button {
 .cs-lens-none {
   color: rgb(var(--cs-c-23-26-31-text) / 0.6);
   font-size: 11.5px;
+  line-height: 1.5;
 }
 
 .cs-lens-tension-side p.cs-lens-none,
@@ -1869,8 +1874,14 @@ button {
 }
 
 .cs-lens-timing {
-  padding: 10px 0;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
+  padding: 9px 0;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-lens-timing p,
+.cs-lens-question p {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.86);
+  font-size: 12.25px;
 }
 
 .cs-lens-timing em {
@@ -1879,44 +1890,45 @@ button {
   font-weight: 620;
 }
 
-.cs-lens-timing small {
-  display: block;
-  margin-top: 4px;
-  padding-left: 18px;
+.cs-lens-timing-more {
+  margin: 3px 0 0 18px;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--color-muted);
+  cursor: default;
   font-family: var(--font-text);
   font-size: 10px;
   letter-spacing: 0.02em;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-timing-more:hover,
+.cs-lens-timing-more:focus-visible {
+  color: var(--color-seal);
 }
 
 .cs-lens-question {
-  padding: 10px 0 12px;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
-}
-
-.cs-lens-question h4 {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.cs-lens-question h4 span {
-  padding: 2px 6px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.9);
-  border-radius: 3px;
-  color: var(--color-muted);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  padding: 9px 0 11px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
 }
 
 .cs-lens-question p {
   margin: 0;
-  color: var(--color-ink);
-  font-size: 12.5px;
   font-weight: 500;
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.cs-lens-question-category {
+  margin-left: 7px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .cs-lens-question small {
@@ -1930,44 +1942,79 @@ button {
 .cs-lens-question small em,
 .cs-question-detail em {
   margin-right: 4px;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.56);
-  font-family: var(--font-text);
-  font-size: 9.5px;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-size: 10.5px;
   font-style: normal;
-  letter-spacing: 0.04em;
+  font-weight: 620;
 }
 
-.cs-lens-posture {
-  display: grid;
-  gap: 8px;
-  padding-top: 10px;
+/* One evidence footer: classed source dots do the talking, the filed date closes the
+   card, and the only count left is the honest overflow. */
+.cs-lens-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding-top: 9px;
   border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
 }
 
-.cs-lens-posture-marks {
+.cs-lens-footer-sources {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.cs-lens-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+a.cs-lens-source:hover,
+a.cs-lens-source:focus-visible {
+  color: var(--color-seal);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-source-more {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-source-more:hover,
+.cs-lens-source-more:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-lens-footer-filed {
+  margin-left: auto;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
   font-family: var(--font-text);
   font-size: 10px;
   letter-spacing: 0.03em;
 }
 
-.cs-lens-posture-marks span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.cs-lens-posture-marks em {
+.cs-lens-footer-caveat {
+  flex-basis: 100%;
   color: var(--color-company);
   font-size: 10.5px;
-}
-
-.cs-lens-posture .cs-source-chips {
-  margin: 0;
+  font-style: normal;
+  line-height: 1.4;
 }
 
 .cs-question-detail {
@@ -1976,19 +2023,6 @@ button {
   color: var(--color-muted);
   font-size: 10.5px;
   line-height: 1.4;
-}
-
-@media (min-width: 720px) {
-  .cs-lens-tension {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 14px;
-  }
-
-  .cs-lens-tension-side + .cs-lens-tension-side {
-    border-top: 0;
-    border-left: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
-    padding-left: 14px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2442,7 +2476,9 @@ button {
 .cs-dormant-card:focus-visible,
 .cs-active-enrichment-head:focus-visible,
 .cs-research-notice button:focus-visible,
-.cs-source-chip:focus-visible {
+.cs-source-chip:focus-visible,
+.cs-lens-source:focus-visible,
+.cs-lens-timing-more:focus-visible {
   outline: 2px solid var(--color-seal);
   outline-offset: 2px;
 }

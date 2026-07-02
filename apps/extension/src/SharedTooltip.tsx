@@ -22,6 +22,15 @@ export type TooltipTriggerProps = {
   onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
 };
 
+// The shape components accept to wire a trigger, so consumers depend on the primitive
+// without owning the tooltip state.
+export type TooltipPropsFor = (input: {
+  body: string;
+  id: string;
+  placement?: TooltipPlacement;
+  title: string;
+}) => TooltipTriggerProps;
+
 const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 
 function clamp(value: number, min: number, max: number) {

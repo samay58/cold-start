@@ -88,9 +88,9 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead.locator(".cs-lens-question")).toContainText("active physician seats");
   await expect(investorRead.locator(".cs-lens-question")).toContainText("Changes the read if");
 
-  // Source posture is visible: counted marks plus linked source chips.
-  await expect(investorRead.locator(".cs-lens-posture-marks")).toBeVisible();
-  await expect(investorRead.locator(".cs-source-chip").first()).toBeVisible();
+  // Evidence closes the card in one footer: classed source links and the filed date.
+  await expect(investorRead.locator(".cs-lens-source").first()).toBeVisible();
+  await expect(investorRead.locator(".cs-lens-footer-filed")).toContainText("Filed");
 
   const hasNoHorizontalOverflow = await investorRead.evaluate((element) =>
     element.scrollWidth <= element.clientWidth + 1
@@ -185,7 +185,7 @@ test("keyboard-reachable controls keep visible focus targets", async ({ page }) 
 
   const controls = [
     page.getByLabel("Company context").getByRole("link", { name: "browserbase.com" }),
-    page.getByRole("article", { name: "Investor read" }).locator(".cs-source-chip").first(),
+    page.getByRole("article", { name: "Investor read" }).locator(".cs-lens-source").first(),
     page.locator(".cs-dormant-card", { hasText: "Who pays" }),
     page.locator(".cs-dormant-card", { hasText: "Money" })
   ];
@@ -920,6 +920,10 @@ test("keyboard activation runs the investor lens for analysis layers", async ({ 
   await expect(activeQuestions).toContainText("Run Investor Lens");
   expect(generationRequests).toHaveLength(0);
   await page.getByRole("button", { name: "Run Investor Lens" }).click();
+  // The lens slot swaps to the running receipt while the one analysis run works.
+  await expect(page.locator(".cs-lens-running")).toBeVisible();
+  await expect(page.locator(".cs-lens-running")).toContainText("Investor Lens running");
+  await page.locator(".cs-lens-slot").screenshot({ path: "/private/tmp/cold-start-lens-running.png" });
   await expect(activeQuestions).toContainText("Synthesizing");
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }
@@ -1055,3 +1059,40 @@ test("early read survives the basics generating-to-success handoff", async ({ pa
   await expect(read).toContainText(claim);
 });
 
+test("timing files the remaining supported fields behind a tooltip affordance", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: {
+      text: "Browserbase turns browser automation into agent infrastructure [c1].",
+      citationIds: ["c1", "c2"]
+    },
+    bullCase: [{ text: "Developers need reliable browser sessions for AI workflows [c3].", citationIds: ["c3"] }],
+    bearCase: [],
+    openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }],
+    marketStructureAndTiming: {
+      buyerBudget: { text: "Platform teams own the browser-infrastructure budget [c2].", citationIds: ["c2"] },
+      painSeverity: null,
+      adoptionTrigger: { text: "Agent rollouts are forcing teams to standardize browser infrastructure [c2].", citationIds: ["c2"] },
+      marketStructure: null,
+      profitPool: null,
+      expansionPath: null,
+      timingRisk: null
+    }
+  };
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const timing = page.getByRole("article", { name: "Investor read" }).locator(".cs-lens-timing");
+  await expect(timing).toContainText("Adoption trigger");
+  await expect(timing).toContainText("Agent rollouts are forcing teams to standardize browser infrastructure.");
+
+  // The overflow count is an affordance, not a bare number: hovering files the rest.
+  const more = timing.getByRole("button", { name: "+1 more" });
+  await more.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("Also filed under Timing");
+  await expect(tooltip).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
+});

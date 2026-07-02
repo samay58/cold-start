@@ -33,6 +33,7 @@ import {
   type SourcePosture
 } from "./investor-lens";
 import { ResearchTrail } from "./ResearchTrail";
+import type { TooltipPropsFor } from "./SharedTooltip";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -61,6 +62,7 @@ type ResearchLayerPanelProps = {
   sections?: ResearchSection[] | undefined;
   events?: ExtensionResearchRunEvent[] | undefined;
   sources?: ExtensionSourceSummary[] | undefined;
+  tooltipProps: TooltipPropsFor;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
@@ -462,12 +464,16 @@ function LensTensionSide({
   );
 }
 
-function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
+const LENS_FOOTER_SOURCE_COUNT = 4;
+
+function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; tooltipProps: TooltipPropsFor }) {
+  const visibleSources = read.sources.slice(0, LENS_FOOTER_SOURCE_COUNT);
+  const hiddenSources = read.sources.slice(LENS_FOOTER_SOURCE_COUNT);
+
   return (
     <article className="cs-investor-read" aria-label="Investor read">
       <header className="cs-investor-read-head">
         <span>Investor read</span>
-        <small>{read.receiptLine}</small>
       </header>
       <p className="cs-investor-read-lede">
         <LensPostureDot posture={read.lede.sourcePosture} />
@@ -490,50 +496,87 @@ function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
       <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
         <h4>Timing</h4>
         {read.timing ? (
-          <>
+          <div>
             <p>
               <LensPostureDot posture={read.timing.sourcePosture} />
               <span>
                 <em>{read.timing.field}.</em> {read.timing.text}
               </span>
             </p>
-            {read.timing.supportedFieldCount > 1 ? (
-              <small>{`+${read.timing.supportedFieldCount - 1} more filed under Timing`}</small>
+            {read.timing.moreFields.length > 0 ? (
+              <button
+                className="cs-lens-timing-more"
+                type="button"
+                {...tooltipProps({
+                  body: read.timing.moreFields.map((entry) => `${entry.field}. ${entry.text}`).join("\n\n"),
+                  id: "lens-timing-more",
+                  placement: "above",
+                  title: "Also filed under Timing"
+                })}
+              >
+                {`+${read.timing.moreFields.length} more`}
+              </button>
             ) : null}
-          </>
+          </div>
         ) : (
           <p className="cs-lens-none">Not supported by current sources.</p>
         )}
       </section>
       <section className="cs-lens-question" aria-label="Next question">
-        <h4>
-          Next question
-          {read.nextQuestion?.categoryLabel ? <span>{read.nextQuestion.categoryLabel}</span> : null}
-        </h4>
+        <h4>Next question</h4>
         {read.nextQuestion ? (
-          <>
-            <p>{read.nextQuestion.question}</p>
+          <div>
+            <p>
+              {read.nextQuestion.question}
+              {read.nextQuestion.categoryLabel ? (
+                <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
+              ) : null}
+            </p>
             {read.nextQuestion.changesReadIf ? (
               <small>
                 <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
               </small>
             ) : null}
-          </>
+          </div>
         ) : (
           <p className="cs-lens-none">No ranked question survived verification.</p>
         )}
       </section>
-      <footer className="cs-lens-posture" aria-label="Source posture">
-        <div className="cs-lens-posture-marks">
-          {read.postureMarks.map((mark) => (
-            <span data-posture={mark.posture} key={mark.posture}>
+      <footer className="cs-lens-footer" aria-label="Cited sources">
+        <div className="cs-lens-footer-sources">
+          {visibleSources.map((source) => (
+            <a
+              className="cs-lens-source"
+              data-class={source.sourceClass}
+              href={source.href}
+              key={source.id}
+              rel="noreferrer"
+              target="_blank"
+              title={`${source.qualityLabel}: ${source.title}`}
+            >
               <i aria-hidden="true" />
-              {`${mark.count} ${mark.label}`}
-            </span>
+              {source.domain}
+            </a>
           ))}
-          {!read.independentlyBacked ? <em>No independent source in this read.</em> : null}
+          {hiddenSources.length > 0 ? (
+            <button
+              className="cs-lens-source cs-lens-source-more"
+              type="button"
+              {...tooltipProps({
+                body: hiddenSources.map((source) => `${source.domain}: ${source.title}`).join("\n"),
+                id: "lens-sources-more",
+                placement: "above",
+                title: "Also cited"
+              })}
+            >
+              {`+${hiddenSources.length}`}
+            </button>
+          ) : null}
         </div>
-        <SourceChips sources={read.sources} />
+        <small className="cs-lens-footer-filed">{read.receiptLine}</small>
+        {!read.independentlyBacked ? (
+          <em className="cs-lens-footer-caveat">No independent source in this read.</em>
+        ) : null}
       </footer>
     </article>
   );
@@ -738,7 +781,8 @@ export function ResearchLayerPanel({
   activeSectionRun,
   sections,
   events = [],
-  sources = []
+  sources = [],
+  tooltipProps
 }: ResearchLayerPanelProps) {
   const quality = publicProfileQuality(card);
   const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
@@ -918,7 +962,7 @@ export function ResearchLayerPanel({
           {lensRunning ? (
             <LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />
           ) : investorRead ? (
-            <InvestorReadCard read={investorRead} />
+            <InvestorReadCard read={investorRead} tooltipProps={tooltipProps} />
           ) : (
             <>
               {lensNotFiled ? <LensNotFiledCard /> : null}

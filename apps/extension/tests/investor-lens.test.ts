@@ -117,7 +117,7 @@ describe("investor lens display", () => {
     }));
 
     expect(display).toMatchObject({
-      receiptLine: "Filed Jun 23 · 4 claims held",
+      receiptLine: "Filed Jun 23",
       lede: {
         text: "Warp could matter if terminal work becomes the control plane for engineering agents.",
         sourcePosture: "independent"
@@ -134,7 +134,7 @@ describe("investor lens display", () => {
         field: "Buyer budget",
         text: "The budget appears to sit with engineering productivity owners.",
         sourcePosture: "independent",
-        supportedFieldCount: 1
+        moreFields: []
       },
       nextQuestion: {
         question: "Who owns the budget if Warp moves from individual developers into team workflows?",
@@ -196,7 +196,7 @@ describe("investor lens display", () => {
       field: "Adoption trigger",
       text: "Agent rollouts are forcing terminal standardization.",
       sourcePosture: "independent",
-      supportedFieldCount: 2
+      moreFields: [{ field: "Buyer budget", text: "Budget sits with platform teams." }]
     });
   });
 
@@ -214,7 +214,7 @@ describe("investor lens display", () => {
     expect(timingIsNotFound(noTimingCard)).toBe(true);
     expect(display?.timing).toBeNull();
     expect(display?.timingNotFound).toBe(true);
-    expect(display?.receiptLine).toBe("Filed Jun 23 · 1 claim held");
+    expect(display?.receiptLine).toBe("Filed Jun 23");
     expect(display?.postureMarks).toEqual([{ posture: "company-authored", label: "company", count: 1 }]);
     expect(display?.independentlyBacked).toBe(false);
   });

@@ -2183,7 +2183,7 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("The company has a supported wedge.");
     expect(container.textContent).not.toContain("[c1]");
-    const sourceLink = container.querySelector<HTMLAnchorElement>(".cs-source-chip[href='https://linear.app/']");
+    const sourceLink = container.querySelector<HTMLAnchorElement>(".cs-lens-source[href='https://linear.app/']");
     expect(sourceLink).toBeTruthy();
     expect(sourceLink?.textContent).toContain("linear.app");
     expect(sourceLink?.target).toBe("_blank");

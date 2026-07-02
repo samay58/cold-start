@@ -311,6 +311,7 @@ export function CompanyArc({
               profileRun={profile.profileRun}
               activeSectionElapsedSeconds={activeSectionElapsedSeconds}
               activeSectionRun={profile.activeSectionRun}
+              tooltipProps={triggerProps}
             />
           </Suspense>
         ) : null}
