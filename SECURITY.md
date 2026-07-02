@@ -31,6 +31,7 @@ Production secrets:
 - `X402_PRIVATE_KEY`: AgentCash wallet key for deployed provider calls.
 - `ANTHROPIC_API_KEY`: Anthropic API key.
 - `DIRECT_EXA_API_KEY`, `DIRECT_FIRECRAWL_API_KEY`, `DIRECT_PDL_API_KEY`: direct provider keys.
+- `GITHUB_TOKEN`: optional GitHub PAT for the free commit-email reachability layer. Public read-only scope is sufficient; do not grant repo write or private scopes.
 - `DATABASE_URL`: Neon Postgres connection string.
 - `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`: hosted Inngest credentials.
 

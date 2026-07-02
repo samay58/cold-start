@@ -42,4 +42,23 @@ describe("contact enrichment dispatch", () => {
       }
     });
   });
+
+  it("omits deepFind by default and includes it only when the paid deep-find is requested", () => {
+    const standard = buildContactEnrichmentRequestedEvent({
+      domain: "modal.com",
+      slug: "modal",
+      requestedAtMs: 1_799_999_000_000,
+      tier: "named-only"
+    });
+    expect(standard.data).not.toHaveProperty("deepFind");
+
+    const deep = buildContactEnrichmentRequestedEvent({
+      domain: "modal.com",
+      slug: "modal",
+      requestedAtMs: 1_799_999_000_000,
+      tier: "named-only",
+      deepFind: true
+    });
+    expect(deep.data).toMatchObject({ deepFind: true });
+  });
 });

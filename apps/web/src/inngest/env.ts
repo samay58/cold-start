@@ -49,6 +49,13 @@ export function websetsEnvFromProcess(): WebsetsEnv {
   return readEnvSubset(WEBSETS_ENV_KEYS);
 }
 
+// Personal access token for the free GitHub commit-email harvester (5,000 req/hr vs 60
+// unauthenticated). Optional: the harvester degrades to a no-op when it is missing.
+export function githubTokenFromProcess(): string | undefined {
+  const raw = process.env.GITHUB_TOKEN ?? process.env.GITHUB_PAT;
+  return raw?.trim() ? raw.trim() : undefined;
+}
+
 export function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
 }

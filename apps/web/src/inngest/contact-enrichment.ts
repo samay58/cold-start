@@ -16,6 +16,7 @@ import {
 } from "@cold-start/db";
 import {
   applyProviderFactCandidates,
+  buildGithubContactFacts,
   cardWithExtractedSections,
   extractedCardSectionsSchema,
   filterSourcesForDomain,
@@ -25,10 +26,13 @@ import {
 import {
   createPeopleEmailWebset,
   fetchDirectExaContactSources,
+  fetchGithubContacts,
   fetchStableenrichPeopleEmailSources,
+  isGithubContactsResult,
   pollPeopleEmailWebset,
   type DirectExaEnv,
   type PeopleEmailHint,
+  type ProviderFactCandidate,
   type ProviderSource,
   type StableenrichEnv,
   type WebsetsPeopleEmailResult
@@ -48,6 +52,7 @@ import {
   contactEnrichmentEnabled,
   directExaEnabled,
   directExaEnvFromProcess,
+  githubTokenFromProcess,
   stableenrichEnvFromProcess,
   websetsEnvFromProcess,
   type ContactEnrichmentTier
@@ -86,6 +91,11 @@ export function buildContactEnrichmentRequestedEvent(input: {
   tier: ContactEnrichmentTier;
   parentGenerationRunId?: string | null;
   parentInngestRunId?: string | null;
+  // Default path (false) runs only the free GitHub reachability layer. deepFind=true
+  // additionally spends the paid provider path (Websets + StableEnrich email probes)
+  // to fill the ~26% of companies the free layer misses. See
+  // docs/product/contact-enrichment-yield-and-design-2026-07-01.md.
+  deepFind?: boolean;
 }) {
   return {
     name: CONTACT_ENRICHMENT_EVENT_NAME,
@@ -94,6 +104,7 @@ export function buildContactEnrichmentRequestedEvent(input: {
       slug: input.slug,
       requestedAtMs: input.requestedAtMs,
       tier: input.tier,
+      ...(input.deepFind ? { deepFind: true } : {}),
       ...(input.parentGenerationRunId ? { parentGenerationRunId: input.parentGenerationRunId } : {}),
       ...(input.parentInngestRunId ? { parentInngestRunId: input.parentInngestRunId } : {})
     }
@@ -370,7 +381,67 @@ export const contactEnrichmentFunction = inngest.createFunction(
       const directExaEnv = directExaEnvFromProcess();
       const websetsEnv = websetsEnvFromProcess();
       const websetsExternalId = `cold-start-contact-${slug}-${parentGenerationRunId ?? trace.inngest?.runId ?? requestedAtMs}`;
-      const websetsOwnsEmailPath = runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED && Boolean(websetsEnv.EXA_WEBSETS_API_KEY?.trim());
+      // Paid contact providers (Websets + StableEnrich email probes) only run on an explicit
+      // deep-find request. The standard basics path uses the free GitHub reachability layer only.
+      const deepFind = event.data.deepFind === true;
+      const websetsOwnsEmailPath = deepFind && runtimeEnv.EXA_WEBSETS_CONTACTS_ENABLED && Boolean(websetsEnv.EXA_WEBSETS_API_KEY?.trim());
+
+      // Free layer, always first: harvest public @company-domain commit emails, attach them to
+      // extracted people by name, and infer the rest from the domain pattern. Costs nothing.
+      currentStage = "github-contacts";
+      const githubStep = await step.run("github-contacts", async () => {
+        const companyName = baseSections.identity.name.value ?? domain;
+        const githubToken = githubTokenFromProcess();
+        const result = await fetchGithubContacts({ domain, companyName, ...(githubToken ? { token: githubToken } : {}) });
+        if (!isGithubContactsResult(result)) {
+          return {
+            facts: [] as ProviderFactCandidate[],
+            sources: [] as ProviderSource[],
+            tracePatch: {
+              providers: {
+                github: { org: result.trace.org, reposChecked: result.trace.reposChecked, observedCount: 0, inferredCount: 0, pattern: null, requestCount: result.trace.requestCount, estimatedCostUsd: 0 as const }
+              }
+            }
+          };
+        }
+        const facts = buildGithubContactFacts({
+          domain,
+          founders: baseSections.team.founders.value ?? [],
+          keyExecs: baseSections.team.keyExecs.value ?? [],
+          observed: result.observed,
+          pattern: result.pattern,
+          orgUrl: `https://github.com/${result.org}`,
+          fetchedAt: new Date().toISOString()
+        });
+        const observedCount = facts.filter((fact) => Array.isArray(fact.value) && (fact.value[0] as { emailStatus?: string })?.emailStatus === "observed").length;
+        return {
+          facts,
+          sources: result.sources,
+          tracePatch: {
+            providers: {
+              github: {
+                org: result.org,
+                reposChecked: result.trace.reposChecked,
+                observedCount,
+                inferredCount: facts.length - observedCount,
+                pattern: result.pattern,
+                requestCount: result.trace.requestCount,
+                estimatedCostUsd: 0 as const
+              }
+            }
+          }
+        };
+      });
+      mergeTracePatch(trace, githubStep.tracePatch);
+      const githubFacts = githubStep.facts;
+      const githubSources = githubStep.sources;
+      await recordEvent("github-contacts", "source.contacts", "Checked public GitHub commit emails", {
+        observedCount: githubStep.tracePatch.providers.github.observedCount,
+        inferredCount: githubStep.tracePatch.providers.github.inferredCount
+      });
+
+      let paidProviderFacts: ProviderFactCandidate[] = [];
+      let paidSources: ProviderSource[] = [];
 
       // Websets are async agent searches: create the webset first so it works while the other
       // contact providers run, then poll durably below. The old inline fetch gave it ~4.5s and
@@ -385,42 +456,51 @@ export const contactEnrichmentFunction = inngest.createFunction(
                 return { skipped: true as const, reason: boundedErrorMessage(error) };
               }
             })
-          : { skipped: true, reason: "websets contacts disabled or EXA_WEBSETS_API_KEY missing" };
+          : { skipped: true, reason: deepFind ? "websets contacts disabled or EXA_WEBSETS_API_KEY missing" : "deep-find not requested" };
 
-      currentStage = "fetch-contact-sources";
-      const contactSourceResult = await step.run("fetch-contact-sources", async () => {
-        const result = await timed(() =>
-          fetchContactSourcesForBasics({
-            acceptedSources,
-            directExaEnv,
-            domain,
-            initialProviders: {},
-            maxStableenrichBudgetUsd: agentcashBudgetCeilingUsd({
-              mode: "basics",
-              override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
-            }),
-            peopleHints,
-            stableEnv,
-            websetsOwnsEmailPath
-          })
-        );
+      if (deepFind) {
+        currentStage = "fetch-contact-sources";
+        const contactSourceResult = await step.run("fetch-contact-sources", async () => {
+          const result = await timed(() =>
+            fetchContactSourcesForBasics({
+              acceptedSources,
+              directExaEnv,
+              domain,
+              initialProviders: {},
+              maxStableenrichBudgetUsd: agentcashBudgetCeilingUsd({
+                mode: "basics",
+                override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
+              }),
+              peopleHints,
+              stableEnv,
+              websetsOwnsEmailPath
+            })
+          );
 
-        return {
-          value: result.value,
-          tracePatch: {
-            steps: {
-              "fetch-contact-sources": completedStep(result.durationMs)
-            },
-            providers: result.value.trace.providers,
-            sourceGate: result.value.trace.sourceGate
-          }
+          return {
+            value: result.value,
+            tracePatch: {
+              steps: {
+                "fetch-contact-sources": completedStep(result.durationMs)
+              },
+              providers: result.value.trace.providers,
+              sourceGate: result.value.trace.sourceGate
+            }
+          };
+        });
+        mergeTracePatch(trace, contactSourceResult.tracePatch);
+        paidProviderFacts = contactSourceResult.value.providerFacts;
+        paidSources = contactSourceResult.value.sources;
+        await recordEvent("sources-fetched", "source.contacts", "Checked people and email sources", {
+          sourceCount: contactSourceResult.value.sources.length,
+          providerFactCount: contactSourceResult.value.providerFacts.length
+        });
+      } else {
+        trace.steps = {
+          ...trace.steps,
+          "fetch-contact-sources": skippedStep("deep-find not requested; free GitHub layer only")
         };
-      });
-      mergeTracePatch(trace, contactSourceResult.tracePatch);
-      await recordEvent("sources-fetched", "source.contacts", "Checked people and email sources", {
-        sourceCount: contactSourceResult.value.sources.length,
-        providerFactCount: contactSourceResult.value.providerFacts.length
-      });
+      }
 
       currentStage = "poll-websets-contact-search";
       let websetsLate: WebsetsPeopleEmailResult | null = null;
@@ -475,7 +555,9 @@ export const contactEnrichmentFunction = inngest.createFunction(
       const websetsLateSources = websetsLate
         ? filterSourcesForDomain({ domain, sources: websetsLate.sources }).accepted
         : [];
-      const contactProviderFacts = [...contactSourceResult.value.providerFacts, ...(websetsLate?.facts ?? [])];
+      // GitHub facts first so an observed/inferred work email is present before the paid path
+      // merges; the merge prefers any non-inferred address, so real paid emails still win.
+      const contactProviderFacts = [...githubFacts, ...paidProviderFacts, ...(websetsLate?.facts ?? [])];
 
       currentStage = "enrich-contacts";
       const contactEnriched = await step.run("enrich-contacts", async () => {
@@ -515,7 +597,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
         await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, cardToStore));
         await step.run("record-contact-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
         await step.run("record-contact-sources", () =>
-          recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, contactSourceResult.value.sources, websetsLateSources))
+          recordSourcesForCard(db, contactRow.id, mergeSources(acceptedSources, githubSources, paidSources, websetsLateSources))
         );
       } else {
         noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-contact-card", cardToStore);
