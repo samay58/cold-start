@@ -372,11 +372,6 @@ button {
   line-height: 1;
 }
 
-.cs-start-actions {
-  display: flex;
-  margin-top: 18px;
-}
-
 .cs-start-primary {
   position: relative;
   display: inline-flex;
@@ -660,50 +655,6 @@ button {
 
 .cs-live-card-refined::before {
   display: none;
-}
-
-.cs-live-field {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-rows: auto auto auto;
-  align-content: start;
-  gap: 0;
-  min-height: 0;
-}
-
-.cs-live-field-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 16px 12px;
-  border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.6);
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 760;
-  letter-spacing: 0.06em;
-  line-height: 1;
-}
-
-.cs-live-field-head span:last-child {
-  min-width: auto;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--color-ink);
-  letter-spacing: 0.02em;
-  padding: 0;
-  text-align: center;
-}
-
-.cs-run-step-index {
-  color: rgb(var(--cs-c-113-128-145));
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 760;
-  letter-spacing: 0.08em;
 }
 
 .cs-layer-running-text {
@@ -1493,24 +1444,6 @@ button {
   line-height: 1.25;
 }
 
-.cs-research-progress-event {
-  padding: 9px 11px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.74);
-  border-radius: 7px;
-  background: rgb(var(--cs-c-255-253-248) / 0.58);
-  color: rgb(var(--cs-c-23-26-31-text) / 0.78);
-  font-size: 12px;
-  line-height: 1.35;
-}
-
-.cs-research-progress-note {
-  margin: -2px 0 0 28px;
-  color: var(--color-muted);
-  font-size: 11.5px;
-  font-weight: 610;
-  line-height: 1.35;
-}
-
 .cs-research-progress-live {
   display: grid;
   gap: 2px;
@@ -1647,31 +1580,6 @@ button {
   color: var(--color-muted);
   font-size: 9px;
   text-transform: uppercase;
-}
-
-.cs-research-activity {
-  border-top: 1px solid rgb(var(--cs-c-230-223-201) / 0.70);
-  padding-top: 8px;
-}
-
-.cs-research-activity summary {
-  color: var(--color-muted);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 760;
-}
-
-.cs-research-activity ol {
-  display: grid;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding-left: 16px;
-}
-
-.cs-research-activity li {
-  color: var(--color-muted);
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 .cs-active-enrichments {
@@ -2330,17 +2238,6 @@ button {
   color: rgb(var(--cs-c-14-14-14-text) / 0.70);
 }
 
-.cs-layer-items-funding li:first-child {
-  border-color: rgb(var(--cs-c-110-92-158) / 0.16);
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.80), rgb(var(--cs-c-250-247-239) / 0.70)),
-    rgb(var(--cs-c-110-92-158) / 0.04);
-}
-
-.cs-layer-items-funding li:first-child strong {
-  font-size: 13px;
-}
-
 .cs-layer-items span {
   order: -1;
   justify-self: start;
@@ -2765,14 +2662,6 @@ button {
   font: 680 13px/1.18 var(--font-display);
 }
 
-.cs-layer-case-bull h4 {
-  color: var(--color-verified);
-}
-
-.cs-layer-case-bear h4 {
-  color: var(--color-conflict);
-}
-
 .cs-layer-case-side ul {
   display: grid;
   gap: 7px;
@@ -2797,14 +2686,6 @@ button {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-}
-
-.cs-layer-case-bull li::before {
-  background: var(--color-verified);
-}
-
-.cs-layer-case-bear li::before {
-  background: var(--color-conflict);
 }
 
 .cs-layer-money-ledger {
@@ -2969,15 +2850,6 @@ button {
   min-height: 168px;
   padding: 0;
   border-radius: 6px;
-}
-
-.cs-live-field {
-  gap: 0;
-  min-height: 0;
-}
-
-.cs-live-field-head {
-  font-size: 10px;
 }
 
 .cs-research-shell {
@@ -3220,16 +3092,6 @@ button {
   font-size: 8.5px;
 }
 
-.cs-layer-items-funding li:first-child {
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.82), rgb(var(--cs-c-250-247-239) / 0.72)),
-    rgb(var(--cs-c-110-92-158) / 0.04);
-}
-
-.cs-layer-items-funding li:first-child strong {
-  font-size: 13px;
-}
-
 .cs-source-chip {
   max-width: 118px;
   min-height: 19px;
@@ -3400,9 +3262,7 @@ body,
 .cs-research-layer-head,
 .cs-active-enrichment small,
 .cs-dormant-card small,
-.cs-research-progress small,
-.cs-research-activity li,
-.cs-research-activity summary {
+.cs-research-progress small {
   color: var(--color-muted);
 }
 
@@ -3459,15 +3319,6 @@ body,
   border-radius: 2px;
   background: var(--color-verified);
   box-shadow: none;
-}
-
-.cs-research-progress-event {
-  border: 1px solid var(--color-rule);
-  border-radius: 4px;
-  background: var(--color-field);
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-size: 11px;
 }
 
 .cs-research-source-strip a,
@@ -3594,28 +3445,6 @@ body,
   border-color: rgb(var(--cs-c-216-208-191) / 0.82);
   background: var(--color-plate);
   box-shadow: 0 6px 18px rgb(var(--cs-c-23-26-31) / 0.07);
-}
-
-.cs-live-field-head {
-  padding: 15px 18px 10px;
-  border-bottom: 0;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.cs-live-field-head span:last-child {
-  color: var(--color-seal);
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-
-.cs-run-step-index {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.48);
-  font-family: var(--font-body);
-  font-size: 13px;
-  letter-spacing: 0.08em;
 }
 
 .cs-company-context,
@@ -4011,10 +3840,6 @@ body,
   font-weight: 620;
 }
 
-.cs-layer-items-funding li:first-child strong {
-  font-size: 18px;
-}
-
 .cs-layer-items span {
   color: rgb(var(--cs-c-23-26-31-text) / 0.58);
   font-size: 10px;
@@ -4276,8 +4101,6 @@ body {
   --font-mono: var(--font-body);
 }
 
-.cs-live-field-head,
-.cs-run-step-index,
 .cs-company-facts dt,
 .cs-people-line-label,
 .cs-research-layer-head,
@@ -4467,8 +4290,7 @@ body {
   padding: 9px 10px;
 }
 
-.cs-layer-items strong,
-.cs-layer-items-funding li:first-child strong {
+.cs-layer-items strong {
   font-family: var(--font-body);
   font-size: 12.5px;
   font-weight: 760;
@@ -4526,90 +4348,6 @@ body {
   perspective: 480px;
   transform-style: preserve-3d;
   white-space: pre;
-}
-
-.cs-source-pass-instrument {
-  position: relative;
-  min-height: 206px;
-  overflow: hidden;
-  border-color: rgb(var(--cs-c-216-208-191) / 0.88);
-  background:
-    radial-gradient(circle at calc(8% + (var(--cs-source-pass-tension, 0.4) * 24%)) 18%, rgb(var(--cs-c-110-92-158) / 0.10), transparent 30%),
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.96), rgb(var(--cs-c-252-250-245) / 0.86)),
-    var(--color-plate);
-  box-shadow:
-    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.07),
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.86) inset;
-}
-
-.cs-source-pass-instrument::before {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgb(var(--cs-c-110-92-158) / 0.035), transparent 42%, rgb(var(--cs-c-216-208-191) / 0.17)),
-    repeating-linear-gradient(0deg, transparent 0 23px, rgb(var(--cs-c-216-208-191) / 0.10) 23px 24px);
-  content: "";
-  opacity: calc(0.38 + (var(--cs-source-pass-tension, 0.4) * 0.2));
-  pointer-events: none;
-}
-
-.cs-source-pass-head {
-  position: relative;
-  z-index: 1;
-  padding: 13px 18px 8px;
-  border-bottom-color: rgb(var(--cs-c-216-208-191) / 0.60);
-}
-
-.cs-source-pass-head span:last-child {
-  color: var(--color-seal);
-  font-size: 13px;
-  font-weight: 740;
-  letter-spacing: 0.02em;
-}
-
-.cs-source-pass-now {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  padding: 12px 18px 6px;
-}
-
-.cs-source-pass-current-marker {
-  display: inline-grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.26);
-  border-radius: 999px;
-  background: rgb(var(--cs-c-110-92-158) / 0.065);
-  color: var(--color-seal);
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 840;
-  letter-spacing: 0.08em;
-  box-shadow: 0 0 0 calc(4px + (var(--cs-source-pass-tension, 0.4) * 4px)) rgb(var(--cs-c-110-92-158) / 0.055);
-}
-
-.cs-source-pass-now h2 {
-  margin: -2px 0 0;
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: clamp(25px, 6.6vw, 34px);
-  font-weight: 650;
-  line-height: 0.96;
-}
-
-.cs-source-pass-now p {
-  margin: 5px 0 0;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
-  font-family: var(--font-body);
-  font-size: 11.5px;
-  font-weight: 680;
-  letter-spacing: 0;
-  line-height: 1.35;
 }
 
 .cs-build {
@@ -4972,47 +4710,6 @@ body {
   opacity: 1;
 }
 
-.cs-source-pass-steps li::after {
-  position: absolute;
-  inset: 5px -6px;
-  z-index: -1;
-  border-radius: 7px;
-  background: linear-gradient(90deg, rgb(var(--cs-c-110-92-158) / 0.075), transparent 74%);
-  content: "";
-  opacity: 0;
-  transform: scaleX(0.96);
-  transform-origin: left center;
-}
-
-.cs-source-pass-steps li > span:nth-child(2) {
-  display: grid;
-  gap: 1px;
-}
-
-.cs-source-pass-steps li[data-active="true"] {
-  color: var(--color-ink);
-}
-
-.cs-source-pass-steps li[data-active="true"] .cs-run-step-index {
-  color: var(--color-seal);
-}
-
-.cs-source-pass-steps li[data-active="true"] i {
-  width: 9px;
-  height: 9px;
-  background: var(--color-seal);
-  box-shadow:
-    0 0 0 7px rgb(var(--cs-c-110-92-158) / 0.10),
-    0 7px 14px rgb(var(--cs-c-110-92-158) / 0.18);
-}
-
-.cs-source-pass-steps small {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.48);
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0;
-}
-
 .cs-card-pile-motion {
   position: relative;
   z-index: 1;
@@ -5208,26 +4905,6 @@ body {
   white-space: nowrap;
 }
 
-@keyframes cs-source-pass-scan-run {
-  0% {
-    opacity: 0;
-    transform: translate(-104px, -50%);
-  }
-
-  22% {
-    opacity: calc(0.24 + (var(--cs-source-pass-tension, 0.4) * 0.16));
-  }
-
-  70% {
-    opacity: 0.18;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translate(390px, -50%);
-  }
-}
-
 @keyframes cs-running-card-swell {
   0% {
     opacity: 0;
@@ -5353,8 +5030,7 @@ body {
     animation: cs-running-card-swell 5.2s var(--cs-motion-ease-out) infinite;
   }
 
-.cs-source-pass-current-marker,
-.cs-card-pile-motion {
+  .cs-card-pile-motion {
     transition:
       background-color var(--cs-motion-state) var(--cs-motion-ease-out),
       border-color var(--cs-motion-state) var(--cs-motion-ease-out),
@@ -5422,8 +5098,7 @@ body {
 }
 
 .cs-company-context h1,
-.cs-partial-profile h1,
-.cs-source-pass-now h2 {
+.cs-partial-profile h1 {
   font-family: var(--font-display);
   font-weight: 770;
   letter-spacing: 0;
@@ -5431,8 +5106,7 @@ body {
 
 /* Section labels: At Umami display in the seal accent, title case. */
 .cs-research-layer-head span:first-child,
-.cs-people-line-label,
-.cs-live-field-head span:first-child {
+.cs-people-line-label {
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 600;
@@ -5449,7 +5123,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-.cs-run-step-index,
 .cs-source-chip {
   font-family: var(--font-text);
 }
