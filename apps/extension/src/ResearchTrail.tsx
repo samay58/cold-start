@@ -133,7 +133,6 @@ export function ResearchTrail(props: ResearchTrailProps) {
       (hasTerminalProfileProgressEvent(events) ||
         (!props.isRunning && sourceCount > 0 && props.totalCount > 0 && props.resolvedCount >= props.totalCount));
   const needsAttention = progressPlanHasAttention(plan);
-  const showLiveProgress = needsAttention || (!profileComplete && (isProfileRunning || profileEventsSeen));
   const showDetailsControl = (building || profileEventsSeen) && !needsAttention;
   const showDetailsTree = needsAttention || detailsOpen;
   const currentStage = plan[activeIndex];
@@ -164,6 +163,10 @@ export function ResearchTrail(props: ResearchTrailProps) {
       : `${props.resolvedCount} of ${props.totalCount} sections ready`;
   const liveStageCopy = needsAttention ? "Needs attention" : currentStage?.label ?? "Researching";
   const liveProofCopy = currentProgressProof(plan, activeIndex, stageNote);
+  // The live row earns its place only when it says something the main line does not.
+  const liveDuplicatesMain = liveProofCopy.trim().toLowerCase() === sourceCopy.trim().toLowerCase();
+  const showLiveProgress = needsAttention ||
+    (!profileComplete && (isProfileRunning || profileEventsSeen) && !liveDuplicatesMain);
 
   return (
     <div

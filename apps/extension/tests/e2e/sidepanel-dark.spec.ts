@@ -78,7 +78,8 @@ test("dark: start gate for an ungenerated company", async ({ page }) => {
   await openDark(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Get up to speed" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Begin research" })).toBeVisible();
+  await expect(page.getByText("No profile")).toBeVisible();
   await page.waitForTimeout(150);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-start.png" });
 });
@@ -182,7 +183,8 @@ test("dark: running generation progress", async ({ page }) => {
   });
   await openDark(page);
 
-  await expect(page.getByText("Researching")).toBeVisible();
+  await expect(page.getByText("Researching").first()).toBeVisible();
+  await expect(page.locator(".cs-trail-track")).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-progress.png" });
 });

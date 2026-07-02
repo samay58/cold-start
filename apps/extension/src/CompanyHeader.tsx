@@ -7,7 +7,7 @@ import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "./e
 import { fundingEvidenceFromCitations } from "@cold-start/core";
 import type { TooltipPlacement, TooltipTriggerProps } from "./SharedTooltip";
 
-export type CompanyHeaderPhase = "intake" | "building" | "profile";
+type CompanyHeaderPhase = "intake" | "building" | "profile";
 
 type TooltipPropsFor = (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
 

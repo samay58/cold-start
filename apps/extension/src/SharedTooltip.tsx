@@ -22,14 +22,7 @@ export type TooltipTriggerProps = {
   onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
 };
 
-export type TooltipTriggerPropsFor = (input: {
-  body: string;
-  id: string;
-  placement?: TooltipPlacement;
-  title: string;
-}) => TooltipTriggerProps;
-
-export const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
+const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
