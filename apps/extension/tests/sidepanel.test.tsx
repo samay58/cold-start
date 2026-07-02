@@ -872,7 +872,7 @@ describe("SidePanel generation gate", () => {
     expect(tooltip).toBeTruthy();
     expect(tooltip?.textContent).toContain("Jessica Lessin");
     expect(tooltip?.textContent).toContain("Founder");
-    expect(tooltip?.textContent).toContain("Work email found.");
+    expect(tooltip?.textContent).toContain("Work email found in a public source.");
 
     await act(async () => {
       jessica!.blur();

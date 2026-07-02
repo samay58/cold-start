@@ -184,10 +184,19 @@ function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson
     }
   }
 
+  // Prefer any real (non-inferred) address over an inferred guess when the same person
+  // appears in both lists, mirroring the pipeline merge.
+  const emailPick = [preferred, current, candidate].find((person) => person.email && person.emailStatus !== "inferred")
+    ?? [preferred, current, candidate].find((person) => person.email);
+
   return {
     ...preferred,
     sourceUrl: preferred.sourceUrl ?? current.sourceUrl ?? candidate.sourceUrl,
-    email: preferred.email ?? current.email ?? candidate.email ?? null,
+    email: emailPick?.email ?? null,
+    emailStatus: emailPick?.emailStatus ?? null,
+    githubUrl: preferred.githubUrl ?? current.githubUrl ?? candidate.githubUrl ?? null,
+    xUrl: preferred.xUrl ?? current.xUrl ?? candidate.xUrl ?? null,
+    personalUrl: preferred.personalUrl ?? current.personalUrl ?? candidate.personalUrl ?? null,
   };
 }
 
@@ -263,16 +272,29 @@ function sourceHostLabel(sourceUrl: string | null | undefined) {
 }
 
 function personTooltipBody(person: CardPerson, companyDomain: string) {
-  const emailStatus = person.email
-    ? `${sentenceCase(emailKind(person.email, companyDomain))} email found.`
-    : "No verified email found yet.";
+  let emailLine: string;
+  if (!person.email) {
+    emailLine = "No work email found yet.";
+  } else if (person.emailStatus === "inferred") {
+    emailLine = "Likely work email, inferred from the company email pattern (unverified).";
+  } else {
+    emailLine = `${sentenceCase(emailKind(person.email, companyDomain))} email found in a public source.`;
+  }
   const source = sourceHostLabel(person.sourceUrl);
 
   return [
     `${personRole(person)}.`,
-    emailStatus,
+    emailLine,
     source ? `Source: ${source}.` : null
   ].filter(Boolean).join(" ");
+}
+
+function personChannels(person: CardPerson): { label: string; url: string }[] {
+  return [
+    person.githubUrl ? { label: "GitHub", url: person.githubUrl } : null,
+    person.xUrl ? { label: "X", url: person.xUrl } : null,
+    person.personalUrl ? { label: "Site", url: person.personalUrl } : null
+  ].filter((channel): channel is { label: string; url: string } => channel !== null);
 }
 
 function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
@@ -441,10 +463,30 @@ export function PeopleLine({
                 <span className="cs-people-name">{person.name}</span>
                 <span className="cs-people-role">{personRole(person)}</span>
                 {person.email ? (
-                  <span className="cs-person-email">
+                  <span
+                    className="cs-person-email"
+                    data-email-status={person.emailStatus ?? "observed"}
+                  >
                     <a href={`mailto:${person.email}`}>{person.email}</a>
-                    <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
+                    <span className="cs-person-email-kind">
+                      {person.emailStatus === "inferred" ? "inferred" : emailKind(person.email, companyDomain)}
+                    </span>
                     <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
+                  </span>
+                ) : null}
+                {personChannels(person).length > 0 ? (
+                  <span className="cs-person-channels">
+                    {personChannels(person).map((channel) => (
+                      <a
+                        className="cs-person-channel"
+                        href={channel.url}
+                        key={channel.label}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        {channel.label}
+                      </a>
+                    ))}
                   </span>
                 ) : null}
               </span>
