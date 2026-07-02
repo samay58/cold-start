@@ -1514,6 +1514,144 @@ button {
   font-weight: 540;
 }
 
+/* The company arc: one shell for intake, building, and profile. The mesh field grounds the
+   building phase only; every other child sits above it on its own plate. */
+.cs-arc {
+  position: relative;
+}
+
+.cs-arc > :not(.cs-arc-mesh) {
+  position: relative;
+  z-index: 1;
+}
+
+.cs-arc-mesh {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cs-arc-topbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 20px;
+}
+
+.cs-arc[data-phase="building"] .cs-company-context {
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.78), rgb(var(--cs-c-247-244-236) / 0.62)),
+    rgb(var(--cs-c-252-250-245) / 0.42);
+}
+
+.cs-arc-intake {
+  display: grid;
+  gap: 12px;
+  margin: 4px 12px 0;
+}
+
+.cs-arc-intake-note {
+  margin: 0;
+  max-width: 30rem;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cs-arc-stack {
+  display: grid;
+  gap: 10px;
+  margin: 0 12px 12px;
+  padding: 12px 14px 13px;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.72);
+  border-radius: 8px;
+  background: rgb(var(--cs-c-255-253-248) / 0.66);
+}
+
+.cs-arc-stack-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-arc-stack-head span {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+.cs-arc-stack-head small {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1;
+}
+
+.cs-arc-stack-cards {
+  display: grid;
+  gap: 7px;
+}
+
+.cs-arc-stack-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  padding: 8px 11px;
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-254-250) / 0.94), rgb(var(--cs-c-253-250-243) / 0.88)),
+    var(--color-plate);
+}
+
+.cs-arc-stack-index {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cs-arc-stack-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cs-arc-stack-copy strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 640;
+  line-height: 1.1;
+}
+
+.cs-arc-stack-copy span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.cs-arc-stack-more {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 560;
+  line-height: 1.2;
+}
+
+.cs-lens-sealed {
+  margin: 0;
+  opacity: 0.88;
+}
+
 .cs-early-read-claim {
   margin: 0;
   color: var(--color-ink);

@@ -1,14 +1,13 @@
 import {
   analysisBlockedReason,
   canRunInvestorAnalysis,
-  fundingEvidenceFromCitations,
   hasUsablePublicProfile,
   publicProfileQuality,
   type ColdStartCard,
   type PublicProfileQuality,
   type ResearchSection
 } from "@cold-start/core";
-import { AnimatePresence, LayoutGroup, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
@@ -25,22 +24,11 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { CompanyHeader } from "./CompanyHeader";
-import { readableCompanyName, websiteLabel } from "./company-display";
-import {
-  formatElapsed,
-  formatOptionalCurrency,
-  formatOptionalNumber,
-  profileSummaryCopy
-} from "./extension-format";
-import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
+import { showPartialProfileGate, sourceLabel, websiteLabel } from "./company-display";
+import { formatElapsed } from "./extension-format";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { investorReadForCard, type InvestorReadDisplay } from "./investor-lens";
-import { ReadRegion } from "./ReadRegion";
-import { currentProfileProgressEvents } from "./research-progress";
 import { ResearchTrail } from "./ResearchTrail";
-import { markPerformance } from "./sidepanel-network";
-import { SharedTooltip, useSharedTooltip, type TooltipPlacement, type TooltipTriggerProps } from "./SharedTooltip";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -56,7 +44,6 @@ type ResearchLayerPanelProps = {
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
-  contactElapsedSeconds?: number | undefined;
   contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
@@ -70,7 +57,6 @@ type ResearchLayerPanelProps = {
   sections?: ResearchSection[] | undefined;
   events?: ExtensionResearchRunEvent[] | undefined;
   sources?: ExtensionSourceSummary[] | undefined;
-  cachedAtMs?: number | undefined;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
@@ -192,417 +178,8 @@ function writePinnedLayerIds(domain: string, ids: ResearchLayerId[]) {
   });
 }
 
-function sourceLabel(count: number) {
-  return `${count} ${count === 1 ? "source" : "sources"}`;
-}
-
-function metadataSourceCount(event: ExtensionResearchRunEvent) {
-  const value = event.metadata.sourceCount;
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function filedSourceCount(events: ExtensionResearchRunEvent[], sources: ExtensionSourceSummary[]) {
-  const profileEvents = currentProfileProgressEvents(events);
-
-  for (const event of [...profileEvents].reverse()) {
-    if (event.type !== "card.saved" && event.type !== "card.enriched") {
-      continue;
-    }
-    const count = metadataSourceCount(event);
-    if (count !== null) {
-      return count;
-    }
-  }
-
-  return sources.length;
-}
-
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
-}
-
-function ProfileSummary({
-  fullSummary,
-  summary,
-  tooltipProps
-}: {
-  fullSummary: string;
-  summary: string;
-  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
-}) {
-  const hasMore = fullSummary !== summary;
-  return (
-    <div className="cs-company-summary-wrap">
-      {hasMore ? (
-        <p className="cs-company-summary">
-          {summary}{" "}
-          <button
-            aria-label="Read the full company description"
-            className="cs-company-summary-more"
-            type="button"
-            {...tooltipProps({
-              body: fullSummary,
-              id: "profile-summary",
-              placement: "below",
-              title: "Description"
-            })}
-          >
-            (more)
-          </button>
-        </p>
-      ) : (
-        <p className="cs-company-summary">{summary}</p>
-      )}
-    </div>
-  );
-}
-
-function SourcesCheckedStamp({
-  prefersReducedMotion,
-  sourceCount
-}: {
-  prefersReducedMotion: boolean;
-  sourceCount: number;
-}) {
-  const meta = sourceCount > 0 ? sourceLabel(sourceCount) : "Filed with sources";
-
-  return (
-    <motion.div
-      aria-label="Sources checked"
-      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-      className="cs-early-read-filed"
-      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
-      layout
-      layoutId="sources-checked"
-      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
-    >
-      <span className="cs-early-read-filed-stamp">Sources checked</span>
-      <span className="cs-early-read-filed-meta">{meta}</span>
-    </motion.div>
-  );
-}
-
-type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
-
-function roleScore(role: string | null) {
-  const normalized = role?.toLowerCase() ?? "";
-  let score = 0;
-
-  if (normalized.includes("ceo")) {
-    score += 5;
-  }
-  if (normalized.includes("co-founder") || normalized.includes("cofounder")) {
-    score += 4;
-  }
-  if (normalized.includes("founder")) {
-    score += 3;
-  }
-  if (normalized.includes("chief")) {
-    score += 2;
-  }
-  if (normalized.includes("president") || normalized.includes("editor") || normalized.includes("operating")) {
-    score += 1;
-  }
-  if (normalized.includes("prev.") || normalized.includes("previous")) {
-    score -= 2;
-  }
-
-  return score;
-}
-
-function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson {
-  const currentScore = roleScore(current.role);
-  const candidateScore = roleScore(candidate.role);
-  let preferred = current;
-
-  if (candidateScore !== currentScore) {
-    preferred = candidateScore > currentScore ? candidate : current;
-  } else {
-    const currentRoleLength = current.role?.length ?? 0;
-    const candidateRoleLength = candidate.role?.length ?? 0;
-
-    if (candidateRoleLength === 0) {
-      preferred = current;
-    } else if (currentRoleLength === 0) {
-      preferred = candidate;
-    } else {
-      preferred = candidateRoleLength < currentRoleLength ? candidate : current;
-    }
-  }
-
-  return {
-    ...preferred,
-    sourceUrl: preferred.sourceUrl ?? current.sourceUrl ?? candidate.sourceUrl,
-    email: preferred.email ?? current.email ?? candidate.email ?? null,
-  };
-}
-
-function managementPeople(card: ColdStartCard): CardPerson[] {
-  const byName = new Map<string, CardPerson>();
-  const people = [...(card.team.founders.value ?? []), ...(card.team.keyExecs.value ?? [])];
-
-  for (const person of people) {
-    const key = person.name.trim().toLowerCase();
-    const current = byName.get(key);
-
-    if (!current) {
-      byName.set(key, person);
-      continue;
-    }
-
-    byName.set(key, preferredPerson(current, person));
-  }
-
-  return Array.from(byName.values());
-}
-
-function managementSourceCount(card: ColdStartCard) {
-  return new Set([
-    ...card.team.founders.citationIds,
-    ...card.team.keyExecs.citationIds
-  ]).size;
-}
-
-function personRole(person: CardPerson) {
-  return person.role?.trim() || "Role not verified";
-}
-
-function personInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const initials = parts.length >= 2
-    ? `${parts[0]?.charAt(0) ?? ""}${parts[parts.length - 1]?.charAt(0) ?? ""}`
-    : parts[0]?.slice(0, 2) ?? "";
-
-  return initials.toUpperCase() || "P";
-}
-
-function peopleEmailCount(people: CardPerson[]) {
-  return people.filter((person) => person.email).length;
-}
-
-function emailKind(email: string, companyDomain: string) {
-  const domain = email.split("@")[1]?.toLowerCase().replace(/^www\./, "") ?? "";
-  const targetDomain = companyDomain.toLowerCase().replace(/^www\./, "");
-  if (domain === targetDomain) {
-    return "work";
-  }
-  if (["gmail.com", "icloud.com", "me.com", "outlook.com", "hotmail.com", "yahoo.com", "proton.me", "protonmail.com"].includes(domain)) {
-    return "personal";
-  }
-  return "other domain";
-}
-
-function sentenceCase(value: string) {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function sourceHostLabel(sourceUrl: string | null | undefined) {
-  if (!sourceUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(sourceUrl).hostname.replace(/^www\./i, "");
-  } catch {
-    return null;
-  }
-}
-
-function personTooltipBody(person: CardPerson, companyDomain: string) {
-  const emailStatus = person.email
-    ? `${sentenceCase(emailKind(person.email, companyDomain))} email found.`
-    : "No verified email found yet.";
-  const source = sourceHostLabel(person.sourceUrl);
-
-  return [
-    `${personRole(person)}.`,
-    emailStatus,
-    source ? `Source: ${source}.` : null
-  ].filter(Boolean).join(" ");
-}
-
-function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
-  const emails = people.flatMap((person) => person.email ? [person.email] : []);
-  if (emails.length === 0) {
-    return "No verified email found";
-  }
-
-  const workCount = emails.filter((email) => emailKind(email, companyDomain) === "work").length;
-  if (workCount === emails.length) {
-    return `${workCount} work email${workCount === 1 ? "" : "s"}`;
-  }
-  return `${emails.length} email${emails.length === 1 ? "" : "s"} found`;
-}
-
-function managementConfidence(card: ColdStartCard) {
-  const confidenceRank = { high: 3, medium: 2, low: 1 } as const;
-  return [card.team.founders, card.team.keyExecs]
-    .filter((fact) => (fact.value ?? []).some((person) => person.email))
-    .map((fact) => fact.confidence)
-    .sort((left, right) => confidenceRank[right] - confidenceRank[left])[0] ?? null;
-}
-
-function profileFacts(card: ColdStartCard): Array<{ label: string; value: string; meta?: string | undefined }> {
-  const hq = card.identity.hq.value;
-  const headcount = card.team.headcount.value;
-  const lastRoundFact = card.funding.lastRound;
-  const lastRound = lastRoundFact.value;
-  const lastRoundAmount = formatOptionalCurrency(lastRound?.amountUsd);
-  const totalRaised = formatOptionalCurrency(card.funding.totalRaisedUsd.value);
-  const citationFunding = fundingEvidenceFromCitations(card).find((item) => item.amountLabel);
-  const facts: Array<{ label: string; value: string; meta?: string | undefined }> = [];
-
-  const employees = formatOptionalNumber(headcount?.value);
-  if (employees) {
-    facts.push({
-      label: "Employees",
-      value: employees,
-      ...(headcount?.asOf ? { meta: headcount.asOf } : {})
-    });
-  }
-
-  if (lastRound?.name === "Reported financing" && lastRoundAmount && lastRoundFact.status === "inferred") {
-    facts.push({
-      label: "Funding",
-      value: lastRoundAmount,
-      meta: "reported"
-    });
-  } else if (lastRound?.name) {
-    facts.push({
-      label: "Round",
-      value: lastRound.name,
-      ...(lastRoundAmount ? { meta: lastRoundAmount } : {})
-    });
-  } else if (totalRaised) {
-    facts.push({ label: "Raised", value: totalRaised });
-  } else if (citationFunding?.amountLabel) {
-    facts.push({
-      label: "Funding",
-      value: citationFunding.amountLabel,
-      meta: citationFunding.status === "closed" ? "reported" : "reported target"
-    });
-  }
-
-  if (hq?.city || hq?.country) {
-    facts.push({ label: "HQ", value: [hq.city, hq.country].filter(Boolean).join(", ") });
-  } else if (card.identity.foundedYear.value) {
-    facts.push({ label: "Founded", value: String(card.identity.foundedYear.value) });
-  }
-
-  return facts.slice(0, 3);
-}
-
-function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
-  if (facts.length === 0) {
-    return null;
-  }
-
-  return (
-    <dl className="cs-company-facts" aria-label="Core metrics">
-      {facts.map((fact) => (
-        <div key={fact.label}>
-          <dt>{fact.label}</dt>
-          <dd>{fact.value}</dd>
-          {fact.meta ? <small>{fact.meta}</small> : null}
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function PeopleLine({
-  companyDomain,
-  contactElapsedSeconds = 0,
-  contactRun,
-  confidence,
-  people,
-  sourceCount,
-  tooltipProps
-}: {
-  companyDomain: string;
-  contactElapsedSeconds?: number;
-  contactRun?: AnalysisRun | undefined;
-  confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
-  people: CardPerson[];
-  sourceCount: number;
-  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
-}) {
-  if (people.length === 0) {
-    return null;
-  }
-
-  const orderedPeople = [
-    ...people.filter((person) => person.email),
-    ...people.filter((person) => !person.email),
-  ];
-  const visiblePeople = orderedPeople.slice(0, 4);
-  const hiddenPeopleCount = orderedPeople.length - visiblePeople.length;
-  const emailCount = peopleEmailCount(people);
-  const contactStatus = contactRun
-    ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
-    : peopleEmailSummary(people, companyDomain);
-  const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
-
-  function copyEmail(email: string) {
-    void navigator.clipboard?.writeText(email);
-  }
-
-  return (
-    <section className="cs-people-line" aria-label="Management team">
-      <div className="cs-people-line-head">
-        <span className="cs-people-line-label">People</span>
-        <span className="cs-people-line-source">
-          {contactStatus}
-          {confidenceStatus}
-          {sourceCount > 0 ? ` · ${sourceLabel(sourceCount)}` : ""}
-        </span>
-      </div>
-      <div className="cs-people-line-list">
-        {visiblePeople.map((person) => {
-          const name = person.name.trim();
-          const tooltip = name
-            ? tooltipProps({
-              body: personTooltipBody(person, companyDomain),
-              id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-              placement: "above",
-              title: name
-            })
-            : undefined;
-
-          return (
-            <article
-              className="cs-people-person"
-              data-has-email={person.email ? "true" : "false"}
-              key={`${person.name}-${person.email ?? person.role ?? "person"}`}
-              tabIndex={tooltip ? 0 : undefined}
-              {...tooltip}
-            >
-              <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
-              <span className="cs-person-main">
-                <span className="cs-people-name">{person.name}</span>
-                <span className="cs-people-role">{personRole(person)}</span>
-                {person.email ? (
-                  <span className="cs-person-email">
-                    <a href={`mailto:${person.email}`}>{person.email}</a>
-                    <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
-                    <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
-                  </span>
-                ) : null}
-              </span>
-              <span className="cs-person-contact-state" aria-hidden="true">
-                {person.email ? "@" : ""}
-              </span>
-            </article>
-          );
-        })}
-        {hiddenPeopleCount > 0 ? (
-          <span className="cs-people-more">
-            +{hiddenPeopleCount}
-          </span>
-        ) : null}
-      </div>
-    </section>
-  );
 }
 
 function LayerContent({
@@ -862,6 +439,8 @@ function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
   );
 }
 
+// Rendered under the shared CompanyArc header, which already carries the company identity;
+// this section only explains the gap and offers the honest next actions.
 function PartialProfilePanel({
   card,
   onRegenerate,
@@ -871,7 +450,6 @@ function PartialProfilePanel({
   onRegenerate: () => void;
   quality: PublicProfileQuality;
 }) {
-  const companyName = readableCompanyName(card);
   const status = quality.hasCitations ? "Profile saved with gaps" : "No cited profile yet";
   const body = quality.hasCitations
     ? "Some cited facts were saved, but not enough to open Research."
@@ -879,37 +457,34 @@ function PartialProfilePanel({
   const lensReason = analysisBlockedReason(card) ?? "The cited profile must finish before Investor Lens can run.";
 
   return (
-    <main className="cs-research-shell cs-research-shell-partial">
-      <section className="cs-partial-profile" aria-label="Incomplete company profile">
-        <div className="cs-partial-profile-copy">
-          <p className="cs-research-label">{status}</p>
-          <h1>{companyName}</h1>
-          <p>{body}</p>
+    <section className="cs-partial-profile" aria-label="Incomplete company profile">
+      <div className="cs-partial-profile-copy">
+        <p className="cs-research-label">{status}</p>
+        <p>{body}</p>
+      </div>
+      <dl className="cs-partial-profile-status" aria-label="Profile status">
+        <div>
+          <dt>Sources</dt>
+          <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
         </div>
-        <dl className="cs-partial-profile-status" aria-label="Profile status">
-          <div>
-            <dt>Sources</dt>
-            <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
-          </div>
-          <div>
-            <dt>Website</dt>
-            <dd>{websiteLabel(card)}</dd>
-          </div>
-        </dl>
-        <button className="cs-extension-button" onClick={onRegenerate} type="button">
-          Regenerate profile
+        <div>
+          <dt>Website</dt>
+          <dd>{websiteLabel(card)}</dd>
+        </div>
+      </dl>
+      <button className="cs-extension-button" onClick={onRegenerate} type="button">
+        Regenerate profile
+      </button>
+      <div className="cs-investor-lens-control cs-investor-lens-control-partial">
+        <div>
+          <strong>Investor Lens</strong>
+          <span>{lensReason}</span>
+        </div>
+        <button className="cs-investor-lens-button" disabled type="button">
+          Run Investor Lens
         </button>
-        <div className="cs-investor-lens-control cs-investor-lens-control-partial">
-          <div>
-            <strong>Investor Lens</strong>
-            <span>{lensReason}</span>
-          </div>
-          <button className="cs-investor-lens-button" disabled type="button">
-            Run Investor Lens
-          </button>
-        </div>
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
 
@@ -1046,20 +621,10 @@ function DormantPileCard({
   );
 }
 
-function formatSavedDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "earlier";
-  }
-
-  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
-}
-
 export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
   card,
-  contactElapsedSeconds = 0,
   contactRun,
   elapsedSeconds,
   onRunSection,
@@ -1072,13 +637,8 @@ export function ResearchLayerPanel({
   activeSectionRun,
   sections,
   events = [],
-  sources = [],
-  cachedAtMs
+  sources = []
 }: ResearchLayerPanelProps) {
-  const isStaleRead = card.cacheStatus === "stale" || cachedAtMs !== undefined;
-  const freshnessLabel = isStaleRead
-    ? `Saved ${formatSavedDate(card.generatedAt)}${profileRun || analysisRun || activeSectionRun ? " · refreshing" : ""}`
-    : null;
   const canStartInvestorLens = canRunInvestorAnalysis(card);
   const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
@@ -1105,7 +665,6 @@ export function ResearchLayerPanel({
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
   useEffect(() => {
     lastSectionLayerRef.current = null;
@@ -1235,9 +794,6 @@ export function ResearchLayerPanel({
 
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
   const draggingLayer = draggingLayerId ? RESEARCH_LAYER_CARDS.find((layer) => layer.id === draggingLayerId) : null;
-  const people = managementPeople(card);
-  const managerSources = managementSourceCount(card);
-  const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
   const profileRunVisible = Boolean(profileRun);
   const profileOrAnalysisRunVisible = Boolean(profileRun || analysisRun);
@@ -1250,56 +806,16 @@ export function ResearchLayerPanel({
     : snapPreviewId
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
-  const { fullSummary, summary } = profileSummaryCopy(card);
-  const firstPayoff = firstPayoffForEvents(events);
-  const firstPayoffFiled = firstPayoffIsFiled(events) || (!firstPayoff && card.cacheStatus === "hit");
-  const showFirstPayoff = Boolean(firstPayoff?.status === "substantive_first_read" && !firstPayoffFiled);
-  const showSourcesChecked = firstPayoffFiled;
-  const firstPayoffSourceCount = filedSourceCount(events, sources);
   const investorRead = investorReadForCard(card);
 
-  if (!canShowResearchLayers && !showFirstPayoff && !showSourcesChecked) {
+  // The identity header and the early read render above this panel in the CompanyArc shell;
+  // the gate here only decides between the research layer and the honest partial state.
+  if (showPartialProfileGate(card, events)) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
   return (
-    <LayoutGroup id="cold-start-research-layer">
-    <main className="cs-research-shell">
-      <CompanyHeader
-        card={card}
-        domain={card.domain}
-        freshnessLabel={freshnessLabel}
-        identityChildren={
-          <>
-            <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
-            {showSourcesChecked ? (
-              <SourcesCheckedStamp
-                prefersReducedMotion={prefersReducedMotion}
-                sourceCount={firstPayoffSourceCount}
-              />
-            ) : null}
-          </>
-        }
-        phase="profile"
-      >
-        <FactRibbon facts={facts} />
-        <PeopleLine
-          companyDomain={card.domain}
-          contactElapsedSeconds={contactElapsedSeconds}
-          contactRun={contactRun}
-          confidence={managementConfidence(card)}
-          people={people}
-          sourceCount={managerSources}
-          tooltipProps={triggerProps}
-        />
-      </CompanyHeader>
-
-      <AnimatePresence initial={false}>
-        {showFirstPayoff && firstPayoff ? (
-          <ReadRegion context="profile" firstPayoff={firstPayoff} />
-        ) : null}
-      </AnimatePresence>
-
+    <>
       <section className="cs-research-layer" aria-label="Research layer">
         <div className="cs-research-layer-head">
           <span>Research</span>
@@ -1531,8 +1047,6 @@ export function ResearchLayerPanel({
           </div>
         </div>
       </motion.section>
-      <SharedTooltip tooltip={tooltip} />
-    </main>
-    </LayoutGroup>
+    </>
   );
 }

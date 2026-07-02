@@ -429,7 +429,13 @@ describe("SidePanel generation gate", () => {
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     expect(container.textContent).toContain("No profile");
-    expect(container.textContent).toContain("Get up to speed");
+    // The intake previews the real research modules and the sealed Investor Lens, not
+    // marketing copy or invented card names.
+    expect(container.textContent).not.toContain("Get up to speed");
+    expect(container.textContent).toContain("Next question");
+    expect(container.textContent).toContain("Why care");
+    expect(container.textContent).toContain("Investor Lens");
+    expect(container.textContent).toContain("Runs on the cited profile once it is filed.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Begin research"
     );
@@ -928,10 +934,13 @@ describe("SidePanel generation gate", () => {
       }
 
       cardFetches += 1;
-      return cardFetches > 3 ? jsonResponse(cardForDomain("cartesia.ai")) : missingCardResponse();
+      return cardFetches > 3 ? jsonResponse(cardWithSynthesis("cartesia.ai")) : missingCardResponse();
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
+    // While building, the panel renders run events and the early read only; nothing from the
+    // gated synthesis may appear before the profile phase, even when the stored card has it.
+    expect(container.textContent).not.toContain("supported wedge");
     expect(container.textContent).toContain("Researching");
     expect(container.textContent).toContain("Sources");
     expect(container.textContent).toContain("Checking company, product, funding, and proof sources");
@@ -940,12 +949,15 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).not.toContain("Pulling in what matters");
     expect(container.textContent).not.toContain("Turning evidence into a card");
     expect(container.textContent).not.toContain("Saving the final profile");
-    // No wall-clock stage estimation: with no run events yet, progress holds at the first stage.
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 1 of 4");
-    expect(container.querySelector(".cs-generation-hero")).not.toBeNull();
+    // No wall-clock stage estimation: with no run events yet, the trail holds at the first stage.
+    const runningSegment = container.querySelector(".cs-trail-segment[data-status='running']");
+    expect(runningSegment?.textContent).toContain("Sources");
+    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(0);
+    // The persistent header carries the identity and the run timer; there is no separate hero.
+    expect(container.querySelector(".cs-company-context[data-phase='building']")).not.toBeNull();
+    expect(container.querySelector(".cs-generation-hero")).toBeNull();
     expect(container.querySelector(".cs-build-bar")).toBeNull();
-    expect(container.querySelector(".cs-drizzle-loader")).not.toBeNull();
-    expect(container.querySelector(".cs-generation-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
+    expect(container.querySelector(".cs-company-logo img")?.getAttribute("src")).toBe("https://icons.duckduckgo.com/ip3/cartesia.ai.ico");
     expect(container.querySelector(".cs-card-tray")).toBeNull();
     expect(container.textContent).not.toContain("Collecting source distance");
     expect(container.textContent).not.toContain("Still running in the background");
@@ -997,7 +1009,17 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.querySelector(".cs-build-meta")?.textContent).toContain("Step 2 of 4");
+    // The source.found event advances the trail to its second stage and the count surfaces
+    // in the trail copy without opening the details tree.
+    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(1);
+    expect(container.querySelector(".cs-trail-segment[data-status='running']")?.textContent).toContain("Proof");
+    expect(container.querySelector(".cs-research-progress")?.textContent).toContain("8 sources found");
+    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
+    expect(detailsButton).not.toBeNull();
+    await act(async () => {
+      detailsButton?.click();
+    });
+    await flushPromises();
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
     await unmount();
   });

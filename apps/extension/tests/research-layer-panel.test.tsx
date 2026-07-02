@@ -4,7 +4,7 @@ import { type ColdStartCard, type FirstPayoff } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ResearchLayerPanel } from "../src/ResearchLayerPanel";
+import { CompanyArc } from "../src/CompanyArc";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
@@ -186,6 +186,16 @@ function firstPayoff(
   };
 }
 
+async function flushPromises() {
+  await act(async () => {
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
+// The early read and its filed stamp render in the CompanyArc shell above the research layer,
+// so these tests mount the arc in its profile phase.
 async function renderPanel(input: {
   complete?: boolean;
   duplicateEvidence?: boolean;
@@ -197,6 +207,7 @@ async function renderPanel(input: {
   if (input.reducedMotion) {
     stubReducedMotion(true);
   }
+  await import("../src/ResearchLayerPanel");
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -210,22 +221,29 @@ async function renderPanel(input: {
 
   await act(async () => {
     root.render(
-      <ResearchLayerPanel
-        card={card(input.filedViaCacheStatus ? "hit" : "partial")}
-        contactRun={input.complete ? undefined : { generationStatus: "running", startedAt: Date.now() }}
-        elapsedSeconds={0}
-        events={events}
+      <CompanyArc
+        arc={{
+          phase: "profile",
+          card: card(input.filedViaCacheStatus ? "hit" : "partial"),
+          sections: [],
+          ...(input.complete ? {} : { contactRun: { generationStatus: "running", startedAt: Date.now() } }),
+          events,
+          sources: [
+            source({ domain: "exa.ai", sourceType: "company_site" }),
+            source({ domain: "docs.exa.ai", sourceType: "company_site" }),
+            source({ domain: "techcrunch.com", sourceType: "news", title: "Exa funding" })
+          ]
+        }}
+        domain="exa.ai"
+        onEditSettings={() => undefined}
         onRegenerate={() => undefined}
-        onRunSection={() => undefined}
         onRunAnalysis={() => undefined}
-        sources={[
-          source({ domain: "exa.ai", sourceType: "company_site" }),
-          source({ domain: "docs.exa.ai", sourceType: "company_site" }),
-          source({ domain: "techcrunch.com", sourceType: "news", title: "Exa funding" })
-        ]}
+        onRunSection={() => undefined}
+        onStart={() => undefined}
       />
     );
   });
+  await flushPromises();
 
   return {
     container,
