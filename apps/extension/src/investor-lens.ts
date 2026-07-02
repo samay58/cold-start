@@ -25,6 +25,10 @@ export function labelForQuestionCategory(category: QuestionCategory | null): str
   return category ? QUESTION_CATEGORY_LABELS[category] : null;
 }
 
+// The sealed lens row in the company arc and the live control in the research layer
+// speak this same line while the cited profile is still building.
+export const LENS_WAITS_FOR_PROFILE_REASON = "The cited profile must finish before Investor Lens can run.";
+
 export function cleanQuestionText(question: string) {
   return stripCitationMarkers(question)
     .replace(/\s*[\u2013\u2014]\s*/g, "; ")

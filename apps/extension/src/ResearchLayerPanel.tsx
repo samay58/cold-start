@@ -1,15 +1,13 @@
 import {
   analysisBlockedReason,
-  fundingEvidenceFromCitations,
-  hasUsablePublicProfile,
   publicProfileQuality,
   type ColdStartCard,
   type PublicProfileQuality,
   type ResearchSection
 } from "@cold-start/core";
-import { AnimatePresence, LayoutGroup, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
+import { AnimatePresence, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
+import type { KeyboardEvent } from "react";
 import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
@@ -24,28 +22,17 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { CompanyLogo } from "./CompanyLogo";
-import {
-  INSUFFICIENT_EVIDENCE_NOTICE,
-  formatElapsed,
-  formatOptionalCurrency,
-  formatOptionalNumber,
-  profileSummaryCopy
-} from "./extension-format";
-import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
+import { showPartialProfileGate, sourceLabel, websiteLabel } from "./company-display";
+import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
-import { FirstPayoffSurface } from "./FirstPayoffSurface";
-import { investorReadForCard, type InvestorReadDisplay, type LensClaim, type SourcePosture } from "./investor-lens";
 import {
-  acceptedSourceCountFromEvents,
-  buildResearchProgressPlan,
-  currentProfileProgressEvents,
-  generationStageIndexFromEvents,
-  hasTerminalProfileProgressEvent,
-  RESEARCH_PROGRESS_STAGES
-} from "./research-progress";
-import { markPerformance } from "./sidepanel-network";
-import { SourcePassInstrument } from "./SourcePassInstrument";
+  investorReadForCard,
+  LENS_WAITS_FOR_PROFILE_REASON,
+  type InvestorReadDisplay,
+  type LensClaim,
+  type SourcePosture
+} from "./investor-lens";
+import { ResearchTrail } from "./ResearchTrail";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -61,7 +48,6 @@ type ResearchLayerPanelProps = {
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
-  contactElapsedSeconds?: number | undefined;
   contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
@@ -75,34 +61,11 @@ type ResearchLayerPanelProps = {
   sections?: ResearchSection[] | undefined;
   events?: ExtensionResearchRunEvent[] | undefined;
   sources?: ExtensionSourceSummary[] | undefined;
-  cachedAtMs?: number | undefined;
-};
-
-type TooltipPlacement = "above" | "below";
-
-type SharedTooltipState = {
-  animate: boolean;
-  body: string;
-  id: string;
-  left: number;
-  placement: TooltipPlacement;
-  title: string;
-  top: number;
-  width: number;
-};
-
-type TooltipTriggerProps = {
-  "aria-describedby": string;
-  onBlur: (event: FocusEvent<HTMLElement>) => void;
-  onFocus: (event: FocusEvent<HTMLElement>) => void;
-  onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
-  onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
 };
 
 const VISIBLE_SOURCE_COUNT = 3;
 const PINNED_RESEARCH_LAYERS_KEY = "coldStartPinnedResearchLayers";
 const researchLayerIds = new Set<ResearchLayerId>(RESEARCH_LAYER_CARDS.map((layer) => layer.id));
-const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 const DORMANT_PILE_DEPTHS = [
   { x: 0, y: 0, rotate: -0.18 },
   { x: -3, y: -1, rotate: 0.38 },
@@ -142,7 +105,7 @@ function investorLensControlState({
   profileRun?: AnalysisRun | undefined;
 }) {
   if (profileRun) {
-    return { disabled: true, reason: "The cited profile must finish before Investor Lens can run." };
+    return { disabled: true, reason: LENS_WAITS_FOR_PROFILE_REASON };
   }
 
   const blockedReason = analysisBlockedReason(card);
@@ -205,31 +168,6 @@ function writePinnedLayerIds(domain: string, ids: ResearchLayerId[]) {
   });
 }
 
-function sourceLabel(count: number) {
-  return `${count} ${count === 1 ? "source" : "sources"}`;
-}
-
-function metadataSourceCount(event: ExtensionResearchRunEvent) {
-  const value = event.metadata.sourceCount;
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function filedSourceCount(events: ExtensionResearchRunEvent[], sources: ExtensionSourceSummary[]) {
-  const profileEvents = currentProfileProgressEvents(events);
-
-  for (const event of [...profileEvents].reverse()) {
-    if (event.type !== "card.saved" && event.type !== "card.enriched") {
-      continue;
-    }
-    const count = metadataSourceCount(event);
-    if (count !== null) {
-      return count;
-    }
-  }
-
-  return sources.length;
-}
-
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
 }
@@ -241,499 +179,6 @@ function latestAnalysisEventMessage(events: ExtensionResearchRunEvent[]) {
     .filter((event) => event.metadata.mode === "analysis" && event.message.trim().length > 0)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
   return analysisEvents.at(-1)?.message ?? null;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function useSharedTooltip(prefersReducedMotion: boolean) {
-  const [tooltip, setTooltip] = useState<SharedTooltipState | null>(null);
-  const previousTooltipId = useRef<string | null>(null);
-
-  function showTooltip(input: {
-    body: string;
-    id: string;
-    placement?: TooltipPlacement;
-    target: HTMLElement;
-    title: string;
-  }) {
-    const rect = input.target.getBoundingClientRect();
-    const width = Math.min(340, Math.max(240, window.innerWidth - 32));
-    const left = clamp(rect.left + rect.width / 2 - width / 2, 16, Math.max(16, window.innerWidth - width - 16));
-    const placement = input.placement ?? "above";
-    const top = placement === "above" ? rect.top - 10 : rect.bottom + 10;
-    const previousId = previousTooltipId.current;
-    previousTooltipId.current = input.id;
-    setTooltip({
-      animate: Boolean(previousId && previousId !== input.id && !prefersReducedMotion),
-      body: input.body,
-      id: input.id,
-      left,
-      placement,
-      title: input.title,
-      top,
-      width
-    });
-  }
-
-  function hideTooltip() {
-    setTooltip(null);
-  }
-
-  function triggerProps(input: {
-    body: string;
-    id: string;
-    placement?: TooltipPlacement;
-    title: string;
-  }): TooltipTriggerProps {
-    return {
-      "aria-describedby": SHARED_TOOLTIP_ID,
-      onBlur: (event) => {
-        const nextTarget = event.relatedTarget;
-        if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-          return;
-        }
-        hideTooltip();
-      },
-      onFocus: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerEnter: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerLeave: () => hideTooltip()
-    };
-  }
-
-  return { tooltip, triggerProps };
-}
-
-function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
-  if (!tooltip) {
-    return null;
-  }
-
-  return (
-    <div
-      className="cs-shared-tooltip"
-      data-animate={tooltip.animate ? "true" : "false"}
-      data-placement={tooltip.placement}
-      id={SHARED_TOOLTIP_ID}
-      role="tooltip"
-      style={{
-        left: tooltip.left,
-        top: tooltip.top,
-        width: tooltip.width
-      }}
-    >
-      <strong>{tooltip.title}</strong>
-      <span>{tooltip.body}</span>
-    </div>
-  );
-}
-
-function ProfileSummary({
-  fullSummary,
-  summary,
-  tooltipProps
-}: {
-  fullSummary: string;
-  summary: string;
-  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
-}) {
-  const hasMore = fullSummary !== summary;
-  return (
-    <div className="cs-company-summary-wrap">
-      {hasMore ? (
-        <p className="cs-company-summary">
-          {summary}{" "}
-          <button
-            aria-label="Read the full company description"
-            className="cs-company-summary-more"
-            type="button"
-            {...tooltipProps({
-              body: fullSummary,
-              id: "profile-summary",
-              placement: "below",
-              title: "Description"
-            })}
-          >
-            (more)
-          </button>
-        </p>
-      ) : (
-        <p className="cs-company-summary">{summary}</p>
-      )}
-    </div>
-  );
-}
-
-function SourcesCheckedStamp({
-  prefersReducedMotion,
-  sourceCount
-}: {
-  prefersReducedMotion: boolean;
-  sourceCount: number;
-}) {
-  const meta = sourceCount > 0 ? sourceLabel(sourceCount) : "Filed with sources";
-
-  return (
-    <motion.div
-      aria-label="Sources checked"
-      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-      className="cs-early-read-filed"
-      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
-      layout
-      layoutId="sources-checked"
-      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
-    >
-      <span className="cs-early-read-filed-stamp">Sources checked</span>
-      <span className="cs-early-read-filed-meta">{meta}</span>
-    </motion.div>
-  );
-}
-
-function websiteLabel(card: ColdStartCard) {
-  const website = card.identity.websiteUrl?.value ?? `https://${card.domain}`;
-  try {
-    return new URL(website).hostname.replace(/^www\./i, "");
-  } catch {
-    return card.domain;
-  }
-}
-
-function readableCompanyName(card: ColdStartCard) {
-  const extracted = card.identity.name.value?.trim();
-  if (extracted && extracted.toLowerCase() !== card.domain.toLowerCase()) {
-    return extracted;
-  }
-
-  const root = card.domain.replace(/^www\./i, "").split(".")[0] ?? card.domain;
-  return root
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ") || card.domain;
-}
-
-type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
-
-function roleScore(role: string | null) {
-  const normalized = role?.toLowerCase() ?? "";
-  let score = 0;
-
-  if (normalized.includes("ceo")) {
-    score += 5;
-  }
-  if (normalized.includes("co-founder") || normalized.includes("cofounder")) {
-    score += 4;
-  }
-  if (normalized.includes("founder")) {
-    score += 3;
-  }
-  if (normalized.includes("chief")) {
-    score += 2;
-  }
-  if (normalized.includes("president") || normalized.includes("editor") || normalized.includes("operating")) {
-    score += 1;
-  }
-  if (normalized.includes("prev.") || normalized.includes("previous")) {
-    score -= 2;
-  }
-
-  return score;
-}
-
-function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson {
-  const currentScore = roleScore(current.role);
-  const candidateScore = roleScore(candidate.role);
-  let preferred = current;
-
-  if (candidateScore !== currentScore) {
-    preferred = candidateScore > currentScore ? candidate : current;
-  } else {
-    const currentRoleLength = current.role?.length ?? 0;
-    const candidateRoleLength = candidate.role?.length ?? 0;
-
-    if (candidateRoleLength === 0) {
-      preferred = current;
-    } else if (currentRoleLength === 0) {
-      preferred = candidate;
-    } else {
-      preferred = candidateRoleLength < currentRoleLength ? candidate : current;
-    }
-  }
-
-  return {
-    ...preferred,
-    sourceUrl: preferred.sourceUrl ?? current.sourceUrl ?? candidate.sourceUrl,
-    email: preferred.email ?? current.email ?? candidate.email ?? null,
-  };
-}
-
-function managementPeople(card: ColdStartCard): CardPerson[] {
-  const byName = new Map<string, CardPerson>();
-  const people = [...(card.team.founders.value ?? []), ...(card.team.keyExecs.value ?? [])];
-
-  for (const person of people) {
-    const key = person.name.trim().toLowerCase();
-    const current = byName.get(key);
-
-    if (!current) {
-      byName.set(key, person);
-      continue;
-    }
-
-    byName.set(key, preferredPerson(current, person));
-  }
-
-  return Array.from(byName.values());
-}
-
-function managementSourceCount(card: ColdStartCard) {
-  return new Set([
-    ...card.team.founders.citationIds,
-    ...card.team.keyExecs.citationIds
-  ]).size;
-}
-
-function personRole(person: CardPerson) {
-  return person.role?.trim() || "Role not verified";
-}
-
-function personInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  const initials = parts.length >= 2
-    ? `${parts[0]?.charAt(0) ?? ""}${parts[parts.length - 1]?.charAt(0) ?? ""}`
-    : parts[0]?.slice(0, 2) ?? "";
-
-  return initials.toUpperCase() || "P";
-}
-
-function peopleEmailCount(people: CardPerson[]) {
-  return people.filter((person) => person.email).length;
-}
-
-function emailKind(email: string, companyDomain: string) {
-  const domain = email.split("@")[1]?.toLowerCase().replace(/^www\./, "") ?? "";
-  const targetDomain = companyDomain.toLowerCase().replace(/^www\./, "");
-  if (domain === targetDomain) {
-    return "work";
-  }
-  if (["gmail.com", "icloud.com", "me.com", "outlook.com", "hotmail.com", "yahoo.com", "proton.me", "protonmail.com"].includes(domain)) {
-    return "personal";
-  }
-  return "other domain";
-}
-
-function sentenceCase(value: string) {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function sourceHostLabel(sourceUrl: string | null | undefined) {
-  if (!sourceUrl) {
-    return null;
-  }
-
-  try {
-    return new URL(sourceUrl).hostname.replace(/^www\./i, "");
-  } catch {
-    return null;
-  }
-}
-
-function personTooltipBody(person: CardPerson, companyDomain: string) {
-  const emailStatus = person.email
-    ? `${sentenceCase(emailKind(person.email, companyDomain))} email found.`
-    : "No verified email found yet.";
-  const source = sourceHostLabel(person.sourceUrl);
-
-  return [
-    `${personRole(person)}.`,
-    emailStatus,
-    source ? `Source: ${source}.` : null
-  ].filter(Boolean).join(" ");
-}
-
-function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
-  const emails = people.flatMap((person) => person.email ? [person.email] : []);
-  if (emails.length === 0) {
-    return "No verified email found";
-  }
-
-  const workCount = emails.filter((email) => emailKind(email, companyDomain) === "work").length;
-  if (workCount === emails.length) {
-    return `${workCount} work email${workCount === 1 ? "" : "s"}`;
-  }
-  return `${emails.length} email${emails.length === 1 ? "" : "s"} found`;
-}
-
-function managementConfidence(card: ColdStartCard) {
-  const confidenceRank = { high: 3, medium: 2, low: 1 } as const;
-  return [card.team.founders, card.team.keyExecs]
-    .filter((fact) => (fact.value ?? []).some((person) => person.email))
-    .map((fact) => fact.confidence)
-    .sort((left, right) => confidenceRank[right] - confidenceRank[left])[0] ?? null;
-}
-
-function profileFacts(card: ColdStartCard): Array<{ label: string; value: string; meta?: string | undefined }> {
-  const hq = card.identity.hq.value;
-  const headcount = card.team.headcount.value;
-  const lastRoundFact = card.funding.lastRound;
-  const lastRound = lastRoundFact.value;
-  const lastRoundAmount = formatOptionalCurrency(lastRound?.amountUsd);
-  const totalRaised = formatOptionalCurrency(card.funding.totalRaisedUsd.value);
-  const citationFunding = fundingEvidenceFromCitations(card).find((item) => item.amountLabel);
-  const facts: Array<{ label: string; value: string; meta?: string | undefined }> = [];
-
-  const employees = formatOptionalNumber(headcount?.value);
-  if (employees) {
-    facts.push({
-      label: "Employees",
-      value: employees,
-      ...(headcount?.asOf ? { meta: headcount.asOf } : {})
-    });
-  }
-
-  if (lastRound?.name === "Reported financing" && lastRoundAmount && lastRoundFact.status === "inferred") {
-    facts.push({
-      label: "Funding",
-      value: lastRoundAmount,
-      meta: "reported"
-    });
-  } else if (lastRound?.name) {
-    facts.push({
-      label: "Round",
-      value: lastRound.name,
-      ...(lastRoundAmount ? { meta: lastRoundAmount } : {})
-    });
-  } else if (totalRaised) {
-    facts.push({ label: "Raised", value: totalRaised });
-  } else if (citationFunding?.amountLabel) {
-    facts.push({
-      label: "Funding",
-      value: citationFunding.amountLabel,
-      meta: citationFunding.status === "closed" ? "reported" : "reported target"
-    });
-  }
-
-  if (hq?.city || hq?.country) {
-    facts.push({ label: "HQ", value: [hq.city, hq.country].filter(Boolean).join(", ") });
-  } else if (card.identity.foundedYear.value) {
-    facts.push({ label: "Founded", value: String(card.identity.foundedYear.value) });
-  }
-
-  return facts.slice(0, 3);
-}
-
-function FactRibbon({ facts }: { facts: ReturnType<typeof profileFacts> }) {
-  if (facts.length === 0) {
-    return null;
-  }
-
-  return (
-    <dl className="cs-company-facts" aria-label="Core metrics">
-      {facts.map((fact) => (
-        <div key={fact.label}>
-          <dt>{fact.label}</dt>
-          <dd>{fact.value}</dd>
-          {fact.meta ? <small>{fact.meta}</small> : null}
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function PeopleLine({
-  companyDomain,
-  contactElapsedSeconds = 0,
-  contactRun,
-  confidence,
-  people,
-  sourceCount,
-  tooltipProps
-}: {
-  companyDomain: string;
-  contactElapsedSeconds?: number;
-  contactRun?: AnalysisRun | undefined;
-  confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
-  people: CardPerson[];
-  sourceCount: number;
-  tooltipProps: (input: { body: string; id: string; placement?: TooltipPlacement; title: string }) => TooltipTriggerProps;
-}) {
-  if (people.length === 0) {
-    return null;
-  }
-
-  const orderedPeople = [
-    ...people.filter((person) => person.email),
-    ...people.filter((person) => !person.email),
-  ];
-  const visiblePeople = orderedPeople.slice(0, 4);
-  const hiddenPeopleCount = orderedPeople.length - visiblePeople.length;
-  const emailCount = peopleEmailCount(people);
-  const contactStatus = contactRun
-    ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
-    : peopleEmailSummary(people, companyDomain);
-  const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
-
-  function copyEmail(email: string) {
-    void navigator.clipboard?.writeText(email);
-  }
-
-  return (
-    <section className="cs-people-line" aria-label="Management team">
-      <div className="cs-people-line-head">
-        <span className="cs-people-line-label">People</span>
-        <span className="cs-people-line-source">
-          {contactStatus}
-          {confidenceStatus}
-          {sourceCount > 0 ? ` · ${sourceLabel(sourceCount)}` : ""}
-        </span>
-      </div>
-      <div className="cs-people-line-list">
-        {visiblePeople.map((person) => {
-          const name = person.name.trim();
-          const tooltip = name
-            ? tooltipProps({
-              body: personTooltipBody(person, companyDomain),
-              id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-              placement: "above",
-              title: name
-            })
-            : undefined;
-
-          return (
-            <article
-              className="cs-people-person"
-              data-has-email={person.email ? "true" : "false"}
-              key={`${person.name}-${person.email ?? person.role ?? "person"}`}
-              tabIndex={tooltip ? 0 : undefined}
-              {...tooltip}
-            >
-              <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
-              <span className="cs-person-main">
-                <span className="cs-people-name">{person.name}</span>
-                <span className="cs-people-role">{personRole(person)}</span>
-                {person.email ? (
-                  <span className="cs-person-email">
-                    <a href={`mailto:${person.email}`}>{person.email}</a>
-                    <span className="cs-person-email-kind">{emailKind(person.email, companyDomain)}</span>
-                    <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
-                  </span>
-                ) : null}
-              </span>
-              <span className="cs-person-contact-state" aria-hidden="true">
-                {person.email ? "@" : ""}
-              </span>
-            </article>
-          );
-        })}
-        {hiddenPeopleCount > 0 ? (
-          <span className="cs-people-more">
-            +{hiddenPeopleCount}
-          </span>
-        ) : null}
-      </div>
-    </section>
-  );
 }
 
 function LayerContent({
@@ -1094,6 +539,9 @@ function InvestorReadCard({ read }: { read: InvestorReadDisplay }) {
   );
 }
 
+
+// Rendered under the shared CompanyArc header, which already carries the company identity;
+// this section only explains the gap and offers the honest next actions.
 function PartialProfilePanel({
   card,
   onRegenerate,
@@ -1103,7 +551,6 @@ function PartialProfilePanel({
   onRegenerate: () => void;
   quality: PublicProfileQuality;
 }) {
-  const companyName = readableCompanyName(card);
   const status = quality.hasCitations ? "Profile saved with gaps" : "No cited profile yet";
   const body = quality.hasCitations
     ? "Some cited facts were saved, but not enough to open Research."
@@ -1111,37 +558,34 @@ function PartialProfilePanel({
   const lensReason = analysisBlockedReason(card) ?? "The cited profile must finish before Investor Lens can run.";
 
   return (
-    <main className="cs-research-shell cs-research-shell-partial">
-      <section className="cs-partial-profile" aria-label="Incomplete company profile">
-        <div className="cs-partial-profile-copy">
-          <p className="cs-research-label">{status}</p>
-          <h1>{companyName}</h1>
-          <p>{body}</p>
+    <section className="cs-partial-profile" aria-label="Incomplete company profile">
+      <div className="cs-partial-profile-copy">
+        <p className="cs-research-label">{status}</p>
+        <p>{body}</p>
+      </div>
+      <dl className="cs-partial-profile-status" aria-label="Profile status">
+        <div>
+          <dt>Sources</dt>
+          <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
         </div>
-        <dl className="cs-partial-profile-status" aria-label="Profile status">
-          <div>
-            <dt>Sources</dt>
-            <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
-          </div>
-          <div>
-            <dt>Website</dt>
-            <dd>{websiteLabel(card)}</dd>
-          </div>
-        </dl>
-        <button className="cs-extension-button" onClick={onRegenerate} type="button">
-          Regenerate profile
+        <div>
+          <dt>Website</dt>
+          <dd>{websiteLabel(card)}</dd>
+        </div>
+      </dl>
+      <button className="cs-extension-button" onClick={onRegenerate} type="button">
+        Regenerate profile
+      </button>
+      <div className="cs-investor-lens-control cs-investor-lens-control-partial">
+        <div>
+          <strong>Investor Lens</strong>
+          <span>{lensReason}</span>
+        </div>
+        <button className="cs-investor-lens-button" disabled type="button">
+          Run Investor Lens
         </button>
-        <div className="cs-investor-lens-control cs-investor-lens-control-partial">
-          <div>
-            <strong>Investor Lens</strong>
-            <span>{lensReason}</span>
-          </div>
-          <button className="cs-investor-lens-button" disabled type="button">
-            Run Investor Lens
-          </button>
-        </div>
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }
 
@@ -1278,180 +722,10 @@ function DormantPileCard({
   );
 }
 
-function formatSavedDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return "earlier";
-  }
-
-  return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
-}
-
-function plural(value: number, singular: string, pluralWord = `${singular}s`) {
-  return `${value} ${value === 1 ? singular : pluralWord}`;
-}
-
-function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
-  switch (sourceType) {
-    case "company_site":
-      return "primary";
-    case "enrichment":
-      return "enrichment";
-    case "filing":
-      return "filing";
-    case "github":
-      return "GitHub";
-    case "news":
-      return "news";
-    case "rdap":
-      return "domain";
-    case "other":
-      return "other";
-  }
-}
-
-function progressPlanHasAttention(plan: ReturnType<typeof buildResearchProgressPlan>) {
-  return plan.some((stage) =>
-    stage.status === "attention" ||
-    stage.status === "failed" ||
-    stage.substeps.some((substep) => substep.status === "attention" || substep.status === "failed")
-  );
-}
-
-function currentProgressProof(plan: ReturnType<typeof buildResearchProgressPlan>, activeIndex: number, fallback: string) {
-  const stage = plan[activeIndex];
-  const latestSubstep = [...(stage?.substeps ?? [])].reverse().find((substep) => substep.status !== "running");
-  return latestSubstep?.message ?? stage?.proofLine ?? fallback;
-}
-
-function ResearchProgressPanel({
-  events = [],
-  isFinalizingProfile,
-  isRunning,
-  isProfileRunning,
-  resolvedCount,
-  sources = [],
-  totalCount
-}: {
-  events?: ExtensionResearchRunEvent[] | undefined;
-  isFinalizingProfile: boolean;
-  isRunning: boolean;
-  isProfileRunning: boolean;
-  resolvedCount: number;
-  sources?: ExtensionSourceSummary[] | undefined;
-  totalCount: number;
-}) {
-  const eventSourceCount = acceptedSourceCountFromEvents(events);
-  const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
-  const activeIndex = generationStageIndexFromEvents(events) ?? (sourceCount > 0 ? 1 : 0);
-  const stageNote =
-    activeIndex === 1 && sourceCount > 0
-      ? `${plural(sourceCount, "source")} found`
-      : activeIndex === 2
-        ? "Building first cited profile"
-        : activeIndex === 3
-          ? "Saving with sources attached"
-          : "Checking company, product, funding, and proof sources";
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const plan = buildResearchProgressPlan({
-    activeIndex,
-    complete: !isProfileRunning,
-    events,
-    sources,
-    stageNote,
-    stages: RESEARCH_PROGRESS_STAGES
-  });
-  const currentProfileEvents = currentProfileProgressEvents(events);
-  const profileEventsSeen = currentProfileEvents.length > 0;
-  const profileComplete =
-    !isProfileRunning &&
-    (hasTerminalProfileProgressEvent(events) || (!isRunning && sourceCount > 0 && totalCount > 0 && resolvedCount >= totalCount));
-  const needsAttention = progressPlanHasAttention(plan);
-  const showLiveProgress = needsAttention || (!profileComplete && (isProfileRunning || profileEventsSeen));
-  const showDetailsControl = profileEventsSeen && !needsAttention;
-  const showDetailsTree = needsAttention || detailsOpen;
-  const currentStage = plan[activeIndex];
-  const stateCopy = isFinalizingProfile
-    ? "Starter profile ready"
-    : profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
-  const sourceCopy = sourceCount > 0
-    ? isFinalizingProfile
-      ? `Filling in contacts and details · ${plural(sourceCount, "source")}`
-      : profileComplete
-      ? plural(sourceCount, "source")
-      : `${plural(sourceCount, "source")} found`
-    : isFinalizingProfile
-      ? "Filling in contacts and details"
-    : "Checking company, product, funding, and proof sources";
-  const sectionCopy = profileComplete
-    ? `${resolvedCount} of ${totalCount} sections`
-    : `${resolvedCount} of ${totalCount} sections ready`;
-  const liveStageCopy = needsAttention ? "Needs attention" : currentStage?.label ?? "Researching";
-  const liveProofCopy = currentProgressProof(plan, activeIndex, stageNote);
-
-  return (
-    <div
-      className="cs-research-progress"
-      aria-label="Research progress"
-      data-attention={needsAttention ? "true" : "false"}
-      data-mode={profileComplete ? "filed" : "live"}
-    >
-      <div className="cs-research-progress-main">
-        <span className="cs-research-progress-dot" data-running={!profileComplete && isRunning ? "true" : "false"} aria-hidden="true" />
-        <div>
-          <strong>{stateCopy}</strong>
-          <small>
-            {sourceCopy}
-            {` · ${sectionCopy}`}
-          </small>
-        </div>
-      </div>
-      {showLiveProgress ? (
-        <div className="cs-research-progress-live" aria-live="polite">
-          <span>{liveStageCopy}</span>
-          <small>{liveProofCopy}</small>
-        </div>
-      ) : null}
-      {showDetailsControl ? (
-        <button
-          aria-expanded={detailsOpen}
-          className="cs-research-progress-details-toggle"
-          onClick={() => setDetailsOpen((current) => !current)}
-          type="button"
-        >
-          {detailsOpen ? "Hide details" : "Details"}
-        </button>
-      ) : null}
-      {showDetailsTree ? (
-        <SourcePassInstrument
-          activeIndex={activeIndex}
-          complete={profileComplete || !isProfileRunning}
-          events={events}
-          sources={sources}
-          stageNote={stageNote}
-          stages={RESEARCH_PROGRESS_STAGES}
-          variant="compact"
-        />
-      ) : null}
-      {sources.length > 0 && (!profileComplete || detailsOpen || needsAttention) ? (
-        <div className="cs-research-source-strip" aria-label="Recent sources">
-          {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
-            <a href={source.url} key={source.id} rel="noreferrer" target="_blank" title={source.snippet}>
-              <span>{source.domain}</span>
-              <small>{sourceKindLabel(source.sourceType)}</small>
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
   card,
-  contactElapsedSeconds = 0,
   contactRun,
   elapsedSeconds,
   onRunSection,
@@ -1464,15 +738,8 @@ export function ResearchLayerPanel({
   activeSectionRun,
   sections,
   events = [],
-  sources = [],
-  cachedAtMs
+  sources = []
 }: ResearchLayerPanelProps) {
-  const companyName = readableCompanyName(card);
-  const isStaleRead = card.cacheStatus === "stale" || cachedAtMs !== undefined;
-  const freshnessLabel = isStaleRead
-    ? `Saved ${formatSavedDate(card.generatedAt)}${profileRun || analysisRun || activeSectionRun ? " · refreshing" : ""}`
-    : null;
-  const canShowResearchLayers = hasUsablePublicProfile(card);
   const quality = publicProfileQuality(card);
   const layers = useMemo(() => layersForCard(card, sections), [card, sections]);
   const activeSectionLayerId = activeSectionRun?.layerId;
@@ -1485,9 +752,7 @@ export function ResearchLayerPanel({
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
-  const firstPayoffMarkedVisible = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { tooltip, triggerProps } = useSharedTooltip(prefersReducedMotion);
 
   useEffect(() => {
     lastSectionLayerRef.current = null;
@@ -1617,9 +882,6 @@ export function ResearchLayerPanel({
 
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
   const draggingLayer = draggingLayerId ? RESEARCH_LAYER_CARDS.find((layer) => layer.id === draggingLayerId) : null;
-  const people = managementPeople(card);
-  const managerSources = managementSourceCount(card);
-  const facts = profileFacts(card);
   const activeCount = activeLayerIds.length;
   const profileRunVisible = Boolean(profileRun);
   const finalizingProfileVisible = Boolean(contactRun && !profileRun);
@@ -1632,12 +894,6 @@ export function ResearchLayerPanel({
     : snapPreviewId
       ? "Keep pulling toward the filing space"
       : "Lift a card to file it";
-  const { fullSummary, summary } = profileSummaryCopy(card);
-  const firstPayoff = firstPayoffForEvents(events);
-  const firstPayoffFiled = firstPayoffIsFiled(events) || (!firstPayoff && card.cacheStatus === "hit");
-  const showFirstPayoff = Boolean(firstPayoff?.status === "substantive_first_read" && !firstPayoffFiled);
-  const showSourcesChecked = firstPayoffFiled;
-  const firstPayoffSourceCount = filedSourceCount(events, sources);
   const investorRead = investorReadForCard(card);
   const lensRunning = Boolean(analysisRun && !card.synthesis);
   const lensNotFiled = !lensRunning && !card.synthesis && analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE;
@@ -1645,62 +901,14 @@ export function ResearchLayerPanel({
   const visibleAnalysisNotice = analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE ? undefined : analysisNotice;
   const lensEventMessage = latestAnalysisEventMessage(events);
 
-  useEffect(() => {
-    if (!showFirstPayoff || firstPayoffMarkedVisible.current) {
-      return;
-    }
-    firstPayoffMarkedVisible.current = true;
-    markPerformance("cold-start-first-read-visible");
-  }, [showFirstPayoff]);
-
-  if (!canShowResearchLayers && !showFirstPayoff && !showSourcesChecked) {
+  // The identity header and the early read render above this panel in the CompanyArc shell;
+  // the gate here only decides between the research layer and the honest partial state.
+  if (showPartialProfileGate(card, events)) {
     return <PartialProfilePanel card={card} onRegenerate={onRegenerate} quality={quality} />;
   }
 
   return (
-    <LayoutGroup id="cold-start-research-layer">
-    <main className="cs-research-shell">
-      <section className="cs-company-context" aria-label="Company context">
-        <div className="cs-company-context-main">
-          <CompanyLogo
-            className="cs-company-logo"
-            domain={card.domain}
-            label={companyName}
-            logoUrl={card.identity.logoUrl}
-          />
-          <div>
-            <h1>{companyName}</h1>
-            <a className="cs-company-domain" href={`https://${card.domain}`} rel="noreferrer" target="_blank">
-              {websiteLabel(card)}
-            </a>
-            {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
-            <ProfileSummary fullSummary={fullSummary} summary={summary} tooltipProps={triggerProps} />
-            {showSourcesChecked ? (
-              <SourcesCheckedStamp
-                prefersReducedMotion={prefersReducedMotion}
-                sourceCount={firstPayoffSourceCount}
-              />
-            ) : null}
-          </div>
-        </div>
-        <FactRibbon facts={facts} />
-        <PeopleLine
-          companyDomain={card.domain}
-          contactElapsedSeconds={contactElapsedSeconds}
-          contactRun={contactRun}
-          confidence={managementConfidence(card)}
-          people={people}
-          sourceCount={managerSources}
-          tooltipProps={triggerProps}
-        />
-      </section>
-
-      <AnimatePresence initial={false}>
-        {showFirstPayoff && firstPayoff ? (
-          <FirstPayoffSurface firstPayoff={firstPayoff} />
-        ) : null}
-      </AnimatePresence>
-
+    <>
       <section className="cs-research-layer" aria-label="Research layer">
         <div className="cs-research-layer-head">
           <span>Research</span>
@@ -1719,7 +927,8 @@ export function ResearchLayerPanel({
           )}
         </div>
         {showResearchProgress ? (
-          <ResearchProgressPanel
+          <ResearchTrail
+            mode="profile"
             events={events}
             isFinalizingProfile={finalizingProfileVisible}
             isRunning={profileRunVisible}
@@ -1936,8 +1145,6 @@ export function ResearchLayerPanel({
           </div>
         </div>
       </motion.section>
-      <SharedTooltip tooltip={tooltip} />
-    </main>
-    </LayoutGroup>
+    </>
   );
 }

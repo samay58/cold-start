@@ -4,7 +4,7 @@ import { type ColdStartCard, type FirstPayoff } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ResearchLayerPanel } from "../src/ResearchLayerPanel";
+import { CompanyArc } from "../src/CompanyArc";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
@@ -186,6 +186,16 @@ function firstPayoff(
   };
 }
 
+async function flushPromises() {
+  await act(async () => {
+    for (let index = 0; index < 10; index += 1) {
+      await Promise.resolve();
+    }
+  });
+}
+
+// The early read and its filed stamp render in the CompanyArc shell above the research layer,
+// so these tests mount the arc in its profile phase.
 async function renderPanel(input: {
   complete?: boolean;
   duplicateEvidence?: boolean;
@@ -197,6 +207,7 @@ async function renderPanel(input: {
   if (input.reducedMotion) {
     stubReducedMotion(true);
   }
+  await import("../src/ResearchLayerPanel");
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -210,22 +221,29 @@ async function renderPanel(input: {
 
   await act(async () => {
     root.render(
-      <ResearchLayerPanel
-        card={card(input.filedViaCacheStatus ? "hit" : "partial")}
-        contactRun={input.complete ? undefined : { generationStatus: "running", startedAt: Date.now() }}
-        elapsedSeconds={0}
-        events={events}
+      <CompanyArc
+        arc={{
+          phase: "profile",
+          card: card(input.filedViaCacheStatus ? "hit" : "partial"),
+          sections: [],
+          ...(input.complete ? {} : { contactRun: { generationStatus: "running", startedAt: Date.now() } }),
+          events,
+          sources: [
+            source({ domain: "exa.ai", sourceType: "company_site" }),
+            source({ domain: "docs.exa.ai", sourceType: "company_site" }),
+            source({ domain: "techcrunch.com", sourceType: "news", title: "Exa funding" })
+          ]
+        }}
+        domain="exa.ai"
+        onEditSettings={() => undefined}
         onRegenerate={() => undefined}
-        onRunSection={() => undefined}
         onRunAnalysis={() => undefined}
-        sources={[
-          source({ domain: "exa.ai", sourceType: "company_site" }),
-          source({ domain: "docs.exa.ai", sourceType: "company_site" }),
-          source({ domain: "techcrunch.com", sourceType: "news", title: "Exa funding" })
-        ]}
+        onRunSection={() => undefined}
+        onStart={() => undefined}
       />
     );
   });
+  await flushPromises();
 
   return {
     container,
@@ -307,47 +325,18 @@ describe("ResearchLayerPanel first read", () => {
     await unmount();
   });
 
-  it("collapses by default and opens on hover, keyboard focus, and tap", async () => {
+  it("renders the early read inline and always open, with no reveal interaction required", async () => {
     const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const slip = container.querySelector<HTMLElement>("[aria-label='Early read']");
-    const tab = slip?.querySelector<HTMLButtonElement>(".cs-early-read-tab");
+    const region = container.querySelector<HTMLElement>("[aria-label='Early read']");
 
-    expect(slip?.getAttribute("data-open")).toBe("false");
-    expect(tab).not.toBeNull();
-
-    // Keyboard focus opens the slip; blurring away closes it.
-    await act(async () => {
-      tab!.focus();
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      tab!.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
-
-    // Hover opens it; hovering away closes it again (React derives enter/leave from over/out).
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
-
-    // Tap pins it open so it survives a pointer leaving the slip, then a second tap files it away.
-    await act(async () => {
-      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      slip!.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("true");
-    await act(async () => {
-      tab!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(slip?.getAttribute("data-open")).toBe("false");
+    expect(region).not.toBeNull();
+    // The read is a region, not a disclosure: no tab, no chevron, nothing to hover or pin.
+    expect(region?.querySelector("button")).toBeNull();
+    expect(region?.getAttribute("data-open")).toBeNull();
+    // The claim and its sources are readable without any interaction.
+    expect(region?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
+    expect(region?.querySelector("[aria-label='Sources']")).not.toBeNull();
+    expect(region?.querySelector("a[href='https://techcrunch.com/exa']")).not.toBeNull();
     await unmount();
   });
 
@@ -359,7 +348,6 @@ describe("ResearchLayerPanel first read", () => {
     expect(firstRead?.textContent).toContain("Early read");
     expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
     expect(firstRead?.querySelector("[aria-label='Sources']")).not.toBeNull();
-    expect(firstRead?.querySelector(".cs-early-read-tab")).not.toBeNull();
     await unmount();
   });
 
