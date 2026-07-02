@@ -37,17 +37,10 @@ import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events"
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import { FirstPayoffSurface } from "./FirstPayoffSurface";
 import { investorReadForCard, type InvestorReadDisplay } from "./investor-lens";
-import {
-  acceptedSourceCountFromEvents,
-  buildResearchProgressPlan,
-  currentProfileProgressEvents,
-  generationStageIndexFromEvents,
-  hasTerminalProfileProgressEvent,
-  RESEARCH_PROGRESS_STAGES
-} from "./research-progress";
+import { currentProfileProgressEvents } from "./research-progress";
+import { ResearchTrail } from "./ResearchTrail";
 import { markPerformance } from "./sidepanel-network";
 import { SharedTooltip, useSharedTooltip, type TooltipPlacement, type TooltipTriggerProps } from "./SharedTooltip";
-import { SourcePassInstrument } from "./SourcePassInstrument";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type AnalysisRun = {
@@ -1062,166 +1055,6 @@ function formatSavedDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
 }
 
-function plural(value: number, singular: string, pluralWord = `${singular}s`) {
-  return `${value} ${value === 1 ? singular : pluralWord}`;
-}
-
-function sourceKindLabel(sourceType: ExtensionSourceSummary["sourceType"]) {
-  switch (sourceType) {
-    case "company_site":
-      return "primary";
-    case "enrichment":
-      return "enrichment";
-    case "filing":
-      return "filing";
-    case "github":
-      return "GitHub";
-    case "news":
-      return "news";
-    case "rdap":
-      return "domain";
-    case "other":
-      return "other";
-  }
-}
-
-function progressPlanHasAttention(plan: ReturnType<typeof buildResearchProgressPlan>) {
-  return plan.some((stage) =>
-    stage.status === "attention" ||
-    stage.status === "failed" ||
-    stage.substeps.some((substep) => substep.status === "attention" || substep.status === "failed")
-  );
-}
-
-function currentProgressProof(plan: ReturnType<typeof buildResearchProgressPlan>, activeIndex: number, fallback: string) {
-  const stage = plan[activeIndex];
-  const latestSubstep = [...(stage?.substeps ?? [])].reverse().find((substep) => substep.status !== "running");
-  return latestSubstep?.message ?? stage?.proofLine ?? fallback;
-}
-
-function ResearchProgressPanel({
-  events = [],
-  isFinalizingProfile,
-  isRunning,
-  isProfileRunning,
-  resolvedCount,
-  sources = [],
-  totalCount
-}: {
-  events?: ExtensionResearchRunEvent[] | undefined;
-  isFinalizingProfile: boolean;
-  isRunning: boolean;
-  isProfileRunning: boolean;
-  resolvedCount: number;
-  sources?: ExtensionSourceSummary[] | undefined;
-  totalCount: number;
-}) {
-  const eventSourceCount = acceptedSourceCountFromEvents(events);
-  const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
-  const activeIndex = generationStageIndexFromEvents(events) ?? (sourceCount > 0 ? 1 : 0);
-  const stageNote =
-    activeIndex === 1 && sourceCount > 0
-      ? `${plural(sourceCount, "source")} found`
-      : activeIndex === 2
-        ? "Building first cited profile"
-        : activeIndex === 3
-          ? "Saving with sources attached"
-          : "Checking company, product, funding, and proof sources";
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const plan = buildResearchProgressPlan({
-    activeIndex,
-    complete: !isProfileRunning,
-    events,
-    sources,
-    stageNote,
-    stages: RESEARCH_PROGRESS_STAGES
-  });
-  const currentProfileEvents = currentProfileProgressEvents(events);
-  const profileEventsSeen = currentProfileEvents.length > 0;
-  const profileComplete =
-    !isProfileRunning &&
-    (hasTerminalProfileProgressEvent(events) || (!isRunning && sourceCount > 0 && totalCount > 0 && resolvedCount >= totalCount));
-  const needsAttention = progressPlanHasAttention(plan);
-  const showLiveProgress = needsAttention || (!profileComplete && (isProfileRunning || profileEventsSeen));
-  const showDetailsControl = profileEventsSeen && !needsAttention;
-  const showDetailsTree = needsAttention || detailsOpen;
-  const currentStage = plan[activeIndex];
-  const stateCopy = isFinalizingProfile
-    ? "Starter profile ready"
-    : profileComplete ? "Research filed" : isRunning ? "Researching" : "Research saved";
-  const sourceCopy = sourceCount > 0
-    ? isFinalizingProfile
-      ? `Filling in contacts and details · ${plural(sourceCount, "source")}`
-      : profileComplete
-      ? plural(sourceCount, "source")
-      : `${plural(sourceCount, "source")} found`
-    : isFinalizingProfile
-      ? "Filling in contacts and details"
-    : "Checking company, product, funding, and proof sources";
-  const sectionCopy = profileComplete
-    ? `${resolvedCount} of ${totalCount} sections`
-    : `${resolvedCount} of ${totalCount} sections ready`;
-  const liveStageCopy = needsAttention ? "Needs attention" : currentStage?.label ?? "Researching";
-  const liveProofCopy = currentProgressProof(plan, activeIndex, stageNote);
-
-  return (
-    <div
-      className="cs-research-progress"
-      aria-label="Research progress"
-      data-attention={needsAttention ? "true" : "false"}
-      data-mode={profileComplete ? "filed" : "live"}
-    >
-      <div className="cs-research-progress-main">
-        <span className="cs-research-progress-dot" data-running={!profileComplete && isRunning ? "true" : "false"} aria-hidden="true" />
-        <div>
-          <strong>{stateCopy}</strong>
-          <small>
-            {sourceCopy}
-            {` · ${sectionCopy}`}
-          </small>
-        </div>
-      </div>
-      {showLiveProgress ? (
-        <div className="cs-research-progress-live" aria-live="polite">
-          <span>{liveStageCopy}</span>
-          <small>{liveProofCopy}</small>
-        </div>
-      ) : null}
-      {showDetailsControl ? (
-        <button
-          aria-expanded={detailsOpen}
-          className="cs-research-progress-details-toggle"
-          onClick={() => setDetailsOpen((current) => !current)}
-          type="button"
-        >
-          {detailsOpen ? "Hide details" : "Details"}
-        </button>
-      ) : null}
-      {showDetailsTree ? (
-        <SourcePassInstrument
-          activeIndex={activeIndex}
-          complete={profileComplete || !isProfileRunning}
-          events={events}
-          sources={sources}
-          stageNote={stageNote}
-          stages={RESEARCH_PROGRESS_STAGES}
-          variant="compact"
-        />
-      ) : null}
-      {sources.length > 0 && (!profileComplete || detailsOpen || needsAttention) ? (
-        <div className="cs-research-source-strip" aria-label="Recent sources">
-          {sources.slice(0, VISIBLE_SOURCE_COUNT).map((source) => (
-            <a href={source.url} key={source.id} rel="noreferrer" target="_blank" title={source.snippet}>
-              <span>{source.domain}</span>
-              <small>{sourceKindLabel(source.sourceType)}</small>
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
@@ -1495,7 +1328,8 @@ export function ResearchLayerPanel({
           profileRun={profileRun}
         />
         {showResearchProgress ? (
-          <ResearchProgressPanel
+          <ResearchTrail
+            mode="profile"
             events={events}
             isFinalizingProfile={finalizingProfileVisible}
             isRunning={profileOrAnalysisRunVisible}

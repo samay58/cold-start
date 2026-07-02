@@ -1909,6 +1909,63 @@ button {
   color: var(--color-seal);
 }
 
+.cs-trail-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0 0 0 40px;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-trail-segment {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cs-trail-segment-fill {
+  height: 2px;
+  border-radius: 999px;
+  background: rgb(var(--cs-c-216-208-191) / 0.72);
+}
+
+.cs-trail-segment[data-status="done"] .cs-trail-segment-fill {
+  background: var(--color-seal);
+}
+
+.cs-trail-segment[data-status="running"] .cs-trail-segment-fill {
+  background: rgb(var(--cs-c-110-92-158) / 0.62);
+  animation: cs-reduced-breathe 1600ms ease-in-out infinite;
+}
+
+.cs-trail-segment[data-status="attention"] .cs-trail-segment-fill {
+  background: var(--color-company);
+}
+
+.cs-trail-segment[data-status="failed"] .cs-trail-segment-fill {
+  background: var(--color-conflict);
+}
+
+.cs-trail-segment-label {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-trail-segment[data-status="running"] .cs-trail-segment-label {
+  color: var(--color-seal);
+}
+
+.cs-trail-segment[data-status="done"] .cs-trail-segment-label {
+  color: var(--color-ink);
+}
+
 .cs-research-source-strip {
   display: flex;
   gap: 7px;
