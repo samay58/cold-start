@@ -41,7 +41,17 @@ describe("GET /api/cards/[slug]", () => {
     mocks.getPublicCachedCard.mockResolvedValue(publicCard);
     mocks.getFullCachedCard.mockResolvedValue({
       ...publicCard,
-      team: { founders: { value: [{ name: "Karan Goel", role: "Co-Founder", sourceUrl: null, email: "karan@cartesia.ai" }] } },
+      team: {
+        founders: {
+          value: [{
+            name: "Karan Goel",
+            role: "Co-Founder",
+            sourceUrl: null,
+            email: "karan@cartesia.ai",
+            read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["c1"] }
+          }]
+        }
+      },
       synthesis: { whyItMatters: { text: "Hidden [c1].", citationIds: ["c1"] } }
     });
 
@@ -53,6 +63,9 @@ describe("GET /api/cards/[slug]", () => {
     expect(body).toEqual(publicCard);
     expect(body).not.toHaveProperty("synthesis");
     expect(JSON.stringify(body)).not.toContain("karan@cartesia.ai");
+    // The person read is extension-tier judgment, stripped from the public wire response
+    // exactly like email.
+    expect(JSON.stringify(body)).not.toContain("Second robotics company");
     expect(mocks.getPublicCachedCard).toHaveBeenCalledWith("cartesia");
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });

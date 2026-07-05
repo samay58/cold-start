@@ -15,4 +15,10 @@ describe("extensionManifest", () => {
 
     expect(manifest.host_permissions).toContain("http://localhost:3000/*");
   });
+
+  it("grants the favicon permission for browser-cached clipping icons", () => {
+    const manifest = extensionManifest({ command: "build", mode: "production" });
+
+    expect(manifest.permissions).toContain("favicon");
+  });
 });

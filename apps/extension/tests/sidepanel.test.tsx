@@ -1663,6 +1663,76 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("shows filed sources as settled clippings fed from the stored sources list", async () => {
+    const domain = "llamaindex.ai";
+    const card = cardForDomain(domain);
+    card.identity.name.value = "LlamaIndex";
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "llamaindex",
+          card,
+          sections: [],
+          sources: [
+            {
+              id: "source-1",
+              url: "https://llamaindex.ai/",
+              title: "LlamaIndex",
+              domain: "llamaindex.ai",
+              sourceType: "company_site",
+              fetchedAt: new Date().toISOString(),
+              snippet: "LlamaIndex is a data framework.",
+              imageUrl: null
+            },
+            {
+              id: "source-2",
+              url: "https://techcrunch.com/llamaindex-raises",
+              title: "LlamaIndex raises a Series A",
+              domain: "techcrunch.com",
+              sourceType: "news",
+              fetchedAt: new Date().toISOString(),
+              snippet: "The company raised a round.",
+              imageUrl: "https://img/tc.png"
+            }
+          ],
+          events: [
+            {
+              id: "event-complete",
+              runId: "run-basics",
+              slug: "llamaindex",
+              domain,
+              sectionId: null,
+              type: "generation.complete",
+              message: "Research run complete",
+              metadata: { mode: "basics" },
+              createdAt: "2026-06-01T00:00:05.000Z"
+            }
+          ],
+          runs: {
+            basics: { slug: "llamaindex", domain, mode: "basics", status: "idle" },
+            analysis: { slug: "llamaindex", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      return jsonResponse(card);
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const region = container.querySelector(".cs-clippings");
+    expect(region?.getAttribute("data-state")).toBe("settled");
+    // The awaiting quiet rule never appears: the profile mount already knows its full list.
+    expect(container.querySelector(".cs-clippings-rule")).toBeNull();
+    const items = container.querySelectorAll(".cs-clipping");
+    expect(items).toHaveLength(2);
+    expect(items[0]?.querySelector(".cs-clipping-domain")?.textContent).toBe("llamaindex.ai");
+    expect(items[1]?.querySelector(".cs-clipping-domain")?.textContent).toBe("techcrunch.com");
+    expect(items[1]?.querySelector(".cs-clipping-dot")?.getAttribute("data-source-class")).toBe("funding");
+    await unmount();
+  });
+
   it("shows a recovered basics card when the latest run is failed", async () => {
     let cardFetches = 0;
     const fetchMock = vi.fn(async (url: string) => {

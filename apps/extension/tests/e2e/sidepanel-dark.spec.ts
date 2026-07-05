@@ -79,7 +79,8 @@ test("dark: start gate for an ungenerated company", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Begin research" })).toBeVisible();
-  await expect(page.getByText("No profile")).toBeVisible();
+  // The status slot renders empty at intake; there is no "No profile" chip.
+  await expect(page.getByText("No profile")).toHaveCount(0);
   await page.waitForTimeout(150);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-start.png" });
 });
@@ -152,19 +153,34 @@ test("dark: settings panel with appearance toggle", async ({ page }) => {
 test("dark: running generation progress", async ({ page }) => {
   await seedDark(page);
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  const startedAt = new Date(Date.now() - 30_000).toISOString();
+  const events = [
+    {
+      id: "e1",
+      runId: "r1",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: null,
+      type: "source.found",
+      message: "Found 2 accepted sources",
+      metadata: {
+        acceptedCount: 2,
+        sources: [
+          { url: "https://cartesia.ai/", domain: "cartesia.ai", title: "Cartesia", sourceType: "company_site", imageUrl: null },
+          { url: "https://techcrunch.com/cartesia", domain: "techcrunch.com", title: "Cartesia raises a Series B", sourceType: "news", imageUrl: null }
+        ]
+      },
+      createdAt: "2026-06-01T00:00:02.000Z"
+    }
+  ];
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
       domain: "cartesia.ai",
       slug: "cartesia",
       card: null,
+      events,
       runs: {
-        basics: {
-          slug: "cartesia",
-          domain: "cartesia.ai",
-          status: "running",
-          mode: "basics",
-          startedAt: new Date(Date.now() - 30_000).toISOString()
-        },
+        basics: { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events },
         analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
       }
     });
@@ -173,18 +189,14 @@ test("dark: running generation progress", async ({ page }) => {
     await fulfillJson(route, { error: "card not found" }, 404);
   });
   await page.route("**/api/generate?**", async (route) => {
-    await fulfillJson(route, {
-      slug: "cartesia",
-      domain: "cartesia.ai",
-      status: "running",
-      mode: "basics",
-      startedAt: new Date(Date.now() - 30_000).toISOString()
-    });
+    await fulfillJson(route, { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events });
   });
   await openDark(page);
 
-  await expect(page.getByText("Researching").first()).toBeVisible();
-  await expect(page.locator(".cs-trail-track")).toBeVisible();
+  // The whisper plus seal instrument are the one status voice; clippings are the first content.
+  await expect(page.locator(".cs-assembly-whisper")).toContainText("2 sources, building profile");
+  await expect(page.locator(".cs-seal-inst")).toHaveAttribute("data-level", "2");
+  await expect(page.locator(".cs-clipping")).toHaveCount(2);
   await page.waitForTimeout(400);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-progress.png" });
 });

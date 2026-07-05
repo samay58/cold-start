@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-02.reachable-identity-v1",
+  "version": "2026-07-05.assembly-clippings-person-reads-v1",
   "apiHeader": "x-cold-start-api-contract",
   "clientHeader": "x-cold-start-client-contract"
 }

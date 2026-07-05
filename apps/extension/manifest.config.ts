@@ -21,7 +21,9 @@ export function extensionManifest(env: ConfigEnv) {
     name: "Cold Start",
     version: "0.1.0",
     description: "Sourced company context cards from the current tab.",
-    permissions: ["sidePanel", "activeTab", "storage"],
+    // "favicon" backs chrome.runtime.getURL("_favicon/...") for clippings: a browser-cached
+    // icon lookup with no external request.
+    permissions: ["sidePanel", "activeTab", "storage", "favicon"],
     icons: {
       16: "icons/icon-16.png",
       32: "icons/icon-32.png",

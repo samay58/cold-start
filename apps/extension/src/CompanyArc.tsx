@@ -14,7 +14,7 @@ import {
   profileFacts
 } from "./CompanyHeader";
 import { Clippings } from "./Clippings";
-import { clippingsFromEvents } from "./clipping-model";
+import { clippingsFromEvents, clippingsFromSources } from "./clipping-model";
 import { earlyReadState, formatSavedDate } from "./company-display";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary, GenerationStatus } from "./extension-config";
 import { profileSummaryCopy } from "./extension-format";
@@ -274,6 +274,13 @@ export function CompanyArc({
             <ResearchTrail events={building.events} generationStatus={building.generationStatus} />
             <SealedLensRow phase="building" />
           </>
+        ) : null}
+
+        {profile ? (
+          // The card already filed its sources, so this mount shows the full list at once
+          // (AnimatePresence initial={false} in Clippings keeps it quiet and settled, never
+          // replaying the building-phase arrival stagger on an already-filed profile).
+          <Clippings clippings={clippingsFromSources(profile.sources ?? [])} prefersReducedMotion={prefersReducedMotion} />
         ) : null}
 
         {arc.phase === "intake" ? (

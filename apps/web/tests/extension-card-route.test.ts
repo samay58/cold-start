@@ -105,7 +105,13 @@ describe("GET /api/extension/cards/[slug]", () => {
       slug: "cartesia",
       team: {
         founders: {
-          value: [{ name: "Karan Goel", role: "Co-Founder", sourceUrl: null, email: "karan@cartesia.ai" }]
+          value: [{
+            name: "Karan Goel",
+            role: "Co-Founder",
+            sourceUrl: null,
+            email: "karan@cartesia.ai",
+            read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["c1"] }
+          }]
         }
       },
       synthesis: {
@@ -121,6 +127,8 @@ describe("GET /api/extension/cards/[slug]", () => {
 
     await expect(response.json()).resolves.toEqual(fullCard);
     expect(JSON.stringify(fullCard)).toContain("karan@cartesia.ai");
+    // The extension is the gated surface: it gets the person read when the card has one stored.
+    expect(JSON.stringify(fullCard)).toContain("Second robotics company");
     expect(response.status).toBe(200);
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
