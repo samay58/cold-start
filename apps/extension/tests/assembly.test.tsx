@@ -2,7 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Clippings } from "../src/Clippings";
 import { SealInstrument } from "../src/SealInstrument";
 import { clippingsFromEvents, type Clipping } from "../src/clipping-model";
@@ -127,6 +127,42 @@ describe("Clippings", () => {
       firstThumb?.dispatchEvent(new Event("error"));
     });
     expect(container.querySelectorAll(".cs-clipping-thumb")).toHaveLength(1);
+  });
+
+  it("only thumbnails news, funding, and customer_proof clippings, even when other classes carry an imageUrl", async () => {
+    const clippings = [
+      clipping({ domain: "a.com", sourceClass: "company_site", imageUrl: "https://img/a.png" }),
+      clipping({ domain: "b.com", sourceClass: "funding", imageUrl: "https://img/b.png" }),
+      clipping({ domain: "c.com", sourceClass: "customer_proof", imageUrl: "https://img/c.png" }),
+      clipping({ domain: "d.com", sourceClass: "news", imageUrl: "https://img/d.png" })
+    ];
+    const container = await render(<Clippings clippings={clippings} prefersReducedMotion={false} />);
+
+    const thumbs = container.querySelectorAll<HTMLImageElement>(".cs-clipping-thumb");
+    expect(thumbs).toHaveLength(2);
+    const items = container.querySelectorAll(".cs-clipping");
+    expect(items[0]?.querySelector(".cs-clipping-thumb")).toBeNull();
+  });
+
+  it("hides a broken favicon back to the classification dot on error", async () => {
+    vi.stubGlobal("chrome", {
+      runtime: { getURL: (path: string) => `chrome-extension://abc/${path}` }
+    });
+    try {
+      const container = await render(
+        <Clippings clippings={[clipping({ domain: "exa.ai" })]} prefersReducedMotion={false} />
+      );
+
+      const favicon = container.querySelector<HTMLImageElement>(".cs-clipping-favicon");
+      expect(favicon).not.toBeNull();
+      await act(async () => {
+        favicon?.dispatchEvent(new Event("error"));
+      });
+      expect(container.querySelector(".cs-clipping-favicon")).toBeNull();
+      expect(container.querySelector(".cs-clipping-dot")).not.toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

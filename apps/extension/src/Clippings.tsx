@@ -5,6 +5,9 @@ import { commitSpring } from "./motion-primitives";
 
 const MAX_CLIPPINGS = 6;
 const MAX_THUMBNAILS = 2;
+// Per spec: thumbnails are reserved for the classes where a page image reads as evidence
+// (a funding or customer story, a news photo); a company site or docs favicon is enough.
+const THUMBNAIL_ELIGIBLE_SOURCE_CLASSES = new Set<ClippingSourceClass>(["news", "funding", "customer_proof"]);
 
 const KIND_LABEL: Record<ClippingSourceClass, string> = {
   company_site: "Company site",
@@ -31,8 +34,10 @@ function ClippingRow({
   thumbEligible: boolean;
 }) {
   const [thumbFailed, setThumbFailed] = useState(false);
+  const [faviconFailed, setFaviconFailed] = useState(false);
   const showThumb = thumbEligible && !thumbFailed && Boolean(clipping.imageUrl);
   const favicon = showThumb ? null : faviconUrl(clipping.url);
+  const showFavicon = Boolean(favicon) && !faviconFailed;
 
   return (
     <motion.li
@@ -53,8 +58,15 @@ function ClippingRow({
             referrerPolicy="no-referrer"
             src={clipping.imageUrl}
           />
-        ) : favicon ? (
-          <img alt="" className="cs-clipping-favicon" height={16} src={favicon} width={16} />
+        ) : showFavicon && favicon ? (
+          <img
+            alt=""
+            className="cs-clipping-favicon"
+            height={16}
+            onError={() => setFaviconFailed(true)}
+            src={favicon}
+            width={16}
+          />
         ) : null}
         <span className="cs-clipping-dot" data-source-class={clipping.sourceClass} aria-hidden="true" />
         <span className="cs-clipping-domain">{clipping.domain}</span>
@@ -78,7 +90,7 @@ export function Clippings({
 
   const thumbUrls = new Set<string>();
   for (const clipping of displayed) {
-    if (clipping.imageUrl && thumbUrls.size < MAX_THUMBNAILS) {
+    if (clipping.imageUrl && THUMBNAIL_ELIGIBLE_SOURCE_CLASSES.has(clipping.sourceClass) && thumbUrls.size < MAX_THUMBNAILS) {
       thumbUrls.add(clipping.url);
     }
   }

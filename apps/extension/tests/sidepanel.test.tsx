@@ -1103,6 +1103,62 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("flips the whisper to its attention voice and auto-opens the details tree on a generation.failed event", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({
+          slug: "cartesia",
+          domain: "cartesia.ai",
+          status: "running",
+          mode: "basics",
+          startedAt: new Date(Date.now() - 1_000).toISOString(),
+          events: [
+            {
+              id: "event-source",
+              runId: "run-1",
+              slug: "cartesia",
+              domain: "cartesia.ai",
+              sectionId: null,
+              type: "source.found",
+              message: "Found 8 accepted sources",
+              metadata: { acceptedCount: 8 },
+              createdAt: "2026-06-30T00:00:01.000Z"
+            },
+            {
+              id: "event-failed",
+              runId: "run-1",
+              slug: "cartesia",
+              domain: "cartesia.ai",
+              sectionId: null,
+              type: "generation.failed",
+              message: "Provider request timed out",
+              metadata: { stage: "generate-card" },
+              createdAt: "2026-06-30T00:00:02.000Z"
+            }
+          ]
+        });
+      }
+
+      return missingCardResponse();
+    });
+    const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(350);
+    });
+    await flushPromises();
+
+    const whisper = container.querySelector(".cs-assembly-whisper");
+    expect(whisper?.getAttribute("data-attention")).toBe("true");
+    expect(whisper?.textContent).toContain("Needs a closer look");
+    // Attention auto-opens the tree; the quiet toggle does not render alongside it.
+    expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
+    expect(container.querySelector(".cs-assembly-details")?.getAttribute("data-attention")).toBe("true");
+    expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Provider request timed out");
+    await unmount();
+  });
+
   it("carries generation events into the success state so the early read survives the handoff", async () => {
     vi.useFakeTimers();
     const domain = "cartesia.ai";

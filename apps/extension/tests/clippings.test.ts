@@ -93,6 +93,37 @@ describe("clippingsFromEvents", () => {
     expect(clippingsFromEvents([])).toEqual([]);
   });
 
+  it("scopes to the current run, dropping a previous run's clippings once a new run starts", () => {
+    const previousRun = event({
+      id: "prev-sources",
+      runId: "run-0",
+      createdAt: "2026-07-05T00:00:00.000Z",
+      type: "source.found",
+      metadata: {
+        sources: [{ url: "https://old.com", domain: "old.com", title: "Old", sourceType: "company_site", imageUrl: null }]
+      }
+    });
+    const newRunQueued = event({
+      id: "new-queued",
+      runId: "run-1",
+      createdAt: "2026-07-05T00:05:00.000Z",
+      type: "generation.queued"
+    });
+    const newRunSources = event({
+      id: "new-sources",
+      runId: "run-1",
+      createdAt: "2026-07-05T00:05:01.000Z",
+      type: "source.found",
+      metadata: {
+        sources: [{ url: "https://new.com", domain: "new.com", title: "New", sourceType: "company_site", imageUrl: null }]
+      }
+    });
+
+    const clippings = clippingsFromEvents([previousRun, newRunQueued, newRunSources]);
+
+    expect(clippings.map((clipping) => clipping.url)).toEqual(["https://new.com"]);
+  });
+
   it("skips malformed source entries without throwing", () => {
     const clippings = clippingsFromEvents([
       event({

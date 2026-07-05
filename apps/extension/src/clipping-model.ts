@@ -1,5 +1,6 @@
 import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
+import { currentProfileProgressEvents } from "./research-progress";
 
 // The clipping's source class is the same taxonomy First Payoff files evidence under.
 export type ClippingSourceClass = FirstPayoff["evidenceSoFar"][number]["sourceClass"];
@@ -73,10 +74,12 @@ function clippingFromRaw(raw: unknown): Clipping | null {
 }
 
 // Reads the accepted-source list carried on source.found events (B1), deduped by url in
-// arrival order, so building can show what research found before any fact exists.
+// arrival order, so building can show what research found before any fact exists. Scoped to
+// the current run with the same currentProfileProgressEvents logic the seal and whisper use,
+// so a resumed panel never mixes a previous run's clippings into the live run's display.
 export function clippingsFromEvents(events: ExtensionResearchRunEvent[]): Clipping[] {
   const byUrl = new Map<string, Clipping>();
-  for (const event of events) {
+  for (const event of currentProfileProgressEvents(events)) {
     if (event.type !== "source.found") {
       continue;
     }
