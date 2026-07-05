@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import type { FocusEvent, PointerEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
 
 export type TooltipPlacement = "above" | "below";
 
@@ -23,6 +23,9 @@ type SharedTooltipState = {
   body: TooltipBody;
   id: string;
   left: number;
+  // True only when the dossier is pinned open by keyboard: focus lives inside it and it
+  // ignores pointer-leave until Escape or a focus-out hands control back to the row.
+  pinned: boolean;
   placement: TooltipPlacement;
   title: string;
   top: number;
@@ -33,8 +36,18 @@ export type TooltipTriggerProps = {
   "aria-describedby": string;
   onBlur: (event: FocusEvent<HTMLElement>) => void;
   onFocus: (event: FocusEvent<HTMLElement>) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   onPointerEnter: (event: PointerEvent<HTMLElement>) => void;
   onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
+};
+
+// The interaction surface for the tooltip element itself. Only the interactive dossier
+// variant wires these; the plain string tooltip stays inert.
+export type TooltipInteraction = {
+  onDismiss: () => void;
+  onFocusLeave: () => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
 };
 
 // The shape components accept to wire a trigger, so consumers depend on the primitive
@@ -48,6 +61,10 @@ export type TooltipPropsFor = (input: {
 
 const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 
+// Grace window between leaving the trigger and reaching the tooltip. Long enough to bridge
+// the 10px gap without the dossier vanishing, short enough to still feel immediate.
+const HIDE_GRACE_MS = 160;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -59,26 +76,37 @@ function asDossier(body: TooltipBody): TooltipDossier | null {
 export function useSharedTooltip(prefersReducedMotion: boolean) {
   const [tooltip, setTooltip] = useState<SharedTooltipState | null>(null);
   const previousTooltipId = useRef<string | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pinnedRef = useRef(false);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
-  function showTooltip(input: {
-    body: TooltipBody;
-    id: string;
-    placement?: TooltipPlacement;
-    target: HTMLElement;
-    title: string;
-  }) {
-    const rect = input.target.getBoundingClientRect();
+  function clearHideTimer() {
+    if (hideTimer.current !== null) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }
+
+  function commitTooltip(
+    input: { body: TooltipBody; id: string; placement?: TooltipPlacement; title: string },
+    target: HTMLElement,
+    pinned: boolean
+  ) {
+    clearHideTimer();
+    const rect = target.getBoundingClientRect();
     const width = Math.min(340, Math.max(240, window.innerWidth - 32));
     const left = clamp(rect.left + rect.width / 2 - width / 2, 16, Math.max(16, window.innerWidth - width - 16));
     const placement = input.placement ?? "above";
     const top = placement === "above" ? rect.top - 10 : rect.bottom + 10;
     const previousId = previousTooltipId.current;
     previousTooltipId.current = input.id;
+    pinnedRef.current = pinned;
     setTooltip({
       animate: Boolean(previousId && previousId !== input.id && !prefersReducedMotion),
       body: input.body,
       id: input.id,
       left,
+      pinned,
       placement,
       title: input.title,
       top,
@@ -87,7 +115,19 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   }
 
   function hideTooltip() {
+    clearHideTimer();
+    pinnedRef.current = false;
     setTooltip(null);
+  }
+
+  function scheduleHide() {
+    clearHideTimer();
+    hideTimer.current = setTimeout(() => {
+      hideTimer.current = null;
+      if (!pinnedRef.current) {
+        setTooltip(null);
+      }
+    }, HIDE_GRACE_MS);
   }
 
   function triggerProps(input: {
@@ -96,38 +136,113 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     placement?: TooltipPlacement;
     title: string;
   }): TooltipTriggerProps {
+    const interactive = asDossier(input.body) !== null;
+
     return {
       "aria-describedby": SHARED_TOOLTIP_ID,
       onBlur: (event) => {
+        // While pinned, focus is intentionally leaving the row for the tooltip; keep it up.
+        if (pinnedRef.current) {
+          return;
+        }
         const nextTarget = event.relatedTarget;
         if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
           return;
         }
         hideTooltip();
       },
-      onFocus: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerEnter: (event) => showTooltip({ ...input, target: event.currentTarget }),
-      onPointerLeave: () => hideTooltip()
+      onFocus: (event) => commitTooltip(input, event.currentTarget, false),
+      onKeyDown: (event) => {
+        if (!interactive) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+          event.preventDefault();
+          triggerRef.current = event.currentTarget;
+          commitTooltip(input, event.currentTarget, true);
+        }
+      },
+      onPointerEnter: (event) => commitTooltip(input, event.currentTarget, false),
+      onPointerLeave: () => {
+        if (pinnedRef.current) {
+          return;
+        }
+        // The dossier is reachable, so give the pointer a grace window to bridge the gap.
+        // The plain string tooltip is inert and closes at once.
+        if (interactive) {
+          scheduleHide();
+        } else {
+          hideTooltip();
+        }
+      }
     };
   }
 
-  return { tooltip, triggerProps };
+  const tooltipInteraction: TooltipInteraction = {
+    onDismiss: () => {
+      const trigger = triggerRef.current;
+      hideTooltip();
+      trigger?.focus();
+    },
+    onFocusLeave: hideTooltip,
+    onPointerEnter: clearHideTimer,
+    onPointerLeave: () => {
+      if (!pinnedRef.current) {
+        scheduleHide();
+      }
+    }
+  };
+
+  return { tooltip, triggerProps, tooltipInteraction };
 }
 
 function DossierBody({ dossier }: { dossier: TooltipDossier }) {
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const role = dossier.role?.trim() || "Role not verified";
+  const email = dossier.email;
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current !== null) {
+        clearTimeout(copyTimer.current);
+      }
+    };
+  }, []);
+
+  async function copyEmail() {
+    if (!email) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(email.address);
+      setCopied(true);
+      if (copyTimer.current !== null) {
+        clearTimeout(copyTimer.current);
+      }
+      copyTimer.current = setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // Clipboard unavailable (permission or insecure context); the mailto link still works.
+    }
+  }
 
   return (
     <div className="cs-dossier" data-has-read={dossier.read ? "true" : "false"}>
       <p className="cs-dossier-role">{role}</p>
       {dossier.read ? <p className="cs-dossier-read">{dossier.read.text}</p> : null}
       {dossier.provenance ? <p className="cs-dossier-provenance">{dossier.provenance}</p> : null}
-      {dossier.email ? (
-        <p className="cs-dossier-email" data-email-status={dossier.email.status}>
-          {dossier.email.address}
-          <em className="cs-dossier-email-kind">
-            {dossier.email.status === "inferred" ? "Inferred" : "Observed"}
-          </em>
+      {email ? (
+        <p className="cs-dossier-email" data-email-status={email.status}>
+          <span className="cs-dossier-email-address">{email.address}</span>
+          <em className="cs-dossier-email-kind">{email.status === "inferred" ? "Inferred" : "Observed"}</em>
+          <button
+            aria-label={`Copy ${email.address}`}
+            className="cs-dossier-email-copy"
+            onClick={copyEmail}
+            type="button"
+          >
+            {copied ? "Copied" : "Copy"}
+          </button>
         </p>
       ) : null}
       {dossier.channels.length > 0 ? (
@@ -149,26 +264,67 @@ function DossierBody({ dossier }: { dossier: TooltipDossier }) {
   );
 }
 
-export function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
+export function SharedTooltip({
+  interaction,
+  tooltip
+}: {
+  interaction?: TooltipInteraction;
+  tooltip: SharedTooltipState | null;
+}) {
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const pinned = tooltip?.pinned ?? false;
+  const dossier = tooltip ? asDossier(tooltip.body) : null;
+  const interactive = dossier !== null;
+
+  useEffect(() => {
+    if (pinned && interactive) {
+      nodeRef.current?.focus();
+    }
+  }, [pinned, interactive, tooltip?.id]);
+
   if (!tooltip) {
     return null;
   }
-
-  const dossier = asDossier(tooltip.body);
 
   return (
     <div
       className="cs-shared-tooltip"
       data-animate={tooltip.animate ? "true" : "false"}
+      data-pinned={pinned ? "true" : "false"}
       data-placement={tooltip.placement}
       data-variant={dossier ? "dossier" : "text"}
       id={SHARED_TOOLTIP_ID}
+      onBlur={
+        interactive && pinned
+          ? (event) => {
+              const nextTarget = event.relatedTarget;
+              if (nextTarget instanceof Node && nodeRef.current?.contains(nextTarget)) {
+                return;
+              }
+              interaction?.onFocusLeave();
+            }
+          : undefined
+      }
+      onKeyDown={
+        interactive
+          ? (event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                interaction?.onDismiss();
+              }
+            }
+          : undefined
+      }
+      onPointerEnter={interactive ? interaction?.onPointerEnter : undefined}
+      onPointerLeave={interactive ? interaction?.onPointerLeave : undefined}
+      ref={nodeRef}
       role="tooltip"
       style={{
         left: tooltip.left,
         top: tooltip.top,
         width: tooltip.width
       }}
+      tabIndex={interactive ? -1 : undefined}
     >
       <strong>{tooltip.title}</strong>
       {dossier ? <DossierBody dossier={dossier} /> : <span>{tooltip.body as string}</span>}

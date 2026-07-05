@@ -20,7 +20,12 @@ afterEach(async () => {
   }
 });
 
-async function renderPeople(people: CardPerson[], options?: { sourceCount?: number }) {
+type CitationRef = { id: string; url: string };
+
+async function renderPeople(
+  people: CardPerson[],
+  options?: { sourceCount?: number; citations?: CitationRef[] }
+) {
   const captured: Captured[] = [];
   const tooltipProps = (input: { body: string | TooltipDossier; id: string; placement?: unknown; title: string }) => {
     captured.push({ body: input.body, id: input.id, title: input.title });
@@ -28,6 +33,7 @@ async function renderPeople(people: CardPerson[], options?: { sourceCount?: numb
       "aria-describedby": "cs-company-shared-tooltip",
       onBlur: () => undefined,
       onFocus: () => undefined,
+      onKeyDown: () => undefined,
       onPointerEnter: () => undefined,
       onPointerLeave: () => undefined
     };
@@ -38,6 +44,7 @@ async function renderPeople(people: CardPerson[], options?: { sourceCount?: numb
   await act(async () => {
     root.render(
       <PeopleLine
+        citations={options?.citations ?? []}
         companyDomain="acme.ai"
         people={people}
         sourceCount={options?.sourceCount ?? 2}
@@ -129,19 +136,27 @@ describe("PeopleLine visible row diet", () => {
 });
 
 describe("PeopleLine dossier", () => {
-  it("moves the read, channels, provenance, and email provenance into the dossier", async () => {
-    const { captured } = await renderPeople([
+  it("moves the read, channels, and email provenance into the dossier", async () => {
+    const { captured } = await renderPeople(
+      [
+        {
+          name: "Ada Lovelace",
+          role: "CEO",
+          sourceUrl: "https://linkedin.com/in/ada",
+          email: "ada@acme.ai",
+          emailStatus: "observed",
+          githubUrl: "https://github.com/ada",
+          xUrl: "https://x.com/ada",
+          read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["s1", "s2"] }
+        }
+      ],
       {
-        name: "Ada Lovelace",
-        role: "CEO",
-        sourceUrl: "https://techcrunch.com/ada",
-        email: "ada@acme.ai",
-        emailStatus: "observed",
-        githubUrl: "https://github.com/ada",
-        xUrl: "https://x.com/ada",
-        read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["s1"] }
+        citations: [
+          { id: "s1", url: "https://techcrunch.com/2021/deere-acquires" },
+          { id: "s2", url: "https://www.deere.com/press/robotics" }
+        ]
       }
-    ]);
+    );
 
     const [dossier] = dossiersFrom(captured);
     expect(dossier).toBeTruthy();
@@ -150,33 +165,66 @@ describe("PeopleLine dossier", () => {
     expect(dossier?.role).toBe("CEO");
     expect(dossier?.read).toEqual({
       text: "Second robotics company; the first sold to Deere in 2021.",
-      citationIds: ["s1"]
+      citationIds: ["s1", "s2"]
     });
     expect(dossier?.email).toEqual({ address: "ada@acme.ai", status: "observed" });
     expect(dossier?.channels).toEqual([
       { label: "GitHub", url: "https://github.com/ada" },
       { label: "X", url: "https://x.com/ada" }
     ]);
-    expect(dossier?.provenance).toContain("github.com");
-    expect(dossier?.provenance).toContain("techcrunch.com");
-    expect(dossier?.provenance?.startsWith("via ")).toBe(true);
   });
 
-  it("reports a null read as null, never filler", async () => {
-    const { captured } = await renderPeople([
+  it("derives the provenance from the read's own citations, not the channel hosts", async () => {
+    const { captured } = await renderPeople(
+      [
+        {
+          name: "Ada Lovelace",
+          role: "CEO",
+          sourceUrl: "https://linkedin.com/in/ada",
+          githubUrl: "https://github.com/ada",
+          read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["s1", "s2"] }
+        }
+      ],
       {
-        name: "Grace Hopper",
-        role: "CTO",
-        sourceUrl: "https://acme.ai/team",
-        email: "grace@acme.ai",
-        emailStatus: "inferred"
+        citations: [
+          { id: "s1", url: "https://techcrunch.com/2021/deere-acquires" },
+          { id: "s2", url: "https://www.deere.com/press/robotics" }
+        ]
       }
-    ]);
+    );
+
+    const [dossier] = dossiersFrom(captured);
+    // The read is cited, so its provenance is the read's sources, deduped, www stripped.
+    expect(dossier?.provenance).toBe("via techcrunch.com, deere.com");
+    // The channel hosts (linkedin.com/github.com) do not masquerade as the read's source.
+    expect(dossier?.provenance).not.toContain("linkedin.com");
+    expect(dossier?.provenance).not.toContain("github.com");
+  });
+
+  it("falls back to the channel hosts only when there is no read", async () => {
+    const { captured } = await renderPeople(
+      [
+        {
+          name: "Grace Hopper",
+          role: "CTO",
+          sourceUrl: "https://acme.ai/team",
+          email: "grace@acme.ai",
+          emailStatus: "inferred",
+          githubUrl: "https://github.com/grace"
+        }
+      ],
+      {
+        // A read-less person never resolves citations for provenance, so these are ignored.
+        citations: [{ id: "s1", url: "https://techcrunch.com/unrelated" }]
+      }
+    );
 
     const [dossier] = dossiersFrom(captured);
     expect(dossier?.read).toBeNull();
     expect(dossier?.email).toEqual({ address: "grace@acme.ai", status: "inferred" });
     expect(dossier?.provenance).toContain("acme.ai");
+    expect(dossier?.provenance).toContain("github.com");
+    expect(dossier?.provenance).not.toContain("techcrunch.com");
   });
 });
 
