@@ -21,9 +21,10 @@ The mesh-gradient background survives as the single ambient element. It is warmt
 
 `ResearchTrail.tsx` dissolves. Its five voices redistribute:
 
-- **Status** moves into the company header as one whisper-line: breathing dot plus event-driven copy ("Queued", "Reading anthropic.com", "9 sources, building profile", "Filed"). This is the only element on screen that states progress.
+- **Status** moves into the company header as one whisper-line: the seal instrument plus event-driven copy ("Queued", "Reading anthropic.com", "9 sources, building profile", "Filed"). This is the only element on screen that states progress.
+- **The seal instrument** replaces the breathing dot: a small seal glyph beside the whisper text that inks up in discrete steps, each step triggered by a real stage event (queued outline, sources ring, extraction fill, filed set). At completion it becomes the FILED stamp, so the progress object and the celebratory beat are the same object. Under reduced motion the steps are plain opacity changes. This is the "minimally invasive, high craft" progress signal; it never grows beyond its corner of the header.
 - **The labeled four-segment track and the live stage row are deleted.** Nothing replaces them. Their information is already carried by the status line.
-- **Source receipts become the first content of the profile.** In the first seconds, before any fact exists, arriving source chips fill the space where the card is forming. From roughly 3 seconds in, the screen shows what research found; there is no empty wait. (This builds the "source receipt before a card" item from the June ELEVATION list.)
+- **Source receipts become clippings, and they are the first content of the profile.** In the first seconds, before any fact exists, arriving clippings fill the space where the card is forming. From roughly 3 seconds in, the screen shows what research found; there is no empty wait. (This builds the "source receipt before a card" item from the June ELEVATION list.) Clipping anatomy: the site favicon via Chrome's MV3 `favicon` permission (`chrome.runtime.getURL("_favicon/...")`, no external requests, browser-cached; add the permission to the manifest), a classification dot colored by the source class already computed in `packages/core/src/source-class.ts`, the domain, and the kind label. News and funding clippings may carry a small thumbnail when the fetched page metadata includes an `og:image`; source summaries gain an optional public-safe `ogImageUrl` extracted during source fetching, at most two thumbnails render at once, and a missing image degrades to the favicon form. No gray placeholder boxes, ever.
 - **The details tree** (`SourcePassInstrument`) stays behind one quiet toggle and auto-opens on attention or failure, preserving current behavior.
 
 Building and profile phases render the same profile skeleton. Each slot (fact ribbon, people line, early read, signals) has three states:
@@ -87,13 +88,13 @@ This overhaul is the pilot for `~/.claude/FABLE-ORCHESTRATION.md`. Summary of th
 - Phase 2, build: parallel worktree packets. Opus 4.8 on the assembly/motion core and the dossier tooltip; Sonnet 5 on the person_read stage, schema/API plumbing, and surface diets; Haiku 4.5 on CSS sweeps, dead-style removal, and test scaffolds. Every packet lands with its tests and a machine-checkable done-definition.
 - Phase 3, verify and integrate: Opus adversarial review, full e2e, contract bump; Fable does integration, the final taste pass, and prepares the Reduce-Motion-OFF walkthrough build.
 
-Token ledger: output tokens by model tier logged at each phase boundary into `docs/superpowers/specs/2026-07-04-extension-experience-overhaul-ledger.md`. Success bar: Fable at or below 20 percent of output tokens, all gates green, and Samay rates the result fantastic. Only then do pointer lines get added to `~/phoenix/CLAUDE.md` and other active projects.
+Token ledger: output tokens by model tier logged at each phase boundary into `docs/superpowers/specs/2026-07-04-extension-experience-overhaul-ledger.md`. Measurement is one command, recorded in the ledger file itself: a `jq` pass over the session transcript JSONL that sums output tokens grouped by model (subagent calls land in the same transcript, so the split is complete), plus `budget.spent()` from each workflow run. Success bar: Fable at or below 20 percent of output tokens, all gates green, and Samay rates the result fantastic. Only then do pointer lines get added to `~/phoenix/CLAUDE.md` and other active projects.
 
 ## Testing and rollout
 
 - Unit tests land with their packets: `read-region`, `research-progress`, people/tooltip tests reworked; new `person_read` tests in core and llm; `first-payoff` core logic untouched.
 - Playwright UI and smoke specs updated for the assembly surface. `audit:css` stays green (theme tokens only, no raw colors).
-- `personSchema` change is a card-shape change: bump `packages/core/api-contract.json` and rebuild the extension.
+- `personSchema` and the source-summary `ogImageUrl` are shape changes: bump `packages/core/api-contract.json` and rebuild the extension. The manifest gains the `favicon` permission; note it in the privacy page if the alpha packaging doc lists permissions.
 - Full `npm run check` green before merge. CI mirrors it.
 - Samay's visual sign-off with macOS Reduce Motion OFF is the final gate before deploy.
 - Deploy order: web first (schema is tolerant of absent optional fields), then extension rebuild and reload.
