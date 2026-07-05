@@ -20,7 +20,6 @@ const VISIBLE_SOURCE_COUNT = 3;
 type ResearchTrailProps =
   | {
       mode: "building";
-      elapsedSeconds: number;
       events: ExtensionResearchRunEvent[];
       generationStatus: "queued" | "running" | "cached" | "complete" | "failed";
       sources?: ExtensionSourceSummary[] | undefined;
@@ -107,7 +106,7 @@ export function ResearchTrail(props: ResearchTrailProps) {
   const eventSourceCount = acceptedSourceCountFromEvents(events);
   const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
   const building = props.mode === "building";
-  const queuedQuietly = building && props.generationStatus === "queued" && props.elapsedSeconds < 4;
+  const queuedQuietly = building && props.generationStatus === "queued";
   const eventStageIndex = building && props.generationStatus === "queued" ? 0 : generationStageIndexFromEvents(events);
   const activeIndex = Math.min(
     RESEARCH_PROGRESS_STAGES.length - 1,
@@ -167,6 +166,42 @@ export function ResearchTrail(props: ResearchTrailProps) {
   const liveDuplicatesMain = liveProofCopy.trim().toLowerCase() === sourceCopy.trim().toLowerCase();
   const showLiveProgress = needsAttention ||
     (!profileComplete && (isProfileRunning || profileEventsSeen) && !liveDuplicatesMain);
+
+  // Building: the header whisper is the status voice and the clippings are the content, so the
+  // trail is only the quiet details toggle plus the tree it opens (auto-open on attention).
+  if (building) {
+    return (
+      <div
+        className="cs-assembly-details"
+        aria-label="Research details"
+        data-attention={needsAttention ? "true" : "false"}
+      >
+        {showDetailsControl ? (
+          <button
+            aria-expanded={detailsOpen}
+            className="cs-assembly-details-toggle"
+            onClick={() => setDetailsOpen((current) => !current)}
+            type="button"
+          >
+            {detailsOpen ? "Hide details" : "Details"}
+          </button>
+        ) : null}
+        {showDetailsTree ? (
+          <Suspense fallback={null}>
+            <SourcePassInstrument
+              activeIndex={activeIndex}
+              complete={profileComplete || !isProfileRunning}
+              events={events}
+              sources={sources}
+              stageNote={stageNote}
+              stages={RESEARCH_PROGRESS_STAGES}
+              variant="compact"
+            />
+          </Suspense>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div

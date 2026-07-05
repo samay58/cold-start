@@ -13,14 +13,18 @@ import {
   managementSourceCount,
   profileFacts
 } from "./CompanyHeader";
+import { Clippings } from "./Clippings";
+import { clippingsFromEvents } from "./clipping-model";
 import { earlyReadState, formatSavedDate } from "./company-display";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary, GenerationStatus } from "./extension-config";
-import { formatElapsed, profileSummaryCopy } from "./extension-format";
+import { profileSummaryCopy } from "./extension-format";
 import { filedSourceCount } from "./first-payoff-events";
 import { ProgressBackground } from "./ProgressBackground";
 import { ReadRegion } from "./ReadRegion";
 import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "./research-layer";
+import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "./research-progress";
 import { ResearchTrail } from "./ResearchTrail";
+import { SealInstrument } from "./SealInstrument";
 import { SharedTooltip, useSharedTooltip } from "./SharedTooltip";
 import { motionTokens } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
@@ -157,8 +161,6 @@ export function CompanyArc({
   const building = arc.phase === "building" ? arc : null;
   const profile = arc.phase === "profile" ? arc : null;
 
-  const buildingElapsedMs = useElapsedMilliseconds(Boolean(building), building?.startedAt, 120);
-  const buildingElapsed = Math.floor(buildingElapsedMs / 1000);
   const analysisElapsedSeconds = useElapsedSeconds(Boolean(profile?.analysisRun), profile?.analysisRun?.startedAt);
   const contactElapsedSeconds = useElapsedSeconds(Boolean(profile?.contactRun), profile?.contactRun?.startedAt);
   const profileElapsedSeconds = useElapsedSeconds(Boolean(profile?.profileRun), profile?.profileRun?.startedAt);
@@ -170,8 +172,13 @@ export function CompanyArc({
     void import("./ResearchLayerPanel");
   }, []);
 
-  const buildingQueued = Boolean(building && building.generationStatus === "queued" && buildingElapsed < 4);
-  const buildingKicker = building ? (buildingQueued ? "Queued" : "Researching") : null;
+  const buildingSealLevel = building ? sealLevelFromEvents(building.events) : 0;
+  const buildingAttention = building ? hasResearchProgressAttention(building.events) : false;
+  const buildingWhisper = building
+    ? buildingAttention
+      ? "Needs a closer look"
+      : whisperCopyFromEvents(building.events, domain)
+    : null;
   const buildingPayoff = building ? earlyReadState(null, building.events) : null;
 
   const profileRead = profile ? earlyReadState(profile.card, profile.events ?? []) : null;
@@ -212,15 +219,18 @@ export function CompanyArc({
           card={profile?.card ?? null}
           domain={domain}
           freshnessLabel={freshnessLabel}
-          kicker={buildingKicker}
           phase={arc.phase}
           statusSlot={
             arc.phase === "intake" ? (
               <span className="cs-company-status-chip">No profile</span>
             ) : building ? (
-              <div className="cs-company-run-time" aria-label={`Elapsed ${formatElapsed(buildingElapsed)}`}>
-                <span>Run</span>
-                <strong>{formatElapsed(buildingElapsed)}</strong>
+              <div
+                aria-live="polite"
+                className="cs-assembly-whisper"
+                data-attention={buildingAttention ? "true" : "false"}
+              >
+                <SealInstrument level={buildingSealLevel} prefersReducedMotion={prefersReducedMotion} />
+                <span className="cs-assembly-whisper-copy">{buildingWhisper}</span>
               </div>
             ) : null
           }
@@ -264,13 +274,9 @@ export function CompanyArc({
 
         {building ? (
           <>
-            <ResearchTrail
-              elapsedSeconds={buildingElapsed}
-              events={building.events}
-              generationStatus={building.generationStatus}
-              mode="building"
-            />
-            <ArcStack phase="building" />
+            <Clippings clippings={clippingsFromEvents(building.events)} prefersReducedMotion={prefersReducedMotion} />
+            <ResearchTrail events={building.events} generationStatus={building.generationStatus} mode="building" />
+            <SealedLensRow phase="building" />
           </>
         ) : null}
 

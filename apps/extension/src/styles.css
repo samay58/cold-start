@@ -821,43 +821,108 @@ button {
   min-width: 0;
 }
 
-.cs-company-kicker {
-  margin: 0 0 4px;
-  color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 740;
-  letter-spacing: 0;
-  line-height: 1.1;
-}
-
 .cs-company-status-slot {
   align-self: start;
   flex-shrink: 0;
   margin-left: auto;
 }
 
-.cs-company-run-time {
-  display: grid;
-  justify-items: end;
-  gap: 4px;
-  min-width: 50px;
+/*
+ * Assembly whisper: the one progress voice, tucked in the header's corner. The seal instrument
+ * inks up beside event-driven copy; it never grows beyond this slot. See cs-seal-inst below.
+ */
+.cs-assembly-whisper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 132px;
 }
 
-.cs-company-run-time span {
+.cs-assembly-whisper-copy {
   color: var(--color-muted);
-  font-size: 9px;
-  font-weight: 760;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  text-align: right;
 }
 
-.cs-company-run-time strong {
-  color: var(--color-ink);
-  font-size: 13px;
-  font-weight: 760;
-  letter-spacing: 0.01em;
-  line-height: 1;
+.cs-assembly-whisper[data-attention="true"] .cs-assembly-whisper-copy {
+  color: var(--color-company);
+}
+
+/*
+ * Seal instrument: a small wax-seal glyph that inks up in four discrete steps, each tied to a
+ * real stage event, and sets as the FILED stamp at the top level. The fill transitions on the
+ * data-level attribute, which only moves on an event, so there is no wall-clock animation.
+ */
+.cs-seal-inst {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.cs-seal-inst-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 5px;
+  background: var(--cs-surface-1);
+}
+
+.cs-seal-inst-fill {
+  position: absolute;
+  inset: 2px;
+  border-radius: 3px;
+  background: var(--color-seal);
+  opacity: 0;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 320ms ease-out;
+}
+
+.cs-seal-inst[data-level="1"] .cs-seal-inst-fill {
+  opacity: 0.3;
+  transform: scaleY(0.25);
+}
+
+.cs-seal-inst[data-level="2"] .cs-seal-inst-fill {
+  opacity: 0.52;
+  transform: scaleY(0.5);
+}
+
+.cs-seal-inst[data-level="3"] .cs-seal-inst-fill {
+  opacity: 0.74;
+  transform: scaleY(0.75);
+}
+
+.cs-seal-inst[data-level="4"] .cs-seal-inst-fill {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.cs-seal-inst[data-filed="true"] .cs-seal-inst-ring {
+  border-color: var(--color-seal);
+}
+
+.cs-seal-inst-mark {
+  position: relative;
+  fill: none;
+  stroke: var(--cs-surface-1);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-seal-inst-fill {
+    transition: opacity 120ms ease-out;
+  }
 }
 
 .cs-company-status-chip {
@@ -1367,6 +1432,143 @@ button {
   justify-content: space-between;
   padding: 14px 16px;
   border-bottom: 1px solid var(--color-rule);
+}
+
+/*
+ * Clippings: source receipts as the card's first content. Awaiting reserves a quiet ruled slot
+ * with no shimmer; each clipping arrives on its own source event and carries a favicon (or a
+ * thumbnail for up to two news/funding items), a classification dot, the domain, and the kind.
+ */
+.cs-clippings {
+  margin: 10px 12px 0;
+}
+
+.cs-clippings[data-state="awaiting"] {
+  min-height: 32px;
+}
+
+.cs-clippings-rule {
+  display: block;
+  height: 1px;
+  margin-top: 16px;
+  background: var(--color-rule);
+}
+
+.cs-clippings-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-clipping {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cs-clipping a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 168px;
+  padding: 5px 9px 5px 7px;
+  border: 1px solid rgb(var(--cs-c-230-223-201) / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.82), rgb(var(--cs-c-250-247-239) / 0.7)),
+    var(--color-plate);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.cs-clipping-thumb {
+  flex-shrink: 0;
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.cs-clipping-favicon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.cs-clipping-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-muted);
+}
+
+.cs-clipping-dot[data-source-class="company_site"],
+.cs-clipping-dot[data-source-class="people"] {
+  background: var(--color-seal);
+}
+
+.cs-clipping-dot[data-source-class="docs"],
+.cs-clipping-dot[data-source-class="news"] {
+  background: var(--color-reported);
+}
+
+.cs-clipping-dot[data-source-class="funding"] {
+  background: var(--color-company);
+}
+
+.cs-clipping-dot[data-source-class="customer_proof"] {
+  background: var(--color-verified);
+}
+
+.cs-clipping-domain {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-clipping-kind {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* Building details: the quiet toggle and the tree it opens; the whisper carries the status. */
+.cs-assembly-details {
+  display: grid;
+  gap: 8px;
+  margin: 8px 12px 0;
+}
+
+.cs-assembly-details-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cs-assembly-details-toggle:hover,
+.cs-assembly-details-toggle:focus-visible {
+  color: var(--color-seal);
 }
 
 .cs-research-progress {

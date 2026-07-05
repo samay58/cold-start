@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildResearchProgressPlan,
-  RESEARCH_PROGRESS_STAGES
+  hasResearchProgressAttention,
+  RESEARCH_PROGRESS_STAGES,
+  sealLevelFromEvents,
+  whisperCopyFromEvents
 } from "../src/research-progress";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
@@ -234,5 +237,70 @@ describe("artifact-led research progress", () => {
     const text = plan.flatMap((stage) => [stage.label, stage.proofLine, ...stage.substeps.map((substep) => substep.message)]).join(" ");
 
     expect(text).not.toMatch(/search plan|query plan|worker|pipeline|accepted sources|Looking for useful places|Pulling in what matters|Turning evidence|Saving the final profile/i);
+  });
+});
+
+describe("sealLevelFromEvents", () => {
+  it("advances the seal in discrete steps as real stage events land", () => {
+    expect(sealLevelFromEvents([])).toBe(0);
+    expect(sealLevelFromEvents([event({ id: "queued", type: "generation.queued" })])).toBe(0);
+    expect(sealLevelFromEvents([event({ id: "plan", type: "plan.ready" })])).toBe(1);
+    expect(
+      sealLevelFromEvents([
+        event({ id: "plan", type: "plan.ready" }),
+        event({ id: "sources", type: "source.found", metadata: { acceptedCount: 8 } })
+      ])
+    ).toBe(2);
+    expect(
+      sealLevelFromEvents([event({ id: "payoff", type: "first_payoff.ready" })])
+    ).toBe(3);
+    expect(sealLevelFromEvents([event({ id: "partial", type: "card.partial" })])).toBe(3);
+    expect(sealLevelFromEvents([event({ id: "saved", type: "card.saved" })])).toBe(4);
+    expect(sealLevelFromEvents([event({ id: "complete", type: "generation.complete" })])).toBe(4);
+  });
+
+  it("takes the highest level reached, not the last event", () => {
+    expect(
+      sealLevelFromEvents([
+        event({ id: "saved", type: "card.saved" }),
+        event({ id: "sources", type: "source.found", metadata: { acceptedCount: 8 } })
+      ])
+    ).toBe(4);
+  });
+});
+
+describe("whisperCopyFromEvents", () => {
+  it("moves from queued to reading to building to filed on real events", () => {
+    expect(whisperCopyFromEvents([], "exa.ai")).toBe("Queued");
+    expect(whisperCopyFromEvents([event({ id: "plan", type: "plan.ready" })], "exa.ai")).toBe("Reading exa.ai");
+    expect(
+      whisperCopyFromEvents(
+        [event({ id: "sources", type: "source.found", metadata: { acceptedCount: 8 } })],
+        "exa.ai"
+      )
+    ).toBe("8 sources, building profile");
+    expect(
+      whisperCopyFromEvents(
+        [event({ id: "sources", type: "source.found", metadata: { acceptedCount: 1 } })],
+        "exa.ai"
+      )
+    ).toBe("1 source, building profile");
+    expect(whisperCopyFromEvents([event({ id: "saved", type: "card.saved" })], "exa.ai")).toBe("Filed");
+  });
+});
+
+describe("hasResearchProgressAttention", () => {
+  it("is false for clean events and true when a stage event fails or needs attention", () => {
+    expect(
+      hasResearchProgressAttention([event({ id: "sources", type: "source.found", metadata: { acceptedCount: 8 } })])
+    ).toBe(false);
+    expect(
+      hasResearchProgressAttention([
+        event({ id: "sources", type: "source.found", message: "Sources not found", metadata: {} })
+      ])
+    ).toBe(true);
+    expect(
+      hasResearchProgressAttention([event({ id: "saved", type: "card.saved", message: "Save failed" })])
+    ).toBe(true);
   });
 });
