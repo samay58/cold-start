@@ -308,7 +308,7 @@ function citationArtifactLine(event: ExtensionResearchRunEvent | undefined) {
 
   const citationCount = metadataNumber(event, ["citationCount"]);
   return citationCount !== null
-    ? `First cited profile ready - ${citationCount} ${citationCount === 1 ? "citation" : "citations"}`
+    ? `First cited profile ready · ${citationCount} ${citationCount === 1 ? "citation" : "citations"}`
     : "First cited profile ready";
 }
 

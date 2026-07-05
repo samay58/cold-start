@@ -17,7 +17,8 @@ const KIND_LABEL: Record<ClippingSourceClass, string> = {
   funding: "Funding",
   jobs: "Jobs",
   news: "News",
-  other: "Source",
+  // "other" renders no kind label: the domain plus the classification dot carry it.
+  other: "",
   people: "People",
   registry: "Filing"
 };
@@ -70,7 +71,7 @@ function ClippingRow({
         ) : null}
         <span className="cs-clipping-dot" data-source-class={clipping.sourceClass} aria-hidden="true" />
         <span className="cs-clipping-domain">{clipping.domain}</span>
-        <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span>
+        {KIND_LABEL[clipping.sourceClass] ? <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span> : null}
       </a>
     </motion.li>
   );

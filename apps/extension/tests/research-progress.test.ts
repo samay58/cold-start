@@ -194,7 +194,7 @@ describe("artifact-led research progress", () => {
       stages: RESEARCH_PROGRESS_STAGES
     });
 
-    expect(plan[2]?.proofLine).toBe("First cited profile ready - 7 citations");
+    expect(plan[2]?.proofLine).toBe("First cited profile ready · 7 citations");
     expect(plan[2]?.substeps.map((substep) => substep.message)).toEqual([]);
   });
 

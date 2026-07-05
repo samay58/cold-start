@@ -310,8 +310,6 @@ export function CompanyArc({
               card={profile.card}
               sections={profile.sections}
               events={profile.events}
-              sources={profile.sources}
-              contactRun={profile.contactRun}
               elapsedSeconds={analysisElapsedSeconds}
               onRunSection={onRunSection}
               onRunAnalysis={onRunAnalysis}

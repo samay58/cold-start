@@ -24,7 +24,7 @@ import {
 } from "./research-layer-motion";
 import { showPartialProfileGate, sourceLabel } from "./company-display";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
+import type { ExtensionResearchRunEvent } from "./extension-config";
 import {
   investorReadForCard,
   LENS_WAITS_FOR_PROFILE_REASON,
@@ -47,7 +47,6 @@ type ResearchLayerPanelProps = {
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
-  contactRun?: AnalysisRun | undefined;
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
   onRunAnalysis: () => void;
@@ -59,7 +58,6 @@ type ResearchLayerPanelProps = {
   activeSectionRun?: ActiveSectionRun | undefined;
   sections?: ResearchSection[] | undefined;
   events?: ExtensionResearchRunEvent[] | undefined;
-  sources?: ExtensionSourceSummary[] | undefined;
   tooltipProps: TooltipPropsFor;
 };
 
@@ -750,7 +748,6 @@ export function ResearchLayerPanel({
   analysisNotice,
   analysisRun,
   card,
-  contactRun,
   elapsedSeconds,
   onRunSection,
   onRunAnalysis,
@@ -762,7 +759,6 @@ export function ResearchLayerPanel({
   activeSectionRun,
   sections,
   events = [],
-  sources = [],
   tooltipProps
 }: ResearchLayerPanelProps) {
   const quality = publicProfileQuality(card);

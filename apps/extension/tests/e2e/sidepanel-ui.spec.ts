@@ -537,7 +537,7 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).not.toContainText("Picked a research plan");
   await expect(tree).toContainText("12 sources found");
-  await expect(tree).toContainText("First cited profile ready - 7 citations");
+  await expect(tree).toContainText("First cited profile ready · 7 citations");
   await expect(tree).not.toContainText("Started async contact enrichment");
   await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First cited profile ready" })).toHaveCount(0);
 });
