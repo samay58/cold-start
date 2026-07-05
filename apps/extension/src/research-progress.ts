@@ -442,6 +442,63 @@ export function hasTerminalProfileProgressEvent(events: ExtensionResearchRunEven
   return currentProfileProgressEvents(events).some((event) => terminalProfileProgressEventTypes.has(event.type));
 }
 
+// The seal instrument inks up in four discrete steps, each tied to a real stage event. No
+// wall-clock estimation: a level is the highest a run's events have earned.
+const sealLevelByEventType: Record<string, 0 | 1 | 2 | 3 | 4> = {
+  "generation.queued": 0,
+  "generation.started": 0,
+  "plan.ready": 1,
+  "source.found": 2,
+  "source.enrichment": 2,
+  "first_payoff.receipt": 2,
+  "first_payoff.withheld": 2,
+  "first_payoff.ready": 3,
+  "card.partial": 3,
+  "card.saved": 4,
+  "card.enriched": 4,
+  "generation.complete": 4
+};
+
+export function sealLevelFromEvents(events: ExtensionResearchRunEvent[]): 0 | 1 | 2 | 3 | 4 {
+  let level: 0 | 1 | 2 | 3 | 4 = 0;
+  for (const event of currentProfileProgressEvents(events)) {
+    const candidate = sealLevelByEventType[event.type];
+    if (candidate !== undefined && candidate > level) {
+      level = candidate;
+    }
+  }
+  return level;
+}
+
+// The single progress voice in the header: it states where the run is, never how long it has
+// taken. Queued -> reading the site -> building from N sources -> filed.
+export function whisperCopyFromEvents(events: ExtensionResearchRunEvent[], domain: string): string {
+  const level = sealLevelFromEvents(events);
+  if (level >= 4) {
+    return "Filed";
+  }
+  if (level <= 0) {
+    return "Queued";
+  }
+  if (level === 1) {
+    return `Reading ${domain}`;
+  }
+  const count = acceptedSourceCountFromEvents(events);
+  if (count && count > 0) {
+    return `${count} ${count === 1 ? "source" : "sources"}, building profile`;
+  }
+  return "Building profile";
+}
+
+// The attention signal that flips the whisper and auto-opens the details tree: any current-run
+// stage event that failed or needs a closer look.
+export function hasResearchProgressAttention(events: ExtensionResearchRunEvent[]): boolean {
+  return currentProfileProgressEvents(events).some((event) => {
+    const status = researchEventStatus(event);
+    return status === "attention" || status === "failed";
+  });
+}
+
 function statusForStage({
   activeIndex,
   complete,

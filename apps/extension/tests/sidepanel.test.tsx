@@ -994,22 +994,27 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
-    // While building, the panel renders run events and the early read only; nothing from the
-    // gated synthesis may appear before the profile phase, even when the stored card has it.
+    // While building, the panel renders the whisper, clippings, and the early read only; nothing
+    // from the gated synthesis may appear before the profile phase, even when the stored card has it.
     expect(container.textContent).not.toContain("supported wedge");
-    expect(container.textContent).toContain("Researching");
-    expect(container.textContent).toContain("Sources");
-    expect(container.textContent).toContain("Checking company, product, funding, and proof sources");
-    expect(container.textContent).toContain("Filed");
+    // The header whisper is the one progress voice; the seal instrument replaces the breathing dot.
+    const whisper = container.querySelector(".cs-assembly-whisper");
+    expect(whisper).not.toBeNull();
+    expect(whisper?.querySelector(".cs-seal-inst")?.getAttribute("data-level")).toBe("0");
+    expect(whisper?.textContent).toContain("Queued");
+    // No wall-clock estimation: with no run events yet the seal holds at the opening level.
     expect(container.textContent).not.toContain("Looking for useful places to read");
     expect(container.textContent).not.toContain("Pulling in what matters");
     expect(container.textContent).not.toContain("Turning evidence into a card");
     expect(container.textContent).not.toContain("Saving the final profile");
-    // No wall-clock stage estimation: with no run events yet, the trail holds at the first stage.
-    const runningSegment = container.querySelector(".cs-trail-segment[data-status='running']");
-    expect(runningSegment?.textContent).toContain("Sources");
-    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(0);
-    // The persistent header carries the identity and the run timer; there is no separate hero.
+    // The labeled four-segment trail, the main status row, the source strip, and the run clock are gone.
+    expect(container.querySelector(".cs-trail-segment")).toBeNull();
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
+    expect(container.querySelector(".cs-research-source-strip")).toBeNull();
+    expect(container.querySelector(".cs-company-run-time")).toBeNull();
+    // The details tree stays behind one quiet toggle.
+    expect(container.querySelector(".cs-assembly-details-toggle")).not.toBeNull();
+    // The persistent header carries the identity; there is no separate hero.
     expect(container.querySelector(".cs-company-context[data-phase='building']")).not.toBeNull();
     expect(container.querySelector(".cs-generation-hero")).toBeNull();
     expect(container.querySelector(".cs-build-bar")).toBeNull();
@@ -1025,8 +1030,10 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    expect(container.textContent).toContain("Research");
+    // Still resuming the run, not the generate gate: the building shell and identity hold.
+    expect(container.querySelector(".cs-company-context[data-phase='building']")).not.toBeNull();
     expect(container.textContent).toContain("cartesia.ai");
+    expect(container.textContent).not.toContain("Generate Cartesia?");
     await unmount();
   });
 
@@ -1065,12 +1072,12 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
 
-    // The source.found event advances the trail to its second stage and the count surfaces
-    // in the trail copy without opening the details tree.
-    expect(container.querySelectorAll(".cs-trail-segment[data-status='done']")).toHaveLength(1);
-    expect(container.querySelector(".cs-trail-segment[data-status='running']")?.textContent).toContain("Proof");
-    expect(container.querySelector(".cs-research-progress")?.textContent).toContain("8 sources found");
-    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
+    // The source.found event drives the header whisper and the seal, not a labeled trail.
+    expect(container.querySelector(".cs-assembly-whisper")?.textContent).toContain("8 sources, building profile");
+    expect(container.querySelector(".cs-seal-inst")?.getAttribute("data-level")).toBe("2");
+    expect(container.querySelector(".cs-trail-segment")).toBeNull();
+    // The details tree opens on demand and carries the source count.
+    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-assembly-details-toggle");
     expect(detailsButton).not.toBeNull();
     await act(async () => {
       detailsButton?.click();

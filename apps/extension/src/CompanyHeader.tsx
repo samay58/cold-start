@@ -18,10 +18,8 @@ type CompanyHeaderProps = {
   freshnessLabel?: string | null;
   // Content inside the copy column, under the domain: summary, filed stamp.
   identityChildren?: ReactNode;
-  // Small state line above the company name while a run is live.
-  kicker?: string | null;
   phase: CompanyHeaderPhase;
-  // Right-aligned slot: "No profile" chip at intake, the run timer while building.
+  // Right-aligned slot: "No profile" chip at intake, the assembly whisper while building.
   statusSlot?: ReactNode;
 };
 
@@ -33,7 +31,6 @@ export function CompanyHeader({
   domain,
   freshnessLabel,
   identityChildren,
-  kicker,
   phase,
   statusSlot
 }: CompanyHeaderProps) {
@@ -50,7 +47,6 @@ export function CompanyHeader({
           logoUrl={card?.identity.logoUrl ?? null}
         />
         <div>
-          {kicker ? <p className="cs-company-kicker">{kicker}</p> : null}
           <h1>{companyName}</h1>
           <a className="cs-company-domain" href={`https://${domain}`} rel="noreferrer" target="_blank">
             {website}
