@@ -428,7 +428,11 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(container.textContent).toContain("No profile");
+    // The intake status slot renders empty; there is no "No profile" chip to earn its space.
+    expect(container.textContent).not.toContain("No profile");
+    // The scope statement appears once, from the intake note; the module pile no longer
+    // restates it in different words.
+    expect(container.textContent).toContain("Build a cited profile from public sources: identity, funding, people, and proof.");
     // The intake previews the real research modules and the sealed Investor Lens, not
     // marketing copy or invented card names.
     expect(container.textContent).not.toContain("Get up to speed");
@@ -2497,7 +2501,10 @@ describe("SidePanel generation gate", () => {
     await panel.changeDomain("linear.app");
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(panel.container.textContent).toContain("No profile");
+    const generateButton = Array.from(panel.container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Begin research"
+    );
+    expect(generateButton).toBeTruthy();
     expect(panel.container.textContent).toContain("Linear");
     await panel.unmount();
   });

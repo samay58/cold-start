@@ -115,16 +115,20 @@ function SealedLensRow({ phase }: { phase: "intake" | "building" }) {
 
 // What the research layer will hold, shown with the real module titles before any of them can
 // run. The first four modules preview the shape; the rest are counted, not invented.
+// At intake, the note above this stack already states the research scope, so the head here
+// only appears once building starts and has its own thing to say (evidence is coming).
 function ArcStack({ phase }: { phase: "intake" | "building" }) {
   const previews = RESEARCH_LAYER_CARDS.slice(0, 4);
   const remaining = RESEARCH_LAYER_CARDS.length - previews.length;
 
   return (
     <section className="cs-arc-stack" aria-label="Research scope">
-      <div className="cs-arc-stack-head">
-        <span>Research</span>
-        <small>{phase === "building" ? "Waiting for evidence" : `${RESEARCH_LAYER_CARDS.length} modules`}</small>
-      </div>
+      {phase === "building" ? (
+        <div className="cs-arc-stack-head">
+          <span>Research</span>
+          <small>Waiting for evidence</small>
+        </div>
+      ) : null}
       <div className="cs-arc-stack-cards">
         {previews.map((layer, index) => (
           <article className="cs-arc-stack-card" key={layer.id}>
@@ -215,9 +219,7 @@ export function CompanyArc({
           kicker={buildingKicker}
           phase={arc.phase}
           statusSlot={
-            arc.phase === "intake" ? (
-              <span className="cs-company-status-chip">No profile</span>
-            ) : building ? (
+            arc.phase === "intake" ? null : building ? (
               <div className="cs-company-run-time" aria-label={`Elapsed ${formatElapsed(buildingElapsed)}`}>
                 <span>Run</span>
                 <strong>{formatElapsed(buildingElapsed)}</strong>
