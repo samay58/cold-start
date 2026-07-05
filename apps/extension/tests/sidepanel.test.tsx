@@ -428,7 +428,11 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(container.textContent).toContain("No profile");
+    // The intake status slot renders empty; there is no "No profile" chip to earn its space.
+    expect(container.textContent).not.toContain("No profile");
+    // The scope statement appears once, from the intake note; the module pile no longer
+    // restates it in different words.
+    expect(container.textContent).toContain("Build a cited profile from public sources: identity, funding, people, and proof.");
     // The intake previews the real research modules and the sealed Investor Lens, not
     // marketing copy or invented card names.
     expect(container.textContent).not.toContain("Get up to speed");
@@ -1073,6 +1077,13 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
+    // The details tree keeps its stage labels, ordinal markers, and status marks, but drops the
+    // caption and the head counter chip; the whisper above already states progress.
+    expect(container.querySelector(".cs-build-head")).toBeNull();
+    expect(container.querySelector(".cs-build-step")).toBeNull();
+    expect(container.querySelector(".cs-build-meta")).toBeNull();
+    expect(container.textContent).not.toContain("Research progress");
+    expect(container.querySelector(".cs-build-stage-marker")).not.toBeNull();
     await unmount();
   });
 
@@ -1339,8 +1350,6 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).not.toBe("running");
     expect(container.textContent).not.toContain("Finishing profile");
     expect(container.textContent).not.toContain("Getting the profile ready");
-    expect(container.textContent).toContain("Starter profile ready");
-    expect(container.textContent).toContain("Filling in contacts and details");
     expect(container.textContent).toContain("10 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
@@ -1449,16 +1458,9 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Research saved");
-    expect(container.textContent).toContain("2 sources found");
-    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
-    expect(detailsButton).not.toBeNull();
-    await act(async () => {
-      detailsButton?.click();
-    });
-    await flushPromises();
-    expect(container.textContent).toContain("Company site and funding coverage found");
-    expect(container.textContent).not.toContain("Found 2 sources");
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
+    expect(container.textContent).toContain("LlamaIndex");
     await unmount();
   });
 
@@ -1534,10 +1536,8 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).not.toContain("Research filed");
-    expect(container.textContent).toContain("Filed");
-    expect(container.textContent).toContain("Saved with sources attached");
-    expect(container.querySelector(".cs-research-progress-live")).not.toBeNull();
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     await unmount();
   });
@@ -1649,9 +1649,8 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Research filed");
-    expect(container.textContent).toContain("35 sources");
-    expect(container.textContent).toContain("6 of 10 sections");
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     expect(container.textContent).not.toContain("Filed the profile");
     await unmount();
@@ -2147,8 +2146,8 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector<HTMLElement>('[data-layer-id="signals"]')?.dataset.state).toBe("running");
-    expect(container.querySelector(".cs-research-progress-main strong")?.textContent).toBe("Research saved");
-    expect(container.querySelector<HTMLElement>(".cs-research-progress-dot")?.dataset.running).toBe("false");
+    // No second, global progress voice exists on the profile phase to leak the section run into.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(generateCalls(fetchMock)).toHaveLength(1);
     await unmount();
   });
@@ -2239,6 +2238,18 @@ describe("SidePanel generation gate", () => {
     expect(sourceLink).toBeTruthy();
     expect(sourceLink?.textContent).toContain("linear.app");
     expect(sourceLink?.target).toBe("_blank");
+
+    await unmount();
+  });
+
+  it("carries source posture through the footer caveat and chip titles, not a dot glyph", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    expect(container.textContent).toContain("The company has a supported wedge.");
+    expect(container.querySelector(".cs-lens-dot")).toBeNull();
+    const sourceLink = container.querySelector<HTMLAnchorElement>(".cs-lens-source[href='https://linear.app/']");
+    expect(sourceLink?.getAttribute("title")).toMatch(/^.+: /);
 
     await unmount();
   });
@@ -2549,7 +2560,10 @@ describe("SidePanel generation gate", () => {
     await panel.changeDomain("linear.app");
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(panel.container.textContent).toContain("No profile");
+    const generateButton = Array.from(panel.container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Begin research"
+    );
+    expect(generateButton).toBeTruthy();
     expect(panel.container.textContent).toContain("Linear");
     await panel.unmount();
   });

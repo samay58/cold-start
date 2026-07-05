@@ -417,3 +417,114 @@ describe("ResearchLayerPanel first read", () => {
     await unmount();
   });
 });
+
+function unusableCard(): ColdStartCard {
+  const base = card();
+  return {
+    ...base,
+    citations: [],
+    identity: {
+      ...base.identity,
+      name: { value: base.domain, status: "unknown", confidence: "low", citationIds: [] },
+      websiteUrl: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      oneLiner: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      hq: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      foundedYear: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    funding: {
+      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
+      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    },
+    team: {
+      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    }
+  };
+}
+
+describe("ResearchLayerPanel surface diet", () => {
+  beforeEach(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    document.body.innerHTML = "";
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn()
+    })));
+    vi.stubGlobal("chrome", {
+      storage: {
+        local: {
+          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
+          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
+        },
+        session: {
+          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
+          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
+        }
+      }
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("states the module count once, in the card tray; the research-layer header drops its own ratio", async () => {
+    const { container, unmount } = await renderPanel();
+
+    const head = container.querySelector(".cs-research-layer-head");
+    expect(head?.textContent).toBe("Research");
+    expect(container.textContent).not.toContain("0 / 10");
+    expect(container.textContent).toContain("10 waiting");
+    await unmount();
+  });
+
+  it("does not mount a second research-progress voice on the profile phase", async () => {
+    const { container, unmount } = await renderPanel();
+
+    // The whisper and each module's own status line carry this now; the panel does not
+    // additionally mount ResearchTrail's stage tree.
+    expect(container.querySelector("[aria-label='Research progress']")).toBeNull();
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
+    await unmount();
+  });
+
+  it("folds the Sources/Website recap rows out of the partial-profile panel", async () => {
+    await import("../src/ResearchLayerPanel");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <CompanyArc
+          arc={{ phase: "profile", card: unusableCard(), sections: [], events: [], sources: [] }}
+          domain="exa.ai"
+          onEditSettings={() => undefined}
+          onRegenerate={() => undefined}
+          onRunAnalysis={() => undefined}
+          onRunSection={() => undefined}
+          onStart={() => undefined}
+        />
+      );
+    });
+    await flushPromises();
+
+    const panel = container.querySelector("[aria-label='Incomplete company profile']");
+    expect(panel).not.toBeNull();
+    // The identity header above this panel already states the domain and source count; the
+    // recap dl restated both.
+    expect(panel?.querySelector("[aria-label='Profile status']")).toBeNull();
+    expect(panel?.textContent).not.toContain("Website");
+    expect(panel?.textContent).toContain("Regenerate profile");
+
+    await act(async () => root.unmount());
+  });
+});

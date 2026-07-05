@@ -22,17 +22,15 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { showPartialProfileGate, sourceLabel, websiteLabel } from "./company-display";
+import { showPartialProfileGate, sourceLabel } from "./company-display";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "./extension-format";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
 import {
   investorReadForCard,
   LENS_WAITS_FOR_PROFILE_REASON,
   type InvestorReadDisplay,
-  type LensClaim,
-  type SourcePosture
+  type LensClaim
 } from "./investor-lens";
-import { ResearchTrail } from "./ResearchTrail";
 import type { TooltipPropsFor } from "./SharedTooltip";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
@@ -434,10 +432,6 @@ function LensNotFiledCard() {
   );
 }
 
-function LensPostureDot({ posture }: { posture: SourcePosture }) {
-  return <i className="cs-lens-dot" data-posture={posture} aria-hidden="true" />;
-}
-
 function LensTensionSide({
   claim,
   emptyCopy,
@@ -454,7 +448,6 @@ function LensTensionSide({
       <h4>{label}</h4>
       {claim ? (
         <p>
-          <LensPostureDot posture={claim.sourcePosture} />
           <span>{claim.text}</span>
         </p>
       ) : (
@@ -476,7 +469,6 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
         <span>Investor read</span>
       </header>
       <p className="cs-investor-read-lede">
-        <LensPostureDot posture={read.lede.sourcePosture} />
         <span>{read.lede.text}</span>
       </p>
       <div className="cs-lens-tension" aria-label="The case">
@@ -498,7 +490,6 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
         {read.timing ? (
           <div>
             <p>
-              <LensPostureDot posture={read.timing.sourcePosture} />
               <span>
                 <em>{read.timing.field}.</em> {read.timing.text}
               </span>
@@ -606,16 +597,6 @@ function PartialProfilePanel({
         <p className="cs-research-label">{status}</p>
         <p>{body}</p>
       </div>
-      <dl className="cs-partial-profile-status" aria-label="Profile status">
-        <div>
-          <dt>Sources</dt>
-          <dd>{card.citations.length > 0 ? sourceLabel(card.citations.length) : "None"}</dd>
-        </div>
-        <div>
-          <dt>Website</dt>
-          <dd>{websiteLabel(card)}</dd>
-        </div>
-      </dl>
       <button className="cs-extension-button" onClick={onRegenerate} type="button">
         Regenerate profile
       </button>
@@ -926,12 +907,6 @@ export function ResearchLayerPanel({
 
   const dormantLayers = RESEARCH_LAYER_CARDS.filter((layer) => !activeLayerIds.includes(layer.id));
   const draggingLayer = draggingLayerId ? RESEARCH_LAYER_CARDS.find((layer) => layer.id === draggingLayerId) : null;
-  const activeCount = activeLayerIds.length;
-  const profileRunVisible = Boolean(profileRun);
-  const finalizingProfileVisible = Boolean(contactRun && !profileRun);
-  // The Lens has its own running receipt; the research progress panel narrates profile work only.
-  const showResearchProgress = profileRunVisible || finalizingProfileVisible || sources.length > 0 || events.length > 0;
-  const resolvedSectionCount = layers.filter((layer) => layer.availability !== "ready").length;
   const insertionSlotCopy = draggingLayer ? `File ${draggingLayer.title}` : "File card";
   const insertionSlotHint = snapReadyId
     ? "Release to file it in Research"
@@ -956,7 +931,6 @@ export function ResearchLayerPanel({
       <section className="cs-research-layer" aria-label="Research layer">
         <div className="cs-research-layer-head">
           <span>Research</span>
-          <span>{activeCount} / {RESEARCH_LAYER_CARDS.length}</span>
         </div>
         <div className="cs-lens-slot">
           {lensRunning ? (
@@ -970,18 +944,6 @@ export function ResearchLayerPanel({
             </>
           )}
         </div>
-        {showResearchProgress ? (
-          <ResearchTrail
-            mode="profile"
-            events={events}
-            isFinalizingProfile={finalizingProfileVisible}
-            isRunning={profileRunVisible}
-            isProfileRunning={profileRunVisible}
-            resolvedCount={resolvedSectionCount}
-            sources={sources}
-            totalCount={RESEARCH_LAYER_CARDS.length}
-          />
-        ) : null}
 
         <div className="cs-active-enrichments">
           <AnimatePresence initial={false}>

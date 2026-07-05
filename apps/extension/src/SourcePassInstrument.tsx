@@ -17,7 +17,9 @@ type SourcePassInstrumentProps = {
   sources?: ExtensionSourceSummary[];
   stageNote: string;
   stages: SourcePassStage[];
-  variant?: "full" | "compact";
+  // Only ever mounted at "compact" (behind ResearchTrail's Details toggle); kept as a named
+  // prop so that caller keeps its explicit variant="compact" attribute.
+  variant?: "compact";
 };
 
 export function MotionStateText({
@@ -114,8 +116,7 @@ export function SourcePassInstrument({
   events = [],
   sources = [],
   stageNote,
-  stages,
-  variant = "full"
+  stages
 }: SourcePassInstrumentProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
   const safeActiveIndex = stages.length > 0 ? Math.min(Math.max(Math.trunc(activeIndex), 0), stages.length - 1) : 0;
@@ -158,20 +159,9 @@ export function SourcePassInstrument({
   const substepMotionProps = substepVariants
     ? { variants: substepVariants }
     : {};
-  const rootClassName =
-    variant === "compact"
-      ? "cs-build cs-build-compact"
-      : "cs-live-card cs-live-card-refined cs-build";
 
   return (
-    <div className={rootClassName} aria-live="polite" data-variant={variant}>
-      <div className="cs-build-head">
-        <span>Research progress</span>
-        <span className="cs-build-step">
-          {activeStage?.marker ?? "01"} / {String(stages.length).padStart(2, "0")}
-        </span>
-      </div>
-
+    <div className="cs-build cs-build-compact" aria-live="polite">
       <ol className="cs-build-tree">
         {plan.map((stage, index) => (
           <motion.li
@@ -206,11 +196,6 @@ export function SourcePassInstrument({
         ))}
       </ol>
 
-      {variant === "full" ? (
-        <p className="cs-build-meta">
-          Step {safeActiveIndex + 1} of {stages.length}
-        </p>
-      ) : null}
       <p className="sr-only">{activeStage?.label}. {plan[safeActiveIndex]?.proofLine ?? stageNote}</p>
     </div>
   );
