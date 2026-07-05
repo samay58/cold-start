@@ -272,27 +272,48 @@ function personChannels(person: CardPerson): PersonChannel[] {
   ].filter((channel): channel is PersonChannel => channel !== null);
 }
 
-// A whisper of the person's public sources: the host of every channel plus the source
-// that placed them on the card, deduped. Honest and available without the citations map.
-function personProvenance(person: CardPerson): string | null {
-  const hosts = [person.sourceUrl, person.githubUrl, person.xUrl, person.personalUrl]
-    .map((url) => sourceHostLabel(url))
-    .filter((host): host is string => Boolean(host));
+// Minimal citation shape the dossier needs to resolve a read's sources to their hosts. The
+// card's full `citations[]` is assignable to this.
+type CitationRef = { id: string; url: string };
+
+function formatProvenance(hosts: string[]): string | null {
   const unique = [...new Set(hosts)];
   return unique.length > 0 ? `via ${unique.join(", ")}` : null;
 }
 
-function personDossier(person: CardPerson): TooltipDossier {
+// A whisper of the person's public sources: the host of every channel plus the source
+// that placed them on the card, deduped. The honest fallback when no cited read exists.
+function personProvenance(person: CardPerson): string | null {
+  const hosts = [person.sourceUrl, person.githubUrl, person.xUrl, person.personalUrl]
+    .map((url) => sourceHostLabel(url))
+    .filter((host): host is string => Boolean(host));
+  return formatProvenance(hosts);
+}
+
+// When a cited read exists, its provenance is the read's own citations resolved to their
+// hosts, not the person's channel hosts. This keeps the whisper honest: it names where the
+// claim came from, never a channel link masquerading as the read's source.
+function readProvenance(read: NonNullable<CardPerson["read"]>, citations: readonly CitationRef[]): string | null {
+  const byId = new Map(citations.map((citation) => [citation.id, citation] as const));
+  const hosts = read.citationIds
+    .map((id) => byId.get(id))
+    .map((citation) => (citation ? sourceHostLabel(citation.url) : null))
+    .filter((host): host is string => Boolean(host));
+  return formatProvenance(hosts);
+}
+
+function personDossier(person: CardPerson, citations: readonly CitationRef[]): TooltipDossier {
   const email = person.email
     ? { address: person.email, status: person.emailStatus === "inferred" ? ("inferred" as const) : ("observed" as const) }
     : null;
+  const read = person.read ?? null;
 
   return {
     kind: "dossier",
     name: person.name.trim(),
     role: person.role?.trim() || null,
-    read: person.read ?? null,
-    provenance: personProvenance(person),
+    read,
+    provenance: read ? readProvenance(read, citations) : personProvenance(person),
     email,
     channels: personChannels(person)
   };
@@ -395,6 +416,7 @@ type PeopleRun = {
 const PEOPLE_COLLAPSED_COUNT = 4;
 
 export function PeopleLine({
+  citations,
   companyDomain,
   contactElapsedSeconds = 0,
   contactRun,
@@ -402,6 +424,8 @@ export function PeopleLine({
   people,
   tooltipProps
 }: {
+  // The card's citations, so a person's cited read can resolve its provenance whisper.
+  citations: readonly CitationRef[];
   companyDomain: string;
   contactElapsedSeconds?: number;
   contactRun?: PeopleRun | undefined;
@@ -443,7 +467,7 @@ export function PeopleLine({
           const name = person.name.trim();
           const tooltip = name
             ? tooltipProps({
-              body: personDossier(person),
+              body: personDossier(person, citations),
               id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
               placement: "above",
               title: name

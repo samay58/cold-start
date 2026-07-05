@@ -905,8 +905,10 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("renders the person read in the dossier evidence serif when present", async () => {
+  it("renders the person read in the dossier evidence serif, cited by its own sources", async () => {
     const card = cardWithManagement("theinformation.com");
+    // c3 resolves to registry.example, a domain the person's own channels never touch, so
+    // the provenance whisper can only come from the read's citations.
     card.team.founders.value = [
       {
         name: "Jessica Lessin",
@@ -914,7 +916,7 @@ describe("SidePanel generation gate", () => {
         sourceUrl: "https://theinformation.com/about",
         email: "jessica@theinformation.com",
         emailStatus: "observed",
-        read: { text: "Left a WSJ masthead role to build subscription-only tech reporting.", citationIds: ["c1"] }
+        read: { text: "Left a WSJ masthead role to build subscription-only tech reporting.", citationIds: ["c3"] }
       }
     ];
     card.team.keyExecs.value = [];
@@ -944,6 +946,13 @@ describe("SidePanel generation gate", () => {
     const read = tooltip?.querySelector(".cs-dossier-read");
     expect(read).toBeTruthy();
     expect(read?.textContent).toContain("Left a WSJ masthead role");
+    // The provenance whisper is the read's own sources (registry.example), not the row's
+    // channel host (theinformation.com) masquerading as the read's source.
+    const provenance = tooltip?.querySelector(".cs-dossier-provenance");
+    expect(provenance?.textContent).toContain("registry.example");
+    expect(provenance?.textContent).not.toContain("theinformation.com");
+    // The now-interactive dossier restores a copy control on the email line.
+    expect(tooltip?.querySelector(".cs-dossier-email-copy")).toBeTruthy();
     await unmount();
   });
 
