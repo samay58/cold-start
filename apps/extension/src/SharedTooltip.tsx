@@ -3,9 +3,24 @@ import type { FocusEvent, PointerEvent } from "react";
 
 export type TooltipPlacement = "above" | "below";
 
+// A structured person dossier. The visible people row keeps the identity and the email
+// action; everything cited or contextual (the read, provenance, channels, email
+// provenance) lives here. `read` is null when the evidence supports no honest claim.
+export type TooltipDossier = {
+  kind: "dossier";
+  name: string;
+  role: string | null;
+  read: { text: string; citationIds: string[] } | null;
+  provenance: string | null;
+  email: { address: string; status: "observed" | "inferred" } | null;
+  channels: Array<{ label: "GitHub" | "X" | "Site"; url: string }>;
+};
+
+type TooltipBody = string | TooltipDossier;
+
 type SharedTooltipState = {
   animate: boolean;
-  body: string;
+  body: TooltipBody;
   id: string;
   left: number;
   placement: TooltipPlacement;
@@ -25,7 +40,7 @@ export type TooltipTriggerProps = {
 // The shape components accept to wire a trigger, so consumers depend on the primitive
 // without owning the tooltip state.
 export type TooltipPropsFor = (input: {
-  body: string;
+  body: TooltipBody;
   id: string;
   placement?: TooltipPlacement;
   title: string;
@@ -37,12 +52,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function asDossier(body: TooltipBody): TooltipDossier | null {
+  return typeof body === "object" && body !== null && body.kind === "dossier" ? body : null;
+}
+
 export function useSharedTooltip(prefersReducedMotion: boolean) {
   const [tooltip, setTooltip] = useState<SharedTooltipState | null>(null);
   const previousTooltipId = useRef<string | null>(null);
 
   function showTooltip(input: {
-    body: string;
+    body: TooltipBody;
     id: string;
     placement?: TooltipPlacement;
     target: HTMLElement;
@@ -72,7 +91,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   }
 
   function triggerProps(input: {
-    body: string;
+    body: TooltipBody;
     id: string;
     placement?: TooltipPlacement;
     title: string;
@@ -95,16 +114,54 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   return { tooltip, triggerProps };
 }
 
+function DossierBody({ dossier }: { dossier: TooltipDossier }) {
+  const role = dossier.role?.trim() || "Role not verified";
+
+  return (
+    <div className="cs-dossier" data-has-read={dossier.read ? "true" : "false"}>
+      <p className="cs-dossier-role">{role}</p>
+      {dossier.read ? <p className="cs-dossier-read">{dossier.read.text}</p> : null}
+      {dossier.provenance ? <p className="cs-dossier-provenance">{dossier.provenance}</p> : null}
+      {dossier.email ? (
+        <p className="cs-dossier-email" data-email-status={dossier.email.status}>
+          {dossier.email.address}
+          <em className="cs-dossier-email-kind">
+            {dossier.email.status === "inferred" ? "Inferred" : "Observed"}
+          </em>
+        </p>
+      ) : null}
+      {dossier.channels.length > 0 ? (
+        <p className="cs-dossier-channels">
+          {dossier.channels.map((channel) => (
+            <a
+              className="cs-dossier-channel"
+              href={channel.url}
+              key={channel.label}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {channel.label}
+            </a>
+          ))}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null }) {
   if (!tooltip) {
     return null;
   }
+
+  const dossier = asDossier(tooltip.body);
 
   return (
     <div
       className="cs-shared-tooltip"
       data-animate={tooltip.animate ? "true" : "false"}
       data-placement={tooltip.placement}
+      data-variant={dossier ? "dossier" : "text"}
       id={SHARED_TOOLTIP_ID}
       role="tooltip"
       style={{
@@ -114,7 +171,7 @@ export function SharedTooltip({ tooltip }: { tooltip: SharedTooltipState | null 
       }}
     >
       <strong>{tooltip.title}</strong>
-      <span>{tooltip.body}</span>
+      {dossier ? <DossierBody dossier={dossier} /> : <span>{tooltip.body as string}</span>}
     </div>
   );
 }

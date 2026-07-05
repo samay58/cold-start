@@ -689,12 +689,14 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("87");
     expect(container.textContent).toContain("2026-04-26");
     expect(container.textContent).toContain("theinformation.com");
-    expect(container.textContent).toContain("People");
-    expect(container.textContent).toContain("2 sources");
+    // The visible People section label is gone; the aria-label carries the section name.
+    expect(container.querySelector("section[aria-label='Management team']")).toBeTruthy();
+    expect(container.querySelector(".cs-people-line-label")).toBeNull();
+    // The source count belongs to the filed stamp now, not the people status line.
+    expect(container.querySelector(".cs-people-line-source")?.textContent).not.toContain("source");
     expect(container.textContent).toContain("Jessica Lessin");
     expect(container.textContent).toContain("jessica@theinformation.com");
     expect(container.textContent).toContain("1 work email");
-    expect(container.textContent).toContain("work");
     expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeTruthy();
     expect(container.textContent).toContain("Matthew Resnick");
     expect(container.textContent).toContain("Amir Efrati");
@@ -717,7 +719,6 @@ describe("SidePanel generation gate", () => {
 
     expect(container.textContent).toContain("1 email found");
     expect(container.textContent).toContain("quintendf@gmail.com");
-    expect(container.textContent).toContain("personal");
     expect(container.textContent).not.toContain("No verified work email found");
     await unmount();
   });
@@ -837,7 +838,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("shows honest placeholder tooltips for visible people but not the overflow row", async () => {
+  it("shows a cited dossier for visible people but no tooltip on the overflow control", async () => {
     const card = cardWithManagement("theinformation.com");
     card.team.keyExecs.value = [
       ...(card.team.keyExecs.value ?? []),
@@ -870,9 +871,18 @@ describe("SidePanel generation gate", () => {
     });
     const tooltip = container.querySelector(".cs-shared-tooltip");
     expect(tooltip).toBeTruthy();
+    expect(tooltip?.getAttribute("data-variant")).toBe("dossier");
     expect(tooltip?.textContent).toContain("Jessica Lessin");
-    expect(tooltip?.textContent).toContain("Founder");
-    expect(tooltip?.textContent).toContain("Work email found in a public source.");
+    expect(tooltip?.querySelector(".cs-dossier-role")?.textContent).toContain("Founder");
+    // No read on this person, so the serif read line stays absent (never filler).
+    expect(tooltip?.querySelector(".cs-dossier-read")).toBeNull();
+    expect(tooltip?.querySelector(".cs-dossier")?.getAttribute("data-has-read")).toBe("false");
+    expect(tooltip?.querySelector(".cs-dossier-provenance")?.textContent).toContain("theinformation.com");
+    const email = tooltip?.querySelector(".cs-dossier-email");
+    expect(email?.textContent).toContain("jessica@theinformation.com");
+    expect(email?.textContent).toContain("Observed");
+    // The collection-metadata sentences from the old tooltip are gone.
+    expect(tooltip?.textContent).not.toContain("Work email found in a public source.");
 
     await act(async () => {
       jessica!.blur();
@@ -888,6 +898,48 @@ describe("SidePanel generation gate", () => {
       overflow!.focus();
     });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    await unmount();
+  });
+
+  it("renders the person read in the dossier evidence serif when present", async () => {
+    const card = cardWithManagement("theinformation.com");
+    card.team.founders.value = [
+      {
+        name: "Jessica Lessin",
+        role: "Founder & CEO",
+        sourceUrl: "https://theinformation.com/about",
+        email: "jessica@theinformation.com",
+        emailStatus: "observed",
+        read: { text: "Left a WSJ masthead role to build subscription-only tech reporting.", citationIds: ["c1"] }
+      }
+    ];
+    card.team.keyExecs.value = [];
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
+    const jessica = Array.from(container.querySelectorAll(".cs-people-person")).find((row) =>
+      row.textContent?.includes("Jessica Lessin")
+    ) as HTMLElement | undefined;
+    expect(jessica).toBeTruthy();
+    jessica!.getBoundingClientRect = () => ({
+      bottom: 220,
+      height: 44,
+      left: 48,
+      right: 360,
+      top: 176,
+      width: 312,
+      x: 48,
+      y: 176,
+      toJSON: () => ({})
+    });
+
+    await act(async () => {
+      jessica!.focus();
+    });
+    const tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.querySelector(".cs-dossier")?.getAttribute("data-has-read")).toBe("true");
+    const read = tooltip?.querySelector(".cs-dossier-read");
+    expect(read).toBeTruthy();
+    expect(read?.textContent).toContain("Left a WSJ masthead role");
     await unmount();
   });
 

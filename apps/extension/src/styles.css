@@ -1305,6 +1305,97 @@ button {
   }
 }
 
+/* The person dossier inside the shared tooltip: the read carries the evidence serif;
+   role, provenance, the email provenance, and the channels sit quietly around it. When
+   the read is null the dossier stays honest and reads quieter, never filler. */
+.cs-dossier {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.cs-dossier-role {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 640;
+  line-height: 1.3;
+}
+
+.cs-dossier[data-has-read="false"] .cs-dossier-role {
+  color: var(--color-ink);
+  font-size: 12px;
+}
+
+.cs-dossier-read {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.42;
+}
+
+.cs-dossier-provenance {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.5);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.cs-dossier-email {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+  margin: 0;
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.cs-dossier-email-kind {
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: rgb(var(--cs-c-247-245-238) / 0.86);
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 680;
+  letter-spacing: 0.02em;
+}
+
+.cs-dossier-email[data-email-status="inferred"] .cs-dossier-email-kind {
+  border-style: dashed;
+  border-color: rgb(var(--cs-c-110-92-158) / 0.55);
+  background: rgb(var(--cs-c-110-92-158) / 0.07);
+  color: var(--color-seal);
+}
+
+.cs-dossier-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.cs-dossier-channel {
+  border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
 .cs-company-facts div {
   position: relative;
   display: grid;
@@ -2911,23 +3002,13 @@ a.cs-lens-source:focus-visible {
   min-width: 0;
 }
 
-.cs-people-line-label,
 .cs-people-line-source {
+  overflow: hidden;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 10px;
   font-weight: 760;
   line-height: 1.2;
-}
-
-.cs-people-line-label {
-  letter-spacing: 0.045em;
-  text-transform: uppercase;
-}
-
-.cs-people-line-source {
-  overflow: hidden;
-  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3006,30 +3087,25 @@ a.cs-lens-source:focus-visible {
   white-space: nowrap;
 }
 
-.cs-person-email button {
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.16);
-  border-radius: 999px;
-  padding: 1px 6px;
-  background: rgb(var(--cs-c-255-253-248) / 0.80);
-  color: var(--color-muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 9px;
-  font-weight: 760;
-  line-height: 1.35;
-}
-
 .cs-people-more {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   min-height: 52px;
   border: 1px solid rgb(var(--cs-c-212-197-158) / 0.42);
   border-radius: 6px;
   background: rgb(var(--cs-c-250-250-247) / 0.42);
   color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 760;
+}
+
+.cs-people-more:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.28);
+  outline-offset: 2px;
 }
 
 .cs-research-layer-head {
@@ -3588,7 +3664,6 @@ body,
 }
 
 .cs-company-facts dt,
-.cs-people-line-label,
 .cs-research-layer-head {
   color: rgb(var(--cs-c-23-26-31-text) / 0.72);
   font-family: var(--font-body);
@@ -3636,7 +3711,7 @@ body,
 
 .cs-people-person {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 32px;
+  grid-template-columns: 36px minmax(0, 1fr);
   gap: 11px;
   align-items: center;
   min-height: 56px;
@@ -3714,31 +3789,6 @@ body,
   font-size: 11px;
   font-weight: 700;
   padding: 0 9px;
-}
-
-.cs-person-email button {
-  min-height: 22px;
-  border-color: rgb(var(--cs-c-110-92-158) / 0.18);
-  border-radius: 999px;
-  background: rgb(var(--cs-c-255-253-248) / 0.88);
-  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
-  font-family: var(--font-body);
-  font-size: 10px;
-  padding: 0 8px;
-}
-
-.cs-person-contact-state {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.72);
-  border-radius: 999px;
-  color: var(--color-seal);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 760;
 }
 
 .cs-people-more {
@@ -3881,49 +3931,10 @@ body,
   font-size: 10px;
 }
 
-.cs-person-email-kind {
-  min-height: 20px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
-  border-radius: 6px;
-  padding: 2px 6px;
-  background: rgb(var(--cs-c-247-245-238) / 0.86);
-  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
-  font-size: 9.5px;
-  font-weight: 680;
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-/* Inferred addresses are honest guesses from the domain pattern: dashed seal border
-   so they never read as a verified/observed email. */
-.cs-person-email[data-email-status="inferred"] .cs-person-email-kind {
-  border-style: dashed;
-  border-color: rgb(var(--cs-c-110-92-158) / 0.55);
-  background: rgb(var(--cs-c-110-92-158) / 0.07);
-  color: var(--color-seal);
-}
-
-.cs-person-channels {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.cs-person-channel {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
-  font-size: 9.5px;
-  font-weight: 640;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-  border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
-  line-height: 1.4;
-}
-
-.cs-person-channel:hover {
-  color: var(--color-seal);
-  border-bottom-color: rgb(var(--cs-c-110-92-158) / 0.55);
+/* Inferred addresses are honest guesses from the domain pattern: a dashed seal edge on
+   the visible address so they never read as a verified/observed email. */
+.cs-person-email[data-email-status="inferred"] a {
+  border-bottom: 1px dashed rgb(var(--cs-c-110-92-158) / 0.55);
 }
 
 .cs-layer-running-copy {
@@ -4138,7 +4149,6 @@ body {
 }
 
 .cs-company-facts dt,
-.cs-people-line-label,
 .cs-research-layer-head,
 .cs-layer-rows dt,
 .cs-layer-items span,
@@ -4192,7 +4202,6 @@ body {
 }
 
 .cs-company-facts dt,
-.cs-people-line-label,
 .cs-research-layer-head {
   font-size: 10px;
   letter-spacing: 0.05em;
@@ -4225,7 +4234,7 @@ body {
 }
 
 .cs-people-person {
-  grid-template-columns: 32px minmax(0, 1fr) 26px;
+  grid-template-columns: 32px minmax(0, 1fr);
   min-height: 50px;
   gap: 10px;
   padding: 8px 10px;
@@ -4251,22 +4260,6 @@ body {
 .cs-person-email a {
   min-height: 20px;
   font-size: 10.5px;
-}
-
-.cs-person-email button {
-  min-height: 20px;
-  font-size: 9.5px;
-}
-
-.cs-person-email-kind {
-  min-height: 18px;
-  font-size: 9px;
-}
-
-.cs-person-contact-state {
-  width: 26px;
-  height: 26px;
-  font-size: 12px;
 }
 
 .cs-research-layer-head {
@@ -5141,8 +5134,7 @@ body {
 }
 
 /* Section labels: At Umami display in the seal accent, title case. */
-.cs-research-layer-head span:first-child,
-.cs-people-line-label {
+.cs-research-layer-head span:first-child {
   font-family: var(--font-display);
   font-size: 13px;
   font-weight: 600;

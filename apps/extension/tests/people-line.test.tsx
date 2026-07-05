@@ -5,16 +5,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { PeopleLine } from "../src/CompanyHeader";
+import type { TooltipDossier } from "../src/SharedTooltip";
 
 type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
 
-const tooltipProps = () => ({
-  "aria-describedby": "tip",
-  onBlur: () => undefined,
-  onFocus: () => undefined,
-  onPointerEnter: () => undefined,
-  onPointerLeave: () => undefined
-});
+type Captured = { body: string | TooltipDossier; id: string; title: string };
 
 let cleanup: (() => Promise<void>) | null = null;
 
@@ -25,27 +20,51 @@ afterEach(async () => {
   }
 });
 
-async function renderPeople(people: CardPerson[]) {
+async function renderPeople(people: CardPerson[], options?: { sourceCount?: number }) {
+  const captured: Captured[] = [];
+  const tooltipProps = (input: { body: string | TooltipDossier; id: string; placement?: unknown; title: string }) => {
+    captured.push({ body: input.body, id: input.id, title: input.title });
+    return {
+      "aria-describedby": "cs-company-shared-tooltip",
+      onBlur: () => undefined,
+      onFocus: () => undefined,
+      onPointerEnter: () => undefined,
+      onPointerLeave: () => undefined
+    };
+  };
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => {
-    root.render(<PeopleLine companyDomain="acme.ai" people={people} sourceCount={2} tooltipProps={tooltipProps} />);
+    root.render(
+      <PeopleLine
+        companyDomain="acme.ai"
+        people={people}
+        sourceCount={options?.sourceCount ?? 2}
+        tooltipProps={tooltipProps}
+      />
+    );
   });
   cleanup = async () => {
     await act(async () => root.unmount());
     container.remove();
   };
-  return container;
+  return { container, captured };
 }
 
-describe("PeopleLine", () => {
-  it("marks an inferred email distinctly from an observed one and renders channel links", async () => {
-    const container = await renderPeople([
+function dossiersFrom(captured: Captured[]): TooltipDossier[] {
+  return captured
+    .map((entry) => entry.body)
+    .filter((body): body is TooltipDossier => typeof body === "object" && body !== null && body.kind === "dossier");
+}
+
+describe("PeopleLine visible row diet", () => {
+  it("keeps only avatar, name, role, and the email action on the row", async () => {
+    const { container } = await renderPeople([
       {
         name: "Ada Lovelace",
         role: "CEO",
-        sourceUrl: "https://acme.ai",
+        sourceUrl: "https://acme.ai/about",
         email: "ada.lovelace@acme.ai",
         emailStatus: "inferred",
         githubUrl: "https://github.com/ada"
@@ -53,20 +72,138 @@ describe("PeopleLine", () => {
       {
         name: "Grace Hopper",
         role: "CTO",
-        sourceUrl: "https://acme.ai",
+        sourceUrl: "https://acme.ai/team",
         email: "grace@acme.ai",
         emailStatus: "observed"
       }
     ]);
 
-    const inferred = container.querySelector('[data-email-status="inferred"]');
-    const observed = container.querySelector('[data-email-status="observed"]');
-    expect(inferred).toBeTruthy();
-    expect(observed).toBeTruthy();
-    // The inferred email is visibly labeled as a guess; the observed one is not.
-    expect(inferred?.textContent?.toLowerCase()).toContain("inferred");
-    expect(observed?.textContent?.toLowerCase()).not.toContain("inferred");
-    // Public channel link renders.
-    expect(container.querySelector('a[href="https://github.com/ada"]')).toBeTruthy();
+    // The email link is the one action, and it stays on the visible row.
+    expect(container.querySelector('a[href="mailto:ada.lovelace@acme.ai"]')).toBeTruthy();
+    expect(container.querySelector('a[href="mailto:grace@acme.ai"]')).toBeTruthy();
+
+    // The inferred address keeps its visual provenance cue on the row.
+    expect(container.querySelector('.cs-person-email[data-email-status="inferred"]')).toBeTruthy();
+    expect(container.querySelector('.cs-person-email[data-email-status="observed"]')).toBeTruthy();
+
+    // Channels, the email-kind chip, the copy affordance, and the contact glyph all leave the row.
+    expect(container.querySelector('a[href="https://github.com/ada"]')).toBeNull();
+    expect(container.querySelector(".cs-person-channels")).toBeNull();
+    expect(container.querySelector(".cs-person-email-kind")).toBeNull();
+    expect(container.querySelector(".cs-person-contact-state")).toBeNull();
+    expect(container.querySelector(".cs-person-email button")).toBeNull();
+    expect(container.textContent).not.toContain("Copy");
+  });
+
+  it("kills the visible People label but keeps the aria-label", async () => {
+    const { container } = await renderPeople([
+      { name: "Ada Lovelace", role: "CEO", sourceUrl: "https://acme.ai/about" }
+    ]);
+
+    expect(container.querySelector('[aria-label="Management team"]')).toBeTruthy();
+    expect(container.querySelector(".cs-people-line-label")).toBeNull();
+    expect(container.textContent).not.toContain("People");
+  });
+
+  it("drops the trailing source count from the status line", async () => {
+    const { container } = await renderPeople(
+      [
+        {
+          name: "Ada Lovelace",
+          role: "CEO",
+          sourceUrl: "https://acme.ai/about",
+          email: "ada@acme.ai",
+          emailStatus: "observed"
+        }
+      ],
+      { sourceCount: 5 }
+    );
+
+    const status = container.querySelector(".cs-people-line-source");
+    expect(status).toBeTruthy();
+    // The email summary still reads, but the source count is gone (the filed stamp owns it).
+    expect(status?.textContent?.toLowerCase()).toContain("email");
+    expect(status?.textContent?.toLowerCase()).not.toContain("source");
+    expect(container.textContent).not.toContain("5 sources");
+  });
+});
+
+describe("PeopleLine dossier", () => {
+  it("moves the read, channels, provenance, and email provenance into the dossier", async () => {
+    const { captured } = await renderPeople([
+      {
+        name: "Ada Lovelace",
+        role: "CEO",
+        sourceUrl: "https://techcrunch.com/ada",
+        email: "ada@acme.ai",
+        emailStatus: "observed",
+        githubUrl: "https://github.com/ada",
+        xUrl: "https://x.com/ada",
+        read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["s1"] }
+      }
+    ]);
+
+    const [dossier] = dossiersFrom(captured);
+    expect(dossier).toBeTruthy();
+    expect(dossier?.kind).toBe("dossier");
+    expect(dossier?.name).toBe("Ada Lovelace");
+    expect(dossier?.role).toBe("CEO");
+    expect(dossier?.read).toEqual({
+      text: "Second robotics company; the first sold to Deere in 2021.",
+      citationIds: ["s1"]
+    });
+    expect(dossier?.email).toEqual({ address: "ada@acme.ai", status: "observed" });
+    expect(dossier?.channels).toEqual([
+      { label: "GitHub", url: "https://github.com/ada" },
+      { label: "X", url: "https://x.com/ada" }
+    ]);
+    expect(dossier?.provenance).toContain("github.com");
+    expect(dossier?.provenance).toContain("techcrunch.com");
+    expect(dossier?.provenance?.startsWith("via ")).toBe(true);
+  });
+
+  it("reports a null read as null, never filler", async () => {
+    const { captured } = await renderPeople([
+      {
+        name: "Grace Hopper",
+        role: "CTO",
+        sourceUrl: "https://acme.ai/team",
+        email: "grace@acme.ai",
+        emailStatus: "inferred"
+      }
+    ]);
+
+    const [dossier] = dossiersFrom(captured);
+    expect(dossier?.read).toBeNull();
+    expect(dossier?.email).toEqual({ address: "grace@acme.ai", status: "inferred" });
+    expect(dossier?.provenance).toContain("acme.ai");
+  });
+});
+
+describe("PeopleLine overflow", () => {
+  const many: CardPerson[] = [
+    { name: "Ada Lovelace", role: "CEO", sourceUrl: "https://acme.ai/a", email: "ada@acme.ai", emailStatus: "observed" },
+    { name: "Grace Hopper", role: "CTO", sourceUrl: "https://acme.ai/b" },
+    { name: "Katherine Johnson", role: "Head of Research", sourceUrl: "https://acme.ai/c" },
+    { name: "Dorothy Vaughan", role: "Engineering lead", sourceUrl: "https://acme.ai/d" },
+    { name: "Mary Jackson", role: "Design lead", sourceUrl: "https://acme.ai/e" },
+    { name: "Annie Easley", role: "Advisor", sourceUrl: "https://acme.ai/f" }
+  ];
+
+  it("reveals the remaining people when the overflow control is used", async () => {
+    const { container } = await renderPeople(many);
+
+    expect(container.querySelectorAll(".cs-people-person")).toHaveLength(4);
+    const overflow = container.querySelector(".cs-people-more");
+    expect(overflow).toBeTruthy();
+    expect(overflow?.tagName).toBe("BUTTON");
+    expect(overflow?.textContent).toContain("2");
+
+    await act(async () => {
+      (overflow as HTMLButtonElement).click();
+    });
+
+    expect(container.querySelectorAll(".cs-people-person")).toHaveLength(6);
+    expect(container.textContent).toContain("Annie Easley");
   });
 });

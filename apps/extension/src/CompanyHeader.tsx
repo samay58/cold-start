@@ -1,11 +1,12 @@
 import type { ColdStartCard } from "@cold-start/core";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { readableCompanyName, sourceLabel, websiteLabel } from "./company-display";
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "./extension-format";
 import { fundingEvidenceFromCitations } from "@cold-start/core";
-import type { TooltipPropsFor } from "./SharedTooltip";
+import type { TooltipDossier, TooltipPropsFor } from "./SharedTooltip";
 
 type CompanyHeaderPhase = "intake" | "building" | "profile";
 
@@ -253,10 +254,6 @@ function emailKind(email: string, companyDomain: string) {
   return "other domain";
 }
 
-function sentenceCase(value: string) {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
 function sourceHostLabel(sourceUrl: string | null | undefined) {
   if (!sourceUrl) {
     return null;
@@ -269,30 +266,40 @@ function sourceHostLabel(sourceUrl: string | null | undefined) {
   }
 }
 
-function personTooltipBody(person: CardPerson, companyDomain: string) {
-  let emailLine: string;
-  if (!person.email) {
-    emailLine = "No work email found yet.";
-  } else if (person.emailStatus === "inferred") {
-    emailLine = "Likely work email, inferred from the company email pattern (unverified).";
-  } else {
-    emailLine = `${sentenceCase(emailKind(person.email, companyDomain))} email found in a public source.`;
-  }
-  const source = sourceHostLabel(person.sourceUrl);
+type PersonChannel = { label: "GitHub" | "X" | "Site"; url: string };
 
+function personChannels(person: CardPerson): PersonChannel[] {
   return [
-    `${personRole(person)}.`,
-    emailLine,
-    source ? `Source: ${source}.` : null
-  ].filter(Boolean).join(" ");
+    person.githubUrl ? { label: "GitHub" as const, url: person.githubUrl } : null,
+    person.xUrl ? { label: "X" as const, url: person.xUrl } : null,
+    person.personalUrl ? { label: "Site" as const, url: person.personalUrl } : null
+  ].filter((channel): channel is PersonChannel => channel !== null);
 }
 
-function personChannels(person: CardPerson): { label: string; url: string }[] {
-  return [
-    person.githubUrl ? { label: "GitHub", url: person.githubUrl } : null,
-    person.xUrl ? { label: "X", url: person.xUrl } : null,
-    person.personalUrl ? { label: "Site", url: person.personalUrl } : null
-  ].filter((channel): channel is { label: string; url: string } => channel !== null);
+// A whisper of the person's public sources: the host of every channel plus the source
+// that placed them on the card, deduped. Honest and available without the citations map.
+function personProvenance(person: CardPerson): string | null {
+  const hosts = [person.sourceUrl, person.githubUrl, person.xUrl, person.personalUrl]
+    .map((url) => sourceHostLabel(url))
+    .filter((host): host is string => Boolean(host));
+  const unique = [...new Set(hosts)];
+  return unique.length > 0 ? `via ${unique.join(", ")}` : null;
+}
+
+function personDossier(person: CardPerson): TooltipDossier {
+  const email = person.email
+    ? { address: person.email, status: person.emailStatus === "inferred" ? ("inferred" as const) : ("observed" as const) }
+    : null;
+
+  return {
+    kind: "dossier",
+    name: person.name.trim(),
+    role: person.role?.trim() || null,
+    read: person.read ?? null,
+    provenance: personProvenance(person),
+    email,
+    channels: personChannels(person)
+  };
 }
 
 function peopleEmailSummary(people: CardPerson[], companyDomain: string) {
@@ -389,13 +396,14 @@ type PeopleRun = {
   startedAt: number;
 };
 
+const PEOPLE_COLLAPSED_COUNT = 4;
+
 export function PeopleLine({
   companyDomain,
   contactElapsedSeconds = 0,
   contactRun,
   confidence,
   people,
-  sourceCount,
   tooltipProps
 }: {
   companyDomain: string;
@@ -403,9 +411,13 @@ export function PeopleLine({
   contactRun?: PeopleRun | undefined;
   confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
   people: CardPerson[];
+  // The filed stamp owns the source count now; PeopleLine no longer prints it, but the
+  // caller still supplies it so the prop stays on the contract.
   sourceCount: number;
   tooltipProps: TooltipPropsFor;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   if (people.length === 0) {
     return null;
   }
@@ -414,26 +426,20 @@ export function PeopleLine({
     ...people.filter((person) => person.email),
     ...people.filter((person) => !person.email),
   ];
-  const visiblePeople = orderedPeople.slice(0, 4);
-  const hiddenPeopleCount = orderedPeople.length - visiblePeople.length;
+  const hiddenPeopleCount = Math.max(0, orderedPeople.length - PEOPLE_COLLAPSED_COUNT);
+  const visiblePeople = expanded ? orderedPeople : orderedPeople.slice(0, PEOPLE_COLLAPSED_COUNT);
   const emailCount = peopleEmailCount(people);
   const contactStatus = contactRun
     ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
     : peopleEmailSummary(people, companyDomain);
   const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
 
-  function copyEmail(email: string) {
-    void navigator.clipboard?.writeText(email);
-  }
-
   return (
     <section className="cs-people-line" aria-label="Management team">
       <div className="cs-people-line-head">
-        <span className="cs-people-line-label">People</span>
         <span className="cs-people-line-source">
           {contactStatus}
           {confidenceStatus}
-          {sourceCount > 0 ? ` · ${sourceLabel(sourceCount)}` : ""}
         </span>
       </div>
       <div className="cs-people-line-list">
@@ -441,7 +447,7 @@ export function PeopleLine({
           const name = person.name.trim();
           const tooltip = name
             ? tooltipProps({
-              body: personTooltipBody(person, companyDomain),
+              body: personDossier(person),
               id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
               placement: "above",
               title: name
@@ -466,38 +472,22 @@ export function PeopleLine({
                     data-email-status={person.emailStatus ?? "observed"}
                   >
                     <a href={`mailto:${person.email}`}>{person.email}</a>
-                    <span className="cs-person-email-kind">
-                      {person.emailStatus === "inferred" ? "inferred" : emailKind(person.email, companyDomain)}
-                    </span>
-                    <button aria-label={`Copy ${person.email}`} onClick={() => copyEmail(person.email!)} type="button">Copy</button>
                   </span>
                 ) : null}
-                {personChannels(person).length > 0 ? (
-                  <span className="cs-person-channels">
-                    {personChannels(person).map((channel) => (
-                      <a
-                        className="cs-person-channel"
-                        href={channel.url}
-                        key={channel.label}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        {channel.label}
-                      </a>
-                    ))}
-                  </span>
-                ) : null}
-              </span>
-              <span className="cs-person-contact-state" aria-hidden="true">
-                {person.email ? "@" : ""}
               </span>
             </article>
           );
         })}
         {hiddenPeopleCount > 0 ? (
-          <span className="cs-people-more">
-            +{hiddenPeopleCount}
-          </span>
+          <button
+            aria-expanded={expanded}
+            aria-label={expanded ? "Show fewer people" : `Show ${hiddenPeopleCount} more people`}
+            className="cs-people-more"
+            onClick={() => setExpanded((value) => !value)}
+            type="button"
+          >
+            {expanded ? "Show fewer" : `+${hiddenPeopleCount}`}
+          </button>
         ) : null}
       </div>
     </section>
