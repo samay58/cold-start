@@ -277,8 +277,8 @@ Behavior to pin with tests: slots render awaiting (reserved space, quiet rule, n
 
 APPROVED kills and moves, assigned to owners:
 
-- **B2 additionally owns (building phase):** kill the CompanyHeader building kicker word ("Queued"/"Researching" duplicate); kill the `cs-company-run-time` mm:ss clock (wall-clock, bans itself); ArcStack does not render during building at all (preview cards, head note "Waiting for evidence", and the "+N more" line all leave with it; the SealedLensRow stays as the one "later" voice); the source strip's job moves into clippings as already specced.
-- **A4 additionally owns (profile header):** kill the visible "People" section label (aria-label stays); kill the `cs-person-contact-state` "@" glyph; drop the trailing `sourceLabel(sourceCount)` from the PeopleLine status string (SourcesCheckedStamp owns source count); wire the "+N" overflow chip to actually reveal the remaining people (it currently looks interactive and does nothing).
+- **B2 also owns (building phase):** kill the CompanyHeader building kicker word ("Queued"/"Researching" duplicate); kill the `cs-company-run-time` mm:ss clock (wall-clock, bans itself); ArcStack does not render during building at all (preview cards, head note "Waiting for evidence", and the "+N more" line all leave with it; the SealedLensRow stays as the one "later" voice); the source strip's job moves into clippings as already specced.
+- **A4 also owns (profile header):** kill the visible "People" section label (aria-label stays); kill the `cs-person-contact-state` "@" glyph; drop the trailing `sourceLabel(sourceCount)` from the PeopleLine status string (SourcesCheckedStamp owns source count); wire the "+N" overflow chip to actually reveal the remaining people (it currently looks interactive and does nothing).
 - **C1 owns (final scope below):** intake, research-layer panel, lens dots, details-tree diet.
 
 OVERRULED kills (keep, with reasons recorded):
@@ -327,6 +327,17 @@ Done-definition: `npm run qa:extension:ui -w @cold-start/extension` and `qa:exte
 - Full gate: `npm run check` at repo root. Then contract-bumped extension build (`npm run build`), load `apps/extension/dist` unpacked.
 - Fable: integration taste pass on screenshots, ledger update, Reduce-Motion-OFF walkthrough build for Samay.
 - Deploy order: web first (schema tolerant of absent optional fields; run `npm run db:migrate:production` for 0008 (`0008_colorful_overlord.sql`, sources.image_url; the plan's original 0007 slot was already taken on main) and verify migration state, per the prod-migration-drift lesson), then extension rebuild/reload.
+
+## Phase 3 final: quality, consolidation, ship (registered 2026-07-05, Samay's instruction)
+
+Run only after A3 lands and every Phase 2b packet is merged. Ordered gates; each must pass before the next starts.
+
+1. **No-slop pass.** One Opus copy auditor sweeps every user-facing string this overhaul added or changed (whisper copy, seal states, clipping labels, dossier and suppression copy, intake scope statement, notices, e2e-visible strings) against the kill list in `~/.claude/CLAUDE.md` and `~/phoenix/WRITING.md`, plus DESIGN.md language rules (sentence case, no shouty labels, no internal pipeline vocabulary reaching the user). `slopcheck.py` on all changed docs. Fable reviews screenshots for visual slop (crowding regressions, decorative noise, dead space).
+2. **Polish gate.** Fable taste pass on the assembled surfaces, then a walkthrough build handed to Samay for review with macOS Reduce Motion OFF. Samay's sign-off is the final quality gate; nothing ships without it.
+3. **Full gate.** `npm run check` on the consolidated branch (never piped through tail), fix-forward anything red, rerun to green.
+4. **Consolidation.** All worktrees removed and worktree branches merged or deleted (`git worktree list` shows only the main tree; `git branch` shows no strays). `experience-overhaul` merges into `main`; push to origin; CI green.
+5. **Production.** `npm run db:migrate:production` applies 0008 BEFORE traffic hits the new code (prod-migration-drift lesson: Vercel deploys never run Neon migrations; verify applied state, do not assume). Deploy web; verify the deployed response carries contract version `2026-07-05.assembly-clippings-person-reads-v1`. Then extension: `npm run build`, reload `apps/extension/dist` unpacked in chrome://extensions, reopen the side panel. Decide `LLM_PERSON_READ_MODEL` in Vercel (unset = synthesis chain fallback) before the first production contact-enrichment run.
+6. **Post-deploy verification.** One real end-to-end card generation in the deployed extension observing whisper, seal, clippings, dossier, and (after contact enrichment) a person read. Ledger final report filled: totals by tier, execution-phase Fable share, counterfactual, gate results, Samay's verdict. Doctrine promotion decision (pointer lines into phoenix and other projects) made with Samay only if all bars pass.
 
 ## Self-review notes (done)
 
