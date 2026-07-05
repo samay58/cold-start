@@ -113,8 +113,19 @@ function researchEventDisplayStageIndex(event: ExtensionResearchRunEvent) {
   return researchStageByEventType[event.type] ?? null;
 }
 
+// generation.failed and section.failed are terminal failures, not part of the 4-stage naming
+// (they can land at any pipeline stage), so they carry no researchEventStageIndex. Recognize
+// them explicitly here rather than folding them into the stage map, so a run-level failure
+// still scopes into the current profile run (belongsToProfileRun) instead of being invisible
+// to hasResearchProgressAttention and the plan builder.
+function isRunLevelFailureEvent(event: ExtensionResearchRunEvent) {
+  return event.type === "generation.failed" || event.type === "section.failed";
+}
+
 function profileProgressEvents(events: ExtensionResearchRunEvent[]) {
-  return events.filter((event) => researchEventStageIndex(event) !== null);
+  return events.filter(
+    (event) => researchEventStageIndex(event) !== null || (belongsToProfileRun(event) && isRunLevelFailureEvent(event))
+  );
 }
 
 export function currentProfileProgressEvents(events: ExtensionResearchRunEvent[]) {
@@ -497,15 +508,22 @@ function statusForStage({
   activeIndex,
   complete,
   events,
-  index
+  index,
+  runLevelFailure
 }: {
   activeIndex: number;
   complete: boolean;
   events: ExtensionResearchRunEvent[];
   index: number;
+  runLevelFailure: ExtensionResearchRunEvent | null;
 }): ResearchProgressStatus {
   const stageEvents = events.filter((event) => researchEventStageIndex(event) === index);
   if (stageEvents.some((event) => researchEventStatus(event) === "failed")) {
+    return "failed";
+  }
+  // A run-level failure (generation.failed) has no stage index of its own; anchor it on the
+  // stage that was active when the run died, so the tree shows where things went wrong.
+  if (runLevelFailure && index === activeIndex) {
     return "failed";
   }
   if (stageEvents.some((event) => researchEventStatus(event) === "attention")) {
@@ -541,13 +559,18 @@ export function buildResearchProgressPlan({
   const safeActiveIndex = stages.length > 0 ? Math.min(Math.max(Math.trunc(activeIndex), 0), stages.length - 1) : 0;
   const orderedEvents = currentProfileProgressEvents(events)
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  const runLevelFailure = orderedEvents.find((event) => isRunLevelFailureEvent(event)) ?? null;
 
   return stages.map((stage, stageIndex) => {
     const stageEvents = orderedEvents.filter((event) => researchEventDisplayStageIndex(event) === stageIndex);
+    // The failure has no display stage index of its own, so anchor its substep on the active
+    // stage (where the run died) instead of dropping it silently.
+    const combinedStageEvents =
+      runLevelFailure && stageIndex === safeActiveIndex ? [...stageEvents, runLevelFailure] : stageEvents;
     const seenSubsteps = new Set<string>();
     const substeps =
-      stageEvents.length > 0
-        ? stageEvents.flatMap((event) => {
+      combinedStageEvents.length > 0
+        ? combinedStageEvents.flatMap((event) => {
             const message = displayResearchEventMessage(event);
             if (!message) {
               return [];
@@ -581,7 +604,8 @@ export function buildResearchProgressPlan({
         activeIndex: safeActiveIndex,
         complete,
         events: orderedEvents,
-        index: stageIndex
+        index: stageIndex,
+        runLevelFailure
       }),
       substeps: substeps.filter((substep) => substep.message.toLowerCase().replace(/\s+/g, " ").trim() !== normalizedProofLine)
     };

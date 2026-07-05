@@ -303,4 +303,40 @@ describe("hasResearchProgressAttention", () => {
       hasResearchProgressAttention([event({ id: "saved", type: "card.saved", message: "Save failed" })])
     ).toBe(true);
   });
+
+  it("flips to attention on a generation.failed event even without failure language in the message", () => {
+    expect(
+      hasResearchProgressAttention([
+        event({ id: "queued", type: "generation.queued" }),
+        event({ id: "sources", type: "source.found", metadata: { acceptedCount: 4 } }),
+        event({ id: "gen-failed", type: "generation.failed", message: "Provider request timed out" })
+      ])
+    ).toBe(true);
+  });
+
+  it("stays quiet for a section.failed event, which belongs to the gated section surface, not the profile run", () => {
+    expect(
+      hasResearchProgressAttention([
+        event({ id: "sources", type: "source.found", metadata: { acceptedCount: 4 } }),
+        event({ id: "section-failed", sectionId: "market", type: "section.failed", message: "Provider request timed out" })
+      ])
+    ).toBe(false);
+  });
+});
+
+describe("buildResearchProgressPlan failure surfacing", () => {
+  it("surfaces a generation-level failure on the active stage so the details tree flips to failed", () => {
+    const plan = buildResearchProgressPlan({
+      activeIndex: 1,
+      events: [
+        event({ id: "sources", type: "source.found", metadata: { acceptedCount: 4 } }),
+        event({ id: "gen-failed", type: "generation.failed", message: "Provider request timed out" })
+      ],
+      stageNote: "unused",
+      stages: RESEARCH_PROGRESS_STAGES
+    });
+
+    expect(plan[1]?.status).toBe("failed");
+    expect(plan[1]?.substeps.some((substep) => substep.status === "failed" && substep.message === "Provider request timed out")).toBe(true);
+  });
 });
