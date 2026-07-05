@@ -293,7 +293,14 @@ test("core metrics and people stay compact in the company context", async ({ pag
     team: {
       founders: {
         value: [
-          { name: "Charlie Holtz", role: "Co-founder & CEO", sourceUrl: "https://conductor.build/about" },
+          {
+            name: "Charlie Holtz",
+            role: "Co-founder & CEO",
+            sourceUrl: "https://conductor.build/about",
+            email: "charlie@conductor.build",
+            emailStatus: "observed",
+            githubUrl: "https://github.com/charlieholtz"
+          },
           { name: "Jackson de Campos", role: "Co-founder", sourceUrl: "https://conductor.build/about" }
         ],
         status: "verified",
@@ -337,16 +344,21 @@ test("core metrics and people stay compact in the company context", async ({ pag
   await expect(facts.locator("> div").first()).not.toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
   await expect(management.getByText("Charlie Holtz")).toHaveCount(1);
   await expect(management.getByText("Jackson de Campos")).toBeVisible();
-  await expect(management.getByText("2 sources")).toBeVisible();
   await expect(page.locator(".cs-management-team")).toHaveCount(0);
+  // The visible row diet: name, role, and the email action stay; channels and the copy
+  // affordance move into the dossier.
+  await expect(management.locator('a[href="mailto:charlie@conductor.build"]')).toBeVisible();
+  await expect(management.locator('a[href="https://github.com/charlieholtz"]')).toHaveCount(0);
 
   const charlie = page.locator(".cs-people-person", { hasText: "Charlie Holtz" });
   await expect(charlie).toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
   await charlie.focus();
   const peopleTooltip = page.locator("#cs-company-shared-tooltip");
   await expect(peopleTooltip).toBeVisible();
+  await expect(peopleTooltip).toHaveAttribute("data-variant", "dossier");
   await expect(peopleTooltip).toContainText("Charlie Holtz");
-  await expect(peopleTooltip).toContainText("Co-founder & CEO");
+  await expect(peopleTooltip.locator(".cs-dossier-role")).toContainText("Co-founder & CEO");
+  await expect(peopleTooltip.locator(".cs-dossier-channel")).toContainText("GitHub");
   await expect(peopleTooltip).toHaveAttribute("data-placement", "above");
 
   const factsBox = await facts.boundingBox();
@@ -370,8 +382,10 @@ test("missing card shows an explicit generation gate and does not auto-start", a
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
   // The intake is the profile shell in waiting: real module titles, the sealed lens, one action.
+  // The status slot renders empty; there is no "No profile" chip duplicating the intake note.
   await expect(page.getByRole("button", { name: "Begin research" })).toBeVisible();
-  await expect(page.getByText("No profile")).toBeVisible();
+  await expect(page.getByText("No profile")).toHaveCount(0);
+  await expect(page.getByText("Build a cited profile from public sources: identity, funding, people, and proof.")).toBeVisible();
   await expect(page.getByText("Next question")).toBeVisible();
   await expect(page.locator(".cs-lens-sealed")).toContainText("Investor Lens");
   expect(generateRequests).toHaveLength(0);
@@ -380,21 +394,37 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake.png" });
 });
 
-test("running basics progress shows the research trail", async ({ page }) => {
+test("running basics progress shows the assembly whisper, seal, and clippings", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
+  const startedAt = new Date(Date.now() - 30_000).toISOString();
+  const events = [
+    {
+      id: "e1",
+      runId: "r1",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: null,
+      type: "source.found",
+      message: "Found 3 accepted sources",
+      metadata: {
+        acceptedCount: 3,
+        sources: [
+          { url: "https://cartesia.ai/", domain: "cartesia.ai", title: "Cartesia", sourceType: "company_site", imageUrl: null },
+          { url: "https://docs.cartesia.ai/", domain: "docs.cartesia.ai", title: "Cartesia docs", sourceType: "company_site", imageUrl: null },
+          { url: "https://techcrunch.com/cartesia", domain: "techcrunch.com", title: "Cartesia raises a Series B", sourceType: "news", imageUrl: null }
+        ]
+      },
+      createdAt: "2026-06-01T00:00:02.000Z"
+    }
+  ];
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
       domain: "cartesia.ai",
       slug: "cartesia",
       card: null,
+      events,
       runs: {
-        basics: {
-          slug: "cartesia",
-          domain: "cartesia.ai",
-          status: "running",
-          mode: "basics",
-          startedAt: new Date(Date.now() - 30_000).toISOString()
-        },
+        basics: { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events },
         analysis: { slug: "cartesia", domain: "cartesia.ai", status: "idle", mode: "analysis" }
       }
     });
@@ -403,40 +433,40 @@ test("running basics progress shows the research trail", async ({ page }) => {
     await fulfillJson(route, { error: "card not found" }, 404);
   });
   await page.route("**/api/generate?**", async (route) => {
-    await fulfillJson(route, {
-      slug: "cartesia",
-      domain: "cartesia.ai",
-      status: "running",
-      mode: "basics",
-      startedAt: new Date(Date.now() - 30_000).toISOString()
-    });
+    await fulfillJson(route, { slug: "cartesia", domain: "cartesia.ai", status: "running", mode: "basics", startedAt, events });
   });
 
   await openSidePanel(page);
 
-  // The persistent header carries the identity and run timer over the mesh field.
-  await expect(page.getByText("Researching").first()).toBeVisible();
+  // The persistent header carries the identity over the mesh field; the trail is dissolved.
   await expect(page.locator(".cs-company-context[data-phase='building']")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cartesia" })).toBeVisible();
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
-  // The trail holds at its first stage: no wall-clock estimation, segments fill on events only.
-  const trail = page.locator(".cs-research-progress");
-  await expect(trail).toBeVisible();
-  await expect(trail).toContainText("Checking company, product, funding, and proof sources");
-  const track = page.locator(".cs-trail-track");
-  await expect(track).toContainText("Sources");
-  await expect(track).toContainText("Filed");
-  await expect(page.locator(".cs-trail-segment[data-status='running']").first()).toContainText("Sources");
-  await expect(page.locator(".cs-trail-segment[data-status='done']")).toHaveCount(0);
-  // The running segment breathes; motion explains state without a ticker.
-  const runningFill = page.locator(".cs-trail-segment[data-status='running'] .cs-trail-segment-fill").first();
-  await expect(runningFill).toHaveCSS("animation-name", "cs-reduced-breathe");
+  await expect(page.locator(".cs-research-progress")).toHaveCount(0);
+  await expect(page.locator(".cs-trail-track")).toHaveCount(0);
+
+  // The whisper is the one status voice: event-driven copy beside the seal instrument.
+  const whisper = page.locator(".cs-assembly-whisper");
+  await expect(whisper).toBeVisible();
+  await expect(whisper).toContainText("3 sources, building profile");
+
+  // The seal inks up in discrete steps tied to real stage events, not a clock.
+  const seal = page.locator(".cs-seal-inst");
+  await expect(seal).toHaveAttribute("data-level", "2");
+  await expect(seal).toHaveAttribute("data-filed", "false");
+
+  // Source receipts become clippings, the card's first content before any fact exists.
+  await expect(page.locator(".cs-clippings")).toHaveAttribute("data-state", "settled");
+  const clippings = page.locator(".cs-clipping");
+  await expect(clippings).toHaveCount(3);
+  await expect(clippings.nth(2)).toContainText("techcrunch.com");
+  await expect(clippings.nth(2)).toContainText("Funding");
+
   // The full tree waits behind Details, and still carries the honest verbs when opened.
-  await page.locator(".cs-research-progress-details-toggle").click();
-  await expect(page.locator(".cs-build-tree")).toBeVisible();
-  await expect(page.locator(".cs-build-tree")).toContainText("Checking company, product, funding, and proof sources");
-  await expect(page.locator(".cs-build-tree")).not.toContainText("Looking for useful places to read");
-  await expect(page.locator(".cs-build-tree")).not.toContainText("Pulling in what matters");
+  await page.locator(".cs-assembly-details-toggle").click();
+  const tree = page.locator(".cs-build-tree");
+  await expect(tree).toBeVisible();
+  await expect(tree).toContainText("3 sources found");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
@@ -455,7 +485,23 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   const startedAt = new Date(Date.now() - 12_000).toISOString();
   const events = [
     { id: "e1", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "plan.ready", message: "Research plan ready", metadata: {}, createdAt: "2026-06-01T00:00:01.000Z" },
-    { id: "e2", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "source.found", message: "Found 12 accepted sources", metadata: { acceptedCount: 12 }, createdAt: "2026-06-01T00:00:03.000Z" },
+    {
+      id: "e2",
+      runId: "r1",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: null,
+      type: "source.found",
+      message: "Found 12 accepted sources",
+      metadata: {
+        acceptedCount: 12,
+        sources: [
+          { url: "https://cartesia.ai/", domain: "cartesia.ai", title: "Cartesia", sourceType: "company_site", imageUrl: null },
+          { url: "https://techcrunch.com/cartesia", domain: "techcrunch.com", title: "Cartesia raises a Series B", sourceType: "news", imageUrl: null }
+        ]
+      },
+      createdAt: "2026-06-01T00:00:03.000Z"
+    },
     { id: "e3", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "card.partial", message: "Saved first usable company card", metadata: { citationCount: 7 }, createdAt: "2026-06-01T00:00:05.000Z" },
     { id: "e4", runId: "r1", slug: "cartesia", domain: "cartesia.ai", sectionId: null, type: "contacts.started", message: "Started async contact enrichment", metadata: {}, createdAt: "2026-06-01T00:00:06.000Z" }
   ];
@@ -480,11 +526,13 @@ test("progress tree surfaces real research events as substeps", async ({ page })
 
   await openSidePanel(page);
 
-  // Events advance the trail without opening the tree...
-  await expect(page.locator(".cs-research-progress")).toContainText("12 sources found");
-  await expect(page.locator(".cs-trail-segment[data-status='done']").first()).toBeVisible();
+  // Events advance the whisper and seal without opening the tree...
+  await expect(page.locator(".cs-assembly-whisper")).toContainText("12 sources, building profile");
+  await expect(page.locator(".cs-seal-inst")).toHaveAttribute("data-level", "3");
+  // ...clippings file what research found, ahead of any card fact...
+  await expect(page.locator(".cs-clipping")).toHaveCount(2);
   // ...and the tree behind Details carries the substeps.
-  await page.locator(".cs-research-progress-details-toggle").click();
+  await page.locator(".cs-assembly-details-toggle").click();
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).not.toContainText("Picked a research plan");
@@ -564,7 +612,7 @@ test("building phase files the early read inline under the header", async ({ pag
   await openSidePanel(page);
 
   // The read is inline and always open: claim, kicker, and source dots with no reveal step,
-  // sitting between the persistent header and the trail.
+  // sitting between the persistent header and the details toggle.
   const read = page.getByLabel("Early read");
   await expect(read).toBeVisible();
   await expect(read).toContainText("What it does");
@@ -573,9 +621,9 @@ test("building phase files the early read inline under the header", async ({ pag
   await expect(read.locator("button")).toHaveCount(0);
   const headerBox = await page.locator(".cs-company-context").boundingBox();
   const readBox = await read.boundingBox();
-  const trailBox = await page.locator(".cs-research-progress").boundingBox();
+  const detailsBox = await page.locator(".cs-assembly-details").boundingBox();
   expect(headerBox?.y).toBeLessThan(readBox?.y ?? 0);
-  expect(readBox?.y).toBeLessThan(trailBox?.y ?? 0);
+  expect(readBox?.y).toBeLessThan(detailsBox?.y ?? 0);
   await page.waitForTimeout(300);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-early-read.png" });
 });
@@ -616,9 +664,12 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await openSidePanel(page);
 
   await expect(page.locator(".cs-build-bar")).toHaveCount(0);
-  // The trail stays legible under reduced motion and holds at its first stage.
-  await expect(page.locator(".cs-trail-segment[data-status='running']").first()).toContainText("Sources");
-  await page.locator(".cs-research-progress-details-toggle").click();
+  // The seal and whisper stay legible under reduced motion and hold at the opening level.
+  const seal = page.locator(".cs-seal-inst");
+  await expect(seal).toHaveAttribute("data-level", "0");
+  await expect(seal).toHaveAttribute("data-filed", "false");
+  await expect(page.locator(".cs-assembly-whisper")).toContainText("Queued");
+  await page.locator(".cs-assembly-details-toggle").click();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   // Reduced motion is a reduction, not a freeze: the loader breathes in place
@@ -869,23 +920,22 @@ async function openReadyProfileWithActiveBasics(page: Parameters<typeof installC
   await page.goto("/sidepanel.html");
 }
 
-test("card.partial makes the starter profile usable while basics finalizes", async ({ page }) => {
+test("card.partial keeps the research stack usable while basics finalizes", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await openReadyProfileWithActiveBasics(page);
 
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
-  const profileProgress = page.locator(".cs-research-progress");
-  await expect(profileProgress).toHaveAttribute("data-mode", "filed");
-  await expect(profileProgress).toContainText("Starter profile ready");
-  await expect(profileProgress).toContainText("Filling in contacts and details");
-  await expect(profileProgress).toContainText("5 sources");
-  await profileProgress.getByRole("button", { name: "Details" }).click();
-  await expect(profileProgress).toContainText("Starter profile ready");
-  await expect(profileProgress).not.toContainText("Saved a starter profile");
-  await expect(profileProgress).not.toContainText("Also:");
+  // The profile-phase progress banner is dissolved; the filed stamp and per-module status
+  // carry this state instead.
+  await expect(page.locator(".cs-research-progress")).toHaveCount(0);
+  const stamp = page.getByLabel("Sources checked");
+  await expect(stamp).toBeVisible();
+  await expect(stamp).toContainText("source");
+  await expect(page.getByText("Filling in contacts and details")).toHaveCount(0);
   await expect(page.locator(".cs-active-enrichment[data-state='running']")).toHaveCount(0);
   await expect(page.getByText("Getting the profile ready")).toHaveCount(0);
   await expect(page.getByText("Finishing profile")).toHaveCount(0);
+  await expect(page.locator(".cs-card-tray-head")).toContainText("waiting");
   await expect(page.locator(".cs-dormant-card", { hasText: "Why care" })).toBeVisible();
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-starter-profile-ready.png" });
 });
@@ -949,7 +999,11 @@ test("shared tooltip floats beside its trigger instead of falling into the page 
   await person.hover();
   const tooltip = page.locator(".cs-shared-tooltip");
   await expect(tooltip).toBeVisible();
-  await expect(tooltip).toContainText("Co-founder & CEO");
+  // The person tooltip is the structured dossier variant: role plus whatever earns its
+  // place (read, provenance, channels), not a plain string body.
+  await expect(tooltip).toHaveAttribute("data-variant", "dossier");
+  await expect(tooltip.locator(".cs-dossier-role")).toContainText("Co-founder & CEO");
+  await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
   // The tooltip is a fixed overlay; the arc shell's positioned-child rule must not capture it.
   await expect(tooltip).toHaveCSS("position", "fixed");
   const personBox = await person.boundingBox();
