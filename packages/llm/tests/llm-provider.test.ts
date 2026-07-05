@@ -9,6 +9,7 @@ const stageEnvNames = [
   "LLM_SYNTHESIS_MODEL",
   "LLM_RESEARCH_SECTION_MODEL",
   "LLM_RESEARCH_PLAN_MODEL",
+  "LLM_PERSON_READ_MODEL",
   "ANTHROPIC_EXTRACT_MODEL",
   "ANTHROPIC_BLOCK_MODEL",
   "ANTHROPIC_VERIFIER_MODEL",
@@ -96,6 +97,18 @@ describe("modelForStage", () => {
 
     process.env.LLM_RESEARCH_SECTION_MODEL = "deepseek/deepseek-v4-flash";
     expect(modelForStage("research_section")).toBe("deepseek/deepseek-v4-flash");
+  });
+
+  it("aliases person_read to the synthesis model chain when its own env is unset", () => {
+    process.env.ANTHROPIC_MODEL = "claude-sonnet-4-6";
+    process.env.ANTHROPIC_SYNTHESIS_MODEL = "claude-haiku-4-5";
+    expect(modelForStage("person_read")).toBe("claude-haiku-4-5");
+
+    process.env.LLM_SYNTHESIS_MODEL = "deepseek/deepseek-v4-pro";
+    expect(modelForStage("person_read")).toBe("deepseek/deepseek-v4-pro");
+
+    process.env.LLM_PERSON_READ_MODEL = "deepseek/deepseek-v4-flash";
+    expect(modelForStage("person_read")).toBe("deepseek/deepseek-v4-flash");
   });
 
   it("throws when nothing is configured", () => {
