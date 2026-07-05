@@ -14,6 +14,7 @@ import {
   findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId,
   findResearchRunEventsBySlug,
+  findSourcesBySlug,
   findSourceSummariesBySlug,
   findPublicCardBySlug,
   generationRunStaleAfterMs,
@@ -22,6 +23,7 @@ import {
   markGenerationRun,
   recordResearchRunEvent,
   recordCardEvidence,
+  recordSource,
   retireStaleGenerationRuns,
   updateGenerationRunTrace,
   upsertCard
@@ -992,7 +994,17 @@ describe("research run evidence summaries", () => {
                     title: "Cartesia Blog",
                     sourceType: "company_site",
                     fetchedAt: new Date("2026-05-26T20:01:00.000Z"),
-                    rawText: "A".repeat(900)
+                    rawText: "A".repeat(900),
+                    imageUrl: "https://cartesia.ai/og.png"
+                  },
+                  {
+                    id: "source-2",
+                    url: "https://example.com/cartesia-news",
+                    title: "Cartesia raises funding",
+                    sourceType: "news",
+                    fetchedAt: new Date("2026-05-26T20:02:00.000Z"),
+                    rawText: "Cartesia announced new funding.",
+                    imageUrl: null
                   }
                 ]
               })
@@ -1010,9 +1022,89 @@ describe("research run evidence summaries", () => {
         domain: "cartesia.ai",
         sourceType: "company_site",
         fetchedAt: "2026-05-26T20:01:00.000Z",
-        snippet: `${"A".repeat(360)}...`
+        snippet: `${"A".repeat(360)}...`,
+        imageUrl: "https://cartesia.ai/og.png"
+      },
+      {
+        id: "source-2",
+        url: "https://example.com/cartesia-news",
+        title: "Cartesia raises funding",
+        domain: "example.com",
+        sourceType: "news",
+        fetchedAt: "2026-05-26T20:02:00.000Z",
+        snippet: "Cartesia announced new funding.",
+        imageUrl: null
       }
     ]);
+  });
+
+  it("round-trips imageUrl through findSourcesBySlug", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          innerJoin: () => ({
+            where: async () => [
+              {
+                id: "source-1",
+                url: "https://cartesia.ai/blog",
+                title: "Cartesia Blog",
+                sourceType: "company_site",
+                fetchedAt: new Date("2026-05-26T20:01:00.000Z"),
+                rawText: "Cartesia runs real-time voice AI.",
+                imageUrl: "https://cartesia.ai/og.png"
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findSourcesBySlug(db, "cartesia")).resolves.toEqual([
+      {
+        id: "source-1",
+        url: "https://cartesia.ai/blog",
+        title: "Cartesia Blog",
+        sourceType: "company_site",
+        fetchedAt: "2026-05-26T20:01:00.000Z",
+        rawText: "Cartesia runs real-time voice AI.",
+        imageUrl: "https://cartesia.ai/og.png"
+      }
+    ]);
+  });
+
+  it("passes imageUrl through to the stored sources row, defaulting to null when absent", async () => {
+    let insertedValues: Record<string, unknown> | undefined;
+    const db = {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertedValues = values;
+          return { onConflictDoNothing: async () => undefined };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    await recordSource(db, {
+      cardId: "card-id",
+      url: "https://cartesia.ai/blog",
+      title: "Cartesia Blog",
+      sourceType: "company_site",
+      fetchedAt: "2026-05-26T20:01:00.000Z",
+      rawText: "Cartesia runs real-time voice AI.",
+      imageUrl: "https://cartesia.ai/og.png"
+    });
+
+    expect(insertedValues?.imageUrl).toBe("https://cartesia.ai/og.png");
+
+    await recordSource(db, {
+      cardId: "card-id",
+      url: "https://example.com/cartesia-news",
+      title: "Cartesia raises funding",
+      sourceType: "news",
+      fetchedAt: "2026-05-26T20:02:00.000Z",
+      rawText: "Cartesia announced new funding."
+    });
+
+    expect(insertedValues?.imageUrl).toBeNull();
   });
 });
 

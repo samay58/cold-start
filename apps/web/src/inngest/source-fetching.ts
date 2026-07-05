@@ -58,6 +58,7 @@ export function recordSourcesForCard(db: ColdStartDb, cardId: string, sources: P
         sourceType: source.sourceType,
         fetchedAt: source.fetchedAt,
         rawText: source.rawText,
+        imageUrl: source.imageUrl ?? null,
       }),
     ),
   );
@@ -69,7 +70,8 @@ export function providerSourcesFromStoredSources(storedSources: StoredSource[]):
     title: source.title,
     sourceType: source.sourceType,
     fetchedAt: source.fetchedAt,
-    rawText: source.rawText
+    rawText: source.rawText,
+    imageUrl: source.imageUrl ?? null
   }));
 }
 

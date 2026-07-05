@@ -253,6 +253,14 @@ function progressSourceCategories(sources: ProviderSource[]) {
   return progressSourceCategoryOrder.filter((category) => categories.has(category));
 }
 
+function sourceEventDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   if (typeof input !== "string" || input.trim().length === 0) {
     if (typeof domainInput === "string" && domainInput.trim().length > 0) {
@@ -636,12 +644,20 @@ export const generateCardFunction = inngest.createFunction(
         };
       });
       mergeTracePatch(trace, sourceResult.tracePatch);
+      const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const sourceEvent = await recordEvent("sources-fetched", "source.found", `Found ${sourceResult.value.sources.length} accepted sources`, {
         acceptedCount: sourceResult.value.sources.length,
         rejectedCount: sourceResult.value.trace.sourceGate.rejectedCount,
         directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
         stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount,
-        sourceCategories: progressSourceCategories(sourceResult.value.sources)
+        sourceCategories: progressSourceCategories(sourceResult.value.sources),
+        sources: acceptedSources.slice(0, 12).map((source) => ({
+          url: source.url,
+          domain: sourceEventDomain(source.url),
+          title: source.title,
+          sourceType: source.sourceType,
+          imageUrl: source.imageUrl ?? null
+        }))
       }, null);
 
       // Failure count is tracked for observability, but not converted into cost until live costs are measured.
@@ -649,7 +665,6 @@ export const generateCardFunction = inngest.createFunction(
       if (sourceResult.value.error) {
         throw new Error(sourceResult.value.error);
       }
-      const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
       const providerFacts = sourceResult.value.providerFacts.filter(Boolean) as ProviderFactCandidate[];
       let seedCard: ColdStartCard | null = null;
       // Tracks whether a first-usable public card is already in the DB (seed or generated passed the

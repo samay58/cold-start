@@ -419,6 +419,56 @@ describe("generate-card contact dispatch", () => {
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
   }, 10_000);
 
+  it("carries source images through the source.found event and into stored sources", async () => {
+    const sourceWithImage = {
+      url: "https://www.modal.com/blog/launch",
+      title: "Modal launch",
+      sourceType: "news" as const,
+      intent: "recent_signals" as const,
+      fetchedAt: generatedAt,
+      rawText: "Modal launched a new product.",
+      imageUrl: "https://www.modal.com/og.png"
+    };
+    mocks.fetchDirectExaFundamentalsSources.mockResolvedValue({
+      sources: [providerSource, sourceWithImage],
+      failures: [],
+      skipped: false
+    });
+
+    await runBasicsGeneration("true");
+
+    const sourceFoundCall = mocks.recordResearchRunEvent.mock.calls.find(
+      ([, event]) => (event as { type: string }).type === "source.found"
+    );
+    expect(sourceFoundCall).toBeDefined();
+    const metadata = (sourceFoundCall?.[1] as { metadata: { sources: unknown[] } }).metadata;
+    expect(metadata.sources).toEqual([
+      {
+        url: "https://modal.com",
+        domain: "modal.com",
+        title: "Modal",
+        sourceType: "company_site",
+        imageUrl: null
+      },
+      {
+        url: "https://www.modal.com/blog/launch",
+        domain: "modal.com",
+        title: "Modal launch",
+        sourceType: "news",
+        imageUrl: "https://www.modal.com/og.png"
+      }
+    ]);
+
+    expect(mocks.recordSource).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ url: "https://www.modal.com/blog/launch", imageUrl: "https://www.modal.com/og.png" })
+    );
+    expect(mocks.recordSource).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ url: "https://modal.com", imageUrl: null })
+    );
+  }, 10_000);
+
   it("records the saved seed card as the first usable profile across replay", async () => {
     const requestedAtMs = Date.parse(generatedAt);
     const { restoreClock } = await runBasicsGeneration("true", {

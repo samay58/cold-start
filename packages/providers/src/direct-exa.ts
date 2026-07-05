@@ -364,6 +364,7 @@ function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknow
   return records.map((record) => {
     const url = stringRecordValue(record, "url") ?? `direct-exa:${request.name}`;
     const publishedAt = stringRecordValue(record, "publishedDate") ?? stringRecordValue(record, "publishedAt");
+    const imageUrl = stringRecordValue(record, "image");
 
     return providerSourceFromText({
       url,
@@ -372,6 +373,7 @@ function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknow
       rawText: JSON.stringify(record),
       intent,
       ...(publishedAt ? { publishedAt } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
     });
   });
 }
@@ -397,6 +399,7 @@ function providerSourceFromText(input: {
   rawText: string;
   intent: RetrievalIntent;
   publishedAt?: string;
+  imageUrl?: string | null;
 }): ProviderSource {
   return {
     ...input,

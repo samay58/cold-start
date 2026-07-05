@@ -97,6 +97,9 @@ export type ProviderSource = {
   rawText: string;
   intent?: RetrievalIntent;
   publishedAt?: string;
+  // Public-safe representative image for the source (e.g. an og:image), used by clippings.
+  // Only populated where the provider result already carries one; never derived or fetched.
+  imageUrl?: string | null;
 };
 
 export type ProviderFactPath =

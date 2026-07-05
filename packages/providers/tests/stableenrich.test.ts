@@ -269,6 +269,35 @@ describe("fetchStableenrichSources", () => {
     );
   });
 
+  it("carries the Exa result image through as imageUrl, and omits it when absent", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "perplexity.ai",
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/exa/search") {
+          return {
+            results: [
+              {
+                url: "https://www.perplexity.ai/hub/blog/series-b",
+                title: "Perplexity Series B",
+                text: "Perplexity raised a $63 million Series B led by IVP.",
+                image: "https://www.perplexity.ai/og.png",
+              },
+            ],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    const fundingSource = result.sources.find((source) => source.url === "https://www.perplexity.ai/hub/blog/series-b");
+    expect(fundingSource?.imageUrl).toBe("https://www.perplexity.ai/og.png");
+
+    const firecrawlSource = result.sources.find((source) => source.url === "agentcash:firecrawl_homepage");
+    expect(firecrawlSource).not.toHaveProperty("imageUrl");
+  });
+
   it("returns endpoint failures instead of silently dropping rejected probes", async () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),

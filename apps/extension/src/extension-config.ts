@@ -53,6 +53,7 @@ export type ExtensionSourceSummary = {
   sourceType: "company_site" | "news" | "filing" | "enrichment" | "github" | "rdap" | "other";
   fetchedAt: string;
   snippet: string;
+  imageUrl?: string | null;
 };
 
 export type ExtensionResearchRunEvent = {
