@@ -1734,47 +1734,26 @@ button {
   overflow-wrap: anywhere;
 }
 
-.cs-investor-read-lede .cs-lens-dot {
-  margin-top: 8px;
-}
-
-.cs-lens-dot,
 .cs-lens-source i {
   display: inline-block;
   flex: none;
   width: 6px;
   height: 6px;
-  margin-top: 5px;
+  margin-top: 0;
   border-radius: 2px;
   background: var(--color-rule-strong);
 }
 
-.cs-lens-source i {
-  margin-top: 0;
-}
-
-.cs-lens-dot[data-posture="independent"],
 .cs-lens-source[data-class="independent"] i {
   background: var(--color-verified);
 }
 
-.cs-lens-dot[data-posture="reporting"],
 .cs-lens-source[data-class="reporting"] i {
   background: var(--color-reported);
 }
 
-.cs-lens-dot[data-posture="company-authored"],
 .cs-lens-source[data-class="company"] i {
   background: var(--color-company);
-}
-
-.cs-lens-dot[data-posture="enrichment"] {
-  background: var(--color-seal);
-}
-
-.cs-lens-dot[data-posture="unknown"] {
-  border: 1px solid var(--color-rule-strong);
-  background: transparent;
 }
 
 /* The ledger device: every row is [label | content] on one aligned column, so the

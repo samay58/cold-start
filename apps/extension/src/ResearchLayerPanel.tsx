@@ -29,8 +29,7 @@ import {
   investorReadForCard,
   LENS_WAITS_FOR_PROFILE_REASON,
   type InvestorReadDisplay,
-  type LensClaim,
-  type SourcePosture
+  type LensClaim
 } from "./investor-lens";
 import type { TooltipPropsFor } from "./SharedTooltip";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
@@ -433,10 +432,6 @@ function LensNotFiledCard() {
   );
 }
 
-function LensPostureDot({ posture }: { posture: SourcePosture }) {
-  return <i className="cs-lens-dot" data-posture={posture} aria-hidden="true" />;
-}
-
 function LensTensionSide({
   claim,
   emptyCopy,
@@ -453,7 +448,6 @@ function LensTensionSide({
       <h4>{label}</h4>
       {claim ? (
         <p>
-          <LensPostureDot posture={claim.sourcePosture} />
           <span>{claim.text}</span>
         </p>
       ) : (
@@ -475,7 +469,6 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
         <span>Investor read</span>
       </header>
       <p className="cs-investor-read-lede">
-        <LensPostureDot posture={read.lede.sourcePosture} />
         <span>{read.lede.text}</span>
       </p>
       <div className="cs-lens-tension" aria-label="The case">
@@ -497,7 +490,6 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
         {read.timing ? (
           <div>
             <p>
-              <LensPostureDot posture={read.timing.sourcePosture} />
               <span>
                 <em>{read.timing.field}.</em> {read.timing.text}
               </span>

@@ -2183,6 +2183,18 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("carries source posture through the footer caveat and chip titles, not a dot glyph", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
+    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+
+    expect(container.textContent).toContain("The company has a supported wedge.");
+    expect(container.querySelector(".cs-lens-dot")).toBeNull();
+    const sourceLink = container.querySelector<HTMLAnchorElement>(".cs-lens-source[href='https://linear.app/']");
+    expect(sourceLink?.getAttribute("title")).toMatch(/^.+: /);
+
+    await unmount();
+  });
+
   it("groups open questions separately from evidence rows", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
