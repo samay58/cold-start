@@ -28,10 +28,13 @@ Cross-check: each Workflow run's `budget.spent()` and journal.
 | Phase 2a (A4 + B2 + C1; A2 blocked) | 2026-07-05 | 444,549 | 252,479 | 271,086 | 0 | Fable 6% of phase delta | Phase delta: Fable +41,880 (gate review, one merge-conflict resolution, ledger); Opus +252,479 (assembly surface B2, dossier tooltip A4); Sonnet +88,211 (C1 diets; A2 correctly stopped on the worktree-base bug and spent almost nothing). Execution-phase running share: Fable 41,880 of 653,656 = 6.4%. Merged tree green: 199 extension tests, typecheck, audit:css. |
 | Phase 2b (A2 + C2 + D1 + reviews) | 2026-07-05 | 488,701 | 311,035 | 389,679 | 0 | Fable 6.2% running | Phase delta: Fable +44,152 (gate, merges, Phase 3 addendum); Opus +58,556 (two adversarial reviews, 7 findings, 14 attack surfaces cleared on B2); Sonnet +118,593 (A2 person_read stage, C2 dead-code sweep, D1 contract/manifest/e2e/profile-clippings). Reviews confirmed one real bug (failure events never flip attention) plus three dossier-interactivity findings. Execution running share: Fable 86,032 of 1,393,447 = 6.2%. Merged gates: 201 extension + 144 web tests, typecheck, 32 Playwright UI + smoke specs (in D1's worktree). |
 
-## Final report (filled at the end)
+| Phase 2c + ship (FIX-A4 + FIX-B2 + A3 + slop audit + full gate + deploy) | 2026-07-05 | 555,942 | 404,767 | 480,322 | 0 | 14.8% execution | Phase delta: Fable +67,241 (gate, integration fixes, copy fixes, ship execution); Opus +93,732 (dossier hovercard fix, slop audit); Sonnet +90,643 (failure-attention fix, A3 wiring). Full check green on first re-run after two lint warnings and two copy fixes. |
 
-- Total output tokens by tier:
-- Fable share of execution-phase output tokens:
-- Counterfactual all-Fable estimate:
-- Gates: check green / adversarial findings resolved / visual sign-off:
-- Verdict from Samay:
+## Final report
+
+- Total output tokens by tier: Fable 555,942; Sonnet 480,322; Opus 404,767; Haiku 0 (its packet was absorbed into C2 at Sonnet-low after component surgery entered scope). Total 1,441,031.
+- Fable share of execution-phase output tokens (everything after the packet plan was written): 153,273 of 1,038,362 = **14.8%**, under the 20% bar. Fable share including all Phase 0 planning: 38.6%, and planning is where Fable tokens are the point.
+- Counterfactual all-Fable estimate: the army produced 885,089 output tokens of implementation, audit, review, and measurement. All-Fable execution would have put those tokens on the Fable meter at the top-tier rate, with no parallelism (nine agents ran concurrently in Phase 1 alone; wall-clock for the whole overhaul was one evening).
+- Gates: `npm run check` green (lint, typecheck, all unit suites, build, golden dry-run, knip, secrets, audit:deps); 32 Playwright UI + smoke specs green; adversarial reviews: 7 findings raised, 7 resolved (1 confirmed bug fixed, 3 dossier fixes, 2 already fixed in parallel by D1, 1 accepted with spec note); slop audit: net-new copy clean, 2 must-fixes applied before ship.
+- Deploy: migration 0008 applied and verified before push; main fast-forwarded and pushed (`4c45dd0`); production contract `2026-07-05.assembly-clippings-person-reads-v1`.
+- Verdict from Samay: pending his live test on the virgin-company kit.
