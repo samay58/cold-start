@@ -119,20 +119,14 @@ function SealedLensRow({ phase }: { phase: "intake" | "building" }) {
 
 // What the research layer will hold, shown with the real module titles before any of them can
 // run. The first four modules preview the shape; the rest are counted, not invented.
-// At intake, the note above this stack already states the research scope, so the head here
-// only appears once building starts and has its own thing to say (evidence is coming).
-function ArcStack({ phase }: { phase: "intake" | "building" }) {
+// This only ever mounts at intake: building does not render ArcStack at all, so there is no
+// separate head note to state here (the intake note above this stack already covers scope).
+function ArcStack() {
   const previews = RESEARCH_LAYER_CARDS.slice(0, 4);
   const remaining = RESEARCH_LAYER_CARDS.length - previews.length;
 
   return (
     <section className="cs-arc-stack" aria-label="Research scope">
-      {phase === "building" ? (
-        <div className="cs-arc-stack-head">
-          <span>Research</span>
-          <small>Waiting for evidence</small>
-        </div>
-      ) : null}
       <div className="cs-arc-stack-cards">
         {previews.map((layer, index) => (
           <article className="cs-arc-stack-card" key={layer.id}>
@@ -145,7 +139,7 @@ function ArcStack({ phase }: { phase: "intake" | "building" }) {
         ))}
       </div>
       <p className="cs-arc-stack-more">{`+${remaining} more file once the profile is ready`}</p>
-      <SealedLensRow phase={phase} />
+      <SealedLensRow phase="intake" />
     </section>
   );
 }
@@ -277,7 +271,7 @@ export function CompanyArc({
         {building ? (
           <>
             <Clippings clippings={clippingsFromEvents(building.events)} prefersReducedMotion={prefersReducedMotion} />
-            <ResearchTrail events={building.events} generationStatus={building.generationStatus} mode="building" />
+            <ResearchTrail events={building.events} generationStatus={building.generationStatus} />
             <SealedLensRow phase="building" />
           </>
         ) : null}
@@ -296,7 +290,7 @@ export function CompanyArc({
                 </svg>
               </button>
             </section>
-            <ArcStack phase="intake" />
+            <ArcStack />
           </>
         ) : null}
 

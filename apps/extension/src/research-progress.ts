@@ -62,8 +62,6 @@ const researchStageByEventType: Record<string, number> = {
   "generation.complete": 3
 };
 
-const terminalProfileProgressEventTypes = new Set(["card.partial", "card.enriched", "generation.complete"]);
-
 function belongsToProfileRun(event: ExtensionResearchRunEvent) {
   if (event.sectionId) {
     return false;
@@ -436,10 +434,6 @@ export function acceptedSourceCountFromEvents(events: ExtensionResearchRunEvent[
   }
 
   return highestCount;
-}
-
-export function hasTerminalProfileProgressEvent(events: ExtensionResearchRunEvent[]) {
-  return currentProfileProgressEvents(events).some((event) => terminalProfileProgressEventTypes.has(event.type));
 }
 
 // The seal instrument inks up in four discrete steps, each tied to a real stage event. No
