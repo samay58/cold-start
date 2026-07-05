@@ -116,6 +116,29 @@ describe("fetchDirectExaFundamentalsSources", () => {
       rawText: expect.stringContaining("management team"),
     });
   });
+
+  it("carries the Exa result image through as imageUrl, and omits it when absent", async () => {
+    const result = await fetchDirectExaFundamentalsSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "cartesia.ai",
+      fetchJson: async ({ body }) => ({
+        results: [
+          {
+            url: body.category === "company" ? "https://www.cartesia.ai/about" : `https://example.com/${body.category}`,
+            title: `${body.category} result`,
+            text: "Cartesia raised funding and lists its management team.",
+            image: body.category === "company" ? "https://www.cartesia.ai/og.png" : undefined,
+          },
+        ],
+      }),
+    });
+
+    const companySource = result.sources.find((source) => source.url === "https://www.cartesia.ai/about");
+    expect(companySource?.imageUrl).toBe("https://www.cartesia.ai/og.png");
+
+    const newsSource = result.sources.find((source) => source.url === "https://example.com/news");
+    expect(newsSource).not.toHaveProperty("imageUrl");
+  });
 });
 
 describe("directExaJson retry behavior", () => {

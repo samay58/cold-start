@@ -214,7 +214,8 @@ describe("GET /api/extension/bootstrap", () => {
         domain: "llamaindex.ai",
         sourceType: "company_site",
         fetchedAt: "2026-05-26T20:00:01.000Z",
-        snippet: "LlamaIndex is a data framework for LLM applications."
+        snippet: "LlamaIndex is a data framework for LLM applications.",
+        imageUrl: "https://www.llamaindex.ai/og.png"
       }
     ]);
     mocks.findResearchRunEventsBySlug.mockResolvedValue([
@@ -243,7 +244,8 @@ describe("GET /api/extension/bootstrap", () => {
         domain: "llamaindex.ai",
         sourceType: "company_site",
         fetchedAt: "2026-05-26T20:00:01.000Z",
-        snippet: "LlamaIndex is a data framework for LLM applications."
+        snippet: "LlamaIndex is a data framework for LLM applications.",
+        imageUrl: "https://www.llamaindex.ai/og.png"
       }
     ]);
     expect(body.events).toEqual([

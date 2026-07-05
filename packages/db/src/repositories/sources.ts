@@ -12,6 +12,7 @@ export type StoredSource = {
   sourceType: SourceType;
   fetchedAt: string;
   rawText: string;
+  imageUrl?: string | null;
 };
 
 export type SourceSummary = Omit<StoredSource, "rawText"> & {
@@ -27,7 +28,8 @@ export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<
       title: sources.title,
       sourceType: sources.sourceType,
       fetchedAt: sources.fetchedAt,
-      rawText: sources.rawText
+      rawText: sources.rawText,
+      imageUrl: sources.imageUrl
     })
     .from(sources)
     .innerJoin(cards, eq(sources.cardId, cards.id))
@@ -39,7 +41,8 @@ export async function findSourcesBySlug(db: ColdStartDb, slug: string): Promise<
     title: row.title,
     sourceType: row.sourceType,
     fetchedAt: row.fetchedAt.toISOString(),
-    rawText: row.rawText
+    rawText: row.rawText,
+    imageUrl: row.imageUrl
   }));
 }
 
@@ -72,7 +75,8 @@ export async function findSourceSummariesBySlug(
       title: sources.title,
       sourceType: sources.sourceType,
       fetchedAt: sources.fetchedAt,
-      rawText: sources.rawText
+      rawText: sources.rawText,
+      imageUrl: sources.imageUrl
     })
     .from(sources)
     .innerJoin(cards, eq(sources.cardId, cards.id))
@@ -87,7 +91,8 @@ export async function findSourceSummariesBySlug(
     domain: sourceDomain(row.url),
     sourceType: row.sourceType,
     fetchedAt: row.fetchedAt.toISOString(),
-    snippet: compactSnippet(row.rawText)
+    snippet: compactSnippet(row.rawText),
+    imageUrl: row.imageUrl
   }));
 }
 
@@ -100,6 +105,7 @@ export async function recordSource(
     sourceType: SourceType;
     fetchedAt: string;
     rawText: string;
+    imageUrl?: string | null;
   }
 ) {
   await db
@@ -110,7 +116,8 @@ export async function recordSource(
       title: input.title,
       sourceType: input.sourceType,
       fetchedAt: new Date(input.fetchedAt),
-      rawText: input.rawText
+      rawText: input.rawText,
+      imageUrl: input.imageUrl ?? null
     })
     .onConflictDoNothing();
 }

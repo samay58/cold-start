@@ -62,6 +62,7 @@ export const sources = pgTable(
     sourceType: sourceTypeEnum("source_type").notNull(),
     fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
     rawText: text("raw_text").notNull(),
+    imageUrl: text("image_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
   },
   (table) => [uniqueIndex("sources_card_url_idx").on(table.cardId, table.url)]

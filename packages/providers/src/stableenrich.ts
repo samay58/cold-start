@@ -1208,6 +1208,9 @@ function providerSourcesFromProbeResult(result: StableenrichProbeResult): Provid
     }
   }
 
+  // firecrawl_homepage/about/team land here too: the stableenrich.dev firecrawl/scrape
+  // endpoint's response is locked to { url, title, content } (verified against its live
+  // OpenAPI schema), so there is no metadata or image field to carry through as imageUrl.
   return [
     providerSourceFromText({
       url: `agentcash:${result.name}`,
@@ -1252,6 +1255,7 @@ export function providerSourceFromText(input: {
   rawText: string;
   intent?: RetrievalIntent;
   publishedAt?: string;
+  imageUrl?: string | null;
 }): ProviderSource {
   return {
     ...input,
@@ -1343,6 +1347,7 @@ function exaResultSources(
       }
 
       const publishedAt = stringRecordValue(record, "publishedDate");
+      const imageUrl = stringRecordValue(record, "image");
 
       return providerSourceFromText({
         url,
@@ -1351,6 +1356,7 @@ function exaResultSources(
         rawText: JSON.stringify(record),
         intent: metadata.intent,
         ...(publishedAt ? { publishedAt } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
       });
     })
     .filter((source): source is ProviderSource => source !== undefined);
