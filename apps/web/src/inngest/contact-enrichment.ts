@@ -2,6 +2,7 @@ import {
   companySlugFromDomain,
   deriveLegacyResearchSectionsFromCard,
   type ColdStartCard,
+  type GenerationLlmCallTrace,
   type GenerationTrace
 } from "@cold-start/core";
 import {
@@ -15,12 +16,22 @@ import {
   upsertResearchSections
 } from "@cold-start/db";
 import {
+  anthropicModel,
+  createAnthropicClient,
+  modelForStage,
+  synthesizePersonReads,
+  type AnthropicTelemetrySink
+} from "@cold-start/llm";
+import {
   applyProviderFactCandidates,
+  attachPersonReads,
   buildGithubContactFacts,
+  buildPersonReadEvidence,
   cardWithExtractedSections,
   extractedCardSectionsSchema,
   filterSourcesForDomain,
   sourceGateTrace,
+  type CostLine,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
 import {
@@ -53,6 +64,7 @@ import {
   directExaEnabled,
   directExaEnvFromProcess,
   githubTokenFromProcess,
+  personReadsEnabled,
   stableenrichEnvFromProcess,
   websetsEnvFromProcess,
   type ContactEnrichmentTier
@@ -60,6 +72,7 @@ import {
 import {
   completedStep,
   generationMilestoneElapsedMs,
+  llmTracePatchFromCalls,
   mergeGenerationTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
@@ -117,6 +130,26 @@ async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
   return { durationMs: Date.now() - startedAt, value };
 }
 
+function costLineForLlmCall(call: GenerationLlmCallTrace): CostLine | null {
+  if (call.estimatedCostUsd !== undefined && call.estimatedCostUsd > 0) {
+    return { label: `anthropic:${call.stage}:${call.label}:${call.model}`, usd: call.estimatedCostUsd };
+  }
+  return null;
+}
+
+function createStepLlmTelemetryCollector() {
+  const calls: GenerationLlmCallTrace[] = [];
+  const costLines: CostLine[] = [];
+  const telemetry: AnthropicTelemetrySink = (call) => {
+    calls.push(call);
+    const costLine = costLineForLlmCall(call);
+    if (costLine) {
+      costLines.push(costLine);
+    }
+  };
+  return { telemetry, costLines, tracePatch: () => llmTracePatchFromCalls(calls) };
+}
+
 function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   if (typeof input !== "string" || input.trim().length === 0) {
     if (typeof domainInput === "string" && domainInput.trim().length > 0) {
@@ -147,6 +180,12 @@ function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHi
     sourceUrl: person.sourceUrl,
     email: person.email ?? null
   }));
+}
+
+type CardPerson = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
+
+function peopleFromSections(sections: ExtractedCardSections): CardPerson[] {
+  return [...(sections.team.founders.value ?? []), ...(sections.team.keyExecs.value ?? [])];
 }
 
 function peopleHintsFromCard(card: ColdStartCard): PeopleEmailHint[] {
@@ -584,7 +623,82 @@ export const contactEnrichmentFunction = inngest.createFunction(
       mergeTracePatch(trace, contactEnriched.tracePatch);
       applyStableenrichEndpointYield(trace, contactEnriched.value.providerFactMerge.trace.appliedByEndpoint);
 
-      const contactCard = cardWithExtractedSections(existingCard, contactEnriched.value.sections);
+      currentStage = "person-reads";
+      const peopleForReads = peopleFromSections(contactEnriched.value.sections);
+      let sectionsWithReads = contactEnriched.value.sections;
+      if (!personReadsEnabled() || peopleForReads.length === 0) {
+        trace.steps = {
+          ...trace.steps,
+          "person-reads": skippedStep(!personReadsEnabled() ? "PERSON_READS_ENABLED=false" : "no people to read")
+        };
+      } else {
+        const personReadsStep = await step.run("person-reads", async () => {
+          const result = await timed(async () => {
+            try {
+              const anthropic = createAnthropicClient();
+              const llmTelemetry = createStepLlmTelemetryCollector();
+              const model = modelForStage("person_read", anthropicModel());
+              const evidence = buildPersonReadEvidence({
+                people: peopleForReads,
+                citations: contactEnriched.value.sections.citations,
+                candidates: contactProviderFacts,
+                sources: mergeSources(acceptedSources, githubSources, paidSources, websetsLateSources)
+              });
+              const { reads } = await synthesizePersonReads({
+                client: anthropic,
+                companyName: baseSections.identity.name.value ?? domain,
+                domain,
+                people: evidence,
+                model,
+                telemetry: llmTelemetry.telemetry
+              });
+              return {
+                sections: attachPersonReads(contactEnriched.value.sections, reads),
+                message: `${reads.filter((read) => read.read !== null).length} person reads`,
+                tracePatch: llmTelemetry.tracePatch()
+              };
+            } catch (error) {
+              // Person reads are an enhancement, never a blocker: a structured warn and the
+              // card write proceeds without them rather than failing (and retrying) the step.
+              console.warn("[contact-enrichment] person reads failed; continuing without them", {
+                stage: "person-reads",
+                error: boundedErrorMessage(error)
+              });
+              return null;
+            }
+          });
+
+          if (!result.value) {
+            return {
+              sections: contactEnriched.value.sections,
+              tracePatch: {
+                steps: {
+                  "person-reads": {
+                    status: "failed" as const,
+                    durationMs: result.durationMs,
+                    message: "person reads failed; card write proceeds without them"
+                  }
+                }
+              }
+            };
+          }
+
+          return {
+            sections: result.value.sections,
+            tracePatch: {
+              ...result.value.tracePatch,
+              steps: {
+                "person-reads": { ...completedStep(result.durationMs), message: result.value.message }
+              }
+            }
+          };
+        });
+
+        sectionsWithReads = personReadsStep.sections;
+        mergeTracePatch(trace, personReadsStep.tracePatch);
+      }
+
+      const contactCard = cardWithExtractedSections(existingCard, sectionsWithReads);
       const cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
       let contactsReadyMs: number | null = null;
       if (canStoreCardSnapshot("basics", cardToStore)) {

@@ -60,6 +60,10 @@ export function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
 }
 
+export function personReadsEnabled() {
+  return process.env.PERSON_READS_ENABLED !== "false";
+}
+
 export function contactEnrichmentEnabled(input: {
   CONTACT_ENRICHMENT_ENABLED: boolean;
   CONTACT_ENRICHMENT_TIER: ContactEnrichmentTier;
