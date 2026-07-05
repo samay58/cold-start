@@ -59,7 +59,15 @@ export const personSchema = z.object({
   // Public professional presence. Public-safe (unlike email), so it survives publicCard().
   githubUrl: z.string().url().nullable().optional(),
   xUrl: z.string().url().nullable().optional(),
-  personalUrl: z.string().url().nullable().optional()
+  personalUrl: z.string().url().nullable().optional(),
+  // Extension-tier person insight (investor-taste-kernel voice), not a public sourced
+  // fact. Nested so the field is literally named `citationIds`: validateCitationRefs
+  // below only validates arrays with that exact property name. Stripped from the
+  // public card alongside email/emailStatus.
+  read: z.object({
+    text: z.string().min(1),
+    citationIds: z.array(z.string().min(1)).min(1)
+  }).nullable().optional()
 });
 
 // One taxonomy for signal categories. Every consumer (the extraction wire contract, the

@@ -67,6 +67,7 @@ function mergePerson(left: Person, right: Person): Person {
     name: left.name,
     role: left.role ?? right.role,
     sourceUrl: left.sourceUrl ?? right.sourceUrl,
+    read: left.read ?? right.read ?? null,
     ...mergeEmail(left, right),
     ...mergeChannel("githubUrl", left, right),
     ...mergeChannel("xUrl", left, right),

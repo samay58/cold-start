@@ -95,6 +95,69 @@ describe("public card person channels + email provenance", () => {
     expect(founder?.xUrl).toBe("https://x.com/karan");
     expect(founder?.personalUrl).toBe("https://karan.dev");
   });
+
+  const cardWithRead: ColdStartCard = {
+    ...baseCard,
+    team: {
+      ...baseCard.team,
+      founders: {
+        value: [
+          {
+            name: "Karan Goel",
+            role: "Co-founder",
+            sourceUrl: "https://cartesia.ai",
+            githubUrl: "https://github.com/karan",
+            read: {
+              text: "Second robotics company; the first sold to Deere in 2021.",
+              citationIds: ["s1"]
+            }
+          }
+        ],
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      }
+    },
+    citations: [
+      ...baseCard.citations,
+      { id: "s1", url: "https://example.com/karan-deere", title: "Deere acquisition", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "news" }
+    ]
+  };
+
+  it("accepts a cited person read when the citation resolves", () => {
+    const parsed = coldStartCardSchema.parse(cardWithRead);
+    const founder = parsed.team.founders.value?.[0];
+    expect(founder?.read).toEqual({
+      text: "Second robotics company; the first sold to Deere in 2021.",
+      citationIds: ["s1"]
+    });
+  });
+
+  it("rejects a person read whose citation id does not resolve", () => {
+    const cardWithBadRef: ColdStartCard = {
+      ...cardWithRead,
+      team: {
+        ...cardWithRead.team,
+        founders: {
+          ...cardWithRead.team.founders,
+          value: [
+            {
+              ...cardWithRead.team.founders.value![0]!,
+              read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["missing"] }
+            }
+          ]
+        }
+      }
+    };
+    expect(() => coldStartCardSchema.parse(cardWithBadRef)).toThrow();
+  });
+
+  it("strips the person read from the public card while keeping public channels", () => {
+    const founder = publicCard(cardWithRead).team.founders.value?.[0];
+    expect(founder).toBeDefined();
+    expect(founder).not.toHaveProperty("read");
+    expect(founder?.githubUrl).toBe("https://github.com/karan");
+  });
 });
 
 describe("openQuestions back-compat", () => {

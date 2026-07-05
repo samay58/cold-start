@@ -111,6 +111,96 @@ describe("applyProviderFactCandidates", () => {
     expect(founder?.githubUrl).toBe("https://github.com/karan");
   });
 
+  it("prefers a non-null person read over null when merging candidates", () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const base = {
+      identity: {
+        ...skeleton.identity,
+        name: { value: "Cartesia", status: "verified" as const, confidence: "high" as const, citationIds: ["c1"] }
+      },
+      funding: skeleton.funding,
+      team: skeleton.team,
+      signals: skeleton.signals,
+      comparables: skeleton.comparables,
+      citations: [
+        { id: "c1", url: "https://cartesia.ai", title: "Cartesia", fetchedAt, sourceType: "company_site" as const }
+      ]
+    };
+
+    const result = applyProviderFactCandidates(base, [
+      providerFact({
+        path: "team.founders",
+        value: [{ name: "Karan Goel", role: "Co-founder", sourceUrl: null, read: null }],
+        endpoint: "github_contacts"
+      }),
+      providerFact({
+        path: "team.founders",
+        value: [
+          {
+            name: "Karan Goel",
+            role: null,
+            sourceUrl: null,
+            read: { text: "Second robotics company; the first sold to Deere in 2021.", citationIds: ["s1"] }
+          }
+        ],
+        endpoint: "apollo_person_enrich"
+      })
+    ]);
+
+    const founder = result.sections.team.founders.value?.find((person) => person.name === "Karan Goel");
+    expect(founder?.read).toEqual({
+      text: "Second robotics company; the first sold to Deere in 2021.",
+      citationIds: ["s1"]
+    });
+  });
+
+  it("keeps the left person's read when both candidates already carry one", () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const base = {
+      identity: {
+        ...skeleton.identity,
+        name: { value: "Cartesia", status: "verified" as const, confidence: "high" as const, citationIds: ["c1"] }
+      },
+      funding: skeleton.funding,
+      team: skeleton.team,
+      signals: skeleton.signals,
+      comparables: skeleton.comparables,
+      citations: [
+        { id: "c1", url: "https://cartesia.ai", title: "Cartesia", fetchedAt, sourceType: "company_site" as const }
+      ]
+    };
+
+    const result = applyProviderFactCandidates(base, [
+      providerFact({
+        path: "team.founders",
+        value: [
+          {
+            name: "Karan Goel",
+            role: "Co-founder",
+            sourceUrl: null,
+            read: { text: "First read wins.", citationIds: ["s1"] }
+          }
+        ],
+        endpoint: "github_contacts"
+      }),
+      providerFact({
+        path: "team.founders",
+        value: [
+          {
+            name: "Karan Goel",
+            role: null,
+            sourceUrl: null,
+            read: { text: "Second read should not win.", citationIds: ["s2"] }
+          }
+        ],
+        endpoint: "apollo_person_enrich"
+      })
+    ]);
+
+    const founder = result.sections.team.founders.value?.find((person) => person.name === "Karan Goel");
+    expect(founder?.read).toEqual({ text: "First read wins.", citationIds: ["s1"] });
+  });
+
   it("skips weak or incomplete provider descriptions without adding citations", () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const result = applyProviderFactCandidates(
