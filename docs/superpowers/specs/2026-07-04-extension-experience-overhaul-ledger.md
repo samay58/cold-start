@@ -24,6 +24,7 @@ Cross-check: each Workflow run's `budget.spent()` and journal.
 | Boundary | Date | Fable | Opus | Sonnet | Haiku | Fable share | Notes |
 |---|---|---|---|---|---|---|---|
 | Phase 0 (spec + review card) | 2026-07-05 | 250,819 | 0 | 0 | 0 | 100% (by design) | Spec, doctrine, visual review card, ledger setup. All planning. |
+| Phase 1 (audits + A1 + B1 + D2) | 2026-07-05 | 402,669 | 0 | 182,875 | 0 | see note | Cumulative totals. Fable delta (+151,850) is the packet plan, two scout dispatches, and the gate review, planning and review work per doctrine. Sonnet 182,875 output tokens bought: 6 surface audits, the A1 schema packet, the B1 imagery packet (with live provider-schema verification), and the D2 latency measurement. All 9 agents done, 0 errors. Workflow-reported 974,618 "tokens" is input+output; the ledger counts output only via the jq sweep. |
 
 ## Final report (filled at the end)
 

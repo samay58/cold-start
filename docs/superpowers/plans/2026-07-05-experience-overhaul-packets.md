@@ -273,9 +273,33 @@ Behavior to pin with tests: slots render awaiting (reserved space, quiet rule, n
 
 ---
 
+### Phase 1 audit rulings (Fable, 2026-07-05)
+
+APPROVED kills and moves, assigned to owners:
+
+- **B2 additionally owns (building phase):** kill the CompanyHeader building kicker word ("Queued"/"Researching" duplicate); kill the `cs-company-run-time` mm:ss clock (wall-clock, bans itself); ArcStack does not render during building at all (preview cards, head note "Waiting for evidence", and the "+N more" line all leave with it; the SealedLensRow stays as the one "later" voice); the source strip's job moves into clippings as already specced.
+- **A4 additionally owns (profile header):** kill the visible "People" section label (aria-label stays); kill the `cs-person-contact-state` "@" glyph; drop the trailing `sourceLabel(sourceCount)` from the PeopleLine status string (SourcesCheckedStamp owns source count); wire the "+N" overflow chip to actually reveal the remaining people (it currently looks interactive and does nothing).
+- **C1 owns (final scope below):** intake, research-layer panel, lens dots, details-tree diet.
+
+OVERRULED kills (keep, with reasons recorded):
+
+- Dormant pile index badges "01".."10": catalogue call-number character; the concept's warmth is "felt". Keep.
+- Details-tree stage labels: the auditor's duplicate premise (TrailTrack shows the same labels) disappears when TrailTrack dies; the tree becomes the only home of stage names. Keep.
+- Details-tree per-stage ordinal markers: At Textual step indices are DESIGN.md language. Keep with the labels.
+
 ### Packet C1: Surface diets from the audits
 
-**Model:** Sonnet. **Needs:** Fable-approved audit lists (Phase 1 output). Scope written by Fable after review; implements only approved kill/keep/move verdicts across intake, profile, module pile, tray, lens memo. Same TDD cycle; done-definition: affected extension tests green, audit:css green, no behavior beyond the approved lists.
+**Model:** Sonnet. **Needs:** integration branch with A1+B1 (present).
+
+**Files:** `apps/extension/src/CompanyArc.tsx` (intake branch ONLY; the building branch is B2's), `apps/extension/src/ResearchLayerPanel.tsx`, `apps/extension/src/SourcePassInstrument.tsx`, affected tests (`research-layer-panel.test.tsx`, `sidepanel.test.tsx` blocks it owns), `styles.css` only for classes it fully removes usage of.
+
+Scope, exactly and only:
+1. Intake: kill the "No profile" status chip (statusSlot renders empty at intake); merge the intake note and ArcStack header into one scope statement (keep the note's sentence as the single version; drop the duplicate vocabulary).
+2. ResearchLayerPanel: kill the header ratio ("N / 10"; the tray's "N waiting" owns the count); remove the profile-phase `ResearchTrail` mount (`showResearchProgress` branch) entirely; the whisper + per-module statuses carry it. Fold `PartialProfilePanel`'s Sources/Website dl rows out (the header already states both).
+3. Lens memo: remove the four `LensPostureDot` instances and the component; posture stays carried by the footer caveat and each source chip's title words. Do not touch anything else in the memo.
+4. SourcePassInstrument: kill the "Research progress" caption, the "{marker} / {total}" head counter chip, and the dead `variant === "full"` footer plus the unreachable full-variant plumbing; keep StatusMark, stage labels, ordinal markers, proofLines, substeps, sr-only line.
+
+Done-definition: affected extension tests green (`npm test -w @cold-start/extension`), `styles-classes` green (remove orphaned selectors for classes whose last usage this packet deletes), `audit:css` green, typecheck green.
 
 ### Packet C2: Dead-style sweep
 
@@ -302,7 +326,7 @@ Done-definition: `npm run qa:extension:ui -w @cold-start/extension` and `qa:exte
 - Opus adversarial review packets on A4 and B2 diffs: prompt is to refute (doctrine violations, event edge cases: cached cards with no events, failed runs, attention states, empty people, zero sources). Findings verified before acting.
 - Full gate: `npm run check` at repo root. Then contract-bumped extension build (`npm run build`), load `apps/extension/dist` unpacked.
 - Fable: integration taste pass on screenshots, ledger update, Reduce-Motion-OFF walkthrough build for Samay.
-- Deploy order: web first (schema tolerant of absent optional fields; run `npm run db:migrate:production` for 0007 and verify migration state, per the prod-migration-drift lesson), then extension rebuild/reload.
+- Deploy order: web first (schema tolerant of absent optional fields; run `npm run db:migrate:production` for 0008 (`0008_colorful_overlord.sql`, sources.image_url; the plan's original 0007 slot was already taken on main) and verify migration state, per the prod-migration-drift lesson), then extension rebuild/reload.
 
 ## Self-review notes (done)
 
