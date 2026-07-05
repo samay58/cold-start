@@ -1291,8 +1291,6 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).not.toBe("running");
     expect(container.textContent).not.toContain("Finishing profile");
     expect(container.textContent).not.toContain("Getting the profile ready");
-    expect(container.textContent).toContain("Starter profile ready");
-    expect(container.textContent).toContain("Filling in contacts and details");
     expect(container.textContent).toContain("10 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
@@ -1401,16 +1399,9 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Research saved");
-    expect(container.textContent).toContain("2 sources found");
-    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-research-progress-details-toggle");
-    expect(detailsButton).not.toBeNull();
-    await act(async () => {
-      detailsButton?.click();
-    });
-    await flushPromises();
-    expect(container.textContent).toContain("Company site and funding coverage found");
-    expect(container.textContent).not.toContain("Found 2 sources");
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
+    expect(container.textContent).toContain("LlamaIndex");
     await unmount();
   });
 
@@ -1486,10 +1477,8 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).not.toContain("Research filed");
-    expect(container.textContent).toContain("Filed");
-    expect(container.textContent).toContain("Saved with sources attached");
-    expect(container.querySelector(".cs-research-progress-live")).not.toBeNull();
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     await unmount();
   });
@@ -1601,9 +1590,8 @@ describe("SidePanel generation gate", () => {
 
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.textContent).toContain("Research filed");
-    expect(container.textContent).toContain("35 sources");
-    expect(container.textContent).toContain("6 of 10 sections");
+    // The profile-phase ResearchTrail mount is gone; the whisper carries this state instead.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(container.querySelector(".cs-build-tree")).toBeNull();
     expect(container.textContent).not.toContain("Filed the profile");
     await unmount();
@@ -2099,8 +2087,8 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(container.querySelector<HTMLElement>('[data-layer-id="signals"]')?.dataset.state).toBe("running");
-    expect(container.querySelector(".cs-research-progress-main strong")?.textContent).toBe("Research saved");
-    expect(container.querySelector<HTMLElement>(".cs-research-progress-dot")?.dataset.running).toBe("false");
+    // No second, global progress voice exists on the profile phase to leak the section run into.
+    expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(generateCalls(fetchMock)).toHaveLength(1);
     await unmount();
   });
