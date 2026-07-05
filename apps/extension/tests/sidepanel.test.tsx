@@ -1025,6 +1025,13 @@ describe("SidePanel generation gate", () => {
     });
     await flushPromises();
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
+    // The details tree keeps its stage labels, ordinal markers, and status marks, but drops the
+    // caption and the head counter chip; the whisper above already states progress.
+    expect(container.querySelector(".cs-build-head")).toBeNull();
+    expect(container.querySelector(".cs-build-step")).toBeNull();
+    expect(container.querySelector(".cs-build-meta")).toBeNull();
+    expect(container.textContent).not.toContain("Research progress");
+    expect(container.querySelector(".cs-build-stage-marker")).not.toBeNull();
     await unmount();
   });
 
