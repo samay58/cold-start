@@ -2419,7 +2419,10 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector(".cs-layer-money-ledger")).toBeTruthy();
     // The single Series B round accounts for the whole raised total, so the copy composes one
     // line with compact currency and a human date instead of repeating the raw number twice.
-    expect(container.textContent).toContain("Raised $35M in a Series B (Sep 2025).");
+    // The hero slot carries the figure; the note keeps round and date without repeating it.
+    expect(container.textContent).toContain("$35M");
+    expect(container.textContent).toContain("Series B (Sep 2025)");
+    expect(container.textContent).not.toContain("Raised $35M in a Series B");
     // Backers render once, as deduped pills (Accel and Sequoia appear both as round leads and
     // named investors); the derived "Named investors include ..." text row is suppressed.
     const pills = Array.from(container.querySelectorAll(".cs-money-pill")).map((pill) => pill.textContent);

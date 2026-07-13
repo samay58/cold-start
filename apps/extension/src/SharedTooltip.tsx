@@ -207,7 +207,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     }
   };
 
-  return { tooltip, triggerProps, tooltipInteraction };
+  return { hideTooltip, tooltip, triggerProps, tooltipInteraction };
 }
 
 function DossierBody({ dossier }: { dossier: TooltipDossier }) {

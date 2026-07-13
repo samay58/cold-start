@@ -280,10 +280,16 @@ function MoneyLayerItems({
   items: NonNullable<ResearchLayerDisplay["items"]>;
 }) {
   const [hero, ...rounds] = items;
-  const heroFigure = hero?.title.toLowerCase() === "total raised" && hero.body
-    ? hero.body.replace(/^Total raised is\s*/i, "").replace(/[.]$/, "")
-    : hero?.title;
-  const heroNote = hero?.title.toLowerCase() === "total raised" ? undefined : hero?.body;
+  // The composed single-round line carries its compact amount in meta so the hero slot can
+  // show the figure; the note keeps the round and date without repeating the number.
+  const heroAmount = hero?.meta && hero.meta.startsWith("$") ? hero.meta : null;
+  const heroFigure = heroAmount
+    ?? (hero?.title.toLowerCase() === "total raised" && hero.body
+      ? hero.body.replace(/^Total raised is\s*/i, "").replace(/[.]$/, "")
+      : hero?.title);
+  const heroNote = heroAmount
+    ? hero?.body?.replace(/^Raised\s+\$[\d.,]+\s*[KMB]?\s+in\s+an?\s+/i, "").replace(/[.]$/, "")
+    : hero?.title.toLowerCase() === "total raised" ? undefined : hero?.body;
 
   return (
     <section className="cs-layer-money-ledger" aria-label="Funding summary">
@@ -519,7 +525,10 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
                 type="button"
                 {...tooltipProps({
                   body: read.nextQuestion.moreQuestions
-                    .map((entry) => (entry.categoryLabel ? `${entry.categoryLabel}. ${entry.question}` : entry.question))
+                    .map((entry) => [
+                      entry.categoryLabel ? `${entry.categoryLabel}. ${entry.question}` : entry.question,
+                      entry.changesReadIf ? `Changes the read if ${entry.changesReadIf}.` : null
+                    ].filter(Boolean).join("\n"))
                     .join("\n\n"),
                   id: "lens-question-more",
                   placement: "above",

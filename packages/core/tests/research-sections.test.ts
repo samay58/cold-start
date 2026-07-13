@@ -219,7 +219,7 @@ describe("research section registry", () => {
     const financing = deriveLegacyResearchSectionsFromCard(singleRoundCard).find((section) => section.sectionId === "financing");
 
     expect(financing?.content?.items).toEqual([
-      { label: "Venture Round", text: "Raised $6.3M in a Venture Round (Jul 2019).", citationIds: ["c1", "c2"] }
+      { label: "Total raised", text: "Raised $6.3M in a Venture Round (Jul 2019).", meta: "$6.3M", citationIds: ["c1", "c2"] }
     ]);
   });
 

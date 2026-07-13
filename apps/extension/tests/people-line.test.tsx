@@ -3,7 +3,7 @@
 import type { ColdStartCard } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PeopleLine } from "../src/CompanyHeader";
 import type { TooltipDossier } from "../src/SharedTooltip";
 
@@ -27,6 +27,7 @@ async function renderPeople(
   options?: { sourceCount?: number; citations?: CitationRef[] }
 ) {
   const captured: Captured[] = [];
+  const hideTooltip = vi.fn();
   const tooltipProps = (input: { body: string | TooltipDossier; id: string; placement?: unknown; title: string }) => {
     captured.push({ body: input.body, id: input.id, title: input.title });
     return {
@@ -44,6 +45,7 @@ async function renderPeople(
   await act(async () => {
     root.render(
       <PeopleLine
+        hideTooltip={hideTooltip}
         citations={options?.citations ?? []}
         companyDomain="acme.ai"
         people={people}
@@ -56,7 +58,7 @@ async function renderPeople(
     await act(async () => root.unmount());
     container.remove();
   };
-  return { container, captured };
+  return { container, hideTooltip, captured };
 }
 
 function dossiersFrom(captured: Captured[]): TooltipDossier[] {
@@ -283,5 +285,16 @@ describe("PeopleLine overflow", () => {
     const chipCalls = captured.filter((entry) => entry.id === "people-more");
     expect(chipCalls).toHaveLength(1);
     expect(overflow.hasAttribute("aria-describedby")).toBe(false);
+  });
+
+  it("closes its own tooltip when expanding, so the open card is never orphaned", async () => {
+    const { container, hideTooltip } = await renderPeople(many);
+
+    const overflow = container.querySelector(".cs-people-more") as HTMLButtonElement;
+    await act(async () => {
+      overflow.click();
+    });
+
+    expect(hideTooltip).toHaveBeenCalled();
   });
 });

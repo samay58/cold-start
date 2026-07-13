@@ -211,7 +211,7 @@ describe("investor lens display", () => {
         bearCase: [{ text: "Distribution may be compressed by incumbent developer tools [c1].", citationIds: ["c1"] }],
         openQuestions: [
           { question: "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?", category: "adoption_proof" },
-          { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", category: "durability" },
+          { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", category: "durability", wouldChangeReadIf: "IDE vendors ship a bundled terminal agent with real adoption." },
           { question: "ARR is not public; verify revenue.", category: "unit_economics" }
         ]
       }
@@ -220,8 +220,8 @@ describe("investor lens display", () => {
     expect(display?.nextQuestion?.categoryLabel).toBe("Adoption & proof");
     expect(display?.nextQuestion?.question).toContain("expansion beyond individual developers");
     expect(display?.nextQuestion?.moreQuestions).toEqual([
-      { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", categoryLabel: "Durability" },
-      { question: "What revenue quality, retention, and margin evidence would change the read?", categoryLabel: "Unit economics" }
+      { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", categoryLabel: "Durability", changesReadIf: "IDE vendors ship a bundled terminal agent with real adoption." },
+      { question: "What revenue quality, retention, and margin evidence would change the read?", categoryLabel: "Unit economics", changesReadIf: null }
     ]);
   });
 

@@ -16,6 +16,9 @@ describe("formatCompactUsd", () => {
   it("keeps one decimal for billions, trimmed when whole", () => {
     expect(formatCompactUsd(1_250_000_000)).toBe("$1.3B");
     expect(formatCompactUsd(2_000_000_000)).toBe("$2B");
+    // The band just under a billion rounds into the B branch, never "$1000M".
+    expect(formatCompactUsd(999_950_000)).toBe("$1B");
+    expect(formatCompactUsd(999_400_000)).toBe("$999M");
   });
 
   it("formats sub-million amounts as plain currency", () => {

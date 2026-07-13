@@ -433,6 +433,7 @@ export function PeopleLine({
   contactElapsedSeconds = 0,
   contactRun,
   confidence,
+  hideTooltip,
   people,
   tooltipProps
 }: {
@@ -442,6 +443,9 @@ export function PeopleLine({
   contactElapsedSeconds?: number;
   contactRun?: PeopleRun | undefined;
   confidence?: ColdStartCard["team"]["founders"]["confidence"] | null;
+  // Expanding reveals the people the chip tooltip described, so the chip closes its own
+  // tooltip on click; without this the open tooltip is orphaned once its trigger props drop.
+  hideTooltip: () => void;
   people: CardPerson[];
   // The filed stamp owns the source count now; PeopleLine no longer prints it, but the
   // caller still supplies it so the prop stays on the contract.
@@ -515,7 +519,10 @@ export function PeopleLine({
             aria-expanded={expanded}
             aria-label={expanded ? "Show fewer people" : `Show ${hiddenPeopleCount} more people`}
             className="cs-people-more"
-            onClick={() => setExpanded((value) => !value)}
+            onClick={() => {
+              hideTooltip();
+              setExpanded((value) => !value);
+            }}
             type="button"
             {...(expanded
               ? {}

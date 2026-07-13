@@ -170,7 +170,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     visibility: "public",
     staleAfterMs: 7 * DAY_MS,
     emptyState: "No useful competitive evidence found yet.",
-    generationPrompt: prompt("Write Competitive Position. Find competitors that actually matter: direct startups, high-flying adjacent startups likely to converge, incumbents with distribution, frontier AI labs entering or likely to enter, and internal build or open-source substitutes. A competitor matters only if it competes for the same buyer, budget, workflow, model layer, or distribution path. Rank 3 to 7 competitors or substitutes by relevance, return competitor_count_high_quality, crowdedness, why the market is or is not crowded, and the company's likely wedge. Separate quantity from quality.")
+    generationPrompt: prompt("Write Competitive Position. Find competitors that actually matter: direct startups, high-flying adjacent startups likely to converge, incumbents with distribution, frontier AI labs entering or likely to enter, and internal build or open-source substitutes. A competitor matters only if it competes for the same buyer, budget, workflow, model layer, or distribution path. Rank 3 to 7 competitors or substitutes by relevance, return competitor_count_high_quality, crowdedness, why the market is or is not crowded, and the company's likely wedge. Separate quantity from quality. Put each ranked competitor's primary domain in that item's meta field.")
   },
   {
     id: "product",
@@ -387,8 +387,9 @@ function fundingEvidenceItems(card: ColdStartCard): ResearchSectionContent["item
   const fundingLines: Array<ResearchSectionContent["items"][number] | null> = singleRound
     ? [
         {
-          label: singleRound.round.name,
+          label: "Total raised",
           text: `Raised ${formatCompactUsd(total.value as number)} in a ${singleRound.round.name}${singleRound.round.announcedAt ? ` (${formatMonthYear(singleRound.round.announcedAt)})` : ""}.`,
+          meta: formatCompactUsd(total.value as number),
           citationIds: Array.from(new Set([...total.citationIds, ...singleRound.citationIds]))
         }
       ]

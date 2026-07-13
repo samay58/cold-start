@@ -26,7 +26,11 @@ export function formatCompactUsd(value: number): string {
   }
 
   if (abs >= TEN_MILLION) {
-    return `${sign}$${Math.round(abs / MILLION)}M`;
+    const millions = Math.round(abs / MILLION);
+    if (millions >= 1000) {
+      return `${sign}$${trimTrailingZero(roundToOneDecimal(abs / BILLION).toFixed(1))}B`;
+    }
+    return `${sign}$${millions}M`;
   }
 
   if (abs >= MILLION) {

@@ -68,7 +68,7 @@ type LensQuestion = {
   // The rest of the model's ranked questions, filed behind a "+N more" affordance with their
   // category labels preserved so the memo does not drop what a dedicated Next Question layer
   // used to show.
-  moreQuestions: Array<{ question: string; categoryLabel: string | null }>;
+  moreQuestions: Array<{ question: string; categoryLabel: string | null; changesReadIf: string | null }>;
 };
 
 type LensPostureMark = {
@@ -294,7 +294,7 @@ function nextQuestionDisplay(card: ColdStartCard): LensQuestion | null {
     question: first.question,
     categoryLabel: first.categoryLabel,
     changesReadIf: first.changesReadIf,
-    moreQuestions: rest.map((entry) => ({ question: entry.question, categoryLabel: entry.categoryLabel }))
+    moreQuestions: rest.map((entry) => ({ question: entry.question, categoryLabel: entry.categoryLabel, changesReadIf: entry.changesReadIf }))
   };
 }
 

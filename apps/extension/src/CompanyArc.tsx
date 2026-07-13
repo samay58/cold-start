@@ -155,7 +155,7 @@ export function CompanyArc({
   queuedLayerIds
 }: CompanyArcProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
+  const { hideTooltip, tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
   const building = arc.phase === "building" ? arc : null;
   const profile = arc.phase === "profile" ? arc : null;
 
@@ -248,6 +248,7 @@ export function CompanyArc({
             <>
               <FactRibbon facts={profileFacts(profile.card)} />
               <PeopleLine
+                hideTooltip={hideTooltip}
                 citations={profile.card.citations}
                 companyDomain={profile.card.domain}
                 contactElapsedSeconds={contactElapsedSeconds}
