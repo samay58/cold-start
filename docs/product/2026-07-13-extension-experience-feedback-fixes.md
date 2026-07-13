@@ -8,6 +8,8 @@ Symptom: the memo's lede, "If true", and "It breaks if" text renders vertically,
 
 Root cause: commit `827bff8` removed the `LensPostureDot` elements from the memo markup but left the dot column in the CSS. `.cs-investor-read-lede`, `.cs-lens-tension-side p`, and `.cs-lens-timing p` still declare `grid-template-columns: 10px minmax(0, 1fr)` (`apps/extension/src/styles.css:1807`, `:1872`). The text `<span>`, now the only child, lands in the 10px dot track, and `overflow-wrap: anywhere` plus the blanket `min-width: 0` (`styles.css:1774-1777`) breaks it at every character.
 
+Reproduced in the Playwright sidepanel harness (2026-07-13): the lede span measures 10px wide by 1,260px tall, with a computed row template of `10px 325px`. The existing "investor read stays bounded" spec passes despite this, because its only layout guard is horizontal overflow, which a 10px-wide column never trips.
+
 Fix: remove the orphaned 10px track (single-column rows), and add a regression guard in the Playwright UI harness that fails when any long text node renders in a collapsed container.
 
 ## 2. Seal ribbon on the memo reads as slop
@@ -37,10 +39,14 @@ The money section body is template prose from `deriveLegacyResearchSectionsFromC
 
 ## 7. People hovercards and the +N chip
 
-- The dossier tooltip (`SharedTooltip.tsx`) already has the loved behavior: 160ms grace window and pointer-into persistence, dossier variant only. The plain text variant (the Description "(more)" tooltip, `CompanyHeader.tsx:90`) closes instantly on pointer leave. Fix: extend the grace-window persistence to all tooltip variants.
+- The dossier tooltip (`SharedTooltip.tsx`) already has the loved behavior: 160ms grace window and pointer-into persistence, dossier variant only. Measured in the harness: the dossier stays open with the pointer inside it; the plain text variant (the Description "(more)" tooltip, `CompanyHeader.tsx:90`) closes before the pointer can reach it. Fix: extend the grace-window persistence to all tooltip variants.
 - Formatting: `.cs-dossier-read` (`styles.css:1324`) sets the accent text face where the Description tooltip uses quieter body typography; align the dossier body with the Description tooltip's type.
-- Cut-off sentences: two candidates to reproduce and close. (a) `.cs-shared-tooltip` caps at `max-height: min(280px, ...)` with `overflow: auto` (`styles.css:1246`), so long dossiers clip at the fold with no visible scroll affordance. (b) `sentenceCount` in `person-read.ts` shares the abbreviation bug, and the batch `max_tokens: 1500` (`person-read.ts:163`) is shared across all reads in one call.
-- The header "+2" chip is a working expand button (`CompanyHeader.tsx:501-511`) but has no interactive affordance. Fix: style it as obviously pressable, add a hover tooltip listing the hidden names and roles, keep click-to-expand.
+- Cut-off sentences, reproduced: `.cs-shared-tooltip` caps at `max-height: min(280px, ...)` with `overflow: auto` (`styles.css:1246`). A three-sentence read plus provenance, email, and channels measured scrollHeight 312 against clientHeight 278 in the harness, so the bottom rows sit below the fold with no visible scroll affordance, and a longer read cuts mid-sentence. Secondary upstream guards: `sentenceCount` in `person-read.ts` shares the abbreviation bug (wrongly suppressing valid reads), and the batch `max_tokens: 1500` (`person-read.ts:163`) is shared across all reads in one call.
+- The header "+2" chip is a working expand button, confirmed by probe click (`CompanyHeader.tsx:501-511`), but it renders with a 0.42-alpha background on parchment and no other affordance, so it reads as dead. Fix: style it as obviously pressable, add a hover tooltip listing the hidden names and roles, keep click-to-expand.
+
+## How these were reproduced
+
+A temporary Playwright probe spec (deleted after this record) ran against the sidepanel UI harness with the Browserbase fixtures: a synthesis card for the memo measurements, and a people card extended with a long person read, a fifth person, and an expanded description for the tooltip and chip probes. Screenshots landed in `/private/tmp/cold-start-investor-read-long.png` (the vertical-text repro) and `/private/tmp/cold-start-dossier-probe.png` (the dossier fold clip).
 
 ## Verification bar for the fix session
 
