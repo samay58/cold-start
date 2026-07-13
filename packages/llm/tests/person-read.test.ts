@@ -28,6 +28,31 @@ function clientReturning(reads: unknown[]): { client: Anthropic; callCount: () =
   return { client, callCount: () => calls };
 }
 
+function clientCapturingParams(reads: unknown[]): {
+  client: Anthropic;
+  paramsCalls: () => Array<{ max_tokens?: number }>;
+} {
+  const paramsCalls: Array<{ max_tokens?: number }> = [];
+  const client = {
+    messages: {
+      create: async (params: { max_tokens?: number }) => {
+        paramsCalls.push(params);
+        return toolResponse(reads);
+      },
+    },
+  } as unknown as Anthropic;
+  return { client, paramsCalls: () => paramsCalls };
+}
+
+function evidenceFor(name: string): PersonReadEvidence {
+  return {
+    name,
+    role: "Engineer",
+    channels: {},
+    evidence: [{ citationId: "c1", title: "Profile", url: "https://example.com/1", text: `${name} built things.` }],
+  };
+}
+
 const founder: PersonReadEvidence = {
   name: "Ada Lovelace",
   role: "CEO",
@@ -236,5 +261,102 @@ describe("synthesizePersonReads", () => {
       },
       { name: "Ghost Founder", read: null, suppressionReason: "thin_evidence" },
     ]);
+  });
+
+  it("rejects a read that does not end in terminal punctuation as truncated", async () => {
+    const { client } = clientReturning([
+      {
+        name: "Ada Lovelace",
+        // Cut off mid-clause, as a response would look if the model ran out of output
+        // tokens partway through the second sentence.
+        read: { text: "Built payments infra at Stripe for six years, and then her next", citationIds: ["c1"] },
+      },
+    ]);
+
+    const result = await synthesizePersonReads({
+      client,
+      companyName: "Acme",
+      domain: "acme.com",
+      model: "claude-test",
+      people: [founder],
+    });
+
+    expect(result.reads).toEqual([{ name: "Ada Lovelace", read: null, suppressionReason: "truncated" }]);
+  });
+
+  it("accepts a read ending in punctuation followed by a closing quote", async () => {
+    const { client } = clientReturning([
+      {
+        name: "Ada Lovelace",
+        read: { text: 'Colleagues describe her as "relentless about payments infra."', citationIds: ["c1"] },
+      },
+    ]);
+
+    const result = await synthesizePersonReads({
+      client,
+      companyName: "Acme",
+      domain: "acme.com",
+      model: "claude-test",
+      people: [founder],
+    });
+
+    expect(result.reads).toEqual([
+      {
+        name: "Ada Lovelace",
+        read: { text: 'Colleagues describe her as "relentless about payments infra."', citationIds: ["c1"] },
+        suppressionReason: null,
+      },
+    ]);
+  });
+
+  it("keeps max_tokens at the existing floor for a small team", async () => {
+    const { client, paramsCalls } = clientCapturingParams([
+      { name: "Ada Lovelace", read: { text: "Built payments infra at Stripe for six years.", citationIds: ["c1"] } },
+    ]);
+
+    await synthesizePersonReads({
+      client,
+      companyName: "Acme",
+      domain: "acme.com",
+      model: "claude-test",
+      people: [founder],
+    });
+
+    expect(paramsCalls()[0]?.max_tokens).toBe(1500);
+  });
+
+  it("scales max_tokens up with the number of people in the batch", async () => {
+    const eightPeople = Array.from({ length: 8 }, (_, index) => evidenceFor(`Person ${index}`));
+    const { client, paramsCalls } = clientCapturingParams(
+      eightPeople.map((person) => ({ name: person.name, read: null }))
+    );
+
+    await synthesizePersonReads({
+      client,
+      companyName: "Acme",
+      domain: "acme.com",
+      model: "claude-test",
+      people: eightPeople,
+    });
+
+    // 8 people * 220 tokens/person = 1,760, above the 1,500 floor.
+    expect(paramsCalls()[0]?.max_tokens).toBe(1760);
+  });
+
+  it("caps max_tokens at the ceiling for a very large batch", async () => {
+    const manyPeople = Array.from({ length: 60 }, (_, index) => evidenceFor(`Person ${index}`));
+    const { client, paramsCalls } = clientCapturingParams(
+      manyPeople.map((person) => ({ name: person.name, read: null }))
+    );
+
+    await synthesizePersonReads({
+      client,
+      companyName: "Acme",
+      domain: "acme.com",
+      model: "claude-test",
+      people: manyPeople,
+    });
+
+    expect(paramsCalls()[0]?.max_tokens).toBe(8000);
   });
 });

@@ -1238,12 +1238,17 @@ button {
   background: rgb(var(--cs-c-245-241-230) / 0.42);
 }
 
+/* Every variant is a real hovercard now: the pointer can bridge the gap from the trigger
+   into the tooltip body (grace window in SharedTooltip.tsx), so pointer-events stays on
+   for the dossier's links and copy control as well as the plain string body. Height is a
+   per-instance inline style (JS measures the room actually available toward the viewport
+   edge); overflow only engages when that room genuinely runs out, and the scrollbar below
+   keeps that overflow visible instead of silently clipping the last rows. */
 .cs-shared-tooltip {
   position: fixed;
   z-index: 80;
   display: grid;
   gap: 5px;
-  max-height: min(280px, calc(100vh - 32px));
   overflow: auto;
   padding: 11px 12px 12px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.96);
@@ -1253,7 +1258,9 @@ button {
     0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
     0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.88) inset;
   color: var(--color-ink);
-  pointer-events: none;
+  pointer-events: auto;
+  scrollbar-color: var(--cs-scrollbar-thumb) var(--cs-scrollbar-track);
+  scrollbar-width: thin;
   text-align: left;
   transform: translate3d(0, 0, 0);
 }
@@ -1262,10 +1269,18 @@ button {
   transform: translate3d(0, -100%, 0);
 }
 
-/* Only the dossier is a real hovercard: its links and copy control must receive the
-   pointer. The plain string tooltip stays inert (base rule keeps pointer-events: none). */
-.cs-shared-tooltip[data-variant="dossier"] {
-  pointer-events: auto;
+.cs-shared-tooltip::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cs-shared-tooltip::-webkit-scrollbar-track {
+  background: var(--cs-scrollbar-track);
+  border-radius: 6px;
+}
+
+.cs-shared-tooltip::-webkit-scrollbar-thumb {
+  background: var(--cs-scrollbar-thumb);
+  border-radius: 6px;
 }
 
 /* Programmatic focus lands on the container when the dossier is pinned open by keyboard;
@@ -1321,11 +1336,16 @@ button {
   font-size: 12px;
 }
 
+/* Same face, size, weight, and line-height as the plain Description tooltip body
+   (.cs-shared-tooltip span below), so the two tooltip variants read as one polished
+   component. The read keeps solid ink (vs. the plain body's muted alpha) because it is
+   the dossier's one claim, not quiet metadata; role, provenance, email, and channels stay
+   visually distinct around it. */
 .cs-dossier-read {
   margin: 0;
   color: var(--color-ink);
-  font-family: var(--font-text);
-  font-size: 13px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
   font-weight: 500;
   line-height: 1.42;
 }
@@ -2905,16 +2925,18 @@ a.cs-lens-source:focus-visible {
   white-space: nowrap;
 }
 
+/* A real pressable chip, not a quiet placeholder: the seal-tinted border and fill read as
+   the same affordance family as the dossier email-copy pill and the source chips. */
 .cs-people-more {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
   min-height: 52px;
-  border: 1px solid rgb(var(--cs-c-212-197-158) / 0.42);
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.22);
   border-radius: 6px;
-  background: rgb(var(--cs-c-250-250-247) / 0.42);
-  color: var(--color-muted);
+  background: rgb(var(--cs-c-110-92-158) / 0.06);
+  color: var(--color-seal);
   cursor: pointer;
   font-family: var(--font-body);
   font-size: 11px;
@@ -2922,7 +2944,7 @@ a.cs-lens-source:focus-visible {
 }
 
 .cs-people-more:focus-visible {
-  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.28);
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
   outline-offset: 2px;
 }
 
@@ -3591,7 +3613,6 @@ body,
 
 .cs-people-more {
   min-height: 42px;
-  border-color: rgb(var(--cs-c-216-208-191) / 0.62);
   border-radius: 8px;
 }
 
@@ -3849,6 +3870,7 @@ body,
 .cs-start-settings,
 .cs-active-enrichment-head,
 .cs-source-chip,
+.cs-people-more,
 .cs-research-notice button {
   transition:
     transform var(--cs-motion-feedback) var(--cs-motion-ease-out),
@@ -3873,6 +3895,7 @@ body,
 .cs-start-settings:active,
 .cs-active-enrichment-head:active,
 .cs-source-chip:active,
+.cs-people-more:active,
 .cs-research-notice button:active {
   transform: scale(0.98);
 }
@@ -3895,6 +3918,11 @@ body,
   .cs-source-chip:hover {
     border-color: rgb(var(--cs-c-110-92-158) / 0.42);
     background: rgb(var(--cs-c-110-92-158) / 0.09);
+  }
+
+  .cs-people-more:hover {
+    border-color: rgb(var(--cs-c-110-92-158) / 0.42);
+    background: rgb(var(--cs-c-110-92-158) / 0.11);
   }
 
   .cs-company-domain:hover {

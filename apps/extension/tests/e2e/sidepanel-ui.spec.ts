@@ -1150,6 +1150,119 @@ test("shared tooltip floats beside its trigger instead of falling into the page 
   }).toBeLessThan(48);
 });
 
+test("the plain description tooltip persists across the trigger-to-tooltip gap like the dossier", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const more = page.getByRole("button", { name: "Read the full company description" });
+  await more.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-variant", "text");
+
+  // The pointer bridges the gap onto the tooltip body itself; a reachable hovercard must
+  // not vanish while the pointer is mid-transit or resting on the tooltip.
+  await tooltip.hover();
+  await page.waitForTimeout(250);
+  await expect(tooltip).toBeVisible();
+
+  // Moving away from both the trigger and the tooltip closes it after the grace window.
+  await page.mouse.move(5, 5);
+  await expect(tooltip).toHaveCount(0);
+});
+
+test("the dossier sizes to a long read without clipping its bottom rows", async ({ page }) => {
+  const card = browserbaseCardWithPeople();
+  const founders = card.team.founders.value ?? [];
+  const paul = founders[0];
+  if (paul) {
+    founders[0] = {
+      ...paul,
+      githubUrl: "https://github.com/paulklein",
+      xUrl: "https://x.com/paulklein",
+      personalUrl: "https://paulklein.dev",
+      read: {
+        text: "Second infrastructure company after his first browser automation startup was acquired, and he has led every major Browserbase release from a fully remote engineering team. His first company sold to a data platform after three years of steady, unglamorous revenue growth.",
+        citationIds: ["c2", "c3"]
+      }
+    };
+  }
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const person = page.locator(".cs-people-person", { hasText: "Paul Klein" });
+  await person.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-variant", "dossier");
+  await expect(tooltip.locator(".cs-dossier-read")).toContainText("Second infrastructure company");
+  await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
+  await expect(tooltip.locator(".cs-dossier-email")).toBeVisible();
+  await expect(tooltip.locator(".cs-dossier-channel")).toHaveCount(3);
+
+  // With ample viewport room (the 900px-tall test panel), the dossier sizes itself to its
+  // content instead of clipping the bottom rows at a fixed cap: no scrollable overflow.
+  const overflow = await tooltip.evaluate((element) => element.scrollHeight - element.clientHeight);
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  await tooltip.screenshot({ path: "/private/tmp/cold-start-dossier-long-read.png" });
+});
+
+test("the +N people chip is pressable and its hover tooltip lists the hidden names and roles", async ({ page }) => {
+  const card = browserbaseCard({
+    team: {
+      founders: {
+        value: [
+          { name: "Ada Lovelace", role: "CEO", sourceUrl: "https://acme.ai/a", email: "ada@acme.ai", emailStatus: "observed" },
+          { name: "Grace Hopper", role: "CTO", sourceUrl: "https://acme.ai/b" },
+          { name: "Katherine Johnson", role: "Head of Research", sourceUrl: "https://acme.ai/c" },
+          { name: "Dorothy Vaughan", role: "Engineering lead", sourceUrl: "https://acme.ai/d" },
+          { name: "Mary Jackson", role: "Design lead", sourceUrl: "https://acme.ai/e" },
+          { name: "Annie Easley", role: "Advisor", sourceUrl: "https://acme.ai/f" }
+        ],
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    }
+  });
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  await expect(page.locator(".cs-people-person")).toHaveCount(4);
+  const chip = page.locator(".cs-people-more");
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText("+2 more");
+  await expect(chip).toHaveAttribute("aria-expanded", "false");
+
+  // The resting affordance is a seal-tinted pill, not the old flat gray fill that read as
+  // dead UI: rgb(110 92 158 / ...) shows up in both the border and the fill.
+  const restingBorder = await chip.evaluate((element) => getComputedStyle(element).borderColor);
+  const restingBackground = await chip.evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(restingBorder).toMatch(/110,\s*92,\s*158/);
+  expect(restingBackground).toMatch(/110,\s*92,\s*158/);
+
+  await chip.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-variant", "text");
+  await expect(tooltip).toContainText("Mary Jackson, Design lead");
+  await expect(tooltip).toContainText("Annie Easley, Advisor");
+
+  // Clicking still expands the row; the tooltip affordance and the click coexist.
+  await chip.click();
+  await expect(page.locator(".cs-people-person")).toHaveCount(6);
+  await expect(chip).toHaveAttribute("aria-expanded", "true");
+  await expect(chip).toHaveText("Show fewer");
+});
+
 test("early read survives the basics generating-to-success handoff", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "browserbase.com" });
   const startedAt = new Date(Date.now() - 6_000).toISOString();

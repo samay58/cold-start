@@ -842,7 +842,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("shows a cited dossier for visible people but no tooltip on the overflow control", async () => {
+  it("shows a cited dossier for visible people and a hover tooltip listing the hidden ones on the overflow control", async () => {
     const card = cardWithManagement("theinformation.com");
     card.team.keyExecs.value = [
       ...(card.team.keyExecs.value ?? []),
@@ -893,15 +893,44 @@ describe("SidePanel generation gate", () => {
     });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
 
+    // The remaining two people (Martin Peers, Wayne Ma) sit behind the overflow chip,
+    // which is a real pressable control: it earns a hover tooltip listing who it hides.
     const overflow = container.querySelector(".cs-people-more") as HTMLElement | null;
     expect(overflow).toBeTruthy();
-    expect(overflow?.getAttribute("aria-describedby")).toBeNull();
-    expect(overflow?.getAttribute("tabindex")).toBeNull();
+    expect(overflow?.getAttribute("aria-describedby")).toBe("cs-company-shared-tooltip");
+    expect(overflow?.getAttribute("aria-expanded")).toBe("false");
+    overflow!.getBoundingClientRect = () => ({
+      bottom: 640,
+      height: 42,
+      left: 48,
+      right: 360,
+      top: 598,
+      width: 312,
+      x: 48,
+      y: 598,
+      toJSON: () => ({})
+    });
 
     await act(async () => {
       overflow!.focus();
     });
+    const overflowTooltip = container.querySelector(".cs-shared-tooltip");
+    expect(overflowTooltip).toBeTruthy();
+    expect(overflowTooltip?.getAttribute("data-variant")).toBe("text");
+    expect(overflowTooltip?.textContent).toContain("Martin Peers, Columnist");
+    expect(overflowTooltip?.textContent).toContain("Wayne Ma, Reporter");
+
+    await act(async () => {
+      overflow!.blur();
+    });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+
+    // Expanding the row leaves nothing hidden, so the chip drops its tooltip affordance.
+    await act(async () => {
+      (overflow as HTMLButtonElement).click();
+    });
+    expect(overflow?.getAttribute("aria-expanded")).toBe("true");
+    expect(overflow?.getAttribute("aria-describedby")).toBeNull();
     await unmount();
   });
 

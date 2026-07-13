@@ -264,6 +264,18 @@ function sourceHostLabel(sourceUrl: string | null | undefined) {
 
 type PersonChannel = { label: "GitHub" | "X" | "Site"; url: string };
 
+// One "Name, Role" line per hidden person, joined with newlines so the plain tooltip's
+// `white-space: pre-line` renders it as a scannable list rather than a run-on sentence.
+function hiddenPeopleSummary(people: CardPerson[]): string {
+  return people
+    .map((person) => {
+      const name = person.name.trim();
+      const role = person.role?.trim();
+      return role ? `${name}, ${role}` : name;
+    })
+    .join("\n");
+}
+
 function personChannels(person: CardPerson): PersonChannel[] {
   return [
     person.githubUrl ? { label: "GitHub" as const, url: person.githubUrl } : null,
@@ -505,8 +517,16 @@ export function PeopleLine({
             className="cs-people-more"
             onClick={() => setExpanded((value) => !value)}
             type="button"
+            {...(expanded
+              ? {}
+              : tooltipProps({
+                  body: hiddenPeopleSummary(orderedPeople.slice(PEOPLE_COLLAPSED_COUNT)),
+                  id: "people-more",
+                  placement: "above",
+                  title: `${hiddenPeopleCount} more`
+                }))}
           >
-            {expanded ? "Show fewer" : `+${hiddenPeopleCount}`}
+            {expanded ? "Show fewer" : `+${hiddenPeopleCount} more`}
           </button>
         ) : null}
       </div>

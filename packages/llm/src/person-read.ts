@@ -9,6 +9,29 @@ import { parseToolUse, type ToolUseLike } from "./tool-use";
 const PERSON_READ_TOOL_NAME = "emit_person_reads";
 const maxReadSentences = 2;
 
+// One tool call synthesizes every eligible person's read together, so the response's
+// max_tokens must scale with the batch, not stay flat. 220 tokens/person is a generous
+// budget for a two-sentence claim (well under 100 tokens even in a wordy investor-voice
+// sentence) plus a handful of citationIds and the per-entry JSON scaffolding. The 1,500
+// floor keeps small teams (the common case) at the budget that already worked; the ceiling
+// guards against an unbounded max_tokens on a very large batch.
+const PERSON_READ_TOKENS_PER_PERSON = 220;
+const PERSON_READ_TOKENS_FLOOR = 1500;
+const PERSON_READ_TOKENS_CEILING = 8000;
+
+function maxTokensForPersonReadBatch(personCount: number): number {
+  return Math.min(PERSON_READ_TOKENS_CEILING, Math.max(PERSON_READ_TOKENS_FLOOR, personCount * PERSON_READ_TOKENS_PER_PERSON));
+}
+
+// A read cut off mid-sentence (the model ran out of output tokens) must never render as a
+// finished thought. Terminal punctuation, optionally followed by a closing quote or
+// parenthesis, is the cheap signal that the model actually finished the claim.
+const TERMINAL_PUNCTUATION = /[.!?]["')\]]*$/;
+
+function endsWithTerminalPunctuation(text: string): boolean {
+  return TERMINAL_PUNCTUATION.test(text.trim());
+}
+
 export type PersonReadEvidence = {
   name: string;
   role: string | null;
@@ -19,7 +42,7 @@ export type PersonReadEvidence = {
 export type PersonReadResult = {
   name: string;
   read: { text: string; citationIds: string[] } | null;
-  suppressionReason: "thin_evidence" | "no_nonobvious_claim" | null;
+  suppressionReason: "thin_evidence" | "no_nonobvious_claim" | "truncated" | null;
 };
 
 const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
@@ -111,6 +134,10 @@ function validateReadForPerson(
     return { name, read: null, suppressionReason: "no_nonobvious_claim" };
   }
 
+  if (!endsWithTerminalPunctuation(read.text)) {
+    return { name, read: null, suppressionReason: "truncated" };
+  }
+
   if (sentenceCount(read.text) > maxReadSentences) {
     return { name, read: null, suppressionReason: "no_nonobvious_claim" };
   }
@@ -152,7 +179,7 @@ export async function synthesizePersonReads(input: {
       telemetry: input.telemetry,
       params: {
         model: input.model,
-        max_tokens: 1500,
+        max_tokens: maxTokensForPersonReadBatch(eligible.length),
         temperature: 0,
         system: [{ type: "text", text: personReadSystemPrompt, cache_control: anthropicSystemCacheControl() }],
         tool_choice: { type: "tool", name: PERSON_READ_TOOL_NAME },

@@ -245,7 +245,10 @@ describe("PeopleLine overflow", () => {
     const overflow = container.querySelector(".cs-people-more");
     expect(overflow).toBeTruthy();
     expect(overflow?.tagName).toBe("BUTTON");
-    expect(overflow?.textContent).toContain("2");
+    // Reads as an obvious expand affordance, not a bare "+2".
+    expect(overflow?.textContent).toBe("+2 more");
+    expect(overflow?.getAttribute("aria-expanded")).toBe("false");
+    expect(overflow?.getAttribute("aria-label")).toBe("Show 2 more people");
 
     await act(async () => {
       (overflow as HTMLButtonElement).click();
@@ -253,5 +256,32 @@ describe("PeopleLine overflow", () => {
 
     expect(container.querySelectorAll(".cs-people-person")).toHaveLength(6);
     expect(container.textContent).toContain("Annie Easley");
+    // The collapse label stays sensible once expanded.
+    expect(overflow?.textContent).toBe("Show fewer");
+    expect(overflow?.getAttribute("aria-expanded")).toBe("true");
+    expect(overflow?.getAttribute("aria-label")).toBe("Show fewer people");
+  });
+
+  it("attaches a hover tooltip listing the hidden people's names and roles", async () => {
+    const { captured } = await renderPeople(many);
+
+    const chipCall = captured.find((entry) => entry.id === "people-more");
+    expect(chipCall).toBeTruthy();
+    expect(chipCall?.title).toBe("2 more");
+    expect(chipCall?.body).toBe("Mary Jackson, Design lead\nAnnie Easley, Advisor");
+  });
+
+  it("drops the tooltip once expanded, since nothing is hidden anymore", async () => {
+    const { container, captured } = await renderPeople(many);
+
+    const overflow = container.querySelector(".cs-people-more") as HTMLButtonElement;
+    await act(async () => {
+      overflow.click();
+    });
+
+    // The chip never earns a second tooltipProps call once nothing is hidden.
+    const chipCalls = captured.filter((entry) => entry.id === "people-more");
+    expect(chipCalls).toHaveLength(1);
+    expect(overflow.hasAttribute("aria-describedby")).toBe(false);
   });
 });

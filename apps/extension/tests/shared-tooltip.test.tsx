@@ -135,19 +135,57 @@ describe("dossier hovercard bridge", () => {
   });
 });
 
-describe("plain string tooltip stays non-interactive", () => {
-  it("closes immediately on pointer leave with no grace window", async () => {
+describe("plain string tooltip gets the same grace window as the dossier", () => {
+  it("keeps the text tooltip open across the trigger-to-tooltip gap and closes only when the pointer leaves both", async () => {
     vi.useFakeTimers();
     const { container, handleRef, trigger } = await mount("The full description text.");
+
     await act(async () => {
       handleRef.current!.props.onPointerEnter(pointerEvent(trigger));
     });
     expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-variant")).toBe("text");
 
+    // Leaving the trigger opens a grace window instead of closing immediately, same as
+    // the dossier: the plain string tooltip is a reachable hovercard now too.
     await act(async () => {
       handleRef.current!.props.onPointerLeave(pointerEvent(trigger));
     });
-    // No bridge for the text variant: it is gone the moment the pointer leaves.
+    expect(container.querySelector(".cs-shared-tooltip")).toBeTruthy();
+
+    // The pointer reaches the tooltip; entering it cancels the pending close.
+    await act(async () => {
+      handleRef.current!.interaction.onPointerEnter();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeTruthy();
+
+    // Leaving the tooltip finally closes it after the grace window.
+    await act(async () => {
+      handleRef.current!.interaction.onPointerLeave();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+  });
+
+  it("still closes on pointer leave when the pointer never reaches the tooltip, once the grace window elapses", async () => {
+    vi.useFakeTimers();
+    const { container, handleRef, trigger } = await mount("The full description text.");
+
+    await act(async () => {
+      handleRef.current!.props.onPointerEnter(pointerEvent(trigger));
+    });
+    await act(async () => {
+      handleRef.current!.props.onPointerLeave(pointerEvent(trigger));
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
   });
 });

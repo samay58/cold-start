@@ -23,6 +23,10 @@ type SharedTooltipState = {
   body: TooltipBody;
   id: string;
   left: number;
+  // The room actually available between the trigger and the viewport edge in the
+  // placement direction, so a long dossier read is only clipped when the viewport truly
+  // has no space rather than by a fixed cap.
+  maxHeight: number;
   // True only when the dossier is pinned open by keyboard: focus lives inside it and it
   // ignores pointer-leave until Escape or a focus-out hands control back to the row.
   pinned: boolean;
@@ -41,8 +45,9 @@ export type TooltipTriggerProps = {
   onPointerLeave: (event: PointerEvent<HTMLElement>) => void;
 };
 
-// The interaction surface for the tooltip element itself. Only the interactive dossier
-// variant wires these; the plain string tooltip stays inert.
+// The interaction surface for the tooltip element itself. Every variant wires these now:
+// the plain string tooltip is as reachable as the dossier, so entering either tooltip body
+// cancels its pending close the same way.
 export type TooltipInteraction = {
   onDismiss: () => void;
   onFocusLeave: () => void;
@@ -62,7 +67,8 @@ export type TooltipPropsFor = (input: {
 const SHARED_TOOLTIP_ID = "cs-company-shared-tooltip";
 
 // Grace window between leaving the trigger and reaching the tooltip. Long enough to bridge
-// the 10px gap without the dossier vanishing, short enough to still feel immediate.
+// the 10px gap without the tooltip vanishing, short enough to still feel immediate. Applies
+// to every tooltip variant.
 const HIDE_GRACE_MS = 160;
 
 function clamp(value: number, min: number, max: number) {
@@ -97,7 +103,18 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     const width = Math.min(340, Math.max(240, window.innerWidth - 32));
     const left = clamp(rect.left + rect.width / 2 - width / 2, 16, Math.max(16, window.innerWidth - width - 16));
     const placement = input.placement ?? "above";
-    const top = placement === "above" ? rect.top - 10 : rect.bottom + 10;
+    const gap = 10;
+    const top = placement === "above" ? rect.top - gap : rect.bottom + gap;
+    // Size to the room actually available between the trigger and the viewport edge in the
+    // placement direction, so a long dossier read is only clipped when the viewport truly
+    // has no space, never by an arbitrary fixed cap. The 160px floor keeps a degenerate
+    // near-edge trigger from collapsing the tooltip to an unreadable sliver; a visible
+    // scrollbar (styles.css) carries the rest when that floor is still not enough.
+    const viewportMargin = 16;
+    const available = placement === "above"
+      ? rect.top - gap - viewportMargin
+      : window.innerHeight - rect.bottom - gap - viewportMargin;
+    const maxHeight = Math.max(160, available);
     const previousId = previousTooltipId.current;
     previousTooltipId.current = input.id;
     pinnedRef.current = pinned;
@@ -106,6 +123,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
       body: input.body,
       id: input.id,
       left,
+      maxHeight,
       pinned,
       placement,
       title: input.title,
@@ -167,13 +185,9 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
         if (pinnedRef.current) {
           return;
         }
-        // The dossier is reachable, so give the pointer a grace window to bridge the gap.
-        // The plain string tooltip is inert and closes at once.
-        if (interactive) {
-          scheduleHide();
-        } else {
-          hideTooltip();
-        }
+        // Every tooltip variant is reachable now, so give the pointer a grace window to
+        // bridge the gap between the trigger and the tooltip body before closing it.
+        scheduleHide();
       }
     };
   }
@@ -315,12 +329,13 @@ export function SharedTooltip({
             }
           : undefined
       }
-      onPointerEnter={interactive ? interaction?.onPointerEnter : undefined}
-      onPointerLeave={interactive ? interaction?.onPointerLeave : undefined}
+      onPointerEnter={interaction?.onPointerEnter}
+      onPointerLeave={interaction?.onPointerLeave}
       ref={nodeRef}
       role="tooltip"
       style={{
         left: tooltip.left,
+        maxHeight: tooltip.maxHeight,
         top: tooltip.top,
         width: tooltip.width
       }}
