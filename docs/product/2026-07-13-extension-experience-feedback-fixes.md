@@ -51,3 +51,23 @@ A temporary Playwright probe spec (deleted after this record) ran against the si
 ## Verification bar for the fix session
 
 Real-panel verification (dev build in Chrome or `qa:extension:ui` fixtures) for every visual fix, a new layout regression test for the vertical-text class of bug, `npm run check` green, and `npm run audit:css -w @cold-start/extension` clean.
+
+## Fix session record (2026-07-13)
+
+All seven workstreams landed on `extension-feedback-fixes`. Verification: full `npm run check` green, `qa:extension:ui` 36/36 including the new collapsed-track layout guard, `audit:css` clean, and healthy-counterpart screenshots of every surface this document flagged (memo in light and dark, the memo overflow tooltip, Money, Comps, both tooltip variants, the dossier long read, and the people chip at rest and on hover).
+
+### Review addendum from the consolidation session (workstreams A, B, D)
+
+A, B, and D were verified faithful to spec at the cited lines. Three follow-ups survived verification and were fixed the same night: the public evidence clamp in `packages/ui/src/CardShell.tsx` and the two local `sentenceCount` copies in the core quality modules now route through the shared splitter (`ff2380e`), and the stale seal comment above `.cs-investor-read` is corrected (`4d94a93`). One non-finding stays by design: the splitter refuses to split after a listed abbreviation even before a capitalized word. That is the documented under-split bias, pinned by tests; do not "fix" it.
+
+### Found at the gate
+
+Stored and derived research sections shadow the card-direct display branches in `displayFromSection`, and production cards always carry derived sections, so the Comps upgrade rendered only on section-less fixture cards. Caught by screenshot verification, fixed in `bcc9774` on both paths. The adversarial review then confirmed four ship findings, fixed in `4a79f5f`: the people chip orphaned its open tooltip on expand, overflow questions dropped their changes-the-read line, the composed money line put the round name in the hero slot instead of the figure, and `formatCompactUsd` rendered "$1000M" in the band under a billion.
+
+### Follow-ups filed, not fixed
+
+- Model-generated financing sections with a differently worded investor line would duplicate the investor pills; the dedup filter matches only the derived wording.
+- Plain tooltips have no Escape dismiss (the dossier does); an open tooltip can swallow the first click on a control beneath it until the grace window closes it.
+- The splitter treats "no." and "co." as abbreviations even where they end a sentence; bounded by the under-split bias.
+- The composed money line can imply one round accounts for the total when earlier rounds simply have no disclosed amounts.
+- The synthesis refresh signal was lost with the layer removal: when stale synthesis is re-running in the background, the memo shows the stale read with no refreshing indicator until the run lands. A replacement affordance was ruled out of scope for this session.
