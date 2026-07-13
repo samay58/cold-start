@@ -903,6 +903,12 @@ describe("generateCardForDomain", () => {
                 citationIds: ["bc1"],
               },
             ],
+            competitionFraming: {
+              value: "Zo Computer competes in the shared AI-agent workspace slice, which is still sparsely populated.",
+              status: "verified",
+              confidence: "medium",
+              citationIds: ["bc1"],
+            },
             citations: [
               {
                 id: "bc1",
@@ -929,6 +935,12 @@ describe("generateCardForDomain", () => {
     });
     expect(result.card.signals[0]?.title).toBe("Launched persistent AI workspaces");
     expect(result.card.comparables[0]).toMatchObject({ name: "Browserbase", domain: "browserbase.com" });
+    expect(result.card.competitionFraming?.value).toBe(
+      "Zo Computer competes in the shared AI-agent workspace slice, which is still sparsely populated."
+    );
+    expect(result.card.competitionFraming?.citationIds).toContain(
+      result.card.comparables[0]?.citationIds?.[0]
+    );
     expect(result.tracePatch.extraction?.blockEnrichment).toMatchObject({
       requested: ["description", "funding", "team", "signals", "comparables"],
       produced: ["description", "funding", "team", "signals", "comparables"],

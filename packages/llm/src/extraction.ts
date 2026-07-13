@@ -233,7 +233,10 @@ const comparableSchema = {
     confidence: { type: "string", enum: ["high", "medium", "low"] },
     citationIds: { type: "array", items: nonEmptyStringSchema }
   },
-  required: ["name", "domain", "oneLiner"]
+  // basis is required at the wire level for fresh extractions (the buyer-alternative
+  // justification is the point of the field); packages/core's stored-card schema keeps it
+  // optional so legacy cards extracted before this requirement still parse.
+  required: ["name", "domain", "oneLiner", "basis"]
 } as const;
 
 export type ExtractionEvidence = {
@@ -299,6 +302,8 @@ export const extractionSystemPrompt = [
   "Never stuff feature lists into the overview. If a source lists ten capabilities, extract the underlying workflow and leave the details for concept, buyer and use case, or product and technology.",
   "Ban brochure language: innovative, comprehensive, seamless, robust, advanced, trusted by, commitment to, designed to enhance, and with ease. Replace with the supported fact or omit the sentence.",
   "One signal per underlying event. When several sources cover the same announcement, emit it once and cite every supporting source in that signal's citationIds. Never emit one signal per article.",
+  "Comparable standard: every comparable must pass the buyer-alternative test. It must be something the same buyer would seriously evaluate instead of this company for the same job to be done, not a lookalike that only shares a category label or a directory listing. basis is required for every comparable and must state, grounded in the cited evidence, the concrete reason a buyer would weigh it: same buyer, same job to be done, same workflow, same budget line, or named together in a market map. Drop lookalikes, boilerplate positioning, directories, and the target itself rather than padding to a fixed count.",
+  "Use competitionFraming only when cited evidence supports it: one sentence naming the specific competitive slice this company sits in and how crowded that slice is. Never invent market commentary. Return null when no cited evidence states or clearly implies the slice or its crowdedness; absent is better than a padded guess.",
   "Treat source incentives as evidence: independent technical and independent analysis sources should shape qualitative framing more than press releases; company-authored sources are strongest for exact product mechanics, not evaluative claims.",
   "Prefer primary company pages for product mechanics, recent funding/news sources for round data, and independent analysis for market framing. Surface conflicts as mixed rather than averaging."
 ].join(" ");
@@ -309,6 +314,7 @@ export const extractedCardSectionsSchema = coldStartCardObjectSchema.pick({
   team: true,
   signals: true,
   comparables: true,
+  competitionFraming: true,
   citations: true
 });
 
@@ -333,6 +339,7 @@ const blockEnrichmentPatchSchema = z.object({
   }).optional(),
   signals: z.array(coreSignalSchema).optional(),
   comparables: z.array(coreComparableSchema).optional(),
+  competitionFraming: coldStartCardObjectSchema.shape.competitionFraming,
   citations: z.array(coreCitationSchema),
 });
 
@@ -350,6 +357,7 @@ export const extractionTool = {
       team: teamSchema,
       signals: { type: "array", items: signalSchema },
       comparables: { type: "array", items: comparableSchema },
+      competitionFraming: resolvedFactSchema(nonEmptyStringSchema),
       citations: { type: "array", items: citationSchema }
     },
     required: ["identity", "funding", "team", "signals", "comparables", "citations"]
@@ -399,6 +407,7 @@ export const blockEnrichmentTool = {
       team: blockTeamPatchSchema,
       signals: { type: "array", items: signalSchema },
       comparables: { type: "array", items: comparableSchema },
+      competitionFraming: resolvedFactSchema(nonEmptyStringSchema),
       citations: { type: "array", items: citationSchema },
     },
     required: ["blockId", "citations"],
@@ -426,6 +435,7 @@ function normalizeExtractionInput(input: unknown) {
     team: normalizeTeam(root.team),
     signals: filterArray(root.signals, coreSignalSchema),
     comparables: filterArray(root.comparables, coreComparableSchema),
+    ...("competitionFraming" in root ? { competitionFraming: normalizeFact(root.competitionFraming) } : {}),
     citations: filterArray(root.citations, coreCitationSchema),
   };
   return normalizedRoot;
@@ -460,6 +470,9 @@ function normalizeBlockEnrichmentInput(input: unknown) {
   }
   if ("comparables" in root) {
     normalizedRoot.comparables = filterArray(root.comparables, coreComparableSchema);
+  }
+  if ("competitionFraming" in root) {
+    normalizedRoot.competitionFraming = normalizeFact(root.competitionFraming);
   }
 
   return normalizedRoot;
@@ -851,7 +864,7 @@ export async function extractCompanyClaims(input: {
   });
 }
 
-const blockGuidance: Record<BlockEnrichmentId, string> = {
+export const blockGuidance: Record<BlockEnrichmentId, string> = {
   description:
     "Fill identity.description fields for both display layers and the structured product facts. shortDescription must be one complete sentence, roughly 18 to 24 words and under about 170 characters. expandedDescription must be two or three complete sentences explaining what the company does, who uses or buys it, what workflow or pain it addresses, and what nuance matters. Keep concept to one complete sentence. Give serves and mechanism up to two complete sentences each, and make every sentence name a concrete segment, channel, price, or mechanic the evidence supports; never pad, never restate shortDescription, and never write a second sentence with nothing new to say. Never use literal ellipses or incomplete endings. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
   funding:
@@ -861,7 +874,7 @@ const blockGuidance: Record<BlockEnrichmentId, string> = {
   signals:
     "Extract recent traction signals: launches, customers, hiring, partnerships, funding, filings, technical releases, and credible news. Prefer dated sources and avoid generic profile blurbs. One signal per underlying event: when several sources cover the same announcement, emit it once and cite every supporting source in that signal's citationIds, never one signal per article.",
   comparables:
-    "Pick 3 to 5 real competitors or close adjacencies. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis must name one concrete overlap with the target: same buyer, same workflow, same product category, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support real overlap, return fewer rather than fabricate.",
+    "Pick 3 to 5 real competitors or close adjacencies, each passing the buyer-alternative test: something the same buyer would seriously evaluate instead of the target for the same job to be done, not a lookalike that only shares a category label. For each one: domain must come from a cited source (Exa find-similar or competition search), oneLiner must be a concrete sentence drawn from that source's text describing what the company actually does (not the target), and basis is required and must state, grounded in the cited evidence, the concrete reason a buyer would weigh this alternative: same buyer, same job to be done, same workflow, same budget line, or named together in a market map. Forbid generic boilerplate like 'similar web result', 'find-similar', 'adjacent player'; forbid press-release positioning; forbid the target itself, alternate domains of the target, directories, blog posts, or app-store listings. If fewer than 3 sources support a real buyer alternative, return fewer rather than fabricate. Also fill competitionFraming when cited evidence supports it: one sentence naming the specific competitive slice this company sits in and how crowded that slice is. Never invent market commentary; leave it null when no cited evidence states or clearly implies the slice or its crowdedness.",
 };
 
 export async function extractCompanyBlockClaims(input: {

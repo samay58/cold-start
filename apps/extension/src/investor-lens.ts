@@ -22,7 +22,7 @@ const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
   trust_regulation: "Trust & regulation"
 };
 
-export function labelForQuestionCategory(category: QuestionCategory | null): string | null {
+function labelForQuestionCategory(category: QuestionCategory | null): string | null {
   return category ? QUESTION_CATEGORY_LABELS[category] : null;
 }
 
@@ -30,7 +30,7 @@ export function labelForQuestionCategory(category: QuestionCategory | null): str
 // speak this same line while the cited profile is still building.
 export const LENS_WAITS_FOR_PROFILE_REASON = "The cited profile must finish before Investor Lens can run.";
 
-export function cleanQuestionText(question: string) {
+function cleanQuestionText(question: string) {
   return stripCitationMarkers(question)
     .replace(/\s*[\u2013\u2014]\s*/g, "; ")
     .replace(/\s+/g, " ")
@@ -40,7 +40,7 @@ export function cleanQuestionText(question: string) {
     .replace(/[.!?]*$/, "?");
 }
 
-export type LensClaim = {
+type LensClaim = {
   text: string;
   sourcePosture: SourcePosture;
 };

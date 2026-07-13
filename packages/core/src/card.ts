@@ -177,6 +177,10 @@ export const coldStartCardObjectSchema = z.object({
   }),
   signals: z.array(signalSchema),
   comparables: z.array(comparableSchema),
+  // One sentence naming the specific competitive slice this company sits in and how crowded
+  // that slice is. Citation-backed like every other resolved fact; extracted only when cited
+  // evidence supports it, never invented market commentary. Card JSON only, no normalized rows.
+  competitionFraming: resolvedFactSchema(z.string().min(1)).optional(),
   citations: z.array(citationSchema),
   synthesis: synthesisSchema.optional()
 });

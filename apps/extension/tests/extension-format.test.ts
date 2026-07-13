@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { compactProfileSummary, formatElapsed, profileSummaryCopy } from "../src/extension-format";
+import { compactProfileSummary, formatElapsed, formatOptionalCurrency, profileSummaryCopy } from "../src/extension-format";
 
 describe("extension formatting", () => {
   it("formats elapsed run time", () => {
     expect(formatElapsed(84)).toBe("1:24");
+  });
+
+  it("formats compact currency through the shared core precision rules", () => {
+    expect(formatOptionalCurrency(6_250_000)).toBe("$6.3M");
+    expect(formatOptionalCurrency(6_000_000)).toBe("$6M");
+    expect(formatOptionalCurrency(12_400_000)).toBe("$12M");
+    expect(formatOptionalCurrency(null)).toBeNull();
   });
 
   it("keeps the overview to the first load-bearing sentence", () => {

@@ -165,7 +165,8 @@ export function sanitizeCardTrust(card: ColdStartCard): ColdStartCard {
     comparables: card.comparables.map((comparable) => ({
       ...comparable,
       ...(comparable.citationIds ? { citationIds: sanitizeCitationIds(comparable.citationIds, validIds) } : {})
-    }))
+    })),
+    ...(card.competitionFraming ? { competitionFraming: sanitizeFact(card.competitionFraming, validIds, citations) } : {})
   };
 }
 

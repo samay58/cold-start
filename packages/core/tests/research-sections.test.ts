@@ -203,4 +203,43 @@ describe("research section registry", () => {
       status: "available"
     });
   });
+
+  it("composes one line when a single round accounts for the full raised total", () => {
+    const singleRoundCard = card({
+      funding: {
+        totalRaisedUsd: fact(6_250_000, ["c1"]),
+        lastRound: fact(
+          { name: "Venture Round", amountUsd: 6_250_000, announcedAt: "2019-07-25", leadInvestors: [] },
+          ["c2"]
+        ),
+        investors: fact(null)
+      }
+    });
+
+    const financing = deriveLegacyResearchSectionsFromCard(singleRoundCard).find((section) => section.sectionId === "financing");
+
+    expect(financing?.content?.items).toEqual([
+      { label: "Venture Round", text: "Raised $6.3M in a Venture Round (Jul 2019).", citationIds: ["c1", "c2"] }
+    ]);
+  });
+
+  it("keeps separate, formatted lines when rounds and the total genuinely differ", () => {
+    const multiRoundCard = card({
+      funding: {
+        totalRaisedUsd: fact(91_000_000, ["c1"]),
+        lastRound: fact(
+          { name: "Series B", amountUsd: 64_000_000, announcedAt: "2024-04-23", leadInvestors: ["Kleiner Perkins"] },
+          ["c2"]
+        ),
+        investors: fact(null)
+      }
+    });
+
+    const financing = deriveLegacyResearchSectionsFromCard(multiRoundCard).find((section) => section.sectionId === "financing");
+
+    expect(financing?.content?.items).toEqual([
+      { label: "Total raised", text: "Total raised is $91M.", citationIds: ["c1"] },
+      { label: "Series B", text: "Series B was $64M on Apr 2024.", citationIds: ["c2"] }
+    ]);
+  });
 });

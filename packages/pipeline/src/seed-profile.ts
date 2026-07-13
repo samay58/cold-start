@@ -239,6 +239,7 @@ function sectionsFromCard(card: ColdStartCard): ExtractedCardSections {
     team: card.team,
     signals: card.signals,
     comparables: card.comparables,
+    ...(card.competitionFraming ? { competitionFraming: card.competitionFraming } : {}),
     citations: card.citations
   };
 }

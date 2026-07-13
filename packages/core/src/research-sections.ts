@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ColdStartCard } from "./card";
 import type { GenerationJobKind } from "./generation-trace";
+import { formatCompactUsd, formatMonthYear } from "./money-format";
 import { clusterSignals } from "./signal-clusters.mjs";
 
 export const researchSectionIdSchema = z.enum([
@@ -356,28 +357,71 @@ function tractionItemsFromSignals(card: ColdStartCard): ResearchSectionContent["
   }));
 }
 
-export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
-  const description = card.identity.description?.value;
-  const descriptionCitationIds = card.identity.description?.citationIds ?? card.identity.oneLiner.citationIds;
-  const descriptionHasReaderEvidence = hasReaderFacingEvidence(card, descriptionCitationIds);
-  const tractionItems = tractionItemsFromSignals(card);
-  const fundingEvidence = [
-    card.funding.totalRaisedUsd.value ? {
-      label: "Total raised",
-      text: `Total raised is ${card.funding.totalRaisedUsd.value.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}.`,
-      citationIds: card.funding.totalRaisedUsd.citationIds
-    } : null,
-    card.funding.lastRound.value ? {
-      label: card.funding.lastRound.value.name,
-      text: `${card.funding.lastRound.value.name}${card.funding.lastRound.value.amountUsd ? ` was ${card.funding.lastRound.value.amountUsd.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}` : ""}${card.funding.lastRound.value.announcedAt ? ` on ${card.funding.lastRound.value.announcedAt}` : ""}.`,
-      citationIds: card.funding.lastRound.citationIds
-    } : null,
+// A single round explains the whole raised total when its amount matches totalRaisedUsd, either
+// directly on lastRound or (when lastRound is unset) as the sole entry in the rounds ledger. In
+// that case the two facts collapse into one composed line instead of repeating the same number
+// twice ("Total raised is X." + "Y was X on date."), carrying the union of both facts' citations.
+function singleRoundAccountingForTotal(card: ColdStartCard): { round: NonNullable<ColdStartCard["funding"]["lastRound"]["value"]>; citationIds: string[] } | null {
+  const total = card.funding.totalRaisedUsd.value;
+  if (total === null) {
+    return null;
+  }
+
+  if (card.funding.lastRound.value?.amountUsd === total) {
+    return { round: card.funding.lastRound.value, citationIds: card.funding.lastRound.citationIds };
+  }
+
+  const rounds = card.funding.rounds?.value;
+  if (rounds?.length === 1 && rounds[0]?.amountUsd === total) {
+    return { round: rounds[0], citationIds: card.funding.rounds?.citationIds ?? [] };
+  }
+
+  return null;
+}
+
+function fundingEvidenceItems(card: ColdStartCard): ResearchSectionContent["items"] {
+  const total = card.funding.totalRaisedUsd;
+  const lastRound = card.funding.lastRound;
+  const singleRound = singleRoundAccountingForTotal(card);
+
+  const fundingLines: Array<ResearchSectionContent["items"][number] | null> = singleRound
+    ? [
+        {
+          label: singleRound.round.name,
+          text: `Raised ${formatCompactUsd(total.value as number)} in a ${singleRound.round.name}${singleRound.round.announcedAt ? ` (${formatMonthYear(singleRound.round.announcedAt)})` : ""}.`,
+          citationIds: Array.from(new Set([...total.citationIds, ...singleRound.citationIds]))
+        }
+      ]
+    : [
+        total.value ? {
+          label: "Total raised",
+          text: `Total raised is ${formatCompactUsd(total.value)}.`,
+          citationIds: total.citationIds
+        } : null,
+        lastRound.value ? {
+          label: lastRound.value.name,
+          text: `${lastRound.value.name}${lastRound.value.amountUsd !== null ? ` was ${formatCompactUsd(lastRound.value.amountUsd)}` : ""}${lastRound.value.announcedAt ? ` on ${formatMonthYear(lastRound.value.announcedAt)}` : ""}.`,
+          citationIds: lastRound.citationIds
+        } : null
+      ];
+
+  fundingLines.push(
     (card.funding.investors.value?.length ?? 0) > 0 ? {
       label: "Investors",
       text: `Named investors include ${card.funding.investors.value?.map((investor) => investor.name).join(", ")}.`,
       citationIds: card.funding.investors.citationIds
     } : null
-  ].filter((item): item is ResearchSectionContent["items"][number] => Boolean(item));
+  );
+
+  return fundingLines.filter((item): item is ResearchSectionContent["items"][number] => Boolean(item));
+}
+
+export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): ResearchSection[] {
+  const description = card.identity.description?.value;
+  const descriptionCitationIds = card.identity.description?.citationIds ?? card.identity.oneLiner.citationIds;
+  const descriptionHasReaderEvidence = hasReaderFacingEvidence(card, descriptionCitationIds);
+  const tractionItems = tractionItemsFromSignals(card);
+  const fundingEvidence = fundingEvidenceItems(card);
 
   const marketRows = card.synthesis?.marketStructureAndTiming
     ? Object.entries(card.synthesis.marketStructureAndTiming).flatMap(([label, claim]) =>

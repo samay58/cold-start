@@ -317,6 +317,44 @@ describe("sanitizeCardTrust", () => {
     });
   });
 
+  it("nulls competitionFraming when its citation id does not resolve", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      competitionFraming: {
+        value: "Cartesia competes in the low-latency voice API slice.",
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["missing"]
+      }
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.competitionFraming).toEqual({
+      value: null,
+      status: "unknown",
+      confidence: "low",
+      citationIds: []
+    });
+  });
+
+  it("keeps competitionFraming with a valid citation id", () => {
+    const dirty: ColdStartCard = {
+      ...baseCard,
+      competitionFraming: {
+        value: "Cartesia competes in the low-latency voice API slice.",
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      }
+    };
+
+    const clean = sanitizeCardTrust(dirty);
+
+    expect(clean.competitionFraming?.value).toBe("Cartesia competes in the low-latency voice API slice.");
+    expect(clean.competitionFraming?.citationIds).toEqual(["c1"]);
+  });
+
   it("downgrades vendor-only facts and single-source sensitive facts", () => {
     const dirty: ColdStartCard = {
       ...baseCard,

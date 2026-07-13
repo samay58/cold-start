@@ -1,4 +1,9 @@
-import { firstSentence as coreFirstSentence, sentenceCount as coreSentenceCount, type ColdStartCard } from "@cold-start/core";
+import {
+  firstSentence as coreFirstSentence,
+  formatCompactUsd,
+  sentenceCount as coreSentenceCount,
+  type ColdStartCard
+} from "@cold-start/core";
 
 export const INSUFFICIENT_EVIDENCE_NOTICE =
   "Not enough cited evidence for Investor Lens yet.";
@@ -14,15 +19,7 @@ function formatCompactCurrency(value: number | null | undefined): string {
     return "Not found";
   }
 
-  if (value >= 1_000_000_000) {
-    return `$${Math.round(value / 100_000_000) / 10}B`;
-  }
-
-  if (value >= 1_000_000) {
-    return `$${Math.round(value / 1_000_000)}M`;
-  }
-
-  return `$${value.toLocaleString()}`;
+  return formatCompactUsd(value);
 }
 
 export function formatOptionalNumber(value: number | null | undefined): string | null {

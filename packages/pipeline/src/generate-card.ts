@@ -41,6 +41,7 @@ export type BlockEnrichmentPatch = {
   team?: Partial<ColdStartCard["team"]>;
   signals?: ColdStartCard["signals"];
   comparables?: ColdStartCard["comparables"];
+  competitionFraming?: ColdStartCard["competitionFraming"];
   citations: ColdStartCard["citations"];
 };
 
@@ -450,7 +451,8 @@ function blockPatchHasContent(patch: BlockEnrichmentPatch) {
       patch.team?.keyExecs?.value?.length ||
       patch.team?.headcount?.value ||
       patch.signals?.length ||
-      patch.comparables?.length
+      patch.comparables?.length ||
+      patch.competitionFraming?.value
   );
 }
 
@@ -490,6 +492,11 @@ function mergeBlockEnrichmentPatch(
   team.keyExecs = mergePersonFact(team.keyExecs, remapFact(patch.team?.keyExecs, idMap));
   team.headcount = mergeFact(team.headcount, remapFact(patch.team?.headcount, idMap));
 
+  let competitionFraming = sections.competitionFraming;
+  if (patch.competitionFraming || competitionFraming) {
+    competitionFraming = mergeFact(competitionFraming ?? unknownFact<string>(), remapFact(patch.competitionFraming, idMap));
+  }
+
   return {
     sections: {
       identity,
@@ -497,6 +504,7 @@ function mergeBlockEnrichmentPatch(
       team,
       signals: mergeSignals(sections.signals, patch.signals, idMap),
       comparables: mergeComparables(sections.comparables, patch.comparables, idMap),
+      ...(competitionFraming ? { competitionFraming } : {}),
       citations,
     },
     produced: blockPatchHasContent(patch),
@@ -809,6 +817,7 @@ export async function generateCardForDomainWithTrace(
       team: sections.team,
       signals: sections.signals,
       comparables: sections.comparables,
+      ...(sections.competitionFraming ? { competitionFraming: sections.competitionFraming } : {}),
       citations: sections.citations
     } as ColdStartCard)
   );
@@ -911,6 +920,7 @@ export function cardWithExtractedSections(card: ColdStartCard, sections: Extract
       team: sections.team,
       signals: clusterSignals(sections.signals, { companyDomain: card.domain, companyName: sections.identity.name.value }),
       comparables: sections.comparables,
+      ...(sections.competitionFraming ? { competitionFraming: sections.competitionFraming } : {}),
       citations: sections.citations
     })
   );

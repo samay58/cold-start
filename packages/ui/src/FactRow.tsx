@@ -1,21 +1,9 @@
-import type { ResolvedFact } from "@cold-start/core";
+import { formatCompactUsd, formatMonthYear, type ResolvedFact } from "@cold-start/core";
 import { CitationGroup } from "./CitationGroup";
 import type { CitationLedger } from "./CitationLedger";
 
 const undisclosedText = "not publicly disclosed";
 const numberFormatter = new Intl.NumberFormat("en-US");
-const compactUsdFormatter = new Intl.NumberFormat("en-US", {
-  compactDisplay: "short",
-  maximumFractionDigits: 1,
-  notation: "compact",
-  style: "currency",
-  currency: "USD"
-});
-const shortDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC"
-});
 const mediumDateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
@@ -34,16 +22,12 @@ function isYear(value: number) {
   return Number.isInteger(value) && value >= 1800 && value <= 2100;
 }
 
-function trimCurrency(value: string) {
-  return value.replace(".0", "");
-}
-
 export function formatCompactCurrency(value: number | null | undefined): string {
   if (typeof value !== "number") {
     return undisclosedText;
   }
 
-  return trimCurrency(compactUsdFormatter.format(value));
+  return formatCompactUsd(value);
 }
 
 export function formatShortDate(value: string | null | undefined): string {
@@ -51,16 +35,7 @@ export function formatShortDate(value: string | null | undefined): string {
     return undisclosedText;
   }
 
-  if (/^\d{4}$/.test(value)) {
-    return value;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return shortDateFormatter.format(parsed);
+  return formatMonthYear(value);
 }
 
 export function formatMediumDate(value: string | null | undefined): string {

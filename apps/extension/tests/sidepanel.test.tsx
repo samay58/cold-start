@@ -2388,7 +2388,9 @@ describe("SidePanel generation gate", () => {
       moneyButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(container.querySelector(".cs-layer-money-ledger")).toBeTruthy();
-    expect(container.textContent).toContain("$35,000,000");
+    // The single Series B round accounts for the whole raised total, so the copy composes one
+    // line with compact currency and a human date instead of repeating the raw number twice.
+    expect(container.textContent).toContain("Raised $35M in a Series B (Sep 2025).");
     expect(container.textContent).toContain("Accel, Sequoia");
 
     const signalsButton = interactiveControls(container).find((button) => button.textContent?.includes("Signals"));

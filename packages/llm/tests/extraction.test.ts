@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   blockEnrichmentTool,
+  blockGuidance,
   evidenceForExtractionPrompt,
   extractionSystemPrompt,
   extractionTool,
@@ -151,6 +152,23 @@ describe("extractionTool", () => {
     });
     expect(identity.properties.description.properties.value.anyOf[0].required).toContain("expandedDescription");
   });
+
+  it("requires basis on every comparable so the model must justify the buyer-alternative test", () => {
+    expect(extractionTool.input_schema.properties.comparables.items.required).toEqual([
+      "name",
+      "domain",
+      "oneLiner",
+      "basis"
+    ]);
+  });
+
+  it("exposes an optional competitionFraming resolved fact", () => {
+    expect(extractionTool.input_schema.properties.competitionFraming.properties.value.anyOf[0]).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+    expect(extractionTool.input_schema.required).not.toContain("competitionFraming");
+  });
 });
 
 describe("blockEnrichmentTool", () => {
@@ -167,6 +185,14 @@ describe("blockEnrichmentTool", () => {
       }
     });
   });
+
+  it("requires basis on comparables and exposes competitionFraming like the full extraction tool", () => {
+    expect(blockEnrichmentTool.input_schema.properties.comparables.items.required).toContain("basis");
+    expect(blockEnrichmentTool.input_schema.properties.competitionFraming.properties.value.anyOf[0]).toMatchObject({
+      type: "string",
+      minLength: 1
+    });
+  });
 });
 
 describe("extractionSystemPrompt", () => {
@@ -180,6 +206,18 @@ describe("extractionSystemPrompt", () => {
     expect(extractionSystemPrompt).toContain("Never use literal ellipses");
     expect(extractionSystemPrompt).toContain("Never stuff feature lists into the overview");
     expect(extractionSystemPrompt).toContain("Ban brochure language");
+    expect(extractionSystemPrompt).toContain("buyer-alternative test");
+    expect(extractionSystemPrompt).toContain("basis is required for every comparable");
+    expect(extractionSystemPrompt).toContain("competitionFraming");
+  });
+});
+
+describe("blockGuidance", () => {
+  it("tightens comparables guidance with the buyer-alternative test and competitionFraming", () => {
+    expect(blockGuidance.comparables).toContain("buyer-alternative test");
+    expect(blockGuidance.comparables).toContain("basis is required");
+    expect(blockGuidance.comparables).toContain("competitionFraming");
+    expect(blockGuidance.comparables).toContain("Never invent market commentary");
   });
 });
 
@@ -693,6 +731,53 @@ describe("parseExtractionToolUse", () => {
     expect(payload.citations).toHaveLength(1);
   });
 
+  it("normalizes a cited competitionFraming fact", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            competitionFraming: {
+              value: "Cartesia competes in the low-latency voice API slice, which is crowded with well-funded rivals.",
+              status: "verified",
+              confidence: "medium",
+              citationIds: ["c1"],
+            },
+          },
+        },
+      ],
+    });
+
+    expect(payload.competitionFraming?.value).toBe(
+      "Cartesia competes in the low-latency voice API slice, which is crowded with well-funded rivals."
+    );
+    expect(payload.competitionFraming?.citationIds).toEqual(["c1"]);
+  });
+
+  it("drops an uncited competitionFraming claim rather than keeping unsupported market commentary", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            competitionFraming: {
+              value: "Cartesia dominates a wide-open market.",
+              status: "inferred",
+              confidence: "low",
+              citationIds: [],
+            },
+          },
+        },
+      ],
+    });
+
+    expect(payload.competitionFraming).toEqual(unknownFact);
+  });
+
   it("rejects missing extraction tool use", () => {
     expect(() =>
       parseExtractionToolUse({
@@ -769,6 +854,50 @@ describe("parseBlockEnrichmentToolUse", () => {
     });
     expect(payload.funding).toBeUndefined();
     expect(payload.citations).toHaveLength(1);
+  });
+
+  it("normalizes a cited competitionFraming patch from the comparables block", () => {
+    const payload = parseBlockEnrichmentToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_block_claims",
+          input: {
+            blockId: "comparables",
+            comparables: [
+              {
+                name: "Browserbase",
+                domain: "browserbase.com",
+                oneLiner: "Cloud browser automation infrastructure for AI agents.",
+                basis: "Adjacent cloud execution surface for AI-controlled browser work.",
+                citationIds: ["c1"],
+              },
+            ],
+            competitionFraming: {
+              value: "Cartesia competes in the low-latency voice API slice, which is crowded with well-funded rivals.",
+              status: "verified",
+              confidence: "medium",
+              citationIds: ["c1"],
+            },
+            citations: [
+              {
+                id: "c1",
+                url: "https://browserbase.com",
+                title: "Browserbase",
+                fetchedAt: "2026-05-14T16:00:00.000Z",
+                sourceType: "news",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(payload.blockId).toBe("comparables");
+    expect(payload.comparables?.[0]).toMatchObject({ name: "Browserbase", basis: "Adjacent cloud execution surface for AI-controlled browser work." });
+    expect(payload.competitionFraming?.value).toBe(
+      "Cartesia competes in the low-latency voice API slice, which is crowded with well-funded rivals."
+    );
   });
 
   it("drops uncited block facts instead of letting guessed emails through", () => {

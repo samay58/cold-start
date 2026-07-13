@@ -51,6 +51,7 @@ export function withResolvedCitationRefs(card: ColdStartCard): ColdStartCard {
       comparable.citationIds
         ? { ...comparable, citationIds: comparable.citationIds.filter((id) => validIds.has(id)) }
         : comparable
-    )
+    ),
+    ...(card.competitionFraming ? { competitionFraming: fixFact(card.competitionFraming) } : {})
   };
 }

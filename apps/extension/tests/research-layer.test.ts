@@ -494,6 +494,52 @@ describe("research layer model", () => {
     expect(display?.sources[0]).toMatchObject({ domain: "readme.com", href: "https://readme.com" });
   });
 
+  it("leads the competition body with the framing line and feeds its citations into sources", () => {
+    const display = layerDisplayForCard(baseCard({
+      comparables: [
+        { name: "Cursor", domain: "cursor.com", oneLiner: "AI code editor.", basis: "Same developer budget line for AI-assisted coding." },
+      ],
+      competitionFraming: {
+        value: "Warp competes in the AI-native terminal slice, which is still sparsely populated.",
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"],
+      },
+    }), "competition");
+
+    expect(display?.body).toBe("Warp competes in the AI-native terminal slice, which is still sparsely populated.");
+    expect(display?.status).toBe("saved");
+    expect(display?.sources.map((source) => source.domain)).toContain("warp.dev");
+  });
+
+  it("falls back to the comparable list summary when no framing is present", () => {
+    const display = layerDisplayForCard(baseCard({
+      comparables: [{ name: "Cursor", domain: "cursor.com", oneLiner: "AI code editor." }],
+    }), "competition");
+
+    expect(display?.body).toBe("Cursor (cursor.com)");
+    expect(display?.status).toBe("saved");
+  });
+
+  it("renders basis as the per-comp reason, falling back to oneLiner for legacy cards", () => {
+    const display = layerDisplayForCard(baseCard({
+      comparables: [
+        { name: "Cursor", domain: "cursor.com", oneLiner: "AI code editor.", basis: "Same buyer evaluating AI pair-programming spend." },
+        { name: "Zed", domain: "zed.dev", oneLiner: "Fast collaborative code editor." },
+      ],
+    }), "competition");
+
+    expect(display?.items?.find((item) => item.title === "Cursor")?.body).toBe("Same buyer evaluating AI pair-programming spend.");
+    expect(display?.items?.find((item) => item.title === "Zed")?.body).toBe("Fast collaborative code editor.");
+  });
+
+  it("reports the empty state when there is no framing and no comparables", () => {
+    const display = layerDisplayForCard(baseCard({ comparables: [] }), "competition");
+
+    expect(display?.status).toBe("empty");
+    expect(display?.body).toBe("No useful competitive evidence found yet.");
+  });
+
   it("uses stable drag thresholds for card pinning", () => {
     expect(dragOffsetShouldPreview(-32)).toBe(true);
     expect(dragOffsetShouldPreview(-31)).toBe(false);

@@ -590,21 +590,29 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
 
   if (id === "competition") {
     const comparables = displayComparables(card);
-    const sources = citationSources(card, comparables.flatMap((company) => company.citationIds ?? []));
+    const framing = card.competitionFraming;
+    const framingText = framing?.value ? stripCitationMarkers(framing.value) : null;
+    const citationIds = Array.from(new Set([
+      ...(framingText ? framing?.citationIds ?? [] : []),
+      ...comparables.flatMap((company) => company.citationIds ?? []),
+    ]));
+    const sources = citationSources(card, citationIds);
+    const summaryFallback = comparables.length > 0
+      ? comparables.map((company) => `${company.name} (${company.domain})`).join(", ")
+      : emptyBodyForLayer(id);
+
     return {
       id,
       title: layer.title,
-      body: comparables.length > 0
-        ? comparables.map((company) => `${company.name} (${company.domain})`).join(", ")
-        : emptyBodyForLayer(id),
+      body: framingText ?? summaryFallback,
       items: comparables.slice(0, 4).map((company) => ({
         title: company.name,
         meta: company.domain,
-        body: company.oneLiner
+        body: company.basis ?? company.oneLiner
       })),
       sources,
       sourceCount: displaySourceCount(sources),
-      status: comparables.length > 0 ? "saved" : "empty"
+      status: framingText || comparables.length > 0 ? "saved" : "empty"
     };
   }
 
