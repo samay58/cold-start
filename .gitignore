@@ -4,6 +4,7 @@ node_modules/
 apps/web/.cold-start/
 dist/
 dist-dev/
+dist-firefox/
 coverage/
 eval/runs/
 eval/activegraph-runs/

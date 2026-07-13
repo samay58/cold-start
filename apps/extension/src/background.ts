@@ -12,11 +12,20 @@ const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
 
 chrome.runtime.onInstalled.addListener(() => {
-  void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  // Chrome-only: Firefox has no sidePanel API; its click behavior comes from the
+  // sidebar_action manifest key plus the adapter in the click handler below.
+  if ("sidePanel" in chrome) {
+    void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+  }
 });
 
 chrome.action.onClicked.addListener((tab) => {
-  if (tab.id !== undefined) {
+  // Firefox loses the user gesture if anything async runs first, so the sidebar
+  // open must be the first, synchronous statement of this handler. Repeat clicks
+  // while the sidebar is already open are a no-op (Chrome parity).
+  if (!("sidePanel" in chrome)) {
+    void browser.sidebarAction.open();
+  } else if (tab.id !== undefined) {
     void chrome.sidePanel.open({ tabId: tab.id });
   }
 

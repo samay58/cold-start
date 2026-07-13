@@ -163,6 +163,39 @@ function PanelHeader({
   );
 }
 
+// SPIKE-ONLY (dies with the spike/firefox-port branch): answers the port plan's
+// undocumented Phase 0 question - does a click on a button inside the Firefox
+// sidebar grant activeTab for the content tab? Without the tabs permission,
+// tabs[0].url is only readable under a live activeTab grant, so url visibility
+// is the answer. Renders only in Firefox builds.
+function ActiveTabProbe() {
+  const [result, setResult] = useState<string | null>(null);
+
+  if (typeof browser === "undefined" || "sidePanel" in chrome) {
+    return null;
+  }
+
+  function runProbe() {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs?.[0];
+      const verdict = tab?.url
+        ? `activeTab GRANTED: url visible (${tab.url})`
+        : "activeTab NOT granted: tab url invisible";
+      console.log("[cold-start spike] in-sidebar activeTab probe:", verdict, tabs);
+      setResult(verdict);
+    });
+  }
+
+  return (
+    <div style={{ fontSize: 11, opacity: 0.75, padding: "6px 10px" }}>
+      <button onClick={runProbe} type="button">
+        Spike: test in-sidebar activeTab
+      </button>
+      {result ? <p style={{ margin: "4px 0 0" }}>{result}</p> : null}
+    </div>
+  );
+}
+
 function readActiveDomain(): Promise<string | null> {
   return new Promise((resolve) => {
     chrome.storage.session.get("activeDomain", (items) => {
@@ -1254,6 +1287,7 @@ export function SidePanel() {
           {panel}
         </motion.div>
       </AnimatePresence>
+      <ActiveTabProbe />
     </div>
   );
 }
