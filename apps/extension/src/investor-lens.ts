@@ -4,6 +4,7 @@ import {
   stripCitationMarkers,
   type Citation,
   type ColdStartCard,
+  type OpenQuestion,
   type QuestionCategory,
   type SourcedText
 } from "@cold-start/core";
@@ -44,6 +45,13 @@ export type LensClaim = {
   sourcePosture: SourcePosture;
 };
 
+// A tension side (If true / It breaks if) keeps its lead claim in the card and files any
+// remaining verified claims on that side behind a "+N more" affordance, mirroring how the
+// timing row and the sources footer already handle overflow.
+export type LensTensionClaim = LensClaim & {
+  moreClaims: Array<{ text: string }>;
+};
+
 type LensTiming = {
   field: string;
   text: string;
@@ -57,6 +65,10 @@ type LensQuestion = {
   question: string;
   categoryLabel: string | null;
   changesReadIf: string | null;
+  // The rest of the model's ranked questions, filed behind a "+N more" affordance with their
+  // category labels preserved so the memo does not drop what a dedicated Next Question layer
+  // used to show.
+  moreQuestions: Array<{ question: string; categoryLabel: string | null }>;
 };
 
 type LensPostureMark = {
@@ -79,8 +91,8 @@ type LensSource = {
 export type InvestorReadDisplay = {
   receiptLine: string;
   lede: LensClaim;
-  holds: LensClaim | null;
-  breaks: LensClaim | null;
+  holds: LensTensionClaim | null;
+  breaks: LensTensionClaim | null;
   timing: LensTiming | null;
   timingNotFound: boolean;
   nextQuestion: LensQuestion | null;
@@ -173,6 +185,20 @@ function lensClaim(citations: Map<string, Citation>, claim: SourcedText): LensCl
   };
 }
 
+// A tension side keeps its lead claim in the standard LensClaim shape and files whatever
+// verified claims remain (bullCase/bearCase are 0-3 post-verification) behind moreClaims.
+function tensionClaim(citations: Map<string, Citation>, claims: SourcedText[]): LensTensionClaim | null {
+  const [first, ...rest] = claims;
+  if (!first) {
+    return null;
+  }
+
+  return {
+    ...lensClaim(citations, first),
+    moreClaims: rest.map((claim) => ({ text: stripCitationMarkers(claim.text) }))
+  };
+}
+
 function supportedClaims(card: ColdStartCard): SourcedText[] {
   if (!card.synthesis) {
     return [];
@@ -217,20 +243,58 @@ function timingDisplay(card: ColdStartCard, citations: Map<string, Citation>): L
   };
 }
 
+function isGenericRevenueQuestion(question: string) {
+  const normalized = question.toLowerCase();
+  return /\b(arr|revenue)\b/.test(normalized) && /\b(not public|undisclosed|not disclosed|verify|validate)\b/.test(normalized);
+}
+
+type PrioritizedQuestion = {
+  question: string;
+  categoryLabel: string | null;
+  changesReadIf: string | null;
+};
+
+// The model already emits its highest-conviction questions in priority order, so this keeps
+// that order. It only cleans the text, rewrites a generic revenue ask into a concrete one,
+// dedupes, and attaches the model's category label plus, when the model named it, what
+// answer would change the read. Shared by the memo's shown question and its "+N more" file.
+function prioritizedQuestions(questions: readonly OpenQuestion[]): PrioritizedQuestion[] {
+  const seen = new Set<string>();
+  return questions
+    .map((entry) => {
+      const cleanedBody = cleanQuestionText(entry.question);
+      const genericRevenue = isGenericRevenueQuestion(cleanedBody);
+      const question = genericRevenue
+        ? "What revenue quality, retention, and margin evidence would change the read?"
+        : cleanedBody;
+      const category: QuestionCategory | null = genericRevenue ? "unit_economics" : entry.category;
+      const changesReadIf = entry.wouldChangeReadIf
+        ? stripCitationMarkers(entry.wouldChangeReadIf).replace(/\s+/g, " ").trim()
+        : null;
+      return { question, categoryLabel: labelForQuestionCategory(category), changesReadIf: changesReadIf || null };
+    })
+    .filter((item) => {
+      const key = item.question.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      if (!item.question || item.question === "?" || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 3);
+}
+
 function nextQuestionDisplay(card: ColdStartCard): LensQuestion | null {
-  const entry = card.synthesis?.openQuestions[0];
-  if (!entry) {
+  const [first, ...rest] = prioritizedQuestions(card.synthesis?.openQuestions ?? []);
+  if (!first) {
     return null;
   }
 
-  const changesReadIf = entry.wouldChangeReadIf
-    ? stripCitationMarkers(entry.wouldChangeReadIf).replace(/\s+/g, " ").trim()
-    : null;
-
   return {
-    question: cleanQuestionText(entry.question),
-    categoryLabel: labelForQuestionCategory(entry.category),
-    changesReadIf: changesReadIf || null
+    question: first.question,
+    categoryLabel: first.categoryLabel,
+    changesReadIf: first.changesReadIf,
+    moreQuestions: rest.map((entry) => ({ question: entry.question, categoryLabel: entry.categoryLabel }))
   };
 }
 
@@ -332,14 +396,12 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
   const claims = supportedClaims(card);
   const marks = postureMarks(citations, claims);
   const timing = timingDisplay(card, citations);
-  const bull = card.synthesis.bullCase[0] ?? null;
-  const bear = card.synthesis.bearCase[0] ?? null;
 
   return {
     receiptLine: receiptLine(card),
     lede: lensClaim(citations, card.synthesis.whyItMatters),
-    holds: bull ? lensClaim(citations, bull) : null,
-    breaks: bear ? lensClaim(citations, bear) : null,
+    holds: tensionClaim(citations, card.synthesis.bullCase),
+    breaks: tensionClaim(citations, card.synthesis.bearCase),
     timing,
     timingNotFound: timingIsNotFound(card),
     nextQuestion: nextQuestionDisplay(card),

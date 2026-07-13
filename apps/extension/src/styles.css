@@ -1948,8 +1948,7 @@ button {
   line-height: 1.45;
 }
 
-.cs-lens-question small em,
-.cs-question-detail em {
+.cs-lens-question small em {
   margin-right: 4px;
   color: rgb(var(--cs-c-23-26-31-text) / 0.6);
   font-size: 10.5px;
@@ -2023,14 +2022,6 @@ a.cs-lens-source:focus-visible {
   color: var(--color-company);
   font-size: 10.5px;
   font-style: normal;
-  line-height: 1.4;
-}
-
-.cs-question-detail {
-  display: block;
-  margin-top: 3px;
-  color: var(--color-muted);
-  font-size: 10.5px;
   line-height: 1.4;
 }
 
@@ -2615,122 +2606,6 @@ a.cs-lens-source:focus-visible {
   font-family: var(--font-body);
   font-size: 10px;
   letter-spacing: 0.05em;
-}
-
-.cs-layer-questions {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.18);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.78), rgb(var(--cs-c-247-245-238) / 0.68)),
-    rgb(var(--cs-c-110-92-158) / 0.035);
-}
-
-.cs-layer-questions-head {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-seal);
-}
-
-.cs-layer-questions-head > span {
-  display: inline-grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.28);
-  border-radius: 6px;
-  background: rgb(var(--cs-c-255-253-248) / 0.82);
-  font: 650 12px/1 var(--font-text);
-}
-
-.cs-layer-questions-head strong {
-  font: 680 13px/1.18 var(--font-display);
-}
-
-.cs-layer-questions ol {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cs-layer-questions li {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.58);
-}
-
-.cs-question-tag {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 2px 8px;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.28);
-  border-radius: 999px;
-  background: rgb(var(--cs-c-110-92-158) / 0.07);
-  color: var(--color-seal);
-  font: 600 10.5px/1.3 var(--font-text);
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cs-layer-questions p {
-  margin: 0;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.78);
-  font-size: 12.5px;
-  line-height: 1.42;
-}
-
-.cs-layer-case {
-  display: grid;
-  gap: 12px;
-}
-
-.cs-layer-case-side {
-  display: grid;
-  gap: 7px;
-  padding: 10px 12px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.5);
-  border-radius: 6px;
-  background: rgb(var(--cs-c-255-253-248) / 0.6);
-}
-
-.cs-layer-case-side h4 {
-  margin: 0;
-  font: 680 13px/1.18 var(--font-display);
-}
-
-.cs-layer-case-side ul {
-  display: grid;
-  gap: 7px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cs-layer-case-side li {
-  position: relative;
-  padding-left: 13px;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.82);
-  font-size: 12.5px;
-  line-height: 1.42;
-}
-
-.cs-layer-case-side li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 7px;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
 }
 
 .cs-layer-money-ledger {

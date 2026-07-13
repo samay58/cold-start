@@ -11,7 +11,6 @@ import type { KeyboardEvent } from "react";
 import { commitSpring, motionTokens, snapSpring } from "./motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
-  isSynthesisLayer,
   layerDisplayForCard,
   layersForCard,
   type ResearchLayerDisplay,
@@ -29,7 +28,7 @@ import {
   investorReadForCard,
   LENS_WAITS_FOR_PROFILE_REASON,
   type InvestorReadDisplay,
-  type LensClaim
+  type LensTensionClaim
 } from "./investor-lens";
 import type { TooltipPropsFor } from "./SharedTooltip";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
@@ -214,12 +213,10 @@ function LayerContent({
   );
 
   if (display.items && display.items.length > 0) {
-    const evidenceItems = display.items.filter((item) => item.kind !== "question");
-    const questionItems = display.items.filter((item) => item.kind === "question");
     if (display.id === "investors") {
       return (
         <>
-          <MoneyLayerItems items={evidenceItems} />
+          <MoneyLayerItems items={display.items} />
           {sourceChips}
         </>
       );
@@ -227,55 +224,24 @@ function LayerContent({
     if (display.id === "signals") {
       return (
         <>
-          <SignalLayerItems items={evidenceItems} />
-          {sourceChips}
-        </>
-      );
-    }
-    if (display.id === "theCase") {
-      return (
-        <>
-          <TheCaseLayerItems items={display.items} />
+          <SignalLayerItems items={display.items} />
           {sourceChips}
         </>
       );
     }
     return (
       <>
-        {evidenceItems.length > 0 ? (
-          <ul className="cs-layer-items">
-            {evidenceItems.map((item) => (
-              <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
-                <div>
-                  <strong>{item.title}</strong>
-                  {item.body ? <p>{item.body}</p> : null}
-                </div>
-                {item.meta ? <span>{item.meta}</span> : null}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {questionItems.length > 0 ? (
-          <section className="cs-layer-questions" aria-label="Open questions">
-            <div className="cs-layer-questions-head">
-              <span aria-hidden="true">?</span>
-              <strong>Open questions</strong>
-            </div>
-            <ol>
-              {questionItems.map((item) => (
-                <li key={`${item.title}-${item.body ?? ""}`}>
-                  <span className="cs-question-tag">{item.title}</span>
-                  {item.body ? <p>{item.body}</p> : null}
-                  {item.detail ? (
-                    <small className="cs-question-detail">
-                      <em>Changes the read if</em> {item.detail}
-                    </small>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : null}
+        <ul className="cs-layer-items">
+          {display.items.map((item) => (
+            <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
+              <div>
+                <strong>{item.title}</strong>
+                {item.body ? <p>{item.body}</p> : null}
+              </div>
+              {item.meta ? <span>{item.meta}</span> : null}
+            </li>
+          ))}
+        </ul>
         {sourceChips}
       </>
     );
@@ -359,19 +325,6 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
   );
 }
 
-function TheCaseLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["items"]> }) {
-  return (
-    <div className="cs-layer-case" aria-label="Bull and bear case">
-      {items.map((item) => (
-        <section className="cs-layer-case-side" data-kind={item.meta ?? item.kind ?? "evidence"} key={`${item.title}-${item.body ?? ""}`}>
-          <h4>{item.title}</h4>
-          {item.body ? <p>{item.body}</p> : null}
-        </section>
-      ))}
-    </div>
-  );
-}
-
 function InvestorLensControl({
   card,
   onRunAnalysis,
@@ -434,20 +387,38 @@ function LensTensionSide({
   claim,
   emptyCopy,
   label,
-  side
+  side,
+  tooltipProps
 }: {
-  claim: LensClaim | null;
+  claim: LensTensionClaim | null;
   emptyCopy: string;
   label: string;
   side: "holds" | "breaks";
+  tooltipProps: TooltipPropsFor;
 }) {
   return (
     <section className="cs-lens-tension-side" data-side={side}>
       <h4>{label}</h4>
       {claim ? (
-        <p>
-          <span>{claim.text}</span>
-        </p>
+        <div>
+          <p>
+            <span>{claim.text}</span>
+          </p>
+          {claim.moreClaims.length > 0 ? (
+            <button
+              className="cs-lens-timing-more"
+              type="button"
+              {...tooltipProps({
+                body: claim.moreClaims.map((entry) => entry.text).join("\n\n"),
+                id: `lens-${side}-more`,
+                placement: "above",
+                title: `Also filed under ${label}`
+              })}
+            >
+              {`+${claim.moreClaims.length} more`}
+            </button>
+          ) : null}
+        </div>
       ) : (
         <p className="cs-lens-none">{emptyCopy}</p>
       )}
@@ -475,12 +446,14 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
           emptyCopy="No supported bull claim survived verification."
           label="If true"
           side="holds"
+          tooltipProps={tooltipProps}
         />
         <LensTensionSide
           claim={read.breaks}
           emptyCopy="No supported break risk survived verification."
           label="It breaks if"
           side="breaks"
+          tooltipProps={tooltipProps}
         />
       </div>
       <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
@@ -525,6 +498,22 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
               <small>
                 <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
               </small>
+            ) : null}
+            {read.nextQuestion.moreQuestions.length > 0 ? (
+              <button
+                className="cs-lens-timing-more"
+                type="button"
+                {...tooltipProps({
+                  body: read.nextQuestion.moreQuestions
+                    .map((entry) => (entry.categoryLabel ? `${entry.categoryLabel}. ${entry.question}` : entry.question))
+                    .join("\n\n"),
+                  id: "lens-question-more",
+                  placement: "above",
+                  title: "Also filed under Next question"
+                })}
+              >
+                {`+${read.nextQuestion.moreQuestions.length} more`}
+              </button>
             ) : null}
           </div>
         ) : (
@@ -835,11 +824,7 @@ export function ResearchLayerPanel({
       return next;
     });
     setExpandedLayerId(id);
-    // Open Questions and The Case come from the consolidated synthesis (investor lens), not a
-    // per-section run, so activating them must not queue a section job; their explicit Lens control
-    // starts the full analysis instead. Card and section-backed analysis layers still run their
-    // own section on activation.
-    if (display && shouldQueueLayerRun(display.status) && !profileRun && !isSynthesisLayer(id)) {
+    if (display && shouldQueueLayerRun(display.status) && !profileRun) {
       onRunSection(id);
     }
   }
@@ -951,7 +936,6 @@ export function ResearchLayerPanel({
 
             const layer = layers.find((candidate) => candidate.id === id);
             const isAnalysisLayer = layer?.source === "analysis";
-            const isSynthesisLayerId = isSynthesisLayer(id);
             const refreshing = Boolean(activeSectionRun?.layerId === id);
             const queued = queuedLayerIds.includes(id);
             // The investor lens is one full-analysis run that produces card.synthesis, which feeds
@@ -973,7 +957,7 @@ export function ResearchLayerPanel({
             const state = running || refreshing ? "running" : visiblyQueued ? "queued" : display.status;
             const actionLabel = waitingForProfile || visiblyQueued
               ? undefined
-              : isSynthesisLayerId
+              : isAnalysisLayer
                 ? undefined
                 : display.status === "stale" || display.status === "failed" || display.status === "ready" || display.status === "empty"
                   ? "Queue"

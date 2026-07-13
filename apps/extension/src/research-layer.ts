@@ -10,13 +10,10 @@ import {
   stripCitationMarkers,
   type Citation,
   type ColdStartCard,
-  type OpenQuestion,
-  type QuestionCategory,
   type ResearchLayerId,
   type ResearchSection
 } from "@cold-start/core";
 import { formatCompactCurrency, formatMediumDate, formatShortDate, safeExternalHref } from "@cold-start/ui";
-import { cleanQuestionText, labelForQuestionCategory } from "./investor-lens";
 
 export type { ResearchLayerId } from "@cold-start/core";
 
@@ -42,10 +39,7 @@ export type ResearchLayerDisplay = {
   items?: Array<{
     title: string;
     body?: string;
-    kind?: "evidence" | "question";
     meta?: string;
-    // Quiet second line under a question: what answer would change the read.
-    detail?: string;
     date?: string;
     corroboration?: number;
     sourceClass?: ResearchSourceClass;
@@ -72,30 +66,17 @@ type ResearchLayerSourceReference = {
   sourceClass: ResearchSourceClass;
 };
 
+// The investor read (memo) is the single synthesis surface: Why care, The case, Timing, and
+// Next question all render there, absorbing whatever this deck used to show for them. This
+// deck only carries the card-sourced layers, each backed by its own section.
 export const RESEARCH_LAYER_CARDS: ResearchLayerCard[] = [
-  { id: "openQuestions", title: "Next question", description: "The question that would change the read", source: "analysis" },
-  { id: "coreIdea", title: "Why care", description: "Why this company might matter", source: "analysis" },
-  { id: "theCase", title: "The case", description: "Bull and bear, side by side", source: "analysis" },
   { id: "serves", title: "Who pays", description: "Who pays and for what work", source: "card" },
-  { id: "marketStructureTiming", title: "Timing", description: "Why now might be the moment", source: "analysis" },
   { id: "customers", title: "Proof", description: "Named customers and deployments", source: "card" },
   { id: "signals", title: "Signals", description: "What changed recently", source: "card" },
   { id: "investors", title: "Money", description: "Who funded it, and at what price", source: "card" },
   { id: "competition", title: "Comps", description: "The alternatives a buyer weighs", source: "card" },
   { id: "mechanism", title: "Product", description: "What makes it different", source: "card" }
 ];
-
-// These layers render from the consolidated investor lens. They should not create standalone
-// section work before synthesis exists.
-const SYNTHESIS_LAYER_IDS = new Set<ResearchLayerId>(["openQuestions", "coreIdea", "theCase", "marketStructureTiming"]);
-
-export function isSynthesisLayer(id: ResearchLayerId): boolean {
-  return SYNTHESIS_LAYER_IDS.has(id);
-}
-
-function labelForCategory(category: QuestionCategory | null): string {
-  return labelForQuestionCategory(category) ?? "Open question";
-}
 
 export function sectionIdForLayer(id: ResearchLayerId): ResearchSection["sectionId"] {
   return coreSectionIdForLayer(id);
@@ -221,7 +202,6 @@ function tractionDisplayItem(card: ColdStartCard, item: SectionItem): DisplayIte
   const corroboration = item.citationIds.length;
   const sourceClass = bestSourceClass(card, item.citationIds);
   const base = {
-    kind: "evidence" as const,
     ...(corroboration > 1 ? { corroboration } : {}),
     ...(sourceClass ? { sourceClass } : {})
   };
@@ -312,7 +292,6 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
       : {
           title: item.label,
           body: stripCitationMarkers(item.text),
-          kind: "evidence" as const,
           ...(item.meta ? { meta: item.meta } : {})
         }
   );
@@ -340,10 +319,6 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
   };
 }
 
-function textFromList(items: string[], fallback: string) {
-  return items.length > 0 ? items.join(", ") : fallback;
-}
-
 function dedupeStrings(values: string[]) {
   const seen = new Set<string>();
   const unique: string[] = [];
@@ -360,47 +335,6 @@ function dedupeStrings(values: string[]) {
   }
 
   return unique;
-}
-
-function isGenericRevenueQuestion(question: string) {
-  const normalized = question.toLowerCase();
-  return /\b(arr|revenue)\b/.test(normalized) && /\b(not public|undisclosed|not disclosed|verify|validate)\b/.test(normalized);
-}
-
-// The model already emits the 3 highest-conviction questions in priority order, so we
-// keep its order. We only clean the text, rewrite a generic revenue ask, dedupe, and
-// attach the model's category label plus, when the model named it, what answer would
-// change the read.
-function prioritizedOpenQuestionItems(questions: OpenQuestion[]) {
-  const seen = new Set<string>();
-  return questions
-    .map((entry) => {
-      const cleanedBody = cleanQuestionText(entry.question);
-      const genericRevenue = isGenericRevenueQuestion(cleanedBody);
-      const body = genericRevenue
-        ? "What revenue quality, retention, and margin evidence would change the read?"
-        : cleanedBody;
-      const category: QuestionCategory | null = genericRevenue ? "unit_economics" : entry.category;
-      const detail = entry.wouldChangeReadIf
-        ? stripCitationMarkers(entry.wouldChangeReadIf).replace(/\s+/g, " ").trim()
-        : "";
-      return { body, category, detail };
-    })
-    .filter((item) => {
-      const key = item.body.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      if (!item.body || item.body === "?" || seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 3)
-    .map((item) => ({
-      title: labelForCategory(item.category),
-      body: item.body,
-      kind: "question" as const,
-      ...(item.detail ? { detail: item.detail } : {})
-    }));
 }
 
 function normalizeCompanyTerm(value: string | null | undefined) {
@@ -449,28 +383,11 @@ function displayComparables(card: ColdStartCard) {
   return card.comparables.filter((comparable) => !comparableLooksLikeTarget(card, comparable));
 }
 
-function marketRows(card: ColdStartCard) {
-  const market = card.synthesis?.marketStructureAndTiming;
-  if (!market) {
-    return [];
-  }
-
-  return [
-    { title: "Buyer budget", claim: market.buyerBudget },
-    { title: "Pain severity", claim: market.painSeverity },
-    { title: "Adoption trigger", claim: market.adoptionTrigger },
-    { title: "Market structure", claim: market.marketStructure },
-    { title: "Profit pool", claim: market.profitPool },
-    { title: "Expansion path", claim: market.expansionPath },
-    { title: "Timing risk", claim: market.timingRisk }
-  ].flatMap((row) => row.claim ? [{ title: row.title, body: stripCitationMarkers(row.claim.text), citationIds: row.claim.citationIds }] : []);
-}
-
 export function layersForCard(card: ColdStartCard, sections?: ResearchSection[]): ResearchLayer[] {
   const canAnalyze = canRunInvestorAnalysis(card);
   return RESEARCH_LAYER_CARDS.map((layer) => {
     const section = sectionForLayer(sections, layer.id);
-    if (section && !SYNTHESIS_LAYER_IDS.has(layer.id)) {
+    if (section) {
       return {
         ...layer,
         availability: section.status === "available" || section.status === "stale"
@@ -522,126 +439,9 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
   const section = sectionForLayer(sections, id);
   if (
     section &&
-    !SYNTHESIS_LAYER_IDS.has(id) &&
     !(id === "signals" && signalsRenderFromCard(card, section))
   ) {
     return displayFromSection(card, layer, section);
-  }
-
-  if (id === "theCase") {
-    if (!card.synthesis) {
-      return {
-        id,
-        title: layer.title,
-        body: "Run Investor Lens to weigh the bull and bear case.",
-        sources: [],
-        sourceCount: 0,
-        status: "ready"
-      };
-    }
-
-    const bull = card.synthesis.bullCase[0] ?? null;
-    const bear = card.synthesis.bearCase[0] ?? null;
-    const question = card.synthesis.openQuestions[0]?.question ?? null;
-    const evidenceClaims = [bull, bear].filter((claim): claim is NonNullable<typeof bull> => Boolean(claim));
-    const sources = citationSources(card, evidenceClaims.flatMap((claim) => claim.citationIds));
-    const items = [
-      ...(bull ? [{ title: "If true", body: stripCitationMarkers(bull.text), kind: "evidence" as const, meta: "bull" }] : []),
-      ...(bear ? [{ title: "It breaks if", body: stripCitationMarkers(bear.text), kind: "evidence" as const, meta: "bear" }] : []),
-      ...(question ? [{ title: "Test", body: cleanQuestionText(question), kind: "question" as const, meta: "Next diligence question" }] : [])
-    ];
-    return {
-      id,
-      title: layer.title,
-      body: stripCitationMarkers(bull?.text ?? bear?.text ?? question ?? "No supported case survived verification."),
-      ...(items.length > 0 ? { items } : {}),
-      sources,
-      sourceCount: displaySourceCount(sources),
-      status: evidenceClaims.length > 0 || question ? "saved" : "empty"
-    };
-  }
-
-  if (id === "coreIdea") {
-    if (!card.synthesis) {
-      return {
-        id,
-        title: layer.title,
-        body: "Run Investor Lens to synthesize the core idea from cited evidence.",
-        sources: [],
-        sourceCount: 0,
-        status: "ready"
-      };
-    }
-
-    const sources = citationSources(card, card.synthesis.whyItMatters.citationIds);
-    return {
-      id,
-      title: layer.title,
-      body: stripCitationMarkers(card.synthesis.whyItMatters.text),
-      sources,
-      sourceCount: displaySourceCount(sources),
-      status: "saved"
-    };
-  }
-
-  if (id === "marketStructureTiming") {
-    if (!card.synthesis) {
-      return {
-        id,
-        title: layer.title,
-        body: "Run Investor Lens to assess market structure and timing.",
-        sources: [],
-        sourceCount: 0,
-        status: "ready"
-      };
-    }
-
-    if (!card.synthesis.marketStructureAndTiming) {
-      return {
-        id,
-        title: layer.title,
-        body: "Timing not found · Current sources did not support a timing read.",
-        sources: [],
-        sourceCount: 0,
-        status: "empty"
-      };
-    }
-
-    const rows = marketRows(card);
-    const sources = citationSources(card, rows.flatMap((row) => row.citationIds));
-    return {
-      id,
-      title: layer.title,
-      body: rows[0]?.body ?? "Timing not found · Current sources did not support a timing read.",
-      items: rows.map((row) => ({ title: row.title, body: row.body })),
-      sources,
-      sourceCount: displaySourceCount(sources),
-      status: rows.length > 0 ? "saved" : "empty"
-    };
-  }
-
-  if (id === "openQuestions") {
-    if (!card.synthesis) {
-      return {
-        id,
-        title: layer.title,
-        body: "Run Investor Lens to surface open questions.",
-        sources: [],
-        sourceCount: 0,
-        status: "ready"
-      };
-    }
-
-    const items = prioritizedOpenQuestionItems(card.synthesis.openQuestions);
-    return {
-      id,
-      title: layer.title,
-      body: textFromList(items.map((item) => item.body ?? item.title), "No open questions survived verification."),
-      items,
-      sources: [],
-      sourceCount: 0,
-      status: items.length > 0 ? "saved" : "empty"
-    };
   }
 
   if (id === "customers") {
@@ -686,7 +486,6 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       const sourceClass = bestSourceClass(card, signal.citationIds);
       return {
         title: signal.title,
-        kind: "evidence" as const,
         date: formatMediumDate(signal.date),
         meta: [signal.source, signal.category].filter(Boolean).join(" · "),
         ...(signal.citationIds.length > 1 ? { corroboration: signal.citationIds.length } : {}),

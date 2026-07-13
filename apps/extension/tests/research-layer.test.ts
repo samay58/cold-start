@@ -81,13 +81,11 @@ function baseCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
 }
 
 describe("research layer model", () => {
+  // Why care, The case, Timing, and Next question render from the investor read (memo) now;
+  // see investor-lens.test.ts. This deck only carries the card-sourced layers.
   it("ships only useful activatable cards in stable order", () => {
     expect(RESEARCH_LAYER_CARDS.map((card) => card.id)).toEqual([
-      "openQuestions",
-      "coreIdea",
-      "theCase",
       "serves",
-      "marketStructureTiming",
       "customers",
       "signals",
       "investors",
@@ -95,11 +93,7 @@ describe("research layer model", () => {
       "mechanism"
     ]);
     expect(RESEARCH_LAYER_CARDS.map((card) => card.title)).toEqual([
-      "Next question",
-      "Why care",
-      "The case",
       "Who pays",
-      "Timing",
       "Proof",
       "Signals",
       "Money",
@@ -114,10 +108,10 @@ describe("research layer model", () => {
     }
   });
 
-  it("marks synthesis-backed cards as needing analysis until synthesis exists", () => {
+  it("resolves availability for card-sourced layers directly from the card", () => {
     const layers = layersForCard(baseCard());
-    expect(layers.find((layer) => layer.id === "coreIdea")?.availability).toBe("ready");
-    expect(layers.find((layer) => layer.id === "openQuestions")?.availability).toBe("ready");
+    expect(layers.find((layer) => layer.id === "serves")?.availability).toBe("available");
+    expect(layers.find((layer) => layer.id === "investors")?.availability).toBe("available");
   });
 
   it("derives populated display data from real card fields", () => {
@@ -138,175 +132,8 @@ describe("research layer model", () => {
     });
   });
 
-  it("derives analysis display data only after synthesis exists", () => {
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [{ text: "Developers already show adoption.", citationIds: ["c1"] }],
-        bearCase: [],
-        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }]
-      }
-    });
-
-    expect(layerDisplayForCard(card, "coreIdea")).toMatchObject({
-      body: "Warp turns terminal work into a collaboration layer.",
-      sourceCount: 1,
-      sources: [
-        {
-          domain: "warp.dev",
-          href: "https://warp.dev",
-          id: "c1",
-          title: "Warp"
-        }
-      ],
-      status: "saved"
-    });
-    expect(layerDisplayForCard(card, "openQuestions")?.body).toContain("Can it expand beyond developers?");
-  });
-
-  it("labels open questions from the model category and rewrites a generic revenue ask", () => {
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [{ text: "Developers already show adoption [c1].", citationIds: ["c1"] }],
-        bearCase: [{ text: "Distribution may be compressed by incumbent developer tools [c1].", citationIds: ["c1"] }],
-        openQuestions: [
-          { question: "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?", category: "adoption_proof" },
-          { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", category: "durability" },
-          { question: "ARR is not public; verify revenue.", category: "unit_economics" }
-        ]
-      }
-    });
-
-    const display = layerDisplayForCard(card, "openQuestions");
-
-    expect(display?.items?.map((item) => item.title)).toEqual([
-      "Adoption & proof",
-      "Durability",
-      "Unit economics"
-    ]);
-    expect(display?.items).toHaveLength(3);
-    expect(display?.items?.[0]?.body).toContain("expansion beyond individual developers");
-    expect(display?.items?.[2]?.body).not.toBe("ARR is not public; verify revenue.");
-    expect(display?.items?.[2]?.body).toContain("revenue quality, retention, and margin");
-  });
-
-  it("renders market structure and timing from verified synthesis fields", () => {
-    const buyerBudget = {
-      text: "The buyer budget is contact-center automation spend [c1].",
-      citationIds: ["c1"]
-    };
-    const timingRisk = {
-      text: "Timing risk remains because production voice workflows are still early [c1].",
-      citationIds: ["c1"]
-    };
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [],
-        bearCase: [],
-        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }],
-        marketStructureAndTiming: {
-          buyerBudget,
-          painSeverity: null,
-          adoptionTrigger: null,
-          marketStructure: null,
-          profitPool: null,
-          expansionPath: null,
-          timingRisk
-        }
-      }
-    });
-
-    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      title: "Timing",
-      body: "The buyer budget is contact-center automation spend.",
-      sourceCount: 1,
-      status: "saved"
-    });
-    expect(layerDisplayForCard(card, "marketStructureTiming")?.items).toEqual([
-      { title: "Buyer budget", body: "The buyer budget is contact-center automation spend." },
-      { title: "Timing risk", body: "Timing risk remains because production voice workflows are still early." }
-    ]);
-  });
-
-  it("treats missing market timing as honestly absent after synthesis", () => {
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [],
-        bearCase: [],
-        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }]
-      }
-    });
-
-    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("empty");
-    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      title: "Timing",
-      body: "Timing not found · Current sources did not support a timing read.",
-      sourceCount: 0,
-      status: "empty"
-    });
-  });
-
-  it("keeps generated market structure with no surviving fields empty", () => {
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [],
-        bearCase: [],
-        openQuestions: [{ question: "Can it expand beyond developers?", category: "adoption_proof" }],
-        marketStructureAndTiming: {
-          buyerBudget: null,
-          painSeverity: null,
-          adoptionTrigger: null,
-          marketStructure: null,
-          profitPool: null,
-          expansionPath: null,
-          timingRisk: null
-        }
-      }
-    });
-
-    expect(layersForCard(card).find((layer) => layer.id === "marketStructureTiming")?.availability).toBe("empty");
-    expect(layerDisplayForCard(card, "marketStructureTiming")).toMatchObject({
-      body: "Timing not found · Current sources did not support a timing read.",
-      sourceCount: 0,
-      status: "empty"
-    });
-  });
-
-  it("renders the case as a compact tension map", () => {
-    const card = baseCard({
-      synthesis: {
-        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
-        bullCase: [{ text: "Developer teams may standardize terminal workflows around Warp [c1].", citationIds: ["c1"] }],
-        bearCase: [{ text: "It breaks if IDE agents absorb terminal workflows before Warp owns budgets [c1].", citationIds: ["c1"] }],
-        openQuestions: [{ question: "Who owns the budget for team-wide terminal workflows?", category: "buyer_budget" }]
-      }
-    });
-
-    expect(layerDisplayForCard(card, "theCase")?.items).toEqual([
-      {
-        title: "If true",
-        body: "Developer teams may standardize terminal workflows around Warp.",
-        kind: "evidence",
-        meta: "bull"
-      },
-      {
-        title: "It breaks if",
-        body: "It breaks if IDE agents absorb terminal workflows before Warp owns budgets.",
-        kind: "evidence",
-        meta: "bear"
-      },
-      {
-        title: "Test",
-        body: "Who owns the budget for team-wide terminal workflows?",
-        kind: "question",
-        meta: "Next diligence question"
-      }
-    ]);
-  });
+  // Why care (whyItMatters), The case (holds/breaks), Timing, and Next question now render
+  // from the investor read; their derivation is covered in investor-lens.test.ts.
 
   it("orders displayed sources by source quality before chip truncation", () => {
     const display = layerDisplayForCard(baseCard({

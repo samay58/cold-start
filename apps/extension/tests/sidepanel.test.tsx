@@ -436,8 +436,8 @@ describe("SidePanel generation gate", () => {
     // The intake previews the real research modules and the sealed Investor Lens, not
     // marketing copy or invented card names.
     expect(container.textContent).not.toContain("Get up to speed");
-    expect(container.textContent).toContain("Next question");
-    expect(container.textContent).toContain("Why care");
+    expect(container.textContent).toContain("Who pays");
+    expect(container.textContent).toContain("Proof");
     expect(container.textContent).toContain("Investor Lens");
     expect(container.textContent).toContain("Runs on the cited profile once it is filed.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
@@ -963,7 +963,7 @@ describe("SidePanel generation gate", () => {
     const buttons = interactiveControls(container).map((button) => button.textContent?.trim());
     expect(buttons).not.toContain(legacyAnalysisLabel);
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Why care");
+    expect(container.textContent).toContain("Who pays");
 
     await unmount();
   });
@@ -973,8 +973,8 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     expect(container.textContent).toContain("Research");
-    expect(container.textContent).toContain("Why care");
-    expect(container.textContent).toContain("Timing");
+    expect(container.textContent).toContain("Who pays");
+    expect(container.textContent).toContain("Money");
     expect(container.textContent).toContain("Proof");
     expect(container.textContent).not.toContain("Add enrichment");
     for (const title of futureCardTitles) {
@@ -1350,18 +1350,12 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const marketButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Timing")
-    );
-    expect(marketButton).toBeTruthy();
-    await act(async () => {
-      marketButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    expect(container.textContent).toContain("Synthesizing");
-    expect(container.textContent).toContain("Reading cited sources");
-    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("running");
+    // The stored synthesis already renders in the memo (Timing honestly reads not-found,
+    // since cardWithSynthesis carries no marketStructureAndTiming), and resuming the
+    // backgrounded analysis run must not refire generation behind it.
+    expect(container.textContent).toContain("The company has a supported wedge.");
+    const investorRead = container.querySelector("[aria-label='Investor read']");
+    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("Not supported by current sources.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -1419,50 +1413,12 @@ describe("SidePanel generation gate", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    expect(container.querySelector<HTMLElement>('[data-layer-id="coreIdea"]')?.dataset.state).not.toBe("running");
+    // The stored section belongs to a gated synthesis-only sectionId (why_it_matters), which no
+    // longer has a standalone tray card, so it never shows as a spuriously running module.
+    expect(container.querySelector<HTMLElement>("[data-state='running']")).toBeNull();
     expect(container.textContent).not.toContain("Finishing profile");
     expect(container.textContent).not.toContain("Getting the profile ready");
-    expect(container.textContent).toContain("10 waiting");
-    expect(generateCalls(fetchMock)).toHaveLength(0);
-    await unmount();
-  });
-
-  it("shows an analysis layer synthesizing under the active investor lens", async () => {
-    vi.useFakeTimers();
-    const domain = "linear.app";
-    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
-        return jsonResponse({ slug: "linear", domain, status: "queued", mode: "analysis" }, { status: 202 });
-      }
-
-      if (String(url).includes("/api/generate?")) {
-        return jsonResponse({
-          slug: "linear",
-          domain,
-          status: "running",
-          mode: "analysis",
-          startedAt: new Date(Date.now() - 42_000).toISOString()
-        });
-      }
-
-      return jsonResponse(cardForDomain(domain));
-    });
-    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
-
-    const nextQuestionButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Next question")
-    );
-    expect(nextQuestionButton).toBeTruthy();
-
-    await act(async () => {
-      nextQuestionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
-    // The lens fills every analysis layer at once, so Open Questions reads as synthesizing under
-    // the active run rather than queued behind it, and activating it starts no extra generation.
-    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.dataset.state).toBe("running");
-    expect(container.querySelector<HTMLElement>('[data-layer-id="openQuestions"]')?.textContent).toContain("Synthesizing");
+    expect(container.textContent).toContain("6 waiting");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });
@@ -2353,20 +2309,11 @@ describe("SidePanel generation gate", () => {
     const fetchMock = vi.fn(async () => jsonResponse(staleCard));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const timingButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Timing")
-    );
-    expect(timingButton).toBeTruthy();
-
-    await act(async () => {
-      timingButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    await flushPromises();
-
+    // The memo renders on synthesis alone, no card to activate; Timing states the honest
+    // not-found row directly.
+    const investorRead = container.querySelector("[aria-label='Investor read']");
+    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("Not supported by current sources.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    expect(container.querySelector<HTMLElement>('[data-layer-id="marketStructureTiming"]')?.dataset.state).toBe("empty");
-    expect(container.textContent).toContain("Timing not found");
-    expect(container.textContent).toContain("Current sources did not support a timing read.");
     await unmount();
   });
 
@@ -2396,21 +2343,14 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("groups open questions separately from evidence rows", async () => {
+  it("shows the ranked next question in the memo, with its category label", async () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
-    const nextQuestionButton = interactiveControls(container).find((button) => button.textContent?.includes("Next question"));
-    expect(nextQuestionButton).toBeTruthy();
 
-    await act(async () => {
-      nextQuestionButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    const questionGroup = container.querySelector(".cs-layer-questions");
-    expect(questionGroup).toBeTruthy();
-    expect(questionGroup?.textContent).toContain("Open questions");
-    expect(questionGroup?.textContent).toContain("Who owns the budget?");
-    expect(container.querySelector('[data-layer-id="openQuestions"] .cs-layer-items')).toBeNull();
+    const questionSection = container.querySelector("[aria-label='Investor read'] [aria-label='Next question']");
+    expect(questionSection).toBeTruthy();
+    expect(questionSection?.textContent).toContain("Who owns the budget?");
+    expect(questionSection?.textContent).toContain("Buyer & budget");
     await unmount();
   });
 

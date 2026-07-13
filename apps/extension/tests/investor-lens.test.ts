@@ -149,6 +149,36 @@ describe("investor lens display", () => {
     expect(display?.sources.map((source) => source.id)).toEqual(["c2"]);
   });
 
+  it("keeps the lead bull and bear claim in the card and files the rest behind moreClaims", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [
+          { text: "Developers already show daily usage [c1].", citationIds: ["c1"] },
+          { text: "Teams standardize on it once one engineer adopts it [c1].", citationIds: ["c1"] },
+          { text: "Expansion revenue follows seat growth [c1].", citationIds: ["c1"] }
+        ],
+        bearCase: [
+          { text: "IDEs could bundle a comparable terminal agent [c1].", citationIds: ["c1"] },
+          { text: "Switching cost is low for a CLI tool [c1].", citationIds: ["c1"] }
+        ],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }]
+      }
+    }));
+
+    expect(display?.holds).toMatchObject({
+      text: "Developers already show daily usage.",
+      moreClaims: [
+        { text: "Teams standardize on it once one engineer adopts it." },
+        { text: "Expansion revenue follows seat growth." }
+      ]
+    });
+    expect(display?.breaks).toMatchObject({
+      text: "IDEs could bundle a comparable terminal agent.",
+      moreClaims: [{ text: "Switching cost is low for a CLI tool." }]
+    });
+  });
+
   it("leaves the tension sides empty instead of restating the lede", () => {
     const display = investorReadForCard(card({
       synthesis: {
@@ -171,6 +201,28 @@ describe("investor lens display", () => {
     expect(display?.breaks).toBeNull();
     expect(display?.nextQuestion?.changesReadIf).toBeNull();
     expect(display?.supportedClaimCount).toBe(1);
+  });
+
+  it("shows the top-ranked question and files the rest behind moreQuestions, rewriting a generic revenue ask", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp turns terminal work into a collaboration layer [c1].", citationIds: ["c1"] },
+        bullCase: [{ text: "Developers already show adoption [c1].", citationIds: ["c1"] }],
+        bearCase: [{ text: "Distribution may be compressed by incumbent developer tools [c1].", citationIds: ["c1"] }],
+        openQuestions: [
+          { question: "Can Warp prove expansion beyond individual developers into team-wide workflow budgets?", category: "adoption_proof" },
+          { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", category: "durability" },
+          { question: "ARR is not public; verify revenue.", category: "unit_economics" }
+        ]
+      }
+    }));
+
+    expect(display?.nextQuestion?.categoryLabel).toBe("Adoption & proof");
+    expect(display?.nextQuestion?.question).toContain("expansion beyond individual developers");
+    expect(display?.nextQuestion?.moreQuestions).toEqual([
+      { question: "How durable is the wedge if IDEs and issue trackers bundle terminal agents?", categoryLabel: "Durability" },
+      { question: "What revenue quality, retention, and margin evidence would change the read?", categoryLabel: "Unit economics" }
+    ]);
   });
 
   it("prefers trigger and risk over structural fields for the timing row", () => {

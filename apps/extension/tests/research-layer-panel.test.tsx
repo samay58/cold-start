@@ -481,8 +481,8 @@ describe("ResearchLayerPanel surface diet", () => {
 
     const head = container.querySelector(".cs-research-layer-head");
     expect(head?.textContent).toBe("Research");
-    expect(container.textContent).not.toContain("0 / 10");
-    expect(container.textContent).toContain("10 waiting");
+    expect(container.textContent).not.toContain("0 / 6");
+    expect(container.textContent).toContain("6 waiting");
     await unmount();
   });
 
