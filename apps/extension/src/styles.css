@@ -2292,6 +2292,15 @@ a.cs-lens-source:focus-visible {
   color: rgb(var(--cs-c-14-14-14-text) / 0.70);
 }
 
+.cs-layer-lead {
+  margin: 0 0 10px;
+  color: rgb(var(--cs-c-14-14-14-text) / 0.78);
+  font-family: var(--font-body);
+  font-size: 12.25px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
 .cs-layer-items span {
   order: -1;
   justify-self: start;

@@ -458,12 +458,19 @@ export function deriveLegacyResearchSectionsFromCard(card: ColdStartCard): Resea
           slug: card.slug,
           domain: card.domain,
           sectionId: "competition",
-          summary: `${card.comparables.length} comparable ${card.comparables.length === 1 ? "company" : "companies"} surfaced.`,
+          summary:
+            card.competitionFraming?.value ??
+            `${card.comparables.length} comparable ${card.comparables.length === 1 ? "company" : "companies"} surfaced.`,
           items: card.comparables.slice(0, 7).map((comparable) => ({
             label: comparable.name,
             text: comparable.basis ?? comparable.oneLiner,
+            meta: comparable.domain,
             citationIds: comparable.citationIds ?? []
           })),
+          citationIds: Array.from(new Set([
+            ...(card.competitionFraming?.value ? card.competitionFraming.citationIds ?? [] : []),
+            ...card.comparables.slice(0, 7).flatMap((comparable) => comparable.citationIds ?? [])
+          ])),
           confidence: "medium"
         })
       : emptyResearchSectionForCard(card, "competition"),

@@ -52,6 +52,9 @@ export type ResearchLayerDisplay = {
   // as quiet non-interactive pills. Pills replace the old "Backers: A, B, +N more" text line
   // and the derived "Named investors include ..." row so the names are said exactly once.
   investors?: string[] | undefined;
+  // Competition layer only: the cited sub-segment framing sentence, rendered as a lead line
+  // above the comparable items. Absent when the card carries no supported framing.
+  lead?: string | undefined;
   sources: ResearchLayerSourceReference[];
   sourceCount: number;
   // Honest module-header copy ("3 events · 10 sources"); falls back to the source count.
@@ -240,7 +243,12 @@ function tractionDisplayItem(card: ColdStartCard, item: SectionItem): DisplayIte
 
 function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, section: ResearchSection): ResearchLayerDisplay {
   const definition = RESEARCH_SECTION_DEFINITIONS_BY_ID[section.sectionId];
-  const sources = citationSources(card, section.citationIds);
+  const competitionFraming = section.sectionId === "competition" && card.competitionFraming?.value
+    ? stripCitationMarkers(card.competitionFraming.value)
+    : null;
+  const sources = citationSources(card, competitionFraming
+    ? Array.from(new Set([...section.citationIds, ...(card.competitionFraming?.citationIds ?? [])]))
+    : section.citationIds);
   const content = section.content;
   const title = layer.title;
 
@@ -325,6 +333,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     ...(items.length > 0 ? { items } : {}),
     ...(rows ? { rows } : {}),
     ...(investorNames.length > 0 ? { investors: investorNames } : {}),
+    ...(competitionFraming ? { lead: competitionFraming } : {}),
     sources,
     sourceCount: displaySourceCount(sources),
     ...(section.sectionId === "traction" && items.length > 0
@@ -626,6 +635,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       id,
       title: layer.title,
       body: framingText ?? summaryFallback,
+      ...(framingText ? { lead: framingText } : {}),
       items: comparables.slice(0, 4).map((company) => ({
         title: company.name,
         meta: company.domain,

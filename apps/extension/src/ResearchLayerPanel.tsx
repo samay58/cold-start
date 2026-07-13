@@ -231,6 +231,7 @@ function LayerContent({
     }
     return (
       <>
+        {display.lead ? <p className="cs-layer-lead">{display.lead}</p> : null}
         <ul className="cs-layer-items">
           {display.items.map((item) => (
             <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>

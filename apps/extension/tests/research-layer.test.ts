@@ -1,4 +1,4 @@
-import { fundingEvidenceFromCitations, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { deriveLegacyResearchSectionsFromCard, fundingEvidenceFromCitations, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
 import {
@@ -511,8 +511,32 @@ describe("research layer model", () => {
     }), "competition");
 
     expect(display?.body).toBe("Warp competes in the AI-native terminal slice, which is still sparsely populated.");
+    expect(display?.lead).toBe("Warp competes in the AI-native terminal slice, which is still sparsely populated.");
     expect(display?.status).toBe("saved");
     expect(display?.sources.map((source) => source.domain)).toContain("warp.dev");
+  });
+
+  it("keeps the framing lead and comp domains when a stored competition section shadows the card", () => {
+    const card = baseCard({
+      comparables: [
+        { name: "Cursor", domain: "cursor.com", oneLiner: "AI code editor.", basis: "Same developer budget line for AI-assisted coding.", citationIds: ["c1"] },
+      ],
+      competitionFraming: {
+        value: "Warp competes in the AI-native terminal slice, which is still sparsely populated.",
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"],
+      },
+    });
+    const [section] = deriveLegacyResearchSectionsFromCard(card).filter(
+      (candidate) => candidate.sectionId === "competition"
+    );
+    const display = layerDisplayForCard(card, "competition", section ? [section] : []);
+
+    expect(display?.lead).toBe("Warp competes in the AI-native terminal slice, which is still sparsely populated.");
+    expect(display?.body).toContain("AI-native terminal slice");
+    expect(display?.items?.[0]).toMatchObject({ title: "Cursor", meta: "cursor.com" });
+    expect(display?.items?.[0]?.body).toBe("Same developer budget line for AI-assisted coding.");
   });
 
   it("falls back to the comparable list summary when no framing is present", () => {
