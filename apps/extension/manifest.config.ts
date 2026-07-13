@@ -74,6 +74,18 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
         }
       },
       incognito: "not_allowed",
+      // Firefox's MV3 default extension-pages CSP appends
+      // upgrade-insecure-requests, which rewrites the panel's fetches to
+      // http://localhost:3000 as https and breaks the local API (Bugzilla
+      // 1797086). Local builds drop the directive by overriding the CSP;
+      // production builds keep Mozilla's default (the deployed API is https).
+      ...(localApiAllowed
+        ? {
+            content_security_policy: {
+              extension_pages: "script-src 'self'; object-src 'self';"
+            }
+          }
+        : {}),
       host_permissions: hostPermissions
     };
   }

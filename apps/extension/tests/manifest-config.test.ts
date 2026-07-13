@@ -41,5 +41,13 @@ describe("extensionManifest", () => {
     // does not translate a service_worker key (crashes in renderCrxManifest).
     expect(manifest.background.scripts).toEqual(["src/background.ts"]);
     expect(manifest.host_permissions).toEqual(["https://cold-start-samay58s-projects.vercel.app/*"]);
+    // Production keeps Firefox's default extension-pages CSP (with its
+    // upgrade-insecure-requests); only local-API builds override it, because
+    // the directive rewrites http://localhost fetches to https and kills them.
+    expect(manifest.content_security_policy).toBeUndefined();
+
+    const devManifest = extensionManifest({ command: "serve", mode: "development" }, "firefox") as FirefoxManifest;
+    expect(devManifest.content_security_policy?.extension_pages).toContain("script-src 'self'");
+    expect(devManifest.content_security_policy?.extension_pages).not.toContain("upgrade-insecure-requests");
   });
 });
