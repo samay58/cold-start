@@ -131,6 +131,13 @@ const headcountValueSchema = {
   required: ["value", "asOf"]
 } as const;
 
+// Sentence budgets mirror extractionSystemPrompt and blockGuidance.description
+// above, which are the actual enforcement point at the model level; the
+// normalizer functions below (normalizeOptionalDescriptionSentence,
+// normalizeOptionalDescriptionSentences) are what clamp a non-compliant model
+// response back into budget. Keep all three in sync: concept stays one
+// complete sentence; serves and mechanism allow up to two complete sentences
+// each, truncated on a sentence boundary, never mid-sentence.
 const descriptionValueSchema = {
   type: "object",
   additionalProperties: false,
@@ -283,7 +290,8 @@ export const extractionSystemPrompt = [
   "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
   "Description standard: identity.description.shortDescription must be one complete sentence, roughly 18 to 24 words and no more than about 170 characters, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
   "identity.description.expandedDescription must be two or three complete sentences in plain English. Explain what the company does, who uses or buys it, what workflow or pain it addresses, and the nuance that matters. Use concrete nouns, clean causal language, and no brochure copy.",
-  "Use identity.description.concept for the non-obvious product idea, serves for buyer and use case, and mechanism for product and technology when sources support those details. Keep each structured field to one complete sentence and one idea.",
+  "Use identity.description.concept for the non-obvious product idea in one complete sentence.",
+  "Use identity.description.serves for buyer and use case and identity.description.mechanism for product and technology, when sources support those details, in up to two complete sentences each. Every sentence must name a concrete segment, channel, price, or mechanic the evidence supports. Never pad, never restate shortDescription, and never write a second sentence with nothing new to say.",
   "Use identity.websiteUrl for the canonical public website when a provider or source returns it. Use identity.linkedinUrl only for the company LinkedIn page, never a person profile.",
   "identity.oneLiner is a backwards-compatible display alias for description.shortDescription. It should be the same kind of short complete sentence, not a paragraph.",
   "Do not write generic category labels such as answer engine, AI-native ERP, copilot, or platform unless the cited sources make that the most precise description.",
@@ -546,6 +554,8 @@ function normalizeIdentity(input: unknown) {
   };
 }
 
+const maxServesMechanismSentences = 2;
+
 function normalizeDescriptionValue(value: unknown): CompanyDescription | null {
   const record = objectRecord(value);
   const shortDescription = normalizeShortDescription(record.shortDescription);
@@ -557,8 +567,8 @@ function normalizeDescriptionValue(value: unknown): CompanyDescription | null {
     shortDescription,
     expandedDescription: normalizeExpandedDescription(record.expandedDescription),
     concept: normalizeOptionalDescriptionSentence(record.concept),
-    serves: normalizeOptionalDescriptionSentence(record.serves),
-    mechanism: normalizeOptionalDescriptionSentence(record.mechanism),
+    serves: normalizeOptionalDescriptionSentences(record.serves, maxServesMechanismSentences),
+    mechanism: normalizeOptionalDescriptionSentences(record.mechanism, maxServesMechanismSentences),
   };
 }
 
@@ -591,6 +601,19 @@ function normalizeOptionalDescriptionSentence(value: unknown): string | null {
   }
 
   return completeDescriptionSentence(firstDescriptionSentence(cleanDescriptionText(value)));
+}
+
+// Same normalization as normalizeOptionalDescriptionSentence, but keeps up to
+// maxSentences complete sentences instead of just the first. Truncation
+// always lands on a sentence boundary from the abbreviation-aware splitter,
+// never mid-sentence.
+function normalizeOptionalDescriptionSentences(value: unknown, maxSentences: number): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const sentences = descriptionSentences(cleanDescriptionText(value), maxSentences);
+  return completeDescriptionSentence(sentences.join(" "));
 }
 
 function clampCompleteSentence(value: string, maxLength: number): string {
@@ -830,7 +853,7 @@ export async function extractCompanyClaims(input: {
 
 const blockGuidance: Record<BlockEnrichmentId, string> = {
   description:
-    "Fill identity.description fields for both display layers and the structured product facts. shortDescription must be one complete sentence, roughly 18 to 24 words and under about 170 characters. expandedDescription must be two or three complete sentences explaining what the company does, who uses or buys it, what workflow or pain it addresses, and what nuance matters. Keep concept, serves, and mechanism as one complete sentence each. Never use literal ellipses or incomplete endings. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
+    "Fill identity.description fields for both display layers and the structured product facts. shortDescription must be one complete sentence, roughly 18 to 24 words and under about 170 characters. expandedDescription must be two or three complete sentences explaining what the company does, who uses or buys it, what workflow or pain it addresses, and what nuance matters. Keep concept to one complete sentence. Give serves and mechanism up to two complete sentences each, and make every sentence name a concrete segment, channel, price, or mechanic the evidence supports; never pad, never restate shortDescription, and never write a second sentence with nothing new to say. Never use literal ellipses or incomplete endings. Prefer primary product pages for product mechanics and independent product analysis for framing. Do not use category labels when concrete workflow language is available.",
   funding:
     "Build the funding ledger before any totals. For each cited round, capture the round name, the exact USD amount whenever the source states one (do not round-number guess; record explicit figures verbatim), the announcedAt date, and the named leads in leadInvestors. For funding.investors, enumerate every named investor across every round (leads and participating both), deduped, with their domain when the source provides it. For totalRaisedUsd, fill it only when a cited source states the cumulative total explicitly or when every round in the ledger has a cited amount you can sum without overlap. Prefer recent reporting from Reuters, Bloomberg, TechCrunch, The Information, Crunchbase News, PitchBook, and Forbes; company press releases and investor posts are acceptable for exact announcement facts. Demote aggregator pages that lack a primary citation.",
   team:

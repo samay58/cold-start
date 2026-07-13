@@ -11,6 +11,7 @@ export * from "./generation-trace";
 export * from "./headline";
 export * from "./intelligence";
 export * from "./research-sections";
+export * from "./sentences";
 export * from "./signal-clusters.mjs";
 export * from "./slug";
 export * from "./source-authority";

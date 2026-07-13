@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import { firstSentence as coreFirstSentence, sentenceCount as coreSentenceCount, type ColdStartCard } from "@cold-start/core";
 
 export const INSUFFICIENT_EVIDENCE_NOTICE =
   "Not enough cited evidence for Investor Lens yet.";
@@ -74,9 +74,11 @@ function cleanSummaryText(value: string): string {
     .trim();
 }
 
+// Delegates to the shared abbreviation-aware splitter in @cold-start/core so
+// this stays in sync with description normalization and person reads instead
+// of carrying its own regex that treats abbreviation periods as sentence ends.
 function firstSentence(value: string): string {
-  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
-  return (match?.[1] ?? value).trim();
+  return coreFirstSentence(value);
 }
 
 function completeSentence(value: string): string {
@@ -113,7 +115,7 @@ function meaningfullyLonger(candidate: string, summary: string): boolean {
 }
 
 function sentenceCount(value: string): number {
-  return (cleanSummaryText(value).match(/[^.!?]+[.!?]+(?:\s|$)/g) ?? []).length;
+  return coreSentenceCount(cleanSummaryText(value));
 }
 
 function normalizeForComparison(value: string): string {

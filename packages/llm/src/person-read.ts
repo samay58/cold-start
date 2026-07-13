@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
+import { sentenceCount } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
@@ -82,15 +83,6 @@ export const personReadSystemPrompt = [
   "Use citationIds exactly as provided. Do not invent citationIds.",
   "If the evidence supports no such claim, return null for that person."
 ].join(" ");
-
-function sentenceCount(text: string): number {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return 0;
-  }
-  const matches = trimmed.match(/[^.!?]+[.!?]+/g);
-  return matches ? matches.filter((segment) => segment.trim().length > 0).length : 1;
-}
 
 function evidencePromptPayload(people: PersonReadEvidence[]) {
   return people.map((person) => ({

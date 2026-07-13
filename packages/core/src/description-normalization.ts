@@ -1,3 +1,5 @@
+import { firstSentence, takeSentences } from "./sentences";
+
 const INCOMPLETE_ENDING_WORDS = new Set([
   "about",
   "across",
@@ -68,18 +70,15 @@ export function completeDescriptionSentence(value: string | null | undefined): s
   return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
 }
 
+// Delegates to the shared abbreviation-aware splitter in ./sentences so this
+// module, the extraction normalizer, person-read validation, and the
+// extension's profile formatting all agree on what a sentence boundary is.
 export function firstDescriptionSentence(value: string): string {
-  const match = value.match(/^(.+?[.!?])(?:\s|$)/);
-  return (match?.[1] ?? value).trim();
+  return firstSentence(value);
 }
 
 export function descriptionSentences(value: string, limit: number): string[] {
-  const matches = value.match(/[^.!?]+[.!?]+(?:\s|$)/g);
-  if (!matches) {
-    return value ? [value] : [];
-  }
-
-  return matches.slice(0, limit).map((sentence) => sentence.trim()).filter(Boolean);
+  return takeSentences(value, limit);
 }
 
 export function clampCompleteDescriptionSentence(value: string, maxLength: number): string | null {

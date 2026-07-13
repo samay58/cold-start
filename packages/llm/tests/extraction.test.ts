@@ -412,6 +412,148 @@ describe("parseExtractionToolUse", () => {
     expect(payload.identity.description?.value?.concept).toBe("Evidence-led diligence workspace.");
   });
 
+  it("keeps a short description whole across an abbreviation instead of truncating mid-phrase", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription:
+                    "Huckberry sells menswear and outdoor gear online and through two physical stores in Washington D.C. and Columbus.",
+                  expandedDescription: null,
+                  concept: null,
+                  serves: null,
+                  mechanism: null
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.identity.description?.value?.shortDescription).toBe(
+      "Huckberry sells menswear and outdoor gear online and through two physical stores in Washington D.C. and Columbus."
+    );
+    expect(payload.identity.description?.value?.shortDescription).not.toMatch(/D\.C\.$/);
+  });
+
+  it("keeps up to two complete sentences for serves and mechanism instead of truncating to one", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: "Cartesia builds real-time voice AI infrastructure for developers.",
+                  expandedDescription: null,
+                  concept: "Low-latency speech models exposed as developer infrastructure.",
+                  serves:
+                    "Developers building voice agents and audio applications. Teams at consumer and enterprise companies both ship on the same APIs.",
+                  mechanism:
+                    "APIs and models for real-time speech generation and understanding. Streaming inference keeps round-trip latency under 100 milliseconds."
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.identity.description?.value?.serves).toBe(
+      "Developers building voice agents and audio applications. Teams at consumer and enterprise companies both ship on the same APIs."
+    );
+    expect(payload.identity.description?.value?.mechanism).toBe(
+      "APIs and models for real-time speech generation and understanding. Streaming inference keeps round-trip latency under 100 milliseconds."
+    );
+  });
+
+  it("truncates a third serves or mechanism sentence at the sentence boundary, never mid-sentence", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: "Cartesia builds real-time voice AI infrastructure for developers.",
+                  expandedDescription: null,
+                  concept: "Low-latency speech models exposed as developer infrastructure.",
+                  serves:
+                    "Developers building voice agents and audio applications. Teams at consumer and enterprise companies both ship on the same APIs. A self-serve tier targets indie builders.",
+                  mechanism: null
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.identity.description?.value?.serves).toBe(
+      "Developers building voice agents and audio applications. Teams at consumer and enterprise companies both ship on the same APIs."
+    );
+    expect(payload.identity.description?.value?.serves).not.toContain("self-serve tier");
+  });
+
+  it("keeps concept to one sentence even when the model returns two", () => {
+    const payload = parseExtractionToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_company_claims",
+          input: {
+            ...validExtractionPayload,
+            identity: {
+              ...validExtractionPayload.identity,
+              description: {
+                value: {
+                  shortDescription: "Cartesia builds real-time voice AI infrastructure for developers.",
+                  expandedDescription: null,
+                  concept:
+                    "Low-latency speech models exposed as developer infrastructure. It also ships a hosted playground.",
+                  serves: null,
+                  mechanism: null
+                },
+                status: "verified",
+                confidence: "high",
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.identity.description?.value?.concept).toBe(
+      "Low-latency speech models exposed as developer infrastructure."
+    );
+  });
+
   it("drops empty, category-label, or incomplete short descriptions", () => {
     const payload = parseExtractionToolUse({
       content: [
