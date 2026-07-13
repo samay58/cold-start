@@ -9,6 +9,7 @@ export default tseslint.config(
     ignores: [
       "**/dist/**",
       "**/dist-dev/**",
+      "**/dist-firefox/**",
       "**/.next/**",
       "**/.evo/**",
       "**/.vercel/**",
