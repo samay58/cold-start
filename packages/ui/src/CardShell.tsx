@@ -1,5 +1,5 @@
 import type { ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
-import { sourceQualityForSource, stripCitationMarkers } from "@cold-start/core";
+import { sourceQualityForSource, splitIntoSentences, stripCitationMarkers } from "@cold-start/core";
 import type { ReactNode } from "react";
 import { CitationGroup } from "./CitationGroup";
 import type { CitationLedger } from "./CitationLedger";
@@ -80,9 +80,16 @@ function publicEvidenceText(text: string, limit = 260) {
     return cleaned;
   }
 
-  const firstSentence = cleaned.match(/^.{120,260}?[.!?](?=\s|$)/)?.[0];
-  if (firstSentence) {
-    return firstSentence;
+  let sentencePrefix = "";
+  for (const sentence of splitIntoSentences(cleaned)) {
+    const candidate = sentencePrefix ? `${sentencePrefix} ${sentence}` : sentence;
+    if (candidate.length > limit) {
+      break;
+    }
+    sentencePrefix = candidate;
+    if (sentencePrefix.length >= 120) {
+      return sentencePrefix;
+    }
   }
 
   const clipped = cleaned.slice(0, limit);

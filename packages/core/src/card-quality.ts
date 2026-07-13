@@ -1,4 +1,5 @@
 import type { ColdStartCard } from "./card";
+import { sentenceCount } from "./sentences";
 
 type CardForQuality = Pick<ColdStartCard, "citations" | "comparables" | "domain" | "funding" | "identity" | "signals" | "team">;
 
@@ -93,10 +94,6 @@ function hasSummary(card: CardForQuality) {
       hasUsefulText(description?.serves, card.domain) ||
       hasUsefulText(description?.mechanism, card.domain)
   );
-}
-
-function sentenceCount(value: string) {
-  return (value.match(/[.!?](?:\s|$)/g) ?? []).length || 1;
 }
 
 function overviewText(card: CardForQuality) {

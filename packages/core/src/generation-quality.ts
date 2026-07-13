@@ -1,6 +1,7 @@
 import type { ColdStartCard } from "./card";
 import { hasUsablePublicProfile } from "./card-quality";
 import type { GenerationTrace } from "./generation-trace";
+import { sentenceCount } from "./sentences";
 
 export type GenerationQualitySeverity = "warn" | "fail";
 
@@ -64,10 +65,6 @@ function hasResearchLayerContent(card: ColdStartCard) {
       card.comparables.length > 0 ||
       card.synthesis
   );
-}
-
-function sentenceCount(value: string) {
-  return (value.match(/[.!?](?:\s|$)/g) ?? []).length || 1;
 }
 
 function hasBloatedOverview(card: ColdStartCard) {
