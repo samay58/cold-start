@@ -15,6 +15,86 @@ async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await expect(page.locator("#root > *")).toHaveCount(1);
 }
 
+type CollapsedTextViolation = {
+  height: number;
+  parentClass: string;
+  parentTag: string;
+  text: string;
+  width: number;
+};
+
+// Guards the one-character-per-line class of bug: a leftover multi-column CSS grid (a dot
+// column with nothing left to fill it) collapses its text sibling into a track only a few
+// pixels wide, so long strings wrap one glyph per line. Any visible text node longer than
+// 30 characters must sit in a rendered container wider than 80px; a narrower container is a
+// shattered layout, not a design choice, at that length.
+async function findCollapsedLongTextViolations(
+  page: Parameters<typeof installChromeShim>[0],
+  rootSelector = "#root"
+): Promise<CollapsedTextViolation[]> {
+  return page.evaluate((selector) => {
+    const MIN_TEXT_LENGTH = 30;
+    const MIN_CONTAINER_WIDTH = 80;
+
+    function isRenderedVisible(element: Element): boolean {
+      const style = getComputedStyle(element);
+      if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") {
+        return false;
+      }
+      return Number(style.opacity) !== 0;
+    }
+
+    // Walk to the document root so a node inside a hidden ancestor (a collapsed enrichment
+    // panel, an unopened tooltip) never counts, even if its own computed style looks fine.
+    function ancestorChainVisible(element: Element | null): boolean {
+      let node: Element | null = element;
+      while (node) {
+        if (!isRenderedVisible(node)) {
+          return false;
+        }
+        node = node.parentElement;
+      }
+      return true;
+    }
+
+    // A deliberate single-line ellipsis truncation is a design choice, not the collapsed-grid
+    // bug: it shows a short slice of the string on purpose, not the whole string one glyph
+    // per line.
+    function isDeliberateSingleLineTruncation(element: Element): boolean {
+      const style = getComputedStyle(element);
+      return style.whiteSpace === "nowrap" && style.textOverflow === "ellipsis";
+    }
+
+    const root = document.querySelector(selector);
+    if (!root) {
+      return [];
+    }
+
+    const violations: CollapsedTextViolation[] = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let node = walker.nextNode();
+    while (node) {
+      const text = (node.textContent ?? "").trim();
+      const parent = node.parentElement;
+      if (text.length > MIN_TEXT_LENGTH && parent && ancestorChainVisible(parent) && !isDeliberateSingleLineTruncation(parent)) {
+        const rect = parent.getBoundingClientRect();
+        const isRendered = rect.width > 0 || rect.height > 0;
+        if (isRendered && rect.width < MIN_CONTAINER_WIDTH) {
+          violations.push({
+            height: Math.round(rect.height),
+            parentClass: typeof parent.className === "string" ? parent.className : String(parent.className),
+            parentTag: parent.tagName,
+            text: text.slice(0, 70),
+            width: Math.round(rect.width)
+          });
+        }
+      }
+      node = walker.nextNode();
+    }
+    return violations;
+  }, rootSelector);
+}
+
 test("cached card renders the research layer without old analyze affordances", async ({ page }) => {
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCardWithSynthesis());
@@ -99,6 +179,53 @@ test("investor read stays bounded and honest with long partial synthesis", async
 
   await investorRead.screenshot({ path: "/private/tmp/cold-start-investor-read-long.png" });
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-investor-read-long-panel.png" });
+});
+
+test("no long text renders in a collapsed track", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: {
+      text: "Physician burnout from documentation is a documented operational crisis for health systems, and ambient AI scribes are the first workflow-native solution that does not ask doctors to change the clinical visit [c1].",
+      citationIds: ["c1"]
+    },
+    bullCase: [
+      {
+        text: "Rush University Medical Center's expansion to an enterprise-wide rollout after a successful pilot is proof that the product can move from department-level trial to broad health-system deployment [c2].",
+        citationIds: ["c2"]
+      }
+    ],
+    bearCase: [
+      {
+        text: "Documentation-adjacent incumbents with existing EHR integrations could bundle a comparable ambient scribe feature and erode the standalone product's differentiation [c1].",
+        citationIds: ["c1"]
+      }
+    ],
+    openQuestions: [
+      {
+        question: "What is the average number of active physician seats per health system customer, and what does seat utilization look like 12 months after go-live?",
+        category: "buyer_budget",
+        wouldChangeReadIf: "Seat utilization holds above pilot levels a year after go-live."
+      }
+    ]
+  };
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const investorRead = page.getByRole("article", { name: "Investor read" });
+  await expect(investorRead).toBeVisible();
+  // Exercise every row that shattered in the regression: the lede, and both sides of the
+  // tension pair (previously commit 827bff8 left an orphaned dot-column grid under all three).
+  await expect(investorRead).toContainText("Physician burnout from documentation");
+  await expect(investorRead).toContainText("Rush University Medical Center");
+  await expect(investorRead).toContainText("Documentation-adjacent incumbents");
+
+  const violations = await findCollapsedLongTextViolations(page);
+  expect(
+    violations,
+    `Long text rendered inside a collapsed-width container (a leftover grid track with no sibling left to fill it):\n${JSON.stringify(violations, null, 2)}`
+  ).toEqual([]);
 });
 
 test("granola signals module clusters duplicate raise coverage into corroborated events", async ({ page }) => {
