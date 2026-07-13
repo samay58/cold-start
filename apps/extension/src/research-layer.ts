@@ -48,6 +48,10 @@ export type ResearchLayerDisplay = {
     label: string;
     value: string;
   }> | undefined;
+  // Money layer only: deduped backer names (funding.investors plus rounds' leads) rendered
+  // as quiet non-interactive pills. Pills replace the old "Backers: A, B, +N more" text line
+  // and the derived "Named investors include ..." row so the names are said exactly once.
+  investors?: string[] | undefined;
   sources: ResearchLayerSourceReference[];
   sourceCount: number;
   // Honest module-header copy ("3 events · 10 sources"); falls back to the source count.
@@ -286,15 +290,25 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     };
   }
 
-  const items = content.items.map((item) =>
-    section.sectionId === "traction"
-      ? tractionDisplayItem(card, item)
-      : {
-          title: item.label,
-          body: stripCitationMarkers(item.text),
-          ...(item.meta ? { meta: item.meta } : {})
-        }
-  );
+  // Financing renders the aggregate backer names as pills from the card's structured funding;
+  // the derived "Named investors include ..." text row would repeat them, so it is suppressed
+  // whenever the pills carry the names.
+  const investorNames = section.sectionId === "financing" ? investorNamesForCard(card) : [];
+  const items = content.items
+    .filter((item) => !(
+      investorNames.length > 0 &&
+      item.label === "Investors" &&
+      item.text.startsWith("Named investors include")
+    ))
+    .map((item) =>
+      section.sectionId === "traction"
+        ? tractionDisplayItem(card, item)
+        : {
+            title: item.label,
+            body: stripCitationMarkers(item.text),
+            ...(item.meta ? { meta: item.meta } : {})
+          }
+    );
   const rows = section.sectionId === "market" && content.napkinMath
     ? [
         { label: "Formula", value: content.napkinMath.formula },
@@ -310,6 +324,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     body: stripCitationMarkers(content.summary ?? items[0]?.body ?? items[0]?.title ?? definition.emptyState),
     ...(items.length > 0 ? { items } : {}),
     ...(rows ? { rows } : {}),
+    ...(investorNames.length > 0 ? { investors: investorNames } : {}),
     sources,
     sourceCount: displaySourceCount(sources),
     ...(section.sectionId === "traction" && items.length > 0
@@ -335,6 +350,16 @@ function dedupeStrings(values: string[]) {
   }
 
   return unique;
+}
+
+// Aggregate backer list for the Money layer pills: every round lead first (ledger order),
+// then the named investors fact, deduped case-insensitively.
+function investorNamesForCard(card: ColdStartCard) {
+  const rounds = card.funding.rounds?.value ?? (card.funding.lastRound.value ? [card.funding.lastRound.value] : []);
+  return dedupeStrings([
+    ...rounds.flatMap((round) => round.leadInvestors),
+    ...(card.funding.investors.value ?? []).map((investor) => investor.name),
+  ]);
 }
 
 function normalizeCompanyTerm(value: string | null | undefined) {
@@ -547,22 +572,17 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       };
     }
 
-    const investorNames = dedupeStrings([
-      ...rounds.flatMap((round) => round.leadInvestors),
-      ...investors.map((investor) => investor.name),
-    ]);
-    const investorLine = investorNames.length > 0
-      ? `Backers: ${investorNames.slice(0, 6).join(", ")}${investorNames.length > 6 ? `, +${investorNames.length - 6} more` : ""}`
-      : null;
+    const investorNames = investorNamesForCard(card);
     const headline = totalRaised !== null && rounds.length > 0
       ? `${formatCompactCurrency(totalRaised)} disclosed across ${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`
       : [
           totalRaised !== null ? `${formatCompactCurrency(totalRaised)} disclosed` : null,
           rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
         ].filter((part): part is string => Boolean(part)).join(" · ");
+    // Backer names render as pills (display.investors), not as a hero text line.
     const items = [
-      ...(headline || investorLine
-        ? [{ title: headline || "Funding read", ...(investorLine ? { body: investorLine } : {}) }]
+      ...(headline || investorNames.length > 0
+        ? [{ title: headline || "Funding read" }]
         : []),
       ...rounds.map((round) => {
         const detail = [
@@ -582,6 +602,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
       title: layer.title,
       body: headline || "Cited fundraising history",
       items,
+      ...(investorNames.length > 0 ? { investors: investorNames } : {}),
       sources,
       sourceCount: displaySourceCount(sources),
       status: "saved",

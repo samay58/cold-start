@@ -2391,7 +2391,13 @@ describe("SidePanel generation gate", () => {
     // The single Series B round accounts for the whole raised total, so the copy composes one
     // line with compact currency and a human date instead of repeating the raw number twice.
     expect(container.textContent).toContain("Raised $35M in a Series B (Sep 2025).");
-    expect(container.textContent).toContain("Accel, Sequoia");
+    // Backers render once, as deduped pills (Accel and Sequoia appear both as round leads and
+    // named investors); the derived "Named investors include ..." text row is suppressed.
+    const pills = Array.from(container.querySelectorAll(".cs-money-pill")).map((pill) => pill.textContent);
+    expect(pills).toEqual(["Accel", "Sequoia"]);
+    expect(container.textContent).not.toContain("Named investors include");
+    // Pills are a plain list, never links masquerading as citations.
+    expect(container.querySelector(".cs-money-pill a")).toBeNull();
 
     const signalsButton = interactiveControls(container).find((button) => button.textContent?.includes("Signals"));
     expect(signalsButton).toBeTruthy();

@@ -401,7 +401,10 @@ describe("research layer model", () => {
       "Series B",
       "Seed"
     ]);
-    expect(display?.items?.[0]?.body).toContain("Kleiner Perkins");
+    // Backer names surface once, as deduped pills: round leads in ledger order, then the
+    // investors fact, with "Kleiner Perkins" (lead AND named investor) collapsed to one entry.
+    expect(display?.investors).toEqual(["Kleiner Perkins", "Index", "Index Ventures"]);
+    expect(display?.items?.[0]?.body).toBeUndefined();
     expect(display?.items?.[1]?.body).toBe("$64M · Kleiner Perkins");
     expect(display?.items?.[2]?.body).toBe("$27M · Index");
     expect(display?.sources[0]).toMatchObject({ id: "c1" });
