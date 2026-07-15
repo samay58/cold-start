@@ -240,6 +240,16 @@ export function emailPatternFallbackDecision(input: {
   return { eligible: true };
 }
 
+export function mergeContactProviderOutput(
+  existing: { facts: ProviderFactCandidate[]; sources: ProviderSource[] },
+  incoming: { facts: ProviderFactCandidate[]; sources: ProviderSource[] }
+) {
+  return {
+    facts: [...existing.facts, ...incoming.facts],
+    sources: mergeSources(existing.sources, incoming.sources)
+  };
+}
+
 async function safeAgentcashWalletSnapshot() {
   try {
     return { ok: true as const, snapshot: await agentcashWalletSnapshot() };
@@ -680,8 +690,12 @@ export const contactEnrichmentFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, contactSourceResult.tracePatch);
-        paidProviderFacts = contactSourceResult.value.providerFacts;
-        paidSources = contactSourceResult.value.sources;
+        const mergedPaidOutput = mergeContactProviderOutput(
+          { facts: paidProviderFacts, sources: paidSources },
+          { facts: contactSourceResult.value.providerFacts, sources: contactSourceResult.value.sources }
+        );
+        paidProviderFacts = mergedPaidOutput.facts;
+        paidSources = mergedPaidOutput.sources;
         await recordEvent("sources-fetched", "source.contacts", "Checked people and email sources", {
           sourceCount: contactSourceResult.value.sources.length,
           providerFactCount: contactSourceResult.value.providerFacts.length

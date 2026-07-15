@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec B implementation and branch-level acceptance are complete on `inferred-email-coverage`, cut from clean local `main` at `d3da06d`. Free-path coverage is 40/50 patterns (80%); the one-probe fallback, private basis, public stripping, dossier interaction, measurement, and parent-budget accounting are implemented. Full `npm run check`, the 38-state extension UI suite, CSS audit, and MV3 smoke are green. Fresh local real-provider basics and analysis runs for `officehours.com` produced four inferred addresses with basis and preserved them through synthesis. The feature branch is ready for Samay's merge decision. After merge and deploy, rerun the read-only production measurement to collect non-zero fallback fire/hit/spend telemetry and rebuild the deployed extension for API contract `2026-07-15.inferred-email-basis-v1`; unmerged code cannot create those production rows.
+Spec B implementation and branch-level acceptance are complete on `inferred-email-coverage`, cut from clean local `main` at `d3da06d`. Free-path coverage is 40/50 patterns (80%); the one-probe fallback, private basis, public stripping, dossier interaction, measurement, and parent-budget accounting are implemented. Full `npm run check`, the 38-state extension UI suite, CSS audit, and MV3 smoke are green. Fresh local real-provider basics and analysis runs for `officehours.com` produced four inferred addresses with basis and preserved them through synthesis. A pre-merge release audit also fixed and regression-covered the deep-find path so later provider results cannot overwrite a paid fallback hit. Next: merge Spec A and this branch into local `main`, run the combined release gates, deploy, rerun the read-only production measurement, and rebuild the extension for API contract `2026-07-15.inferred-email-basis-v1`.
 
 ## 2026-07-15
 
@@ -128,3 +128,9 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 ### Open deviations
 
 - Post-deploy production fallback fire rate, hit rate, and spend remain unavailable until Samay merges and deploys the feature branch. The read-only command is ready and recorded above; no deployment or main-branch push was attempted.
+
+### Pre-merge release audit
+
+- The combined-path review found that an explicit deep contact search replaced `paidProviderFacts` and `paidSources` after the one-cent pattern fallback had already run. A fallback could therefore spend, report a hit in telemetry, and then lose the recovered facts before card assembly.
+- `mergeContactProviderOutput` now appends later paid facts and deduplicates later sources instead of replacing the fallback output. The regression fixture supplies one fallback result and one deep-find result and requires both to survive.
+- Focused verification after the fix: contact-enrichment regression 11/11, web workspace 153/153, web typecheck green, targeted ESLint green, and `git diff --check` green. The full combined-repository gate remains the post-merge release receipt.

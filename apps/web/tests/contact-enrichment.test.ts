@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildContactEnrichmentRequestedEvent,
-  emailPatternFallbackDecision
+  emailPatternFallbackDecision,
+  mergeContactProviderOutput
 } from "../src/inngest/contact-enrichment";
 import { contactEnrichmentEnabled } from "../src/inngest/env";
+import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
 
 describe("contact enrichment dispatch", () => {
   it("honors the CONTACT_ENRICHMENT_ENABLED kill switch", () => {
@@ -91,6 +93,23 @@ describe("email pattern fallback guard", () => {
     expect(emailPatternFallbackDecision({ ...eligible, ...override })).toEqual({
       eligible: false,
       reason
+    });
+  });
+});
+
+describe("contact provider result merging", () => {
+  it("preserves fallback facts and sources when deep-find providers return", () => {
+    const fallbackFact = { endpoint: "exa_email_search" } as ProviderFactCandidate;
+    const deepFindFact = { endpoint: "hunter_domain_search" } as ProviderFactCandidate;
+    const fallbackSource = { url: "https://example.com/fallback" } as ProviderSource;
+    const deepFindSource = { url: "https://example.com/deep-find" } as ProviderSource;
+
+    expect(mergeContactProviderOutput(
+      { facts: [fallbackFact], sources: [fallbackSource] },
+      { facts: [deepFindFact], sources: [deepFindSource] }
+    )).toEqual({
+      facts: [fallbackFact, deepFindFact],
+      sources: [fallbackSource, deepFindSource]
     });
   });
 });
