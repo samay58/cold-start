@@ -13,7 +13,9 @@ vi.mock("../src/lib/cards", () => ({
 
 const { GET } = await import("../src/app/api/extension/cards/[slug]/route");
 const originalAllowedOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
+const originalAllowedExtensionIds = process.env.ALLOWED_EXTENSION_IDS;
 const originalChromeExtensionId = process.env.CHROME_EXTENSION_ID;
+const originalApiTokens = process.env.EXTENSION_API_TOKENS;
 const originalApiToken = process.env.EXTENSION_API_TOKEN;
 const originalNodeEnv = process.env.NODE_ENV;
 
@@ -40,7 +42,9 @@ describe("GET /api/extension/cards/[slug]", () => {
   beforeEach(() => {
     process.env.NODE_ENV = "test";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.ALLOWED_EXTENSION_IDS;
     delete process.env.CHROME_EXTENSION_ID;
+    delete process.env.EXTENSION_API_TOKENS;
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.getFullCachedCard.mockReset();
     mocks.getLatestProviderFailureSummary.mockReset();
@@ -58,6 +62,16 @@ describe("GET /api/extension/cards/[slug]", () => {
       delete process.env.ALLOWED_EXTENSION_ORIGINS;
     } else {
       process.env.ALLOWED_EXTENSION_ORIGINS = originalAllowedOrigins;
+    }
+    if (originalAllowedExtensionIds === undefined) {
+      delete process.env.ALLOWED_EXTENSION_IDS;
+    } else {
+      process.env.ALLOWED_EXTENSION_IDS = originalAllowedExtensionIds;
+    }
+    if (originalApiTokens === undefined) {
+      delete process.env.EXTENSION_API_TOKENS;
+    } else {
+      process.env.EXTENSION_API_TOKENS = originalApiTokens;
     }
     if (originalApiToken === undefined) {
       delete process.env.EXTENSION_API_TOKEN;
@@ -167,7 +181,9 @@ describe("GET /api/extension/cards/[slug]", () => {
   it("fails closed before reading when production extension auth config is missing", async () => {
     process.env.NODE_ENV = "production";
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.ALLOWED_EXTENSION_IDS;
     delete process.env.CHROME_EXTENSION_ID;
+    delete process.env.EXTENSION_API_TOKENS;
     delete process.env.EXTENSION_API_TOKEN;
 
     const response = await GET(extensionRequest("chrome-extension://local-dev", "secret"), params());
@@ -177,13 +193,14 @@ describe("GET /api/extension/cards/[slug]", () => {
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
 
-  it("allows configured production origin with a valid token", async () => {
+  it("allows a production request with matching legacy ID, Chrome origin, and token", async () => {
     process.env.NODE_ENV = "production";
     process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.CHROME_EXTENSION_ID = "prod-id";
     process.env.EXTENSION_API_TOKEN = "prod-secret";
     mocks.getFullCachedCard.mockResolvedValue({ slug: "cartesia", synthesis: { openQuestions: [] } });
 
-    const response = await GET(extensionRequest("chrome-extension://prod-id", "prod-secret"), params());
+    const response = await GET(extensionRequest("chrome-extension://prod-id", "prod-secret", "prod-id"), params());
 
     expect(response.status).toBe(200);
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
@@ -192,9 +209,10 @@ describe("GET /api/extension/cards/[slug]", () => {
   it("fails closed before reading when production auth uses local sentinel values", async () => {
     process.env.NODE_ENV = "production";
     process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id,http://localhost:5173";
+    process.env.CHROME_EXTENSION_ID = "prod-id";
     process.env.EXTENSION_API_TOKEN = "local-extension-token";
 
-    const response = await GET(extensionRequest("chrome-extension://prod-id", "local-extension-token"), params());
+    const response = await GET(extensionRequest("chrome-extension://prod-id", "local-extension-token", "prod-id"), params());
 
     await expect(response.json()).resolves.toEqual({ error: "extension auth not configured" });
     expect(response.status).toBe(500);

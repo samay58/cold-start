@@ -225,11 +225,11 @@ function DossierBody({ dossier }: { dossier: TooltipDossier }) {
   }, []);
 
   async function copyEmail() {
-    if (!email) {
+    if (!email || !navigator.clipboard?.writeText) {
       return;
     }
     try {
-      await navigator.clipboard?.writeText(email.address);
+      await navigator.clipboard.writeText(email.address);
       setCopied(true);
       if (copyTimer.current !== null) {
         clearTimeout(copyTimer.current);

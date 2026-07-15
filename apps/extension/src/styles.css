@@ -2642,29 +2642,25 @@ a.cs-lens-source:focus-visible {
 
 .cs-layer-money-ledger {
   display: grid;
-  gap: 10px;
+  gap: 0;
 }
 
 .cs-layer-money-hero {
   display: grid;
-  gap: 5px;
-  padding: 13px 14px;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.18);
-  border-radius: 6px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.86), rgb(var(--cs-c-247-245-238) / 0.76)),
-    rgb(var(--cs-c-110-92-158) / 0.035);
+  gap: 4px;
+  padding: 0 0 10px;
 }
 
 .cs-layer-money-hero > span {
-  color: var(--color-seal);
-  font: 600 10px/1.15 var(--font-text);
-  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  font: 600 10.5px/1.2 var(--font-body);
+  letter-spacing: 0.06em;
 }
 
 .cs-layer-money-hero strong {
   color: var(--color-ink);
-  font: 780 16px/1.08 var(--font-body);
+  font: 700 20px/1.08 var(--font-body);
+  font-variant-numeric: tabular-nums;
 }
 
 .cs-layer-money-hero p {
@@ -2680,29 +2676,39 @@ a.cs-lens-source:focus-visible {
   gap: 0;
   margin: 0;
   padding: 0;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.70);
-  border-radius: 6px;
-  background: rgb(var(--cs-c-255-253-248) / 0.62);
   list-style: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
+.cs-layer-money-investors,
 .cs-layer-money-ledger li {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
-  gap: 11px;
-  padding: 11px 12px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
 }
 
 .cs-layer-money-ledger li + li,
 .cs-layer-signal-ledger li + li {
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.58);
+  border-top: 1px solid var(--color-rule);
 }
 
+.cs-layer-money-investors > span,
 .cs-layer-money-ledger li > span {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.52);
-  font: 560 10px/1.25 var(--font-text);
+  color: var(--color-muted);
+  font: 600 10.5px/1.35 var(--font-body);
   letter-spacing: 0.04em;
+}
+
+.cs-layer-money-investors p {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .cs-layer-money-ledger li strong {
@@ -2722,7 +2728,7 @@ a.cs-lens-source:focus-visible {
 /* Signals: one row per event, headline first, metadata quiet beneath it. */
 .cs-layer-signal-ledger li {
   display: block;
-  padding: 10px 12px 9px;
+  padding: 10px 0;
 }
 
 .cs-layer-signal-ledger strong {
@@ -5512,80 +5518,6 @@ body {
 
 .cs-layer-items li[data-has-meta="false"] > div {
   grid-column: 1 / -1;
-}
-
-.cs-layer-money-ledger {
-  gap: 0;
-}
-
-.cs-layer-money-hero {
-  gap: 4px;
-  padding: 0 0 10px;
-  border: 0;
-  border-radius: 0;
-  background: none;
-}
-
-.cs-layer-money-hero > span {
-  color: var(--color-muted);
-  font: 600 10.5px/1.2 var(--font-body);
-  letter-spacing: 0.06em;
-}
-
-.cs-layer-money-hero strong {
-  font: 700 20px/1.08 var(--font-body);
-  font-variant-numeric: tabular-nums;
-}
-
-.cs-layer-money-investors,
-.cs-layer-money-ledger li {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 10px;
-  align-items: baseline;
-  padding: 10px 0;
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-layer-money-investors > span,
-.cs-layer-money-ledger li > span {
-  color: var(--color-muted);
-  font: 600 10.5px/1.35 var(--font-body);
-  letter-spacing: 0.04em;
-}
-
-.cs-layer-money-investors p {
-  margin: 0;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.cs-layer-money-ledger ol,
-.cs-layer-signal-ledger {
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  list-style: none;
-  overflow: visible;
-}
-
-.cs-layer-money-ledger li {
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-layer-signal-ledger li {
-  padding: 10px 0;
-}
-
-.cs-layer-money-ledger li + li,
-.cs-layer-signal-ledger li + li {
-  border-top: 1px solid var(--color-rule);
 }
 
 .cs-source-chips {

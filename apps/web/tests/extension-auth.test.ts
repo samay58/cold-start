@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { assertExtensionRequest } from "../src/lib/extension-auth";
 
 const originalAllowedOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
+const originalAllowedExtensionIds = process.env.ALLOWED_EXTENSION_IDS;
 const originalChromeExtensionId = process.env.CHROME_EXTENSION_ID;
+const originalApiTokens = process.env.EXTENSION_API_TOKENS;
 const originalApiToken = process.env.EXTENSION_API_TOKEN;
 const originalNodeEnv = process.env.NODE_ENV;
 
@@ -24,7 +26,9 @@ function extensionHeaders(origin?: string, token?: string, extensionId?: string)
 describe("assertExtensionRequest", () => {
   beforeEach(() => {
     delete process.env.ALLOWED_EXTENSION_ORIGINS;
+    delete process.env.ALLOWED_EXTENSION_IDS;
     delete process.env.CHROME_EXTENSION_ID;
+    delete process.env.EXTENSION_API_TOKENS;
     delete process.env.EXTENSION_API_TOKEN;
     delete process.env.NODE_ENV;
   });
@@ -34,6 +38,16 @@ describe("assertExtensionRequest", () => {
       delete process.env.ALLOWED_EXTENSION_ORIGINS;
     } else {
       process.env.ALLOWED_EXTENSION_ORIGINS = originalAllowedOrigins;
+    }
+    if (originalAllowedExtensionIds === undefined) {
+      delete process.env.ALLOWED_EXTENSION_IDS;
+    } else {
+      process.env.ALLOWED_EXTENSION_IDS = originalAllowedExtensionIds;
+    }
+    if (originalApiTokens === undefined) {
+      delete process.env.EXTENSION_API_TOKENS;
+    } else {
+      process.env.EXTENSION_API_TOKENS = originalApiTokens;
     }
     if (originalApiToken === undefined) {
       delete process.env.EXTENSION_API_TOKEN;
@@ -129,12 +143,51 @@ describe("assertExtensionRequest", () => {
     });
   });
 
-  it("allows configured production origin with a valid token", () => {
+  it.each([undefined, "moz-extension://random-install-uuid"])(
+    "allows a Gecko ID and token when Origin is %s",
+    (origin) => {
+      process.env.NODE_ENV = "production";
+      process.env.ALLOWED_EXTENSION_IDS = "chrome-id, cold-start@semitechie.vc";
+      process.env.EXTENSION_API_TOKENS = "chrome-token, firefox-token";
+
+      expect(assertExtensionRequest(extensionHeaders(origin, "firefox-token", "cold-start@semitechie.vc"))).toEqual({
+        ok: true
+      });
+    }
+  );
+
+  it.each([undefined, "wrong-id"])("rejects a valid Chrome origin when the extension ID is %s", (extensionId) => {
     process.env.NODE_ENV = "production";
     process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.ALLOWED_EXTENSION_IDS = "prod-id";
     process.env.EXTENSION_API_TOKEN = "secret";
 
-    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret"))).toEqual({ ok: true });
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret", extensionId))).toEqual({
+      ok: false,
+      status: 403,
+      error: "extension identity required"
+    });
+  });
+
+  it("rejects a Chrome ID when its Origin does not match the allowlist", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.ALLOWED_EXTENSION_IDS = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://other-id", "secret", "prod-id"))).toEqual({
+      ok: false,
+      status: 403,
+      error: "extension identity required"
+    });
+  });
+
+  it("accepts a rotated token from the comma-separated token list", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_IDS = "prod-id";
+    process.env.EXTENSION_API_TOKENS = "old-token, new-token";
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "new-token", "prod-id"))).toEqual({ ok: true });
   });
 
   it("fails closed in production when local sentinel auth values leak in", () => {
@@ -144,6 +197,23 @@ describe("assertExtensionRequest", () => {
     process.env.EXTENSION_API_TOKEN = "local-extension-token";
 
     expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "local-extension-token"))).toEqual({
+      ok: false,
+      status: 500,
+      error: "extension auth not configured"
+    });
+  });
+
+  it.each([
+    ["ALLOWED_EXTENSION_IDS", "prod-id, local-dev"],
+    ["EXTENSION_API_TOKENS", "secret, local-extension-token"],
+    ["ALLOWED_EXTENSION_ORIGINS", "moz-extension://*"]
+  ])("fails closed when %s contains an unsafe production sentinel", (name, value) => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_IDS = "prod-id";
+    process.env.EXTENSION_API_TOKENS = "secret";
+    process.env[name] = value;
+
+    expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "prod-id"))).toEqual({
       ok: false,
       status: 500,
       error: "extension auth not configured"
@@ -169,6 +239,17 @@ describe("assertExtensionRequest", () => {
     process.env.EXTENSION_API_TOKEN = "secret";
 
     expect(assertExtensionRequest(extensionHeaders(undefined, "secret", "prod-id"))).toEqual({ ok: true });
+  });
+
+  it("allows legacy single-value production configuration with a matching Chrome origin", () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://prod-id";
+    process.env.CHROME_EXTENSION_ID = "prod-id";
+    process.env.EXTENSION_API_TOKEN = "secret";
+
+    expect(assertExtensionRequest(extensionHeaders("chrome-extension://prod-id", "secret", "prod-id"))).toEqual({
+      ok: true
+    });
   });
 
   it("rejects the wrong production extension ID without relying on Origin", () => {

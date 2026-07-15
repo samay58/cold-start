@@ -253,6 +253,44 @@ describe("dossier email copy control", () => {
     expect(copy?.textContent).not.toContain("ada@acme.ai");
   });
 
+  it("keeps the address visible when the Clipboard API is unavailable", async () => {
+    vi.stubGlobal("navigator", {});
+
+    const { container, handleRef, trigger } = await mount(dossier);
+    await act(async () => {
+      handleRef.current!.props.onPointerEnter(pointerEvent(trigger));
+    });
+
+    const copy = container.querySelector(".cs-dossier-email-copy") as HTMLButtonElement;
+    await act(async () => {
+      copy.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(copy.textContent).toContain("ada@acme.ai");
+    expect(copy.textContent).not.toContain("Copied");
+  });
+
+  it("keeps the address visible when the clipboard write is rejected", async () => {
+    const writeText = vi.fn(async () => {
+      throw new Error("clipboard denied");
+    });
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+
+    const { container, handleRef, trigger } = await mount(dossier);
+    await act(async () => {
+      handleRef.current!.props.onPointerEnter(pointerEvent(trigger));
+    });
+
+    const copy = container.querySelector(".cs-dossier-email-copy") as HTMLButtonElement;
+    await act(async () => {
+      copy.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(writeText).toHaveBeenCalledWith("ada@acme.ai");
+    expect(copy.textContent).toContain("ada@acme.ai");
+    expect(copy.textContent).not.toContain("Copied");
+  });
+
   it("shows the basis only for inferred addresses", async () => {
     const inferred: TooltipDossier = {
       ...dossier,

@@ -17,7 +17,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs eval/**/*.test.mjs",
     "lint": "eslint .",
-    "check": "npm run lint -- --max-warnings=0 && npm run typecheck && npm run test && npm run build && npm run eval:golden -- --dry-run --limit 12 && npm run knip && npm run secrets:check && npm run audit:deps",
+    "check": "npm run lint -- --max-warnings=0 && npm run typecheck && npm run test && npm run build && npm run build:firefox -w @cold-start/extension && npx --yes web-ext@10.5.0 lint --source-dir apps/extension/dist-firefox --self-hosted && npm run eval:golden -- --dry-run --limit 12 && npm run knip && npm run secrets:check && npm run audit:deps",
     "knip": "knip",
     "secrets:check": "node scripts/secrets-check.mjs",
     "audit:deps": "node scripts/audit-deps.mjs",

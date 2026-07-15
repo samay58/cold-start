@@ -20,6 +20,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - run: npm run build:firefox -w @cold-start/extension
+      - run: npx --yes web-ext@10.5.0 lint --source-dir apps/extension/dist-firefox --self-hosted
       - run: npm run eval:golden -- --dry-run --limit 12
       - run: npm run knip
       - run: npm run secrets:check

@@ -17,6 +17,18 @@ function timingSafeStringEqual(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+function parseConfiguredValues(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function configuredValues(value: string | undefined, fallback: string | undefined): string[] {
+  const values = parseConfiguredValues(value);
+  return values.length > 0 ? values : parseConfiguredValues(fallback);
+}
+
 function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   if (allowedOrigins.includes(origin)) {
     return true;
@@ -33,18 +45,22 @@ function isAllowedOrigin(origin: string, allowedOrigins: string[]) {
   return false;
 }
 
-function hasUnsafeProductionConfig(
-  allowedOrigins: string[],
-  configuredExtensionId: string | undefined,
-  apiToken: string | undefined
-) {
+function isAllowedProductionOrigin(origin: string, allowedOrigins: string[]) {
+  if (!origin || origin.startsWith("moz-extension://")) {
+    return true;
+  }
+  return allowedOrigins.includes(origin);
+}
+
+function hasUnsafeProductionConfig(allowedOrigins: string[], allowedExtensionIds: string[], apiTokens: string[]) {
   return (
     process.env.NODE_ENV === "production" &&
     (
       allowedOrigins.includes(LOCAL_CHROME_EXTENSION_WILDCARD) ||
+      allowedOrigins.some((origin) => origin.startsWith("moz-extension://") && origin.includes("*")) ||
       allowedOrigins.some((origin) => origin.startsWith("http://localhost") || origin.startsWith("http://127.0.0.1")) ||
-      configuredExtensionId === localExtensionId ||
-      apiToken === localExtensionToken
+      allowedExtensionIds.includes(localExtensionId) ||
+      apiTokens.includes(localExtensionToken)
     )
   );
 }
@@ -53,32 +69,30 @@ export function assertExtensionRequest(headers: Headers) {
   const origin = headers.get("origin") ?? "";
   const extensionId = headers.get(extensionIdHeader)?.trim() ?? "";
   const configuredOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
-  const configuredExtensionId = process.env.CHROME_EXTENSION_ID?.trim();
-  const apiToken = process.env.EXTENSION_API_TOKEN;
+  const allowedExtensionIds = configuredValues(process.env.ALLOWED_EXTENSION_IDS, process.env.CHROME_EXTENSION_ID);
+  const apiTokens = configuredValues(process.env.EXTENSION_API_TOKENS, process.env.EXTENSION_API_TOKEN);
 
-  if (
-    (process.env.NODE_ENV === "production" && !configuredOrigins?.trim() && !configuredExtensionId) ||
-    !apiToken
-  ) {
+  if ((process.env.NODE_ENV === "production" && allowedExtensionIds.length === 0) || apiTokens.length === 0) {
     return { ok: false as const, status: 500, error: "extension auth not configured" };
   }
 
   const defaultOrigins = process.env.NODE_ENV === "production" ? "" : LOCAL_DEFAULT_EXTENSION_ORIGINS;
-  const allowed = (configuredOrigins ?? defaultOrigins)
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const allowed = parseConfiguredValues(configuredOrigins ?? defaultOrigins);
 
-  if (hasUnsafeProductionConfig(allowed, configuredExtensionId, apiToken)) {
+  if (hasUnsafeProductionConfig(allowed, allowedExtensionIds, apiTokens)) {
     return { ok: false as const, status: 500, error: "extension auth not configured" };
   }
 
   const allowedByExtensionId =
-    process.env.NODE_ENV !== "production"
-      ? extensionId.length > 0
-      : Boolean(configuredExtensionId && extensionId === configuredExtensionId);
+    process.env.NODE_ENV === "production" ? allowedExtensionIds.includes(extensionId) : extensionId.length > 0;
+  const allowedByOrigin =
+    process.env.NODE_ENV === "production"
+      ? isAllowedProductionOrigin(origin, allowed)
+      : isAllowedOrigin(origin, allowed);
+  const identityAllowed =
+    process.env.NODE_ENV === "production" ? allowedByExtensionId && allowedByOrigin : allowedByExtensionId || allowedByOrigin;
 
-  if (!allowedByExtensionId && !isAllowedOrigin(origin, allowed)) {
+  if (!identityAllowed) {
     return { ok: false as const, status: 403, error: "extension identity required" };
   }
 
@@ -88,7 +102,11 @@ export function assertExtensionRequest(headers: Headers) {
   }
 
   const token = authorization.slice("Bearer ".length);
-  if (!timingSafeStringEqual(token, apiToken)) {
+  const tokenMatches = apiTokens.reduce(
+    (matches, configuredToken) => timingSafeStringEqual(token, configuredToken) || matches,
+    false
+  );
+  if (!tokenMatches) {
     return { ok: false as const, status: 401, error: "extension token invalid" };
   }
 
