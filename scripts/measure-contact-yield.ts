@@ -42,6 +42,10 @@ function compact(value: string) {
 
 type GoldenCompany = { name: string; domain: string; category: string };
 
+type StoredPeople = {
+  people: Array<{ name: string; emailStatus: "observed" | "inferred" | null }>;
+};
+
 type Row = {
   name: string;
   domain: string;
@@ -51,19 +55,58 @@ type Row = {
   directHits: number | null;
   inferable: number | null;
   extractedPeople: number | null;
+  storedObserved: boolean | null;
+  storedInferred: boolean | null;
+  storedWithEmail: boolean | null;
 };
 
-async function loadExtractedPeople(domain: string): Promise<{ name: string; hasEmail: boolean }[] | null> {
+async function loadExtractedPeople(domain: string): Promise<StoredPeople | null> {
   if (!process.env.DATABASE_URL) return null;
   try {
     const db = await import("@cold-start/db");
     const client = db.createDb(process.env.DATABASE_URL);
     const card = await db.findCardBySlug(client, companySlugFromDomain(domain), { allowStale: true });
-    if (!card) return [];
-    return [...(card.team.founders.value ?? []), ...(card.team.keyExecs.value ?? [])].map((person) => ({
-      name: person.name,
-      hasEmail: Boolean(person.email)
-    }));
+    if (!card) return { people: [] };
+    return {
+      people: [...(card.team.founders.value ?? []), ...(card.team.keyExecs.value ?? [])].map((person) => ({
+        name: person.name,
+        emailStatus: person.email ? (person.emailStatus ?? null) : null
+      }))
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadFallbackTraceMeasurement(limit: number) {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const [{ createDb, generationRuns }, { desc }] = await Promise.all([
+      import("@cold-start/db"),
+      import("drizzle-orm")
+    ]);
+    const db = createDb(process.env.DATABASE_URL);
+    const rows = await db
+      .select({ traceJson: generationRuns.traceJson })
+      .from(generationRuns)
+      .orderBy(desc(generationRuns.startedAt))
+      .limit(limit);
+    const instrumented = rows.flatMap((row) => {
+      const trace = row.traceJson as {
+        steps?: Record<string, unknown>;
+        providers?: {
+          stableenrich?: {
+            emailPatternFallback?: { fired?: boolean; hit?: boolean; spendUsd?: number };
+          };
+        };
+      } | null;
+      if (!trace?.steps || !("email-pattern-fallback" in trace.steps)) return [];
+      return [trace.providers?.stableenrich?.emailPatternFallback ?? null];
+    });
+    const fired = instrumented.filter((fallback) => fallback?.fired).length;
+    const hits = instrumented.filter((fallback) => fallback?.fired && fallback.hit).length;
+    const spendUsd = instrumented.reduce((sum, fallback) => sum + (fallback?.spendUsd ?? 0), 0);
+    return { scanned: rows.length, instrumented: instrumented.length, fired, hits, spendUsd };
   } catch {
     return null;
   }
@@ -82,10 +125,14 @@ async function main() {
   const rows: Row[] = [];
   for (const company of golden) {
     const result = await fetchGithubContacts({ domain: company.domain, companyName: company.name });
-    const people = await loadExtractedPeople(company.domain);
+    const stored = await loadExtractedPeople(company.domain);
+    const people = stored?.people ?? null;
+    const storedObserved = people ? people.some((person) => person.emailStatus === "observed") : null;
+    const storedInferred = people ? people.some((person) => person.emailStatus === "inferred") : null;
+    const storedWithEmail = people ? people.some((person) => person.emailStatus !== null) : null;
 
     if (!isGithubContactsResult(result)) {
-      rows.push({ name: company.name, domain: company.domain, orgFound: false, humanAnchor: false, pattern: null, directHits: null, inferable: null, extractedPeople: people?.length ?? null });
+      rows.push({ name: company.name, domain: company.domain, orgFound: false, humanAnchor: false, pattern: null, directHits: null, inferable: null, extractedPeople: people?.length ?? null, storedObserved, storedInferred, storedWithEmail });
       process.stderr.write(`- ${company.name.padEnd(16)} no org\n`);
       continue;
     }
@@ -108,7 +155,10 @@ async function main() {
       pattern: result.pattern,
       directHits,
       inferable,
-      extractedPeople: people?.length ?? null
+      extractedPeople: people?.length ?? null,
+      storedObserved,
+      storedInferred,
+      storedWithEmail
     });
     process.stderr.write(
       `- ${company.name.padEnd(16)} org=${result.org.padEnd(18)} anchors=${String(result.observed.length).padEnd(3)} pattern=${result.pattern ?? "-"}` +
@@ -137,8 +187,27 @@ async function main() {
     console.log(`  founder/exec direct hits:   ${totalDirect} (${((totalDirect / totalPeople) * 100).toFixed(0)}% of people)`);
     console.log(`  pattern-inferable emails:   ${totalInferable} (${((totalInferable / totalPeople) * 100).toFixed(0)}% of people)`);
     console.log(`  reachable (direct+inferred): ${((((totalDirect + totalInferable) / totalPeople) * 100)).toFixed(0)}% of extracted people`);
+    const cardsWithEmail = dbRows.filter((row) => row.storedWithEmail).length;
+    const cardsWithObserved = dbRows.filter((row) => row.storedObserved).length;
+    const cardsWithInferred = dbRows.filter((row) => row.storedInferred).length;
+    const cardPct = (count: number) => `${((count / dbRows.length) * 100).toFixed(0)}%`;
+    console.log(`  cards with >=1 stored email: ${cardsWithEmail}/${dbRows.length} (${cardPct(cardsWithEmail)})`);
+    console.log(`    carrying observed email:   ${cardsWithObserved}/${dbRows.length} (${cardPct(cardsWithObserved)})`);
+    console.log(`    carrying inferred email:   ${cardsWithInferred}/${dbRows.length} (${cardPct(cardsWithInferred)})`);
   } else {
     console.log("\n(no DATABASE_URL / no stored cards: founder-direct-hit rate not measured. Set env to include it.)");
+  }
+
+  const fallback = await loadFallbackTraceMeasurement(Number(argValue("--trace-limit") ?? "100"));
+  if (fallback && fallback.instrumented > 0) {
+    const fireRate = ((fallback.fired / fallback.instrumented) * 100).toFixed(0);
+    const hitRate = fallback.fired > 0 ? ((fallback.hits / fallback.fired) * 100).toFixed(0) : "0";
+    console.log(`\nFallback traces (${fallback.instrumented} instrumented of ${fallback.scanned} recent runs):`);
+    console.log(`  fired:                       ${fallback.fired} (${fireRate}%)`);
+    console.log(`  recovered a pattern:         ${fallback.hits} (${hitRate}% of fired)`);
+    console.log(`  recorded spend:              $${fallback.spendUsd.toFixed(4)}`);
+  } else if (fallback) {
+    console.log(`\nFallback traces: no instrumented runs among ${fallback.scanned} recent production rows.`);
   }
   console.log("\nnote: no writes performed. Raw addresses are not printed to keep this output shareable.");
 }

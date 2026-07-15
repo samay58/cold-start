@@ -1,11 +1,14 @@
 import {
+  fetchStableenrichEmailPatternSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   missingStableenrichConfig,
   type StableenrichEnv,
 } from "../src/index";
 
-const domain = process.argv[2] ?? "cartesia.ai";
+const patternOnly = process.argv.includes("--email-pattern");
+const domains = process.argv.slice(2).filter((arg) => arg !== "--email-pattern");
+const domain = domains[0] ?? "cartesia.ai";
 const env = stableenrichEnvFromProcess();
 const missing = missingStableenrichConfig(env);
 
@@ -25,39 +28,57 @@ if (beforeBalance !== null) {
   console.log(JSON.stringify({ endpoint: "agentcash_balance", status: "before", balance: beforeBalance }));
 }
 
-const enriched = await fetchStableenrichSources({ env, domain });
-console.log(
-  JSON.stringify({
-    endpoint: "stableenrich_full_structured_output",
-    status: "ok",
-    sourceCount: enriched.sources.length,
-    factCount: enriched.facts.length,
-    failureCount: enriched.failures.length,
-    endpoints: enriched.endpoints,
-    factPaths: Array.from(new Set(enriched.facts.map((fact) => fact.path))).sort(),
-    teamFacts: enriched.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
-  }),
-);
+if (patternOnly) {
+  for (const candidateDomain of domains.length > 0 ? domains : [domain]) {
+    const result = await fetchStableenrichEmailPatternSources({ env, domain: candidateDomain, maxBudgetUsd: 0.01 });
+    console.log(JSON.stringify({
+      endpoint: "stableenrich_email_pattern",
+      domain: candidateDomain,
+      status: result.failures.length > 0 ? "failed" : "ok",
+      observedCount: result.observed.length,
+      pattern: result.pattern,
+      patternAnchorCount: result.patternAnchorCount,
+      sourceCount: result.sources.length,
+      failures: result.failures,
+      endpoints: result.endpoints,
+      budgetCeilingHit: result.budgetCeilingHit ?? false
+    }));
+  }
+} else {
+  const enriched = await fetchStableenrichSources({ env, domain });
+  console.log(
+    JSON.stringify({
+      endpoint: "stableenrich_full_structured_output",
+      status: "ok",
+      sourceCount: enriched.sources.length,
+      factCount: enriched.facts.length,
+      failureCount: enriched.failures.length,
+      endpoints: enriched.endpoints,
+      factPaths: Array.from(new Set(enriched.facts.map((fact) => fact.path))).sort(),
+      teamFacts: enriched.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
+    }),
+  );
 
-const contact = await fetchStableenrichPeopleEmailSources({ env, domain, sourceHints: enriched.sources });
-console.log(
-  JSON.stringify({
-    endpoint: "stableenrich_people_email_discovery",
-    status: "ok",
-    sourceCount: contact.sources.length,
-    factCount: contact.facts.length,
-    failureCount: contact.failures.length,
-    sources: contact.sources.map((source) => ({
-      url: source.url,
-      title: source.title,
-      sourceType: source.sourceType,
-      intent: source.intent,
-      rawTextSample: source.rawText.slice(0, 600),
-    })),
-    emailDiscovery: contact.emailDiscovery ?? [],
-    teamFacts: contact.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
-  }, null, 2),
-);
+  const contact = await fetchStableenrichPeopleEmailSources({ env, domain, sourceHints: enriched.sources });
+  console.log(
+    JSON.stringify({
+      endpoint: "stableenrich_people_email_discovery",
+      status: "ok",
+      sourceCount: contact.sources.length,
+      factCount: contact.facts.length,
+      failureCount: contact.failures.length,
+      sources: contact.sources.map((source) => ({
+        url: source.url,
+        title: source.title,
+        sourceType: source.sourceType,
+        intent: source.intent,
+        rawTextSample: source.rawText.slice(0, 600),
+      })),
+      emailDiscovery: contact.emailDiscovery ?? [],
+      teamFacts: contact.facts.filter((fact) => fact.path === "team.founders" || fact.path === "team.keyExecs"),
+    }, null, 2),
+  );
+}
 
 const afterBalance = await agentcashBalance();
 if (afterBalance !== null) {

@@ -699,9 +699,9 @@ describe("SidePanel generation gate", () => {
     // The source count belongs to the filed stamp now, not the people status line.
     expect(container.querySelector(".cs-people-line-source")?.textContent).not.toContain("source");
     expect(container.textContent).toContain("Jessica Lessin");
-    expect(container.textContent).toContain("jessica@theinformation.com");
+    expect(container.textContent).not.toContain("jessica@theinformation.com");
     expect(container.textContent).toContain("1 work email");
-    expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeTruthy();
+    expect(container.querySelector("a[href='mailto:jessica@theinformation.com']")).toBeNull();
     expect(container.textContent).toContain("Matthew Resnick");
     expect(container.textContent).toContain("Amir Efrati");
     expect(container.textContent).toContain("Research");
@@ -711,7 +711,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("labels personal contact emails instead of hiding them", async () => {
+  it("keeps personal contact emails inside the dossier", async () => {
     const card = cardWithManagement("tolans.com");
     card.identity.name = { value: "Tolan", status: "verified", confidence: "high", citationIds: ["c1"] };
     card.team.founders.value = [
@@ -722,8 +722,29 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "tolans.com", fetchMock });
 
     expect(container.textContent).toContain("1 email found");
-    expect(container.textContent).toContain("quintendf@gmail.com");
+    expect(container.textContent).not.toContain("quintendf@gmail.com");
+    expect(container.querySelector("a[href='mailto:quintendf@gmail.com']")).toBeNull();
     expect(container.textContent).not.toContain("No verified work email found");
+
+    const quinten = container.querySelector(".cs-people-person") as HTMLElement | null;
+    expect(quinten).toBeTruthy();
+    quinten!.getBoundingClientRect = () => ({
+      bottom: 220,
+      height: 44,
+      left: 48,
+      right: 360,
+      top: 176,
+      width: 312,
+      x: 48,
+      y: 176,
+      toJSON: () => ({})
+    });
+    await act(async () => {
+      quinten!.focus();
+    });
+    const dossierEmail = container.querySelector(".cs-shared-tooltip .cs-dossier-email");
+    expect(dossierEmail?.textContent).toContain("quintendf@gmail.com");
+    expect(dossierEmail?.textContent).toContain("Observed");
     await unmount();
   });
 

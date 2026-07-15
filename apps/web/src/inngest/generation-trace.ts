@@ -125,6 +125,61 @@ export function mergeGenerationTrace(
   return next;
 }
 
+function sumOptional(left: number | undefined, right: number | undefined) {
+  if (left === undefined && right === undefined) return undefined;
+  return Number(((left ?? 0) + (right ?? 0)).toFixed(6));
+}
+
+export function mergeContactEnrichmentTrace(
+  parent: GenerationTrace | null,
+  contact: GenerationTrace
+): GenerationTrace {
+  const merged = mergeGenerationTrace(parent, contact);
+  const parentStable = parent?.providers?.stableenrich;
+  const contactStable = contact.providers?.stableenrich;
+
+  if (contactStable) {
+    const walletDeltaUsd = sumOptional(parentStable?.walletDeltaUsd, contactStable.walletDeltaUsd);
+    const factCount = sumOptional(parentStable?.factCount, contactStable.factCount);
+    const walletErrors = Array.from(new Set(
+      [parentStable?.walletSnapshotError, contactStable.walletSnapshotError].filter((value): value is string => Boolean(value))
+    ));
+    merged.providers = {
+      ...merged.providers,
+      stableenrich: {
+        ...parentStable,
+        ...contactStable,
+        sourceCount: (parentStable?.sourceCount ?? 0) + contactStable.sourceCount,
+        failureCount: (parentStable?.failureCount ?? 0) + contactStable.failureCount,
+        ...(factCount !== undefined ? { factCount } : {}),
+        endpoints: [...(parentStable?.endpoints ?? []), ...(contactStable.endpoints ?? [])],
+        skippedProbeNames: Array.from(new Set([
+          ...(parentStable?.skippedProbeNames ?? []),
+          ...(contactStable.skippedProbeNames ?? [])
+        ])),
+        ...(parentStable?.budgetCeilingHit || contactStable.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
+        ...(parentStable?.walletSnapshotBeforeUsd !== undefined
+          ? { walletSnapshotBeforeUsd: parentStable.walletSnapshotBeforeUsd }
+          : {}),
+        ...(contactStable.walletSnapshotAfterUsd !== undefined
+          ? { walletSnapshotAfterUsd: contactStable.walletSnapshotAfterUsd }
+          : {}),
+        ...(walletDeltaUsd !== undefined ? { walletDeltaUsd } : {}),
+        ...(walletErrors.length > 0 ? { walletSnapshotError: walletErrors.join("; ") } : {})
+      }
+    };
+  }
+
+  const agentcashCost = sumOptional(parent?.costUsdAgentcash, contact.costUsdAgentcash);
+  if (agentcashCost !== undefined) {
+    merged.costUsdAgentcash = agentcashCost;
+  }
+  if (merged.llm?.totalEstimatedCostUsd !== undefined) {
+    merged.costUsdAnthropic = merged.llm.totalEstimatedCostUsd;
+  }
+  return merged;
+}
+
 export function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTracePatch | GenerateCardTracePatch) {
   if (!patch) {
     return;

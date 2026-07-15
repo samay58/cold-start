@@ -147,6 +147,7 @@ These keys exist for different parts of the system. Keep real values in local ig
 | `STABLEENRICH_BASE_URL` and `STABLEENRICH_*_URL`                           | StableEnrich route configuration for Exa search, findSimilar, Firecrawl scrape, Apollo org and people enrichment, Hunter, Clado, and Minerva endpoints. Endpoint vars are overrides; the base URL defaults to `https://stableenrich.dev`. |
 | `EXA_WEBSETS_API_KEY`                                                      | Optional durable contact-enrichment path through Exa Websets. Used only when `EXA_WEBSETS_CONTACTS_ENABLED=true` and a deep-find is explicitly requested.                                                                                 |
 | `GITHUB_TOKEN`                                                            | Optional GitHub personal access token for the free commit-email reachability layer (5,000 req/hr vs 60 unauthenticated). The harvester degrades to a no-op when absent. Read-only public scope is sufficient.                            |
+| `EMAIL_PATTERN_FALLBACK_ENABLED`                                           | Enables the default-on, one-probe StableEnrich email-pattern fallback when GitHub returns no domain pattern or observed address. Set false to roll back without changing the explicit deep-find path.                                  |
 | `EXTENSION_API_TOKEN`                                                      | Bearer token for the gated extension API. The bearer token is the extension secret. The local value `local-extension-token` is only a development sentinel.                                                                               |
 | `CHROME_EXTENSION_ID` and `ALLOWED_EXTENSION_ORIGINS`                      | Extension identity allowlist. Production must use a real extension ID and a non-wildcard Chrome extension origin.                                                                                                                         |
 | `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`                              | Hosted Inngest credentials for deployed background generation. Local development uses the dev server path.                                                                                                                                |
@@ -166,6 +167,7 @@ Common generation controls:
 FAST_BASICS_ENABLED=true
 CONTACT_ENRICHMENT_ENABLED=true
 CONTACT_ENRICHMENT_TIER=named-only
+EMAIL_PATTERN_FALLBACK_ENABLED=true
 CHEAP_FIRST_EXA_ENABLED=true
 PER_RUN_AGENTCASH_BUDGET_USD=0.30
 ANALYSIS_SYNTHESIS_MIN_CITATIONS=8

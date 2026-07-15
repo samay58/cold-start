@@ -37,6 +37,7 @@ const envSchema = z.object({
   INNGEST_SIGNING_KEY: z.string().min(1).optional(),
   CONTACT_ENRICHMENT_ENABLED: envBoolean(true),
   CONTACT_ENRICHMENT_TIER: z.enum(["named-only", "full", "off"]).default("named-only"),
+  EMAIL_PATTERN_FALLBACK_ENABLED: envBoolean(true),
   EXA_WEBSETS_CONTACTS_ENABLED: envBoolean(false),
   // Durable websets polling window: attempts x interval. Websets are async agent searches that
   // need minutes, not seconds; the defaults give them ~2 minutes via Inngest step.sleep.
@@ -60,6 +61,7 @@ function parseWebEnv() {
     INNGEST_SIGNING_KEY: process.env.INNGEST_SIGNING_KEY,
     CONTACT_ENRICHMENT_ENABLED: process.env.CONTACT_ENRICHMENT_ENABLED,
     CONTACT_ENRICHMENT_TIER: process.env.CONTACT_ENRICHMENT_TIER,
+    EMAIL_PATTERN_FALLBACK_ENABLED: process.env.EMAIL_PATTERN_FALLBACK_ENABLED,
     EXA_WEBSETS_CONTACTS_ENABLED: process.env.EXA_WEBSETS_CONTACTS_ENABLED,
     WEBSETS_POLL_ATTEMPTS: process.env.WEBSETS_POLL_ATTEMPTS,
     WEBSETS_POLL_INTERVAL_SECONDS: process.env.WEBSETS_POLL_INTERVAL_SECONDS,

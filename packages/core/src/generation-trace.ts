@@ -137,6 +137,7 @@ export type GenerationTrace = {
       observedCount: number;
       inferredCount: number;
       pattern: string | null;
+      patternAnchorCount?: number;
       requestCount?: number;
       estimatedCostUsd?: number;
     };
@@ -151,6 +152,14 @@ export type GenerationTrace = {
       walletDeltaUsd?: number;
       walletSnapshotError?: string;
       budgetCeilingHit?: boolean;
+      emailPatternFallback?: {
+        fired: boolean;
+        hit: boolean;
+        pattern: string | null;
+        observedCount: number;
+        inferredCount: number;
+        spendUsd?: number;
+      };
     };
     websets?: {
       skipped: boolean;

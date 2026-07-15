@@ -8,6 +8,7 @@ import {
 import {
   createDb,
   findCardBySlug,
+  findGenerationRunById,
   findSourcesBySlug,
   recordCardEvidence,
   recordResearchRunEvent,
@@ -25,6 +26,7 @@ import {
 import {
   applyProviderFactCandidates,
   attachPersonReads,
+  buildEmailPatternContactFacts,
   buildGithubContactFacts,
   buildPersonReadEvidence,
   cardWithExtractedSections,
@@ -35,9 +37,11 @@ import {
   type ExtractedCardSections
 } from "@cold-start/pipeline";
 import {
+  agentcashWalletSnapshot,
   createPeopleEmailWebset,
   fetchDirectExaContactSources,
   fetchGithubContacts,
+  fetchStableenrichEmailPatternSources,
   fetchStableenrichPeopleEmailSources,
   isGithubContactsResult,
   pollPeopleEmailWebset,
@@ -71,9 +75,10 @@ import {
 } from "./env";
 import {
   completedStep,
+  applyStableenrichWalletTrace,
   generationMilestoneElapsedMs,
   llmTracePatchFromCalls,
-  mergeGenerationTrace,
+  mergeContactEnrichmentTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
   skippedStep,
@@ -84,6 +89,7 @@ import {
   agentcashBudgetCeilingUsd,
   applyStableenrichEndpointYield,
   failedStableenrichEndpoint,
+  remainingAgentcashBudgetUsd,
   withStableenrichEndpointBudgets
 } from "./provider-trace";
 import {
@@ -215,6 +221,41 @@ function peopleEmailCount(sections: ExtractedCardSections) {
     ...(sections.team.founders.value ?? []),
     ...(sections.team.keyExecs.value ?? [])
   ].filter((person) => Boolean(person.email)).length;
+}
+
+export function emailPatternFallbackDecision(input: {
+  contactEnrichmentEnabled: boolean;
+  fallbackEnabled: boolean;
+  githubPattern: string | null;
+  githubObservedCount: number;
+  hasNamedPersonWithoutEmail: boolean;
+  remainingBudgetUsd: number;
+}): { eligible: true } | { eligible: false; reason: string } {
+  if (!input.contactEnrichmentEnabled) return { eligible: false, reason: "contact enrichment disabled" };
+  if (!input.fallbackEnabled) return { eligible: false, reason: "EMAIL_PATTERN_FALLBACK_ENABLED=false" };
+  if (input.githubPattern) return { eligible: false, reason: "GitHub pattern available" };
+  if (input.githubObservedCount > 0) return { eligible: false, reason: "GitHub observed address available" };
+  if (!input.hasNamedPersonWithoutEmail) return { eligible: false, reason: "no named person missing an email" };
+  if (input.remainingBudgetUsd < 0.01) return { eligible: false, reason: "AgentCash budget below $0.01" };
+  return { eligible: true };
+}
+
+export function mergeContactProviderOutput(
+  existing: { facts: ProviderFactCandidate[]; sources: ProviderSource[] },
+  incoming: { facts: ProviderFactCandidate[]; sources: ProviderSource[] }
+) {
+  return {
+    facts: [...existing.facts, ...incoming.facts],
+    sources: mergeSources(existing.sources, incoming.sources)
+  };
+}
+
+async function safeAgentcashWalletSnapshot() {
+  try {
+    return { ok: true as const, snapshot: await agentcashWalletSnapshot() };
+  } catch (error) {
+    return { ok: false as const, error: boundedErrorMessage(error) };
+  }
 }
 
 async function fetchContactSourcesForBasics(input: {
@@ -406,6 +447,9 @@ export const contactEnrichmentFunction = inngest.createFunction(
       const baseSections = extractedCardSectionsSchema.parse(
         sectionsWithSourceCitations(existingCard, acceptedSources)
       );
+      const parentGenerationRun = parentGenerationRunId
+        ? await step.run("load-parent-generation-run", () => findGenerationRunById(db, parentGenerationRunId))
+        : null;
       const peopleHints = peopleHintsFromSections(baseSections);
       if (runtimeEnv.CONTACT_ENRICHMENT_TIER === "named-only" && peopleHints.length === 0) {
         trace.steps = {
@@ -436,6 +480,9 @@ export const contactEnrichmentFunction = inngest.createFunction(
           return {
             facts: [] as ProviderFactCandidate[],
             sources: [] as ProviderSource[],
+            observed: [],
+            pattern: null,
+            patternAnchorCount: 0,
             tracePatch: {
               providers: {
                 github: { org: result.trace.org, reposChecked: result.trace.reposChecked, observedCount: 0, inferredCount: 0, pattern: null, requestCount: result.trace.requestCount, estimatedCostUsd: 0 as const }
@@ -449,6 +496,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
           keyExecs: baseSections.team.keyExecs.value ?? [],
           observed: result.observed,
           pattern: result.pattern,
+          patternAnchorCount: result.patternAnchorCount,
           orgUrl: `https://github.com/${result.org}`,
           fetchedAt: new Date().toISOString()
         });
@@ -456,6 +504,9 @@ export const contactEnrichmentFunction = inngest.createFunction(
         return {
           facts,
           sources: result.sources,
+          observed: result.observed,
+          pattern: result.pattern,
+          patternAnchorCount: result.patternAnchorCount,
           tracePatch: {
             providers: {
               github: {
@@ -464,6 +515,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
                 observedCount,
                 inferredCount: facts.length - observedCount,
                 pattern: result.pattern,
+                patternAnchorCount: result.patternAnchorCount,
                 requestCount: result.trace.requestCount,
                 estimatedCostUsd: 0 as const
               }
@@ -481,6 +533,113 @@ export const contactEnrichmentFunction = inngest.createFunction(
 
       let paidProviderFacts: ProviderFactCandidate[] = [];
       let paidSources: ProviderSource[] = [];
+      const agentcashBudgetUsd = agentcashBudgetCeilingUsd({
+        mode: "basics",
+        override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
+      });
+      const parentStableenrichEndpoints = parentGenerationRun?.traceJson?.providers?.stableenrich?.endpoints;
+      const fallbackBudgetRemainingUsd = remainingAgentcashBudgetUsd({
+        ceilingUsd: agentcashBudgetUsd,
+        endpoints: parentStableenrichEndpoints
+      });
+      const fallbackDecision = emailPatternFallbackDecision({
+        contactEnrichmentEnabled: true,
+        fallbackEnabled: runtimeEnv.EMAIL_PATTERN_FALLBACK_ENABLED,
+        githubPattern: githubStep.pattern,
+        githubObservedCount: githubStep.observed.length,
+        hasNamedPersonWithoutEmail: peopleHints.some((person) => Boolean(person.name?.trim()) && !person.email),
+        remainingBudgetUsd: fallbackBudgetRemainingUsd
+      });
+
+      if (fallbackDecision.eligible) {
+        currentStage = "email-pattern-fallback";
+        const fallbackStep = await step.run("email-pattern-fallback", async () => {
+          const walletBefore = await safeAgentcashWalletSnapshot();
+          const startedAt = Date.now();
+          const result = await fetchStableenrichEmailPatternSources({
+            env: stableEnv,
+            domain,
+            maxBudgetUsd: 0.01
+          });
+          const walletAfter = await safeAgentcashWalletSnapshot();
+          const fallbackSourceUrl = result.observed.find((contact) => contact.sourceUrl)?.sourceUrl
+            ?? result.sources[0]?.url
+            ?? `https://${domain}`;
+          const facts = buildEmailPatternContactFacts({
+            domain,
+            founders: baseSections.team.founders.value ?? [],
+            keyExecs: baseSections.team.keyExecs.value ?? [],
+            observed: result.observed,
+            pattern: result.pattern,
+            patternAnchorCount: result.patternAnchorCount,
+            fallbackSourceUrl,
+            fetchedAt: new Date().toISOString(),
+            sourceType: "enrichment",
+            provider: "stableenrich",
+            endpoint: "exa_email_search",
+            citationTitle: `${baseSections.identity.name.value ?? domain} email pattern source`
+          });
+          const observedCount = facts.filter((fact) =>
+            Array.isArray(fact.value) && (fact.value[0] as { emailStatus?: string })?.emailStatus === "observed"
+          ).length;
+          return {
+            result,
+            facts,
+            observedCount,
+            walletBefore,
+            walletAfter,
+            durationMs: Date.now() - startedAt
+          };
+        });
+        paidProviderFacts.push(...fallbackStep.facts);
+        paidSources = mergeSources(paidSources, fallbackStep.result.sources);
+        mergeTracePatch(trace, {
+          steps: {
+            "email-pattern-fallback": {
+              ...completedStep(fallbackStep.durationMs),
+              message: fallbackStep.result.pattern ? `pattern ${fallbackStep.result.pattern}` : "no pattern recovered"
+            }
+          },
+          providers: {
+            stableenrich: {
+              sourceCount: fallbackStep.result.sources.length,
+              factCount: fallbackStep.facts.length,
+              failureCount: fallbackStep.result.failures.length,
+              endpoints: withStableenrichEndpointBudgets(fallbackStep.result.endpoints),
+              ...(fallbackStep.result.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
+              emailPatternFallback: {
+                fired: true,
+                hit: fallbackStep.result.pattern !== null,
+                pattern: fallbackStep.result.pattern,
+                observedCount: fallbackStep.observedCount,
+                inferredCount: fallbackStep.facts.length - fallbackStep.observedCount
+              }
+            }
+          }
+        });
+        applyStableenrichWalletTrace(trace, fallbackStep.walletBefore, fallbackStep.walletAfter);
+        const fallbackTrace = trace.providers?.stableenrich?.emailPatternFallback;
+        if (fallbackTrace && trace.providers?.stableenrich?.walletDeltaUsd !== undefined) {
+          fallbackTrace.spendUsd = trace.providers.stableenrich.walletDeltaUsd;
+        }
+        await recordEvent(
+          "email-pattern-fallback",
+          fallbackStep.result.pattern ? "contacts.email-pattern.hit" : "contacts.email-pattern.miss",
+          fallbackStep.result.pattern ? "Paid email pattern fallback recovered a pattern" : "Paid email pattern fallback found no pattern",
+          {
+            pattern: fallbackStep.result.pattern,
+            observedCount: fallbackStep.observedCount,
+            inferredCount: fallbackStep.facts.length - fallbackStep.observedCount,
+            failureCount: fallbackStep.result.failures.length,
+            spendUsd: trace.providers?.stableenrich?.walletDeltaUsd ?? null
+          }
+        );
+      } else {
+        trace.steps = {
+          ...trace.steps,
+          "email-pattern-fallback": skippedStep(fallbackDecision.reason)
+        };
+      }
 
       // Websets are async agent searches: create the webset first so it works while the other
       // contact providers run, then poll durably below. The old inline fetch gave it ~4.5s and
@@ -506,9 +665,12 @@ export const contactEnrichmentFunction = inngest.createFunction(
               directExaEnv,
               domain,
               initialProviders: {},
-              maxStableenrichBudgetUsd: agentcashBudgetCeilingUsd({
-                mode: "basics",
-                override: runtimeEnv.PER_RUN_AGENTCASH_BUDGET_USD
+              maxStableenrichBudgetUsd: remainingAgentcashBudgetUsd({
+                ceilingUsd: agentcashBudgetUsd,
+                endpoints: [
+                  ...(parentStableenrichEndpoints ?? []),
+                  ...(trace.providers?.stableenrich?.endpoints ?? [])
+                ]
               }),
               peopleHints,
               stableEnv,
@@ -528,8 +690,12 @@ export const contactEnrichmentFunction = inngest.createFunction(
           };
         });
         mergeTracePatch(trace, contactSourceResult.tracePatch);
-        paidProviderFacts = contactSourceResult.value.providerFacts;
-        paidSources = contactSourceResult.value.sources;
+        const mergedPaidOutput = mergeContactProviderOutput(
+          { facts: paidProviderFacts, sources: paidSources },
+          { facts: contactSourceResult.value.providerFacts, sources: contactSourceResult.value.sources }
+        );
+        paidProviderFacts = mergedPaidOutput.facts;
+        paidSources = mergedPaidOutput.sources;
         await recordEvent("sources-fetched", "source.contacts", "Checked people and email sources", {
           sourceCount: contactSourceResult.value.sources.length,
           providerFactCount: contactSourceResult.value.providerFacts.length
@@ -614,7 +780,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
             steps: {
               "enrich-contacts": {
                 ...completedStep(result.durationMs),
-                message: `${peopleEmailCount(result.value.sections)} verified work emails`
+                message: `${peopleEmailCount(result.value.sections)} work emails`
               }
             }
           }
@@ -726,7 +892,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
         await step.run("update-parent-contact-trace", () =>
           updateGenerationRunTrace(db, {
             id: parentGenerationRunId,
-            patch: (existingTrace) => mergeGenerationTrace(existingTrace, trace)
+            patch: (existingTrace) => mergeContactEnrichmentTrace(existingTrace, trace)
           }).catch((error) => {
             // Patching the parent run's trace is best-effort. A failure here must not fail
             // contact enrichment or poison the parent generation run's lifecycle.
@@ -736,7 +902,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
         );
       }
 
-      await recordEvent("complete", "contacts.enriched", `Found ${peopleEmailCount(contactEnriched.value.sections)} verified work emails`, {
+      await recordEvent("complete", "contacts.enriched", `Found ${peopleEmailCount(contactEnriched.value.sections)} work emails`, {
         emailCount: peopleEmailCount(contactEnriched.value.sections)
       });
       return { slug, emailCount: peopleEmailCount(contactEnriched.value.sections) };

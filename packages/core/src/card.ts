@@ -56,6 +56,9 @@ export const personSchema = z.object({
   // source (e.g. a GitHub commit); "inferred" = constructed from the domain email
   // pattern and never seen directly. Stripped from the public card alongside email.
   emailStatus: z.enum(["observed", "inferred"]).nullable().optional(),
+  // Short private provenance for inferred addresses, such as the winning domain pattern
+  // and number of observed anchors. Meaningless without email, so publicCard strips it too.
+  emailBasis: z.string().min(1).nullable().optional(),
   // Public professional presence. Public-safe (unlike email), so it survives publicCard().
   githubUrl: z.string().url().nullable().optional(),
   xUrl: z.string().url().nullable().optional(),

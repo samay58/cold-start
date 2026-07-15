@@ -1,11 +1,83 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildStableenrichRequests,
+  fetchStableenrichEmailPatternSources,
   fetchStableenrichPeopleEmailSources,
   fetchStableenrichSources,
   missingStableenrichConfig,
   runStableenrichProbe,
 } from "../src/index";
+
+describe("fetchStableenrichEmailPatternSources", () => {
+  it("uses one Exa probe to recover observed anchors and a domain pattern", async () => {
+    let callCount = 0;
+    const result = await fetchStableenrichEmailPatternSources({
+      env: {},
+      domain: "acme.ai",
+      maxBudgetUsd: 0.01,
+      agentcashFetch: async () => {
+        callCount += 1;
+        return {
+          results: [
+            {
+              url: "https://example.com/acme-team",
+              title: "Ada Lovelace joins Acme",
+              text: "Acme CEO Ada Lovelace can be reached at ada.lovelace@acme.ai."
+            }
+          ]
+        };
+      }
+    });
+
+    expect(callCount).toBe(1);
+    expect(result.endpoints).toEqual([
+      expect.objectContaining({ name: "exa_email_search", status: "ok" })
+    ]);
+    expect(result.observed).toEqual([
+      expect.objectContaining({ email: "ada.lovelace@acme.ai", fullName: "Ada Lovelace", sourceUrl: "https://example.com/acme-team" })
+    ]);
+    expect(result.pattern).toBe("first.last");
+    expect(result.patternAnchorCount).toBe(1);
+  });
+
+  it("does not call the endpoint without budget headroom", async () => {
+    let callCount = 0;
+    const result = await fetchStableenrichEmailPatternSources({
+      env: {},
+      domain: "acme.ai",
+      maxBudgetUsd: 0,
+      agentcashFetch: async () => {
+        callCount += 1;
+        return {};
+      }
+    });
+
+    expect(callCount).toBe(0);
+    expect(result.budgetCeilingHit).toBe(true);
+    expect(result.endpoints).toEqual([]);
+  });
+
+  it("records one structured failure and never retries", async () => {
+    let callCount = 0;
+    const result = await fetchStableenrichEmailPatternSources({
+      env: {},
+      domain: "acme.ai",
+      maxBudgetUsd: 0.01,
+      agentcashFetch: async () => {
+        callCount += 1;
+        throw new Error("wallet declined");
+      }
+    });
+
+    expect(callCount).toBe(1);
+    expect(result.failures).toEqual([
+      expect.objectContaining({ name: "exa_email_search", error: "wallet declined" })
+    ]);
+    expect(result.endpoints).toEqual([
+      expect.objectContaining({ name: "exa_email_search", status: "failed", error: "wallet declined" })
+    ]);
+  });
+});
 
 describe("missingStableenrichConfig", () => {
   it("does not require AgentCash API keys or endpoint env when using Stableenrich defaults", () => {

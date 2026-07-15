@@ -1,6 +1,7 @@
 import type { GenerationTrace } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
+  mergeContactEnrichmentTrace,
   mergeTracePatch,
   mergeGenerationTrace,
   requestedAtMsFromGenerationEvent,
@@ -141,5 +142,79 @@ describe("generation milestone telemetry", () => {
     expect(trace.llm?.calls).toHaveLength(2);
     expect(trace.llm?.totalEstimatedCostUsd).toBe(0.019134);
     expect(trace.costUsdAnthropic).toBe(0.019134);
+  });
+
+  it("adds contact provider spend and endpoints to the parent trace", () => {
+    const parent: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAgentcash: 0.02,
+      providers: {
+        stableenrich: {
+          sourceCount: 4,
+          factCount: 2,
+          failureCount: 1,
+          walletSnapshotBeforeUsd: 10,
+          walletSnapshotAfterUsd: 9.98,
+          walletDeltaUsd: 0.02,
+          endpoints: [{
+            name: "org_enrichment",
+            endpointUrl: "https://stableenrich.dev/api/apollo/org-enrich",
+            status: "ok",
+            sourceCount: 4,
+            factCount: 2,
+            estimatedCostUsd: 0.02
+          }]
+        }
+      }
+    };
+    const contact: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAgentcash: 0.01,
+      providers: {
+        stableenrich: {
+          sourceCount: 8,
+          factCount: 4,
+          failureCount: 0,
+          walletSnapshotBeforeUsd: 9.98,
+          walletSnapshotAfterUsd: 9.97,
+          walletDeltaUsd: 0.01,
+          endpoints: [{
+            name: "exa_email_search",
+            endpointUrl: "https://stableenrich.dev/api/exa/search",
+            status: "ok",
+            sourceCount: 8,
+            factCount: 4,
+            estimatedCostUsd: 0.01
+          }],
+          emailPatternFallback: {
+            fired: true,
+            hit: true,
+            pattern: "first",
+            observedCount: 0,
+            inferredCount: 4,
+            spendUsd: 0.01
+          }
+        }
+      }
+    };
+
+    const merged = mergeContactEnrichmentTrace(parent, contact);
+
+    expect(merged.costUsdAgentcash).toBe(0.03);
+    expect(merged.providers?.stableenrich).toMatchObject({
+      sourceCount: 12,
+      factCount: 6,
+      failureCount: 1,
+      walletSnapshotBeforeUsd: 10,
+      walletSnapshotAfterUsd: 9.97,
+      walletDeltaUsd: 0.03,
+      emailPatternFallback: { fired: true, hit: true }
+    });
+    expect(merged.providers?.stableenrich?.endpoints?.map((endpoint) => endpoint.name)).toEqual([
+      "org_enrichment",
+      "exa_email_search"
+    ]);
   });
 });

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildContactEnrichmentRequestedEvent } from "../src/inngest/contact-enrichment";
+import {
+  buildContactEnrichmentRequestedEvent,
+  emailPatternFallbackDecision,
+  mergeContactProviderOutput
+} from "../src/inngest/contact-enrichment";
 import { contactEnrichmentEnabled } from "../src/inngest/env";
+import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
 
 describe("contact enrichment dispatch", () => {
   it("honors the CONTACT_ENRICHMENT_ENABLED kill switch", () => {
@@ -60,5 +65,51 @@ describe("contact enrichment dispatch", () => {
       deepFind: true
     });
     expect(deep.data).toMatchObject({ deepFind: true });
+  });
+});
+
+describe("email pattern fallback guard", () => {
+  const eligible = {
+    contactEnrichmentEnabled: true,
+    fallbackEnabled: true,
+    githubPattern: null,
+    githubObservedCount: 0,
+    hasNamedPersonWithoutEmail: true,
+    remainingBudgetUsd: 0.01
+  };
+
+  it("allows one fallback only when every trigger condition is satisfied", () => {
+    expect(emailPatternFallbackDecision(eligible)).toEqual({ eligible: true });
+  });
+
+  it.each([
+    ["contact enrichment disabled", { contactEnrichmentEnabled: false }],
+    ["EMAIL_PATTERN_FALLBACK_ENABLED=false", { fallbackEnabled: false }],
+    ["GitHub pattern available", { githubPattern: "first.last" }],
+    ["GitHub observed address available", { githubObservedCount: 1 }],
+    ["no named person missing an email", { hasNamedPersonWithoutEmail: false }],
+    ["AgentCash budget below $0.01", { remainingBudgetUsd: 0.009 }]
+  ])("blocks when %s", (reason, override) => {
+    expect(emailPatternFallbackDecision({ ...eligible, ...override })).toEqual({
+      eligible: false,
+      reason
+    });
+  });
+});
+
+describe("contact provider result merging", () => {
+  it("preserves fallback facts and sources when deep-find providers return", () => {
+    const fallbackFact = { endpoint: "exa_email_search" } as ProviderFactCandidate;
+    const deepFindFact = { endpoint: "hunter_domain_search" } as ProviderFactCandidate;
+    const fallbackSource = { url: "https://example.com/fallback" } as ProviderSource;
+    const deepFindSource = { url: "https://example.com/deep-find" } as ProviderSource;
+
+    expect(mergeContactProviderOutput(
+      { facts: [fallbackFact], sources: [fallbackSource] },
+      { facts: [deepFindFact], sources: [deepFindSource] }
+    )).toEqual({
+      facts: [fallbackFact, deepFindFact],
+      sources: [fallbackSource, deepFindSource]
+    });
   });
 });

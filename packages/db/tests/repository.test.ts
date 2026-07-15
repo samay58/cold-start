@@ -9,6 +9,7 @@ import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
   findCardBySlug,
+  findGenerationRunById,
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
@@ -809,6 +810,38 @@ describe("findLatestGenerationRunBySlug", () => {
     expect(summary?.traceJson).toBeNull();
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe("findGenerationRunById", () => {
+  it("returns the exact parent run with its validated trace", async () => {
+    const trace: GenerationTrace = { jobKind: "basics", mode: "basics", costUsdAgentcash: 0.02 };
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: (condition: unknown) => ({
+            limit: async () => sqlParamValues(condition).includes("run-parent")
+              ? [{
+                  id: "run-parent",
+                  slug: "cartesia",
+                  domain: "cartesia.ai",
+                  mode: "basics",
+                  jobKind: "basics",
+                  status: "complete",
+                  traceJson: trace,
+                  startedAt: new Date("2026-05-06T12:00:00.000Z")
+                }]
+              : []
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findGenerationRunById(db, "run-parent")).resolves.toMatchObject({
+      id: "run-parent",
+      traceJson: trace
+    });
+    await expect(findGenerationRunById(db, "missing")).resolves.toBeNull();
   });
 });
 

@@ -217,11 +217,11 @@ function stripPersonEmails(fact: TeamPeopleFact): TeamPeopleFact {
   return {
     ...fact,
     value: fact.value.map((person) => {
-      // email is gated (extension-only); emailStatus is its provenance and is
-      // meaningless (and slightly leaky) without the address, so drop both.
+      // email is gated (extension-only); emailStatus and emailBasis are its provenance and
+      // are meaningless (and slightly leaky) without the address, so drop all three.
       // read is extension-tier judgment, not a public sourced fact, so it drops too.
       // Public channels (githubUrl/xUrl/personalUrl) are public presence and stay.
-      const { email: _email, emailStatus: _emailStatus, read: _read, ...publicPerson } = person;
+      const { email: _email, emailStatus: _emailStatus, emailBasis: _emailBasis, read: _read, ...publicPerson } = person;
       return publicPerson;
     })
   };

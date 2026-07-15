@@ -91,6 +91,7 @@ describe("applyProviderFactCandidates", () => {
             sourceUrl: "https://github.com/karan/x/commit/1",
             email: "karan@cartesia.ai",
             emailStatus: "inferred",
+            emailBasis: "domain pattern first, 2 observed addresses",
             githubUrl: "https://github.com/karan"
           }
         ],
@@ -108,6 +109,7 @@ describe("applyProviderFactCandidates", () => {
     const founder = result.sections.team.founders.value?.find((person) => person.name === "Karan Goel");
     expect(founder?.email).toBe("karan@cartesia.ai");
     expect(founder?.emailStatus).toBe("observed");
+    expect(founder?.emailBasis).toBeNull();
     expect(founder?.githubUrl).toBe("https://github.com/karan");
   });
 

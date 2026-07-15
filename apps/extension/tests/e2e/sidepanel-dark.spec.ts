@@ -1,6 +1,8 @@
+import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import {
   browserbaseCardWithPeople,
+  browserbaseCardWithInferredEmail,
   browserbaseCardWithSynthesis,
   fulfillJson,
   granolaCard,
@@ -69,6 +71,27 @@ test("dark: people rows and fact cells keep visible edges", async ({ page }) => 
   await people.first().scrollIntoViewIfNeeded();
   await page.waitForTimeout(200);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-people.png" });
+});
+
+test("dark: inferred email dossier keeps status, basis, and readable hierarchy", async ({ page }) => {
+  await seedDark(page);
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithInferredEmail());
+  await openDark(page);
+
+  await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
+  const person = page.locator(".cs-people-person", { hasText: "Paul Klein" });
+  await person.focus();
+  const tooltip = page.locator("#cs-company-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip.locator(".cs-dossier-email-kind")).toHaveText("Inferred");
+  await expect(tooltip.locator(".cs-dossier-email-basis")).toHaveText(
+    "domain pattern first.last, 3 observed addresses"
+  );
+  await page.screenshot({
+    fullPage: true,
+    path: fileURLToPath(new URL("../../../../docs/superpowers/specs/screenshots/inferred-email-coverage/after/dark-inferred-dossier.png", import.meta.url))
+  });
 });
 
 test("dark: start gate for an ungenerated company", async ({ page }) => {

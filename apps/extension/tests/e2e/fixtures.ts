@@ -208,6 +208,17 @@ export function browserbaseCardWithPeople(): ColdStartCard {
   });
 }
 
+export function browserbaseCardWithInferredEmail(): ColdStartCard {
+  const card = browserbaseCardWithPeople();
+  const founder = card.team.founders.value?.[0];
+  if (founder) {
+    founder.email = "paul.klein@browserbase.com";
+    founder.emailStatus = "inferred";
+    founder.emailBasis = "domain pattern first.last, 3 observed addresses";
+  }
+  return card;
+}
+
 export async function installChromeShim(page: Page, seed: ChromeStorageSeed = {}) {
   await page.addInitScript((input) => {
     type Listener = (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, areaName: string) => void;

@@ -15,6 +15,21 @@ const GITHUB_API = "https://api.github.com";
 const NOREPLY = /noreply|users\.noreply/i;
 const MAX_REPOS = 5;
 const COMMITS_PER_REPO = 100;
+const CURATED_ORG_LOGINS: Record<string, string> = {
+  "anthropic.com": "anthropics",
+  "brex.com": "brexhq",
+  "glean.com": "gleanwork",
+  "hex.tech": "hex-inc",
+  "mercury.com": "MercuryTechnologies",
+  "modal.com": "modal-labs",
+  "neon.tech": "neondatabase",
+  "notion.so": "makenotion",
+  "pinecone.io": "pinecone-io",
+  "retool.com": "tryretool",
+  "snowflake.com": "snowflakedb",
+  "together.ai": "togethercomputer",
+  "trychroma.com": "chroma-core"
+};
 
 type FetchLike = (input: string, init?: { headers?: Record<string, string> }) => Promise<{
   ok: boolean;
@@ -41,6 +56,7 @@ export type GithubContactsResult = {
   org: string;
   observed: GithubObservedContact[];
   pattern: EmailPattern | null;
+  patternAnchorCount: number;
   sources: ProviderSource[];
   trace: GithubContactsTrace;
 };
@@ -86,7 +102,7 @@ export async function fetchGithubContacts(input: {
     }
   }
 
-  const pattern = deriveEmailPattern(observed.map((entry) => ({ email: entry.email, fullName: entry.fullName })));
+  const patternResult = deriveEmailPattern(observed.map((entry) => ({ email: entry.email, fullName: entry.fullName })));
 
   const sources: ProviderSource[] = [
     {
@@ -103,7 +119,8 @@ export async function fetchGithubContacts(input: {
     found: true,
     org: org.login,
     observed,
-    pattern,
+    pattern: patternResult?.pattern ?? null,
+    patternAnchorCount: patternResult?.anchorCount ?? 0,
     sources,
     trace: { org: org.login, reposChecked, requestCount: counter.count, estimatedCostUsd: 0 }
   };
@@ -118,6 +135,15 @@ async function resolveOrg(
   headers: Record<string, string>,
   counter: { count: number }
 ): Promise<ResolvedOrg | null> {
+  const curatedLogin = CURATED_ORG_LOGINS[root];
+  if (curatedLogin) {
+    const account = await getJson(fetcher, `${GITHUB_API}/users/${encodeURIComponent(curatedLogin)}`, headers, counter);
+    const curated = resolvedOrg(account);
+    if (curated) {
+      return curated;
+    }
+  }
+
   for (const guess of orgLoginGuesses(companyName, root)) {
     const account = await getJson(fetcher, `${GITHUB_API}/users/${encodeURIComponent(guess)}`, headers, counter);
     const confirmed = confirmOrg(account, companyName, root);
@@ -126,14 +152,15 @@ async function resolveOrg(
     }
   }
 
-  // One search fallback, confirmed the same way.
+  // Search is deliberately stricter than login guesses: plausible names are common and caused
+  // false-positive orgs. A result must point back to the card domain before we harvest it.
   const search = await getJson(fetcher, `${GITHUB_API}/search/users?q=${encodeURIComponent(`${companyName} type:org`)}&per_page=5`, headers, counter);
   const items = isRecord(search) && Array.isArray(search.items) ? search.items : [];
   for (const item of items.slice(0, 5)) {
     const login = isRecord(item) ? stringOrNull(item.login) : null;
     if (!login) continue;
     const account = await getJson(fetcher, `${GITHUB_API}/users/${encodeURIComponent(login)}`, headers, counter);
-    const confirmed = confirmOrg(account, companyName, root);
+    const confirmed = confirmOrgByWebsite(account, root);
     if (confirmed) {
       return confirmed;
     }
@@ -141,7 +168,7 @@ async function resolveOrg(
   return null;
 }
 
-function confirmOrg(account: unknown, companyName: string, root: string): ResolvedOrg | null {
+function resolvedOrg(account: unknown): ResolvedOrg | null {
   if (!isRecord(account)) {
     return null;
   }
@@ -149,12 +176,29 @@ function confirmOrg(account: unknown, companyName: string, root: string): Resolv
   if (!login) {
     return null;
   }
+  return { login, name: stringOrNull(account.name), email: stringOrNull(account.email) };
+}
+
+function confirmOrgByWebsite(account: unknown, root: string): ResolvedOrg | null {
+  const resolved = resolvedOrg(account);
+  if (!resolved || !isRecord(account)) {
+    return null;
+  }
   const blogHost = hostFromUrl(stringOrNull(account.blog) ?? "");
-  const name = stringOrNull(account.name);
+  return blogHost === root || blogHost.endsWith(`.${root}`) ? resolved : null;
+}
+
+function confirmOrg(account: unknown, companyName: string, root: string): ResolvedOrg | null {
+  const resolved = resolvedOrg(account);
+  if (!resolved || !isRecord(account)) {
+    return null;
+  }
+  const blogHost = hostFromUrl(stringOrNull(account.blog) ?? "");
+  const name = resolved.name;
   const websiteMatch = blogHost === root || blogHost.endsWith(`.${root}`);
   const nameMatch = Boolean(name && compact(name).includes(compact(companyName).slice(0, 6)) && compact(companyName).length >= 4);
   if (websiteMatch || nameMatch) {
-    return { login, name, email: stringOrNull(account.email) };
+    return resolved;
   }
   return null;
 }
