@@ -439,7 +439,7 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("Who pays");
     expect(container.textContent).toContain("Proof");
     expect(container.textContent).toContain("Investor Lens");
-    expect(container.textContent).toContain("Runs on the cited profile once it is filed.");
+    expect(container.textContent).toContain("Opens when the cited profile is filed.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Begin research"
     );

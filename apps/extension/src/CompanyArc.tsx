@@ -96,23 +96,12 @@ function useElapsedSeconds(active: boolean, startedAt?: number) {
   return Math.floor(elapsedMs / 1000);
 }
 
-const SEALED_LENS_REASON: Record<"intake" | "building", string> = {
-  intake: "Runs on the cited profile once it is filed.",
-  building: LENS_WAITS_FOR_PROFILE_REASON
-};
-
-// The gated tier, visible from the first second: sealed with its honest reason until a cited
-// profile exists, at which point the live control inside the research layer takes over.
-function SealedLensRow({ phase }: { phase: "intake" | "building" }) {
+// The gated tier stays legible from the first second without presenting a disabled action.
+function SealedLensRow() {
   return (
-    <div className="cs-investor-lens-control cs-lens-sealed" data-sealed="true">
-      <div>
-        <strong>Investor Lens</strong>
-        <span>{SEALED_LENS_REASON[phase]}</span>
-      </div>
-      <button className="cs-investor-lens-button" disabled type="button">
-        Run Investor Lens
-      </button>
+    <div className="cs-lens-sealed" data-sealed="true">
+      <strong>Investor Lens</strong>
+      <span>{LENS_WAITS_FOR_PROFILE_REASON}</span>
     </div>
   );
 }
@@ -139,7 +128,7 @@ function ArcStack() {
         ))}
       </div>
       <p className="cs-arc-stack-more">{`+${remaining} more file once the profile is ready`}</p>
-      <SealedLensRow phase="intake" />
+      <SealedLensRow />
     </section>
   );
 }
@@ -274,7 +263,7 @@ export function CompanyArc({
           <>
             <Clippings clippings={clippingsFromEvents(building.events)} prefersReducedMotion={prefersReducedMotion} />
             <ResearchTrail events={building.events} generationStatus={building.generationStatus} />
-            <SealedLensRow phase="building" />
+            <SealedLensRow />
           </>
         ) : null}
 

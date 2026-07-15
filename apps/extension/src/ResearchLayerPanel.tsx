@@ -609,7 +609,7 @@ function PartialProfilePanel({
   const body = quality.hasCitations
     ? "Some cited facts were saved, but not enough to open Research."
     : "No cited sources were saved. Rebuild the profile from public sources.";
-  const lensReason = analysisBlockedReason(card) ?? "The cited profile must finish before Investor Lens can run.";
+  const lensReason = analysisBlockedReason(card) ?? LENS_WAITS_FOR_PROFILE_REASON;
 
   return (
     <section className="cs-partial-profile" aria-label="Incomplete company profile">
@@ -620,14 +620,9 @@ function PartialProfilePanel({
       <button className="cs-extension-button" onClick={onRegenerate} type="button">
         Regenerate profile
       </button>
-      <div className="cs-investor-lens-control cs-investor-lens-control-partial">
-        <div>
-          <strong>Investor Lens</strong>
-          <span>{lensReason}</span>
-        </div>
-        <button className="cs-investor-lens-button" disabled type="button">
-          Run Investor Lens
-        </button>
+      <div className="cs-lens-sealed cs-lens-sealed-partial" data-sealed="true">
+        <strong>Investor Lens</strong>
+        <span>{lensReason}</span>
       </div>
     </section>
   );

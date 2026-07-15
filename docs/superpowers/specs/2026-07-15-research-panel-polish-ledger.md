@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A is complete on `main`. The one-plate polish and adversarial CSS cleanup are deployed in Vercel production deployment `dpl_CB6WzN3QaNtYmMXLV6PkXdoJt5C9`; GitHub Check run `29421374905` passed every release gate; the stable alias passed live route and contract checks; and Samay manually exercised the unpacked build in Dia. The merged local and remote feature branches are deleted, and `main` is the only branch and worktree. No deviations remain against the Done definition.
+Spec A remains complete on `main`. A screenshot-driven Dia-width correction is ready on `codex/design-slop-cleanup`: the company identity no longer collides with the filing status at 431 to 437px, and the unavailable Investor Lens is a quiet prerequisite row rather than a second disabled card. The full-height purple progress mesh is deliberately unchanged. The 47-state UI suite, packaged MV3 smoke, and full repository check are green. Next: release to `main`, verify the production deployment, then remove the merged branch.
 
 ## 2026-07-15
 
@@ -97,3 +97,13 @@ None against the Spec A Done definition. The existing MV3 smoke storage seed has
 - GitHub Check run `29421374905` passed lint, typecheck, all tests, Chrome build, Firefox build, pinned self-hosted Firefox lint, golden dry run, knip, secrets scan, and dependency audit.
 - Live `/privacy`, `/robots.txt`, and `/sitemap.xml` returned HTTP 200. The public card route retained contract `2026-07-15.inferred-email-basis-v1` and no private fields.
 - Deleted the merged `research-panel-polish` and `inferred-email-coverage` branches locally and from `origin`. No stale worktrees existed; `main` remains the only worktree.
+
+### Dia-width screenshot correction
+
+- Samay's live Dia captures at 431 to 437px showed the title, seal, and reading status competing in the same header row, plus a large disabled Investor Lens card directly below it.
+- A regression fixture reproduced the collision before production edits: the status began at `30.7px`, above the identity bottom plus the required `8px` clearance. The fixture now exercises the SymphonyAI building state at 437px light and 431px dark, checks title fit, status separation, horizontal fit, theme-rule contrast, and the absence of a disabled Lens button.
+- `CompanyHeader` now uses an intrinsic two-column identity grid with the status on its own ruled row. This avoids relying on the old 430px breakpoint that missed Dia's real panel width.
+- The unavailable Lens now renders as a transparent ledger row with the prerequisite `Opens when the cited profile is filed.` The ready, running, and filed Lens surfaces remain unchanged.
+- An initial interpretation removed the building shell's full-height mesh. Samay rejected that change because the purple gradient is an intentional signature surface. The mesh height, shader colors, animation, fallback, and opacity are unchanged in the final diff.
+- Before evidence: Samay's `CleanShot 2026-07-15 at 09.38.49@2x.png` and `CleanShot 2026-07-15 at 09.38.54@2x.png`. After evidence: `/private/tmp/cold-start-symphony-dia-width-after.png` and `/private/tmp/cold-start-symphony-dia-width-dark-after.png`.
+- Verification: focused Playwright 1/1, extension component tests 63/63, CSS audit green, extension typecheck green, full side-panel UI 47/47, and packaged Chrome MV3 smoke 1/1. The smoke's first launch hit the existing empty-token storage-seed race; the captured Access screen confirmed that mechanism, and the unchanged rerun passed. The final `npm run check` passed zero-warning lint, all workspace types and tests, Chrome and Firefox production builds, Firefox package lint, the golden dry run, knip, secrets scan, and dependency audit.

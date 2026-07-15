@@ -776,6 +776,108 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   expect(new Set(samples).size, `Drizzle opacity should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
 });
 
+test("Dia-width building state keeps identity clear and the sealed lens quiet", async ({ page }) => {
+  await page.setViewportSize({ width: 437, height: 844 });
+  await installChromeShim(page, { activeDomain: "symphonyai.com" });
+  const startedAt = new Date(Date.now() - 30_000).toISOString();
+  const events = [{
+    id: "e1",
+    runId: "r1",
+    slug: "symphonyai",
+    domain: "symphonyai.com",
+    sectionId: null,
+    type: "plan.ready",
+    message: "Research plan ready",
+    metadata: {},
+    createdAt: "2026-06-01T00:00:01.000Z"
+  }];
+
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "symphonyai.com",
+      slug: "symphonyai",
+      card: null,
+      runs: {
+        basics: {
+          slug: "symphonyai",
+          domain: "symphonyai.com",
+          status: "running",
+          mode: "basics",
+          startedAt,
+          events
+        },
+        analysis: { slug: "symphonyai", domain: "symphonyai.com", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, {
+      slug: "symphonyai",
+      domain: "symphonyai.com",
+      status: "running",
+      mode: "basics",
+      startedAt,
+      events
+    });
+  });
+
+  await openSidePanel(page);
+
+  const heading = page.getByRole("heading", { name: "SymphonyAI" });
+  const domain = page.getByRole("link", { name: "symphonyai.com" });
+  const status = page.locator(".cs-company-status-slot");
+  await expect(heading).toBeVisible();
+  await expect(status).toContainText("Reading symphonyai.com");
+
+  const geometry = await page.locator(".cs-company-context-main").evaluate((main) => {
+    const headingRect = main.querySelector("h1")!.getBoundingClientRect();
+    const domainRect = main.querySelector(".cs-company-domain")!.getBoundingClientRect();
+    const statusRect = main.querySelector(".cs-company-status-slot")!.getBoundingClientRect();
+    return {
+      headingFits: (main.querySelector("h1") as HTMLElement).scrollWidth <= (main.querySelector("h1") as HTMLElement).clientWidth + 1,
+      statusTop: statusRect.top,
+      identityBottom: Math.max(headingRect.bottom, domainRect.bottom)
+    };
+  });
+  expect(geometry.headingFits).toBe(true);
+  expect(geometry.statusTop).toBeGreaterThanOrEqual(geometry.identityBottom + 8);
+  await expect(page.locator('.cs-panel-stage-scene[data-panel="loading"]')).toHaveCount(0);
+
+  const sealedLens = page.locator(".cs-lens-sealed");
+  await expect(sealedLens).toContainText("Investor Lens");
+  await expect(sealedLens.getByRole("button")).toHaveCount(0);
+  await expect(sealedLens).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(sealedLens).toHaveCSS("border-right-width", "0px");
+  const shellHeight = await page.locator(".cs-research-shell").evaluate((shell) => shell.getBoundingClientRect().height);
+  expect(shellHeight).toBeGreaterThanOrEqual(844);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-symphony-dia-width-after.png" });
+
+  await page.setViewportSize({ width: 431, height: 844 });
+  await setTheme(page, "dark");
+
+  const darkGeometry = await page.locator(".cs-company-context-main").evaluate((main) => {
+    const headingElement = main.querySelector("h1") as HTMLElement;
+    const headingRect = headingElement.getBoundingClientRect();
+    const domainRect = main.querySelector(".cs-company-domain")!.getBoundingClientRect();
+    const statusRect = main.querySelector(".cs-company-status-slot")!.getBoundingClientRect();
+    return {
+      headingFits: headingElement.scrollWidth <= headingElement.clientWidth + 1,
+      statusTop: statusRect.top,
+      identityBottom: Math.max(headingRect.bottom, domainRect.bottom),
+      documentFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1
+    };
+  });
+  expect(darkGeometry.headingFits).toBe(true);
+  expect(darkGeometry.statusTop).toBeGreaterThanOrEqual(darkGeometry.identityBottom + 8);
+  expect(darkGeometry.documentFits).toBe(true);
+  await expect(status).toHaveCSS("border-top-style", "solid");
+  await expect(status).not.toHaveCSS("border-top-color", "rgb(25, 24, 22)");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-symphony-dia-width-dark-after.png" });
+});
+
 test("progress tree surfaces real research events as substeps", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
   const startedAt = new Date(Date.now() - 12_000).toISOString();

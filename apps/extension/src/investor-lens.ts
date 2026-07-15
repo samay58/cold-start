@@ -26,9 +26,8 @@ function labelForQuestionCategory(category: QuestionCategory | null): string | n
   return category ? QUESTION_CATEGORY_LABELS[category] : null;
 }
 
-// The sealed lens row in the company arc and the live control in the research layer
-// speak this same line while the cited profile is still building.
-export const LENS_WAITS_FOR_PROFILE_REASON = "The cited profile must finish before Investor Lens can run.";
+// The sealed lens row and partial profile use the same honest prerequisite.
+export const LENS_WAITS_FOR_PROFILE_REASON = "Opens when the cited profile is filed.";
 
 function cleanQuestionText(question: string) {
   return stripCitationMarkers(question)

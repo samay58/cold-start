@@ -654,7 +654,6 @@ button {
   color: var(--color-ink);
 }
 
-.cs-company-context-main,
 .cs-research-layer-head,
 .cs-active-enrichment-head {
   display: flex;
@@ -753,6 +752,8 @@ button {
 .cs-company-context-main {
   position: relative;
   z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 18px;
   align-items: start;
   padding: 24px 22px 22px;
@@ -767,8 +768,10 @@ button {
 
 .cs-company-status-slot {
   align-self: start;
-  flex-shrink: 0;
-  margin-left: auto;
+  grid-column: 1 / -1;
+  width: 100%;
+  padding-top: 11px;
+  border-top: 1px solid rgb(var(--cs-c-212-197-158) / 0.62);
 }
 
 /*
@@ -778,9 +781,9 @@ button {
 .cs-assembly-whisper {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  max-width: 132px;
+  justify-content: flex-start;
+  gap: 8px;
+  max-width: none;
 }
 
 .cs-assembly-whisper-copy {
@@ -789,7 +792,7 @@ button {
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.15;
-  text-align: right;
+  text-align: left;
 }
 
 .cs-assembly-whisper[data-attention="true"] .cs-assembly-whisper-copy {
@@ -903,6 +906,8 @@ button {
   font-weight: 500;
   letter-spacing: 0;
   line-height: 0.98;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .cs-company-context-main p:not(.cs-research-label) {
@@ -1109,8 +1114,38 @@ button {
 }
 
 .cs-lens-sealed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
   margin: 0;
-  opacity: 0.88;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-rule);
+  background: transparent;
+}
+
+.cs-arc > .cs-lens-sealed {
+  margin: 0 12px 2px;
+}
+
+.cs-lens-sealed strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cs-lens-sealed span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.cs-lens-sealed-partial {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .cs-early-read-claim {
@@ -1656,7 +1691,7 @@ button {
 }
 
 /*
- * Investor Lens slot: one continuous surface that carries the lens moment through
+ * Investor Lens slot: one continuous surface that carries the live lens moment through
  * ready (control), running (receipt), filed (memo), and not-filed (honest empty).
  * Catalogue language: plate ground, 1px rules, one seal accent used as a verb.
  */
@@ -1666,10 +1701,8 @@ button {
   margin: 10px 12px 0;
 }
 
-/* Sealed, running, and filed are three states of one card. They share the plate, the
-   radius, and the padding; the top edge stays a neutral rule across every state. The
-   seal accent lives in the label, the button, and the dot, never as a colored top-edge
-   ribbon. */
+/* Ready, running, and filed share the plate language. The unavailable sealed state above
+   remains a plain ledger row rather than impersonating an action card. */
 .cs-investor-lens-control {
   display: flex;
   align-items: center;
@@ -1681,11 +1714,6 @@ button {
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
-}
-
-.cs-investor-lens-control-partial {
-  width: 100%;
-  margin: 4px 0 0;
 }
 
 .cs-investor-lens-control div {
