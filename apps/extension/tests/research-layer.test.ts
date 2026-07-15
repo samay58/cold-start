@@ -401,7 +401,7 @@ describe("research layer model", () => {
       "Series B",
       "Seed"
     ]);
-    // Backer names surface once, as deduped pills: round leads in ledger order, then the
+    // Backer names surface once in one ledger row: round leads in ledger order, then the
     // investors fact, with "Kleiner Perkins" (lead AND named investor) collapsed to one entry.
     expect(display?.investors).toEqual(["Kleiner Perkins", "Index", "Index Ventures"]);
     expect(display?.items?.[0]?.body).toBeUndefined();

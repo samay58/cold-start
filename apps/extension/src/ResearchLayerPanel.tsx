@@ -183,13 +183,15 @@ function LayerContent({
   display,
   onAction,
   running,
-  runningCopy = "Extracting structure from cited sources"
+  runningCopy = "Extracting structure from cited sources",
+  tooltipProps
 }: {
   actionLabel?: string | undefined;
   display: ResearchLayerDisplay;
   onAction?: (() => void) | undefined;
   running: boolean;
   runningCopy?: string;
+  tooltipProps: TooltipPropsFor;
 }) {
   if (running) {
     return (
@@ -207,7 +209,7 @@ function LayerContent({
     : null;
   const sourceChips = (
     <>
-      <SourceChips sources={display.sources} />
+      <SourceChips sources={display.sources} tooltipProps={tooltipProps} />
       {action}
     </>
   );
@@ -234,12 +236,12 @@ function LayerContent({
         {display.lead ? <p className="cs-layer-lead">{display.lead}</p> : null}
         <ul className="cs-layer-items">
           {display.items.map((item) => (
-            <li key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
+            <li data-has-meta={item.meta ? "true" : "false"} key={`${item.title}-${item.meta ?? item.body ?? ""}`}>
+              {item.meta ? <span>{item.meta}</span> : null}
               <div>
                 <strong>{item.title}</strong>
                 {item.body ? <p>{item.body}</p> : null}
               </div>
-              {item.meta ? <span>{item.meta}</span> : null}
             </li>
           ))}
         </ul>
@@ -301,11 +303,10 @@ function MoneyLayerItems({
         </div>
       ) : null}
       {investors && investors.length > 0 ? (
-        <ul className="cs-money-pills" aria-label="Named investors">
-          {investors.map((name) => (
-            <li className="cs-money-pill" key={name}>{name}</li>
-          ))}
-        </ul>
+        <div className="cs-layer-money-investors" aria-label="Named investors">
+          <span>Investors</span>
+          <p>{investors.join(" · ")}</p>
+        </div>
       ) : null}
       {rounds.length > 0 ? (
         <ol>
@@ -461,20 +462,29 @@ function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; t
         <span>{read.lede.text}</span>
       </p>
       <div className="cs-lens-tension" aria-label="The case">
-        <LensTensionSide
-          claim={read.holds}
-          emptyCopy="No supported bull claim survived verification."
-          label="If true"
-          side="holds"
-          tooltipProps={tooltipProps}
-        />
-        <LensTensionSide
-          claim={read.breaks}
-          emptyCopy="No supported break risk survived verification."
-          label="It breaks if"
-          side="breaks"
-          tooltipProps={tooltipProps}
-        />
+        {!read.holds && !read.breaks ? (
+          <section className="cs-lens-case-empty">
+            <h4>The case</h4>
+            <p className="cs-lens-none">No bull or break claim survived verification.</p>
+          </section>
+        ) : (
+          <>
+            <LensTensionSide
+              claim={read.holds}
+              emptyCopy="None survived verification."
+              label="If true"
+              side="holds"
+              tooltipProps={tooltipProps}
+            />
+            <LensTensionSide
+              claim={read.breaks}
+              emptyCopy="None survived verification."
+              label="It breaks if"
+              side="breaks"
+              tooltipProps={tooltipProps}
+            />
+          </>
+        )}
       </div>
       <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
         <h4>Timing</h4>
@@ -623,29 +633,50 @@ function PartialProfilePanel({
   );
 }
 
-function SourceChips({ sources }: { sources: ResearchLayerDisplay["sources"] }) {
+function SourceChips({
+  sources,
+  tooltipProps
+}: {
+  sources: ResearchLayerDisplay["sources"];
+  tooltipProps: TooltipPropsFor;
+}) {
   if (sources.length === 0) {
     return null;
   }
 
   const visibleSources = sources.slice(0, VISIBLE_SOURCE_COUNT);
-  const hiddenCount = sources.length - visibleSources.length;
+  const hiddenSources = sources.slice(VISIBLE_SOURCE_COUNT);
 
   return (
     <div className="cs-source-chips" aria-label="Sources">
       {visibleSources.map((source) => (
         <a
           className="cs-source-chip"
+          data-class={source.sourceClass}
           href={source.href}
           key={source.id}
           rel="noreferrer"
           target="_blank"
           title={`${source.qualityLabel}: ${source.title}`}
         >
+          <i aria-hidden="true" />
           {source.domain}
         </a>
       ))}
-      {hiddenCount > 0 ? <span className="cs-source-chip cs-source-chip-muted">+{hiddenCount}</span> : null}
+      {hiddenSources.length > 0 ? (
+        <button
+          className="cs-panel-more cs-source-more"
+          type="button"
+          {...tooltipProps({
+            body: hiddenSources.map((source) => `${source.domain}: ${source.title}`).join("\n"),
+            id: `layer-sources-${sources.map((source) => source.id).join("-")}`,
+            placement: "above",
+            title: "Also cited"
+          })}
+        >
+          {`+${hiddenSources.length}`}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1081,6 +1112,7 @@ export function ResearchLayerPanel({
                       onAction={running || refreshing ? undefined : handleLayerAction}
                       running={running || refreshing}
                       runningCopy={runningCopy}
+                      tooltipProps={tooltipProps}
                     />
                   </div>
                 </div>
@@ -1116,44 +1148,53 @@ export function ResearchLayerPanel({
 
       </section>
 
-      <motion.section
-        className="cs-card-tray"
-        aria-label="Research card stack"
-        data-dragging={draggingLayerId ? "true" : "false"}
-        data-ready={snapReadyId ? "true" : "false"}
-      >
-        <div className="cs-card-tray-head">
-          <span>Research stack</span>
-          <small>{dormantLayers.length} waiting</small>
-        </div>
-        <div className="cs-card-pile-motion">
-          <div className="cs-card-pile">
-            <AnimatePresence>
-              {dormantLayers.map((layer, index) => {
-                const dragging = draggingLayerId === layer.id;
-                const previewing = snapPreviewId === layer.id;
-                const snapReady = snapReadyId === layer.id;
-                return (
-                  <DormantPileCard
-                    dragging={dragging}
-                    index={index}
-                    key={layer.id}
-                    layer={layer}
-                    onClick={() => handleDormantClick(layer.id)}
-                    onDrag={(info) => handleDormantDrag(layer.id, info, index)}
-                    onDragEnd={(info) => handleDormantDragEnd(layer.id, info, index)}
-                    onDragStart={() => handleDormantDragStart(layer.id)}
-                    onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
-                    previewing={previewing}
-                    snapReady={snapReady}
-                    prefersReducedMotion={prefersReducedMotion}
-                  />
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </div>
-      </motion.section>
+      <AnimatePresence initial={false}>
+        {dormantLayers.length > 0 ? (
+          <motion.section
+            animate={{ opacity: 1, y: 0 }}
+            className="cs-card-tray"
+            aria-label="Research card stack"
+            data-dragging={draggingLayerId ? "true" : "false"}
+            data-ready={snapReadyId ? "true" : "false"}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            key="research-card-stack"
+            transition={{ duration: prefersReducedMotion ? 0.1 : 0.16, ease: motionTokens.easeOut }}
+          >
+            <div className="cs-card-tray-head">
+              <span>Research stack</span>
+              <small>{dormantLayers.length} waiting</small>
+            </div>
+            <div className="cs-card-pile-motion">
+              <div className="cs-card-pile">
+                <AnimatePresence>
+                  {dormantLayers.map((layer, index) => {
+                    const dragging = draggingLayerId === layer.id;
+                    const previewing = snapPreviewId === layer.id;
+                    const snapReady = snapReadyId === layer.id;
+                    return (
+                      <DormantPileCard
+                        dragging={dragging}
+                        index={index}
+                        key={layer.id}
+                        layer={layer}
+                        onClick={() => handleDormantClick(layer.id)}
+                        onDrag={(info) => handleDormantDrag(layer.id, info, index)}
+                        onDragEnd={(info) => handleDormantDragEnd(layer.id, info, index)}
+                        onDragStart={() => handleDormantDragStart(layer.id)}
+                        onKeyDown={(event) => handleDormantKeyDown(event, layer.id)}
+                        previewing={previewing}
+                        snapReady={snapReady}
+                        prefersReducedMotion={prefersReducedMotion}
+                      />
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.section>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

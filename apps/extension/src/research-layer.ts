@@ -49,8 +49,7 @@ export type ResearchLayerDisplay = {
     value: string;
   }> | undefined;
   // Money layer only: deduped backer names (funding.investors plus rounds' leads) rendered
-  // as quiet non-interactive pills. Pills replace the old "Backers: A, B, +N more" text line
-  // and the derived "Named investors include ..." row so the names are said exactly once.
+  // in one ledger row so the names are said exactly once.
   investors?: string[] | undefined;
   // Competition layer only: the cited sub-segment framing sentence, rendered as a lead line
   // above the comparable items. Absent when the card carries no supported framing.
@@ -298,9 +297,9 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     };
   }
 
-  // Financing renders the aggregate backer names as pills from the card's structured funding;
+  // Financing renders the aggregate backer names from the card's structured funding;
   // the derived "Named investors include ..." text row would repeat them, so it is suppressed
-  // whenever the pills carry the names.
+  // whenever the ledger row carries the names.
   const investorNames = section.sectionId === "financing" ? investorNamesForCard(card) : [];
   const items = content.items
     .filter((item) => !(
@@ -361,7 +360,7 @@ function dedupeStrings(values: string[]) {
   return unique;
 }
 
-// Aggregate backer list for the Money layer pills: every round lead first (ledger order),
+// Aggregate backer list for the Money layer: every round lead first (ledger order),
 // then the named investors fact, deduped case-insensitively.
 function investorNamesForCard(card: ColdStartCard) {
   const rounds = card.funding.rounds?.value ?? (card.funding.lastRound.value ? [card.funding.lastRound.value] : []);
@@ -588,7 +587,7 @@ export function layerDisplayForCard(card: ColdStartCard, id: ResearchLayerId, se
           totalRaised !== null ? `${formatCompactCurrency(totalRaised)} disclosed` : null,
           rounds.length > 0 ? `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}` : null,
         ].filter((part): part is string => Boolean(part)).join(" · ");
-    // Backer names render as pills (display.investors), not as a hero text line.
+    // Backer names render in the investors ledger row, not as a hero text line.
     const items = [
       ...(headline || investorNames.length > 0
         ? [{ title: headline || "Funding read" }]

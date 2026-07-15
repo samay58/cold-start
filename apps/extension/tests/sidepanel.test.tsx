@@ -2423,13 +2423,14 @@ describe("SidePanel generation gate", () => {
     expect(container.textContent).toContain("$35M");
     expect(container.textContent).toContain("Series B (Sep 2025)");
     expect(container.textContent).not.toContain("Raised $35M in a Series B");
-    // Backers render once, as deduped pills (Accel and Sequoia appear both as round leads and
-    // named investors); the derived "Named investors include ..." text row is suppressed.
-    const pills = Array.from(container.querySelectorAll(".cs-money-pill")).map((pill) => pill.textContent);
-    expect(pills).toEqual(["Accel", "Sequoia"]);
+    // Backers render once in a deduped ledger row (Accel and Sequoia appear both as round leads
+    // and named investors); the derived "Named investors include ..." text row is suppressed.
+    const investors = container.querySelector(".cs-layer-money-investors");
+    expect(investors?.textContent).toContain("Investors");
+    expect(investors?.textContent).toContain("Accel · Sequoia");
     expect(container.textContent).not.toContain("Named investors include");
-    // Pills are a plain list, never links masquerading as citations.
-    expect(container.querySelector(".cs-money-pill a")).toBeNull();
+    // Investor names are plain ledger text, never links masquerading as citations.
+    expect(investors?.querySelector("a")).toBeNull();
 
     const signalsButton = interactiveControls(container).find((button) => button.textContent?.includes("Signals"));
     expect(signalsButton).toBeTruthy();

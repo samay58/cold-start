@@ -120,6 +120,56 @@ export function browserbaseCardWithSynthesis(): ColdStartCard {
   });
 }
 
+export function researchPanelPolishCard({ multiRound = false }: { multiRound?: boolean } = {}): ColdStartCard {
+  const base = browserbaseCard();
+  const rounds = multiRound
+    ? [
+        { name: "Series A", amountUsd: 40_000_000, announcedAt: "2025-04-01", leadInvestors: ["CRV"] },
+        { name: "Seed", amountUsd: 6_250_000, announcedAt: "2021-02-18", leadInvestors: ["Susa Ventures"] }
+      ]
+    : [{ name: "Seed", amountUsd: 6_250_000, announcedAt: "2021-02-18", leadInvestors: ["CRV"] }];
+  const totalRaisedUsd = multiRound ? 46_250_000 : 6_250_000;
+
+  return browserbaseCard({
+    identity: {
+      ...base.identity,
+      description: base.identity.description
+        ? { ...base.identity.description, citationIds: ["c1", "c2", "c3", "c4"] }
+        : undefined
+    },
+    funding: {
+      totalRaisedUsd: { value: totalRaisedUsd, status: "verified", confidence: "high", citationIds: ["c1", "c2"] },
+      lastRound: { value: rounds[0] ?? null, status: "verified", confidence: "high", citationIds: ["c2"] },
+      rounds: { value: rounds, status: "verified", confidence: "high", citationIds: ["c1", "c2"] },
+      investors: {
+        value: ["CRV", "Greenoaks Capital", "Susa Ventures", "BoxGroup"].map((name) => ({ name, domain: null })),
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1", "c2"]
+      }
+    },
+    synthesis: {
+      whyItMatters: {
+        text: "Browserbase turns browser automation into agent infrastructure [c1].",
+        citationIds: ["c1", "c2"]
+      },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }]
+    },
+    citations: [
+      ...base.citations,
+      {
+        id: "c4",
+        url: "https://venturebeat.com/ai/browserbase-agent-browsers",
+        title: "Browserbase expands its agent browser platform",
+        fetchedAt: "2026-05-12T12:00:00.000Z",
+        sourceType: "news"
+      }
+    ]
+  });
+}
+
 // Card with a populated management team so the People rows render. A mix of
 // people with and without email exercises both border variants (default amber
 // and the has-email seal tint), which is where dark borders were hardest to see.

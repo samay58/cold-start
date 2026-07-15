@@ -6,13 +6,38 @@ import {
   fulfillJson,
   granolaCard,
   installChromeShim,
-  mockExtensionApi
+  mockExtensionApi,
+  researchPanelPolishCard
 } from "./fixtures";
 import { dragWithSamples, expectFocusedElementVisible, expectPointerAttached } from "./interaction-probes";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
   await expect(page.locator("#root > *")).toHaveCount(1);
+}
+
+async function setTheme(page: Parameters<typeof installChromeShim>[0], theme: "dark" | "light") {
+  await page.evaluate((nextTheme) => {
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.dataset.themeReason = "manual";
+  }, theme);
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+}
+
+async function capturePolishScreenshot(
+  page: Parameters<typeof installChromeShim>[0],
+  name: string,
+  selector?: string
+) {
+  const directory = process.env.COLD_START_POLISH_SCREENSHOT_DIR;
+  if (!directory) {
+    return;
+  }
+  if (selector) {
+    await page.locator(selector).screenshot({ path: `${directory}/${name}.png` });
+    return;
+  }
+  await page.screenshot({ fullPage: true, path: `${directory}/${name}.png` });
 }
 
 type CollapsedTextViolation = {
@@ -122,6 +147,121 @@ test("cached card renders the research layer without old analyze affordances", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-extension-rest.png" });
 });
 
+for (const reducedMotion of [false, true]) {
+  test(`all research cards filed removes the tray and orphaned frames (${reducedMotion ? "reduced" : "full"} motion)`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: reducedMotion ? "reduce" : "no-preference" });
+    await installChromeShim(page);
+    await mockExtensionApi(page, browserbaseCardWithSynthesis());
+    await openSidePanel(page);
+
+    const dormantCards = page.locator(".cs-dormant-card");
+    await expect(dormantCards).toHaveCount(6);
+
+    for (let waiting = 6; waiting > 0; waiting -= 1) {
+      await dormantCards.first().click();
+      await expect(dormantCards).toHaveCount(waiting - 1);
+    }
+
+    await expect(page.locator(".cs-dormant-card-frame")).toHaveCount(0);
+    await expect(page.getByLabel("Research card stack")).toHaveCount(0);
+  });
+}
+
+for (const reducedMotion of [false, true]) {
+  test(`source-less layer and empty memo stay compact (${reducedMotion ? "reduced" : "full"} motion)`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: reducedMotion ? "reduce" : "no-preference" });
+    await installChromeShim(page);
+    await mockExtensionApi(page, researchPanelPolishCard());
+    await openSidePanel(page);
+
+    const memo = page.getByRole("article", { name: "Investor read" });
+    await expect(memo.locator(".cs-lens-tension-side")).toHaveCount(0);
+    await expect(memo.locator(".cs-lens-case-empty")).toContainText("No bull or break claim survived verification.");
+
+    const comps = page.locator(".cs-dormant-card", { hasText: "Comps" });
+    await comps.click();
+    const activeComps = page.locator('.cs-active-enrichment[data-layer-id="competition"]');
+    await expect(activeComps).toBeVisible();
+    await expect(activeComps.locator(".cs-source-chips")).toHaveCount(0);
+  });
+}
+
+for (const theme of ["light", "dark"] as const) {
+  test(`research panel polish states render in ${theme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: theme, reducedMotion: "no-preference" });
+    await installChromeShim(page);
+    await mockExtensionApi(page, researchPanelPolishCard());
+    await openSidePanel(page);
+    await setTheme(page, theme);
+
+    await capturePolishScreenshot(page, `${theme}-memo`, '.cs-investor-read');
+    await capturePolishScreenshot(page, `${theme}-tray-present`, '.cs-card-tray');
+
+    await page.locator(".cs-dormant-card", { hasText: "Money" }).click();
+    const money = page.locator('.cs-active-enrichment[data-layer-id="investors"]');
+    await expect(money).toBeVisible();
+    await capturePolishScreenshot(page, `${theme}-money`, '.cs-active-enrichment[data-layer-id="investors"]');
+
+    const dormantCards = page.locator(".cs-dormant-card");
+    for (let waiting = 5; waiting > 0; waiting -= 1) {
+      await dormantCards.first().click();
+      await expect(dormantCards).toHaveCount(waiting - 1);
+    }
+    await expect(page.locator(".cs-dormant-card-frame")).toHaveCount(0);
+    await capturePolishScreenshot(page, `${theme}-tray-absent`);
+    await expect(page.getByLabel("Research card stack")).toHaveCount(0);
+  });
+}
+
+test("research layer cards use one plate without nested bordered groups", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, researchPanelPolishCard({ multiRound: true }));
+  await openSidePanel(page);
+
+  for (const title of ["Money", "Signals", "Comps", "Product"]) {
+    await page.locator(".cs-dormant-card", { hasText: title }).click();
+  }
+
+  const nestedSelectors = [
+    ".cs-layer-money-hero",
+    ".cs-layer-money-ledger ol",
+    ".cs-layer-signal-ledger",
+    ".cs-layer-rows div",
+    ".cs-layer-items li",
+    ".cs-source-chip"
+  ];
+  for (const selector of nestedSelectors) {
+    const elements = page.locator(selector);
+    for (let index = 0; index < await elements.count(); index += 1) {
+      await expect(elements.nth(index)).toHaveCSS("border-right-width", "0px");
+      await expect(elements.nth(index)).toHaveCSS("border-bottom-width", "0px");
+      await expect(elements.nth(index)).toHaveCSS("border-left-width", "0px");
+      await expect(elements.nth(index)).toHaveCSS("border-radius", "0px");
+    }
+  }
+});
+
+test("multi-round Money stays one plate and source overflow stays reachable", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, researchPanelPolishCard({ multiRound: true }));
+  await openSidePanel(page);
+
+  await page.locator(".cs-dormant-card", { hasText: "Money" }).click();
+  const money = page.locator('.cs-active-enrichment[data-layer-id="investors"]');
+  await expect(money.locator(".cs-layer-money-ledger li")).toHaveCount(1);
+  await expect(money).toContainText("Series A");
+  await expect(money).toContainText("$46M");
+  await expect(money.locator(".cs-layer-money-ledger ol")).toHaveCSS("border-left-width", "0px");
+
+  await page.locator(".cs-dormant-card", { hasText: "Product" }).click();
+  const product = page.locator('.cs-active-enrichment[data-layer-id="mechanism"]');
+  await expect(product.locator("a.cs-source-chip")).toHaveCount(3);
+  const sourceOverflow = product.locator(".cs-source-more");
+  await expect(sourceOverflow).toHaveText("+1");
+  await sourceOverflow.focus();
+  await expect(page.locator("#cs-company-shared-tooltip")).toContainText("Also cited");
+});
+
 test("investor read stays bounded and honest with long partial synthesis", async ({ page }) => {
   const card = browserbaseCardWithSynthesis();
   card.synthesis = {
@@ -157,7 +297,7 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead).toContainText("If true");
   await expect(investorRead).toContainText("Rush University Medical Center");
   await expect(investorRead).toContainText("It breaks if");
-  await expect(investorRead).toContainText("No supported break risk survived verification.");
+  await expect(investorRead).toContainText("None survived verification.");
 
   // Unsupported timing is a clean not-found row, never an unfinished-generation state.
   await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");
@@ -1384,4 +1524,3 @@ test("timing files the remaining supported fields behind a tooltip affordance", 
   await expect(tooltip).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
 });
-
