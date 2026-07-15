@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec B implementation and branch-level acceptance are complete on `inferred-email-coverage`, cut from clean local `main` at `d3da06d`. Free-path coverage is 40/50 patterns (80%); the one-probe fallback, private basis, public stripping, dossier interaction, measurement, and parent-budget accounting are implemented. Full `npm run check`, the 38-state extension UI suite, CSS audit, and MV3 smoke are green. Fresh local real-provider basics and analysis runs for `officehours.com` produced four inferred addresses with basis and preserved them through synthesis. A pre-merge release audit also fixed and regression-covered the deep-find path so later provider results cannot overwrite a paid fallback hit. Next: merge Spec A and this branch into local `main`, run the combined release gates, deploy, rerun the read-only production measurement, and rebuild the extension for API contract `2026-07-15.inferred-email-basis-v1`.
+Spec B is merged into local `main` at `0625209`, including the pre-merge fix that prevents a later deep-find result from overwriting a paid fallback hit. Free-path coverage is 40/50 patterns (80%); the real `officehours.com` basics and analysis runs produced four labeled inferred addresses with basis; and the combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Next: push `main`, verify production contract `2026-07-15.inferred-email-basis-v1`, rerun the read-only production measurement, and rebuild the deployed unpacked extension.
 
 ## 2026-07-15
 
@@ -134,3 +134,11 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 - The combined-path review found that an explicit deep contact search replaced `paidProviderFacts` and `paidSources` after the one-cent pattern fallback had already run. A fallback could therefore spend, report a hit in telemetry, and then lose the recovered facts before card assembly.
 - `mergeContactProviderOutput` now appends later paid facts and deduplicates later sources instead of replacing the fallback output. The regression fixture supplies one fallback result and one deep-find result and requires both to survive.
 - Focused verification after the fix: contact-enrichment regression 11/11, web workspace 153/153, web typecheck green, targeted ESLint green, and `git diff --check` green. The full combined-repository gate remains the post-merge release receipt.
+
+### Consolidation release pass
+
+- Spec A and Spec B merged without conflicts. The shared extension fixtures, CSS, and side-panel assertions retained both the one-plate research panel and inferred-email dossier behavior.
+- The light and dark dossier screenshots were regenerated from the combined main tree and inspected; both now show the final one-plate memo and shortened empty-side copy beneath the dossier.
+- Combined extension verification: 46/46 Playwright UI states, CSS token audit, and 1/1 real MV3 smoke passed. The Firefox production target also built successfully against the new shared contract.
+- Full `npm run check` passed with zero-warning lint, every workspace typecheck, 873 Vitest tests, 29 Node eval tests, both production builds, the 12-company golden dry run, knip, secrets scan, and guarded dependency audit.
+- The remaining release receipt is production-only: deploy the web contract, rebuild the unpacked extension, then rerun the read-only measurement for fallback telemetry.

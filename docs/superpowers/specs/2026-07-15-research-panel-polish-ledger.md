@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A meets its Done definition on `research-panel-polish`. The focused extension gates, 44-state side-panel suite, MV3 smoke rerun, and full `npm run check` are green. Next: review the staged shape, commit, push `research-panel-polish`, then start Spec B from local `main` on `inferred-email-coverage`.
+Spec A is merged into local `main` at `281abdf` after a release review of the code, screenshots, shared CSS, and terminal motion states. The combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Next: push `main`, verify the production deployment and shared API contract, then remove the merged feature branches.
 
 ## 2026-07-15
 
@@ -70,3 +70,9 @@ The `tray-absent` baseline files deliberately capture the broken terminal state:
 ### Open deviations
 
 None against the Spec A Done definition. The existing MV3 smoke storage seed has a timing-sensitive first-load path; it passed unchanged on rerun and is outside this presentation spec.
+
+### Consolidation release pass
+
+- Reviewed the light and dark Money, memo, tray-present, tray-absent, and inferred-dossier evidence alongside the combined source. The two features merged without conflicts or dropped selectors.
+- Combined extension verification: 46/46 Playwright UI states, CSS token audit, and 1/1 real MV3 smoke passed. The Firefox production target also built successfully.
+- Full `npm run check` passed with zero-warning lint, every workspace typecheck, 873 Vitest tests, 29 Node eval tests, both production builds, the 12-company golden dry run, knip, secrets scan, and guarded dependency audit.
