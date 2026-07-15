@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec B is merged into local `main` at `0625209`, including the pre-merge fix that prevents a later deep-find result from overwriting a paid fallback hit. Free-path coverage is 40/50 patterns (80%); the real `officehours.com` basics and analysis runs produced four labeled inferred addresses with basis; and the combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Next: push `main`, verify production contract `2026-07-15.inferred-email-basis-v1`, rerun the read-only production measurement, and rebuild the deployed unpacked extension.
+Spec B is merged and deployed from `main`, including the pre-merge fix that prevents a later deep-find result from overwriting a paid fallback hit. Free-path coverage remains 40/50 patterns (80%); the real `officehours.com` basics and analysis runs produced four labeled inferred addresses with basis; and every local release gate is green. Vercel serves contract `2026-07-15.inferred-email-basis-v1`; the Dia extension identity passed authenticated production API checks; Samay reloaded and tested the unpacked build; and the required post-deploy read-only measurement completed. Next: remove the merged feature branches and let fallback telemetry populate on natural regenerations.
 
 ## 2026-07-15
 
@@ -127,7 +127,7 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 
 ### Open deviations
 
-- Post-deploy production fallback fire rate, hit rate, and spend remain unavailable until Samay merges and deploys the feature branch. The read-only command is ready and recorded above; no deployment or main-branch push was attempted.
+- The post-deploy read-only pass found no instrumented fallback runs among the latest 100 production rows, so live fire, hit, and spend rates remain unpopulated until a card naturally regenerates. No backfill or paid verification run was added; both are outside the approved scope.
 
 ### Pre-merge release audit
 
@@ -141,4 +141,12 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 - The light and dark dossier screenshots were regenerated from the combined main tree and inspected; both now show the final one-plate memo and shortened empty-side copy beneath the dossier.
 - Combined extension verification: 46/46 Playwright UI states, CSS token audit, and 1/1 real MV3 smoke passed. The Firefox production target also built successfully against the new shared contract.
 - Full `npm run check` passed with zero-warning lint, every workspace typecheck, 873 Vitest tests, 29 Node eval tests, both production builds, the 12-company golden dry run, knip, secrets scan, and guarded dependency audit.
-- The remaining release receipt is production-only: deploy the web contract, rebuild the unpacked extension, then rerun the read-only measurement for fallback telemetry.
+- Production verification followed the local gate: deploy the web contract, rebuild the unpacked extension, and rerun the read-only measurement for fallback telemetry.
+
+### Production receipt
+
+- Pushed the fast-forward release to `origin/main`; Vercel production deployment `dpl_E327tgMuuBEDdUh3RL463Z9ghvnW` reached Ready and promoted the stable internal alias.
+- The live public card route returned contract `2026-07-15.inferred-email-basis-v1` with no synthesis, `email`, `emailStatus`, or `emailBasis`. The Dia allowlisted identity returned HTTP 200 from the authenticated extension route, including synthesis on analysis-tier cards.
+- Samay reloaded and tested the unpacked production build in Dia. No production auth or allowlist values changed.
+- Post-deploy `measure:contact-yield` remained 40/50 patterns (80%), 41/50 companies with at least one human domain anchor (82%), and 100/125 stored-card people pattern-inferable (80%). Stored production cards remain 0/19 with email because this spec intentionally performs no backfill.
+- The measurement was read-only and triggered no provider calls. It found no instrumented fallback runs among the latest 100 production rows; those rates will populate on natural regeneration.

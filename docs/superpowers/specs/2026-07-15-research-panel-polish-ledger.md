@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A is merged into local `main` at `281abdf` after a release review of the code, screenshots, shared CSS, and terminal motion states. The combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Next: push `main`, verify the production deployment and shared API contract, then remove the merged feature branches.
+Spec A is merged and deployed from `main`. The combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Vercel production deployment `dpl_E327tgMuuBEDdUh3RL463Z9ghvnW` reached Ready; the public routes and shared contract passed live checks; and Samay reloaded and tested the unpacked build in Dia. Next: remove the merged feature branches and retain `main` as the only active worktree.
 
 ## 2026-07-15
 
@@ -76,3 +76,9 @@ None against the Spec A Done definition. The existing MV3 smoke storage seed has
 - Reviewed the light and dark Money, memo, tray-present, tray-absent, and inferred-dossier evidence alongside the combined source. The two features merged without conflicts or dropped selectors.
 - Combined extension verification: 46/46 Playwright UI states, CSS token audit, and 1/1 real MV3 smoke passed. The Firefox production target also built successfully.
 - Full `npm run check` passed with zero-warning lint, every workspace typecheck, 873 Vitest tests, 29 Node eval tests, both production builds, the 12-company golden dry run, knip, secrets scan, and guarded dependency audit.
+
+### Production receipt
+
+- Pushed the fast-forward release to `origin/main`; Vercel production deployment `dpl_E327tgMuuBEDdUh3RL463Z9ghvnW` reached Ready and promoted the stable internal alias.
+- Live `/privacy`, `/robots.txt`, and `/sitemap.xml` returned HTTP 200. The public card API returned contract `2026-07-15.inferred-email-basis-v1` without synthesis or private person fields.
+- Dia already tracked `apps/extension/dist` under the production allowlisted identity. Samay reloaded and tested that unpacked extension after the production build completed.
