@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A is merged and deployed from `main`. The combined 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and full `npm run check` are green. Vercel production deployment `dpl_E327tgMuuBEDdUh3RL463Z9ghvnW` reached Ready; the public routes and shared contract passed live checks; and Samay reloaded and tested the unpacked build in Dia. Next: remove the merged feature branches and retain `main` as the only active worktree.
+Spec A is merged on `main`, and its release plus adversarial hardening pass are green. The final pass removed the superseded boxed Money-panel rules instead of leaving late cascade overrides, while preserving the rendered result. Full `npm run check`, the 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and Firefox lint all pass. Next: push the hardening release, verify the production alias, then remove the merged feature branches; `main` is already the only worktree.
 
 ## 2026-07-15
 
@@ -82,3 +82,11 @@ None against the Spec A Done definition. The existing MV3 smoke storage seed has
 - Pushed the fast-forward release to `origin/main`; Vercel production deployment `dpl_E327tgMuuBEDdUh3RL463Z9ghvnW` reached Ready and promoted the stable internal alias.
 - Live `/privacy`, `/robots.txt`, and `/sitemap.xml` returned HTTP 200. The public card API returned contract `2026-07-15.inferred-email-basis-v1` without synthesis or private person fields.
 - Dia already tracked `apps/extension/dist` under the production allowlisted identity. Samay reloaded and tested that unpacked extension after the production build completed.
+
+### Adversarial hardening pass
+
+- Review found the final one-plate Money result was implemented twice: obsolete boxed declarations near the original component rules, then a late override block that reset them. Commit `37665b5` moved the final values into the canonical selectors and deleted 74 lines of competing cascade without changing the rendered output.
+- Focused browser verification passed the Money-panel one-plate computed-style case and the complete 46/46 UI matrix. The suite covered both themes and both motion modes; generated dossier screenshots were restored to their committed evidence after the run.
+- CSS token audit passed independently and as part of the extension suite. The packaged Chrome MV3 smoke passed 1/1. Firefox built successfully and self-hosted `web-ext` lint reported 0 errors and 6 documented compatibility or bundled-library warnings.
+- Full `npm run check` passed after Firefox build and pinned lint were added permanently to both the root gate and GitHub Actions.
+- Browser-only limitation: Samay manually exercised the unpacked release in Dia. Firefox behavior is covered by unit contracts, build, and package lint, but was not manually launched in this release session.

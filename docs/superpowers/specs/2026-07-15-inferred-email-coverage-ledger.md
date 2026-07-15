@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec B is merged and deployed from `main`, including the pre-merge fix that prevents a later deep-find result from overwriting a paid fallback hit. Free-path coverage remains 40/50 patterns (80%); the real `officehours.com` basics and analysis runs produced four labeled inferred addresses with basis; and every local release gate is green. Vercel serves contract `2026-07-15.inferred-email-basis-v1`; the Dia extension identity passed authenticated production API checks; Samay reloaded and tested the unpacked build; and the required post-deploy read-only measurement completed. Next: remove the merged feature branches and let fallback telemetry populate on natural regenerations.
+Spec B is merged on `main`, including the deep-find merge fix and the final auth and clipboard hardening. Free-path coverage remains 40/50 patterns (80%); the real `officehours.com` runs produced four labeled inferred addresses with basis; and every local release gate is green. Vercel serves contract `2026-07-15.inferred-email-basis-v1`; the Dia identity passed authenticated production API checks; and Samay manually tested the unpacked build. Next: push the hardening release, verify the production alias, remove the merged feature branches, and let fallback telemetry populate on natural regenerations.
 
 ## 2026-07-15
 
@@ -150,3 +150,12 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 - Samay reloaded and tested the unpacked production build in Dia. No production auth or allowlist values changed.
 - Post-deploy `measure:contact-yield` remained 40/50 patterns (80%), 41/50 companies with at least one human domain anchor (82%), and 100/125 stored-card people pattern-inferable (80%). Stored production cards remain 0/19 with email because this spec intentionally performs no backfill.
 - The measurement was read-only and triggered no provider calls. It found no instrumented fallback runs among the latest 100 production rows; those rates will populate on natural regeneration.
+
+### Adversarial hardening pass
+
+- Review found two release risks outside the core inference algorithm: production origin could substitute for the extension ID, and optional Clipboard API access could display `Copied` without writing anything.
+- Commit `37665b5` now requires an allowlisted extension ID plus a timing-safe bearer-token match in production. Comma-separated ID and token lists support Firefox and key rotation while the legacy single-value variables remain valid. Chrome origins must match exactly when present; Firefox random origins and absent origins never substitute for the stable extension ID.
+- Direct auth contracts pass 26/26 and extension-card route contracts pass 10/10. Coverage includes Gecko ID with absent or random Firefox origin, missing or wrong Chrome ID, mismatched Chrome origin, token rotation, unsafe production sentinels, and legacy configuration.
+- The dossier now acknowledges `Copied` only after `navigator.clipboard.writeText` exists and resolves. Tooltip tests pass 10/10, including unavailable and rejected clipboard writes that keep the address visible and never claim success.
+- Full `npm run check` passed with Firefox build and pinned self-hosted lint included in the permanent local and CI gates. The complete UI suite passed 46/46, CSS audit passed, and packaged MV3 smoke passed 1/1.
+- Browser-only limitation: Samay manually exercised the unpacked release in Dia. Firefox authentication, build, and package lint are covered, but Firefox itself was not manually launched in this release session.
