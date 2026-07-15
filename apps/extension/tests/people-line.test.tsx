@@ -68,7 +68,7 @@ function dossiersFrom(captured: Captured[]): TooltipDossier[] {
 }
 
 describe("PeopleLine visible row diet", () => {
-  it("keeps only avatar, name, role, and the email action on the row", async () => {
+  it("keeps only avatar, name, and role on the row", async () => {
     const { container } = await renderPeople([
       {
         name: "Ada Lovelace",
@@ -87,15 +87,9 @@ describe("PeopleLine visible row diet", () => {
       }
     ]);
 
-    // The email link is the one action, and it stays on the visible row.
-    expect(container.querySelector('a[href="mailto:ada.lovelace@acme.ai"]')).toBeTruthy();
-    expect(container.querySelector('a[href="mailto:grace@acme.ai"]')).toBeTruthy();
-
-    // The inferred address keeps its visual provenance cue on the row.
-    expect(container.querySelector('.cs-person-email[data-email-status="inferred"]')).toBeTruthy();
-    expect(container.querySelector('.cs-person-email[data-email-status="observed"]')).toBeTruthy();
-
-    // Channels, the email-kind chip, the copy affordance, and the contact glyph all leave the row.
+    // Contact data stays in the dossier. The row has no mailto, chip, or copy affordance.
+    expect(container.querySelector('a[href^="mailto:"]')).toBeNull();
+    expect(container.querySelector(".cs-person-email")).toBeNull();
     expect(container.querySelector('a[href="https://github.com/ada"]')).toBeNull();
     expect(container.querySelector(".cs-person-channels")).toBeNull();
     expect(container.querySelector(".cs-person-email-kind")).toBeNull();
@@ -169,7 +163,7 @@ describe("PeopleLine dossier", () => {
       text: "Second robotics company; the first sold to Deere in 2021.",
       citationIds: ["s1", "s2"]
     });
-    expect(dossier?.email).toEqual({ address: "ada@acme.ai", status: "observed" });
+    expect(dossier?.email).toEqual({ address: "ada@acme.ai", basis: null, status: "observed" });
     expect(dossier?.channels).toEqual([
       { label: "GitHub", url: "https://github.com/ada" },
       { label: "X", url: "https://x.com/ada" }
@@ -212,6 +206,7 @@ describe("PeopleLine dossier", () => {
           sourceUrl: "https://acme.ai/team",
           email: "grace@acme.ai",
           emailStatus: "inferred",
+          emailBasis: "domain pattern first, 3 observed addresses",
           githubUrl: "https://github.com/grace"
         }
       ],
@@ -223,7 +218,11 @@ describe("PeopleLine dossier", () => {
 
     const [dossier] = dossiersFrom(captured);
     expect(dossier?.read).toBeNull();
-    expect(dossier?.email).toEqual({ address: "grace@acme.ai", status: "inferred" });
+    expect(dossier?.email).toEqual({
+      address: "grace@acme.ai",
+      basis: "domain pattern first, 3 observed addresses",
+      status: "inferred"
+    });
     expect(dossier?.provenance).toContain("acme.ai");
     expect(dossier?.provenance).toContain("github.com");
     expect(dossier?.provenance).not.toContain("techcrunch.com");

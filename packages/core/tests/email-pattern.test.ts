@@ -22,15 +22,15 @@ describe("isRoleAlias", () => {
 
 describe("deriveEmailPattern", () => {
   it("derives first.last", () => {
-    expect(deriveEmailPattern([{ email: "noah.tye@x.ai", fullName: "Noah Tye" }])).toBe("first.last");
+    expect(deriveEmailPattern([{ email: "noah.tye@x.ai", fullName: "Noah Tye" }])).toEqual({ pattern: "first.last", anchorCount: 1 });
   });
 
   it("derives first", () => {
-    expect(deriveEmailPattern([{ email: "charles@x.com", fullName: "Charles Frye" }])).toBe("first");
+    expect(deriveEmailPattern([{ email: "charles@x.com", fullName: "Charles Frye" }])).toEqual({ pattern: "first", anchorCount: 1 });
   });
 
   it("derives flast", () => {
-    expect(deriveEmailPattern([{ email: "cimhoff@x.tech", fullName: "Chris Imhoff" }])).toBe("flast");
+    expect(deriveEmailPattern([{ email: "cimhoff@x.tech", fullName: "Chris Imhoff" }])).toEqual({ pattern: "flast", anchorCount: 1 });
   });
 
   it("ignores role-alias-only anchors", () => {
@@ -53,7 +53,17 @@ describe("deriveEmailPattern", () => {
         { email: "adam.ling@x.ai", fullName: "Adam Ling" },
         { email: "charles@x.ai", fullName: "Charles Frye" }
       ])
-    ).toBe("first.last");
+    ).toEqual({ pattern: "first.last", anchorCount: 2 });
+  });
+
+  it("reports how many anchors agreed on the winning pattern", () => {
+    expect(
+      deriveEmailPattern([
+        { email: "noah.tye@x.ai", fullName: "Noah Tye" },
+        { email: "adam.ling@x.ai", fullName: "Adam Ling" },
+        { email: "charles@x.ai", fullName: "Charles Frye" }
+      ])
+    ).toEqual({ pattern: "first.last", anchorCount: 2 });
   });
 });
 

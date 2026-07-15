@@ -189,6 +189,7 @@ function preferredPerson(current: CardPerson, candidate: CardPerson): CardPerson
     sourceUrl: preferred.sourceUrl ?? current.sourceUrl ?? candidate.sourceUrl,
     email: emailPick?.email ?? null,
     emailStatus: emailPick?.emailStatus ?? null,
+    emailBasis: emailPick?.emailBasis ?? null,
     githubUrl: preferred.githubUrl ?? current.githubUrl ?? candidate.githubUrl ?? null,
     xUrl: preferred.xUrl ?? current.xUrl ?? candidate.xUrl ?? null,
     personalUrl: preferred.personalUrl ?? current.personalUrl ?? candidate.personalUrl ?? null,
@@ -316,7 +317,11 @@ function readProvenance(read: NonNullable<CardPerson["read"]>, citations: readon
 
 function personDossier(person: CardPerson, citations: readonly CitationRef[]): TooltipDossier {
   const email = person.email
-    ? { address: person.email, status: person.emailStatus === "inferred" ? ("inferred" as const) : ("observed" as const) }
+    ? {
+        address: person.email,
+        basis: person.emailStatus === "inferred" ? person.emailBasis ?? null : null,
+        status: person.emailStatus === "inferred" ? ("inferred" as const) : ("observed" as const)
+      }
     : null;
   const read = person.read ?? null;
 
@@ -502,14 +507,6 @@ export function PeopleLine({
               <span className="cs-person-main">
                 <span className="cs-people-name">{person.name}</span>
                 <span className="cs-people-role">{personRole(person)}</span>
-                {person.email ? (
-                  <span
-                    className="cs-person-email"
-                    data-email-status={person.emailStatus ?? "observed"}
-                  >
-                    <a href={`mailto:${person.email}`}>{person.email}</a>
-                  </span>
-                ) : null}
               </span>
             </article>
           );

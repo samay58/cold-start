@@ -69,4 +69,56 @@ describe("fetchGithubContacts", () => {
     expect(result.found).toBe(false);
     expect(result.trace.estimatedCostUsd).toBe(0);
   });
+
+  it("tries the curated canonical login before generic guesses", async () => {
+    const { fetcher, calls } = mockFetcher((url) => {
+      if (url.includes("/users/snowflakedb") && !url.includes("/repos")) {
+        return {
+          status: 200,
+          body: { login: "snowflakedb", type: "Organization", blog: "https://snowflake.com", name: "Snowflake", email: null }
+        };
+      }
+      if (url.includes("/orgs/snowflakedb/repos")) {
+        return { status: 200, body: [] };
+      }
+      return null;
+    });
+
+    const result = await fetchGithubContacts({ domain: "snowflake.com", companyName: "Snowflake", fetcher });
+
+    expect(isGithubContactsResult(result)).toBe(true);
+    if (!isGithubContactsResult(result)) return;
+    expect(result.org).toBe("snowflakedb");
+    expect(calls[0]).toContain("/users/snowflakedb");
+  });
+
+  it("requires a website match in search results instead of accepting a plausible name", async () => {
+    const { fetcher } = mockFetcher((url) => {
+      if (url.includes("/search/users")) {
+        return { status: 200, body: { items: [{ login: "acme-lookalike" }, { login: "acme-canonical" }] } };
+      }
+      if (url.includes("/users/acme-lookalike")) {
+        return {
+          status: 200,
+          body: { login: "acme-lookalike", type: "Organization", blog: "https://wrong.example", name: "Acme Labs", email: null }
+        };
+      }
+      if (url.includes("/users/acme-canonical")) {
+        return {
+          status: 200,
+          body: { login: "acme-canonical", type: "Organization", blog: "https://acme.example", name: "Different profile label", email: null }
+        };
+      }
+      if (url.includes("/orgs/acme-canonical/repos")) {
+        return { status: 200, body: [] };
+      }
+      return null;
+    });
+
+    const result = await fetchGithubContacts({ domain: "acme.example", companyName: "Acme Labs", fetcher });
+
+    expect(isGithubContactsResult(result)).toBe(true);
+    if (!isGithubContactsResult(result)) return;
+    expect(result.org).toBe("acme-canonical");
+  });
 });

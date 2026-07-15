@@ -1,6 +1,8 @@
+import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import {
   browserbaseCard,
+  browserbaseCardWithInferredEmail,
   browserbaseCardWithPeople,
   browserbaseCardWithSynthesis,
   fulfillJson,
@@ -472,9 +474,8 @@ test("core metrics and people stay compact in the company context", async ({ pag
   await expect(management.getByText("Charlie Holtz")).toHaveCount(1);
   await expect(management.getByText("Jackson de Campos")).toBeVisible();
   await expect(page.locator(".cs-management-team")).toHaveCount(0);
-  // The visible row diet: name, role, and the email action stay; channels and the copy
-  // affordance move into the dossier.
-  await expect(management.locator('a[href="mailto:charlie@conductor.build"]')).toBeVisible();
+  // Contact detail stays entirely in the dossier. The visible row has no mailto or channel link.
+  await expect(management.locator('a[href^="mailto:"]')).toHaveCount(0);
   await expect(management.locator('a[href="https://github.com/charlieholtz"]')).toHaveCount(0);
 
   const charlie = page.locator(".cs-people-person", { hasText: "Charlie Holtz" });
@@ -493,6 +494,34 @@ test("core metrics and people stay compact in the company context", async ({ pag
   const researchBox = await researchLayer.boundingBox();
   expect(factsBox?.y).toBeLessThan(managementBox?.y ?? 0);
   expect(managementBox?.y).toBeLessThan(researchBox?.y ?? 0);
+});
+
+test("inferred email dossier shows its basis and copies in place", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithInferredEmail());
+  await openSidePanel(page);
+
+  await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
+  const person = page.locator(".cs-people-person", { hasText: "Paul Klein" });
+  await person.focus();
+  await page.keyboard.press("Enter");
+  const tooltip = page.locator("#cs-company-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-pinned", "true");
+  await expect(tooltip.locator(".cs-dossier-email-kind")).toHaveText("Inferred");
+  await expect(tooltip.locator(".cs-dossier-email-address")).toHaveText("paul.klein@browserbase.com");
+  await expect(tooltip.locator(".cs-dossier-email-basis")).toHaveText(
+    "domain pattern first.last, 3 observed addresses"
+  );
+  await page.screenshot({
+    fullPage: true,
+    path: fileURLToPath(new URL("../../../../docs/superpowers/specs/screenshots/inferred-email-coverage/after/light-inferred-dossier.png", import.meta.url))
+  });
+
+  await tooltip.locator(".cs-dossier-email-copy").click();
+  await expect(tooltip.locator(".cs-dossier-email-address")).toHaveText("Copied");
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("paul.klein@browserbase.com");
 });
 
 test("missing card shows an explicit generation gate and does not auto-start", async ({ page }) => {
@@ -1384,4 +1413,3 @@ test("timing files the remaining supported fields behind a tooltip affordance", 
   await expect(tooltip).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
 });
-

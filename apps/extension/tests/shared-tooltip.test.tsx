@@ -19,7 +19,7 @@ const dossier: TooltipDossier = {
   role: "CEO",
   read: null,
   provenance: "via techcrunch.com",
-  email: { address: "ada@acme.ai", status: "observed" },
+  email: { address: "ada@acme.ai", basis: null, status: "observed" },
   channels: [
     { label: "GitHub", url: "https://github.com/ada" },
     { label: "X", url: "https://x.com/ada" }
@@ -232,7 +232,7 @@ describe("dossier keyboard path", () => {
 });
 
 describe("dossier email copy control", () => {
-  it("writes the address to the clipboard without changing the visible mailto link", async () => {
+  it("copies when the address is clicked and acknowledges it in place", async () => {
     const writeText = vi.fn(async () => undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
 
@@ -249,5 +249,27 @@ describe("dossier email copy control", () => {
       copy!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
     expect(writeText).toHaveBeenCalledWith("ada@acme.ai");
+    expect(copy?.textContent).toContain("Copied");
+    expect(copy?.textContent).not.toContain("ada@acme.ai");
+  });
+
+  it("shows the basis only for inferred addresses", async () => {
+    const inferred: TooltipDossier = {
+      ...dossier,
+      email: {
+        address: "ada.lovelace@acme.ai",
+        basis: "domain pattern first.last, 3 observed addresses",
+        status: "inferred"
+      }
+    };
+    const { container, handleRef, trigger } = await mount(inferred);
+    await act(async () => {
+      handleRef.current!.props.onPointerEnter(pointerEvent(trigger));
+    });
+
+    expect(container.querySelector(".cs-dossier-email-kind")?.textContent).toBe("Inferred");
+    expect(container.querySelector(".cs-dossier-email-basis")?.textContent).toBe(
+      "domain pattern first.last, 3 observed addresses"
+    );
   });
 });

@@ -1361,34 +1361,42 @@ button {
 }
 
 .cs-dossier-email {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  align-items: center;
+  display: grid;
+  gap: 3px;
   margin: 0;
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 650;
 }
 
-/* The address is display-only here (the mailto action lives on the visible row), so it
-   reads as ink, never in the link/seal color it does not act like. */
 .cs-dossier-email-address {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.74);
+  color: var(--color-seal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* The copy control is the one action in this line, so it carries the seal accent. */
 .cs-dossier-email-copy {
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.24);
-  border-radius: 6px;
-  padding: 1px 7px;
-  background: rgb(var(--cs-c-110-92-158) / 0.07);
-  color: var(--color-seal);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
   cursor: pointer;
   font-family: var(--font-body);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.cs-dossier-email-copy:hover .cs-dossier-email-address,
+.cs-dossier-email-copy:focus-visible .cs-dossier-email-address {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .cs-dossier-email-copy:focus-visible {
@@ -1397,10 +1405,6 @@ button {
 }
 
 .cs-dossier-email-kind {
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
-  border-radius: 6px;
-  padding: 1px 6px;
-  background: rgb(var(--cs-c-247-245-238) / 0.86);
   color: rgb(var(--cs-c-23-26-31-text) / 0.62);
   font-family: var(--font-body);
   font-size: 9px;
@@ -1410,10 +1414,15 @@ button {
 }
 
 .cs-dossier-email[data-email-status="inferred"] .cs-dossier-email-kind {
-  border-style: dashed;
-  border-color: rgb(var(--cs-c-110-92-158) / 0.55);
-  background: rgb(var(--cs-c-110-92-158) / 0.07);
   color: var(--color-seal);
+}
+
+.cs-dossier-email-basis {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.5);
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .cs-dossier-channels {
@@ -2914,26 +2923,6 @@ a.cs-lens-source:focus-visible {
   -webkit-line-clamp: 2;
 }
 
-.cs-person-email {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  min-width: 0;
-  margin-top: 3px;
-}
-
-.cs-person-email a {
-  min-width: 0;
-  color: var(--color-seal);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 720;
-  overflow: hidden;
-  text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* A real pressable chip, not a quiet placeholder: the seal-tinted border and fill read as
    the same affordance family as the dossier email-copy pill and the source chips. */
 .cs-people-more {
@@ -3596,30 +3585,6 @@ body,
   line-height: 1.28;
 }
 
-.cs-person-email {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-top: 3px;
-  min-width: 0;
-}
-
-.cs-person-email a {
-  display: inline-flex;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 22px;
-  align-items: center;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.20);
-  border-radius: 999px;
-  background: rgb(var(--cs-c-110-92-158) / 0.06);
-  color: var(--color-seal);
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 0 9px;
-}
-
 .cs-people-more {
   min-height: 42px;
   border-radius: 8px;
@@ -3757,12 +3722,6 @@ body,
 .cs-layer-items span {
   color: rgb(var(--cs-c-23-26-31-text) / 0.58);
   font-size: 10px;
-}
-
-/* Inferred addresses are honest guesses from the domain pattern: a dashed seal edge on
-   the visible address so they never read as a verified/observed email. */
-.cs-person-email[data-email-status="inferred"] a {
-  border-bottom: 1px dashed rgb(var(--cs-c-110-92-158) / 0.55);
 }
 
 .cs-layer-running-copy {
@@ -4090,11 +4049,6 @@ body {
 
 .cs-people-role {
   font-size: 11.5px;
-}
-
-.cs-person-email a {
-  min-height: 20px;
-  font-size: 10.5px;
 }
 
 .cs-research-layer-head {

@@ -3,16 +3,16 @@ import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
 
 export type TooltipPlacement = "above" | "below";
 
-// A structured person dossier. The visible people row keeps the identity and the email
-// action; everything cited or contextual (the read, provenance, channels, email
-// provenance) lives here. `read` is null when the evidence supports no honest claim.
+// A structured person dossier. The visible people row keeps identity only; everything
+// cited, contextual, or contact-related lives here. `read` is null when the evidence
+// supports no honest claim.
 export type TooltipDossier = {
   kind: "dossier";
   name: string;
   role: string | null;
   read: { text: string; citationIds: string[] } | null;
   provenance: string | null;
-  email: { address: string; status: "observed" | "inferred" } | null;
+  email: { address: string; basis: string | null; status: "observed" | "inferred" } | null;
   channels: Array<{ label: "GitHub" | "X" | "Site"; url: string }>;
 };
 
@@ -235,9 +235,7 @@ function DossierBody({ dossier }: { dossier: TooltipDossier }) {
         clearTimeout(copyTimer.current);
       }
       copyTimer.current = setTimeout(() => setCopied(false), 1400);
-    } catch {
-      // Clipboard unavailable (permission or insecure context); the mailto link still works.
-    }
+    } catch {}
   }
 
   return (
@@ -246,18 +244,18 @@ function DossierBody({ dossier }: { dossier: TooltipDossier }) {
       {dossier.read ? <p className="cs-dossier-read">{dossier.read.text}</p> : null}
       {dossier.provenance ? <p className="cs-dossier-provenance">{dossier.provenance}</p> : null}
       {email ? (
-        <p className="cs-dossier-email" data-email-status={email.status}>
-          <span className="cs-dossier-email-address">{email.address}</span>
-          <em className="cs-dossier-email-kind">{email.status === "inferred" ? "Inferred" : "Observed"}</em>
+        <div className="cs-dossier-email" data-email-status={email.status}>
           <button
             aria-label={`Copy ${email.address}`}
             className="cs-dossier-email-copy"
             onClick={copyEmail}
             type="button"
           >
-            {copied ? "Copied" : "Copy"}
+            <span className="cs-dossier-email-address">{copied ? "Copied" : email.address}</span>
+            <em className="cs-dossier-email-kind">{email.status === "inferred" ? "Inferred" : "Observed"}</em>
           </button>
-        </p>
+          {email.status === "inferred" && email.basis ? <small className="cs-dossier-email-basis">{email.basis}</small> : null}
+        </div>
       ) : null}
       {dossier.channels.length > 0 ? (
         <p className="cs-dossier-channels">

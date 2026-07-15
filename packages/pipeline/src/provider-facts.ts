@@ -76,13 +76,17 @@ function mergePerson(left: Person, right: Person): Person {
 }
 
 // Prefer an observed address over an inferred guess for the same person.
-function mergeEmail(left: Person, right: Person): Pick<Person, "email" | "emailStatus"> | Record<string, never> {
+function mergeEmail(left: Person, right: Person): Pick<Person, "email" | "emailStatus" | "emailBasis"> | Record<string, never> {
   const observed = [left, right].find((person) => person.email && person.emailStatus === "observed");
   const chosen = observed ?? [left, right].find((person) => person.email);
   if (!chosen?.email) {
     return {};
   }
-  return { email: chosen.email, emailStatus: chosen.emailStatus ?? null };
+  return {
+    email: chosen.email,
+    emailStatus: chosen.emailStatus ?? null,
+    emailBasis: chosen.emailBasis ?? null
+  };
 }
 
 function mergeChannel(key: "githubUrl" | "xUrl" | "personalUrl", left: Person, right: Person): Partial<Person> {

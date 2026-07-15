@@ -22,8 +22,13 @@ function candidateFor(input: {
   person: CardPerson;
   email: string;
   emailStatus: "observed" | "inferred";
+  emailBasis?: string | undefined;
   sourceUrl: string;
   fetchedAt: string;
+  sourceType: ProviderFactCandidate["sourceType"];
+  provider: ProviderFactCandidate["provider"];
+  endpoint: string;
+  citationTitle: string;
 }): ProviderFactCandidate {
   const observed = input.emailStatus === "observed";
   return {
@@ -34,28 +39,34 @@ function candidateFor(input: {
         role: input.person.role ?? null,
         sourceUrl: input.sourceUrl,
         email: input.email,
-        emailStatus: input.emailStatus
+        emailStatus: input.emailStatus,
+        ...(input.emailBasis ? { emailBasis: input.emailBasis } : {})
       }
     ],
     status: observed ? "verified" : "inferred",
     confidence: observed ? "medium" : "low",
-    sourceType: "github",
-    provider: "github",
-    endpoint: "github_contacts",
+    sourceType: input.sourceType,
+    provider: input.provider,
+    endpoint: input.endpoint,
     citationUrl: input.sourceUrl,
-    citationTitle: "GitHub",
+    citationTitle: input.citationTitle,
     fetchedAt: input.fetchedAt
   };
 }
 
-export function buildGithubContactFacts(input: {
+export function buildEmailPatternContactFacts(input: {
   domain: string;
   founders: CardPerson[];
   keyExecs: CardPerson[];
   observed: GithubObservedContact[];
   pattern: EmailPattern | null;
-  orgUrl: string;
+  patternAnchorCount: number;
+  fallbackSourceUrl: string;
   fetchedAt: string;
+  sourceType: ProviderFactCandidate["sourceType"];
+  provider: ProviderFactCandidate["provider"];
+  endpoint: string;
+  citationTitle: string;
 }): ProviderFactCandidate[] {
   const observedByName = new Map<string, GithubObservedContact>();
   for (const contact of input.observed) {
@@ -82,8 +93,12 @@ export function buildGithubContactFacts(input: {
             person,
             email: observed.email,
             emailStatus: "observed",
-            sourceUrl: observed.sourceUrl ?? input.orgUrl,
-            fetchedAt: input.fetchedAt
+            sourceUrl: observed.sourceUrl ?? input.fallbackSourceUrl,
+            fetchedAt: input.fetchedAt,
+            sourceType: input.sourceType,
+            provider: input.provider,
+            endpoint: input.endpoint,
+            citationTitle: input.citationTitle
           })
         );
         continue;
@@ -101,8 +116,13 @@ export function buildGithubContactFacts(input: {
             person,
             email: inferred,
             emailStatus: "inferred",
-            sourceUrl: input.orgUrl,
-            fetchedAt: input.fetchedAt
+            emailBasis: emailPatternBasis(input.pattern, input.patternAnchorCount),
+            sourceUrl: input.fallbackSourceUrl,
+            fetchedAt: input.fetchedAt,
+            sourceType: input.sourceType,
+            provider: input.provider,
+            endpoint: input.endpoint,
+            citationTitle: input.citationTitle
           })
         );
       }
@@ -110,4 +130,28 @@ export function buildGithubContactFacts(input: {
   }
 
   return candidates;
+}
+
+export function buildGithubContactFacts(input: {
+  domain: string;
+  founders: CardPerson[];
+  keyExecs: CardPerson[];
+  observed: GithubObservedContact[];
+  pattern: EmailPattern | null;
+  patternAnchorCount: number;
+  orgUrl: string;
+  fetchedAt: string;
+}): ProviderFactCandidate[] {
+  return buildEmailPatternContactFacts({
+    ...input,
+    fallbackSourceUrl: input.orgUrl,
+    sourceType: "github",
+    provider: "github",
+    endpoint: "github_contacts",
+    citationTitle: "GitHub"
+  });
+}
+
+function emailPatternBasis(pattern: EmailPattern, anchorCount: number) {
+  return `domain pattern ${pattern}, ${anchorCount} observed ${anchorCount === 1 ? "address" : "addresses"}`;
 }

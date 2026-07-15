@@ -10,6 +10,7 @@
  */
 
 export type EmailPattern = "first.last" | "first" | "flast" | "f.last" | "firstlast";
+export type EmailPatternResult = { pattern: EmailPattern; anchorCount: number };
 
 // Shared inboxes and automation senders. These are real deliverable addresses but
 // tell us nothing about the person convention, so they are never pattern anchors.
@@ -76,7 +77,7 @@ function patternFromAnchor(localPart: string, fullName: string): EmailPattern | 
   return null;
 }
 
-export function deriveEmailPattern(anchors: { email: string; fullName: string | null }[]): EmailPattern | null {
+export function deriveEmailPattern(anchors: { email: string; fullName: string | null }[]): EmailPatternResult | null {
   const counts = new Map<EmailPattern, number>();
   for (const anchor of anchors) {
     const localPart = anchor.email.split("@")[0] ?? "";
@@ -96,7 +97,7 @@ export function deriveEmailPattern(anchors: { email: string; fullName: string | 
       bestCount = count;
     }
   }
-  return best;
+  return best ? { pattern: best, anchorCount: bestCount } : null;
 }
 
 export function applyEmailPattern(pattern: EmailPattern, fullName: string, domain: string): string | null {

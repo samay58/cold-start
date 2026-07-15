@@ -1,4 +1,4 @@
-import { sourceSearchSubjectForDomain, type SignalCategory } from "@cold-start/core";
+import { deriveEmailPattern, sourceSearchSubjectForDomain, type EmailPattern, type SignalCategory } from "@cold-start/core";
 import { agentcashJson } from "./agentcash";
 import { providerBudgetForEndpoint } from "./provider-budget";
 import { fetchSecFormD, isSecFormDResult, type SecFormDOfficer } from "./sec-edgar";
@@ -42,6 +42,16 @@ export type StableenrichEmailDiscovery = {
     score: number | null;
     accepted: boolean;
   }>;
+};
+
+export type StableenrichEmailPatternResult = {
+  observed: Array<{ email: string; fullName: string | null; sourceUrl: string | null }>;
+  pattern: EmailPattern | null;
+  patternAnchorCount: number;
+  sources: ProviderSource[];
+  failures: StableenrichProbeFailure[];
+  endpoints: StableenrichSourcesResult["endpoints"];
+  budgetCeilingHit?: boolean;
 };
 
 const stableenrichBaseUrl = "https://stableenrich.dev";
@@ -461,6 +471,83 @@ export async function fetchStableenrichPeopleEmailSources(input: {
       secOfficers: secFormD.officers,
       exaPeople: exaEmails.people,
     }),
+  };
+}
+
+export async function fetchStableenrichEmailPatternSources(input: {
+  env: StableenrichEnv;
+  domain: string;
+  agentcashFetch?: AgentcashFetch | undefined;
+  maxBudgetUsd?: number | undefined;
+}): Promise<StableenrichEmailPatternResult> {
+  requireStableenrichConfig(input.env);
+  const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  if (!takeAgentcashBudget(budgetState, "exa_email_search")) {
+    return {
+      observed: [],
+      pattern: null,
+      patternAnchorCount: 0,
+      sources: [],
+      failures: [],
+      endpoints: [],
+      budgetCeilingHit: true
+    };
+  }
+
+  const endpointUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_EXA_SEARCH_URL");
+  const agentcashFetch = input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request));
+  let settled: PromiseSettledResult<StableenrichProbeResult>;
+  const startedAt = Date.now();
+  try {
+    const result = await agentcashFetch({
+      url: endpointUrl,
+      body: {
+        query: `"@${input.domain}" founder OR CEO OR CTO OR CFO OR cofounder OR contact email`,
+        numResults: 8,
+        contents: {
+          text: true,
+          highlights: { highlightsPerUrl: 3, numSentences: 3 }
+        }
+      },
+      timeoutMs: stableenrichProbeTimeoutMs("exa_email_search")
+    });
+    settled = {
+      status: "fulfilled",
+      value: {
+        name: "exa_email_search",
+        endpointUrl,
+        result,
+        durationMs: Date.now() - startedAt,
+        metadata: { domain: input.domain }
+      }
+    };
+  } catch (error) {
+    settled = {
+      status: "rejected",
+      reason: {
+        name: "exa_email_search",
+        endpointUrl,
+        error: error instanceof Error ? error.message : String(error)
+      } satisfies StableenrichProbeFailure
+    };
+  }
+
+  const collected = collectStableenrichSources([settled]);
+  const observed = settled.status === "fulfilled"
+    ? extractPeopleFromExaEmailResults(settled.value.result, input.domain).flatMap((person) =>
+        person.email
+          ? [{ email: person.email, fullName: person.name ?? null, sourceUrl: person.sourceUrl ?? null }]
+          : []
+      )
+    : [];
+  const patternResult = deriveEmailPattern(observed.map(({ email, fullName }) => ({ email, fullName })));
+  return {
+    observed,
+    pattern: patternResult?.pattern ?? null,
+    patternAnchorCount: patternResult?.anchorCount ?? 0,
+    sources: collected.sources,
+    failures: collected.failures,
+    endpoints: collected.endpoints
   };
 }
 

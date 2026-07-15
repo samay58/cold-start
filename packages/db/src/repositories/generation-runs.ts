@@ -220,6 +220,34 @@ export async function findLatestGenerationRunBySlug(
   return row ? generationRunSummary(row) : null;
 }
 
+export async function findGenerationRunById(
+  db: ColdStartDb,
+  id: string
+): Promise<GenerationRunSummary | null> {
+  const rows = await db
+    .select({
+      id: generationRuns.id,
+      slug: generationRuns.slug,
+      domain: generationRuns.domain,
+      mode: generationRuns.mode,
+      jobKind: generationRuns.jobKind,
+      status: generationRuns.status,
+      error: generationRuns.error,
+      costUsd: generationRuns.costUsd,
+      traceJson: generationRuns.traceJson,
+      inngestEventId: generationRuns.inngestEventId,
+      inngestRunId: generationRuns.inngestRunId,
+      startedAt: generationRuns.startedAt,
+      completedAt: generationRuns.completedAt
+    })
+    .from(generationRuns)
+    .where(eq(generationRuns.id, id))
+    .limit(1);
+  const row = rows[0];
+
+  return row ? generationRunSummary(row) : null;
+}
+
 export async function findLatestGenerationRunStatusBySlug(
   db: ColdStartDb,
   slug: string,
