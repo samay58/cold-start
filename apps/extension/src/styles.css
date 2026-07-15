@@ -2358,12 +2358,6 @@ a.cs-lens-source:focus-visible {
   opacity: 0.72;
 }
 
-.cs-source-chip-muted {
-  color: var(--color-muted);
-  border-color: rgb(var(--cs-c-14-14-14-text) / 0.10);
-  background: rgb(var(--cs-c-250-250-247) / 0.72);
-}
-
 .cs-research-notice p {
   margin: 5px 0 0;
   color: var(--color-muted);
@@ -2669,36 +2663,6 @@ a.cs-lens-source:focus-visible {
   color: rgb(var(--cs-c-23-26-31-text) / 0.66);
   font-size: 12px;
   line-height: 1.4;
-}
-
-/* Backer names as quiet, non-interactive pills. Same weight as the source chips, but on the
-   neutral rule token instead of the seal tint so they do not read as links. */
-.cs-money-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cs-money-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  max-width: 152px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.80);
-  border-radius: 7px;
-  background: rgb(var(--cs-c-255-253-248) / 0.62);
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 10.5px;
-  font-weight: 600;
-  line-height: 1;
-  overflow: hidden;
-  padding: 0 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .cs-layer-money-ledger ol,
@@ -5533,4 +5497,290 @@ body {
 
 :root[data-theme="dark"] .cs-dormant-card {
   border-color: rgb(var(--cs-c-170-143-86) / 0.58);
+}
+
+/* Research panel: each active card is one plate. Inner hierarchy comes from the
+   shared label column, spacing, and one rule token rather than nested chrome. */
+.cs-layer-rows,
+.cs-layer-items {
+  gap: 0;
+  padding: 0;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.cs-layer-rows div {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-rows div + div,
+.cs-layer-items li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-layer-rows dt,
+.cs-layer-items span {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.cs-layer-items li[data-has-meta="true"] {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-items li[data-has-meta="true"] > span {
+  order: 0;
+  justify-self: stretch;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.cs-layer-items li[data-has-meta="false"] > div {
+  grid-column: 1 / -1;
+}
+
+.cs-layer-money-ledger {
+  gap: 0;
+}
+
+.cs-layer-money-hero {
+  gap: 4px;
+  padding: 0 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.cs-layer-money-hero > span {
+  color: var(--color-muted);
+  font: 600 10.5px/1.2 var(--font-body);
+  letter-spacing: 0.06em;
+}
+
+.cs-layer-money-hero strong {
+  font: 700 20px/1.08 var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-layer-money-investors,
+.cs-layer-money-ledger li {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-layer-money-investors > span,
+.cs-layer-money-ledger li > span {
+  color: var(--color-muted);
+  font: 600 10.5px/1.35 var(--font-body);
+  letter-spacing: 0.04em;
+}
+
+.cs-layer-money-investors p {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.cs-layer-money-ledger ol,
+.cs-layer-signal-ledger {
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  list-style: none;
+  overflow: visible;
+}
+
+.cs-layer-money-ledger li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-layer-signal-ledger li {
+  padding: 10px 0;
+}
+
+.cs-layer-money-ledger li + li,
+.cs-layer-signal-ledger li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-source-chips {
+  gap: 5px 10px;
+  margin-top: 10px;
+}
+
+.cs-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 152px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.cs-source-chip::before {
+  content: none;
+}
+
+.cs-source-chip i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-rule-strong);
+}
+
+.cs-source-chip[data-class="independent"] i {
+  background: var(--color-verified);
+}
+
+.cs-source-chip[data-class="reporting"] i {
+  background: var(--color-reported);
+}
+
+.cs-source-chip[data-class="company"] i {
+  background: var(--color-company);
+}
+
+a.cs-source-chip:hover,
+a.cs-source-chip:focus-visible {
+  color: var(--color-seal);
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-panel-more,
+.cs-lens-timing-more {
+  width: fit-content;
+  min-height: 20px;
+  margin: 5px 0 0;
+  padding: 2px 7px;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--cs-seal-tint-08);
+  color: var(--color-seal);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.cs-source-more {
+  margin-top: 0;
+}
+
+.cs-panel-more:hover,
+.cs-panel-more:focus-visible,
+.cs-lens-timing-more:hover,
+.cs-lens-timing-more:focus-visible {
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-18);
+  color: var(--color-seal);
+}
+
+.cs-investor-read-lede {
+  font-weight: 480;
+  line-height: 1.55;
+}
+
+.cs-lens-tension-side,
+.cs-lens-case-empty,
+.cs-lens-timing,
+.cs-lens-question {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-lens-tension {
+  gap: 0;
+  padding: 0;
+  border-top: 0;
+}
+
+.cs-lens-tension-side + .cs-lens-tension-side {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-lens-tension-side h4,
+.cs-lens-case-empty h4,
+.cs-lens-timing h4,
+.cs-lens-question h4,
+.cs-lens-timing em,
+.cs-lens-question small em,
+.cs-lens-question-category {
+  font-family: var(--font-body);
+}
+
+.cs-lens-tension-side h4,
+.cs-lens-case-empty h4,
+.cs-lens-timing h4,
+.cs-lens-question h4 {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+.cs-lens-case-empty p {
+  margin: 0;
+}
+
+.cs-lens-question-category {
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+}
+
+.cs-lens-footer {
+  border-top-color: var(--color-rule);
 }
