@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A is merged on `main`, and its release plus adversarial hardening pass are green. The final pass removed the superseded boxed Money-panel rules instead of leaving late cascade overrides, while preserving the rendered result. Full `npm run check`, the 46-state side-panel suite, CSS audit, MV3 smoke, Firefox build, and Firefox lint all pass. Next: push the hardening release, verify the production alias, then remove the merged feature branches; `main` is already the only worktree.
+Spec A is complete on `main`. The one-plate polish and adversarial CSS cleanup are deployed in Vercel production deployment `dpl_CB6WzN3QaNtYmMXLV6PkXdoJt5C9`; GitHub Check run `29421374905` passed every release gate; the stable alias passed live route and contract checks; and Samay manually exercised the unpacked build in Dia. The merged local and remote feature branches are deleted, and `main` is the only branch and worktree. No deviations remain against the Done definition.
 
 ## 2026-07-15
 
@@ -90,3 +90,10 @@ None against the Spec A Done definition. The existing MV3 smoke storage seed has
 - CSS token audit passed independently and as part of the extension suite. The packaged Chrome MV3 smoke passed 1/1. Firefox built successfully and self-hosted `web-ext` lint reported 0 errors and 6 documented compatibility or bundled-library warnings.
 - Full `npm run check` passed after Firefox build and pinned lint were added permanently to both the root gate and GitHub Actions.
 - Browser-only limitation: Samay manually exercised the unpacked release in Dia. Firefox behavior is covered by unit contracts, build, and package lint, but was not manually launched in this release session.
+
+### Final hardening release receipt
+
+- Pushed the hardening release to `origin/main`. Vercel production deployment `dpl_CB6WzN3QaNtYmMXLV6PkXdoJt5C9` reached Ready and promoted `https://cold-start-samay58s-projects.vercel.app`.
+- GitHub Check run `29421374905` passed lint, typecheck, all tests, Chrome build, Firefox build, pinned self-hosted Firefox lint, golden dry run, knip, secrets scan, and dependency audit.
+- Live `/privacy`, `/robots.txt`, and `/sitemap.xml` returned HTTP 200. The public card route retained contract `2026-07-15.inferred-email-basis-v1` and no private fields.
+- Deleted the merged `research-panel-polish` and `inferred-email-coverage` branches locally and from `origin`. No stale worktrees existed; `main` remains the only worktree.

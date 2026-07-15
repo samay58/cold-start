@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec B is merged on `main`, including the deep-find merge fix and the final auth and clipboard hardening. Free-path coverage remains 40/50 patterns (80%); the real `officehours.com` runs produced four labeled inferred addresses with basis; and every local release gate is green. Vercel serves contract `2026-07-15.inferred-email-basis-v1`; the Dia identity passed authenticated production API checks; and Samay manually tested the unpacked build. Next: push the hardening release, verify the production alias, remove the merged feature branches, and let fallback telemetry populate on natural regenerations.
+Spec B is complete on `main`, including the deep-find merge fix and final auth and clipboard hardening. Free-path coverage is 40/50 patterns (80%); the real `officehours.com` runs produced four labeled inferred addresses with basis; production serves contract `2026-07-15.inferred-email-basis-v1`; and GitHub Check run `29421374905` passed every gate. Live public redaction, Dia access, Firefox stable-ID access, and rejection cases all passed against Vercel deployment `dpl_CB6WzN3QaNtYmMXLV6PkXdoJt5C9`. The merged feature branches are deleted. Natural regeneration remains the intended source of fallback telemetry; no backfill is required by this spec.
 
 ## 2026-07-15
 
@@ -159,3 +159,11 @@ The zero stored-email and zero instrumented-fallback results describe the curren
 - The dossier now acknowledges `Copied` only after `navigator.clipboard.writeText` exists and resolves. Tooltip tests pass 10/10, including unavailable and rejected clipboard writes that keep the address visible and never claim success.
 - Full `npm run check` passed with Firefox build and pinned self-hosted lint included in the permanent local and CI gates. The complete UI suite passed 46/46, CSS audit passed, and packaged MV3 smoke passed 1/1.
 - Browser-only limitation: Samay manually exercised the unpacked release in Dia. Firefox authentication, build, and package lint are covered, but Firefox itself was not manually launched in this release session.
+
+### Final hardening release receipt
+
+- Added the production multi-browser ID allowlist before deployment, preserving the Dia identity and adding the stable Firefox Gecko ID. The existing bearer credential remains supported through the legacy fallback.
+- Vercel deployment `dpl_CB6WzN3QaNtYmMXLV6PkXdoJt5C9` reached Ready on the stable production alias. The public card route returned HTTP 200 with the shared contract, no synthesis, and zero `email`, `emailStatus`, or `emailBasis` fields.
+- The live gated route returned HTTP 200 with synthesis for both the Dia identity and the stable Firefox ID with a random `moz-extension://` origin. A wrong ID and mismatched Chrome origin returned 403; a wrong bearer token returned 401.
+- GitHub Check run `29421374905` passed the full release matrix, including the newly permanent Firefox build and lint stages.
+- Deleted the merged `research-panel-polish` and `inferred-email-coverage` branches locally and from `origin`. `main` is the only branch and worktree.
