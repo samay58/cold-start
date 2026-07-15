@@ -2,7 +2,7 @@
 
 ## WHERE WE LEFT OFF
 
-Spec A remains complete on `main`. A screenshot-driven Dia-width correction is ready on `codex/design-slop-cleanup`: the company identity no longer collides with the filing status at 431 to 437px, and the unavailable Investor Lens is a quiet prerequisite row rather than a second disabled card. The full-height purple progress mesh is deliberately unchanged. The 47-state UI suite, packaged MV3 smoke, and full repository check are green. Next: release to `main`, verify the production deployment, then remove the merged branch.
+Spec A and the screenshot-driven Dia-width correction are complete on `main` at `586d108`. The company identity no longer collides with the filing status at 431 to 437px, and the unavailable Investor Lens is a quiet prerequisite row rather than a second disabled card. The full-height purple progress mesh is deliberately unchanged. The 47-state UI suite, packaged MV3 smoke, local full check, GitHub Check run `29426509545`, and production deployment `dpl_GUMnLynyjJ8y1ySGvNfDNTe36Ryh` are green. No deviations remain.
 
 ## 2026-07-15
 
@@ -107,3 +107,4 @@ None against the Spec A Done definition. The existing MV3 smoke storage seed has
 - An initial interpretation removed the building shell's full-height mesh. Samay rejected that change because the purple gradient is an intentional signature surface. The mesh height, shader colors, animation, fallback, and opacity are unchanged in the final diff.
 - Before evidence: Samay's `CleanShot 2026-07-15 at 09.38.49@2x.png` and `CleanShot 2026-07-15 at 09.38.54@2x.png`. After evidence: `/private/tmp/cold-start-symphony-dia-width-after.png` and `/private/tmp/cold-start-symphony-dia-width-dark-after.png`.
 - Verification: focused Playwright 1/1, extension component tests 63/63, CSS audit green, extension typecheck green, full side-panel UI 47/47, and packaged Chrome MV3 smoke 1/1. The smoke's first launch hit the existing empty-token storage-seed race; the captured Access screen confirmed that mechanism, and the unchanged rerun passed. The final `npm run check` passed zero-warning lint, all workspace types and tests, Chrome and Firefox production builds, Firefox package lint, the golden dry run, knip, secrets scan, and dependency audit.
+- Release receipt: GitHub Check run `29426509545` passed every gate. Vercel production deployment `dpl_GUMnLynyjJ8y1ySGvNfDNTe36Ryh` reached Ready and promoted the stable alias. Live privacy and robots routes returned HTTP 200; the public card API retained contract `2026-07-15.inferred-email-basis-v1` with no synthesis or private person fields.
