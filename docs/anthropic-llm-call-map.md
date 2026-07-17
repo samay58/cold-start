@@ -2,7 +2,7 @@
 
 Every place Cold Start calls Anthropic's API or any LLM. First mapped at commit `66362f0` (2026-06-11); updated the same day for per-stage provider routing. Line numbers drift; the stable identifiers are the trace `stage`, `label`, and `provider` values, which are recorded on every call.
 
-The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 134 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly six call functions wrapping that chokepoint, five of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there are two more direct Anthropic callers (a cache diagnostic script and an eval baseline), one non-Anthropic LLM (Sakana Fugu, eval only), and the provider-matrix replay harness which calls the same six functions over frozen fixtures.
+The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 134 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly six call functions wrapping that chokepoint, five of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there is one more direct Anthropic caller (a cache diagnostic script) and the provider-matrix replay harness which calls the same six functions over frozen fixtures.
 
 ## The chokepoint and routing: packages/llm/src/
 
@@ -79,11 +79,10 @@ Expected Anthropic calls per run:
 ## Direct Anthropic callers outside production
 
 - `scripts/verify-cache-ttl.ts` (call at line 79): diagnostic for the 1h cache TTL beta header. Builds its own client and makes one real call through `createTracedAnthropicMessage` (stage `verify`, label `verify-cache-ttl`), defaulting to `ANTHROPIC_VERIFIER_MODEL`, then `ANTHROPIC_MODEL`, then `claude-haiku-4-5-20251001`. Run via `npm run verify:cache-ttl` after SDK upgrades. Under $0.01 per run.
-- `eval/fugu-top-truths/harness.mjs`, `callAnthropicBaseline` (line 101, call at line 113): the baseline arm of the Fugu comparison eval. This is the one Anthropic call in the repo that does NOT go through the chokepoint: raw `client.messages.create`, no system prompt, no caching, no telemetry, no cost estimate. Model `ANTHROPIC_MODEL` defaulting to `claude-sonnet-4-6`, max_tokens 4096. Invoked by `eval/fugu-top-truths/run.mjs` and `run-matrix.mjs` (`npm run eval:fugu:top-truths`, `eval:fugu:matrix`).
 
 ## Non-Anthropic LLM usage
 
-Sakana Fugu is the only non-Anthropic LLM in the repo, and it is eval-only. `callSakanaResponses` (`eval/fugu-top-truths/harness.mjs:65`) POSTs to `https://api.sakana.ai/v1/responses` with `SAKANA_API_KEY`, models `fugu-mini` and `fugu-ultra`, as comparison arms against the Anthropic baseline. Nothing in `apps/*` or `packages/*` touches it. The free beta quota expired June 7 2026, so these runners are effectively archival unless access is renewed.
+Per-stage provider routing (the `LLM_*_MODEL` env chains) is the only non-Anthropic LLM usage; every such call goes through the chokepoint. The Sakana Fugu comparison eval was removed in July 2026 after its free beta quota expired (June 7 2026); it lives in git history if access is ever renewed.
 
 ## Indirect LLM consumers (no SDK usage; they trigger the pipeline over HTTP or read its output)
 
@@ -97,7 +96,6 @@ Sakana Fugu is the only non-Anthropic LLM in the repo, and it is eval-only. `cal
 - `apps/extension`: talks only to the Cold Start API. No SDK, no keys.
 - `apps/web` outside `src/inngest/functions.ts`: routes queue Inngest events or read the DB. `next.config.ts` lists `@cold-start/llm` only for transpilation.
 - `packages/db`, `packages/core`, `packages/ui`: schema, storage, rendering.
-- `experiments/activegraph-coldstart/coldstart_graph.py`: deterministic graph checks over card JSON fixtures.
 
 ## Environment variables that control LLM behavior
 
@@ -112,7 +110,6 @@ Sakana Fugu is the only non-Anthropic LLM in the repo, and it is eval-only. `cal
 | `LLM_OPENAI_COMPAT_TIMEOUT_MS` | adapter request timeout (default 120000) |
 | `ANTHROPIC_CACHE_TTL` | `1h` (default) or `5m` system-prompt cache, Anthropic path only |
 | `EXTRACTION_EVIDENCE_BUDGET_CHARS` | prompt-size budget for extraction and research-section evidence |
-| `SAKANA_API_KEY` | Fugu eval only |
 
 Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Vercel env changes only apply to new deployments.
 
@@ -126,7 +123,7 @@ Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Verc
 
 ## Invariants to preserve when touching any of this
 
-- New LLM calls of any provider must go through `createTracedAnthropicMessage` so routing, telemetry, cost, and the cache beta header stay uniform. The Fugu baseline is the deliberate exception because it measures raw model behavior.
+- New LLM calls of any provider must go through `createTracedAnthropicMessage` so routing, telemetry, cost, and the cache beta header stay uniform.
 - Stage names are part of the `GenerationLlmCallTrace` schema in `packages/core/src/generation-trace.ts`; adding a stage means updating that schema, the `stageEnvChain` map in `llm-provider.ts`, and the legacy `modelEnvByStage` map together (TS Record exhaustiveness enforces the last two).
 - Every model added to the eval matrix or flipped into a stage needs a row in `pricing.ts`, or its calls trace without cost and the savings math goes blind.
 - DeepSeek requests must keep `thinking: {type:"disabled"}` (the provider default extra body); v4 models reject `temperature` in thinking mode.

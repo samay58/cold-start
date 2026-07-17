@@ -14,7 +14,6 @@ apps/extension/dist-dev
 apps/web/.cold-start
 docs/product/research/private-analysis
 docs/product/research/private-prompts
-eval/fugu-top-truths/runs
 eval/provider-matrix/fixtures
 eval/provider-matrix/runs
 eval/runs

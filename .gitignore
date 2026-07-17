@@ -7,7 +7,6 @@ dist-dev/
 dist-firefox/
 coverage/
 eval/runs/
-eval/fugu-top-truths/runs/
 eval/provider-matrix/fixtures/
 eval/provider-matrix/runs/
 .env

@@ -4,19 +4,3 @@ model_reasoning_effort = "high"
 project_root_markers = [".git", "CLAUDE.md"]
 sandbox_mode = "workspace-write"
 service_tier = "fast"
-
-[model_providers.sakana]
-name = "Sakana API"
-base_url = "https://api.sakana.ai/v1"
-env_key = "SAKANA_API_KEY"
-wire_api = "responses"
-
-[profiles.fugu]
-model = "fugu-mini"
-model_reasoning_effort = "high"
-model_provider = "sakana"
-model_catalog_json = ".codex/fugu.json"
-
-[profiles.fugu.features]
-image_generation = false
-apps = false

@@ -41,9 +41,6 @@
     "wallet:status": "tsx scripts/wallet-status.ts",
     "eval:seed": "node -e \"const data=require('./eval/golden-companies.seed.json'); console.log(data.length)\"",
     "eval:golden": "node eval/run-golden.mjs",
-    "eval:fugu:top-truths": "node eval/fugu-top-truths/run.mjs",
-    "eval:fugu:build-bundles": "node eval/fugu-top-truths/build-bundles.mjs",
-    "eval:fugu:matrix": "node eval/fugu-top-truths/run-matrix.mjs",
     "eval:providers:bundles": "tsx eval/provider-matrix/build-bundles.ts",
     "eval:providers:matrix": "tsx eval/provider-matrix/run-matrix.ts"
   },

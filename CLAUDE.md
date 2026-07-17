@@ -48,9 +48,6 @@ npm run dev:fresh                       # wipe apps/web/.next + .cold-start, the
 npm run trace:generation                # tsx scripts/trace-generation.ts (single-run debug)
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
-npm run eval:fugu:top-truths            # node eval/fugu-top-truths/run.mjs (Fugu top-truths eval)
-npm run eval:fugu:build-bundles         # node eval/fugu-top-truths/build-bundles.mjs (prep model-input bundles)
-npm run eval:fugu:matrix                # node eval/fugu-top-truths/run-matrix.mjs (mini/ultra/baseline comparison)
 npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles.ts (freeze prod evidence fixtures, read-only DB)
 npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)
 npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
