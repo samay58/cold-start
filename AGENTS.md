@@ -21,7 +21,6 @@ This is an npm workspaces monorepo with `apps/*` and `packages/*`. Cross-package
 - `packages/pipeline`: card generation orchestration, evidence ledger, cost tracking, and conflict resolution.
 - `packages/ui`: shared React card primitives and `tokens.css`.
 - `eval/golden-companies.seed.json`: starter 50-company eval set. `eval/investor-lens/score.mjs` scores synthesis claims against generic-phrase and quality checks; its tests run under the `node --test eval/**/*.test.mjs` glob in `npm run test`.
-- `experiments/`: exploratory work outside the npm workspace graph (e.g. `experiments/activegraph-coldstart`). Not built or tested by root scripts; treat as scratch.
 - `lessons/`: standalone HTML walkthroughs of how the system works (e.g. `0001-follow-a-company-generation.html`). Educational only, not part of the build or tests.
 - `docs/learn/`: generated narrative learn pack (`manifest.yml` plus `trail-*.md` walkthroughs). Educational only, not part of the build or tests.
 

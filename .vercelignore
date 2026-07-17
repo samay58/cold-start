@@ -1,8 +1,6 @@
 .git
 .next
-.pytest_cache
 .specstory
-.venv
 .vercel
 .worktrees
 coverage
@@ -16,7 +14,6 @@ apps/extension/dist-dev
 apps/web/.cold-start
 docs/product/research/private-analysis
 docs/product/research/private-prompts
-eval/activegraph-runs
 eval/fugu-top-truths/runs
 eval/provider-matrix/fixtures
 eval/provider-matrix/runs
