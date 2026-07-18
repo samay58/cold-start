@@ -8,7 +8,7 @@ const defaultExaBaseUrl = "https://api.exa.ai";
 // Estimate source: https://exa.ai/pricing and https://exa.ai/docs/changelog
 // Current published price is $7 per 1k Search requests with up to 10 results,
 // text, and highlights included. Calculation: 7 / 1_000 = $0.007/search.
-// Keep docs/product/research/provider-cost-assumptions.md in sync if this changes.
+// Keep docs/product/provider-cost-assumptions.md in sync if this changes.
 export const DIRECT_EXA_SEARCH_COST_USD = 0.007;
 
 function directExaCostUsd(requestCount: number) {

@@ -8,7 +8,7 @@ import type { ProviderSource } from "./types";
  * @cold-start/core email-pattern), which the pipeline applies to already-extracted
  * founders/execs. The public GitHub REST API is free within rate limits, so this
  * provider reports estimatedCostUsd: 0 and never runs through provider-budget.
- * See docs/product/contact-enrichment-yield-and-design-2026-07-01.md.
+ * See docs/archive/product/contact-enrichment-yield-and-design-2026-07-01.md.
  */
 
 const GITHUB_API = "https://api.github.com";

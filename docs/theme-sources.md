@@ -2,7 +2,7 @@
 
 Date: 2026-06-24. Purpose: extract the real "Kyoto Paper Dark" palette the extension dark
 mode should feel like, verify contrast, and record any deltas from the spec v0
-(`docs/product/extension-dark-mode-spec-2026-06-24.md`).
+(`docs/archive/product/extension-dark-mode-spec-2026-06-24.md`).
 
 ## What was searched
 

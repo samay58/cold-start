@@ -270,13 +270,13 @@ Basics and Investor Lens should consume separate credits. They have different in
 
 [1] Production trace export, `docs/product/research/private-analysis/generation-runs-latest-20-2026-06-23.clean.json`, accessed 2026-06-23. Private ignored artifact. Key paths: `trace.llm.calls[].stage`, `trace.llm.calls[].provider`, `trace.llm.calls[].model`, `trace.llm.calls[].estimatedCostUsd`.
 
-[2] Unit-economics brief, `docs/product/unit-economics-trace-analysis-2026-06-23.md`, accessed 2026-06-23.
+[2] Unit-economics brief, `docs/archive/product/unit-economics-trace-analysis-2026-06-23.md`, accessed 2026-06-23.
 
 [3] Quality gates, `packages/core/src/card-quality.ts`, accessed 2026-06-23. Key constants and functions: `MIN_STRUCTURED_PROFILE_FACTS = 4`, `MIN_VISIBLE_PROFILE_FACTS = 2`, `MIN_SOURCE_BACKED_CITATIONS = 3`, `hasUsablePublicProfile`, `hasInvestorUsableProfile`.
 
-[4] Investor Lens direction review, `docs/product/investor-lens-direction-review-2026-06-23.md`, accessed 2026-06-23.
+[4] Investor Lens direction review, `docs/archive/product/investor-lens-direction-review-2026-06-23.md`, accessed 2026-06-23.
 
-[5] Speed and compression plan, `docs/superpowers/plans/2026-06-07-real-speed-yield-and-compression.md`, accessed 2026-06-23.
+[5] Speed and compression plan, `docs/archive/plans/2026-06-07-real-speed-yield-and-compression.md`, accessed 2026-06-23.
 
 [6] LLM model resolver, `packages/llm/src/llm-provider.ts`, accessed 2026-06-23. Key functions: `modelForStage`, provider-prefix resolver.
 

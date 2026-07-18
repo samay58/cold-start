@@ -7,7 +7,7 @@ const MAX_WEBSETS_PEOPLE = 3;
 // Websets bills in credits: 10 per matching result plus 5 per email or phone number.
 // Credit USD depends on plan tier; default assumes Starter ($49 / 8,000 credits).
 // Source: https://websets.exa.ai/websets/billing. Override via EXA_WEBSETS_CREDIT_USD
-// when the plan changes. Keep docs/product/research/provider-cost-assumptions.md in sync.
+// when the plan changes. Keep docs/product/provider-cost-assumptions.md in sync.
 const WEBSETS_CREDITS_PER_ITEM = 10 + 5;
 const DEFAULT_WEBSETS_CREDIT_USD = 0.006125;
 

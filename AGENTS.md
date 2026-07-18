@@ -171,9 +171,9 @@ npm run dev:full
 - `README.md`: local setup, smoke tests, and deployed extension setup.
 - `docs/deployment.md`: Vercel, Neon, Inngest, and extension deployment.
 - `docs/qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
-- `docs/product/`: dated product specs, direction reviews, and tuning playbooks (e.g. `cost-quality-optimization-playbook`, `diagnose-iterate-craft-playbook`, the public-artifact and investor-lens reviews). Read the relevant dated review before reworking a product surface.
+- `docs/product/`: living tuning playbooks (`cost-quality-optimization-playbook`, `diagnose-iterate-craft-playbook`, `extension-motion-playbook`, `provider-cost-assumptions`). Dated direction reviews and shipped specs live under `docs/archive/`; read the relevant one before reworking a product surface. `docs/README.md` is the map.
 - `SPEC.md`: product spec.
 - `DESIGN.md`: visual system.
 - `INTENT.md`: product intent and non-goals.
 - `CLAUDE.md`: Claude Code-facing parallel of this file; keep the two in sync when changing shared guidance.
-- `docs/superpowers/plans/2026-05-06-cold-start-implementation.md`: original implementation plan.
+- `docs/archive/`: shipped plans, specs, release ledgers, and dated reviews (including the original implementation plan, `docs/archive/plans/2026-05-06-cold-start-implementation.md`).

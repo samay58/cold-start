@@ -90,7 +90,7 @@ test("dark: inferred email dossier keeps status, basis, and readable hierarchy",
   );
   await page.screenshot({
     fullPage: true,
-    path: fileURLToPath(new URL("../../../../docs/superpowers/specs/screenshots/inferred-email-coverage/after/dark-inferred-dossier.png", import.meta.url))
+    path: fileURLToPath(new URL("../../../../docs/archive/specs/screenshots/inferred-email-coverage/after/dark-inferred-dossier.png", import.meta.url))
   });
 });
 

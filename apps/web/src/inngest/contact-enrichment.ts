@@ -113,7 +113,7 @@ export function buildContactEnrichmentRequestedEvent(input: {
   // Default path (false) runs only the free GitHub reachability layer. deepFind=true
   // additionally spends the paid provider path (Websets + StableEnrich email probes)
   // to fill the ~26% of companies the free layer misses. See
-  // docs/product/contact-enrichment-yield-and-design-2026-07-01.md.
+  // docs/archive/product/contact-enrichment-yield-and-design-2026-07-01.md.
   deepFind?: boolean;
 }) {
   return {

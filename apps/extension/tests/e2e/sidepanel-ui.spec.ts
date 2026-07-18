@@ -656,7 +656,7 @@ test("inferred email dossier shows its basis and copies in place", async ({ page
   );
   await page.screenshot({
     fullPage: true,
-    path: fileURLToPath(new URL("../../../../docs/superpowers/specs/screenshots/inferred-email-coverage/after/light-inferred-dossier.png", import.meta.url))
+    path: fileURLToPath(new URL("../../../../docs/archive/specs/screenshots/inferred-email-coverage/after/light-inferred-dossier.png", import.meta.url))
   });
 
   await tooltip.locator(".cs-dossier-email-copy").click();
