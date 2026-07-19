@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { aggregate, scoreCitationDiscipline, scoreFillRate, scoreFundingFaithfulness, scoreSignalRedundancy, scoreVerify } from "./score.mjs";
+import { aggregate, scoreCitationDiscipline, scoreFillRate, scoreFundingFaithfulness, scoreResearchSection, scoreSignalRedundancy, scoreSynthesis, scoreVerify } from "./score.mjs";
 
 const fact = (value, citationIds = ["c1"]) => ({ value, status: "verified", confidence: "high", citationIds });
 
@@ -186,5 +186,89 @@ describe("aggregate", () => {
 
   it("returns null for empty input", () => {
     assert.equal(aggregate([]), null);
+  });
+});
+
+describe("scoreSynthesis", () => {
+  const cardCitationIds = ["c1", "c2"];
+  const baseSynthesis = () => ({
+    whyItMatters: { text: "Acme sells anvils to a captured buyer with budget urgency [c1].", citationIds: ["c1"] },
+    bullCase: [{ text: "Named customer proof beats claims [c1].", citationIds: ["c1"] }],
+    bearCase: [{ text: "Adoption breaks if the incumbent undercuts price unless retention holds [c2].", citationIds: ["c2"] }],
+    openQuestions: [{ question: "Which buyer owns budget for this workflow expansion?", category: "buyer_budget" }],
+    marketStructureAndTiming: null
+  });
+
+  it("counts claims, finds no marker violations, and computes verifier survival", () => {
+    const synthesis = baseSynthesis();
+    const score = scoreSynthesis({
+      synthesis,
+      verifierResults: [
+        { claimIndex: 0, text: synthesis.whyItMatters.text, citationIds: ["c1"], status: "supported" },
+        { claimIndex: 1, text: synthesis.bullCase[0].text, citationIds: ["c1"], status: "unsupported" }
+      ],
+      cardCitationIds
+    });
+    assert.deepEqual(score.claimCounts, { bullCase: 1, bearCase: 1, openQuestions: 1 });
+    assert.equal(score.citationMarkerViolations.length, 0);
+    assert.equal(score.verifierSurvivalRate, 0.5);
+    assert.equal(score.genericPhraseCount, 0);
+    assert.equal(score.hasConcreteTension, true);
+    assert.equal(score.hasTestableQuestion, true);
+  });
+
+  it("flags a citation marker that does not resolve to the card's citations", () => {
+    const synthesis = baseSynthesis();
+    synthesis.bearCase = [{ text: "Adoption breaks unless retention holds [ghost].", citationIds: ["ghost"] }];
+    const score = scoreSynthesis({ synthesis, verifierResults: [], cardCitationIds });
+    assert.deepEqual(score.citationMarkerViolations, ["ghost"]);
+  });
+
+  it("returns a null survival rate when nothing was judged", () => {
+    const score = scoreSynthesis({ synthesis: baseSynthesis(), verifierResults: [], cardCitationIds });
+    assert.equal(score.verifierSurvivalRate, null);
+  });
+});
+
+describe("scoreResearchSection", () => {
+  const evidenceCitationIds = ["c1", "c2"];
+
+  it("counts items and flags citation ids outside the section's evidence set", () => {
+    const content = {
+      status: "available",
+      summary: "Acme has named pilot customers with usage evidence.",
+      items: [
+        { label: "Pilot A", text: "Acme piloted with Globex starting Q1.", citationIds: ["c1"] },
+        { label: "Pilot B", text: "Acme piloted with Initech in March.", citationIds: ["ghost"] }
+      ],
+      confidence: "medium"
+    };
+    const score = scoreResearchSection({ content, evidenceCitationIds });
+    assert.equal(score.status, "available");
+    assert.equal(score.itemCount, 2);
+    assert.deepEqual(score.citationIdViolations, ["ghost"]);
+    assert.equal(score.genericPhraseCount, 0);
+    assert.ok(score.avgItemChars > 0);
+  });
+
+  it("flags generic phrases in the summary and item text", () => {
+    const content = {
+      status: "available",
+      summary: "This is a massive market with clear enterprise demand.",
+      items: [],
+      confidence: "low"
+    };
+    const score = scoreResearchSection({ content, evidenceCitationIds });
+    assert.equal(score.genericPhraseCount, 2);
+  });
+
+  it("handles an empty section with zero items", () => {
+    const score = scoreResearchSection({
+      content: { status: "empty", summary: null, items: [], confidence: "low" },
+      evidenceCitationIds
+    });
+    assert.equal(score.itemCount, 0);
+    assert.equal(score.avgItemChars, 0);
+    assert.equal(score.citationIdViolations.length, 0);
   });
 });

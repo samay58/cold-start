@@ -5,6 +5,7 @@
 // bundle and the production reference card.
 
 import { signalClusterStats } from "../../packages/core/src/signal-clusters.mjs";
+import { genericPhraseCount, hasConcreteTension, hasTestableQuestion, GENERIC_PHRASES } from "../investor-lens/score.mjs";
 
 function resolvedFactEntries(sections) {
   const entries = [];
@@ -215,6 +216,94 @@ export function scoreVerify({ results, claims }) {
     falseDropRate: total > 0 ? Number(((total - supported) / total).toFixed(4)) : null,
     echoViolations,
     claimIndexCoverage: results.length > 0 ? Number((byIndex.size / results.length).toFixed(4)) : null,
+  };
+}
+
+const citationMarkerRegex = /\[([A-Za-z0-9_-]+)\]/g;
+
+function visibleCitationMarkers(text) {
+  return Array.from(String(text ?? "").matchAll(citationMarkerRegex), (match) => match[1]);
+}
+
+function synthesisClaimTexts(synthesis) {
+  const market = synthesis?.marketStructureAndTiming;
+  const marketClaims = market
+    ? [
+        market.buyerBudget,
+        market.painSeverity,
+        market.adoptionTrigger,
+        market.marketStructure,
+        market.profitPool,
+        market.expansionPath,
+        market.timingRisk
+      ].filter(Boolean)
+    : [];
+  return [synthesis?.whyItMatters, ...(synthesis?.bullCase ?? []), ...(synthesis?.bearCase ?? []), ...marketClaims].filter(Boolean);
+}
+
+// Paired synthesis+verify replay: synthesis is a FRESH synthesizeCard output (not the production
+// card's), verifierResults come from an immediate verifySynthesis judge pass over synthesis's own
+// claims. citationMarkerViolations reimplements synthesis.ts's visible-marker regex in plain JS
+// so this file stays dependency-free; a violation means the model printed a citation marker whose
+// id does not resolve to the card's citations[], the same failure mode citedSynthesisSchema
+// guards against at parse time in production.
+export function scoreSynthesis({ synthesis, verifierResults, cardCitationIds }) {
+  const cardCitationIdSet = new Set(cardCitationIds);
+  const citationMarkerViolations = [];
+  for (const claim of synthesisClaimTexts(synthesis)) {
+    for (const marker of visibleCitationMarkers(claim.text)) {
+      if (!cardCitationIdSet.has(marker)) {
+        citationMarkerViolations.push(marker);
+      }
+    }
+  }
+
+  const judged = verifierResults.length;
+  const supported = verifierResults.filter((result) => result.status === "supported").length;
+
+  return {
+    claimCounts: {
+      bullCase: synthesis?.bullCase?.length ?? 0,
+      bearCase: synthesis?.bearCase?.length ?? 0,
+      openQuestions: synthesis?.openQuestions?.length ?? 0
+    },
+    citationMarkerViolations,
+    verifierSurvivalRate: judged > 0 ? Number((supported / judged).toFixed(4)) : null,
+    genericPhraseCount: genericPhraseCount({ synthesis }),
+    hasConcreteTension: hasConcreteTension({ synthesis }),
+    hasTestableQuestion: hasTestableQuestion({ synthesis })
+  };
+}
+
+function genericPhraseCountInTexts(texts) {
+  const haystack = texts
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase())
+    .join("\n");
+  return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
+}
+
+// evidenceCitationIds is the section's evidence set (every citation id the model was shown), not
+// the whole card's citations: a research-section citationId is a violation if it names a source
+// the model was never given, even if that source exists somewhere else on the card.
+export function scoreResearchSection({ content, evidenceCitationIds }) {
+  const evidenceIdSet = new Set(evidenceCitationIds);
+  const citationIdViolations = [];
+  for (const item of content?.items ?? []) {
+    for (const citationId of item.citationIds ?? []) {
+      if (!evidenceIdSet.has(citationId)) {
+        citationIdViolations.push(citationId);
+      }
+    }
+  }
+
+  const items = content?.items ?? [];
+  return {
+    status: content?.status ?? "empty",
+    itemCount: items.length,
+    citationIdViolations,
+    genericPhraseCount: genericPhraseCountInTexts([content?.summary, ...items.map((item) => item.text)]),
+    avgItemChars: items.length > 0 ? Number((items.reduce((sum, item) => sum + item.text.length, 0) / items.length).toFixed(1)) : 0
   };
 }
 

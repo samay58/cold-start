@@ -1,4 +1,4 @@
-const GENERIC_PHRASES = [
+export const GENERIC_PHRASES = [
   "large and growing",
   "massive market",
   "well positioned",
@@ -29,18 +29,18 @@ function marketHasEvidence(card) {
   return Boolean(market && Object.values(market).some(Boolean));
 }
 
-function genericPhraseCount(card) {
+export function genericPhraseCount(card) {
   const haystack = synthesisClaims(card).map((claim) => text(claim.text).toLowerCase()).join("\n");
   return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
 }
 
-function hasConcreteTension(card) {
+export function hasConcreteTension(card) {
   const bull = text(card?.synthesis?.bullCase?.[0]?.text);
   const bear = text(card?.synthesis?.bearCase?.[0]?.text);
   return Boolean(bull && bear && /\b(break|risk|unless|if|fails|incumbent|substitute|budget|workflow)\b/i.test(bear));
 }
 
-function hasTestableQuestion(card) {
+export function hasTestableQuestion(card) {
   const question = text(card?.synthesis?.openQuestions?.[0]?.question);
   return /\b(who|which|what|can|how)\b/i.test(question) &&
     /\b(budget|buyer|workflow|retention|margin|adoption|proof|customer|competitor|incumbent)\b/i.test(question);
