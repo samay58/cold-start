@@ -25,6 +25,12 @@ const pricingTable: Array<{ provider: string; modelIncludes: string; pricing: To
   { provider: "deepseek", modelIncludes: "deepseek-chat", pricing: { input: 0.14, cacheRead: 0.0028, output: 0.28 } },
   { provider: "deepseek", modelIncludes: "deepseek-v4-pro", pricing: { input: 0.435, cacheRead: 0.003625, output: 0.87 } },
   { provider: "deepseek", modelIncludes: "deepseek-reasoner", pricing: { input: 0.435, cacheRead: 0.003625, output: 0.87 } },
+  // Kimi K3 (Moonshot AI, released 2026-07-16), OpenRouter only. Rates verified 2026-07-16
+  // against platform.kimi.ai/docs/pricing/chat-k3 and openrouter.ai/moonshotai/kimi-k3. This row
+  // is a fallback only: createTracedOpenAiCompatMessage prefers the response's own usage.cost
+  // (OpenRouter usage accounting) whenever present, so this row prices a call only when that
+  // field is absent.
+  { provider: "openrouter", modelIncludes: "kimi-k3", pricing: { input: 3, cacheRead: 0.3, output: 15 } },
 ];
 
 export function pricingFor(provider: string, model: string): TokenPricing | null {

@@ -8,6 +8,10 @@ describe("pricingFor", () => {
     expect(pricingFor("deepseek", "deepseek-v4-pro")?.output).toBe(0.87);
   });
 
+  it("resolves the openrouter kimi-k3 row", () => {
+    expect(pricingFor("openrouter", "moonshotai/kimi-k3")).toEqual({ input: 3, cacheRead: 0.3, output: 15 });
+  });
+
   it("returns null for unknown provider or model", () => {
     expect(pricingFor("together", "deepseek-v4-flash")).toBeNull();
     expect(pricingFor("deepseek", "some-future-model")).toBeNull();
