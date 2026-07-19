@@ -18,13 +18,21 @@ import { fileURLToPath } from "node:url";
 // @ts-ignore plain JS helper shared with scripts/run-next.mjs
 import { loadRepoRootEnv } from "../../scripts/load-root-env.mjs";
 import type Anthropic from "@anthropic-ai/sdk";
-import type { GenerationLlmCallTrace, SourcedText } from "@cold-start/core";
+import {
+  RESEARCH_SECTION_DEFINITIONS_BY_ID,
+  type GenerationLlmCallTrace,
+  type ResearchSectionContent,
+  type ResearchSectionId,
+  type SourcedText,
+} from "@cold-start/core";
 import {
   createAnthropicClient,
   extractCompanyBlockClaims,
   extractCompanyClaims,
   fallbackResearchPlan,
   parseModelString,
+  synthesizeCard,
+  synthesizeResearchSection,
   verifySynthesis,
   type BlockEnrichmentId,
 } from "@cold-start/llm";
@@ -32,7 +40,7 @@ import { buildEvidenceLedger } from "@cold-start/pipeline";
 import type { ProviderSource } from "@cold-start/providers";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore score.mjs is plain JS shared with the node:test suite
-import { aggregate, scoreExtraction, scoreVerify } from "./score.mjs";
+import { aggregate, scoreExtraction, scoreResearchSection, scoreSynthesis, scoreVerify } from "./score.mjs";
 import type { ProviderMatrixFixture } from "./build-bundles";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -53,24 +61,40 @@ function listArg(name: string, fallback: string[]) {
   return values.length > 0 ? values : fallback;
 }
 
-type Stage = "extract_full" | "extract_block" | "verify";
+type Stage = "extract_full" | "extract_block" | "verify" | "synthesis" | "research_section";
+
+// VERIFY_JUDGE_MODEL is the fixed judge for the synthesis stage's paired synthesis+verify replay
+// (see the synthesis cell below): every candidate's fresh synthesis gets judged by the SAME
+// model, so the judge is never a variable when comparing candidates against each other. Override
+// via --judge for a different fixed judge; deepseek-v4-flash is cheap enough that judge cost
+// never dominates the comparison.
+const VERIFY_JUDGE_MODEL = "deepseek/deepseek-v4-flash";
 
 type CellResult = {
   slug: string;
   model: string;
   stage: Stage;
   block?: string;
+  section?: string;
   attempt: number;
   ok: boolean;
   retried: boolean;
   error?: string;
   durationMs: number;
   costUsd: number | null;
-  score?: ReturnType<typeof scoreExtraction> | ReturnType<typeof scoreVerify>;
+  // Set only on synthesis cells: the paired verify judge's own cost, kept separate from costUsd
+  // (candidate cost) so a model's price/performance row never silently includes judge spend.
+  judgeCostUsd?: number | null;
+  score?: ReturnType<typeof scoreExtraction> | ReturnType<typeof scoreVerify> | ReturnType<typeof scoreSynthesis> | ReturnType<typeof scoreResearchSection>;
+  // Set only on synthesis and research_section cells (captureOutput): the raw generated content,
+  // read by writeSideBySide for the blind read. Extraction cells never carry this; their sections
+  // objects are large enough that persisting them per cell would bloat results.json for no reader.
+  output?: unknown;
 };
 
-function synthesisClaims(card: ProviderMatrixFixture["card"]): SourcedText[] {
-  const synthesis = card.synthesis;
+// Takes the synthesis object directly (not the whole card) so the same helper covers both the
+// verify stage's production-card claims and the synthesis stage's freshly generated claims.
+function synthesisClaims(synthesis: ProviderMatrixFixture["card"]["synthesis"]): SourcedText[] {
   if (!synthesis) {
     return [];
   }
@@ -81,6 +105,45 @@ function synthesisClaims(card: ProviderMatrixFixture["card"]): SourcedText[] {
       )
     : [];
   return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase, ...marketClaims];
+}
+
+function normalizedUrlKey(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.search = "";
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    return url.toString().toLowerCase();
+  } catch {
+    return value.toLowerCase();
+  }
+}
+
+// Mirrors evidenceForSection in apps/web/src/inngest/research-section-generation.ts exactly: same
+// URL-normalization key, same rawText-or-snippet fallback, same drop-when-blank rule. Kept as a
+// faithful copy rather than a shared import because the production function is typed against the
+// DB row shape (findSourcesBySlug) and this one runs offline against frozen fixture JSON; the two
+// shapes are structurally compatible but not the same type.
+function evidenceForSection(fixture: ProviderMatrixFixture) {
+  const sourcesByUrl = new Map(fixture.sources.map((source) => [normalizedUrlKey(source.url), source]));
+
+  return fixture.card.citations.flatMap((citation) => {
+    const source = sourcesByUrl.get(normalizedUrlKey(citation.url));
+    const text = source?.rawText || citation.snippet || "";
+    if (!text.trim()) {
+      return [];
+    }
+
+    return [
+      {
+        citationId: citation.id,
+        url: citation.url,
+        title: citation.title,
+        sourceType: citation.sourceType,
+        text,
+      },
+    ];
+  });
 }
 
 async function runPool<T>(tasks: Array<() => Promise<T>>, concurrency: number): Promise<T[]> {
@@ -105,6 +168,8 @@ async function main() {
   const k = Number(argValue("--k", "1"));
   const concurrency = Number(argValue("--concurrency", "4"));
   const limit = Number(argValue("--limit", "100"));
+  const judgeModel = argValue("--judge", VERIFY_JUDGE_MODEL);
+  const sectionIds = listArg("--sections", ["customer_proof", "financing"]) as ResearchSectionId[];
 
   if (!existsSync(fixturesDir)) {
     throw new Error(`No fixtures in ${fixturesDir}. Run eval:providers:bundles first.`);
@@ -118,7 +183,9 @@ async function main() {
   }
   const fixtures = fixtureFiles.map((file) => JSON.parse(readFileSync(file, "utf8")) as ProviderMatrixFixture);
 
-  const needsAnthropic = models.some((model) => parseModelString(model).provider === "anthropic");
+  const needsAnthropic =
+    models.some((model) => parseModelString(model).provider === "anthropic") ||
+    (stages.includes("synthesis") && parseModelString(judgeModel).provider === "anthropic");
   // The chokepoint ignores `client` on non-Anthropic routes; a stub keeps all-DeepSeek runs
   // from demanding an ANTHROPIC_API_KEY they will not use.
   const anthropic = needsAnthropic ? createAnthropicClient() : ({} as Anthropic);
@@ -131,7 +198,7 @@ async function main() {
     const researchPlan = fallbackResearchPlan(fixture.domain);
     const bundleSourceUrls = fixture.sources.map((source) => source.url);
     const bundleText = fixture.sources.map((source) => source.rawText).join("\n");
-    const claims = synthesisClaims(fixture.card);
+    const claims = synthesisClaims(fixture.card.synthesis);
     const citationSources = fixture.card.citations.map((citation) => ({
       id: citation.id,
       url: citation.url,
@@ -139,10 +206,20 @@ async function main() {
       ...(citation.snippet ? { snippet: citation.snippet } : {}),
     }));
     const blocks = (fixture.reference.blocksRun.length > 0 ? fixture.reference.blocksRun : ["funding"]) as BlockEnrichmentId[];
+    const researchSectionEvidence = stages.includes("research_section") ? evidenceForSection(fixture) : [];
+    const researchSectionEvidenceCitationIds = researchSectionEvidence.map((source) => source.citationId);
+    if (stages.includes("research_section") && researchSectionEvidence.length === 0) {
+      console.log(`skip research_section for ${fixture.slug}: no evidence`);
+    }
 
     for (const model of models) {
       for (let attempt = 0; attempt < k; attempt += 1) {
-        const makeCell = (stage: Stage, block: BlockEnrichmentId | undefined, run: (telemetry: (call: GenerationLlmCallTrace) => void) => Promise<unknown>) => {
+        const makeCell = (
+          stage: Stage,
+          block: BlockEnrichmentId | undefined,
+          run: (telemetry: (call: GenerationLlmCallTrace) => void) => Promise<unknown>,
+          options: { section?: string; captureOutput?: boolean } = {}
+        ) => {
           tasks.push(async (): Promise<CellResult> => {
             const calls: GenerationLlmCallTrace[] = [];
             const startedAt = Date.now();
@@ -151,6 +228,7 @@ async function main() {
               model,
               stage,
               ...(block ? { block } : {}),
+              ...(options.section ? { section: options.section } : {}),
               attempt,
             };
             try {
@@ -159,7 +237,9 @@ async function main() {
               const score =
                 stage === "verify"
                   ? scoreVerify({ results: output, claims })
-                  : scoreExtraction({ sections: output, bundleSourceUrls, bundleText, companyDomain: fixture.domain });
+                  : stage === "research_section"
+                    ? scoreResearchSection({ content: output, evidenceCitationIds: researchSectionEvidenceCitationIds })
+                    : scoreExtraction({ sections: output, bundleSourceUrls, bundleText, companyDomain: fixture.domain });
               return {
                 ...base,
                 ok: true,
@@ -167,6 +247,7 @@ async function main() {
                 durationMs: Date.now() - startedAt,
                 costUsd: costs.length > 0 ? Number(costs.reduce((sum, cost) => sum + cost, 0).toFixed(6)) : null,
                 score,
+                ...(options.captureOutput ? { output } : {}),
               };
             } catch (error) {
               const costs = calls.map((call) => call.estimatedCostUsd).filter((cost): cost is number => typeof cost === "number");
@@ -211,6 +292,84 @@ async function main() {
           makeCell("verify", undefined, (telemetry) =>
             verifySynthesis({ client: anthropic, model, claims, sources: citationSources, telemetry })
           );
+        }
+
+        // Paired synthesis+verify replay: a fresh synthesizeCard call, then an immediate
+        // verifySynthesis judge pass over that candidate's OWN claims using a fixed judge model.
+        // This is the false-keep direction the plain verify replay above cannot see: verify above
+        // only replays the production card's SURVIVING claims, so it can only disagree by
+        // dropping (false-drop). Here, a false-keep shows up as a high verifierSurvivalRate over
+        // claims the judge should have rejected.
+        if (stages.includes("synthesis")) {
+          tasks.push(async (): Promise<CellResult> => {
+            const candidateCalls: GenerationLlmCallTrace[] = [];
+            const judgeCalls: GenerationLlmCallTrace[] = [];
+            const startedAt = Date.now();
+            const base = { slug: fixture.slug, model, stage: "synthesis" as const, attempt };
+            const sumCost = (traces: GenerationLlmCallTrace[]) => {
+              const costs = traces.map((call) => call.estimatedCostUsd).filter((cost): cost is number => typeof cost === "number");
+              return costs.length > 0 ? Number(costs.reduce((sum, cost) => sum + cost, 0).toFixed(6)) : null;
+            };
+            try {
+              const freshSynthesis = await synthesizeCard({
+                client: anthropic,
+                model,
+                card: fixture.card,
+                telemetry: (call) => candidateCalls.push(call),
+              });
+              const freshClaims = synthesisClaims(freshSynthesis);
+              const verifierResults =
+                freshClaims.length > 0
+                  ? await verifySynthesis({
+                      client: anthropic,
+                      model: judgeModel,
+                      claims: freshClaims,
+                      sources: citationSources,
+                      telemetry: (call) => judgeCalls.push(call),
+                    })
+                  : [];
+              const cardCitationIds = fixture.card.citations.map((citation) => citation.id);
+              return {
+                ...base,
+                ok: true,
+                retried: candidateCalls.filter((call) => call.status === "ok").length > 1,
+                durationMs: Date.now() - startedAt,
+                costUsd: sumCost(candidateCalls),
+                judgeCostUsd: sumCost(judgeCalls),
+                score: scoreSynthesis({ synthesis: freshSynthesis, verifierResults, cardCitationIds }),
+                output: { synthesis: freshSynthesis, verifierResults },
+              };
+            } catch (error) {
+              return {
+                ...base,
+                ok: false,
+                retried: candidateCalls.length > 1,
+                error: (error instanceof Error ? error.message : String(error)).slice(0, 300),
+                durationMs: Date.now() - startedAt,
+                costUsd: sumCost(candidateCalls),
+                judgeCostUsd: sumCost(judgeCalls),
+              };
+            }
+          });
+        }
+
+        if (stages.includes("research_section") && researchSectionEvidence.length > 0) {
+          for (const sectionId of sectionIds) {
+            makeCell(
+              "research_section",
+              undefined,
+              (telemetry) =>
+                synthesizeResearchSection({
+                  client: anthropic,
+                  definition: RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId],
+                  evidence: researchSectionEvidence,
+                  model,
+                  company: { domain: fixture.domain, name: fixture.card.identity.name.value ?? fixture.domain },
+                  telemetry,
+                }),
+              { section: sectionId, captureOutput: true }
+            );
+          }
         }
       }
     }
