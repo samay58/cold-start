@@ -91,6 +91,19 @@ describe("openAiCompatBodyFromAnthropicParams", () => {
       )
     ).toThrow(/content block type "image"/);
   });
+
+  it("omits temperature and raises the max_tokens floor for kimi-k3 (reasoning-mandatory, no sampling params)", () => {
+    const body = openAiCompatBodyFromAnthropicParams(baseParams, "moonshotai/kimi-k3");
+    expect(body.temperature).toBeUndefined();
+    expect(body.max_tokens).toBe(32768);
+  });
+
+  it("keeps temperature and the 8192 floor for models with no quirks", () => {
+    const body = openAiCompatBodyFromAnthropicParams(baseParams, "deepseek-v4-flash", { thinking: { type: "disabled" } });
+    expect(body.temperature).toBe(0);
+    expect(body.max_tokens).toBe(8192);
+    expect(body.thinking).toEqual({ type: "disabled" });
+  });
 });
 
 describe("messageFromOpenAiCompatResponse", () => {

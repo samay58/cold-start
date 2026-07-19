@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
-import { providerConfigFor, type ResolvedLlmModel } from "./llm-provider";
+import { providerConfigFor, quirksForModel, type ResolvedLlmModel } from "./llm-provider";
 import { estimateLlmCostUsd } from "./pricing";
 
 type AnthropicMessageParams = Parameters<Anthropic["messages"]["create"]>[0];
@@ -73,6 +73,7 @@ export function openAiCompatBodyFromAnthropicParams(
   model: string,
   extraBody?: Record<string, unknown>
 ): OpenAiCompatBody {
+  const quirks = quirksForModel(model);
   const system = systemText(params.system);
   const body: OpenAiCompatBody = {
     model,
@@ -87,10 +88,14 @@ export function openAiCompatBodyFromAnthropicParams(
     // The Anthropic call sites cap max_tokens to bound Sonnet-priced output. These providers
     // price output 20-30x lower, and models like DeepSeek emit less compact tool-argument JSON;
     // the matrix showed extract_full tool calls truncating mid-string at the 4000 cap. Floor the
-    // ceiling at 8192 so structured output is not cut off over pennies.
-    body.max_tokens = Math.max(params.max_tokens, 8192);
+    // ceiling at 8192 so structured output is not cut off over pennies. Reasoning-mandatory
+    // models (quirks.minMaxTokens) need a higher floor: their reasoning tokens count against
+    // max_tokens and can exceed 10k on trivial prompts, so 8192 truncates before any structured
+    // output lands. The field stays named max_tokens, not max_completion_tokens: OpenRouter
+    // normalizes the field name per upstream provider itself.
+    body.max_tokens = Math.max(params.max_tokens, quirks.minMaxTokens ?? 8192);
   }
-  if (params.temperature !== undefined) {
+  if (params.temperature !== undefined && !quirks.omitSamplingParams) {
     body.temperature = params.temperature;
   }
 
