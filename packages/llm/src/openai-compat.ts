@@ -13,7 +13,7 @@ type OpenAiCompatBody = {
   temperature?: number;
   stream: false;
   tools?: Array<{ type: "function"; function: { name: string; description?: string; parameters: unknown } }>;
-  tool_choice?: "auto" | { type: "function"; function: { name: string } };
+  tool_choice?: "auto" | "required" | { type: "function"; function: { name: string } };
   [key: string]: unknown;
 };
 
@@ -122,7 +122,11 @@ export function openAiCompatBodyFromAnthropicParams(
   }
 
   if (params.tool_choice?.type === "tool") {
-    body.tool_choice = { type: "function", function: { name: params.tool_choice.name } };
+    // Thinking-locked models reject naming the function; "required" forces a tool call and the
+    // request always carries exactly one tool, so the same function gets called either way.
+    body.tool_choice = quirks.forceToolChoiceRequired
+      ? "required"
+      : { type: "function", function: { name: params.tool_choice.name } };
   } else if (params.tool_choice?.type === "auto") {
     body.tool_choice = "auto";
   }

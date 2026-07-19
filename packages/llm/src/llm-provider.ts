@@ -110,10 +110,14 @@ export type ModelQuirks = {
   // budget, and reasoning can exceed 10k tokens on trivial prompts; 8192 truncates mid-reasoning
   // before any structured output is emitted.
   minMaxTokens?: number;
+  // Model rejects a NAMED forced tool_choice while thinking is enabled (Moonshot: "tool_choice
+  // 'specified' is incompatible with thinking enabled", observed live 2026-07-18). "required" is
+  // accepted and equivalent for this codebase: every stage call supplies exactly one tool.
+  forceToolChoiceRequired?: boolean;
 };
 
 const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = [
-  { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768 } },
+  { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true } },
 ];
 
 export function quirksForModel(model: string): ModelQuirks {

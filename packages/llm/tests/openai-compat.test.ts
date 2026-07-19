@@ -104,6 +104,22 @@ describe("openAiCompatBodyFromAnthropicParams", () => {
     expect(body.max_tokens).toBe(8192);
     expect(body.thinking).toEqual({ type: "disabled" });
   });
+
+  it("downgrades a named forced tool_choice to required for kimi-k3 (thinking rejects named tool_choice)", () => {
+    const body = openAiCompatBodyFromAnthropicParams(
+      { ...baseParams, tools: [{ name: "emit_x", input_schema: { type: "object" } }], tool_choice: { type: "tool", name: "emit_x" } } as AnthropicParams,
+      "moonshotai/kimi-k3"
+    );
+    expect(body.tool_choice).toBe("required");
+  });
+
+  it("keeps the named forced tool_choice for models without the quirk", () => {
+    const body = openAiCompatBodyFromAnthropicParams(
+      { ...baseParams, tools: [{ name: "emit_x", input_schema: { type: "object" } }], tool_choice: { type: "tool", name: "emit_x" } } as AnthropicParams,
+      "deepseek-v4-flash"
+    );
+    expect(body.tool_choice).toEqual({ type: "function", function: { name: "emit_x" } });
+  });
 });
 
 describe("messageFromOpenAiCompatResponse", () => {

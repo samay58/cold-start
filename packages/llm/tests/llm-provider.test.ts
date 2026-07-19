@@ -75,12 +75,12 @@ describe("parseModelString", () => {
 });
 
 describe("quirksForModel", () => {
-  it("flags kimi-k3 as omitting sampling params with a raised max_tokens floor", () => {
-    expect(quirksForModel("moonshotai/kimi-k3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768 });
+  it("flags kimi-k3 as omitting sampling params with a raised max_tokens floor and forced tool_choice downgrade", () => {
+    expect(quirksForModel("moonshotai/kimi-k3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true });
   });
 
   it("matches kimi-k3 case-insensitively anywhere in the model string", () => {
-    expect(quirksForModel("moonshotai/Kimi-K3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768 });
+    expect(quirksForModel("moonshotai/Kimi-K3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true });
   });
 
   it("returns no quirks for deepseek and anthropic models", () => {
