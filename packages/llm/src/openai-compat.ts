@@ -287,10 +287,15 @@ export async function createTracedOpenAiCompatMessage(input: {
   }
 
   const usage = usageFromOpenAiCompatResponse(payload.usage);
+  // Prefer the provider's own billed cost when it reports one (OpenRouter usage accounting, via
+  // providerDefaults.openrouter.extraBody usage.include). Ground truth beats the static per-model
+  // estimate table in pricing.ts, and this applies to any provider that starts reporting cost,
+  // not only OpenRouter.
+  const estimatedCostUsd = payload.usage?.cost ?? estimateLlmCostUsd(input.resolved.provider, input.resolved.model, usage);
   input.telemetry?.(
     buildLlmCallTrace({
       durationMs: Date.now() - startedAt,
-      estimatedCostUsd: estimateLlmCostUsd(input.resolved.provider, input.resolved.model, usage),
+      estimatedCostUsd,
       label: input.label,
       model: input.resolved.model,
       provider: input.resolved.provider,

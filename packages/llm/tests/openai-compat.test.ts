@@ -271,6 +271,16 @@ describe("createTracedOpenAiCompatMessage", () => {
     expect(traces[0]?.estimatedCostUsd).toBeCloseTo(0.000127, 6);
   });
 
+  it("prefers the provider's billed usage.cost over the pricing-table estimate when present", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...okPayload, usage: { ...okPayload.usage, cost: 0.0123 } }));
+    const traces: GenerationLlmCallTrace[] = [];
+
+    await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: (call) => traces.push(call) });
+
+    expect(traces).toHaveLength(1);
+    expect(traces[0]?.estimatedCostUsd).toBe(0.0123);
+  });
+
   it("retries 429 and 5xx then succeeds", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: "rate limited" }, { status: 429, headers: { "retry-after": "0" } }))
