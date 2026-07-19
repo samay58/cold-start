@@ -10,6 +10,7 @@
 //     --models "claude-sonnet-4-6,claude-haiku-4-5,deepseek/deepseek-v4-flash" \
 //     --stages extract_full,extract_block,verify --k 3 --concurrency 4 --limit 10
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -158,6 +159,94 @@ async function runPool<T>(tasks: Array<() => Promise<T>>, concurrency: number): 
   });
   await Promise.all(workers);
   return results;
+}
+
+function labelForIndex(index: number): string {
+  return `Output ${String.fromCharCode(65 + index)}`;
+}
+
+function renderSynthesisOutput(synthesis: NonNullable<ProviderMatrixFixture["card"]["synthesis"]>): string {
+  const lines = [`Why it matters: ${synthesis.whyItMatters.text}`, "", "Bull case:"];
+  for (const claim of synthesis.bullCase) {
+    lines.push(`- ${claim.text}`);
+  }
+  if (synthesis.bullCase.length === 0) {
+    lines.push("- (none)");
+  }
+  lines.push("", "Bear case:");
+  for (const claim of synthesis.bearCase) {
+    lines.push(`- ${claim.text}`);
+  }
+  if (synthesis.bearCase.length === 0) {
+    lines.push("- (none)");
+  }
+  lines.push("", "Open questions:");
+  for (const question of synthesis.openQuestions) {
+    lines.push(`- [${question.category ?? "uncategorized"}] ${question.question}`);
+  }
+  return lines.join("\n");
+}
+
+function renderResearchSectionOutput(content: ResearchSectionContent): string {
+  const lines = [`Status: ${content.status}`, `Summary: ${content.summary ?? "(none)"}`, "", "Items:"];
+  for (const item of content.items) {
+    lines.push(`- ${item.label}: ${item.text}${item.meta ? ` (${item.meta})` : ""}`);
+  }
+  if (content.items.length === 0) {
+    lines.push("- (none)");
+  }
+  return lines.join("\n");
+}
+
+type SideBySideEntry = { fixture: string; stage: string; section?: string; label: string; model: string };
+
+// Blind quality eyeball before any routing decision: side-by-side.md groups every judgment-stage
+// cell by (fixture, stage, section) and renders each participating model's output under an
+// anonymous "Output A"/"Output B"/... label. Label order is a hash of (fixture slug + model), not
+// alphabetical model name or arrival order, so nothing about the label hints at which model wrote
+// it and the order differs across fixtures (a reader cannot learn "A is always Claude" from one
+// fixture and carry that assumption into the next). answer-key.json is the only place the mapping
+// is written; read the outputs before opening the key.
+async function writeSideBySide(results: CellResult[], runDir: string): Promise<void> {
+  const groups = new Map<string, CellResult[]>();
+  for (const result of results) {
+    if (!result.ok || result.attempt !== 0 || (result.stage !== "synthesis" && result.stage !== "research_section")) {
+      continue;
+    }
+    const key = [result.slug, result.stage, result.section ?? ""].join("::");
+    const bucket = groups.get(key) ?? [];
+    bucket.push(result);
+    groups.set(key, bucket);
+  }
+
+  if (groups.size === 0) {
+    return;
+  }
+
+  const answerKey: SideBySideEntry[] = [];
+  const lines = ["# Provider Matrix Blind Side-by-Side", "", "Blind quality eyeball before any routing decision. Read outputs before the key.", ""];
+
+  for (const [key, cells] of groups) {
+    const [slug, stage, section] = key.split("::");
+    const ordered = [...cells].sort((a, b) => {
+      const hashFor = (cell: CellResult) => createHash("sha1").update(`${slug}${cell.model}`).digest("hex");
+      return hashFor(a).localeCompare(hashFor(b));
+    });
+
+    lines.push(`## ${slug} / ${stage}${section ? ` / ${section}` : ""}`, "");
+    ordered.forEach((cell, index) => {
+      const label = labelForIndex(index);
+      answerKey.push({ fixture: slug, stage, ...(section ? { section } : {}), label, model: cell.model });
+      const rendered =
+        stage === "synthesis"
+          ? renderSynthesisOutput((cell.output as { synthesis: NonNullable<ProviderMatrixFixture["card"]["synthesis"]> }).synthesis)
+          : renderResearchSectionOutput(cell.output as ResearchSectionContent);
+      lines.push(`### ${label}`, "", rendered, "");
+    });
+  }
+
+  await writeFile(path.join(runDir, "side-by-side.md"), lines.join("\n"));
+  await writeFile(path.join(runDir, "answer-key.json"), JSON.stringify(answerKey, null, 2));
 }
 
 async function main() {
@@ -382,6 +471,8 @@ async function main() {
   const runDir = path.join(runsDir, stamp);
   await mkdir(runDir, { recursive: true });
   await writeFile(path.join(runDir, "results.json"), JSON.stringify({ models, stages, k, fixtures: fixtures.map((fixture) => fixture.slug), results }, null, 2));
+
+  await writeSideBySide(results, runDir);
 
   const lines = [
     "# Provider Matrix Report",
