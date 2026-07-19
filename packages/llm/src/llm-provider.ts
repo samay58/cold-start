@@ -88,7 +88,39 @@ const providerDefaults: Record<string, ProviderDefaults> = {
     baseUrlEnv: "TOGETHER_BASE_URL",
     defaultBaseUrl: "https://api.together.xyz/v1",
   },
+  openrouter: {
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    baseUrlEnv: "OPENROUTER_BASE_URL",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    // OpenRouter usage accounting: requesting it returns usage.cost (the actual billed USD) on
+    // every response. createTracedOpenAiCompatMessage prefers that reported cost over the
+    // pricing.ts estimate table whenever it is present, so this is worth the extra response field
+    // on every OpenRouter call, not only Kimi K3.
+    extraBody: { usage: { include: true } },
+  },
 };
+
+export type ModelQuirks = {
+  // The model's request schema rejects temperature/top_p outright. K3's documented schema omits
+  // them; K2.x precedent returns invalid_request_error on unsupported sampling params. Strip them
+  // from the request rather than let the provider 400 on every call.
+  omitSamplingParams?: boolean;
+  // Raise the max_tokens floor above the shared 8192 default. Reasoning-mandatory models (K3 has
+  // no disable parameter, only effort "max") count reasoning tokens against the completion
+  // budget, and reasoning can exceed 10k tokens on trivial prompts; 8192 truncates mid-reasoning
+  // before any structured output is emitted.
+  minMaxTokens?: number;
+};
+
+const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = [
+  { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768 } },
+];
+
+export function quirksForModel(model: string): ModelQuirks {
+  const normalized = model.toLowerCase();
+  const row = modelQuirksTable.find((entry) => normalized.includes(entry.modelIncludes));
+  return row?.quirks ?? {};
+}
 
 function timeoutMsFromEnv() {
   const raw = process.env.LLM_OPENAI_COMPAT_TIMEOUT_MS?.trim();

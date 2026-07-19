@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import { modelForStage, parseModelString, providerConfigFor, withSchemaRetry } from "../src/index";
+import { modelForStage, parseModelString, providerConfigFor, quirksForModel, withSchemaRetry } from "../src/index";
 
 const stageEnvNames = [
   "LLM_EXTRACT_MODEL",
@@ -18,6 +18,8 @@ const stageEnvNames = [
   "ANTHROPIC_MODEL",
   "DEEPSEEK_API_KEY",
   "DEEPSEEK_BASE_URL",
+  "OPENROUTER_API_KEY",
+  "OPENROUTER_BASE_URL",
   "LLM_PROVIDER_CUSTOMHOST_API_KEY",
   "LLM_PROVIDER_CUSTOMHOST_BASE_URL",
 ];
@@ -72,6 +74,21 @@ describe("parseModelString", () => {
   });
 });
 
+describe("quirksForModel", () => {
+  it("flags kimi-k3 as omitting sampling params with a raised max_tokens floor", () => {
+    expect(quirksForModel("moonshotai/kimi-k3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768 });
+  });
+
+  it("matches kimi-k3 case-insensitively anywhere in the model string", () => {
+    expect(quirksForModel("moonshotai/Kimi-K3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768 });
+  });
+
+  it("returns no quirks for deepseek and anthropic models", () => {
+    expect(quirksForModel("deepseek-v4-flash")).toEqual({});
+    expect(quirksForModel("claude-sonnet-4-6")).toEqual({});
+  });
+});
+
 describe("modelForStage", () => {
   it("prefers LLM_* over ANTHROPIC_* over the default", () => {
     process.env.ANTHROPIC_MODEL = "claude-sonnet-4-6";
@@ -122,6 +139,13 @@ describe("providerConfigFor", () => {
     const config = providerConfigFor("deepseek");
     expect(config.baseUrl).toBe("https://api.deepseek.com");
     expect(config.extraBody).toEqual({ thinking: { type: "disabled" } });
+  });
+
+  it("uses openrouter defaults including the usage-cost extra body", () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    const config = providerConfigFor("openrouter");
+    expect(config.baseUrl).toBe("https://openrouter.ai/api/v1");
+    expect(config.extraBody).toEqual({ usage: { include: true } });
   });
 
   it("strips trailing slashes from override base URLs", () => {
