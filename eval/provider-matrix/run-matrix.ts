@@ -517,6 +517,60 @@ async function main() {
     }
   }
 
+  const judgmentStages = stages.filter((stage): stage is "synthesis" | "research_section" => stage === "synthesis" || stage === "research_section");
+  if (judgmentStages.length > 0) {
+    lines.push(
+      "",
+      "## Judgment Stages",
+      "",
+      "| Model | Stage | Cells | Parse ok | Median candidate cost | Median latency | Survival (med) | Generic phrases (med) | Empty rate | Citation violations (med) |",
+      "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|"
+    );
+
+    for (const model of models) {
+      for (const stage of judgmentStages) {
+        const cells = results.filter((result) => result.model === model && result.stage === stage);
+        if (cells.length === 0) {
+          continue;
+        }
+        const okCells = cells.filter((cell) => cell.ok);
+        const synthesisScores = okCells
+          .map((cell) => cell.score)
+          .filter((score): score is ReturnType<typeof scoreSynthesis> => Boolean(score) && stage === "synthesis");
+        const sectionScores = okCells
+          .map((cell) => cell.score)
+          .filter((score): score is ReturnType<typeof scoreResearchSection> => Boolean(score) && stage === "research_section");
+        const survivalStats = stage === "synthesis" ? aggregate(synthesisScores.map((score) => score.verifierSurvivalRate)) : null;
+        const genericPhraseCounts = stage === "synthesis" ? synthesisScores.map((score) => score.genericPhraseCount) : sectionScores.map((score) => score.genericPhraseCount);
+        const citationViolationCounts =
+          stage === "synthesis"
+            ? synthesisScores.map((score) => score.citationMarkerViolations.length)
+            : sectionScores.map((score) => score.citationIdViolations.length);
+        const emptyCount =
+          stage === "synthesis"
+            ? synthesisScores.filter((score) => score.claimCounts.bullCase === 0 && score.claimCounts.bearCase === 0).length
+            : sectionScores.filter((score) => score.status === "empty").length;
+        const emptyRate = okCells.length > 0 ? emptyCount / okCells.length : 0;
+        const fmt = (stats: { median: number } | null, digits = 4) => (stats ? stats.median.toFixed(digits) : "-");
+
+        lines.push(
+          [
+            model,
+            stage,
+            String(cells.length),
+            `${okCells.length}/${cells.length}`,
+            fmt(aggregate(okCells.map((cell) => cell.costUsd)), 5),
+            `${fmt(aggregate(okCells.map((cell) => cell.durationMs)), 0)}ms`,
+            fmt(survivalStats),
+            fmt(aggregate(genericPhraseCounts), 1),
+            `${(emptyRate * 100).toFixed(0)}%`,
+            fmt(aggregate(citationViolationCounts), 1),
+          ].join(" | ").replace(/^/, "| ").replace(/$/, " |")
+        );
+      }
+    }
+  }
+
   const failures = results.filter((result) => !result.ok);
   if (failures.length > 0) {
     lines.push("", "## Failures", "");
@@ -529,7 +583,8 @@ async function main() {
     "",
     "## Notes",
     "",
-    "- Verify replays run against the production card's surviving synthesis claims, so disagreement is the false-DROP direction; false-keep needs a paired synthesis+verify replay.",
+    "- Verify replays (the `verify` stage) run against the production card's surviving synthesis claims, so disagreement there is the false-DROP direction only.",
+    `- The \`synthesis\` stage closes the false-keep gap: it pairs a fresh synthesizeCard call with an immediate verifySynthesis judge pass (fixed judge: ${judgeModel}) over the candidate's own claims, so a false-keep shows up as a high verifierSurvivalRate over claims the judge should have rejected.`,
     "- Reference production baseline: see reference.llmCalls in each fixture for the original model, cost, and latency.",
     ""
   );
