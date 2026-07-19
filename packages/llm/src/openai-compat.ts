@@ -35,6 +35,12 @@ type OpenAiCompatResponse = {
     completion_tokens?: number;
     prompt_cache_hit_tokens?: number;
     prompt_cache_miss_tokens?: number;
+    // OpenAI/OpenRouter convention: prompt_tokens is the TOTAL prompt size including cached
+    // tokens, and cached_tokens is the subset of it served from cache.
+    prompt_tokens_details?: { cached_tokens?: number };
+    // OpenRouter usage accounting (requested via providerDefaults.openrouter.extraBody): the
+    // actual billed USD for this call, present only when usage.include was requested and honored.
+    cost?: number;
   };
 };
 
@@ -129,11 +135,25 @@ export function usageFromOpenAiCompatResponse(usage: OpenAiCompatResponse["usage
     return undefined;
   }
 
-  const cacheHit = usage.prompt_cache_hit_tokens;
-  const inputTokens = usage.prompt_cache_miss_tokens ?? usage.prompt_tokens;
+  // DeepSeek's cache_hit/cache_miss fields take precedence when present (prompt_cache_miss_tokens
+  // already IS the non-cached input count, unlike prompt_tokens elsewhere). Otherwise fall back to
+  // OpenAI/OpenRouter convention, where prompt_tokens is the TOTAL including cached tokens and
+  // prompt_tokens_details.cached_tokens is the subset served from cache.
+  if (usage.prompt_cache_hit_tokens !== undefined || usage.prompt_cache_miss_tokens !== undefined) {
+    const cacheHit = usage.prompt_cache_hit_tokens;
+    const inputTokens = usage.prompt_cache_miss_tokens ?? usage.prompt_tokens;
+    return {
+      ...(inputTokens !== undefined ? { input_tokens: inputTokens } : {}),
+      ...(cacheHit !== undefined ? { cache_read_input_tokens: cacheHit } : {}),
+      ...(usage.completion_tokens !== undefined ? { output_tokens: usage.completion_tokens } : {}),
+    };
+  }
+
+  const cached = usage.prompt_tokens_details?.cached_tokens;
+  const inputTokens = usage.prompt_tokens !== undefined ? usage.prompt_tokens - (cached ?? 0) : undefined;
   return {
     ...(inputTokens !== undefined ? { input_tokens: inputTokens } : {}),
-    ...(cacheHit !== undefined ? { cache_read_input_tokens: cacheHit } : {}),
+    ...(cached !== undefined ? { cache_read_input_tokens: cached } : {}),
     ...(usage.completion_tokens !== undefined ? { output_tokens: usage.completion_tokens } : {}),
   };
 }

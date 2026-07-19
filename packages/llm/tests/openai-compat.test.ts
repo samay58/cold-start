@@ -172,6 +172,28 @@ describe("usageFromOpenAiCompatResponse", () => {
       output_tokens: 100,
     });
   });
+
+  it("maps OpenRouter/OpenAI convention usage: prompt_tokens is the TOTAL, so cached subtracts out of input", () => {
+    expect(
+      usageFromOpenAiCompatResponse({
+        prompt_tokens: 1_000,
+        prompt_tokens_details: { cached_tokens: 400 },
+        completion_tokens: 200,
+      })
+    ).toEqual({ input_tokens: 600, cache_read_input_tokens: 400, output_tokens: 200 });
+  });
+
+  it("prefers deepseek cache_hit/cache_miss fields over prompt_tokens_details when both are present", () => {
+    expect(
+      usageFromOpenAiCompatResponse({
+        prompt_tokens: 1_000,
+        prompt_cache_hit_tokens: 200,
+        prompt_cache_miss_tokens: 800,
+        prompt_tokens_details: { cached_tokens: 999 },
+        completion_tokens: 50,
+      })
+    ).toEqual({ input_tokens: 800, cache_read_input_tokens: 200, output_tokens: 50 });
+  });
 });
 
 describe("createTracedOpenAiCompatMessage", () => {
