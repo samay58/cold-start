@@ -485,8 +485,13 @@ async function main() {
     "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
   ];
 
+  // Judgment-stage cells score with scoreSynthesis/scoreResearchSection shapes; they render in their own table below.
+  const extractionTableStages = stages.filter(
+    (stage) => stage === "extract_full" || stage === "extract_block" || stage === "verify"
+  );
+
   for (const model of models) {
-    for (const stage of stages) {
+    for (const stage of extractionTableStages) {
       const cells = results.filter((result) => result.model === model && result.stage === stage);
       if (cells.length === 0) {
         continue;
