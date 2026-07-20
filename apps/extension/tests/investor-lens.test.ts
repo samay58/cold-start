@@ -4,7 +4,7 @@ import {
   investorReadForCard,
   sourcePostureForCitation,
   timingIsNotFound
-} from "../src/investor-lens";
+} from "../src/research/investor-lens";
 
 function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
   return {

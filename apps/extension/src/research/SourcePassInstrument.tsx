@@ -1,12 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
-import { motionTokens, snapSpring } from "./motion-primitives";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../extension-config";
+import { motionTokens, snapSpring } from "../motion-primitives";
 import {
   buildResearchProgressPlan,
   type ResearchProgressStage,
   type ResearchProgressStatus
 } from "./research-progress";
-import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
 
 export type SourcePassStage = ResearchProgressStage;
 

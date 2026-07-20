@@ -1,4 +1,4 @@
-import { LENS_WAITS_FOR_PROFILE_REASON } from "./investor-lens";
+import { LENS_WAITS_FOR_PROFILE_REASON } from "./research/investor-lens";
 import type { ColdStartCard, ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -21,16 +21,16 @@ import { profileSummaryCopy } from "./extension-format";
 import { filedSourceCount } from "./first-payoff-events";
 import { ProgressBackground } from "./ProgressBackground";
 import { ReadRegion } from "./ReadRegion";
-import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "./research-layer";
-import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "./research-progress";
-import { ResearchTrail } from "./ResearchTrail";
+import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "./research/research-layer";
+import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "./research/research-progress";
+import { ResearchTrail } from "./research/ResearchTrail";
 import { SealInstrument } from "./SealInstrument";
 import { SharedTooltip, useSharedTooltip } from "./SharedTooltip";
 import { motionTokens } from "./motion-primitives";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 const ResearchLayerPanel = lazy(() =>
-  import("./ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
+  import("./research/ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
 );
 
 type RunState = {
@@ -156,7 +156,7 @@ export function CompanyArc({
   // Warm the research-layer chunk while the profile is still building so the phase change
   // never waits on a lazy import.
   useEffect(() => {
-    void import("./ResearchLayerPanel");
+    void import("./research/ResearchLayerPanel");
   }, []);
 
   const buildingSealLevel = building ? sealLevelFromEvents(building.events) : 0;

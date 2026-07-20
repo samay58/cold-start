@@ -339,8 +339,8 @@ async function renderSidePanel(input: {
   const container = document.createElement("div");
   document.body.append(container);
   const { SidePanel } = await import("../src/sidepanel");
-  await import("../src/ResearchLayerPanel");
-  await import("../src/SourcePassInstrument");
+  await import("../src/research/ResearchLayerPanel");
+  await import("../src/research/SourcePassInstrument");
   const root = createRoot(container);
 
   await act(async () => {

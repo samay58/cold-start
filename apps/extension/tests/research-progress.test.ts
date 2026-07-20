@@ -5,7 +5,7 @@ import {
   RESEARCH_PROGRESS_STAGES,
   sealLevelFromEvents,
   whisperCopyFromEvents
-} from "../src/research-progress";
+} from "../src/research/research-progress";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
 function event(input: Partial<ExtensionResearchRunEvent> & Pick<ExtensionResearchRunEvent, "id" | "type">): ExtensionResearchRunEvent {

@@ -207,7 +207,7 @@ async function renderPanel(input: {
   if (input.reducedMotion) {
     stubReducedMotion(true);
   }
-  await import("../src/ResearchLayerPanel");
+  await import("../src/research/ResearchLayerPanel");
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
@@ -497,7 +497,7 @@ describe("ResearchLayerPanel surface diet", () => {
   });
 
   it("folds the Sources/Website recap rows out of the partial-profile panel", async () => {
-    await import("../src/ResearchLayerPanel");
+    await import("../src/research/ResearchLayerPanel");
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

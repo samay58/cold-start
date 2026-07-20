@@ -1,6 +1,6 @@
 import { parseFirstPayoff, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
-import type { ExtensionResearchRunEvent } from "./extension-config";
-import type { ExtensionSourceSummary } from "./extension-config";
+import type { ExtensionResearchRunEvent } from "../extension-config";
+import type { ExtensionSourceSummary } from "../extension-config";
 
 export type ResearchProgressStage = {
   label: string;

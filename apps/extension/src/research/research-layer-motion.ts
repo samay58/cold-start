@@ -1,4 +1,4 @@
-import { dampenOutsideRange, projectIntent } from "./motion-primitives";
+import { dampenOutsideRange, projectIntent } from "../motion-primitives";
 
 const SNAP_THRESHOLD = -68;
 const SNAP_PREVIEW_THRESHOLD = -32;

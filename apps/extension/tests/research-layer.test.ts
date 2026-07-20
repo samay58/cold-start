@@ -1,13 +1,13 @@
 import { deriveLegacyResearchSectionsFromCard, fundingEvidenceFromCitations, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
-import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research-layer";
+import { RESEARCH_LAYER_CARDS, layerDisplayForCard, layersForCard } from "../src/research/research-layer";
 import {
   dampenDragOffset,
   dragOffsetShouldPreview,
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick,
   projectVelocity
-} from "../src/research-layer-motion";
+} from "../src/research/research-layer-motion";
 
 const futureCardTitles = [
   "Business Model & Unit Economics",

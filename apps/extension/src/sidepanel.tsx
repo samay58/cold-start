@@ -21,7 +21,7 @@ import { BrandMark } from "./BrandMark";
 import { CompanyArc, type CompanyArcState } from "./CompanyArc";
 import { CompanyLogo } from "./CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
-import { sectionIdForLayer, type ResearchLayerId } from "./research-layer";
+import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
 import { useTheme, type ThemePreference } from "./theme";
 import {
   fetchBootstrap,
