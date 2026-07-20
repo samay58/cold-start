@@ -147,11 +147,13 @@ synthesisWithheld?: {
 };
 ```
 
-- [ ] **Step 1: Failing tests.** (a) `publicCard()` output never contains `synthesisWithheld` (add to the existing public-strip test the same way synthesis is asserted absent); (b) pipeline: floor-blocked run writes the record with the run's reasons; (c) a later successful synthesis clears it (`synthesisWithheld` absent when `synthesis` present).
-- [ ] **Step 2: Confirm fail.** `npm test -w @cold-start/core && npm test -w @cold-start/pipeline -- generate-card`.
-- [ ] **Step 3: Implement.** Zod: optional object with the exact shape above; keep it out of citation-requirement logic (it is metadata, not a fact).
-- [ ] **Step 4: Confirm pass.** Include `npm run typecheck`.
-- [ ] **Step 5: Commit.**
+- [x] **Step 1: Failing tests.** (a) `publicCard()` output never contains `synthesisWithheld` (add to the existing public-strip test the same way synthesis is asserted absent); (b) pipeline: floor-blocked run writes the record with the run's reasons; (c) a later successful synthesis clears it (`synthesisWithheld` absent when `synthesis` present).
+- [x] **Step 2: Confirm fail.** `npm test -w @cold-start/core && npm test -w @cold-start/pipeline -- generate-card`.
+- [x] **Step 3: Implement.** Zod: optional object with the exact shape above; keep it out of citation-requirement logic (it is metadata, not a fact).
+- [x] **Step 4: Confirm pass.** Include `npm run typecheck`.
+- [x] **Step 5: Commit.**
+
+**Done (2026-07-20):** Commit `9156802`. Core 174/174, pipeline 75/75, db 48/48, typecheck clean. Review approved. Also extended the db repository's defense-in-depth strip (`PublicCard` omit + `publicCardSchema`) to cover the new field; reviewer traced `preserveExistingBasics` and `upsertCard` and confirmed no cross-run leak path for a stale withheld record. Minors for later: `findPublicCardBySlug` return annotation still `Omit<..., "synthesis">` only; no schema invariant against both fields present (no code path produces it).
 
 ### Task 1.5: Route behavior: free pre-check, stale-in-run, TTL semantics
 
@@ -167,11 +169,13 @@ synthesisWithheld?: {
   2. **Stale-in-run:** the analysis existence check reads the card row ignoring TTL freshness (add `findCardBySlug(db, slug, { allowStale: true })` or a sibling `findCardRowBySlug` if the flag does not exist; check the repository first). Card exists but stale: queue the analysis run (the run refreshes sources per Phase 4 policy; until then it does the full fetch it does today). Card genuinely absent: keep the 404.
   3. **TTL semantics:** `upsertCard` extends `synthesisExpiresAt` only when the written card actually carries `synthesis`; identity/signals TTL behavior unchanged.
 
-- [ ] **Step 1: Failing tests.** Route: (a) withheld + unchanged card returns 200 withheld, no Inngest event sent (assert on the mocked queue); (b) withheld + `forceRefresh: true` queues; (c) withheld + card updated after `synthesisWithheld.at` queues; (d) stale card + analysis queues instead of 404; (e) missing card still 404s. Repository: (f) upsert without synthesis leaves `synthesisExpiresAt` unchanged; (g) upsert with synthesis extends it.
-- [ ] **Step 2: Confirm fail.**
-- [ ] **Step 3: Implement.** Keep the pre-check *before* the active-run check so a queued duplicate is impossible. Reuse `forceRefresh`; do not invent a second flag.
-- [ ] **Step 4: Confirm pass.** `npm test -w web` (or the workspace's actual name; check `apps/web/package.json`) plus `npm test -w @cold-start/db`.
-- [ ] **Step 5: Commit.**
+- [x] **Step 1: Failing tests.** Route: (a) withheld + unchanged card returns 200 withheld, no Inngest event sent (assert on the mocked queue); (b) withheld + `forceRefresh: true` queues; (c) withheld + card updated after `synthesisWithheld.at` queues; (d) stale card + analysis queues instead of 404; (e) missing card still 404s. Repository: (f) upsert without synthesis leaves `synthesisExpiresAt` unchanged; (g) upsert with synthesis extends it.
+- [x] **Step 2: Confirm fail.**
+- [x] **Step 3: Implement.** Keep the pre-check *before* the active-run check so a queued duplicate is impossible. Reuse `forceRefresh`; do not invent a second flag.
+- [x] **Step 4: Confirm pass.** `npm test -w web` (or the workspace's actual name; check `apps/web/package.json`) plus `npm test -w @cold-start/db`.
+- [x] **Step 5: Commit.**
+
+**Done (2026-07-20):** Commit `89daf7c`. Web 168/168, db 52/52, monorepo green, typecheck clean. Review approved; pre-check ordering verified against the live route body (precedes the active-run check on every analysis path); `upsertCard` stays single-statement. Added `findCardUpdatedAtBySlug` as a narrow side-read plus one mutation-test-found regression test (stale-but-synthesized cards still queue). Minors for later: case (d) lacks a `mocks.send` assertion; no explicit basics-stays-TTL-gated regression test; malformed `withheld.at` untested (schema-unreachable). Note: `audit:deps` fails on this branch from upstream advisory-DB updates (brace-expansion, js-yaml), pre-existing relative to the task; resolve at the Task 1.9 gate.
 
 ### Task 1.6: Extension honest withheld state, contract bump, SPEC update
 
