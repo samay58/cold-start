@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { faviconUrl, type Clipping, type ClippingSourceClass } from "./clipping-model";
-import { commitSpring } from "./motion-primitives";
+import { commitSpring } from "../motion-primitives";
 
 const MAX_CLIPPINGS = 6;
 const MAX_THUMBNAILS = 2;

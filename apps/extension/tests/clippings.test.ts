@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clippingsFromEvents, clippingsFromSources, faviconUrl } from "../src/clipping-model";
+import { clippingsFromEvents, clippingsFromSources, faviconUrl } from "../src/company/clipping-model";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
 function event(

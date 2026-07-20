@@ -1,6 +1,6 @@
 import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "./extension-config";
-import { currentProfileProgressEvents } from "./research/research-progress";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../extension-config";
+import { currentProfileProgressEvents } from "../research/research-progress";
 
 // The clipping's source class is the same taxonomy First Payoff files evidence under.
 export type ClippingSourceClass = FirstPayoff["evidenceSoFar"][number]["sourceClass"];

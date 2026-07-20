@@ -4,7 +4,7 @@ import { type ColdStartCard, type FirstPayoff } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CompanyArc } from "../src/CompanyArc";
+import { CompanyArc } from "../src/company/CompanyArc";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {

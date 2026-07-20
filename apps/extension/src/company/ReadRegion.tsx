@@ -1,7 +1,7 @@
 import type { FirstPayoff } from "@cold-start/core";
 import { motion, useReducedMotion, type Transition } from "framer-motion";
 import { useEffect, useRef } from "react";
-import { markPerformance } from "./sidepanel-network";
+import { markPerformance } from "../sidepanel-network";
 
 type Evidence = FirstPayoff["evidenceSoFar"][number];
 

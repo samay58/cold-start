@@ -3,9 +3,9 @@
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Clippings } from "../src/Clippings";
-import { SealInstrument } from "../src/SealInstrument";
-import { clippingsFromEvents, type Clipping } from "../src/clipping-model";
+import { Clippings } from "../src/company/Clippings";
+import { SealInstrument } from "../src/company/SealInstrument";
+import { clippingsFromEvents, type Clipping } from "../src/company/clipping-model";
 import type { ExtensionResearchRunEvent } from "../src/extension-config";
 
 let cleanup: (() => Promise<void>) | null = null;

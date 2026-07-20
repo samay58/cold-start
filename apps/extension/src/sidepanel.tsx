@@ -18,8 +18,8 @@ import {
 } from "./extension-config";
 import { clearCachedCards, readCachedCard, writeCachedCard } from "./card-cache";
 import { BrandMark } from "./BrandMark";
-import { CompanyArc, type CompanyArcState } from "./CompanyArc";
-import { CompanyLogo } from "./CompanyLogo";
+import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
+import { CompanyLogo } from "./company/CompanyLogo";
 import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
 import { useTheme, type ThemePreference } from "./theme";

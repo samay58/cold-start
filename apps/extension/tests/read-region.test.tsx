@@ -4,7 +4,7 @@ import type { FirstPayoff } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ReadRegion } from "../src/ReadRegion";
+import { ReadRegion } from "../src/company/ReadRegion";
 
 function evidence(overrides: Partial<FirstPayoff["evidenceSoFar"][number]> = {}): FirstPayoff["evidenceSoFar"][number] {
   return {

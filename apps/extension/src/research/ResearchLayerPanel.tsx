@@ -21,7 +21,7 @@ import {
   dragOffsetShouldSnap,
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
-import { showPartialProfileGate, sourceLabel } from "../company-display";
+import { showPartialProfileGate, sourceLabel } from "../company/company-display";
 import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "../extension-format";
 import type { ExtensionResearchRunEvent } from "../extension-config";
 import {
