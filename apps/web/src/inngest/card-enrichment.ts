@@ -383,8 +383,8 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
 export const cardEnrichmentFunction = inngest.createFunction(
   {
     id: "card-block-enrichment",
+    triggers: { event: BLOCK_ENRICHMENT_EVENT_NAME },
     ...(cardEnrichmentConcurrency ? { concurrency: { limit: cardEnrichmentConcurrency } } : {})
   },
-  { event: BLOCK_ENRICHMENT_EVENT_NAME },
   cardEnrichmentHandler
 );

@@ -55,7 +55,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
-    "inngest-cli": "^1.19.1",
+    "inngest-cli": "^1.37.0",
     "knip": "^6.14.2",
     "next": "^15.5.18",
     "pg": "^8.20.0",

@@ -357,9 +357,9 @@ const contactEnrichmentConcurrency = backgroundConcurrencyLimit("INNGEST_CONTACT
 export const contactEnrichmentFunction = inngest.createFunction(
   {
     id: "contact-enrichment",
+    triggers: { event: CONTACT_ENRICHMENT_EVENT_NAME },
     ...(contactEnrichmentConcurrency ? { concurrency: { limit: contactEnrichmentConcurrency } } : {})
   },
-  { event: CONTACT_ENRICHMENT_EVENT_NAME },
   async ({ event, runId, step }) => {
     const runtimeEnv = webEnv();
     const { DATABASE_URL } = runtimeEnv;

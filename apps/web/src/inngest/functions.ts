@@ -878,7 +878,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 };
 
 export const generateCardFunction = inngest.createFunction(
-  { id: "generate-card" },
-  { event: "card/generate.requested" },
+  {
+    id: "generate-card",
+    triggers: { event: "card/generate.requested" }
+  },
   generateCardHandler
 );

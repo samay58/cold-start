@@ -20,7 +20,7 @@
     "@cold-start/ui": "file:../../packages/ui",
     "@paper-design/shaders-react": "^0.0.76",
     "@tailwindcss/postcss": "^4.1.0",
-    "inngest": "^3.40.0",
+    "inngest": "^4.13.0",
     "next": "^15.5.18",
     "postcss": "^8.5.0",
     "react": "^19.1.0",
