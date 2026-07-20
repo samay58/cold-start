@@ -41,7 +41,7 @@ import { buildEvidenceLedger } from "@cold-start/pipeline";
 import type { ProviderSource } from "@cold-start/providers";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore score.mjs is plain JS shared with the node:test suite
-import { aggregate, scoreExtraction, scoreResearchSection, scoreSynthesis, scoreVerify } from "./score.mjs";
+import { aggregate, scoreExtraction, scoreResearchSection, scoreSynthesis, scoreVerify, synthesisClaimTexts } from "./score.mjs";
 import type { ProviderMatrixFixture } from "./build-bundles";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -98,18 +98,10 @@ type CellResult = {
 };
 
 // Takes the synthesis object directly (not the whole card) so the same helper covers both the
-// verify stage's production-card claims and the synthesis stage's freshly generated claims.
+// verify stage's production-card claims and the synthesis stage's freshly generated claims. The
+// field walk lives in score.mjs so the claim list cannot drift between scoring and replay.
 function synthesisClaims(synthesis: ProviderMatrixFixture["card"]["synthesis"]): SourcedText[] {
-  if (!synthesis) {
-    return [];
-  }
-  const market = synthesis.marketStructureAndTiming;
-  const marketClaims = market
-    ? [market.buyerBudget, market.painSeverity, market.adoptionTrigger, market.marketStructure, market.profitPool, market.expansionPath, market.timingRisk].filter(
-        (claim): claim is SourcedText => claim !== null && claim !== undefined
-      )
-    : [];
-  return [synthesis.whyItMatters, ...synthesis.bullCase, ...synthesis.bearCase, ...marketClaims];
+  return synthesisClaimTexts(synthesis) as SourcedText[];
 }
 
 function normalizedUrlKey(value: string): string {

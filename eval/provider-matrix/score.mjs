@@ -225,7 +225,7 @@ function visibleCitationMarkers(text) {
   return Array.from(String(text ?? "").matchAll(citationMarkerRegex), (match) => match[1]);
 }
 
-function synthesisClaimTexts(synthesis) {
+export function synthesisClaimTexts(synthesis) {
   const market = synthesis?.marketStructureAndTiming;
   const marketClaims = market
     ? [
