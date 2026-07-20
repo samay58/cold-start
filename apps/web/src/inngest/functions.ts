@@ -19,7 +19,6 @@ import {
   recordCardEvidence,
   updateGenerationRunTrace,
   upsertCard,
-  upsertResearchSection,
   upsertResearchSections
 } from "@cold-start/db";
 import {
@@ -80,7 +79,7 @@ import {
   timed,
   type GenerationMode
 } from "./generation-helpers";
-import { generateStoredResearchSection } from "./research-section-generation";
+import { runResearchSectionJobStep } from "./research-section-generation";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -302,109 +301,20 @@ export const generateCardFunction = inngest.createFunction(
 
       if (requestedSectionId) {
         currentStage = "generate-section";
-        const sectionResult = await step.run("generate-section", async () => {
-          const llmTelemetry = createStepLlmTelemetryCollector();
-          const result = await timed(async () => {
-            try {
-              const section = await generateStoredResearchSection({
-                db,
-                slug,
-                domain,
-                sectionId: requestedSectionId,
-                runId: generationRunDbId,
-                client: anthropic,
-                model: sectionModel,
-                telemetry: llmTelemetry.telemetry
-              });
-
-              return {
-                ok: true as const,
-                value: section
-              };
-            } catch (error) {
-              return {
-                ok: false as const,
-                error: boundedErrorMessage(error)
-              };
-            }
-          });
-          const llmTracePatch = llmTelemetry.tracePatch();
-
-          return {
-            value: result.value,
-            tracePatch: {
-              ...llmTracePatch,
-              steps: {
-                "generate-section": result.value.ok
-                  ? completedStep(result.durationMs)
-                  : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
-              }
-            }
-          };
-        });
-        mergeTracePatch(trace, sectionResult.tracePatch);
-        // The `"ok" in ...` guard is not dead code: Inngest replays a memoized step result across
-        // deploys, so a run started on an older build can return `value` as the raw section instead
-        // of today's `{ ok, value }` envelope. Handle both shapes (see the replayed-step-result test).
-        if ("ok" in sectionResult.value && !sectionResult.value.ok) {
-          throw new Error(sectionResult.value.error);
-        }
-        const generatedSection = "ok" in sectionResult.value
-          ? sectionResult.value.value
-          : sectionResult.value;
-
-        // Tie this section pass to the section model. Only "deep" when the LLM actually ran;
-        // the empty-evidence path above returns a section with no call, so it reads "derived".
-        // Attribute the run's Anthropic spend (the lone LLM call here is this section) to it.
-        const sectionLlmRan = (trace.llm?.calls ?? []).some((call) => call.label.startsWith("research-section:"));
-        const sectionTraceStatus = generatedSection.status === "available"
-          ? "available"
-          : generatedSection.status === "failed"
-            ? "failed"
-            : "empty";
-        trace.sections = [{
+        return await runResearchSectionJobStep({
+          db,
+          step,
+          slug,
+          domain,
+          mode,
+          jobKind,
           sectionId: requestedSectionId,
-          provenance: sectionLlmRan ? "deep" : "derived",
-          status: sectionTraceStatus,
-          estimatedCostUsd: generationRunAnthropicCostUsd(trace)
-        }];
-        if (sectionLlmRan) {
-          for (const call of trace.llm?.calls ?? []) {
-            if (call.label.startsWith("research-section:")) {
-              call.sectionId = requestedSectionId;
-            }
-          }
-        }
-
-        await step.run("upsert-generated-section", () => upsertResearchSection(db, generatedSection));
-        await recordEvent(
-          "section-saved",
-          generatedSection.status === "available" ? "section.available" : "section.empty",
-          generatedSection.status === "available"
-            ? `Saved ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`
-            : `No strong evidence found for ${RESEARCH_SECTION_DEFINITIONS_BY_ID[requestedSectionId].title}`,
-          {
-            citationCount: generatedSection.citationIds.length,
-            sourceCount: generatedSection.sourceIds.length,
-            status: generatedSection.status
-          },
-          requestedSectionId
-        );
-        await step.run("mark-section-generation-complete", () =>
-          markGenerationRun(db, {
-            slug,
-            domain,
-            mode,
-            jobKind,
-            status: "complete",
-            costUsd: generationRunAnthropicCostUsd(trace),
-            traceJson: trace,
-            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-          })
-        );
-
-        return { slug, mode, sectionId: requestedSectionId };
+          generationRunDbId,
+          client: anthropic,
+          model: sectionModel,
+          trace,
+          recordEvent
+        });
       }
 
       const stableEnv = stableenrichEnvFromProcess();
