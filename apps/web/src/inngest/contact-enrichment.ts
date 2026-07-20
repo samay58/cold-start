@@ -2,7 +2,6 @@ import {
   companySlugFromDomain,
   deriveLegacyResearchSectionsFromCard,
   type ColdStartCard,
-  type GenerationLlmCallTrace,
   type GenerationTrace
 } from "@cold-start/core";
 import {
@@ -21,7 +20,6 @@ import {
   createAnthropicClient,
   modelForStage,
   synthesizePersonReads,
-  type AnthropicTelemetrySink
 } from "@cold-start/llm";
 import {
   applyProviderFactCandidates,
@@ -33,11 +31,9 @@ import {
   extractedCardSectionsSchema,
   filterSourcesForDomain,
   sourceGateTrace,
-  type CostLine,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
 import {
-  agentcashWalletSnapshot,
   createPeopleEmailWebset,
   fetchDirectExaContactSources,
   fetchGithubContacts,
@@ -62,6 +58,7 @@ import {
   prepareCardSnapshotForStorage
 } from "./card-storage";
 import { inngest } from "./client";
+import { createStepLlmTelemetryCollector, rawSlugForRun, safeAgentcashWalletSnapshot, stringValue, timed } from "./generation-helpers";
 import {
   backgroundConcurrencyLimit,
   contactEnrichmentEnabled,
@@ -77,7 +74,6 @@ import {
   completedStep,
   applyStableenrichWalletTrace,
   generationMilestoneElapsedMs,
-  llmTracePatchFromCalls,
   mergeContactEnrichmentTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
@@ -100,8 +96,6 @@ import {
 } from "./source-fetching";
 
 const CONTACT_ENRICHMENT_EVENT_NAME = "card/contact-enrichment.requested" as const;
-
-type TimedResult<T> = { durationMs: number; value: T };
 
 export function buildContactEnrichmentRequestedEvent(input: {
   domain: string;
@@ -128,52 +122,6 @@ export function buildContactEnrichmentRequestedEvent(input: {
       ...(input.parentInngestRunId ? { parentInngestRunId: input.parentInngestRunId } : {})
     }
   };
-}
-
-async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
-  const startedAt = Date.now();
-  const value = await fn();
-  return { durationMs: Date.now() - startedAt, value };
-}
-
-function costLineForLlmCall(call: GenerationLlmCallTrace): CostLine | null {
-  if (call.estimatedCostUsd !== undefined && call.estimatedCostUsd > 0) {
-    return { label: `anthropic:${call.stage}:${call.label}:${call.model}`, usd: call.estimatedCostUsd };
-  }
-  return null;
-}
-
-function createStepLlmTelemetryCollector() {
-  const calls: GenerationLlmCallTrace[] = [];
-  const costLines: CostLine[] = [];
-  const telemetry: AnthropicTelemetrySink = (call) => {
-    calls.push(call);
-    const costLine = costLineForLlmCall(call);
-    if (costLine) {
-      costLines.push(costLine);
-    }
-  };
-  return { telemetry, costLines, tracePatch: () => llmTracePatchFromCalls(calls) };
-}
-
-function rawSlugForRun(input: unknown, domainInput?: unknown): string {
-  if (typeof input !== "string" || input.trim().length === 0) {
-    if (typeof domainInput === "string" && domainInput.trim().length > 0) {
-      try {
-        return companySlugFromDomain(canonicalCompanyDomain(domainInput)).slice(0, 120);
-      } catch {
-        return "unknown";
-      }
-    }
-
-    return "unknown";
-  }
-
-  return input.trim().slice(0, 120);
-}
-
-function stringValue(input: unknown): string | null {
-  return typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
 }
 
 function peopleHintsFromSections(sections: ExtractedCardSections): PeopleEmailHint[] {
@@ -248,14 +196,6 @@ export function mergeContactProviderOutput(
     facts: [...existing.facts, ...incoming.facts],
     sources: mergeSources(existing.sources, incoming.sources)
   };
-}
-
-async function safeAgentcashWalletSnapshot() {
-  try {
-    return { ok: true as const, snapshot: await agentcashWalletSnapshot() };
-  } catch (error) {
-    return { ok: false as const, error: boundedErrorMessage(error) };
-  }
 }
 
 async function fetchContactSourcesForBasics(input: {

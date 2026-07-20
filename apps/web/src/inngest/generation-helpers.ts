@@ -178,6 +178,10 @@ export function sourceEventDomain(url: string) {
   }
 }
 
+export function stringValue(input: unknown): string | null {
+  return typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
+}
+
 export function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   if (typeof input !== "string" || input.trim().length === 0) {
     if (typeof domainInput === "string" && domainInput.trim().length > 0) {

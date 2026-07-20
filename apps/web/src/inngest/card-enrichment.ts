@@ -2,7 +2,6 @@ import {
   companySlugFromDomain,
   deriveLegacyResearchSectionsFromCard,
   type ColdStartCard,
-  type GenerationLlmCallTrace,
   type GenerationTrace
 } from "@cold-start/core";
 import {
@@ -21,7 +20,6 @@ import {
   extractCompanyBlockClaims,
   fallbackResearchPlan,
   modelForStage,
-  type AnthropicTelemetrySink
 } from "@cold-start/llm";
 import {
   applyProviderFactCandidates,
@@ -29,7 +27,6 @@ import {
   cardWithExtractedSections,
   enrichExtractedSectionsForDomain,
   extractedCardSectionsSchema,
-  type CostLine
 } from "@cold-start/pipeline";
 import { stableenrichEnvFromProcess } from "./worker-env";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -43,6 +40,7 @@ import {
   prepareCardForStorage
 } from "./card-storage";
 import { inngest, type WorkerEventContext } from "./client";
+import { createStepLlmTelemetryCollector, rawSlugForRun, stringValue, timed } from "./generation-helpers";
 import { backgroundConcurrencyLimit, contactEnrichmentEnabled } from "./worker-env";
 import {
   buildContactEnrichmentRequestedEvent,
@@ -50,7 +48,6 @@ import {
 } from "./contact-enrichment";
 import {
   completedStep,
-  llmTracePatchFromCalls,
   mergeGenerationTrace,
   mergeTracePatch,
   requestedAtMsFromGenerationEvent,
@@ -72,52 +69,6 @@ import {
 } from "./source-fetching";
 
 const BLOCK_ENRICHMENT_EVENT_NAME = "card/block-enrichment.requested" as const;
-
-type TimedResult<T> = { durationMs: number; value: T };
-
-async function timed<T>(fn: () => Promise<T> | T): Promise<TimedResult<T>> {
-  const startedAt = Date.now();
-  const value = await fn();
-  return { durationMs: Date.now() - startedAt, value };
-}
-
-function rawSlugForRun(input: unknown, domainInput?: unknown): string {
-  if (typeof input !== "string" || input.trim().length === 0) {
-    if (typeof domainInput === "string" && domainInput.trim().length > 0) {
-      try {
-        return companySlugFromDomain(canonicalCompanyDomain(domainInput)).slice(0, 120);
-      } catch {
-        return "unknown";
-      }
-    }
-    return "unknown";
-  }
-  return input.trim().slice(0, 120);
-}
-
-function stringValue(input: unknown): string | null {
-  return typeof input === "string" && input.trim().length > 0 ? input.trim() : null;
-}
-
-function costLineForLlmCall(call: GenerationLlmCallTrace): CostLine | null {
-  if (call.estimatedCostUsd !== undefined && call.estimatedCostUsd > 0) {
-    return { label: `anthropic:${call.stage}:${call.label}:${call.model}`, usd: call.estimatedCostUsd };
-  }
-  return null;
-}
-
-function createStepLlmTelemetryCollector() {
-  const calls: GenerationLlmCallTrace[] = [];
-  const costLines: CostLine[] = [];
-  const telemetry: AnthropicTelemetrySink = (call) => {
-    calls.push(call);
-    const costLine = costLineForLlmCall(call);
-    if (costLine) {
-      costLines.push(costLine);
-    }
-  };
-  return { telemetry, costLines, tracePatch: () => llmTracePatchFromCalls(calls) };
-}
 
 // The async block-enrichment runs the deep card enrichment (descriptions, signals, comparables,
 // fuller funding/team) AFTER the main worker has already stored a first-usable card. Moving it off
