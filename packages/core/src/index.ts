@@ -19,4 +19,5 @@ export * from "./source-authority";
 export * from "./source-class";
 export * from "./source-quality";
 export * from "./source-target";
+export * from "./synthesis-evidence";
 export * from "./trust";
