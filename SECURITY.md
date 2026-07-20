@@ -78,13 +78,7 @@ Expected: ignored local secret files show as ignored; the grep and history scans
 
 ## Dependency Audit
 
-As of 2026-05-11, `npm audit --audit-level=moderate` reports known upstream advisories:
-
-- High: Next.js transitive advisories, including its pinned PostCSS path.
-- High: OpenTelemetry Prometheus exporter through `@opentelemetry/auto-instrumentations-node`.
-- High: Rollup `2.79.2` through `@crxjs/vite-plugin`.
-- Moderate: esbuild through Drizzle Kit's `@esbuild-kit/core-utils` path.
-- Moderate: PostCSS below `8.5.10` through Next.
+`npm run audit:deps` is the authority on current audit state. It runs the production-dependency audit, blocks on high or critical findings, and tolerates only the advisories allowlisted in `scripts/audit-deps.mjs`, each carried with a dated comment naming its planned fix. A point-in-time advisory list in this file would rot; the script cannot.
 
 `npm audit fix --force` proposes breaking dependency changes. Do not run it blindly. Treat this as dependency-upgrade work: upgrade the owning packages, rebuild the extension and web app, then rerun tests, build, and `npm audit`.
 
