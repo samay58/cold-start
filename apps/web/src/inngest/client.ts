@@ -3,7 +3,7 @@ import type { GetStepTools } from "inngest";
 
 export const inngest = new Inngest({
   id: "cold-start",
-  isDev: process.env.INNGEST_DEV === "1" || process.env.NODE_ENV === "development"
+  isDev: process.env.INNGEST_DEV === "1" || process.env.NODE_ENV !== "production"
 });
 
 export type WorkerEventContext = {
