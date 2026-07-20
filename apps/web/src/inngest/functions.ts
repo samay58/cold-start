@@ -48,7 +48,7 @@ import {
   type ProviderSource
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
-import { webEnv } from "../lib/env";
+import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import { buildBlockEnrichmentRequestedEvent } from "./card-enrichment";
@@ -91,7 +91,7 @@ import {
   contactEnrichmentEnabled,
   directExaEnvFromProcess,
   stableenrichEnvFromProcess
-} from "./env";
+} from "./worker-env";
 import {
   agentcashBudgetCeilingUsd,
   applyStableenrichEndpointYield,

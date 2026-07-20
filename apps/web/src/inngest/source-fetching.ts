@@ -19,9 +19,9 @@ import {
 } from "@cold-start/providers";
 import { recordSource, type ColdStartDb, type StoredSource } from "@cold-start/db";
 
-import type { webEnv } from "../lib/env";
+import type { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
-import { directExaEnabled } from "./env";
+import { directExaEnabled } from "./worker-env";
 import { withStableenrichEndpointBudgets } from "./provider-trace";
 
 type GenerationMode = "basics" | "analysis";

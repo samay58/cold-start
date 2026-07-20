@@ -41,7 +41,7 @@ vi.mock("../src/inngest/client", () => ({
   }
 }));
 
-vi.mock("../src/lib/env", () => ({
+vi.mock("../src/lib/web-env", () => ({
   webEnv: () => ({
     DATABASE_URL: "postgres://user:pass@example.com/db",
     NEXT_PUBLIC_WEB_ORIGIN: "http://localhost:3000"

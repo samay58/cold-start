@@ -10,7 +10,7 @@ import {
   type PublicCardSummary
 } from "@cold-start/db";
 
-import { webEnv } from "./env";
+import { webEnv } from "./web-env";
 
 export async function getPublicCachedCard(slug: string) {
   const db = createDb(webEnv().DATABASE_URL);

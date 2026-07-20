@@ -5,7 +5,7 @@ import {
   emailPatternFallbackDecision,
   mergeContactProviderOutput
 } from "../src/inngest/contact-enrichment";
-import { contactEnrichmentEnabled } from "../src/inngest/env";
+import { contactEnrichmentEnabled } from "../src/inngest/worker-env";
 import type { ProviderFactCandidate, ProviderSource } from "@cold-start/providers";
 
 describe("contact enrichment dispatch", () => {

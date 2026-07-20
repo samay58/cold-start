@@ -28,7 +28,7 @@ import {
 import { inngest } from "../../../inngest/client";
 import { boundedErrorMessage } from "../../../lib/errors";
 import { canonicalCompanyDomain } from "../../../lib/domain";
-import { webEnv } from "../../../lib/env";
+import { webEnv } from "../../../lib/web-env";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-response";
 import { assertExtensionRequest } from "../../../lib/extension-auth";
 

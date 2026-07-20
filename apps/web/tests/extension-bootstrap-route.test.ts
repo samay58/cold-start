@@ -28,7 +28,7 @@ vi.mock("@cold-start/db", () => ({
   retireStaleResearchSections: mocks.retireStaleResearchSections
 }));
 
-vi.mock("../src/lib/env", () => ({
+vi.mock("../src/lib/web-env", () => ({
   webEnv: () => ({
     DATABASE_URL: "postgres://user:pass@example.com/db"
   })

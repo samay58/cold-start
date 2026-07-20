@@ -31,9 +31,9 @@ import {
   extractedCardSectionsSchema,
   type CostLine
 } from "@cold-start/pipeline";
-import { stableenrichEnvFromProcess } from "./env";
+import { stableenrichEnvFromProcess } from "./worker-env";
 import { canonicalCompanyDomain } from "../lib/domain";
-import { webEnv } from "../lib/env";
+import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import {
@@ -43,7 +43,7 @@ import {
   prepareCardForStorage
 } from "./card-storage";
 import { inngest } from "./client";
-import { backgroundConcurrencyLimit, contactEnrichmentEnabled } from "./env";
+import { backgroundConcurrencyLimit, contactEnrichmentEnabled } from "./worker-env";
 import {
   buildContactEnrichmentRequestedEvent,
   cardHasContactTargets

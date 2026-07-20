@@ -13,7 +13,7 @@ import {
 } from "@cold-start/db";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../../lib/api-response";
 import { canonicalCompanyDomain } from "../../../../lib/domain";
-import { webEnv } from "../../../../lib/env";
+import { webEnv } from "../../../../lib/web-env";
 import { boundedErrorMessage } from "../../../../lib/errors";
 import { assertExtensionRequest } from "../../../../lib/extension-auth";
 

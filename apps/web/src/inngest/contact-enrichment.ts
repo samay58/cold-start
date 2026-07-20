@@ -54,7 +54,7 @@ import {
 } from "@cold-start/providers";
 
 import { canonicalCompanyDomain } from "../lib/domain";
-import { webEnv } from "../lib/env";
+import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
 import {
   canStoreCardSnapshot,
@@ -72,7 +72,7 @@ import {
   stableenrichEnvFromProcess,
   websetsEnvFromProcess,
   type ContactEnrichmentTier
-} from "./env";
+} from "./worker-env";
 import {
   completedStep,
   applyStableenrichWalletTrace,
