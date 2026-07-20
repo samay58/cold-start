@@ -38,3 +38,16 @@ Wiring facts learned live, all encoded as `quirksForModel` entries and covered b
 2. If the read clears: set `LLM_RESEARCH_SECTION_MODEL=deepseek/deepseek-v4-pro` in Vercel, redeploy, judge a known company's sections, billing page as ground truth. Rollback is unsetting the var.
 3. 2026-07-27: check K3 open-weight hosting prices before re-running the K3 arms.
 4. Harness follow-up: evidence budget for judgment-stage replays so mega-fixtures stop timing out symmetrically.
+
+## Community reception addendum (2026-07-20, day 4 post-launch)
+
+A 210-item social sweep (Reddit, X, HN, YouTube, TikTok, Polymarket; raw file `~/Documents/Last30Days/kimi-k3-launch-reception-raw-v3.md`, packaged workbook `~/Documents/Last30Days/kimi-k3-reception-pack-2026-07-20.xlsx`) reconciles the launch hype with this verdict. The hype is measuring capability and openness; this verdict measures cost per unit of pipeline work. Both hold.
+
+What the sweep established, beyond the day-one research:
+
+- Demand is real enough that Moonshot paused new subscriptions on 2026-07-19 to protect compute for existing users. The HN launch thread hit 2,086 points and 1,204 comments.
+- The community independently corroborates our timeout data: users in the pause thread report OpenRouter latency of 11s and 16 tok/s, called "abysmal". Our matrix's K3 failures were oversubscription plus slowness, not wiring.
+- Benchmark credibility went UP under scrutiny: Moonshot claimed 67.5% on DeepSWE, and DeepSWE's independent run confirmed 69%.
+- Markets treated launch day as a second DeepSeek moment (Taiwan -6%, Nasdaq -1.5%) and recovered by midday for the same reason this verdict rejects K3: it is premium-priced, not a cost disruption.
+- Polymarket prices the July 27 open-weights release at 95%. That release is the standing re-check trigger: third-party hosts (fireworks/together, already wired) may collapse the per-token price, though the verbosity tax (roughly 2x median output tokens per Artificial Analysis, which spent $2,709.75 evaluating it) survives any host.
+- The rejection is of K3's economics, not its intelligence: its top-4 AA Intelligence rank and our own survival/empty-rate wins are consistent with the community's read.
