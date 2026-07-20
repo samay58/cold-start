@@ -11,6 +11,7 @@ playwright-report
 test-results
 apps/extension/dist
 apps/extension/dist-dev
+apps/extension/dist-firefox
 apps/web/.cold-start
 docs/product/research/private-analysis
 docs/product/research/private-prompts

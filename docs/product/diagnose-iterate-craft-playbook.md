@@ -103,15 +103,15 @@ Use this before implementing sidebar design changes.
 ## Files To Inspect First
 
 - `DESIGN.md`
-- `apps/extension/src/ResearchLayerPanel.tsx`
-- `apps/extension/src/SourcePassInstrument.tsx`
-- `apps/extension/src/research-progress.ts`
-- `apps/extension/src/research-layer-motion.ts`
-- `apps/extension/src/motion-primitives.ts`
+- `apps/extension/src/research/ResearchLayerPanel.tsx`
+- `apps/extension/src/research/SourcePassInstrument.tsx`
+- `apps/extension/src/research/research-progress.ts`
+- `apps/extension/src/research/research-layer-motion.ts`
+- `apps/extension/src/shared/motion-primitives.ts`
 - `apps/extension/src/styles.css`
-- `apps/extension/src/research-layer.ts`
+- `apps/extension/src/research/research-layer.ts`
 - `apps/extension/tests/e2e/sidepanel-ui.spec.ts`
-- `apps/extension/tests/sidepanel.test.tsx`
+- `apps/extension/tests/sidepanel-run-lifecycle.test.tsx` and its four sibling surface files over `tests/sidepanel-harness.tsx`
 
 ## Test The Feeling
 

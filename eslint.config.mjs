@@ -20,7 +20,6 @@ export default tseslint.config(
       "**/.pytest_cache/**",
       "docs/motion-references/**",
       ".worktrees/**",
-      "eval/activegraph-runs/**",
       "**/*.tsbuildinfo",
       "apps/web/next-env.d.ts",
       "apps/extension/playwright-report/**",
