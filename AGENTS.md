@@ -110,6 +110,7 @@ npm run dev:full
 - Deployed extension setup uses the token in `.vercel/extension-api-token.production.local`. Its value must match Vercel `EXTENSION_API_TOKEN`.
 - `VITE_COLD_START_API_ORIGIN` is a build-time extension variable, not a deployed web-app runtime variable.
 - Restart `dev:full` after changing extension auth env vars. A running Next process will not pick them up.
+- The Inngest client declares `isDev` from the environment (`INNGEST_DEV=1` or `NODE_ENV=development`). Production stays in cloud mode, which inngest v4 makes the default.
 - Production must keep `PUBLIC_GENERATION_ENABLED=false` and use a real `CHROME_EXTENSION_ID` plus a non-wildcard `ALLOWED_EXTENSION_ORIGINS`. `apps/web/src/lib/extension-auth.ts` fails closed on `local-dev`/wildcard sentinels in production; preserve that behavior.
 - Read `SECURITY.md` before changing auth, env handling, dependency versions, or anything that could expose tokens.
 
