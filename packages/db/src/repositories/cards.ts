@@ -98,7 +98,20 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
   return parseCachedCard(row, options);
 }
 
-export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<Omit<ColdStartCard, "synthesis"> | null> {
+// Lightweight read for the free withheld pre-check: it only needs the row's last-write
+// timestamp to compare against a stored synthesisWithheld.at, not the full parsed card. Safe to
+// call alongside findCardBySlug, same precedent as latestProviderFailureSummary.
+export async function findCardUpdatedAtBySlug(db: ColdStartDb, slug: string): Promise<Date | null> {
+  const rows = await db
+    .select({ updatedAt: cards.updatedAt })
+    .from(cards)
+    .where(eq(cards.slug, slug))
+    .limit(1);
+
+  return rows[0]?.updatedAt ?? null;
+}
+
+export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<PublicCard | null> {
   const rows = await db
     .select({
       cardJson: cards.cardJson,
@@ -194,6 +207,15 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
   const now = new Date();
   const expiresAt = cardExpiryDates(now);
   const persistedCacheStatus: "hit" | "partial" | "miss" = card.cacheStatus === "stale" ? "hit" : card.cacheStatus;
+  // Only extend the synthesis TTL when this write actually carries synthesis. A basics-only or
+  // withheld write has nothing fresh to serve for analysis mode; granting it a full synthesis
+  // window anyway would misreport freshness on the next analysis read. Identity/signals TTLs
+  // always refresh, on every write, regardless of synthesis presence.
+  const hasSynthesis = Boolean(cardToStore.synthesis);
+  const insertExpiresAt = hasSynthesis ? expiresAt : { ...expiresAt, synthesisExpiresAt: now };
+  const updateExpiresAt: { identityExpiresAt: Date; signalsExpiresAt: Date; synthesisExpiresAt?: Date } = hasSynthesis
+    ? expiresAt
+    : { identityExpiresAt: expiresAt.identityExpiresAt, signalsExpiresAt: expiresAt.signalsExpiresAt };
 
   const [row] = await db
     .insert(cards)
@@ -204,7 +226,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
       cacheStatus: persistedCacheStatus,
       generationCostUsd: String(cardToStore.generationCostUsd),
       generatedAt,
-      ...expiresAt
+      ...insertExpiresAt
     })
     .onConflictDoUpdate({
       target: cards.slug,
@@ -213,7 +235,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
         cacheStatus: persistedCacheStatus,
         generationCostUsd: String(cardToStore.generationCostUsd),
         generatedAt,
-        ...expiresAt,
+        ...updateExpiresAt,
         updatedAt: now
       }
     })

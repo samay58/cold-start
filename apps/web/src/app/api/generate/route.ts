@@ -6,6 +6,7 @@ import {
   hasUsablePublicProfile,
   isSynthesisOnlySectionId,
   researchSectionIdSchema,
+  type ColdStartCard,
   type GenerationJobKind,
   type ResearchSectionId
 } from "@cold-start/core";
@@ -13,6 +14,7 @@ import {
   createDb,
   findActiveGenerationRunStatusBySlug,
   findCardBySlug,
+  findCardUpdatedAtBySlug,
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   findResearchRunEventsByRunId,
@@ -268,7 +270,9 @@ export async function POST(request: Request) {
   const slug = companySlugFromDomain(domain);
   const dbStartedAt = performance.now();
   const db = createDb(webEnv().DATABASE_URL);
-  const cached = mode === "analysis" ? await findCardBySlug(db, slug) : await findPublicCardBySlug(db, slug);
+  // allowStale: an analysis existence check must not run the TTL-freshness gate, or a card whose
+  // TTL lapsed reads as absent and 404s instead of queueing a refresh (the stale-TTL dead end).
+  const cached = mode === "analysis" ? await findCardBySlug(db, slug, { allowStale: true }) : await findPublicCardBySlug(db, slug);
   const cacheLookupMs = elapsedMs(dbStartedAt);
 
   if (mode === "analysis" && !cached) {
@@ -293,7 +297,40 @@ export async function POST(request: Request) {
     }
   }
 
-  if (!sectionId && !forceRefresh && cached && (mode === "basics" ? hasUsablePublicProfile(cached) : ("synthesis" in cached && cached.synthesis))) {
+  // Free pre-check: a withheld card whose evidence hasn't moved since the last verdict costs
+  // nothing to re-answer. This runs before the active-run check further below so a queued
+  // duplicate of a run that will just re-hit the same gate is structurally impossible.
+  // forceRefresh always bypasses it. Only the analysis branch's fetch (findCardBySlug) can ever
+  // carry synthesisWithheld; the basics branch's PublicCard type structurally omits it.
+  const analysisCard = mode === "analysis" ? (cached as ColdStartCard | null) : null;
+  const withheldRecord = analysisCard?.synthesisWithheld;
+
+  if (!sectionId && mode === "analysis" && !forceRefresh && cached && withheldRecord) {
+    const withheldAtMs = new Date(withheldRecord.at).getTime();
+    const withheldCheckStartedAt = performance.now();
+    const rowUpdatedAt = await findCardUpdatedAtBySlug(db, slug);
+    const withheldCheckMs = elapsedMs(withheldCheckStartedAt);
+
+    if (rowUpdatedAt && rowUpdatedAt.getTime() <= withheldAtMs) {
+      return timedJson(
+        { slug, domain, mode, status: "withheld" as const, card: cached },
+        { status: 200 },
+        [
+          { name: "db-cache", durationMs: cacheLookupMs },
+          { name: "db-withheld", durationMs: withheldCheckMs }
+        ]
+      );
+    }
+  }
+
+  if (
+    !sectionId &&
+    !forceRefresh &&
+    cached &&
+    (mode === "basics"
+      ? hasUsablePublicProfile(cached)
+      : cached.cacheStatus !== "stale" && "synthesis" in cached && cached.synthesis)
+  ) {
     return timedJson(serializeGenerationRun({ slug, domain, mode, status: "cached" }), { status: 200 }, [{ name: "db", durationMs: cacheLookupMs }]);
   }
 

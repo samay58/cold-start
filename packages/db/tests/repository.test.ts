@@ -9,6 +9,7 @@ import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
   findCardBySlug,
+  findCardUpdatedAtBySlug,
   findGenerationRunById,
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
@@ -327,6 +328,111 @@ describe("upsertCard", () => {
     expect(updateSet?.identityExpiresAt).toEqual(insertValues?.identityExpiresAt);
     expect(updateSet?.signalsExpiresAt).toEqual(insertValues?.signalsExpiresAt);
     expect(updateSet?.synthesisExpiresAt).toEqual(insertValues?.synthesisExpiresAt);
+  });
+
+  it("(g) extends synthesisExpiresAt on both insert and conflict update when the written card carries synthesis", async () => {
+    let insertValues: Record<string, unknown> | undefined;
+    let updateSet: Record<string, unknown> | undefined;
+
+    const db = {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertValues = values;
+          return {
+            onConflictDoUpdate: (config: { set: Record<string, unknown> }) => {
+              updateSet = config.set;
+              return {
+                returning: async () => [{ id: "card-id" }]
+              };
+            }
+          };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    const before = Date.now();
+    await upsertCard(db, card);
+    const after = Date.now();
+
+    const insertedSynthesisExpiresAt = (insertValues?.synthesisExpiresAt as Date).getTime();
+    // Extended a full synthesisTtlMs (24h) into the future, not left at "now".
+    expect(insertedSynthesisExpiresAt).toBeGreaterThan(before + 23 * 60 * 60 * 1000);
+    expect(insertedSynthesisExpiresAt).toBeLessThanOrEqual(after + 24 * 60 * 60 * 1000);
+    expect(updateSet).toBeDefined();
+    expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(true);
+    expect(updateSet?.synthesisExpiresAt).toEqual(insertValues?.synthesisExpiresAt);
+  });
+
+  it("(f) leaves synthesisExpiresAt out of the update set and unextended on insert when the written card has no synthesis", async () => {
+    let insertValues: Record<string, unknown> | undefined;
+    let updateSet: Record<string, unknown> | undefined;
+
+    const db = {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertValues = values;
+          return {
+            onConflictDoUpdate: (config: { set: Record<string, unknown> }) => {
+              updateSet = config.set;
+              return {
+                returning: async () => [{ id: "card-id" }]
+              };
+            }
+          };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    const { synthesis: _synthesis, ...cardWithoutSynthesis } = card;
+
+    const before = Date.now();
+    await upsertCard(db, cardWithoutSynthesis as ColdStartCard);
+    const after = Date.now();
+
+    // Update set never touches synthesisExpiresAt, so a conflict update leaves the stored
+    // column exactly as it was before this write.
+    expect(updateSet).toBeDefined();
+    expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(false);
+    // Identity/signals TTL behavior is unchanged: still refreshed on every write.
+    expect(updateSet?.identityExpiresAt).toBeInstanceOf(Date);
+    expect(updateSet?.signalsExpiresAt).toBeInstanceOf(Date);
+
+    // Insert still needs a value for the NOT NULL column, but it must not grant a fresh 24h
+    // synthesis window for a write that carries no synthesis.
+    const insertedSynthesisExpiresAt = (insertValues?.synthesisExpiresAt as Date).getTime();
+    expect(insertedSynthesisExpiresAt).toBeGreaterThanOrEqual(before);
+    expect(insertedSynthesisExpiresAt).toBeLessThanOrEqual(after);
+  });
+});
+
+describe("findCardUpdatedAtBySlug", () => {
+  it("returns the row's updatedAt when the card exists", async () => {
+    const updatedAt = new Date("2026-05-06T12:00:00.000Z");
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ updatedAt }]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findCardUpdatedAtBySlug(db, "cartesia")).resolves.toEqual(updatedAt);
+  });
+
+  it("returns null when the card row is absent", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => []
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(findCardUpdatedAtBySlug(db, "missing")).resolves.toBeNull();
   });
 });
 

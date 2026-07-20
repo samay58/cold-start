@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
     findCardBySlug: vi.fn(),
+    findCardUpdatedAtBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
     markResearchSectionFailed: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("@cold-start/db", () => ({
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findCardBySlug: mocks.findCardBySlug,
+  findCardUpdatedAtBySlug: mocks.findCardUpdatedAtBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
@@ -165,6 +167,19 @@ function underfilledPublicCard() {
   };
 }
 
+function withheldCard(overrides: { synthesisWithheldAt?: string } = {}) {
+  return {
+    ...usablePublicCard(),
+    synthesisWithheld: {
+      at: overrides.synthesisWithheldAt ?? "2026-05-14T00:00:00.000Z",
+      reasons: ["insufficient-citations"],
+      advisories: [],
+      citationCount: 2,
+      sourceTypeCount: 1
+    }
+  };
+}
+
 describe("POST /api/generate", () => {
   beforeEach(() => {
     process.env.NODE_ENV = "test";
@@ -176,6 +191,7 @@ describe("POST /api/generate", () => {
     mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
     mocks.findCardBySlug.mockReset();
+    mocks.findCardUpdatedAtBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
     mocks.markResearchSectionFailed.mockReset();
@@ -280,7 +296,7 @@ describe("POST /api/generate", () => {
     );
 
     await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", domain: "cartesia.ai", status: "queued", mode: "analysis", runId: "run-id" });
-    expect(mocks.findCardBySlug).toHaveBeenCalledWith(mocks.db, "cartesia");
+    expect(mocks.findCardBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", { allowStale: true });
     expect(mocks.findPublicCardBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
       slug: "cartesia",
@@ -289,6 +305,143 @@ describe("POST /api/generate", () => {
       jobKind: "analysis",
       status: "queued"
     });
+  });
+
+  it("(a) returns withheld status free of charge when evidence has not changed since the withheld verdict", async () => {
+    mocks.findCardBySlug.mockResolvedValue(withheldCard());
+    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T00:00:00.000Z"));
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "withheld",
+      card: expect.objectContaining({ slug: "cartesia", synthesisWithheld: expect.objectContaining({ at: "2026-05-14T00:00:00.000Z" }) })
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("(b) queues a forced refresh even when the card is withheld and unchanged", async () => {
+    mocks.findCardBySlug.mockResolvedValue(withheldCard());
+    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T00:00:00.000Z"));
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true, forceRefresh: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(mocks.send).toHaveBeenCalled();
+    // forceRefresh bypasses the pre-check entirely, so the extra row lookup never fires.
+    expect(mocks.findCardUpdatedAtBySlug).not.toHaveBeenCalled();
+  });
+
+  it("(c) queues when the card row was updated after the withheld verdict", async () => {
+    mocks.findCardBySlug.mockResolvedValue(withheldCard());
+    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T01:00:00.000Z"));
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(mocks.send).toHaveBeenCalled();
+  });
+
+  it("(d) queues analysis instead of 404ing when the cached card has lapsed TTL", async () => {
+    mocks.findCardBySlug.mockImplementation((_db: unknown, _slug: unknown, options?: { allowStale?: boolean }) => {
+      return Promise.resolve(options?.allowStale ? { ...usablePublicCard(), cacheStatus: "stale" as const } : null);
+    });
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+  });
+
+  it("does not serve a stale-but-synthesized analysis card as cached; queues a fresh run instead", async () => {
+    mocks.findCardBySlug.mockResolvedValue({
+      ...usablePublicCard(),
+      cacheStatus: "stale" as const,
+      synthesis: {
+        whyItMatters: { text: "Existing but TTL-lapsed synthesis [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "What changed?", category: "buyer_budget" }],
+      },
+    });
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(mocks.send).toHaveBeenCalled();
+  });
+
+  it("(e) still 404s analysis when the card is genuinely absent, stale read included", async () => {
+    mocks.findCardBySlug.mockResolvedValue(null);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toEqual({ error: "profile not found" });
+    expect(response.status).toBe(404);
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
   });
 
   it("queues one requested section and marks that section running", async () => {
