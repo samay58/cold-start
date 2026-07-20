@@ -32,6 +32,20 @@ Verdict: Output C best of the four. Its opening was the strongest read, and one 
 - Review format works: rationale-anchored notes on specific lines, plus a per-group verdict. Rounds of 4 groups per sitting, anchors pre-inserted as deletable lines (adopted from round 2 onward).
 - Marginalia use-case improvement ideas filed in that project's `docs/NEXT-STEPS.md` (comment-without-delete, section-aware sessions).
 
-## Round 2+: pending
+## Round 2: bendingspoons / research_section / customer_proof (2026-07-20, bundle 21-38-58)
 
-Groups: bendingspoons customer_proof and financing, dice synthesis and customer_proof (round 2, in review). Later rounds continue in fours through the remaining groups.
+Verdict: none of the four impressed. Top two: Output A ("okay, straightforward but very report-the-truth, nothing super interesting"; "sparse in a good way because I didn't think there was much value to add here that merited this many words") and Output C ("like the writing style, matter of fact and correct and just makes sense"). Output D disliked; Output B "fine to less than fine".
+
+### Conceptual gaps added
+
+7. **Metric-granularity inconsistency.** "Why would the product names be included in aggregate MAUs but not aggregate paying customers": when a section reports one metric with per-product breakdown and the adjacent metric only in aggregate, the inconsistency reads as sloppy or evasive. Customer-proof sections should hold granularity constant across metrics, or say why they cannot.
+
+8. **Length must earn itself.** On thin evidence, honest sparsity beat padded completeness: the reader explicitly rewarded the output that said less because there was less to say. This is the kernel's "prefer fewer strong points over complete-looking filler" rule showing up as a real preference; outputs that padded lost trust. Length discipline is a quality feature, not a formatting choice.
+
+9. **Matter-of-fact register wins sections.** The style praise went to plain, correct, no-flourish writing. Research sections are evidence surfaces, not essays; the lens voice should be flattest here.
+
+Reveal (user-requested, post-verdict): Round 2's top two were A = deepseek-v4-pro, C = deepseek-v4-flash. Round 1's Output C (best of group) = deepseek-v4-flash.
+
+## Remaining rounds: pending, one category per sitting
+
+Reviewed so far: bendingspoons synthesis, bendingspoons customer_proof. Next up: bendingspoons financing, then dice synthesis, dice customer_proof, dice financing, and onward through the 33 groups. Cadence changed at user request: each Marginalia draft carries exactly one group.
