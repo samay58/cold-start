@@ -1,0 +1,703 @@
+/* The inline early read region: the filed slip, always open. The lilac lives only in the head
+   band; the body below stays parchment. Text is ink for contrast, never lilac-on-lilac. */
+.cs-read-region {
+  position: relative;
+  margin: 0 12px 12px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.82);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.9), rgb(var(--cs-c-250-247-239) / 0.74)),
+    var(--color-plate);
+  box-shadow: 0 5px 14px rgb(var(--cs-c-44-36-19) / 0.05);
+}
+
+.cs-read-region-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid rgb(var(--cs-c-110-92-158) / 0.24);
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-110-92-158) / 0.34), rgb(var(--cs-c-110-92-158) / 0.24)),
+    var(--color-plate);
+}
+
+.cs-early-read-tab-label {
+  flex: 0 0 auto;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 660;
+  letter-spacing: 0.01em;
+}
+
+.cs-read-region-body {
+  display: grid;
+  gap: 9px;
+  padding: 10px 12px 11px;
+}
+
+.cs-read-region-need {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  font-weight: 540;
+}
+
+/* The company arc: one shell for intake, building, and profile. The mesh field grounds the
+   building phase only; every other child sits above it on its own plate. The shared tooltip
+   is a fixed overlay child of the same shell and must escape this rule, or its higher
+   specificity would drop the tooltip into the page flow. */
+.cs-arc {
+  position: relative;
+}
+
+.cs-arc > :not(.cs-arc-mesh, .cs-shared-tooltip) {
+  position: relative;
+  z-index: 1;
+}
+
+.cs-arc-mesh {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cs-arc-topbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 20px;
+}
+
+.cs-arc[data-phase="building"] .cs-company-context {
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.78), rgb(var(--cs-c-247-244-236) / 0.62)),
+    rgb(var(--cs-c-252-250-245) / 0.42);
+}
+
+.cs-arc-intake {
+  display: grid;
+  gap: 12px;
+  margin: 4px 12px 0;
+}
+
+.cs-arc-intake-note {
+  margin: 0;
+  max-width: 30rem;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cs-arc-stack {
+  display: grid;
+  gap: 10px;
+  margin: 0 12px 12px;
+  padding: 12px 14px 13px;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.72);
+  border-radius: 8px;
+  background: rgb(var(--cs-c-255-253-248) / 0.66);
+}
+
+.cs-arc-stack-cards {
+  display: grid;
+  gap: 7px;
+}
+
+.cs-arc-stack-card {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  padding: 8px 11px;
+  border: 1px solid var(--color-rule);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-254-250) / 0.94), rgb(var(--cs-c-253-250-243) / 0.88)),
+    var(--color-plate);
+}
+
+.cs-arc-stack-index {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cs-arc-stack-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cs-arc-stack-copy strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 640;
+  line-height: 1.1;
+}
+
+.cs-arc-stack-copy span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.cs-arc-stack-more {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 560;
+  line-height: 1.2;
+}
+
+.cs-lens-sealed {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-rule);
+  background: transparent;
+}
+
+.cs-arc > .cs-lens-sealed {
+  margin: 0 12px 2px;
+}
+
+.cs-lens-sealed strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cs-lens-sealed span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.cs-lens-sealed-partial {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.cs-early-read-claim {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 12.75px;
+  font-weight: 500;
+  line-height: 1.42;
+}
+
+.cs-early-read-kicker {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--color-seal);
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.cs-early-read-sources {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.5);
+  list-style: none;
+}
+
+.cs-early-read-sources li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.cs-early-read-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--color-reported);
+}
+
+.cs-early-read-dot[data-class="independent"] {
+  background: var(--color-verified);
+}
+
+.cs-early-read-dot[data-class="company"] {
+  background: var(--color-company);
+}
+
+.cs-early-read-sources a {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 11.75px;
+  font-weight: 550;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-early-read-sources a:hover {
+  text-decoration: underline;
+}
+
+.cs-early-read-class {
+  flex: 0 0 auto;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.46);
+  font: 540 10px/1 var(--font-body);
+  letter-spacing: 0.01em;
+}
+
+.cs-early-read-more {
+  grid-column: 2 / -1;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.45);
+  font-size: 10.5px;
+  font-weight: 540;
+}
+
+.cs-early-read-filed {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 10px;
+  padding: 7px 9px 7px 10px;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.2);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.78), rgb(var(--cs-c-244-239-228) / 0.62)),
+    rgb(var(--cs-c-110-92-158) / 0.045);
+}
+
+.cs-early-read-filed-stamp {
+  flex: 0 0 auto;
+  color: var(--color-seal);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 660;
+  letter-spacing: 0.005em;
+}
+
+.cs-early-read-filed-meta {
+  overflow: hidden;
+  max-width: 19rem;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
+  font-size: 11.5px;
+  font-weight: 540;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-company-facts {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-top: 0;
+  background: rgb(var(--cs-c-245-241-230) / 0.42);
+}
+
+/* Every variant is a real hovercard now: the pointer can bridge the gap from the trigger
+   into the tooltip body (grace window in SharedTooltip.tsx), so pointer-events stays on
+   for the dossier's links and copy control as well as the plain string body. Height is a
+   per-instance inline style (JS measures the room actually available toward the viewport
+   edge); overflow only engages when that room genuinely runs out, and the scrollbar below
+   keeps that overflow visible instead of silently clipping the last rows. */
+.cs-shared-tooltip {
+  position: fixed;
+  z-index: 80;
+  display: grid;
+  gap: 5px;
+  overflow: auto;
+  padding: 11px 12px 12px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.96);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.88) inset;
+  color: var(--color-ink);
+  pointer-events: auto;
+  scrollbar-color: var(--cs-scrollbar-thumb) var(--cs-scrollbar-track);
+  scrollbar-width: thin;
+  text-align: left;
+  transform: translate3d(0, 0, 0);
+}
+
+.cs-shared-tooltip[data-placement="above"] {
+  transform: translate3d(0, -100%, 0);
+}
+
+.cs-shared-tooltip::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cs-shared-tooltip::-webkit-scrollbar-track {
+  background: var(--cs-scrollbar-track);
+  border-radius: 6px;
+}
+
+.cs-shared-tooltip::-webkit-scrollbar-thumb {
+  background: var(--cs-scrollbar-thumb);
+  border-radius: 6px;
+}
+
+/* Programmatic focus lands on the container when the dossier is pinned open by keyboard;
+   the pinned ring is the intentional affordance, so the raw focus outline is suppressed. */
+.cs-shared-tooltip:focus {
+  outline: none;
+}
+
+.cs-shared-tooltip[data-pinned="true"] {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.30);
+  outline-offset: 2px;
+}
+
+.cs-shared-tooltip strong {
+  color: var(--color-seal);
+  font: 680 11px/1.15 var(--font-display);
+}
+
+.cs-shared-tooltip span {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.76);
+  font: 500 12.5px/1.42 var(--font-body);
+  white-space: pre-line;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-shared-tooltip[data-animate="true"] {
+    transition:
+      left var(--cs-motion-state) var(--cs-motion-ease-out),
+      top var(--cs-motion-state) var(--cs-motion-ease-out);
+  }
+}
+
+/* The person dossier inside the shared tooltip: the read carries the evidence serif;
+   role, provenance, the email provenance, and the channels sit quietly around it. When
+   the read is null the dossier stays honest and reads quieter, never filler. */
+.cs-dossier {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.cs-dossier-role {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 640;
+  line-height: 1.3;
+}
+
+.cs-dossier[data-has-read="false"] .cs-dossier-role {
+  color: var(--color-ink);
+  font-size: 12px;
+}
+
+/* Same face, size, weight, and line-height as the plain Description tooltip body
+   (.cs-shared-tooltip span below), so the two tooltip variants read as one polished
+   component. The read keeps solid ink (vs. the plain body's muted alpha) because it is
+   the dossier's one claim, not quiet metadata; role, provenance, email, and channels stay
+   visually distinct around it. */
+.cs-dossier-read {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.42;
+}
+
+.cs-dossier-provenance {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.5);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+.cs-dossier-email {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.cs-dossier-email-address {
+  color: var(--color-seal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-dossier-email-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.cs-dossier-email-copy:hover .cs-dossier-email-address,
+.cs-dossier-email-copy:focus-visible .cs-dossier-email-address {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-dossier-email-copy:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
+  outline-offset: 2px;
+}
+
+.cs-dossier-email-kind {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 680;
+  letter-spacing: 0.02em;
+}
+
+.cs-dossier-email[data-email-status="inferred"] .cs-dossier-email-kind {
+  color: var(--color-seal);
+}
+
+.cs-dossier-email-basis {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.5);
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.cs-dossier-channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.cs-dossier-channel {
+  border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.cs-dossier-channel:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.cs-company-facts div {
+  position: relative;
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 86px;
+  padding: 13px 12px 12px;
+  border: 1px solid rgb(var(--cs-c-212-197-158) / 0.70);
+  border-radius: 6px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.72), rgb(var(--cs-c-250-247-239) / 0.62)),
+    rgb(var(--cs-c-252-250-245) / 0.76);
+  box-shadow:
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.70) inset,
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.025);
+}
+
+.cs-company-facts div:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.32);
+  outline-offset: 3px;
+}
+
+.cs-company-facts div::after {
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: 9px;
+  height: 1px;
+  background: linear-gradient(90deg, rgb(var(--cs-c-212-197-158) / 0.00), rgb(var(--cs-c-212-197-158) / 0.32), rgb(var(--cs-c-212-197-158) / 0.00));
+  content: "";
+  opacity: 0.72;
+}
+
+.cs-company-facts dd {
+  margin-top: 6px;
+  color: var(--color-ink);
+  font-size: 12.75px;
+  font-weight: 690;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.cs-company-facts small {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 640;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+.cs-research-layer {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.cs-research-layer-head {
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+/*
+ * Clippings: source receipts as the card's first content. Awaiting reserves a quiet ruled slot
+ * with no shimmer; each clipping arrives on its own source event and carries a favicon (or a
+ * thumbnail for up to two news/funding items), a classification dot, the domain, and the kind.
+ */
+.cs-clippings {
+  margin: 10px 12px 0;
+}
+
+.cs-clippings[data-state="awaiting"] {
+  min-height: 32px;
+}
+
+.cs-clippings-rule {
+  display: block;
+  height: 1px;
+  margin-top: 16px;
+  background: var(--color-rule);
+}
+
+.cs-clippings-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-clipping {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cs-clipping a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 168px;
+  padding: 5px 9px 5px 7px;
+  border: 1px solid rgb(var(--cs-c-230-223-201) / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.82), rgb(var(--cs-c-250-247-239) / 0.7)),
+    var(--color-plate);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.cs-clipping-thumb {
+  flex-shrink: 0;
+  width: 28px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.cs-clipping-favicon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.cs-clipping-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-muted);
+}
+
+.cs-clipping-dot[data-source-class="company_site"],
+.cs-clipping-dot[data-source-class="people"] {
+  background: var(--color-seal);
+}
+
+.cs-clipping-dot[data-source-class="docs"],
+.cs-clipping-dot[data-source-class="news"] {
+  background: var(--color-reported);
+}
+
+.cs-clipping-dot[data-source-class="funding"] {
+  background: var(--color-company);
+}
+
+.cs-clipping-dot[data-source-class="customer_proof"] {
+  background: var(--color-verified);
+}
+
+.cs-clipping-domain {
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 720;
+  letter-spacing: 0;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-clipping-kind {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}

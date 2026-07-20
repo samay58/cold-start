@@ -47,7 +47,14 @@ function classesUsedInSource(): Set<string> {
 }
 
 function classesDefinedInStylesheet(): Set<string> {
-  const css = readFileSync(join(SRC_DIR, "styles.css"), "utf8");
+  const partialsDir = join(SRC_DIR, "styles");
+  const files = [
+    join(SRC_DIR, "styles.css"),
+    ...readdirSync(partialsDir)
+      .filter((name) => name.endsWith(".css"))
+      .map((name) => join(partialsDir, name))
+  ];
+  const css = files.map((file) => readFileSync(file, "utf8")).join("\n");
   return new Set(Array.from(css.matchAll(/\.(cs-[a-z0-9-]+)/g), (match) => match[1] ?? ""));
 }
 

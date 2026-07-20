@@ -1,0 +1,354 @@
+/* Building details: the quiet toggle and the tree it opens; the whisper carries the status. */
+.cs-assembly-details {
+  display: grid;
+  gap: 8px;
+  margin: 8px 12px 0;
+}
+
+.cs-assembly-details-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 720;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cs-assembly-details-toggle:hover,
+.cs-assembly-details-toggle:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-active-enrichments {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+/*
+ * Investor Lens slot: one continuous surface that carries the live lens moment through
+ * ready (control), running (receipt), filed (memo), and not-filed (honest empty).
+ * Catalogue language: plate ground, 1px rules, one seal accent used as a verb.
+ */
+.cs-lens-slot {
+  display: grid;
+  gap: 10px;
+  margin: 10px 12px 0;
+}
+
+/* Ready, running, and filed share the plate language. The unavailable sealed state above
+   remains a plain ledger row rather than impersonating an action card. */
+.cs-investor-lens-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+}
+
+.cs-investor-lens-control div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cs-investor-lens-control strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+}
+
+.cs-investor-lens-control span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.cs-investor-lens-button {
+  flex: 0 0 auto;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.4);
+  border-radius: 6px;
+  background: var(--color-seal);
+  color: var(--cs-bg);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 8px 10px;
+  text-transform: uppercase;
+}
+
+.cs-investor-lens-button:disabled {
+  cursor: not-allowed;
+  background: rgb(var(--cs-c-110-92-158) / 0.12);
+  color: rgb(var(--cs-c-45-42-36-text) / 0.55);
+}
+
+.cs-lens-running {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+}
+
+.cs-lens-running-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: var(--color-seal);
+  animation: cs-dot-pulse 1400ms ease-in-out infinite;
+}
+
+.cs-lens-running div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cs-lens-running strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.cs-lens-running small {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cs-lens-notfiled {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+}
+
+.cs-lens-notfiled strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 620;
+}
+
+.cs-lens-notfiled p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/*
+ * The filed memo, one continuous object: the lede is the largest text and reads first,
+ * the tension pair and the quieter rows share one label-column ledger, and one footer
+ * carries the evidence in classification dots. Rules and type carry the hierarchy, not
+ * chrome; the seal appears once, on the section label.
+ */
+.cs-investor-read,
+.cs-investor-read * {
+  min-width: 0;
+}
+
+.cs-investor-read {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow:
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.8) inset,
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05);
+  padding: 12px 14px;
+}
+
+.cs-investor-read-head {
+  padding-bottom: 8px;
+}
+
+.cs-investor-read-head span {
+  color: var(--color-seal);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
+}
+
+.cs-investor-read-lede {
+  margin: 0;
+  padding-bottom: 12px;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cs-lens-source i {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 0;
+  border-radius: 2px;
+  background: var(--color-rule-strong);
+}
+
+.cs-lens-source[data-class="independent"] i {
+  background: var(--color-verified);
+}
+
+.cs-lens-source[data-class="reporting"] i {
+  background: var(--color-reported);
+}
+
+.cs-lens-source[data-class="company"] i {
+  background: var(--color-company);
+}
+
+/* The ledger device: every row is [label | content] on one aligned column, so the
+   tension pair, timing, and the next question read as lines of one memo. */
+.cs-lens-tension-side,
+.cs-lens-timing,
+.cs-lens-question {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: baseline;
+}
+
+.cs-lens-tension {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
+}
+
+.cs-lens-tension-side h4,
+.cs-lens-timing h4,
+.cs-lens-question h4 {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+.cs-lens-tension-side p,
+.cs-lens-timing p {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 12.75px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cs-lens-none {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.cs-lens-tension-side p.cs-lens-none,
+.cs-lens-timing p.cs-lens-none {
+  display: block;
+}
+
+.cs-lens-timing {
+  padding: 9px 0;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-lens-timing p,
+.cs-lens-question p {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.86);
+  font-size: 12.25px;
+}
+
+.cs-lens-timing em {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.78);
+  font-style: normal;
+  font-weight: 620;
+}
+
+.cs-lens-timing-more {
+  margin: 3px 0 0 18px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  cursor: default;
+  font-family: var(--font-text);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-timing-more:hover,
+.cs-lens-timing-more:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-lens-question {
+  padding: 9px 0 11px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-lens-question p {
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cs-lens-question-category {
+  margin-left: 7px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.cs-lens-question small {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.cs-lens-question small em {
+  margin-right: 4px;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 620;
+}

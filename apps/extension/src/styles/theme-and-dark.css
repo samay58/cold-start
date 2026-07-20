@@ -1,0 +1,308 @@
+@layer components {
+  .cs-theme-toggle {
+    margin: 16px 0 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .cs-theme-toggle legend {
+    padding: 0;
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .cs-theme-toggle-options {
+    display: inline-flex;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--color-plate);
+  }
+
+  .cs-theme-toggle-option {
+    padding: 6px 16px;
+    border: 0;
+    border-right: 1px solid var(--color-rule);
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--cs-motion-state, 140ms) ease, color var(--cs-motion-state, 140ms) ease;
+  }
+
+  .cs-theme-toggle-option:last-child {
+    border-right: 0;
+  }
+
+  .cs-theme-toggle-option:hover {
+    color: var(--color-ink);
+    background: var(--cs-seal-tint-08);
+  }
+
+  .cs-theme-toggle-option[data-active="true"] {
+    color: var(--color-ink);
+    background: var(--cs-seal-tint-18);
+    font-weight: 600;
+  }
+
+  .cs-theme-toggle-option:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
+  .cs-theme-toggle-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: var(--color-muted);
+  }
+}
+
+:root[data-theme="dark"] .cs-loading-panel::after {
+  mix-blend-mode: screen;
+  opacity: 0.05;
+}
+
+/* Company logos keep a muted parchment mat on dark so dark or transparent marks
+ * stay visible; third-party marks are never inverted. The fallback initial goes
+ * dark to read on the parchment. */
+:root[data-theme="dark"] .cs-company-logo-mark {
+  background: var(--cs-logo-chip-bg);
+  border-color: var(--cs-logo-chip-border);
+  color: var(--cs-logo-chip-ink);
+}
+
+:root[data-theme="dark"] .cs-company-logo-mark .cs-company-logo-fallback {
+  color: var(--cs-logo-chip-ink);
+}
+
+/* Sub-element borders that carry the company-amber and seal hues read too soft
+ * on dark at their light-tuned alpha. The hue stays put; only the carrying alpha
+ * lifts so People rows and research stack tiles keep visible edges. Dark only,
+ * so the light card is unchanged. */
+:root[data-theme="dark"] .cs-people-person {
+  border-color: rgb(var(--cs-c-212-197-158) / 0.62);
+}
+
+:root[data-theme="dark"] .cs-people-person[data-has-email="true"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.44);
+}
+
+:root[data-theme="dark"] .cs-dormant-card {
+  border-color: rgb(var(--cs-c-170-143-86) / 0.58);
+}
+
+/* Research panel: each active card is one plate. Inner hierarchy comes from the
+   shared label column, spacing, and one rule token rather than nested chrome. */
+.cs-layer-rows,
+.cs-layer-items {
+  gap: 0;
+  padding: 0;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.cs-layer-rows div {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-rows div + div,
+.cs-layer-items li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-layer-rows dt,
+.cs-layer-items span {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.cs-layer-items li[data-has-meta="true"] {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-items li[data-has-meta="true"] > span {
+  order: 0;
+  justify-self: stretch;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.cs-layer-items li[data-has-meta="false"] > div {
+  grid-column: 1 / -1;
+}
+
+.cs-source-chips {
+  gap: 5px 10px;
+  margin-top: 10px;
+}
+
+.cs-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 152px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.cs-source-chip::before {
+  content: none;
+}
+
+.cs-source-chip i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-rule-strong);
+}
+
+.cs-source-chip[data-class="independent"] i {
+  background: var(--color-verified);
+}
+
+.cs-source-chip[data-class="reporting"] i {
+  background: var(--color-reported);
+}
+
+.cs-source-chip[data-class="company"] i {
+  background: var(--color-company);
+}
+
+a.cs-source-chip:hover,
+a.cs-source-chip:focus-visible {
+  color: var(--color-seal);
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-panel-more,
+.cs-lens-timing-more {
+  width: fit-content;
+  min-height: 20px;
+  margin: 5px 0 0;
+  padding: 2px 7px;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--cs-seal-tint-08);
+  color: var(--color-seal);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.cs-source-more {
+  margin-top: 0;
+}
+
+.cs-panel-more:hover,
+.cs-panel-more:focus-visible,
+.cs-lens-timing-more:hover,
+.cs-lens-timing-more:focus-visible {
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-18);
+  color: var(--color-seal);
+}
+
+.cs-investor-read-lede {
+  font-weight: 480;
+  line-height: 1.55;
+}
+
+.cs-lens-tension-side,
+.cs-lens-case-empty,
+.cs-lens-timing,
+.cs-lens-question {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-lens-tension {
+  gap: 0;
+  padding: 0;
+  border-top: 0;
+}
+
+.cs-lens-tension-side + .cs-lens-tension-side {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-lens-tension-side h4,
+.cs-lens-case-empty h4,
+.cs-lens-timing h4,
+.cs-lens-question h4,
+.cs-lens-timing em,
+.cs-lens-question small em,
+.cs-lens-question-category {
+  font-family: var(--font-body);
+}
+
+.cs-lens-tension-side h4,
+.cs-lens-case-empty h4,
+.cs-lens-timing h4,
+.cs-lens-question h4 {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+.cs-lens-case-empty p {
+  margin: 0;
+}
+
+.cs-lens-question-category {
+  font-size: 10px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+}
+
+.cs-lens-footer {
+  border-top-color: var(--color-rule);
+}

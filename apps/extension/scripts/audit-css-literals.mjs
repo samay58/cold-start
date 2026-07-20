@@ -13,15 +13,27 @@
  *    light border token (e.g. --cs-c-230-223-201) was mapped to a near-ground
  *    fill value in dark and its borders disappeared.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const stylesPath = join(here, "..", "src", "styles.css");
-const tokensPath = join(here, "..", "src", "theme.tokens.css");
+const srcDir = join(here, "..", "src");
+const partialsDir = join(srcDir, "styles");
+const styleFiles = [
+  join(srcDir, "styles.css"),
+  ...readdirSync(partialsDir)
+    .filter((name) => name.endsWith(".css"))
+    .sort()
+    .map((name) => join(partialsDir, name))
+];
+const tokensPath = join(srcDir, "theme.tokens.css");
 
-const css = readFileSync(stylesPath, "utf8");
+const styleSources = styleFiles.map((path) => ({
+  label: path.slice(srcDir.length - "src".length),
+  text: readFileSync(path, "utf8")
+}));
+const css = styleSources.map((source) => source.text).join("\n");
 const tokensCss = readFileSync(tokensPath, "utf8");
 
 const failures = [];
@@ -30,16 +42,18 @@ const failures = [];
 // Hex (#abc / #aabbcc / #aabbccdd) and rgb()/rgba()/hsl() with a numeric first arg.
 const LITERAL = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\(\s*[0-9.]/g;
 const literalHits = [];
-css.split("\n").forEach((line, index) => {
-  const matches = line.match(LITERAL);
-  if (matches) {
-    literalHits.push({ line: index + 1, text: line.trim() });
-  }
-});
+for (const source of styleSources) {
+  source.text.split("\n").forEach((line, index) => {
+    const matches = line.match(LITERAL);
+    if (matches) {
+      literalHits.push({ file: source.label, line: index + 1, text: line.trim() });
+    }
+  });
+}
 if (literalHits.length > 0) {
   failures.push(
-    `Raw color literals in src/styles.css (use rgb(var(--cs-c-*) / a) or a --cs-* token):\n` +
-      literalHits.map((hit) => `  ${hit.line}: ${hit.text}`).join("\n")
+    `Raw color literals in the extension stylesheets (use rgb(var(--cs-c-*) / a) or a --cs-* token):\n` +
+      literalHits.map((hit) => `  ${hit.file}:${hit.line}: ${hit.text}`).join("\n")
   );
 }
 
@@ -112,4 +126,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("audit-css-literals: styles.css is clean (no raw literals, no dark border collapse).");
+console.log(`audit-css-literals: ${styleSources.length} stylesheet(s) clean (no raw literals, no dark border collapse).`);

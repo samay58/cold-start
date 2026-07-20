@@ -1,0 +1,378 @@
+/* Signals: one row per event, headline first, metadata quiet beneath it. */
+.cs-layer-signal-ledger li {
+  display: block;
+  padding: 10px 0;
+}
+
+.cs-layer-signal-ledger strong {
+  display: block;
+  color: var(--color-ink);
+  font: 600 13px/1.4 var(--font-body);
+  letter-spacing: -0.005em;
+}
+
+.cs-layer-signal-ledger li > p {
+  margin: 3px 0 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.66);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.cs-signal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 7px;
+  margin-top: 5px;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.56);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.cs-signal-dot {
+  display: inline-block;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-reported);
+}
+
+.cs-signal-dot[data-class="independent"] {
+  background: var(--color-verified);
+}
+
+.cs-signal-dot[data-class="company"] {
+  background: var(--color-company);
+}
+
+.cs-signal-meta time {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
+  font: 560 10px/1.3 var(--font-text);
+  letter-spacing: 0.04em;
+}
+
+.cs-signal-corroboration {
+  padding: 1.5px 5px;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.42);
+  border-radius: 4px;
+  color: var(--color-seal);
+  font: 600 9.5px/1.3 var(--font-text);
+  letter-spacing: 0.05em;
+}
+
+.cs-intake-panel .cs-panel-header h1 {
+  font-size: 27px;
+}
+
+.cs-extension-actions {
+  gap: 9px;
+}
+
+.cs-extension-button,
+.cs-extension-link-button {
+  min-height: 38px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  padding: 0 15px;
+}
+
+
+.cs-research-shell {
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.cs-people-line {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  margin: 0 14px;
+  padding: 10px 0 13px;
+  border-top: 1px solid rgb(var(--cs-c-212-197-158) / 0.46);
+}
+
+.cs-people-line-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.cs-people-line-source {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-people-line-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(174px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.cs-people-person {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid rgb(var(--cs-c-212-197-158) / 0.48);
+  border-radius: 6px;
+  background: rgb(var(--cs-c-252-250-245) / 0.44);
+}
+
+.cs-people-person[aria-describedby] {
+  cursor: default;
+}
+
+.cs-people-person:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.28);
+  outline-offset: 2px;
+}
+
+.cs-people-person[data-has-email="true"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.18);
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.72), rgb(var(--cs-c-250-247-239) / 0.58)),
+    rgb(var(--cs-c-110-92-158) / 0.04);
+}
+
+.cs-people-name {
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: 11.5px;
+  font-weight: 760;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-people-role {
+  display: -webkit-box;
+  color: rgb(var(--cs-c-14-14-14-text) / 0.58);
+  font-size: 10.5px;
+  line-height: 1.22;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* A real pressable chip, not a quiet placeholder: the seal-tinted border and fill read as
+   the same affordance family as the dossier email-copy pill and the source chips. */
+.cs-people-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.22);
+  border-radius: 6px;
+  background: rgb(var(--cs-c-110-92-158) / 0.06);
+  color: var(--color-seal);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.cs-people-more:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
+  outline-offset: 2px;
+}
+
+.cs-research-layer-head {
+  padding: 10px 13px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+}
+
+.cs-active-enrichments {
+  gap: 6px;
+  min-height: 0;
+  padding: 8px;
+}
+
+.cs-active-enrichments:empty {
+  display: none;
+}
+
+.cs-active-enrichment {
+  border-radius: 7px;
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.035),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.76) inset;
+}
+
+.cs-active-enrichment::before {
+  left: 12px;
+  top: 15px;
+  bottom: 9px;
+}
+
+.cs-active-enrichment-head {
+  gap: 9px;
+  min-height: 58px;
+  padding: 10px 11px 10px 12px;
+}
+
+.cs-active-dot {
+  width: 6px;
+  height: 6px;
+  box-shadow: 0 0 0 3px rgb(var(--cs-c-110-92-158) / 0.10);
+}
+
+.cs-active-enrichment strong {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.08;
+}
+
+.cs-active-enrichment small,
+.cs-dormant-card small {
+  font-size: 10px;
+}
+
+.cs-active-chevron {
+  width: 18px;
+  height: 18px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 11px 11px 30px;
+}
+
+.cs-layer-rows,
+.cs-layer-items {
+  gap: 6px;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  padding: 8px 9px;
+  border-radius: 6px;
+  background: rgb(var(--cs-c-252-250-245) / 0.58);
+}
+
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  font-size: 12px;
+  line-height: 1.42;
+}
+
+.cs-layer-items strong {
+  font-size: 12px;
+  line-height: 1.18;
+}
+
+.cs-layer-items p {
+  margin-top: 3px;
+}
+
+.cs-layer-items span {
+  font-size: 8.5px;
+}
+
+.cs-source-chip {
+  max-width: 118px;
+  min-height: 19px;
+  border-radius: 5px;
+  font-size: 8.5px;
+}
+
+.cs-card-tray {
+  min-height: 0;
+  margin-top: 6px;
+  padding: 12px 4px 0;
+}
+
+.cs-card-pile {
+  min-height: 0;
+  border-color: rgb(var(--cs-c-190-211-220) / 0.28);
+  background:
+    radial-gradient(circle at 86% 0%, rgb(var(--cs-c-110-92-158) / 0.06), transparent 24%),
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.10), rgb(var(--cs-c-230-241-255) / 0.08)),
+    rgb(var(--cs-c-250-250-247) / 0.08);
+  box-shadow: 0 12px 28px rgb(var(--cs-c-23-26-31) / 0.016) inset;
+}
+
+.cs-dormant-card {
+  grid-template-columns: 8px minmax(0, 1fr) 18px;
+  gap: 10px;
+  min-height: 42px;
+  border-color: rgb(var(--cs-c-204-199-184) / 0.60);
+  border-radius: 6px;
+  background: var(--color-plate);
+  padding: 8px 10px;
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.075),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.86) inset;
+}
+
+.cs-card-grip {
+  width: 2px;
+  height: 18px;
+  overflow: hidden;
+  color: rgb(var(--cs-c-14-14-14-text) / 0.24);
+}
+
+.cs-dormant-card-copy {
+  gap: 0;
+}
+
+.cs-dormant-card strong {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.cs-dormant-card small {
+  display: none;
+}
+
+.cs-dormant-card[data-dragging="true"] {
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
+    0 0 0 2px rgb(var(--cs-c-110-92-158) / 0.065),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.92) inset;
+}
+
+@keyframes cs-reduced-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Reduce shortens the expand/collapse to a quick fade; it does not freeze it. */
+  .cs-active-enrichment-body-frame,
+  .cs-active-enrichment-body-frame[data-expanded="true"] {
+    transition:
+      grid-template-rows 100ms ease,
+      opacity 90ms ease,
+      visibility 0s linear 100ms;
+  }
+
+  .cs-active-enrichment-body-frame[data-expanded="true"] {
+    transition:
+      grid-template-rows 100ms ease,
+      opacity 90ms ease;
+  }
+}

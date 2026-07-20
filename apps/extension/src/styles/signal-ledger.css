@@ -1,0 +1,802 @@
+/* ---------- Signal Ledger extension override ---------- */
+
+body,
+.cs-extension-frame,
+.cs-research-shell {
+  background: var(--color-field);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.cs-brand-mark {
+  color: var(--color-focus);
+}
+
+.cs-company-context,
+.cs-research-layer,
+.cs-active-enrichment,
+.cs-dormant-card,
+.cs-cache-card {
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: none;
+}
+
+.cs-company-context::before,
+.cs-active-enrichment::before,
+.cs-card-pile::before {
+  display: none;
+}
+
+.cs-loading-panel .cs-cache-card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-company-context-main {
+  padding: 20px;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+}
+
+.cs-company-logo {
+  width: 52px;
+  height: 52px;
+  border-color: var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-field);
+  box-shadow: none;
+}
+
+.cs-company-context h1,
+.cs-partial-profile h1,
+.cs-active-enrichment strong,
+.cs-dormant-card strong {
+  font-family: var(--font-body);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.cs-company-context-main p:not(.cs-research-label),
+.cs-company-summary,
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  color: var(--color-ink);
+}
+
+.cs-company-domain,
+.cs-research-label,
+.cs-company-facts dt,
+.cs-research-layer-head,
+.cs-active-enrichment small,
+.cs-dormant-card small {
+  color: var(--color-muted);
+}
+
+.cs-company-facts {
+  gap: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+.cs-company-facts div {
+  min-height: 72px;
+  border-width: 0 1px 1px 0;
+  border-color: var(--color-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-company-facts div::after {
+  display: none;
+}
+
+.cs-company-facts dd,
+.cs-company-facts small,
+.cs-research-layer-head,
+.cs-research-label,
+.cs-company-facts dt,
+.cs-card-grip,
+.cs-active-chevron,
+.cs-source-chip {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cs-research-layer-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: 11px;
+}
+
+.cs-active-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--color-verified);
+  border-radius: 2px;
+  background: var(--color-verified);
+  box-shadow: none;
+}
+
+.cs-source-chip {
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-reported);
+  box-shadow: none;
+}
+
+.cs-active-enrichments {
+  gap: 8px;
+  padding: 10px;
+}
+
+.cs-active-enrichment {
+  overflow: hidden;
+}
+
+.cs-active-enrichment[data-state="running"] {
+  border-color: var(--color-focus);
+}
+
+.cs-active-enrichment-head {
+  padding: 13px 12px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 14px 14px 34px;
+}
+
+.cs-layer-action {
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-ink);
+  font: 650 12px/1 var(--font-body);
+}
+
+.cs-layer-action:hover {
+  background: var(--color-field);
+}
+
+.cs-layer-skeleton,
+.cs-active-enrichment[data-state="running"] .cs-layer-running-copy {
+  background: var(--color-rule);
+  box-shadow: none;
+}
+
+.cs-card-tray {
+  min-height: 336px;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--color-plate);
+}
+
+.cs-card-tray::before {
+  content: "Research stack";
+  display: block;
+  padding: 12px 14px 0;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.cs-card-pile {
+  height: auto;
+}
+
+.cs-dormant-card {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-color: var(--color-rule);
+  background: var(--color-plate);
+}
+
+.cs-dormant-card[data-previewing="true"],
+.cs-dormant-card[data-snap-ready="true"] {
+  border-color: var(--color-focus);
+  background: var(--color-field);
+  box-shadow: var(--shadow-pickup);
+}
+
+.cs-card-grip {
+  color: var(--color-muted);
+}
+
+@media (max-width: 430px) {
+  .cs-company-context-main {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .cs-company-context h1 {
+    font-size: 25px;
+  }
+
+  .cs-company-facts {
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    padding: 0 14px;
+    background: transparent;
+  }
+
+  .cs-company-facts div {
+    padding: 10px 10px 10px 0;
+    border: 0;
+  }
+
+  .cs-company-facts div + div {
+    padding-left: 10px;
+    border-left: 1px solid rgb(var(--cs-c-212-197-158) / 0.44);
+  }
+}
+
+.cs-research-shell {
+  background: var(--color-field);
+}
+
+.cs-company-context,
+.cs-research-layer {
+  border-color: rgb(var(--cs-c-216-208-191) / 0.88);
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.95), rgb(var(--cs-c-252-250-245) / 0.83)),
+    var(--color-plate);
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.065),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.82) inset;
+}
+
+.cs-company-context::before {
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-255-255) / 0.28), transparent 50%),
+    linear-gradient(90deg, rgb(var(--cs-c-110-92-158) / 0.022), transparent 38%, rgb(var(--cs-c-216-208-191) / 0.16));
+  opacity: 1;
+}
+
+.cs-company-context-main {
+  gap: 18px;
+  padding: 20px 20px 18px;
+  border-bottom-color: rgb(var(--cs-c-216-208-191) / 0.68);
+}
+
+.cs-company-logo {
+  width: 60px;
+  height: 60px;
+  border-color: rgb(var(--cs-c-14-14-14-text) / 0.13);
+  border-radius: 8px;
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.84) inset;
+}
+
+.cs-company-logo .cs-company-logo-fallback {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 650;
+}
+
+.cs-company-context h1 {
+  color: var(--color-ink);
+  font-size: clamp(31px, 7.4vw, 42px);
+  font-weight: 650;
+  line-height: 0.94;
+}
+
+.cs-company-domain {
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 8px;
+  color: var(--color-seal);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.2;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-company-domain::after {
+  margin-left: 8px;
+  color: var(--color-seal);
+  content: "↗";
+  font-size: 12px;
+}
+
+.cs-company-context-main p:not(.cs-research-label) {
+  max-width: 42rem;
+  margin-top: 12px;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.72);
+  font-size: 14px;
+  line-height: 1.48;
+}
+
+.cs-company-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 0;
+  padding: 0 18px;
+  border-bottom: 1px solid rgb(var(--cs-c-216-208-191) / 0.68);
+  background: transparent;
+}
+
+.cs-company-facts div {
+  min-height: 0;
+  padding: 13px 12px 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-company-facts div + div {
+  padding-left: 18px;
+  border-left: 1px solid rgb(var(--cs-c-216-208-191) / 0.68);
+}
+
+.cs-company-facts div::after {
+  display: none;
+}
+
+.cs-company-facts dt,
+.cs-research-layer-head {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.72);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.cs-company-facts dd {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 620;
+  line-height: 1.08;
+}
+
+.cs-company-facts small {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.56);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.cs-people-line {
+  gap: 12px;
+  margin: 0 18px;
+  padding: 13px 0 17px;
+  border-top: 0;
+}
+
+.cs-people-line-head {
+  align-items: center;
+}
+
+.cs-people-line-source {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.65);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.cs-people-line-list {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cs-people-person {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 11px;
+  align-items: center;
+  min-height: 56px;
+  padding: 9px 11px;
+  border-color: rgb(var(--cs-c-216-208-191) / 0.70);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.80), rgb(var(--cs-c-252-250-245) / 0.68)),
+    rgb(var(--cs-c-250-250-247) / 0.74);
+}
+
+.cs-people-person[data-has-email="true"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.26);
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.86), rgb(var(--cs-c-246-250-255) / 0.72)),
+    rgb(var(--cs-c-110-92-158) / 0.045);
+}
+
+.cs-person-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.80);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.94), rgb(var(--cs-c-246-241-231) / 0.82)),
+    var(--color-plate);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.cs-person-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cs-people-name {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.cs-people-role {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-size: 12.5px;
+  line-height: 1.28;
+}
+
+.cs-people-more {
+  min-height: 42px;
+  border-radius: 8px;
+}
+
+.cs-research-layer-head {
+  padding: 13px 16px;
+  border-bottom-color: rgb(var(--cs-c-216-208-191) / 0.78);
+  font-size: 11px;
+}
+
+.cs-active-enrichments {
+  gap: 8px;
+  padding: 10px;
+}
+
+.cs-active-enrichment {
+  border-color: rgb(var(--cs-c-216-208-191) / 0.86);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.92), rgb(var(--cs-c-252-250-245) / 0.84)),
+    var(--color-plate);
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.045),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.82) inset;
+}
+
+.cs-active-enrichment[data-expanded="true"] {
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.07),
+    0 0 0 1px rgb(var(--cs-c-110-92-158) / 0.06),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.82) inset;
+}
+
+.cs-active-enrichment[data-state="running"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.18);
+  background:
+    linear-gradient(135deg, rgb(var(--cs-c-255-253-248) / 0.98), rgb(var(--cs-c-249-247-244) / 0.84)),
+    var(--color-plate);
+}
+
+.cs-active-enrichment[data-state="running"][data-expanded="false"] {
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05),
+    0 0 0 1px rgb(var(--cs-c-110-92-158) / 0.055),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.82) inset;
+}
+
+.cs-active-enrichment[data-state="running"][data-expanded="false"]::after {
+  position: absolute;
+  inset: -1px -18%;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 28%,
+      rgb(var(--cs-c-110-92-158) / 0.06) 43%,
+      rgb(var(--cs-c-255-253-248) / 0.30) 51%,
+      transparent 70%,
+      transparent 100%
+    );
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-42%, 0, 0);
+  will-change: transform, opacity;
+  z-index: 0;
+}
+
+.cs-active-enrichment::before {
+  left: 18px;
+  top: 18px;
+  bottom: 14px;
+  background: rgb(var(--cs-c-23-26-31) / 0.12);
+}
+
+.cs-active-enrichment-head {
+  min-height: 66px;
+  padding: 13px 18px 12px 18px;
+}
+
+.cs-active-dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  box-shadow: 0 0 0 8px rgb(var(--cs-c-110-92-158) / 0.06);
+}
+
+.cs-active-enrichment strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 620;
+}
+
+.cs-active-enrichment small {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  font-size: 12px;
+}
+
+.cs-active-enrichment-body {
+  padding: 0 14px 14px 44px;
+}
+
+.cs-active-enrichment-body p,
+.cs-layer-rows dd,
+.cs-layer-items p {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.88);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  border-color: rgb(var(--cs-c-216-208-191) / 0.78);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.78), rgb(var(--cs-c-252-250-245) / 0.64)),
+    rgb(var(--cs-c-250-250-247) / 0.70);
+}
+
+.cs-layer-rows dt {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
+  letter-spacing: 0.12em;
+}
+
+.cs-layer-items strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.cs-layer-items span {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
+  font-size: 10px;
+}
+
+.cs-layer-running-copy {
+  position: relative;
+  gap: 8px;
+  overflow: hidden;
+  padding: 2px 0 2px;
+}
+
+.cs-layer-running-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  width: 200%;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 16%,
+    rgb(var(--cs-c-110-92-158) / 0.025) 21%,
+    rgb(var(--cs-c-110-92-158) / 0.10) 24%,
+    rgb(var(--cs-c-255-253-248) / 0.46) 26%,
+    rgb(var(--cs-c-110-92-158) / 0.10) 28%,
+    rgb(var(--cs-c-110-92-158) / 0.025) 33%,
+    transparent 40%,
+    transparent 63%,
+    rgb(var(--cs-c-110-92-158) / 0.025) 69%,
+    rgb(var(--cs-c-110-92-158) / 0.10) 73%,
+    rgb(var(--cs-c-255-253-248) / 0.46) 75%,
+    rgb(var(--cs-c-110-92-158) / 0.10) 77%,
+    rgb(var(--cs-c-110-92-158) / 0.025) 81%,
+    transparent 88%,
+    transparent 100%
+  );
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+}
+
+/* Live elapsed timers tick every second; tabular figures keep their width
+   fixed so the status line holds still next to the moving sheen (and does
+   not lurch at 0:59 -> 1:00). */
+.cs-active-enrichment-head small,
+.cs-people-line-source {
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-layer-running-copy span {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 620;
+}
+
+.cs-layer-skeleton {
+  height: 5px;
+  background:
+    linear-gradient(90deg, rgb(var(--cs-c-216-208-191) / 0.28), rgb(var(--cs-c-110-92-158) / 0.095), rgb(var(--cs-c-216-208-191) / 0.24));
+}
+
+.cs-source-chip {
+  min-height: 24px;
+  max-width: 152px;
+  border-color: rgb(var(--cs-c-110-92-158) / 0.22);
+  border-radius: 7px;
+  background: rgb(var(--cs-c-110-92-158) / 0.06);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+}
+
+.cs-source-chip::before {
+  width: 5px;
+  height: 5px;
+}
+
+.cs-card-tray {
+  min-height: 0;
+  margin-top: 2px;
+}
+
+.cs-card-pile {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.cs-dormant-card {
+  grid-template-columns: 10px minmax(0, 1fr) 22px;
+  min-height: 52px;
+  border-color: rgb(var(--cs-c-216-208-191) / 0.84);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.98), rgb(var(--cs-c-252-250-245) / 0.95)),
+    var(--color-plate);
+  box-shadow:
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.88) inset;
+}
+
+.cs-dormant-card strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 620;
+}
+
+.cs-extension-button,
+.cs-extension-link-button,
+.cs-icon-button,
+.cs-cache-slug-link,
+.cs-start-primary,
+.cs-start-settings,
+.cs-active-enrichment-head,
+.cs-source-chip,
+.cs-people-more,
+.cs-research-notice button {
+  transition:
+    transform var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    background-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    border-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    box-shadow var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    opacity var(--cs-motion-feedback) var(--cs-motion-ease-out);
+}
+
+.cs-dormant-card {
+  transition:
+    background-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    border-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    box-shadow var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    opacity var(--cs-motion-feedback) var(--cs-motion-ease-out);
+}
+
+.cs-extension-button:active,
+.cs-extension-link-button:active,
+.cs-icon-button:active,
+.cs-start-primary:active,
+.cs-start-settings:active,
+.cs-active-enrichment-head:active,
+.cs-source-chip:active,
+.cs-people-more:active,
+.cs-research-notice button:active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cs-extension-button:hover,
+  .cs-extension-link-button:hover,
+  .cs-icon-button:hover,
+  .cs-start-primary:hover,
+  .cs-start-settings:hover,
+  .cs-research-notice button:hover {
+    transform: translateY(-1px);
+  }
+
+  .cs-cache-slug-link:hover {
+    color: rgb(var(--cs-c-86-70-132));
+    text-decoration-color: rgb(var(--cs-c-110-92-158) / 0.58);
+  }
+
+  .cs-source-chip:hover {
+    border-color: rgb(var(--cs-c-110-92-158) / 0.42);
+    background: rgb(var(--cs-c-110-92-158) / 0.09);
+  }
+
+  .cs-people-more:hover {
+    border-color: rgb(var(--cs-c-110-92-158) / 0.42);
+    background: rgb(var(--cs-c-110-92-158) / 0.11);
+  }
+
+  .cs-company-domain:hover {
+    color: var(--color-seal);
+  }
+
+  .cs-dormant-card:hover {
+    box-shadow:
+      0 6px 18px rgb(var(--cs-c-23-26-31) / 0.08),
+      0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.90) inset;
+  }
+}
+
+@media (max-width: 430px) {
+
+.cs-company-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  .cs-company-context-main {
+    gap: 14px;
+    padding: 17px;
+  }
+
+  .cs-company-context h1 {
+    font-size: 33px;
+  }
+
+  .cs-company-context-main p:not(.cs-research-label) {
+    font-size: 13.5px;
+  }
+
+  .cs-company-facts {
+    padding: 0 16px;
+  }
+
+  .cs-company-facts dd {
+    font-size: 16px;
+  }
+
+  .cs-active-enrichment strong {
+    font-size: 19px;
+  }
+}
