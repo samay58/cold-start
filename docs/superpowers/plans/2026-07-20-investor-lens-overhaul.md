@@ -102,11 +102,13 @@ gate?: {
 
 The persisted-trace schema is `.passthrough()` (`generation-trace.ts:233-236`), so no migration and old rows stay valid. The no-throw behavior when gated stays exactly as is (`!verifiedSynthesis && deps.synthesisRequired && !synthesisGated` guard untouched); what changes is that gating now happens only on the floor, and everything the gate computed reaches the trace.
 
-- [ ] **Step 1: Write failing tests.** Extend the existing gate tests: (a) news-only card (previously gated) now produces synthesis and the trace carries `gate.advisories` including `"single-source-class"`; (b) 5-citation card still gates, run does not throw, `gate.blocked === true` with `reasons: ["citation-floor"]` in the trace patch; (c) the legacy `gateMessage` field still carries a message when blocked (keep it for old readers).
-- [ ] **Step 2: Run and confirm fail.** `npm test -w @cold-start/pipeline -- generate-card`.
-- [ ] **Step 3: Implement.** Replace the inline gate body with a call to `synthesisGateDecision(card, minCitations)`; map decision into the trace patch; delete the now-dead inline field plumbing.
-- [ ] **Step 4: Run and confirm pass.** Plus `npm run typecheck`.
-- [ ] **Step 5: Commit.**
+- [x] **Step 1: Write failing tests.** Extend the existing gate tests: (a) news-only card (previously gated) now produces synthesis and the trace carries `gate.advisories` including `"single-source-class"`; (b) 5-citation card still gates, run does not throw, `gate.blocked === true` with `reasons: ["citation-floor"]` in the trace patch; (c) the legacy `gateMessage` field still carries a message when blocked (keep it for old readers).
+- [x] **Step 2: Run and confirm fail.** `npm test -w @cold-start/pipeline -- generate-card`.
+- [x] **Step 3: Implement.** Replace the inline gate body with a call to `synthesisGateDecision(card, minCitations)`; map decision into the trace patch; delete the now-dead inline field plumbing.
+- [x] **Step 4: Run and confirm pass.** Plus `npm run typecheck`.
+- [x] **Step 5: Commit.**
+
+**Done (2026-07-20):** Commit `a0cf128`. Pipeline 75/75, core 173/173, typecheck clean. Review approved. Test (b) reuses the existing 3-citation blocked fixture instead of the brief's 5 (same semantics). Floor-disabled bypass (`minCitations <= 0`) preserved; inline extraction logic deleted, `hasCitedFact` now lives only in core.
 
 ### Task 1.3: Gate study over prod cards (validation before the policy ships)
 
@@ -118,9 +120,11 @@ The persisted-trace schema is `.passthrough()` (`generation-trace.ts:233-236`), 
 - Consumes: `synthesisGateDecision` from Task 1.1; prod `cards.card_json` for the analysis-run population of the last 60 days.
 - Produces: a console report table: slug, old-gate outcome, new-gate outcome, reasons, advisories. No writes.
 
-- [ ] **Step 1: Implement the script.** Pull the cards for every `job_kind='analysis'` run in 60 days (dedupe by slug), run both old-condition logic and `synthesisGateDecision` over each, print the delta table. The 11 known withheld slugs (moonshot, generaltranslation, fanttik x2, nuoathletics, heynox, timescaledb x3, aside x2) must appear.
-- [ ] **Step 2: Run it and record the finding here.** Expected shape: most of the 11 flip to advisory-synthesis; any card the NEW gate still blocks gets a one-line justification (genuinely under-cited). If the floor of 8 blocks a card that plainly deserves a read, raise that as a decision question before proceeding; do not silently tune the floor.
-- [ ] **Step 3: Commit the script.**
+- [x] **Step 1: Implement the script.** Pull the cards for every `job_kind='analysis'` run in 60 days (dedupe by slug), run both old-condition logic and `synthesisGateDecision` over each, print the delta table. The 11 known withheld slugs (moonshot, generaltranslation, fanttik x2, nuoathletics, heynox, timescaledb x3, aside x2) must appear.
+- [x] **Step 2: Run it and record the finding here.** Expected shape: most of the 11 flip to advisory-synthesis; any card the NEW gate still blocks gets a one-line justification (genuinely under-cited). If the floor of 8 blocks a card that plainly deserves a read, raise that as a decision question before proceeding; do not silently tune the floor.
+- [x] **Step 3: Commit the script.**
+
+**Finding (2026-07-20):** 55 cards studied (60-day analysis population). Old gate blocked 14; new gate blocks 4; 10 flip to synthesize, 0 regressions (old-pass never becomes new-block). All 11 known withheld runs (7 slugs) present and every one flips to synthesize-with-advisories. The 4 still blocked are genuinely thin: casaphq, daytona, inkeep at 2-5 citations vs floor 8; oboe at 2 citations with zero non-enrichment source types. No card the new floor blocks deserves a read, so no floor-tuning decision was raised. Reviewer independently recounted the table; numbers match. Full table: `.superpowers/sdd/task-1.3-report.md`. **Done (2026-07-20):** commit `831e75b`, review approved.
 
 ### Task 1.4: Withheld record on the card, stripped from public
 
