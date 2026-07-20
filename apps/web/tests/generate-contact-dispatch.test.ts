@@ -269,9 +269,9 @@ async function runGeneration(
   process.env.CONTACT_ENRICHMENT_ENABLED = contactEnabled;
   process.env.CONTACT_ENRICHMENT_TIER = "named-only";
 
-  const { generateCardFunction } = await import("../src/inngest/functions");
+  const { generateCardHandler } = await import("../src/inngest/functions");
   const harness = stepHarness(harnessOptions);
-  await generateCardFunction.fn({
+  await generateCardHandler({
     event: {
       id: "evt_modal",
       ts: Date.parse(generatedAt),
@@ -844,9 +844,9 @@ async function runBlockEnrichment(
   process.env.CONTACT_ENRICHMENT_ENABLED = contactEnabled;
   process.env.CONTACT_ENRICHMENT_TIER = "named-only";
 
-  const { cardEnrichmentFunction } = await import("../src/inngest/card-enrichment");
+  const { cardEnrichmentHandler } = await import("../src/inngest/card-enrichment");
   const harness = stepHarness();
-  await cardEnrichmentFunction.fn({
+  await cardEnrichmentHandler({
     event: {
       id: "evt_enrich",
       ts: Date.parse(generatedAt),
