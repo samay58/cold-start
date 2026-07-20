@@ -55,11 +55,7 @@ const allowedAdvisorySources = new Set([
   1121242,
   1121245,
   1121250,
-  1121255,
-  // @opentelemetry/otlp-transformer 0.216.0 (via inngest 3.x) pins protobufjs to exactly 8.0.1;
-  // fixed line is 8.5.1+. Cleared by the inngest 4 upgrade; keep visible until then.
-  1123487,
-  1123489
+  1121255
 ]);
 
 const result = spawnSync("npm", ["audit", "--omit=dev", "--json"], {
