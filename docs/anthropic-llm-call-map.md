@@ -1,17 +1,17 @@
 # Anthropic / LLM Call Map
 
-Every place Cold Start calls Anthropic's API or any LLM. First mapped at commit `66362f0` (2026-06-11); updated the same day for per-stage provider routing. Line numbers drift; the stable identifiers are the trace `stage`, `label`, and `provider` values, which are recorded on every call.
+Every place Cold Start calls Anthropic's API or any LLM. First mapped at commit `66362f0` (2026-06-11); updated the same day for per-stage provider routing, and on 2026-07-20 for person reads and OpenRouter. Line numbers drift; the stable identifiers are the trace `stage`, `label`, and `provider` values, which are recorded on every call.
 
-The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 134 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly six call functions wrapping that chokepoint, five of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there is one more direct Anthropic caller (a cache diagnostic script) and the provider-matrix replay harness which calls the same six functions over frozen fixtures.
+The one-sentence summary: every production LLM call goes through a single provider-aware chokepoint, `createTracedAnthropicMessage` in `packages/llm/src/anthropic.ts` (`client.messages.create` at line 134 for Anthropic models; provider-prefixed model strings dispatch to the OpenAI-compat adapter). There are exactly seven call functions wrapping that chokepoint, six of them live, one dormant. Anthropic is the default provider for every stage; DeepSeek or any OpenAI-compatible host can be flipped in per stage via env. Outside production there is one more direct Anthropic caller (a cache diagnostic script) and the provider-matrix replay harness which calls the same stage functions over frozen fixtures.
 
 ## The chokepoint and routing: packages/llm/src/
 
 Four files own the client, routing, caching, cost estimation, and telemetry:
 
 - **`anthropic.ts`**: the chokepoint. `createTracedAnthropicMessage` (line 107) resolves the model string; unprefixed models run the Anthropic path exactly as before (1h-cache beta header, `estimateAnthropicCostUsd`); prefixed models (`deepseek/...`) delegate to the adapter with the same Anthropic-native params. The `client` argument is unused on non-Anthropic routes (kept to avoid call-site churn). `createAnthropicClient` builds the SDK client from `ANTHROPIC_API_KEY`; `anthropicModel` reads `ANTHROPIC_MODEL` (`claude-sonnet-4-6` currently). `modelForStage` in `llm-provider.ts` is the only stage-to-model resolver.
-- **`llm-provider.ts`**: routing. `parseModelString` splits `provider/model` on the first slash (unprefixed = anthropic). `modelForStage` is the canonical per-stage resolver (env chains below). `providerConfigFor` maps a provider to its key/base-URL envs, with defaults for `deepseek` (incl. the mandatory `thinking: {type:"disabled"}` extra body; DeepSeek v4 defaults to thinking-enabled, which rejects the `temperature` our stages send), `fireworks`, `together`, and a generic `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` scheme for anything else. `withSchemaRetry` re-asks ONCE when a non-Anthropic model returns unparseable output (ZodError, JSON SyntaxError, missing tool use); Anthropic calls never retry, preserving the original semantics.
-- **`openai-compat.ts`**: the adapter. Raw fetch to `{baseUrl}/chat/completions` (no SDK dependency), translating Anthropic-native params (system blocks → system message, `cache_control` dropped since these providers prefix-cache automatically, forced `tool_choice {type:"tool"}` → `{type:"function"}`) and translating responses back to the Message shape the stage parsers read (`tool_calls` → `tool_use` blocks). Usage maps DeepSeek's `prompt_cache_hit/miss_tokens` into the Anthropic usage shape. Retries mirror direct-exa: 3 attempts on 429/5xx/network/timeout, none on other 4xx. Timeout 120s, env `LLM_OPENAI_COMPAT_TIMEOUT_MS`.
-- **`pricing.ts`**: non-Anthropic pricing registry (DeepSeek v4-flash/pro rows, verified 2026-06-11). Unknown models → trace omits `estimatedCostUsd`. The Anthropic table stays in `anthropic.ts` (haiku 1/5, sonnet 3/15, opus-4-5/6/7 5/25, other opus 15/75 USD per million, cache-creation multipliers 1.25x/2x, cache-read 0.1x). **Add a pricing row whenever a model joins the eval matrix.**
+- **`llm-provider.ts`**: routing. `parseModelString` splits `provider/model` on the first slash (unprefixed = anthropic). `modelForStage` is the canonical per-stage resolver (env chains below). `providerConfigFor` maps a provider to its key/base-URL envs, with defaults for `deepseek` (incl. the mandatory `thinking: {type:"disabled"}` extra body; DeepSeek v4 defaults to thinking-enabled, which rejects the `temperature` our stages send), `fireworks`, `together`, `openrouter` (base `https://openrouter.ai/api/v1`, key `OPENROUTER_API_KEY`; every call sends `usage: {include: true}` so responses carry OpenRouter's billed `usage.cost`), and a generic `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` scheme for anything else. `quirksForModel` holds per-model request quirks (dropping `temperature`/`top_p`, a `max_tokens` floor for reasoning models, downgrading a named forced `tool_choice` to `"required"` when thinking rejects it); add a row there for a new reasoning-mandatory model, never a special case in the adapter. `withSchemaRetry` re-asks ONCE when a non-Anthropic model returns unparseable output (ZodError, JSON SyntaxError, missing tool use); Anthropic calls never retry, preserving the original semantics.
+- **`openai-compat.ts`**: the adapter. Raw fetch to `{baseUrl}/chat/completions` (no SDK dependency), translating Anthropic-native params (system blocks → system message, `cache_control` dropped since these providers prefix-cache automatically, forced `tool_choice {type:"tool"}` → `{type:"function"}`) and translating responses back to the Message shape the stage parsers read (`tool_calls` → `tool_use` blocks). Usage maps DeepSeek's `prompt_cache_hit/miss_tokens` into the Anthropic usage shape, and when a provider reports billed `usage.cost` (OpenRouter does), the traced cost prefers that over the `pricing.ts` estimate. Retries mirror direct-exa: 3 attempts on 429/5xx/network/timeout, none on other 4xx. Timeout 120s, env `LLM_OPENAI_COMPAT_TIMEOUT_MS`.
+- **`pricing.ts`**: non-Anthropic pricing registry (DeepSeek v4-flash/pro rows verified 2026-06-11; OpenRouter Kimi K3 row verified 2026-07-18). Unknown models → trace omits `estimatedCostUsd`. The Anthropic table stays in `anthropic.ts` (haiku 1/5, sonnet 3/15, opus-4-5/6/7 5/25, other opus 15/75 USD per million, cache-creation multipliers 1.25x/2x, cache-read 0.1x). **Add a pricing row whenever a model joins the eval matrix.**
 - **`call-trace.ts`**: shared `GenerationLlmCallTrace` builder used by both paths; every call now records `provider` (absent on rows written before routing existed; absence means anthropic).
 
 Stage env chains, resolved by `modelForStage` (zero env changes = all-Anthropic behavior, byte-identical):
@@ -23,13 +23,14 @@ Stage env chains, resolved by `modelForStage` (zero env changes = all-Anthropic 
 | `verify` | `LLM_VERIFIER_MODEL` | `ANTHROPIC_VERIFIER_MODEL` | `ANTHROPIC_MODEL` |
 | `synthesis` | `LLM_SYNTHESIS_MODEL` | `ANTHROPIC_SYNTHESIS_MODEL` | `ANTHROPIC_MODEL` |
 | `research_section` | `LLM_RESEARCH_SECTION_MODEL` | `LLM_SYNTHESIS_MODEL`, then `ANTHROPIC_SYNTHESIS_MODEL` | `ANTHROPIC_MODEL` |
+| `person_read` | `LLM_PERSON_READ_MODEL` | `LLM_SYNTHESIS_MODEL`, then `ANTHROPIC_SYNTHESIS_MODEL` | `ANTHROPIC_MODEL` |
 | `research_plan` (dormant) | `LLM_RESEARCH_PLAN_MODEL` | `ANTHROPIC_RESEARCH_PLAN_MODEL` | `ANTHROPIC_MODEL` |
 
 `anthropicSystemCacheControl()` still attaches `cache_control: { type: "ephemeral", ttl: "1h" }` at every call site (override `ANTHROPIC_CACHE_TTL=5m`); the chokepoint adds the `anthropic-beta: extended-cache-ttl-2025-04-11` header when 1h resolves, Anthropic path only.
 
 `investor-taste-kernel.ts` and `evidence-budget.ts` make no API calls. The kernel exports two shared system-prompt strings (`investorTasteKernel`, prefixed to extraction and research-section prompts, and `researchPlannerSystemPrompt` for the dormant planner). Evidence-budget trims source text to a prompt character budget (`EXTRACTION_EVIDENCE_BUDGET_CHARS`).
 
-## The six call functions in packages/llm
+## The seven call functions in packages/llm
 
 Every one funnels through the chokepoint. All use forced tool choice for structured output except the verifier, which parses a plain JSON text response.
 
@@ -41,8 +42,9 @@ Every one funnels through the chokepoint. All use forced tool choice for structu
 | 4 | `synthesizeCard` | `synthesis.ts:285` | `synthesis` | `synthesize-card` | 2500 | 0.2 | `emit_investor_synthesis` | live |
 | 5 | `verifySynthesis` | `verifier.ts:100` | `verify` | `verify-synthesis` | 2000 | 0 | none (JSON text) | live |
 | 6 | `synthesizeResearchSection` | `research-section.ts:165` | `research_section` | `research-section:{sectionId}` | 1800 | 0 | `emit_research_section` | live |
+| 7 | `synthesizePersonReads` | `person-read.ts:154` | `person_read` | `synthesize-person-reads` | 220/person, floor-and-cap guarded | 0 | `emit_person_reads` | live |
 
-Functions 2, 3, and 5 (the cheap-provider flip targets) wrap their call-and-parse in `withSchemaRetry`, so a non-Anthropic model gets one re-ask on unparseable output; on Anthropic models the wrapper is a no-op.
+Functions 2 through 5 wrap their call-and-parse in `withSchemaRetry`, so a non-Anthropic model gets one re-ask on unparseable output; on Anthropic models the wrapper is a no-op. Functions 6 and 7 do not wrap it.
 
 Purposes:
 
@@ -52,6 +54,7 @@ Purposes:
 4. **Card synthesis**: from the finished cited card, write the gated investor layer: `whyItMatters`, 3 bull case claims, 3 bear case claims, sparse `marketStructureAndTiming`, and 3 categorized open questions. Every claim must carry citation markers that exist on the card (`assertSynthesisCitationsExistOnCard`, `synthesis.ts:273`). The only call with non-zero temperature.
 5. **Synthesis verification**: LLM-as-judge over the synthesis claims against citation snippets, returning supported/contradicted/unsupported per claim. `applyVerifierResults` (`verifier.ts:56`) then drops everything not exactly-once-supported; the pipeline never restores drops.
 6. **Research section**: write one extension research-layer section (schema in `packages/core/src/research-sections.ts`) from stored card evidence, with permission to return `status: "empty"` when evidence is weak. It has its own `research_section` stage (split from `synthesis` when provider routing landed) and its own `LLM_RESEARCH_SECTION_MODEL` env, falling back to `ANTHROPIC_SYNTHESIS_MODEL` so unset envs preserve the old aliasing. Traces written before the split carry stage `synthesis` with a `research-section:` label prefix.
+7. **Person reads** (added 2026-07-05, live): one batched call per contact-enrichment run turning cited people plus their source snippets into the short `read` line on each person dossier. Runs inside the contact-enrichment worker's `person-reads` step, validated per person and suppressed on thin evidence. `max_tokens` scales with the batch instead of staying flat.
 
 ## Where production calls happen: apps/web/src/inngest/
 
@@ -73,8 +76,9 @@ Expected Anthropic calls per run:
 | `analysis`, fresh | 3 to 8 (1 `extract_full` + 0-5 `extract_block` + 1 `synthesis` + 1 `verify`) |
 | `analysis`, reusing stored profile | 2 (1 `synthesis` + 1 `verify`) |
 | Section job | 1 or 0 (`research-section:{id}`, skipped when evidence is empty) |
+| Contact enrichment | 1 or 0 (`person_read`, one batched call; skipped when disabled or no cited people) |
 
-`contactEnrichmentFunction` (`apps/web/src/inngest/contact-enrichment.ts:313`) makes zero LLM calls; it is provider-only. The seed profile step (`seed-profile-card`, `functions.ts:663`, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
+`contactEnrichmentFunction` (apps/web/src/inngest/contact-enrichment.ts) makes at most one LLM call: its `person-reads` step batches every cited person into a single `synthesizePersonReads` call, skipped when `PERSON_READS_ENABLED=false` (default on) or no people qualify. Everything else in that worker is provider-only. The seed profile step (`seed-profile-card`, `functions.ts:663`, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
 
 ## Direct Anthropic callers outside production
 
@@ -103,10 +107,11 @@ Per-stage provider routing (the `LLM_*_MODEL` env chains) is the only non-Anthro
 |---|---|
 | `ANTHROPIC_API_KEY` | required for any Anthropic call |
 | `ANTHROPIC_MODEL` | default model for every stage (`claude-sonnet-4-6` currently) |
-| `LLM_EXTRACT_MODEL`, `LLM_BLOCK_MODEL`, `LLM_VERIFIER_MODEL`, `LLM_SYNTHESIS_MODEL`, `LLM_RESEARCH_SECTION_MODEL`, `LLM_RESEARCH_PLAN_MODEL` | per-stage provider routing; accept `provider/model` strings; checked before the ANTHROPIC_* equivalents |
+| `LLM_EXTRACT_MODEL`, `LLM_BLOCK_MODEL`, `LLM_VERIFIER_MODEL`, `LLM_SYNTHESIS_MODEL`, `LLM_RESEARCH_SECTION_MODEL`, `LLM_PERSON_READ_MODEL`, `LLM_RESEARCH_PLAN_MODEL` | per-stage provider routing; accept `provider/model` strings; checked before the ANTHROPIC_* equivalents |
 | `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, `ANTHROPIC_RESEARCH_PLAN_MODEL` | legacy per-stage overrides, second in the chain |
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL` | DeepSeek credentials (base defaults to `https://api.deepseek.com`) |
-| `FIREWORKS_API_KEY`, `TOGETHER_API_KEY`, `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` | other OpenAI-compatible hosts |
+| `FIREWORKS_API_KEY`, `TOGETHER_API_KEY`, `OPENROUTER_API_KEY`, `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` | other OpenAI-compatible hosts |
+| `PERSON_READS_ENABLED` | `false` disables the person-reads step in contact enrichment (default on) |
 | `LLM_OPENAI_COMPAT_TIMEOUT_MS` | adapter request timeout (default 120000) |
 | `ANTHROPIC_CACHE_TTL` | `1h` (default) or `5m` system-prompt cache, Anthropic path only |
 | `EXTRACTION_EVIDENCE_BUDGET_CHARS` | prompt-size budget for extraction and research-section evidence |
@@ -119,7 +124,7 @@ Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Verc
 
 ## The provider-matrix replay harness: eval/provider-matrix/
 
-`npm run eval:providers:bundles` (read-only DB SELECTs) freezes real cards, their stored sources (`sources.raw_text`), and reference traces into `fixtures/{slug}.json`. `npm run eval:providers:matrix` replays the REAL stage functions (#2, #3, #5 above) over those fixtures across a model list, scoring schema validity, citation discipline, funding verbatim-faithfulness, fill rate, verify false-drop rate, cost, and latency into `runs/{ts}/report.md`. Matrix runs spend LLM tokens only; retrieval already happened in production. Fixtures and runs are gitignored (they contain scraped source text).
+`npm run eval:providers:bundles` (read-only DB SELECTs) freezes real cards, their stored sources (`sources.raw_text`), and reference traces into `fixtures/{slug}.json`. `npm run eval:providers:matrix` replays the REAL stage functions over those fixtures across a model list (default `--stages extract_full,extract_block,verify`, i.e. #2, #3, #5; `synthesis` and `research_section` replay #4 and #6 as judgment stages with a fixed judge model), scoring schema validity, citation discipline, funding verbatim-faithfulness, fill rate, verify false-drop rate, cost, and latency into `runs/{ts}/report.md`. Matrix runs spend LLM tokens only; retrieval already happened in production. Fixtures and runs are gitignored (they contain scraped source text).
 
 ## Invariants to preserve when touching any of this
 
