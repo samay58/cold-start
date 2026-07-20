@@ -86,6 +86,10 @@ type CellResult = {
   // Set only on synthesis cells: the paired verify judge's own cost, kept separate from costUsd
   // (candidate cost) so a model's price/performance row never silently includes judge spend.
   judgeCostUsd?: number | null;
+  // Set only on synthesis cells when the judge call itself throws (no-text-block, zod failure
+  // after its single schema retry, network exhaustion). The cell still stays ok: true; a judge
+  // failure is not a candidate failure, so this is purely informational.
+  judgeError?: string;
   score?: ReturnType<typeof scoreExtraction> | ReturnType<typeof scoreVerify> | ReturnType<typeof scoreSynthesis> | ReturnType<typeof scoreResearchSection>;
   // Set only on synthesis and research_section cells (captureOutput): the raw generated content,
   // read by writeSideBySide for the blind read. Extraction cells never carry this; their sections
@@ -407,16 +411,26 @@ async function main() {
                 telemetry: (call) => candidateCalls.push(call),
               });
               const freshClaims = synthesisClaims(freshSynthesis);
-              const verifierResults =
-                freshClaims.length > 0
-                  ? await verifySynthesis({
-                      client: anthropic,
-                      model: judgeModel,
-                      claims: freshClaims,
-                      sources: citationSources,
-                      telemetry: (call) => judgeCalls.push(call),
-                    })
-                  : [];
+              // The judge call gets its own try/catch: a candidate that synthesized successfully
+              // must never be blamed (ok: false) for a judge-side failure. On judge failure the
+              // cell stays ok: true, keeps the candidate's fresh synthesis, and scores with an
+              // empty verifierResults (verifierSurvivalRate becomes null, not zero), so a judge
+              // outage never poisons the model comparison this harness exists to produce.
+              let verifierResults: Awaited<ReturnType<typeof verifySynthesis>> = [];
+              let judgeError: string | undefined;
+              if (freshClaims.length > 0) {
+                try {
+                  verifierResults = await verifySynthesis({
+                    client: anthropic,
+                    model: judgeModel,
+                    claims: freshClaims,
+                    sources: citationSources,
+                    telemetry: (call) => judgeCalls.push(call),
+                  });
+                } catch (error) {
+                  judgeError = (error instanceof Error ? error.message : String(error)).slice(0, 300);
+                }
+              }
               const cardCitationIds = fixture.card.citations.map((citation) => citation.id);
               return {
                 ...base,
@@ -425,6 +439,7 @@ async function main() {
                 durationMs: Date.now() - startedAt,
                 costUsd: sumCost(candidateCalls),
                 judgeCostUsd: sumCost(judgeCalls),
+                ...(judgeError ? { judgeError } : {}),
                 score: scoreSynthesis({ synthesis: freshSynthesis, verifierResults, cardCitationIds }),
                 output: { synthesis: freshSynthesis, verifierResults },
               };
