@@ -193,6 +193,5 @@ export async function fetchStableenrichEmailPatternSources(input: {
   };
 }
 
-export { buildStableenrichRequests, createAgentcashBudgetState, missingStableenrichConfig, providerSourceFromText, runStableenrichProbe } from "./stableenrich/core";
-export type { AgentcashBudgetState, StableenrichEmailDiscovery, StableenrichEmailPatternResult, StableenrichProbeFailure, StableenrichSourcesResult } from "./stableenrich/core";
-export { collectStableenrichSources } from "./stableenrich/facts";
+export { buildStableenrichRequests, missingStableenrichConfig, providerSourceFromText, runStableenrichProbe } from "./stableenrich/core";
+export type { StableenrichEmailDiscovery, StableenrichEmailPatternResult, StableenrichProbeFailure, StableenrichSourcesResult } from "./stableenrich/core";
