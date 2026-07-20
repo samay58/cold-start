@@ -16,18 +16,18 @@ import {
 import { Clippings } from "./Clippings";
 import { clippingsFromEvents, clippingsFromSources } from "./clipping-model";
 import { earlyReadState, formatSavedDate } from "./company-display";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary, GenerationStatus } from "../extension-config";
-import { profileSummaryCopy } from "../extension-format";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary, GenerationStatus } from "../shared/extension-config";
+import { profileSummaryCopy } from "../shared/extension-format";
 import { filedSourceCount } from "./first-payoff-events";
-import { ProgressBackground } from "../ProgressBackground";
+import { ProgressBackground } from "../shared/ProgressBackground";
 import { ReadRegion } from "./ReadRegion";
 import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "../research/research-layer";
 import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "../research/research-progress";
 import { ResearchTrail } from "../research/ResearchTrail";
 import { SealInstrument } from "./SealInstrument";
-import { SharedTooltip, useSharedTooltip } from "../SharedTooltip";
-import { motionTokens } from "../motion-primitives";
-import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
+import { SharedTooltip, useSharedTooltip } from "../shared/SharedTooltip";
+import { motionTokens } from "../shared/motion-primitives";
+import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 
 const ResearchLayerPanel = lazy(() =>
   import("../research/ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))

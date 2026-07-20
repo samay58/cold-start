@@ -4,9 +4,9 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { readableCompanyName, sourceLabel, websiteLabel } from "./company-display";
-import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../extension-format";
+import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
 import { fundingEvidenceFromCitations } from "@cold-start/core";
-import type { TooltipDossier, TooltipPropsFor } from "../SharedTooltip";
+import type { TooltipDossier, TooltipPropsFor } from "../shared/SharedTooltip";
 
 type CompanyHeaderPhase = "intake" | "building" | "profile";
 

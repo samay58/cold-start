@@ -6,7 +6,7 @@ import {
   sealLevelFromEvents,
   whisperCopyFromEvents
 } from "../src/research/research-progress";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
 
 function event(input: Partial<ExtensionResearchRunEvent> & Pick<ExtensionResearchRunEvent, "id" | "type">): ExtensionResearchRunEvent {
   return {

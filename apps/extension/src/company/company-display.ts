@@ -1,5 +1,5 @@
 import { hasUsablePublicProfile, type ColdStartCard } from "@cold-start/core";
-import type { ExtensionResearchRunEvent } from "../extension-config";
+import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import { firstPayoffForEvents, firstPayoffIsFiled } from "./first-payoff-events";
 
 export function sourceLabel(count: number) {

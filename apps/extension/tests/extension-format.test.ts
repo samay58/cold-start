@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactProfileSummary, formatElapsed, formatOptionalCurrency, profileSummaryCopy } from "../src/extension-format";
+import { compactProfileSummary, formatElapsed, formatOptionalCurrency, profileSummaryCopy } from "../src/shared/extension-format";
 
 describe("extension formatting", () => {
   it("formats elapsed run time", () => {

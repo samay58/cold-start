@@ -8,7 +8,7 @@ import {
 import { AnimatePresence, animate, motion, useMotionValue, type PanInfo } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { commitSpring, motionTokens, snapSpring } from "../motion-primitives";
+import { commitSpring, motionTokens, snapSpring } from "../shared/motion-primitives";
 import {
   RESEARCH_LAYER_CARDS,
   layerDisplayForCard,
@@ -22,16 +22,16 @@ import {
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
 import { showPartialProfileGate, sourceLabel } from "../company/company-display";
-import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "../extension-format";
-import type { ExtensionResearchRunEvent } from "../extension-config";
+import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "../shared/extension-format";
+import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import {
   investorReadForCard,
   LENS_WAITS_FOR_PROFILE_REASON,
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
-import type { TooltipPropsFor } from "../SharedTooltip";
-import { usePrefersReducedMotion } from "../usePrefersReducedMotion";
+import type { TooltipPropsFor } from "../shared/SharedTooltip";
+import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 
 type AnalysisRun = {
   generationStatus: "queued" | "running";

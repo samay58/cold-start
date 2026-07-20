@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveTheme } from "../src/theme";
+import { resolveTheme } from "../src/shared/theme";
 
 describe("resolveTheme precedence", () => {
   it("lets a manual dark preference win over OS light", () => {

@@ -3,7 +3,7 @@
 import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pollGenerationUntilCard, startSectionGenerationAndPoll } from "../src/sidepanel-network";
-import type { ExtensionResearchRunEvent, Settings } from "../src/extension-config";
+import type { ExtensionResearchRunEvent, Settings } from "../src/shared/extension-config";
 
 const settings: Settings = {
   apiOrigin: "http://localhost:3000",

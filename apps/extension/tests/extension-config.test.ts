@@ -14,7 +14,7 @@ import {
   storedApiOriginOrDefault,
   storedApiTokenOrDefault,
   storedSettingsOrDefault
-} from "../src/extension-config";
+} from "../src/shared/extension-config";
 
 describe("defaultApiOrigin", () => {
   it("uses the production API origin for production builds without an override", () => {

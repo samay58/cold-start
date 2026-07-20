@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clippingsFromEvents, clippingsFromSources, faviconUrl } from "../src/company/clipping-model";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
 
 function event(
   input: Partial<ExtensionResearchRunEvent> & Pick<ExtensionResearchRunEvent, "id" | "type">

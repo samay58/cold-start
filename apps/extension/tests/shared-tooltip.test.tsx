@@ -3,8 +3,8 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SharedTooltip, useSharedTooltip } from "../src/SharedTooltip";
-import type { TooltipDossier, TooltipTriggerProps } from "../src/SharedTooltip";
+import { SharedTooltip, useSharedTooltip } from "../src/shared/SharedTooltip";
+import type { TooltipDossier, TooltipTriggerProps } from "../src/shared/SharedTooltip";
 
 type Interaction = ReturnType<typeof useSharedTooltip>["tooltipInteraction"];
 

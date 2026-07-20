@@ -530,7 +530,7 @@ describe("SidePanel generation gate", () => {
   });
 
   it("renders a session-cached card before network revalidation", async () => {
-    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/shared/extension-config");
     const cachedCard = cardForDomain("linear.app");
     const resolvedApiOrigin = storedApiOriginOrDefault(
       settings.coldStartApiOrigin,
@@ -575,7 +575,7 @@ describe("SidePanel generation gate", () => {
   });
 
   it("renders a durable local card before network revalidation", async () => {
-    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/shared/extension-config");
     const cachedCard = cardForDomain("linear.app");
     cachedCard.identity.name.value = "Cached Linear";
     const serverCard = cardForDomain("linear.app");
@@ -621,7 +621,7 @@ describe("SidePanel generation gate", () => {
   });
 
   it("keeps a durable local card visible when bootstrap revalidation fails", async () => {
-    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/extension-config");
+    const { defaultApiOrigin, storedApiOriginOrDefault } = await import("../src/shared/extension-config");
     const cachedCard = cardForDomain("linear.app");
     cachedCard.identity.name.value = "Cached Linear";
     const resolvedApiOrigin = storedApiOriginOrDefault(

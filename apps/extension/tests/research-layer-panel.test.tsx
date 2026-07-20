@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyArc } from "../src/company/CompanyArc";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/extension-config";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
   return {

@@ -1,5 +1,5 @@
 import { parseFirstPayoff, type FirstPayoff } from "@cold-start/core";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../extension-config";
+import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../shared/extension-config";
 import { currentProfileProgressEvents } from "../research/research-progress";
 
 const filedEventTypes = new Set(["card.saved", "card.enriched"]);

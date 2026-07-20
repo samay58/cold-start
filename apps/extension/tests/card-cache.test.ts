@@ -1,7 +1,7 @@
 import { COLD_START_API_CONTRACT_VERSION, type ColdStartCard } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearCachedCards, readCachedCard, writeCachedCard } from "../src/card-cache";
-import type { Settings } from "../src/extension-config";
+import { clearCachedCards, readCachedCard, writeCachedCard } from "../src/shared/card-cache";
+import type { Settings } from "../src/shared/extension-config";
 
 const settings: Settings = {
   apiOrigin: "http://localhost:3000",

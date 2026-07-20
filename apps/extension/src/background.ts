@@ -1,12 +1,12 @@
-import { activeTabDomain } from "./domain";
+import { activeTabDomain } from "./shared/domain";
 import {
   buildBootstrapRequest,
   defaultApiOrigin,
   parseBootstrapResponse,
   resolveStoredSettings,
   type Settings
-} from "./extension-config";
-import { writeCachedCard } from "./card-cache";
+} from "./shared/extension-config";
+import { writeCachedCard } from "./shared/card-cache";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;

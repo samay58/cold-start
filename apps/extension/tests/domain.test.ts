@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeTabDomain } from "../src/domain";
+import { activeTabDomain } from "../src/shared/domain";
 
 describe("activeTabDomain", () => {
   it("normalizes a tab URL hostname", () => {

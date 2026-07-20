@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { commitSpring, motionTokens } from "../motion-primitives";
+import { commitSpring, motionTokens } from "../shared/motion-primitives";
 
 type SealLevel = 0 | 1 | 2 | 3 | 4;
 

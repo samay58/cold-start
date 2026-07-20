@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Clippings } from "../src/company/Clippings";
 import { SealInstrument } from "../src/company/SealInstrument";
 import { clippingsFromEvents, type Clipping } from "../src/company/clipping-model";
-import type { ExtensionResearchRunEvent } from "../src/extension-config";
+import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 
 let cleanup: (() => Promise<void>) | null = null;
 

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import type { ExtensionResearchRunEvent } from "../extension-config";
+import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,

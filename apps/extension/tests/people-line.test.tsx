@@ -5,7 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PeopleLine } from "../src/company/CompanyHeader";
-import type { TooltipDossier } from "../src/SharedTooltip";
+import type { TooltipDossier } from "../src/shared/SharedTooltip";
 
 type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
 

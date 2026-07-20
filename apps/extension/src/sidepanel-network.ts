@@ -23,8 +23,8 @@ import {
   type GenerationRunStatus,
   type GenerationStatus,
   type Settings
-} from "./extension-config";
-import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
+} from "./shared/extension-config";
+import { INSUFFICIENT_EVIDENCE_NOTICE } from "./shared/extension-format";
 
 // Production analysis/basics runs can legitimately take 4-7 minutes (observed p95 well above the
 // old 4-minute wall, max ~414s). The card now persists server-side near the end of a run, so when

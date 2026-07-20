@@ -15,14 +15,14 @@ import {
   type GenerationRunStatus,
   type GenerationStatus,
   type Settings
-} from "./extension-config";
-import { clearCachedCards, readCachedCard, writeCachedCard } from "./card-cache";
-import { BrandMark } from "./BrandMark";
+} from "./shared/extension-config";
+import { clearCachedCards, readCachedCard, writeCachedCard } from "./shared/card-cache";
+import { BrandMark } from "./shared/BrandMark";
 import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
 import { CompanyLogo } from "./company/CompanyLogo";
-import { INSUFFICIENT_EVIDENCE_NOTICE } from "./extension-format";
+import { INSUFFICIENT_EVIDENCE_NOTICE } from "./shared/extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
-import { useTheme, type ThemePreference } from "./theme";
+import { useTheme, type ThemePreference } from "./shared/theme";
 import {
   fetchBootstrap,
   isActiveRun,
@@ -36,8 +36,8 @@ import {
   startSectionGenerationAndPoll,
   type GenerationStatusListener
 } from "./sidepanel-network";
-import { motionTokens } from "./motion-primitives";
-import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
+import { motionTokens } from "./shared/motion-primitives";
+import { usePrefersReducedMotion } from "./shared/usePrefersReducedMotion";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
