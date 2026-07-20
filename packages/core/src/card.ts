@@ -150,6 +150,19 @@ export const synthesisSchema = z.object({
   marketStructureAndTiming: marketStructureAndTimingSchema.optional()
 });
 
+// Durable record of a synthesis-floor block: written by the pipeline when the gate refuses
+// to run synthesis for insufficient evidence, cleared the next time a run produces synthesis.
+// Metadata about the run, not a citation-bearing fact, so it carries no `citationIds` field
+// and validateCitationRefs below skips it like any other plain value. Stripped from the
+// public card alongside synthesis.
+export const synthesisWithheldSchema = z.object({
+  at: z.string().datetime(),
+  reasons: z.array(z.string()),
+  advisories: z.array(z.string()),
+  citationCount: z.number().int().nonnegative(),
+  sourceTypeCount: z.number().int().nonnegative()
+});
+
 export const coldStartCardObjectSchema = z.object({
   slug: z.string().min(1),
   domain: z.string().min(1),
@@ -185,7 +198,8 @@ export const coldStartCardObjectSchema = z.object({
   // evidence supports it, never invented market commentary. Card JSON only, no normalized rows.
   competitionFraming: resolvedFactSchema(z.string().min(1)).optional(),
   citations: z.array(citationSchema),
-  synthesis: synthesisSchema.optional()
+  synthesis: synthesisSchema.optional(),
+  synthesisWithheld: synthesisWithheldSchema.optional()
 });
 
 function isCitationBearingObject(value: unknown): value is { value?: unknown; citationIds: string[] } {
@@ -245,3 +259,4 @@ export type ResolvedFact<T> = {
   citationIds: string[];
 };
 export type SourcedText = z.infer<typeof sourcedTextSchema>;
+export type SynthesisWithheld = z.infer<typeof synthesisWithheldSchema>;

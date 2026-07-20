@@ -195,8 +195,10 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
   return { ...card, synthesis };
 }
 
-export function publicCard(card: ColdStartCard): Omit<ColdStartCard, "synthesis"> {
-  const { synthesis: _synthesis, ...publicOnly } = stripUnsupportedSynthesis(sanitizeCardTrust(card));
+export function publicCard(card: ColdStartCard): Omit<ColdStartCard, "synthesis" | "synthesisWithheld"> {
+  const { synthesis: _synthesis, synthesisWithheld: _synthesisWithheld, ...publicOnly } = stripUnsupportedSynthesis(
+    sanitizeCardTrust(card)
+  );
   return {
     ...publicOnly,
     team: {

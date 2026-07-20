@@ -574,6 +574,8 @@ describe("generateCardForDomain", () => {
       hasFundingEvidence: false,
       hasNamedTeamMember: false
     });
+    // A run that produces synthesis must never carry a stale withheld record forward.
+    expect(result.card.synthesisWithheld).toBeUndefined();
   });
 
   it("gates required synthesis before LLM calls when analysis evidence is weak", async () => {
@@ -627,6 +629,15 @@ describe("generateCardForDomain", () => {
         hasFundingEvidence: false,
         hasNamedTeamMember: false
       }
+    });
+    // The floor-blocked run records the withholding on the card itself, with the run's
+    // own reasons/advisories/counts (not just in the trace).
+    expect(result.card.synthesisWithheld).toEqual({
+      at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+      reasons: ["citation-floor"],
+      advisories: ["no-funding-evidence", "no-named-team"],
+      citationCount: 3,
+      sourceTypeCount: 2
     });
   });
 

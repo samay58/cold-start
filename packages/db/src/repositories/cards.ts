@@ -14,7 +14,7 @@ import { cards, researchSections } from "../schema";
 import type { GenerationMode } from "./generation-runs";
 import { researchSectionFromRow } from "./shared";
 
-type PublicCard = Omit<ColdStartCard, "synthesis">;
+type PublicCard = Omit<ColdStartCard, "synthesis" | "synthesisWithheld">;
 
 export type PublicCardSummary = {
   slug: string;
@@ -46,7 +46,7 @@ type CardCacheRow = {
   synthesisExpiresAt: Date;
 };
 
-const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true });
+const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true, synthesisWithheld: true });
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();

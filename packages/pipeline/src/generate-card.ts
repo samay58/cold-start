@@ -7,7 +7,8 @@ import {
   type SourcedText,
   type SynthesisGateDecision,
   synthesisGateDecision,
-  synthesisSchema
+  synthesisSchema,
+  type SynthesisWithheld
 } from "@cold-start/core";
 import {
   applyVerifierResults,
@@ -111,6 +112,16 @@ function traceGateFromDecision(decision: SynthesisGateDecision) {
     sourceTypeCount: decision.signals.nonEnrichmentSourceTypes.length,
     hasFundingEvidence: decision.signals.hasFundingEvidence,
     hasNamedTeamMember: decision.signals.hasNamedTeamMember
+  };
+}
+
+function synthesisWithheldFromGate(gate: ReturnType<typeof traceGateFromDecision>): SynthesisWithheld {
+  return {
+    at: new Date().toISOString(),
+    reasons: gate.reasons,
+    advisories: gate.advisories,
+    citationCount: gate.citationCount,
+    sourceTypeCount: gate.sourceTypeCount
   };
 }
 
@@ -827,6 +838,9 @@ export async function generateCardForDomainWithTrace(
         gateMessage: gateEvaluation.message,
         ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
       };
+      if (gateEvaluation.gate) {
+        card = { ...card, synthesisWithheld: synthesisWithheldFromGate(gateEvaluation.gate) };
+      }
     } else {
       try {
         const synthesisResult = await verifiedSynthesisForCard(card, deps);
@@ -866,7 +880,11 @@ export async function generateCardForDomainWithTrace(
     }
 
     if (verifiedSynthesis) {
-      card = { ...card, synthesis: verifiedSynthesis };
+      // A run that reaches here produced synthesis, so any withheld record (from this
+      // same card build, or carried in from an earlier stage) is stale. Never let it
+      // survive alongside the synthesis it predates.
+      const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = card;
+      card = { ...cardWithoutWithheld, synthesis: verifiedSynthesis };
     }
   }
 

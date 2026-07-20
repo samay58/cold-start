@@ -220,6 +220,21 @@ describe("publicCard", () => {
     expect(publicCard(baseCard)).not.toHaveProperty("synthesis");
   });
 
+  it("omits synthesisWithheld from the public tier", () => {
+    const cardWithWithheld: ColdStartCard = {
+      ...baseCard,
+      synthesisWithheld: {
+        at: "2026-07-20T12:00:00.000Z",
+        reasons: ["citation-floor"],
+        advisories: ["no-funding-evidence", "no-named-team"],
+        citationCount: 3,
+        sourceTypeCount: 2
+      }
+    };
+
+    expect(publicCard(cardWithWithheld)).not.toHaveProperty("synthesisWithheld");
+  });
+
   it("strips people emails from the public tier", () => {
     const privateCard: ColdStartCard = {
       ...baseCard,
