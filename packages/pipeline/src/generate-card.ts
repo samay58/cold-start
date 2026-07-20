@@ -5,6 +5,8 @@ import {
   type GenerationTrace,
   type ResolvedFact,
   type SourcedText,
+  type SynthesisGateDecision,
+  synthesisGateDecision,
   synthesisSchema
 } from "@cold-start/core";
 import {
@@ -100,8 +102,16 @@ function analysisSynthesisMinCitations() {
   return Number.isFinite(value) ? value : 8;
 }
 
-function hasCitedFact(fact: ResolvedFact<unknown> | undefined) {
-  return Boolean(fact?.value !== null && fact?.value !== undefined && fact.citationIds.length > 0);
+function traceGateFromDecision(decision: SynthesisGateDecision) {
+  return {
+    blocked: decision.blocked,
+    reasons: decision.reasons,
+    advisories: decision.advisories,
+    citationCount: decision.signals.citationCount,
+    sourceTypeCount: decision.signals.nonEnrichmentSourceTypes.length,
+    hasFundingEvidence: decision.signals.hasFundingEvidence,
+    hasNamedTeamMember: decision.signals.hasNamedTeamMember
+  };
 }
 
 export function synthesisEvidenceGate(card: ColdStartCard, minCitations = analysisSynthesisMinCitations()) {
@@ -109,32 +119,12 @@ export function synthesisEvidenceGate(card: ColdStartCard, minCitations = analys
     return { ok: true as const };
   }
 
-  const citedSourceTypes = new Set(
-    card.citations
-      .filter((citation) => citation.sourceType !== "enrichment")
-      .map((citation) => citation.sourceType)
-  );
-  const hasFundingEvidence = hasCitedFact(card.funding.totalRaisedUsd) || hasCitedFact(card.funding.lastRound);
-  const hasNamedTeamMember = [
-    ...(card.team.founders.value ?? []),
-    ...(card.team.keyExecs.value ?? [])
-  ].some((person) => person.name.trim().length > 0);
-  const ok =
-    card.citations.length >= minCitations &&
-    citedSourceTypes.size >= 2 &&
-    hasFundingEvidence &&
-    hasNamedTeamMember;
+  const decision = synthesisGateDecision(card, minCitations);
+  const gate = traceGateFromDecision(decision);
 
-  return ok
-    ? { ok: true as const }
-    : {
-        ok: false as const,
-        message: synthesisGateMessage,
-        citationCount: card.citations.length,
-        sourceTypeCount: citedSourceTypes.size,
-        hasFundingEvidence,
-        hasNamedTeamMember
-      };
+  return decision.blocked
+    ? { ok: false as const, message: synthesisGateMessage, gate }
+    : { ok: true as const, gate };
 }
 
 function citationDedupeKey(url: string) {
@@ -826,21 +816,25 @@ export async function generateCardForDomainWithTrace(
     let verifiedSynthesis: CardSynthesis | undefined;
     let synthesisGated = false;
 
-    const gate = synthesisEvidenceGate(card);
-    if (!gate.ok) {
+    const gateEvaluation = synthesisEvidenceGate(card);
+    if (!gateEvaluation.ok) {
       synthesisGated = true;
       tracePatch.synthesis = {
         required: deps.synthesisRequired === true,
         produced: false,
         claimCountBeforeVerify: 0,
         claimCountAfterVerify: 0,
-        gateMessage: gate.message
+        gateMessage: gateEvaluation.message,
+        ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
       };
     } else {
       try {
         const synthesisResult = await verifiedSynthesisForCard(card, deps);
         if (synthesisResult.tracePatch.synthesis) {
-          tracePatch.synthesis = synthesisResult.tracePatch.synthesis;
+          tracePatch.synthesis = {
+            ...synthesisResult.tracePatch.synthesis,
+            ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+          };
         }
         verifiedSynthesis = synthesisResult.synthesis;
       } catch (error) {
@@ -848,7 +842,8 @@ export async function generateCardForDomainWithTrace(
           required: deps.synthesisRequired === true,
           produced: false,
           claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
-          claimCountAfterVerify: 0
+          claimCountAfterVerify: 0,
+          ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
         };
 
         if (deps.synthesisRequired) {

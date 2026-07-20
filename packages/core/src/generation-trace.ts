@@ -219,6 +219,18 @@ export type GenerationTrace = {
     claimCountAfterVerify: number;
     usefulnessDroppedClaims?: number;
     gateMessage?: string;
+    // Full evidence-gate diagnostics, persisted for every analysis run that
+    // evaluates the gate (i.e. minCitations > 0). Absent when the gate is
+    // disabled via ANALYSIS_SYNTHESIS_MIN_CITATIONS <= 0.
+    gate?: {
+      blocked: boolean;
+      reasons: string[];
+      advisories: string[];
+      citationCount: number;
+      sourceTypeCount: number;
+      hasFundingEvidence: boolean;
+      hasNamedTeamMember: boolean;
+    };
   };
   // Per-section provenance and cost for the section model. A derived section is
   // recorded as "derived", never as "deep".

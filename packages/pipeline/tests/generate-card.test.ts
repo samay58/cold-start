@@ -532,6 +532,50 @@ describe("generateCardForDomain", () => {
     expect(verify).not.toHaveBeenCalled();
   });
 
+  it("produces synthesis for a previously-gated news-only card and records advisory diagnostics", async () => {
+    process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
+    const skeleton = buildSkeletonCard("oboe.com");
+    const whyItMatters = { text: "Oboe is building a voice assistant platform. [c1]", citationIds: ["c1"] };
+    const newsCitations = Array.from({ length: 8 }, (_, index) => ({
+      ...citation,
+      id: `c${index + 1}`,
+      url: `https://example.com/oboe-news-${index + 1}`,
+      title: `Oboe coverage ${index + 1}`,
+      sourceType: "news" as const
+    }));
+
+    const result = await generateCardForDomainWithTrace("oboe.com", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: newsCitations
+      }),
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "What customer traction has Oboe disclosed?", category: "adoption_proof" }]
+      }),
+      verify: async () => [{ ...whyItMatters, status: "supported" }],
+      synthesisRequired: true
+    });
+
+    expect(result.card.synthesis?.whyItMatters).toEqual(whyItMatters);
+    expect(result.tracePatch.synthesis?.gate).toEqual({
+      blocked: false,
+      reasons: [],
+      advisories: ["single-source-class", "no-funding-evidence", "no-named-team"],
+      citationCount: 8,
+      sourceTypeCount: 1,
+      hasFundingEvidence: false,
+      hasNamedTeamMember: false
+    });
+  });
+
   it("gates required synthesis before LLM calls when analysis evidence is weak", async () => {
     process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
     const skeleton = buildSkeletonCard("oboe.com");
@@ -573,7 +617,16 @@ describe("generateCardForDomain", () => {
       produced: false,
       claimCountBeforeVerify: 0,
       claimCountAfterVerify: 0,
-      gateMessage: "insufficient evidence for synthesis"
+      gateMessage: "insufficient evidence for synthesis",
+      gate: {
+        blocked: true,
+        reasons: ["citation-floor"],
+        advisories: ["no-funding-evidence", "no-named-team"],
+        citationCount: 3,
+        sourceTypeCount: 2,
+        hasFundingEvidence: false,
+        hasNamedTeamMember: false
+      }
     });
   });
 
