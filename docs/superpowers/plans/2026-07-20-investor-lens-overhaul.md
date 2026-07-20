@@ -68,11 +68,13 @@ export function synthesisGateDecision(card: ColdStartCard, minCitations: number)
 
 Semantics, copied from the approved spec: `blocked` is true only when `citationCount < minCitations` OR `nonEnrichmentSourceTypes.length < 1`. Diversity below 2, missing funding evidence, and missing named team member populate `advisories`, never `reasons`. Signal extraction logic ports verbatim from the existing gate at `packages/pipeline/src/generate-card.ts:107-138` (non-enrichment source-type set, `hasCitedFact` on `totalRaisedUsd`/`lastRound`, trimmed founder/exec names) so behavior is identical for the pieces that survive.
 
-- [ ] **Step 1: Write failing tests.** Fixture cards built inline (follow the fixture style already in `packages/core/tests/first-payoff.test.ts`). Cases: (a) news-only card with 20 citations blocks nothing, advisories `["single-source-class", ...]` as applicable; (b) card with 5 citations blocks with `["citation-floor"]`; (c) card whose citations are all `enrichment` blocks with `["no-usable-source-type"]`; (d) rich card returns no reasons, no advisories; (e) card missing team but rich otherwise gets `advisories: ["no-named-team"]`, `blocked: false`.
-- [ ] **Step 2: Run and confirm fail.** `npm test -w @cold-start/core -- synthesis-evidence`. Expected: module not found.
-- [ ] **Step 3: Implement the module.** Port the signal extraction from the pipeline gate; keep core dependency-free (no DB, no providers).
-- [ ] **Step 4: Run and confirm pass.** Same command. Expected: all green.
-- [ ] **Step 5: Commit.** `git commit -m "Add shared synthesis evidence signals and gate decision to core"`
+- [x] **Step 1: Write failing tests.** Fixture cards built inline (follow the fixture style already in `packages/core/tests/first-payoff.test.ts`). Cases: (a) news-only card with 20 citations blocks nothing, advisories `["single-source-class", ...]` as applicable; (b) card with 5 citations blocks with `["citation-floor"]`; (c) card whose citations are all `enrichment` blocks with `["no-usable-source-type"]`; (d) rich card returns no reasons, no advisories; (e) card missing team but rich otherwise gets `advisories: ["no-named-team"]`, `blocked: false`.
+- [x] **Step 2: Run and confirm fail.** `npm test -w @cold-start/core -- synthesis-evidence`. Expected: module not found.
+- [x] **Step 3: Implement the module.** Port the signal extraction from the pipeline gate; keep core dependency-free (no DB, no providers).
+- [x] **Step 4: Run and confirm pass.** Same command. Expected: all green.
+- [x] **Step 5: Commit.** `git commit -m "Add shared synthesis evidence signals and gate decision to core"`
+
+**Done (2026-07-20):** Commit `bb134d8`. 6/6 new tests, core suite 173/173, typecheck clean. Review approved. Boundary note for Task 1.2: the pipeline's old gate short-circuits `{ ok: true }` when `minCitations <= 0`; the core decision has no such bypass, so the pipeline caller must preserve gate-disabled semantics at floor <= 0.
 
 ### Task 1.2: Gate refactor in pipeline, diagnostics persisted to trace
 
