@@ -1,0 +1,756 @@
+{
+  "slug": "baseten",
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Tuhin Srivastava",
+          "read": {
+            "text": "As CEO and co-author of every major funding announcement, Srivastava has steered Baseten through four rounds in roughly 18 months: Series D ($150M, Sep 2025), Series E ($300M at $5B, Jan 2026), and Series F ($1.5B at $13B, Jun 2026), a valuation trajectory that is either a signal of genuine infrastructure lock-in or a late-cycle momentum trade worth stress-testing.",
+            "citationIds": [
+              "e8",
+              "e6",
+              "e5"
+            ]
+          },
+          "role": "Co-founder and CEO",
+          "email": "tuhin.srivastava@baseten.co",
+          "sourceUrl": "https://www.baseten.co/blog/announcing-our-series-f/",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        },
+        {
+          "name": "Amir Haghighat",
+          "read": null,
+          "role": "Co-founder",
+          "email": "amir.haghighat@baseten.co",
+          "sourceUrl": "https://www.baseten.co/blog/announcing-our-series-f/",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        },
+        {
+          "name": "Phil Howes",
+          "read": null,
+          "role": "Co-founder",
+          "email": "phil.howes@baseten.co",
+          "githubUrl": "https://github.com/philhowes",
+          "sourceUrl": "https://linkedin.com/in/philhowes",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        },
+        {
+          "name": "Pankaj Gupta",
+          "read": null,
+          "role": "Co-founder",
+          "email": "pankaj.gupta@baseten.co",
+          "sourceUrl": "https://www.baseten.co/blog/announcing-our-series-f/",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e5",
+        "e9",
+        "p1"
+      ]
+    },
+    "keyExecs": {
+      "value": [
+        {
+          "name": "Dannie Herzberg",
+          "read": {
+            "text": "Herzberg joined as President in August 2025, roughly concurrent with the Series D close, suggesting the board brought in a dedicated go-to-market executive to scale revenue as the company shifted from product-market fit to enterprise distribution; her prior 15-plus years of experience is noted but her specific background and prior outcomes are not evidenced in the supplied sources.",
+            "citationIds": [
+              "e10"
+            ]
+          },
+          "role": "President",
+          "email": "dannie.herzberg@baseten.co",
+          "sourceUrl": "https://linkedin.com/in/dannieherzberg",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        },
+        {
+          "name": "Matthew Slagle",
+          "read": null,
+          "role": "CRO",
+          "email": "matthew.slagle@baseten.co",
+          "sourceUrl": "https://baseten.co/",
+          "emailBasis": "domain pattern first.last, 6 observed addresses",
+          "emailStatus": "inferred"
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": [
+        "e7",
+        "e10",
+        "p1"
+      ]
+    },
+    "headcount": {
+      "value": {
+        "asOf": "2026",
+        "value": 312
+      },
+      "status": "mixed",
+      "confidence": "medium",
+      "citationIds": [
+        "e1",
+        "e7"
+      ]
+    }
+  },
+  "domain": "baseten.co",
+  "funding": {
+    "rounds": {
+      "value": [
+        {
+          "name": "Seed Round",
+          "amountUsd": null,
+          "announcedAt": "2019-01-01",
+          "leadInvestors": []
+        },
+        {
+          "name": "Seed Round",
+          "amountUsd": 8000000,
+          "announcedAt": "2022-04-26",
+          "leadInvestors": [
+            "South Park Commons",
+            "Greylock"
+          ]
+        },
+        {
+          "name": "Series A",
+          "amountUsd": null,
+          "announcedAt": "2022-04-26",
+          "leadInvestors": []
+        },
+        {
+          "name": "Series B",
+          "amountUsd": 40000000,
+          "announcedAt": "2024-03-04",
+          "leadInvestors": [
+            "IVP",
+            "Spark Capital"
+          ]
+        },
+        {
+          "name": "Series C",
+          "amountUsd": 75000000,
+          "announcedAt": "2025-02-19",
+          "leadInvestors": []
+        },
+        {
+          "name": "Series D",
+          "amountUsd": 150000000,
+          "announcedAt": "2025-09-05",
+          "leadInvestors": [
+            "BOND"
+          ]
+        },
+        {
+          "name": "Series E",
+          "amountUsd": 300000000,
+          "announcedAt": "2026-01-23",
+          "leadInvestors": [
+            "IVP",
+            "CapitalG"
+          ]
+        },
+        {
+          "name": "Series F",
+          "amountUsd": 1500000000,
+          "announcedAt": "2026-06-22",
+          "leadInvestors": [
+            "Altimeter Capital",
+            "Conviction Partners",
+            "Spark Capital",
+            "Sands Capital",
+            "Wellington Management"
+          ]
+        }
+      ],
+      "status": "mixed",
+      "confidence": "medium",
+      "citationIds": [
+        "e1",
+        "e5",
+        "e6",
+        "e7",
+        "e8"
+      ]
+    },
+    "investors": {
+      "value": [
+        {
+          "name": "Altimeter Capital",
+          "domain": null
+        },
+        {
+          "name": "Battery Ventures",
+          "domain": null
+        },
+        {
+          "name": "Blackbird",
+          "domain": null
+        },
+        {
+          "name": "BOND",
+          "domain": null
+        },
+        {
+          "name": "CapitalG",
+          "domain": null
+        },
+        {
+          "name": "Conviction Partners",
+          "domain": null
+        },
+        {
+          "name": "D.E. Shaw Ventures",
+          "domain": null
+        },
+        {
+          "name": "Durable Capital Partners",
+          "domain": null
+        },
+        {
+          "name": "Greylock",
+          "domain": null
+        },
+        {
+          "name": "IVP",
+          "domain": null
+        },
+        {
+          "name": "NVIDIA",
+          "domain": null
+        },
+        {
+          "name": "Sands Capital",
+          "domain": null
+        },
+        {
+          "name": "Spark Capital",
+          "domain": null
+        },
+        {
+          "name": "Verified Capital",
+          "domain": null
+        },
+        {
+          "name": "Wellington Management",
+          "domain": null
+        },
+        {
+          "name": "01A",
+          "domain": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e5",
+        "e6"
+      ]
+    },
+    "lastRound": {
+      "value": {
+        "name": "Series F",
+        "amountUsd": 1500000000,
+        "announcedAt": "2026-06-22",
+        "leadInvestors": [
+          "Altimeter Capital",
+          "Conviction Partners",
+          "Spark Capital",
+          "Sands Capital",
+          "Wellington Management"
+        ]
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e5"
+      ]
+    },
+    "totalRaisedUsd": {
+      "value": 2080000000,
+      "status": "mixed",
+      "confidence": "medium",
+      "citationIds": [
+        "e1",
+        "e7"
+      ]
+    }
+  },
+  "signals": [
+    {
+      "url": "https://www.baseten.co/resources/careers/",
+      "date": "2026-07-20",
+      "title": "Careers at Baseten",
+      "source": "baseten.co",
+      "category": "hiring",
+      "citationIds": [
+        "p2"
+      ]
+    },
+    {
+      "url": "https://www.baseten.co/blog/real-time-video-generation-inference-on-baseten/",
+      "date": "2026-07-16",
+      "title": "Real-time video generation inference on Baseten",
+      "source": "baseten.co",
+      "category": "news",
+      "citationIds": [
+        "s2"
+      ]
+    },
+    {
+      "url": "https://www.baseten.co/blog/announcing-our-series-f/",
+      "date": "2026-06-22",
+      "title": "Announcing our Series F",
+      "source": "baseten.co",
+      "category": "funding",
+      "citationIds": [
+        "e5"
+      ]
+    },
+    {
+      "url": "https://techcrunch.com/2026/06/18/ai-inference-startup-baseten-reportedly-raising-1-5b-months-after-its-last-mega-round/",
+      "date": "2026-06-18",
+      "title": "AI inference startup Baseten reportedly raising $1.5B months after its last mega-round",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": [
+        "e2",
+        "e5",
+        "e4",
+        "s1"
+      ]
+    },
+    {
+      "url": "https://www.baseten.co/resources/customers/how-baseten-powered-poolsides-model-launch-in-record-time/",
+      "date": "2026-05-06",
+      "title": "How Baseten powered Poolside's model launch in record time",
+      "source": "baseten.co",
+      "category": "launch",
+      "citationIds": [
+        "p3"
+      ]
+    },
+    {
+      "url": "https://www.baseten.co/blog/announcing-baseten-s-300m-series-e/",
+      "date": "2026-01-23",
+      "title": "Baseten raises $300M Series E at $5B valuation",
+      "source": "Baseten (company blog)",
+      "category": "funding",
+      "citationIds": [
+        "e6"
+      ]
+    }
+  ],
+  "identity": {
+    "hq": {
+      "value": {
+        "city": "San Francisco",
+        "country": "United States"
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e7"
+      ]
+    },
+    "name": {
+      "value": "Baseten",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e7"
+      ]
+    },
+    "status": "private",
+    "logoUrl": "https://media.licdn.com/dms/image/v2/D4E0BAQErc_txZeY4KQ/company-logo_200_200/B4EZbpF.n_HAAI-/0/1747667381016/baseten_logo?e=2147483647&v=beta&t=0GAeyVAJ8A3jjAnI7JBzLCYiFHQrq3EicZwidL9AALo",
+    "oneLiner": {
+      "value": "Baseten provides AI inference infrastructure that lets companies deploy and run their own models instead of renting intelligence from frontier labs.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e3",
+        "e4",
+        "e7"
+      ]
+    },
+    "websiteUrl": {
+      "value": "https://baseten.co",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e7"
+      ]
+    },
+    "description": {
+      "value": {
+        "serves": "AI application companies including Cursor, Notion, Harvey, HubSpot, OpenEvidence, Abridge, Clay, Mercor, and Lovable use Baseten to serve models in production.",
+        "concept": "Baseten routes inference requests to the best-for-task model, often cheaper open-source alternatives, to cut costs while maintaining performance for production AI workloads.",
+        "mechanism": "Baseten rents GPU capacity from roughly 20 cloud providers and runs its proprietary inference stack on top, handling model deployment, routing, observability, and post-training optimization.",
+        "shortDescription": "Baseten sells AI inference infrastructure for companies to deploy and run their own models at production scale.",
+        "expandedDescription": "Baseten provides software and computing capacity for AI inference, the stage where a trained model answers queries. It rents capacity from about 20 cloud providers and layers its own inference software on top, letting customers deploy, fine-tune, and serve open-source and custom models. The company targets AI-native application companies that want cheaper alternatives to proprietary APIs from OpenAI and Anthropic."
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e3",
+        "e4",
+        "e5",
+        "e7",
+        "e8"
+      ]
+    },
+    "foundedYear": {
+      "value": 2019,
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e4"
+      ]
+    },
+    "linkedinUrl": {
+      "value": "https://linkedin.com/company/baseten",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e7"
+      ]
+    }
+  },
+  "citations": [
+    {
+      "id": "e1",
+      "url": "https://pitchbook.com/profiles/company/462191-14",
+      "title": "Baseten 2026 Company Profile: Valuation, Funding & Investors | PitchBook",
+      "snippet": "Developer of artificial intelligence inference infrastructure designed to deploy and optimise machine learning models at scale. The company offers model deployment tools, inference runtimes, multi-cloud infrastructure management, application programming interfaces for AI models, transcription and text-to-speech processing and image generation support.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_analysis",
+        "label": "Independent analysis",
+        "incentive": "Editorial or analyst judgment.",
+        "rationale": "Third-party framing source. Useful for market structure and category judgment."
+      }
+    },
+    {
+      "id": "e2",
+      "url": "https://techcrunch.com/2026/06/18/ai-inference-startup-baseten-reportedly-raising-1-5b-months-after-its-last-mega-round/",
+      "title": "AI inference startup Baseten reportedly raising $1.5B months after its last mega-round | TechCrunch",
+      "snippet": "AI inference company Baseten is close to finalizing a stunning $1.5 billion funding round at a $13 billion valuation. Just five months ago, the startup announced that it had raised a $300 million Series E at a $5 billion valuation.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial, data-provider, or platform incentives.",
+        "rationale": "Third-party reporting or database context."
+      }
+    },
+    {
+      "id": "e3",
+      "url": "https://thenextweb.com/news/baseten-13-billion-valuation-blackbird",
+      "title": "AI infrastructure startup Baseten raises $1.5bn at up to $13bn valuation",
+      "snippet": "Baseten has raised $1.5bn in a Series F round that values the AI infrastructure startup at up to $13bn. The company provides software and infrastructure that let other companies customise and run their own AI models, pitched as a cheaper alternative to leaning on providers such as OpenAI and Anthropic.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e4",
+      "url": "https://thenextweb.com/news/baseten-1-5bn-round-13bn-valuation-ai-inference",
+      "title": "Baseten raises $1.5bn at up to $13bn for AI inference",
+      "snippet": "Baseten sells the unglamorous part of the AI stack. The San Francisco company, founded in 2019, provides the software and computing capacity businesses need to run inference. It rents capacity from around 20 cloud providers and layers its own inference software on top.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e5",
+      "url": "https://www.baseten.co/blog/announcing-our-series-f/",
+      "title": "Announcing our Series F",
+      "snippet": "Baseten raised a $1.5B Series F and achieved a $13B valuation. Led by Altimeter Capital, Conviction Partners, and Spark Capital, co-led by Sands Capital and Wellington Management. Revenue has grown 20x, and inference volume has grown 40x over the last year.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "e6",
+      "url": "https://www.baseten.co/blog/announcing-baseten-s-300m-series-e/",
+      "title": "Announcing Baseten's $300M Series E",
+      "snippet": "Baseten raised a $300M Series E at a $5B valuation from IVP, CapitalG, NVIDIA, and more. Inference volume grew 100x last year.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "e7",
+      "url": "https://baseten.co/",
+      "title": "Baseten",
+      "snippet": "Baseten is an AI infrastructure platform giving you the tooling, expertise, and hardware needed to bring great AI products to market - fast. Our proprietary Inference Stack utilizes the cutting-edge of performance research combined with highly performant and reliable infrastructure.",
+      "fetchedAt": "2026-07-20T15:22:14.461Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "e8",
+      "url": "https://www.businesswire.com/news/home/20250905680113/en/Baseten-Secures-%24150M-Series-D-as-the-Premier-Inference-Platform-for-AIs-App-Layer",
+      "title": "Baseten Secures $150M Series D as the Premier Inference Platform for AI's App Layer",
+      "snippet": "Baseten announced a $150 million Series D fundraise at a $2.15 billion valuation. The round was led by BOND. Customers include Abridge, Captions, Clay, OpenEvidence, and Writer.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "press_release",
+        "label": "Company PR",
+        "incentive": "Promotional.",
+        "rationale": "Company-shaped narrative. Good for exact announcement facts, weak for evaluation."
+      }
+    },
+    {
+      "id": "e9",
+      "url": "https://linkedin.com/in/philhowes",
+      "title": "Philip Howes",
+      "snippet": "Co-Founder at Baseten since Jan 2019. Previously co-founded Shape (acquired by Reflektive), Machine Learning Engineer at Gumroad, PhD in Mathematics from University of Sydney.",
+      "fetchedAt": "2026-07-20T15:22:14.462Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "enrichment",
+        "label": "Professional profile",
+        "incentive": "Self-reported professional-network data.",
+        "rationale": "Useful for company presence and people evidence. Weak for market, traction, or evaluative claims."
+      }
+    },
+    {
+      "id": "e10",
+      "url": "https://linkedin.com/in/dannieherzberg",
+      "title": "Dannie Herzberg",
+      "snippet": "President at Baseten since Aug 2025. Previously Partner at Sequoia Capital, Head of Enterprise at Slack, Sales & Product Leadership at HubSpot. MBA from Stanford GSB.",
+      "fetchedAt": "2026-07-20T15:22:14.462Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "enrichment",
+        "label": "Professional profile",
+        "incentive": "Self-reported professional-network data.",
+        "rationale": "Useful for company presence and people evidence. Weak for market, traction, or evaluative claims."
+      }
+    },
+    {
+      "id": "p1",
+      "url": "https://github.com/basetenlabs",
+      "title": "GitHub",
+      "fetchedAt": "2026-07-20T15:23:00.681Z",
+      "sourceType": "github",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Developer artifact",
+        "incentive": "Platform or repository incentives.",
+        "rationale": "Useful technical artifact or ecosystem signal. Interpret authorship and repository ownership carefully."
+      }
+    },
+    {
+      "id": "s1",
+      "url": "https://www.businesswire.com/news/home/20260622645563/en/Baseten-Raises-%241.5-Billion-to-Power-the-Next-Era-of-AI-Inference",
+      "title": "Baseten Raises $1.5 Billion to Power the Next Era of AI Inference",
+      "snippet": "{\"id\":\"https://www.businesswire.com/news/home/20260622645563/en/Baseten-Raises-%241.5-Billion-to-Power-the-Next-Era-of-AI-Inference\",\"title\":\"Baseten Raises $1.5 Billion to Power the Next Era of AI Inference\",\"url\":\"https://www.businesswire.com/news/home/20260622645563/en/Baseten-Raises-%241.5-Billion-to-Power-the-Next-Era-of-AI-Inference\",\"publishedDate\":\"2026-06-22T00:00:00.000Z\",\"image\":\"https://mms.businesswire.com/media/20260622645563/en/2836030/22/Baseten_Logotype-9.jpg\"}",
+      "fetchedAt": "2026-07-20T15:25:57.325Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "press_release",
+        "label": "Company PR",
+        "incentive": "Promotional.",
+        "rationale": "Company-shaped narrative. Good for exact announcement facts, weak for evaluation."
+      }
+    },
+    {
+      "id": "s2",
+      "url": "https://www.baseten.co/blog/real-time-video-generation-inference-on-baseten/",
+      "title": "Real-time video generation inference on Baseten",
+      "snippet": "{\"id\":\"https://www.baseten.co/blog/real-time-video-generation-inference-on-baseten/\",\"title\":\"Real-time video generation inference on Baseten\",\"url\":\"https://www.baseten.co/blog/real-time-video-generation-inference-on-baseten/\",\"publishedDate\":\"2026-07-16T21:28:26.000Z\"}",
+      "fetchedAt": "2026-07-20T15:25:57.325Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "p2",
+      "url": "https://www.baseten.co/resources/careers/",
+      "title": "Careers at Baseten",
+      "snippet": "{\"id\":\"https://www.baseten.co/resources/careers/\",\"title\":\"Careers at Baseten\",\"url\":\"https://www.baseten.co/resources/careers/\",\"image\":\"https://www.baseten.co/resources/careers/opengraph-image-1ahbo1?d279179c4f880b3f\",\"favicon\":\"https://www.baseten.co/favicon.ico\"}",
+      "fetchedAt": "2026-07-20T15:25:57.326Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "p3",
+      "url": "https://www.baseten.co/resources/customers/how-baseten-powered-poolsides-model-launch-in-record-time/",
+      "title": "How Baseten powered Poolside's model launch in record time",
+      "snippet": "{\"id\":\"https://www.baseten.co/resources/customers/how-baseten-powered-poolsides-model-launch-in-record-time/\",\"title\":\"How Baseten powered Poolside's model launch in record time\",\"url\":\"https://www.baseten.co/resources/customers/how-baseten-powered-poolsides-model-launch-in-recor",
+      "fetchedAt": "2026-07-20T15:25:57.326Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    }
+  ],
+  "synthesis": {
+    "bearCase": [
+      {
+        "text": "Valuation jumped from $2.15B in September 2025 to $5B in January 2026 to $13B in June 2026, a 6x step in nine months on company-reported growth metrics; if revenue growth decelerates or customer concentration is high, the $13B entry price leaves almost no margin of safety [e2, e5, e8] [e2] [e5] [e8].",
+        "citationIds": [
+          "e2",
+          "e5",
+          "e8"
+        ]
+      }
+    ],
+    "bullCase": [
+      {
+        "text": "Named production customers across distinct verticals, including Abridge in clinical AI, Clay in sales automation, OpenEvidence in medical search, and Captions in video, suggest Baseten has crossed from developer experimentation into mission-critical workloads where switching costs are real [e8].",
+        "citationIds": [
+          "e8"
+        ]
+      }
+    ],
+    "whyItMatters": {
+      "text": "Baseten sits in the inference layer between GPU clouds and AI application builders, a position that captures spend from companies like Cursor, Notion, Harvey, and HubSpot that want production-grade model serving without building proprietary infrastructure. Revenue grew 20x and inference volume grew 40x in the year leading to the Series F , making it the fastest-compounding infrastructure layer in the current AI cycle [e5] [e4] [e8].",
+      "citationIds": [
+        "e5",
+        "e4",
+        "e8"
+      ]
+    },
+    "openQuestions": [
+      {
+        "category": "unit_economics",
+        "question": "What is the gross margin on inference revenue, and does it improve or compress as customers like Cursor and Harvey scale volume?",
+        "testsBelief": "The bull case assumes Baseten captures durable economics from its multi-cloud arbitrage position; if GPU rental costs eat most of the spread at scale, the business is a low-margin reseller rather than an infrastructure platform.",
+        "evidenceBasis": "Revenue grew 20x per company blog [e5], but no cited source discloses gross margin or the cost structure of renting from 20 cloud providers [e4].",
+        "wouldChangeReadIf": "Gross margins above 50% at scale would support the infrastructure platform thesis; margins below 30% would reframe Baseten as a managed services reseller with limited pricing power."
+      },
+      {
+        "category": "technical_edge",
+        "question": "Can Baseten's proprietary inference stack maintain a measurable latency or cost advantage over Replicate and Modal Labs as all three optimize for the same open-source models?",
+        "testsBelief": "The bear case is that inference optimization is a commodity capability; the bull case requires that Baseten's stack produces a reproducible, customer-visible performance gap that justifies staying on the platform rather than switching.",
+        "evidenceBasis": "PitchBook names Replicate and Modal Labs as direct competitors serving the same buyer and workflow [e1]; no independent benchmark comparing Baseten's stack to either competitor appears in the cited sources.",
+        "wouldChangeReadIf": "Independent benchmarks showing Baseten achieving materially lower latency or cost per token on production workloads for named customers would strengthen the moat argument; parity results would confirm the commodity risk."
+      },
+      {
+        "category": "durability",
+        "question": "What share of Baseten's revenue comes from its top five customers, and what does the contract structure look like for a customer like Cursor or Harvey if they decide to build in-house?",
+        "testsBelief": "The 20x revenue growth and named customer list suggest strong adoption, but the valuation at $13B is only defensible if revenue is distributed across many customers with high switching costs rather than concentrated in a few large accounts that could internalize inference infrastructure.",
+        "evidenceBasis": "Customer names including Cursor, Notion, Harvey, HubSpot, Abridge, and Clay are cited [e8, e5], but no source discloses revenue concentration, contract length, or churn data.",
+        "wouldChangeReadIf": "Evidence that no single customer exceeds 10% of revenue and that customers deepen integration over time via post-training and observability features would support durability; discovery that two or three customers represent the majority of revenue would materially increase concentration risk at the $13B valuation."
+      }
+    ],
+    "marketStructureAndTiming": {
+      "profitPool": {
+        "text": "Inference is a high-volume, margin-sensitive business; gross margin depends on the spread between GPU rental cost and customer pricing, which is not evidenced in the cited sources [e4].",
+        "citationIds": [
+          "e4"
+        ]
+      },
+      "timingRisk": null,
+      "buyerBudget": null,
+      "painSeverity": {
+        "text": "Building proprietary inference infrastructure requires GPU procurement, model optimization, and multi-cloud reliability engineering that most application teams cannot staff; Baseten's pitch is that outsourcing this is cheaper and faster than the build alternative [e7, e4] [e7] [e4].",
+        "citationIds": [
+          "e7",
+          "e4"
+        ]
+      },
+      "expansionPath": null,
+      "adoptionTrigger": {
+        "text": "The cost gap between proprietary frontier APIs and open-source model serving is the primary adoption trigger; companies that reach meaningful inference volume face a make-or-buy decision where Baseten competes on price and performance against OpenAI and Anthropic APIs [e3, e4] [e3] [e4].",
+        "citationIds": [
+          "e3",
+          "e4"
+        ]
+      },
+      "marketStructure": null
+    }
+  },
+  "cacheStatus": "hit",
+  "comparables": [
+    {
+      "name": "Replicate",
+      "basis": "Same buyer and same job to be done: AI application teams deploying open-source models via API for inference. Named as a competitor by PitchBook.",
+      "domain": "replicate.com",
+      "oneLiner": "Cloud platform for running and deploying open-source machine learning models via API.",
+      "confidence": "high",
+      "citationIds": [
+        "e1"
+      ]
+    },
+    {
+      "name": "Fireworks AI",
+      "basis": "Same buyer and same workflow: model-serving API for open-source and fine-tuned models. Named together in market coverage of the inference gold rush.",
+      "domain": "fireworks.ai",
+      "oneLiner": "Fast inference API platform for open-source and custom generative AI models.",
+      "confidence": "medium",
+      "citationIds": [
+        "e4"
+      ]
+    },
+    {
+      "name": "Modal Labs",
+      "basis": "Same buyer and overlapping workflow: developers deploying GPU workloads including inference. Named as a competitor by PitchBook.",
+      "domain": "modal.com",
+      "oneLiner": "Cloud platform for running serverless GPU workloads including AI inference and training.",
+      "confidence": "high",
+      "citationIds": [
+        "e1"
+      ]
+    }
+  ],
+  "generatedAt": "2026-07-20T15:25:58.678Z",
+  "generationCostUsd": 0.0585
+}

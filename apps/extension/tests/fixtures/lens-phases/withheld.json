@@ -1,0 +1,84 @@
+{
+  "slug": "nettlesystems",
+  "domain": "nettlesystems.com",
+  "generatedAt": "2026-07-15T12:05:00.000Z",
+  "generationCostUsd": 0.0410,
+  "cacheStatus": "hit",
+  "identity": {
+    "name": { "value": "Nettle Systems", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "websiteUrl": { "value": "https://nettlesystems.com", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "logoUrl": null,
+    "oneLiner": {
+      "value": "Nettle Systems automates compliance workflows for regulated back offices.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "hq": { "value": { "city": "Austin", "country": "United States" }, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "foundedYear": { "value": 2023, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "status": "private"
+  },
+  "funding": {
+    "totalRaisedUsd": { "value": 9000000, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "lastRound": {
+      "value": { "name": "Seed", "amountUsd": 9000000, "announcedAt": "2026-06-01", "leadInvestors": ["Lowercase Capital"] },
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c2"]
+    },
+    "investors": {
+      "value": [{ "name": "Lowercase Capital", "domain": null }],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c2"]
+    }
+  },
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Priya Anand",
+          "role": "Co-founder & CEO",
+          "sourceUrl": "https://linkedin.com/in/priya-anand-nettle",
+          "email": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c5"]
+    },
+    "keyExecs": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] },
+    "headcount": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] }
+  },
+  "signals": [
+    {
+      "title": "Nettle Systems raises $9M to automate compliance busywork",
+      "url": "https://techcrunch.com/2026/06/01/nettle-systems-seed",
+      "date": "2026-06-01",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": ["c2"]
+    }
+  ],
+  "comparables": [
+    {
+      "name": "Vanta",
+      "domain": "vanta.com",
+      "oneLiner": "Automated security and compliance monitoring platform."
+    }
+  ],
+  "citations": [
+    { "id": "c1", "url": "https://nettlesystems.com/", "title": "Nettle Systems", "fetchedAt": "2026-07-15T11:50:00.000Z", "sourceType": "company_site" },
+    { "id": "c2", "url": "https://techcrunch.com/2026/06/01/nettle-systems-seed", "title": "Nettle Systems raises $9M to automate compliance busywork", "fetchedAt": "2026-07-15T11:52:00.000Z", "sourceType": "news" },
+    { "id": "c3", "url": "https://www.axios.com/2026/06/02/nettle-systems-funding-round", "title": "Nettle Systems closes a $9M seed for back-office compliance automation", "fetchedAt": "2026-07-15T11:53:00.000Z", "sourceType": "news" },
+    { "id": "c4", "url": "https://linkedin.com/company/nettle-systems", "title": "Nettle Systems", "fetchedAt": "2026-07-15T11:55:00.000Z", "sourceType": "enrichment" },
+    { "id": "c5", "url": "https://linkedin.com/in/priya-anand-nettle", "title": "Priya Anand", "fetchedAt": "2026-07-15T11:56:00.000Z", "sourceType": "enrichment" }
+  ],
+  "synthesisWithheld": {
+    "at": "2026-07-15T12:05:00.000Z",
+    "reasons": ["citation-floor"],
+    "advisories": [],
+    "citationCount": 5,
+    "sourceTypeCount": 2
+  }
+}

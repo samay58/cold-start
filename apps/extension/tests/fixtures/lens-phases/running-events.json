@@ -1,0 +1,121 @@
+[
+  {
+    "id": "e1",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "generation.queued",
+    "message": "Queued investor analysis",
+    "metadata": { "mode": "analysis" },
+    "createdAt": "2026-07-20T19:03:17.248Z"
+  },
+  {
+    "id": "e2",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "generation.started",
+    "message": "Started investor analysis",
+    "metadata": {},
+    "createdAt": "2026-07-20T19:03:20.114Z"
+  },
+  {
+    "id": "e3",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "plan.ready",
+    "message": "Research plan ready",
+    "metadata": { "queryCount": 8 },
+    "createdAt": "2026-07-20T19:03:20.229Z"
+  },
+  {
+    "id": "e4",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "source.found",
+    "message": "Found 38 accepted sources",
+    "metadata": {
+      "acceptedCount": 38,
+      "rejectedCount": 13,
+      "directExaCount": 19,
+      "stableenrichCount": 36,
+      "sourceCategories": ["docs", "funding coverage", "news"],
+      "sources": [
+        { "url": "https://deepinfra.com/", "title": "DeepInfra", "domain": "deepinfra.com", "imageUrl": "https://media.licdn.com/dms/image/v2/C560BAQFpjDbDCQGGSA/company-logo_200_200/company-logo_200_200/0/1675810285636?e=2147483647&v=beta&t=475H6TFrtC8PDDlOoCF3L0RrGNSafomFhR1IJvtE6gQ", "sourceType": "company_site" },
+        { "url": "https://linkedin.com/in/nikola-borisov", "title": "Nikola Borisov", "domain": "linkedin.com", "imageUrl": "https://media.licdn.com/dms/image/v2/D5603AQGW6DW6vTqJkA/profile-displayphoto-scale_200_200/B56Z30DsUaK0Ag-/0/1777916103395?e=2147483647&v=beta&t=cOV3fX_SfEZd0MQ0NcKpbVg0PWYzH0k3FBjIWqfJPIY", "sourceType": "news" },
+        { "url": "https://linkedin.com/in/gepap", "title": "Georgios Papoutsis", "domain": "linkedin.com", "imageUrl": "https://media.licdn.com/dms/image/v2/D5603AQFV60pEtMcuww/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1683106226934?e=2147483647&v=beta&t=bOOOXyiMar172i0P9mzIyVpQCSxwqhdDZAgnlpzLgEk", "sourceType": "news" },
+        { "url": "https://www.datacenterdynamics.com/en/news/ai-cloud-deepinfra-raises-107m-in-series-b-funding-round/", "title": "AI cloud DeepInfra raises $107m in Series B funding round - DCD", "domain": "datacenterdynamics.com", "imageUrl": null, "sourceType": "news" },
+        { "url": "https://www.itnewsonline.com/GlobeNewswire/DeepInfra-Closes-USD107M-Series-B-to-Power-Production-Scale-AI-Inference/121323", "title": "DeepInfra Closes $107M Series B to Power Production-Scale AI Inference", "domain": "itnewsonline.com", "imageUrl": "https://www.itnewsonline.com/images/site/it-news-online-logo1.png", "sourceType": "news" },
+        { "url": "https://500.co/content/deepinfra", "title": "Harnessing Intelligence with DeepInfra: Delivering the Power of AI to All of Us | 500 Global", "domain": "500.co", "imageUrl": "https://strapi-global-sites.s3.amazonaws.com/San-Fran_malva-nieto-ZoWYxEGUJf4-unsplash-2048x1365.webp", "sourceType": "news" },
+        { "url": "https://deepinfra.com/blog/18m-milestone", "title": "A Milestone on Our Journey Building DeepInfra and Scaling Open Source AI Infrastructure", "domain": "deepinfra.com", "imageUrl": "https://deepinfra.com/blog/team-photo.jpg", "sourceType": "company_site" },
+        { "url": "https://www.hpcwire.com/aiwire/2026/05/06/deepinfra-closes-107m-series-b-to-power-production-scale-ai-inference/", "title": "AIwire - Covering Scientific & Technical AI", "domain": "hpcwire.com", "imageUrl": "https://www.hpcwire.com/aiwire/wp-content/uploads/sites/3/2026/05/DeepInfra.png", "sourceType": "news" },
+        { "url": "https://www.tradingview.com/news/reuters.com,2026:newsml_FWN41H0WB:0-deepinfra-closes-107-mln-series-b-to-power-production-scale-ai-inference/", "title": "DeepInfra Closes $107 Mln Series B To Power Production-Scale AI Inference — TradingView News", "domain": "tradingview.com", "imageUrl": "https://s.tradingview.com/static/images/illustrations/news-story.jpg", "sourceType": "news" },
+        { "url": "https://www.citybiz.co/article/841587/deepinfra-raises-107m-series-b-to-power-next-gen-ai-inference-infrastructure/", "title": "DeepInfra Raises $107M Series B to Power Next-Gen AI Inference Infrastructure | citybiz", "domain": "citybiz.co", "imageUrl": "https://www.citybiz.co/wp-content/uploads/2026/05/NikolaBorisov.jpg", "sourceType": "news" },
+        { "url": "https://deepinfra.com/blog/deepinfra-series-b", "title": "DeepInfra Raises $107M Series B to Scale Inference Infrastructure", "domain": "deepinfra.com", "imageUrl": null, "sourceType": "news" },
+        { "url": "https://convergedigest.com/deepinfra-opens-toronto-data-center-with-1000-blackwell-b300s/", "title": "DeepInfra Opens Toronto Data Center with 1,000+ Blackwell B300s  - Converge Digest", "domain": "convergedigest.com", "imageUrl": "https://eadn-wc01-8182785.nxedge.io/wp-content/uploads/2025/12/Whisk_3a8b357f14f680eb8e448bc2cd93222fdr.jpeg", "sourceType": "news" }
+      ]
+    },
+    "createdAt": "2026-07-20T19:03:52.698Z"
+  },
+  {
+    "id": "e5",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "synthesis.started",
+    "message": "Started investor synthesis",
+    "metadata": {},
+    "createdAt": "2026-07-20T19:04:00.000Z"
+  },
+  {
+    "id": "e6",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "verify.started",
+    "message": "Started claim verification",
+    "metadata": {},
+    "createdAt": "2026-07-20T19:04:25.000Z"
+  },
+  {
+    "id": "e7",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "verify.complete",
+    "message": "Verified investor claims",
+    "metadata": {},
+    "createdAt": "2026-07-20T19:04:38.000Z"
+  },
+  {
+    "id": "e8",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "card.saved",
+    "message": "Saved cited company card",
+    "metadata": { "sourceCount": 38, "citationCount": 18 },
+    "createdAt": "2026-07-20T19:04:43.176Z"
+  },
+  {
+    "id": "e9",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "generation.complete",
+    "message": "Research run complete",
+    "metadata": { "mode": "analysis", "costUsd": 0.0646 },
+    "createdAt": "2026-07-20T19:04:44.629Z"
+  }
+]

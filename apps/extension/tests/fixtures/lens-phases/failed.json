@@ -1,0 +1,98 @@
+{
+  "slug": "loomsignal",
+  "domain": "loomsignal.ai",
+  "generatedAt": "2026-07-10T08:30:00.000Z",
+  "generationCostUsd": 0.0298,
+  "cacheStatus": "hit",
+  "identity": {
+    "name": { "value": "Loom Signal", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "websiteUrl": { "value": "https://loomsignal.ai", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "logoUrl": null,
+    "oneLiner": {
+      "value": "Loom Signal turns raw customer call recordings into structured revenue signal for sales teams.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "hq": { "value": { "city": "Denver", "country": "United States" }, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "foundedYear": { "value": 2024, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "status": "private"
+  },
+  "funding": {
+    "totalRaisedUsd": { "value": 6500000, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "lastRound": {
+      "value": { "name": "Seed", "amountUsd": 6500000, "announcedAt": "2026-03-02", "leadInvestors": ["Uncork Capital"] },
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c2"]
+    },
+    "investors": {
+      "value": [{ "name": "Uncork Capital", "domain": null }],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c2"]
+    }
+  },
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Renata Osei",
+          "role": "Co-founder & CEO",
+          "sourceUrl": "https://linkedin.com/in/renata-osei",
+          "email": null
+        },
+        {
+          "name": "Tobias Lindqvist",
+          "role": "Co-founder & CTO",
+          "sourceUrl": "https://github.com/tlindqvist",
+          "githubUrl": "https://github.com/tlindqvist",
+          "email": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c4", "c5"]
+    },
+    "keyExecs": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] },
+    "headcount": {
+      "value": { "value": 14, "asOf": "2026-07-01" },
+      "status": "inferred",
+      "confidence": "low",
+      "citationIds": ["c4"]
+    }
+  },
+  "signals": [
+    {
+      "title": "Loom Signal raises $6.5M seed for call-recording revenue signal",
+      "url": "https://techcrunch.com/2026/03/02/loom-signal-seed",
+      "date": "2026-03-02",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": ["c2"]
+    },
+    {
+      "title": "Loom Signal ships a Salesforce integration",
+      "url": "https://loomsignal.ai/blog/salesforce-integration",
+      "date": "2026-06-20",
+      "source": "loomsignal.ai",
+      "category": "launch",
+      "citationIds": ["c6"]
+    }
+  ],
+  "comparables": [
+    {
+      "name": "Gong",
+      "domain": "gong.io",
+      "oneLiner": "Revenue intelligence platform that analyzes customer interactions."
+    }
+  ],
+  "citations": [
+    { "id": "c1", "url": "https://loomsignal.ai/", "title": "Loom Signal", "fetchedAt": "2026-07-10T08:00:00.000Z", "sourceType": "company_site" },
+    { "id": "c2", "url": "https://techcrunch.com/2026/03/02/loom-signal-seed", "title": "Loom Signal raises $6.5M seed for call-recording revenue signal", "fetchedAt": "2026-07-10T08:02:00.000Z", "sourceType": "news" },
+    { "id": "c3", "url": "https://www.crunchbase.com/organization/loom-signal", "title": "Loom Signal - Crunchbase Company Profile", "fetchedAt": "2026-07-10T08:03:00.000Z", "sourceType": "news" },
+    { "id": "c4", "url": "https://linkedin.com/in/renata-osei", "title": "Renata Osei", "fetchedAt": "2026-07-10T08:04:00.000Z", "sourceType": "enrichment" },
+    { "id": "c5", "url": "https://github.com/tlindqvist", "title": "Tobias Lindqvist", "fetchedAt": "2026-07-10T08:05:00.000Z", "sourceType": "github" },
+    { "id": "c6", "url": "https://loomsignal.ai/blog/salesforce-integration", "title": "Loom Signal ships a Salesforce integration", "fetchedAt": "2026-07-10T08:06:00.000Z", "sourceType": "company_site" }
+  ]
+}

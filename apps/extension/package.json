@@ -9,6 +9,7 @@
     "build:firefox": "vite build -c vite.firefox.config.ts",
     "qa:extension:smoke": "npm run build && playwright test --config=playwright.smoke.config.ts --project=extension-smoke",
     "qa:extension:ui": "playwright test --project=sidepanel-ui",
+    "qa:extension:gallery": "playwright test tests/e2e/lens-gallery.spec.ts",
     "audit:css": "node scripts/audit-css-literals.mjs",
     "test": "npm run audit:css && vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit"

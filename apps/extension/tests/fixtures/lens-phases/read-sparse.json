@@ -1,0 +1,114 @@
+{
+  "slug": "harborcompute",
+  "domain": "harborcompute.ai",
+  "generatedAt": "2026-06-18T14:10:00.000Z",
+  "generationCostUsd": 0.0512,
+  "cacheStatus": "hit",
+  "identity": {
+    "name": { "value": "Harbor Compute", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "websiteUrl": { "value": "https://harborcompute.ai", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "logoUrl": null,
+    "oneLiner": {
+      "value": "Harbor Compute schedules AI training jobs across spot capacity from six cloud providers.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "hq": { "value": { "city": "Seattle", "country": "United States" }, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "foundedYear": { "value": 2022, "status": "verified", "confidence": "medium", "citationIds": ["c2"] },
+    "status": "private"
+  },
+  "funding": {
+    "totalRaisedUsd": { "value": 18000000, "status": "verified", "confidence": "high", "citationIds": ["c2"] },
+    "lastRound": {
+      "value": { "name": "Series A", "amountUsd": 18000000, "announcedAt": "2026-04-10", "leadInvestors": ["Root Ventures"] },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c2"]
+    },
+    "investors": {
+      "value": [{ "name": "Root Ventures", "domain": null }, { "name": "Fuel Capital", "domain": null }],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c2"]
+    }
+  },
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Marcus Idoko",
+          "role": "Co-founder & CEO",
+          "sourceUrl": "https://linkedin.com/in/marcus-idoko",
+          "email": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c6"]
+    },
+    "keyExecs": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] },
+    "headcount": {
+      "value": { "value": 11, "asOf": "2026-06-01" },
+      "status": "inferred",
+      "confidence": "low",
+      "citationIds": ["c7"]
+    }
+  },
+  "signals": [
+    {
+      "title": "Harbor Compute raises $18M Series A to arbitrage GPU spot pricing",
+      "url": "https://techcrunch.com/2026/04/10/harbor-compute-series-a",
+      "date": "2026-04-10",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": ["c2"]
+    },
+    {
+      "title": "Harbor Compute is hiring for infrastructure and scheduling roles",
+      "url": "https://harborcompute.ai/careers",
+      "date": "2026-06-05",
+      "source": "harborcompute.ai",
+      "category": "hiring",
+      "citationIds": ["c5"]
+    }
+  ],
+  "comparables": [
+    {
+      "name": "SkyPilot",
+      "domain": "skypilot.co",
+      "oneLiner": "Open-source framework for running AI workloads on any cloud at the lowest cost.",
+      "confidence": "medium",
+      "citationIds": ["c3"]
+    }
+  ],
+  "citations": [
+    { "id": "c1", "url": "https://harborcompute.ai/", "title": "Harbor Compute", "fetchedAt": "2026-06-18T13:40:00.000Z", "sourceType": "company_site" },
+    { "id": "c2", "url": "https://techcrunch.com/2026/04/10/harbor-compute-series-a", "title": "Harbor Compute raises $18M Series A to arbitrage GPU spot pricing", "fetchedAt": "2026-06-18T13:42:00.000Z", "sourceType": "news" },
+    { "id": "c3", "url": "https://thenewstack.io/2026/05/01/gpu-spot-scheduling-startups", "title": "The GPU spot-scheduling startups racing to cut training bills", "fetchedAt": "2026-06-18T13:44:00.000Z", "sourceType": "news" },
+    { "id": "c4", "url": "https://github.com/harborcompute", "title": "Harbor Compute GitHub", "fetchedAt": "2026-06-18T13:46:00.000Z", "sourceType": "github" },
+    { "id": "c5", "url": "https://harborcompute.ai/careers", "title": "Careers at Harbor Compute", "fetchedAt": "2026-06-18T13:47:00.000Z", "sourceType": "company_site" },
+    { "id": "c6", "url": "https://linkedin.com/in/marcus-idoko", "title": "Marcus Idoko", "fetchedAt": "2026-06-18T13:48:00.000Z", "sourceType": "enrichment" },
+    { "id": "c7", "url": "https://linkedin.com/company/harbor-compute", "title": "Harbor Compute", "fetchedAt": "2026-06-18T13:49:00.000Z", "sourceType": "enrichment" },
+    { "id": "c8", "url": "https://www.bloomberg.com/news/2026-04-11-harbor-compute-funding", "title": "Harbor Compute closes Series A as training costs climb", "fetchedAt": "2026-06-18T13:50:00.000Z", "sourceType": "news" }
+  ],
+  "synthesis": {
+    "whyItMatters": {
+      "text": "Harbor Compute sits on the cost line of every AI training run, routing jobs to whichever cloud has the cheapest spot GPUs that hour.",
+      "citationIds": ["c1", "c2"]
+    },
+    "bullCase": [
+      {
+        "text": "Six-cloud spot arbitrage is a real cost lever for any team running large training jobs, and the $18M round signals investors believe the scheduling layer can be defensible.",
+        "citationIds": ["c2"]
+      }
+    ],
+    "bearCase": [],
+    "openQuestions": [
+      {
+        "question": "What share of Harbor Compute's scheduled jobs actually complete on spot capacity without an expensive on-demand fallback?",
+        "category": "technical_edge"
+      }
+    ]
+  }
+}

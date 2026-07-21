@@ -1,0 +1,117 @@
+{
+  "slug": "fathommetrics",
+  "domain": "fathommetrics.io",
+  "generatedAt": "2026-06-30T09:20:00.000Z",
+  "generationCostUsd": 0.0731,
+  "cacheStatus": "hit",
+  "identity": {
+    "name": { "value": "Fathom Metrics", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "logoUrl": null,
+    "oneLiner": {
+      "value": "Fathom Metrics gives AI agent teams real-time cost and failure observability across every model call.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "hq": { "value": { "city": "New York", "country": "United States" }, "status": "verified", "confidence": "medium", "citationIds": ["c4"] },
+    "foundedYear": { "value": 2022, "status": "verified", "confidence": "medium", "citationIds": ["c4"] },
+    "status": "private"
+  },
+  "funding": {
+    "totalRaisedUsd": { "value": 22000000, "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "lastRound": {
+      "value": { "name": "Series A", "amountUsd": 22000000, "announcedAt": "2026-05-14", "leadInvestors": ["Amplify Partners"] },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c2"]
+    },
+    "investors": {
+      "value": [{ "name": "Amplify Partners", "domain": null }, { "name": "South Park Commons", "domain": null }],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c2"]
+    }
+  },
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Deven Okafor",
+          "role": "Co-founder & CEO",
+          "sourceUrl": "https://linkedin.com/in/deven-okafor",
+          "email": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c5", "c10"]
+    },
+    "keyExecs": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] },
+    "headcount": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] }
+  },
+  "signals": [
+    {
+      "title": "Fathom Metrics raises $22M Series A to watch what AI agents cost you",
+      "url": "https://techcrunch.com/2026/05/14/fathom-metrics-series-a",
+      "date": "2026-05-14",
+      "source": "TechCrunch",
+      "category": "funding",
+      "citationIds": ["c1"]
+    },
+    {
+      "title": "Fathom Metrics launches agent cost dashboards for engineering teams",
+      "url": "https://www.axios.com/2026/06/30/fathom-metrics-dashboards",
+      "date": "2026-06-30",
+      "source": "Axios",
+      "category": "launch",
+      "citationIds": ["c6"]
+    }
+  ],
+  "comparables": [
+    {
+      "name": "Helicone",
+      "domain": "helicone.ai",
+      "oneLiner": "Open-source observability platform for LLM applications."
+    }
+  ],
+  "citations": [
+    { "id": "c1", "url": "https://techcrunch.com/2026/05/14/fathom-metrics-series-a", "title": "Fathom Metrics raises $22M Series A to watch what AI agents cost you", "fetchedAt": "2026-06-30T09:00:00.000Z", "sourceType": "news" },
+    { "id": "c2", "url": "https://www.theinformation.com/articles/fathom-metrics-series-a-amplify", "title": "Fathom Metrics closes Series A led by Amplify Partners", "fetchedAt": "2026-06-30T09:01:00.000Z", "sourceType": "news" },
+    { "id": "c3", "url": "https://www.businesswire.com/news/home/20260514-fathom-metrics-funding", "title": "Fathom Metrics Announces $22 Million Series A Funding", "fetchedAt": "2026-06-30T09:02:00.000Z", "sourceType": "news" },
+    { "id": "c4", "url": "https://venturebeat.com/ai/fathom-metrics-agent-observability", "title": "Fathom Metrics wants to be the black box recorder for AI agents", "fetchedAt": "2026-06-30T09:03:00.000Z", "sourceType": "news" },
+    { "id": "c5", "url": "https://www.forbes.com/sites/2026/06/01/fathom-metrics-founder-profile", "title": "The founder betting agent spend needs its own dashboard", "fetchedAt": "2026-06-30T09:04:00.000Z", "sourceType": "news" },
+    { "id": "c6", "url": "https://www.axios.com/2026/06/30/fathom-metrics-dashboards", "title": "Fathom Metrics launches agent cost dashboards for engineering teams", "fetchedAt": "2026-06-30T09:05:00.000Z", "sourceType": "news" },
+    { "id": "c7", "url": "https://www.bloomberg.com/news/2026-05-15-fathom-metrics-quick-take", "title": "Fathom Metrics: Quick Take on the Series A", "fetchedAt": "2026-06-30T09:06:00.000Z", "sourceType": "news" },
+    { "id": "c8", "url": "https://sifted.eu/articles/fathom-metrics-agent-observability-europe", "title": "US agent-observability startup Fathom Metrics eyes Europe", "fetchedAt": "2026-06-30T09:07:00.000Z", "sourceType": "news" },
+    { "id": "c9", "url": "https://www.wired.com/story/ai-agent-cost-observability-startups", "title": "The AI agent cost problem is spawning a new observability category", "fetchedAt": "2026-06-30T09:08:00.000Z", "sourceType": "news" },
+    { "id": "c10", "url": "https://linkedin.com/in/deven-okafor", "title": "Deven Okafor", "fetchedAt": "2026-06-30T09:09:00.000Z", "sourceType": "enrichment" }
+  ],
+  "synthesis": {
+    "whyItMatters": {
+      "text": "Fathom Metrics sits between agent frameworks and the model bill, the layer teams reach for once agent spend becomes a board-level line item.",
+      "citationIds": ["c1", "c4"]
+    },
+    "bullCase": [
+      {
+        "text": "Three separate funding stories name enterprise design partners already routing production agent traffic through Fathom's proxy, a sign of real usage ahead of the round.",
+        "citationIds": ["c2"]
+      }
+    ],
+    "bearCase": [
+      {
+        "text": "Every citation on this card is secondary reporting; no company-controlled source or filing confirms the reported revenue or customer figures.",
+        "citationIds": ["c8"]
+      }
+    ],
+    "openQuestions": [
+      {
+        "question": "What share of reported customers are paying versus still on a free design-partner tier?",
+        "category": "unit_economics"
+      },
+      {
+        "question": "Does Fathom's proxy add latency that agent teams will tolerate at production scale?",
+        "category": "technical_edge"
+      }
+    ]
+  }
+}
