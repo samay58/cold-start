@@ -99,8 +99,7 @@ body,
 .cs-research-label,
 .cs-company-facts dt,
 .cs-card-grip,
-.cs-active-chevron,
-.cs-source-chip {
+.cs-active-chevron {
   font-family: var(--font-mono);
   letter-spacing: 0;
   text-transform: none;
@@ -112,14 +111,6 @@ body,
   border: 1px solid var(--color-verified);
   border-radius: 2px;
   background: var(--color-verified);
-  box-shadow: none;
-}
-
-.cs-source-chip {
-  border: 1px solid var(--color-rule);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-reported);
   box-shadow: none;
 }
 
@@ -574,21 +565,6 @@ body,
     linear-gradient(90deg, rgb(var(--cs-c-216-208-191) / 0.28), rgb(var(--cs-c-110-92-158) / 0.095), rgb(var(--cs-c-216-208-191) / 0.24));
 }
 
-.cs-source-chip {
-  min-height: 24px;
-  max-width: 152px;
-  border-color: rgb(var(--cs-c-110-92-158) / 0.22);
-  border-radius: 7px;
-  background: rgb(var(--cs-c-110-92-158) / 0.06);
-  font-family: var(--font-body);
-  font-size: 10.5px;
-}
-
-.cs-source-chip::before {
-  width: 5px;
-  height: 5px;
-}
-
 .cs-card-tray {
   min-height: 0;
   margin-top: 2px;
@@ -628,7 +604,6 @@ body,
 .cs-start-primary,
 .cs-start-settings,
 .cs-active-enrichment-head,
-.cs-source-chip,
 .cs-people-more,
 .cs-research-notice button {
   transition:
@@ -653,7 +628,6 @@ body,
 .cs-start-primary:active,
 .cs-start-settings:active,
 .cs-active-enrichment-head:active,
-.cs-source-chip:active,
 .cs-people-more:active,
 .cs-research-notice button:active {
   transform: scale(0.98);
@@ -672,11 +646,6 @@ body,
   .cs-cache-slug-link:hover {
     color: rgb(var(--cs-c-86-70-132));
     text-decoration-color: rgb(var(--cs-c-110-92-158) / 0.58);
-  }
-
-  .cs-source-chip:hover {
-    border-color: rgb(var(--cs-c-110-92-158) / 0.42);
-    background: rgb(var(--cs-c-110-92-158) / 0.09);
   }
 
   .cs-people-more:hover {

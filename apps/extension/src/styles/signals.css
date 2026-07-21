@@ -284,13 +284,6 @@
   font-size: 8.5px;
 }
 
-.cs-source-chip {
-  max-width: 118px;
-  min-height: 19px;
-  border-radius: 5px;
-  font-size: 8.5px;
-}
-
 .cs-card-tray {
   min-height: 0;
   margin-top: 6px;

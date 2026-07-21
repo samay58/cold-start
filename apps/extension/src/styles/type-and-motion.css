@@ -5,8 +5,7 @@ body {
 
 .cs-company-facts dt,
 .cs-layer-rows dt,
-.cs-layer-items span,
-.cs-source-chip {
+.cs-layer-items span {
   font-family: var(--font-body);
 }
 
@@ -146,14 +145,6 @@ body {
 .cs-layer-items span {
   font-size: 10px;
   letter-spacing: 0.06em;
-}
-
-.cs-source-chip {
-  min-height: 22px;
-  max-width: 146px;
-  font-size: 10px;
-  font-weight: 720;
-  letter-spacing: 0;
 }
 
 .cs-dormant-card {

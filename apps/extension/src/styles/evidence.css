@@ -266,45 +266,6 @@
   white-space: nowrap;
 }
 
-.cs-source-chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.cs-source-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 132px;
-  min-height: 22px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.80);
-  border-radius: 4px;
-  background: var(--color-plate);
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  overflow: hidden;
-  padding: 0 7px;
-  text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cs-source-chip::before {
-  width: 4px;
-  height: 4px;
-  margin-right: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  content: "";
-  opacity: 0.72;
-}
-
 .cs-research-notice p {
   margin: 5px 0 0;
   color: var(--color-muted);
@@ -445,8 +406,7 @@
 
 .cs-dormant-card:focus-visible,
 .cs-active-enrichment-head:focus-visible,
-.cs-research-notice button:focus-visible,
-.cs-source-chip:focus-visible {
+.cs-research-notice button:focus-visible {
   outline: 2px solid var(--color-seal);
   outline-offset: 2px;
 }

@@ -374,8 +374,94 @@
   letter-spacing: -0.01em;
 }
 
+/* Source chips: the deck's citation pills, styled here (not in research-trail.css, the lens
+   owner) because they are deck cards, not lens content. Composite of six prior partial overrides
+   across evidence.css, signals.css, signal-ledger.css (three separate touches), type-and-motion.css,
+   and this file's own one-liner, computed by cascade order with one specificity wrinkle: the chip
+   is always rendered as an <a> (ResearchLayerPanel.tsx's SourceChips), so the hover/focus-visible
+   rule below uses the a.cs-source-chip prefix on purpose -- it is what actually won against
+   signal-ledger.css's plain .cs-source-chip:hover (dropped entirely: its border-color was already
+   moot against this rule's zero-width border, and its background lost to this rule's higher
+   specificity even before considering import order). */
+.cs-source-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  margin-top: 10px;
+}
+
 .cs-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 152px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
   font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+  box-shadow: none;
+  transition:
+    transform var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    background-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    border-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    box-shadow var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    opacity var(--cs-motion-feedback) var(--cs-motion-ease-out);
+}
+
+/* The old CSS-generated dot is retired in favor of the real <i> element below; content: none
+   keeps the pseudo-element from generating a second, uncolored dot next to it. */
+.cs-source-chip::before {
+  content: none;
+}
+
+.cs-source-chip i {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-rule-strong);
+}
+
+.cs-source-chip[data-class="independent"] i {
+  background: var(--color-verified);
+}
+
+.cs-source-chip[data-class="reporting"] i {
+  background: var(--color-reported);
+}
+
+.cs-source-chip[data-class="company"] i {
+  background: var(--color-company);
+}
+
+.cs-source-chip:active {
+  transform: scale(0.98);
+}
+
+.cs-source-chip:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+a.cs-source-chip:hover,
+a.cs-source-chip:focus-visible {
+  color: var(--color-seal);
+  background: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* Dormant research cards: a controlled filing pile, not a row list. */
