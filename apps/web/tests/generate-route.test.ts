@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => {
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
     findCardBySlug: vi.fn(),
-    findCardUpdatedAtBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
     markResearchSectionFailed: vi.fn(),
@@ -28,7 +27,6 @@ vi.mock("@cold-start/db", () => ({
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findCardBySlug: mocks.findCardBySlug,
-  findCardUpdatedAtBySlug: mocks.findCardUpdatedAtBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
@@ -167,15 +165,26 @@ function underfilledPublicCard() {
   };
 }
 
-function withheldCard(overrides: { synthesisWithheldAt?: string } = {}) {
+// Defaults (citationCount: 3, sourceTypeCount: 3) match what synthesisEvidenceSignals derives
+// from usablePublicCard()'s own three citations (company_site, news, other -- all non-enrichment).
+// That equality is the "evidence unchanged since the withheld verdict" case; override either
+// count, or pass extra citations, to simulate evidence that moved since the verdict.
+function withheldCard(overrides: {
+  synthesisWithheldAt?: string;
+  citationCount?: number;
+  sourceTypeCount?: number;
+  extraCitations?: ReturnType<typeof usablePublicCard>["citations"];
+} = {}) {
+  const base = usablePublicCard();
   return {
-    ...usablePublicCard(),
+    ...base,
+    citations: overrides.extraCitations ? [...base.citations, ...overrides.extraCitations] : base.citations,
     synthesisWithheld: {
       at: overrides.synthesisWithheldAt ?? "2026-05-14T00:00:00.000Z",
       reasons: ["insufficient-citations"],
       advisories: [],
-      citationCount: 2,
-      sourceTypeCount: 1
+      citationCount: overrides.citationCount ?? 3,
+      sourceTypeCount: overrides.sourceTypeCount ?? 3
     }
   };
 }
@@ -191,7 +200,6 @@ describe("POST /api/generate", () => {
     mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
     mocks.findCardBySlug.mockReset();
-    mocks.findCardUpdatedAtBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
     mocks.markResearchSectionFailed.mockReset();
@@ -308,8 +316,11 @@ describe("POST /api/generate", () => {
   });
 
   it("(a) returns withheld status free of charge when evidence has not changed since the withheld verdict", async () => {
+    // Real prod shape: synthesisWithheld.at is stamped mid-pipeline, before upsertCard sets
+    // cards.updated_at, so the row is always written strictly later than the withheld verdict.
+    // A timestamp-based pre-check can never see this as "unchanged"; only a content comparison
+    // (citation count + source-type count from the card's own citations) can.
     mocks.findCardBySlug.mockResolvedValue(withheldCard());
-    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T00:00:00.000Z"));
 
     const response = await POST(
       generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
@@ -330,7 +341,6 @@ describe("POST /api/generate", () => {
 
   it("(b) queues a forced refresh even when the card is withheld and unchanged", async () => {
     mocks.findCardBySlug.mockResolvedValue(withheldCard());
-    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T00:00:00.000Z"));
     mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
@@ -349,13 +359,40 @@ describe("POST /api/generate", () => {
       status: "queued"
     });
     expect(mocks.send).toHaveBeenCalled();
-    // forceRefresh bypasses the pre-check entirely, so the extra row lookup never fires.
-    expect(mocks.findCardUpdatedAtBySlug).not.toHaveBeenCalled();
   });
 
-  it("(c) queues when the card row was updated after the withheld verdict", async () => {
-    mocks.findCardBySlug.mockResolvedValue(withheldCard());
-    mocks.findCardUpdatedAtBySlug.mockResolvedValue(new Date("2026-05-14T01:00:00.000Z"));
+  it("(c) queues when the card's evidence has grown past the withheld verdict's counts", async () => {
+    mocks.findCardBySlug.mockResolvedValue(
+      withheldCard({
+        extraCitations: [
+          { id: "c4", url: "https://example.com/cartesia-new-coverage", title: "New coverage", fetchedAt: "2026-05-15T00:00:00.000Z", sourceType: "news" }
+        ]
+      })
+    );
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(mocks.send).toHaveBeenCalled();
+  });
+
+  it("queues when only the recorded source-type count differs from the card's live citations", async () => {
+    // citationCount still matches (3 == 3); only sourceTypeCount is stale (1 vs. the live 3).
+    // Either count alone diverging must be treated as evidence having moved.
+    mocks.findCardBySlug.mockResolvedValue(withheldCard({ sourceTypeCount: 1 }));
     mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);

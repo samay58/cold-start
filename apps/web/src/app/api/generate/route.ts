@@ -6,6 +6,7 @@ import {
   hasUsablePublicProfile,
   isSynthesisOnlySectionId,
   researchSectionIdSchema,
+  synthesisEvidenceSignals,
   type ColdStartCard,
   type GenerationJobKind,
   type ResearchSectionId
@@ -14,7 +15,6 @@ import {
   createDb,
   findActiveGenerationRunStatusBySlug,
   findCardBySlug,
-  findCardUpdatedAtBySlug,
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   findResearchRunEventsByRunId,
@@ -302,23 +302,24 @@ export async function POST(request: Request) {
   // duplicate of a run that will just re-hit the same gate is structurally impossible.
   // forceRefresh always bypasses it. Only the analysis branch's fetch (findCardBySlug) can ever
   // carry synthesisWithheld; the basics branch's PublicCard type structurally omits it.
+  // The comparison is evidence-content-based (citation count plus non-enrichment source-type
+  // count), not timestamp-based: synthesisWithheld.at is stamped mid-pipeline during card
+  // assembly, before upsertCard sets cards.updated_at at persist time, so updated_at is always
+  // later than at in production and a `updated_at <= at` comparison can never pass.
   const analysisCard = mode === "analysis" ? (cached as ColdStartCard | null) : null;
   const withheldRecord = analysisCard?.synthesisWithheld;
 
-  if (!sectionId && mode === "analysis" && !forceRefresh && cached && withheldRecord) {
-    const withheldAtMs = new Date(withheldRecord.at).getTime();
-    const withheldCheckStartedAt = performance.now();
-    const rowUpdatedAt = await findCardUpdatedAtBySlug(db, slug);
-    const withheldCheckMs = elapsedMs(withheldCheckStartedAt);
+  if (!sectionId && mode === "analysis" && !forceRefresh && analysisCard && withheldRecord) {
+    const liveSignals = synthesisEvidenceSignals(analysisCard);
+    const evidenceUnchanged =
+      liveSignals.citationCount === withheldRecord.citationCount &&
+      liveSignals.nonEnrichmentSourceTypes.length === withheldRecord.sourceTypeCount;
 
-    if (rowUpdatedAt && rowUpdatedAt.getTime() <= withheldAtMs) {
+    if (evidenceUnchanged) {
       return timedJson(
         { slug, domain, mode, status: "withheld" as const, card: cached },
         { status: 200 },
-        [
-          { name: "db-cache", durationMs: cacheLookupMs },
-          { name: "db-withheld", durationMs: withheldCheckMs }
-        ]
+        [{ name: "db-cache", durationMs: cacheLookupMs }]
       );
     }
   }

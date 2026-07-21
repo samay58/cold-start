@@ -9,7 +9,6 @@ import {
   cardExpiryDates,
   findActiveGenerationRunBySlug,
   findCardBySlug,
-  findCardUpdatedAtBySlug,
   findGenerationRunById,
   findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunBySlug,
@@ -402,37 +401,6 @@ describe("upsertCard", () => {
     const insertedSynthesisExpiresAt = (insertValues?.synthesisExpiresAt as Date).getTime();
     expect(insertedSynthesisExpiresAt).toBeGreaterThanOrEqual(before);
     expect(insertedSynthesisExpiresAt).toBeLessThanOrEqual(after);
-  });
-});
-
-describe("findCardUpdatedAtBySlug", () => {
-  it("returns the row's updatedAt when the card exists", async () => {
-    const updatedAt = new Date("2026-05-06T12:00:00.000Z");
-    const db = {
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            limit: async () => [{ updatedAt }]
-          })
-        })
-      })
-    } as unknown as ColdStartDb;
-
-    await expect(findCardUpdatedAtBySlug(db, "cartesia")).resolves.toEqual(updatedAt);
-  });
-
-  it("returns null when the card row is absent", async () => {
-    const db = {
-      select: () => ({
-        from: () => ({
-          where: () => ({
-            limit: async () => []
-          })
-        })
-      })
-    } as unknown as ColdStartDb;
-
-    await expect(findCardUpdatedAtBySlug(db, "missing")).resolves.toBeNull();
   });
 });
 

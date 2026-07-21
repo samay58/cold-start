@@ -98,19 +98,6 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
   return parseCachedCard(row, options);
 }
 
-// Lightweight read for the free withheld pre-check: it only needs the row's last-write
-// timestamp to compare against a stored synthesisWithheld.at, not the full parsed card. Safe to
-// call alongside findCardBySlug, same precedent as latestProviderFailureSummary.
-export async function findCardUpdatedAtBySlug(db: ColdStartDb, slug: string): Promise<Date | null> {
-  const rows = await db
-    .select({ updatedAt: cards.updatedAt })
-    .from(cards)
-    .where(eq(cards.slug, slug))
-    .limit(1);
-
-  return rows[0]?.updatedAt ?? null;
-}
-
 export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<PublicCard | null> {
   const rows = await db
     .select({
