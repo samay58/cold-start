@@ -31,7 +31,7 @@ Milestones live under `trace.milestones`. `firstUsableCardMs` is the sidebar-vis
 
 StableEnrich endpoint rows show `facts` produced and `applied` facts that survived the pipeline merge. A row with facts and zero applied facts is low-yield. `skippedProbeNames` shows cheap-first Direct Exa coverage, and `budgetCeilingHit` means the per-run AgentCash budget stopped additional paid endpoints.
 
-Analysis runs can finish without synthesis when evidence is weak. In that path, `trace.synthesis.gateMessage` explains the non-fatal gate and synthesis/verifier LLM calls should be absent.
+Analysis runs skip synthesis only when evidence falls below the floor: fewer than `ANALYSIS_SYNTHESIS_MIN_CITATIONS` citations (8 by default) or zero non-enrichment source types. Source-type diversity, cited funding, and a named team member are advisories now, not blockers. In that path, `trace.synthesis.gate` carries the block reasons and advisories plus the citation and source-type counts, `trace.synthesis.gateMessage` is the short summary string, and synthesis/verifier LLM calls are absent. The gated card also stores the block as `synthesisWithheld`, cleared the next time a run produces real synthesis.
 
 ## Production QA Suite
 

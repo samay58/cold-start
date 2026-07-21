@@ -321,7 +321,7 @@ The generation trace and production QA playbook is `docs/qa/generation-trace-and
 
 These rules are more important than making a card look complete.
 
-- Public `/api/cards/{slug}` and `/c/{slug}` must never expose `synthesis`.
+- Public `/api/cards/{slug}` and `/c/{slug}` must never expose `synthesis` or `synthesisWithheld`.
 - Extension `/api/extension/cards/{slug}` requires extension identity and bearer-token auth before returning the full card.
 - Public reads derive from `cards.card_json` and strip gated fields at read time.
 - Non-null citation-bearing facts require citation refs, and every ref must resolve to the top-level `citations[]`.

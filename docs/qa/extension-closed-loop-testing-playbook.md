@@ -51,6 +51,7 @@ The real extension smoke should:
 - Missing card: generate gate appears and does not auto-start.
 - Basics running: progress surface renders text-first shimmer, no old chunky bar.
 - Analysis running: pinned active card shows inline running state and resumes after reload.
+- Analysis withheld: a blocked run renders the honest withheld state with real reasons, not an inferred empty-synthesis state, and offers a Refresh evidence and retry action.
 - Drag and snap: card visibly moves, snap preview appears, release above threshold activates only that card.
 - Keyboard activation: Enter and Space activate the same card path.
 - Citations: body text strips inline markers, source chips link with Lens Blue styling and `target="_blank"`.
