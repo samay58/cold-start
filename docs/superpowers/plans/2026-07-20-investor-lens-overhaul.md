@@ -12,7 +12,7 @@ Next steps, in order:
 
 1. **Samay, manual (5 min):** reload the unpacked extension in chrome://extensions, then run analysis on a thin company (casaphq, daytona, or inkeep per the Task 1.3 study) to see the deployed withheld card end to end. The same flow passed live QA locally; this is the deployed-browser confirmation.
 2. **Samay, decision (issue #10):** should a gate-blocked re-run preserve a previously good read instead of wiping it? Current semantics: fresh assembly always wins. Reachable via forceRefresh onto a degraded evidence pool or the stale-in-run path.
-3. **Phase 1.5 (next work):** reference library. Three deep-research tracks (waiting UX, hovercard craft, memo typography) curated into `docs/product/gold-standard-references.md`. Phases 2-4 cite it.
+3. **Phase 1.5: DONE (2026-07-21).** Reference library shipped: `docs/product/gold-standard-references.md`. Phases 2-4 cite it.
 4. **Phase 2:** fixture gallery first, then the memo redesign on the five-role type scale, then CSS consolidation family by family. Gate: Samay's gallery review with macOS Reduce Motion OFF. Riding minors that fold in here: TS exhaustiveness on the withheld reason-copy maps, the retry button's disabled affordance, and deriving the advisory label from the frozen record instead of live signals.
 5. **Phase 3:** docked person dossier. The occlusion regression test must be proven RED against pre-phase code before it counts.
 6. **Phase 4:** latency levers behind a flag (20-run shadow bar before promotion, Samay decides), synthesis/verify step split (quiet-window deploy plus a repair:stuck-runs sweep), the watchable wait, then the two-week `measure:analysis-latency` measurement against the p50 60s / p90 90s bar. The Task 1.7 baseline already shows dispatch right-skew worth the Task 5.4 look.
@@ -275,9 +275,11 @@ Two questions, half a day each, hard timebox:
 
 Run the `deep-research` skill (or parallel research subagents if unavailable) on three tracks: (a) progress and waiting UX in agentic/build products (deploy pipelines, research-agent progress trees, long-running job UIs; who makes 60 seconds feel purposeful and how); (b) hovercard and popover craft (Linear, GitHub, Radix HoverCard, floating-ui safe-polygon internals; open-delay values, close-grace values, pin patterns); (c) high-density reading surfaces and memo typography (editorial products, terminal-of-record designs, annotated-document UIs).
 
-- [ ] **Step 1: Run the three tracks in parallel; each returns named patterns with concrete parameter values where observable (delays, durations, type scales), not mood boards.**
-- [ ] **Step 2: Curate into the playbook: per track, 3-7 adopted patterns with the reason, and 2-3 explicitly rejected ones with the reason. Slopcheck it.**
-- [ ] **Step 3: Commit. Phases 2-4 cite this file in their design steps.**
+- [x] **Step 1: Run the three tracks in parallel; each returns named patterns with concrete parameter values where observable (delays, durations, type scales), not mood boards.**
+- [x] **Step 2: Curate into the playbook: per track, 3-7 adopted patterns with the reason, and 2-3 explicitly rejected ones with the reason. Slopcheck it.**
+- [x] **Step 3: Commit. Phases 2-4 cite this file in their design steps.**
+
+**Done (2026-07-21):** Three Sonnet research tracks ran in parallel; playbook shipped as `docs/product/gold-standard-references.md`, 7 adopted and 3 rejected patterns per track, every value primary-sourced (source code read for Radix, floating-ui, hoverIntent, menu-aim, Carbon, Hypothesis) except two claims flagged as secondary (Perplexity teardown, Bloomberg summary). A fact-check reviewer verified every number against the raw notes; its 4 findings (an unsourced duration, a dropped secondary flag on reuse, a paraphrase labeled as quote, an untraceable filename) were fixed in place. Raw notes in `docs/motion-references/research-2026-07-21/` (gitignored). Slopcheck clean. Notable inputs to later phases: WCAG 1.4.13 becomes Phase 3's acceptance checklist; FloatingDelayGroup's hot-retarget pattern maps to the dock; the show-delay/min-visible values (150-300ms / 300-500ms) apply to Phase 4 instrument mounts; Carbon's shared-size discipline says the Section/Meta 0.5px delta carries nothing (face and color do the work).
 
 ---
 
