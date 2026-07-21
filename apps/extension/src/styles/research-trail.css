@@ -32,7 +32,8 @@
 
 /*
  * Investor Lens slot: one continuous surface that carries the live lens moment through
- * ready (control), running (receipt), filed (memo), and not-filed (honest empty).
+ * ready (control), running (receipt), filed (memo), withheld (an honest evidence-gate
+ * verdict, with the one action that can change it), and failed (an honest run failure).
  * Catalogue language: plate ground, 1px rules, one seal accent used as a verb.
  */
 .cs-lens-slot {
@@ -137,7 +138,7 @@
   line-height: 1.45;
 }
 
-.cs-lens-notfiled {
+.cs-lens-failed {
   display: grid;
   gap: 4px;
   padding: 12px 14px;
@@ -148,18 +149,79 @@
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
 }
 
-.cs-lens-notfiled strong {
+.cs-lens-failed strong {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 13.5px;
   font-weight: 620;
 }
 
-.cs-lens-notfiled p {
+.cs-lens-failed p {
   margin: 0;
   color: var(--color-muted);
   font-size: 11.5px;
   line-height: 1.45;
+}
+
+.cs-lens-withheld {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+}
+
+.cs-lens-withheld strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 620;
+}
+
+.cs-lens-withheld ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-lens-withheld-reasons li {
+  color: var(--color-ink);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.cs-lens-withheld-advisories li {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cs-lens-withheld-next {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.cs-lens-withheld-retry {
+  justify-self: start;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.4);
+  border-radius: 6px;
+  background: var(--color-seal);
+  color: var(--cs-bg);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+  padding: 8px 10px;
+  text-transform: uppercase;
 }
 
 /*

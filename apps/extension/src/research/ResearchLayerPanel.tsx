@@ -22,7 +22,7 @@ import {
   dragOffsetShouldSuppressClick
 } from "./research-layer-motion";
 import { showPartialProfileGate, sourceLabel } from "../company/company-display";
-import { INSUFFICIENT_EVIDENCE_NOTICE, formatElapsed } from "../shared/extension-format";
+import { LENS_RUN_FAILED_NOTICE, formatElapsed } from "../shared/extension-format";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import {
   investorReadForCard,
@@ -30,6 +30,7 @@ import {
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
+import { LensWithheldCard } from "./LensWithheldCard";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 
@@ -48,7 +49,7 @@ type ResearchLayerPanelProps = {
   card: ColdStartCard;
   elapsedSeconds: number;
   onRunSection: (layerId: ResearchLayerId) => void;
-  onRunAnalysis: () => void;
+  onRunAnalysis: (forceRefresh?: boolean) => void;
   onRegenerate: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
   profileElapsedSeconds?: number | undefined;
@@ -352,7 +353,7 @@ function InvestorLensControl({
   profileRun
 }: {
   card: ColdStartCard;
-  onRunAnalysis: () => void;
+  onRunAnalysis: (forceRefresh?: boolean) => void;
   profileRun?: AnalysisRun | undefined;
 }) {
   const state = investorLensControlState({ card, profileRun });
@@ -365,7 +366,7 @@ function InvestorLensControl({
       <button
         className="cs-investor-lens-button"
         disabled={state.disabled}
-        onClick={onRunAnalysis}
+        onClick={() => onRunAnalysis()}
         type="button"
       >
         Run Investor Lens
@@ -395,11 +396,14 @@ function LensRunningCard({
   );
 }
 
-function LensNotFiledCard() {
+// Genuine run failure, distinct from a withheld verdict: the pipeline attempted synthesis and
+// did not complete, with no synthesisWithheld record to explain why. The normal Investor Lens
+// control below this card is still the retry action; this only states what happened.
+function LensFailedCard() {
   return (
-    <div aria-label="Lens not filed" className="cs-lens-notfiled" role="status">
-      <strong>Lens not filed</strong>
-      <p>No supported investor read survived verification. The cited profile stands as is.</p>
+    <div aria-label="Lens run failed" className="cs-lens-failed" role="status">
+      <strong>{LENS_RUN_FAILED_NOTICE}</strong>
+      <p>The last run did not produce a read. Retry when ready.</p>
     </div>
   );
 }
@@ -609,7 +613,9 @@ function PartialProfilePanel({
   const body = quality.hasCitations
     ? "Some cited facts were saved, but not enough to open Research."
     : "No cited sources were saved. Rebuild the profile from public sources.";
-  const lensReason = analysisBlockedReason(card) ?? LENS_WAITS_FOR_PROFILE_REASON;
+  // showPartialProfileGate only routes here when !hasUsablePublicProfile(card), and
+  // analysisBlockedReason's first two checks are that same condition, so it is never null here.
+  const lensReason = analysisBlockedReason(card);
 
   return (
     <section className="cs-partial-profile" aria-label="Incomplete company profile">
@@ -945,9 +951,15 @@ export function ResearchLayerPanel({
       : "Lift a card to file it";
   const investorRead = investorReadForCard(card);
   const lensRunning = Boolean(analysisRun && !card.synthesis);
-  const lensNotFiled = !lensRunning && !card.synthesis && analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE;
-  // The insufficient-evidence outcome gets the Lens receipt; only real errors keep the generic box.
-  const visibleAnalysisNotice = analysisNotice === INSUFFICIENT_EVIDENCE_NOTICE ? undefined : analysisNotice;
+  // Three distinct, honest end states once synthesis is not present: withheld (a recorded
+  // evidence-gate verdict), failed (the run did not complete and left no such record), or
+  // neither (analysis has simply not run yet). The client never infers withholding from
+  // !card.synthesis alone; card.synthesisWithheld is the only signal for that state.
+  const lensWithheld = !lensRunning && !card.synthesis && Boolean(card.synthesisWithheld);
+  const lensFailed = !lensRunning && !card.synthesis && !lensWithheld && analysisNotice === LENS_RUN_FAILED_NOTICE;
+  // The withheld and run-failed outcomes each carry their own receipt in the lens slot; only a
+  // real, unclassified notice keeps the generic research-status box below.
+  const visibleAnalysisNotice = analysisNotice === LENS_RUN_FAILED_NOTICE ? undefined : analysisNotice;
   const lensEventMessage = latestAnalysisEventMessage(events);
 
   // The identity header and the early read render above this panel in the CompanyArc shell;
@@ -967,9 +979,11 @@ export function ResearchLayerPanel({
             <LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />
           ) : investorRead ? (
             <InvestorReadCard read={investorRead} tooltipProps={tooltipProps} />
+          ) : lensWithheld && card.synthesisWithheld ? (
+            <LensWithheldCard card={card} onRetry={() => onRunAnalysis(true)} withheld={card.synthesisWithheld} />
           ) : (
             <>
-              {lensNotFiled ? <LensNotFiledCard /> : null}
+              {lensFailed ? <LensFailedCard /> : null}
               <InvestorLensControl card={card} onRunAnalysis={onRunAnalysis} profileRun={profileRun} />
             </>
           )}

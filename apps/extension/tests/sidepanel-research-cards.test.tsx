@@ -231,10 +231,11 @@ describe("SidePanel research cards", () => {
 
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("linear.app");
-    // The empty verifier outcome files as an honest Lens receipt, not a generic error notice,
+    // A run-status failure with no synthesisWithheld record is a genuine run failure, not a
+    // withheld verdict: it files as the honest Lens failure receipt, not a generic error notice,
     // and the Lens control stays available for a rerun.
-    expect(container.textContent).toContain("Lens not filed");
-    expect(container.textContent).toContain("No supported investor read survived verification.");
+    expect(container.textContent).toContain("Investor Lens run failed.");
+    expect(container.textContent).toContain("The last run did not produce a read. Retry when ready.");
     expect(container.textContent).not.toContain("Research status");
     expect(
       interactiveControls(container).some((button) => button.textContent === "Run Investor Lens")

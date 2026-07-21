@@ -5,13 +5,42 @@ import {
   type ColdStartCard
 } from "@cold-start/core";
 
-export const INSUFFICIENT_EVIDENCE_NOTICE =
-  "Not enough cited evidence for Investor Lens yet.";
+// The generic Lens run-failure notice. A withheld synthesis record (see
+// packages/core/src/card.ts) is always the honest, specific signal for missing evidence; this
+// stays reserved for a real run failure with no such record.
+export const LENS_RUN_FAILED_NOTICE = "Investor Lens run failed.";
 
 export function formatElapsed(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainder = String(seconds % 60).padStart(2, "0");
   return `${minutes}:${remainder}`;
+}
+
+export function relativeTimeFromNow(iso: string, nowMs: number = Date.now()): string {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) {
+    return "earlier";
+  }
+
+  const diffMs = Math.max(0, nowMs - parsed);
+  const minute = 60_000;
+  const hour = 3_600_000;
+  const day = 86_400_000;
+
+  if (diffMs < minute) {
+    return "just now";
+  }
+  if (diffMs < hour) {
+    const minutes = Math.round(diffMs / minute);
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+  if (diffMs < day) {
+    const hours = Math.round(diffMs / hour);
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.round(diffMs / day);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 function formatCompactCurrency(value: number | null | undefined): string {

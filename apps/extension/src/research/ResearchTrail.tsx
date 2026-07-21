@@ -15,7 +15,10 @@ const SourcePassInstrument = lazy(() =>
 
 type ResearchTrailProps = {
   events: ExtensionResearchRunEvent[];
-  generationStatus: "queued" | "running" | "cached" | "complete" | "failed";
+  // "withheld" is only meaningful for analysis-mode responses; the building phase this trail
+  // renders is basics-only and never produces it, but the shared GenerationStatus type carries
+  // it structurally, so it is accepted here and treated like any other non-"queued" status.
+  generationStatus: "queued" | "running" | "cached" | "complete" | "failed" | "withheld";
 };
 
 function plural(value: number, singular: string, pluralWord = `${singular}s`) {

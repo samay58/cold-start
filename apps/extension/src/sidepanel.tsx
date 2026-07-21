@@ -20,7 +20,7 @@ import { clearCachedCards, readCachedCard, writeCachedCard } from "./shared/card
 import { BrandMark } from "./shared/BrandMark";
 import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
 import { CompanyLogo } from "./company/CompanyLogo";
-import { INSUFFICIENT_EVIDENCE_NOTICE } from "./shared/extension-format";
+import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
 import { useTheme, type ThemePreference } from "./shared/theme";
 import {
@@ -728,7 +728,8 @@ export function SidePanel() {
     controller: AbortController,
     generationDomain: string,
     generationSettings: Settings,
-    currentState: Extract<RequestState, { status: "success" }>
+    currentState: Extract<RequestState, { status: "success" }>,
+    forceRefresh = false
   ) => {
     const startedAt = Date.now();
     setRequestState({ ...currentState, analysisRun: { generationStatus: "queued", startedAt } });
@@ -752,7 +753,8 @@ export function SidePanel() {
               }
             : current);
         }
-      }
+      },
+      forceRefresh
     )
       .then((result) => {
         if (!controller.signal.aborted) {
@@ -959,8 +961,8 @@ export function SidePanel() {
             return;
           }
 
-          const successState: Extract<RequestState, { status: "success" }> = analysisStatus.status === "failed" && !card.synthesis
-            ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE }
+          const successState: Extract<RequestState, { status: "success" }> = analysisStatus.status === "failed" && !card.synthesis && !card.synthesisWithheld
+            ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: LENS_RUN_FAILED_NOTICE }
             : { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [] };
           const runningLayerId = runningSectionLayerId(bootstrapSections);
           if (runningLayerId) {
@@ -1058,7 +1060,7 @@ export function SidePanel() {
     setSectionQueue((current) => current.includes(layerId) ? current : [...current, layerId]);
   }
 
-  function handleRunAnalysis() {
+  function handleRunAnalysis(forceRefresh = false) {
     if (!domain || !settings?.apiToken || requestState.status !== "success") {
       return;
     }
@@ -1077,7 +1079,7 @@ export function SidePanel() {
     abortAllRequests();
     activeRequest.current = controller;
     const { activeSectionRun: _activeSectionRun, analysisNotice: _analysisNotice, ...analysisState } = requestState;
-    runAnalysisGenerationWithController(controller, domain, settings, analysisState);
+    runAnalysisGenerationWithController(controller, domain, settings, analysisState, forceRefresh);
   }
 
   useEffect(() => {

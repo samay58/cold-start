@@ -25,11 +25,15 @@ export type Settings = {
 
 export type GenerationStatus = {
   slug: string;
-  status: "cached" | "queued" | "running";
+  status: "cached" | "queued" | "running" | "withheld";
   mode: "basics" | "analysis";
   runId?: string;
   startedAt?: string;
   events?: ExtensionResearchRunEvent[];
+  // Only present when status is "withheld": the route answers a still-standing withheld
+  // verdict inline, so the card is returned with the response instead of needing a follow-up
+  // fetch (see apps/web/src/app/api/generate/route.ts).
+  card?: ColdStartCard;
 };
 
 export type GenerationRunStatus = {

@@ -69,7 +69,7 @@ type CompanyArcProps = {
   domain: string;
   onEditSettings: () => void;
   onRegenerate: () => void;
-  onRunAnalysis: () => void;
+  onRunAnalysis: (forceRefresh?: boolean) => void;
   onRunSection: (layerId: ResearchLayerId) => void;
   onStart: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;

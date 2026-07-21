@@ -24,7 +24,7 @@ import {
   type GenerationStatus,
   type Settings
 } from "./shared/extension-config";
-import { INSUFFICIENT_EVIDENCE_NOTICE } from "./shared/extension-format";
+import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
 
 // Production analysis/basics runs can legitimately take 4-7 minutes (observed p95 well above the
 // old 4-minute wall, max ~414s). The card now persists server-side near the end of a run, so when
@@ -497,17 +497,18 @@ export async function pollGenerationUntilCard(
         return {
           card: currentCard,
           sections: currentSections,
-          analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE
+          analysisNotice: LENS_RUN_FAILED_NOTICE
         };
       }
 
       throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
-    } else if (runStatus.status === "complete" && currentCard && analysisCardIsComplete(currentCard, requiresMarketStructure)) {
-      return {
-        card: currentCard,
-        sections: currentSections,
-        analysisNotice: INSUFFICIENT_EVIDENCE_NOTICE
-      };
+    } else if (runStatus.status === "complete" && currentCard) {
+      // The server is done. currentCard already reflects whatever the run produced: full
+      // synthesis, a synthesisWithheld record when the evidence gate blocked it, or (rarely)
+      // neither. Trusting the terminal status here, rather than re-requiring synthesis before
+      // settling, is what lets a real withheld verdict resolve instead of polling to the
+      // timeout waiting for synthesis that was never going to arrive.
+      return { card: currentCard, sections: currentSections };
     }
   }
 
@@ -546,13 +547,21 @@ export async function startAnalysisGenerationAndPoll(
   confirmStart: boolean,
   latestCard: ColdStartCard,
   latestSections: ResearchSection[],
-  onGenerationStatus: GenerationStatusListener
+  onGenerationStatus: GenerationStatusListener,
+  forceRefresh = false
 ): Promise<GenerationPollResult> {
-  const generation = await requestGeneration(domain, settings, signal, "analysis", confirmStart);
+  const generation = await requestGeneration(domain, settings, signal, "analysis", confirmStart, forceRefresh);
   onGenerationStatus(generation.status, { events: generation.events });
 
   if (generation.status === "cached") {
     const card = await fetchCard(domain, settings, signal);
+    return { card, sections: sectionsForCard(card, latestSections) };
+  }
+
+  if (generation.status === "withheld") {
+    // The route answers a still-standing withheld verdict for free and returns the card
+    // inline, so there is nothing to poll: the withheld record on that card is the result.
+    const card = generation.card ?? await fetchCard(domain, settings, signal);
     return { card, sections: sectionsForCard(card, latestSections) };
   }
 
