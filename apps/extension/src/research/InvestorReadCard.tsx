@@ -4,9 +4,11 @@ import {
   type ColdStartCard,
   type SynthesisAdvisory
 } from "@cold-start/core";
+import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { useState, type ReactNode } from "react";
 import type { InvestorReadDisplay, LensTensionClaim } from "./investor-lens";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
+import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 
@@ -23,6 +25,50 @@ const LENS_FOOTER_SOURCE_COUNT = 4;
 // split by weight and color alone) is the citation for reading that boundary through face and
 // color rather than the gap. Every rule in the card maps to one of these five rows; nothing
 // else earns its own size.
+
+// Staged spring entrance for a freshly filed read. Four stages -- lede, the case, timing plus
+// next question, footer plus posture -- fire in sequence, each on commitSpring (stiffness 470,
+// damping 31, mass 0.62, zeta ~0.91: DESIGN.md's stiff well-damped band, settle fast with a
+// breath of follow-through, no cartoon bounce). 140ms between stage starts plus the ~150-180ms a
+// single commitSpring takes to settle lands the full sequence at roughly 560-600ms, inside the
+// plan's 550-650ms band. Transform (y) and opacity only, never scale.
+//
+// This only plays on a live trigger/running/withheld -> result handoff. AnimatePresence's own
+// initial={false} in ResearchLayerPanel's LensSlot blocks the mount animation for every nested
+// motion node on that panel's first render (framer-motion cascades PresenceContext.initial to
+// descendants, not just the direct AnimatePresence child), so a cached card that already carries
+// synthesis renders its stagger stages at rest immediately -- the arrival choreography is never
+// replayed just because the profile was reloaded.
+const LENS_ENTRANCE_STAGE_DELAYS = {
+  lede: 0,
+  case: 0.14,
+  timingQuestion: 0.28,
+  footer: 0.42
+} as const;
+
+// Reduced motion collapses every stage into one 150ms opacity fade fired at once (DESIGN.md:
+// prefers-reduced-motion is a reduction, never a freeze, so the entrance still animates). The y
+// transform drops entirely rather than shortening, matching the reduced-motion branches already
+// used elsewhere in this panel.
+const LENS_ENTRANCE_REDUCED_TRANSITION: Transition = { duration: 0.15, ease: motionTokens.easeOut };
+
+function stageEntranceProps(
+  delaySeconds: number,
+  prefersReducedMotion: boolean | null
+): { animate: TargetAndTransition; initial: TargetAndTransition; transition: Transition } {
+  if (prefersReducedMotion) {
+    return {
+      animate: { opacity: 1 },
+      initial: { opacity: 0 },
+      transition: LENS_ENTRANCE_REDUCED_TRANSITION
+    };
+  }
+  return {
+    animate: { opacity: 1, y: 0 },
+    initial: { opacity: 0, y: 10 },
+    transition: { ...commitSpring, delay: delaySeconds }
+  };
+}
 
 // A frozen SynthesisWithheld record and live synthesis are mutually exclusive at rest:
 // generate-card.ts strips synthesisWithheld the instant a run produces verified synthesis. This
@@ -145,10 +191,18 @@ export function InvestorReadCard({
       <header className="cs-investor-read-head">
         <span>Investor read</span>
       </header>
-      <p className="cs-investor-read-lede" data-role="lede">
+      <motion.p
+        className="cs-investor-read-lede"
+        data-role="lede"
+        {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.lede, prefersReducedMotion)}
+      >
         {read.lede.text}
-      </p>
-      <div className="cs-lens-tension" aria-label="The case">
+      </motion.p>
+      <motion.div
+        className="cs-lens-tension"
+        aria-label="The case"
+        {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.case, prefersReducedMotion)}
+      >
         <h4 className="cs-investor-read-label">The case</h4>
         {!read.holds && !read.breaks ? (
           <p className="cs-lens-case-empty cs-lens-none">No bull or break claim survived verification.</p>
@@ -170,108 +224,154 @@ export function InvestorReadCard({
             />
           </>
         )}
-      </div>
-      <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
-        <h4 className="cs-investor-read-label">Timing</h4>
-        {read.timing ? (
-          <>
-            <p className="cs-investor-read-claim">
-              <em>{read.timing.field}.</em> {read.timing.text}
-            </p>
-            {read.timing.moreFields.length > 0 ? (
-              <LensDisclosure count={read.timing.moreFields.length} prefersReducedMotion={prefersReducedMotion} row="timing">
-                {read.timing.moreFields.map((entry) => (
-                  <p key={entry.field}>
-                    <em>{entry.field}.</em> {entry.text}
-                  </p>
-                ))}
-              </LensDisclosure>
-            ) : null}
-          </>
-        ) : (
-          <p className="cs-lens-none">Not supported by current sources.</p>
-        )}
-      </section>
-      <section className="cs-lens-question" aria-label="Next question">
-        <h4 className="cs-investor-read-label">Next question</h4>
-        {read.nextQuestion ? (
-          <>
-            <p className="cs-investor-read-claim">
-              {read.nextQuestion.question}
-              {read.nextQuestion.categoryLabel ? (
-                <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
-              ) : null}
-            </p>
-            {read.nextQuestion.changesReadIf ? (
-              <p className="cs-investor-read-meta">
-                <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+      </motion.div>
+      <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.timingQuestion, prefersReducedMotion)}>
+        <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
+          <h4 className="cs-investor-read-label">Timing</h4>
+          {read.timing ? (
+            <>
+              <p className="cs-investor-read-claim">
+                <em>{read.timing.field}.</em> {read.timing.text}
               </p>
-            ) : null}
-            {read.nextQuestion.moreQuestions.length > 0 ? (
-              <LensDisclosure count={read.nextQuestion.moreQuestions.length} prefersReducedMotion={prefersReducedMotion} row="question">
-                {read.nextQuestion.moreQuestions.map((entry) => (
-                  <div key={entry.question}>
-                    <p>
-                      {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
-                      {entry.question}
+              {read.timing.moreFields.length > 0 ? (
+                <LensDisclosure count={read.timing.moreFields.length} prefersReducedMotion={prefersReducedMotion} row="timing">
+                  {read.timing.moreFields.map((entry) => (
+                    <p key={entry.field}>
+                      <em>{entry.field}.</em> {entry.text}
                     </p>
-                    {entry.changesReadIf ? (
-                      <p className="cs-investor-read-meta">
-                        <em>Changes the read if</em> {entry.changesReadIf}
+                  ))}
+                </LensDisclosure>
+              ) : null}
+            </>
+          ) : (
+            <p className="cs-lens-none">Not supported by current sources.</p>
+          )}
+        </section>
+        <section className="cs-lens-question" aria-label="Next question">
+          <h4 className="cs-investor-read-label">Next question</h4>
+          {read.nextQuestion ? (
+            <>
+              <p className="cs-investor-read-claim">
+                {read.nextQuestion.question}
+                {read.nextQuestion.categoryLabel ? (
+                  <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
+                ) : null}
+              </p>
+              {read.nextQuestion.changesReadIf ? (
+                <p className="cs-investor-read-meta">
+                  <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+                </p>
+              ) : null}
+              {read.nextQuestion.moreQuestions.length > 0 ? (
+                <LensDisclosure count={read.nextQuestion.moreQuestions.length} prefersReducedMotion={prefersReducedMotion} row="question">
+                  {read.nextQuestion.moreQuestions.map((entry) => (
+                    <div key={entry.question}>
+                      <p>
+                        {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
+                        {entry.question}
                       </p>
-                    ) : null}
-                  </div>
-                ))}
-              </LensDisclosure>
+                      {entry.changesReadIf ? (
+                        <p className="cs-investor-read-meta">
+                          <em>Changes the read if</em> {entry.changesReadIf}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </LensDisclosure>
+              ) : null}
+            </>
+          ) : (
+            <p className="cs-lens-none">No ranked question survived verification.</p>
+          )}
+        </section>
+      </motion.div>
+      <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.footer, prefersReducedMotion)}>
+        <footer className="cs-lens-footer" aria-label="Cited sources">
+          <div className="cs-lens-footer-sources">
+            {visibleSources.map((source) => (
+              <a
+                className="cs-lens-source"
+                data-class={source.sourceClass}
+                href={source.href}
+                key={source.id}
+                rel="noreferrer"
+                target="_blank"
+                title={`${source.qualityLabel}: ${source.title}`}
+              >
+                <i aria-hidden="true" />
+                {source.domain}
+              </a>
+            ))}
+            {hiddenSources.length > 0 ? (
+              <button
+                className="cs-lens-source cs-lens-source-more"
+                type="button"
+                {...tooltipProps({
+                  body: hiddenSources.map((source) => `${source.domain}: ${source.title}`).join("\n"),
+                  id: "lens-sources-more",
+                  placement: "above",
+                  title: "Also cited"
+                })}
+              >
+                {`+${hiddenSources.length}`}
+              </button>
             ) : null}
-          </>
-        ) : (
-          <p className="cs-lens-none">No ranked question survived verification.</p>
-        )}
-      </section>
-      <footer className="cs-lens-footer" aria-label="Cited sources">
-        <div className="cs-lens-footer-sources">
-          {visibleSources.map((source) => (
-            <a
-              className="cs-lens-source"
-              data-class={source.sourceClass}
-              href={source.href}
-              key={source.id}
-              rel="noreferrer"
-              target="_blank"
-              title={`${source.qualityLabel}: ${source.title}`}
-            >
-              <i aria-hidden="true" />
-              {source.domain}
-            </a>
-          ))}
-          {hiddenSources.length > 0 ? (
-            <button
-              className="cs-lens-source cs-lens-source-more"
-              type="button"
-              {...tooltipProps({
-                body: hiddenSources.map((source) => `${source.domain}: ${source.title}`).join("\n"),
-                id: "lens-sources-more",
-                placement: "above",
-                title: "Also cited"
-              })}
-            >
-              {`+${hiddenSources.length}`}
-            </button>
-          ) : null}
-        </div>
-        <small className="cs-lens-footer-filed">{read.receiptLine}</small>
-      </footer>
-      {showPosture ? (
-        <div aria-label="Evidence posture" className="cs-investor-read-posture">
-          {!read.independentlyBacked ? (
-            <p className="cs-investor-read-meta cs-lens-footer-caveat">No independent source in this read.</p>
-          ) : null}
-          {postureLines.map((line) => (
-            <p className="cs-investor-read-meta" key={line}>{line}</p>
-          ))}
-        </div>
-      ) : null}
+          </div>
+          <small className="cs-lens-footer-filed">{read.receiptLine}</small>
+        </footer>
+        {showPosture ? (
+          <div aria-label="Evidence posture" className="cs-investor-read-posture">
+            {!read.independentlyBacked ? (
+              <p className="cs-investor-read-meta cs-lens-footer-caveat">No independent source in this read.</p>
+            ) : null}
+            {postureLines.map((line) => (
+              <p className="cs-investor-read-meta" key={line}>{line}</p>
+            ))}
+          </div>
+        ) : null}
+      </motion.div>
     </article>
+  );
+}
+
+export type LensSlotState = "result" | "running" | "trigger" | "withheld";
+
+const LENS_SLOT_TRANSITION: Transition = { duration: motionTokens.stateMs, ease: motionTokens.easeOut };
+const LENS_SLOT_REDUCED_TRANSITION: Transition = { duration: 0.1, ease: "easeOut" };
+
+// The trigger/running/result/withheld swap is the single most important state change on this
+// panel (it is the moment the lens either starts, is still working, or has an answer), so it
+// crossfades rather than hard-cutting (DESIGN.md motion language). No mode override on
+// AnimatePresence: this codebase's convention everywhere else (ResearchLayerPanel's own
+// AnimatePresence blocks, CompanyArc's phase and ReadRegion swaps) is the sync default, so the
+// exiting card and the entering card overlap for the transition instead of waiting on each
+// other. 200ms via motionTokens.stateMs, the same token this file already uses for panel-level
+// state transitions, sits inside the 180-220ms band from the plan. AnimatePresence's own
+// initial={false} keeps this quiet on the panel's first mount (an already-resolved card does not
+// replay a crossfade it never had); live transitions after that still animate.
+export function LensSlot({
+  prefersReducedMotion,
+  result,
+  running,
+  state,
+  trigger,
+  withheld
+}: {
+  prefersReducedMotion: boolean | null;
+  result: ReactNode;
+  running: ReactNode;
+  state: LensSlotState;
+  trigger: ReactNode;
+  withheld: ReactNode;
+}) {
+  const content = state === "running" ? running : state === "result" ? result : state === "withheld" ? withheld : trigger;
+  const transition = prefersReducedMotion ? LENS_SLOT_REDUCED_TRANSITION : LENS_SLOT_TRANSITION;
+
+  return (
+    <AnimatePresence initial={false}>
+      <motion.div animate={{ opacity: 1 }} exit={{ opacity: 0 }} initial={{ opacity: 0 }} key={state} transition={transition}>
+        {content}
+      </motion.div>
+    </AnimatePresence>
   );
 }

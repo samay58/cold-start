@@ -25,7 +25,7 @@ import { showPartialProfileGate, sourceLabel } from "../company/company-display"
 import { LENS_RUN_FAILED_NOTICE, formatElapsed } from "../shared/extension-format";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import { investorReadForCard, LENS_WAITS_FOR_PROFILE_REASON } from "./investor-lens";
-import { InvestorReadCard } from "./InvestorReadCard";
+import { InvestorReadCard, LensSlot, type LensSlotState } from "./InvestorReadCard";
 import { LensWithheldCard } from "./LensWithheldCard";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
@@ -763,6 +763,16 @@ export function ResearchLayerPanel({
   // !card.synthesis alone; card.synthesisWithheld is the only signal for that state.
   const lensWithheld = !lensRunning && !card.synthesis && Boolean(card.synthesisWithheld);
   const lensFailed = !lensRunning && !card.synthesis && !lensWithheld && analysisNotice === LENS_RUN_FAILED_NOTICE;
+  // Same precedence the ternary below used to encode directly: running always wins, then a
+  // filed read, then a withheld verdict, and trigger (with an optional failed-run notice folded
+  // in) is the fallback. LensSlot's crossfade keys off this single discriminator.
+  const lensSlotState: LensSlotState = lensRunning
+    ? "running"
+    : investorRead
+      ? "result"
+      : lensWithheld && card.synthesisWithheld
+        ? "withheld"
+        : "trigger";
   // The withheld and run-failed outcomes each carry their own receipt in the lens slot; only a
   // real, unclassified notice keeps the generic research-status box below.
   const visibleAnalysisNotice = analysisNotice === LENS_RUN_FAILED_NOTICE ? undefined : analysisNotice;
@@ -781,18 +791,23 @@ export function ResearchLayerPanel({
           <span>Research</span>
         </div>
         <div className="cs-lens-slot">
-          {lensRunning ? (
-            <LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />
-          ) : investorRead ? (
-            <InvestorReadCard card={card} read={investorRead} tooltipProps={tooltipProps} />
-          ) : lensWithheld && card.synthesisWithheld ? (
-            <LensWithheldCard card={card} onRetry={() => onRunAnalysis(true)} withheld={card.synthesisWithheld} />
-          ) : (
-            <>
-              {lensFailed ? <LensFailedCard /> : null}
-              <InvestorLensControl card={card} onRunAnalysis={onRunAnalysis} profileRun={profileRun} />
-            </>
-          )}
+          <LensSlot
+            prefersReducedMotion={prefersReducedMotion}
+            result={investorRead ? <InvestorReadCard card={card} read={investorRead} tooltipProps={tooltipProps} /> : null}
+            running={<LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />}
+            state={lensSlotState}
+            trigger={
+              <>
+                {lensFailed ? <LensFailedCard /> : null}
+                <InvestorLensControl card={card} onRunAnalysis={onRunAnalysis} profileRun={profileRun} />
+              </>
+            }
+            withheld={
+              lensWithheld && card.synthesisWithheld ? (
+                <LensWithheldCard card={card} onRetry={() => onRunAnalysis(true)} withheld={card.synthesisWithheld} />
+              ) : null
+            }
+          />
         </div>
 
         <div className="cs-active-enrichments">

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import type { ColdStartCard } from "@cold-start/core";
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { InvestorReadCard } from "../src/research/InvestorReadCard";
+import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier } from "../src/shared/SharedTooltip";
 
@@ -263,6 +263,121 @@ describe("InvestorReadCard", () => {
     expect(frame?.getAttribute("data-expanded")).toBe("true");
     expect(toggle?.textContent).toBe("Show less");
     expect(tooltipCalls.some((call) => call.id.includes("holds") || call.id.includes("breaks"))).toBe(false);
+
+    await unmount();
+  });
+});
+
+type LensSlotProps = ComponentProps<typeof LensSlot>;
+
+async function renderSlot(props: LensSlotProps) {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(async () => {
+    root.render(<LensSlot {...props} />);
+  });
+  return {
+    container,
+    async rerender(nextProps: LensSlotProps) {
+      await act(async () => {
+        root.render(<LensSlot {...nextProps} />);
+      });
+    },
+    async unmount() {
+      await act(async () => root.unmount());
+      container.remove();
+    }
+  };
+}
+
+// The repo rule: every AnimatePresence exit needs coverage for the exiting element being the
+// final item. These two transitions are the mandated cases from the task brief -- running to
+// result, and withheld to trigger on retry -- asserted at the jsdom level (skipAnimations in
+// tests/setup.ts resolves the crossfade synchronously) so a leftover node would show up as a
+// stray element still in the tree, not just a visual double-render.
+describe("LensSlot", () => {
+  beforeEach(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+      matches: false,
+      media: "(prefers-reduced-motion: reduce)",
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn()
+    })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function slotProps(state: LensSlotState, prefersReducedMotion: boolean | null = false): LensSlotProps {
+    const { tooltipProps } = tooltipStub();
+    const read = investorReadForCard(richCard());
+    if (!read) {
+      throw new Error("richCard fixture must carry synthesis");
+    }
+    return {
+      prefersReducedMotion,
+      result: <InvestorReadCard card={richCard()} read={read} tooltipProps={tooltipProps} />,
+      running: <div aria-label="Investor Lens running">Running receipt</div>,
+      state,
+      trigger: <div aria-label="Lens trigger">Run Investor Lens</div>,
+      withheld: <div aria-label="Lens withheld">Withheld receipt</div>
+    };
+  }
+
+  it("(f) crossfades the running card out and the result card in, leaving no orphaned running node", async () => {
+    const { container, rerender, unmount } = await renderSlot(slotProps("running"));
+
+    expect(container.querySelector('[aria-label="Investor Lens running"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Investor read"]')).toBeNull();
+
+    await rerender(slotProps("result"));
+
+    expect(container.querySelector('[aria-label="Investor Lens running"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Investor read"]')).not.toBeNull();
+
+    // The staged entrance must not gate interactivity: the disclosure toggle is clickable the
+    // instant the result card mounts, not after its stagger settles.
+    const holds = container.querySelector('[data-side="holds"]');
+    const toggle = holds?.querySelector<HTMLButtonElement>(".cs-investor-read-more");
+    expect(toggle).not.toBeNull();
+    await act(async () => {
+      toggle?.click();
+    });
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+
+    await unmount();
+  });
+
+  it("(g) crossfades the withheld card out and the trigger control in on retry, leaving no orphaned withheld node", async () => {
+    const { container, rerender, unmount } = await renderSlot(slotProps("withheld"));
+
+    expect(container.querySelector('[aria-label="Lens withheld"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Lens trigger"]')).toBeNull();
+
+    await rerender(slotProps("trigger"));
+
+    expect(container.querySelector('[aria-label="Lens withheld"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Lens trigger"]')).not.toBeNull();
+
+    await unmount();
+  });
+
+  it("(h) reduced motion still crossfades trigger to running without orphaning the trigger node", async () => {
+    const { container, rerender, unmount } = await renderSlot(slotProps("trigger", true));
+
+    expect(container.querySelector('[aria-label="Lens trigger"]')).not.toBeNull();
+
+    await rerender(slotProps("running", true));
+
+    expect(container.querySelector('[aria-label="Lens trigger"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Investor Lens running"]')).not.toBeNull();
 
     await unmount();
   });
