@@ -214,9 +214,11 @@ Copy contract for the withheld card (final copy iterates in Phase 2's gallery, t
 - Consumes: prod `generation_runs` (`job_kind='analysis'`, `status='complete'`), `traceJson.milestones.analysisReadyMs`, `traceJson.steps`, `research_run_events`. Self-loads `.env.production.migrate.local` like `measure-first-usable.ts`.
 - Produces: percentiles (p50/p90/max) of wall duration and `analysisReadyMs`, plus mean per-step decomposition (queued to started, fetch-sources, synthesize, verify, finalize). **Mandatory artifact filter** (verified 2026-07-20): exclude rows whose trace lacks `milestones`/`synthesis` or has empty `steps`; two repair-retirement rows (`you`, `typefully`, backfilled `completed_at` 2026-06-26) otherwise poison the distribution with a 27-hour outlier. Print the exclusion count so the filter is visible in every report.
 
-- [ ] **Step 1: Implement** (model on `measure-first-usable.ts`; SQL scoped `job_kind='analysis'`, never bare `mode='analysis'`, which mixes fast `section:*` jobs).
-- [ ] **Step 2: Run against prod and record the baseline as a Finding here.** Expected ballpark from the 2026-07-20 verification: p50 ~100s, p90 ~143s, decomposition ~3s/~32s/~42s/~7s/~3s.
-- [ ] **Step 3: Commit.**
+- [x] **Step 1: Implement** (model on `measure-first-usable.ts`; SQL scoped `job_kind='analysis'`, never bare `mode='analysis'`, which mixes fast `section:*` jobs).
+- [x] **Step 2: Run against prod and record the baseline as a Finding here.** Expected ballpark from the 2026-07-20 verification: p50 ~100s, p90 ~143s, decomposition ~3s/~32s/~42s/~7s/~3s.
+- [x] **Step 3: Commit.**
+
+**Finding (2026-07-21, locked baseline):** 47 analysis runs fetched, 45 included, 2 excluded as repair artifacts (`typefully`, `you`; count printed every run). Wall: p50 1m43s, p90 2m21s, max 3m23s. `analysisReadyMs`: p50 1m35s, p90 2m08s, max 3m07s. Per-step (mean/p50): dispatch 13.6s/7.5s, fetch-sources 36.9s/33.6s, generate-card 35.7s/45.6s, llm:synthesis 40.3s/40.2s (n=34), llm:verify 6.9s/6.7s (n=34), finalize 18.3s/15.9s. 11 of 45 runs are gate-withheld (no LLM calls), correctly kept in the population. Dispatch is right-skewed (timescaledb hit 47s and 73s dispatches), which pre-answers Task 5.4's trigger question. Implementer re-derived every number via an independent from-scratch script against raw tables; exact match. **Done (2026-07-21):** commit `11133ce`, review approved (extra p50 decomposition column accepted as justified; Minor: `formatMs` can print "1m 60s" at rounding boundary, shared with measure-first-usable).
 
 ### Task 1.8: Upstream evidence diagnoses (timeboxed, fix-or-file)
 
