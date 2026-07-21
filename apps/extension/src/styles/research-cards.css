@@ -317,6 +317,30 @@
   letter-spacing: 0;
 }
 
+/* The section header bar: flex row, label left, meta right. Composite of five prior partial
+   overrides across foundation.css, company-arc.css, signals.css, signal-ledger.css, and
+   type-and-motion.css, computed by cascade order (later import wins on a tie): weight 700 and
+   the muted 0.72-alpha ink color are signal-ledger.css's later rule beating its own earlier
+   font-mono pass and signals.css's weight 760; padding 12px 15px and letter-spacing 0.05em are
+   type-and-motion.css's final word over signal-ledger's 12px 14px/13px 16px and company-arc's
+   14px 16px; font-size 10px is type-and-motion.css beating signal-ledger's 11px; border-bottom
+   keeps signal-ledger's 1px solid width/style with its later color-only override; text-transform
+   stays explicit none so nothing inherits an uppercase transform now that the font-mono pass
+   that used to declare it here is gone. */
+.cs-research-layer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border-bottom: 1px solid rgb(var(--cs-c-216-208-191) / 0.78);
+  color: rgb(var(--cs-c-23-26-31-text) / 0.72);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: none;
+}
+
 /* Section labels: At Umami display in the seal accent, title case. */
 .cs-research-layer-head span:first-child {
   font-family: var(--font-display);

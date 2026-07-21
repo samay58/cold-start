@@ -4,7 +4,6 @@ body {
 }
 
 .cs-company-facts dt,
-.cs-research-layer-head,
 .cs-layer-rows dt,
 .cs-layer-items span,
 .cs-source-chip {
@@ -56,8 +55,7 @@ body {
   padding-left: 16px;
 }
 
-.cs-company-facts dt,
-.cs-research-layer-head {
+.cs-company-facts dt {
   font-size: 10px;
   letter-spacing: 0.05em;
 }
@@ -88,10 +86,6 @@ body {
 
 .cs-people-role {
   font-size: 11.5px;
-}
-
-.cs-research-layer-head {
-  padding: 12px 15px;
 }
 
 .cs-active-enrichments {

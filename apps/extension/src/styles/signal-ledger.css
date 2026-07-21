@@ -70,7 +70,6 @@ body,
 .cs-company-domain,
 .cs-research-label,
 .cs-company-facts dt,
-.cs-research-layer-head,
 .cs-active-enrichment small,
 .cs-dormant-card small {
   color: var(--color-muted);
@@ -98,7 +97,6 @@ body,
 
 .cs-company-facts dd,
 .cs-company-facts small,
-.cs-research-layer-head,
 .cs-research-label,
 .cs-company-facts dt,
 .cs-card-grip,
@@ -107,12 +105,6 @@ body,
   font-family: var(--font-mono);
   letter-spacing: 0;
   text-transform: none;
-}
-
-.cs-research-layer-head {
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--color-rule);
-  font-size: 11px;
 }
 
 .cs-active-dot {
@@ -345,8 +337,7 @@ body,
   display: none;
 }
 
-.cs-company-facts dt,
-.cs-research-layer-head {
+.cs-company-facts dt {
   color: rgb(var(--cs-c-23-26-31-text) / 0.72);
   font-family: var(--font-body);
   font-weight: 700;
@@ -407,12 +398,6 @@ body,
 .cs-people-more {
   min-height: 42px;
   border-radius: 8px;
-}
-
-.cs-research-layer-head {
-  padding: 13px 16px;
-  border-bottom-color: rgb(var(--cs-c-216-208-191) / 0.78);
-  font-size: 11px;
 }
 
 .cs-active-enrichments {

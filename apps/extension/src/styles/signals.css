@@ -196,14 +196,6 @@
   outline-offset: 2px;
 }
 
-.cs-research-layer-head {
-  padding: 10px 13px;
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 760;
-  letter-spacing: 0.05em;
-}
-
 .cs-active-enrichments {
   gap: 6px;
   min-height: 0;

@@ -650,7 +650,6 @@ button {
   color: var(--color-ink);
 }
 
-.cs-research-layer-head,
 .cs-active-enrichment-head {
   display: flex;
   align-items: center;
@@ -658,7 +657,6 @@ button {
 
 .cs-research-label,
 .cs-company-facts dt,
-.cs-research-layer-head,
 .cs-active-enrichment small,
 .cs-dormant-card small {
   color: var(--color-muted);
@@ -666,7 +664,6 @@ button {
 
 .cs-research-label,
 .cs-company-facts dt,
-.cs-research-layer-head,
 .cs-card-grip {
   font-family: var(--font-body);
   font-size: 10px;
