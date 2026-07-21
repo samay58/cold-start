@@ -358,7 +358,7 @@
 }
 
 .cs-key-value .cs-key-number {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 14px;
   font-weight: 650;
 }
@@ -515,7 +515,7 @@
 }
 
 .cs-fact-value.cs-mono {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 12px;
 }
 
@@ -538,7 +538,7 @@
   border-radius: 2px;
   background: color-mix(in srgb, var(--color-reported) 7%, transparent);
   color: var(--color-reported);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 11px;
   font-weight: 650;
   line-height: 1;
@@ -619,7 +619,7 @@
    in this list would only be overridden anyway. */
 .cs-source-marker,
 .cs-source-body {
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
 }
 
 .cs-source-meta {
