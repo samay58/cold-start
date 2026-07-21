@@ -46,6 +46,18 @@ Verdict: none of the four impressed. Top two: Output A ("okay, straightforward b
 
 Reveal (user-requested, post-verdict): Round 2's top two were A = deepseek-v4-pro, C = deepseek-v4-flash. Round 1's Output C (best of group) = deepseek-v4-flash.
 
+## Round 3: bendingspoons / research_section / financing (2026-07-21, bundle 03-00-27)
+
+Verdict: Output C best "by a margin", credited for framing the insights "narratively in a cohesive and tighter way than the other two"; A's framing disliked, B's partially; overall "they're all okay and relatively decent" but "honestly all of these are so general". Identities not requested and left sealed.
+
+### Conceptual gaps added
+
+10. **Financing genericism despite available primary sources.** Every model's financing section read as general boilerplate for a company with PUBLIC FILINGS. This compounds gap #2: the failure is upstream of synthesis. If retrieval never pulls the obvious primary financial documents, even the best model can only generalize. Financing sections for companies with filings should be the richest, not the flattest.
+
+11. **Narrative cohesion is the visible differentiator at content parity.** When all four outputs carry roughly the same facts, the read quality separates on whether insights are framed as one coherent through-line versus a list of framed-apart observations. Section prompts should ask for a single narrative spine.
+
+12. **Sections have a ceiling problem (recurring).** Second consecutive section group where nothing impressed: round 2 "don't like any of these that much", round 3 "all so general". The gap list above (evidence-answerability, granularity, sparsity, register, cohesion) is the fix menu; model choice alone does not clear the ceiling.
+
 ## Remaining rounds: pending, one category per sitting
 
 Reviewed so far: bendingspoons synthesis, bendingspoons customer_proof. Next up: bendingspoons financing, then dice synthesis, dice customer_proof, dice financing, and onward through the 33 groups. Cadence changed at user request: each Marginalia draft carries exactly one group.
