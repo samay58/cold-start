@@ -380,10 +380,12 @@ Also: retarget `--font-mono` to a real mono stack per DESIGN (`Berkeley Mono`/`I
 
 ### Task 3.5: Phase 2 gate
 
-- [ ] `npm run check` green (includes extension tests + `audit:css`).
+- [x] `npm run check` green (includes extension tests + `audit:css`).
 - [ ] Full gallery screenshot set posted for Samay's review; remind him: macOS Reduce Motion OFF. Iterate until approved; record verdicts here.
-- [ ] Grep-proof: `grep -c "cs-investor-read\|cs-lens-" apps/extension/src/styles/*.css` shows lens rules in exactly one file.
+- [x] Grep-proof: `grep -c "cs-investor-read\|cs-lens-" apps/extension/src/styles/*.css` shows lens rules in exactly one file.
 - [ ] Firefox build (`npm run build:firefox -w @cold-start/extension`) + `web-ext lint` green (already in check); quick manual sidebar smoke via `npx web-ext run --source-dir apps/extension/dist-firefox`.
+
+**Finding (2026-07-21, gate state):** Check green at `d054cf8` (twice: after the fast-uri advisory override `c9cc131`, and after the receipt-face restoration). Grep-proof reproduced independently by two reviewers and the gate run: lens selectors in research-trail.css only (71/0/0/0). Firefox build and web-ext lint green inside check; the manual sidebar smoke rides with Samay's gallery review. Opus whole-branch review over all 17 branch commits: Ready to merge YES, fix-first none, all six cross-task seams verified (pipeline gate byte-identical, shared advisory copy cannot disagree across surfaces, popLayout survived the CSS consolidation, font-mono fully scoped, gallery assertions current, contract untouched). One reviewer ship-with was overruled harder: the public card's citation/key-number/fact-value/source-mark blocks had silently flipped to system mono through the shared tokens file; the spec bans public web card changes in this overhaul, so `d054cf8` restored them to `var(--font-text)` (byte-identical to their pre-branch computed value, reviewer-confirmed complete live set). Awaiting Samay's gallery review (Reduce Motion OFF); merge, push, and deploy follow approval.
 
 ---
 
