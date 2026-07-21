@@ -271,3 +271,24 @@ export function sourceAuthorityCategoriesForHost(host: string): SourceAuthorityC
 export function isTrustedSourceGateHost(host: string) {
   return sourceAuthorityCategoriesForHost(host).length > 0;
 }
+
+// Coarse hint for provider-side sourceType tagging: providers that assign a
+// citation's sourceType from probe identity alone (an Exa search query name, a
+// direct-Exa fetch) never look at what host the result actually landed on, so a
+// LinkedIn or GitHub URL gets the same "news" tag as a real news article. This
+// gives those callers a host-derived override for the categories most likely to
+// otherwise collapse into "news"; callers keep their own default for anything
+// this returns null for (reputable reporting, unlisted hosts, etc).
+export function sourceTypeHintForHost(host: string): "github" | "filing" | "other" | null {
+  const categories = sourceAuthorityCategoriesForHost(host);
+  if (categories.includes("developerPlatform")) {
+    return "github";
+  }
+  if (categories.includes("publicRecord")) {
+    return "filing";
+  }
+  if (categories.includes("professionalAndFundingDatabase") || categories.includes("analystResearch")) {
+    return "other";
+  }
+  return null;
+}

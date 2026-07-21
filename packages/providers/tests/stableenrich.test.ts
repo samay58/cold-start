@@ -341,6 +341,36 @@ describe("fetchStableenrichSources", () => {
     );
   });
 
+  it("classifies Exa search results by the host they actually landed on, not the probe's own subject", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "perplexity.ai",
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/exa/search" && (body as { query?: string }).query?.includes("founders")) {
+          return {
+            results: [
+              { url: "https://linkedin.com/in/jane-doe", title: "Jane Doe", text: "Jane Doe is a co-founder." },
+            ],
+          };
+        }
+        if (url === "https://stable.example/exa/search") {
+          return {
+            results: [{ url: "https://github.com/perplexity-ai/repo", title: "perplexity-ai/repo", text: "A repo." }],
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.sources).toContainEqual(
+      expect.objectContaining({ url: "https://linkedin.com/in/jane-doe", sourceType: "other" }),
+    );
+    expect(result.sources).toContainEqual(
+      expect.objectContaining({ url: "https://github.com/perplexity-ai/repo", sourceType: "github" }),
+    );
+  });
+
   it("carries the Exa result image through as imageUrl, and omits it when absent", async () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),

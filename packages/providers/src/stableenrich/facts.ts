@@ -1,6 +1,6 @@
 import { domainFromUrl, extractUrlRecords, integerValue, objectRecord, stringRecordValue, stringValue, supportedUrl, truncateText, urlFromDomain } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderSource, RetrievalIntent, StableenrichProbe } from "../types";
-import type { SignalCategory } from "@cold-start/core";
+import { sourceTypeHintForHost, type SignalCategory } from "@cold-start/core";
 import { type StableenrichProbeResult, type StableenrichSourcesResult, addStringFact, addUrlFact, isExaSearchProbe, providerFact, providerSourceFromText, stableenrichCitationUrl, stableenrichProbeFailure } from "./core";
 import { exaEmailFacts, peopleFacts } from "./people";
 
@@ -175,11 +175,17 @@ function exaResultSources(
 
       const publishedAt = stringRecordValue(record, "publishedDate");
       const imageUrl = stringRecordValue(record, "image");
+      const host = domainFromUrl(url);
+      // Every Exa search probe is tagged "news" by sourceTypeForProbe regardless of what
+      // host the result actually landed on (a "founders" query routinely surfaces
+      // linkedin.com or github.com). Classify by the resolved result host first so that
+      // diversity survives into extraction; fall back to the probe-level default.
+      const sourceType = (host ? sourceTypeHintForHost(host) : null) ?? metadata.sourceType;
 
       return providerSourceFromText({
         url,
         title: stringRecordValue(record, "title") ?? stringRecordValue(record, "name") ?? url,
-        sourceType: metadata.sourceType,
+        sourceType,
         rawText: JSON.stringify(record),
         intent: metadata.intent,
         ...(publishedAt ? { publishedAt } : {}),

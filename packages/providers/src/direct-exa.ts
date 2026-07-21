@@ -1,4 +1,4 @@
-import { sourceSearchSubjectForDomain } from "@cold-start/core";
+import { sourceSearchSubjectForDomain, sourceTypeHintForHost } from "@cold-start/core";
 import { normalizeNamedPeopleEmailHints, type NamedPeopleEmailHint } from "./people-hints";
 import type { DirectExaEnv, PeopleEmailHint, ProviderFactCandidate, ProviderSource, RetrievalIntent } from "./types";
 
@@ -378,6 +378,11 @@ function providerSourcesFromDirectExa(request: DirectExaRequest, payload: unknow
   });
 }
 
+// Exa search results land on whatever host actually ranked for the query, not the
+// probe's own subject: a "management_team" search routinely returns linkedin.com or
+// github.com links alongside real news coverage. Classifying every non-target-domain
+// result as "news" (the pre-fix behavior) collapses that diversity before it ever
+// reaches extraction, so check the resolved host against known non-news categories first.
 function sourceTypeForDirectUrl(url: string, domain: string): ProviderSource["sourceType"] {
   try {
     const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
@@ -385,11 +390,10 @@ function sourceTypeForDirectUrl(url: string, domain: string): ProviderSource["so
     if (host === normalizedDomain || host.endsWith(`.${normalizedDomain}`)) {
       return "company_site";
     }
+    return sourceTypeHintForHost(host) ?? "news";
   } catch {
     return "news";
   }
-
-  return "news";
 }
 
 function providerSourceFromText(input: {

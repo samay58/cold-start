@@ -117,6 +117,37 @@ describe("fetchDirectExaFundamentalsSources", () => {
     });
   });
 
+  it("classifies non-target hosts by what they actually are, not a blanket news tag", async () => {
+    const result = await fetchDirectExaFundamentalsSources({
+      env: { DIRECT_EXA_API_KEY: "exa-key" },
+      domain: "cartesia.ai",
+      fetchJson: async ({ body }) => ({
+        results: [
+          {
+            url:
+              body.category === "people"
+                ? "https://linkedin.com/in/jane-doe"
+                : body.category === "company"
+                  ? "https://github.com/cartesia-ai"
+                  : "https://techcrunch.com/2026/cartesia-raises",
+            title: `${body.category} result`,
+            text: "Cartesia raised funding and lists its management team.",
+          },
+        ],
+      }),
+    });
+
+    expect(result.sources.find((source) => source.url === "https://linkedin.com/in/jane-doe")).toMatchObject({
+      sourceType: "other",
+    });
+    expect(result.sources.find((source) => source.url === "https://github.com/cartesia-ai")).toMatchObject({
+      sourceType: "github",
+    });
+    expect(result.sources.find((source) => source.url === "https://techcrunch.com/2026/cartesia-raises")).toMatchObject({
+      sourceType: "news",
+    });
+  });
+
   it("carries the Exa result image through as imageUrl, and omits it when absent", async () => {
     const result = await fetchDirectExaFundamentalsSources({
       env: { DIRECT_EXA_API_KEY: "exa-key" },
