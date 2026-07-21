@@ -87,46 +87,53 @@
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 8px;
-  margin: 0 14px;
-  padding: 10px 0 13px;
-  border-top: 1px solid rgb(var(--cs-c-212-197-158) / 0.46);
+  gap: 10px;
+  margin: 0 16px;
+  padding: 12px 0 15px;
+  border-top: 0;
 }
 
 .cs-people-line-head {
   display: flex;
   gap: 10px;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   min-width: 0;
 }
 
 .cs-people-line-source {
   overflow: hidden;
-  color: var(--color-muted);
+  color: rgb(var(--cs-c-23-26-31-text) / 0.65);
   font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 760;
+  font-size: 11.5px;
+  font-weight: 640;
+  letter-spacing: 0.01em;
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cs-people-line-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(174px, 1fr));
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
   min-width: 0;
 }
 
 .cs-people-person {
   display: grid;
-  gap: 2px;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
   min-width: 0;
-  padding: 7px 8px;
-  border: 1px solid rgb(var(--cs-c-212-197-158) / 0.48);
-  border-radius: 6px;
-  background: rgb(var(--cs-c-252-250-245) / 0.44);
+  min-height: 50px;
+  padding: 8px 10px;
+  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.70);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.80), rgb(var(--cs-c-252-250-245) / 0.68)),
+    rgb(var(--cs-c-250-250-247) / 0.74);
 }
 
 .cs-people-person[aria-describedby] {
@@ -139,10 +146,10 @@
 }
 
 .cs-people-person[data-has-email="true"] {
-  border-color: rgb(var(--cs-c-110-92-158) / 0.18);
+  border-color: rgb(var(--cs-c-110-92-158) / 0.26);
   background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.72), rgb(var(--cs-c-250-247-239) / 0.58)),
-    rgb(var(--cs-c-110-92-158) / 0.04);
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.86), rgb(var(--cs-c-246-250-255) / 0.72)),
+    rgb(var(--cs-c-110-92-158) / 0.045);
 }
 
 .cs-people-name {

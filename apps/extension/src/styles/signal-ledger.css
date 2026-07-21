@@ -367,51 +367,6 @@ body,
   font-size: 12px;
 }
 
-.cs-people-line {
-  gap: 12px;
-  margin: 0 18px;
-  padding: 13px 0 17px;
-  border-top: 0;
-}
-
-.cs-people-line-head {
-  align-items: center;
-}
-
-.cs-people-line-source {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.65);
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-
-.cs-people-line-list {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-.cs-people-person {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  gap: 11px;
-  align-items: center;
-  min-height: 56px;
-  padding: 9px 11px;
-  border-color: rgb(var(--cs-c-216-208-191) / 0.70);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.80), rgb(var(--cs-c-252-250-245) / 0.68)),
-    rgb(var(--cs-c-250-250-247) / 0.74);
-}
-
-.cs-people-person[data-has-email="true"] {
-  border-color: rgb(var(--cs-c-110-92-158) / 0.26);
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.86), rgb(var(--cs-c-246-250-255) / 0.72)),
-    rgb(var(--cs-c-110-92-158) / 0.045);
-}
-
 .cs-person-avatar {
   display: inline-flex;
   align-items: center;
@@ -630,8 +585,7 @@ body,
 /* Live elapsed timers tick every second; tabular figures keep their width
    fixed so the status line holds still next to the moving sheen (and does
    not lurch at 0:59 -> 1:00). */
-.cs-active-enrichment-head small,
-.cs-people-line-source {
+.cs-active-enrichment-head small {
   font-variant-numeric: tabular-nums;
 }
 
