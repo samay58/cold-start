@@ -59,6 +59,20 @@ Prompt wording for typography:
 Use the public web grotesk display stack for the website company name, hero headings, and section labels. If a licensed GT America webfont is added, it should own `--font-gt-america-next`; until then IBM Plex Sans carries that role. Keep At Umami for the extension workbench display voice, IBM Plex Sans for interface structure, body, and values with tabular figures, and At Textual only for call numbers, source marks, step indices, and small index-card numerics. Keep labels sentence case. Avoid wide all-caps section styling, zine typography, generic code mono as a voice, Fraunces, Space Grotesk, JetBrains Mono, Inter, Geist, Roboto, and generic compressed display fonts.
 ```
 
+### Investor Lens Memo
+
+The filed investor read (`apps/extension/src/research/InvestorReadCard.tsx`) is a memo, not a dashboard row, and it runs on exactly five type roles. Every rule in the card maps to one row below; a new UI moment gets a mark, a weight, or a color before it gets a sixth size.
+
+| Role | Spec | Use |
+|---|---|---|
+| Lede | 16px / 1.45 / At Umami 640 | The headline read, the only display-face content text |
+| Section label | 11px / At Umami 620 / seal color, sentence case | "The case", "Timing", "Next question" |
+| Claim | 13px / 1.55 / IBM Plex Sans 450 | Bull/bear claims, timing, question bodies |
+| Meta | 11.5px / IBM Plex Sans 480 | Posture line, "changes the read if" note |
+| Receipt | 10px / At Textual 500, tabular | Citation marks, source domains, FILED stamp |
+
+Opposition reads through marks, not color washes: a holds claim leads with a filled ink square, a breaks claim leads with the conflict-class slashed square. Claim text takes the full card width; the memo does not reserve a label column for it.
+
 ## Color System
 
 The palette is warm parchment with one chosen accent, evidence-coded. It should not collapse into beige editorial warmth or neon technical drama.
