@@ -70,6 +70,19 @@ Reveal (user-requested): A = kimi-k3 (both readers' first), D = deepseek-v4-pro,
 
 14. **First positive template: the winning-output anatomy.** Falsifiable thesis (both branches stated), named failure modes ("what breaks: supply / economics"), one concrete test per failure mode, and a named person to ask. This is a design spec for the synthesis format, extracted from the output that won both readers.
 
+## WHERE WE LEFT OFF (2026-07-21, end of session)
+
+Samay's framing, verbatim intent: this is the active workstream; the quality of the AI in the product determines everything. Continue tomorrow.
+
+Next steps, in order:
+
+1. **Expand the panel before more rounds.** One matrix run, same 12 fixtures, judgment stages only, two new arms: `claude-sonnet-5` (native path, zero config; the real incumbent question is 4.6 vs 5, which the first run never tested) and one GPT model via OpenRouter (never had a GPT arm; zero code). Budget ~$5-10. Then regenerate the remaining blind groups with six outputs per group.
+2. **Continue blind rounds, synthesis first.** The 10 remaining synthesis groups carry the decision signal; sections after, or sampled. One category per sitting, anchors pre-inserted, reveals only on request.
+3. **Decisions this feeds:** sections model flip (pro was the candidate, but flash keeps winning Samay's reads and costs less); whether the incumbent should be Sonnet 5, a challenger, or unchanged; K3's 2026-07-27 open-weights repricing recheck (taste-validated now, blocked on economics only).
+4. **Lens overhaul brief:** the 13 gaps plus the winning-output anatomy (falsifiable thesis, named failure modes, one test per failure mode, a person to ask) become the prompt/format spec. Feeds the `investor-lens-overhaul` branch.
+5. **Retrieval fix (gap 10):** pull primary financial documents for companies with public filings so financing sections stop reading generic.
+6. **Harness follow-up:** evidence budget for judgment-stage replays so oversized fixtures stop timing out across all models.
+
 ## Remaining rounds: pending, one category per sitting
 
 Reviewed so far: bendingspoons synthesis, bendingspoons customer_proof. Next up: bendingspoons financing, then dice synthesis, dice customer_proof, dice financing, and onward through the 33 groups. Cadence changed at user request: each Marginalia draft carries exactly one group.
