@@ -228,9 +228,13 @@ Two questions, half a day each, hard timebox:
 1. **Moonshot citation collapse:** the run accepted 43 sources; the stored card cites 19 news + 1 enrichment. Trace where diversity dies: does extraction only cite news-class sources, does source classification collapse types, or does citation mapping drop non-news refs? Use `npm run trace:generation` against moonshot.ai locally for a live trace, plus the stored prod card.
 2. **Generaltranslation missing founders:** founders are publicly known (YC company); the card has `founders: unknown`. Trace the people path for that domain.
 
-- [ ] **Step 1: Diagnose both; write each up as a Finding here (mechanism, not vibes).**
-- [ ] **Step 2: Fix in-slice if the fix is under ~30 lines and test-coverable; otherwise file a GitHub issue with the diagnosis attached and link it here.**
-- [ ] **Step 3: Commit whatever landed.**
+- [x] **Step 1: Diagnose both; write each up as a Finding here (mechanism, not vibes).**
+- [x] **Step 2: Fix in-slice if the fix is under ~30 lines and test-coverable; otherwise file a GitHub issue with the diagnosis attached and link it here.**
+- [x] **Step 3: Commit whatever landed.**
+
+**Finding (2026-07-21, moonshot):** Source types were tagged by probe identity, not resolved host: `sourceTypeForDirectUrl` in `direct-exa.ts` and `sourceTypeForProbe`/`exaResultSources` in `stableenrich/facts.ts` defaulted everything non-company-site to `news`, so LinkedIn/GitHub/database results collapsed into one class and `single-source-class` fired even on diverse evidence. Fixed in-slice (~18 lines): `sourceTypeHintForHost` added to core's source-authority registry, consumed as a hint (never overriding a more specific classification) at both call sites. Re-verified against moonshot's 20 stored citation URLs: `nonEnrichmentSourceTypes` flips 1 to 2. Known bound: the LLM's per-citation sourceType is not mechanically tied to the pool signal; end-to-end confirmation needs a live run.
+
+**Finding (2026-07-21, generaltranslation):** No single cause; filed as issue #9 with three mechanisms: Apollo people endpoints 404 identically across runs 11 days apart (external, needs AgentCash route rediscovery); Exa management-team search returns no usable evidence for this company; and a universal bug where firecrawl about/team sources carry an unparseable synthetic URL and are always rejected by the source gate (would not have saved GT specifically; its /about and /team 404 live). **Done (2026-07-21):** commit `5e549b0`, review approved. Minors: subdomain over-reach on mixed-content hosts (news.crunchbase.com, linkedin.com/pulse sweep to `other`); `*.github.io` blogs intentionally not covered.
 
 ### Task 1.9: Phase 1 gate
 
