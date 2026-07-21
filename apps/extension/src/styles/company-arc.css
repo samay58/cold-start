@@ -157,9 +157,6 @@
   line-height: 1.2;
 }
 
-/* The cs-lens-sealed rules moved to research-trail.css: it is the single owner of every
-   investor-read-card and lens-prefixed rule now. */
-
 .cs-early-read-claim {
   margin: 0;
   color: var(--color-ink);

@@ -143,6 +143,16 @@
   line-height: 1.45;
 }
 
+/* Reduce is a reduction, never a freeze: the running dot is an essential still-working
+   indicator (same rule signals.css already applies to .cs-active-dot's running state), so it
+   keeps a slow opacity breath instead of stopping. cs-reduced-breathe is defined once, in
+   signals.css, and shared by every reduced-motion "still working" indicator in this panel. */
+@media (prefers-reduced-motion: reduce) {
+  .cs-lens-running-dot {
+    animation: cs-reduced-breathe 1.6s ease-in-out infinite;
+  }
+}
+
 .cs-lens-failed {
   display: grid;
   gap: 4px;
@@ -514,6 +524,11 @@ a.cs-lens-source:focus-visible {
   color: var(--color-seal);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.cs-lens-source:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
 }
 
 .cs-lens-source-more {

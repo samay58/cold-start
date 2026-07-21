@@ -240,7 +240,3 @@ a.cs-source-chip:focus-visible {
   background: var(--cs-seal-tint-18);
   color: var(--color-seal);
 }
-
-/* The rest of the investor-read-card overrides that used to live here (lede, tension-side,
-   case-empty, timing, question, footer) moved to research-trail.css: it is the single owner of
-   every investor-read-card and lens-prefixed rule now. */

@@ -1,16 +1,3 @@
-/* The cs-lens-footer and cs-lens-source rules moved to research-trail.css: it is the single
-   owner of every investor-read-card and lens-prefixed rule now. */
-
-/* Reduce is a reduction, never a freeze: the running dot is an essential still-working
-   indicator (same rule signals.css already applies to .cs-active-dot's running state), so it
-   keeps a slow opacity breath instead of stopping. cs-reduced-breathe is defined once, in
-   signals.css, and shared by every reduced-motion "still working" indicator in this panel. */
-@media (prefers-reduced-motion: reduce) {
-  .cs-lens-running-dot {
-    animation: cs-reduced-breathe 1.6s ease-in-out infinite;
-  }
-}
-
 .cs-active-enrichment {
   isolation: isolate;
   position: relative;
@@ -459,8 +446,7 @@
 .cs-dormant-card:focus-visible,
 .cs-active-enrichment-head:focus-visible,
 .cs-research-notice button:focus-visible,
-.cs-source-chip:focus-visible,
-.cs-lens-source:focus-visible {
+.cs-source-chip:focus-visible {
   outline: 2px solid var(--color-seal);
   outline-offset: 2px;
 }
