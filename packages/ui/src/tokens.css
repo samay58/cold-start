@@ -688,7 +688,7 @@
 .cs-footer-copy,
 .cs-footer-meta {
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 11px;
   letter-spacing: 0;
 }
