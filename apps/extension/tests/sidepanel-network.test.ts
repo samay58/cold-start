@@ -2,7 +2,7 @@
 
 import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pollGenerationUntilCard, startSectionGenerationAndPoll } from "../src/sidepanel-network";
+import { pollGenerationUntilCard, startAnalysisGenerationAndPoll, startSectionGenerationAndPoll } from "../src/sidepanel-network";
 import type { ExtensionResearchRunEvent, Settings } from "../src/shared/extension-config";
 
 const settings: Settings = {
@@ -277,5 +277,167 @@ describe("section generation polling", () => {
       status: "failed",
       error: "Market section failed."
     });
+  });
+});
+
+describe("analysis polling race between the card write and the complete status", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("refetches once when the in-hand card carries neither synthesis nor synthesisWithheld but the run already reports complete", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    // The server writes the card strictly before marking the run complete. This fixture
+    // reproduces the window where a card fetch races ahead of that write (staleCard, neither
+    // field set) in the same iteration where the status poll already reports "complete": the
+    // second card fetch stands in for the post-write read that closes the race.
+    const staleCard = cardForDomain(domain);
+    const withheldCard: ColdStartCard = {
+      ...cardForDomain(domain),
+      synthesisWithheld: {
+        at: "2026-07-20T12:00:00.000Z",
+        reasons: ["citation-floor"],
+        advisories: ["single-source-class"],
+        citationCount: 3,
+        sourceTypeCount: 1
+      }
+    };
+    let cardCallCount = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/cards/")) {
+        cardCallCount += 1;
+        return jsonResponse(cardCallCount === 1 ? staleCard : withheldCard);
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "linear", domain, status: "complete", mode: "analysis" });
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "analysis",
+      vi.fn()
+    );
+
+    expect(cardCallCount).toBe(2);
+    expect(result.card.synthesisWithheld).toMatchObject({ reasons: ["citation-floor"] });
+  });
+
+  it("short-circuits on the first card fetch once a withheld record has landed, without waiting on the status poll", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const withheldCard: ColdStartCard = {
+      ...cardForDomain(domain),
+      synthesisWithheld: {
+        at: "2026-07-20T12:00:00.000Z",
+        reasons: ["no-usable-source-type"],
+        advisories: [],
+        citationCount: 9,
+        sourceTypeCount: 0
+      }
+    };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(withheldCard);
+      }
+
+      throw new Error(`unexpected request outside the fast path: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "analysis",
+      vi.fn()
+    );
+
+    expect(result.card.synthesisWithheld).toMatchObject({ reasons: ["no-usable-source-type"] });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/api/generate?"))).toHaveLength(0);
+  });
+});
+
+describe("startAnalysisGenerationAndPoll forceRefresh threading", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function capturePostBody(fetchMock: ReturnType<typeof vi.fn>) {
+    const call = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/generate") && (init as RequestInit | undefined)?.method === "POST");
+    const body = (call?.[1] as RequestInit | undefined)?.body;
+    return body ? JSON.parse(String(body)) : null;
+  }
+
+  it("sends forceRefresh: true on the generate POST body when the retry path runs", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const card = cardForDomain(domain);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "cached", mode: "analysis" });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(card);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startAnalysisGenerationAndPoll(
+      domain,
+      settings,
+      new AbortController().signal,
+      true,
+      card,
+      [],
+      vi.fn(),
+      true
+    );
+
+    expect(capturePostBody(fetchMock)).toMatchObject({ domain, mode: "analysis", forceRefresh: true });
+  });
+
+  it("omits forceRefresh from the generate POST body on a plain analysis request", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const card = cardForDomain(domain);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "cached", mode: "analysis" });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(card);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startAnalysisGenerationAndPoll(
+      domain,
+      settings,
+      new AbortController().signal,
+      true,
+      card,
+      [],
+      vi.fn()
+    );
+
+    const body = capturePostBody(fetchMock);
+    expect(body).not.toBeNull();
+    expect(body).not.toHaveProperty("forceRefresh");
   });
 });

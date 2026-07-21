@@ -250,6 +250,14 @@ function shouldFetchCardForActiveBasics(
 }
 
 function analysisCardIsComplete(card: ColdStartCard, requiresMarketStructure: boolean) {
+  // A withheld verdict is a terminal outcome too: the run finished and decided not to
+  // synthesize. Treating it as complete lets a withheld card short-circuit polling here,
+  // the same fast path a synthesized card already gets, instead of waiting for the status
+  // poll to catch up.
+  if (card.synthesisWithheld) {
+    return true;
+  }
+
   if (!card.synthesis) {
     return false;
   }
@@ -508,6 +516,18 @@ export async function pollGenerationUntilCard(
       // neither. Trusting the terminal status here, rather than re-requiring synthesis before
       // settling, is what lets a real withheld verdict resolve instead of polling to the
       // timeout waiting for synthesis that was never going to arrive.
+      //
+      // The server writes the card strictly before marking the run complete, so the fetchCard
+      // earlier in this same iteration can still land pre-write while this status check lands
+      // post-write: currentCard would then carry neither synthesis nor synthesisWithheld even
+      // though the run is done. One more fetch closes that window before settling.
+      if (!currentCard.synthesis && !currentCard.synthesisWithheld) {
+        const freshCard = await fetchAvailableCard();
+        if (freshCard) {
+          return { card: freshCard, sections: updateCurrentCard(freshCard) };
+        }
+      }
+
       return { card: currentCard, sections: currentSections };
     }
   }
