@@ -48,7 +48,7 @@ Reveal (user-requested, post-verdict): Round 2's top two were A = deepseek-v4-pr
 
 ## Round 3: bendingspoons / research_section / financing (2026-07-21, bundle 03-00-27)
 
-Verdict: Output C best "by a margin", credited for framing the insights "narratively in a cohesive and tighter way than the other two"; A's framing disliked, B's partially; overall "they're all okay and relatively decent" but "honestly all of these are so general". Identities not requested and left sealed.
+Verdict: Output C best "by a margin", credited for framing the insights "narratively in a cohesive and tighter way than the other two"; A's framing disliked, B's partially; overall "they're all okay and relatively decent" but "honestly all of these are so general". Reveal (user-requested later): Output C = deepseek-v4-flash.
 
 ### Conceptual gaps added
 
