@@ -317,6 +317,21 @@
   letter-spacing: 0;
 }
 
+/* The rest of .cs-company-context h1's effective rule: composite of foundation.css's base
+   (margin, overflow-wrap, text-wrap, an earlier font-size/weight/line-height triplet since
+   overridden), signal-ledger.css's later color and now-superseded font-size/line-height, and
+   type-and-motion.css's final font-size/line-height word. .cs-partial-profile h1 does not share
+   these five properties (only the font-family/weight/letter-spacing rule above), so it stays out
+   of this one. */
+.cs-company-context h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(28px, 6.1vw, 34px);
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
 /* The section header bar: flex row, label left, meta right. Composite of five prior partial
    overrides across foundation.css, company-arc.css, signals.css, signal-ledger.css, and
    type-and-motion.css, computed by cascade order (later import wins on a tie): weight 700 and
@@ -786,6 +801,10 @@
 }
 
 @media (max-width: 430px) {
+  .cs-company-context h1 {
+    font-size: 29px;
+  }
+
   .cs-card-tray {
     padding: 9px 6px 12px;
   }

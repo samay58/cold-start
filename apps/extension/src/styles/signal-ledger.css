@@ -50,7 +50,6 @@ body,
   box-shadow: none;
 }
 
-.cs-company-context h1,
 .cs-partial-profile h1,
 .cs-active-enrichment strong,
 .cs-dormant-card strong {
@@ -208,10 +207,6 @@ body,
     padding: 14px;
   }
 
-  .cs-company-context h1 {
-    font-size: 25px;
-  }
-
   .cs-company-facts {
     grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
     padding: 0 14px;
@@ -272,13 +267,6 @@ body,
   font-family: var(--font-display);
   font-size: 32px;
   font-weight: 650;
-}
-
-.cs-company-context h1 {
-  color: var(--color-ink);
-  font-size: clamp(31px, 7.4vw, 42px);
-  font-weight: 650;
-  line-height: 0.94;
 }
 
 .cs-company-domain {
@@ -717,10 +705,6 @@ body,
   .cs-company-context-main {
     gap: 14px;
     padding: 17px;
-  }
-
-  .cs-company-context h1 {
-    font-size: 33px;
   }
 
   .cs-company-context-main p:not(.cs-research-label) {
