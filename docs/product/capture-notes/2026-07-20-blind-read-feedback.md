@@ -58,6 +58,16 @@ Verdict: Output C best "by a margin", credited for framing the insights "narrati
 
 12. **Sections have a ceiling problem (recurring).** Second consecutive section group where nothing impressed: round 2 "don't like any of these that much", round 3 "all so general". The gap list above (evidence-answerability, granularity, sparsity, register, cohesion) is the fix menu; model choice alone does not clear the ceiling.
 
+## Round 4: dice / synthesis (2026-07-21, bundle 05-08-12)
+
+Verdict (Samay): Output A marginally better than D; B and C "somewhat inferior, they just feel lengthy and kinda hard to read". He asked for a second opinion; Claude's blind read (key not opened for this group): agree A first and not marginally, because A alone carries a falsifiable thesis plus named failure modes each with a concrete test and a named person to ask; split on second place, C over D on substance (the revenue-per-employee take-rate inference and the multihoming question are the sharpest analysis in the group) while conceding D over C as shipped text because C's length and density fail the register bar; B bottom for restating group-consensus facts with editorial adjectives.
+
+### Additions
+
+13. **Length discipline is global, not sections-only.** "Lengthy and kinda hard to read" now appears as a synthesis complaint on a second company. Gap 8 is a lens-wide requirement.
+
+14. **First positive template: the winning-output anatomy.** Falsifiable thesis (both branches stated), named failure modes ("what breaks: supply / economics"), one concrete test per failure mode, and a named person to ask. This is a design spec for the synthesis format, extracted from the output that won both readers.
+
 ## Remaining rounds: pending, one category per sitting
 
 Reviewed so far: bendingspoons synthesis, bendingspoons customer_proof. Next up: bendingspoons financing, then dice synthesis, dice customer_proof, dice financing, and onward through the 33 groups. Cadence changed at user request: each Marginalia draft carries exactly one group.
