@@ -4,6 +4,21 @@
 
 **Goal:** Kill the silent synthesis withhold and the stale-TTL dead end, get analysis p50 under 60s with free wins only, rebuild the read as a memo, dock the person dossier so occlusion is structurally impossible, and leave behind a fixture gallery that makes all of it cheap to iterate.
 
+## WHERE WE LEFT OFF (2026-07-21)
+
+Phase 1 is shipped: merged to main (`e00c6d9..137d080`), deployed, contract `2026-07-20.synthesis-withheld-v1` confirmed serving, prod invariants verified. Every Phase 1 task has a Done/Finding block below. The extension is rebuilt against the deployed origin in `apps/extension/dist`.
+
+Next steps, in order:
+
+1. **Samay, manual (5 min):** reload the unpacked extension in chrome://extensions, then run analysis on a thin company (casaphq, daytona, or inkeep per the Task 1.3 study) to see the deployed withheld card end to end. The same flow passed live QA locally; this is the deployed-browser confirmation.
+2. **Samay, decision (issue #10):** should a gate-blocked re-run preserve a previously good read instead of wiping it? Current semantics: fresh assembly always wins. Reachable via forceRefresh onto a degraded evidence pool or the stale-in-run path.
+3. **Phase 1.5 (next work):** reference library. Three deep-research tracks (waiting UX, hovercard craft, memo typography) curated into `docs/product/gold-standard-references.md`. Phases 2-4 cite it.
+4. **Phase 2:** fixture gallery first, then the memo redesign on the five-role type scale, then CSS consolidation family by family. Gate: Samay's gallery review with macOS Reduce Motion OFF. Riding minors that fold in here: TS exhaustiveness on the withheld reason-copy maps, the retry button's disabled affordance, and deriving the advisory label from the frozen record instead of live signals.
+5. **Phase 3:** docked person dossier. The occlusion regression test must be proven RED against pre-phase code before it counts.
+6. **Phase 4:** latency levers behind a flag (20-run shadow bar before promotion, Samay decides), synthesis/verify step split (quiet-window deploy plus a repair:stuck-runs sweep), the watchable wait, then the two-week `measure:analysis-latency` measurement against the p50 60s / p90 90s bar. The Task 1.7 baseline already shows dispatch right-skew worth the Task 5.4 look.
+7. **Independent of phases (issue #9):** generaltranslation founders. Apollo endpoints 404 (needs AgentCash route rediscovery), plus the universal firecrawl about/team synthetic-URL bug.
+8. **Small residue, no phase home:** `formatMs` can print "1m 60s" at a rounding boundary in both measure scripts; fix whenever either script is next touched. The source-type host hint over-reaches on mixed-content hosts (news.crunchbase.com, linkedin.com/pulse); revisit only if classification needs path-level precision.
+
 **Architecture:** Five sequential slices, each gated on `npm run check` green plus a slice-specific review. Slice 1 makes withholding server truth (`synthesisEvidenceGate` in `packages/pipeline/src/generate-card.ts` refactors to a floor-plus-advisory decision backed by a new shared `packages/core/src/synthesis-evidence.ts`; the route in `apps/web/src/app/api/generate/route.ts` gains a free pre-check; the extension replaces its guessing heuristic with a withheld card fed by gated card JSON). Slice 1.5 builds the reference library. Slice 2 rebuilds `InvestorReadCard` (extracted to its own file) on a documented type scale with one-source-of-truth CSS, iterated inside a new fixture gallery. Slice 3 gives `SharedTooltip` a docked placement mode plus open intent. Slice 4 splits synthesis and verify into separate Inngest steps, gates source re-fetch behind a flag with a shadow bar, and builds the analysis wait from the building arc's instrument family.
 
 **Tech Stack:** Next.js 15 App Router, Inngest v4, Drizzle/Neon (HTTP driver), Vite + CRXJS MV3 extension, React 19, Framer Motion, Playwright, vitest, zod.
