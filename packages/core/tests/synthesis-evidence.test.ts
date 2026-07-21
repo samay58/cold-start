@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Citation, ColdStartCard } from "../src/index";
-import { synthesisGateDecision } from "../src/synthesis-evidence";
+import { synthesisAdvisoriesFromSignals, synthesisGateDecision } from "../src/synthesis-evidence";
 
 const generatedAt = "2026-06-23T12:00:00.000Z";
 const MIN_CITATIONS = 8;
@@ -158,5 +158,33 @@ describe("synthesisGateDecision", () => {
 
     expect(decision.signals.hasNamedTeamMember).toBe(false);
     expect(decision.advisories).toContain("no-named-team");
+  });
+});
+
+describe("synthesisAdvisoriesFromSignals", () => {
+  it("matches synthesisGateDecision's advisory list off the same signals, with no citation-count input", () => {
+    const signals = {
+      citationCount: 20,
+      nonEnrichmentSourceTypes: ["news"],
+      hasFundingEvidence: false,
+      hasNamedTeamMember: false
+    };
+
+    expect(synthesisAdvisoriesFromSignals(signals)).toEqual([
+      "single-source-class",
+      "no-funding-evidence",
+      "no-named-team"
+    ]);
+  });
+
+  it("returns no advisories once source diversity, funding, and a named team are all present", () => {
+    const signals = {
+      citationCount: 20,
+      nonEnrichmentSourceTypes: ["news", "company_site"],
+      hasFundingEvidence: true,
+      hasNamedTeamMember: true
+    };
+
+    expect(synthesisAdvisoriesFromSignals(signals)).toEqual([]);
   });
 });

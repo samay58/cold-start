@@ -212,8 +212,7 @@ a.cs-source-chip:focus-visible {
   text-underline-offset: 3px;
 }
 
-.cs-panel-more,
-.cs-lens-timing-more {
+.cs-panel-more {
   width: fit-content;
   min-height: 20px;
   margin: 5px 0 0;
@@ -236,73 +235,12 @@ a.cs-source-chip:focus-visible {
 }
 
 .cs-panel-more:hover,
-.cs-panel-more:focus-visible,
-.cs-lens-timing-more:hover,
-.cs-lens-timing-more:focus-visible {
+.cs-panel-more:focus-visible {
   border-color: var(--color-seal);
   background: var(--cs-seal-tint-18);
   color: var(--color-seal);
 }
 
-.cs-investor-read-lede {
-  font-weight: 480;
-  line-height: 1.55;
-}
-
-.cs-lens-tension-side,
-.cs-lens-case-empty,
-.cs-lens-timing,
-.cs-lens-question {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  column-gap: 10px;
-  align-items: baseline;
-  padding: 10px 0;
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-lens-tension {
-  gap: 0;
-  padding: 0;
-  border-top: 0;
-}
-
-.cs-lens-tension-side + .cs-lens-tension-side {
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-lens-tension-side h4,
-.cs-lens-case-empty h4,
-.cs-lens-timing h4,
-.cs-lens-question h4,
-.cs-lens-timing em,
-.cs-lens-question small em,
-.cs-lens-question-category {
-  font-family: var(--font-body);
-}
-
-.cs-lens-tension-side h4,
-.cs-lens-case-empty h4,
-.cs-lens-timing h4,
-.cs-lens-question h4 {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 11px;
-  font-weight: 620;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
-}
-
-.cs-lens-case-empty p {
-  margin: 0;
-}
-
-.cs-lens-question-category {
-  font-size: 10px;
-  font-weight: 620;
-  letter-spacing: 0.04em;
-}
-
-.cs-lens-footer {
-  border-top-color: var(--color-rule);
-}
+/* The rest of the investor-read-card overrides that used to live here (lede, tension-side,
+   case-empty, timing, question, footer) moved to research-trail.css: it is the single owner of
+   every investor-read-card and lens-prefixed rule now. */

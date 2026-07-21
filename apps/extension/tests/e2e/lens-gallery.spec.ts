@@ -47,7 +47,9 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const read = await investorRead(page);
       await expect(read).toContainText("If true");
-      await expect(read).toContainText("None survived verification.");
+      // The 0-bear side gets its own honest, specific empty state, not the generic
+      // "None survived verification." every empty row used to share.
+      await expect(read).toContainText("No breaking claim survived verification.");
     }
   },
   withheld: {
@@ -64,6 +66,11 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const read = await investorRead(page);
       await expect(read).toContainText("If true");
       await expect(read).toContainText("It breaks if");
+      // This card has synthesis and no synthesisWithheld record, so the posture line reads
+      // synthesisEvidenceSignals live: every non-enrichment citation is sourceType "news".
+      const posture = page.getByLabel("Evidence posture");
+      await expect(posture).toBeVisible();
+      await expect(posture).toContainText("Only news coverage is cited so far.");
     }
   },
   "running-events": {

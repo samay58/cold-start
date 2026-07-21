@@ -224,6 +224,29 @@ describe("Investor Lens withheld and failed states", () => {
     await unmount();
   });
 
+  it("(c2) disables the retry button once clicked, so a slow-to-swap parent cannot show a live control twice", async () => {
+    // onRunAnalysis intentionally does nothing here: the visible disabled state must hold on
+    // its own local click state, not on the run actually starting (double-fire is guarded
+    // upstream; this covers the gap between click and the parent's run-status flip).
+    const { container, unmount } = await renderArc({
+      card: card({ synthesisWithheld: withheldRecord() }),
+      onRunAnalysis: () => undefined
+    });
+
+    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
+    expect(retryButton?.disabled).toBe(false);
+    expect(retryButton?.textContent).toBe("Refresh evidence and retry");
+
+    await act(async () => {
+      retryButton?.click();
+    });
+
+    expect(retryButton?.disabled).toBe(true);
+    expect(retryButton?.textContent).toBe("Refreshing evidence");
+
+    await unmount();
+  });
+
   it("(d) renders the filed investor read untouched when the card carries synthesis", async () => {
     const { container, unmount } = await renderArc({
       card: synthesizedCard()

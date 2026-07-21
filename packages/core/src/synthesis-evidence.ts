@@ -43,17 +43,13 @@ export function synthesisEvidenceSignals(card: ColdStartCard): SynthesisEvidence
   };
 }
 
-export function synthesisGateDecision(card: ColdStartCard, minCitations: number): SynthesisGateDecision {
-  const signals = synthesisEvidenceSignals(card);
-  const reasons: SynthesisGateReason[] = [];
+// Pulled out of synthesisGateDecision so the extension can read the same advisory signal live,
+// off a card that already carries synthesis (no gate re-run, no minCitations input needed: none
+// of the three advisories depend on citation count). LensWithheldCard reads the frozen
+// SynthesisWithheld.advisories captured at gate time instead of calling this; the two paths
+// never blend on one surface.
+export function synthesisAdvisoriesFromSignals(signals: SynthesisEvidenceSignals): SynthesisAdvisory[] {
   const advisories: SynthesisAdvisory[] = [];
-
-  if (signals.citationCount < minCitations) {
-    reasons.push("citation-floor");
-  }
-  if (signals.nonEnrichmentSourceTypes.length < 1) {
-    reasons.push("no-usable-source-type");
-  }
 
   if (signals.nonEnrichmentSourceTypes.length < 2) {
     advisories.push("single-source-class");
@@ -65,10 +61,24 @@ export function synthesisGateDecision(card: ColdStartCard, minCitations: number)
     advisories.push("no-named-team");
   }
 
+  return advisories;
+}
+
+export function synthesisGateDecision(card: ColdStartCard, minCitations: number): SynthesisGateDecision {
+  const signals = synthesisEvidenceSignals(card);
+  const reasons: SynthesisGateReason[] = [];
+
+  if (signals.citationCount < minCitations) {
+    reasons.push("citation-floor");
+  }
+  if (signals.nonEnrichmentSourceTypes.length < 1) {
+    reasons.push("no-usable-source-type");
+  }
+
   return {
     blocked: reasons.length > 0,
     reasons,
-    advisories,
+    advisories: synthesisAdvisoriesFromSignals(signals),
     signals
   };
 }

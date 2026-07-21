@@ -299,7 +299,7 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead).toContainText("If true");
   await expect(investorRead).toContainText("Rush University Medical Center");
   await expect(investorRead).toContainText("It breaks if");
-  await expect(investorRead).toContainText("None survived verification.");
+  await expect(investorRead).toContainText("No breaking claim survived verification.");
 
   // Unsupported timing is a clean not-found row, never an unfinished-generation state.
   await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");
@@ -1618,7 +1618,7 @@ test("early read survives the basics generating-to-success handoff", async ({ pa
   await expect(read).toContainText(claim);
 });
 
-test("timing files the remaining supported fields behind a tooltip affordance", async ({ page }) => {
+test("timing files the remaining supported fields behind an inline disclosure", async ({ page }) => {
   const card = browserbaseCardWithSynthesis();
   card.synthesis = {
     whyItMatters: {
@@ -1646,12 +1646,20 @@ test("timing files the remaining supported fields behind a tooltip affordance", 
   await expect(timing).toContainText("Adoption trigger");
   await expect(timing).toContainText("Agent rollouts are forcing teams to standardize browser infrastructure.");
 
-  // The overflow count is an affordance, not a bare number: hovering files the rest.
-  const more = timing.getByRole("button", { name: "+1 more" });
-  await more.hover();
-  const tooltip = page.locator(".cs-shared-tooltip");
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toContainText("Also filed under Timing");
-  await expect(tooltip).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
+  // The overflow count is an inline disclosure, not a tooltip: clicking expands it in place.
+  // The overflow content is always in the DOM (reduced motion must never hide content, only
+  // change how the reveal animates), so the closed/open distinction is the frame's own
+  // data-expanded flag, not text presence.
+  const more = timing.locator(".cs-investor-read-more");
+  const frame = timing.locator(".cs-investor-read-disclosure-frame");
+  await expect(more).toHaveText("+1 more");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(frame).toHaveAttribute("data-expanded", "false");
+
+  await more.click();
+
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(frame).toHaveAttribute("data-expanded", "true");
+  await expect(timing).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
 });

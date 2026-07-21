@@ -1,71 +1,5 @@
-/* One evidence footer: classed source dots do the talking, the filed date closes the
-   card, and the only count left is the honest overflow. */
-.cs-lens-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  padding-top: 9px;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
-}
-
-.cs-lens-footer-sources {
-  display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  min-width: 0;
-}
-
-.cs-lens-source {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  text-decoration: none;
-}
-
-a.cs-lens-source:hover,
-a.cs-lens-source:focus-visible {
-  color: var(--color-seal);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.cs-lens-source-more {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: default;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-
-.cs-lens-source-more:hover,
-.cs-lens-source-more:focus-visible {
-  color: var(--color-seal);
-}
-
-.cs-lens-footer-filed {
-  margin-left: auto;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
-  font-family: var(--font-text);
-  font-size: 10px;
-  letter-spacing: 0.03em;
-}
-
-.cs-lens-footer-caveat {
-  flex-basis: 100%;
-  color: var(--color-company);
-  font-size: 10.5px;
-  font-style: normal;
-  line-height: 1.4;
-}
+/* The cs-lens-footer and cs-lens-source rules moved to research-trail.css: it is the single
+   owner of every investor-read-card and lens-prefixed rule now. */
 
 @media (prefers-reduced-motion: reduce) {
   .cs-lens-running-dot {
@@ -522,8 +456,7 @@ a.cs-lens-source:focus-visible {
 .cs-active-enrichment-head:focus-visible,
 .cs-research-notice button:focus-visible,
 .cs-source-chip:focus-visible,
-.cs-lens-source:focus-visible,
-.cs-lens-timing-more:focus-visible {
+.cs-lens-source:focus-visible {
   outline: 2px solid var(--color-seal);
   outline-offset: 2px;
 }

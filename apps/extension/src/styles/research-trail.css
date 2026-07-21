@@ -225,10 +225,13 @@
 }
 
 /*
- * The filed memo, one continuous object: the lede is the largest text and reads first,
- * the tension pair and the quieter rows share one label-column ledger, and one footer
- * carries the evidence in classification dots. Rules and type carry the hierarchy, not
- * chrome; the seal appears once, on the section label.
+ * The filed memo, one continuous object, built on the five-role type scale in DESIGN.md
+ * ("Investor Lens Memo"): Lede, Section label, Claim, Meta, Receipt. Every rule below maps to
+ * exactly one of those five; nothing here invents a sixth size. The label-column ledger the
+ * memo used before this pass is gone -- USWDS's readable-measure range (45-90 characters, cited
+ * in gold-standard-references.md's memo typography track) confirmed the 13px Claim role already
+ * sits at the low end of that range at panel width, so a claim gets the full card width and
+ * nothing competes with it for space.
  */
 .cs-investor-read,
 .cs-investor-read * {
@@ -252,22 +255,289 @@
   padding-bottom: 8px;
 }
 
-.cs-investor-read-head span {
+/* Section label role: 11px At Umami 620, seal color, sentence case. Shared by the "Investor
+   read" masthead, "The case", "Timing", and "Next question". */
+.cs-investor-read-head span,
+.cs-investor-read-label {
+  margin: 0;
   color: var(--color-seal);
   font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 640;
+  font-size: 11px;
+  font-weight: 620;
   letter-spacing: 0.01em;
+  line-height: 1.4;
+  text-transform: none;
 }
 
+/* Lede role: 16px/1.45 At Umami 640, the only display-face content text in the card. */
 .cs-investor-read-lede {
   margin: 0;
   padding-bottom: 12px;
   color: var(--color-ink);
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.5;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 640;
+  line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+/* Claim role: 13px/1.55 IBM Plex Sans 450. Bull/bear claims, the timing claim, and the question
+   body all read at this size; an inline <em> lead-in ("If true.", "Adoption trigger.") carries
+   contrast through weight alone, the same device Carbon uses to split same-size roles
+   (gold-standard-references.md, memo typography track). */
+.cs-investor-read-claim {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.cs-investor-read-claim em {
+  color: var(--color-ink);
+  font-style: normal;
+  font-weight: 620;
+}
+
+/* Meta role: 11.5px IBM Plex Sans 480. The posture line and the "changes the read if" note. */
+.cs-investor-read-meta {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 480;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.cs-investor-read-meta em {
+  margin-right: 4px;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.68);
+  font-style: normal;
+  font-weight: 620;
+}
+
+.cs-lens-none {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.55;
+}
+
+/* Opposition marks: holds leads with a filled ink square, breaks leads with the conflict-class
+   slashed square. Marks only, no washes; data-mark is what CSS and tests key off. */
+.cs-lens-mark {
+  display: inline-block;
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+.cs-lens-mark[data-mark="filled"] {
+  border-radius: 1px;
+  background: var(--color-ink);
+}
+
+.cs-lens-mark[data-mark="slashed"] {
+  border: 1px solid var(--color-conflict);
+  border-radius: 1px;
+  background: transparent;
+}
+
+.cs-lens-mark[data-mark="slashed"]::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 44%, var(--color-conflict) 44%, var(--color-conflict) 56%, transparent 56%);
+  content: "";
+}
+
+/* The case, Timing, and Next question: a Section label followed by full-width Claim rows,
+   separated by one rule each. No grid columns; see the file-level note above. */
+.cs-lens-tension,
+.cs-lens-timing,
+.cs-lens-question {
+  display: grid;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
+}
+
+.cs-lens-tension-side + .cs-lens-tension-side {
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-lens-case-empty {
+  margin: 0;
+}
+
+.cs-lens-question-category {
+  margin-left: 7px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Inline progressive disclosure: the measured-height pattern already used for research-layer
+   card bodies (.cs-active-enrichment-body-frame below), applied to the three retiring lens
+   tooltips. transform/opacity plus a grid-template-rows height, 200ms; reduced motion collapses
+   it to instant with the content still present, never hidden. */
+.cs-investor-read-disclosure {
+  margin-top: 2px;
+}
+
+.cs-investor-read-more {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cs-investor-read-more:hover,
+.cs-investor-read-more:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-investor-read-disclosure-frame {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cs-investor-read-disclosure-frame[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.cs-investor-read-disclosure-frame[data-reduced-motion="true"] {
+  transition: none;
+}
+
+.cs-investor-read-disclosure-body {
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 6px;
+}
+
+.cs-investor-read-disclosure-body p {
+  margin: 0 0 6px;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.55;
+}
+
+.cs-investor-read-disclosure-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Evidence posture: the independent-backing caveat and any evidence-composition advisories,
+   both Meta role. When card.synthesisWithheld is present this reads that frozen record; when
+   the card carries synthesis with no withheld record it reads synthesisEvidenceSignals live.
+   See InvestorReadCard.tsx's evidencePostureLines -- the two paths never blend on one card. */
+.cs-investor-read-posture {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-investor-read-posture .cs-investor-read-meta {
+  margin: 0;
+}
+
+/* Receipt role: 10px At Textual 500, tabular, at least 0.32px tracking. Citation marks, source
+   domains, and the filed stamp. */
+.cs-lens-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
+}
+
+.cs-lens-footer-sources {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.cs-lens-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+a.cs-lens-source:hover,
+a.cs-lens-source:focus-visible {
+  color: var(--color-seal);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-source-more {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: default;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cs-lens-source-more:hover,
+.cs-lens-source-more:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-lens-footer-filed {
+  margin-left: auto;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-lens-footer-caveat {
+  color: var(--color-company);
 }
 
 .cs-lens-source i {
@@ -292,125 +562,39 @@
   background: var(--color-company);
 }
 
-/* The ledger device: every row is [label | content] on one aligned column, so the
-   tension pair, timing, and the next question read as lines of one memo. */
-.cs-lens-tension-side,
-.cs-lens-timing,
-.cs-lens-question {
+/* Investor Lens sealed row: the unavailable state shown in the partial-profile panel, a plain
+   ledger row rather than a card. */
+.cs-lens-sealed {
   display: grid;
-  grid-template-columns: 80px minmax(0, 1fr);
-  column-gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
   align-items: baseline;
-}
-
-.cs-lens-tension {
-  display: grid;
-  gap: 8px;
-  padding: 10px 0;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
-}
-
-.cs-lens-tension-side h4,
-.cs-lens-timing h4,
-.cs-lens-question h4 {
   margin: 0;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
-  font-size: 11px;
-  font-weight: 620;
-  letter-spacing: 0.01em;
-  line-height: 1.5;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-rule);
+  background: transparent;
 }
 
-.cs-lens-tension-side p,
-.cs-lens-timing p {
-  margin: 0;
+.cs-arc > .cs-lens-sealed {
+  margin: 0 12px 2px;
+}
+
+.cs-lens-sealed strong {
   color: var(--color-ink);
-  font-size: 12.75px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-.cs-lens-none {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
-  font-size: 11.5px;
-  line-height: 1.5;
-}
-
-.cs-lens-tension-side p.cs-lens-none,
-.cs-lens-timing p.cs-lens-none {
-  display: block;
-}
-
-.cs-lens-timing {
-  padding: 9px 0;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
-}
-
-.cs-lens-timing p,
-.cs-lens-question p {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.86);
-  font-size: 12.25px;
-}
-
-.cs-lens-timing em {
-  color: rgb(var(--cs-c-23-26-31-text) / 0.78);
-  font-style: normal;
-  font-weight: 620;
-}
-
-.cs-lens-timing-more {
-  margin: 3px 0 0 18px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--color-muted);
-  cursor: default;
-  font-family: var(--font-text);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-
-.cs-lens-timing-more:hover,
-.cs-lens-timing-more:focus-visible {
-  color: var(--color-seal);
-}
-
-.cs-lens-question {
-  padding: 9px 0 11px;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
-}
-
-.cs-lens-question p {
-  margin: 0;
-  font-weight: 500;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.cs-lens-question-category {
-  margin-left: 7px;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 9.5px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.cs-lens-question small {
-  display: block;
-  margin-top: 4px;
+.cs-lens-sealed span {
   color: var(--color-muted);
   font-size: 11px;
-  line-height: 1.45;
+  line-height: 1.35;
+  text-align: right;
 }
 
-.cs-lens-question small em {
-  margin-right: 4px;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.6);
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 620;
+.cs-lens-sealed-partial {
+  width: 100%;
+  margin-top: 4px;
 }

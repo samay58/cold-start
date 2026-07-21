@@ -24,12 +24,8 @@ import {
 import { showPartialProfileGate, sourceLabel } from "../company/company-display";
 import { LENS_RUN_FAILED_NOTICE, formatElapsed } from "../shared/extension-format";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
-import {
-  investorReadForCard,
-  LENS_WAITS_FOR_PROFILE_REASON,
-  type InvestorReadDisplay,
-  type LensTensionClaim
-} from "./investor-lens";
+import { investorReadForCard, LENS_WAITS_FOR_PROFILE_REASON } from "./investor-lens";
+import { InvestorReadCard } from "./InvestorReadCard";
 import { LensWithheldCard } from "./LensWithheldCard";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
@@ -407,196 +403,6 @@ function LensFailedCard() {
     </div>
   );
 }
-
-function LensTensionSide({
-  claim,
-  emptyCopy,
-  label,
-  side,
-  tooltipProps
-}: {
-  claim: LensTensionClaim | null;
-  emptyCopy: string;
-  label: string;
-  side: "holds" | "breaks";
-  tooltipProps: TooltipPropsFor;
-}) {
-  return (
-    <section className="cs-lens-tension-side" data-side={side}>
-      <h4>{label}</h4>
-      {claim ? (
-        <div>
-          <p>
-            <span>{claim.text}</span>
-          </p>
-          {claim.moreClaims.length > 0 ? (
-            <button
-              className="cs-lens-timing-more"
-              type="button"
-              {...tooltipProps({
-                body: claim.moreClaims.map((entry) => entry.text).join("\n\n"),
-                id: `lens-${side}-more`,
-                placement: "above",
-                title: `Also filed under ${label}`
-              })}
-            >
-              {`+${claim.moreClaims.length} more`}
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <p className="cs-lens-none">{emptyCopy}</p>
-      )}
-    </section>
-  );
-}
-
-const LENS_FOOTER_SOURCE_COUNT = 4;
-
-function InvestorReadCard({ read, tooltipProps }: { read: InvestorReadDisplay; tooltipProps: TooltipPropsFor }) {
-  const visibleSources = read.sources.slice(0, LENS_FOOTER_SOURCE_COUNT);
-  const hiddenSources = read.sources.slice(LENS_FOOTER_SOURCE_COUNT);
-
-  return (
-    <article className="cs-investor-read" aria-label="Investor read">
-      <header className="cs-investor-read-head">
-        <span>Investor read</span>
-      </header>
-      <p className="cs-investor-read-lede">
-        <span>{read.lede.text}</span>
-      </p>
-      <div className="cs-lens-tension" aria-label="The case">
-        {!read.holds && !read.breaks ? (
-          <section className="cs-lens-case-empty">
-            <h4>The case</h4>
-            <p className="cs-lens-none">No bull or break claim survived verification.</p>
-          </section>
-        ) : (
-          <>
-            <LensTensionSide
-              claim={read.holds}
-              emptyCopy="None survived verification."
-              label="If true"
-              side="holds"
-              tooltipProps={tooltipProps}
-            />
-            <LensTensionSide
-              claim={read.breaks}
-              emptyCopy="None survived verification."
-              label="It breaks if"
-              side="breaks"
-              tooltipProps={tooltipProps}
-            />
-          </>
-        )}
-      </div>
-      <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
-        <h4>Timing</h4>
-        {read.timing ? (
-          <div>
-            <p>
-              <span>
-                <em>{read.timing.field}.</em> {read.timing.text}
-              </span>
-            </p>
-            {read.timing.moreFields.length > 0 ? (
-              <button
-                className="cs-lens-timing-more"
-                type="button"
-                {...tooltipProps({
-                  body: read.timing.moreFields.map((entry) => `${entry.field}. ${entry.text}`).join("\n\n"),
-                  id: "lens-timing-more",
-                  placement: "above",
-                  title: "Also filed under Timing"
-                })}
-              >
-                {`+${read.timing.moreFields.length} more`}
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <p className="cs-lens-none">Not supported by current sources.</p>
-        )}
-      </section>
-      <section className="cs-lens-question" aria-label="Next question">
-        <h4>Next question</h4>
-        {read.nextQuestion ? (
-          <div>
-            <p>
-              {read.nextQuestion.question}
-              {read.nextQuestion.categoryLabel ? (
-                <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
-              ) : null}
-            </p>
-            {read.nextQuestion.changesReadIf ? (
-              <small>
-                <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
-              </small>
-            ) : null}
-            {read.nextQuestion.moreQuestions.length > 0 ? (
-              <button
-                className="cs-lens-timing-more"
-                type="button"
-                {...tooltipProps({
-                  body: read.nextQuestion.moreQuestions
-                    .map((entry) => [
-                      entry.categoryLabel ? `${entry.categoryLabel}. ${entry.question}` : entry.question,
-                      entry.changesReadIf ? `Changes the read if ${entry.changesReadIf}.` : null
-                    ].filter(Boolean).join("\n"))
-                    .join("\n\n"),
-                  id: "lens-question-more",
-                  placement: "above",
-                  title: "Also filed under Next question"
-                })}
-              >
-                {`+${read.nextQuestion.moreQuestions.length} more`}
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <p className="cs-lens-none">No ranked question survived verification.</p>
-        )}
-      </section>
-      <footer className="cs-lens-footer" aria-label="Cited sources">
-        <div className="cs-lens-footer-sources">
-          {visibleSources.map((source) => (
-            <a
-              className="cs-lens-source"
-              data-class={source.sourceClass}
-              href={source.href}
-              key={source.id}
-              rel="noreferrer"
-              target="_blank"
-              title={`${source.qualityLabel}: ${source.title}`}
-            >
-              <i aria-hidden="true" />
-              {source.domain}
-            </a>
-          ))}
-          {hiddenSources.length > 0 ? (
-            <button
-              className="cs-lens-source cs-lens-source-more"
-              type="button"
-              {...tooltipProps({
-                body: hiddenSources.map((source) => `${source.domain}: ${source.title}`).join("\n"),
-                id: "lens-sources-more",
-                placement: "above",
-                title: "Also cited"
-              })}
-            >
-              {`+${hiddenSources.length}`}
-            </button>
-          ) : null}
-        </div>
-        <small className="cs-lens-footer-filed">{read.receiptLine}</small>
-        {!read.independentlyBacked ? (
-          <em className="cs-lens-footer-caveat">No independent source in this read.</em>
-        ) : null}
-      </footer>
-    </article>
-  );
-}
-
 
 // Rendered under the shared CompanyArc header, which already carries the company identity;
 // this section only explains the gap and offers the honest next actions.
@@ -978,7 +784,7 @@ export function ResearchLayerPanel({
           {lensRunning ? (
             <LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />
           ) : investorRead ? (
-            <InvestorReadCard read={investorRead} tooltipProps={tooltipProps} />
+            <InvestorReadCard card={card} read={investorRead} tooltipProps={tooltipProps} />
           ) : lensWithheld && card.synthesisWithheld ? (
             <LensWithheldCard card={card} onRetry={() => onRunAnalysis(true)} withheld={card.synthesisWithheld} />
           ) : (
