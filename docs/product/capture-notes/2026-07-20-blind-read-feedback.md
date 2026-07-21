@@ -66,6 +66,8 @@ Verdict (Samay): Output A marginally better than D; B and C "somewhat inferior, 
 
 13. **Length discipline is global, not sections-only.** "Lengthy and kinda hard to read" now appears as a synthesis complaint on a second company. Gap 8 is a lens-wide requirement.
 
+Reveal (user-requested): A = kimi-k3 (both readers' first), D = deepseek-v4-pro, C = deepseek-v4-flash, B = claude-sonnet-4-6. Both readers ranked the incumbent Sonnet last; the winning anatomy below came from K3, and it transfers as a prompt spec regardless of routing.
+
 14. **First positive template: the winning-output anatomy.** Falsifiable thesis (both branches stated), named failure modes ("what breaks: supply / economics"), one concrete test per failure mode, and a named person to ask. This is a design spec for the synthesis format, extracted from the output that won both readers.
 
 ## Remaining rounds: pending, one category per sitting
