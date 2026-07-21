@@ -305,9 +305,11 @@ Phase exit gate: gallery screenshots of every lens phase pass Samay's review (Re
   - `failed.json`: run-status failure with an existing card.
 - Produces: `qa:extension:gallery` renders and screenshots every phase headlessly in one command.
 
-- [ ] **Step 1: Build fixtures** (one read-only prod query for baseten card + deepinfra events; the rest synthesized from schema).
-- [ ] **Step 2: Wire the gallery mount + Playwright spec; confirm one screenshot per phase lands.** Run: `npm run qa:extension:gallery -w @cold-start/extension`.
-- [ ] **Step 3: Commit.**
+- [x] **Step 1: Build fixtures** (one read-only prod query for baseten card + deepinfra events; the rest synthesized from schema).
+- [x] **Step 2: Wire the gallery mount + Playwright spec; confirm one screenshot per phase lands.** Run: `npm run qa:extension:gallery -w @cold-start/extension`.
+- [x] **Step 3: Commit.**
+
+**Done (2026-07-21):** Commit `644feae`. Gallery 6/6 phases render and screenshot; extension 246/246 (includes a new 14-test fixture schema-validation suite); typecheck, lint, knip clean. Reviewer hand-traced the withheld and withheld-advisory compositions through `synthesisGateDecision`/`synthesisEvidenceSignals`: citation-floor and single-source-class derive correctly from the fixture data. `read-full.json` verified byte-identical to the prod baseten pull; `running-events.json` carries all 6 real deepinfra events verbatim plus the synthetic `synthesis.started`/`verify.started`/`verify.complete` tail inside the real 50s gap. Minor recorded for the final review: the mount helper computes the running card's `startedAt` relative to now so the elapsed counter reads a stable "0:42" (JSON fixtures are frozen literals; full clock mocking would freeze the motion the gallery exists to show). Pre-existing gap noted for Phase 4: `resumeAnalysisWithController` does not thread events into `analysisRun` state, so `LensRunningCard` renders its generic fallback against the events fixture; Task 5.5 closes this.
 
 ### Task 3.2: Extract InvestorReadCard, build the memo on a documented type scale
 
