@@ -7,6 +7,73 @@
  */
 @layer base, primitives, surfaces, components, states, utilities;
 
+/* The only rule set actually populating a layer today: the theme toggle control.
+   Being layered, it always loses to any unlayered rule that might target the same
+   selector, regardless of source order -- moot today since nothing else touches
+   .cs-theme-toggle*, but worth knowing before adding a second layered rule here. */
+@layer components {
+  .cs-theme-toggle {
+    margin: 16px 0 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .cs-theme-toggle legend {
+    padding: 0;
+    margin: 0 0 8px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .cs-theme-toggle-options {
+    display: inline-flex;
+    border: 1px solid var(--color-rule-strong);
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--color-plate);
+  }
+
+  .cs-theme-toggle-option {
+    padding: 6px 16px;
+    border: 0;
+    border-right: 1px solid var(--color-rule);
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--cs-motion-state, 140ms) ease, color var(--cs-motion-state, 140ms) ease;
+  }
+
+  .cs-theme-toggle-option:last-child {
+    border-right: 0;
+  }
+
+  .cs-theme-toggle-option:hover {
+    color: var(--color-ink);
+    background: var(--cs-seal-tint-08);
+  }
+
+  .cs-theme-toggle-option[data-active="true"] {
+    color: var(--color-ink);
+    background: var(--cs-seal-tint-18);
+    font-weight: 600;
+  }
+
+  .cs-theme-toggle-option:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
+  .cs-theme-toggle-hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: var(--color-muted);
+  }
+}
+
 * {
   box-sizing: border-box;
 }

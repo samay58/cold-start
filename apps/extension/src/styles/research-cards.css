@@ -970,3 +970,98 @@ a.cs-source-chip:focus-visible {
   vertical-align: middle;
   white-space: nowrap;
 }
+
+/* Moved from theme-and-dark.css (Task 3.4 step 3): these were unconditional, not dark-scoped,
+   so they had no business in that file. Placed after this file's own earlier .cs-layer-items li
+   and .cs-layer-items span rules (near the top of this file) so the overriding gap/padding/border
+   values below still win on the properties they share, preserving the exact effective render
+   theme-and-dark.css produced as the last-imported file. .cs-layer-rows/.cs-layer-items are also
+   declared, with their own partial overrides, in evidence.css, type-and-motion.css, signals.css,
+   and signal-ledger.css; deduping those is a separate, unscoped cleanup, not part of this pass. */
+.cs-layer-rows,
+.cs-layer-items {
+  gap: 0;
+  padding: 0;
+}
+
+.cs-layer-rows div,
+.cs-layer-items li {
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.cs-layer-rows div {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-rows div + div,
+.cs-layer-items li + li {
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-layer-rows dt,
+.cs-layer-items span {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.cs-layer-items li[data-has-meta="true"] {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: baseline;
+}
+
+.cs-layer-items li[data-has-meta="true"] > span {
+  order: 0;
+  justify-self: stretch;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.cs-layer-items li[data-has-meta="false"] > div {
+  grid-column: 1 / -1;
+}
+
+.cs-panel-more {
+  width: fit-content;
+  min-height: 20px;
+  margin: 5px 0 0;
+  padding: 2px 7px;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: var(--cs-seal-tint-08);
+  color: var(--color-seal);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 680;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-decoration: none;
+}
+
+.cs-source-more {
+  margin-top: 0;
+}
+
+.cs-panel-more:hover,
+.cs-panel-more:focus-visible {
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-18);
+  color: var(--color-seal);
+}
