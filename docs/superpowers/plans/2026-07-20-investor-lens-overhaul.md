@@ -194,12 +194,14 @@ synthesisWithheld?: {
 
 Copy contract for the withheld card (final copy iterates in Phase 2's gallery, these are the semantics): state what ran ("Analysis ran <relative time>"), name what is missing in plain investor language mapped from reasons/advisories ("Fewer than 8 cited sources survived" / "Only news coverage is cited so far"), state what changes it ("A fresh evidence pass can clear the citation floor"), and offer exactly one action ("Refresh evidence and retry", which POSTs with `forceRefresh: true`). No apology register, no failure styling; per DESIGN, `not found` when true is a successful state.
 
-- [ ] **Step 1: Failing tests.** (a) card with `synthesisWithheld` renders the withheld card with reason copy, not `LensNotFiledCard`; (b) run-status failure without a withheld record renders failure copy; (c) retry click issues a generate POST with `forceRefresh: true`; (d) card with synthesis renders `InvestorReadCard` untouched.
-- [ ] **Step 2: Confirm fail.** `npm test -w @cold-start/extension -- lens-withheld`.
-- [ ] **Step 3: Implement.** Delete the dead fallback and the conflating heuristic; the client no longer infers withholding from `!card.synthesis`.
-- [ ] **Step 4: Confirm pass**, then `npm run build` (extension workspace) to prove the bundle compiles.
-- [ ] **Step 5: Bump `api-contract.json`, update SPEC.md's synthesis gating paragraph to floor-plus-advisory, run slopcheck on all new UI copy.**
-- [ ] **Step 6: Commit.**
+- [x] **Step 1: Failing tests.** (a) card with `synthesisWithheld` renders the withheld card with reason copy, not `LensNotFiledCard`; (b) run-status failure without a withheld record renders failure copy; (c) retry click issues a generate POST with `forceRefresh: true`; (d) card with synthesis renders `InvestorReadCard` untouched.
+- [x] **Step 2: Confirm fail.** `npm test -w @cold-start/extension -- lens-withheld`.
+- [x] **Step 3: Implement.** Delete the dead fallback and the conflating heuristic; the client no longer infers withholding from `!card.synthesis`.
+- [x] **Step 4: Confirm pass**, then `npm run build` (extension workspace) to prove the bundle compiles.
+- [x] **Step 5: Bump `api-contract.json`, update SPEC.md's synthesis gating paragraph to floor-plus-advisory, run slopcheck on all new UI copy.**
+- [x] **Step 6: Commit.**
+
+**Done (2026-07-20):** Commits `cb82edd` + fix `91c7175`. Extension suite 232/232 incl. audit:css, typecheck clean. Contract now `2026-07-20.synthesis-withheld-v1` (deployed extension rebuild required at the gate). Review found and the fix closed a real polling race (complete-status branch could return a card carrying neither synthesis nor withheld record; now `analysisCardIsComplete` accepts withheld cards and the complete branch refetches once), plus network-level POST-body assertions for `forceRefresh`. `LENS_WAITS_FOR_PROFILE_REASON` kept: two live unrelated consumers found; only the dead lens fallback was removed. Minors for later: withheld retry button lacks a disabled affordance (double-fire is guarded upstream); advisory copy derives one label from live signals that can drift from the frozen snapshot; reason-copy maps are `Record<string,string>` without exhaustiveness checks. Implementation note: first implementer died twice on infra errors mid-task; a fresh finisher verified and completed its partial work, catching one broken import it had left.
 
 ### Task 1.7: measure-analysis-latency script and locked baseline
 
