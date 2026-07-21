@@ -36,10 +36,15 @@
  * verdict, with the one action that can change it), and failed (an honest run failure).
  * Catalogue language: plate ground, 1px rules, one seal accent used as a verb.
  */
+/* position: relative makes this the offsetParent AnimatePresence's popLayout mode measures
+   against (InvestorReadCard.tsx's LensSlot): the exiting card gets position: absolute the
+   instant it starts leaving, and its injected top/left offsets need to resolve here, not against
+   whatever ancestor happens to be positioned further up the tree. */
 .cs-lens-slot {
   display: grid;
   gap: 10px;
   margin: 10px 12px 0;
+  position: relative;
 }
 
 /* Ready, running, and filed share the plate language. The unavailable sealed state above

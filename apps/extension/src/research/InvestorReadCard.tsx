@@ -29,9 +29,12 @@ const LENS_FOOTER_SOURCE_COUNT = 4;
 // Staged spring entrance for a freshly filed read. Four stages -- lede, the case, timing plus
 // next question, footer plus posture -- fire in sequence, each on commitSpring (stiffness 470,
 // damping 31, mass 0.62, zeta ~0.91: DESIGN.md's stiff well-damped band, settle fast with a
-// breath of follow-through, no cartoon bounce). 140ms between stage starts plus the ~150-180ms a
-// single commitSpring takes to settle lands the full sequence at roughly 560-600ms, inside the
-// plan's 550-650ms band. Transform (y) and opacity only, never scale.
+// breath of follow-through, no cartoon bounce). 140ms between stage starts puts the last stage
+// firing at 420ms; the sequence reads as visibly settled roughly 540-590ms after it starts.
+// Framer-motion's own rest threshold (restDelta 0.01) against the 10px y displacement stretches
+// the technical completion tail out to nearer 700ms, well past where the eye can tell the motion
+// is done -- that gap is expected, not a bug, and not the number to design the perceived timing
+// against. Transform (y) and opacity only, never scale.
 //
 // This only plays on a live trigger/running/withheld -> result handoff. AnimatePresence's own
 // initial={false} in ResearchLayerPanel's LensSlot blocks the mount animation for every nested
@@ -341,14 +344,23 @@ const LENS_SLOT_REDUCED_TRANSITION: Transition = { duration: 0.1, ease: "easeOut
 
 // The trigger/running/result/withheld swap is the single most important state change on this
 // panel (it is the moment the lens either starts, is still working, or has an answer), so it
-// crossfades rather than hard-cutting (DESIGN.md motion language). No mode override on
-// AnimatePresence: this codebase's convention everywhere else (ResearchLayerPanel's own
-// AnimatePresence blocks, CompanyArc's phase and ReadRegion swaps) is the sync default, so the
-// exiting card and the entering card overlap for the transition instead of waiting on each
-// other. 200ms via motionTokens.stateMs, the same token this file already uses for panel-level
-// state transitions, sits inside the 180-220ms band from the plan. AnimatePresence's own
-// initial={false} keeps this quiet on the panel's first mount (an already-resolved card does not
-// replay a crossfade it never had); live transitions after that still animate.
+// crossfades rather than hard-cutting (DESIGN.md motion language). mode="popLayout": the parent
+// .cs-lens-slot is a display: grid, so the default sync mode leaves the exiting card occupying
+// its own grid row for the whole ~200ms overlap -- the slot balloons by the exiting card's
+// height plus the row gap and everything below it reflows for that window (verified live: a real
+// running -> result swap measured slotHeight jumping 79px -> 1169px -> 1080px while both nodes
+// were mounted). popLayout applies position: absolute to the exiting node the instant its exit
+// starts, so it stops sizing the grid and the entering card superimposes on it in place instead
+// of stacking below it -- re-measured after this fix, the same swap holds at ~1080px throughout.
+// It still overlaps rather than waiting (this codebase's convention everywhere else --
+// ResearchLayerPanel's own AnimatePresence blocks, CompanyArc's phase and ReadRegion swaps -- is
+// the sync default; popLayout keeps that overlap, it only changes how the exiting node is laid
+// out during it). .cs-lens-slot carries position: relative (research-trail.css) so the popped
+// node's injected absolute offsets resolve against the slot's own box, not an ancestor further
+// up. 200ms via motionTokens.stateMs, the same token this file already uses for panel-level state
+// transitions, sits inside the 180-220ms band from the plan. AnimatePresence's own initial={false}
+// keeps this quiet on the panel's first mount (an already-resolved card does not replay a
+// crossfade it never had); live transitions after that still animate.
 export function LensSlot({
   prefersReducedMotion,
   result,
@@ -368,7 +380,7 @@ export function LensSlot({
   const transition = prefersReducedMotion ? LENS_SLOT_REDUCED_TRANSITION : LENS_SLOT_TRANSITION;
 
   return (
-    <AnimatePresence initial={false}>
+    <AnimatePresence initial={false} mode="popLayout">
       <motion.div animate={{ opacity: 1 }} exit={{ opacity: 0 }} initial={{ opacity: 0 }} key={state} transition={transition}>
         {content}
       </motion.div>
