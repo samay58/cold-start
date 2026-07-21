@@ -31,7 +31,11 @@
   --font-text: var(--font-textual-next, "AtTextual"), ui-serif, Georgia, serif;
   --font-body: var(--font-plex-sans-next, "IBM Plex Sans"), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-serif: var(--font-body);
-  --font-mono: var(--font-text);
+  /* Real mono, reserved for dense numeric ledgers per DESIGN.md; pervasive mono is banned.
+     "Berkeley Mono, IBM Plex Mono, monospace" matches the stack already hardcoded in
+     apps/web/src/app/c/[slug]/opengraph-image.tsx (no CSS custom properties there, since the
+     OG image renders outside the DOM). No -next webfont variable exists for either face yet. */
+  --font-mono: "Berkeley Mono", "IBM Plex Mono", ui-monospace, monospace;
 
   --shadow-popover: 0 10px 26px rgb(23 26 31 / 0.10), 0 0 0 1px var(--color-rule);
   --shadow-pickup: 0 6px 18px rgb(23 26 31 / 0.08);
@@ -194,7 +198,7 @@
   margin: 0;
   padding-top: 6px;
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 11px;
   font-weight: 500;
 }
@@ -230,7 +234,7 @@
   align-items: center;
   gap: 7px;
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 10.5px;
 }
 
@@ -338,7 +342,7 @@
 
 .cs-key-label {
   color: var(--color-muted);
-  font-family: var(--font-mono);
+  font-family: var(--font-text);
   font-size: 10.5px;
   font-weight: 600;
 }
@@ -610,11 +614,16 @@
   color: var(--cat-muted);
 }
 
+/* .cs-source-title is deliberately left out here: a later rule below always sets its
+   font-family to var(--font-body) (article titles are prose, not a ledger), so including it
+   in this list would only be overridden anyway. */
 .cs-source-marker,
-.cs-source-body,
-.cs-source-title,
-.cs-source-meta {
+.cs-source-body {
   font-family: var(--font-mono);
+}
+
+.cs-source-meta {
+  font-family: var(--font-text);
 }
 
 .cs-source-marker {
