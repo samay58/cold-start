@@ -52,6 +52,7 @@ npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles
 npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)
 npm run optimize:generation             # tsx scripts/optimize-generation.ts (mine recent runs for tuning levers)
 npm run measure:first-usable            # tsx scripts/measure-first-usable.ts (first-usable latency over recent real-traffic basics runs)
+npm run measure:analysis-latency        # tsx scripts/measure-analysis-latency.ts (analysis-run latency baseline over recent real-traffic analysis runs, excluding repair-artifact rows)
 npm run measure:contact-yield           # tsx scripts/measure-contact-yield.ts (read-only GitHub contact-email yield over the golden set; set GITHUB_TOKEN or the API caps at 60 req/hr)
 npm run repair:sections                 # tsx scripts/repair-research-sections.ts (pass --apply to write fixes)
 npm run repair:signal-clusters          # tsx scripts/repair-signal-clusters.ts (re-cluster stored card signals; --apply to write, --slug for one card)
@@ -62,7 +63,7 @@ npm run evo:generation-benchmark        # cost/latency report over recent runs; 
 npm run evo:ux-benchmark                # Playwright UX report (load, layout shift, overflow); add --gate to fail on regression
 ```
 
-Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `measure:first-usable` self-loads `.env.production.migrate.local` (falling back to `.env.local`) for the same reason; `repair:stuck-runs` also targets the production DB and needs that env sourced first. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, the Firefox build plus `web-ext lint`, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs those same steps individually on Node 24, so a green local `check` should mean green CI.
+Use `set -a; source .env.local; set +a` before commands that hit the database, providers, or LLMs directly. `npm run qa:generation` is the exception; it expects `.env.production.migrate.local` because it reads the production DB and API. `measure:first-usable` self-loads `.env.production.migrate.local` (falling back to `.env.local`) for the same reason; `measure:analysis-latency` does too; `repair:stuck-runs` also targets the production DB and needs that env sourced first. `wallet:status` and the `evo:*` benchmarks also read a DB, so source env first; the `--gate` variants (`evo:generation-gate`, `evo:ux-gate`) are the CI-style pass/fail wrappers. `npm run check` is the full local gate and already chains lint, typecheck, test, build, the Firefox build plus `web-ext lint`, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs those same steps individually on Node 24, so a green local `check` should mean green CI.
 
 Single test examples:
 

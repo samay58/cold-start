@@ -27,6 +27,7 @@
     "db:migrate:production": "node scripts/migrate-production.mjs",
     "trace:generation": "tsx scripts/trace-generation.ts",
     "measure:first-usable": "tsx scripts/measure-first-usable.ts",
+    "measure:analysis-latency": "tsx scripts/measure-analysis-latency.ts",
     "study:synthesis-gate": "tsx scripts/study-synthesis-gate.ts",
     "measure:contact-yield": "tsx scripts/measure-contact-yield.ts",
     "optimize:generation": "tsx scripts/optimize-generation.ts",
