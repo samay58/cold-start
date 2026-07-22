@@ -743,7 +743,7 @@ export function SidePanel() {
     forceRefresh = false
   ) => {
     const startedAt = Date.now();
-    setRequestState({ ...currentState, analysisRun: { generationStatus: "queued", startedAt } });
+    setRequestState({ ...currentState, events: [], analysisRun: { generationStatus: "queued", startedAt } });
 
     void startAnalysisGenerationAndPoll(
       generationDomain,

@@ -258,7 +258,6 @@ export function AnalysisWaitInstrument({
       </ol>
       <p aria-live="polite" className="sr-only">
         {currentStage ? `${currentStage.label}. ${currentStage.proofLine}.` : null}
-        {` Elapsed ${formatElapsed(elapsedSeconds)}.`}
       </p>
     </div>
   );
