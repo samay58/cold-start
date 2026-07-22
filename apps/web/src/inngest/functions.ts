@@ -372,7 +372,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           directExaEnv,
           agentcashBudgetCeiling,
           analysisSourceFetch: sourceFetchPlan,
-          loadStoredSourcesForSkip: () => findSourcesBySlug(db, slug).then(providerSourcesFromStoredSources)
+          loadStoredSourcesForSkip: () => findSourcesBySlug(db, slug).then(providerSourcesFromStoredSources),
+          reuseExistingForAnalysis
         })
       );
       return {

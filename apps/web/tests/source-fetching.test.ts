@@ -246,4 +246,81 @@ describe("fetchInitialSourcesForGeneration - ANALYSIS_SOURCE_REFRESH plan wiring
     expect(mocks.fetchStableenrichSources).toHaveBeenCalledTimes(1);
     expect(result.trace.providers.stableenrich.analysisSourceRefresh).toBe("full");
   });
+
+  describe("zero accepted sources", () => {
+    const runtimeEnv = { CHEAP_FIRST_EXA_ENABLED: false } as unknown as ReturnType<typeof webEnv>;
+
+    beforeEach(() => {
+      // Both providers come back empty: Direct Exa disabled/no results, and (for the reuse case)
+      // the stored-source substitute for a skip-fresh plan is also empty.
+      mocks.fetchDirectExaFundamentalsSources.mockResolvedValue({
+        sources: [],
+        failures: [],
+        skipped: false,
+        requestCount: 1,
+        estimatedCostUsd: 0
+      });
+      mocks.fetchStableenrichSources.mockResolvedValue({ sources: [], facts: [], failures: [], endpoints: [] });
+      mocks.fetchStableenrichEnrichmentSources.mockResolvedValue({ sources: [], facts: [], failures: [], endpoints: [] });
+      mocks.fetchStableenrichFastSources.mockResolvedValue({ sources: [], facts: [], failures: [], endpoints: [] });
+    });
+
+    it("reuse mode (skip-fresh plan) proceeds with the reused extraction instead of erroring when the stored-source substitute and Direct Exa are both empty", async () => {
+      const loadStoredSourcesForSkip = vi.fn(async () => []);
+
+      const result = await fetchInitialSourcesForGeneration({
+        mode: "analysis",
+        domain,
+        researchPlan,
+        runtimeEnv,
+        stableEnv: {},
+        directExaEnv: {},
+        agentcashBudgetCeiling: null,
+        analysisSourceFetch: { kind: "skip" },
+        loadStoredSourcesForSkip,
+        reuseExistingForAnalysis: true
+      });
+
+      // sectionsWithSourceCitations(existingCard, []) is a no-op over an already-usable card
+      // (functions.ts's extractSectionsForCard reuse branch): zero fresh sources to merge in is
+      // fine, since the reused card's own citations already satisfied hasInvestorUsableProfile.
+      expect(result.error).toBeNull();
+      expect(result.sources).toEqual([]);
+    });
+
+    it("non-reuse mode (full plan) still errors on zero accepted sources: there is no existing card to fall back on", async () => {
+      const result = await fetchInitialSourcesForGeneration({
+        mode: "analysis",
+        domain,
+        researchPlan,
+        runtimeEnv,
+        stableEnv: {},
+        directExaEnv: {},
+        agentcashBudgetCeiling: null,
+        analysisSourceFetch: { kind: "full" },
+        reuseExistingForAnalysis: false
+      });
+
+      expect(result.error).toMatch(/^No accepted provider sources returned/);
+      expect(result.sources).toEqual([]);
+    });
+
+    it("reuse mode still errors when reuseExistingForAnalysis is omitted (default false, matching the pre-fix contract)", async () => {
+      const loadStoredSourcesForSkip = vi.fn(async () => []);
+
+      const result = await fetchInitialSourcesForGeneration({
+        mode: "analysis",
+        domain,
+        researchPlan,
+        runtimeEnv,
+        stableEnv: {},
+        directExaEnv: {},
+        agentcashBudgetCeiling: null,
+        analysisSourceFetch: { kind: "skip" },
+        loadStoredSourcesForSkip
+      });
+
+      expect(result.error).toMatch(/^No accepted provider sources returned/);
+    });
+  });
 });

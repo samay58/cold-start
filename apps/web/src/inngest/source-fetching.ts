@@ -261,6 +261,10 @@ export async function fetchInitialSourcesForGeneration(input: {
   agentcashBudgetCeiling: number | null;
   analysisSourceFetch?: AnalysisSourceFetchPlan;
   loadStoredSourcesForSkip?: () => Promise<ProviderSource[]>;
+  // Mirrors functions.ts's reuseExistingForAnalysis: true only when an existing
+  // hasInvestorUsableProfile card exists to extract from (mode "analysis" only). Changes what
+  // zero accepted sources means below.
+  reuseExistingForAnalysis?: boolean;
 }): Promise<{
   sources: ProviderSource[];
   providerFacts: ProviderFactCandidate[];
@@ -387,6 +391,22 @@ export async function fetchInitialSourcesForGeneration(input: {
   }
 
   if (sourceGate.accepted.length === 0) {
+    if (input.reuseExistingForAnalysis) {
+      // The reuse branch extracts from the existing card via sectionsWithSourceCitations
+      // (functions.ts's extractSectionsForCard), not fresh sources: that function is a no-op
+      // over an empty sources array, leaving the prior card's own citations untouched. A
+      // skip-fresh run whose stored-source substitute came back empty, with Direct Exa also
+      // returning nothing, still has everything the reused extraction needs. Proceed instead of
+      // hard-failing a run that was never going to touch fresh sources in the first place.
+      return {
+        sources: [],
+        providerFacts: stableFacts,
+        failureCount: failures.length,
+        trace: sourceTrace,
+        error: null
+      };
+    }
+
     const details = failures
       .map((failure) => `${failure.name}: ${boundedErrorMessage(failure.error)}`)
       .join("; ");
