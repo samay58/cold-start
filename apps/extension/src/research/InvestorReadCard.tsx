@@ -78,12 +78,12 @@ function stageEntranceProps(
 // only guards stale or hand-built data from blending frozen and live evidence signals on one
 // surface -- in the ordinary case synthesisWithheld is absent here and the live branch runs.
 function evidencePostureLines(card: ColdStartCard): string[] {
-  const { nonEnrichmentSourceTypes } = synthesisEvidenceSignals(card);
+  const evidenceSignals = synthesisEvidenceSignals(card);
   const advisories: readonly SynthesisAdvisory[] = card.synthesisWithheld
     ? card.synthesisWithheld.advisories.filter(isSynthesisAdvisory)
-    : synthesisAdvisoriesFromSignals(synthesisEvidenceSignals(card));
+    : synthesisAdvisoriesFromSignals(evidenceSignals);
 
-  return advisories.map((advisory) => advisoryCopy(advisory, nonEnrichmentSourceTypes));
+  return advisories.map((advisory) => advisoryCopy(advisory, evidenceSignals.nonEnrichmentSourceTypes));
 }
 
 // The measured-height expansion pattern already used for research-layer card bodies
