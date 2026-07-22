@@ -1700,16 +1700,39 @@ test("a fast pointer fly-by across all person rows opens nothing", async ({ page
     points.push({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
   }
 
-  const flyByStartedAt = Date.now();
-  for (const point of points) {
-    await page.mouse.move(point.x, point.y);
-  }
-  const flyByElapsed = Date.now() - flyByStartedAt;
-  expect(flyByElapsed, "the fly-by traversal must stay under the 90ms open-intent gate for this assertion to prove anything").toBeLessThan(80);
-
   // The 90ms open-intent gate (OPEN_INTENT_MS in SharedTooltip.tsx) means a pointer that never
-  // dwells on a row long enough opens nothing: every row's pointerenter timer got cleared by
-  // the next row's pointerleave before it could fire.
+  // dwells on a row long enough opens nothing: every row's pointerenter timer got cleared by the
+  // next row's pointerleave before it could fire. But the assertion only proves that when the
+  // sweep itself measurably finished under the gate; racing wall-clock time against a fixed
+  // budget with no margin (previously: assert elapsed < 80ms against a 90ms gate) is flaky on a
+  // loaded machine (reproduced live: budget 80ms, measured 83ms). Retry the sweep a bounded
+  // number of times and only assert on an attempt that genuinely finished in time; if the
+  // machine never delivers one, skip honestly instead of false-failing.
+  const FLY_BY_BUDGET_MS = 80;
+  const MAX_ATTEMPTS = 5;
+  let flyByElapsed = Number.POSITIVE_INFINITY;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    // Move off every row and let any pending hide/intent timer from a prior attempt settle
+    // before measuring the next sweep, so a retry starts clean rather than mid-hover.
+    await page.mouse.move(0, 0);
+    await page.waitForTimeout(FLY_BY_BUDGET_MS);
+
+    const flyByStartedAt = Date.now();
+    for (const point of points) {
+      await page.mouse.move(point.x, point.y);
+    }
+    flyByElapsed = Date.now() - flyByStartedAt;
+    if (flyByElapsed < FLY_BY_BUDGET_MS) {
+      break;
+    }
+  }
+
+  test.skip(
+    flyByElapsed >= FLY_BY_BUDGET_MS,
+    `the fly-by sweep never finished under the ${FLY_BY_BUDGET_MS}ms budget in ${MAX_ATTEMPTS} attempts on this machine (last measured ${flyByElapsed}ms); the premise (a sweep fast enough to prove the open-intent gate) never held`
+  );
+
   await page.waitForTimeout(50);
   await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
 
