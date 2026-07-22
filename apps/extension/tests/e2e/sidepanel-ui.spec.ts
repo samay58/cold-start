@@ -627,13 +627,32 @@ test("core metrics and people stay compact in the company context", async ({ pag
   await expect(peopleTooltip).toContainText("Charlie Holtz");
   await expect(peopleTooltip.locator(".cs-dossier-role")).toContainText("Co-founder & CEO");
   await expect(peopleTooltip.locator(".cs-dossier-channel")).toContainText("GitHub");
-  await expect(peopleTooltip).toHaveAttribute("data-placement", "above");
+  // Docked contract (Task 4.1, replacing the pre-4.1 floating placement this test used to
+  // assert with data-placement="above"): the dossier always docks below the whole people
+  // block at a fixed, full-width-minus-margins region, never a narrow trigger-centered column
+  // floating above the row. A regression back to the old per-trigger placement would flip
+  // data-placement to "above" and shrink the box to roughly 240-340px, failing every
+  // assertion below.
+  await expect(peopleTooltip).toHaveAttribute("data-mode", "docked");
+  await expect(peopleTooltip).toHaveAttribute("data-placement", "below");
 
   const factsBox = await facts.boundingBox();
   const managementBox = await management.boundingBox();
   const researchBox = await researchLayer.boundingBox();
+  const charlieBox = await charlie.boundingBox();
+  const dossierBox = await peopleTooltip.boundingBox();
+  if (!managementBox || !charlieBox || !dossierBox) {
+    throw new Error("Expected bounding boxes for the management block, the row, and the docked dossier");
+  }
   expect(factsBox?.y).toBeLessThan(managementBox?.y ?? 0);
   expect(managementBox?.y).toBeLessThan(researchBox?.y ?? 0);
+  // Below the people block's own bottom edge, never overlapping the row that opened it.
+  expect(dossierBox.y).toBeGreaterThan(managementBox.y + managementBox.height - 2);
+  expect(dossierBox.y).toBeGreaterThan(charlieBox.y + charlieBox.height - 2);
+  // Full width minus the 16px side margins, not a narrow trigger-centered popover column.
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  expect(dossierBox.x).toBeLessThanOrEqual(17);
+  expect(dossierBox.width).toBeGreaterThan(viewportWidth - 40);
 });
 
 test("inferred email dossier shows its basis and copies in place", async ({ page, context }) => {
@@ -1382,11 +1401,12 @@ test("keyboard activation runs the investor lens", async ({ page }) => {
 });
 
 
-test("shared tooltip floats beside its trigger instead of falling into the page flow", async ({ page }) => {
+test("person dossier docks below the people block while the description tooltip still floats beside its trigger", async ({ page }) => {
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCardWithPeople());
   await openSidePanel(page);
 
+  const people = page.getByLabel("Management team");
   const person = page.locator(".cs-people-person").first();
   await person.hover();
   const tooltip = page.locator(".cs-shared-tooltip");
@@ -1398,18 +1418,29 @@ test("shared tooltip floats beside its trigger instead of falling into the page 
   await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
   // The tooltip is a fixed overlay; the arc shell's positioned-child rule must not capture it.
   await expect(tooltip).toHaveCSS("position", "fixed");
-  const personBox = await person.boundingBox();
-  const aboveBox = await tooltip.boundingBox();
-  if (!personBox || !aboveBox) {
-    throw new Error("Expected bounding boxes for the person row and its tooltip");
-  }
-  const gapAbove = personBox.y - (aboveBox.y + aboveBox.height);
-  expect(gapAbove).toBeGreaterThanOrEqual(0);
-  expect(gapAbove).toBeLessThan(48);
 
+  // Docked contract (Task 4.1): this test used to assert the dossier floated in a narrow
+  // column just above whichever row triggered it (the occlusion bug's own geometry). It now
+  // always docks below the entire people block at a fixed, full-width-minus-margins region.
+  // Hovering the FIRST row -- the case an "above" placement would have had the most room to
+  // render safely under the old code -- still must dock, not float beside the row.
+  await expect(tooltip).toHaveAttribute("data-mode", "docked");
+  const peopleBox = await people.boundingBox();
+  const dockedBox = await tooltip.boundingBox();
+  if (!peopleBox || !dockedBox) {
+    throw new Error("Expected bounding boxes for the people block and its docked dossier");
+  }
+  expect(dockedBox.y).toBeGreaterThan(peopleBox.y + peopleBox.height - 2);
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  expect(dockedBox.width).toBeGreaterThan(viewportWidth - 40);
+
+  // The description "(more)" tooltip stays in popover mode: it still floats in a narrow
+  // column right beside the affordance that opened it, unaffected by the person dossier's
+  // move to docked mode.
   const more = page.getByRole("button", { name: "Read the full company description" });
   await more.hover();
   await expect(tooltip).toContainText("hosted browser runtime");
+  await expect(tooltip).toHaveAttribute("data-mode", "popover");
   // The tooltip animates between triggers, so poll until it settles under the affordance.
   await expect.poll(async () => {
     const moreBox = await more.boundingBox();
@@ -1540,6 +1571,107 @@ test("moving from person row 3 to row 1 opens row 1's dossier, not a stale occlu
 
   await expect(tooltip).toContainText("Paul Klein", { timeout: 500 });
   expect(Date.now() - moveStartedAt).toBeLessThan(500);
+});
+
+test("the docked person dossier never overlaps any person row's own bounding box", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const rows = page.locator(".cs-people-person");
+  await expect(rows).toHaveCount(4);
+  const rowBoxes = [];
+  for (let index = 0; index < 4; index += 1) {
+    const box = await rows.nth(index).boundingBox();
+    if (!box) {
+      throw new Error(`Expected a bounding box for person row ${index}`);
+    }
+    rowBoxes.push(box);
+  }
+
+  // Every trigger, not just a lucky one: the dock never moves, but this proves the contract
+  // holds for the row nearest the dock (row 4) and every row further from it (rows 1-3),
+  // where the pre-4.1 "grows upward" bug had the most room to cover an earlier row.
+  for (let index = 0; index < 4; index += 1) {
+    await rows.nth(index).hover();
+    const tooltip = page.locator(".cs-shared-tooltip");
+    await expect(tooltip).toBeVisible();
+    const tooltipBox = await tooltip.boundingBox();
+    if (!tooltipBox) {
+      throw new Error(`Expected a bounding box for the dossier opened from row ${index}`);
+    }
+    for (const [rowIndex, rowBox] of rowBoxes.entries()) {
+      const intersects =
+        tooltipBox.x < rowBox.x + rowBox.width &&
+        tooltipBox.x + tooltipBox.width > rowBox.x &&
+        tooltipBox.y < rowBox.y + rowBox.height &&
+        tooltipBox.y + tooltipBox.height > rowBox.y;
+      expect(
+        intersects,
+        `dossier opened from row ${index} must not intersect row ${rowIndex}'s box ` +
+          `(dossier ${JSON.stringify(tooltipBox)}, row ${JSON.stringify(rowBox)})`
+      ).toBe(false);
+    }
+    await page.mouse.move(5, 5);
+    await expect(tooltip).toHaveCount(0);
+  }
+});
+
+test("a fast pointer fly-by across all person rows opens nothing", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const rows = page.locator(".cs-people-person");
+  await expect(rows).toHaveCount(4);
+  const points: Array<{ x: number; y: number }> = [];
+  for (let index = 0; index < 4; index += 1) {
+    const box = await rows.nth(index).boundingBox();
+    if (!box) {
+      throw new Error(`Expected a bounding box for person row ${index}`);
+    }
+    points.push({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  }
+
+  const flyByStartedAt = Date.now();
+  for (const point of points) {
+    await page.mouse.move(point.x, point.y);
+  }
+  const flyByElapsed = Date.now() - flyByStartedAt;
+  expect(flyByElapsed, "the fly-by traversal must stay under the 90ms open-intent gate for this assertion to prove anything").toBeLessThan(80);
+
+  // The 90ms open-intent gate (OPEN_INTENT_MS in SharedTooltip.tsx) means a pointer that never
+  // dwells on a row long enough opens nothing: every row's pointerenter timer got cleared by
+  // the next row's pointerleave before it could fire.
+  await page.waitForTimeout(50);
+  await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
+
+  // Proves the gate, not a broken hover: given real dwell time on the last row, the same
+  // pointer position does open its dossier.
+  await page.waitForTimeout(80);
+  await expect(page.locator(".cs-shared-tooltip")).toContainText("Marcus Webb");
+});
+
+test("the docked dossier opens with no transition under reduced motion and still retargets on hover", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const rows = page.locator(".cs-people-person");
+  await rows.first().hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-mode", "docked");
+  await expect(tooltip).toHaveAttribute("data-animate", "false");
+  await expect(tooltip).toContainText("Paul Klein");
+
+  // Still functional: retargeting to a sibling row under reduced motion still swaps the
+  // dossier's content (the hot-retarget path is a timing rule, not motion, so it is
+  // unaffected by prefers-reduced-motion), it just never animates the swap.
+  await rows.nth(1).hover();
+  await expect(tooltip).toContainText("Nat Miletic");
+  await expect(tooltip).toHaveAttribute("data-animate", "false");
 });
 
 test("the +N people chip is pressable and its hover tooltip lists the hidden names and roles", async ({ page }) => {
@@ -1724,4 +1856,156 @@ test("timing files the remaining supported fields behind an inline disclosure", 
   await expect(frame).toHaveAttribute("data-expanded", "true");
   await expect(timing).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
+});
+
+// Task 4.3 call-site sweep, retired site 1 of 3: the case's holds/breaks tension used to
+// carry a "+N" tooltip per side (Phase 2). It now files extra verified claims behind the
+// same measured-height inline disclosure the timing row already uses.
+test("the case files extra holds and breaks claims behind inline disclosure, not a tooltip", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: {
+      text: "Browserbase turns browser automation into agent infrastructure [c1].",
+      citationIds: ["c1"]
+    },
+    bullCase: [
+      { text: "Developers need reliable browser sessions for AI workflows [c2].", citationIds: ["c2"] },
+      { text: "Enterprise pilots have converted to paid multi-team contracts [c3].", citationIds: ["c3"] }
+    ],
+    bearCase: [
+      { text: "Cloud providers could bundle a comparable managed browser runtime [c1].", citationIds: ["c1"] },
+      { text: "Open-source automation frameworks lower the switching cost to self-host [c2].", citationIds: ["c2"] }
+    ],
+    openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }]
+  };
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const theCase = page.getByRole("article", { name: "Investor read" }).getByLabel("The case");
+  const holds = theCase.locator('.cs-lens-tension-side[data-side="holds"]');
+  const breaks = theCase.locator('.cs-lens-tension-side[data-side="breaks"]');
+
+  for (const side of [holds, breaks]) {
+    const more = side.locator(".cs-investor-read-more");
+    const frame = side.locator(".cs-investor-read-disclosure-frame");
+    await expect(more).toHaveText("+1 more");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await expect(frame).toHaveAttribute("data-expanded", "false");
+
+    await more.click();
+
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    await expect(frame).toHaveAttribute("data-expanded", "true");
+    // The retired tooltip never mounts: expanding is purely inline, same document flow.
+    await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
+  }
+
+  await expect(holds).toContainText("Enterprise pilots have converted to paid multi-team contracts.");
+  await expect(breaks).toContainText("Open-source automation frameworks lower the switching cost to self-host.");
+});
+
+// Task 4.3 call-site sweep, retired site 2 of 3: next question's ranked list used to carry
+// its own "+N" tooltip (Phase 2). It now files the model's remaining ranked questions behind
+// the same inline disclosure pattern.
+test("next question files extra ranked questions behind inline disclosure, not a tooltip", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: { text: "Browserbase turns browser automation into agent infrastructure [c1].", citationIds: ["c1"] },
+    bullCase: [{ text: "Developers need reliable browser sessions for AI workflows [c2].", citationIds: ["c2"] }],
+    bearCase: [],
+    openQuestions: [
+      {
+        question: "What share of managed sessions convert from a free trial to a paid seat within 60 days?",
+        category: "buyer_budget",
+        wouldChangeReadIf: "Trial-to-paid conversion holds above 20% for two consecutive quarters."
+      },
+      {
+        question: "How much of the roadmap depends on a single hyperscaler's browser rendering API staying stable?",
+        category: "durability"
+      },
+      {
+        question: "What is the gross margin on a managed browser session once proxy and compute costs are included?",
+        category: "unit_economics"
+      }
+    ]
+  };
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const question = page.getByRole("article", { name: "Investor read" }).getByLabel("Next question");
+  await expect(question).toContainText("What share of managed sessions convert from a free trial");
+
+  const more = question.locator(".cs-investor-read-more");
+  const frame = question.locator(".cs-investor-read-disclosure-frame");
+  await expect(more).toHaveText("+2 more");
+  await expect(frame).toHaveAttribute("data-expanded", "false");
+
+  await more.click();
+
+  await expect(frame).toHaveAttribute("data-expanded", "true");
+  await expect(question).toContainText("How much of the roadmap depends on a single hyperscaler's browser rendering API staying stable?");
+  await expect(question).toContainText("What is the gross margin on a managed browser session once proxy and compute costs are included?");
+  // The retired tooltip never mounts: expanding is purely inline, same document flow.
+  await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
+});
+
+// Task 4.3 call-site sweep, site 5 of 5 (SharedTooltip's own consumer, not a retired site):
+// the lens footer's own "+N also cited" chip is a real SharedTooltip trigger, distinct from
+// ResearchLayerPanel's SourceChips overflow chip already covered by the "multi-round Money"
+// test above.
+test("the lens footer's own '+N also cited' chip is a hover tooltip, not inline disclosure", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.citations = [
+    ...card.citations,
+    {
+      id: "c4",
+      url: "https://venturebeat.com/ai/browserbase-agent-browsers",
+      title: "Browserbase expands its agent browser platform",
+      fetchedAt: "2026-05-12T12:00:00.000Z",
+      sourceType: "news"
+    },
+    {
+      id: "c5",
+      url: "https://sec.gov/browserbase-form-d",
+      title: "Browserbase Form D filing",
+      fetchedAt: "2026-05-12T12:00:00.000Z",
+      sourceType: "filing"
+    }
+  ];
+  card.synthesis = {
+    whyItMatters: { text: "Browserbase turns browser automation into agent infrastructure [c1].", citationIds: ["c1"] },
+    bullCase: [
+      { text: "Developers need reliable browser sessions for AI workflows [c2].", citationIds: ["c2"] },
+      { text: "A public filing confirms the round's size and lead investor [c5].", citationIds: ["c5"] }
+    ],
+    bearCase: [{ text: "Cloud providers could bundle a comparable managed browser runtime [c3].", citationIds: ["c3"] }],
+    openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }],
+    marketStructureAndTiming: {
+      buyerBudget: null,
+      painSeverity: null,
+      adoptionTrigger: { text: "Agent rollouts are forcing teams to standardize browser infrastructure [c4].", citationIds: ["c4"] },
+      marketStructure: null,
+      profitPool: null,
+      expansionPath: null,
+      timingRisk: null
+    }
+  };
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const footer = investorRead.locator(".cs-lens-footer-sources");
+  await expect(footer.locator("a.cs-lens-source")).toHaveCount(4);
+  const chip = footer.locator(".cs-lens-source-more");
+  await expect(chip).toHaveText("+1");
+
+  await chip.hover();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-variant", "text");
+  await expect(tooltip).toHaveAttribute("data-mode", "popover");
+  await expect(tooltip).toContainText("Also cited");
 });
