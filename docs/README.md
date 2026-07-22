@@ -24,6 +24,7 @@ Start here before adding or editing docs.
 - `qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
 - `qa/extension-interaction-contract.md`: interaction contract the side panel must honor.
 - `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
+- `qa/analysis-run-observations.md`: dated log of notable analysis runs and the attack list they feed.
 - `qa/exa-websets-contact-enrichment-playbook.md`: Websets contact enrichment QA.
 - `superpowers/plans/`: active implementation plans only (currently the Firefox port). Shipped plans move to `archive/plans/`.
 - `product/research/`: local-only private prompts and analysis dumps, gitignored.
