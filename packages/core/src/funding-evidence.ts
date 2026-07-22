@@ -1,5 +1,6 @@
 import type { Citation, ColdStartCard, ResolvedFact } from "./card";
 import { stripCitationMarkers } from "./citation-text";
+import { splitIntoSentences } from "./sentences";
 import { sourceQualityRank } from "./source-quality";
 
 export type CitationFundingEvidence = {
@@ -51,14 +52,6 @@ function clampText(value: string, maxLength: number) {
   const lastSpace = sliced.lastIndexOf(" ");
   const trimmed = (lastSpace > 80 ? sliced.slice(0, lastSpace) : normalized.slice(0, maxLength)).trim();
   return `${trimmed.replace(/[.,;:!?]+$/, "")}...`;
-}
-
-function sentenceFragments(value: string) {
-  return value
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
 }
 
 function compactCurrencyMatch(amount: string, unit: string) {
@@ -157,7 +150,7 @@ export function fundingEvidenceFromCitations(
       continue;
     }
 
-    for (const sentence of sentenceFragments(text)) {
+    for (const sentence of splitIntoSentences(text.replace(/\s+/g, " "))) {
       const status = fundingSentenceStatus(sentence);
       if (!status) {
         continue;

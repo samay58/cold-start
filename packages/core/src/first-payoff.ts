@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ColdStartCard, Citation } from "./card";
 import { newsworthyTitlePattern, titleMentionsCompany } from "./headline";
+import { splitIntoSentences } from "./sentences";
 import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding } from "./source-class";
 import { sourceQualityForSource, type SourceQualityTier } from "./source-quality";
 
@@ -200,7 +201,11 @@ function firstUsefulLine(rawText: string, domain: string, skipTexts: string[] = 
   const skipped = new Set(skipTexts.map((text) => normalizeComparableText(text)).filter(Boolean));
   return rawText
     .replace(/\\[nrt]/g, " ")
-    .split(/\r?\n|(?<=[.!?])\s+/)
+    // Newlines stay a hard boundary (raw scraped text, one candidate line per visual line);
+    // splitIntoSentences (abbreviation-aware) breaks each line further at real sentence ends,
+    // replacing the old (?<=[.!?])\s+ lookbehind that truncated on "Inc.", "D.C.", etc.
+    .split(/\r?\n/)
+    .flatMap((line) => splitIntoSentences(line))
     .map((line) => line.replace(/[#*_`>[\]{}()]|https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim())
     .find((line) => {
       const lower = line.toLowerCase();

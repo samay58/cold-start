@@ -1,5 +1,5 @@
 import type { ProviderSource, RetrievalIntent } from "@cold-start/providers";
-import { sourceQualityRank } from "@cold-start/core";
+import { sourceQualityRank, splitIntoSentences } from "@cold-start/core";
 
 export type EvidenceLedgerEntry = {
   id: string;
@@ -123,11 +123,7 @@ function supportSnippets(text: string) {
     "customers",
     "what does",
   ];
-  const sentences = text
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter(Boolean);
+  const sentences = splitIntoSentences(text.replace(/\s+/g, " "));
   const relevant = sentences.filter((sentence) => {
     const lower = sentence.toLowerCase();
     return keywords.some((keyword) => lower.includes(keyword));
