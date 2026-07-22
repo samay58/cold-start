@@ -366,6 +366,187 @@ describe("analysis polling race between the card write and the complete status",
   });
 });
 
+describe("analysis polling event-gated card fetch", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function withheldCardFor(domain: string, reason: string, at: string): ColdStartCard {
+    return {
+      ...cardForDomain(domain),
+      synthesisWithheld: {
+        at,
+        reasons: [reason],
+        advisories: [],
+        citationCount: 3,
+        sourceTypeCount: 1
+      }
+    };
+  }
+
+  it("limits the analysis card fetch to a periodic fallback across quiet ticks", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const incompleteCard = cardForDomain(domain);
+    const withheldCard = withheldCardFor(domain, "citation-floor", "2026-07-21T12:00:00.000Z");
+    let cardCallCount = 0;
+    // Five quiet status polls (no card-bearing events) precede the 6th tick, where the periodic
+    // fallback forces a fetch regardless of events. The 1st tick's bootstrap fetch (see the next
+    // test's comment) plus this fallback fetch should be the only two card fetches across 6 ticks.
+    const statusResponses: Array<{ status: "running"; events: ExtensionResearchRunEvent[] }> = Array.from(
+      { length: 5 },
+      () => ({ status: "running" as const, events: [] })
+    );
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/cards/")) {
+        cardCallCount += 1;
+        return jsonResponse(cardCallCount === 1 ? incompleteCard : withheldCard);
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        const next = statusResponses.shift();
+        if (!next) {
+          throw new Error("unexpected extra status poll in this fixture");
+        }
+        return jsonResponse({ slug: "linear", domain, mode: "analysis", ...next });
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "analysis",
+      vi.fn()
+    );
+
+    await vi.waitFor(() => expect(cardCallCount).toBe(1));
+
+    for (let tick = 2; tick <= 5; tick += 1) {
+      await vi.advanceTimersByTimeAsync(350);
+      expect(cardCallCount).toBe(1);
+    }
+
+    await vi.advanceTimersByTimeAsync(350);
+    await expect(resultPromise).resolves.toMatchObject({
+      card: { synthesisWithheld: { reasons: ["citation-floor"] } }
+    });
+    expect(cardCallCount).toBe(2);
+    expect(statusResponses).toHaveLength(0);
+  });
+
+  it("fetches the analysis card again as soon as a card.saved event lands, without waiting for the fallback", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const incompleteCard = cardForDomain(domain);
+    const finalCard = withheldCardFor(domain, "no-usable-source-type", "2026-07-21T12:05:00.000Z");
+    const cardSavedEvent = eventFor(domain, "card.saved", "2026-07-21T12:04:30.000Z");
+    let cardCallCount = 0;
+    const statusResponses: Array<{ status: "running"; events: ExtensionResearchRunEvent[] }> = [
+      { status: "running", events: [] },
+      { status: "running", events: [cardSavedEvent] }
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/cards/")) {
+        cardCallCount += 1;
+        return jsonResponse(cardCallCount === 1 ? incompleteCard : finalCard);
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        const next = statusResponses.shift() ?? { status: "running" as const, events: [] };
+        return jsonResponse({ slug: "linear", domain, mode: "analysis", ...next });
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "analysis",
+      vi.fn()
+    );
+
+    // Tick 1 always attempts a card fetch before ever requesting status, so a run that is already
+    // complete or withheld resolves on reopen without paying for a status round trip (91c7175).
+    await vi.waitFor(() => expect(cardCallCount).toBe(1));
+
+    await vi.advanceTimersByTimeAsync(350); // tick 2: quiet; this status call carries the card.saved event
+    expect(cardCallCount).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350); // tick 3: sees the card.saved event recorded on tick 2, fetches now
+    await expect(resultPromise).resolves.toMatchObject({
+      card: { synthesisWithheld: { reasons: ["no-usable-source-type"] } }
+    });
+    expect(cardCallCount).toBe(2);
+  });
+
+  it("does not fetch on synthesis.started or verify.started, only on verify.complete", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const incompleteCard = cardForDomain(domain);
+    const finalCard = withheldCardFor(domain, "citation-floor", "2026-07-21T12:10:00.000Z");
+    const synthesisStartedEvent = eventFor(domain, "synthesis.started", "2026-07-21T12:09:00.000Z");
+    const verifyStartedEvent = eventFor(domain, "verify.started", "2026-07-21T12:09:20.000Z");
+    const verifyCompleteEvent = eventFor(domain, "verify.complete", "2026-07-21T12:09:50.000Z");
+    let cardCallCount = 0;
+    const statusResponses: Array<{ status: "running"; events: ExtensionResearchRunEvent[] }> = [
+      { status: "running", events: [] },
+      { status: "running", events: [synthesisStartedEvent] },
+      { status: "running", events: [synthesisStartedEvent, verifyStartedEvent] },
+      { status: "running", events: [synthesisStartedEvent, verifyStartedEvent, verifyCompleteEvent] }
+    ];
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/cards/")) {
+        cardCallCount += 1;
+        return jsonResponse(cardCallCount === 1 ? incompleteCard : finalCard);
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        const next = statusResponses.shift() ?? { status: "running" as const, events: [] };
+        return jsonResponse({ slug: "linear", domain, mode: "analysis", ...next });
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "analysis",
+      vi.fn()
+    );
+
+    await vi.waitFor(() => expect(cardCallCount).toBe(1)); // tick 1 bootstrap fetch
+
+    await vi.advanceTimersByTimeAsync(350); // tick 2: status carries synthesis.started, not card-bearing
+    expect(cardCallCount).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350); // tick 3: status adds verify.started, still not card-bearing
+    expect(cardCallCount).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350); // tick 4: status adds verify.complete (read on the next tick)
+    expect(cardCallCount).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350); // tick 5: sees verify.complete, fetches ahead of the 6th-tick fallback
+    await expect(resultPromise).resolves.toMatchObject({
+      card: { synthesisWithheld: { reasons: ["citation-floor"] } }
+    });
+    expect(cardCallCount).toBe(2);
+  });
+});
+
 describe("startAnalysisGenerationAndPoll forceRefresh threading", () => {
   afterEach(() => {
     vi.useRealTimers();

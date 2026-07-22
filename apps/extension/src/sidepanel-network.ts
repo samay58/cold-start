@@ -32,7 +32,16 @@ import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
 // recheck loads the cached card, rather than a hard failure.
 const GENERATION_TIMEOUT_MS = 7 * 60 * 1000;
 const CARD_READY_EVENT_TYPES = new Set(["card.partial", "card.saved", "card.enriched", "generation.complete"]);
-const ACTIVE_BASICS_CARD_FETCH_FALLBACK_INTERVAL = 6;
+// card.saved is the actual DB write (functions.ts's storeCardSnapshot call) and generation.complete
+// is the terminal marker, written strictly after that same write. verify.complete lands earlier,
+// right after the verify LLM call but before storeCardSnapshot runs, so it is a one-tick-early
+// signal that the write is imminent rather than proof the write already happened; treating it as
+// ready trades an occasional wasted fetch (the card comes back unchanged) for shaving a full poll
+// interval off the wait, and the following tick's card.saved always catches the real write if this
+// one lands pre-write. synthesis.started and verify.started are excluded: both fire before either
+// LLM call, so fetching on them would just re-read the same stale card the last fetch already saw.
+const ANALYSIS_CARD_READY_EVENT_TYPES = new Set(["card.saved", "verify.complete", "generation.complete"]);
+const ACTIVE_CARD_FETCH_FALLBACK_INTERVAL = 6;
 
 export type GenerationPollResult = {
   card: ColdStartCard;
@@ -225,11 +234,19 @@ function cardReadyEventKey(event: ExtensionResearchRunEvent) {
   return `${event.id}:${event.type}:${event.createdAt}`;
 }
 
-function latestCardReadyEvent(events: ExtensionResearchRunEvent[] | undefined) {
+function latestReadyEventOfTypes(events: ExtensionResearchRunEvent[] | undefined, readyEventTypes: Set<string>) {
   return events
-    ?.filter((event) => CARD_READY_EVENT_TYPES.has(event.type))
+    ?.filter((event) => readyEventTypes.has(event.type))
     .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
     .at(-1) ?? null;
+}
+
+function latestCardReadyEvent(events: ExtensionResearchRunEvent[] | undefined) {
+  return latestReadyEventOfTypes(events, CARD_READY_EVENT_TYPES);
+}
+
+function latestAnalysisCardReadyEvent(events: ExtensionResearchRunEvent[] | undefined) {
+  return latestReadyEventOfTypes(events, ANALYSIS_CARD_READY_EVENT_TYPES);
 }
 
 function shouldFetchCardForActiveBasics(
@@ -244,7 +261,33 @@ function shouldFetchCardForActiveBasics(
   }
 
   return {
-    shouldFetch: pollCount % ACTIVE_BASICS_CARD_FETCH_FALLBACK_INTERVAL === 0,
+    shouldFetch: pollCount % ACTIVE_CARD_FETCH_FALLBACK_INTERVAL === 0,
+    readyEventKey: latestReadyEventKey
+  };
+}
+
+function shouldFetchCardForActiveAnalysis(
+  pollCount: number,
+  latestKnownReadyEvent: ExtensionResearchRunEvent | null,
+  lastFetchedCardReadyEventKey: string | null
+) {
+  const latestReadyEventKey = latestKnownReadyEvent ? cardReadyEventKey(latestKnownReadyEvent) : null;
+
+  // Tick 1 has no prior status response to read events from (none has been requested yet this poll),
+  // so it always attempts a card fetch. That preserves the fast path for a run that is already
+  // complete or withheld by the time the panel opens: the completeness check on that first fetch can
+  // return before ever paying for a status round trip (see the "short-circuits on the first card
+  // fetch" test, locked in by 91c7175).
+  if (pollCount === 1) {
+    return { shouldFetch: true, readyEventKey: latestReadyEventKey };
+  }
+
+  if (latestReadyEventKey && latestReadyEventKey !== lastFetchedCardReadyEventKey) {
+    return { shouldFetch: true, readyEventKey: latestReadyEventKey };
+  }
+
+  return {
+    shouldFetch: pollCount % ACTIVE_CARD_FETCH_FALLBACK_INTERVAL === 0,
     readyEventKey: latestReadyEventKey
   };
 }
@@ -377,6 +420,7 @@ export async function pollGenerationUntilCard(
   let currentCard = latestCard;
   let currentSections = latestCard ? sectionsForCard(latestCard, latestSections) : latestSections;
   let lastFetchedCardReadyEventKey: string | null = null;
+  let lastKnownAnalysisReadyEvent: ExtensionResearchRunEvent | null = null;
   const requireRunCompletion = waitForRunCompletion;
   const requiresMarketStructure = Boolean(
     mode === "analysis" && latestCard?.synthesis && !latestCard.synthesis.marketStructureAndTiming
@@ -473,17 +517,27 @@ export async function pollGenerationUntilCard(
       continue;
     }
 
-    try {
-      const card = await fetchCard(domain, settings, signal);
+    // The full card body is only worth fetching when a status poll has already told us it changed
+    // (or on the periodic fallback below), mirroring shouldFetchCardForActiveBasics: polling the
+    // lightweight status endpoint every tick is cheap, re-reading the whole card every tick is not.
+    const cardFetch = shouldFetchCardForActiveAnalysis(pollCount, lastKnownAnalysisReadyEvent, lastFetchedCardReadyEventKey);
+    if (cardFetch.shouldFetch) {
+      try {
+        const card = await fetchCard(domain, settings, signal);
 
-      if (analysisCardIsComplete(card, requiresMarketStructure)) {
-        return { card, sections: updateCurrentCard(card) };
-      }
+        if (cardFetch.readyEventKey) {
+          lastFetchedCardReadyEventKey = cardFetch.readyEventKey;
+        }
 
-      updateCurrentCard(card);
-    } catch (caught) {
-      if (!isMissingCard(caught)) {
-        throw caught;
+        if (analysisCardIsComplete(card, requiresMarketStructure)) {
+          return { card, sections: updateCurrentCard(card) };
+        }
+
+        updateCurrentCard(card);
+      } catch (caught) {
+        if (!isMissingCard(caught)) {
+          throw caught;
+        }
       }
     }
 
@@ -497,6 +551,8 @@ export async function pollGenerationUntilCard(
 
       throw caught;
     }
+
+    lastKnownAnalysisReadyEvent = latestAnalysisCardReadyEvent(runStatus.events);
 
     if (isActiveRun(runStatus.status)) {
       onGenerationStatus(runStatus.status, { events: runStatus.events });
