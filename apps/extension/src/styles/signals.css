@@ -200,20 +200,35 @@
    pattern as the investor-lens disclosure (.cs-investor-read-disclosure-frame in
    research-trail.css) and the active-enrichment body (evidence.css). The overflow rows stay
    mounted at all times -- collapsed is a 0-height row, not an unmounted subtree -- so a
-   reduced-motion viewer still sees every row, just without the animated reveal. */
+   reduced-motion viewer still sees every row, just without the animated reveal. visibility
+   is the load-bearing addition (matching .cs-active-enrichment-body-frame in evidence.css):
+   grid-template-rows: 0fr and opacity: 0 alone still leave the collapsed rows in the tab
+   order, so a keyboard user tabbing past the visible four lands on an invisible row whose
+   focus opens its dossier. visibility: hidden removes the whole collapsed subtree from
+   keyboard focus and the accessibility tree while keeping it mounted; the delayed transition
+   lets the collapse animation finish before the hide takes effect, and reveals instantly on
+   expand so the content is visible for its own opening animation. Under reduced motion the
+   [data-reduced-motion="true"] override below already collapses the whole transition list to
+   nothing, so visibility flips exactly as instantly as grid-template-rows and opacity do. */
 .cs-people-overflow-frame {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
   overflow: hidden;
+  visibility: hidden;
   transition:
     grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 200ms;
 }
 
 .cs-people-overflow-frame[data-expanded="true"] {
   grid-template-rows: 1fr;
   opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cs-people-overflow-frame[data-reduced-motion="true"] {

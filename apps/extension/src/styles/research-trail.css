@@ -433,19 +433,35 @@
   color: var(--color-seal);
 }
 
+/* visibility is the load-bearing addition (matching .cs-active-enrichment-body-frame in
+   evidence.css and .cs-people-overflow-frame in signals.css, its sibling collapse frame): the
+   body stays mounted through grid-template-rows and opacity alone, but neither removes a
+   collapsed subtree from keyboard focus or the accessibility tree. This body is text-only
+   today, but the same omission would resurface the instant a link or button lands inside it,
+   so the frame carries the fix now rather than waiting for that regression. The delayed
+   transition lets the collapse animation finish before the hide takes effect, and reveals
+   instantly on expand. Under reduced motion the [data-reduced-motion="true"] override below
+   already collapses the whole transition list to nothing, so visibility flips exactly as
+   instantly as grid-template-rows and opacity do. */
 .cs-investor-read-disclosure-frame {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
   overflow: hidden;
+  visibility: hidden;
   transition:
     grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 200ms;
 }
 
 .cs-investor-read-disclosure-frame[data-expanded="true"] {
   grid-template-rows: 1fr;
   opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 200ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 140ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .cs-investor-read-disclosure-frame[data-reduced-motion="true"] {

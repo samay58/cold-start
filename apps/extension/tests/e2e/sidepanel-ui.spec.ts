@@ -1617,6 +1617,73 @@ test("the docked person dossier never overlaps any person row's own bounding box
   }
 });
 
+// The sweep above only ever exercises the hover (unpinned, clamped-to-3-lines) dossier. A
+// pinned dossier with a long read grows taller (the clamp lifts, see company-arc.css's
+// .cs-dossier[data-pinned="true"] .cs-dossier-read), so the non-intersection contract needs
+// its own pass at that larger size, plus the dock must stay inside the viewport rather than
+// grow past its bottom edge.
+test("the pinned, expanded person dossier still never overlaps any row and stays within the viewport", async ({ page }) => {
+  const card = browserbaseCardWithPeople();
+  const founders = card.team.founders.value ?? [];
+  const paul = founders[0];
+  if (paul) {
+    founders[0] = {
+      ...paul,
+      read: {
+        text: "Second infrastructure company after his first browser automation startup was acquired, and he has led every major Browserbase release from a fully remote engineering team. His first company sold to a data platform after three years of steady, unglamorous revenue growth.",
+        citationIds: ["c2", "c3"]
+      }
+    };
+  }
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const rows = page.locator(".cs-people-person");
+  await expect(rows).toHaveCount(4);
+  const rowBoxes = [];
+  for (let index = 0; index < 4; index += 1) {
+    const box = await rows.nth(index).boundingBox();
+    if (!box) {
+      throw new Error(`Expected a bounding box for person row ${index}`);
+    }
+    rowBoxes.push(box);
+  }
+
+  await rows.first().click();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-pinned", "true");
+  const dossierRead = tooltip.locator(".cs-dossier-read");
+  await expect(dossierRead).toContainText("Second infrastructure company");
+  // The pin lifts the 3-line clamp (expand-on-pin, company-arc.css); confirm the read actually
+  // unclamped rather than just trusting the pinned attribute.
+  await expect(dossierRead).toHaveCSS("overflow", "visible");
+
+  const tooltipBox = await tooltip.boundingBox();
+  if (!tooltipBox) {
+    throw new Error("Expected a bounding box for the pinned dossier");
+  }
+  for (const [rowIndex, rowBox] of rowBoxes.entries()) {
+    const intersects =
+      tooltipBox.x < rowBox.x + rowBox.width &&
+      tooltipBox.x + tooltipBox.width > rowBox.x &&
+      tooltipBox.y < rowBox.y + rowBox.height &&
+      tooltipBox.y + tooltipBox.height > rowBox.y;
+    expect(
+      intersects,
+      `pinned dossier must not intersect row ${rowIndex}'s box ` +
+        `(dossier ${JSON.stringify(tooltipBox)}, row ${JSON.stringify(rowBox)})`
+    ).toBe(false);
+  }
+
+  // Scrolls its own overflow (maxHeight from useSharedTooltip's dockedGeometry) instead of
+  // growing past the bottom edge of the viewport.
+  const viewportHeight = page.viewportSize()?.height ?? 0;
+  expect(tooltipBox.y + tooltipBox.height).toBeLessThanOrEqual(viewportHeight);
+});
+
 test("a fast pointer fly-by across all person rows opens nothing", async ({ page }) => {
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCardWithPeople());
@@ -1726,6 +1793,106 @@ test("the +N people chip is pressable and its hover tooltip lists the hidden nam
   await expect(page.locator(".cs-people-person")).toHaveCount(6);
   await expect(chip).toHaveAttribute("aria-expanded", "true");
   await expect(chip).toHaveText("Show fewer");
+});
+
+// jsdom cannot compute CSS visibility, so the "collapsed rows are unreachable" contract can
+// only be proven with a real browser: grid-template-rows: 0fr and opacity: 0 alone still leave
+// an element in the tab order, so a keyboard user tabbing past the visible four used to land on
+// a 0-height, invisible row whose onFocus opened its dossier anyway (the blocking regression
+// signals.css's .cs-people-overflow-frame now fixes with visibility: hidden). This proves the
+// fix both ways: unreachable while collapsed, reachable and dossier-opening once expanded.
+test("collapsed overflow person rows are unreachable by keyboard and open no dossier until expanded", async ({ page }) => {
+  const card = browserbaseCard({
+    team: {
+      founders: {
+        value: [
+          { name: "Ada Lovelace", role: "CEO", sourceUrl: "https://acme.ai/a", email: "ada@acme.ai", emailStatus: "observed" },
+          { name: "Grace Hopper", role: "CTO", sourceUrl: "https://acme.ai/b" },
+          { name: "Katherine Johnson", role: "Head of Research", sourceUrl: "https://acme.ai/c" },
+          { name: "Dorothy Vaughan", role: "Engineering lead", sourceUrl: "https://acme.ai/d" },
+          { name: "Mary Jackson", role: "Design lead", sourceUrl: "https://acme.ai/e" },
+          { name: "Annie Easley", role: "Advisor", sourceUrl: "https://acme.ai/f" }
+        ],
+        status: "verified",
+        confidence: "medium",
+        citationIds: ["c1"]
+      },
+      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
+      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
+    }
+  });
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  // .cs-people-person matches all 6 rows -- the 2 overflow rows stay mounted, just collapsed
+  // (the whole point of this test). Only the direct children of the primary list are the 4
+  // visible rows; the overflow pair lives nested inside .cs-people-overflow-frame instead.
+  const rows = page.locator(".cs-people-person");
+  const primaryRows = page.locator(".cs-people-line-list > .cs-people-person");
+  await expect(rows).toHaveCount(6);
+  await expect(primaryRows).toHaveCount(4);
+  const chip = page.locator(".cs-people-more");
+  await expect(chip).toHaveAttribute("aria-expanded", "false");
+  const tooltip = page.locator(".cs-shared-tooltip");
+  const overflowNames = ["Mary Jackson", "Annie Easley"];
+
+  async function focusedRowSnapshot() {
+    return page.evaluate(() => {
+      const element = document.activeElement as HTMLElement | null;
+      if (!element) {
+        return null;
+      }
+      return { className: element.className, text: element.textContent ?? "" };
+    });
+  }
+
+  // Six DOM stops exist while collapsed: 4 visible rows, 2 invisible overflow rows. Tabbing
+  // from the first row 5 times walks: row2, row3, row4, the "+2 more" chip, and one probe past
+  // it. If the fix holds, that final stop skips straight over both overflow rows -- accessible
+  // names never surface "Mary Jackson" or "Annie Easley" at any point in the walk, and no
+  // *dossier* for either of them ever opens along the way. The chip itself legitimately opens
+  // a text-variant summary tooltip naming both hidden people on focus (tested elsewhere); that
+  // is the intentional accessible preview, not the bug, so only a data-variant="dossier"
+  // tooltip naming an overflow person counts as the regression here.
+  await rows.first().focus();
+  const snapshots = [await focusedRowSnapshot()];
+  for (let step = 0; step < 5; step += 1) {
+    await page.keyboard.press("Tab");
+    snapshots.push(await focusedRowSnapshot());
+    if ((await tooltip.count()) && (await tooltip.getAttribute("data-variant")) === "dossier") {
+      for (const name of overflowNames) {
+        await expect(tooltip, `dossier after tab step ${step} must not surface overflow person ${name}`).not.toContainText(name);
+      }
+    }
+  }
+
+  for (const [index, snapshot] of snapshots.entries()) {
+    for (const name of overflowNames) {
+      expect(snapshot?.text ?? "", `focus at step ${index} must not land on overflow person ${name}`).not.toContain(name);
+    }
+  }
+  // None of the six focus stops ever matched an overflow row's own element.
+  expect(snapshots.some((snapshot) => snapshot?.className.includes("cs-people-person") && overflowNames.some((name) => snapshot.text.includes(name)))).toBe(false);
+
+  // Expand the overflow: the fifth row becomes a real, reachable tab stop and its own focus
+  // opens its dossier, proving the toggle re-enables focus in both directions. The overflow
+  // frame sits before the chip in DOM order (primary rows, then the overflow frame, then the
+  // chip), so the row that becomes reachable is the very next tab stop after the last primary
+  // row, not after the chip.
+  await chip.click();
+  await expect(chip).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(".cs-people-overflow-frame")).toHaveAttribute("data-expanded", "true");
+
+  await primaryRows.last().focus();
+  await page.keyboard.press("Tab");
+  const afterExpand = await focusedRowSnapshot();
+  expect(afterExpand?.className).toContain("cs-people-person");
+  expect(afterExpand?.text ?? "").toContain("Mary Jackson");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-variant", "dossier");
+  await expect(tooltip).toContainText("Mary Jackson");
 });
 
 test("early read survives the basics generating-to-success handoff", async ({ page }) => {
