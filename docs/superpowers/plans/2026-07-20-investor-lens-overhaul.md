@@ -467,8 +467,10 @@ Phase exit gate: `measure:analysis-latency` shows p50 <= 60s and p90 <= 90s over
 
 Before any re-fetch change: trace the reuse-path data flow. `synthesize` provably receives only `JSON.stringify(card)`. The open question is `verifySynthesis` (`packages/llm/src/verifier.ts` + its wiring in `packages/pipeline/src/generate-card.ts:686-742`): does it read fetched source text, stored source rows, or only card citations?
 
-- [ ] **Step 1: Read the wiring; write the answer as a Finding here with file:line.**
-- [ ] **Step 2: Decision fork, pre-authorized by the spec:** if verify consumes fetched source content, the skip-fresh lever must wire stored `sources` rows into the verify input (add that plumbing to Task 5.3's scope); if it consumes only card-resident data, the skip lever is plumbing-free. Either way Task 5.3 proceeds; this finding sizes it.
+- [x] **Step 1: Read the wiring; write the answer as a Finding here with file:line.**
+- [x] **Step 2: Decision fork, pre-authorized by the spec:** if verify consumes fetched source content, the skip-fresh lever must wire stored `sources` rows into the verify input (add that plumbing to Task 5.3's scope); if it consumes only card-resident data, the skip lever is plumbing-free. Either way Task 5.3 proceeds; this finding sizes it.
+
+**Finding (2026-07-22):** `verifySynthesis` consumes only card-resident data: its `sources` input is `card.citations.map(...)` at `packages/pipeline/src/generate-card.ts:693-698`, and the verifier signature (`verifier.ts:100-106`) has no fetch or DB parameter; the section-job path never calls it. Decision fork resolves to plumbing-free at the synthesis/verify layer. The one wiring point for Task 5.3's skip-fresh mode sits a layer up: the `fetch-sources` step (`functions.ts:343-366`) runs unconditionally even on the `reuseExistingForAnalysis` branch, and the skip path substitutes stored rows via the `providerSourcesFromStoredSources(await findSourcesBySlug(...))` pattern already used verbatim in `card-enrichment.ts:196-199` and `contact-enrichment.ts:385-388`, so citation merging still receives a `ProviderSource[]`. Confidence high; full trace in `.superpowers/sdd/task-5.1-report.md`.
 
 ### Task 5.2: Split synthesize and verify into separate Inngest steps with real events
 
