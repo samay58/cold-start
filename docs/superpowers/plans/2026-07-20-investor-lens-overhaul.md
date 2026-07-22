@@ -543,8 +543,10 @@ Before any re-fetch change: trace the reuse-path data flow. `synthesize` provabl
 
 ### Task 5.6: Phase 4 gate and the two-week measurement
 
-- [ ] `npm run check` green; deploy (quiet window per Task 5.2); extension rebuild if the event-handling audit in 5.2 forced a contract bump.
+- [x] `npm run check` green; deploy (quiet window per Task 5.2); extension rebuild if the event-handling audit in 5.2 forced a contract bump.
 - [ ] Immediately post-deploy: one live analysis run traced end-to-end (`npm run trace:generation` locally + a real deployed run); confirm events flow, wait surface stages, staged entrance lands, `repair:stuck-runs` finds nothing.
+
+**Finding (2026-07-22, gate state):** Check green at `d0eb672`; whole-branch Opus review Ready to merge YES with fix-first none; all six cross-task seams verified (the event-to-stage walk end to end in both variants, the skip/skip-fresh literal spaces disjoint, the reopen race absent, the measure script sound over mixed pre/post-split populations, contract untouched so no bump and deployed extensions degrade gracefully to their old running receipt). The review also corrected this phase's own paper trail: the memoized-draft retry concern was over-stated, since the pre-split combined step was equally deterministic within a run; the verifier 2000-token truncation exposure is pre-existing, unchanged, has never fired in prod, and is ticketed as a follow-up rather than a gate item. Merge waits on Samay's motion review; the deploy is a US-evening quiet-window operation requiring zero in-flight analysis runs, followed by a `repair:stuck-runs` sweep and the live end-to-end trace; the eventual skip-fresh promotion flip is ALSO a quiet-window operation (it adds the conditional freshness step to in-flight runs). `ANALYSIS_SOURCE_REFRESH` must be unset or `full` in Vercel at deploy; the lever ships off.
 - [ ] Two weeks later: `npm run measure:analysis-latency` against prod; success is p50 <= 60s, p90 <= 90s on real traffic with the promoted re-fetch mode. Record the report here. If the bar is missed, the decomposition names the residual and it goes back to Samay as a decision, not silent scope creep.
 
 ---
