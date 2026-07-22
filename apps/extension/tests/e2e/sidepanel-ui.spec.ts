@@ -1482,6 +1482,66 @@ test("the dossier sizes to a long read without clipping its bottom rows", async 
   await tooltip.screenshot({ path: "/private/tmp/cold-start-dossier-long-read.png" });
 });
 
+// Task 4.3 red-first regression: the pre-Task-4.1 tooltip floated above whichever row opened
+// it and could grow tall enough to cover the rows above it. When that happened, the pointer's
+// move onto an earlier row's real screen position instead landed on the occluding tooltip (the
+// browser's own hit test resolves to whatever paints on top), so the earlier row's own dossier
+// never opened -- the tooltip just kept showing the row that opened it. Task 4.1's docked mode
+// fixes this by always rendering the dossier below the entire people block, so it can never sit
+// on top of any row. Danielle Cordova (row 3) is given a maximal dossier (read, inferred email,
+// three channels) so the old floating card is tall enough to guarantee the overlap; this is not
+// a hypothetical, it is the exact geometry that made the bug real.
+test("moving from person row 3 to row 1 opens row 1's dossier, not a stale occluding card", async ({ page }) => {
+  const card = browserbaseCardWithPeople();
+  const keyExecs = card.team.keyExecs.value ?? [];
+  const danielle = keyExecs[0];
+  if (danielle) {
+    keyExecs[0] = {
+      ...danielle,
+      email: "danielle.cordova@browserbase.com",
+      emailStatus: "inferred",
+      emailBasis: "domain pattern first.last, 4 observed addresses",
+      githubUrl: "https://github.com/dcordova",
+      xUrl: "https://x.com/dcordova",
+      personalUrl: "https://danielle.dev",
+      read: {
+        text: "Led every browser-runtime release from a fully remote engineering team after joining from a distributed systems background at a prior infrastructure startup that shipped a similar managed-session product.",
+        citationIds: ["c1"]
+      }
+    };
+  }
+
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const rows = page.locator(".cs-people-person");
+  await expect(rows).toHaveCount(4);
+  const row1 = rows.nth(0);
+  const row3 = rows.nth(2);
+  await expect(row3).toContainText("Danielle Cordova");
+  await expect(row1).toContainText("Paul Klein");
+
+  const row3Box = await row3.boundingBox();
+  if (!row3Box) {
+    throw new Error("Expected a bounding box for person row 3");
+  }
+  await page.mouse.move(row3Box.x + row3Box.width / 2, row3Box.y + row3Box.height / 2);
+
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toContainText("Danielle Cordova", { timeout: 500 });
+
+  const row1Box = await row1.boundingBox();
+  if (!row1Box) {
+    throw new Error("Expected a bounding box for person row 1");
+  }
+  const moveStartedAt = Date.now();
+  await page.mouse.move(row1Box.x + row1Box.width / 2, row1Box.y + row1Box.height / 2);
+
+  await expect(tooltip).toContainText("Paul Klein", { timeout: 500 });
+  expect(Date.now() - moveStartedAt).toBeLessThan(500);
+});
+
 test("the +N people chip is pressable and its hover tooltip lists the hidden names and roles", async ({ page }) => {
   const card = browserbaseCard({
     team: {
