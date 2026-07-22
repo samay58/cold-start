@@ -87,6 +87,46 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       await expect(failedNotice).toBeVisible();
       await expect(failedNotice).toContainText("Investor Lens run failed.");
     }
+  },
+  dossier: {
+    heading: "Wharf Robotics",
+    verify: async (page) => {
+      // Hover the rich person: identity, a 3-line-clamped read, provenance, email, and
+      // channels all render inside the dossier, with the read still clamped (unpinned).
+      const mara = page.locator(".cs-people-person", { hasText: "Mara Voss" });
+      await mara.hover();
+      const tooltip = page.locator("#cs-company-shared-tooltip");
+      await expect(tooltip).toBeVisible();
+      await expect(tooltip).toHaveAttribute("data-variant", "dossier");
+      await expect(tooltip).toHaveAttribute("role", "tooltip");
+      await expect(tooltip.locator(".cs-dossier-read")).toContainText("Voss spent six years");
+      await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
+      await expect(tooltip.locator(".cs-dossier-email-address")).toHaveText("mara.voss@wharfrobotics.com");
+      await expect(tooltip.locator(".cs-dossier-channel")).toHaveCount(2);
+      await page.screenshot({ fullPage: true, path: path.join(SCREENSHOT_DIR, "dossier-hover.png") });
+
+      // Pin it: the ARIA role promotes to dialog, focus moves in, and the read unclamps.
+      await mara.focus();
+      await page.keyboard.press("Enter");
+      await expect(tooltip).toHaveAttribute("data-pinned", "true");
+      await expect(tooltip).toHaveAttribute("role", "dialog");
+      await page.screenshot({ fullPage: true, path: path.join(SCREENSHOT_DIR, "dossier-pinned.png") });
+      await page.keyboard.press("Escape");
+
+      // The inferred-email person: basis line only, since Idris has no read.
+      const idris = page.locator(".cs-people-person", { hasText: "Idris Kanu" });
+      await idris.hover();
+      await expect(tooltip).toBeVisible();
+      await expect(tooltip.locator(".cs-dossier-email-kind")).toHaveText("Inferred");
+      await expect(tooltip.locator(".cs-dossier-email-basis")).toBeVisible();
+
+      // The overflow chip reveals the 2 filler execs behind the measured-height frame.
+      await page.mouse.move(5, 5);
+      const overflow = page.getByRole("button", { name: /Show 2 more people/ });
+      await expect(overflow).toBeVisible();
+      await overflow.click();
+      await expect(page.getByText("Owen Mercer")).toBeVisible();
+    }
   }
 };
 

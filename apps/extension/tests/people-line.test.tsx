@@ -24,7 +24,7 @@ type CitationRef = { id: string; url: string };
 
 async function renderPeople(
   people: CardPerson[],
-  options?: { sourceCount?: number; citations?: CitationRef[] }
+  options?: { citations?: CitationRef[]; prefersReducedMotion?: boolean; sourceCount?: number }
 ) {
   const captured: Captured[] = [];
   const hideTooltip = vi.fn();
@@ -50,6 +50,7 @@ async function renderPeople(
         citations={options?.citations ?? []}
         companyDomain="acme.ai"
         people={people}
+        prefersReducedMotion={options?.prefersReducedMotion ?? false}
         sourceCount={options?.sourceCount ?? 2}
         tooltipProps={tooltipProps}
       />
@@ -243,7 +244,16 @@ describe("PeopleLine overflow", () => {
   it("reveals the remaining people when the overflow control is used", async () => {
     const { container } = await renderPeople(many);
 
-    expect(container.querySelectorAll(".cs-people-person")).toHaveLength(4);
+    // Primary rows sit directly under the list; the 2 overflow rows are already mounted
+    // inside the measured-height frame (never conditionally rendered), just visually
+    // collapsed to a 0-height row.
+    expect(container.querySelectorAll(".cs-people-line-list > .cs-people-person")).toHaveLength(4);
+    const frame = container.querySelector(".cs-people-overflow-frame");
+    expect(frame).toBeTruthy();
+    expect(frame?.getAttribute("data-expanded")).toBe("false");
+    expect(container.querySelectorAll(".cs-people-overflow-body .cs-people-person")).toHaveLength(2);
+    expect(container.textContent).toContain("Annie Easley");
+
     const overflow = container.querySelector(".cs-people-more");
     expect(overflow).toBeTruthy();
     expect(overflow?.tagName).toBe("BUTTON");
@@ -251,17 +261,51 @@ describe("PeopleLine overflow", () => {
     expect(overflow?.textContent).toBe("+2 more");
     expect(overflow?.getAttribute("aria-expanded")).toBe("false");
     expect(overflow?.getAttribute("aria-label")).toBe("Show 2 more people");
+    expect(overflow?.getAttribute("aria-controls")).toBe(frame?.id);
 
     await act(async () => {
       (overflow as HTMLButtonElement).click();
     });
 
+    expect(frame?.getAttribute("data-expanded")).toBe("true");
     expect(container.querySelectorAll(".cs-people-person")).toHaveLength(6);
     expect(container.textContent).toContain("Annie Easley");
     // The collapse label stays sensible once expanded.
     expect(overflow?.textContent).toBe("Show fewer");
     expect(overflow?.getAttribute("aria-expanded")).toBe("true");
     expect(overflow?.getAttribute("aria-label")).toBe("Show fewer people");
+  });
+
+  it("animates the overflow reveal through the measured-height frame, never by mounting or unmounting rows", async () => {
+    const { container } = await renderPeople(many);
+    const frame = container.querySelector(".cs-people-overflow-frame") as HTMLElement;
+    const overflow = container.querySelector(".cs-people-more") as HTMLButtonElement;
+
+    // Not reduced motion by default: the frame carries the animated grid-template-rows
+    // transition, and the overflow rows are already in the DOM before the first click.
+    expect(frame.getAttribute("data-reduced-motion")).toBe("false");
+    expect(frame.querySelectorAll(".cs-people-person")).toHaveLength(2);
+
+    await act(async () => {
+      overflow.click();
+    });
+    expect(frame.getAttribute("data-expanded")).toBe("true");
+    expect(frame.querySelectorAll(".cs-people-person")).toHaveLength(2);
+
+    await act(async () => {
+      overflow.click();
+    });
+    expect(frame.getAttribute("data-expanded")).toBe("false");
+    // Collapsing again never unmounts the rows -- only the frame's own flag flips.
+    expect(frame.querySelectorAll(".cs-people-person")).toHaveLength(2);
+  });
+
+  it("marks the overflow frame reduced-motion so the reveal is instant, content never hidden", async () => {
+    const { container } = await renderPeople(many, { prefersReducedMotion: true });
+    const frame = container.querySelector(".cs-people-overflow-frame");
+
+    expect(frame?.getAttribute("data-reduced-motion")).toBe("true");
+    expect(container.querySelectorAll(".cs-people-overflow-body .cs-people-person")).toHaveLength(2);
   });
 
   it("attaches a hover tooltip listing the hidden people's names and roles", async () => {

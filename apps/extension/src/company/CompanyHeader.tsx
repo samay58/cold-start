@@ -438,6 +438,11 @@ type PeopleRun = {
 
 const PEOPLE_COLLAPSED_COUNT = 4;
 
+// The id the overflow frame and its disclosure button share (aria-controls). One PeopleLine
+// mounts per profile, so a static id is safe -- the same convention the shared tooltip and its
+// "people-more" chip already use.
+const PEOPLE_OVERFLOW_FRAME_ID = "cs-people-overflow";
+
 export function PeopleLine({
   citations,
   companyDomain,
@@ -446,6 +451,7 @@ export function PeopleLine({
   confidence,
   hideTooltip,
   people,
+  prefersReducedMotion,
   tooltipProps
 }: {
   // The card's citations, so a person's cited read can resolve its provenance whisper.
@@ -458,6 +464,7 @@ export function PeopleLine({
   // tooltip on click; without this the open tooltip is orphaned once its trigger props drop.
   hideTooltip: () => void;
   people: CardPerson[];
+  prefersReducedMotion: boolean;
   // The filed stamp owns the source count now; PeopleLine no longer prints it, but the
   // caller still supplies it so the prop stays on the contract.
   sourceCount: number;
@@ -473,13 +480,42 @@ export function PeopleLine({
     ...people.filter((person) => person.email),
     ...people.filter((person) => !person.email),
   ];
-  const hiddenPeopleCount = Math.max(0, orderedPeople.length - PEOPLE_COLLAPSED_COUNT);
-  const visiblePeople = expanded ? orderedPeople : orderedPeople.slice(0, PEOPLE_COLLAPSED_COUNT);
+  const primaryPeople = orderedPeople.slice(0, PEOPLE_COLLAPSED_COUNT);
+  const overflowPeople = orderedPeople.slice(PEOPLE_COLLAPSED_COUNT);
+  const hiddenPeopleCount = overflowPeople.length;
   const emailCount = peopleEmailCount(people);
   const contactStatus = contactRun
     ? `Checking emails · ${formatElapsed(contactElapsedSeconds)}`
     : peopleEmailSummary(people, companyDomain);
   const confidenceStatus = !contactRun && emailCount > 0 && confidence ? ` · ${confidence} confidence` : "";
+
+  function personRow(person: CardPerson) {
+    const name = person.name.trim();
+    const tooltip = name
+      ? tooltipProps({
+        body: personDossier(person, citations),
+        id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        mode: "docked",
+        title: name
+      })
+      : undefined;
+
+    return (
+      <article
+        className="cs-people-person"
+        data-has-email={person.email ? "true" : "false"}
+        key={`${person.name}-${person.email ?? person.role ?? "person"}`}
+        tabIndex={tooltip ? 0 : undefined}
+        {...tooltip}
+      >
+        <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
+        <span className="cs-person-main">
+          <span className="cs-people-name">{person.name}</span>
+          <span className="cs-people-role">{personRole(person)}</span>
+        </span>
+      </article>
+    );
+  }
 
   return (
     <section className="cs-people-line" aria-label="Management team">
@@ -490,35 +526,27 @@ export function PeopleLine({
         </span>
       </div>
       <div className="cs-people-line-list">
-        {visiblePeople.map((person) => {
-          const name = person.name.trim();
-          const tooltip = name
-            ? tooltipProps({
-              body: personDossier(person, citations),
-              id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-              mode: "docked",
-              title: name
-            })
-            : undefined;
-
-          return (
-            <article
-              className="cs-people-person"
-              data-has-email={person.email ? "true" : "false"}
-              key={`${person.name}-${person.email ?? person.role ?? "person"}`}
-              tabIndex={tooltip ? 0 : undefined}
-              {...tooltip}
-            >
-              <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
-              <span className="cs-person-main">
-                <span className="cs-people-name">{person.name}</span>
-                <span className="cs-people-role">{personRole(person)}</span>
-              </span>
-            </article>
-          );
-        })}
+        {primaryPeople.map((person) => personRow(person))}
+        {overflowPeople.length > 0 ? (
+          // Measured-height expansion: the same grid-template-rows 0fr -> 1fr pattern as the
+          // investor-lens disclosure (InvestorReadCard.tsx's LensDisclosure) and the
+          // active-enrichment body. The overflow rows stay mounted at all times -- collapsed
+          // is a 0-height row, not an unmounted subtree -- so reduced motion only removes the
+          // transition, never the content.
+          <div
+            className="cs-people-overflow-frame"
+            data-expanded={expanded ? "true" : "false"}
+            data-reduced-motion={prefersReducedMotion ? "true" : "false"}
+            id={PEOPLE_OVERFLOW_FRAME_ID}
+          >
+            <div className="cs-people-overflow-body">
+              {overflowPeople.map((person) => personRow(person))}
+            </div>
+          </div>
+        ) : null}
         {hiddenPeopleCount > 0 ? (
           <button
+            aria-controls={PEOPLE_OVERFLOW_FRAME_ID}
             aria-expanded={expanded}
             aria-label={expanded ? "Show fewer people" : `Show ${hiddenPeopleCount} more people`}
             className="cs-people-more"
@@ -526,7 +554,7 @@ export function PeopleLine({
             {...(expanded
               ? {}
               : tooltipProps({
-                  body: hiddenPeopleSummary(orderedPeople.slice(PEOPLE_COLLAPSED_COUNT)),
+                  body: hiddenPeopleSummary(overflowPeople),
                   id: "people-more",
                   placement: "above",
                   title: `${hiddenPeopleCount} more`

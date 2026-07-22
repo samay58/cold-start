@@ -1,0 +1,151 @@
+{
+  "slug": "wharfrobotics",
+  "domain": "wharfrobotics.com",
+  "generatedAt": "2026-07-21T12:00:00.000Z",
+  "generationCostUsd": 0.0142,
+  "cacheStatus": "hit",
+  "identity": {
+    "name": { "value": "Wharf Robotics", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "websiteUrl": { "value": "https://wharfrobotics.com", "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "logoUrl": null,
+    "oneLiner": {
+      "value": "Wharf Robotics builds autonomous cargo-handling robots for mid-size ports that cannot justify a fully automated terminal.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "hq": {
+      "value": { "city": "Oakland", "country": "United States" },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "foundedYear": { "value": 2021, "status": "verified", "confidence": "high", "citationIds": ["c1"] },
+    "status": "private"
+  },
+  "funding": {
+    "totalRaisedUsd": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] },
+    "lastRound": {
+      "value": { "name": "Series B", "amountUsd": 42000000, "announcedAt": "2026-04-14", "leadInvestors": ["Anchorage Capital Partners"] },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c3"]
+    },
+    "investors": { "value": null, "status": "unknown", "confidence": "low", "citationIds": [] }
+  },
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Mara Voss",
+          "role": "CEO & Co-founder",
+          "sourceUrl": "https://wharfrobotics.com/about",
+          "email": "mara.voss@wharfrobotics.com",
+          "emailStatus": "observed",
+          "githubUrl": "https://github.com/maravoss",
+          "xUrl": "https://x.com/maravoss",
+          "read": {
+            "text": "Voss spent six years leading perception systems at a warehouse robotics unicorn before spinning out Wharf in 2021, and every major product decision since traces back to a single thesis: dockside cargo handling is the last unautomated link in port logistics, and the operators who own that link capture the margin everyone else in the supply chain is fighting over.",
+            "citationIds": ["c1", "c2"]
+          }
+        },
+        {
+          "name": "Idris Kanu",
+          "role": "CTO & Co-founder",
+          "sourceUrl": "https://linkedin.com/in/idriskanu",
+          "email": "idris.kanu@wharfrobotics.com",
+          "emailStatus": "inferred",
+          "emailBasis": "domain pattern first.last, 5 observed addresses",
+          "personalUrl": "https://idriskanu.dev",
+          "read": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": ["c1"]
+    },
+    "keyExecs": {
+      "value": [
+        {
+          "name": "Renata Sol",
+          "role": "VP Engineering",
+          "sourceUrl": "https://linkedin.com/in/renatasol",
+          "read": null
+        },
+        {
+          "name": "Tobias Lindqvist",
+          "role": "Head of Partnerships",
+          "sourceUrl": "https://linkedin.com/in/tobiaslindqvist",
+          "read": null
+        },
+        {
+          "name": "Priya Chandra",
+          "role": "Board Observer",
+          "sourceUrl": "https://linkedin.com/in/priyachandra",
+          "read": null
+        },
+        {
+          "name": "Owen Mercer",
+          "role": "Advisor",
+          "sourceUrl": "https://linkedin.com/in/owenmercer",
+          "read": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c1"]
+    },
+    "headcount": {
+      "value": { "value": 46, "asOf": "2026" },
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": ["c1"]
+    }
+  },
+  "signals": [],
+  "comparables": [],
+  "citations": [
+    {
+      "id": "c1",
+      "url": "https://wharfrobotics.com/",
+      "title": "Wharf Robotics",
+      "snippet": "Wharf Robotics builds autonomous cargo-handling robots for mid-size port terminals.",
+      "fetchedAt": "2026-07-21T11:55:00.000Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "c2",
+      "url": "https://techcrunch.com/2026/07/wharf-robotics-dockside-automation/",
+      "title": "Wharf Robotics wants to automate the port terminals nobody else will touch",
+      "snippet": "Wharf Robotics is targeting mid-size ports priced out of full terminal automation, betting that dockside cargo handling is the highest-margin unautomated link left in port logistics.",
+      "fetchedAt": "2026-07-21T11:55:00.000Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "c3",
+      "url": "https://wharfrobotics.com/blog/series-b",
+      "title": "Wharf Robotics raises $42M Series B",
+      "snippet": "Wharf Robotics raised a $42M Series B led by Anchorage Capital Partners to expand its autonomous cargo-handling fleet to new port terminals.",
+      "fetchedAt": "2026-07-21T11:55:00.000Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    }
+  ]
+}

@@ -202,7 +202,9 @@ describe("SidePanel profile context", () => {
     ];
     const fetchMock = vi.fn(async () => jsonResponse(card));
     const { container, unmount } = await renderSidePanel({ domain: "theinformation.com", fetchMock });
-    const personRows = Array.from(container.querySelectorAll(".cs-people-person")) as HTMLElement[];
+    // Primary (visible) rows only: the overflow rows stay mounted inside the measured-height
+    // frame (never conditionally rendered) but visually collapsed until the chip expands them.
+    const personRows = Array.from(container.querySelectorAll(".cs-people-line-list > .cs-people-person")) as HTMLElement[];
     const jessica = personRows.find((row) => row.textContent?.includes("Jessica Lessin"));
 
     expect(personRows).toHaveLength(4);

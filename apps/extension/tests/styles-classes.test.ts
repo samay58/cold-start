@@ -13,6 +13,8 @@ const SRC_DIR = join(__dirname, "..", "src");
 const NOT_STYLESHEET_CLASSES = new Set([
   // Element id for the shared tooltip (aria-describedby target), not a class.
   "cs-company-shared-tooltip",
+  // Element id for the people overflow frame (aria-controls target), not a class.
+  "cs-people-overflow",
   // SVG child of .cs-eye-loader; the blink keyframes address it through the parent.
   "cs-eye-lid",
   // Animation hook inside .cs-motion-text; the fade is driven by framer-motion inline styles.

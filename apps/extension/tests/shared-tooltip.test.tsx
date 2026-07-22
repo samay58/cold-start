@@ -324,6 +324,53 @@ describe("dossier keyboard path", () => {
     // The text variant never pins; Enter leaves it in its plain, non-interactive state.
     expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
   });
+
+  it("promotes the pinned dossier from role=tooltip to role=dialog, and reverts on unpin", async () => {
+    const { container, handleRef, trigger } = await mount(dossier);
+
+    await act(async () => {
+      trigger.focus();
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+    // Unpinned (hover/focus-only) stays informational: role=tooltip, no accessible name of
+    // its own, even though it contains interactive children (copy button, channel links) --
+    // WAI-ARIA APG forbids a tooltip from holding focus or interactive content, which is
+    // exactly what pinning is about to introduce.
+    let tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.getAttribute("role")).toBe("tooltip");
+    expect(tooltip?.hasAttribute("aria-label")).toBe(false);
+
+    await act(async () => {
+      handleRef.current!.props.onKeyDown?.(keyEvent(trigger, "Enter"));
+    });
+    // Pinning is the semantic promotion: the region becomes a real interactive dialog with
+    // its own accessible name, matching the focus it now holds.
+    tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.getAttribute("role")).toBe("dialog");
+    expect(tooltip?.getAttribute("aria-label")).toBe("Ada Lovelace details");
+
+    await act(async () => {
+      tooltip?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+    });
+    // Escape unpins and demotes the region back to role=tooltip with no accessible name.
+    tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.getAttribute("role")).toBe("tooltip");
+    expect(tooltip?.hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("never promotes the plain string tooltip: it stays role=tooltip even after Enter", async () => {
+    const { container, handleRef, trigger } = await mount("The full description text.");
+    await act(async () => {
+      trigger.focus();
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+    await act(async () => {
+      handleRef.current!.props.onKeyDown?.(keyEvent(trigger, "Enter"));
+    });
+    const tooltip = container.querySelector(".cs-shared-tooltip");
+    expect(tooltip?.getAttribute("role")).toBe("tooltip");
+    expect(tooltip?.hasAttribute("aria-label")).toBe(false);
+  });
 });
 
 describe("dossier email copy control", () => {
@@ -614,8 +661,10 @@ describe("click pin", () => {
     });
     const pinnedTooltip = container.querySelector(".cs-shared-tooltip");
     expect(pinnedTooltip?.getAttribute("data-pinned")).toBe("true");
-    // Pin is a semantic promotion: focus moves into the now-interactive dossier.
+    // Pin is a semantic promotion: focus moves into the now-interactive dossier, and the
+    // ARIA role promotes alongside it (role=tooltip is not allowed to hold focus).
     expect(pinnedTooltip?.contains(document.activeElement)).toBe(true);
+    expect(pinnedTooltip?.getAttribute("role")).toBe("dialog");
 
     await act(async () => {
       handleRef.current!.props.onClick(clickEvent(trigger));
@@ -623,6 +672,7 @@ describe("click pin", () => {
     // Second click demotes the dossier back to its informational, unpinned state. It stays
     // open (the pointer is still over the row) rather than closing outright.
     expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
+    expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("role")).toBe("tooltip");
     expect(container.querySelector(".cs-shared-tooltip")).toBeTruthy();
 
     // Re-pin via click, then confirm Escape still unpins and refocuses: the same keyboard-pin

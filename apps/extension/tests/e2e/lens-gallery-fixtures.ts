@@ -16,7 +16,8 @@ export type LensGalleryPhaseId =
   | "withheld"
   | "withheld-advisory"
   | "running-events"
-  | "failed";
+  | "failed"
+  | "dossier";
 
 export const LENS_GALLERY_PHASE_IDS: readonly LensGalleryPhaseId[] = [
   "read-full",
@@ -24,7 +25,8 @@ export const LENS_GALLERY_PHASE_IDS: readonly LensGalleryPhaseId[] = [
   "withheld",
   "withheld-advisory",
   "running-events",
-  "failed"
+  "failed",
+  "dossier"
 ];
 
 function readFixtureCard(name: string): ColdStartCard {
@@ -64,6 +66,16 @@ export function withheldAdvisoryCard(): ColdStartCard {
 // case from the brief.
 export function failedCard(): ColdStartCard {
   return readFixtureCard("failed");
+}
+
+// dossier.json: task 4.2's content-hierarchy and size-budget fixture. 6 people (mirroring the
+// read-full baseten fixture's people shapes): Mara Voss (rich read past the 3-line clamp,
+// observed email, GitHub + X channels) and Idris Kanu (no read, inferred email with a basis,
+// a site channel) sit in the 4 visible primary rows alongside 2 filler execs; 2 more filler
+// execs sit behind the "+2 more" overflow chip, exercising the measured-height expansion in
+// the same phase.
+export function dossierCard(): ColdStartCard {
+  return readFixtureCard("dossier");
 }
 
 export type LensGalleryRunningEvent = {
@@ -287,6 +299,11 @@ export async function installLensGalleryPhase(page: Page, phaseId: LensGalleryPh
     case "failed": {
       const card = failedCard();
       await installFailedRun(page, card);
+      return card.domain;
+    }
+    case "dossier": {
+      const card = dossierCard();
+      await installStaticProfile(page, card);
       return card.domain;
     }
     case "running-events": {

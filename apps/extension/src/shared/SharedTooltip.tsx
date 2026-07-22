@@ -363,7 +363,14 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   return { dockAnchorRef, hideTooltip, tooltip, triggerProps, tooltipInteraction };
 }
 
-function DossierBody({ dossier }: { dossier: TooltipDossier }) {
+// The dossier's content hierarchy is exactly four blocks, each mapped to one Phase 2 lens
+// type role (DESIGN.md "Investor Lens Memo"): identity (name + role, Claim role at weight 560
+// so it reads as a header without minting a new size), read (Claim role at its normal 450
+// weight, the star of the card), email (Meta role for the actionable address, Receipt role for
+// the observed/inferred badge and basis), and channels (a single Receipt-role row). Provenance
+// is Receipt role too and sits tight under the read, folded in as a citation mark rather than a
+// freestanding sentence. Nothing here is Lede; the dossier never carries display-face content.
+function DossierBody({ dossier, pinned }: { dossier: TooltipDossier; pinned: boolean }) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const role = dossier.role?.trim() || "Role not verified";
@@ -392,8 +399,18 @@ function DossierBody({ dossier }: { dossier: TooltipDossier }) {
   }
 
   return (
-    <div className="cs-dossier" data-has-read={dossier.read ? "true" : "false"}>
-      <p className="cs-dossier-role">{role}</p>
+    <div
+      className="cs-dossier"
+      data-has-read={dossier.read ? "true" : "false"}
+      // The read clamps to 3 lines while merely hovered/focused and unclamps once pinned
+      // (expand-on-pin): pinning already moves focus into the dossier and turns it interactive,
+      // so the same gesture that promotes the ARIA role also earns the full read.
+      data-pinned={pinned ? "true" : "false"}
+    >
+      <p className="cs-dossier-identity">
+        <strong className="cs-dossier-name">{dossier.name}</strong>
+        <span className="cs-dossier-role">{role}</span>
+      </p>
       {dossier.read ? <p className="cs-dossier-read">{dossier.read.text}</p> : null}
       {dossier.provenance ? <p className="cs-dossier-provenance">{dossier.provenance}</p> : null}
       {email ? (
@@ -484,7 +501,13 @@ export function SharedTooltip({
       onPointerEnter={interaction?.onPointerEnter}
       onPointerLeave={interaction?.onPointerLeave}
       ref={nodeRef}
-      role="tooltip"
+      // Semantic promotion (WAI-ARIA APG, riding item from the Task 4.1 review): an unpinned
+      // dossier is informational and stays role="tooltip". Pinning moves focus into it and
+      // exposes interactive children (the email copy button, the channel links), which the
+      // tooltip pattern forbids, so a pin promotes the region to role="dialog" with its own
+      // accessible name. Unpin (Escape, a second click, or focus leaving) demotes it back.
+      role={interactive && pinned ? "dialog" : "tooltip"}
+      aria-label={interactive && pinned ? `${tooltip.title} details` : undefined}
       style={{
         left: tooltip.left,
         maxHeight: tooltip.maxHeight,
@@ -497,8 +520,14 @@ export function SharedTooltip({
           (company-arc.css) plays on mount, and a stray copy-acknowledgment state from the
           previous dossier never survives onto the next one. */}
       <div className="cs-shared-tooltip-content" key={tooltip.id}>
-        <strong>{tooltip.title}</strong>
-        {dossier ? <DossierBody dossier={dossier} /> : <span>{tooltip.body as string}</span>}
+        {dossier ? (
+          <DossierBody dossier={dossier} pinned={pinned} />
+        ) : (
+          <>
+            <strong>{tooltip.title}</strong>
+            <span>{tooltip.body as string}</span>
+          </>
+        )}
       </div>
     </div>
   );

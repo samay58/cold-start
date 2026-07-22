@@ -1507,7 +1507,9 @@ test("the +N people chip is pressable and its hover tooltip lists the hidden nam
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  await expect(page.locator(".cs-people-person")).toHaveCount(4);
+  // Primary rows only: the 2 overflow rows are already mounted inside the measured-height
+  // frame (never conditionally rendered), just visually collapsed until the chip expands them.
+  await expect(page.locator(".cs-people-line-list > .cs-people-person")).toHaveCount(4);
   const chip = page.locator(".cs-people-more");
   await expect(chip).toBeVisible();
   await expect(chip).toHaveText("+2 more");

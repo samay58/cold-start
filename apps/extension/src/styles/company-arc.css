@@ -386,50 +386,71 @@
   }
 }
 
-/* The person dossier inside the shared tooltip: the read carries the evidence serif;
-   role, provenance, the email provenance, and the channels sit quietly around it. When
-   the read is null the dossier stays honest and reads quieter, never filler. */
+/* The person dossier inside the shared tooltip: 4 content blocks, each one Phase 2 lens type
+   role (DESIGN.md "Investor Lens Memo"), not a size of its own. identity (Claim @560) -> read
+   (Claim @450, the star of the card) -> email (Meta address, Receipt badge/basis) -> channels
+   (Receipt row). Nothing here is Lede. When the read is null the dossier stays honest and
+   reads quieter, never filler. */
 .cs-dossier {
   display: grid;
   gap: 7px;
   margin-top: 2px;
 }
 
-.cs-dossier-role {
+/* Identity: name + role on one line. Claim role (13px/IBM Plex Sans) at weight 560 so it reads
+   as a header without a size of its own; name and role split by color, not by a second size. */
+.cs-dossier-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
   margin: 0;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.62);
   font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 640;
+  font-size: 13px;
+  font-weight: 560;
   line-height: 1.3;
 }
 
-.cs-dossier[data-has-read="false"] .cs-dossier-role {
+.cs-dossier-name {
   color: var(--color-ink);
-  font-size: 12px;
+  font-weight: inherit;
 }
 
-/* Same face, size, weight, and line-height as the plain Description tooltip body
-   (.cs-shared-tooltip span below), so the two tooltip variants read as one polished
-   component. The read keeps solid ink (vs. the plain body's muted alpha) because it is
-   the dossier's one claim, not quiet metadata; role, provenance, email, and channels stay
-   visually distinct around it. */
+.cs-dossier-role {
+  color: rgb(var(--cs-c-23-26-31-text) / 0.55);
+  font-weight: inherit;
+}
+
+/* Read: Claim role at its canonical 450 weight, matching the investor-lens claim rows
+   (.cs-investor-read-claim) so a person's read and a synthesis claim read as one system.
+   Clamped to 3 lines until the dossier pins; expand-on-pin removes the clamp below. */
 .cs-dossier-read {
+  display: -webkit-box;
   margin: 0;
+  overflow: hidden;
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.42;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
+.cs-dossier[data-pinned="true"] .cs-dossier-read {
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+/* Provenance folds into the read as its citation mark: Receipt role, pulled tight underneath
+   instead of reading as a freestanding sentence. */
 .cs-dossier-provenance {
-  margin: 0;
+  margin: -3px 0 0;
   color: rgb(var(--cs-c-23-26-31-text) / 0.5);
-  font-family: var(--font-body);
-  font-size: 10.5px;
-  font-weight: 550;
-  letter-spacing: 0.01em;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
   line-height: 1.3;
 }
 
@@ -437,11 +458,9 @@
   display: grid;
   gap: 3px;
   margin: 0;
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 650;
 }
 
+/* Meta role: the address is the one actionable line in the email block. */
 .cs-dossier-email-address {
   color: var(--color-seal);
   overflow: hidden;
@@ -461,8 +480,8 @@
   color: inherit;
   cursor: pointer;
   font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 11.5px;
+  font-weight: 480;
   text-align: left;
 }
 
@@ -477,13 +496,15 @@
   outline-offset: 2px;
 }
 
+/* Receipt role: the observed/inferred badge and the inferred basis line are both small,
+   tabular metadata, the same face as citation marks and source domains elsewhere. */
 .cs-dossier-email-kind {
   color: rgb(var(--cs-c-23-26-31-text) / 0.62);
-  font-family: var(--font-body);
-  font-size: 9px;
+  font-family: var(--font-text);
+  font-size: 10px;
   font-style: normal;
-  font-weight: 680;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0.34px;
 }
 
 .cs-dossier-email[data-email-status="inferred"] .cs-dossier-email-kind {
@@ -492,12 +513,13 @@
 
 .cs-dossier-email-basis {
   color: rgb(var(--cs-c-23-26-31-text) / 0.5);
-  font-family: var(--font-body);
-  font-size: 9.5px;
+  font-family: var(--font-text);
+  font-size: 10px;
   font-weight: 500;
   line-height: 1.35;
 }
 
+/* Channels: a single receipt-face row. */
 .cs-dossier-channels {
   display: flex;
   flex-wrap: wrap;
@@ -508,10 +530,10 @@
 .cs-dossier-channel {
   border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
   color: rgb(var(--cs-c-23-26-31-text) / 0.62);
-  font-family: var(--font-body);
+  font-family: var(--font-text);
   font-size: 10px;
-  font-weight: 640;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  letter-spacing: 0.34px;
   text-decoration: none;
 }
 

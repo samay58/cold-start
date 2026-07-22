@@ -73,6 +73,8 @@ The filed investor read (`apps/extension/src/research/InvestorReadCard.tsx`) is 
 
 Opposition reads through marks, not color washes: a holds claim leads with a filled ink square, a breaks claim leads with the conflict-class slashed square. Claim text takes the full card width; the memo does not reserve a label column for it.
 
+The person dossier (`apps/extension/src/shared/SharedTooltip.tsx`'s `DossierBody`) shares this scale rather than minting its own: identity (name + role) and the read sit at Claim, the identity line at weight 560 to read as a header without a sixth size; the email address is Meta; the observed/inferred badge, the basis line, the folded-in provenance citation mark, and the channels row are all Receipt. Nothing in the dossier is Lede or Section label.
+
 ## Color System
 
 The palette is warm parchment with one chosen accent, evidence-coded. It should not collapse into beige editorial warmth or neon technical drama.

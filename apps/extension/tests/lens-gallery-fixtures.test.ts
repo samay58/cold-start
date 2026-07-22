@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LENS_GALLERY_PHASE_IDS,
   deepinfraRunningCard,
+  dossierCard,
   failedCard,
   readFullCard,
   readSparseCard,
@@ -21,7 +22,8 @@ describe("lens gallery card fixtures", () => {
     ["withheld", withheldCard],
     ["withheld-advisory", withheldAdvisoryCard],
     ["failed", failedCard],
-    ["running-events companion card", deepinfraRunningCard]
+    ["running-events companion card", deepinfraRunningCard],
+    ["dossier", dossierCard]
   ] as const)("%s parses against coldStartCardSchema", (_name, loadCard) => {
     const result = coldStartCardSchema.safeParse(loadCard());
     if (!result.success) {
@@ -36,7 +38,8 @@ describe("lens gallery card fixtures", () => {
       "withheld",
       "withheld-advisory",
       "running-events",
-      "failed"
+      "failed",
+      "dossier"
     ]);
   });
 
@@ -73,6 +76,26 @@ describe("lens gallery card fixtures", () => {
     const card = failedCard();
     expect(card.synthesis).toBeUndefined();
     expect(card.synthesisWithheld).toBeUndefined();
+  });
+
+  // Task 4.2's dossier content-hierarchy fixture: one rich person (a read long enough to
+  // exercise the 3-line clamp, an observed email) and one inferred-email person, mirroring the
+  // read-full baseten fixture's people shapes, plus 4 filler execs so the "+2 more" overflow
+  // control also has something real to expand in the same gallery phase.
+  it("dossier has a rich read-and-observed-email founder, an inferred-email founder, and a 2-person overflow", () => {
+    const card = dossierCard();
+    const founders = card.team.founders.value ?? [];
+    const mara = founders.find((person) => person.name === "Mara Voss");
+    const idris = founders.find((person) => person.name === "Idris Kanu");
+
+    expect(mara?.read?.text.length ?? 0).toBeGreaterThan(200);
+    expect(mara?.emailStatus).toBe("observed");
+    expect(idris?.read).toBeNull();
+    expect(idris?.emailStatus).toBe("inferred");
+    expect(idris?.emailBasis).toBeTruthy();
+
+    const totalPeople = founders.length + (card.team.keyExecs.value ?? []).length;
+    expect(totalPeople).toBe(6);
   });
 });
 

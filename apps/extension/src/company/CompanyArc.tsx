@@ -245,6 +245,7 @@ export function CompanyArc({
                 contactRun={profile.contactRun}
                 confidence={managementConfidence(profile.card)}
                 people={profilePeople}
+                prefersReducedMotion={prefersReducedMotion}
                 sourceCount={managementSourceCount(profile.card)}
                 tooltipProps={triggerProps}
               />
