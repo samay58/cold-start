@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import { formatElapsed } from "../shared/extension-format";
 import { motionTokens } from "../shared/motion-primitives";
+import { latestEventOfType, latestRunEvents, metadataNumber } from "./research-events";
 
 // The watchable wait: a small fixed stage vocabulary driven only by real generation events,
 // never elapsed time or a percentage (gold-standard-references.md, waiting UX track: Railway's
@@ -55,34 +56,7 @@ function stageIndexForEvent(event: ExtensionResearchRunEvent): number | null {
 // building phase. Without this, a retry would flash File-stage-reached for a beat off the stale
 // prior run's own card.saved/generation.complete before the new run's first event lands.
 export function currentAnalysisRunEvents(events: ExtensionResearchRunEvent[]): ExtensionResearchRunEvent[] {
-  let latest: ExtensionResearchRunEvent | null = null;
-  for (const event of events) {
-    if (!latest || event.createdAt.localeCompare(latest.createdAt) > 0) {
-      latest = event;
-    }
-  }
-  if (!latest) {
-    return [];
-  }
-  const latestRunId = latest.runId;
-  return events.filter((event) => event.runId === latestRunId);
-}
-
-function metadataNumber(event: ExtensionResearchRunEvent | undefined, keys: string[]): number | null {
-  if (!event) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = event.metadata[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-  }
-  return null;
-}
-
-function latestEventOfType(events: ExtensionResearchRunEvent[], type: string) {
-  return [...events].reverse().find((event) => event.type === type);
+  return latestRunEvents(events);
 }
 
 function plural(count: number, singular: string) {

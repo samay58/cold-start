@@ -1,6 +1,7 @@
 import { parseFirstPayoff, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import type { ExtensionSourceSummary } from "../shared/extension-config";
+import { latestEventOfType, latestRunEvents, metadataNumber } from "./research-events";
 
 export type ResearchProgressStage = {
   label: string;
@@ -71,17 +72,6 @@ function belongsToProfileRun(event: ExtensionResearchRunEvent) {
   return mode === undefined || mode === "basics";
 }
 
-function metadataNumber(event: ExtensionResearchRunEvent, keys: string[]) {
-  for (const key of keys) {
-    const value = event.metadata[key];
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-  }
-
-  return null;
-}
-
 function metadataStringArray(event: ExtensionResearchRunEvent, keys: string[]) {
   for (const key of keys) {
     const value = event.metadata[key];
@@ -129,20 +119,7 @@ function profileProgressEvents(events: ExtensionResearchRunEvent[]) {
 }
 
 export function currentProfileProgressEvents(events: ExtensionResearchRunEvent[]) {
-  const candidates = profileProgressEvents(events);
-  let latestEvent: ExtensionResearchRunEvent | null = null;
-
-  for (const event of candidates) {
-    if (!latestEvent || event.createdAt.localeCompare(latestEvent.createdAt) > 0) {
-      latestEvent = event;
-    }
-  }
-
-  if (!latestEvent) {
-    return [];
-  }
-
-  return candidates.filter((event) => event.runId === latestEvent.runId);
+  return latestRunEvents(profileProgressEvents(events));
 }
 
 function researchEventStatus(event: ExtensionResearchRunEvent): ResearchProgressStatus {
@@ -310,10 +287,6 @@ function citationArtifactLine(event: ExtensionResearchRunEvent | undefined) {
   return citationCount !== null
     ? `First cited profile ready · ${citationCount} ${citationCount === 1 ? "citation" : "citations"}`
     : "First cited profile ready";
-}
-
-function latestEventOfType(events: ExtensionResearchRunEvent[], type: string) {
-  return [...events].reverse().find((event) => event.type === type);
 }
 
 function proofLineForStage({
