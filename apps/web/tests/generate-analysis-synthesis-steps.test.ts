@@ -373,6 +373,54 @@ describe("generate-card analysis synthesize/verify steps", () => {
     expect(step.sendEvent).not.toHaveBeenCalled();
   });
 
+  // Migrated from packages/pipeline/tests/generate-card.test.ts (Task 1 tightening pass): the
+  // stale-synthesisWithheld strip used to live inside the combined generateCardForDomainWithTrace
+  // path in packages/pipeline/src/generate-card.ts. That path is gone; the strip now lives only
+  // in the "verify-synthesis" step body here (functions.ts:~732-737). This test seeds a card
+  // carrying a synthesisWithheld mark from an earlier gate-blocked run (as a re-run with improved
+  // evidence would) and confirms a later successful synthesis clears it rather than storing it
+  // stale alongside the synthesis it predates.
+  it("strips a stale synthesisWithheld mark once a later run produces synthesis", async () => {
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: {
+        ...cardWithCitationCount(8),
+        synthesisWithheld: {
+          at: "2026-05-20T00:00:00.000Z",
+          reasons: ["citation-floor"],
+          advisories: [],
+          citationCount: 1,
+          sourceTypeCount: 1
+        }
+      },
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: {
+          sourceCount: 1,
+          evidenceCount: 1,
+          citationCount: 8,
+          fallbackUsed: false
+        }
+      }
+    });
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [bullCase],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    mocks.verifySynthesis.mockResolvedValue([
+      { ...whyItMatters, status: "supported" },
+      { ...bullCase, status: "supported" }
+    ]);
+
+    await runAnalysisGeneration();
+
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis).toMatchObject({ whyItMatters });
+    expect(storedCard.synthesisWithheld).toBeUndefined();
+  });
+
   it("skips synthesize-card and verify-synthesis, and emits neither synthesis.started nor verify.started, when the evidence gate blocks", async () => {
     mocks.generateCardForDomainWithTrace.mockResolvedValue({
       card: cardWithCitationCount(1),

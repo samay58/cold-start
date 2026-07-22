@@ -191,11 +191,12 @@ describe("generateCardForDomain", () => {
     snippet: "Cartesia is building voice AI infrastructure."
   };
 
-  it("does not attach synthesis without a verifier", async () => {
+  it("never attaches synthesis: the assembly path has no synthesis awareness", async () => {
+    // Synthesis and verification run as separately-callable units (synthesizeCardDraft,
+    // verifyCardSynthesisDraft, tested below in "split synthesize/verify units"), never inside
+    // generateCardForDomain/WithTrace. This is the assembly-only path production actually uses
+    // (apps/web/src/inngest/functions.ts never spreads synthesize/verify deps into it).
     const skeleton = buildSkeletonCard("cartesia.ai");
-    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
-    const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
-    const bearCase = { text: "Cartesia still needs clearer public traction evidence. [c1]", citationIds: ["c1"] };
 
     const card = await generateCardForDomain("cartesia.ai", {
       fetchSources: async () => [],
@@ -206,14 +207,8 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
-      synthesize: async () => ({
-        whyItMatters,
-        bullCase: [bullCase],
-        bearCase: [bearCase],
-        openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
       })
-    } as unknown as GenerateCardDeps);
+    });
 
     expect(card.synthesis).toBeUndefined();
     expect(card.generationCostUsd).toBe(0);
@@ -257,40 +252,34 @@ describe("generateCardForDomain", () => {
     expect(allRefs).not.toContain("e19");
   });
 
-  it("includes cost lines added during synthesis and verification", async () => {
+  it("includes cost lines recorded during extraction into the assembled card", async () => {
+    // The old version of this test threaded a shared costLines array through a combined
+    // synthesize+verify call inside generateCardForDomain; that combined path is gone (see the
+    // "no synthesis awareness" test above). Cost accumulation across the synthesize-card and
+    // verify-synthesis Inngest steps now happens at the orchestration level in
+    // apps/web/src/inngest/functions.ts via cardWithTraceCost/generationRunAnthropicCostUsd
+    // (functions.ts:623,740,943); that arithmetic has no dedicated unit test today, a real
+    // pre-existing gap this migration surfaces rather than introduces.
     const skeleton = buildSkeletonCard("cartesia.ai");
     const costLines = [{ label: "provider", usd: 0.01 }];
-    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
 
     const card = await generateCardForDomain("cartesia.ai", {
       costLines,
       fetchSources: async () => [],
-      extractSections: async () => ({
-        identity: skeleton.identity,
-        funding: skeleton.funding,
-        team: skeleton.team,
-        signals: [],
-        comparables: [],
-        citations: [citation]
-      }),
-      synthesize: async () => {
-        costLines.push({ label: "synthesis", usd: 0.02 });
+      extractSections: async () => {
+        costLines.push({ label: "extraction", usd: 0.02 });
         return {
-          whyItMatters,
-          bullCase: [],
-          bearCase: [],
-          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
+          identity: skeleton.identity,
+          funding: skeleton.funding,
+          team: skeleton.team,
+          signals: [],
+          comparables: [],
+          citations: [citation]
         };
-      },
-      verify: async () => {
-        costLines.push({ label: "verify", usd: 0.03 });
-        return [{ ...whyItMatters, status: "supported" }];
-      },
-      synthesisRequired: true
+      }
     });
 
-    expect(card.generationCostUsd).toBe(0.06);
-    expect(card.synthesis?.whyItMatters).toEqual(whyItMatters);
+    expect(card.generationCostUsd).toBe(0.03);
   });
 
   it("falls back to a supported synthesis claim when whyItMatters is unsupported", async () => {
@@ -308,13 +297,18 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
+      })
+    });
+
+    const draft = await synthesizeCardDraft(card, {
       synthesize: async () => ({
         whyItMatters,
         bullCase: [bullCase],
         bearCase: [bearCase],
         openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
-      }),
+      })
+    });
+    const result = await verifyCardSynthesisDraft(card, draft, {
       verify: async () => [
         { ...whyItMatters, status: "unsupported" },
         { ...bullCase, status: "supported" },
@@ -322,41 +316,20 @@ describe("generateCardForDomain", () => {
       ]
     });
 
-    expect(card.synthesis?.whyItMatters).toEqual(bullCase);
-    expect(card.synthesis?.bullCase).toEqual([]);
-    expect(card.synthesis?.bearCase).toEqual([bearCase]);
+    expect(result.synthesis?.whyItMatters).toEqual(bullCase);
+    expect(result.synthesis?.bullCase).toEqual([]);
+    expect(result.synthesis?.bearCase).toEqual([bearCase]);
   });
 
-  it("fails required synthesis when no verified claims survive", async () => {
-    const skeleton = buildSkeletonCard("cartesia.ai");
-    const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
-    const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
-
-    await expect(
-      generateCardForDomain("cartesia.ai", {
-        fetchSources: async () => [],
-        extractSections: async () => ({
-          identity: skeleton.identity,
-          funding: skeleton.funding,
-          team: skeleton.team,
-          signals: [],
-          comparables: [],
-          citations: [citation]
-        }),
-        synthesize: async () => ({
-          whyItMatters,
-          bullCase: [bullCase],
-          bearCase: [],
-          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
-        }),
-        verify: async () => [
-          { ...whyItMatters, status: "unsupported" },
-          { ...bullCase, status: "unsupported" }
-        ],
-        synthesisRequired: true
-      })
-    ).rejects.toThrow("No synthesis claims survived verification");
-  });
+  // "fails required synthesis when no verified claims survive" used to assert this as a single
+  // combined-path throw. It now splits across two layers, both covered elsewhere:
+  //  - verifyCardSynthesisDraft returning no synthesis (without throwing) when nothing survives
+  //    verification: "returns no synthesis when nothing survives verification, without throwing"
+  //    in the "split synthesize/verify units" describe block below.
+  //  - the function-level throw itself, which only exists in orchestration now
+  //    (apps/web/src/inngest/functions.ts:~732-737): "fails the run when verify-synthesis produces
+  //    no surviving claims, without ever storing the card" in
+  //    apps/web/tests/generate-analysis-synthesis-steps.test.ts.
 
   it("keeps verifier-dropped bull and bear claims dropped even when whole sections are empty", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
@@ -381,7 +354,10 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
+      })
+    });
+
+    const draft = await synthesizeCardDraft(card, {
       synthesize: async () => ({
         whyItMatters,
         bullCase,
@@ -391,7 +367,9 @@ describe("generateCardForDomain", () => {
           { question: "What is margin?", category: "unit_economics" },
           { question: "What is concentration?", category: "unit_economics" }
         ]
-      }),
+      })
+    });
+    const result = await verifyCardSynthesisDraft(card, draft, {
       verify: async () => [
         { ...whyItMatters, status: "supported" },
         ...bullCase.map((claim) => ({ ...claim, status: "unsupported" as const })),
@@ -400,9 +378,9 @@ describe("generateCardForDomain", () => {
       synthesisRequired: true
     });
 
-    expect(card.synthesis?.whyItMatters).toEqual(whyItMatters);
-    expect(card.synthesis?.bullCase).toEqual([]);
-    expect(card.synthesis?.bearCase).toEqual([]);
+    expect(result.synthesis?.whyItMatters).toEqual(whyItMatters);
+    expect(result.synthesis?.bullCase).toEqual([]);
+    expect(result.synthesis?.bearCase).toEqual([]);
   });
 
   it("keeps only supported bull and bear claims after verification", async () => {
@@ -428,7 +406,10 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
+      })
+    });
+
+    const draft = await synthesizeCardDraft(card, {
       synthesize: async () => ({
         whyItMatters,
         bullCase,
@@ -438,7 +419,9 @@ describe("generateCardForDomain", () => {
           { question: "What is margin?", category: "unit_economics" },
           { question: "What is concentration?", category: "unit_economics" }
         ]
-      }),
+      })
+    });
+    const result = await verifyCardSynthesisDraft(card, draft, {
       verify: async () => [
         { ...whyItMatters, status: "supported" },
         { ...bullCase[0]!, status: "supported" },
@@ -448,8 +431,8 @@ describe("generateCardForDomain", () => {
       synthesisRequired: true
     });
 
-    expect(card.synthesis?.bullCase).toEqual([bullCase[0]]);
-    expect(card.synthesis?.bearCase).toEqual([]);
+    expect(result.synthesis?.bullCase).toEqual([bullCase[0]]);
+    expect(result.synthesis?.bearCase).toEqual([]);
   });
 
   it("verifies market structure claims with the rest of synthesis", async () => {
@@ -467,7 +450,10 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
+      })
+    });
+
+    const draft = await synthesizeCardDraft(card, {
       synthesize: async () => ({
         whyItMatters,
         bullCase: [],
@@ -482,7 +468,9 @@ describe("generateCardForDomain", () => {
           expansionPath: null,
           timingRisk: null
         }
-      }),
+      })
+    });
+    const result = await verifyCardSynthesisDraft(card, draft, {
       verify: async () => [
         { ...whyItMatters, status: "supported" },
         { ...buyerBudget, status: "supported" },
@@ -491,7 +479,7 @@ describe("generateCardForDomain", () => {
       synthesisRequired: true
     });
 
-    expect(card.synthesis?.marketStructureAndTiming).toEqual({
+    expect(result.synthesis?.marketStructureAndTiming).toEqual({
       buyerBudget,
       painSeverity: null,
       adoptionTrigger: null,
@@ -502,9 +490,16 @@ describe("generateCardForDomain", () => {
     });
   });
 
-  it("keeps the extracted card when optional synthesis fails", async () => {
+  it("propagates synthesize errors instead of silently keeping a card without synthesis", async () => {
+    // The old combined path caught a synthesize failure and, when synthesis was optional, kept
+    // the extracted card unchanged without calling verify. That "optional synthesis" concept no
+    // longer exists in production: apps/web/src/inngest/functions.ts always sets
+    // synthesisRequired: true for mode "analysis" (the only mode that ever calls synthesize) and
+    // turns a synthesize failure into a run failure (see item 3, generation-helpers.ts, for the
+    // transient-vs-semantic split of that failure path). At the unit level, synthesizeCardDraft
+    // has no try/catch of its own, so a throwing synthesize propagates directly, guaranteeing a
+    // caller never reaches verifyCardSynthesisDraft on a failed draft.
     const skeleton = buildSkeletonCard("cartesia.ai");
-    const verify = vi.fn();
 
     const card = await generateCardForDomain("cartesia.ai", {
       fetchSources: async () => [],
@@ -523,126 +518,30 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
-      synthesize: async () => {
-        throw new Error("Synthesis citation ID not found on card: e9");
-      },
-      verify
+      })
     });
 
     expect(card.identity.name.value).toBe("Cartesia");
     expect(card.synthesis).toBeUndefined();
-    expect(verify).not.toHaveBeenCalled();
+
+    await expect(
+      synthesizeCardDraft(card, {
+        synthesize: async () => {
+          throw new Error("Synthesis citation ID not found on card: e9");
+        }
+      })
+    ).rejects.toThrow("Synthesis citation ID not found on card: e9");
   });
 
-  it("produces synthesis for a previously-gated news-only card and records advisory diagnostics", async () => {
-    process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
-    const skeleton = buildSkeletonCard("oboe.com");
-    const whyItMatters = { text: "Oboe is building a voice assistant platform. [c1]", citationIds: ["c1"] };
-    const newsCitations = Array.from({ length: 8 }, (_, index) => ({
-      ...citation,
-      id: `c${index + 1}`,
-      url: `https://example.com/oboe-news-${index + 1}`,
-      title: `Oboe coverage ${index + 1}`,
-      sourceType: "news" as const
-    }));
-
-    const result = await generateCardForDomainWithTrace("oboe.com", {
-      fetchSources: async () => [],
-      extractSections: async () => ({
-        identity: skeleton.identity,
-        funding: skeleton.funding,
-        team: skeleton.team,
-        signals: [],
-        comparables: [],
-        citations: newsCitations
-      }),
-      synthesize: async () => ({
-        whyItMatters,
-        bullCase: [],
-        bearCase: [],
-        openQuestions: [{ question: "What customer traction has Oboe disclosed?", category: "adoption_proof" }]
-      }),
-      verify: async () => [{ ...whyItMatters, status: "supported" }],
-      synthesisRequired: true
-    });
-
-    expect(result.card.synthesis?.whyItMatters).toEqual(whyItMatters);
-    expect(result.tracePatch.synthesis?.gate).toEqual({
-      blocked: false,
-      reasons: [],
-      advisories: ["single-source-class", "no-funding-evidence", "no-named-team"],
-      citationCount: 8,
-      sourceTypeCount: 1,
-      hasFundingEvidence: false,
-      hasNamedTeamMember: false
-    });
-    // A run that produces synthesis must never carry a stale withheld record forward.
-    expect(result.card.synthesisWithheld).toBeUndefined();
-  });
-
-  it("gates required synthesis before LLM calls when analysis evidence is weak", async () => {
-    process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
-    const skeleton = buildSkeletonCard("oboe.com");
-    const synthesize = vi.fn();
-    const verify = vi.fn();
-
-    const result = await generateCardForDomainWithTrace("oboe.com", {
-      fetchSources: async () => [],
-      extractSections: async () => ({
-        identity: {
-          ...skeleton.identity,
-          name: {
-            value: "Oboe",
-            status: "verified",
-            confidence: "high",
-            citationIds: ["c1"]
-          }
-        },
-        funding: skeleton.funding,
-        team: skeleton.team,
-        signals: [],
-        comparables: [],
-        citations: [
-          { ...citation, id: "c1", url: "https://oboe.com", title: "Oboe" },
-          { ...citation, id: "c2", url: "https://example.com/oboe", title: "Oboe profile", sourceType: "news" as const },
-          { ...citation, id: "c3", url: "https://example.com/oboe-funding", title: "Oboe funding", sourceType: "news" as const }
-        ]
-      }),
-      synthesize,
-      verify,
-      synthesisRequired: true
-    });
-
-    expect(synthesize).not.toHaveBeenCalled();
-    expect(verify).not.toHaveBeenCalled();
-    expect(result.card.synthesis).toBeUndefined();
-    expect(result.tracePatch.synthesis).toEqual({
-      required: true,
-      produced: false,
-      claimCountBeforeVerify: 0,
-      claimCountAfterVerify: 0,
-      gateMessage: "insufficient evidence for synthesis",
-      gate: {
-        blocked: true,
-        reasons: ["citation-floor"],
-        advisories: ["no-funding-evidence", "no-named-team"],
-        citationCount: 3,
-        sourceTypeCount: 2,
-        hasFundingEvidence: false,
-        hasNamedTeamMember: false
-      }
-    });
-    // The floor-blocked run records the withholding on the card itself, with the run's
-    // own reasons/advisories/counts (not just in the trace).
-    expect(result.card.synthesisWithheld).toEqual({
-      at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
-      reasons: ["citation-floor"],
-      advisories: ["no-funding-evidence", "no-named-team"],
-      citationCount: 3,
-      sourceTypeCount: 2
-    });
-  });
+  // "produces synthesis for a previously-gated news-only card and records advisory diagnostics"
+  // and "gates required synthesis before LLM calls when analysis evidence is weak" used to drive
+  // this through the combined path's tracePatch.synthesis.gate. The gate diagnostics themselves
+  // are evaluateSynthesisGate's own output (a real, still-live production unit); both fixtures
+  // and their exact expected advisories/reasons/counts move to the "evaluateSynthesisGate"
+  // describe block below as "computes advisory diagnostics on a clearing news-only card" and
+  // "blocks with an exact reasons/advisories/counts shape on thin, source-diverse citations".
+  // "without calling synthesize or verify" is inherent post-refactor: evaluateSynthesisGate's
+  // signature does not accept either function, so there is nothing for it to call.
 
   it("ignores unexpected top-level extracted section keys", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
@@ -1322,10 +1221,8 @@ describe("generateCardForDomain", () => {
     });
   });
 
-  it("returns extraction and synthesis trace patches", async () => {
+  it("returns an extraction trace patch from the assembly-only path", async () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
-    const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
-    const bullCase = { text: "The company has a clear infrastructure wedge. [c1]", citationIds: ["c1"] };
 
     const result = await generateCardForDomainWithTrace("cartesia.ai", {
       fetchSources: async () => [
@@ -1345,18 +1242,7 @@ describe("generateCardForDomain", () => {
         signals: [],
         comparables: [],
         citations: [citation]
-      }),
-      synthesize: async () => ({
-        whyItMatters,
-        bullCase: [bullCase],
-        bearCase: [],
-        openQuestions: [{ question: "What buyer owns expansion?", category: "buyer_budget" }]
-      }),
-      verify: async () => [
-        { ...whyItMatters, status: "supported" },
-        { ...bullCase, status: "unsupported" }
-      ],
-      synthesisRequired: true
+      })
     });
 
     expect(result.tracePatch.extraction).toMatchObject({
@@ -1368,6 +1254,42 @@ describe("generateCardForDomain", () => {
       providerFactAppliedCount: 0,
       providerFactPaths: []
     });
+    expect(result.tracePatch.synthesis).toBeUndefined();
+  });
+
+  it("returns a synthesis trace patch from verifyCardSynthesisDraft, including usefulness-gate diagnostics", async () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const whyItMatters = { text: "Cartesia has cited public product evidence. [c1]", citationIds: ["c1"] };
+    const bullCase = { text: "The company has a clear infrastructure wedge. [c1]", citationIds: ["c1"] };
+
+    const card = await generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation]
+      })
+    });
+
+    const draft = await synthesizeCardDraft(card, {
+      synthesize: async () => ({
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns expansion?", category: "buyer_budget" }]
+      })
+    });
+    const result = await verifyCardSynthesisDraft(card, draft, {
+      verify: async () => [
+        { ...whyItMatters, status: "supported" },
+        { ...bullCase, status: "unsupported" }
+      ],
+      synthesisRequired: true
+    });
+
     expect(result.tracePatch.synthesis).toEqual({
       required: true,
       produced: true,
@@ -1783,6 +1705,80 @@ describe("split synthesize/verify units", () => {
       expect(outcome.blocked).toBe(false);
       expect(outcome.card).toBe(card);
       expect(outcome.card.synthesisWithheld).toBeUndefined();
+    });
+
+    // Migrated from "produces synthesis for a previously-gated news-only card and records
+    // advisory diagnostics" (packages/pipeline/tests/generate-card.test.ts, pre-Task-1): that test
+    // drove this same all-news, 8-citation shape through the deleted combined
+    // generateCardForDomainWithTrace path. The advisory computation is evaluateSynthesisGate's
+    // own output; this asserts its exact shape directly on the real unit.
+    it("computes advisory diagnostics (single source class, no funding, no named team) on a clearing news-only card", async () => {
+      // synthesisEvidenceGate short-circuits to { ok: true } with no `gate` field at all when
+      // ANALYSIS_SYNTHESIS_MIN_CITATIONS <= 0 (the file-level beforeEach default). The gate
+      // diagnostics this test asserts only exist once a real floor is in effect.
+      process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
+      const citations = Array.from({ length: 8 }, (_, index) => ({
+        ...citation,
+        id: `c${index + 1}`,
+        url: `https://example.com/cartesia-news-${index + 1}`,
+        title: `Cartesia coverage ${index + 1}`,
+        sourceType: "news" as const
+      }));
+      const card = await assembledCard(citations);
+
+      const outcome = evaluateSynthesisGate(card, { synthesisRequired: true });
+
+      expect(outcome.blocked).toBe(false);
+      expect(outcome.gate).toEqual({
+        blocked: false,
+        reasons: [],
+        advisories: ["single-source-class", "no-funding-evidence", "no-named-team"],
+        citationCount: 8,
+        sourceTypeCount: 1,
+        hasFundingEvidence: false,
+        hasNamedTeamMember: false
+      });
+    });
+
+    // Migrated from "gates required synthesis before LLM calls when analysis evidence is weak"
+    // (same file, pre-Task-1): a thinner, source-diverse fixture than the "thin evidence" test
+    // above, kept as a distinct case because it exercises a different sourceTypeCount and a fuller
+    // advisories list.
+    it("blocks with an exact reasons/advisories/counts shape on thin, source-diverse citations", async () => {
+      process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
+      const citations: ExtractedCardSections["citations"] = [
+        { ...citation, id: "c1", url: "https://cartesia.ai", title: "Cartesia" },
+        { ...citation, id: "c2", url: "https://example.com/cartesia", title: "Cartesia profile", sourceType: "news" as const },
+        { ...citation, id: "c3", url: "https://example.com/cartesia-funding", title: "Cartesia funding", sourceType: "news" as const }
+      ];
+      const card = await assembledCard(citations);
+
+      const outcome = evaluateSynthesisGate(card, { synthesisRequired: true });
+
+      expect(outcome.blocked).toBe(true);
+      expect(outcome.tracePatch.synthesis).toEqual({
+        required: true,
+        produced: false,
+        claimCountBeforeVerify: 0,
+        claimCountAfterVerify: 0,
+        gateMessage: "insufficient evidence for synthesis",
+        gate: {
+          blocked: true,
+          reasons: ["citation-floor"],
+          advisories: ["no-funding-evidence", "no-named-team"],
+          citationCount: 3,
+          sourceTypeCount: 2,
+          hasFundingEvidence: false,
+          hasNamedTeamMember: false
+        }
+      });
+      expect(outcome.card.synthesisWithheld).toEqual({
+        at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+        reasons: ["citation-floor"],
+        advisories: ["no-funding-evidence", "no-named-team"],
+        citationCount: 3,
+        sourceTypeCount: 2
+      });
     });
   });
 });

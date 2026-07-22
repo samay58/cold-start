@@ -59,7 +59,10 @@ export class GenerateCardTraceError extends Error {
   }
 }
 
-type BaseGenerateCardDeps = {
+// Assembly-only deps: fetch, extract, and block-enrich a card. Synthesis and verification run
+// as their own Inngest steps (apps/web/src/inngest/functions.ts) via the separately-callable
+// synthesizeCardDraft and verifyCardSynthesisDraft below; this type never carries synthesis deps.
+export type GenerateCardDeps = {
   researchPlan?: ProviderResearchPlan;
   providerFacts?: ProviderFactCandidate[];
   skipBlockEnrichment?: boolean;
@@ -81,22 +84,8 @@ type BaseGenerateCardDeps = {
   costLines?: CostLine[];
 };
 
-type WithoutSynthesisDeps = {
-  synthesize?: never;
-  verify?: never;
-};
-
-type WithSynthesisDeps = {
-  synthesize(card: ColdStartCard): Promise<CardSynthesis>;
-  verify(claims: SourcedText[], sources: VerificationSource[]): Promise<VerificationResult[]>;
-  synthesisRequired?: boolean;
-};
-
-export type GenerateCardDeps = BaseGenerateCardDeps & (WithoutSynthesisDeps | WithSynthesisDeps);
-
-function hasSynthesisDeps(deps: GenerateCardDeps): deps is BaseGenerateCardDeps & WithSynthesisDeps {
-  return typeof deps.synthesize === "function" && typeof deps.verify === "function";
-}
+type SynthesizeCardFn = (card: ColdStartCard) => Promise<CardSynthesis>;
+type VerifySynthesisFn = (claims: SourcedText[], sources: VerificationSource[]) => Promise<VerificationResult[]>;
 
 function analysisSynthesisMinCitations() {
   const value = Number.parseInt(process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS ?? "8", 10);
@@ -606,7 +595,7 @@ async function runBlockEnrichments(
     domain: string;
     researchPlan?: ProviderResearchPlan;
     sources: ProviderSource[];
-    enrichSections?: BaseGenerateCardDeps["enrichSections"];
+    enrichSections?: GenerateCardDeps["enrichSections"];
   }
 ): Promise<{
   sections: ExtractedCardSections;
@@ -739,7 +728,7 @@ export type SynthesisDraft = {
 // `synthesize-card`, Phase 4 Task 5.2) so a verify retry never re-pays for it.
 export async function synthesizeCardDraft(
   card: ColdStartCard,
-  deps: { synthesize: WithSynthesisDeps["synthesize"] }
+  deps: { synthesize: SynthesizeCardFn }
 ): Promise<SynthesisDraft> {
   const synthesis = synthesisSchema.parse(await deps.synthesize(card));
   const claimCountBeforeVerify = allSynthesisClaims(synthesis).length;
@@ -752,7 +741,7 @@ export async function synthesizeCardDraft(
 export async function verifyCardSynthesisDraft(
   card: ColdStartCard,
   draft: SynthesisDraft,
-  deps: { verify: WithSynthesisDeps["verify"]; synthesisRequired?: boolean }
+  deps: { verify: VerifySynthesisFn; synthesisRequired?: boolean }
 ): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
   const { synthesis, claimCountBeforeVerify } = draft;
   const citationSources = card.citations.map((citation) => ({
@@ -805,17 +794,6 @@ export async function verifyCardSynthesisDraft(
     tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
   }
   return { tracePatch, synthesis: gated.synthesis };
-}
-
-// Reference composition of the combined synthesize-then-verify flow. Production runs the two
-// halves as separate Inngest steps (apps/web/src/inngest/functions.ts) and no longer passes
-// synthesis deps into the pipeline; this path stays for tests and non-Inngest callers.
-async function verifiedSynthesisForCard(
-  card: ColdStartCard,
-  deps: WithSynthesisDeps
-): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
-  const draft = await synthesizeCardDraft(card, deps);
-  return verifyCardSynthesisDraft(card, draft, deps);
 }
 
 export async function generateCardForDomainWithTrace(
@@ -899,62 +877,6 @@ export async function generateCardForDomainWithTrace(
     } as ColdStartCard)
   );
 
-  if (hasSynthesisDeps(deps)) {
-    let verifiedSynthesis: CardSynthesis | undefined;
-
-    const gateOutcome = evaluateSynthesisGate(card, { synthesisRequired: deps.synthesisRequired === true });
-    if (gateOutcome.blocked) {
-      card = gateOutcome.card;
-      if (gateOutcome.tracePatch.synthesis) {
-        tracePatch.synthesis = gateOutcome.tracePatch.synthesis;
-      }
-    } else {
-      try {
-        const synthesisResult = await verifiedSynthesisForCard(card, deps);
-        if (synthesisResult.tracePatch.synthesis) {
-          tracePatch.synthesis = {
-            ...synthesisResult.tracePatch.synthesis,
-            ...(gateOutcome.gate ? { gate: gateOutcome.gate } : {})
-          };
-        }
-        verifiedSynthesis = synthesisResult.synthesis;
-      } catch (error) {
-        tracePatch.synthesis = {
-          required: deps.synthesisRequired === true,
-          produced: false,
-          claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
-          claimCountAfterVerify: 0,
-          ...(gateOutcome.gate ? { gate: gateOutcome.gate } : {})
-        };
-
-        if (deps.synthesisRequired) {
-          throw new GenerateCardTraceError(boundedCardError(error), tracePatch, { cause: error });
-        }
-      }
-    }
-
-    if (!verifiedSynthesis && deps.synthesisRequired && !gateOutcome.blocked) {
-      if (!tracePatch.synthesis) {
-        tracePatch.synthesis = {
-          required: true,
-          produced: false,
-          claimCountBeforeVerify: 0,
-          claimCountAfterVerify: 0
-        };
-      }
-
-      throw new GenerateCardTraceError("No synthesis claims survived verification", tracePatch);
-    }
-
-    if (verifiedSynthesis) {
-      // A run that reaches here produced synthesis, so any withheld record (from this
-      // same card build, or carried in from an earlier stage) is stale. Never let it
-      // survive alongside the synthesis it predates.
-      const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = card;
-      card = { ...cardWithoutWithheld, synthesis: verifiedSynthesis };
-    }
-  }
-
   card = coldStartCardSchema.parse(
     withResolvedCitationRefs({
       ...card,
@@ -975,7 +897,7 @@ export async function enrichExtractedSectionsForDomain(input: {
   researchPlan?: ProviderResearchPlan;
   sections: ExtractedCardSections;
   sources: ProviderSource[];
-  enrichSections?: BaseGenerateCardDeps["enrichSections"];
+  enrichSections?: GenerateCardDeps["enrichSections"];
 }) {
   const blockEnrichment = await runBlockEnrichments(input.sections, {
     domain: input.domain,
@@ -1004,14 +926,6 @@ export function cardWithExtractedSections(card: ColdStartCard, sections: Extract
       citations: sections.citations
     })
   );
-}
-
-function boundedCardError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message.slice(0, 1000);
-  }
-
-  return String(error).slice(0, 1000);
 }
 
 export async function generateCardForDomain(domain: string, deps: GenerateCardDeps): Promise<ColdStartCard> {
