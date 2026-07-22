@@ -70,7 +70,7 @@
     "domain": "deepinfra.com",
     "sectionId": null,
     "type": "synthesis.started",
-    "message": "Started investor synthesis",
+    "message": "Reading the filed evidence",
     "metadata": {},
     "createdAt": "2026-07-20T19:04:00.000Z"
   },
@@ -81,8 +81,8 @@
     "domain": "deepinfra.com",
     "sectionId": null,
     "type": "verify.started",
-    "message": "Started claim verification",
-    "metadata": {},
+    "message": "Verifying 6 claims against sources",
+    "metadata": { "claimCount": 6 },
     "createdAt": "2026-07-20T19:04:25.000Z"
   },
   {
@@ -92,8 +92,8 @@
     "domain": "deepinfra.com",
     "sectionId": null,
     "type": "verify.complete",
-    "message": "Verified investor claims",
-    "metadata": {},
+    "message": "5 claims survived",
+    "metadata": { "claimCount": 5 },
     "createdAt": "2026-07-20T19:04:38.000Z"
   },
   {

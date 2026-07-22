@@ -180,7 +180,7 @@ export function CompanyArc({
     <LayoutGroup id="cold-start-research-layer">
       <main className="cs-research-shell cs-arc" data-phase={arc.phase}>
         <AnimatePresence initial={false}>
-          {building ? (
+          {building || (profile && profile.analysisRun) ? (
             <motion.div
               animate={{ opacity: 1 }}
               className="cs-arc-mesh"

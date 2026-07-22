@@ -375,9 +375,10 @@ describe("SidePanel run lifecycle", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    // The resumed run reads as Investor Lens, one receipt, not generic research progress.
+    // The resumed run reads as Investor Lens, the watchable wait, not generic research progress.
+    // No events came back on this resumed status, so the stage plan starts honestly at Queue.
     expect(container.textContent).toContain("Investor Lens running");
-    expect(container.textContent).toContain("Weighing bull against bear");
+    expect(container.textContent).toContain("Queued for analysis");
     expect(container.textContent).not.toContain("Longer runs continue");
     expect(container.textContent).not.toContain(legacyAnalysisLabel);
     expect(generateCalls(fetchMock)).toHaveLength(0);

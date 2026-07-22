@@ -1390,9 +1390,9 @@ test("keyboard activation runs the investor lens", async ({ page }) => {
   expect(generationRequests).toHaveLength(0);
   await page.keyboard.press("Enter");
 
-  // The lens slot swaps to the running receipt while the one analysis run works.
-  await expect(page.locator(".cs-lens-running")).toBeVisible();
-  await expect(page.locator(".cs-lens-running")).toContainText("Investor Lens running");
+  // The lens slot swaps to the watchable wait while the one analysis run works.
+  await expect(page.locator(".cs-wait")).toBeVisible();
+  await expect(page.locator(".cs-wait")).toContainText("Investor Lens running");
   await page.locator(".cs-lens-slot").screenshot({ path: "/private/tmp/cold-start-lens-running.png" });
   await expect.poll(() => generationRequests).toMatchObject([
     { confirmStart: true, domain: "browserbase.com", mode: "analysis" }

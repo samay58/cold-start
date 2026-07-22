@@ -103,54 +103,183 @@
   color: rgb(var(--cs-c-45-42-36-text) / 0.55);
 }
 
-.cs-lens-running {
-  display: flex;
-  align-items: flex-start;
+/*
+ * The watchable wait (AnalysisWaitInstrument.tsx): a small fixed stage vocabulary (Queue,
+ * Gather, Read, Verify, File), driven only by real generation events, never a percentage or
+ * elapsed time (gold-standard-references.md, waiting UX track). Carries the same plate/border/
+ * sheen language every other lens-slot state uses. One signature loop at a time: only the
+ * current stage's mark animates (cs-wait-mark[data-status="current"] below); the ambient mesh
+ * behind the panel (ProgressBackground, mounted by CompanyArc while an analysis run is active)
+ * is the other half of DESIGN.md's "one loop" allowance.
+ */
+.cs-wait {
+  display: grid;
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
 }
 
-.cs-lens-running-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  margin-top: 5px;
-  border-radius: 2px;
-  background: var(--color-seal);
-  animation: cs-dot-pulse 1400ms ease-in-out infinite;
+.cs-wait-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.cs-lens-running div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.cs-lens-running strong {
+.cs-wait-head strong {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 620;
 }
 
-.cs-lens-running small {
+/* Receipt role: elapsed time only, never the stage state itself. At Textual, tabular. */
+.cs-wait-elapsed {
+  flex: none;
   color: var(--color-muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.32px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Reduce is a reduction, never a freeze: the running dot is an essential still-working
+.cs-wait-stages {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-wait-stage {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  opacity: 0.52;
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Reduced motion still ticks stages by opacity fade (the only motion this row ever used), so
+   no reduced-motion override is needed here: it is already transform-free. */
+.cs-wait-stage[data-status="current"],
+.cs-wait-stage[data-status="done"] {
+  opacity: 1;
+}
+
+.cs-wait-stage[data-status="skipped"] {
+  opacity: 0.32;
+}
+
+.cs-wait-stage-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cs-wait-stage-copy strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 620;
+  line-height: 1.2;
+}
+
+.cs-wait-stage[data-status="current"] .cs-wait-stage-copy strong {
+  color: var(--color-seal);
+}
+
+.cs-wait-stage-copy span {
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.cs-wait-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--color-rule-strong);
+}
+
+.cs-wait-mark svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.cs-wait-mark[data-status="done"] {
+  color: var(--color-verified);
+}
+
+.cs-wait-mark[data-status="skipped"]::before {
+  display: block;
+  width: 8px;
+  height: 1px;
+  background: var(--color-rule-strong);
+  content: "";
+}
+
+/* The one signature loop: only the current stage's mark animates. Everything else on this
+   surface, including every other stage row, is a static state. */
+.cs-wait-mark[data-status="current"]::before {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-seal);
+  content: "";
+  animation: cs-dot-pulse 1400ms ease-in-out infinite;
+}
+
+/* Reduce is a reduction, never a freeze: the current-stage mark is an essential still-working
    indicator (same rule signals.css already applies to .cs-active-dot's running state), so it
    keeps a slow opacity breath instead of stopping. cs-reduced-breathe is defined once, in
    signals.css, and shared by every reduced-motion "still working" indicator in this panel. */
 @media (prefers-reduced-motion: reduce) {
-  .cs-lens-running-dot {
+  .cs-wait-mark[data-status="current"]::before {
     animation: cs-reduced-breathe 1.6s ease-in-out infinite;
   }
+}
+
+/* Verify's signature moment: claims stamp in one by one as marks, not text -- the verifier's
+   verdict is final, and the stamp count is the only new fact this surface states about it. */
+.cs-wait-stamps {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0 0 25px;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-wait-stamp {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--color-seal);
+}
+
+.cs-wait-stamps-more {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
 }
 
 .cs-lens-failed {

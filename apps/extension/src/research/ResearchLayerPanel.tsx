@@ -24,6 +24,7 @@ import {
 import { showPartialProfileGate, sourceLabel } from "../company/company-display";
 import { LENS_RUN_FAILED_NOTICE, formatElapsed } from "../shared/extension-format";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
+import { AnalysisWaitInstrument } from "./AnalysisWaitInstrument";
 import { investorReadForCard, LENS_WAITS_FOR_PROFILE_REASON } from "./investor-lens";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "./InvestorReadCard";
 import { LensWithheldCard } from "./LensWithheldCard";
@@ -164,15 +165,6 @@ function writePinnedLayerIds(domain: string, ids: ResearchLayerId[]) {
 
 function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
   return status === "ready" || status === "stale" || status === "failed" || status === "empty";
-}
-
-// The lens running receipt quotes the latest real event from the analysis run when the
-// server has reported one; otherwise it states what the one run weighs.
-function latestAnalysisEventMessage(events: ExtensionResearchRunEvent[]) {
-  const analysisEvents = events
-    .filter((event) => event.metadata.mode === "analysis" && event.message.trim().length > 0)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
-  return analysisEvents.at(-1)?.message ?? null;
 }
 
 function LayerContent({
@@ -367,27 +359,6 @@ function InvestorLensControl({
       >
         Run Investor Lens
       </button>
-    </div>
-  );
-}
-
-function LensRunningCard({
-  elapsedSeconds,
-  latestEventMessage
-}: {
-  elapsedSeconds: number;
-  latestEventMessage: string | null;
-}) {
-  return (
-    <div aria-label="Investor Lens running" className="cs-lens-running" role="status">
-      <span className="cs-lens-running-dot" aria-hidden="true" />
-      <div>
-        <strong>Investor Lens running</strong>
-        <small aria-live="polite">
-          {latestEventMessage ?? "Weighing bull against bear, checking timing support, ranking the next question."}
-          {` · ${formatElapsed(elapsedSeconds)}`}
-        </small>
-      </div>
     </div>
   );
 }
@@ -776,7 +747,6 @@ export function ResearchLayerPanel({
   // The withheld and run-failed outcomes each carry their own receipt in the lens slot; only a
   // real, unclassified notice keeps the generic research-status box below.
   const visibleAnalysisNotice = analysisNotice === LENS_RUN_FAILED_NOTICE ? undefined : analysisNotice;
-  const lensEventMessage = latestAnalysisEventMessage(events);
 
   // The identity header and the early read render above this panel in the CompanyArc shell;
   // the gate here only decides between the research layer and the honest partial state.
@@ -794,7 +764,13 @@ export function ResearchLayerPanel({
           <LensSlot
             prefersReducedMotion={prefersReducedMotion}
             result={investorRead ? <InvestorReadCard card={card} read={investorRead} tooltipProps={tooltipProps} /> : null}
-            running={<LensRunningCard elapsedSeconds={elapsedSeconds} latestEventMessage={lensEventMessage} />}
+            running={
+              <AnalysisWaitInstrument
+                elapsedSeconds={elapsedSeconds}
+                events={events}
+                prefersReducedMotion={prefersReducedMotion}
+              />
+            }
             state={lensSlotState}
             trigger={
               <>

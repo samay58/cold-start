@@ -155,4 +155,21 @@ describe("running-events.json", () => {
       expect(at).toBeLessThan(Date.parse(cardSavedAt!));
     }
   });
+
+  // Task 5.5 corrected these three events to match the real production payload
+  // (apps/web/src/inngest/functions.ts): synthesis.started's fixed "Reading the filed evidence"
+  // copy, and metadata.claimCount on verify.started/verify.complete (the field
+  // AnalysisWaitInstrument's verify stamp count binds to). The original Task 3.1 fixture had
+  // different prose and no metadata on any of the three.
+  it("matches the real synthesis/verify event payload shape from functions.ts", () => {
+    const events = runningEvents();
+    const started = events.find((event) => event.type === "synthesis.started");
+    const verifyStarted = events.find((event) => event.type === "verify.started");
+    const verifyComplete = events.find((event) => event.type === "verify.complete");
+
+    expect(started?.message).toBe("Reading the filed evidence");
+    expect(verifyStarted?.metadata.claimCount).toBe(6);
+    expect(verifyComplete?.metadata.claimCount).toBe(5);
+    expect(verifyComplete?.message).toBe("5 claims survived");
+  });
 });

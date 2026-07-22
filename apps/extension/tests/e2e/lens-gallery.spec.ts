@@ -78,6 +78,13 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const running = page.getByLabel("Investor Lens running");
       await expect(running).toBeVisible();
+      // The fixture's full event stream (through card.saved/generation.complete) is served on
+      // every poll tick by this phase's static route mock, so by the time the gallery screenshots
+      // it the stage list has advanced all the way to File, with the Verify stage's stamp marks
+      // visible from the fixture's 5-survivor verify.complete event.
+      await expect(running.locator(".cs-wait-stage[data-status='done']")).toHaveCount(4);
+      await expect(running.locator(".cs-wait-stage-copy strong", { hasText: "File" })).toBeVisible();
+      await expect(running.locator(".cs-wait-stamp")).toHaveCount(5);
     }
   },
   failed: {

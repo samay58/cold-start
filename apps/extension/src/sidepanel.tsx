@@ -664,13 +664,20 @@ export function SidePanel() {
     generationStatus: "queued" | "running",
     runStartedAt: string | undefined,
     latestCard: ColdStartCard,
-    latestSections: ResearchSection[]
+    latestSections: ResearchSection[],
+    initialEvents: ExtensionResearchRunEvent[] = []
   ) => {
     const startedAt = startedAtMs(runStartedAt);
+    // Backscroll on reconnect (gold-standard-references.md, waiting UX track): a panel reopened
+    // mid-run seeds from the bootstrap's own recorded events instead of mounting the wait
+    // instrument blank until the next poll tick. The per-tick callback below then keeps replacing
+    // this with the poll's own authoritative events array, falling back to whatever was already in
+    // state (never dropping to undefined) when a given tick's status update omits it.
     setRequestState({
       status: "success",
       card: latestCard,
       sections: latestSections,
+      events: initialEvents,
       analysisRun: { generationStatus, startedAt }
     });
 
@@ -679,16 +686,20 @@ export function SidePanel() {
       generationSettings,
       controller.signal,
       "analysis",
-      (nextGenerationStatus) => {
+      (nextGenerationStatus, update) => {
         if (!controller.signal.aborted) {
-          setRequestState({
-            status: "success",
-            card: latestCard,
-            sections: latestSections,
-            analysisRun: {
-              generationStatus: nextGenerationStatus === "queued" ? "queued" : "running",
-              startedAt
-            }
+          setRequestState((current) => {
+            const events = update?.events ?? (current.status === "success" ? current.events : initialEvents);
+            return {
+              status: "success",
+              card: latestCard,
+              sections: latestSections,
+              ...(events ? { events } : {}),
+              analysisRun: {
+                generationStatus: nextGenerationStatus === "queued" ? "queued" : "running",
+                startedAt
+              }
+            };
           });
         }
       },
@@ -741,11 +752,12 @@ export function SidePanel() {
       true,
       currentState.card,
       currentState.sections,
-      (generationStatus) => {
+      (generationStatus, update) => {
         if (!controller.signal.aborted) {
           setRequestState((current) => current.status === "success"
             ? {
                 ...current,
+                ...(update?.events ? { events: update.events } : {}),
                 analysisRun: {
                   generationStatus: generationStatus === "queued" ? "queued" : "running",
                   startedAt
@@ -939,7 +951,16 @@ export function SidePanel() {
 
           const analysisStatus = bootstrap.runs.analysis;
           if (shouldResumeAnalysisRun(card, analysisStatus.status)) {
-            resumeAnalysisWithController(controller, domain, settings, analysisStatus.status, analysisStatus.startedAt, card, bootstrapSections);
+            resumeAnalysisWithController(
+              controller,
+              domain,
+              settings,
+              analysisStatus.status,
+              analysisStatus.startedAt,
+              card,
+              bootstrapSections,
+              analysisStatus.events ?? []
+            );
             return;
           }
 

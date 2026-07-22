@@ -93,18 +93,21 @@ export type LensGalleryRunningEvent = {
 // running-events.json: the real deepinfra.com 2026-07-20 analysis run's 6 events
 // (research_run_events, read-only prod query), plus a synthetic 3-event tail
 // (synthesis.started, verify.started, verify.complete) inserted into the real ~50s gap between
-// source.found and card.saved. These are the exact Phase 4 event names; the backend does not
-// emit them yet, so today's ResearchLayerPanel does not render anything special from them (its
-// analysisRun-resume path does not thread events through at all, a pre-existing gap left for
-// Phase 4 to close). This fixture exists so that future work has a stable, deterministic input
-// to build and screenshot against before the backend catches up.
+// source.found and card.saved. Task 5.2 now emits these three event types for real (see
+// apps/web/src/inngest/functions.ts); the survivor-count metadata shape on this fixture's
+// verify.complete row was corrected in Task 5.5 to match that real payload
+// (metadata.claimCount), which the original fixture omitted. Task 5.5 also closed the
+// resumeAnalysisWithController/runAnalysisGenerationWithController gap that used to drop these
+// events on the floor, so AnalysisWaitInstrument (research/AnalysisWaitInstrument.tsx, which
+// replaced ResearchLayerPanel's old LensRunningCard) now renders a real, event-driven stage list
+// from this fixture.
 export function runningEvents(): LensGalleryRunningEvent[] {
   return structuredClone(require("../fixtures/lens-phases/running-events.json")) as LensGalleryRunningEvent[];
 }
 
 // The analysis run's startedAt feeds a live wall-clock elapsed-seconds ticker in
-// LensRunningCard (formatElapsed(Date.now() - startedAt)), a presentation-only value distinct
-// from running-events.json's frozen event timestamps above. Anchoring it to the real prod
+// AnalysisWaitInstrument (formatElapsed(Date.now() - startedAt)), a presentation-only value
+// distinct from running-events.json's frozen event timestamps above. Anchoring it to the real prod
 // timestamp would make the gallery screenshot show an ever-growing, increasingly absurd elapsed
 // time on every later run; anchoring it to "now minus a fixed offset" instead keeps the
 // screenshot readable regardless of when the gallery runs, matching the
