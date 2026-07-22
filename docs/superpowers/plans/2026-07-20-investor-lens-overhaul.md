@@ -514,9 +514,11 @@ Before any re-fetch change: trace the reuse-path data flow. `synthesize` provabl
 - Modify: `apps/extension/src/sidepanel-network.ts` (analysis branch :468-491 stops fetching the full card body every tick; card fetch only on `card.saved`/`generation.complete`/`synthesis`-bearing events plus a fallback every 6th tick, mirroring `shouldFetchCardForActiveBasics` :247)
 - Test: existing polling tests in the extension suite extend to assert fetch counts per event script
 
-- [ ] **Step 1-4: TDD as above.** No contract change (request shapes unchanged).
-- [ ] **Step 5: Dispatch look (timeboxed 2h):** baseline says queued-to-started ~3s median. If the Task 1.7 report shows p90 dispatch above ~10s, investigate Inngest app polling config; otherwise record "not material" and close.
-- [ ] **Step 6: Commit.**
+- [x] **Step 1-4: TDD as above.** No contract change (request shapes unchanged).
+- [x] **Step 5: Dispatch look (timeboxed 2h):** baseline says queued-to-started ~3s median. If the Task 1.7 report shows p90 dispatch above ~10s, investigate Inngest app polling config; otherwise record "not material" and close.
+- [x] **Step 6: Commit.**
+
+**Done (2026-07-22):** Commit `de8d048`. Extension 286/286 incl. audit:css; the two 91c7175 polling-race tests untouched and green, and the reviewer walked both completion sequences (withheld and ordinary) confirming the event-gating cannot end the loop without the final card fetch. Trigger set: tick 1 always fetches (required by the locked race test's zero-status-call case; one initial fetch is immaterial against the per-tick waste being trimmed), then card.saved, generation.complete, and synthesis-bearing events, with an every-6th-tick fallback; quiet ticks 2-5 provably do not fetch (mock-level network counts). **Finding (dispatch):** the baseline's right-skewed dispatch (mean 13.6s, p50 7.5s, outliers to 73s) has no app-side lever: Inngest v4.13's serve options expose no batching or polling knobs and generate-card carries no concurrency cap of ours; the latency is Inngest Cloud scheduling. Recorded as a finding with the account-tier conversation named as the real path; zero code changed for it.
 
 ### Task 5.5: The watchable wait
 
