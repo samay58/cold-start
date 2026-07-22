@@ -487,4 +487,28 @@ describe("generate-card analysis synthesize/verify steps", () => {
     // failure is a downstream business decision (analysis requires usable synthesis), not an LLM error.
     expect(types).toContain("verify.complete");
   });
+
+  // Item 2 (schema null-tolerance) fix: documents current semantics for a schema-shaped failure,
+  // which item 3 (transient-vs-semantic step classification) keeps unchanged. synthesizeCardStepBody
+  // catches every error from synthesizeCardDraft into { ok: false } today (generation-helpers.ts);
+  // a ZodError from a malformed synthesize response is one such error. Item 3 classifies ZodError as
+  // semantic (not transport-transient), so it keeps this exact behavior: memoized { ok: false }, then
+  // a function-level throw, never a step re-throw for Inngest to retry.
+  it("surfaces a malformed synthesize response as a memoized synthesize-card failure, and the run throws", async () => {
+    // Missing whyItMatters/bullCase/bearCase/openQuestions: synthesisSchema.parse (inside
+    // synthesizeCardDraft) rejects this with a ZodError before verify-synthesis ever runs.
+    mocks.synthesizeCard.mockResolvedValue({ marketStructureAndTiming: null });
+
+    await expect(runAnalysisGeneration()).rejects.toThrow();
+
+    expect(mocks.verifySynthesis).not.toHaveBeenCalled();
+    expect(mocks.upsertCard).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "failed" })
+    );
+
+    const trace = persistedTrace();
+    expect(trace.steps?.["synthesize-card"]?.status).toBe("failed");
+  });
 });

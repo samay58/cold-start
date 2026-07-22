@@ -147,7 +147,16 @@ export const synthesisSchema = z.object({
   bullCase: z.array(sourcedTextSchema),
   bearCase: z.array(sourcedTextSchema),
   openQuestions: z.array(openQuestionEntrySchema),
-  marketStructureAndTiming: marketStructureAndTimingSchema.optional()
+  // The synthesis prompt tells the model "use null when sources do not support a field" for the
+  // fields inside this container; models sometimes null the whole container instead of its seven
+  // fields. Coerce that null to undefined before validating so it means the same thing as an
+  // omitted key, rather than a permanent parse failure (packages/llm/src/synthesis.ts prompt and
+  // tool schema already tolerate this per-field; this preprocess extends the same tolerance to
+  // the container itself without widening the parsed type away from `| undefined`).
+  marketStructureAndTiming: z.preprocess(
+    (value) => (value === null ? undefined : value),
+    marketStructureAndTimingSchema.optional()
+  )
 });
 
 // Durable record of a synthesis-floor block: written by the pipeline when the gate refuses
