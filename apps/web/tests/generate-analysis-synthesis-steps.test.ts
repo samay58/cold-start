@@ -230,7 +230,34 @@ function stepHarness() {
   };
 }
 
-async function runAnalysisGeneration() {
+// Simulates Inngest's own step memoization for the replay test below: a step whose callback
+// resolves is cached by name and never re-invoked on a later call; a step whose callback throws
+// is not cached, so a later call re-invokes it for real (matching the real durable-execution
+// replay model: completed steps replay from history, a failed step is retried).
+function memoizingStepHarness() {
+  const memo = new Map<string, unknown>();
+  const names: string[] = [];
+  const sendEvent = vi.fn(async (name: string) => {
+    names.push(name);
+  });
+  return {
+    names,
+    step: {
+      run: vi.fn(async (name: string, fn: () => unknown) => {
+        names.push(name);
+        if (memo.has(name)) {
+          return memo.get(name);
+        }
+        const result = await fn();
+        memo.set(name, result);
+        return result;
+      }),
+      sendEvent
+    }
+  };
+}
+
+async function runAnalysisGeneration(harness: ReturnType<typeof stepHarness> = stepHarness()) {
   vi.resetModules();
   process.env.DATABASE_URL = "postgres://cold-start-test";
   process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
@@ -238,7 +265,6 @@ async function runAnalysisGeneration() {
   delete process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS;
 
   const { generateCardHandler } = await import("../src/inngest/functions");
-  const harness = stepHarness();
   await generateCardHandler({
     event: {
       id: "evt_modal",
@@ -510,5 +536,47 @@ describe("generate-card analysis synthesize/verify steps", () => {
 
     const trace = persistedTrace();
     expect(trace.steps?.["synthesize-card"]?.status).toBe("failed");
+  });
+
+  // Item 3 (transient-vs-semantic step failures): synthesizeCardStepBody and
+  // verifySynthesisStepBody (generation-helpers.ts) now re-throw a transient transport failure
+  // (isTransientLlmError, packages/llm/src/transient-error.ts) instead of memoizing it as
+  // { ok: false }. This closes the documented Task 5.2 coverage gap by proving the durable-
+  // execution consequence directly: replaying a run after a transient verify-synthesis failure
+  // must never re-pay for synthesize-card.
+  it("replays a memoized synthesize-card result on a transient verify-synthesis retry, never re-paying synthesis", async () => {
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [bullCase],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    // Shaped exactly like the error packages/llm/src/openai-compat.ts throws after its own
+    // in-process retry loop is exhausted on a sustained 529 (isTransientLlmError parses the
+    // status back out of this exact message format).
+    mocks.verifySynthesis.mockRejectedValueOnce(new Error("openai-compat request failed with 529: overloaded"));
+    mocks.verifySynthesis.mockResolvedValueOnce([
+      { ...whyItMatters, status: "supported" },
+      { ...bullCase, status: "supported" }
+    ]);
+
+    const harness = memoizingStepHarness();
+
+    // First invocation: synthesize-card succeeds and is memoized; verify-synthesis throws a
+    // transient error, so it re-throws out of step.run instead of memoizing { ok: false }, and
+    // the run fails the way Inngest would see the step itself fail.
+    await expect(runAnalysisGeneration(harness)).rejects.toThrow();
+
+    expect(mocks.synthesizeCard).toHaveBeenCalledTimes(1);
+    expect(mocks.verifySynthesis).toHaveBeenCalledTimes(1);
+
+    // Second invocation on the SAME harness simulates Inngest replaying the run after retrying
+    // the failed step: synthesize-card replays its memoized result without touching the LLM
+    // mock again, while verify-synthesis actually re-executes, since it never completed
+    // successfully before, and this time succeeds.
+    await runAnalysisGeneration(harness);
+
+    expect(mocks.synthesizeCard).toHaveBeenCalledTimes(1);
+    expect(mocks.verifySynthesis).toHaveBeenCalledTimes(2);
   });
 });

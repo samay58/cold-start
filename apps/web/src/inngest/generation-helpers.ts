@@ -9,6 +9,7 @@ import {
 } from "@cold-start/core";
 import {
   createAnthropicClient,
+  isTransientLlmError,
   synthesizeCard,
   verifySynthesis,
   type AnthropicTelemetrySink
@@ -103,9 +104,13 @@ export function createStepLlmTelemetryCollector() {
 
 // Pure step bodies for the split synthesize/verify steps (Phase 4 Task 5.2). Each wraps its
 // pipeline call in the same catch-and-memoize-as-value pattern already used for the generate-card
-// step body (see runCardAttempt in functions.ts): a real LLM failure or an unusable synthesis
-// result becomes an `{ ok: false }` step output rather than a thrown error, so it is memoized
-// once and a later function-level retry replays the failure without re-paying for the call.
+// step body (see runCardAttempt in functions.ts): an unusable synthesis result (bad schema, no
+// surviving claims) becomes an `{ ok: false }` step output rather than a thrown error, so it is
+// memoized once and a later function-level retry replays the failure without re-paying for the
+// call. A transient transport failure (Anthropic 529/429, network) is the opposite case: re-thrown
+// so Inngest retries the step itself on its own backoff schedule, rather than memoizing what would
+// otherwise be a sustained outage as a permanent run failure. See isTransientLlmError
+// (packages/llm/src/transient-error.ts) for the classification.
 export type SynthesizeCardStepResult =
   | { ok: true; value: SynthesisDraft }
   | { ok: false; error: string };
@@ -122,6 +127,9 @@ export async function synthesizeCardStepBody(input: {
     });
     return { ok: true, value: draft };
   } catch (error) {
+    if (isTransientLlmError(error)) {
+      throw error;
+    }
     return { ok: false, error: boundedErrorMessage(error) };
   }
 }
@@ -145,6 +153,9 @@ export async function verifySynthesisStepBody(input: {
     });
     return { ok: true, value: result };
   } catch (error) {
+    if (isTransientLlmError(error)) {
+      throw error;
+    }
     return { ok: false, error: boundedErrorMessage(error) };
   }
 }
