@@ -52,6 +52,12 @@ type StartedEventRow = {
 
 type ExclusionReason = "no-trace" | "missing-milestones" | "missing-synthesis" | "empty-steps";
 
+// Task 5.3's ANALYSIS_SOURCE_REFRESH plan kind, read off the trace this run actually recorded
+// (providers.stableenrich.analysisSourceRefresh). A run older than that flag (or a basics run,
+// though this script's population is analysis-only) never wrote the field at all; it behaved
+// exactly like "full" always did (the unconditional 13-probe fetch), so absent buckets with full.
+type AnalysisSourceRefreshCohort = "full" | "targeted" | "skip";
+
 type IncludedRun = {
   slug: string;
   wallMs: number | null;
@@ -60,6 +66,7 @@ type IncludedRun = {
   stepMs: Record<string, number>;
   llmStageMs: Record<string, number>;
   finalizeMs: number | null;
+  cohort: AnalysisSourceRefreshCohort;
 };
 
 function loadEnvFile(path: string) {
@@ -214,8 +221,9 @@ function buildIncludedRun(run: RunRow, startedEventAt: Date | undefined): Includ
   // storage (upsert-card, record-card-evidence, record-research-sections, record-sources),
   // wallet-snapshot-after, and mark-generation-complete. Only computed when both anchors exist.
   const finalizeMs = wallMs !== null && dispatchMs !== null ? wallMs - dispatchMs - stepSum : null;
+  const cohort: AnalysisSourceRefreshCohort = trace.providers?.stableenrich?.analysisSourceRefresh ?? "full";
 
-  return { slug: run.slug, wallMs, analysisReadyMs, dispatchMs, stepMs, llmStageMs, finalizeMs };
+  return { slug: run.slug, wallMs, analysisReadyMs, dispatchMs, stepMs, llmStageMs, finalizeMs, cohort };
 }
 
 function collectByKey(rows: IncludedRun[], pick: (row: IncludedRun) => Record<string, number>) {
@@ -233,6 +241,65 @@ function collectByKey(rows: IncludedRun[], pick: (row: IncludedRun) => Record<st
 function pad(value: string, width: number) {
   return value.length >= width ? `${value.slice(0, width - 1)}…` : value.padEnd(width);
 }
+
+// Everything downstream of the included-run population: wall/analysisReadyMs percentiles, the
+// dispatch/finalize mean lanes, and the trace.steps/trace.llm.calls decomposition lanes. Shared by
+// the combined view and each ANALYSIS_SOURCE_REFRESH cohort so the two report the same statistics
+// on the same method, just over different row sets.
+function cohortSummary(runs: IncludedRun[]) {
+  const wallMsDist = distribution(runs.map((run) => run.wallMs).filter((value): value is number => value !== null));
+  const analysisReadyDist = distribution(
+    runs.map((run) => run.analysisReadyMs).filter((value): value is number => value !== null)
+  );
+  const dispatchLane = meanLane(runs.map((run) => run.dispatchMs).filter((value): value is number => value !== null));
+  const finalizeLane = meanLane(runs.map((run) => run.finalizeMs).filter((value): value is number => value !== null));
+  const stepsByKey = collectByKey(runs, (row) => row.stepMs);
+  const llmStagesByKey = collectByKey(runs, (row) => row.llmStageMs);
+
+  const stepLanes = [...stepsByKey.entries()]
+    .map(([name, values]) => ({ label: `step: ${name}`, ...meanLane(values) }))
+    .sort((left, right) => (right.mean ?? 0) - (left.mean ?? 0));
+  const llmLanes = [...llmStagesByKey.entries()]
+    .map(([stage, values]) => ({ label: `  llm: ${stage}`, ...meanLane(values) }))
+    .sort((left, right) => (right.mean ?? 0) - (left.mean ?? 0));
+
+  return {
+    n: runs.length,
+    wallMs: wallMsDist,
+    analysisReadyMs: analysisReadyDist,
+    decomposition: {
+      dispatchQueuedToStarted: dispatchLane,
+      steps: stepLanes.map(({ label, n, mean: meanValue, p50 }) => ({ label, n, mean: meanValue, p50 })),
+      llmStages: llmLanes.map(({ label, n, mean: meanValue, p50 }) => ({ label, n, mean: meanValue, p50 })),
+      finalize: finalizeLane
+    }
+  };
+}
+
+function printCohortSummary(title: string, summary: ReturnType<typeof cohortSummary>) {
+  console.log(title);
+  const percentileLane = (label: string, dist: ReturnType<typeof distribution>) =>
+    `${pad(label, 26)} n=${String(dist.n).padStart(4)}  p50=${formatMs(dist.p50).padStart(8)}  p90=${formatMs(dist.p90).padStart(8)}  max=${formatMs(dist.max).padStart(8)}`;
+  console.log(percentileLane("wall duration", summary.wallMs));
+  console.log(percentileLane("analysisReadyMs", summary.analysisReadyMs));
+  const meanLine = (label: string, lane: { n: number; mean: number | null; p50: number | null }) =>
+    `${pad(label, 26)} n=${String(lane.n).padStart(4)}  mean=${formatMs(lane.mean).padStart(8)}  p50=${formatMs(lane.p50).padStart(8)}`;
+  console.log(meanLine("dispatch (queued->started)", summary.decomposition.dispatchQueuedToStarted));
+  for (const lane of summary.decomposition.steps) {
+    console.log(meanLine(lane.label, lane));
+  }
+  for (const lane of summary.decomposition.llmStages) {
+    console.log(meanLine(lane.label, lane));
+  }
+  console.log(meanLine("finalize (residual)", summary.decomposition.finalize));
+  const stepSumLabel = summary.decomposition.steps.map((lane) => formatMs(lane.mean)).join(" + ");
+  console.log(
+    `sum check: dispatch(${formatMs(summary.decomposition.dispatchQueuedToStarted.mean)}) + [${stepSumLabel}] + finalize(${formatMs(summary.decomposition.finalize.mean)}) should land near mean wall duration`
+  );
+  console.log("");
+}
+
+const ANALYSIS_SOURCE_REFRESH_COHORTS: AnalysisSourceRefreshCohort[] = ["full", "targeted", "skip"];
 
 async function main() {
   loadEnv();
@@ -269,22 +336,10 @@ async function main() {
 
     const included = candidates.map((run) => buildIncludedRun(run, startedEventByRunId.get(run.id)));
 
-    const wallMsDist = distribution(included.map((run) => run.wallMs).filter((value): value is number => value !== null));
-    const analysisReadyDist = distribution(
-      included.map((run) => run.analysisReadyMs).filter((value): value is number => value !== null)
-    );
-
-    const dispatchLane = meanLane(included.map((run) => run.dispatchMs).filter((value): value is number => value !== null));
-    const finalizeLane = meanLane(included.map((run) => run.finalizeMs).filter((value): value is number => value !== null));
-    const stepsByKey = collectByKey(included, (row) => row.stepMs);
-    const llmStagesByKey = collectByKey(included, (row) => row.llmStageMs);
-
-    const stepLanes = [...stepsByKey.entries()]
-      .map(([name, values]) => ({ label: `step: ${name}`, ...meanLane(values) }))
-      .sort((left, right) => (right.mean ?? 0) - (left.mean ?? 0));
-    const llmLanes = [...llmStagesByKey.entries()]
-      .map(([stage, values]) => ({ label: `  llm: ${stage}`, ...meanLane(values) }))
-      .sort((left, right) => (right.mean ?? 0) - (left.mean ?? 0));
+    const combined = cohortSummary(included);
+    const byMode = Object.fromEntries(
+      ANALYSIS_SOURCE_REFRESH_COHORTS.map((cohort) => [cohort, cohortSummary(included.filter((run) => run.cohort === cohort))])
+    ) as Record<AnalysisSourceRefreshCohort, ReturnType<typeof cohortSummary>>;
 
     const summary = {
       window: { sinceDays, sinceIso, limit },
@@ -294,14 +349,13 @@ async function main() {
         excludedSlugs: excluded.map((row) => ({ slug: row.slug, reasons: row.reasons })),
         included: included.length
       },
-      wallMs: wallMsDist,
-      analysisReadyMs: analysisReadyDist,
-      decomposition: {
-        dispatchQueuedToStarted: dispatchLane,
-        steps: stepLanes.map(({ label, n, mean: meanValue, p50 }) => ({ label, n, mean: meanValue, p50 })),
-        llmStages: llmLanes.map(({ label, n, mean: meanValue, p50 }) => ({ label, n, mean: meanValue, p50 })),
-        finalize: finalizeLane
-      }
+      // Combined view kept at the top level for continuity with every report before this item
+      // (skip-fresh promoted to production 2026-07-20 is exactly why a blended report stopped
+      // being trustworthy: byMode below is the fix).
+      wallMs: combined.wallMs,
+      analysisReadyMs: combined.analysisReadyMs,
+      decomposition: combined.decomposition,
+      byMode
     };
 
     if (hasArg("--json")) {
@@ -322,28 +376,19 @@ async function main() {
     }
     console.log("");
     console.log("percentiles use nearest-rank (sort ascending, index = ceil(pct/100 * n) - 1)");
-    const percentileLane = (label: string, dist: ReturnType<typeof distribution>) =>
-      `${pad(label, 26)} n=${String(dist.n).padStart(4)}  p50=${formatMs(dist.p50).padStart(8)}  p90=${formatMs(dist.p90).padStart(8)}  max=${formatMs(dist.max).padStart(8)}`;
-    console.log(percentileLane("wall duration", wallMsDist));
-    console.log(percentileLane("analysisReadyMs", analysisReadyDist));
-    console.log("");
     console.log("mean per-step decomposition (queued-to-started, then trace.steps and trace.llm.calls stages found in the data);");
-    console.log("p50 rides along because these lanes are right-skewed by a handful of slow Inngest dispatches, a known pattern:");
-    const meanLine = (label: string, lane: { n: number; mean: number | null; p50: number | null }) =>
-      `${pad(label, 26)} n=${String(lane.n).padStart(4)}  mean=${formatMs(lane.mean).padStart(8)}  p50=${formatMs(lane.p50).padStart(8)}`;
-    console.log(meanLine("dispatch (queued->started)", dispatchLane));
-    for (const lane of stepLanes) {
-      console.log(meanLine(lane.label, lane));
-    }
-    for (const lane of llmLanes) {
-      console.log(meanLine(lane.label, lane));
-    }
-    console.log(meanLine("finalize (residual)", finalizeLane));
+    console.log("p50 rides along because these lanes are right-skewed by a handful of slow Inngest dispatches, a known pattern.");
     console.log("");
-    const stepSumLabel = stepLanes.map((lane) => formatMs(lane.mean)).join(" + ");
-    console.log(
-      `sum check: dispatch(${formatMs(dispatchLane.mean)}) + [${stepSumLabel}] + finalize(${formatMs(finalizeLane.mean)}) should land near mean wall duration`
-    );
+
+    console.log("=== by ANALYSIS_SOURCE_REFRESH cohort (providers.stableenrich.analysisSourceRefresh; absent = pre-flag = full) ===");
+    console.log("");
+    for (const cohort of ANALYSIS_SOURCE_REFRESH_COHORTS) {
+      printCohortSummary(`--- ${cohort} (n=${byMode[cohort].n}) ---`, byMode[cohort]);
+    }
+
+    console.log("=== combined (all cohorts) ===");
+    console.log("");
+    printCohortSummary(`combined (n=${combined.n})`, combined);
   } finally {
     await client.end();
   }
