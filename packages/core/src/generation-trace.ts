@@ -147,6 +147,11 @@ export type GenerationTrace = {
       failureCount: number;
       endpoints?: GenerationProviderEndpointTrace[];
       skippedProbeNames?: string[];
+      // ANALYSIS_SOURCE_REFRESH branch this fetch-sources step actually ran under. Absent on
+      // basics runs and on analysis runs before this flag existed; both cases mean "full" (today's
+      // unconditional fetch). "skip" means this run's stableenrich sources are substituted from
+      // stored rows, not freshly probed.
+      analysisSourceRefresh?: "full" | "targeted" | "skip";
       walletSnapshotBeforeUsd?: number;
       walletSnapshotAfterUsd?: number;
       walletDeltaUsd?: number;

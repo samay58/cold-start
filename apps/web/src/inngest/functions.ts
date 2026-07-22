@@ -13,6 +13,8 @@ import {
 import {
   createDb,
   findCardBySlug,
+  findSourcesBySlug,
+  isCardSignalsFresh,
   markGenerationRun,
   markResearchSectionFailed,
   recordResearchRunEvent,
@@ -89,6 +91,7 @@ import {
   prepareCardSnapshotForStorage
 } from "./card-storage";
 import {
+  analysisSourceRefreshModeFromProcess,
   contactEnrichmentEnabled,
   directExaEnvFromProcess,
   stableenrichEnvFromProcess
@@ -100,8 +103,10 @@ import {
   remainingAgentcashBudgetUsd
 } from "./provider-trace";
 import {
+  analysisSourceFetchPlan,
   fetchInitialSourcesForGeneration,
   fetchLateEnrichmentSources,
+  providerSourcesFromStoredSources,
   recordSourcesForCard,
   sectionsWithSourceCitations,
   stableenrichLateEnrichmentSkipsForBlocks
@@ -340,6 +345,21 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
     const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
 
+    // Task 5.3: ANALYSIS_SOURCE_REFRESH gates the unconditional 13-probe stableenrich re-fetch on
+    // the reuse branch. The signals-freshness DB read only fires for "skip-fresh" on the reuse
+    // branch, since it is the only combination that needs it: "full" always re-fetches everything,
+    // "targeted" always narrows regardless of freshness, and a non-reuse run always gets the full
+    // fetch (analysisSourceFetchPlan short-circuits on !reuseExistingForAnalysis).
+    const analysisSourceRefreshMode = analysisSourceRefreshModeFromProcess();
+    const signalsFresh = reuseExistingForAnalysis && analysisSourceRefreshMode === "skip-fresh"
+      ? await step.run("check-signals-freshness", () => isCardSignalsFresh(db, slug))
+      : false;
+    const sourceFetchPlan = analysisSourceFetchPlan({
+      reuseExistingForAnalysis,
+      signalsFresh,
+      refreshMode: analysisSourceRefreshMode
+    });
+
     currentStage = "fetch-sources";
     const sourceResult = await step.run("fetch-sources", async () => {
       const result = await timed(() =>
@@ -350,7 +370,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           runtimeEnv,
           stableEnv,
           directExaEnv,
-          agentcashBudgetCeiling
+          agentcashBudgetCeiling,
+          analysisSourceFetch: sourceFetchPlan,
+          loadStoredSourcesForSkip: () => findSourcesBySlug(db, slug).then(providerSourcesFromStoredSources)
         })
       );
       return {
@@ -368,6 +390,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     const acceptedSources = sourceResult.value.sources.filter(Boolean) as ProviderSource[];
     const sourceEvent = await recordEvent("sources-fetched", "source.found", `Found ${sourceResult.value.sources.length} accepted sources`, {
       acceptedCount: sourceResult.value.sources.length,
+      ...(mode === "analysis" ? { analysisSourceRefresh: sourceFetchPlan.kind } : {}),
       rejectedCount: sourceResult.value.trace.sourceGate.rejectedCount,
       directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
       stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount,

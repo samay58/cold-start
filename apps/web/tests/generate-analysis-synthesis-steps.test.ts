@@ -127,6 +127,8 @@ const bullCase = { text: "Modal customers deploy production containers on the pl
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({})),
   findCardBySlug: vi.fn(),
+  findSourcesBySlug: vi.fn(),
+  isCardSignalsFresh: vi.fn(),
   markGenerationRun: vi.fn(),
   markResearchSectionFailed: vi.fn(),
   recordResearchRunEvent: vi.fn(),
@@ -150,6 +152,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findCardBySlug: mocks.findCardBySlug,
+  findSourcesBySlug: mocks.findSourcesBySlug,
+  isCardSignalsFresh: mocks.isCardSignalsFresh,
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
@@ -191,16 +195,23 @@ vi.mock("@cold-start/pipeline", async () => {
   };
 });
 
-// source-fetching.ts is a local module (not a workspace package), mocked directly so these tests
-// do not have to model the direct-Exa/StableEnrich provider fan-out that fetchInitialSourcesForGeneration
-// performs; that fan-out is exercised by generate-contact-dispatch.test.ts instead.
-vi.mock("../src/inngest/source-fetching", () => ({
-  fetchInitialSourcesForGeneration: mocks.fetchInitialSourcesForGeneration,
-  fetchLateEnrichmentSources: mocks.fetchLateEnrichmentSources,
-  recordSourcesForCard: mocks.recordSourcesForCard,
-  sectionsWithSourceCitations: mocks.sectionsWithSourceCitations,
-  stableenrichLateEnrichmentSkipsForBlocks: mocks.stableenrichLateEnrichmentSkipsForBlocks
-}));
+// source-fetching.ts is a local module (not a workspace package). The provider-fetch-touching
+// exports are mocked so these tests do not have to model the direct-Exa/StableEnrich provider
+// fan-out that fetchInitialSourcesForGeneration performs (that fan-out is exercised by
+// generate-contact-dispatch.test.ts instead). analysisSourceFetchPlan and
+// providerSourcesFromStoredSources (Task 5.3) are left real: functions.ts calls the former
+// unconditionally on every run, and it is pure (no fetch/DB), so there is nothing to mock.
+vi.mock("../src/inngest/source-fetching", async () => {
+  const actual = await vi.importActual<typeof import("../src/inngest/source-fetching")>("../src/inngest/source-fetching");
+  return {
+    ...actual,
+    fetchInitialSourcesForGeneration: mocks.fetchInitialSourcesForGeneration,
+    fetchLateEnrichmentSources: mocks.fetchLateEnrichmentSources,
+    recordSourcesForCard: mocks.recordSourcesForCard,
+    sectionsWithSourceCitations: mocks.sectionsWithSourceCitations,
+    stableenrichLateEnrichmentSkipsForBlocks: mocks.stableenrichLateEnrichmentSkipsForBlocks
+  };
+});
 
 function stepHarness() {
   const names: string[] = [];

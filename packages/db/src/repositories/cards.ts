@@ -98,6 +98,21 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
   return parseCachedCard(row, options);
 }
 
+// Signals TTL only (6h), not the combined identity+signals(+synthesis) check isFreshCacheRow
+// runs for cache reads. Used by the analysis source re-fetch policy (ANALYSIS_SOURCE_REFRESH) to
+// decide whether the stableenrich signals probes are worth re-running on a reused-extraction
+// analysis run. A missing row (no stored card yet) reads as not fresh.
+export async function isCardSignalsFresh(db: ColdStartDb, slug: string, now = new Date()): Promise<boolean> {
+  const rows = await db
+    .select({ signalsExpiresAt: cards.signalsExpiresAt })
+    .from(cards)
+    .where(eq(cards.slug, slug))
+    .limit(1);
+  const row = rows[0];
+
+  return row ? row.signalsExpiresAt > now : false;
+}
+
 export async function findPublicCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = { mode: "basics" }): Promise<PublicCard | null> {
   const rows = await db
     .select({

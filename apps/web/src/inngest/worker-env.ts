@@ -60,6 +60,20 @@ export function directExaEnabled() {
   return process.env.FAST_BASICS_ENABLED !== "false";
 }
 
+export type AnalysisSourceRefreshMode = "full" | "targeted" | "skip-fresh";
+
+const ANALYSIS_SOURCE_REFRESH_MODES = new Set<AnalysisSourceRefreshMode>(["full", "targeted", "skip-fresh"]);
+
+// Re-fetch policy for the analysis-mode fetch-sources step when extraction is being reused from
+// an existing investor-usable card. Read at call time (not cached at module load) so a Vercel env
+// flip takes effect on the next invocation without a rebuild. Unknown or unset values fall back
+// to "full": today's unconditional 13-probe stableenrich fetch. Nothing changes until this is
+// explicitly promoted; see docs/product/provider-cost-assumptions.md for the cost deltas.
+export function analysisSourceRefreshModeFromProcess(): AnalysisSourceRefreshMode {
+  const raw = process.env.ANALYSIS_SOURCE_REFRESH;
+  return raw && ANALYSIS_SOURCE_REFRESH_MODES.has(raw as AnalysisSourceRefreshMode) ? (raw as AnalysisSourceRefreshMode) : "full";
+}
+
 export function personReadsEnabled() {
   return process.env.PERSON_READS_ENABLED !== "false";
 }

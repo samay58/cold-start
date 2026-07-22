@@ -15,13 +15,14 @@ import {
   type ProviderResearchPlan,
   type ProviderSource,
   type StableenrichEnv,
-  type StableenrichProbeName
+  type StableenrichProbeName,
+  type StableenrichSourcesResult
 } from "@cold-start/providers";
 import { recordSource, type ColdStartDb, type StoredSource } from "@cold-start/db";
 
 import type { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
-import { directExaEnabled } from "./worker-env";
+import { directExaEnabled, type AnalysisSourceRefreshMode } from "./worker-env";
 import { withStableenrichEndpointBudgets } from "./provider-trace";
 
 type GenerationMode = "basics" | "analysis";
@@ -165,6 +166,91 @@ export function stableenrichLateEnrichmentSkipsForBlocks(blocks: BlockEnrichment
   return stableenrichLateEnrichmentProbeNames.filter((name) => !allowed.has(name));
 }
 
+// Task 5.3: ANALYSIS_SOURCE_REFRESH routing. "full" runs the unconditional 13-probe stableenrich
+// fetch (today's behavior, the default). "targeted" narrows to the 3-probe signals group
+// (exa_recent_signals, exa_customer_proof, exa_independent_analysis) via the same
+// stableenrichLateEnrichmentSkipsForBlocks helper the late-enrichment path already uses. "skip"
+// makes no stableenrich fetch at all and substitutes stored sources for the reuse branch.
+export type AnalysisSourceFetchPlan =
+  | { kind: "full" }
+  | { kind: "targeted" }
+  | { kind: "skip" };
+
+// Pure given (reuseExistingForAnalysis, signalsFresh, refreshMode): no Inngest step, no DB, no
+// network. A run that is NOT reusing an existing extraction (first analysis run, or the existing
+// card fails hasInvestorUsableProfile) always gets the full fetch regardless of the flag -- the
+// flag only ever narrows a *re*-fetch on top of reused extraction, never a first fetch, since
+// there is no prior evidence to fall back on. Task 5.1 established that verifySynthesis only ever
+// reads card.citations, so narrowing this fetch cannot change what verify sees beyond which
+// citations get merged in.
+export function analysisSourceFetchPlan(input: {
+  reuseExistingForAnalysis: boolean;
+  signalsFresh: boolean;
+  refreshMode: AnalysisSourceRefreshMode;
+}): AnalysisSourceFetchPlan {
+  if (!input.reuseExistingForAnalysis) {
+    return { kind: "full" };
+  }
+
+  if (input.refreshMode === "targeted") {
+    return { kind: "targeted" };
+  }
+
+  if (input.refreshMode === "skip-fresh") {
+    return input.signalsFresh ? { kind: "skip" } : { kind: "targeted" };
+  }
+
+  return { kind: "full" };
+}
+
+// Resolves the stableenrich portion of the fetch-sources step for analysis mode. Basics mode is
+// untouched by the plan (always the fast tier, as today). Direct Exa is resolved separately by
+// the caller and is unaffected by the plan in every branch: the flag only ever narrows or skips
+// the AgentCash-billed stableenrich probes.
+async function stableenrichSourcesForAnalysisPlan(input: {
+  mode: GenerationMode;
+  plan: AnalysisSourceFetchPlan;
+  env: StableenrichEnv;
+  domain: string;
+  researchPlan: ProviderResearchPlan;
+  skipProbeNames: StableenrichProbeName[];
+  maxBudgetUsd: number | undefined;
+  loadStoredSourcesForSkip: (() => Promise<ProviderSource[]>) | undefined;
+}): Promise<StableenrichSourcesResult> {
+  if (input.mode === "basics") {
+    return fetchStableenrichFastSources({
+      env: input.env,
+      domain: input.domain,
+      researchPlan: input.researchPlan,
+      skipProbeNames: input.skipProbeNames,
+      maxBudgetUsd: input.maxBudgetUsd
+    });
+  }
+
+  if (input.plan.kind === "skip") {
+    const sources = input.loadStoredSourcesForSkip ? await input.loadStoredSourcesForSkip() : [];
+    return { sources, facts: [], failures: [], endpoints: [] };
+  }
+
+  if (input.plan.kind === "targeted") {
+    return fetchStableenrichEnrichmentSources({
+      env: input.env,
+      domain: input.domain,
+      researchPlan: input.researchPlan,
+      skipProbeNames: stableenrichLateEnrichmentSkipsForBlocks(["signals"]),
+      maxBudgetUsd: input.maxBudgetUsd
+    });
+  }
+
+  return fetchStableenrichSources({
+    env: input.env,
+    domain: input.domain,
+    researchPlan: input.researchPlan,
+    skipProbeNames: input.skipProbeNames,
+    maxBudgetUsd: input.maxBudgetUsd
+  });
+}
+
 export async function fetchInitialSourcesForGeneration(input: {
   mode: GenerationMode;
   domain: string;
@@ -173,6 +259,8 @@ export async function fetchInitialSourcesForGeneration(input: {
   stableEnv: StableenrichEnv;
   directExaEnv: DirectExaEnv;
   agentcashBudgetCeiling: number | null;
+  analysisSourceFetch?: AnalysisSourceFetchPlan;
+  loadStoredSourcesForSkip?: () => Promise<ProviderSource[]>;
 }): Promise<{
   sources: ProviderSource[];
   providerFacts: ProviderFactCandidate[];
@@ -181,6 +269,7 @@ export async function fetchInitialSourcesForGeneration(input: {
   error: string | null;
 }> {
   const maxBudgetUsd = input.agentcashBudgetCeiling ?? undefined;
+  const analysisSourceFetch = input.analysisSourceFetch ?? { kind: "full" as const };
   let stableSkipProbeNames: StableenrichProbeName[] = [];
   const directPromise = directExaEnabled()
     ? fetchDirectExaFundamentalsSources({ env: input.directExaEnv, domain: input.domain })
@@ -195,32 +284,32 @@ export async function fetchInitialSourcesForGeneration(input: {
     );
     const directSourcesForCoverage = directResult.status === "fulfilled" ? directResult.value.sources : [];
     stableSkipProbeNames = stableenrichExaSkipsForDirectCoverage({ directSources: directSourcesForCoverage, domain: input.domain });
-    stableResult = await (
-      input.mode === "basics"
-        ? fetchStableenrichFastSources({
-            env: input.stableEnv,
-            domain: input.domain,
-            researchPlan: input.researchPlan,
-            skipProbeNames: stableSkipProbeNames,
-            maxBudgetUsd
-          })
-        : fetchStableenrichSources({
-            env: input.stableEnv,
-            domain: input.domain,
-            researchPlan: input.researchPlan,
-            skipProbeNames: stableSkipProbeNames,
-            maxBudgetUsd
-          })
-    ).then(
+    stableResult = await stableenrichSourcesForAnalysisPlan({
+      mode: input.mode,
+      plan: analysisSourceFetch,
+      env: input.stableEnv,
+      domain: input.domain,
+      researchPlan: input.researchPlan,
+      skipProbeNames: stableSkipProbeNames,
+      maxBudgetUsd,
+      loadStoredSourcesForSkip: input.loadStoredSourcesForSkip
+    }).then(
       (value) => ({ status: "fulfilled" as const, value }),
       (reason) => ({ status: "rejected" as const, reason })
     );
   } else {
     [directResult, stableResult] = await Promise.allSettled([
       directPromise,
-      input.mode === "basics"
-        ? fetchStableenrichFastSources({ env: input.stableEnv, domain: input.domain, researchPlan: input.researchPlan, maxBudgetUsd })
-        : fetchStableenrichSources({ env: input.stableEnv, domain: input.domain, researchPlan: input.researchPlan, maxBudgetUsd }),
+      stableenrichSourcesForAnalysisPlan({
+        mode: input.mode,
+        plan: analysisSourceFetch,
+        env: input.stableEnv,
+        domain: input.domain,
+        researchPlan: input.researchPlan,
+        skipProbeNames: [],
+        maxBudgetUsd,
+        loadStoredSourcesForSkip: input.loadStoredSourcesForSkip
+      }),
     ]);
   }
 
@@ -253,6 +342,11 @@ export async function fetchInitialSourcesForGeneration(input: {
         failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
         ...(stableResult.status === "fulfilled" && stableResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
         ...(stableSkipProbeNames.length > 0 ? { skippedProbeNames: stableSkipProbeNames } : {}),
+        // Trace honesty for Task 5.3: which ANALYSIS_SOURCE_REFRESH branch actually ran this
+        // fetch. Absent on basics runs (the plan never applies there). Lets shadow-run comparison
+        // and the wait-surface progress copy tell "reused filed evidence" apart from "fetched
+        // fresh" straight from the trace, without inferring it from probe/source counts.
+        ...(input.mode !== "basics" ? { analysisSourceRefresh: analysisSourceFetch.kind } : {}),
         endpoints:
           stableResult.status === "fulfilled"
             ? withStableenrichEndpointBudgets(stableResult.value.endpoints)

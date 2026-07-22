@@ -19,6 +19,7 @@ import {
   findSourceSummariesBySlug,
   findPublicCardBySlug,
   generationRunStaleAfterMs,
+  isCardSignalsFresh,
   latestProviderFailureSummary,
   listPublicCardSummaries,
   markGenerationRun,
@@ -556,6 +557,50 @@ describe("findCardBySlug", () => {
     await expect(findCardBySlug(db, "cartesia", { mode: "basics", now: new Date("2026-05-06T12:00:00.000Z") })).resolves.toMatchObject({
       slug: "cartesia"
     });
+  });
+});
+
+describe("isCardSignalsFresh", () => {
+  it("returns true when the stored signalsExpiresAt is still ahead of now", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z") }]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(isCardSignalsFresh(db, "cartesia", new Date("2026-05-06T12:00:00.000Z"))).resolves.toBe(true);
+  });
+
+  it("returns false when the signals TTL has already expired", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ signalsExpiresAt: new Date("2026-05-06T11:59:59.000Z") }]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(isCardSignalsFresh(db, "cartesia", new Date("2026-05-06T12:00:00.000Z"))).resolves.toBe(false);
+  });
+
+  it("returns false when no card row exists for the slug", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => []
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(isCardSignalsFresh(db, "does-not-exist", new Date("2026-05-06T12:00:00.000Z"))).resolves.toBe(false);
   });
 });
 
