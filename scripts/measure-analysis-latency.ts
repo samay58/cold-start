@@ -17,9 +17,10 @@
 // stay in the population; they just contribute nothing to the synthesize/verify decomposition.
 //
 // Step decomposition sources:
-// - `trace.steps` gives coarse step timings: plan-research, fetch-sources, generate-card.
-// - `trace.llm.calls[].stage` gives the finer synthesis/verify split that happens inside the
-//   generate-card step.
+// - `trace.steps` gives coarse step timings: plan-research, fetch-sources, generate-card, and
+//   (since the 2026-07-22 step split) synthesize-card and verify-synthesis as their own lanes.
+// - `trace.llm.calls[].stage` still gives the per-call synthesis/verify decomposition; on runs
+//   older than the split those calls happened inside the generate-card step.
 // - `research_run_events` (type = 'generation.started') gives the one timestamp this system
 //   records for when Inngest actually began processing a run. `generation_runs.started_at` is set
 //   at *queue* time (the /api/generate route inserts the row with status "queued" and that insert's

@@ -807,6 +807,9 @@ export async function verifyCardSynthesisDraft(
   return { tracePatch, synthesis: gated.synthesis };
 }
 
+// Reference composition of the combined synthesize-then-verify flow. Production runs the two
+// halves as separate Inngest steps (apps/web/src/inngest/functions.ts) and no longer passes
+// synthesis deps into the pipeline; this path stays for tests and non-Inngest callers.
 async function verifiedSynthesisForCard(
   card: ColdStartCard,
   deps: WithSynthesisDeps
