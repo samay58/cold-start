@@ -296,7 +296,7 @@
 .cs-lens-failed strong {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 620;
 }
 
@@ -321,7 +321,7 @@
 .cs-lens-withheld strong {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 620;
 }
 
