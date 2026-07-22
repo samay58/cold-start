@@ -434,6 +434,7 @@ describe("POST /api/generate", () => {
       jobKind: "analysis",
       status: "queued"
     });
+    expect(mocks.send).toHaveBeenCalled();
   });
 
   it("does not serve a stale-but-synthesized analysis card as cached; queues a fresh run instead", async () => {
