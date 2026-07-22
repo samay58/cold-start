@@ -224,11 +224,12 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     }, HIDE_GRACE_MS);
   }
 
-  // While a docked tooltip is open, the panel underneath it can scroll; recompute against the
+  // While a docked tooltip is open, the panel underneath it can scroll or resize (the side
+  // panel itself can be resized by the user); recompute the full docked geometry against the
   // live anchor rect so the region tracks the people block instead of drifting out of place.
   // Depends only on this derived boolean, not `tooltip` itself: the effect's own setTooltip
-  // call below patches top/maxHeight on every scroll tick, so depending on `tooltip` directly
-  // would tear the listener down and rebuild it on every recomputed frame.
+  // call below patches the geometry on every fire, so depending on `tooltip` directly would
+  // tear the listener down and rebuild it on every recomputed frame.
   const dockedOpen = tooltip !== null && tooltip.mode === "docked";
 
   useEffect(() => {
@@ -237,19 +238,24 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     }
 
     function reposition() {
-      const anchorRect = dockAnchorRef.current?.getBoundingClientRect();
-      if (!anchorRect) {
+      const anchor = dockAnchorRef.current;
+      if (!anchor) {
         return;
       }
-      const top = anchorRect.bottom + DOCK_GAP;
-      const roomBelow = window.innerHeight - top - DOCK_MARGIN;
-      const maxHeight = Math.max(120, Math.min(window.innerHeight * 0.6, roomBelow));
-      setTooltip((current) => (current && current.mode === "docked" ? { ...current, maxHeight, top } : current));
+      // Re-run the full docked geometry (not just top/maxHeight): a panel resize changes
+      // left/width too (both derive from window.innerWidth), and patching only top/maxHeight
+      // left them stale.
+      const geometry = dockedGeometry(anchor, anchor);
+      setTooltip((current) => (current && current.mode === "docked" ? { ...current, ...geometry } : current));
     }
 
     // Scroll events don't bubble, so listening on window only works in the capture phase.
     window.addEventListener("scroll", reposition, true);
-    return () => window.removeEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
   }, [dockedOpen]);
 
   function triggerProps(input: {
@@ -303,6 +309,17 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
           clearIntentTimer();
           triggerRef.current = event.currentTarget;
           commitTooltip(input, event.currentTarget, true);
+          return;
+        }
+        // A focus-revealed dossier is unpinned: focus never moved off the trigger, so the
+        // tooltip node's own Escape handler (which only listens while focus lives inside it,
+        // i.e. pinned) never fires and the dossier is stuck open (WCAG 2.1.2 no keyboard
+        // trap / dismissible). Pinned Escape handling stays on the tooltip node, which also
+        // refocuses the trigger explicitly; here focus already IS the trigger, so hiding is
+        // the whole fix.
+        if (event.key === "Escape" && !pinnedRef.current && tooltip?.id === input.id) {
+          event.preventDefault();
+          hideTooltip();
         }
       },
       onPointerEnter: (event) => {

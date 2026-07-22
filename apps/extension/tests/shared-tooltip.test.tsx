@@ -358,6 +358,26 @@ describe("dossier keyboard path", () => {
     expect(tooltip?.hasAttribute("aria-label")).toBe(false);
   });
 
+  it("closes an unpinned, focus-revealed dossier on Escape without moving focus off the trigger", async () => {
+    const { container, handleRef, trigger } = await mount(dossier);
+
+    await act(async () => {
+      trigger.focus();
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+    // Focus alone reveals the dossier unpinned: focus never moved into the tooltip node, so
+    // the tooltip-node's own Escape handler (which only listens while focus is inside it)
+    // never fires. This is the WCAG dismissible gap: Escape on the trigger has to close it.
+    expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
+
+    await act(async () => {
+      handleRef.current!.props.onKeyDown?.(keyEvent(trigger, "Escape"));
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("never promotes the plain string tooltip: it stays role=tooltip even after Enter", async () => {
     const { container, handleRef, trigger } = await mount("The full description text.");
     await act(async () => {
@@ -551,6 +571,32 @@ describe("docked mode", () => {
     expect(tooltipEl.style.top).toBe("6px");
     expect(tooltipEl.style.left).toBe("16px");
     expect(tooltipEl.style.width).toBe("992px");
+  });
+
+  it("recomputes the full docked geometry (left/width, not just top/maxHeight) on window resize", async () => {
+    vi.useFakeTimers();
+    const { container, handleRef, triggerA } = await mountDock();
+
+    await act(async () => {
+      handleRef.current!.aProps.onPointerEnter(pointerEvent(triggerA));
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(120);
+    });
+
+    const tooltipEl = container.querySelector(".cs-shared-tooltip") as HTMLElement;
+    expect(tooltipEl.style.width).toBe("992px");
+
+    // Simulate the side panel narrowing: left/width both derive from window.innerWidth, so a
+    // resize-only listener (the pre-fix state, scroll-only) would leave them stale at 992px.
+    vi.stubGlobal("innerWidth", 640);
+    await act(async () => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    const resized = container.querySelector(".cs-shared-tooltip") as HTMLElement;
+    expect(resized.style.width).toBe("608px");
+    expect(resized.style.left).toBe("16px");
   });
 
   it("(g) retarget between two open docked triggers skips the intent delay and does not move the region", async () => {
