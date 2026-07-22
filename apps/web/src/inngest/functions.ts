@@ -28,8 +28,6 @@ import {
   extractCompanyClaims,
   fallbackResearchPlan,
   modelForStage,
-  synthesizeCard,
-  verifySynthesis,
   type AnthropicTelemetrySink,
 } from "@cold-start/llm";
 import {
@@ -38,6 +36,7 @@ import {
   blocksNeedingEnrichmentForSections,
   cardWithExtractedSections,
   enrichExtractedSectionsForDomain,
+  evaluateSynthesisGate,
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
   type EvidenceLedgerEntry,
@@ -76,7 +75,9 @@ import {
   rawSlugForRun,
   safeAgentcashWalletSnapshot,
   sourceEventDomain,
+  synthesizeCardStepBody,
   timed,
+  verifySynthesisStepBody,
   type GenerationMode
 } from "./generation-helpers";
 import { runResearchSectionJobStep } from "./research-section-generation";
@@ -542,6 +543,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       providerFacts?: ProviderFactCandidate[];
     } = {}) => {
       try {
+        // Extraction and assembly only: synthesize and verify run as their own Inngest steps
+        // (synthesize-card, verify-synthesis) below, once this step's pre-synthesis card is
+        // stored in trace. Never spread synthesize/verify deps in here, for either mode.
         const generated = await generateCardForDomainWithTrace(domain, {
           researchPlan,
           providerFacts: options.providerFacts ?? providerFacts,
@@ -550,13 +554,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           extractSections: extractSectionsForCard(llmTelemetry.telemetry),
           enrichSections: enrichSectionsForCard(llmTelemetry.telemetry),
           costLines: llmTelemetry.costLines,
-          ...(mode === "analysis"
-            ? {
-                synthesize: async (card: ColdStartCard) => synthesizeCard({ client: anthropic, model: synthesisModel, card, telemetry: llmTelemetry.telemetry }),
-                verify: async (claims, sources) => verifySynthesis({ client: anthropic, model: verifierModel, claims, sources, telemetry: llmTelemetry.telemetry }),
-                synthesisRequired: true,
-              }
-            : {}),
         });
 
         return {
@@ -603,6 +600,122 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     let generatedCard: ColdStartCard = cardWithTraceCost(clean.value.card, trace);
     let generatedSections = clean.value.sections;
     let sourcesToRecord = clean.value.sources;
+
+    if (mode === "analysis") {
+      currentStage = "evaluate-synthesis-gate";
+      // Evaluated ahead of both LLM calls (deterministic, no timestamp) so a gate-blocked run
+      // never pays for either. The card mutation this may apply (stamping synthesisWithheld with
+      // its own timestamp) still happened inside the just-completed, now-memoized "generate-card"
+      // step's card, matching the existing generatedAt-outside-a-step precedent in this file.
+      const gateOutcome = evaluateSynthesisGate(generatedCard, { synthesisRequired: true });
+      if (gateOutcome.blocked) {
+        generatedCard = gateOutcome.card;
+        mergeTracePatch(trace, gateOutcome.tracePatch);
+        trace.steps = {
+          ...trace.steps,
+          "synthesize-card": skippedStep("synthesis gate blocked: insufficient evidence"),
+          "verify-synthesis": skippedStep("synthesis gate blocked: insufficient evidence")
+        };
+      } else {
+        await recordEvent("synthesis-started", "synthesis.started", "Reading the filed evidence", {}, null);
+
+        currentStage = "synthesize-card";
+        const synthesizeResult = await step.run("synthesize-card", async () => {
+          const llmTelemetry = createStepLlmTelemetryCollector();
+          const result = await timed(() =>
+            synthesizeCardStepBody({
+              card: generatedCard,
+              client: anthropic,
+              model: synthesisModel,
+              telemetry: llmTelemetry.telemetry
+            })
+          );
+          const llmTracePatch = llmTelemetry.tracePatch();
+          return {
+            value: result.value,
+            tracePatch: {
+              ...llmTracePatch,
+              steps: {
+                "synthesize-card": result.value.ok
+                  ? completedStep(result.durationMs)
+                  : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, synthesizeResult.tracePatch);
+        if (!synthesizeResult.value.ok) {
+          throw new Error(synthesizeResult.value.error);
+        }
+        const draft = synthesizeResult.value.value;
+
+        await recordEvent(
+          "verify-started",
+          "verify.started",
+          `Verifying ${draft.claimCountBeforeVerify} claim${draft.claimCountBeforeVerify === 1 ? "" : "s"} against sources`,
+          { claimCount: draft.claimCountBeforeVerify },
+          null
+        );
+
+        currentStage = "verify-synthesis";
+        const verifyResult = await step.run("verify-synthesis", async () => {
+          const llmTelemetry = createStepLlmTelemetryCollector();
+          const result = await timed(() =>
+            verifySynthesisStepBody({
+              card: generatedCard,
+              draft,
+              client: anthropic,
+              model: verifierModel,
+              telemetry: llmTelemetry.telemetry,
+              synthesisRequired: true
+            })
+          );
+          const llmTracePatch = llmTelemetry.tracePatch();
+          return {
+            value: result.value,
+            tracePatch: {
+              ...llmTracePatch,
+              steps: {
+                "verify-synthesis": result.value.ok
+                  ? completedStep(result.durationMs)
+                  : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
+              }
+            }
+          };
+        });
+        mergeTracePatch(trace, verifyResult.tracePatch);
+        if (!verifyResult.value.ok) {
+          throw new Error(verifyResult.value.error);
+        }
+
+        const verified = verifyResult.value.value;
+        if (verified.tracePatch.synthesis) {
+          mergeTracePatch(trace, {
+            synthesis: {
+              ...verified.tracePatch.synthesis,
+              ...(gateOutcome.gate ? { gate: gateOutcome.gate } : {})
+            }
+          });
+        }
+        const survivedClaimCount = verified.tracePatch.synthesis?.claimCountAfterVerify ?? 0;
+        await recordEvent(
+          "verify-complete",
+          "verify.complete",
+          `${survivedClaimCount} claim${survivedClaimCount === 1 ? "" : "s"} survived`,
+          { claimCount: survivedClaimCount },
+          null
+        );
+
+        if (verified.synthesis) {
+          const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = generatedCard;
+          generatedCard = { ...cardWithoutWithheld, synthesis: verified.synthesis };
+        } else {
+          throw new Error("No synthesis claims survived verification");
+        }
+      }
+
+      generatedCard = cardWithTraceCost(generatedCard, trace);
+    }
 
     let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
     let analysisReadyMs: number | null = null;

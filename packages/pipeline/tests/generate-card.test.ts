@@ -3,12 +3,15 @@ import {
   buildSeedProfileCard,
   buildSkeletonCard,
   cardWithExtractedSections,
+  evaluateSynthesisGate,
   type ExtractedCardSections,
   fallbackSectionsFromEvidence,
   finalizeGeneratedCard,
   generateCardForDomain,
   generateCardForDomainWithTrace,
-  type GenerateCardDeps
+  type GenerateCardDeps,
+  synthesizeCardDraft,
+  verifyCardSynthesisDraft
 } from "../src/index";
 
 const originalAnalysisSynthesisMinCitations = process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS;
@@ -1632,5 +1635,154 @@ describe("cardWithExtractedSections", () => {
     expect(card.identity.name.value).toBe("Acme");
     expect(card.team.founders.value).toBeNull();
     expect(card.team.founders.citationIds).toEqual([]);
+  });
+});
+
+// Split synthesize/verify units (Phase 4 Task 5.2): each is separately callable so the Inngest
+// orchestration can run them as independent, independently-memoizable steps.
+describe("split synthesize/verify units", () => {
+  const citation = {
+    id: "c1",
+    url: "https://cartesia.ai/",
+    title: "Cartesia",
+    fetchedAt: "2026-05-06T12:00:00.000Z",
+    sourceType: "company_site" as const,
+    snippet: "Cartesia is building voice AI infrastructure."
+  };
+
+  async function assembledCard(citations: ExtractedCardSections["citations"] = [citation]) {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    return generateCardForDomain("cartesia.ai", {
+      fetchSources: async () => [],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations
+      })
+    } as GenerateCardDeps);
+  }
+
+  describe("synthesizeCardDraft", () => {
+    it("is callable without a verify function", async () => {
+      const card = await assembledCard();
+      const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+      const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
+
+      // deps only has `synthesize`; no `verify` in scope at all for this call.
+      const draft = await synthesizeCardDraft(card, {
+        synthesize: async () => ({
+          whyItMatters,
+          bullCase: [bullCase],
+          bearCase: [],
+          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" }]
+        })
+      });
+
+      expect(draft.synthesis.whyItMatters).toEqual(whyItMatters);
+      expect(draft.synthesis.bullCase).toEqual([bullCase]);
+      expect(draft.claimCountBeforeVerify).toBe(2);
+    });
+  });
+
+  describe("verifyCardSynthesisDraft", () => {
+    it("is callable with a stored synthesis draft, without re-deriving it from synthesize", async () => {
+      const card = await assembledCard();
+      const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+      const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
+      // Hand-built draft, standing in for one memoized by a prior "synthesize-card" Inngest step
+      // and replayed into this call without touching synthesize again.
+      const storedDraft = {
+        synthesis: {
+          whyItMatters,
+          bullCase: [bullCase],
+          bearCase: [],
+          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" as const }]
+        },
+        claimCountBeforeVerify: 2
+      };
+      const verify = vi.fn(async () => [
+        { ...whyItMatters, status: "supported" as const },
+        { ...bullCase, status: "supported" as const }
+      ]);
+
+      const result = await verifyCardSynthesisDraft(card, storedDraft, { verify, synthesisRequired: true });
+
+      expect(verify).toHaveBeenCalledTimes(1);
+      expect(result.synthesis?.whyItMatters).toEqual(whyItMatters);
+      expect(result.synthesis?.bullCase).toEqual([bullCase]);
+      expect(result.tracePatch.synthesis).toMatchObject({
+        required: true,
+        produced: true,
+        claimCountBeforeVerify: 2,
+        claimCountAfterVerify: 2
+      });
+    });
+
+    it("returns no synthesis when nothing survives verification, without throwing", async () => {
+      const card = await assembledCard();
+      const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+      const storedDraft = {
+        synthesis: {
+          whyItMatters,
+          bullCase: [],
+          bearCase: [],
+          openQuestions: [{ question: "What customer traction has Cartesia disclosed?", category: "adoption_proof" as const }]
+        },
+        claimCountBeforeVerify: 1
+      };
+
+      const result = await verifyCardSynthesisDraft(card, storedDraft, {
+        verify: async () => [{ ...whyItMatters, status: "contradicted" as const }],
+        synthesisRequired: true
+      });
+
+      expect(result.synthesis).toBeUndefined();
+      expect(result.tracePatch.synthesis).toEqual({
+        required: true,
+        produced: false,
+        claimCountBeforeVerify: 1,
+        claimCountAfterVerify: 0
+      });
+    });
+  });
+
+  describe("evaluateSynthesisGate", () => {
+    it("blocks synthesis and stamps synthesisWithheld on thin evidence, without calling synthesize or verify", async () => {
+      process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS = "8";
+      const card = await assembledCard([citation]);
+
+      const outcome = evaluateSynthesisGate(card, { synthesisRequired: true });
+
+      expect(outcome.blocked).toBe(true);
+      expect(outcome.card.synthesisWithheld).toMatchObject({
+        reasons: ["citation-floor"]
+      });
+      expect(outcome.tracePatch.synthesis).toMatchObject({
+        required: true,
+        produced: false,
+        claimCountBeforeVerify: 0,
+        claimCountAfterVerify: 0,
+        gateMessage: "insufficient evidence for synthesis"
+      });
+    });
+
+    it("does not block, and does not mutate the card, once evidence clears the floor", async () => {
+      const citations = Array.from({ length: 8 }, (_, index) => ({
+        ...citation,
+        id: `c${index + 1}`,
+        url: `https://example.com/cartesia-${index + 1}`,
+        sourceType: "news" as const
+      }));
+      const card = await assembledCard(citations);
+
+      const outcome = evaluateSynthesisGate(card, { synthesisRequired: true });
+
+      expect(outcome.blocked).toBe(false);
+      expect(outcome.card).toBe(card);
+      expect(outcome.card.synthesisWithheld).toBeUndefined();
+    });
   });
 });

@@ -138,6 +138,52 @@ export function synthesisEvidenceGate(card: ColdStartCard, minCitations = analys
     : { ok: true as const, gate };
 }
 
+export type SynthesisGateOutcome = {
+  blocked: boolean;
+  card: ColdStartCard;
+  tracePatch: GenerateCardTracePatch;
+  gate?: ReturnType<typeof traceGateFromDecision>;
+};
+
+// Callable ahead of the synthesize/verify LLM calls so a gate-blocked run never pays for either.
+// When blocked, attaches `synthesisWithheld` (with its own timestamp) to the returned card; when
+// not blocked, returns the card unchanged. Shared by the combined generateCardForDomainWithTrace
+// path and the split Inngest step orchestration in apps/web (Phase 4, Task 5.2).
+export function evaluateSynthesisGate(
+  card: ColdStartCard,
+  options: { synthesisRequired?: boolean } = {}
+): SynthesisGateOutcome {
+  const gateEvaluation = synthesisEvidenceGate(card);
+  if (!gateEvaluation.ok) {
+    const tracePatch: GenerateCardTracePatch = {
+      synthesis: {
+        required: options.synthesisRequired === true,
+        produced: false,
+        claimCountBeforeVerify: 0,
+        claimCountAfterVerify: 0,
+        gateMessage: gateEvaluation.message,
+        ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+      }
+    };
+    const nextCard = gateEvaluation.gate
+      ? { ...card, synthesisWithheld: synthesisWithheldFromGate(gateEvaluation.gate) }
+      : card;
+    return {
+      blocked: true,
+      card: nextCard,
+      tracePatch,
+      ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+    };
+  }
+
+  return {
+    blocked: false,
+    card,
+    tracePatch: {},
+    ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+  };
+}
+
 function citationDedupeKey(url: string) {
   try {
     const parsed = new URL(url);
@@ -684,12 +730,31 @@ function verifiedMarketStructureAndTiming(
   return Object.values(filtered).some(Boolean) ? filtered : undefined;
 }
 
-async function verifiedSynthesisForCard(
+export type SynthesisDraft = {
+  synthesis: CardSynthesis;
+  claimCountBeforeVerify: number;
+};
+
+// Callable without verify: the ~42s Sonnet synthesis call, memoizable on its own (Inngest step
+// `synthesize-card`, Phase 4 Task 5.2) so a verify retry never re-pays for it.
+export async function synthesizeCardDraft(
   card: ColdStartCard,
-  deps: WithSynthesisDeps
-): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
+  deps: { synthesize: WithSynthesisDeps["synthesize"] }
+): Promise<SynthesisDraft> {
   const synthesis = synthesisSchema.parse(await deps.synthesize(card));
   const claimCountBeforeVerify = allSynthesisClaims(synthesis).length;
+  return { synthesis, claimCountBeforeVerify };
+}
+
+// Callable with a stored synthesis draft (the verifier pass plus the usefulness gate). Takes the
+// draft produced by synthesizeCardDraft, which may come from a separately memoized Inngest step
+// (`verify-synthesis`, Phase 4 Task 5.2) rather than being re-derived in the same call.
+export async function verifyCardSynthesisDraft(
+  card: ColdStartCard,
+  draft: SynthesisDraft,
+  deps: { verify: WithSynthesisDeps["verify"]; synthesisRequired?: boolean }
+): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
+  const { synthesis, claimCountBeforeVerify } = draft;
   const citationSources = card.citations.map((citation) => ({
     id: citation.id,
     url: citation.url,
@@ -740,6 +805,14 @@ async function verifiedSynthesisForCard(
     tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
   }
   return { tracePatch, synthesis: gated.synthesis };
+}
+
+async function verifiedSynthesisForCard(
+  card: ColdStartCard,
+  deps: WithSynthesisDeps
+): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
+  const draft = await synthesizeCardDraft(card, deps);
+  return verifyCardSynthesisDraft(card, draft, deps);
 }
 
 export async function generateCardForDomainWithTrace(
@@ -825,21 +898,12 @@ export async function generateCardForDomainWithTrace(
 
   if (hasSynthesisDeps(deps)) {
     let verifiedSynthesis: CardSynthesis | undefined;
-    let synthesisGated = false;
 
-    const gateEvaluation = synthesisEvidenceGate(card);
-    if (!gateEvaluation.ok) {
-      synthesisGated = true;
-      tracePatch.synthesis = {
-        required: deps.synthesisRequired === true,
-        produced: false,
-        claimCountBeforeVerify: 0,
-        claimCountAfterVerify: 0,
-        gateMessage: gateEvaluation.message,
-        ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
-      };
-      if (gateEvaluation.gate) {
-        card = { ...card, synthesisWithheld: synthesisWithheldFromGate(gateEvaluation.gate) };
+    const gateOutcome = evaluateSynthesisGate(card, { synthesisRequired: deps.synthesisRequired === true });
+    if (gateOutcome.blocked) {
+      card = gateOutcome.card;
+      if (gateOutcome.tracePatch.synthesis) {
+        tracePatch.synthesis = gateOutcome.tracePatch.synthesis;
       }
     } else {
       try {
@@ -847,7 +911,7 @@ export async function generateCardForDomainWithTrace(
         if (synthesisResult.tracePatch.synthesis) {
           tracePatch.synthesis = {
             ...synthesisResult.tracePatch.synthesis,
-            ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+            ...(gateOutcome.gate ? { gate: gateOutcome.gate } : {})
           };
         }
         verifiedSynthesis = synthesisResult.synthesis;
@@ -857,7 +921,7 @@ export async function generateCardForDomainWithTrace(
           produced: false,
           claimCountBeforeVerify: tracePatch.synthesis?.claimCountBeforeVerify ?? 0,
           claimCountAfterVerify: 0,
-          ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
+          ...(gateOutcome.gate ? { gate: gateOutcome.gate } : {})
         };
 
         if (deps.synthesisRequired) {
@@ -866,7 +930,7 @@ export async function generateCardForDomainWithTrace(
       }
     }
 
-    if (!verifiedSynthesis && deps.synthesisRequired && !synthesisGated) {
+    if (!verifiedSynthesis && deps.synthesisRequired && !gateOutcome.blocked) {
       if (!tracePatch.synthesis) {
         tracePatch.synthesis = {
           required: true,

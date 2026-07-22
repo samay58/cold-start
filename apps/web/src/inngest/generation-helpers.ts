@@ -7,11 +7,19 @@ import {
   type GenerationTrace,
   type ResearchSectionId
 } from "@cold-start/core";
-import { type AnthropicTelemetrySink } from "@cold-start/llm";
+import {
+  createAnthropicClient,
+  synthesizeCard,
+  verifySynthesis,
+  type AnthropicTelemetrySink
+} from "@cold-start/llm";
 import {
   GenerateCardTraceError,
+  synthesizeCardDraft,
+  verifyCardSynthesisDraft,
   type CostLine,
-  type GenerateCardTracePatch
+  type GenerateCardTracePatch,
+  type SynthesisDraft
 } from "@cold-start/pipeline";
 import { type ProviderSource, agentcashWalletSnapshot } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
@@ -91,6 +99,54 @@ export function createStepLlmTelemetryCollector() {
     costLines,
     tracePatch: () => llmTracePatchFromCalls(calls)
   };
+}
+
+// Pure step bodies for the split synthesize/verify steps (Phase 4 Task 5.2). Each wraps its
+// pipeline call in the same catch-and-memoize-as-value pattern already used for the generate-card
+// step body (see runCardAttempt in functions.ts): a real LLM failure or an unusable synthesis
+// result becomes an `{ ok: false }` step output rather than a thrown error, so it is memoized
+// once and a later function-level retry replays the failure without re-paying for the call.
+export type SynthesizeCardStepResult =
+  | { ok: true; value: SynthesisDraft }
+  | { ok: false; error: string };
+
+export async function synthesizeCardStepBody(input: {
+  card: ColdStartCard;
+  client: ReturnType<typeof createAnthropicClient>;
+  model: string;
+  telemetry: AnthropicTelemetrySink;
+}): Promise<SynthesizeCardStepResult> {
+  try {
+    const draft = await synthesizeCardDraft(input.card, {
+      synthesize: (card) => synthesizeCard({ client: input.client, model: input.model, card, telemetry: input.telemetry })
+    });
+    return { ok: true, value: draft };
+  } catch (error) {
+    return { ok: false, error: boundedErrorMessage(error) };
+  }
+}
+
+export type VerifySynthesisStepResult =
+  | { ok: true; value: Awaited<ReturnType<typeof verifyCardSynthesisDraft>> }
+  | { ok: false; error: string };
+
+export async function verifySynthesisStepBody(input: {
+  card: ColdStartCard;
+  draft: SynthesisDraft;
+  client: ReturnType<typeof createAnthropicClient>;
+  model: string;
+  telemetry: AnthropicTelemetrySink;
+  synthesisRequired: boolean;
+}): Promise<VerifySynthesisStepResult> {
+  try {
+    const result = await verifyCardSynthesisDraft(input.card, input.draft, {
+      verify: (claims, sources) => verifySynthesis({ client: input.client, model: input.model, claims, sources, telemetry: input.telemetry }),
+      synthesisRequired: input.synthesisRequired
+    });
+    return { ok: true, value: result };
+  } catch (error) {
+    return { ok: false, error: boundedErrorMessage(error) };
+  }
 }
 
 export function generationRunAnthropicCostUsd(trace: GenerationTrace, fallback = 0) {
