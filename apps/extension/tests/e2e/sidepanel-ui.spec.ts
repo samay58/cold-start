@@ -1684,6 +1684,56 @@ test("the pinned, expanded person dossier still never overlaps any row and stays
   expect(tooltipBox.y + tooltipBox.height).toBeLessThanOrEqual(viewportHeight);
 });
 
+// Closes the documented 4.1-to-4.3 gap: the docked reposition effect (SharedTooltip.tsx) was
+// unit-inspected and scroll-tested at the jsdom level, but never proven end to end in a real
+// scrolling browser. DOCK_GAP is 6px below the anchor, which sits immediately after the people
+// block; this asserts that offset holds both before and after a real scroll, not just at mount.
+test("a docked dossier's position tracks the anchor when the panel scrolls", async ({ page }) => {
+  await installChromeShim(page);
+  await mockExtensionApi(page, browserbaseCardWithPeople());
+  await openSidePanel(page);
+
+  const people = page.getByLabel("Management team");
+  const row = page.locator(".cs-people-person").first();
+  // Pinned via click, not hover: a real scroll moves the row out from under a resting pointer,
+  // which would race the hover-close grace independent of the geometry this test checks.
+  await row.click();
+  const tooltip = page.locator(".cs-shared-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveAttribute("data-mode", "docked");
+  await expect(tooltip).toHaveAttribute("data-pinned", "true");
+
+  async function dockOffset() {
+    const peopleBox = await people.boundingBox();
+    const dockedBox = await tooltip.boundingBox();
+    if (!peopleBox || !dockedBox) {
+      return Number.NaN;
+    }
+    return dockedBox.y - (peopleBox.y + peopleBox.height);
+  }
+
+  const peopleBoxBefore = await people.boundingBox();
+  if (!peopleBoxBefore) {
+    throw new Error("Expected a bounding box for the people block before scrolling");
+  }
+  // Confirm the fixture actually docks at DOCK_GAP before trusting the same invariant applies
+  // after scrolling: a 4-10px band gives a little room without hiding a real drift.
+  await expect.poll(dockOffset).toBeGreaterThanOrEqual(4);
+  await expect.poll(dockOffset).toBeLessThanOrEqual(10);
+
+  await page.mouse.wheel(0, 600);
+
+  // The scroll itself must have actually happened, or the offset check below proves nothing.
+  await expect.poll(async () => (await people.boundingBox())?.y ?? Number.NaN).toBeLessThan(peopleBoxBefore.y);
+
+  // Auto-retrying: the reposition effect (item 4's resize/scroll listener) fires off the scroll
+  // event asynchronously, so poll rather than reading a single post-scroll snapshot. Without
+  // the fix, the docked box would stay frozen at its pre-scroll page position and this offset
+  // would drift by roughly the scroll delta instead of holding near DOCK_GAP.
+  await expect.poll(dockOffset).toBeGreaterThanOrEqual(4);
+  await expect.poll(dockOffset).toBeLessThanOrEqual(10);
+});
+
 test("a fast pointer fly-by across all person rows opens nothing", async ({ page }) => {
   await installChromeShim(page);
   await mockExtensionApi(page, browserbaseCardWithPeople());
