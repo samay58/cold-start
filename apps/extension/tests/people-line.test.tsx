@@ -3,7 +3,7 @@
 import type { ColdStartCard } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PeopleLine } from "../src/company/CompanyHeader";
 import type { TooltipDossier } from "../src/shared/SharedTooltip";
 
@@ -12,6 +12,10 @@ type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number
 type Captured = { body: string | TooltipDossier; id: string; title: string };
 
 let cleanup: (() => Promise<void>) | null = null;
+
+beforeEach(() => {
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+});
 
 afterEach(async () => {
   if (cleanup) {

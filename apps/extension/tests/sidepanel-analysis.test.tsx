@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { type ResearchSection } from "@cold-start/core";
+import { type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 
 import {
   registerSidePanelHooks,
@@ -43,6 +44,112 @@ describe("SidePanel analysis and sections", () => {
     expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
       JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true })
     );
+    await unmount();
+  });
+
+  it("does not flash the prior run's advanced stage when a withheld verdict is retried", async () => {
+    // Regression test for commit dd66745: the optimistic retry state used to keep the prior
+    // run's terminal events, so a fresh wait instrument flashed fully advanced for one poll
+    // tick. Bootstrap seeds requestState.events with a prior, already-terminal run (run-old,
+    // reaching card.saved/generation.complete) alongside a withheld card, exactly the state
+    // shape handleRunAnalysis(true) -> runAnalysisGenerationWithController sees on retry.
+    const domain = "linear.app";
+    const staleRunEvents: ExtensionResearchRunEvent[] = [
+      {
+        id: "old-1", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "generation.queued", message: "Queued for analysis", metadata: {},
+        createdAt: "2026-07-15T12:00:00.000Z"
+      },
+      {
+        id: "old-2", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "source.found", message: "Found 4 sources", metadata: { acceptedCount: 4 },
+        createdAt: "2026-07-15T12:00:05.000Z"
+      },
+      {
+        id: "old-3", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "synthesis.started", message: "Reading the filed evidence", metadata: {},
+        createdAt: "2026-07-15T12:00:10.000Z"
+      },
+      {
+        id: "old-4", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "verify.complete", message: "0 claims survived", metadata: { claimCount: 0 },
+        createdAt: "2026-07-15T12:00:15.000Z"
+      },
+      {
+        id: "old-5", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "card.saved", message: "Saved with sources attached", metadata: {},
+        createdAt: "2026-07-15T12:00:20.000Z"
+      },
+      {
+        id: "old-6", runId: "run-old", slug: "linear", domain, sectionId: null,
+        type: "generation.complete", message: "Research run complete", metadata: {},
+        createdAt: "2026-07-15T12:00:25.000Z"
+      }
+    ];
+    const withheldCard: ColdStartCard = {
+      ...cardForDomain(domain),
+      synthesisWithheld: {
+        at: "2026-07-15T12:00:25.000Z",
+        reasons: ["citation-floor"],
+        advisories: [],
+        citationCount: 3,
+        sourceTypeCount: 2
+      }
+    };
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "linear",
+          card: withheldCard,
+          sections: [],
+          events: staleRunEvents,
+          runs: {
+            basics: { slug: "linear", domain, mode: "basics", status: "idle" },
+            analysis: { slug: "linear", domain, mode: "analysis", status: "complete", runId: "run-old" }
+          }
+        });
+      }
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "queued", mode: "analysis" }, { status: 202 });
+      }
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "linear", domain, status: "running", mode: "analysis" });
+      }
+      // The retry's own card GET must not still carry the old synthesisWithheld verdict: a
+      // card with synthesisWithheld set short-circuits pollGenerationUntilCard's first-tick
+      // completeness check (analysisCardIsComplete, sidepanel-network.ts) and resolves the
+      // whole retry instantly, which would collapse this test's observation window to zero. A
+      // real retry's card genuinely has not decided a new verdict yet at this point.
+      return jsonResponse(cardForDomain(domain));
+    });
+
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    // The fixture actually carries the "advanced" state the fix guards against: the withheld
+    // card renders, seeded from bootstrap with run-old's terminal events already in state.
+    expect(container.querySelector(".cs-lens-withheld")).toBeTruthy();
+
+    const retryButton = interactiveControls(container).find(
+      (button) => button.textContent?.includes("Refresh evidence and retry")
+    );
+    expect(retryButton).toBeTruthy();
+
+    await act(async () => {
+      retryButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await flushPromises();
+
+    const stages = Array.from(container.querySelectorAll(".cs-wait-stage"));
+    const queueStage = stages.find((stage) => stage.querySelector("strong")?.textContent === "Queue");
+    const fileStage = stages.find((stage) => stage.querySelector("strong")?.textContent === "File");
+    expect(queueStage?.getAttribute("data-status")).toBe("current");
+    // Pre-fix, run-old's retained card.saved/generation.complete events would put File at
+    // "current" (index 4, the highest reached) immediately on retry, before any new-run event
+    // ever arrived.
+    expect(fileStage?.getAttribute("data-status")).toBe("pending");
+
     await unmount();
   });
 

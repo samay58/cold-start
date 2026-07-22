@@ -2033,18 +2033,22 @@ test("timing files the remaining supported fields behind an inline disclosure", 
   // The overflow count is an inline disclosure, not a tooltip: clicking expands it in place.
   // The overflow content is always in the DOM (reduced motion must never hide content, only
   // change how the reveal animates), so the closed/open distinction is the frame's own
-  // data-expanded flag, not text presence.
+  // data-expanded flag, not text presence: a toContainText assertion on this text would pass
+  // even pre-click since the content is always mounted. The frame carries visibility:hidden
+  // while collapsed (research-trail.css), so toBeVisible() is what actually discriminates.
   const more = timing.locator(".cs-investor-read-more");
   const frame = timing.locator(".cs-investor-read-disclosure-frame");
+  const buyerBudget = frame.getByText("Buyer budget. Platform teams own the browser-infrastructure budget.");
   await expect(more).toHaveText("+1 more");
   await expect(more).toHaveAttribute("aria-expanded", "false");
   await expect(frame).toHaveAttribute("data-expanded", "false");
+  await expect(buyerBudget).not.toBeVisible();
 
   await more.click();
 
   await expect(more).toHaveAttribute("aria-expanded", "true");
   await expect(frame).toHaveAttribute("data-expanded", "true");
-  await expect(timing).toContainText("Buyer budget. Platform teams own the browser-infrastructure budget.");
+  await expect(buyerBudget).toBeVisible();
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
 });
 
