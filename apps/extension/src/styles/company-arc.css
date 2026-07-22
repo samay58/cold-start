@@ -349,11 +349,40 @@
   white-space: pre-line;
 }
 
+/* Wraps the title and body so a retarget can remount just this layer (React key={id} in
+   SharedTooltip.tsx) without disturbing the outer tooltip's own position transition. Mirrors
+   the parent's grid/gap so nesting it changes nothing about the resting layout. */
+.cs-shared-tooltip-content {
+  display: grid;
+  gap: 5px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
-  .cs-shared-tooltip[data-animate="true"] {
+  /* Popover mode: the card follows its trigger, so a retarget slides left/top to the new
+     trigger's position. Docked mode never moves (it always sits below dockAnchorRef), so this
+     transition is scoped away from it. */
+  .cs-shared-tooltip[data-animate="true"]:not([data-mode="docked"]) {
     transition:
       left var(--cs-motion-state) var(--cs-motion-ease-out),
       top var(--cs-motion-state) var(--cs-motion-ease-out);
+  }
+
+  /* Docked mode: the region is fixed, so a retarget between sibling triggers crossfades the
+     content in place instead (floating-ui's FloatingDelayGroup pattern: intent is charged
+     once, then retargets go straight to this crossfade). Same duration token as the popover
+     transition above, so both modes read as one system. */
+  .cs-shared-tooltip[data-mode="docked"][data-animate="true"] .cs-shared-tooltip-content {
+    animation: cs-dock-crossfade var(--cs-motion-state) var(--cs-motion-ease-out);
+  }
+}
+
+@keyframes cs-dock-crossfade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 

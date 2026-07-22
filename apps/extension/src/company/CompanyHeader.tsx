@@ -1,7 +1,7 @@
 import type { ColdStartCard } from "@cold-start/core";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { readableCompanyName, sourceLabel, websiteLabel } from "./company-display";
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
@@ -15,6 +15,10 @@ type CompanyHeaderProps = {
   // Rows below the identity band: fact ribbon, people line.
   children?: ReactNode;
   domain: string;
+  // The element the docked person dossier attaches below. Rendered as a zero-height marker
+  // right after the people block, so the dossier's region never overlaps a row above it. Omit
+  // when no docked trigger is in play (intake, building).
+  dockAnchorRef?: RefObject<HTMLDivElement | null> | undefined;
   freshnessLabel?: string | null;
   // Content inside the copy column, under the domain: summary, filed stamp.
   identityChildren?: ReactNode;
@@ -28,6 +32,7 @@ type CompanyHeaderProps = {
 export function CompanyHeader({
   card,
   children,
+  dockAnchorRef,
   domain,
   freshnessLabel,
   identityChildren,
@@ -57,6 +62,7 @@ export function CompanyHeader({
         {statusSlot ? <div className="cs-company-status-slot">{statusSlot}</div> : null}
       </div>
       {children}
+      {dockAnchorRef ? <div aria-hidden="true" ref={dockAnchorRef} style={{ height: 0 }} /> : null}
     </section>
   );
 }
@@ -490,7 +496,7 @@ export function PeopleLine({
             ? tooltipProps({
               body: personDossier(person, citations),
               id: `person-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-              placement: "above",
+              mode: "docked",
               title: name
             })
             : undefined;
@@ -516,10 +522,6 @@ export function PeopleLine({
             aria-expanded={expanded}
             aria-label={expanded ? "Show fewer people" : `Show ${hiddenPeopleCount} more people`}
             className="cs-people-more"
-            onClick={() => {
-              hideTooltip();
-              setExpanded((value) => !value);
-            }}
             type="button"
             {...(expanded
               ? {}
@@ -529,6 +531,10 @@ export function PeopleLine({
                   placement: "above",
                   title: `${hiddenPeopleCount} more`
                 }))}
+            onClick={() => {
+              hideTooltip();
+              setExpanded((value) => !value);
+            }}
           >
             {expanded ? "Show fewer" : `+${hiddenPeopleCount} more`}
           </button>

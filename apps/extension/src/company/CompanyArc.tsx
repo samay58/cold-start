@@ -144,7 +144,7 @@ export function CompanyArc({
   queuedLayerIds
 }: CompanyArcProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
-  const { hideTooltip, tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
+  const { dockAnchorRef, hideTooltip, tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
   const building = arc.phase === "building" ? arc : null;
   const profile = arc.phase === "profile" ? arc : null;
 
@@ -204,6 +204,7 @@ export function CompanyArc({
 
         <CompanyHeader
           card={profile?.card ?? null}
+          dockAnchorRef={profile ? dockAnchorRef : undefined}
           domain={domain}
           freshnessLabel={freshnessLabel}
           phase={arc.phase}

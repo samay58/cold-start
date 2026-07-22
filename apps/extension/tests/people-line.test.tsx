@@ -33,6 +33,7 @@ async function renderPeople(
     return {
       "aria-describedby": "cs-company-shared-tooltip",
       onBlur: () => undefined,
+      onClick: () => undefined,
       onFocus: () => undefined,
       onKeyDown: () => undefined,
       onPointerEnter: () => undefined,
