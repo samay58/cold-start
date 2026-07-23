@@ -113,7 +113,8 @@ export async function verifySynthesis(input: {
       telemetry: input.telemetry,
       params: {
         model: input.model,
-        max_tokens: 2000,
+        // Plain-JSON response must never truncate mid-claim; raised from 2000 after observed truncations under verbose routing, a cap, not a spend.
+        max_tokens: 8192,
         temperature: 0,
         system: [
           {
