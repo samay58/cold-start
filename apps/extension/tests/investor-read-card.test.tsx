@@ -5,57 +5,12 @@ import { act, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
+import { LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier } from "../src/shared/SharedTooltip";
+import { minimalWarpCard as baseCard } from "./lens-card-fixtures";
 
 type Captured = { body: string | TooltipDossier; id: string; title: string };
-
-function baseCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
-  return {
-    slug: "warp",
-    domain: "warp.dev",
-    generatedAt: "2026-06-23T12:00:00.000Z",
-    generationCostUsd: 0,
-    cacheStatus: "hit",
-    identity: {
-      name: { value: "Warp", status: "verified", confidence: "high", citationIds: ["c1"] },
-      logoUrl: null,
-      oneLiner: { value: "AI terminal for developers.", status: "verified", confidence: "high", citationIds: ["c1"] },
-      hq: { value: { city: "San Francisco", country: "US" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      foundedYear: { value: 2021, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      status: "private"
-    },
-    funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      investors: { value: [], status: "unknown", confidence: "low", citationIds: [] }
-    },
-    team: {
-      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    signals: [],
-    comparables: [],
-    citations: [
-      { id: "c1", url: "https://warp.dev", title: "Warp", fetchedAt: "2026-06-23T12:00:00.000Z", sourceType: "company_site" },
-      {
-        id: "c2",
-        url: "https://example.com/warp-deep-dive",
-        title: "Independent Warp deep dive",
-        fetchedAt: "2026-06-23T12:00:00.000Z",
-        sourceType: "news",
-        sourceQuality: {
-          tier: "independent_analysis",
-          label: "Independent analysis",
-          rationale: "Independent product analysis.",
-          incentive: "No direct company incentive."
-        }
-      }
-    ],
-    ...overrides
-  };
-}
 
 // (b)/(e): rich synthesis with multiple bull/bear claims and multiple timing fields, so the
 // overflow disclosure has something to expand.
@@ -216,7 +171,7 @@ describe("InvestorReadCard", () => {
     const breaks = container.querySelector('[data-side="breaks"]');
     const holds = container.querySelector('[data-side="holds"]');
 
-    expect(breaks?.textContent).toContain("No breaking claim survived verification.");
+    expect(breaks?.textContent).toContain(LENS_TENSION_EMPTY_COPY.breaks);
     // The holds side has a real claim, so it must not carry the empty copy at all, and the two
     // sides' empty-state language must not collapse into the same generic sentence.
     expect(holds?.textContent).not.toContain("survived verification");

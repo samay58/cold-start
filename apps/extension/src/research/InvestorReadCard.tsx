@@ -7,6 +7,7 @@ import {
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { useState, type ReactNode } from "react";
 import type { InvestorReadDisplay, LensTensionClaim } from "./investor-lens";
+import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "./investor-read-copy";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
@@ -208,20 +209,20 @@ export function InvestorReadCard({
       >
         <h4 className="cs-investor-read-label">The case</h4>
         {!read.holds && !read.breaks ? (
-          <p className="cs-lens-case-empty cs-lens-none">No bull or break claim survived verification.</p>
+          <p className="cs-lens-case-empty cs-lens-none">{LENS_TENSION_EMPTY_COPY.both}</p>
         ) : (
           <>
             <LensTensionSide
               claim={read.holds}
-              emptyCopy="No supporting claim survived verification."
-              label="If true"
+              emptyCopy={LENS_TENSION_EMPTY_COPY.holds}
+              label={LENS_TENSION_LABEL.holds}
               prefersReducedMotion={prefersReducedMotion}
               side="holds"
             />
             <LensTensionSide
               claim={read.breaks}
-              emptyCopy="No breaking claim survived verification."
-              label="It breaks if"
+              emptyCopy={LENS_TENSION_EMPTY_COPY.breaks}
+              label={LENS_TENSION_LABEL.breaks}
               prefersReducedMotion={prefersReducedMotion}
               side="breaks"
             />

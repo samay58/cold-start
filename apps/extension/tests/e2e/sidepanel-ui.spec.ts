@@ -12,6 +12,7 @@ import {
   researchPanelPolishCard
 } from "./fixtures";
 import { dragWithSamples, expectFocusedElementVisible, expectPointerAttached } from "./interaction-probes";
+import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "../../src/research/investor-read-copy";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
@@ -178,7 +179,7 @@ for (const reducedMotion of [false, true]) {
 
     const memo = page.getByRole("article", { name: "Investor read" });
     await expect(memo.locator(".cs-lens-tension-side")).toHaveCount(0);
-    await expect(memo.locator(".cs-lens-case-empty")).toContainText("No bull or break claim survived verification.");
+    await expect(memo.locator(".cs-lens-case-empty")).toContainText(LENS_TENSION_EMPTY_COPY.both);
 
     const comps = page.locator(".cs-dormant-card", { hasText: "Comps" });
     await comps.click();
@@ -296,10 +297,10 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead).toContainText("Physician burnout from documentation");
 
   // The tension pair keeps the surviving bull claim and states the missing bear side honestly.
-  await expect(investorRead).toContainText("If true");
+  await expect(investorRead).toContainText(LENS_TENSION_LABEL.holds);
   await expect(investorRead).toContainText("Rush University Medical Center");
-  await expect(investorRead).toContainText("It breaks if");
-  await expect(investorRead).toContainText("No breaking claim survived verification.");
+  await expect(investorRead).toContainText(LENS_TENSION_LABEL.breaks);
+  await expect(investorRead).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
 
   // Unsupported timing is a clean not-found row, never an unfinished-generation state.
   await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");

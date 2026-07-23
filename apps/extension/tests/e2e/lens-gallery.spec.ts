@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installLensGalleryPhase, LENS_GALLERY_PHASE_IDS, type LensGalleryPhaseId } from "./lens-gallery-fixtures";
+import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "../../src/research/investor-read-copy";
 
 // One run of this spec writes every phase's screenshot under the same timestamped directory,
 // so a single `npm run qa:extension:gallery` produces one comparable set. This is the fixture
@@ -46,10 +47,10 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     heading: "Harbor Compute",
     verify: async (page) => {
       const read = await investorRead(page);
-      await expect(read).toContainText("If true");
+      await expect(read).toContainText(LENS_TENSION_LABEL.holds);
       // The 0-bear side gets its own honest, specific empty state, not the generic
       // "None survived verification." every empty row used to share.
-      await expect(read).toContainText("No breaking claim survived verification.");
+      await expect(read).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
     }
   },
   withheld: {
@@ -64,8 +65,8 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     heading: "Fathom Metrics",
     verify: async (page) => {
       const read = await investorRead(page);
-      await expect(read).toContainText("If true");
-      await expect(read).toContainText("It breaks if");
+      await expect(read).toContainText(LENS_TENSION_LABEL.holds);
+      await expect(read).toContainText(LENS_TENSION_LABEL.breaks);
       // This card has synthesis and no synthesisWithheld record, so the posture line reads
       // synthesisEvidenceSignals live: every non-enrichment citation is sourceType "news".
       const posture = page.getByLabel("Evidence posture");

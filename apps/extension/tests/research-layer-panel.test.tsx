@@ -6,62 +6,10 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyArc } from "../src/company/CompanyArc";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
+import { minimalExaCard } from "./lens-card-fixtures";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
-  return {
-    slug: "exa",
-    domain: "exa.ai",
-    generatedAt: "2026-06-21T00:00:00.000Z",
-    generationCostUsd: 0,
-    cacheStatus,
-    identity: {
-      name: { value: "Exa", status: "verified", confidence: "high", citationIds: ["c1"] },
-      websiteUrl: { value: "https://exa.ai/", status: "verified", confidence: "high", citationIds: ["c1"] },
-      logoUrl: null,
-      oneLiner: { value: "Search infrastructure for AI applications.", status: "verified", confidence: "high", citationIds: ["c1"] },
-      description: {
-        value: {
-          shortDescription: "Exa builds search and research infrastructure for AI products.",
-          concept: "Search and research infrastructure for AI products.",
-          mechanism: "A search API and crawler tuned for AI applications.",
-          serves: "AI product teams and developers building search-heavy workflows."
-        },
-        status: "verified",
-        confidence: "high",
-        citationIds: ["c1"]
-      },
-      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      foundedYear: { value: 2021, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      status: "private"
-    },
-    funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: {
-        value: { name: "Series A", amountUsd: null, announcedAt: null, leadInvestors: [] },
-        status: "verified",
-        confidence: "medium",
-        citationIds: ["c1"]
-      },
-      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    team: {
-      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    signals: [],
-    comparables: [],
-    citations: [
-      {
-        id: "c1",
-        url: "https://exa.ai/",
-        title: "Exa",
-        fetchedAt: "2026-06-21T00:00:00.000Z",
-        sourceType: "company_site",
-        snippet: "Exa builds search infrastructure for AI applications."
-      }
-    ]
-  };
+  return minimalExaCard({ cacheStatus });
 }
 
 function event(input: Partial<ExtensionResearchRunEvent> & Pick<ExtensionResearchRunEvent, "id" | "type">): ExtensionResearchRunEvent {
