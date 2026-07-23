@@ -491,7 +491,13 @@ describe("generate-card analysis synthesize/verify steps", () => {
     );
   });
 
-  it("fails the run when verify-synthesis produces no surviving claims, without ever storing the card", async () => {
+  // Decided semantics (2026-07-23): an all-claims-dropped run used to throw before any store, so
+  // no synthesisWithheld record existed and every re-click re-paid for synthesis and failed the
+  // same way. It now converges: (a) no prior read exists, so it stores a withheld card with the
+  // new "no-claims-survived" reason and completes; (b)/(c) a prior read exists (from a gate block
+  // or an earlier all-dropped run), so the run leaves it untouched instead of overwriting it with
+  // nothing (issue #10). These three replace the old single throwing test.
+  it("(a) converges instead of throwing when verify-synthesis drops every claim and no prior read exists: stores a withheld card and completes", async () => {
     mocks.synthesizeCard.mockResolvedValue({
       whyItMatters,
       bullCase: [],
@@ -500,18 +506,104 @@ describe("generate-card analysis synthesize/verify steps", () => {
     });
     mocks.verifySynthesis.mockResolvedValue([{ ...whyItMatters, status: "contradicted" }]);
 
-    await expect(runAnalysisGeneration()).rejects.toThrow("No synthesis claims survived verification");
+    await runAnalysisGeneration();
 
-    expect(mocks.upsertCard).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+    expect(mocks.markGenerationRun).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "failed" })
     );
 
+    expect(mocks.upsertCard).toHaveBeenCalledTimes(1);
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis).toBeUndefined();
+    expect(storedCard.synthesisWithheld).toMatchObject({
+      reasons: ["no-claims-survived"]
+    });
+
+    // Matches the pre-existing gate-withheld path's own treatment (both go through the same
+    // storeCardSnapshot write): a withheld completion that DOES store still stamps
+    // analysisReadyMs. Only the no-store preserve paths (b, c below) leave it unstamped.
+    const trace = persistedTrace();
+    expect(trace.milestones?.analysisReadyMs).toEqual(expect.any(Number));
+
     const types = eventTypes();
-    // verify-synthesis really ran and returned (0 survivors), so verify.complete still fires; the
-    // failure is a downstream business decision (analysis requires usable synthesis), not an LLM error.
+    // verify-synthesis really ran and returned (0 survivors), so verify.complete still fires.
     expect(types).toContain("verify.complete");
+  });
+
+  it("(b) preserves an existing filed read instead of overwriting it when verify-synthesis drops every claim (issue #10)", async () => {
+    const existingCardWithSynthesis: ColdStartCard = {
+      ...cardWithCitationCount(8),
+      synthesis: {
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+      }
+    };
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithSynthesis);
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    mocks.verifySynthesis.mockResolvedValue([{ ...whyItMatters, status: "contradicted" }]);
+
+    await runAnalysisGeneration();
+
+    expect(mocks.upsertCard).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+
+    // No store happened this run, so no new analysisReadyMs milestone was written.
+    const trace = persistedTrace();
+    expect(trace.milestones?.analysisReadyMs).toBeUndefined();
+  });
+
+  it("(c) preserves an existing filed read instead of overwriting it when the evidence gate blocks (issue #10)", async () => {
+    const existingCardWithSynthesis: ColdStartCard = {
+      ...cardWithCitationCount(8),
+      synthesis: {
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+      }
+    };
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithSynthesis);
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: cardWithCitationCount(1),
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: {
+          sourceCount: 1,
+          evidenceCount: 1,
+          citationCount: 1,
+          fallbackUsed: false
+        }
+      }
+    });
+
+    await runAnalysisGeneration();
+
+    expect(mocks.synthesizeCard).not.toHaveBeenCalled();
+    expect(mocks.verifySynthesis).not.toHaveBeenCalled();
+    expect(mocks.upsertCard).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+
+    const trace = persistedTrace();
+    expect(trace.milestones?.analysisReadyMs).toBeUndefined();
   });
 
   // Item 2 (schema null-tolerance) fix: documents current semantics for a schema-shaped failure,

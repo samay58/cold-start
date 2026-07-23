@@ -131,6 +131,26 @@ describe("Investor Lens withheld and failed states", () => {
     await unmount();
   });
 
+  it("(a2) renders the no-claims-survived reason copy when the verifier dropped every claim instead of the evidence gate blocking", async () => {
+    const { container, unmount } = await renderArc({
+      card: card({
+        synthesisWithheld: withheldRecord({
+          reasons: ["no-claims-survived"],
+          advisories: [],
+          citationCount: 8,
+          sourceTypeCount: 2
+        })
+      })
+    });
+
+    const withheld = container.querySelector("[aria-label='Lens withheld']");
+    expect(withheld).not.toBeNull();
+    expect(withheld?.textContent).toContain("Analysis ran; no claim survived verification against its sources.");
+    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+
+    await unmount();
+  });
+
   it("(b) renders failure copy for a run-status failure with no withheld record", async () => {
     const { container, unmount } = await renderArc({
       card: card(),

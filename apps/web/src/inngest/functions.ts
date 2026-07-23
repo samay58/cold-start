@@ -41,6 +41,7 @@ import {
   evaluateSynthesisGate,
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
+  withheldCardForNoSurvivors,
   type EvidenceLedgerEntry,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
@@ -344,6 +345,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     }, null);
     const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
     const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
+    // Never replace a filed read with nothing (issue #10): a gate block or an all-claims-dropped
+    // verify result must not overwrite a card that already carries a good synthesis read. Read
+    // once here; both decision points below branch on it.
+    const existingCardHasSynthesis = Boolean(existingCard?.synthesis);
 
     // Task 5.3: ANALYSIS_SOURCE_REFRESH gates the unconditional 13-probe stableenrich re-fetch on
     // the reuse branch. The signals-freshness DB read only fires for "skip-fresh" on the reuse
@@ -624,6 +629,11 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     let generatedCard: ColdStartCard = cardWithTraceCost(clean.value.card, trace);
     let generatedSections = clean.value.sections;
     let sourcesToRecord = clean.value.sources;
+    // Set when this run must not write a card at all: a gate block or an all-claims-dropped
+    // verify result over a slug that already has a filed synthesis read (issue #10). The run
+    // still completes normally; it just skips storeCardSnapshot below, so the existing stored
+    // card (and its synthesis) is untouched.
+    let skipCardStore = false;
 
     if (mode === "analysis") {
       currentStage = "evaluate-synthesis-gate";
@@ -633,13 +643,17 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       // step's card, matching the existing generatedAt-outside-a-step precedent in this file.
       const gateOutcome = evaluateSynthesisGate(generatedCard, { synthesisRequired: true });
       if (gateOutcome.blocked) {
-        generatedCard = gateOutcome.card;
         mergeTracePatch(trace, gateOutcome.tracePatch);
         trace.steps = {
           ...trace.steps,
           "synthesize-card": skippedStep("synthesis gate blocked: insufficient evidence"),
           "verify-synthesis": skippedStep("synthesis gate blocked: insufficient evidence")
         };
+        if (existingCardHasSynthesis) {
+          skipCardStore = true;
+        } else {
+          generatedCard = gateOutcome.card;
+        }
       } else {
         await recordEvent("synthesis-started", "synthesis.started", "Reading the filed evidence", {}, null);
 
@@ -733,8 +747,17 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         if (verified.synthesis) {
           const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = generatedCard;
           generatedCard = { ...cardWithoutWithheld, synthesis: verified.synthesis };
+        } else if (existingCardHasSynthesis) {
+          // All claims dropped, but the slug already has a filed read: preserve it (issue #10)
+          // instead of storing an empty result over it.
+          skipCardStore = true;
         } else {
-          throw new Error("No synthesis claims survived verification");
+          // All claims dropped and there is no existing read to fall back on: converge honestly
+          // instead of throwing and forcing every re-click to re-pay for synthesis and fail the
+          // same way. Stamps a synthesisWithheld record with the new "no-claims-survived" reason
+          // so the extension renders it as a withheld read and the route's free pre-check can
+          // answer a re-click for free once the evidence stops moving.
+          generatedCard = withheldCardForNoSurvivors(generatedCard);
         }
       }
 
@@ -744,7 +767,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
     let analysisReadyMs: number | null = null;
 
-    const generatedStore = await storeCardSnapshot({
+    // skipCardStore (issue #10 / all-claims-dropped preservation): the existing stored card
+    // already carries a good synthesis read, so this run must not touch it. No upsert, no
+    // evidence/sections/sources write, no analysisReadyMs stamp; the run still completes below.
+    const generatedStore = skipCardStore ? null : await storeCardSnapshot({
       cardToStore,
       sources: sourcesToRecord,
       steps: { upsert: "upsert-card", evidence: "record-card-evidence", sections: "record-research-sections", sources: "record-sources" },

@@ -6,6 +6,8 @@ import {
   type ResolvedFact,
   type SourcedText,
   type SynthesisGateDecision,
+  synthesisAdvisoriesFromSignals,
+  synthesisEvidenceSignals,
   synthesisGateDecision,
   synthesisSchema,
   type SynthesisWithheld
@@ -112,6 +114,24 @@ function synthesisWithheldFromGate(gate: ReturnType<typeof traceGateFromDecision
     citationCount: gate.citationCount,
     sourceTypeCount: gate.sourceTypeCount
   };
+}
+
+// Companion to evaluateSynthesisGate below, for the outcome the gate cannot see: the run cleared
+// the citation floor and synthesis ran, but the verifier dropped every claim (0 survivors). Same
+// signal derivation as the gate path (synthesisEvidenceSignals + synthesisAdvisoriesFromSignals),
+// just a single fixed reason instead of a gate decision. Callers attach the result over a card
+// that has no existing stored synthesis to preserve; apps/web/src/inngest/functions.ts is the
+// only caller and decides that branch.
+export function withheldCardForNoSurvivors(card: ColdStartCard): ColdStartCard {
+  const signals = synthesisEvidenceSignals(card);
+  const withheld: SynthesisWithheld = {
+    at: new Date().toISOString(),
+    reasons: ["no-claims-survived"],
+    advisories: synthesisAdvisoriesFromSignals(signals),
+    citationCount: signals.citationCount,
+    sourceTypeCount: signals.nonEnrichmentSourceTypes.length
+  };
+  return { ...card, synthesisWithheld: withheld };
 }
 
 export function synthesisEvidenceGate(card: ColdStartCard, minCitations = analysisSynthesisMinCitations()) {

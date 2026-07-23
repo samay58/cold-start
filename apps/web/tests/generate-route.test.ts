@@ -174,6 +174,7 @@ function withheldCard(overrides: {
   citationCount?: number;
   sourceTypeCount?: number;
   extraCitations?: ReturnType<typeof usablePublicCard>["citations"];
+  reasons?: string[];
 } = {}) {
   const base = usablePublicCard();
   return {
@@ -181,7 +182,7 @@ function withheldCard(overrides: {
     citations: overrides.extraCitations ? [...base.citations, ...overrides.extraCitations] : base.citations,
     synthesisWithheld: {
       at: overrides.synthesisWithheldAt ?? "2026-05-14T00:00:00.000Z",
-      reasons: ["insufficient-citations"],
+      reasons: overrides.reasons ?? ["insufficient-citations"],
       advisories: [],
       citationCount: overrides.citationCount ?? 3,
       sourceTypeCount: overrides.sourceTypeCount ?? 3
@@ -332,6 +333,33 @@ describe("POST /api/generate", () => {
       mode: "analysis",
       status: "withheld",
       card: expect.objectContaining({ slug: "cartesia", synthesisWithheld: expect.objectContaining({ at: "2026-05-14T00:00:00.000Z" }) })
+    });
+    expect(response.status).toBe(200);
+    expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("(a2) returns withheld status free of charge for a no-claims-survived verdict with unchanged evidence", async () => {
+    // Same evidence-content pre-check as (a), just over the new reason the pipeline stamps when
+    // verify-synthesis drops every claim instead of the gate blocking outright (packages/pipeline
+    // withheldCardForNoSurvivors). The route's comparison is reason-agnostic, so this only needs
+    // the new reason value on the fixture to prove it, not any route-side change.
+    mocks.findCardBySlug.mockResolvedValue(withheldCard({ reasons: ["no-claims-survived"] }));
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      status: "withheld",
+      card: expect.objectContaining({
+        slug: "cartesia",
+        synthesisWithheld: expect.objectContaining({ reasons: ["no-claims-survived"] })
+      })
     });
     expect(response.status).toBe(200);
     expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
