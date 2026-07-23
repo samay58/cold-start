@@ -185,6 +185,9 @@ vi.mock("@cold-start/llm", () => ({
   anthropicModel: () => "claude-test",
   modelForStage: () => "claude-test",
   createAnthropicClient: () => ({}),
+  // The section step consults the transient classifier before memoizing a failure; the errors
+  // these tests throw are semantic, so the mock mirrors the real classifier's verdict for them.
+  isTransientLlmError: () => false,
   // @cold-start/pipeline re-exports this schema from llm, so the mock must provide it; a passthrough
   // is enough for the section shapes the tests feed in.
   extractedCardSectionsSchema: { parse: (value: unknown) => value },

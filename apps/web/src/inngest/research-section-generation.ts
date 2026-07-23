@@ -12,6 +12,7 @@ import {
 import { findCardBySlug, findSourcesBySlug, markGenerationRun, upsertResearchSection, type ColdStartDb } from "@cold-start/db";
 import {
   createAnthropicClient,
+  isTransientLlmError,
   synthesizeResearchSection,
   type ResearchSectionEvidenceSource
 } from "@cold-start/llm";
@@ -199,6 +200,12 @@ export async function runResearchSectionJobStep(input: {
           value: section
         };
       } catch (error) {
+        // Same split as the synthesize/verify step bodies in generation-helpers.ts: a transient
+        // transport failure re-throws so Inngest re-executes the step on retry instead of
+        // memoizing a permanent {ok:false} for what may be a passing outage.
+        if (isTransientLlmError(error)) {
+          throw error;
+        }
         return {
           ok: false as const,
           error: boundedErrorMessage(error)
