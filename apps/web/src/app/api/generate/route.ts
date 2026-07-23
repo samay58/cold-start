@@ -364,6 +364,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // forceRefresh bypasses the cache-hit checks above but not this one: an in-flight run for the
+  // same slug/mode is joined below, never superseded. A forceRefresh request never starts a
+  // second concurrent run against the same target; it attaches to whatever is already running.
   if (activeRun) {
     if (activeRun.jobKind !== jobKindForRequest(mode, sectionId)) {
       return timedJson(
