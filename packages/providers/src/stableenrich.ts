@@ -194,4 +194,4 @@ export async function fetchStableenrichEmailPatternSources(input: {
 }
 
 export { buildStableenrichRequests, missingStableenrichConfig, providerSourceFromText, runStableenrichProbe } from "./stableenrich/core";
-export type { StableenrichEmailDiscovery, StableenrichEmailPatternResult, StableenrichProbeFailure, StableenrichSourcesResult } from "./stableenrich/core";
+export type { StableenrichSourcesResult } from "./stableenrich/core";
