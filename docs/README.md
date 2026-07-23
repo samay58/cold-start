@@ -26,7 +26,8 @@ Start here before adding or editing docs.
 - `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
 - `qa/analysis-run-observations.md`: dated log of notable analysis runs and the attack list they feed.
 - `qa/exa-websets-contact-enrichment-playbook.md`: Websets contact enrichment QA.
-- `superpowers/plans/`: active implementation plans only (currently the Firefox port). Shipped plans move to `archive/plans/`.
+- `superpowers/plans/`: active implementation plans only (currently the Firefox port, the Kimi K3 openrouter judgment matrix, and the investor-lens overhaul). Shipped plans move to `archive/plans/`.
+- `superpowers/specs/`: live approved design specs, currently the investor-lens overhaul design. Shipped specs move to `archive/specs/`.
 - `product/research/`: local-only private prompts and analysis dumps, gitignored.
 
 ## Design corner
