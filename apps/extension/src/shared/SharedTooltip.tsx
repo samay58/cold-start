@@ -156,6 +156,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const intentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinnedRef = useRef(false);
+  const suppressNextFocusOpen = useRef(false);
   const triggerRef = useRef<HTMLElement | null>(null);
   // The element the docked region attaches below. CompanyHeader renders a zero-height marker
   // just under the people block and attaches this ref to it; docked geometry reads that
@@ -297,7 +298,12 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
         commitTooltip(input, event.currentTarget, true);
       },
       onFocus: (event) => {
+        if (suppressNextFocusOpen.current) {
+          suppressNextFocusOpen.current = false;
+          return;
+        }
         clearIntentTimer();
+        triggerRef.current = event.currentTarget;
         commitTooltip(input, event.currentTarget, false);
       },
       onKeyDown: (event) => {
@@ -330,6 +336,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
         }
         clearHideTimer();
         const target = event.currentTarget;
+        triggerRef.current = target;
         const requestedMode = input.mode ?? "popover";
         // Retarget goes hot: once a docked tooltip is open, moving to another docked trigger
         // skips the intent delay and commits straight to the 140ms content crossfade
@@ -365,6 +372,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
   const tooltipInteraction: TooltipInteraction = {
     onDismiss: () => {
       const trigger = triggerRef.current;
+      suppressNextFocusOpen.current = true;
       hideTooltip();
       trigger?.focus();
     },
@@ -533,6 +541,18 @@ export function SharedTooltip({
       }}
       tabIndex={interactive ? -1 : undefined}
     >
+      {dossier ? (
+        <button
+          aria-label={`Close ${tooltip.title} dossier`}
+          className="cs-dossier-dismiss"
+          onClick={() => interaction?.onDismiss()}
+          type="button"
+        >
+          <svg aria-hidden="true" height="10" viewBox="0 0 10 10" width="10">
+            <path d="M2 2l6 6M8 2 2 8" />
+          </svg>
+        </button>
+      ) : null}
       {/* Keyed by id so a retarget remounts the content: the docked crossfade keyframe
           (company-arc.css) plays on mount, and a stray copy-acknowledgment state from the
           previous dossier never survives onto the next one. */}

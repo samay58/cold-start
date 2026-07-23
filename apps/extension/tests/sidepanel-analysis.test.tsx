@@ -32,7 +32,7 @@ describe("SidePanel analysis and sections", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run Investor Lens"
+      (button) => button.getAttribute("aria-label") === "Run Investor Lens"
     );
     expect(lensButton).toBeTruthy();
     await act(async () => {
@@ -467,7 +467,7 @@ describe("SidePanel analysis and sections", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run Investor Lens"
+      (button) => button.getAttribute("aria-label") === "Run Investor Lens"
     );
     await act(async () => {
       lensButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

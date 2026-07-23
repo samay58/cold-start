@@ -424,11 +424,11 @@ describe("ResearchLayerPanel surface diet", () => {
     vi.unstubAllGlobals();
   });
 
-  it("states the module count once, in the card tray; the research-layer header drops its own ratio", async () => {
+  it("states the module count once in the card tray and omits the research ribbon", async () => {
     const { container, unmount } = await renderPanel();
 
     const head = container.querySelector(".cs-research-layer-head");
-    expect(head?.textContent).toBe("Research");
+    expect(head).toBeNull();
     expect(container.textContent).not.toContain("0 / 6");
     expect(container.textContent).toContain("6 waiting");
     await unmount();

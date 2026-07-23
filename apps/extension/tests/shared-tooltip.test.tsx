@@ -219,6 +219,22 @@ describe("dossier hovercard bridge", () => {
     expect(github?.textContent).toBe("GitHub");
     expect(x?.textContent).toBe("X");
   });
+
+  it("dismisses the dossier through the visible close control", async () => {
+    vi.useFakeTimers();
+    const { container, handleRef, trigger } = await mount(dossier);
+    await act(async () => {
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+
+    const dismiss = container.querySelector<HTMLButtonElement>(".cs-dossier-dismiss");
+    expect(dismiss?.getAttribute("aria-label")).toBe("Close Ada Lovelace dossier");
+    await act(async () => {
+      dismiss?.click();
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
 });
 
 describe("plain string tooltip gets the same grace window as the dossier", () => {
@@ -306,10 +322,9 @@ describe("dossier keyboard path", () => {
     await act(async () => {
       tooltip?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
     });
-    // Escape releases the focus trap back to the row. The row is focused again, so the
-    // dossier stays visible but unpinned (like hover), and focus is back on the trigger.
+    // Escape closes the dossier and returns focus to the row.
     expect(document.activeElement).toBe(trigger);
-    expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
   });
 
   it("does not pin the plain string tooltip on Enter", async () => {
@@ -325,7 +340,7 @@ describe("dossier keyboard path", () => {
     expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
   });
 
-  it("promotes the pinned dossier from role=tooltip to role=dialog, and reverts on unpin", async () => {
+  it("promotes the pinned dossier from role=tooltip to role=dialog, then closes on Escape", async () => {
     const { container, handleRef, trigger } = await mount(dossier);
 
     await act(async () => {
@@ -352,10 +367,9 @@ describe("dossier keyboard path", () => {
     await act(async () => {
       tooltip?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
     });
-    // Escape unpins and demotes the region back to role=tooltip with no accessible name.
+    // Escape closes the dialog rather than leaving a focus-reopened tooltip behind.
     tooltip = container.querySelector(".cs-shared-tooltip");
-    expect(tooltip?.getAttribute("role")).toBe("tooltip");
-    expect(tooltip?.hasAttribute("aria-label")).toBe(false);
+    expect(tooltip).toBeNull();
   });
 
   it("closes an unpinned, focus-revealed dossier on Escape without moving focus off the trigger", async () => {
@@ -721,8 +735,7 @@ describe("click pin", () => {
     expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("role")).toBe("tooltip");
     expect(container.querySelector(".cs-shared-tooltip")).toBeTruthy();
 
-    // Re-pin via click, then confirm Escape still unpins and refocuses: the same keyboard-pin
-    // parity the existing Enter path already covers, now also reachable via click.
+    // Re-pin via click, then confirm Escape closes and refocuses.
     await act(async () => {
       handleRef.current!.props.onClick(clickEvent(trigger));
     });
@@ -734,7 +747,7 @@ describe("click pin", () => {
       );
     });
     expect(document.activeElement).toBe(trigger);
-    expect(container.querySelector(".cs-shared-tooltip")?.getAttribute("data-pinned")).toBe("false");
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
   });
 
   it("does not pin on click for a plain-text (non-dossier) trigger", async () => {

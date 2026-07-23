@@ -346,20 +346,25 @@ function InvestorLensControl({
 }) {
   const state = investorLensControlState({ card, profileRun });
   return (
-    <div className="cs-investor-lens-control">
-      <div>
+    <button
+      aria-label="Run Investor Lens"
+      className="cs-investor-lens-control"
+      disabled={state.disabled}
+      onClick={() => onRunAnalysis()}
+      type="button"
+    >
+      <span className="cs-investor-lens-control-index" aria-hidden="true">IL</span>
+      <span className="cs-investor-lens-control-copy">
         <strong>Investor Lens</strong>
         <span>{state.reason}</span>
-      </div>
-      <button
-        className="cs-investor-lens-button"
-        disabled={state.disabled}
-        onClick={() => onRunAnalysis()}
-        type="button"
-      >
-        Run Investor Lens
-      </button>
-    </div>
+      </span>
+      <span className="cs-investor-lens-control-action" aria-hidden="true">
+        <span className="cs-investor-lens-control-seal">
+          <span />
+        </span>
+        <span>{state.disabled ? "Sealed" : "Run lens"}</span>
+      </span>
+    </button>
   );
 }
 
@@ -757,9 +762,6 @@ export function ResearchLayerPanel({
   return (
     <>
       <section className="cs-research-layer" aria-label="Research layer">
-        <div className="cs-research-layer-head">
-          <span>Research</span>
-        </div>
         <div className="cs-lens-slot">
           <LensSlot
             prefersReducedMotion={prefersReducedMotion}

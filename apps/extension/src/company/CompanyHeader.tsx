@@ -513,6 +513,7 @@ export function PeopleLine({
           <span className="cs-people-name">{person.name}</span>
           <span className="cs-people-role">{personRole(person)}</span>
         </span>
+        <span className="cs-person-dossier-cue" aria-hidden="true">view dossier</span>
       </article>
     );
   }

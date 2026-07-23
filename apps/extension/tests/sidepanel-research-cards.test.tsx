@@ -217,7 +217,7 @@ describe("SidePanel research cards", () => {
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
-      (button) => button.textContent === "Run Investor Lens"
+      (button) => button.getAttribute("aria-label") === "Run Investor Lens"
     );
     await act(async () => {
       lensButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -238,7 +238,7 @@ describe("SidePanel research cards", () => {
     expect(container.textContent).toContain("The last run did not produce a read. Retry when ready.");
     expect(container.textContent).not.toContain("Research status");
     expect(
-      interactiveControls(container).some((button) => button.textContent === "Run Investor Lens")
+      interactiveControls(container).some((button) => button.getAttribute("aria-label") === "Run Investor Lens")
     ).toBe(true);
     await unmount();
   });

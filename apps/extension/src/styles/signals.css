@@ -123,7 +123,7 @@
 
 .cs-people-person {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -137,7 +137,7 @@
 }
 
 .cs-people-person[aria-describedby] {
-  cursor: default;
+  cursor: pointer;
 }
 
 .cs-people-person:focus-visible {
@@ -171,6 +171,25 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.cs-person-dossier-cue {
+  align-self: center;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 620;
+  line-height: 1;
+  text-decoration: underline;
+  text-decoration-color: var(--color-rule);
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.cs-people-person:hover .cs-person-dossier-cue,
+.cs-people-person:focus-visible .cs-person-dossier-cue {
+  color: var(--color-seal);
+  text-decoration-color: var(--color-seal);
 }
 
 /* A real pressable chip, not a quiet placeholder: the seal-tinted border and fill read as

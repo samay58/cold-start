@@ -102,6 +102,8 @@ describe("PeopleLine visible row diet", () => {
     expect(container.querySelector(".cs-person-contact-state")).toBeNull();
     expect(container.querySelector(".cs-person-email button")).toBeNull();
     expect(container.textContent).not.toContain("Copy");
+    expect(container.querySelectorAll(".cs-person-dossier-cue")).toHaveLength(2);
+    expect(container.textContent).toContain("view dossier");
   });
 
   it("kills the visible People label but keeps the aria-label", async () => {

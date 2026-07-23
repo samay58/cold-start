@@ -309,6 +309,44 @@
   transform: translate3d(0, 0, 0);
 }
 
+.cs-shared-tooltip[data-variant="dossier"] {
+  padding-right: 38px;
+}
+
+.cs-dossier-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-rule);
+  border-radius: 50%;
+  background: var(--color-plate);
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.cs-dossier-dismiss:hover,
+.cs-dossier-dismiss:focus-visible {
+  border-color: var(--color-seal);
+  color: var(--color-seal);
+}
+
+.cs-dossier-dismiss:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.32);
+  outline-offset: 2px;
+}
+
+.cs-dossier-dismiss svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+
 .cs-shared-tooltip[data-placement="above"] {
   transform: translate3d(0, -100%, 0);
 }

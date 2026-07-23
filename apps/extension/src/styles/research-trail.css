@@ -43,32 +43,75 @@
 .cs-lens-slot {
   display: grid;
   gap: 10px;
-  margin: 10px 12px 0;
+  margin: 12px 12px 0;
   position: relative;
 }
 
-/* Ready, running, and filed share the plate language. The unavailable sealed state above
-   remains a plain ledger row rather than impersonating an action card. */
+/* The ready state is one filing instrument. The whole plate is the action, so it does not
+   need a SaaS CTA nested inside it. The seal is the only accent on this surface. */
 .cs-investor-lens-control {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+  width: 100%;
   padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
-  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    box-shadow var(--cs-motion-feedback) var(--cs-motion-ease-out),
+    transform var(--cs-motion-feedback) var(--cs-motion-ease-out);
 }
 
-.cs-investor-lens-control div {
+.cs-investor-lens-control:hover {
+  border-color: var(--color-rule-strong);
+  box-shadow:
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset,
+    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05);
+  transform: translateY(-1px);
+}
+
+.cs-investor-lens-control:active {
+  transform: translateY(0);
+}
+
+.cs-investor-lens-control:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
+  outline-offset: 2px;
+}
+
+.cs-investor-lens-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+}
+
+.cs-investor-lens-control-index {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 28px;
+  border-right: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+}
+
+.cs-investor-lens-control-copy {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.cs-investor-lens-control strong {
+.cs-investor-lens-control-copy strong {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 14px;
@@ -76,31 +119,59 @@
   letter-spacing: 0.01em;
 }
 
-.cs-investor-lens-control span {
+.cs-investor-lens-control-copy > span {
   color: var(--color-muted);
   font-size: 11px;
   line-height: 1.35;
 }
 
-.cs-investor-lens-button {
-  flex: 0 0 auto;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.4);
-  border-radius: 6px;
-  background: var(--color-seal);
-  color: var(--cs-bg);
-  cursor: pointer;
+.cs-investor-lens-control-action {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  color: var(--color-muted);
   font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  padding: 8px 10px;
-  text-transform: uppercase;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
 }
 
-.cs-investor-lens-button:disabled {
-  cursor: not-allowed;
-  background: rgb(var(--cs-c-110-92-158) / 0.12);
-  color: rgb(var(--cs-c-45-42-36-text) / 0.55);
+.cs-investor-lens-control-seal {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-seal);
+  border-radius: 50%;
+  color: var(--color-seal);
+}
+
+.cs-investor-lens-control-seal::before,
+.cs-investor-lens-control-seal::after,
+.cs-investor-lens-control-seal span {
+  position: absolute;
+  width: 9px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.cs-investor-lens-control-seal::before {
+  transform: rotate(90deg);
+}
+
+.cs-investor-lens-control-seal::after {
+  transform: rotate(45deg);
+}
+
+.cs-investor-lens-control-seal span {
+  transform: rotate(-45deg);
+}
+
+.cs-investor-lens-control:disabled .cs-investor-lens-control-seal {
+  border-color: var(--color-rule-strong);
+  color: var(--color-rule-strong);
 }
 
 /*
@@ -117,7 +188,6 @@
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
-  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
@@ -287,7 +357,6 @@
   gap: 4px;
   padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
-  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
@@ -312,7 +381,6 @@
   gap: 6px;
   padding: 12px 14px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
-  border-top: 2px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
@@ -354,18 +422,25 @@
 
 .cs-lens-withheld-retry {
   justify-self: start;
-  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.4);
-  border-radius: 6px;
-  background: var(--color-seal);
-  color: var(--cs-bg);
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule-strong);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-ink);
   cursor: pointer;
-  font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0;
   margin-top: 2px;
-  padding: 8px 10px;
-  text-transform: uppercase;
+  text-transform: none;
+}
+
+.cs-lens-withheld-retry:hover,
+.cs-lens-withheld-retry:focus-visible {
+  border-color: var(--color-seal);
+  color: var(--color-seal);
 }
 
 /*
