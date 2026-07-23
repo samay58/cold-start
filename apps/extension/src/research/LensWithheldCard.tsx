@@ -41,7 +41,11 @@ export function LensWithheldCard({
           ))}
         </ul>
       ) : null}
-      <p className="cs-lens-withheld-next">A fresh evidence pass can clear the citation floor.</p>
+      <p className="cs-lens-withheld-next">
+        {withheld.reasons.includes("no-claims-survived")
+          ? "A fresh evidence pass can change what survives verification."
+          : "A fresh evidence pass can clear the citation floor."}
+      </p>
       <button
         className="cs-lens-withheld-retry"
         disabled={retrying}
