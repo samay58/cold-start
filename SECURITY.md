@@ -28,6 +28,8 @@ Safe committed examples:
 Production secrets:
 
 - `EXTENSION_API_TOKEN`: bearer token for the deployed extension API.
+- `EXTENSION_API_TOKENS`: comma-separated bearer tokens; when set, replaces `EXTENSION_API_TOKEN` as the full accepted list, for rotating the token without downtime.
+- `ALLOWED_EXTENSION_IDS`: comma-separated extension IDs; when set, replaces `CHROME_EXTENSION_ID` for the identity check in `apps/web/src/lib/extension-auth.ts`.
 - `X402_PRIVATE_KEY`: AgentCash wallet key for deployed provider calls.
 - `ANTHROPIC_API_KEY`: Anthropic API key.
 - `DIRECT_EXA_API_KEY`, `DIRECT_FIRECRAWL_API_KEY`, `DIRECT_PDL_API_KEY`: direct provider keys.
