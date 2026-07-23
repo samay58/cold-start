@@ -16,9 +16,8 @@ import {
   synthesizeResearchSection,
   type ResearchSectionEvidenceSource
 } from "@cold-start/llm";
-import type { GetStepTools } from "inngest";
 import { boundedErrorMessage } from "../lib/errors";
-import type { inngest } from "./client";
+import type { GenerationStepTools } from "./client";
 import {
   createStepLlmTelemetryCollector,
   generationRunAnthropicCostUsd,
@@ -154,7 +153,7 @@ async function generateStoredResearchSection(input: {
   );
 }
 
-type GenerateStepTools = GetStepTools<typeof inngest>;
+type GenerateStepTools = GenerationStepTools;
 
 // The section-job path of the generate-card function. Step ids ("generate-section",
 // "upsert-generated-section", "mark-section-generation-complete") and event names are frozen:

@@ -26,6 +26,9 @@ import {
   recordResearchRunEvent,
   recordCardEvidence,
   recordSource,
+  deadGenerationRunTarget,
+  generationRunDeadAfterMs,
+  retireGenerationRunById,
   retireStaleGenerationRuns,
   updateGenerationRunTrace,
   upsertCard
@@ -223,13 +226,15 @@ function generationRunLifecycleDb() {
               conditionValues.includes(status)
             );
             const cutoff = conditionValues.find((value): value is Date => value instanceof Date);
-            const activeRows = rows.filter(
-              (row) =>
-                row.slug === slug &&
-                row.mode === mode &&
-                (!jobKind || row.jobKind === jobKind) &&
-                (statuses.length === 0 || statuses.includes(row.status)) &&
-                (!cutoff || row.startedAt < cutoff)
+            const idMatch = rows.find((row) => conditionValues.includes(row.id));
+            const activeRows = rows.filter((row) =>
+              idMatch
+                ? row.id === idMatch.id && (statuses.length === 0 || statuses.includes(row.status))
+                : row.slug === slug &&
+                  row.mode === mode &&
+                  (!jobKind || row.jobKind === jobKind) &&
+                  (statuses.length === 0 || statuses.includes(row.status)) &&
+                  (!cutoff || row.startedAt < cutoff)
             );
 
             activeRows.forEach((row) => {
@@ -813,6 +818,109 @@ describe("retireStaleGenerationRuns", () => {
       })
     ).resolves.toBe(1);
     await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
+  });
+});
+
+describe("deadGenerationRunTarget", () => {
+  const startedAt = new Date("2026-05-06T12:00:00.000Z");
+
+  it("leaves a run alone while its event trail is inside the threshold", () => {
+    expect(
+      deadGenerationRunTarget({
+        startedAt,
+        events: [{ type: "source.found", createdAt: "2026-05-06T12:06:00.000Z" }],
+        now: new Date("2026-05-06T12:10:00.000Z")
+      })
+    ).toBeNull();
+  });
+
+  it("leaves a freshly started run with no events alone", () => {
+    expect(
+      deadGenerationRunTarget({
+        startedAt,
+        events: [],
+        now: new Date("2026-05-06T12:04:00.000Z")
+      })
+    ).toBeNull();
+  });
+
+  it("classifies a silent run that never produced a card as failed", () => {
+    expect(
+      deadGenerationRunTarget({
+        startedAt,
+        events: [{ type: "generation.started", createdAt: "2026-05-06T12:00:05.000Z" }],
+        now: new Date("2026-05-06T12:06:00.000Z")
+      })
+    ).toBe("failed");
+  });
+
+  it("classifies a silent run that saved a card as complete", () => {
+    expect(
+      deadGenerationRunTarget({
+        startedAt,
+        events: [
+          { type: "generation.started", createdAt: "2026-05-06T12:00:05.000Z" },
+          { type: "card.saved", createdAt: "2026-05-06T12:01:00.000Z" }
+        ],
+        now: new Date("2026-05-06T12:08:00.000Z")
+      })
+    ).toBe("complete");
+  });
+
+  it("measures silence from the latest event, tolerating Date createdAt and a custom threshold", () => {
+    expect(
+      deadGenerationRunTarget({
+        startedAt,
+        events: [{ type: "source.found", createdAt: new Date("2026-05-06T12:03:00.000Z") }],
+        now: new Date("2026-05-06T12:05:30.000Z"),
+        deadAfterMs: 2 * 60 * 1000
+      })
+    ).toBe("failed");
+    expect(generationRunDeadAfterMs).toBe(5 * 60 * 1000);
+  });
+});
+
+describe("retireGenerationRunById", () => {
+  it("retires a running run by id with the watchdog error", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", jobKind: "basics", status: "running" });
+
+    const retired = await retireGenerationRunById(db, {
+      id: rows[0]!.id,
+      target: "failed",
+      now: new Date("2026-05-06T12:30:00.000Z")
+    });
+
+    expect(retired).toMatchObject({ status: "failed" });
+    expect(rows[0]).toMatchObject({
+      status: "failed",
+      error: "generation run went silent; retired by the request watchdog"
+    });
+    expect(rows[0]?.completedAt).toEqual(new Date("2026-05-06T12:30:00.000Z"));
+  });
+
+  it("marks a silent run that produced a card complete without an error", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", jobKind: "basics", status: "running" });
+
+    const retired = await retireGenerationRunById(db, { id: rows[0]!.id, target: "complete" });
+
+    expect(retired).toMatchObject({ status: "complete" });
+    expect(rows[0]?.error).toBeUndefined();
+  });
+
+  it("never touches a run that already reached a terminal status", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", jobKind: "basics", status: "running" });
+    rows[0]!.status = "complete";
+
+    const retired = await retireGenerationRunById(db, { id: rows[0]!.id, target: "failed" });
+
+    expect(retired).toBeNull();
+    expect(rows[0]).toMatchObject({ status: "complete" });
   });
 });
 

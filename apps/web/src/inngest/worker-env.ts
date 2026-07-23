@@ -74,6 +74,17 @@ export function analysisSourceRefreshModeFromProcess(): AnalysisSourceRefreshMod
   return raw && ANALYSIS_SOURCE_REFRESH_MODES.has(raw as AnalysisSourceRefreshMode) ? (raw as AnalysisSourceRefreshMode) : "full";
 }
 
+export type GenerationDispatchMode = "inline" | "inngest";
+
+// Dispatch path for the user-facing profile runs (basics, analysis) queued by /api/generate.
+// "inline" (the default) executes the run in-process in the route invocation, so the first
+// progress event never waits on Inngest's dispatcher; "inngest" restores queue dispatch with
+// an env flip, no deploy. Section jobs and the enrichment workers always stay on Inngest.
+// Read at call time so a Vercel env change takes effect on the next request.
+export function generationDispatchModeFromProcess(): GenerationDispatchMode {
+  return process.env.GENERATION_DISPATCH === "inngest" ? "inngest" : "inline";
+}
+
 export function personReadsEnabled() {
   return process.env.PERSON_READS_ENABLED !== "false";
 }

@@ -16,12 +16,17 @@ const mocks = vi.hoisted(() => {
     markResearchSectionFailed: vi.fn(),
     markResearchSectionRunning: vi.fn(),
     recordResearchRunEvent: vi.fn(),
+    retireGenerationRunById: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
-    send: vi.fn()
+    send: vi.fn(),
+    startInlineGeneration: vi.fn()
   };
 });
 
-vi.mock("@cold-start/db", () => ({
+// deadGenerationRunTarget stays real: the watchdog tests below exercise the actual
+// classification against mocked run rows and event trails.
+vi.mock("@cold-start/db", async (importOriginal) => ({
+  deadGenerationRunTarget: (await importOriginal<typeof import("@cold-start/db")>()).deadGenerationRunTarget,
   createDb: mocks.createDb,
   findActiveGenerationRunStatusBySlug: mocks.findActiveGenerationRunStatusBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
@@ -32,6 +37,7 @@ vi.mock("@cold-start/db", () => ({
   markResearchSectionFailed: mocks.markResearchSectionFailed,
   markResearchSectionRunning: mocks.markResearchSectionRunning,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
+  retireGenerationRunById: mocks.retireGenerationRunById,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns
 }));
 
@@ -39,6 +45,10 @@ vi.mock("../src/inngest/client", () => ({
   inngest: {
     send: mocks.send
   }
+}));
+
+vi.mock("../src/inngest/inline-dispatch", () => ({
+  startInlineGeneration: mocks.startInlineGeneration
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -195,6 +205,13 @@ describe("POST /api/generate", () => {
     process.env.NODE_ENV = "test";
     process.env.EXTENSION_API_TOKEN = "secret";
     delete process.env.PUBLIC_GENERATION_ENABLED;
+    // Most of this suite predates inline dispatch and asserts the Inngest send path; pin the
+    // flag so those assertions stay meaningful. The inline-dispatch tests below delete it to
+    // exercise the default.
+    process.env.GENERATION_DISPATCH = "inngest";
+    mocks.startInlineGeneration.mockReset();
+    mocks.retireGenerationRunById.mockReset();
+    mocks.retireGenerationRunById.mockResolvedValue(null);
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunStatusBySlug.mockReset();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
@@ -1139,6 +1156,179 @@ describe("POST /api/generate", () => {
       jobKind: "analysis",
       status: "queued"
     });
+  });
+
+  it("dispatches basics in-process by default instead of sending to Inngest", async () => {
+    delete process.env.GENERATION_DISPATCH;
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id", startedAt: new Date("2026-07-23T15:00:00.000Z") });
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "basics", runId: "run-id" });
+    expect(response.status).toBe(202);
+    expect(mocks.startInlineGeneration).toHaveBeenCalledWith({
+      domain: "cartesia.ai",
+      slug: "cartesia",
+      mode: "basics",
+      requestedAtMs: Date.parse("2026-07-23T15:00:00.000Z")
+    });
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("dispatches analysis in-process by default", async () => {
+    delete process.env.GENERATION_DISPATCH;
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", mode: "analysis" });
+    expect(response.status).toBe(202);
+    expect(mocks.startInlineGeneration).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: "cartesia", mode: "analysis" })
+    );
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("keeps section jobs on Inngest even when inline dispatch is the default", async () => {
+    delete process.env.GENERATION_DISPATCH;
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { sectionId: "market", mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", runId: "run-id" });
+    expect(response.status).toBe(202);
+    expect(mocks.startInlineGeneration).not.toHaveBeenCalled();
+    expect(mocks.send).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "card/generate.requested", data: expect.objectContaining({ sectionId: "market" }) })
+    );
+  });
+
+  it("marks the queued run failed when inline dispatch throws synchronously", async () => {
+    delete process.env.GENERATION_DISPATCH;
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.startInlineGeneration.mockImplementation(() => {
+      throw new Error("dispatch exploded");
+    });
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    await expect(response.json()).resolves.toEqual({ error: "failed to queue generation" });
+    expect(response.status).toBe(500);
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, expect.objectContaining({
+      slug: "cartesia",
+      mode: "basics",
+      status: "failed",
+      error: "dispatch exploded"
+    }));
+  });
+
+  it("retires a silent running run as failed and starts a fresh one in its place", async () => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue({
+      id: "dead-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      startedAt: tenMinutesAgo
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([
+      { type: "generation.started", createdAt: new Date(Date.now() - 9 * 60 * 1000).toISOString() }
+    ]);
+    mocks.retireGenerationRunById.mockResolvedValue({ id: "dead-run", status: "failed" });
+    mocks.markGenerationRun.mockResolvedValue({ id: "fresh-run" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "queued", runId: "fresh-run" });
+    expect(response.status).toBe(202);
+    expect(mocks.retireGenerationRunById).toHaveBeenCalledWith(mocks.db, { id: "dead-run", target: "failed" });
+    expect(mocks.markGenerationRun).toHaveBeenCalledWith(mocks.db, expect.objectContaining({ status: "queued" }));
+  });
+
+  it("retires a silent running run that saved a card as complete", async () => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue({
+      id: "dead-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      startedAt: tenMinutesAgo
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([
+      { type: "card.saved", createdAt: new Date(Date.now() - 8 * 60 * 1000).toISOString() }
+    ]);
+    mocks.retireGenerationRunById.mockResolvedValue({ id: "dead-run", status: "complete" });
+    mocks.markGenerationRun.mockResolvedValue({ id: "fresh-run" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    expect(response.status).toBe(202);
+    expect(mocks.retireGenerationRunById).toHaveBeenCalledWith(mocks.db, { id: "dead-run", target: "complete" });
+  });
+
+  it("joins a running run whose event trail is still fresh instead of retiring it", async () => {
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue({
+      id: "live-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      startedAt: new Date(Date.now() - 10 * 60 * 1000)
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([
+      { type: "source.found", createdAt: new Date(Date.now() - 60 * 1000).toISOString() }
+    ]);
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "running", runId: "live-run" });
+    expect(response.status).toBe(202);
+    expect(mocks.retireGenerationRunById).not.toHaveBeenCalled();
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+  });
+
+  it("joins the run when the dead-run retire misses because it just went terminal", async () => {
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue({
+      id: "just-finished-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      startedAt: new Date(Date.now() - 10 * 60 * 1000)
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
+    mocks.retireGenerationRunById.mockResolvedValue(null);
+
+    const response = await POST(generateRequest("cartesia.ai"));
+
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "running", runId: "just-finished-run" });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
   });
 });
 

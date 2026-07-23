@@ -13,6 +13,7 @@ import {
 } from "@cold-start/core";
 import {
   createDb,
+  deadGenerationRunTarget,
   findActiveGenerationRunStatusBySlug,
   findCardBySlug,
   findLatestGenerationRunStatusBySlug,
@@ -22,17 +23,25 @@ import {
   markResearchSectionFailed,
   markResearchSectionRunning,
   recordResearchRunEvent,
+  retireGenerationRunById,
   retireStaleGenerationRuns,
   type ColdStartDb,
   type GenerationRunStatusSummary,
   type ResearchRunEvent
 } from "@cold-start/db";
 import { inngest } from "../../../inngest/client";
+import { startInlineGeneration } from "../../../inngest/inline-dispatch";
+import { generationDispatchModeFromProcess } from "../../../inngest/worker-env";
 import { boundedErrorMessage } from "../../../lib/errors";
 import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/web-env";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-response";
 import { assertExtensionRequest } from "../../../lib/extension-auth";
+
+// Inline-dispatched profile runs execute inside this invocation past the 202 (via `after` in
+// inline-dispatch.ts): basics runs ~45-90s, analysis ~85s, so 300s covers both with margin.
+// A run that outlives the instance anyway is retired by the dead-run watchdog below.
+export const maxDuration = 300;
 
 type GenerationMode = "basics" | "analysis";
 
@@ -368,26 +377,43 @@ export async function POST(request: Request) {
   // same slug/mode is joined below, never superseded. A forceRefresh request never starts a
   // second concurrent run against the same target; it attaches to whatever is already running.
   if (activeRun) {
-    if (activeRun.jobKind !== jobKindForRequest(mode, sectionId)) {
+    const activeRunEvents = activeRun.id ? await findResearchRunEventsByRunId(db, activeRun.id, { limit: 12 }).catch(() => []) : [];
+    // Dead-run watchdog: an inline run whose instance died mid-run leaves its row `running`
+    // with a silent event trail. Retire it by the repair-script classification (card event
+    // seen means complete, else failed) so this request starts fresh instead of joining a
+    // corpse for the full 15-minute stale window. Queued rows are left to the stale retire:
+    // during an Inngest backlog, dispatch may still arrive.
+    const deadTarget =
+      activeRun.status === "running" && activeRun.startedAt
+        ? deadGenerationRunTarget({ startedAt: activeRun.startedAt, events: activeRunEvents })
+        : null;
+    const retiredDeadRun =
+      deadTarget && activeRun.id
+        ? await retireGenerationRunById(db, { id: activeRun.id, target: deadTarget }).catch(() => null)
+        : null;
+
+    if (!retiredDeadRun) {
+      if (activeRun.jobKind !== jobKindForRequest(mode, sectionId)) {
+        return timedJson(
+          { error: "another generation is already running for this company" },
+          { status: 409 },
+          [
+            { name: "db-cache", durationMs: cacheLookupMs },
+            { name: "db-run", durationMs: runLookupMs }
+          ]
+        );
+      }
+
       return timedJson(
-        { error: "another generation is already running for this company" },
-        { status: 409 },
+        serializeGenerationRun({ ...activeRun, slug, domain, mode, events: activeRunEvents }),
+        { status: 202 },
         [
           { name: "db-cache", durationMs: cacheLookupMs },
           { name: "db-run", durationMs: runLookupMs }
         ]
       );
     }
-
-    const events = activeRun.id ? await findResearchRunEventsByRunId(db, activeRun.id, { limit: 12 }).catch(() => []) : [];
-    return timedJson(
-      serializeGenerationRun({ ...activeRun, slug, domain, mode, events }),
-      { status: 202 },
-      [
-        { name: "db-cache", durationMs: cacheLookupMs },
-        { name: "db-run", durationMs: runLookupMs }
-      ]
-    );
+    // The dead run now holds a terminal status, so this request proceeds to start a fresh one.
   }
 
   // The DB partial unique index is the final guard if two fresh POSTs pass the read above.
@@ -462,17 +488,25 @@ export async function POST(request: Request) {
   try {
     const queueStartedAt = performance.now();
     const requestedAtMs = queuedRun?.startedAt?.getTime() ?? Date.now();
-    await inngest.send({
-      name: "card/generate.requested",
-      ts: requestedAtMs,
-      data: {
-        domain,
-        slug,
-        mode,
-        requestedAtMs,
-        ...(sectionId ? { sectionId } : {})
-      },
-    });
+    if (!sectionId && generationDispatchModeFromProcess() === "inline") {
+      // In-process dispatch: the run starts immediately in this invocation (kept alive past
+      // the 202 by `after` inside startInlineGeneration) instead of waiting on Inngest's
+      // dispatcher. GENERATION_DISPATCH=inngest restores queue dispatch without a deploy.
+      // Section jobs always take the Inngest path below.
+      startInlineGeneration({ domain, slug, mode, requestedAtMs });
+    } else {
+      await inngest.send({
+        name: "card/generate.requested",
+        ts: requestedAtMs,
+        data: {
+          domain,
+          slug,
+          mode,
+          requestedAtMs,
+          ...(sectionId ? { sectionId } : {})
+        },
+      });
+    }
     const queueMs = elapsedMs(queueStartedAt);
     return timedJson(
       serializeGenerationRun({

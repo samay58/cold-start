@@ -318,6 +318,64 @@ export async function retireStaleGenerationRuns(
   return retired.length;
 }
 
+export const generationRunDeadAfterMs = 5 * 60 * 1000;
+
+const DEAD_RUN_CARD_EVENT_TYPES = new Set(["card.saved", "card.enriched", "card.partial"]);
+
+// Event-trail deadness check for an active `running` run, mirroring the classification in
+// scripts/repair-stuck-generation-runs.ts: a run silent for over the threshold lost its
+// executor (an inline route invocation whose instance was recycled, or a worker that died
+// before its terminal write). A run that already emitted a card event produced usable output
+// and retires as `complete`; one that never did retires as `failed`.
+export function deadGenerationRunTarget(input: {
+  startedAt: Date;
+  events: Array<{ type: string; createdAt: string | Date }>;
+  now?: Date;
+  deadAfterMs?: number;
+}): "complete" | "failed" | null {
+  const now = input.now ?? new Date();
+  const deadAfterMs = input.deadAfterMs ?? generationRunDeadAfterMs;
+  let lastActivityMs = input.startedAt.getTime();
+  let producedCard = false;
+
+  for (const event of input.events) {
+    const createdAtMs = new Date(event.createdAt).getTime();
+    if (Number.isFinite(createdAtMs) && createdAtMs > lastActivityMs) {
+      lastActivityMs = createdAtMs;
+    }
+    if (DEAD_RUN_CARD_EVENT_TYPES.has(event.type)) {
+      producedCard = true;
+    }
+  }
+
+  if (now.getTime() - lastActivityMs < deadAfterMs) {
+    return null;
+  }
+
+  return producedCard ? "complete" : "failed";
+}
+
+// Terminal write for a run the watchdog classified as dead. Guarded on the id still being
+// `running`, so a run that reached its own terminal status between the read and this write is
+// never touched and no duplicate row is ever inserted (unlike markGenerationRun's upsert path).
+export async function retireGenerationRunById(
+  db: ColdStartDb,
+  input: { id: string; target: "complete" | "failed"; error?: string; now?: Date }
+) {
+  const now = input.now ?? new Date();
+  const [row] = await db
+    .update(generationRuns)
+    .set({
+      status: input.target,
+      completedAt: now,
+      ...(input.target === "failed" ? { error: input.error ?? "generation run went silent; retired by the request watchdog" } : {})
+    })
+    .where(and(eq(generationRuns.id, input.id), eq(generationRuns.status, "running")))
+    .returning();
+
+  return row ?? null;
+}
+
 export async function markGenerationRun(
   db: ColdStartDb,
   input: {
