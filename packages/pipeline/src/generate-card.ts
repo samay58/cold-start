@@ -136,8 +136,8 @@ export type SynthesisGateOutcome = {
 
 // Callable ahead of the synthesize/verify LLM calls so a gate-blocked run never pays for either.
 // When blocked, attaches `synthesisWithheld` (with its own timestamp) to the returned card; when
-// not blocked, returns the card unchanged. Shared by the combined generateCardForDomainWithTrace
-// path and the split Inngest step orchestration in apps/web (Phase 4, Task 5.2).
+// not blocked, returns the card unchanged. Consumed by the split Inngest step orchestration in
+// apps/web between the generate-card and synthesize-card steps.
 export function evaluateSynthesisGate(
   card: ColdStartCard,
   options: { synthesisRequired?: boolean } = {}
