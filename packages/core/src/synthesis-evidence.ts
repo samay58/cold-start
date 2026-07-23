@@ -1,6 +1,12 @@
 import type { ColdStartCard, ResolvedFact } from "./card";
 
-export type SynthesisGateReason = "citation-floor" | "no-usable-source-type";
+// "no-claims-survived" is not produced by synthesisGateDecision below (the gate runs before
+// synthesis is attempted). It is stamped by the pipeline when synthesis ran but the verifier
+// dropped every claim (packages/pipeline/src/generate-card.ts, withheldCardForNoSurvivors), a
+// distinct outcome from the gate blocking outright. Listed here so it shares one reason union
+// with the gate reasons, which is what forces apps/extension/src/research/synthesis-advisory-copy.ts's
+// exhaustive REASON_COPY map to carry its copy.
+export type SynthesisGateReason = "citation-floor" | "no-usable-source-type" | "no-claims-survived";
 export type SynthesisAdvisory = "single-source-class" | "no-funding-evidence" | "no-named-team";
 
 export type SynthesisEvidenceSignals = {

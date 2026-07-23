@@ -19,7 +19,8 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
 // instead of silently rendering nothing.
 export const REASON_COPY: Record<SynthesisGateReason, string> = {
   "citation-floor": "Fewer than 8 cited sources survived.",
-  "no-usable-source-type": "Only enrichment records are cited so far."
+  "no-usable-source-type": "Only enrichment records are cited so far.",
+  "no-claims-survived": "Analysis ran; no claim survived verification against its sources."
 };
 
 const ADVISORY_COPY: Record<SynthesisAdvisory, (nonEnrichmentSourceTypes: readonly string[]) => string> = {
