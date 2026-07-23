@@ -125,33 +125,6 @@
   flex: 0 0 auto;
 }
 
-.cs-card-brand-id,
-.cs-card-topbar-meta {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.cs-card-brand-id {
-  color: var(--color-company);
-}
-
-.cs-card-topbar-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-  min-width: 0;
-  text-align: right;
-}
-
-.cs-card-topbar-meta span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .cs-card[data-surface="web"] .cs-card-header,
 .cs-card[data-surface="web"] .cs-key-values,
 .cs-ledger-layout,
@@ -443,49 +416,6 @@
   color: var(--color-ink);
   text-decoration-color: var(--color-rule-strong);
   text-underline-offset: 3px;
-}
-
-.cs-claim-date,
-.cs-claim-meta {
-  color: var(--color-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-.cs-round {
-  display: grid;
-  grid-template-columns: 9px minmax(110px, 0.9fr) minmax(0, 1.8fr) minmax(92px, 0.6fr) minmax(78px, 0.6fr);
-  gap: 10px;
-  align-items: baseline;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--color-rule);
-}
-
-.cs-round-name,
-.cs-round-leads,
-.cs-round-amount,
-.cs-round-date {
-  margin: 0;
-  line-height: 1.35;
-}
-
-.cs-round-name {
-  color: var(--color-ink);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.cs-round-leads {
-  color: var(--color-muted);
-  font-size: 14px;
-}
-
-.cs-round-amount,
-.cs-round-date {
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-align: right;
 }
 
 .cs-fact-grid {
@@ -956,7 +886,6 @@
 }
 
 .cs-card[data-surface="web"] .cs-claim-row,
-.cs-card[data-surface="web"] .cs-round,
 .cs-card[data-surface="web"] .cs-fact-row,
 .cs-card[data-surface="web"] .cs-claim-list,
 .cs-card[data-surface="web"] .cs-evidence-table,
@@ -969,33 +898,6 @@
   font-size: 15px;
   line-height: 1.55;
   color: var(--cat-ink);
-}
-
-.cs-card[data-surface="web"] .cs-round-name {
-  font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--cat-ink);
-}
-
-.cs-card[data-surface="web"] .cs-round-leads {
-  font-family: var(--font-body);
-  color: var(--cat-muted);
-}
-
-.cs-card[data-surface="web"] .cs-round-amount {
-  font-family: var(--font-body);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  color: var(--cat-ink);
-}
-
-.cs-card[data-surface="web"] .cs-round-date,
-.cs-card[data-surface="web"] .cs-claim-date,
-.cs-card[data-surface="web"] .cs-claim-meta {
-  font-family: var(--font-body);
-  font-variant-numeric: tabular-nums;
-  color: var(--cat-muted);
 }
 
 .cs-card[data-surface="web"] .cs-fact-label {
@@ -1480,17 +1382,6 @@
 
   .cs-card[data-surface="web"] .cs-key-values {
     grid-template-columns: 1fr;
-  }
-
-  .cs-card[data-surface="web"] .cs-round {
-    grid-template-columns: 9px minmax(0, 1fr);
-  }
-
-  .cs-card[data-surface="web"] .cs-round-leads,
-  .cs-card[data-surface="web"] .cs-round-amount,
-  .cs-card[data-surface="web"] .cs-round-date {
-    grid-column: 2;
-    text-align: left;
   }
 
   .cs-card[data-surface="web"] .cs-fact-row {
