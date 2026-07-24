@@ -365,8 +365,8 @@ test("generates sharp Chrome Web Store assets from real extension fixtures", asy
       filename: "screenshot-people-1280x800.png",
       index: "03",
       label: "People",
-      heading: "Know who is behind the company",
-      body: "Role, background, contact details, and source trail",
+      heading: "Understand the people building it",
+      body: "See whether their background fits the problem",
       domain: people.domain,
       image: people.image,
       imageOffsetY: -330
