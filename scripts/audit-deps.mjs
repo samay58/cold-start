@@ -55,7 +55,11 @@ const allowedAdvisorySources = new Set([
   1121242,
   1121245,
   1121250,
-  1121255
+  1121255,
+  // Vercel's build toolchain hard-pins ts-morph 12 -> minimatch 3. The affected
+  // glob expansion only sees repository paths during builds, never request data.
+  // Runtime minimatch and gaxios paths are separately pinned to patched releases.
+  1124334
 ]);
 
 const result = spawnSync("npm", ["audit", "--omit=dev", "--json"], {
