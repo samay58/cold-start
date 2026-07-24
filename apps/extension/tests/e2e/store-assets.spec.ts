@@ -248,7 +248,7 @@ function screenshotHtml(spec: StoreScreenshot): string {
     </html>`;
 }
 
-function promoHtml(): string {
+function promoHtml(productImage: Buffer): string {
   return `<!doctype html>
     <html>
       <head>
@@ -256,16 +256,18 @@ function promoHtml(): string {
         <style>
           ${sharedStyles()}
           html, body { width: 440px; height: 280px; }
-          .sheet {
+          .tile {
             position: absolute;
-            inset: 18px;
-            padding: 28px 30px;
+            inset: 12px;
+            overflow: hidden;
             border: 1px solid var(--rule-strong);
             border-radius: 7px;
-            background: var(--plate);
-            box-shadow: 0 7px 18px rgb(32 32 30 / 0.10);
+            background: var(--paper);
           }
           .brand {
+            position: absolute;
+            top: 28px;
+            left: 26px;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -277,31 +279,41 @@ function promoHtml(): string {
             border-radius: 50%;
             background: var(--seal);
           }
-          .rule {
-            width: 48px;
-            height: 1px;
-            margin: 24px 0 17px;
-            background: var(--rule-strong);
-          }
           h1 {
-            width: 330px;
+            position: absolute;
+            top: 101px;
+            left: 26px;
+            width: 172px;
             margin: 0;
-            font: 710 31px/1.08 "At Umami", sans-serif;
+            font: 690 27px/1.08 "At Umami", sans-serif;
             letter-spacing: -0.025em;
           }
-          p {
-            margin: 17px 0 0;
-            color: var(--muted);
-            font: 450 14px/1.35 "IBM Plex Sans", sans-serif;
+          .preview {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 204px;
+            height: 226px;
+            overflow: hidden;
+            border: 1px solid var(--rule-strong);
+            border-radius: 6px;
+            background: var(--field);
+            box-shadow: 0 6px 16px rgb(32 32 30 / 0.10);
+          }
+          .preview img {
+            display: block;
+            width: 210px;
+            height: auto;
           }
         </style>
       </head>
       <body>
-        <main class="sheet">
+        <main class="tile">
           <div class="brand"><span class="brand-mark"></span><span>Cold Start</span></div>
-          <div class="rule"></div>
-          <h1>Understand the company behind the tab.</h1>
-          <p>Sourced profiles in your Chrome side panel.</p>
+          <h1>Company context with sources attached</h1>
+          <div class="preview">
+            <img src="${dataUrl(productImage, "image/png")}" alt="">
+          </div>
         </main>
       </body>
     </html>`;
@@ -333,8 +345,8 @@ test("generates sharp Chrome Web Store assets from real extension fixtures", asy
       filename: "screenshot-company-profile-1280x800.png",
       index: "01",
       label: "Company profile",
-      heading: "Understand a company without opening ten tabs.",
-      body: "See what it does, who is involved, and the sources behind the claims.",
+      heading: "Understand a company without opening ten tabs",
+      body: "What it does, who matters, and where the facts came from",
       domain: profile.domain,
       image: profile.image,
       imageOffsetY: 0
@@ -343,8 +355,8 @@ test("generates sharp Chrome Web Store assets from real extension fixtures", asy
       filename: "screenshot-investor-lens-1280x800.png",
       index: "02",
       label: "Investor Lens",
-      heading: "See the case from both sides.",
-      body: "Why it matters, what must be true, what could break, and what to learn next. Each read stays tied to its sources.",
+      heading: "See the case from both sides",
+      body: "Why it matters, what must be true, what could break, what to learn next",
       domain: lens.domain,
       image: lens.image,
       imageOffsetY: -690
@@ -353,8 +365,8 @@ test("generates sharp Chrome Web Store assets from real extension fixtures", asy
       filename: "screenshot-people-1280x800.png",
       index: "03",
       label: "People",
-      heading: "Know who is behind the company.",
-      body: "Open a person for their role, background, contact details, and source trail.",
+      heading: "Know who is behind the company",
+      body: "Role, background, contact details, and source trail",
       domain: people.domain,
       image: people.image,
       imageOffsetY: -330
@@ -371,7 +383,7 @@ test("generates sharp Chrome Web Store assets from real extension fixtures", asy
     );
   }
 
-  await renderHtml(browser, promoHtml(), 440, 280, path.join(OUTPUT_DIR, "promo-440x280.png"));
+  await renderHtml(browser, promoHtml(profile.image), 440, 280, path.join(OUTPUT_DIR, "promo-440x280.png"));
 
   const legacyScreenshot = path.join(OUTPUT_DIR, "screenshot-1280x800.png");
   if (fs.existsSync(legacyScreenshot)) {
