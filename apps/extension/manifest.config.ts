@@ -35,8 +35,8 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
     return {
       manifest_version: 3,
       name: "Cold Start Alpha",
-      version: "0.2.0",
-      description: "Friend alpha for sourced company context cards from the current tab.",
+      version: "0.2.1",
+      description: "Understand a company without leaving its website. Every claim keeps its source.",
       // No sidePanel (Chrome-only API) and no favicon (Chrome-only _favicon/ URL;
       // clipping-model falls back to null icons when the permission is absent).
       permissions: ["activeTab", "storage"],
@@ -94,9 +94,9 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
   return {
     manifest_version: 3,
     name: "Cold Start Alpha",
-    version: "0.2.0",
+    version: "0.2.1",
     minimum_chrome_version: "116",
-    description: "Friend alpha for sourced company context cards from the current tab.",
+    description: "Understand a company without leaving its website. Every claim keeps its source.",
     permissions: ["sidePanel", "activeTab", "storage"],
     icons: ICONS,
     action: {

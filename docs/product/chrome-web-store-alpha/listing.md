@@ -3,7 +3,7 @@
 ## Identity
 
 - Name: Cold Start Alpha
-- Summary: Create sourced company context cards from the company site you are viewing.
+- Summary: Understand a company without leaving its website. Every claim keeps its source.
 - Category: Productivity
 - Language: English
 - Visibility: Unlisted
@@ -11,13 +11,13 @@
 
 ## Detailed description
 
-Cold Start helps invited alpha testers get up to speed on a company without leaving its website.
+Cold Start helps you understand a company without opening ten tabs.
 
-Open the Chrome side panel from a company site to create or retrieve a sourced profile. Cold Start organizes what the company does, who it serves, recent signals, funding, people, and cited evidence. Investor Lens adds a source-backed read of why the company matters, what must be true, what could break, why now, and what to learn next. It is research context, not investment advice.
+Open it while you are on a company's website. Cold Start builds a sourced overview of what the company does, who it serves, who is involved, recent news, funding, and the questions worth asking. Every claim links back to its source, so you can check the work.
 
-Running a fresh profile sends the current company domain to the Cold Start API. The service researches public sources and creates or updates a public fact card. Public cards show facts and citations. They do not show who requested the research, Investor Lens synthesis, professional work emails, or private access information.
+If you want a deeper read, Investor Lens lays out why the company might matter, what needs to go right, what could go wrong, and what to look into next.
 
-Cold Start reads the active tab URL only when you click the extension. It does not read page content, other tabs, or browsing history. Alpha access requires an invitation and a revocable connection credential.
+Cold Start only uses the company website you open it on. It does not read the page, your other tabs, or your browsing history. This early version is available by invitation.
 
 ## URLs
 

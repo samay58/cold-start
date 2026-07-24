@@ -22,6 +22,10 @@ export default defineConfig({
     {
       name: "sidepanel-ui",
       testMatch: /(sidepanel-(ui|dark)|lens-(gallery|reliability))\.spec\.ts/
+    },
+    {
+      name: "store-assets",
+      testMatch: /store-assets\.spec\.ts/
     }
   ],
   webServer: {

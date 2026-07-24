@@ -31,14 +31,20 @@ Do not advance `lastAcceptedVersion` when a ZIP is built or uploaded. Advance it
 - `reviewer-instructions.md`: review steps and invitation template.
 - `release-compatibility-matrix.md`: release evidence and rollback window.
 - `assets/icon-128.png`: store icon.
-- `assets/screenshot-1280x800.png`: current light-theme product states.
+- `assets/screenshot-company-profile-1280x800.png`: sourced company profile.
+- `assets/screenshot-investor-lens-1280x800.png`: filed Investor Lens.
+- `assets/screenshot-people-1280x800.png`: cited person dossier.
 - `assets/promo-440x280.png`: small promotional tile.
 
 Use Unlisted visibility and deferred publishing. Complete every bracketed field before submission. Keep invitation secrets, connection credentials, and Web Store credentials out of git.
 
-## Asset provenance
+## Generate assets
 
-The icon is copied from `apps/extension/public/icons/icon-128.png`. The screenshot uses the final Playwright `ready`, `read-full`, and `dossier-pinned` light fixtures captured on July 24, 2026. The promo tile uses `apps/extension/public/art/cold-start-wave-panel.jpg` plus the At Umami and IBM Plex Sans brand faces. All output files have the exact dimensions in their names.
+```bash
+npm run qa:extension:store-assets -w @cold-start/extension
+```
+
+The command captures the real Baseten `read-full` Playwright fixture at 2x resolution, including its pinned person dossier, then lays those states into the three store screenshots. It also renders the small promo tile from the same At Umami, IBM Plex Sans, parchment, and seal system as the extension. The icon is copied from `apps/extension/public/icons/icon-128.png`. All submitted images are opaque PNG files at the exact dimensions in their names.
 
 Current Chrome references:
 
