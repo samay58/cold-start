@@ -33,6 +33,15 @@ rollout is still blocked until all of these are true:
 Do not create friend invitations before the production migration, compatible
 deployment, canary, and store review are complete.
 
+Production proof on July 24:
+
+- Deployment `dpl_3mYgwsKcrizgZS79bm21h4LvPgSp` served commit `5bb342b` on the custom domain.
+- A short-lived QA invitation reached inspect, redeem, authenticated bootstrap, and the generation-disabled response. Its tester data was then deleted.
+- `ALPHA_GENERATION_ENABLED=false` returned `503 generation_disabled`.
+- `ALPHA_ACCESS_ENABLED=false` returned `503 access_disabled`; access was restored and returned `200 ready`.
+- The authenticated retention route returned `200` with zero eligible deletions.
+- The final alpha status contained zero testers and zero stale runs. Its only gate failure was the AgentCash wallet floor.
+
 ## Vercel Project
 
 Before creating or updating production deployments, verify CLI parity:
@@ -108,7 +117,8 @@ Restore drill completed July 24, 2026:
 
 - The pre-migration branch `pre-alpha-20260724` was created from production and retained through July 31.
 - Migration `0009_reflective_meteorite.sql` was applied through a guarded direct connection.
-- Production validation found six alpha tables and three alpha functions.
+- Migration `0010_redeem_alpha_invite.sql` later added the concurrency-safe multi-seat redemption function without changing `0009`.
+- Production validation found six alpha tables and four alpha functions.
 - Recovery point `2026-07-24T20:02:40Z` was restored to `alpha-restore-drill-20260724` in about one second.
 - The restored branch contained 297 cards and 892 generation runs. It did not contain the alpha schema, which proves the recovery point preceded migration.
 - The temporary restore branch was deleted after validation.
@@ -378,7 +388,7 @@ curl -s https://cold-start-samay58s-projects.vercel.app/api/extension/cards/cart
 
 ## Remaining Alpha Blockers
 
-- Vercel Pro is verified. Production spend controls are not yet observed.
+- Vercel Pro, the compatible deployment, both kill switches, and daily retention are verified. Production spend controls are not yet observed.
 - The provider wallet is below the $35 release floor.
 - The five-company paid canary has not run.
 - The Chrome publisher registration, submission, review, and deferred publication are not verified.

@@ -159,9 +159,12 @@ Now implemented:
 - Deterministic Web Store packaging materials.
 - Vercel Pro.
 - Neon Launch with seven-day restore history.
-- Guarded direct production migration and migration `0009`.
+- Guarded direct production migrations `0009` and `0010`.
 - A timed point-in-time restore drill.
 - Daily authenticated event retention.
+- A backward-compatible production deployment.
+- Live access and generation kill-switch proof.
+- A deterministic 0.2.0 Web Store ZIP.
 
 Still weak or unproven:
 
@@ -177,16 +180,13 @@ recovery, release, and observed operating evidence are.
 
 ## Release Sequence
 
-1. Deploy additive alpha routes while retaining operator auth.
-2. Exercise the production kill switches.
-3. Configure and observe Vercel spend controls.
-4. Fund AgentCash Base to at least $35.
-5. Run the five-company canary with a $5 cap.
-6. Build the deterministic ZIP from the checked commit.
-7. Submit the Unlisted item with deferred publishing.
-8. Complete the owner-only fresh-profile rehearsal.
-9. Hold a 24-hour owner-only soak.
-10. Prepare five individual invitations. Do not send them until every gate passes.
+1. Configure and observe Vercel spend controls.
+2. Fund AgentCash Base to at least $35.
+3. Run the five-company canary with a $5 cap.
+4. Submit the Unlisted item with deferred publishing.
+5. Complete the owner-only fresh-profile rehearsal.
+6. Hold a 24-hour owner-only soak.
+7. Prepare five individual invitations. Do not send them until every gate passes.
 
 ## Operator Commands
 

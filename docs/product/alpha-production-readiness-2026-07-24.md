@@ -11,10 +11,10 @@ Chrome Web Store item.
 
 Cold Start is not ready for friend-alpha invitations.
 
-The repository implementation, production migration, and recovery proof are
-complete. Paid canary, store review, owner rehearsal, and soak remain open. Do
-not distribute the operator token. Do not use unpacked installation as the
-friend path.
+The repository implementation, production migration, compatible deployment,
+recovery proof, and kill-switch proof are complete. Paid canary, store review,
+owner rehearsal, and soak remain open. Do not distribute the operator token.
+Do not use unpacked installation as the friend path.
 
 ## Production Evidence
 
@@ -23,6 +23,7 @@ Read-only production checks on July 24 showed:
 - Latest `main` CI was green.
 - Latest Vercel production deployment was Ready.
 - API contract was `2026-07-20.synthesis-withheld-v1`.
+- Commit `5bb342b` was deployed to the custom domain without changing that contract.
 - 18 runs existed in the latest 24-hour view: 12 complete and 6 failed.
 - Two failures were honest evidence insufficiency.
 - Two failures came from null-shaped Lens timing claims.
@@ -37,8 +38,12 @@ Read-only production checks on July 24 showed:
 - Vercel Pro was verified through the project API.
 - Neon Launch and seven days of restore history were verified.
 - A guarded direct migration URL passed preflight and applied migration `0009`.
-- Production then contained six alpha tables and three alpha functions.
+- Migration `0010` added the concurrency-safe multi-seat redemption function while leaving the applied `0009` file unchanged.
+- Production then contained six alpha tables and four alpha functions.
 - A point-in-time restore recreated the pre-migration state in about one second and the temporary branch was deleted after validation.
+- One short-lived QA invitation proved inspect, redemption, authenticated bootstrap, and generation-disabled behavior. All QA tester data was deleted.
+- Both production kill switches were exercised and access was restored.
+- The authenticated retention job returned `200` with zero eligible deletions.
 - The `framer` row and card JSON disagreed about `.co` and `.com`.
 - Known-dead Apollo-family probes repeatedly returned 404.
 
@@ -119,7 +124,9 @@ Local proof completed on July 24:
 
 - Extension CSS audit passed.
 - Focused core, database, web, and extension tests passed.
-- The real Postgres alpha integration suite passed nine tests.
+- The real Postgres alpha integration suite passed 13 tests.
+- Eight simultaneous invite redemptions stopped exactly at one or two configured seats.
+- Revoking an installation did not make its invitation reusable.
 - Fifty simultaneous reservations stopped exactly at 12.
 - Duplicate interactions used one debit.
 - Failure settlement refunded once.
@@ -136,6 +143,8 @@ The full repository `npm run check` passed on July 24. It covered lint,
 typecheck, all unit tests, the real Postgres suite, Chrome and Firefox builds,
 Firefox manifest lint, golden-eval dry run, dead-code analysis, secret scanning,
 and the dependency audit.
+- GitHub Check run `30123762133` passed the same gate against commit `5bb342b`.
+- The deterministic 0.2.0 ZIP reproduced identical bytes with SHA256 `6c85656f870bfcaf1da955f3a6468dd1aa40e763c822563531776f89667056b3`.
 
 ## Production Gates
 
@@ -147,6 +156,7 @@ Code-ready requires every item below:
 - Restore history is seven days.
 - A dedicated direct migration URL is proven.
 - Migration `0009_reflective_meteorite.sql` is applied.
+- Migration `0010_redeem_alpha_invite.sql` is applied.
 - A point-in-time restore into a temporary branch is timed and validated.
 - The compatible server deployment is live.
 - AgentCash Base holds at least $35.
@@ -182,12 +192,10 @@ action.
 
 Complete the production prerequisites in order:
 
-1. Deploy the compatible alpha routes with paid generation disabled.
-2. Exercise the access and generation kill switches.
-3. Configure and observe Vercel spend controls.
-4. Fund AgentCash.
-5. Run the paid canary and alpha gate.
-6. Package and submit the Unlisted extension.
-7. Rehearse with the owner.
-8. Soak for 24 hours.
-9. Prepare five invitations. Do not send them from the build session.
+1. Configure and observe Vercel spend controls.
+2. Fund AgentCash.
+3. Run the paid canary and alpha gate.
+4. Submit the Unlisted extension.
+5. Rehearse with the owner.
+6. Soak for 24 hours.
+7. Prepare five invitations. Do not send them from the build session.
