@@ -18,8 +18,12 @@ import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
+import type { Settings } from "../shared/extension-config";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 
 const LENS_FOOTER_SOURCE_COUNT = 4;
+type LensDisclosureId = "lede" | "holds" | "breaks" | "timing" | "question" | "sources";
+type LensDisclosureToggle = (disclosure: LensDisclosureId, expanded: boolean) => void;
 
 // The category packet uses DESIGN.md's five Lens type roles. A new state must reuse those
 // roles rather than minting another size or face.
@@ -42,8 +46,8 @@ const LENS_FOOTER_SOURCE_COUNT = 4;
 // replayed just because the profile was reloaded.
 const LENS_ENTRANCE_STAGE_DELAYS = {
   header: 0,
-  category: 0.07,
-  footer: 0.36
+  category: 0.045,
+  footer: 0.28
 } as const;
 
 // Reduced motion collapses every stage into one 150ms opacity fade fired at once (DESIGN.md:
@@ -65,7 +69,7 @@ function stageEntranceProps(
   }
   return {
     animate: { opacity: 1, y: 0 },
-    initial: { opacity: 0, y: 10 },
+    initial: { opacity: 0, y: 6 },
     transition: { ...commitSpring, delay: delaySeconds }
   };
 }
@@ -93,13 +97,15 @@ function evidencePostureLines(card: ColdStartCard): string[] {
 function LensDisclosure({
   children,
   count,
+  onToggle,
   prefersReducedMotion,
   row
 }: {
   children: ReactNode;
   count: number;
+  onToggle?: LensDisclosureToggle | undefined;
   prefersReducedMotion: boolean | null;
-  row: string;
+  row: "holds" | "breaks" | "timing" | "question";
 }) {
   const [expanded, setExpanded] = useState(false);
   const bodyId = `cs-investor-read-more-${row}`;
@@ -110,7 +116,11 @@ function LensDisclosure({
         aria-controls={bodyId}
         aria-expanded={expanded}
         className="cs-investor-read-more"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() => {
+          const nextExpanded = !expanded;
+          setExpanded(nextExpanded);
+          onToggle?.(row, nextExpanded);
+        }}
         type="button"
       >
         {expanded ? "Show less" : `+${count} more`}
@@ -145,12 +155,14 @@ function LensTensionSide({
   claim,
   emptyCopy,
   label,
+  onDisclosureToggle,
   prefersReducedMotion,
   side
 }: {
   claim: LensTensionClaim | null;
   emptyCopy: string;
   label: string;
+  onDisclosureToggle?: LensDisclosureToggle | undefined;
   prefersReducedMotion: boolean | null;
   side: "holds" | "breaks";
 }) {
@@ -161,7 +173,12 @@ function LensTensionSide({
         <em>{label}.</em> {claim ? claim.text : <span className="cs-lens-none">{emptyCopy}</span>}
       </p>
       {claim && claim.moreClaims.length > 0 ? (
-        <LensDisclosure count={claim.moreClaims.length} prefersReducedMotion={prefersReducedMotion} row={side}>
+        <LensDisclosure
+          count={claim.moreClaims.length}
+          onToggle={onDisclosureToggle}
+          prefersReducedMotion={prefersReducedMotion}
+          row={side}
+        >
           {claim.moreClaims.map((entry) => (
             <p key={entry.text}>{entry.text}</p>
           ))}
@@ -172,9 +189,11 @@ function LensTensionSide({
 }
 
 function LensLede({
+  onDisclosureToggle,
   prefersReducedMotion,
   text
 }: {
+  onDisclosureToggle?: LensDisclosureToggle | undefined;
   prefersReducedMotion: boolean | null;
   text: string;
 }) {
@@ -197,7 +216,11 @@ function LensLede({
           aria-controls={`cs-investor-read-lede-${disclosureId}`}
           aria-expanded={expanded}
           className="cs-investor-read-more cs-investor-read-lede-more"
-          onClick={() => setExpanded((value) => !value)}
+          onClick={() => {
+            const nextExpanded = !expanded;
+            setExpanded(nextExpanded);
+            onDisclosureToggle?.("lede", nextExpanded);
+          }}
           type="button"
         >
           {expanded ? "Show less" : "Read full"}
@@ -209,16 +232,22 @@ function LensLede({
 
 function LensCategoryBody({
   categoryId,
+  onDisclosureToggle,
   prefersReducedMotion,
   read
 }: {
   categoryId: InvestorLensCategoryId;
+  onDisclosureToggle?: LensDisclosureToggle | undefined;
   prefersReducedMotion: boolean | null;
   read: InvestorReadDisplay;
 }) {
   if (categoryId === "why-care") {
     return (
-      <LensLede prefersReducedMotion={prefersReducedMotion} text={read.lede.text} />
+      <LensLede
+        onDisclosureToggle={onDisclosureToggle}
+        prefersReducedMotion={prefersReducedMotion}
+        text={read.lede.text}
+      />
     );
   }
 
@@ -229,6 +258,7 @@ function LensCategoryBody({
           claim={read.holds}
           emptyCopy={LENS_TENSION_EMPTY_COPY.holds}
           label={LENS_TENSION_LABEL.holds}
+          onDisclosureToggle={onDisclosureToggle}
           prefersReducedMotion={prefersReducedMotion}
           side="holds"
         />
@@ -243,6 +273,7 @@ function LensCategoryBody({
           claim={read.breaks}
           emptyCopy={LENS_TENSION_EMPTY_COPY.breaks}
           label={LENS_TENSION_LABEL.breaks}
+          onDisclosureToggle={onDisclosureToggle}
           prefersReducedMotion={prefersReducedMotion}
           side="breaks"
         />
@@ -259,7 +290,12 @@ function LensCategoryBody({
               <em>{read.timing.field}.</em> {read.timing.text}
             </p>
             {read.timing.moreFields.length > 0 ? (
-              <LensDisclosure count={read.timing.moreFields.length} prefersReducedMotion={prefersReducedMotion} row="timing">
+              <LensDisclosure
+                count={read.timing.moreFields.length}
+                onToggle={onDisclosureToggle}
+                prefersReducedMotion={prefersReducedMotion}
+                row="timing"
+              >
                 {read.timing.moreFields.map((entry) => (
                   <p key={entry.field}>
                     <em>{entry.field}.</em> {entry.text}
@@ -296,7 +332,12 @@ function LensCategoryBody({
             </p>
           ) : null}
           {read.nextQuestion.moreQuestions.length > 0 ? (
-            <LensDisclosure count={read.nextQuestion.moreQuestions.length} prefersReducedMotion={prefersReducedMotion} row="question">
+            <LensDisclosure
+              count={read.nextQuestion.moreQuestions.length}
+              onToggle={onDisclosureToggle}
+              prefersReducedMotion={prefersReducedMotion}
+              row="question"
+            >
               {read.nextQuestion.moreQuestions.map((entry) => (
                 <div key={entry.question}>
                   <p>
@@ -324,6 +365,7 @@ function LensCategoryCard({
   category,
   index,
   isOpen,
+  onDisclosureToggle,
   onToggle,
   prefersReducedMotion,
   read,
@@ -332,6 +374,7 @@ function LensCategoryCard({
   category: InvestorLensCategory;
   index: number;
   isOpen: boolean;
+  onDisclosureToggle?: LensDisclosureToggle | undefined;
   onToggle: () => void;
   prefersReducedMotion: boolean | null;
   read: InvestorReadDisplay;
@@ -373,6 +416,7 @@ function LensCategoryCard({
         <div className="cs-investor-read-category-body">
           <LensCategoryBody
             categoryId={category.id}
+            onDisclosureToggle={onDisclosureToggle}
             prefersReducedMotion={prefersReducedMotion}
             read={read}
           />
@@ -383,10 +427,12 @@ function LensCategoryCard({
 }
 
 export function InvestorReadCard({
+  analyticsSettings,
   card,
   read,
   tooltipProps
 }: {
+  analyticsSettings?: Settings | undefined;
   card: ColdStartCard;
   read: InvestorReadDisplay;
   tooltipProps: TooltipPropsFor;
@@ -399,6 +445,17 @@ export function InvestorReadCard({
   const hiddenSources = read.sources.slice(LENS_FOOTER_SOURCE_COUNT);
   const postureLines = evidencePostureLines(card);
   const showPosture = postureLines.length > 0 || !read.independentlyBacked;
+
+  function trackDisclosure(disclosure: LensDisclosureId, expanded: boolean) {
+    if (!analyticsSettings) {
+      return;
+    }
+    void enqueueAlphaEvent(analyticsSettings, "lens.disclosure_toggled", {
+      domain: card.domain,
+      disclosure,
+      expanded
+    });
+  }
 
   return (
     <article className="cs-investor-read" aria-label="Investor read">
@@ -417,7 +474,18 @@ export function InvestorReadCard({
             index={index}
             isOpen={openCategory === category.id}
             key={category.id}
-            onToggle={() => setOpenCategory((current) => current === category.id ? null : category.id)}
+            onDisclosureToggle={trackDisclosure}
+            onToggle={() => {
+              const expanded = openCategory !== category.id;
+              setOpenCategory(expanded ? category.id : null);
+              if (analyticsSettings) {
+                void enqueueAlphaEvent(analyticsSettings, "lens.category_toggled", {
+                  domain: card.domain,
+                  category: category.id,
+                  expanded
+                });
+              }
+            }}
             prefersReducedMotion={prefersReducedMotion}
             read={read}
             uid={`cs-investor-read-${categoryUid}`}
@@ -427,12 +495,21 @@ export function InvestorReadCard({
       <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.footer, prefersReducedMotion)}>
         <footer className="cs-lens-footer" aria-label="Cited sources">
           <div className="cs-lens-footer-sources">
-            {visibleSources.map((source) => (
+            {visibleSources.map((source, index) => (
               <a
                 className="cs-lens-source"
                 data-class={source.sourceClass}
                 href={source.href}
                 key={source.id}
+                onClick={() => {
+                  if (analyticsSettings) {
+                    void enqueueAlphaEvent(analyticsSettings, "source.opened", {
+                      domain: card.domain,
+                      sourceClass: source.sourceClass,
+                      ordinal: index + 1
+                    });
+                  }
+                }}
                 rel="noreferrer"
                 target="_blank"
                 title={`${source.qualityLabel}: ${source.title}`}

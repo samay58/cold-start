@@ -61,19 +61,19 @@ Use the public web grotesk display stack for the website company name, hero head
 
 ### Investor Lens Memo
 
-The filed investor read (`apps/extension/src/research/InvestorReadCard.tsx`) is a compact category packet, not one continuous memo and not a dashboard row. Its five category cards belong to the same interaction family as the Research cards beneath them. It runs on exactly five type roles. Every rule in the packet maps to one row below; a new UI moment gets a mark, a weight, or a color before it gets a sixth size.
+The filed investor read (`apps/extension/src/research/InvestorReadCard.tsx`) is a compact category packet, not one continuous memo and not a dashboard row. It is one filed catalogue sheet with five indexed rows, not five cards competing with the Research stack beneath it. It runs on exactly five type roles. Every rule in the packet maps to one row below; a new UI moment gets a mark, a weight, or a color before it gets a sixth size.
 
 | Role | Spec | Use |
 |---|---|---|
-| Lede | 16px / 1.45 / At Umami 640 | The Why care thesis, the only display-face content text |
-| Section label | 16px / 1.02 / At Umami 620, sentence case | "Why care", "What must be true", "What could break", "Why now", "What to learn next" |
+| Lede | 14px / 1.55 / IBM Plex Sans 520 | The Why care thesis, set as reading text rather than a second headline |
+| Section label | 14px / 1.1 / At Umami 600, sentence case | "Why care", "What must be true", "What could break", "Why now", "What to learn next" |
 | Claim | 13px / 1.55 / IBM Plex Sans 450 | Bull, bear, timing, and question bodies |
 | Meta | 11.5px / IBM Plex Sans 480 | Closed-card previews, posture line, "changes the read if" note |
 | Receipt | 10px / At Textual 500, tabular | Card indices, citation marks, source domains, filed receipt |
 
-The packet contains five flat indexed filing cards in a fixed order: Why care, What must be true, What could break, Why now, and What to learn next. They share the Research stack's index rail, title scale, one-line preview, 6px geometry, and whole-card disclosure. They do not sit inside a second tinted packet shell or imitate the draggable card pile. Why care opens when a live or cached Lens arrives. At most one card is open; selecting the open card collapses the packet fully. Every closed card keeps a one-line preview, so the entire read is scannable before the reader commits to the supporting prose. A long Why care lede shows four lines and files the rest behind a quiet Read full disclosure.
+The packet contains five indexed rows in a fixed order: Why care, What must be true, What could break, Why now, and What to learn next. One outer 6px catalogue surface carries the filed header, rows, reading content, source posture, and receipt. Internal hairlines provide structure; the rows never become separate filled cards. Why care opens when a live or cached Lens arrives. At most one row is open; selecting the open row collapses the packet fully. Every closed row keeps a one-line preview, so the entire read is scannable before the reader commits to the supporting prose. A long Why care lede shows four lines and files the rest behind a quiet Read full disclosure.
 
-Opposition reads through marks, not color washes: a supporting claim leads with a filled ink square, and a breaking claim leads with the conflict-class slashed square. Each Lens card uses one subtly deeper catalogue-paper tier, stronger rules, and At Textual indices. The filed header carries the one dusty-lilac seal. The packet does not use colored fills, ribbons, top bands, left stripes, gradients, or a stacked-card pile. Claim text takes the full open card width; the packet does not reserve a label column for it.
+Opposition reads through marks, not color washes: a supporting claim leads with a filled ink square, and a breaking claim leads with the conflict-class slashed square. The single Lens sheet uses one subtly deeper catalogue-paper tier, internal rules, and At Textual indices. The filed header carries the one dusty-lilac seal. Hover never repaints the paper; it only strengthens muted ink and disclosure marks. The packet does not use colored fills, ribbons, top bands, left stripes, gradients, or a stacked-card pile. Claim text takes the full open row width; the packet does not reserve a label column for it.
 
 The person dossier (`apps/extension/src/shared/SharedTooltip.tsx`'s `DossierBody`) shares this scale rather than minting its own: identity (name + role) and the read sit at Claim, the identity line at weight 560 to read as a header without a sixth size; the email address is Meta; the observed/inferred badge, the basis line, the folded-in provenance citation mark, and the channels row are all Receipt. Nothing in the dossier is Lede or Section label.
 

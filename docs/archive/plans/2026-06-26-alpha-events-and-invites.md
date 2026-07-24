@@ -1,5 +1,11 @@
 # Alpha Events And Invites Implementation Plan
 
+> Historical only. Superseded on July 24, 2026 by
+> `docs/superpowers/plans/2026-07-24-alpha-production-readiness.md` and the
+> implementation under `packages/db/src/repositories/alpha.ts`. Do not
+> implement this schema. It trusts client identity, permits arbitrary metadata,
+> and uses a mutable run counter that is unsafe under concurrency.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add the first-party alpha data spine for Cold Start so we can invite testers, identify extension connections, and record app-usage events during the Chrome Web Store beta.

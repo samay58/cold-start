@@ -10,7 +10,13 @@ import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier } from "../src/shared/SharedTooltip";
 import { minimalWarpCard as baseCard } from "./lens-card-fixtures";
 
+const analytics = vi.hoisted(() => ({
+  enqueueAlphaEvent: vi.fn()
+}));
+vi.mock("../src/shared/alpha-analytics", () => analytics);
+
 type Captured = { body: string | TooltipDossier; id: string; title: string };
+const analyticsSettings = { apiOrigin: "https://example.com", apiToken: "token" };
 
 // (b)/(e): rich synthesis with multiple bull/bear claims and multiple timing fields, so the
 // overflow disclosure has something to expand.
@@ -97,7 +103,7 @@ function tooltipStub() {
   return { calls, tooltipProps };
 }
 
-async function renderCard(card: ColdStartCard) {
+async function renderCard(card: ColdStartCard, trackAnalytics = false) {
   const read = investorReadForCard(card);
   if (!read) {
     throw new Error("card fixture must carry synthesis");
@@ -107,7 +113,14 @@ async function renderCard(card: ColdStartCard) {
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => {
-    root.render(<InvestorReadCard card={card} read={read} tooltipProps={tooltipProps} />);
+    root.render(
+      <InvestorReadCard
+        {...(trackAnalytics ? { analyticsSettings } : {})}
+        card={card}
+        read={read}
+        tooltipProps={tooltipProps}
+      />
+    );
   });
   return {
     container,
@@ -121,6 +134,7 @@ async function renderCard(card: ColdStartCard) {
 
 describe("InvestorReadCard", () => {
   beforeEach(() => {
+    analytics.enqueueAlphaEvent.mockReset();
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     vi.stubGlobal("matchMedia", vi.fn(() => ({
       addEventListener: vi.fn(),
@@ -132,6 +146,41 @@ describe("InvestorReadCard", () => {
       removeEventListener: vi.fn(),
       removeListener: vi.fn()
     })));
+  });
+
+  it("emits semantic category, disclosure, and source actions without content payloads", async () => {
+    const { container, unmount } = await renderCard(richCard(), true);
+    const categoryButton = Array.from(container.querySelectorAll<HTMLButtonElement>(
+      ".cs-investor-read-category-trigger"
+    )).find((button) => button.textContent?.includes("What must be true"));
+
+    await act(async () => {
+      categoryButton?.click();
+    });
+    const disclosure = container.querySelector<HTMLButtonElement>(
+      '[data-row="holds"] .cs-investor-read-more'
+    );
+    await act(async () => {
+      disclosure?.click();
+      container.querySelector<HTMLAnchorElement>(".cs-lens-source")?.click();
+    });
+
+    expect(analytics.enqueueAlphaEvent).toHaveBeenCalledWith(
+      analyticsSettings,
+      "lens.category_toggled",
+      { domain: "warp.dev", category: "must-be-true", expanded: true }
+    );
+    expect(analytics.enqueueAlphaEvent).toHaveBeenCalledWith(
+      analyticsSettings,
+      "lens.disclosure_toggled",
+      { domain: "warp.dev", disclosure: "holds", expanded: true }
+    );
+    expect(analytics.enqueueAlphaEvent).toHaveBeenCalledWith(
+      analyticsSettings,
+      "source.opened",
+      expect.objectContaining({ domain: "warp.dev", ordinal: 1 })
+    );
+    await unmount();
   });
 
   afterEach(() => {

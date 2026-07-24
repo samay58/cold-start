@@ -18,7 +18,8 @@ Start here before adding or editing docs.
 - `theme-sources.md`: dark-mode palette sources and token rationale (referenced by DESIGN.md).
 - `evo-autoresearch-pilot.md`: the benchmark loop behind the `npm run evo:*` commands.
 - `product/cost-quality-optimization-playbook-2026-06-23.md`: cost and quality tuning levers.
-- `product/alpha-packaging-spec-2026-07-01.md`: live friend-alpha packaging decision and current ship-state gap.
+- `product/alpha-packaging-spec-2026-07-01.md`: live ledgered friend-alpha contract, implementation receipt, and release sequence.
+- `product/alpha-production-readiness-2026-07-24.md`: strict code-ready and invite-ready gates with current proof and blockers.
 - `product/diagnose-iterate-craft-playbook.md`: interaction-craft loop for sidebar work.
 - `product/extension-motion-playbook.md`: motion rules for the extension.
 - `product/provider-cost-assumptions.md`: cost model behind provider budgets.
@@ -27,7 +28,7 @@ Start here before adding or editing docs.
 - `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
 - `qa/analysis-run-observations.md`: dated log of notable analysis runs and the attack list they feed.
 - `qa/exa-websets-contact-enrichment-playbook.md`: Websets contact enrichment QA.
-- `superpowers/plans/`: active implementation plans only (currently the Firefox port, the Kimi K3 openrouter judgment matrix, and the investor-lens overhaul). Shipped plans move to `archive/plans/`.
+- `superpowers/plans/`: active implementation plans, including the friend-alpha production-readiness build. Shipped plans move to `archive/plans/`.
 - `superpowers/specs/`: live approved design specs, currently the investor-lens overhaul design. Shipped specs move to `archive/specs/`.
 - `product/research/`: local-only private prompts and analysis dumps, gitignored.
 

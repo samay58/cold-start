@@ -1,12 +1,16 @@
 # Security
 
-Cold Start has two public surfaces and one gated surface:
+Cold Start has two public surfaces and two gated surface families:
 
 - Public web page: `/c/{slug}`
 - Public API: `/api/cards/{slug}`
 - Gated extension API: `/api/extension/cards/{slug}` and extension-authenticated `/api/generate`
+- Friend-alpha access API: `/api/alpha/invite/*` and `/api/alpha/events`
 
-The public surfaces must never expose `synthesis`. The gated surface requires both extension identity checks and a bearer token.
+The public surfaces must never expose `synthesis`, withheld records, person reads,
+work emails, invitation identity, or installation identity. Gated extension
+requests require an accepted extension ID and either an alpha installation
+credential or the transitional operator token.
 
 ## Secrets
 
@@ -35,15 +39,35 @@ Production secrets:
 - `DIRECT_EXA_API_KEY`, `DIRECT_FIRECRAWL_API_KEY`, `DIRECT_PDL_API_KEY`: direct provider keys.
 - `GITHUB_TOKEN`: optional GitHub PAT for the free commit-email reachability layer. Public read-only scope is sufficient; do not grant repo write or private scopes.
 - `DATABASE_URL`: Neon Postgres connection string.
+- `DATABASE_DIRECT_URL`: dedicated direct Neon connection used only by the guarded production migration command.
 - `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`: hosted Inngest credentials.
 
 The current internal extension token is stored locally at `.vercel/extension-api-token.production.local`. That file is ignored and must not be pasted into docs, commits, screenshots, issue comments, or PR descriptions.
 
 If any real token is exposed, rotate it immediately in the upstream service and update Vercel. Do not rely on deleting a commit after a secret was pushed.
 
-## Extension Auth
+## Extension And Alpha Auth
 
-The extension ID is not a secret. The bearer token is the secret.
+The extension ID is not a secret. Bearer credentials are secrets.
+
+Friend invitations and installation access tokens are 32 bytes of randomness
+(`randomBytes(32)`, base64url-encoded). The database stores only their
+SHA-256 hashes, never the raw value. Each invitation is single-use, expiring,
+and limited to a configured number of installations. Redemption creates a
+separate revocable per-install credential whose hash is stored in
+`alpha_installations`. The raw installation credential stays in
+`chrome.storage.local`, restricted to trusted extension contexts.
+
+The pre-existing operator bearer-token compare is unchanged: `timingSafeStringEqual`
+in `apps/web/src/lib/extension-auth.ts` still guards the `EXTENSION_API_TOKEN`
+match for the operator principal. Alpha installation tokens are looked up by
+their SHA-256 hash through an indexed database equality check, not a raw
+in-process string compare.
+
+Authentication returns a server-derived alpha or operator principal. Client
+payloads never choose an invitation ID, installation ID, scope, allowance, or
+settlement result. The shared operator token remains available for internal
+testing and rollback. It must never be distributed to alpha testers.
 
 Production should use:
 
@@ -65,6 +89,69 @@ PUBLIC_GENERATION_ENABLED=true
 ```
 
 `apps/web/src/lib/extension-auth.ts` fails closed in production for local sentinel values and wildcard extension origins. Keep that behavior.
+
+Production friend-alpha access also requires:
+
+```text
+ALPHA_ACCESS_ENABLED=true
+ALPHA_GENERATION_ENABLED=true
+```
+
+`ALPHA_ACCESS_ENABLED=false` rejects alpha credentials and invitation
+redemption. `ALPHA_GENERATION_ENABLED=false` blocks only fresh paid work.
+Cached profiles, public cards, filed Lens results, and standing withheld reads
+remain available.
+
+The invitation page sends only two typed external messages to the extension.
+The service worker accepts them only from the exact trusted invitation origin.
+Invitation secrets use the URL fragment and are removed immediately with
+`history.replaceState`.
+
+`/api/alpha/invite/inspect` and `/api/alpha/invite/redeem` are intentionally
+unauthenticated: a tester has no credential yet when they open the invitation
+link. Both routes validate the token shape, hash it, and consult the database
+before any state change; redemption takes a per-token advisory lock in
+Postgres so concurrent redemptions cannot double-spend an installation slot.
+Neither route is currently rate-limited or IP-throttled beyond the
+invitation's own single-use and installation-limit checks. This is a known
+limitation for a public-internet endpoint: the invitation token itself (32
+bytes, hashed, single-use) is the only guard against a brute-force
+enumeration attempt today.
+
+## Allowances
+
+Allowance decisions are server-side. Reservation, generation-run creation, and
+ledger debit happen in one database operation. Cached reads, active-run joins,
+status polls, and unchanged standing-withheld reads are free. Terminal and
+watchdog failures refund once through the centralized settlement seam.
+
+Client analytics never debit, refund, authorize, or settle work.
+
+## Alpha Analytics
+
+Alpha analytics are first-party and semantic. The client sends only named
+events from owned interaction handlers. Every payload uses the strict
+discriminated union in `packages/core/src/alpha-analytics.ts`, is capped at 25
+events and 64 KB per request, and is deduplicated by event ID.
+
+Do not add arbitrary metadata or a global click listener. Analytics must not
+contain full URLs, query strings, page titles, page content, claims, source
+snippets, Lens prose, names, email addresses, copied values, raw errors, stack
+traces, invitation secrets, access credentials, or client-supplied identity.
+The server derives invitation and installation identity after authentication.
+
+Raw alpha events are retained for at most 30 days. Vercel Cron calls the
+authenticated `/api/alpha/retention` route daily. The route is bounded to
+10,000 deletions. `npm run alpha:prune` remains the manual repair path.
+`npm run alpha:delete-tester` removes identity-linked alpha data on request.
+De-identified operational totals may remain.
+
+## Production Migrations
+
+Runtime traffic uses the pooled `DATABASE_URL`. Production migrations require a
+distinct direct `DATABASE_DIRECT_URL`. `scripts/migrate-production.mjs`
+rejects local endpoints, pooler hosts, an empty direct URL, and a direct URL
+that matches the runtime URL.
 
 ## GitHub Repo Check
 

@@ -65,6 +65,13 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       await expect(categories.nth(0).locator(".cs-investor-read-category-trigger")).toHaveAttribute("aria-expanded", "true");
       await expect(read.locator(".cs-investor-read-lede")).toContainText("inference layer");
 
+      const whyCareTrigger = categories.nth(0).locator(".cs-investor-read-category-trigger");
+      const restingBackground = await whyCareTrigger.evaluate((element) => getComputedStyle(element).backgroundColor);
+      await whyCareTrigger.hover();
+      await expect.poll(() => whyCareTrigger.evaluate((element) => getComputedStyle(element).backgroundColor))
+        .toBe(restingBackground);
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "read-full-hover.png") });
+
       for (const categoryId of ["must-be-true", "could-break", "why-now", "learn-next"] as const) {
         const category = read.locator(`[data-category="${categoryId}"]`);
         const trigger = category.locator(".cs-investor-read-category-trigger");

@@ -443,9 +443,8 @@
   color: var(--color-seal);
 }
 
-/* The filed Lens uses the same indexed-card family as the Research stack. It stays flat rather
-   than nesting a second card system inside a packet shell. The deeper paper tier and filed seal
-   distinguish the premium layer without a ribbon, wash, or second accent. */
+/* The filed Lens is one indexed catalogue sheet. The research stack already supplies the page's
+   card rhythm, so the Lens uses internal rules rather than introducing five more boxed surfaces. */
 .cs-investor-read,
 .cs-investor-read * {
   min-width: 0;
@@ -453,7 +452,10 @@
 
 .cs-investor-read {
   display: grid;
-  gap: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--cs-surface-lens);
 }
 
 .cs-investor-read-head {
@@ -464,7 +466,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0 10px;
-  padding: 2px 3px 4px;
+  padding: 11px 12px 10px;
+  border-bottom: 1px solid var(--color-rule);
 }
 
 .cs-investor-read-kicker {
@@ -483,10 +486,10 @@
   grid-area: title;
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 14.5px;
   font-weight: 620;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .cs-investor-read-seal {
@@ -494,8 +497,8 @@
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: 1px solid var(--color-seal);
   border-radius: 50%;
   color: var(--color-seal);
@@ -525,45 +528,54 @@
 
 .cs-investor-read-categories {
   display: grid;
-  gap: 7px;
 }
 
 .cs-investor-read-category {
-  isolation: isolate;
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--color-rule-strong);
-  border-radius: 6px;
-  background: var(--cs-surface-lens);
-  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
 }
 
-.cs-investor-read-category[data-open="true"] {
-  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
+.cs-investor-read-category:last-child {
+  border-bottom: 0;
 }
 
 .cs-investor-read-category-trigger {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  min-height: 54px;
-  padding: 8px 10px 8px 0;
+  min-height: 48px;
+  padding: 7px 11px 7px 0;
   border: 0;
   background: transparent;
   color: var(--color-ink);
   cursor: pointer;
   text-align: left;
+  transform-origin: center;
+  transition: transform 120ms var(--cs-motion-ease-out);
 }
 
-.cs-investor-read-category-trigger:hover {
-  background: var(--color-plate);
+.cs-investor-read-category-trigger:active {
+  transform: scale(0.99);
 }
 
 .cs-investor-read-category-trigger:focus-visible {
   outline: 2px solid var(--color-seal);
   outline-offset: -3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cs-investor-read-category-trigger:hover .cs-investor-read-category-index,
+  .cs-investor-read-category-trigger:hover .cs-investor-read-category-mark {
+    color: var(--color-ink);
+  }
+
+  .cs-investor-read-category-trigger:hover .cs-investor-read-category-preview {
+    color: var(--color-ink);
+  }
 }
 
 .cs-investor-read-category-index {
@@ -573,10 +585,11 @@
   border-right: 1px solid var(--color-rule);
   color: var(--color-muted);
   font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 650;
+  font-size: 9.5px;
+  font-weight: 560;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
+  transition: color 120ms ease;
 }
 
 .cs-investor-read-category-copy {
@@ -587,10 +600,10 @@
 .cs-investor-read-category-copy strong {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 620;
-  letter-spacing: -0.01em;
-  line-height: 1.02;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.1;
 }
 
 .cs-investor-read-category-preview {
@@ -598,9 +611,10 @@
   overflow: hidden;
   color: var(--color-muted);
   font-family: var(--font-body);
-  font-size: 10.75px;
-  font-weight: 560;
-  line-height: 1.15;
+  font-size: 10.5px;
+  font-weight: 450;
+  line-height: 1.25;
+  transition: color 120ms ease;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
@@ -614,6 +628,7 @@
   width: 12px;
   height: 12px;
   color: var(--color-muted);
+  transition: color 120ms ease;
 }
 
 .cs-investor-read-category-mark::before,
@@ -643,9 +658,9 @@
   overflow: hidden;
   visibility: hidden;
   transition:
-    grid-template-rows 200ms var(--cs-motion-ease-out),
-    opacity 140ms var(--cs-motion-ease-out),
-    visibility 0s linear 200ms;
+    grid-template-rows 170ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out),
+    visibility 0s linear 170ms;
 }
 
 .cs-investor-read-category-frame[data-open="true"] {
@@ -653,8 +668,8 @@
   opacity: 1;
   visibility: visible;
   transition:
-    grid-template-rows 200ms var(--cs-motion-ease-out),
-    opacity 140ms var(--cs-motion-ease-out);
+    grid-template-rows 170ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out);
 }
 
 .cs-investor-read-category-frame[data-reduced-motion="true"] {
@@ -670,21 +685,26 @@
     opacity 120ms var(--cs-motion-ease-out);
 }
 
+.cs-investor-read-category-trigger:focus-visible + .cs-investor-read-category-frame {
+  transition: none;
+}
+
 .cs-investor-read-category-body {
   min-height: 0;
-  padding: 2px 14px 15px 50px;
+  padding: 2px 13px 14px 43px;
   overflow: hidden;
 }
 
-/* Lede role: 16px/1.45 At Umami 640, the only display-face content text in the card. */
+/* Lede role: a restrained thesis paragraph, not a second display headline. */
 .cs-investor-read-lede {
   margin: 0;
   color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 640;
-  line-height: 1.45;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 520;
+  line-height: 1.55;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .cs-investor-read-lede-frame {
@@ -835,6 +855,10 @@
   text-underline-offset: 3px;
 }
 
+.cs-investor-read-more:active {
+  transform: scale(0.97);
+}
+
 .cs-investor-read-more.cs-investor-read-lede-more {
   margin-top: 7px;
 }
@@ -887,6 +911,10 @@
     opacity 120ms var(--cs-motion-ease-out);
 }
 
+.cs-investor-read-more:focus-visible + .cs-investor-read-disclosure-frame {
+  transition: none;
+}
+
 .cs-investor-read-disclosure-body {
   min-height: 0;
   overflow: hidden;
@@ -913,8 +941,8 @@
 .cs-investor-read-posture {
   display: grid;
   gap: 2px;
-  margin: 0 3px;
-  padding-top: 7px;
+  margin: 0 12px;
+  padding: 8px 0;
   border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
 }
 
@@ -929,8 +957,8 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 10px;
-  margin: 0 3px;
-  padding-top: 8px;
+  margin: 0;
+  padding: 9px 12px 10px;
   border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
 }
 
