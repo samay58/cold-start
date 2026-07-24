@@ -8,7 +8,9 @@ import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/
 import { LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier } from "../src/shared/SharedTooltip";
+import { AlphaAnalyticsProvider } from "../src/shared/alpha-event-context";
 import { minimalWarpCard as baseCard } from "./lens-card-fixtures";
+import { stubReducedMotion } from "./sidepanel-harness";
 
 const analytics = vi.hoisted(() => ({
   enqueueAlphaEvent: vi.fn()
@@ -114,12 +116,13 @@ async function renderCard(card: ColdStartCard, trackAnalytics = false) {
   const root = createRoot(container);
   await act(async () => {
     root.render(
-      <InvestorReadCard
-        {...(trackAnalytics ? { analyticsSettings } : {})}
-        card={card}
-        read={read}
-        tooltipProps={tooltipProps}
-      />
+      <AlphaAnalyticsProvider settings={trackAnalytics ? analyticsSettings : undefined}>
+        <InvestorReadCard
+          card={card}
+          read={read}
+          tooltipProps={tooltipProps}
+        />
+      </AlphaAnalyticsProvider>
     );
   });
   return {
@@ -136,16 +139,7 @@ describe("InvestorReadCard", () => {
   beforeEach(() => {
     analytics.enqueueAlphaEvent.mockReset();
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
+    stubReducedMotion(false);
   });
 
   it("emits semantic category, disclosure, and source actions without content payloads", async () => {
@@ -389,16 +383,7 @@ async function renderSlot(props: LensSlotProps) {
 describe("LensSlot", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
+    stubReducedMotion(false);
   });
 
   afterEach(() => {

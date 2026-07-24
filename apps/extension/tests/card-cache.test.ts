@@ -2,6 +2,7 @@ import { COLD_START_API_CONTRACT_VERSION, type ColdStartCard } from "@cold-start
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearCachedCards, readCachedCard, writeCachedCard } from "../src/shared/card-cache";
 import type { Settings } from "../src/shared/extension-config";
+import { cardForDomain } from "./test-stubs";
 
 const settings: Settings = {
   apiOrigin: "http://localhost:3000",
@@ -10,47 +11,6 @@ const settings: Settings = {
 
 function cacheKey(domain: string) {
   return `coldStartCard:${encodeURIComponent(settings.apiOrigin)}:${encodeURIComponent(domain)}`;
-}
-
-function cardForDomain(domain: string): ColdStartCard {
-  const name = domain.split(".")[0] ?? domain;
-  return {
-    slug: name,
-    domain,
-    generatedAt: "2026-05-18T12:00:00.000Z",
-    generationCostUsd: 0,
-    cacheStatus: "hit",
-    identity: {
-      name: { value: name, status: "verified", confidence: "high", citationIds: ["c1"] },
-      websiteUrl: { value: `https://${domain}/`, status: "verified", confidence: "high", citationIds: ["c1"] },
-      logoUrl: null,
-      oneLiner: { value: `${name} builds software for engineering teams.`, status: "verified", confidence: "high", citationIds: ["c1"] },
-      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      foundedYear: { value: 2019, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      status: "private"
-    },
-    funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    team: {
-      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: { value: 131, asOf: "2026-05-18" }, status: "inferred", confidence: "medium", citationIds: ["c1"] }
-    },
-    signals: [],
-    comparables: [{ name: "Jira", domain: "atlassian.com", oneLiner: "Issue tracking and project management software." }],
-    citations: [
-      {
-        id: "c1",
-        url: `https://${domain}/`,
-        title: name,
-        fetchedAt: "2026-05-18T12:00:00.000Z",
-        sourceType: "company_site"
-      }
-    ]
-  };
 }
 
 function cardWithSynthesis(domain: string): ColdStartCard {

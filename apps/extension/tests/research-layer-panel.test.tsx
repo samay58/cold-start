@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyArc } from "../src/company/CompanyArc";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
+import { flushPromises, stubChromeStorage, stubReducedMotion } from "./sidepanel-harness";
 import { minimalExaCard } from "./lens-card-fixtures";
 
 function card(cacheStatus: ColdStartCard["cacheStatus"] = "partial"): ColdStartCard {
@@ -34,19 +35,6 @@ function source(input: Partial<ExtensionSourceSummary> & Pick<ExtensionSourceSum
     url: `https://${input.domain}`,
     ...input
   };
-}
-
-function stubReducedMotion(matches: boolean) {
-  vi.stubGlobal("matchMedia", vi.fn(() => ({
-    addEventListener: vi.fn(),
-    addListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    matches,
-    media: "(prefers-reduced-motion: reduce)",
-    onchange: null,
-    removeEventListener: vi.fn(),
-    removeListener: vi.fn()
-  })));
 }
 
 function firstPayoff(
@@ -134,14 +122,6 @@ function firstPayoff(
   };
 }
 
-async function flushPromises() {
-  await act(async () => {
-    for (let index = 0; index < 10; index += 1) {
-      await Promise.resolve();
-    }
-  });
-}
-
 // The early read and its filed stamp render in the CompanyArc shell above the research layer,
 // so these tests mount the arc in its profile phase.
 async function renderPanel(input: {
@@ -205,28 +185,8 @@ describe("ResearchLayerPanel first read", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
-    vi.stubGlobal("chrome", {
-      storage: {
-        local: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        },
-        session: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        }
-      }
-    });
+    stubReducedMotion(false);
+    stubChromeStorage();
   });
 
   afterEach(() => {
@@ -396,28 +356,8 @@ describe("ResearchLayerPanel surface diet", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
-    vi.stubGlobal("chrome", {
-      storage: {
-        local: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        },
-        session: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        }
-      }
-    });
+    stubReducedMotion(false);
+    stubChromeStorage();
   });
 
   afterEach(() => {

@@ -2,8 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { faviconUrl, type Clipping, type ClippingSourceClass } from "./clipping-model";
 import { commitSpring } from "../shared/motion-primitives";
-import type { Settings } from "../shared/extension-config";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import { useAlphaEvent } from "../shared/alpha-event-context";
 
 const MAX_CLIPPINGS = 6;
 const MAX_THUMBNAILS = 2;
@@ -36,20 +35,19 @@ function analyticsSourceClass(sourceClass: ClippingSourceClass) {
 }
 
 function ClippingRow({
-  analyticsSettings,
   clipping,
   companyDomain,
   index,
   prefersReducedMotion,
   thumbEligible
 }: {
-  analyticsSettings?: Settings | undefined;
   clipping: Clipping;
   companyDomain: string;
   index: number;
   prefersReducedMotion: boolean;
   thumbEligible: boolean;
 }) {
+  const emitAlphaEvent = useAlphaEvent();
   const [thumbFailed, setThumbFailed] = useState(false);
   const [faviconFailed, setFaviconFailed] = useState(false);
   const showThumb = thumbEligible && !thumbFailed && Boolean(clipping.imageUrl);
@@ -68,13 +66,11 @@ function ClippingRow({
       <a
         href={clipping.url}
         onClick={() => {
-          if (analyticsSettings) {
-            void enqueueAlphaEvent(analyticsSettings, "source.opened", {
-              domain: companyDomain,
-              sourceClass: analyticsSourceClass(clipping.sourceClass),
-              ordinal: index + 1
-            });
-          }
+          emitAlphaEvent("source.opened", {
+            domain: companyDomain,
+            sourceClass: analyticsSourceClass(clipping.sourceClass),
+            ordinal: index + 1
+          });
         }}
         rel="noreferrer"
         target="_blank"
@@ -110,12 +106,10 @@ function ClippingRow({
 // Source receipts as the card's first content: they fill the forming space before any fact
 // exists, and each arrives on its own source event, never on a clock.
 export function Clippings({
-  analyticsSettings,
   clippings,
   companyDomain = clippings[0]?.domain ?? "unknown.invalid",
   prefersReducedMotion
 }: {
-  analyticsSettings?: Settings | undefined;
   clippings: Clipping[];
   companyDomain?: string;
   prefersReducedMotion: boolean;
@@ -139,7 +133,6 @@ export function Clippings({
           <AnimatePresence initial={false}>
             {displayed.map((clipping, index) => (
               <ClippingRow
-                analyticsSettings={analyticsSettings}
                 clipping={clipping}
                 companyDomain={companyDomain}
                 index={index}

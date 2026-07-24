@@ -1,7 +1,8 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type AlphaEvent, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { type AlphaEvent, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, vi } from "vitest";
+import { cardForDomain, jsonResponse } from "./test-stubs";
 
 type StorageListener = (
   changes: Record<string, chrome.storage.StorageChange>,
@@ -25,71 +26,10 @@ export const settings = {
   coldStartApiToken: "token-123"
 };
 
-function companyNameFromDomain(domain: string) {
-  const root = domain.replace(/^www\./i, "").split(".")[0] ?? domain;
-  return root
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(" ") || domain;
-}
-
-export function cardForDomain(domain: string): ColdStartCard {
-  return {
-    slug: domain.split(".")[0] ?? domain,
-    domain,
-    generatedAt: "2026-05-07T12:00:00.000Z",
-    generationCostUsd: 0,
-    cacheStatus: "hit",
-    identity: {
-      name: { value: companyNameFromDomain(domain), status: "verified", confidence: "high", citationIds: ["c1"] },
-      websiteUrl: { value: `https://${domain}/`, status: "verified", confidence: "high", citationIds: ["c1"] },
-      logoUrl: null,
-      oneLiner: { value: "Cached company card", status: "verified", confidence: "high", citationIds: ["c1"] },
-      hq: { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      foundedYear: { value: 2023, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      status: "private"
-    },
-    funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      investors: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    team: {
-      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: { value: 64, asOf: "2026-05-14" }, status: "inferred", confidence: "low", citationIds: ["c1"] }
-    },
-    signals: [],
-    comparables: [{ name: "Example Peer", domain: "peer.example", oneLiner: "Adjacent company." }],
-    citations: [
-      {
-        id: "c1",
-        url: `https://${domain}/`,
-        title: domain,
-        fetchedAt: "2026-05-07T12:00:00.000Z",
-        sourceType: "company_site",
-        snippet: "Cached company card"
-      },
-      {
-        id: "c2",
-        url: `https://news.example/${domain}/launch`,
-        title: `${domain} launch coverage`,
-        fetchedAt: "2026-05-07T12:00:00.000Z",
-        sourceType: "news",
-        snippet: "Independent coverage of the company."
-      },
-      {
-        id: "c3",
-        url: `https://registry.example/${domain}`,
-        title: `${domain} registry profile`,
-        fetchedAt: "2026-05-07T12:00:00.000Z",
-        sourceType: "other",
-        snippet: "Registry profile for the company."
-      }
-    ]
-  };
-}
+// Re-exported so existing `from "./sidepanel-harness"` imports keep working; the builder itself
+// lives in test-stubs.ts, the environment-agnostic module background.test.ts and card-cache.test.ts
+// (both non-jsdom) import directly instead of pulling react-dom/client in through this file.
+export { cardForDomain, jsonResponse };
 
 export function noSourcePartialCard(domain: string): ColdStartCard {
   return {
@@ -181,15 +121,6 @@ export function cardWithSynthesis(domain: string): ColdStartCard {
   };
 }
 
-export function jsonResponse(body: unknown, init?: ResponseInit) {
-  const response = new Response(JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
-    ...init
-  });
-  response.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
-  return response;
-}
-
 export function missingCardResponse() {
   return jsonResponse({ error: "card not found" }, { status: 404 });
 }
@@ -215,6 +146,34 @@ export async function flushPromises() {
   await act(async () => {
     for (let index = 0; index < 10; index += 1) {
       await Promise.resolve();
+    }
+  });
+}
+
+export function stubReducedMotion(matches = false) {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({
+    addEventListener: vi.fn(),
+    addListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches,
+    media: "(prefers-reduced-motion: reduce)",
+    onchange: null,
+    removeEventListener: vi.fn(),
+    removeListener: vi.fn()
+  })));
+}
+
+export function stubChromeStorage() {
+  vi.stubGlobal("chrome", {
+    storage: {
+      local: {
+        get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
+        set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
+      },
+      session: {
+        get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
+        set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
+      }
     }
   });
 }

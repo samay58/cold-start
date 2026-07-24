@@ -50,6 +50,8 @@ import {
 import { motionTokens } from "./shared/motion-primitives";
 import { usePrefersReducedMotion } from "./shared/usePrefersReducedMotion";
 import { enqueueAlphaEvent, resetAlphaEventQueueBlock, startAlphaEventRecovery } from "./shared/alpha-analytics";
+import { AlphaAnalyticsProvider } from "./shared/alpha-event-context";
+import type { ActiveSectionRunState, RunState } from "./shared/run-state";
 import "./styles.css";
 
 const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
@@ -75,9 +77,9 @@ type RequestState =
       sections: ResearchSection[];
       analysisFailed?: boolean;
       analysisNotice?: string;
-      analysisRun?: AnalysisRunState;
-      contactRun?: AnalysisRunState;
-      profileRun?: AnalysisRunState;
+      analysisRun?: RunState;
+      contactRun?: RunState;
+      profileRun?: RunState;
       activeSectionRun?: ActiveSectionRunState;
       events?: ExtensionResearchRunEvent[];
       sources?: ExtensionSourceSummary[];
@@ -114,15 +116,6 @@ function stableClientErrorCode(message: string) {
   }
   return "request_failed";
 }
-
-type AnalysisRunState = {
-  generationStatus: "queued" | "running";
-  startedAt: number;
-};
-
-type ActiveSectionRunState = AnalysisRunState & {
-  layerId: ResearchLayerId;
-};
 
 function runningSectionLayerId(sections: ResearchSection[]) {
   const section = sections.find((candidate) => candidate.status === "running");
@@ -1654,18 +1647,19 @@ export function SidePanel() {
       arc = { phase: "profile", ...profileFields };
     }
     panel = (
-      <CompanyArc
-        alphaAccess={alphaAccess}
-        analyticsSettings={settings}
-        arc={arc}
-        domain={domain}
-        onEditSettings={openSettings}
-        onRegenerate={() => handleStartGeneration(true, "retry", "unknown")}
-        onRunAnalysis={handleRunAnalysis}
-        onRunSection={handleRunSection}
-        onStart={() => handleStartGeneration(true)}
-        queuedLayerIds={sectionQueue}
-      />
+      <AlphaAnalyticsProvider settings={settings ?? undefined}>
+        <CompanyArc
+          alphaAccess={alphaAccess}
+          arc={arc}
+          domain={domain}
+          onEditSettings={openSettings}
+          onRegenerate={() => handleStartGeneration(true, "retry", "unknown")}
+          onRunAnalysis={handleRunAnalysis}
+          onRunSection={handleRunSection}
+          onStart={() => handleStartGeneration(true)}
+          queuedLayerIds={sectionQueue}
+        />
+      </AlphaAnalyticsProvider>
     );
   } else if (requestState.status === "pending") {
     panelKey = "pending";

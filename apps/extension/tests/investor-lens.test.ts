@@ -6,18 +6,16 @@ import {
   sourcePostureForCitation,
   timingIsNotFound
 } from "../src/research/investor-lens";
+import { minimalWarpCard } from "./lens-card-fixtures";
 
+// minimalWarpCard (lens-card-fixtures.ts) carries the same warp.dev body; this adds back the
+// identity.description block this suite's synthesis-display assertions rely on.
 function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
+  const base = minimalWarpCard();
   return {
-    slug: "warp",
-    domain: "warp.dev",
-    generatedAt: "2026-06-23T12:00:00.000Z",
-    generationCostUsd: 0,
-    cacheStatus: "hit",
+    ...base,
     identity: {
-      name: { value: "Warp", status: "verified", confidence: "high", citationIds: ["c1"] },
-      logoUrl: null,
-      oneLiner: { value: "AI terminal for developers.", status: "verified", confidence: "high", citationIds: ["c1"] },
+      ...base.identity,
       description: {
         value: {
           shortDescription: "AI terminal for developers.",
@@ -28,45 +26,8 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
         status: "verified",
         confidence: "medium",
         citationIds: ["c1"]
-      },
-      hq: { value: { city: "San Francisco", country: "US" }, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      foundedYear: { value: 2021, status: "verified", confidence: "medium", citationIds: ["c1"] },
-      status: "private"
-    },
-    funding: {
-      totalRaisedUsd: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      lastRound: { value: null, status: "unknown", confidence: "low", citationIds: [] },
-      investors: { value: [], status: "unknown", confidence: "low", citationIds: [] }
-    },
-    team: {
-      founders: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      keyExecs: { value: [], status: "unknown", confidence: "low", citationIds: [] },
-      headcount: { value: null, status: "unknown", confidence: "low", citationIds: [] }
-    },
-    signals: [],
-    comparables: [],
-    citations: [
-      {
-        id: "c1",
-        url: "https://warp.dev",
-        title: "Warp",
-        fetchedAt: "2026-06-23T12:00:00.000Z",
-        sourceType: "company_site"
-      },
-      {
-        id: "c2",
-        url: "https://example.com/warp-deep-dive",
-        title: "Independent Warp deep dive",
-        fetchedAt: "2026-06-23T12:00:00.000Z",
-        sourceType: "news",
-        sourceQuality: {
-          tier: "independent_analysis",
-          label: "Independent analysis",
-          rationale: "Independent product analysis.",
-          incentive: "No direct company incentive."
-        }
       }
-    ],
+    },
     ...overrides
   };
 }

@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReadRegion } from "../src/company/ReadRegion";
+import { stubReducedMotion } from "./sidepanel-harness";
 
 function evidence(overrides: Partial<FirstPayoff["evidenceSoFar"][number]> = {}): FirstPayoff["evidenceSoFar"][number] {
   return {
@@ -79,16 +80,7 @@ describe("ReadRegion", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
+    stubReducedMotion(false);
   });
 
   afterEach(() => {

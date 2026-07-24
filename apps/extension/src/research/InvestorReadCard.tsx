@@ -18,8 +18,7 @@ import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
-import type { Settings } from "../shared/extension-config";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import { useAlphaEvent } from "../shared/alpha-event-context";
 
 const LENS_FOOTER_SOURCE_COUNT = 4;
 type LensDisclosureId = "lede" | "holds" | "breaks" | "timing" | "question" | "sources";
@@ -427,16 +426,15 @@ function LensCategoryCard({
 }
 
 export function InvestorReadCard({
-  analyticsSettings,
   card,
   read,
   tooltipProps
 }: {
-  analyticsSettings?: Settings | undefined;
   card: ColdStartCard;
   read: InvestorReadDisplay;
   tooltipProps: TooltipPropsFor;
 }) {
+  const emitAlphaEvent = useAlphaEvent();
   const prefersReducedMotion = usePrefersReducedMotion();
   const categoryUid = useId().replace(/:/g, "");
   const [openCategory, setOpenCategory] = useState<InvestorLensCategoryId | null>("why-care");
@@ -447,10 +445,7 @@ export function InvestorReadCard({
   const showPosture = postureLines.length > 0 || !read.independentlyBacked;
 
   function trackDisclosure(disclosure: LensDisclosureId, expanded: boolean) {
-    if (!analyticsSettings) {
-      return;
-    }
-    void enqueueAlphaEvent(analyticsSettings, "lens.disclosure_toggled", {
+    emitAlphaEvent("lens.disclosure_toggled", {
       domain: card.domain,
       disclosure,
       expanded
@@ -478,13 +473,11 @@ export function InvestorReadCard({
             onToggle={() => {
               const expanded = openCategory !== category.id;
               setOpenCategory(expanded ? category.id : null);
-              if (analyticsSettings) {
-                void enqueueAlphaEvent(analyticsSettings, "lens.category_toggled", {
-                  domain: card.domain,
-                  category: category.id,
-                  expanded
-                });
-              }
+              emitAlphaEvent("lens.category_toggled", {
+                domain: card.domain,
+                category: category.id,
+                expanded
+              });
             }}
             prefersReducedMotion={prefersReducedMotion}
             read={read}
@@ -502,13 +495,11 @@ export function InvestorReadCard({
                 href={source.href}
                 key={source.id}
                 onClick={() => {
-                  if (analyticsSettings) {
-                    void enqueueAlphaEvent(analyticsSettings, "source.opened", {
-                      domain: card.domain,
-                      sourceClass: source.sourceClass,
-                      ordinal: index + 1
-                    });
-                  }
+                  emitAlphaEvent("source.opened", {
+                    domain: card.domain,
+                    sourceClass: source.sourceClass,
+                    ordinal: index + 1
+                  });
                 }}
                 rel="noreferrer"
                 target="_blank"

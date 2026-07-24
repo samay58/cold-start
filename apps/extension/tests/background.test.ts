@@ -1,20 +1,7 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from "@cold-start/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-function jsonResponse(body: unknown, init?: ResponseInit) {
-  const response = new Response(JSON.stringify(body), {
-    headers: { "Content-Type": "application/json" },
-    ...init
-  });
-  response.headers.set(COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION);
-  return response;
-}
-
-async function flushPromises() {
-  for (let index = 0; index < 10; index += 1) {
-    await Promise.resolve();
-  }
-}
+// Environment-agnostic builders only: this file runs without the jsdom pragma, so it must not
+// import sidepanel-harness.tsx (react-dom/client would load in a non-DOM test run).
+import { flushMicrotasks, jsonResponse } from "./test-stubs";
 
 describe("background prefetch", () => {
   beforeEach(() => {
@@ -116,7 +103,7 @@ describe("background prefetch", () => {
 
     await import("../src/background");
     clickListener?.({ id: 7, url: "https://linear.app/docs" } as chrome.tabs.Tab);
-    await flushPromises();
+    await flushMicrotasks();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstFetchCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit?] | undefined;
@@ -280,7 +267,7 @@ describe("background alpha invitation bridge", () => {
 
     await import("../src/background");
     installedListener?.({ reason: "install" } as chrome.runtime.InstalledDetails);
-    await flushPromises();
+    await flushMicrotasks();
 
     expect(storageItems.coldStartPendingLifecycleEvents).toEqual([
       { eventName: "extension.installed" }

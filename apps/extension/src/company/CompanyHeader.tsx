@@ -7,8 +7,7 @@ import { readableCompanyName, sourceLabel, websiteLabel } from "./company-displa
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
 import { fundingEvidenceFromCitations } from "@cold-start/core";
 import type { TooltipDossier, TooltipPropsFor } from "../shared/SharedTooltip";
-import type { Settings } from "../shared/extension-config";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import { useAlphaEvent } from "../shared/alpha-event-context";
 
 type CompanyHeaderPhase = "intake" | "building" | "profile";
 
@@ -446,7 +445,6 @@ const PEOPLE_COLLAPSED_COUNT = 4;
 const PEOPLE_OVERFLOW_FRAME_ID = "cs-people-overflow";
 
 export function PeopleLine({
-  analyticsSettings,
   citations,
   companyDomain,
   contactElapsedSeconds = 0,
@@ -460,7 +458,6 @@ export function PeopleLine({
   onDossierPinIntent,
   tooltipProps
 }: {
-  analyticsSettings?: Settings | undefined;
   // The card's citations, so a person's cited read can resolve its provenance whisper.
   citations: readonly CitationRef[];
   companyDomain: string;
@@ -484,6 +481,7 @@ export function PeopleLine({
   tooltipProps: TooltipPropsFor;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const emitAlphaEvent = useAlphaEvent();
 
   if (people.length === 0) {
     return null;
@@ -608,13 +606,11 @@ export function PeopleLine({
               hideTooltip();
               const nextExpanded = !expanded;
               setExpanded(nextExpanded);
-              if (analyticsSettings) {
-                void enqueueAlphaEvent(analyticsSettings, "dossier.people_toggled", {
-                  domain: companyDomain,
-                  expanded: nextExpanded,
-                  hiddenCount: hiddenPeopleCount
-                });
-              }
+              emitAlphaEvent("dossier.people_toggled", {
+                domain: companyDomain,
+                expanded: nextExpanded,
+                hiddenCount: hiddenPeopleCount
+              });
             }}
           >
             {expanded ? "Show fewer" : `+${hiddenPeopleCount} more`}

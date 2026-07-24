@@ -2,14 +2,12 @@ import type { ColdStartCard } from "@cold-start/core";
 
 // Shared minimal ColdStartCard fixtures for the lens/research-layer test suites. Two distinct
 // company bodies existed across these suites before consolidation, each hand-rolled per file:
-//   - minimalWarpCard (warp.dev, no identity.description/websiteUrl, no filed round): was
-//     investor-read-card.test.tsx's baseCard.
+//   - minimalWarpCard (warp.dev, no identity.description/websiteUrl, no filed round): shared by
+//     investor-read-card.test.tsx's baseCard and investor-lens.test.ts's card(), which layers its
+//     own identity.description override on top.
 //   - minimalExaCard (exa.ai, with identity.description, websiteUrl, and a filed Series A
 //     round): was byte-identical between lens-withheld.test.tsx's card() and
 //     research-layer-panel.test.tsx's card().
-// investor-lens.test.ts carries its own separate, similarly-shaped "warp" builder (a superset
-// of minimalWarpCard: it also sets identity.description) and is intentionally left untouched
-// here -- it is an untouchable file for this pass.
 
 export function minimalWarpCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
   return {

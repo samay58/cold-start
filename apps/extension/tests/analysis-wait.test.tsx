@@ -14,7 +14,7 @@ import {
 } from "../src/research/AnalysisWaitInstrument";
 import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 import runningEventsFixtureRaw from "./fixtures/lens-phases/running-events.json";
-import { cardForDomain, cardWithSynthesis } from "./sidepanel-harness";
+import { cardForDomain, cardWithSynthesis, flushPromises, stubChromeStorage, stubReducedMotion } from "./sidepanel-harness";
 
 const runningEventsFixture = runningEventsFixtureRaw as ExtensionResearchRunEvent[];
 
@@ -35,45 +35,6 @@ function event(
     createdAt: new Date(2026, 6, 20, 12, 0, eventCounter).toISOString(),
     ...overrides
   };
-}
-
-function stubMatchMedia(matches: boolean) {
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    }))
-  );
-}
-
-function stubChromeStorage() {
-  vi.stubGlobal("chrome", {
-    storage: {
-      local: {
-        get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-        set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-      },
-      session: {
-        get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-        set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-      }
-    }
-  });
-}
-
-async function flushPromises() {
-  await act(async () => {
-    for (let index = 0; index < 10; index += 1) {
-      await Promise.resolve();
-    }
-  });
 }
 
 async function mountInstrument(input: {
@@ -157,7 +118,7 @@ beforeEach(() => {
   eventCounter = 0;
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   document.body.innerHTML = "";
-  stubMatchMedia(false);
+  stubReducedMotion(false);
   stubChromeStorage();
 });
 

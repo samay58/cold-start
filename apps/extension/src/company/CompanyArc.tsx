@@ -21,8 +21,7 @@ import type {
   AlphaAccessState,
   ExtensionResearchRunEvent,
   ExtensionSourceSummary,
-  GenerationStatus,
-  Settings
+  GenerationStatus
 } from "../shared/extension-config";
 import { profileSummaryCopy } from "../shared/extension-format";
 import { filedSourceCount } from "./first-payoff-events";
@@ -35,20 +34,12 @@ import { SealInstrument } from "./SealInstrument";
 import { SharedTooltip, useSharedTooltip, type TooltipDossier } from "../shared/SharedTooltip";
 import { motionTokens } from "../shared/motion-primitives";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import { useAlphaEvent } from "../shared/alpha-event-context";
+import type { ActiveSectionRunState, RunState } from "../shared/run-state";
 
 const ResearchLayerPanel = lazy(() =>
   import("../research/ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
 );
-
-type RunState = {
-  generationStatus: "queued" | "running";
-  startedAt: number;
-};
-
-type ActiveSectionRunState = RunState & {
-  layerId: ResearchLayerId;
-};
 
 export type CompanyArcState =
   | { phase: "intake" }
@@ -75,7 +66,6 @@ export type CompanyArcState =
 
 type CompanyArcProps = {
   alphaAccess?: AlphaAccessState | null | undefined;
-  analyticsSettings?: Settings | undefined;
   arc: CompanyArcState;
   domain: string;
   onEditSettings: () => void;
@@ -164,7 +154,6 @@ function ArcStack() {
 
 export function CompanyArc({
   alphaAccess,
-  analyticsSettings,
   arc,
   domain,
   onEditSettings,
@@ -174,6 +163,7 @@ export function CompanyArc({
   onStart,
   queuedLayerIds
 }: CompanyArcProps) {
+  const emitAlphaEvent = useAlphaEvent();
   const prefersReducedMotion = usePrefersReducedMotion();
   const { dockAnchorRef, hideTooltip, tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
   const building = arc.phase === "building" ? arc : null;
@@ -244,7 +234,7 @@ export function CompanyArc({
       : undefined;
 
   useEffect(() => {
-    if (!analyticsSettings || !visibleFirstPayoff) {
+    if (!visibleFirstPayoff) {
       return;
     }
     const viewKey = `${domain}:${visibleFirstPayoff.generatedAt}:${visibleFirstPayoff.status}`;
@@ -252,14 +242,14 @@ export function CompanyArc({
       return;
     }
     firstPayoffViews.current.add(viewKey);
-    void enqueueAlphaEvent(analyticsSettings, "profile.first_payoff_viewed", {
+    emitAlphaEvent("profile.first_payoff_viewed", {
       domain,
       state: visibleFirstPayoff.status
     });
-  }, [analyticsSettings, domain, visibleFirstPayoff]);
+  }, [domain, emitAlphaEvent, visibleFirstPayoff]);
 
   useEffect(() => {
-    if (!analyticsSettings || !profileCard) {
+    if (!profileCard) {
       previousDossier.current = null;
       return;
     }
@@ -293,7 +283,7 @@ export function CompanyArc({
     const previous = previousDossier.current;
 
     if (previous && (!current || previous.id !== current.id)) {
-      void enqueueAlphaEvent(analyticsSettings, "dossier.closed", {
+      emitAlphaEvent("dossier.closed", {
         domain: profileCard.domain,
         personGroup: previous.personGroup,
         personOrdinal: previous.personOrdinal,
@@ -304,7 +294,7 @@ export function CompanyArc({
 
     if (current && (!previous || previous.id !== current.id)) {
       const intent = dossierIntent.current;
-      void enqueueAlphaEvent(analyticsSettings, "dossier.opened", {
+      emitAlphaEvent("dossier.opened", {
         domain: profileCard.domain,
         personGroup: current.personGroup,
         personOrdinal: current.personOrdinal,
@@ -314,7 +304,7 @@ export function CompanyArc({
 
     if (current?.pinned && (!previous || previous.id !== current.id || !previous.pinned)) {
       const pinIntent = dossierPinIntent.current;
-      void enqueueAlphaEvent(analyticsSettings, "dossier.pinned", {
+      emitAlphaEvent("dossier.pinned", {
         domain: profileCard.domain,
         personGroup: current.personGroup,
         personOrdinal: current.personOrdinal,
@@ -323,10 +313,10 @@ export function CompanyArc({
     }
 
     previousDossier.current = current;
-  }, [analyticsSettings, profileCard, tooltip]);
+  }, [emitAlphaEvent, profileCard, tooltip]);
 
   function handleDossierClickCapture(event: ReactMouseEvent<HTMLElement>) {
-    if (!analyticsSettings || !profile) {
+    if (!profile) {
       return;
     }
     const target = event.target instanceof Element ? event.target : null;
@@ -346,7 +336,7 @@ export function CompanyArc({
     if (channel) {
       const channelName = channel.textContent?.trim().toLowerCase();
       if (channelName === "github" || channelName === "x" || channelName === "site") {
-        void enqueueAlphaEvent(analyticsSettings, "dossier.channel_opened", {
+        emitAlphaEvent("dossier.channel_opened", {
           domain: profile.card.domain,
           personGroup: current.personGroup,
           personOrdinal: current.personOrdinal,
@@ -365,7 +355,7 @@ export function CompanyArc({
         return;
       }
       observer.disconnect();
-      void enqueueAlphaEvent(analyticsSettings, "dossier.email_copied", {
+      emitAlphaEvent("dossier.email_copied", {
         domain: profile.card.domain,
         personGroup: current.personGroup,
         personOrdinal: current.personOrdinal,
@@ -459,7 +449,6 @@ export function CompanyArc({
             <>
               <FactRibbon facts={profileFacts(profile.card)} />
               <PeopleLine
-                analyticsSettings={analyticsSettings}
                 hideTooltip={hideTooltip}
                 citations={profile.card.citations}
                 companyDomain={profile.card.domain}
@@ -489,14 +478,12 @@ export function CompanyArc({
         <AnimatePresence initial={false}>
           {building && buildingPayoff?.firstPayoff ? (
             <ReadRegion
-              analyticsSettings={analyticsSettings}
               context="building"
               domain={domain}
               firstPayoff={buildingPayoff.firstPayoff}
             />
           ) : profile && profileRead?.showRead && profileRead.firstPayoff ? (
             <ReadRegion
-              analyticsSettings={analyticsSettings}
               context="profile"
               domain={domain}
               firstPayoff={profileRead.firstPayoff}
@@ -507,13 +494,11 @@ export function CompanyArc({
         {building ? (
           <>
             <Clippings
-              analyticsSettings={analyticsSettings}
               clippings={clippingsFromEvents(building.events)}
               companyDomain={domain}
               prefersReducedMotion={prefersReducedMotion}
             />
             <ResearchTrail
-              analyticsSettings={analyticsSettings}
               companyDomain={domain}
               events={building.events}
               generationStatus={building.generationStatus}
@@ -527,7 +512,6 @@ export function CompanyArc({
           // (AnimatePresence initial={false} in Clippings keeps it quiet and settled, never
           // replaying the building-phase arrival stagger on an already-filed profile).
           <Clippings
-            analyticsSettings={analyticsSettings}
             clippings={clippingsFromSources(profile.sources ?? [])}
             companyDomain={domain}
             prefersReducedMotion={prefersReducedMotion}
@@ -556,7 +540,6 @@ export function CompanyArc({
         {profile ? (
           <Suspense fallback={null}>
             <ResearchLayerPanel
-              analyticsSettings={analyticsSettings}
               analysisFailed={profile.analysisFailed}
               analysisNotice={profile.analysisNotice}
               analysisRun={profile.analysisRun}

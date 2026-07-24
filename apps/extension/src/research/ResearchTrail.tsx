@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
-import type { ExtensionResearchRunEvent, Settings } from "../shared/extension-config";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import type { ExtensionResearchRunEvent } from "../shared/extension-config";
+import { useAlphaEvent } from "../shared/alpha-event-context";
 import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,
@@ -15,7 +15,6 @@ const SourcePassInstrument = lazy(() =>
 );
 
 type ResearchTrailProps = {
-  analyticsSettings?: Settings | undefined;
   companyDomain?: string | undefined;
   events: ExtensionResearchRunEvent[];
   // "withheld" is only meaningful for analysis-mode responses; the building phase this trail
@@ -53,11 +52,11 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
 // are the content, so the trail is only the quiet details toggle plus the tree it opens
 // (auto-open on attention).
 export function ResearchTrail({
-  analyticsSettings,
   companyDomain,
   events,
   generationStatus
 }: ResearchTrailProps) {
+  const emitAlphaEvent = useAlphaEvent();
   const sources: [] = [];
   const eventSourceCount = acceptedSourceCountFromEvents(events);
   const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
@@ -94,8 +93,8 @@ export function ResearchTrail({
           onClick={() => {
             const nextOpen = !detailsOpen;
             setDetailsOpen(nextOpen);
-            if (analyticsSettings && companyDomain) {
-              void enqueueAlphaEvent(analyticsSettings, "research.details_toggled", {
+            if (companyDomain) {
+              emitAlphaEvent("research.details_toggled", {
                 domain: companyDomain,
                 expanded: nextOpen
               });

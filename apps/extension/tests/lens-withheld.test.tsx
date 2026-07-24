@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompanyArc } from "../src/company/CompanyArc";
 import { LENS_RUN_FAILED_NOTICE } from "../src/shared/extension-format";
+import { flushPromises, stubChromeStorage, stubReducedMotion } from "./sidepanel-harness";
 import { minimalExaCard as card } from "./lens-card-fixtures";
 
 function withheldRecord(overrides: Partial<SynthesisWithheld> = {}): SynthesisWithheld {
@@ -85,40 +86,12 @@ async function renderArc(input: {
   };
 }
 
-async function flushPromises() {
-  await act(async () => {
-    for (let index = 0; index < 10; index += 1) {
-      await Promise.resolve();
-    }
-  });
-}
-
 describe("Investor Lens withheld and failed states", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
-    vi.stubGlobal("matchMedia", vi.fn(() => ({
-      addEventListener: vi.fn(),
-      addListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-      matches: false,
-      media: "(prefers-reduced-motion: reduce)",
-      onchange: null,
-      removeEventListener: vi.fn(),
-      removeListener: vi.fn()
-    })));
-    vi.stubGlobal("chrome", {
-      storage: {
-        local: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        },
-        session: {
-          get: (_keys: string | string[], callback: (items: Record<string, unknown>) => void) => callback({}),
-          set: (_items: Record<string, unknown>, callback?: () => void) => callback?.()
-        }
-      }
-    });
+    stubReducedMotion(false);
+    stubChromeStorage();
   });
 
   afterEach(() => {

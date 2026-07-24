@@ -2,8 +2,7 @@ import type { FirstPayoff } from "@cold-start/core";
 import { motion, useReducedMotion, type Transition } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { markPerformance } from "../sidepanel-network";
-import type { Settings } from "../shared/extension-config";
-import { enqueueAlphaEvent } from "../shared/alpha-analytics";
+import { useAlphaEvent } from "../shared/alpha-event-context";
 
 type Evidence = FirstPayoff["evidenceSoFar"][number];
 
@@ -93,14 +92,13 @@ function filedClassesLine(evidence: Evidence[]) {
 }
 
 function SourceRows({
-  analyticsSettings,
   domain,
   evidence
 }: {
-  analyticsSettings?: Settings | undefined;
   domain?: string | undefined;
   evidence: Evidence[];
 }) {
+  const emitAlphaEvent = useAlphaEvent();
   const sources = quietSources(evidence);
   const visibleSources = sources.slice(0, 3);
   const hiddenSources = Math.max(0, sources.length - visibleSources.length);
@@ -117,8 +115,8 @@ function SourceRows({
           <a
             href={item.url}
             onClick={() => {
-              if (analyticsSettings && domain) {
-                void enqueueAlphaEvent(analyticsSettings, "source.opened", {
+              if (domain) {
+                emitAlphaEvent("source.opened", {
                   domain,
                   sourceClass: item.quality === "reported" ? "reporting" : item.quality,
                   ordinal: index + 1
@@ -139,7 +137,6 @@ function SourceRows({
 }
 
 type ReadRegionProps = {
-  analyticsSettings?: Settings | undefined;
   context: "building" | "profile";
   domain?: string | undefined;
   firstPayoff: FirstPayoff;
@@ -149,7 +146,7 @@ type ReadRegionProps = {
 // receipt (what evidence arrived, what is still missing) to a cited read, and never claims more
 // than the FirstPayoff artifact carries. The profile surface renders it only when substantive;
 // the building surface shows the receipt and withheld states too, so the wait is never blank.
-export function ReadRegion({ analyticsSettings, context, domain, firstPayoff }: ReadRegionProps) {
+export function ReadRegion({ context, domain, firstPayoff }: ReadRegionProps) {
   const prefersReducedMotion = useReducedMotion();
   const substantive = firstPayoff.status === "substantive_first_read";
   const claim = substantive ? primaryClaim(firstPayoff) : null;
@@ -202,7 +199,7 @@ export function ReadRegion({ analyticsSettings, context, domain, firstPayoff }: 
               <span className="cs-early-read-kicker">{claimKicker(claim.claimKind)}</span>
               {claim.text}
             </p>
-            <SourceRows analyticsSettings={analyticsSettings} domain={domain} evidence={firstPayoff.evidenceSoFar} />
+            <SourceRows domain={domain} evidence={firstPayoff.evidenceSoFar} />
           </>
         ) : entityNeedsCheck ? (
           <p className="cs-early-read-claim">
@@ -216,7 +213,7 @@ export function ReadRegion({ analyticsSettings, context, domain, firstPayoff }: 
               {filedLine ?? "No accepted evidence yet."}
               <span className="cs-read-region-need">{needLine}</span>
             </p>
-            <SourceRows analyticsSettings={analyticsSettings} domain={domain} evidence={firstPayoff.evidenceSoFar} />
+            <SourceRows domain={domain} evidence={firstPayoff.evidenceSoFar} />
           </>
         )}
       </div>
