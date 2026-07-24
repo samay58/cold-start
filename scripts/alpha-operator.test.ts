@@ -67,6 +67,11 @@ describe("alpha status report", () => {
     assert.equal(report.totals.staleOrSilentRuns.length, 1);
     assert.equal(report.totals.queueDrops, 3);
     assert.equal(report.wallet.remainingAllowanceExposureUsd, 4.5);
+    assert.equal(report.wallet.requiredFloorUsd, 35);
+    assert.match(
+      report.gate.failures.find((failure) => failure.code === "wallet_floor")?.message ?? "",
+      /\$35\.0000/
+    );
     assert.deepEqual(
       report.gate.failures.map((failure) => failure.code),
       ["software_failures", "stale_runs", "wallet_floor", "unsupported_client"]
@@ -86,6 +91,7 @@ describe("alpha status report", () => {
     assert.deepEqual(report.gate.failures, []);
     assert.equal(report.totals.staleOrSilentRuns.length, 0);
     assert.deepEqual(report.totals.failureCodes, {});
+    assert.equal(report.wallet.requiredFloorUsd, 35);
   });
 });
 

@@ -21,6 +21,8 @@ import {
 } from "./alpha-common";
 
 const MAX_RUN_ROWS = 10_000;
+const ALPHA_RELEASE_WALLET_FLOOR_USD = 35;
+const PROFILE_RUN_FLOOR_COUNT = 10;
 const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
 
 type JsonObject = Record<string, unknown>;
@@ -588,7 +590,10 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
     .reduce((sum, tester) => sum + tester.allowance.profile.remaining, 0);
   const lensRemaining = chargeableTesters
     .reduce((sum, tester) => sum + tester.allowance.lens.remaining, 0);
-  const requiredFloorUsd = input.profileCostAnchorUsd * 10;
+  const requiredFloorUsd = Math.max(
+    ALPHA_RELEASE_WALLET_FLOOR_USD,
+    input.profileCostAnchorUsd * PROFILE_RUN_FLOOR_COUNT
+  );
   const remainingAllowanceExposureUsd =
     profileRemaining * input.profileCostAnchorUsd + lensRemaining * input.lensCostAnchorUsd;
   const softwareFailureCount = Object.entries(failureCodes)
@@ -616,7 +621,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   } else if (input.walletBalanceUsd < requiredFloorUsd) {
     gateFailures.push({
       code: "wallet_floor",
-      message: `AgentCash Base balance is below ten profile-run anchors (${money(requiredFloorUsd)}).`
+      message: `AgentCash Base balance is below the release floor (${money(requiredFloorUsd)}).`
     });
   }
   if (unsupportedActiveInstallations.length > 0) {
@@ -682,7 +687,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
       available: input.walletBalanceUsd !== null,
       baseBalanceUsd: input.walletBalanceUsd,
       error: input.walletError,
-      profileRunFloorCount: 10,
+      profileRunFloorCount: PROFILE_RUN_FLOOR_COUNT,
       profileProviderCostAnchorUsd: input.profileCostAnchorUsd,
       lensProviderCostAnchorUsd: input.lensCostAnchorUsd,
       costAnchorSource: input.costAnchorSource,
@@ -750,7 +755,7 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
     report.wallet.available
       ? `AgentCash Base: ${money(report.wallet.baseBalanceUsd as number)}`
       : `AgentCash Base: unavailable (${report.wallet.error ?? "unknown error"})`,
-    `Ten-run wallet floor: ${money(report.wallet.requiredFloorUsd)}`,
+    `Release wallet floor: ${money(report.wallet.requiredFloorUsd)}`,
     `Remaining allowance provider exposure: ${money(report.wallet.remainingAllowanceExposureUsd)} (${report.wallet.costAnchorSource})`,
     "",
     `Supported extension versions: ${report.compatibility.supportedVersions.join(", ")} (${report.compatibility.source})`,
