@@ -18,6 +18,7 @@ Start here before adding or editing docs.
 - `theme-sources.md`: dark-mode palette sources and token rationale (referenced by DESIGN.md).
 - `evo-autoresearch-pilot.md`: the benchmark loop behind the `npm run evo:*` commands.
 - `product/cost-quality-optimization-playbook-2026-06-23.md`: cost and quality tuning levers.
+- `product/alpha-packaging-spec-2026-07-01.md`: live friend-alpha packaging decision and current ship-state gap.
 - `product/diagnose-iterate-craft-playbook.md`: interaction-craft loop for sidebar work.
 - `product/extension-motion-playbook.md`: motion rules for the extension.
 - `product/provider-cost-assumptions.md`: cost model behind provider budgets.

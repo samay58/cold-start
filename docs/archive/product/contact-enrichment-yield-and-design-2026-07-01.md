@@ -3,7 +3,7 @@
 Date: 2026-07-01
 Status: proposed, proof-backed
 Owner: Samay
-Relates to: `docs/product/alpha-packaging-spec-2026-07-01.md` (reconciles the contact-policy section there), `docs/product/unit-economics-trace-analysis-2026-06-23.md`, `docs/product/research/cost-quality-optimization-playbook-2026-06-23.md`, `INTENT.md`.
+Relates to: `docs/product/alpha-packaging-spec-2026-07-01.md` (reconciles the contact-policy section there), `docs/archive/product/unit-economics-trace-analysis-2026-06-23.md`, `docs/product/cost-quality-optimization-playbook-2026-06-23.md`, `INTENT.md`.
 
 ## The question
 
@@ -93,7 +93,7 @@ Recommendation: build items 1 through 4 under the reachable-identity framing. It
 
 ## Reconciliation with the packaging spec
 
-`alpha-packaging-spec-2026-07-01.md` proposed moving Websets contact enrichment to the first Lens run to protect basics COGS. This proof changes that call for the better: the default contact path becomes the free GitHub pattern layer (runs cheaply during basics or Lens without meaningful COGS), and Websets becomes the explicit user-triggered deep-find on the Lens surface. Net effect on the alpha economics: basics stays contact-light and near the $0.04 floor, Lens gains real contact value at near-zero marginal cost for technical companies, and the paid path is spent only on deliberate user intent. Update the packaging spec's contact-enrichment section to point here once this is accepted.
+`docs/product/alpha-packaging-spec-2026-07-01.md` now records the shipped contact path. Basics dispatches contact enrichment asynchronously. GitHub runs first, then a small StableEnrich pattern fallback can run when GitHub misses. Websets and wider paid search still require `deepFind: true`, and no current product control requests it. Contacts are not part of the first Lens run.
 
 ## What would change the call
 
