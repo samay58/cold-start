@@ -310,7 +310,7 @@ function promoHtml(productImage: Buffer): string {
       <body>
         <main class="tile">
           <div class="brand"><span class="brand-mark"></span><span>Cold Start</span></div>
-          <h1>Company context with sources attached</h1>
+          <h1>Get up to speed on a company</h1>
           <div class="preview">
             <img src="${dataUrl(productImage, "image/png")}" alt="">
           </div>
