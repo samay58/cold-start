@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "@cold-start/core";
 import {
+  investorLensCategories,
   investorReadForCard,
   sourcePostureForCitation,
   timingIsNotFound
@@ -177,6 +178,42 @@ describe("investor lens display", () => {
       text: "IDEs could bundle a comparable terminal agent.",
       moreClaims: [{ text: "Switching cost is low for a CLI tool." }]
     });
+
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+    expect(investorLensCategories(display)).toEqual([
+      {
+        id: "why-care",
+        label: "Why care",
+        preview: "Warp has a developer workflow wedge.",
+        itemCount: 1
+      },
+      {
+        id: "must-be-true",
+        label: "What must be true",
+        preview: "Developers already show daily usage.",
+        itemCount: 3
+      },
+      {
+        id: "could-break",
+        label: "What could break",
+        preview: "IDEs could bundle a comparable terminal agent.",
+        itemCount: 2
+      },
+      {
+        id: "why-now",
+        label: "Why now",
+        preview: "Not supported by current sources.",
+        itemCount: 0
+      },
+      {
+        id: "learn-next",
+        label: "What to learn next",
+        preview: "Can this reach team budgets?",
+        itemCount: 1
+      }
+    ]);
   });
 
   it("leaves the tension sides empty instead of restating the lede", () => {

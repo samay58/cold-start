@@ -488,13 +488,13 @@ describe("SidePanel analysis and sections", () => {
     await unmount();
   });
 
-  it("keeps Timing honest when synthesis has no supported market timing", async () => {
+  it("keeps Why now honest when synthesis has no supported market timing", async () => {
     const staleCard = cardWithSynthesis("linear.app");
     const fetchMock = vi.fn(async () => jsonResponse(staleCard));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    // The memo renders on synthesis alone, no card to activate; Timing states the honest
-    // not-found row directly.
+    // The packet renders on synthesis alone, no card to activate; Why now keeps the honest
+    // not-found state in its filed category.
     const investorRead = container.querySelector("[aria-label='Investor read']");
     expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("Not supported by current sources.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
@@ -531,7 +531,7 @@ describe("SidePanel analysis and sections", () => {
     const fetchMock = vi.fn(async () => jsonResponse(cardWithSynthesis("linear.app")));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    const questionSection = container.querySelector("[aria-label='Investor read'] [aria-label='Next question']");
+    const questionSection = container.querySelector("[aria-label='Investor read'] [aria-label='What to learn next']");
     expect(questionSection).toBeTruthy();
     expect(questionSection?.textContent).toContain("Who owns the budget?");
     expect(questionSection?.textContent).toContain("Buyer & budget");

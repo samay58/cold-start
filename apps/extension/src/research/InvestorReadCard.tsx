@@ -5,8 +5,14 @@ import {
   type SynthesisAdvisory
 } from "@cold-start/core";
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
-import { useState, type ReactNode } from "react";
-import type { InvestorReadDisplay, LensTensionClaim } from "./investor-lens";
+import { useId, useState, type ReactNode } from "react";
+import {
+  investorLensCategories,
+  type InvestorLensCategory,
+  type InvestorLensCategoryId,
+  type InvestorReadDisplay,
+  type LensTensionClaim
+} from "./investor-lens";
 import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "./investor-read-copy";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
@@ -44,10 +50,9 @@ const LENS_FOOTER_SOURCE_COUNT = 4;
 // synthesis renders its stagger stages at rest immediately -- the arrival choreography is never
 // replayed just because the profile was reloaded.
 const LENS_ENTRANCE_STAGE_DELAYS = {
-  lede: 0,
-  case: 0.14,
-  timingQuestion: 0.28,
-  footer: 0.42
+  header: 0,
+  category: 0.07,
+  footer: 0.36
 } as const;
 
 // Reduced motion collapses every stage into one 150ms opacity fade fired at once (DESIGN.md:
@@ -175,6 +180,212 @@ function LensTensionSide({
   );
 }
 
+function LensLede({
+  prefersReducedMotion,
+  text
+}: {
+  prefersReducedMotion: boolean | null;
+  text: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const disclosureId = useId().replace(/:/g, "");
+  const isLong = text.length > 240;
+
+  return (
+    <>
+      <div
+        className="cs-investor-read-lede-frame"
+        data-expanded={!isLong || expanded ? "true" : "false"}
+        data-reduced-motion={prefersReducedMotion ? "true" : "false"}
+        id={`cs-investor-read-lede-${disclosureId}`}
+      >
+        <p className="cs-investor-read-lede" data-role="lede">{text}</p>
+      </div>
+      {isLong ? (
+        <button
+          aria-controls={`cs-investor-read-lede-${disclosureId}`}
+          aria-expanded={expanded}
+          className="cs-investor-read-more cs-investor-read-lede-more"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? "Show less" : "Read full"}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function LensCategoryBody({
+  categoryId,
+  prefersReducedMotion,
+  read
+}: {
+  categoryId: InvestorLensCategoryId;
+  prefersReducedMotion: boolean | null;
+  read: InvestorReadDisplay;
+}) {
+  if (categoryId === "why-care") {
+    return (
+      <LensLede prefersReducedMotion={prefersReducedMotion} text={read.lede.text} />
+    );
+  }
+
+  if (categoryId === "must-be-true") {
+    return (
+      <div aria-label="What must be true" className="cs-lens-tension">
+        <LensTensionSide
+          claim={read.holds}
+          emptyCopy={LENS_TENSION_EMPTY_COPY.holds}
+          label={LENS_TENSION_LABEL.holds}
+          prefersReducedMotion={prefersReducedMotion}
+          side="holds"
+        />
+      </div>
+    );
+  }
+
+  if (categoryId === "could-break") {
+    return (
+      <div aria-label="What could break" className="cs-lens-tension">
+        <LensTensionSide
+          claim={read.breaks}
+          emptyCopy={LENS_TENSION_EMPTY_COPY.breaks}
+          label={LENS_TENSION_LABEL.breaks}
+          prefersReducedMotion={prefersReducedMotion}
+          side="breaks"
+        />
+      </div>
+    );
+  }
+
+  if (categoryId === "why-now") {
+    return (
+      <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Why now">
+        {read.timing ? (
+          <>
+            <p className="cs-investor-read-claim">
+              <em>{read.timing.field}.</em> {read.timing.text}
+            </p>
+            {read.timing.moreFields.length > 0 ? (
+              <LensDisclosure count={read.timing.moreFields.length} prefersReducedMotion={prefersReducedMotion} row="timing">
+                {read.timing.moreFields.map((entry) => (
+                  <p key={entry.field}>
+                    <em>{entry.field}.</em> {entry.text}
+                  </p>
+                ))}
+              </LensDisclosure>
+            ) : null}
+          </>
+        ) : (
+          <p className="cs-lens-none">Not supported by current sources.</p>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="cs-lens-question" aria-label="What to learn next">
+      {read.nextQuestion ? (
+        <>
+          <p className="cs-investor-read-claim">
+            {read.nextQuestion.question}
+            {read.nextQuestion.categoryLabel ? (
+              <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
+            ) : null}
+          </p>
+          {read.nextQuestion.changesReadIf ? (
+            <p className="cs-investor-read-meta">
+              <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+            </p>
+          ) : null}
+          {read.nextQuestion.moreQuestions.length > 0 ? (
+            <LensDisclosure count={read.nextQuestion.moreQuestions.length} prefersReducedMotion={prefersReducedMotion} row="question">
+              {read.nextQuestion.moreQuestions.map((entry) => (
+                <div key={entry.question}>
+                  <p>
+                    {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
+                    {entry.question}
+                  </p>
+                  {entry.changesReadIf ? (
+                    <p className="cs-investor-read-meta">
+                      <em>Changes the read if</em> {entry.changesReadIf}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </LensDisclosure>
+          ) : null}
+        </>
+      ) : (
+        <p className="cs-lens-none">No ranked question survived verification.</p>
+      )}
+    </section>
+  );
+}
+
+function LensCategoryCard({
+  category,
+  index,
+  isOpen,
+  onToggle,
+  prefersReducedMotion,
+  read,
+  uid
+}: {
+  category: InvestorLensCategory;
+  index: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  prefersReducedMotion: boolean | null;
+  read: InvestorReadDisplay;
+  uid: string;
+}) {
+  const bodyId = `${uid}-${category.id}`;
+
+  return (
+    <motion.section
+      className="cs-investor-read-category"
+      data-category={category.id}
+      data-open={isOpen ? "true" : "false"}
+      {...stageEntranceProps(
+        LENS_ENTRANCE_STAGE_DELAYS.category * (index + 1),
+        prefersReducedMotion
+      )}
+    >
+      <button
+        aria-controls={bodyId}
+        aria-expanded={isOpen}
+        className="cs-investor-read-category-trigger"
+        onClick={onToggle}
+        type="button"
+      >
+        <span className="cs-investor-read-category-index">{String(index + 1).padStart(2, "0")}</span>
+        <span className="cs-investor-read-category-copy">
+          <strong>{category.label}</strong>
+          <span className="cs-investor-read-category-preview">{category.preview}</span>
+        </span>
+        <span aria-hidden="true" className="cs-investor-read-category-mark" />
+      </button>
+      <div
+        aria-hidden={!isOpen}
+        className="cs-investor-read-category-frame"
+        data-open={isOpen ? "true" : "false"}
+        data-reduced-motion={prefersReducedMotion ? "true" : "false"}
+        id={bodyId}
+      >
+        <div className="cs-investor-read-category-body">
+          <LensCategoryBody
+            categoryId={category.id}
+            prefersReducedMotion={prefersReducedMotion}
+            read={read}
+          />
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
 export function InvestorReadCard({
   card,
   read,
@@ -185,6 +396,9 @@ export function InvestorReadCard({
   tooltipProps: TooltipPropsFor;
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
+  const categoryUid = useId().replace(/:/g, "");
+  const [openCategory, setOpenCategory] = useState<InvestorLensCategoryId | null>("why-care");
+  const categories = investorLensCategories(read);
   const visibleSources = read.sources.slice(0, LENS_FOOTER_SOURCE_COUNT);
   const hiddenSources = read.sources.slice(LENS_FOOTER_SOURCE_COUNT);
   const postureLines = evidencePostureLines(card);
@@ -192,103 +406,28 @@ export function InvestorReadCard({
 
   return (
     <article className="cs-investor-read" aria-label="Investor read">
-      <header className="cs-investor-read-head">
-        <span>Investor read</span>
-      </header>
-      <motion.p
-        className="cs-investor-read-lede"
-        data-role="lede"
-        {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.lede, prefersReducedMotion)}
+      <motion.header
+        className="cs-investor-read-head"
+        {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.header, prefersReducedMotion)}
       >
-        {read.lede.text}
-      </motion.p>
-      <motion.div
-        className="cs-lens-tension"
-        aria-label="The case"
-        {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.case, prefersReducedMotion)}
-      >
-        <h4 className="cs-investor-read-label">The case</h4>
-        {!read.holds && !read.breaks ? (
-          <p className="cs-lens-case-empty cs-lens-none">{LENS_TENSION_EMPTY_COPY.both}</p>
-        ) : (
-          <>
-            <LensTensionSide
-              claim={read.holds}
-              emptyCopy={LENS_TENSION_EMPTY_COPY.holds}
-              label={LENS_TENSION_LABEL.holds}
-              prefersReducedMotion={prefersReducedMotion}
-              side="holds"
-            />
-            <LensTensionSide
-              claim={read.breaks}
-              emptyCopy={LENS_TENSION_EMPTY_COPY.breaks}
-              label={LENS_TENSION_LABEL.breaks}
-              prefersReducedMotion={prefersReducedMotion}
-              side="breaks"
-            />
-          </>
-        )}
-      </motion.div>
-      <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.timingQuestion, prefersReducedMotion)}>
-        <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Timing">
-          <h4 className="cs-investor-read-label">Timing</h4>
-          {read.timing ? (
-            <>
-              <p className="cs-investor-read-claim">
-                <em>{read.timing.field}.</em> {read.timing.text}
-              </p>
-              {read.timing.moreFields.length > 0 ? (
-                <LensDisclosure count={read.timing.moreFields.length} prefersReducedMotion={prefersReducedMotion} row="timing">
-                  {read.timing.moreFields.map((entry) => (
-                    <p key={entry.field}>
-                      <em>{entry.field}.</em> {entry.text}
-                    </p>
-                  ))}
-                </LensDisclosure>
-              ) : null}
-            </>
-          ) : (
-            <p className="cs-lens-none">Not supported by current sources.</p>
-          )}
-        </section>
-        <section className="cs-lens-question" aria-label="Next question">
-          <h4 className="cs-investor-read-label">Next question</h4>
-          {read.nextQuestion ? (
-            <>
-              <p className="cs-investor-read-claim">
-                {read.nextQuestion.question}
-                {read.nextQuestion.categoryLabel ? (
-                  <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
-                ) : null}
-              </p>
-              {read.nextQuestion.changesReadIf ? (
-                <p className="cs-investor-read-meta">
-                  <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
-                </p>
-              ) : null}
-              {read.nextQuestion.moreQuestions.length > 0 ? (
-                <LensDisclosure count={read.nextQuestion.moreQuestions.length} prefersReducedMotion={prefersReducedMotion} row="question">
-                  {read.nextQuestion.moreQuestions.map((entry) => (
-                    <div key={entry.question}>
-                      <p>
-                        {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
-                        {entry.question}
-                      </p>
-                      {entry.changesReadIf ? (
-                        <p className="cs-investor-read-meta">
-                          <em>Changes the read if</em> {entry.changesReadIf}
-                        </p>
-                      ) : null}
-                    </div>
-                  ))}
-                </LensDisclosure>
-              ) : null}
-            </>
-          ) : (
-            <p className="cs-lens-none">No ranked question survived verification.</p>
-          )}
-        </section>
-      </motion.div>
+        <span className="cs-investor-read-kicker">Filed analysis</span>
+        <strong>Investor Lens</strong>
+        <span aria-hidden="true" className="cs-investor-read-seal"><i /></span>
+      </motion.header>
+      <div className="cs-investor-read-categories">
+        {categories.map((category, index) => (
+          <LensCategoryCard
+            category={category}
+            index={index}
+            isOpen={openCategory === category.id}
+            key={category.id}
+            onToggle={() => setOpenCategory((current) => current === category.id ? null : category.id)}
+            prefersReducedMotion={prefersReducedMotion}
+            read={read}
+            uid={`cs-investor-read-${categoryUid}`}
+          />
+        ))}
+      </div>
       <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.footer, prefersReducedMotion)}>
         <footer className="cs-lens-footer" aria-label="Cited sources">
           <div className="cs-lens-footer-sources">

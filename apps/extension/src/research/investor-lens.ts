@@ -9,6 +9,7 @@ import {
   type SourcedText
 } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
+import { LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 
 export type SourcePosture = "company-authored" | "independent" | "reporting" | "enrichment" | "unknown";
 
@@ -100,6 +101,57 @@ export type InvestorReadDisplay = {
   independentlyBacked: boolean;
   supportedClaimCount: number;
 };
+
+export type InvestorLensCategoryId =
+  | "why-care"
+  | "must-be-true"
+  | "could-break"
+  | "why-now"
+  | "learn-next";
+
+export type InvestorLensCategory = {
+  id: InvestorLensCategoryId;
+  label: string;
+  preview: string;
+  itemCount: number;
+};
+
+export function investorLensCategories(read: InvestorReadDisplay): InvestorLensCategory[] {
+  return [
+    {
+      id: "why-care",
+      label: "Why care",
+      preview: read.lede.text,
+      itemCount: 1
+    },
+    {
+      id: "must-be-true",
+      label: "What must be true",
+      preview: read.holds?.text ?? LENS_TENSION_EMPTY_COPY.holds,
+      itemCount: read.holds ? 1 + read.holds.moreClaims.length : 0
+    },
+    {
+      id: "could-break",
+      label: "What could break",
+      preview: read.breaks?.text ?? LENS_TENSION_EMPTY_COPY.breaks,
+      itemCount: read.breaks ? 1 + read.breaks.moreClaims.length : 0
+    },
+    {
+      id: "why-now",
+      label: "Why now",
+      preview: read.timing
+        ? `${read.timing.field}. ${read.timing.text}`
+        : "Not supported by current sources.",
+      itemCount: read.timing ? 1 + read.timing.moreFields.length : 0
+    },
+    {
+      id: "learn-next",
+      label: "What to learn next",
+      preview: read.nextQuestion?.question ?? "No ranked question survived verification.",
+      itemCount: read.nextQuestion ? 1 + read.nextQuestion.moreQuestions.length : 0
+    }
+  ];
+}
 
 const POSTURE_LABELS: Record<SourcePosture, string> = {
   independent: "independent",

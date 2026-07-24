@@ -138,17 +138,66 @@ describe("InvestorReadCard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("(a) renders the lede with data-role=\"lede\"", async () => {
+  it("(a) files every Lens point into five indexed categories with Why care open by default", async () => {
     const { container, unmount } = await renderCard(richCard());
     const lede = container.querySelector('[data-role="lede"]');
+    const categories = Array.from(container.querySelectorAll(".cs-investor-read-category"));
 
     expect(lede).not.toBeNull();
     expect(lede?.textContent).toContain("Warp could matter if terminal work becomes the control plane");
+    expect(categories.map((category) => category.getAttribute("data-category"))).toEqual([
+      "why-care",
+      "must-be-true",
+      "could-break",
+      "why-now",
+      "learn-next"
+    ]);
+    expect(categories.map((category) => category.querySelector("strong")?.textContent)).toEqual([
+      "Why care",
+      "What must be true",
+      "What could break",
+      "Why now",
+      "What to learn next"
+    ]);
+    expect(categories.map((category) => category.getAttribute("data-open"))).toEqual([
+      "true",
+      "false",
+      "false",
+      "false",
+      "false"
+    ]);
 
     await unmount();
   });
 
-  it("(b) carries data-side on the holds/breaks rows and gives each a distinct mark", async () => {
+  it("(b) keeps a long Why care thesis available behind its own inline disclosure", async () => {
+    const longText = "Warp matters because the terminal can become the control plane for engineering agents, joining command execution, shared context, and team approvals in one daily surface without asking developers to adopt a separate planning workflow. If that behavior compounds across teams, the product can own both individual usage and a durable platform budget.";
+    const card = richCard();
+    if (!card.synthesis) {
+      throw new Error("fixture must carry synthesis");
+    }
+    card.synthesis.whyItMatters = { text: `${longText} [c2].`, citationIds: ["c2"] };
+    const { container, unmount } = await renderCard(card);
+    const toggle = container.querySelector<HTMLButtonElement>(".cs-investor-read-lede-more");
+    const frame = container.querySelector(".cs-investor-read-lede-frame");
+
+    expect(toggle?.textContent).toBe("Read full");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(frame?.getAttribute("data-expanded")).toBe("false");
+    expect(frame?.textContent).toContain(longText);
+
+    await act(async () => {
+      toggle?.click();
+    });
+
+    expect(toggle?.textContent).toBe("Show less");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(frame?.getAttribute("data-expanded")).toBe("true");
+
+    await unmount();
+  });
+
+  it("(c) carries data-side on the holds/breaks rows and gives each a distinct mark", async () => {
     const { container, unmount } = await renderCard(richCard());
     const holds = container.querySelector('[data-side="holds"]');
     const breaks = container.querySelector('[data-side="breaks"]');
@@ -166,7 +215,7 @@ describe("InvestorReadCard", () => {
     await unmount();
   });
 
-  it("(c) renders the 0-bear side with its own honest, distinct empty copy", async () => {
+  it("(d) renders the 0-bear side with its own honest, distinct empty copy", async () => {
     const { container, unmount } = await renderCard(sparseCard());
     const breaks = container.querySelector('[data-side="breaks"]');
     const holds = container.querySelector('[data-side="holds"]');
@@ -179,7 +228,7 @@ describe("InvestorReadCard", () => {
     await unmount();
   });
 
-  it("(d) renders the advisory posture line only when advisories exist", async () => {
+  it("(e) renders the advisory posture line only when advisories exist", async () => {
     const advisoryResult = await renderCard(advisoryCard());
     const postureWithAdvisories = advisoryResult.container.querySelector('[aria-label="Evidence posture"]');
     expect(postureWithAdvisories).not.toBeNull();
@@ -196,9 +245,16 @@ describe("InvestorReadCard", () => {
     await richResult.unmount();
   });
 
-  it("(e) expands moreClaims inline without invoking a tooltip", async () => {
+  it("(f) expands moreClaims inline without invoking a tooltip", async () => {
     const { container, tooltipCalls, unmount } = await renderCard(richCard());
-    const holds = container.querySelector('[data-side="holds"]');
+    const holdsCategory = container.querySelector('[data-category="must-be-true"]');
+    const categoryToggle = holdsCategory?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+
+    await act(async () => {
+      categoryToggle?.click();
+    });
+
+    const holds = holdsCategory?.querySelector('[data-side="holds"]');
     const toggle = holds?.querySelector<HTMLButtonElement>(".cs-investor-read-more");
     const frame = holds?.querySelector(".cs-investor-read-disclosure-frame");
 
@@ -219,6 +275,35 @@ describe("InvestorReadCard", () => {
     expect(frame?.getAttribute("data-expanded")).toBe("true");
     expect(toggle?.textContent).toBe("Show less");
     expect(tooltipCalls.some((call) => call.id.includes("holds") || call.id.includes("breaks"))).toBe(false);
+
+    await unmount();
+  });
+
+  it("(g) keeps one category open at a time and lets the open category collapse fully", async () => {
+    const { container, unmount } = await renderCard(richCard());
+    const whyCare = container.querySelector('[data-category="why-care"]');
+    const whyNow = container.querySelector('[data-category="why-now"]');
+    const whyCareToggle = whyCare?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+    const whyNowToggle = whyNow?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+
+    expect(whyCareToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("false");
+
+    await act(async () => {
+      whyNowToggle?.click();
+    });
+
+    expect(whyCareToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(whyCare?.querySelector(".cs-investor-read-category-frame")?.getAttribute("aria-hidden")).toBe("true");
+    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelectorAll('.cs-investor-read-category[data-open="true"]')).toHaveLength(1);
+
+    await act(async () => {
+      whyNowToggle?.click();
+    });
+
+    expect(container.querySelectorAll('.cs-investor-read-category[data-open="true"]')).toHaveLength(0);
+    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("false");
 
     await unmount();
   });
@@ -287,7 +372,7 @@ describe("LensSlot", () => {
     };
   }
 
-  it("(f) crossfades the running card out and the result card in, leaving no orphaned running node", async () => {
+  it("(g) crossfades the running card out and the result card in, leaving no orphaned running node", async () => {
     const { container, rerender, unmount } = await renderSlot(slotProps("running"));
 
     expect(container.querySelector('[aria-label="Investor Lens running"]')).not.toBeNull();
@@ -300,7 +385,12 @@ describe("LensSlot", () => {
 
     // The staged entrance must not gate interactivity: the disclosure toggle is clickable the
     // instant the result card mounts, not after its stagger settles.
-    const holds = container.querySelector('[data-side="holds"]');
+    const holdsCategory = container.querySelector('[data-category="must-be-true"]');
+    const categoryToggle = holdsCategory?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+    await act(async () => {
+      categoryToggle?.click();
+    });
+    const holds = holdsCategory?.querySelector('[data-side="holds"]');
     const toggle = holds?.querySelector<HTMLButtonElement>(".cs-investor-read-more");
     expect(toggle).not.toBeNull();
     await act(async () => {
@@ -311,7 +401,7 @@ describe("LensSlot", () => {
     await unmount();
   });
 
-  it("(g) crossfades the withheld card out and the trigger control in on retry, leaving no orphaned withheld node", async () => {
+  it("(h) crossfades the withheld card out and the trigger control in on retry, leaving no orphaned withheld node", async () => {
     const { container, rerender, unmount } = await renderSlot(slotProps("withheld"));
 
     expect(container.querySelector('[aria-label="Lens withheld"]')).not.toBeNull();
@@ -325,7 +415,7 @@ describe("LensSlot", () => {
     await unmount();
   });
 
-  it("(h) reduced motion still crossfades trigger to running without orphaning the trigger node", async () => {
+  it("(i) reduced motion still crossfades trigger to running without orphaning the trigger node", async () => {
     const { container, rerender, unmount } = await renderSlot(slotProps("trigger", true));
 
     expect(container.querySelector('[aria-label="Lens trigger"]')).not.toBeNull();

@@ -37,6 +37,7 @@
   --cs-bg: var(--cs-paper-field);
   --cs-surface-1: var(--cs-paper-plate);
   --cs-surface-2: #fffdf8;
+  --cs-surface-lens: #f5efe4;
   --cs-surface-sunken: #efece1;
   --cs-text-1: var(--cs-ink-900);
   --cs-text-2: var(--cs-ink-500);
@@ -123,6 +124,7 @@
   --cs-bg: var(--cs-paper-field);
   --cs-surface-1: var(--cs-paper-plate);
   --cs-surface-2: #3a2f25;
+  --cs-surface-lens: #2b261f;
   --cs-surface-sunken: #15110d;
   --cs-text-1: var(--cs-ink-900);
   --cs-text-2: var(--cs-ink-500);

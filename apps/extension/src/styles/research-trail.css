@@ -443,15 +443,9 @@
   color: var(--color-seal);
 }
 
-/*
- * The filed memo, one continuous object, built on the five-role type scale in DESIGN.md
- * ("Investor Lens Memo"): Lede, Section label, Claim, Meta, Receipt. Every rule below maps to
- * exactly one of those five; nothing here invents a sixth size. The label-column ledger the
- * memo used before this pass is gone -- USWDS's readable-measure range (45-90 characters, cited
- * in gold-standard-references.md's memo typography track) confirmed the 13px Claim role already
- * sits at the low end of that range at panel width, so a claim gets the full card width and
- * nothing competes with it for space.
- */
+/* The filed Lens uses the same indexed-card family as the Research stack. It stays flat rather
+   than nesting a second card system inside a packet shell. The deeper paper tier and filed seal
+   distinguish the premium layer without a ribbon, wash, or second accent. */
 .cs-investor-read,
 .cs-investor-read * {
   min-width: 0;
@@ -459,45 +453,263 @@
 
 .cs-investor-read {
   display: grid;
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
-  border-radius: 6px;
-  background: var(--color-plate);
-  box-shadow:
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.8) inset,
-    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05);
-  padding: 12px 14px;
+  gap: 8px;
 }
 
 .cs-investor-read-head {
-  padding-bottom: 8px;
+  display: grid;
+  grid-template-areas:
+    "kicker seal"
+    "title seal";
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 10px;
+  padding: 2px 3px 4px;
 }
 
-/* Section label role: 11px At Umami 620, seal color, sentence case. Shared by the "Investor
-   read" masthead, "The case", "Timing", and "Next question". */
-.cs-investor-read-head span,
-.cs-investor-read-label {
+.cs-investor-read-kicker {
+  grid-area: kicker;
   margin: 0;
-  color: var(--color-seal);
-  font-family: var(--font-display);
-  font-size: 11px;
-  font-weight: 620;
-  letter-spacing: 0.01em;
-  line-height: 1.4;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.34px;
+  line-height: 1.3;
   text-transform: none;
+}
+
+.cs-investor-read-head > strong {
+  grid-area: title;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+}
+
+.cs-investor-read-seal {
+  grid-area: seal;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-seal);
+  border-radius: 50%;
+  color: var(--color-seal);
+}
+
+.cs-investor-read-seal::before,
+.cs-investor-read-seal::after,
+.cs-investor-read-seal i {
+  position: absolute;
+  width: 10px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.cs-investor-read-seal::before {
+  transform: rotate(90deg);
+}
+
+.cs-investor-read-seal::after {
+  transform: rotate(45deg);
+}
+
+.cs-investor-read-seal i {
+  transform: rotate(-45deg);
+}
+
+.cs-investor-read-categories {
+  display: grid;
+  gap: 7px;
+}
+
+.cs-investor-read-category {
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--cs-surface-lens);
+  box-shadow:
+    0 5px 15px rgb(var(--cs-c-23-26-31) / 0.045),
+    0 1px 0 var(--cs-edge-highlight) inset;
+}
+
+.cs-investor-read-category[data-open="true"] {
+  box-shadow:
+    0 7px 18px rgb(var(--cs-c-23-26-31) / 0.07),
+    0 1px 0 var(--cs-edge-highlight) inset;
+}
+
+.cs-investor-read-category-trigger {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 10px 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cs-investor-read-category-trigger:hover {
+  background: var(--color-plate);
+}
+
+.cs-investor-read-category-trigger:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: -3px;
+}
+
+.cs-investor-read-category-index {
+  display: inline-grid;
+  align-self: stretch;
+  place-items: center;
+  border-right: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-investor-read-category-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.cs-investor-read-category-copy strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+}
+
+.cs-investor-read-category-preview {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 10.75px;
+  font-weight: 560;
+  line-height: 1.15;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.cs-investor-read-category[data-open="true"] .cs-investor-read-category-preview {
+  display: none;
+}
+
+.cs-investor-read-category-mark {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  color: var(--color-muted);
+}
+
+.cs-investor-read-category-mark::before,
+.cs-investor-read-category-mark::after {
+  position: absolute;
+  top: 5px;
+  left: 2px;
+  width: 8px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+}
+
+.cs-investor-read-category-mark::after {
+  transform: rotate(90deg);
+  transition: transform 160ms var(--cs-motion-ease-out);
+}
+
+.cs-investor-read-category[data-open="true"] .cs-investor-read-category-mark::after {
+  transform: rotate(0);
+}
+
+.cs-investor-read-category-frame {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  visibility: hidden;
+  transition:
+    grid-template-rows 200ms var(--cs-motion-ease-out),
+    opacity 140ms var(--cs-motion-ease-out),
+    visibility 0s linear 200ms;
+}
+
+.cs-investor-read-category-frame[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 200ms var(--cs-motion-ease-out),
+    opacity 140ms var(--cs-motion-ease-out);
+}
+
+.cs-investor-read-category-frame[data-reduced-motion="true"] {
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out),
+    visibility 0s linear 120ms;
+}
+
+.cs-investor-read-category-frame[data-open="true"][data-reduced-motion="true"] {
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out);
+}
+
+.cs-investor-read-category-body {
+  min-height: 0;
+  padding: 2px 14px 15px 50px;
+  overflow: hidden;
 }
 
 /* Lede role: 16px/1.45 At Umami 640, the only display-face content text in the card. */
 .cs-investor-read-lede {
   margin: 0;
-  padding-bottom: 12px;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 640;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.cs-investor-read-lede-frame {
+  overflow: hidden;
+  max-height: 5.8em;
+  transition: max-height 200ms var(--cs-motion-ease-out);
+}
+
+.cs-investor-read-lede-frame[data-expanded="true"] {
+  max-height: 40em;
+}
+
+.cs-investor-read-lede-frame[data-expanded="false"] .cs-investor-read-lede {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.cs-investor-read-lede-frame[data-reduced-motion="true"] {
+  transition: max-height 120ms var(--cs-motion-ease-out);
 }
 
 /* Claim role: 13px/1.55 IBM Plex Sans 450. Bull/bear claims, the timing claim, and the question
@@ -573,29 +785,26 @@
 
 .cs-lens-mark[data-mark="slashed"]::after {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(45deg, transparent 44%, var(--color-conflict) 44%, var(--color-conflict) 56%, transparent 56%);
+  top: -2px;
+  left: 3px;
+  width: 1px;
+  height: 10px;
+  background: var(--color-conflict);
   content: "";
+  transform: rotate(-45deg);
+  transform-origin: center;
 }
 
-/* The case, Timing, and Next question: a Section label followed by full-width Claim rows,
-   separated by one rule each. No grid columns; see the file-level note above. */
 .cs-lens-tension,
 .cs-lens-timing,
 .cs-lens-question {
   display: grid;
   gap: 6px;
-  padding: 10px 0;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
 }
 
-.cs-lens-tension-side + .cs-lens-tension-side {
-  padding-top: 8px;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
-}
-
-.cs-lens-case-empty {
-  margin: 0;
+.cs-lens-tension-side {
+  display: grid;
+  gap: 6px;
 }
 
 .cs-lens-question-category {
@@ -630,6 +839,10 @@
   letter-spacing: 0.34px;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
+}
+
+.cs-investor-read-more.cs-investor-read-lede-more {
+  margin-top: 7px;
 }
 
 .cs-investor-read-more:hover,
@@ -698,7 +911,8 @@
 .cs-investor-read-posture {
   display: grid;
   gap: 2px;
-  padding-top: 8px;
+  margin: 0 3px;
+  padding-top: 7px;
   border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
 }
 
@@ -713,7 +927,8 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 10px;
-  padding-top: 9px;
+  margin: 0 3px;
+  padding-top: 8px;
   border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
 }
 
