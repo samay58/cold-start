@@ -1,4 +1,4 @@
-import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, type AlphaEvent, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, expect, vi } from "vitest";
@@ -232,12 +232,20 @@ export async function renderSidePanel(input: {
   const listeners = new Set<StorageListener>();
   let activeDomain = input.domain;
   const storedLocal: Record<string, unknown> = input.storedLocal ?? {};
-  Object.assign(storedLocal, { ...settings, ...input.storedSettings, ...storedLocal });
+  Object.assign(storedLocal, {
+    ...settings,
+    coldStartAlphaEventQueueBlocked: "test_harness",
+    ...input.storedSettings,
+    ...storedLocal
+  });
   const sessionItems: Record<string, unknown> = { activeDomain, ...input.initialSession };
 
   vi.stubGlobal("fetch", input.fetchMock);
   vi.stubGlobal("chrome", {
-    runtime: { id: "extension-test-id" },
+    runtime: {
+      getManifest: () => ({ version: "0.1.0" }),
+      id: "extension-test-id"
+    },
     storage: {
       local: {
         get: (
@@ -330,6 +338,18 @@ export async function renderSidePanel(input: {
   await flushPromises();
 
   return {
+    alphaEvents() {
+      const queue = storedLocal.coldStartAlphaEventQueue;
+      if (!Array.isArray(queue)) {
+        return [];
+      }
+      return queue.flatMap((item) => {
+        if (!item || typeof item !== "object" || !("event" in item)) {
+          return [];
+        }
+        return [(item as { event: AlphaEvent }).event];
+      });
+    },
     container,
     async changeDomain(nextDomain: string) {
       const oldValue = activeDomain;

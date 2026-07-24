@@ -626,6 +626,12 @@ body,
   transform: scale(0.98);
 }
 
+.cs-start-primary:disabled,
+.cs-start-primary:disabled:hover,
+.cs-start-primary:disabled:active {
+  transform: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .cs-extension-button:hover,
   .cs-extension-link-button:hover,

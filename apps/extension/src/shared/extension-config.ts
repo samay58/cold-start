@@ -8,20 +8,83 @@ import {
 } from "@cold-start/core";
 
 const PRODUCTION_API_ORIGIN = "https://cold-start-samay58s-projects.vercel.app";
+const PRODUCTION_ALPHA_INVITE_ORIGIN = "https://cold-start.semitechie.vc";
 const LOCAL_API_ORIGIN = "http://localhost:3000";
 const LEGACY_PRODUCTION_API_ORIGINS = new Set(["https://coldstart.semitechie.vc"]);
+const ALPHA_INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
+const ALPHA_INSTALLATION_SUFFIX_PATTERN = /^[A-Za-z0-9_-]{6}$/;
+
+export const ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY = "coldStartAlphaInstallationSuffix";
 
 export type ExtensionEnv = {
   MODE?: string;
   PROD?: boolean;
   VITE_COLD_START_API_ORIGIN?: string;
   VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN?: string;
+  VITE_COLD_START_ALPHA_INVITE_ORIGIN?: string;
 };
 
 export type Settings = {
   apiOrigin: string;
   apiToken: string;
 };
+
+type AlphaAllowanceCounter = {
+  limit: number;
+  reserved: number;
+  used: number;
+  remaining: number;
+};
+
+export type AlphaAccessState = {
+  generationEnabled: boolean;
+  profile: AlphaAllowanceCounter | null;
+  lens: AlphaAllowanceCounter | null;
+};
+
+export type AlphaInviteExternalMessage =
+  | {
+      type: "cold-start.alpha.status";
+      version: 1;
+    }
+  | {
+      type: "cold-start.alpha.connect";
+      version: 1;
+      inviteToken: string;
+      consent: true;
+      storeVisited: boolean;
+      reducedMotion: boolean;
+      theme: "light" | "dark";
+    };
+
+export type AlphaInviteExternalResponse =
+  | {
+      ok: true;
+      state: "connected" | "not_connected";
+      extensionVersion: string;
+      installationSuffix?: string;
+      compatibility?: "current" | "old_supported";
+      generationEnabled?: boolean;
+      allowance?: {
+        profile: { limit: number; remaining: number };
+        lens: { limit: number; remaining: number };
+      };
+    }
+  | {
+      ok: false;
+      code:
+        | "access_disabled"
+        | "connection_lost"
+        | "expired"
+        | "installation_limit"
+        | "invalid_invite"
+        | "offline"
+        | "revoked"
+        | "update_required"
+        | "used"
+        | "unknown";
+      extensionVersion: string;
+    };
 
 export type GenerationStatus = {
   slug: string;
@@ -76,6 +139,7 @@ export type ExtensionBootstrapResponse = {
   domain: string;
   slug: string;
   card: ColdStartCard | null;
+  alpha?: AlphaAccessState;
   sections?: ResearchSection[];
   sources?: ExtensionSourceSummary[];
   events?: ExtensionResearchRunEvent[];
@@ -138,6 +202,83 @@ export function defaultApiOrigin(env: ExtensionEnv): string {
   }
 
   return PRODUCTION_API_ORIGIN;
+}
+
+export function alphaInviteOrigin(env: ExtensionEnv): string {
+  const configuredOrigin = env.VITE_COLD_START_ALPHA_INVITE_ORIGIN?.trim();
+  if (!configuredOrigin) {
+    return PRODUCTION_ALPHA_INVITE_ORIGIN;
+  }
+
+  const normalized = normalizeApiOrigin(configuredOrigin, PRODUCTION_ALPHA_INVITE_ORIGIN);
+  if (env.PROD || env.MODE === "production") {
+    return normalized === PRODUCTION_ALPHA_INVITE_ORIGIN
+      ? normalized
+      : PRODUCTION_ALPHA_INVITE_ORIGIN;
+  }
+  return normalized;
+}
+
+export function parseAlphaInviteExternalMessage(value: unknown): AlphaInviteExternalMessage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (
+    candidate.type === "cold-start.alpha.status" &&
+    candidate.version === 1 &&
+    Object.keys(candidate).length === 2
+  ) {
+    return { type: "cold-start.alpha.status", version: 1 };
+  }
+  if (
+    candidate.type === "cold-start.alpha.connect" &&
+    candidate.version === 1 &&
+    candidate.consent === true &&
+    typeof candidate.storeVisited === "boolean" &&
+    typeof candidate.reducedMotion === "boolean" &&
+    (candidate.theme === "light" || candidate.theme === "dark") &&
+    typeof candidate.inviteToken === "string" &&
+    ALPHA_INVITE_TOKEN_PATTERN.test(candidate.inviteToken) &&
+    Object.keys(candidate).length === 7
+  ) {
+    return {
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: candidate.inviteToken,
+      consent: true,
+      storeVisited: candidate.storeVisited,
+      reducedMotion: candidate.reducedMotion,
+      theme: candidate.theme
+    };
+  }
+  return null;
+}
+
+export function isTrustedAlphaInviteSender(senderUrl: string | undefined, expectedOrigin: string): boolean {
+  if (!senderUrl) {
+    return false;
+  }
+
+  try {
+    const sender = new URL(senderUrl);
+    return sender.origin === expectedOrigin && (sender.pathname === "/alpha" || sender.pathname.startsWith("/alpha/"));
+  } catch {
+    return false;
+  }
+}
+
+export function redactedAlphaDiagnosticsFromStorage(
+  storage: Readonly<Record<string, unknown>>
+): { installationSuffix: string | null } {
+  const suffix = storage[ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY];
+  return {
+    installationSuffix:
+      typeof suffix === "string" && ALPHA_INSTALLATION_SUFFIX_PATTERN.test(suffix)
+        ? suffix
+        : null
+  };
 }
 
 export function storedApiOriginOrDefault(storedApiOrigin: string, defaultOrigin: string): string {
@@ -282,7 +423,8 @@ export function buildGenerateRequest(
   confirmStart = false,
   extensionId?: string,
   forceRefresh = false,
-  sectionId?: string
+  sectionId?: string,
+  interactionId?: string
 ): { url: string; init: BaseRequestInit & { body: string } } {
   const init = baseRequestInit(settings, signal, extensionId);
   init.method = "POST";
@@ -290,6 +432,7 @@ export function buildGenerateRequest(
   const body = JSON.stringify({
     domain,
     mode,
+    ...(interactionId ? { interactionId } : {}),
     ...(sectionId ? { sectionId } : {}),
     ...(confirmStart ? { confirmStart: true } : {}),
     ...(forceRefresh ? { forceRefresh: true } : {})

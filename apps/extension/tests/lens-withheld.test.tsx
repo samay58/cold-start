@@ -41,7 +41,8 @@ async function renderArc(input: {
   card: ColdStartCard;
   analysisFailed?: boolean;
   analysisNotice?: string;
-  onRunAnalysis?: (forceRefresh?: boolean) => void;
+  lensUnavailableReason?: string;
+  onRunAnalysis?: (forceRefresh?: boolean) => boolean;
 }) {
   await import("../src/research/ResearchLayerPanel");
   const container = document.createElement("div");
@@ -63,9 +64,14 @@ async function renderArc(input: {
         domain="exa.ai"
         onEditSettings={() => undefined}
         onRegenerate={() => undefined}
-        onRunAnalysis={input.onRunAnalysis ?? (() => undefined)}
+        onRunAnalysis={input.onRunAnalysis ?? (() => true)}
         onRunSection={() => undefined}
         onStart={() => undefined}
+        alphaAccess={input.lensUnavailableReason ? {
+          generationEnabled: true,
+          profile: { limit: 12, reserved: 0, used: 0, remaining: 12 },
+          lens: { limit: 6, reserved: 0, used: 6, remaining: 0 }
+        } : undefined}
       />
     );
   });
@@ -180,8 +186,8 @@ describe("Investor Lens withheld and failed states", () => {
     await unmount();
   });
 
-  it("(c) clicking retry on the withheld card calls onRunAnalysis with forceRefresh: true", async () => {
-    const onRunAnalysis = vi.fn();
+  it("(c) rechecks withheld evidence without forcing a paid refresh", async () => {
+    const onRunAnalysis = vi.fn(() => true);
     const { container, unmount } = await renderArc({
       card: card({ synthesisWithheld: withheldRecord() }),
       onRunAnalysis
@@ -195,30 +201,61 @@ describe("Investor Lens withheld and failed states", () => {
     });
 
     expect(onRunAnalysis).toHaveBeenCalledTimes(1);
-    expect(onRunAnalysis).toHaveBeenCalledWith(true);
+    expect(onRunAnalysis).toHaveBeenCalledWith();
 
     await unmount();
   });
 
   it("(c2) disables the retry button once clicked, so a slow-to-swap parent cannot show a live control twice", async () => {
-    // onRunAnalysis intentionally does nothing here: the visible disabled state must hold on
-    // its own local click state, not on the run actually starting (double-fire is guarded
-    // upstream; this covers the gap between click and the parent's run-status flip).
+    // The visible disabled state covers the accepted request's gap before the parent swaps
+    // the card for the running instrument.
     const { container, unmount } = await renderArc({
       card: card({ synthesisWithheld: withheldRecord() }),
-      onRunAnalysis: () => undefined
+      onRunAnalysis: () => true
     });
 
     const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
     expect(retryButton?.disabled).toBe(false);
-    expect(retryButton?.textContent).toBe("Refresh evidence and retry");
+    expect(retryButton?.textContent).toBe("Check evidence and retry");
 
     await act(async () => {
       retryButton?.click();
     });
 
     expect(retryButton?.disabled).toBe(true);
-    expect(retryButton?.textContent).toBe("Refreshing evidence");
+    expect(retryButton?.textContent).toBe("Checking evidence");
+
+    await unmount();
+  });
+
+  it("(c3) stays retryable when the parent rejects the request", async () => {
+    const { container, unmount } = await renderArc({
+      card: card({ synthesisWithheld: withheldRecord() }),
+      onRunAnalysis: () => false
+    });
+
+    const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
+    await act(async () => {
+      retryButton?.click();
+    });
+
+    expect(retryButton?.disabled).toBe(false);
+    expect(retryButton?.textContent).toBe("Check evidence and retry");
+
+    await unmount();
+  });
+
+  it("(c4) explains and disables a retry that the allowance gate cannot accept", async () => {
+    const { container, unmount } = await renderArc({
+      card: card({ synthesisWithheld: withheldRecord() }),
+      lensUnavailableReason: "This invitation has used its fresh Investor Lens runs."
+    });
+
+    const withheld = container.querySelector("[aria-label='Lens withheld']");
+    const retryButton = withheld?.querySelector<HTMLButtonElement>("button");
+    expect(withheld?.textContent).toContain("This invitation has used its fresh Investor Lens runs.");
+    expect(retryButton?.disabled).toBe(true);
+    expect(retryButton?.textContent).toBe("Retry unavailable");
 
     await unmount();
   });

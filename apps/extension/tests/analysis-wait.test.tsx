@@ -121,7 +121,7 @@ function renderCompanyArc(root: ReturnType<typeof createRoot>, input: PanelProfi
       domain={input.card.domain}
       onEditSettings={() => undefined}
       onRegenerate={() => undefined}
-      onRunAnalysis={() => undefined}
+      onRunAnalysis={() => true}
       onRunSection={() => undefined}
       onStart={() => undefined}
     />

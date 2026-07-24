@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
-import type { ExtensionResearchRunEvent } from "../shared/extension-config";
+import type { ExtensionResearchRunEvent, Settings } from "../shared/extension-config";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,
@@ -14,6 +15,8 @@ const SourcePassInstrument = lazy(() =>
 );
 
 type ResearchTrailProps = {
+  analyticsSettings?: Settings | undefined;
+  companyDomain?: string | undefined;
   events: ExtensionResearchRunEvent[];
   // "withheld" is only meaningful for analysis-mode responses; the building phase this trail
   // renders is basics-only and never produces it, but the shared GenerationStatus type carries
@@ -49,7 +52,12 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
 // The header whisper (cs-assembly-whisper in CompanyArc) is the status voice and the clippings
 // are the content, so the trail is only the quiet details toggle plus the tree it opens
 // (auto-open on attention).
-export function ResearchTrail({ events, generationStatus }: ResearchTrailProps) {
+export function ResearchTrail({
+  analyticsSettings,
+  companyDomain,
+  events,
+  generationStatus
+}: ResearchTrailProps) {
   const sources: [] = [];
   const eventSourceCount = acceptedSourceCountFromEvents(events);
   const sourceCount = Math.max(sources.length, eventSourceCount ?? 0);
@@ -83,7 +91,16 @@ export function ResearchTrail({ events, generationStatus }: ResearchTrailProps) 
         <button
           aria-expanded={detailsOpen}
           className="cs-assembly-details-toggle"
-          onClick={() => setDetailsOpen((current) => !current)}
+          onClick={() => {
+            const nextOpen = !detailsOpen;
+            setDetailsOpen(nextOpen);
+            if (analyticsSettings && companyDomain) {
+              void enqueueAlphaEvent(analyticsSettings, "research.details_toggled", {
+                domain: companyDomain,
+                expanded: nextOpen
+              });
+            }
+          }}
           type="button"
         >
           {detailsOpen ? "Hide details" : "Details"}

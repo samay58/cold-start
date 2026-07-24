@@ -29,7 +29,7 @@ describe("SidePanel analysis and sections", () => {
 
       return jsonResponse(cardForDomain("linear.app"));
     });
-    const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
+    const { alphaEvents, container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
     const lensButton = interactiveControls(container).find(
       (button) => button.getAttribute("aria-label") === "Run Investor Lens"
@@ -41,9 +41,15 @@ describe("SidePanel analysis and sections", () => {
     await flushPromises();
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
-    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "linear.app", mode: "analysis", confirmStart: true })
-    );
+    const requestBody = JSON.parse(String(generateCalls(fetchMock)[0]?.[1]?.body)) as Record<string, unknown>;
+    const requestEvent = alphaEvents().find((event) => event.eventName === "lens.run_requested");
+    expect(requestBody).toMatchObject({
+      domain: "linear.app",
+      mode: "analysis",
+      confirmStart: true
+    });
+    expect(requestBody.interactionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(requestEvent?.interactionId).toBe(requestBody.interactionId);
     await unmount();
   });
 
@@ -52,7 +58,7 @@ describe("SidePanel analysis and sections", () => {
     // run's terminal events, so a fresh wait instrument flashed fully advanced for one poll
     // tick. Bootstrap seeds requestState.events with a prior, already-terminal run (run-old,
     // reaching card.saved/generation.complete) alongside a withheld card, exactly the state
-    // shape handleRunAnalysis(true) -> runAnalysisGenerationWithController sees on retry.
+    // shape handleRunAnalysis() -> runAnalysisGenerationWithController sees on retry.
     const domain = "linear.app";
     const staleRunEvents: ExtensionResearchRunEvent[] = [
       {
@@ -97,6 +103,7 @@ describe("SidePanel analysis and sections", () => {
       }
     };
 
+    let retryRequest: Record<string, unknown> | null = null;
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (String(url).includes("/api/extension/bootstrap")) {
         return jsonResponse({
@@ -112,6 +119,7 @@ describe("SidePanel analysis and sections", () => {
         });
       }
       if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        retryRequest = JSON.parse(String(init.body)) as Record<string, unknown>;
         return jsonResponse({ slug: "linear", domain, status: "queued", mode: "analysis" }, { status: 202 });
       }
       if (String(url).includes("/api/generate?")) {
@@ -125,14 +133,14 @@ describe("SidePanel analysis and sections", () => {
       return jsonResponse(cardForDomain(domain));
     });
 
-    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+    const { alphaEvents, container, unmount } = await renderSidePanel({ domain, fetchMock });
 
     // The fixture actually carries the "advanced" state the fix guards against: the withheld
     // card renders, seeded from bootstrap with run-old's terminal events already in state.
     expect(container.querySelector(".cs-lens-withheld")).toBeTruthy();
 
     const retryButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Refresh evidence and retry")
+      (button) => button.textContent?.includes("Check evidence and retry")
     );
     expect(retryButton).toBeTruthy();
 
@@ -149,6 +157,9 @@ describe("SidePanel analysis and sections", () => {
     // "current" (index 4, the highest reached) immediately on retry, before any new-run event
     // ever arrived.
     expect(fileStage?.getAttribute("data-status")).toBe("pending");
+    expect(retryRequest).not.toHaveProperty("forceRefresh");
+    expect(alphaEvents().find((event) => event.eventName === "lens.retry_requested")?.properties)
+      .toMatchObject({ reason: "withheld" });
 
     await unmount();
   });

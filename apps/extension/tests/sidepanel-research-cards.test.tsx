@@ -29,7 +29,7 @@ describe("SidePanel research cards", () => {
 
       return jsonResponse(cardForDomain("warp.dev"));
     });
-    const { container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
+    const { alphaEvents, container, unmount } = await renderSidePanel({ domain: "warp.dev", fetchMock });
 
     const signalsButton = interactiveControls(container).find(
       (button) => button.textContent?.includes("Signals")
@@ -44,6 +44,20 @@ describe("SidePanel research cards", () => {
     expect(container.textContent).toContain("Refreshing");
     expect(container.textContent).toContain("Checking recent traction");
     expect(generateCalls(fetchMock)).toHaveLength(1);
+    const requestBody = JSON.parse(String(generateCalls(fetchMock)[0]?.[1]?.body)) as Record<string, unknown>;
+    const events = alphaEvents();
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        eventName: "research.card_activated",
+        properties: { domain: "warp.dev", cardId: "signals" }
+      }),
+      expect.objectContaining({
+        eventName: "research.card_run_requested",
+        interactionId: requestBody.interactionId,
+        properties: { domain: "warp.dev", cardId: "signals" }
+      })
+    ]));
+    expect(requestBody.interactionId).toMatch(/^[0-9a-f-]{36}$/);
     await unmount();
   });
 

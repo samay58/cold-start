@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { faviconUrl, type Clipping, type ClippingSourceClass } from "./clipping-model";
 import { commitSpring } from "../shared/motion-primitives";
+import type { Settings } from "../shared/extension-config";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 
 const MAX_CLIPPINGS = 6;
 const MAX_THUMBNAILS = 2;
@@ -23,13 +25,27 @@ const KIND_LABEL: Record<ClippingSourceClass, string> = {
   registry: "Filing"
 };
 
+function analyticsSourceClass(sourceClass: ClippingSourceClass) {
+  if (sourceClass === "company_site" || sourceClass === "docs" || sourceClass === "jobs") {
+    return "company" as const;
+  }
+  if (sourceClass === "news" || sourceClass === "funding" || sourceClass === "customer_proof") {
+    return "reporting" as const;
+  }
+  return "independent" as const;
+}
+
 function ClippingRow({
+  analyticsSettings,
   clipping,
+  companyDomain,
   index,
   prefersReducedMotion,
   thumbEligible
 }: {
+  analyticsSettings?: Settings | undefined;
   clipping: Clipping;
+  companyDomain: string;
   index: number;
   prefersReducedMotion: boolean;
   thumbEligible: boolean;
@@ -49,7 +65,21 @@ function ClippingRow({
       exit={{ opacity: 0 }}
       transition={prefersReducedMotion ? { duration: 0.14, ease: "easeOut" } : { ...commitSpring, delay: index * 0.05 }}
     >
-      <a href={clipping.url} rel="noreferrer" target="_blank" title={clipping.title || clipping.domain}>
+      <a
+        href={clipping.url}
+        onClick={() => {
+          if (analyticsSettings) {
+            void enqueueAlphaEvent(analyticsSettings, "source.opened", {
+              domain: companyDomain,
+              sourceClass: analyticsSourceClass(clipping.sourceClass),
+              ordinal: index + 1
+            });
+          }
+        }}
+        rel="noreferrer"
+        target="_blank"
+        title={clipping.title || clipping.domain}
+      >
         {showThumb && clipping.imageUrl ? (
           <img
             alt=""
@@ -80,10 +110,14 @@ function ClippingRow({
 // Source receipts as the card's first content: they fill the forming space before any fact
 // exists, and each arrives on its own source event, never on a clock.
 export function Clippings({
+  analyticsSettings,
   clippings,
+  companyDomain = clippings[0]?.domain ?? "unknown.invalid",
   prefersReducedMotion
 }: {
+  analyticsSettings?: Settings | undefined;
   clippings: Clipping[];
+  companyDomain?: string;
   prefersReducedMotion: boolean;
 }) {
   const displayed = clippings.slice(0, MAX_CLIPPINGS);
@@ -105,7 +139,9 @@ export function Clippings({
           <AnimatePresence initial={false}>
             {displayed.map((clipping, index) => (
               <ClippingRow
+                analyticsSettings={analyticsSettings}
                 clipping={clipping}
+                companyDomain={companyDomain}
                 index={index}
                 key={clipping.url}
                 prefersReducedMotion={prefersReducedMotion}

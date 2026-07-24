@@ -23,13 +23,14 @@ import {
 } from "./research-layer-motion";
 import { showPartialProfileGate, sourceLabel } from "../company/company-display";
 import { LENS_RUN_FAILED_NOTICE, formatElapsed } from "../shared/extension-format";
-import type { ExtensionResearchRunEvent } from "../shared/extension-config";
+import type { ExtensionResearchRunEvent, Settings } from "../shared/extension-config";
 import { AnalysisWaitInstrument } from "./AnalysisWaitInstrument";
 import { investorReadForCard, LENS_WAITS_FOR_PROFILE_REASON } from "./investor-lens";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "./InvestorReadCard";
 import { LensWithheldCard } from "./LensWithheldCard";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 
 type AnalysisRun = {
   generationStatus: "queued" | "running";
@@ -41,13 +42,15 @@ type ActiveSectionRun = AnalysisRun & {
 };
 
 type ResearchLayerPanelProps = {
+  analyticsSettings?: Settings | undefined;
   analysisFailed?: boolean | undefined;
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
   elapsedSeconds: number;
+  lensUnavailableReason?: string | undefined;
   onRunSection: (layerId: ResearchLayerId) => void;
-  onRunAnalysis: (forceRefresh?: boolean) => void;
+  onRunAnalysis: (forceRefresh?: boolean) => boolean;
   onRegenerate: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
   profileElapsedSeconds?: number | undefined;
@@ -95,13 +98,19 @@ const DEFAULT_ACTIVE_LAYERS: ResearchLayerId[] = [];
 
 function investorLensControlState({
   card,
+  unavailableReason,
   profileRun
 }: {
   card: ColdStartCard;
+  unavailableReason?: string | undefined;
   profileRun?: AnalysisRun | undefined;
 }) {
   if (profileRun) {
     return { disabled: true, reason: LENS_WAITS_FOR_PROFILE_REASON };
+  }
+
+  if (unavailableReason) {
+    return { disabled: true, reason: unavailableReason };
   }
 
   const blockedReason = analysisBlockedReason(card);
@@ -170,6 +179,8 @@ function shouldQueueLayerRun(status: ResearchLayerDisplay["status"]) {
 
 function LayerContent({
   actionLabel,
+  analyticsSettings,
+  companyDomain,
   display,
   onAction,
   running,
@@ -177,6 +188,8 @@ function LayerContent({
   tooltipProps
 }: {
   actionLabel?: string | undefined;
+  analyticsSettings?: Settings | undefined;
+  companyDomain: string;
   display: ResearchLayerDisplay;
   onAction?: (() => void) | undefined;
   running: boolean;
@@ -199,7 +212,12 @@ function LayerContent({
     : null;
   const sourceChips = (
     <>
-      <SourceChips sources={display.sources} tooltipProps={tooltipProps} />
+      <SourceChips
+        analyticsSettings={analyticsSettings}
+        companyDomain={companyDomain}
+        sources={display.sources}
+        tooltipProps={tooltipProps}
+      />
       {action}
     </>
   );
@@ -339,13 +357,15 @@ function SignalLayerItems({ items }: { items: NonNullable<ResearchLayerDisplay["
 function InvestorLensControl({
   card,
   onRunAnalysis,
-  profileRun
+  profileRun,
+  unavailableReason
 }: {
   card: ColdStartCard;
-  onRunAnalysis: (forceRefresh?: boolean) => void;
+  onRunAnalysis: (forceRefresh?: boolean) => boolean;
   profileRun?: AnalysisRun | undefined;
+  unavailableReason?: string | undefined;
 }) {
-  const state = investorLensControlState({ card, profileRun });
+  const state = investorLensControlState({ card, profileRun, unavailableReason });
   return (
     <button
       aria-label="Run Investor Lens"
@@ -418,9 +438,13 @@ function PartialProfilePanel({
 }
 
 function SourceChips({
+  analyticsSettings,
+  companyDomain,
   sources,
   tooltipProps
 }: {
+  analyticsSettings?: Settings | undefined;
+  companyDomain: string;
   sources: ResearchLayerDisplay["sources"];
   tooltipProps: TooltipPropsFor;
 }) {
@@ -433,12 +457,21 @@ function SourceChips({
 
   return (
     <div className="cs-source-chips" aria-label="Sources">
-      {visibleSources.map((source) => (
+      {visibleSources.map((source, index) => (
         <a
           className="cs-source-chip"
           data-class={source.sourceClass}
           href={source.href}
           key={source.id}
+          onClick={() => {
+            if (analyticsSettings) {
+              void enqueueAlphaEvent(analyticsSettings, "source.opened", {
+                domain: companyDomain,
+                sourceClass: source.sourceClass,
+                ordinal: index + 1
+              });
+            }
+          }}
           rel="noreferrer"
           target="_blank"
           title={`${source.qualityLabel}: ${source.title}`}
@@ -572,11 +605,13 @@ function DormantPileCard({
 }
 
 export function ResearchLayerPanel({
+  analyticsSettings,
   analysisFailed,
   analysisNotice,
   analysisRun,
   card,
   elapsedSeconds,
+  lensUnavailableReason,
   onRunSection,
   onRunAnalysis,
   onRegenerate,
@@ -601,6 +636,8 @@ export function ResearchLayerPanel({
   const [snapReadyId, setSnapReadyId] = useState<ResearchLayerId | null>(null);
   const snapReadyLayerId = useRef<ResearchLayerId | null>(null);
   const suppressClickFor = useRef<ResearchLayerId | null>(null);
+  const previousLensSlotState = useRef<LensSlotState | null>(null);
+  const viewedLensResults = useRef(new Set<string>());
   const prefersReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => {
@@ -647,6 +684,12 @@ export function ResearchLayerPanel({
       return;
     }
 
+    if (analyticsSettings) {
+      void enqueueAlphaEvent(analyticsSettings, "research.card_activated", {
+        domain: card.domain,
+        cardId: id
+      });
+    }
     pendingLayerActivationsRef.current = {
       domain: card.domain,
       ids: mergeLayerIds(
@@ -669,6 +712,13 @@ export function ResearchLayerPanel({
   }
 
   function toggleExpanded(id: ResearchLayerId) {
+    if (analyticsSettings) {
+      void enqueueAlphaEvent(analyticsSettings, "research.card_toggled", {
+        domain: card.domain,
+        cardId: id,
+        expanded: true
+      });
+    }
     setExpandedLayerId(id);
   }
 
@@ -741,6 +791,8 @@ export function ResearchLayerPanel({
   // !card.synthesis alone; card.synthesisWithheld is the only signal for that state.
   const lensWithheld = !lensRunning && !card.synthesis && Boolean(card.synthesisWithheld);
   const lensFailed = !lensRunning && !card.synthesis && !lensWithheld && analysisFailed === true;
+  const withheldUnavailableReason = lensUnavailableReason
+    ?? (profileRun ? "The profile must finish before Investor Lens can run." : undefined);
   // Same precedence the ternary below used to encode directly: running always wins, then a
   // filed read, then a withheld verdict, and trigger (with an optional failed-run notice folded
   // in) is the fallback. LensSlot's crossfade keys off this single discriminator.
@@ -755,6 +807,35 @@ export function ResearchLayerPanel({
   // real, unclassified notice keeps the generic research-status box below.
   const visibleAnalysisNotice = analysisFailed ? undefined : analysisNotice;
 
+  useEffect(() => {
+    const previousState = previousLensSlotState.current;
+    previousLensSlotState.current = lensSlotState;
+    if (!analyticsSettings || (lensSlotState !== "result" && lensSlotState !== "withheld")) {
+      return;
+    }
+
+    const result = lensSlotState === "result" ? "filed" as const : "withheld" as const;
+    const receipt = result === "withheld"
+      ? card.synthesisWithheld?.at ?? card.generatedAt
+      : card.generatedAt;
+    const viewKey = `${card.domain}:${result}:${receipt}`;
+    if (viewedLensResults.current.has(viewKey)) {
+      return;
+    }
+    viewedLensResults.current.add(viewKey);
+    void enqueueAlphaEvent(analyticsSettings, "lens.result_viewed", {
+      domain: card.domain,
+      result,
+      delivery: previousState === "running" ? "live" : "cached"
+    });
+  }, [
+    analyticsSettings,
+    card.domain,
+    card.generatedAt,
+    card.synthesisWithheld?.at,
+    lensSlotState
+  ]);
+
   // The identity header and the early read render above this panel in the CompanyArc shell;
   // the gate here only decides between the research layer and the honest partial state.
   if (showPartialProfileGate(card, events)) {
@@ -767,7 +848,16 @@ export function ResearchLayerPanel({
         <div className="cs-lens-slot">
           <LensSlot
             prefersReducedMotion={prefersReducedMotion}
-            result={investorRead ? <InvestorReadCard card={card} read={investorRead} tooltipProps={tooltipProps} /> : null}
+            result={
+              investorRead ? (
+                <InvestorReadCard
+                  analyticsSettings={analyticsSettings}
+                  card={card}
+                  read={investorRead}
+                  tooltipProps={tooltipProps}
+                />
+              ) : null
+            }
             running={
               <AnalysisWaitInstrument
                 elapsedSeconds={elapsedSeconds}
@@ -779,12 +869,22 @@ export function ResearchLayerPanel({
             trigger={
               <>
                 {lensFailed ? <LensFailedCard /> : null}
-                <InvestorLensControl card={card} onRunAnalysis={onRunAnalysis} profileRun={profileRun} />
+                <InvestorLensControl
+                  card={card}
+                  onRunAnalysis={onRunAnalysis}
+                  profileRun={profileRun}
+                  unavailableReason={lensUnavailableReason}
+                />
               </>
             }
             withheld={
               lensWithheld && card.synthesisWithheld ? (
-                <LensWithheldCard card={card} onRetry={() => onRunAnalysis(true)} withheld={card.synthesisWithheld} />
+                <LensWithheldCard
+                  card={card}
+                  onRetry={() => onRunAnalysis()}
+                  unavailableReason={withheldUnavailableReason}
+                  withheld={card.synthesisWithheld}
+                />
               ) : null
             }
           />
@@ -918,6 +1018,8 @@ export function ResearchLayerPanel({
                   <div className="cs-active-enrichment-body">
                     <LayerContent
                       actionLabel={actionLabel}
+                      analyticsSettings={analyticsSettings}
+                      companyDomain={card.domain}
                       display={contentDisplay}
                       onAction={running || refreshing ? undefined : handleLayerAction}
                       running={running || refreshing}

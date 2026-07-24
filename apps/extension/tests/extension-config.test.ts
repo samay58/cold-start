@@ -2,10 +2,15 @@ import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION, COLD_S
 import { describe, expect, it } from "vitest";
 import {
   ApiError,
+  ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY,
+  alphaInviteOrigin,
   buildGenerateRequest,
   buildCardRequest,
   defaultApiOrigin,
+  isTrustedAlphaInviteSender,
   normalizeApiOrigin,
+  parseAlphaInviteExternalMessage,
+  redactedAlphaDiagnosticsFromStorage,
   parseGenerateResponse,
   parseCardResponse,
   readableCompanyNameFromDomain,
@@ -15,6 +20,119 @@ import {
   storedApiTokenOrDefault,
   storedSettingsOrDefault
 } from "../src/shared/extension-config";
+
+describe("alpha invitation bridge", () => {
+  it("pins production builds to the branded invitation origin", () => {
+    expect(alphaInviteOrigin({
+      MODE: "production",
+      PROD: true,
+      VITE_COLD_START_ALPHA_INVITE_ORIGIN: "https://attacker.example"
+    })).toBe("https://cold-start.semitechie.vc");
+  });
+
+  it("allows an explicit local invitation origin only in development", () => {
+    expect(alphaInviteOrigin({
+      MODE: "development",
+      PROD: false,
+      VITE_COLD_START_ALPHA_INVITE_ORIGIN: "http://localhost:3000"
+    })).toBe("http://localhost:3000");
+  });
+
+  it("accepts only the two bounded external message shapes", () => {
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.status",
+      version: 1
+    })).toEqual({
+      type: "cold-start.alpha.status",
+      version: 1
+    });
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(32),
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    })).toEqual({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(32),
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    });
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(32),
+      consent: false,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    })).toBeNull();
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "raw token with spaces",
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    })).toBeNull();
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(32),
+      consent: true,
+      storeVisited: 1,
+      reducedMotion: false,
+      theme: "light"
+    })).toBeNull();
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(32),
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light",
+      metadata: {}
+    })).toBeNull();
+  });
+
+  it("trusts only the alpha path on the exact branded origin", () => {
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc/alpha",
+      "https://cold-start.semitechie.vc"
+    )).toBe(true);
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc/alpha/connect?return=1",
+      "https://cold-start.semitechie.vc"
+    )).toBe(true);
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc.evil.example/alpha",
+      "https://cold-start.semitechie.vc"
+    )).toBe(false);
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc/c/linear",
+      "https://cold-start.semitechie.vc"
+    )).toBe(false);
+  });
+
+  it("exposes only a validated six-character installation suffix to diagnostics", () => {
+    expect(redactedAlphaDiagnosticsFromStorage({
+      [ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY]: "a1b2c3"
+    })).toEqual({ installationSuffix: "a1b2c3" });
+    expect(redactedAlphaDiagnosticsFromStorage({
+      [ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY]: "6a50d643-83dd-42e0-9eb9-45c7aaa1b2c3"
+    })).toEqual({ installationSuffix: null });
+    expect(redactedAlphaDiagnosticsFromStorage({
+      [ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY]: "short"
+    })).toEqual({ installationSuffix: null });
+  });
+});
 
 describe("defaultApiOrigin", () => {
   it("uses the production API origin for production builds without an override", () => {

@@ -310,6 +310,16 @@ button {
   overflow-wrap: anywhere;
 }
 
+.cs-classification-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-ink);
+  border-radius: 2px;
+  background: var(--color-ink);
+}
+
 .cs-extension-form {
   display: grid;
   align-content: start;
@@ -593,6 +603,147 @@ button {
   font-size: 12px;
   font-weight: 640;
   line-height: 1.2;
+}
+
+.cs-access-card-friendly {
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.cs-access-card-friendly::before {
+  content: none;
+}
+
+.cs-access-card-friendly .cs-classification-dot {
+  margin-top: 4px;
+}
+
+.cs-access-card-friendly strong {
+  display: block;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 640;
+  line-height: 1.2;
+}
+
+.cs-access-card-friendly p {
+  margin: 7px 0 0;
+  color: var(--color-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.cs-settings-panel {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.cs-settings-back {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cs-alpha-posture {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--color-rule);
+  border-radius: 8px;
+  background: var(--cs-surface-1);
+}
+
+.cs-alpha-posture > div {
+  display: grid;
+  gap: 3px;
+  padding: 13px 14px;
+}
+
+.cs-alpha-posture > div + div {
+  border-left: 1px solid var(--color-rule);
+}
+
+.cs-alpha-posture span,
+.cs-alpha-posture small {
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.cs-alpha-posture span {
+  font-family: var(--font-text);
+  letter-spacing: 0.04em;
+}
+
+.cs-alpha-posture strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.cs-settings-disclosure {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--color-rule);
+  border-radius: 8px;
+  background: var(--color-field);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cs-diagnostics {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 13px;
+}
+
+.cs-diagnostics summary {
+  color: var(--color-muted);
+  cursor: pointer;
+  font-family: var(--font-text);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.cs-diagnostics dl {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+}
+
+.cs-diagnostics dl > div {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.cs-diagnostics dt {
+  color: var(--color-muted);
+}
+
+.cs-diagnostics dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-text);
+  overflow-wrap: anywhere;
+}
+
+.cs-settings-support {
+  justify-self: start;
+  color: var(--color-ink);
+  font-size: 12px;
+  text-underline-offset: 3px;
+}
+
+.cs-settings-support:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
 }
 
 .cs-loading-panel {

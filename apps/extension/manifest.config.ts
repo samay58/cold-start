@@ -9,6 +9,7 @@ const PRODUCTION_HOST_PERMISSIONS = [
 ];
 
 const LOCAL_HOST_PERMISSIONS = ["http://localhost:3000/*"];
+const ALPHA_INVITE_MATCHES = ["https://cold-start.semitechie.vc/*"];
 
 const ICONS = {
   16: "icons/icon-16.png",
@@ -33,9 +34,9 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
   if (browser === "firefox") {
     return {
       manifest_version: 3,
-      name: "Cold Start",
-      version: "0.1.0",
-      description: "Sourced company context cards from the current tab.",
+      name: "Cold Start Alpha",
+      version: "0.2.0",
+      description: "Friend alpha for sourced company context cards from the current tab.",
       // No sidePanel (Chrome-only API) and no favicon (Chrome-only _favicon/ URL;
       // clipping-model falls back to null icons when the permission is absent).
       permissions: ["activeTab", "storage"],
@@ -92,12 +93,11 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
 
   return {
     manifest_version: 3,
-    name: "Cold Start",
-    version: "0.1.0",
-    description: "Sourced company context cards from the current tab.",
-    // "favicon" backs chrome.runtime.getURL("_favicon/...") for clippings: a browser-cached
-    // icon lookup with no external request.
-    permissions: ["sidePanel", "activeTab", "storage", "favicon"],
+    name: "Cold Start Alpha",
+    version: "0.2.0",
+    minimum_chrome_version: "116",
+    description: "Friend alpha for sourced company context cards from the current tab.",
+    permissions: ["sidePanel", "activeTab", "storage"],
     icons: ICONS,
     action: {
       default_icon: ICONS,
@@ -109,6 +109,9 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
     },
     side_panel: {
       default_path: "sidepanel.html"
+    },
+    externally_connectable: {
+      matches: ALPHA_INVITE_MATCHES
     },
     host_permissions: hostPermissions
   };

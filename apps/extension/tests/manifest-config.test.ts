@@ -16,10 +16,14 @@ describe("extensionManifest", () => {
     expect(manifest.host_permissions).toContain("http://localhost:3000/*");
   });
 
-  it("grants the favicon permission for browser-cached clipping icons", () => {
+  it("keeps the Chrome install surface narrow and connects only the branded invite page", () => {
     const manifest = extensionManifest({ command: "build", mode: "production" });
 
-    expect(manifest.permissions).toContain("favicon");
+    expect(manifest.minimum_chrome_version).toBe("116");
+    expect(manifest.permissions).toEqual(["sidePanel", "activeTab", "storage"]);
+    expect(manifest.externally_connectable).toEqual({
+      matches: ["https://cold-start.semitechie.vc/*"]
+    });
   });
 
   it("builds the firefox variant with sidebar_action and no Chrome-only permissions", () => {

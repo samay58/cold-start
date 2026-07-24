@@ -1,7 +1,8 @@
 import { LENS_WAITS_FOR_PROFILE_REASON } from "../research/investor-lens";
 import type { ColdStartCard, ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   CompanyHeader,
   FactRibbon,
@@ -16,7 +17,13 @@ import {
 import { Clippings } from "./Clippings";
 import { clippingsFromEvents, clippingsFromSources } from "./clipping-model";
 import { earlyReadState, formatSavedDate } from "./company-display";
-import type { ExtensionResearchRunEvent, ExtensionSourceSummary, GenerationStatus } from "../shared/extension-config";
+import type {
+  AlphaAccessState,
+  ExtensionResearchRunEvent,
+  ExtensionSourceSummary,
+  GenerationStatus,
+  Settings
+} from "../shared/extension-config";
 import { profileSummaryCopy } from "../shared/extension-format";
 import { filedSourceCount } from "./first-payoff-events";
 import { ProgressBackground } from "../shared/ProgressBackground";
@@ -25,9 +32,10 @@ import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "../research/research
 import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "../research/research-progress";
 import { ResearchTrail } from "../research/ResearchTrail";
 import { SealInstrument } from "./SealInstrument";
-import { SharedTooltip, useSharedTooltip } from "../shared/SharedTooltip";
+import { SharedTooltip, useSharedTooltip, type TooltipDossier } from "../shared/SharedTooltip";
 import { motionTokens } from "../shared/motion-primitives";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 
 const ResearchLayerPanel = lazy(() =>
   import("../research/ResearchLayerPanel").then((module) => ({ default: module.ResearchLayerPanel }))
@@ -66,15 +74,35 @@ export type CompanyArcState =
     };
 
 type CompanyArcProps = {
+  alphaAccess?: AlphaAccessState | null | undefined;
+  analyticsSettings?: Settings | undefined;
   arc: CompanyArcState;
   domain: string;
   onEditSettings: () => void;
   onRegenerate: () => void;
-  onRunAnalysis: (forceRefresh?: boolean) => void;
+  onRunAnalysis: (forceRefresh?: boolean) => boolean;
   onRunSection: (layerId: ResearchLayerId) => void;
   onStart: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
 };
+
+function AlphaPosture({ access }: { access: AlphaAccessState }) {
+  const generationPaused = !access.generationEnabled;
+  return (
+    <aside className="cs-alpha-posture-note" data-paused={generationPaused} aria-label="Friend alpha status">
+      <span className="cs-classification-dot" aria-hidden="true" />
+      <div>
+        <strong>{generationPaused ? "New research paused" : "Friend alpha allowance"}</strong>
+        <p>
+          {generationPaused
+            ? "Saved profiles and filed Lens results still open."
+            : `${access.profile?.remaining ?? "Current"} profiles · ${access.lens?.remaining ?? "Current"} Lens runs left`}
+        </p>
+        <small>Generating creates or updates a public sourced fact card. It never identifies who requested it.</small>
+      </div>
+    </aside>
+  );
+}
 
 function useElapsedMilliseconds(active: boolean, startedAt: number | undefined, tickMs = 1000) {
   const [now, setNow] = useState(() => Date.now());
@@ -135,6 +163,8 @@ function ArcStack() {
 }
 
 export function CompanyArc({
+  alphaAccess,
+  analyticsSettings,
   arc,
   domain,
   onEditSettings,
@@ -148,6 +178,25 @@ export function CompanyArc({
   const { dockAnchorRef, hideTooltip, tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(prefersReducedMotion);
   const building = arc.phase === "building" ? arc : null;
   const profile = arc.phase === "profile" ? arc : null;
+  const firstPayoffViews = useRef(new Set<string>());
+  const dossierIntent = useRef<{
+    name: string;
+    trigger: "focus" | "hover";
+  } | null>(null);
+  const dossierPinIntent = useRef<{
+    name: string;
+    trigger: "keyboard" | "pointer";
+  } | null>(null);
+  const dossierCloseReason = useRef<
+    "dismiss_button" | "escape" | "focus_leave" | "pointer_leave" | "trigger"
+  >("pointer_leave");
+  const previousDossier = useRef<{
+    dossier: TooltipDossier;
+    id: string;
+    personGroup: "founder" | "executive";
+    personOrdinal: number;
+    pinned: boolean;
+  } | null>(null);
 
   const analysisElapsedSeconds = useElapsedSeconds(Boolean(profile?.analysisRun), profile?.analysisRun?.startedAt);
   const contactElapsedSeconds = useElapsedSeconds(Boolean(profile?.contactRun), profile?.contactRun?.startedAt);
@@ -175,11 +224,184 @@ export function CompanyArc({
     ? `Saved ${formatSavedDate(profile.card.generatedAt)}${profile.profileRun || profile.analysisRun || profile.activeSectionRun ? " · refreshing" : ""}`
     : null;
   const profileSummary = profile ? profileSummaryCopy(profile.card) : null;
-  const profilePeople = profile ? managementPeople(profile.card) : [];
+  const profileCard = profile?.card ?? null;
+  const profilePeople = profileCard ? managementPeople(profileCard) : [];
+  const visibleFirstPayoff = buildingPayoff?.firstPayoff
+    ?? (profileRead?.showRead ? profileRead.firstPayoff : null);
+  const profileStartDisabled = Boolean(
+    alphaAccess &&
+    (!alphaAccess.generationEnabled || alphaAccess.profile?.remaining === 0)
+  );
+  const profileStartReason = alphaAccess?.generationEnabled === false
+    ? "New research is temporarily paused."
+    : alphaAccess?.profile?.remaining === 0
+      ? "This invitation has used its fresh profile runs."
+      : null;
+  const lensUnavailableReason = alphaAccess?.generationEnabled === false
+    ? "New research is temporarily paused. Filed Lens results still open."
+    : alphaAccess?.lens?.remaining === 0
+      ? "This invitation has used its fresh Investor Lens runs."
+      : undefined;
+
+  useEffect(() => {
+    if (!analyticsSettings || !visibleFirstPayoff) {
+      return;
+    }
+    const viewKey = `${domain}:${visibleFirstPayoff.generatedAt}:${visibleFirstPayoff.status}`;
+    if (firstPayoffViews.current.has(viewKey)) {
+      return;
+    }
+    firstPayoffViews.current.add(viewKey);
+    void enqueueAlphaEvent(analyticsSettings, "profile.first_payoff_viewed", {
+      domain,
+      state: visibleFirstPayoff.status
+    });
+  }, [analyticsSettings, domain, visibleFirstPayoff]);
+
+  useEffect(() => {
+    if (!analyticsSettings || !profileCard) {
+      previousDossier.current = null;
+      return;
+    }
+
+    const trackedPeople = managementPeople(profileCard);
+    const body = tooltip?.body;
+    const dossier = typeof body === "object" && body !== null && body.kind === "dossier"
+      ? body
+      : null;
+    const orderedPeople = [
+      ...trackedPeople.filter((person) => person.email),
+      ...trackedPeople.filter((person) => !person.email)
+    ];
+    const person = dossier
+      ? orderedPeople.find((candidate) => candidate.name.trim() === dossier.name)
+      : null;
+    const founderNames = new Set(
+      (profileCard.team.founders.value ?? []).map((candidate) => candidate.name.trim().toLowerCase())
+    );
+    const current = dossier && tooltip && person
+      ? {
+          dossier,
+          id: tooltip.id,
+          personGroup: founderNames.has(person.name.trim().toLowerCase())
+            ? "founder" as const
+            : "executive" as const,
+          personOrdinal: Math.min(100, Math.max(1, orderedPeople.indexOf(person) + 1)),
+          pinned: tooltip.pinned
+        }
+      : null;
+    const previous = previousDossier.current;
+
+    if (previous && (!current || previous.id !== current.id)) {
+      void enqueueAlphaEvent(analyticsSettings, "dossier.closed", {
+        domain: profileCard.domain,
+        personGroup: previous.personGroup,
+        personOrdinal: previous.personOrdinal,
+        reason: dossierCloseReason.current
+      });
+      dossierCloseReason.current = "pointer_leave";
+    }
+
+    if (current && (!previous || previous.id !== current.id)) {
+      const intent = dossierIntent.current;
+      void enqueueAlphaEvent(analyticsSettings, "dossier.opened", {
+        domain: profileCard.domain,
+        personGroup: current.personGroup,
+        personOrdinal: current.personOrdinal,
+        trigger: intent?.name === current.dossier.name ? intent.trigger : "focus"
+      });
+    }
+
+    if (current?.pinned && (!previous || previous.id !== current.id || !previous.pinned)) {
+      const pinIntent = dossierPinIntent.current;
+      void enqueueAlphaEvent(analyticsSettings, "dossier.pinned", {
+        domain: profileCard.domain,
+        personGroup: current.personGroup,
+        personOrdinal: current.personOrdinal,
+        trigger: pinIntent?.name === current.dossier.name ? pinIntent.trigger : "keyboard"
+      });
+    }
+
+    previousDossier.current = current;
+  }, [analyticsSettings, profileCard, tooltip]);
+
+  function handleDossierClickCapture(event: ReactMouseEvent<HTMLElement>) {
+    if (!analyticsSettings || !profile) {
+      return;
+    }
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+    if (target.closest(".cs-dossier-dismiss")) {
+      dossierCloseReason.current = "dismiss_button";
+      return;
+    }
+
+    const current = previousDossier.current;
+    if (!current) {
+      return;
+    }
+    const channel = target.closest<HTMLAnchorElement>(".cs-dossier-channel");
+    if (channel) {
+      const channelName = channel.textContent?.trim().toLowerCase();
+      if (channelName === "github" || channelName === "x" || channelName === "site") {
+        void enqueueAlphaEvent(analyticsSettings, "dossier.channel_opened", {
+          domain: profile.card.domain,
+          personGroup: current.personGroup,
+          personOrdinal: current.personOrdinal,
+          channel: channelName
+        });
+      }
+      return;
+    }
+
+    const emailButton = target.closest<HTMLButtonElement>(".cs-dossier-email-copy");
+    if (!emailButton || !current.dossier.email) {
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      if (!emailButton.textContent?.includes("Copied")) {
+        return;
+      }
+      observer.disconnect();
+      void enqueueAlphaEvent(analyticsSettings, "dossier.email_copied", {
+        domain: profile.card.domain,
+        personGroup: current.personGroup,
+        personOrdinal: current.personOrdinal,
+        emailPosture: current.dossier.email?.status ?? "observed"
+      });
+    });
+    observer.observe(emailButton, { childList: true, characterData: true, subtree: true });
+    window.setTimeout(() => observer.disconnect(), 1600);
+  }
+
+  function handleDossierKeyDownCapture(event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape" && (event.target as Element | null)?.closest(".cs-shared-tooltip, .cs-people-person")) {
+      dossierCloseReason.current = "escape";
+    }
+  }
+
+  const trackedTooltipInteraction = {
+    ...tooltipInteraction,
+    onFocusLeave: () => {
+      dossierCloseReason.current = "focus_leave";
+      tooltipInteraction.onFocusLeave();
+    },
+    onPointerLeave: () => {
+      dossierCloseReason.current = "pointer_leave";
+      tooltipInteraction.onPointerLeave();
+    }
+  };
 
   return (
     <LayoutGroup id="cold-start-research-layer">
-      <main className="cs-research-shell cs-arc" data-phase={arc.phase}>
+      <main
+        className="cs-research-shell cs-arc"
+        data-phase={arc.phase}
+        onClickCapture={handleDossierClickCapture}
+        onKeyDownCapture={handleDossierKeyDownCapture}
+      >
         <AnimatePresence initial={false}>
           {building || (profile && profile.analysisRun) ? (
             <motion.div
@@ -195,13 +417,11 @@ export function CompanyArc({
           ) : null}
         </AnimatePresence>
 
-        {arc.phase === "intake" ? (
-          <header className="cs-arc-topbar">
-            <button aria-label="Open settings" className="cs-start-settings" onClick={onEditSettings} type="button">
-              <span aria-hidden="true">...</span>
-            </button>
-          </header>
-        ) : null}
+        <header className="cs-arc-topbar">
+          <button aria-label="Open settings" className="cs-start-settings" onClick={onEditSettings} type="button">
+            <span aria-hidden="true">...</span>
+          </button>
+        </header>
 
         <CompanyHeader
           card={profile?.card ?? null}
@@ -239,6 +459,7 @@ export function CompanyArc({
             <>
               <FactRibbon facts={profileFacts(profile.card)} />
               <PeopleLine
+                analyticsSettings={analyticsSettings}
                 hideTooltip={hideTooltip}
                 citations={profile.card.citations}
                 companyDomain={profile.card.domain}
@@ -247,6 +468,15 @@ export function CompanyArc({
                 confidence={managementConfidence(profile.card)}
                 people={profilePeople}
                 prefersReducedMotion={prefersReducedMotion}
+                onDossierCloseIntent={(_person, reason) => {
+                  dossierCloseReason.current = reason;
+                }}
+                onDossierIntent={(person, trigger) => {
+                  dossierIntent.current = { name: person.name.trim(), trigger };
+                }}
+                onDossierPinIntent={(person, trigger) => {
+                  dossierPinIntent.current = { name: person.name.trim(), trigger };
+                }}
                 sourceCount={managementSourceCount(profile.card)}
                 tooltipProps={triggerProps}
               />
@@ -254,18 +484,40 @@ export function CompanyArc({
           ) : null}
         </CompanyHeader>
 
+        {alphaAccess && arc.phase !== "building" ? <AlphaPosture access={alphaAccess} /> : null}
+
         <AnimatePresence initial={false}>
           {building && buildingPayoff?.firstPayoff ? (
-            <ReadRegion context="building" firstPayoff={buildingPayoff.firstPayoff} />
+            <ReadRegion
+              analyticsSettings={analyticsSettings}
+              context="building"
+              domain={domain}
+              firstPayoff={buildingPayoff.firstPayoff}
+            />
           ) : profile && profileRead?.showRead && profileRead.firstPayoff ? (
-            <ReadRegion context="profile" firstPayoff={profileRead.firstPayoff} />
+            <ReadRegion
+              analyticsSettings={analyticsSettings}
+              context="profile"
+              domain={domain}
+              firstPayoff={profileRead.firstPayoff}
+            />
           ) : null}
         </AnimatePresence>
 
         {building ? (
           <>
-            <Clippings clippings={clippingsFromEvents(building.events)} prefersReducedMotion={prefersReducedMotion} />
-            <ResearchTrail events={building.events} generationStatus={building.generationStatus} />
+            <Clippings
+              analyticsSettings={analyticsSettings}
+              clippings={clippingsFromEvents(building.events)}
+              companyDomain={domain}
+              prefersReducedMotion={prefersReducedMotion}
+            />
+            <ResearchTrail
+              analyticsSettings={analyticsSettings}
+              companyDomain={domain}
+              events={building.events}
+              generationStatus={building.generationStatus}
+            />
             <SealedLensRow />
           </>
         ) : null}
@@ -274,7 +526,12 @@ export function CompanyArc({
           // The card already filed its sources, so this mount shows the full list at once
           // (AnimatePresence initial={false} in Clippings keeps it quiet and settled, never
           // replaying the building-phase arrival stagger on an already-filed profile).
-          <Clippings clippings={clippingsFromSources(profile.sources ?? [])} prefersReducedMotion={prefersReducedMotion} />
+          <Clippings
+            analyticsSettings={analyticsSettings}
+            clippings={clippingsFromSources(profile.sources ?? [])}
+            companyDomain={domain}
+            prefersReducedMotion={prefersReducedMotion}
+          />
         ) : null}
 
         {arc.phase === "intake" ? (
@@ -283,8 +540,9 @@ export function CompanyArc({
               <p className="cs-arc-intake-note">
                 Build a cited profile from public sources: identity, funding, people, and proof.
               </p>
-              <button className="cs-start-primary" onClick={onStart} type="button">
-                <span>Begin research</span>
+              {profileStartReason ? <p className="cs-arc-intake-limit">{profileStartReason}</p> : null}
+              <button className="cs-start-primary" disabled={profileStartDisabled} onClick={onStart} type="button">
+                <span>{profileStartDisabled ? "Research unavailable" : "Begin research"}</span>
                 <svg aria-hidden="true" height="18" viewBox="0 0 18 18" width="18">
                   <path d="M3 9h11" />
                   <path d="m10 4.5 4.5 4.5L10 13.5" />
@@ -298,6 +556,7 @@ export function CompanyArc({
         {profile ? (
           <Suspense fallback={null}>
             <ResearchLayerPanel
+              analyticsSettings={analyticsSettings}
               analysisFailed={profile.analysisFailed}
               analysisNotice={profile.analysisNotice}
               analysisRun={profile.analysisRun}
@@ -308,6 +567,7 @@ export function CompanyArc({
               onRunSection={onRunSection}
               onRunAnalysis={onRunAnalysis}
               onRegenerate={onRegenerate}
+              lensUnavailableReason={lensUnavailableReason}
               queuedLayerIds={queuedLayerIds}
               profileElapsedSeconds={profileElapsedSeconds}
               profileRun={profile.profileRun}
@@ -317,7 +577,7 @@ export function CompanyArc({
             />
           </Suspense>
         ) : null}
-        <SharedTooltip interaction={tooltipInteraction} tooltip={tooltip} />
+        <SharedTooltip interaction={trackedTooltipInteraction} tooltip={tooltip} />
       </main>
     </LayoutGroup>
   );

@@ -9,10 +9,12 @@ import { advisoryCopy, isSynthesisAdvisory, isSynthesisGateReason, REASON_COPY }
 export function LensWithheldCard({
   card,
   onRetry,
+  unavailableReason,
   withheld
 }: {
   card: ColdStartCard;
-  onRetry: () => void;
+  onRetry: () => boolean;
+  unavailableReason?: string | undefined;
   withheld: SynthesisWithheld;
 }) {
   const [retrying, setRetrying] = useState(false);
@@ -43,21 +45,23 @@ export function LensWithheldCard({
       ) : null}
       <p className="cs-lens-withheld-next">
         {withheld.reasons.includes("no-claims-survived")
-          ? "A fresh evidence pass can change what survives verification."
-          : "A fresh evidence pass can clear the citation floor."}
+          ? "New evidence can change what survives verification."
+          : "New evidence can clear the citation floor."}
       </p>
+      {unavailableReason ? <p className="cs-lens-withheld-next">{unavailableReason}</p> : null}
       <button
         className="cs-lens-withheld-retry"
-        disabled={retrying}
+        disabled={retrying || Boolean(unavailableReason)}
         onClick={() => {
-          // Double-fire is already guarded upstream (the run-status flip swaps this card out);
-          // this local flag only covers the visible gap between click and that swap.
-          setRetrying(true);
-          onRetry();
+          if (onRetry()) {
+            // The run-status flip replaces this card; this flag covers only the accepted
+            // request's visible handoff gap.
+            setRetrying(true);
+          }
         }}
         type="button"
       >
-        {retrying ? "Refreshing evidence" : "Refresh evidence and retry"}
+        {retrying ? "Checking evidence" : unavailableReason ? "Retry unavailable" : "Check evidence and retry"}
       </button>
     </div>
   );

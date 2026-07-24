@@ -29,7 +29,7 @@ describe("SidePanel generation gate", () => {
         ? jsonResponse(cardForDomain("amazon.com"))
         : missingCardResponse();
     });
-    const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
+    const { alphaEvents, container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
     // The intake status slot renders empty; there is no "No profile" chip to earn its space.
@@ -55,9 +55,15 @@ describe("SidePanel generation gate", () => {
     await flushPromises();
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
-    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "amazon.com", mode: "basics", confirmStart: true })
-    );
+    const requestBody = JSON.parse(String(generateCalls(fetchMock)[0]?.[1]?.body)) as Record<string, unknown>;
+    const requestEvent = alphaEvents().find((event) => event.eventName === "profile.generate_requested");
+    expect(requestBody).toMatchObject({
+      domain: "amazon.com",
+      mode: "basics",
+      confirmStart: true
+    });
+    expect(requestBody.interactionId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(requestEvent?.interactionId).toBe(requestBody.interactionId);
     expect(container.textContent).toContain("Research");
     expect(container.textContent).toContain("amazon.com");
     await unmount();
@@ -285,6 +291,92 @@ describe("SidePanel generation gate", () => {
     expect(container.querySelector(".cs-extension-mark")).toBeNull();
     expect(container.textContent).not.toContain("CS");
     expect(fetchMock).not.toHaveBeenCalled();
+    await unmount();
+  });
+
+  it("shows friend-alpha allowances and the public-card disclosure before a fresh run", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({
+      domain: "amazon.com",
+      slug: "amazon",
+      card: null,
+      alpha: {
+        generationEnabled: true,
+        profile: { limit: 12, reserved: 0, used: 2, remaining: 10 },
+        lens: { limit: 6, reserved: 0, used: 1, remaining: 5 }
+      },
+      runs: {
+        basics: { slug: "amazon", domain: "amazon.com", mode: "basics", status: "idle" },
+        analysis: { slug: "amazon", domain: "amazon.com", mode: "analysis", status: "idle" }
+      }
+    }));
+    const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
+
+    expect(container.textContent).toContain("10 profiles · 5 Lens runs left");
+    expect(container.textContent).toContain("public sourced fact card");
+    expect(container.textContent).toContain("never identifies who requested it");
+    expect(container.querySelector<HTMLButtonElement>(".cs-start-primary")?.disabled).toBe(false);
+    await unmount();
+  });
+
+  it("makes a generation pause legible without hiding saved-read posture", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({
+      domain: "amazon.com",
+      slug: "amazon",
+      card: null,
+      alpha: {
+        generationEnabled: false,
+        profile: { limit: 12, reserved: 0, used: 3, remaining: 9 },
+        lens: { limit: 6, reserved: 0, used: 2, remaining: 4 }
+      },
+      runs: {
+        basics: { slug: "amazon", domain: "amazon.com", mode: "basics", status: "idle" },
+        analysis: { slug: "amazon", domain: "amazon.com", mode: "analysis", status: "idle" }
+      }
+    }));
+    const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
+
+    expect(container.textContent).toContain("New research paused");
+    expect(container.textContent).toContain("Saved profiles and filed Lens results still open");
+    expect(container.querySelector<HTMLButtonElement>(".cs-start-primary")?.disabled).toBe(true);
+    expect(container.textContent).toContain("Research unavailable");
+    await unmount();
+  });
+
+  it("keeps credentials out of connected settings and exposes redacted diagnostics", async () => {
+    const card = cardForDomain("linear.app");
+    const fetchMock = vi.fn(async () => jsonResponse({
+      domain: "linear.app",
+      slug: "linear",
+      card,
+      alpha: {
+        generationEnabled: true,
+        profile: { limit: 12, reserved: 0, used: 2, remaining: 10 },
+        lens: { limit: 6, reserved: 0, used: 1, remaining: 5 }
+      },
+      runs: {
+        basics: { slug: "linear", domain: "linear.app", mode: "basics", status: "complete" },
+        analysis: { slug: "linear", domain: "linear.app", mode: "analysis", status: "idle" }
+      }
+    }));
+    const { container, unmount } = await renderSidePanel({
+      domain: "linear.app",
+      fetchMock,
+      storedLocal: { coldStartAlphaInstallationSuffix: "a1b2c3" }
+    });
+    const settingsButton = container.querySelector<HTMLButtonElement>("[aria-label='Open settings']");
+
+    await act(async () => {
+      settingsButton?.click();
+    });
+    await flushPromises();
+
+    expect(container.textContent).toContain("Connected to your invitation");
+    expect(container.textContent).toContain("10");
+    expect(container.textContent).toContain("5");
+    expect(container.textContent).toContain("Diagnostics");
+    expect(container.textContent).not.toContain("Origin");
+    expect(container.textContent).not.toContain("Extension token");
+    expect(container.querySelector("input[type='password']")).toBeNull();
     await unmount();
   });
 

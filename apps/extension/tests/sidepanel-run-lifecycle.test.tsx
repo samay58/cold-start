@@ -882,9 +882,12 @@ describe("SidePanel run lifecycle", () => {
     expect(interactiveControls(container).some((button) => button.textContent === legacyAnalysisLabel)).toBe(false);
 
     expect(generateCalls(fetchMock)).toHaveLength(1);
-    expect(generateCalls(fetchMock)[0]?.[1]?.body).toBe(
-      JSON.stringify({ domain: "cartesia.ai", mode: "basics", confirmStart: true })
-    );
+    expect(JSON.parse(String(generateCalls(fetchMock)[0]?.[1]?.body))).toMatchObject({
+      domain: "cartesia.ai",
+      mode: "basics",
+      confirmStart: true,
+      interactionId: expect.stringMatching(/^[0-9a-f-]{36}$/)
+    });
     await unmount();
   });
 

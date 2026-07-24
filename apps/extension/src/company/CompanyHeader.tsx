@@ -7,6 +7,8 @@ import { readableCompanyName, sourceLabel, websiteLabel } from "./company-displa
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
 import { fundingEvidenceFromCitations } from "@cold-start/core";
 import type { TooltipDossier, TooltipPropsFor } from "../shared/SharedTooltip";
+import type { Settings } from "../shared/extension-config";
+import { enqueueAlphaEvent } from "../shared/alpha-analytics";
 
 type CompanyHeaderPhase = "intake" | "building" | "profile";
 
@@ -444,6 +446,7 @@ const PEOPLE_COLLAPSED_COUNT = 4;
 const PEOPLE_OVERFLOW_FRAME_ID = "cs-people-overflow";
 
 export function PeopleLine({
+  analyticsSettings,
   citations,
   companyDomain,
   contactElapsedSeconds = 0,
@@ -452,8 +455,12 @@ export function PeopleLine({
   hideTooltip,
   people,
   prefersReducedMotion,
+  onDossierCloseIntent,
+  onDossierIntent,
+  onDossierPinIntent,
   tooltipProps
 }: {
+  analyticsSettings?: Settings | undefined;
   // The card's citations, so a person's cited read can resolve its provenance whisper.
   citations: readonly CitationRef[];
   companyDomain: string;
@@ -465,6 +472,12 @@ export function PeopleLine({
   hideTooltip: () => void;
   people: CardPerson[];
   prefersReducedMotion: boolean;
+  onDossierCloseIntent?: (
+    person: CardPerson,
+    reason: "escape" | "focus_leave" | "pointer_leave"
+  ) => void;
+  onDossierIntent?: (person: CardPerson, trigger: "focus" | "hover") => void;
+  onDossierPinIntent?: (person: CardPerson, trigger: "keyboard" | "pointer") => void;
   // The filed stamp owns the source count now; PeopleLine no longer prints it, but the
   // caller still supplies it so the prop stays on the contract.
   sourceCount: number;
@@ -499,6 +512,37 @@ export function PeopleLine({
         title: name
       })
       : undefined;
+    const trackedTooltip = tooltip
+      ? {
+          ...tooltip,
+          onBlur: (event: Parameters<typeof tooltip.onBlur>[0]) => {
+            onDossierCloseIntent?.(person, "focus_leave");
+            tooltip.onBlur(event);
+          },
+          onClick: (event: Parameters<typeof tooltip.onClick>[0]) => {
+            onDossierPinIntent?.(person, event.detail === 0 ? "keyboard" : "pointer");
+            tooltip.onClick(event);
+          },
+          onFocus: (event: Parameters<typeof tooltip.onFocus>[0]) => {
+            onDossierIntent?.(person, "focus");
+            tooltip.onFocus(event);
+          },
+          onKeyDown: (event: Parameters<typeof tooltip.onKeyDown>[0]) => {
+            if (event.key === "Escape") {
+              onDossierCloseIntent?.(person, "escape");
+            }
+            tooltip.onKeyDown(event);
+          },
+          onPointerEnter: (event: Parameters<typeof tooltip.onPointerEnter>[0]) => {
+            onDossierIntent?.(person, "hover");
+            tooltip.onPointerEnter(event);
+          },
+          onPointerLeave: (event: Parameters<typeof tooltip.onPointerLeave>[0]) => {
+            onDossierCloseIntent?.(person, "pointer_leave");
+            tooltip.onPointerLeave(event);
+          }
+        }
+      : undefined;
 
     return (
       <button
@@ -506,7 +550,7 @@ export function PeopleLine({
         data-has-email={person.email ? "true" : "false"}
         key={`${person.name}-${person.email ?? person.role ?? "person"}`}
         type="button"
-        {...tooltip}
+        {...trackedTooltip}
       >
         <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
         <span className="cs-person-main">
@@ -562,7 +606,15 @@ export function PeopleLine({
                 }))}
             onClick={() => {
               hideTooltip();
-              setExpanded((value) => !value);
+              const nextExpanded = !expanded;
+              setExpanded(nextExpanded);
+              if (analyticsSettings) {
+                void enqueueAlphaEvent(analyticsSettings, "dossier.people_toggled", {
+                  domain: companyDomain,
+                  expanded: nextExpanded,
+                  hiddenCount: hiddenPeopleCount
+                });
+              }
             }}
           >
             {expanded ? "Show fewer" : `+${hiddenPeopleCount} more`}

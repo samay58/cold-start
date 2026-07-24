@@ -199,9 +199,20 @@ async function requestGeneration(
   mode: GenerationStatus["mode"],
   confirmStart: boolean,
   forceRefresh = false,
-  sectionId?: string
+  sectionId?: string,
+  interactionId: string = crypto.randomUUID()
 ): Promise<GenerationStatus> {
-  const request = buildGenerateRequest(domain, settings, signal, mode, confirmStart, chrome.runtime.id, forceRefresh, sectionId);
+  const request = buildGenerateRequest(
+    domain,
+    settings,
+    signal,
+    mode,
+    confirmStart,
+    chrome.runtime.id,
+    forceRefresh,
+    sectionId,
+    interactionId
+  );
   markPerformance("cold-start-generation-post");
   const response = await fetch(request.url, request.init);
   return parseGenerateResponse(response);
@@ -610,9 +621,19 @@ export async function startBasicsGenerationAndPoll(
   settings: Settings,
   signal: AbortSignal,
   confirmStart: boolean,
-  onGenerationStatus: GenerationStatusListener
+  onGenerationStatus: GenerationStatusListener,
+  interactionId?: string
 ): Promise<GenerationPollResult> {
-  const generation = await requestGeneration(domain, settings, signal, "basics", confirmStart);
+  const generation = await requestGeneration(
+    domain,
+    settings,
+    signal,
+    "basics",
+    confirmStart,
+    false,
+    undefined,
+    interactionId
+  );
   onGenerationStatus(generation.status, { events: generation.events });
 
   if (generation.status === "cached") {
@@ -638,9 +659,19 @@ export async function startAnalysisGenerationAndPoll(
   latestCard: ColdStartCard,
   latestSections: ResearchSection[],
   onGenerationStatus: GenerationStatusListener,
-  forceRefresh = false
+  forceRefresh = false,
+  interactionId?: string
 ): Promise<GenerationPollResult> {
-  const generation = await requestGeneration(domain, settings, signal, "analysis", confirmStart, forceRefresh);
+  const generation = await requestGeneration(
+    domain,
+    settings,
+    signal,
+    "analysis",
+    confirmStart,
+    forceRefresh,
+    undefined,
+    interactionId
+  );
   onGenerationStatus(generation.status, { events: generation.events });
 
   if (generation.status === "cached") {
@@ -676,10 +707,20 @@ export async function startSectionGenerationAndPoll(
   sectionId: ResearchSectionId,
   latestCard: ColdStartCard,
   latestSections: ResearchSection[],
-  onGenerationStatus: GenerationStatusListener
+  onGenerationStatus: GenerationStatusListener,
+  interactionId?: string
 ): Promise<SectionGenerationPollResult> {
   const mode = modeForSection(sectionId);
-  const generation = await requestGeneration(domain, settings, signal, mode, true, false, sectionId);
+  const generation = await requestGeneration(
+    domain,
+    settings,
+    signal,
+    mode,
+    true,
+    false,
+    sectionId,
+    interactionId
+  );
   onGenerationStatus(generation.status, { events: generation.events });
 
   return pollSectionGenerationUntilSettled(domain, settings, signal, sectionId, latestCard, onGenerationStatus, latestSections);
