@@ -10,6 +10,7 @@ import {
   generateCardForDomain,
   generateCardForDomainWithTrace,
   type GenerateCardDeps,
+  synthesisEvidenceFingerprint,
   synthesizeCardDraft,
   verifyCardSynthesisDraft
 } from "../src/index";
@@ -1761,6 +1762,7 @@ describe("split synthesize/verify units", () => {
         produced: false,
         claimCountBeforeVerify: 0,
         claimCountAfterVerify: 0,
+        evidenceFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
         gateMessage: "insufficient evidence for synthesis",
         gate: {
           blocked: true,
@@ -1779,6 +1781,25 @@ describe("split synthesize/verify units", () => {
         citationCount: 3,
         sourceTypeCount: 2
       });
+      expect(outcome.tracePatch.synthesis?.evidenceFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it("fingerprints evidence content independent of collection order", async () => {
+      const citations: ExtractedCardSections["citations"] = [
+        { ...citation, id: "c1", url: "https://cartesia.ai", title: "Cartesia" },
+        { ...citation, id: "c2", url: "https://example.com/cartesia", title: "Cartesia profile", sourceType: "news" as const }
+      ];
+      const card = await assembledCard(citations);
+      const reordered = { ...card, citations: [...card.citations].reverse() };
+      const changed = {
+        ...card,
+        citations: card.citations.map((entry, index) =>
+          index === 0 ? { ...entry, title: "Changed evidence with the same count" } : entry
+        )
+      };
+
+      expect(synthesisEvidenceFingerprint(reordered)).toBe(synthesisEvidenceFingerprint(card));
+      expect(synthesisEvidenceFingerprint(changed)).not.toBe(synthesisEvidenceFingerprint(card));
     });
   });
 });

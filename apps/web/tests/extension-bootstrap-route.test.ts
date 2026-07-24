@@ -6,26 +6,32 @@ const mocks = vi.hoisted(() => {
 
   return {
     createDb: vi.fn(() => db),
+    deadGenerationRunTarget: vi.fn(() => null),
     db,
     findCardBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
+    findResearchRunEventsByRunId: vi.fn(),
     findResearchRunEventsBySlug: vi.fn(),
     findResearchSectionsBySlug: vi.fn(),
     findSourceSummariesBySlug: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
-    retireStaleResearchSections: vi.fn()
+    retireStaleResearchSections: vi.fn(),
+    retireGenerationRunById: vi.fn()
   };
 });
 
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
+  deadGenerationRunTarget: mocks.deadGenerationRunTarget,
   findCardBySlug: mocks.findCardBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
+  findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findResearchRunEventsBySlug: mocks.findResearchRunEventsBySlug,
   findResearchSectionsBySlug: mocks.findResearchSectionsBySlug,
   findSourceSummariesBySlug: mocks.findSourceSummariesBySlug,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns,
-  retireStaleResearchSections: mocks.retireStaleResearchSections
+  retireStaleResearchSections: mocks.retireStaleResearchSections,
+  retireGenerationRunById: mocks.retireGenerationRunById
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -63,16 +69,19 @@ describe("GET /api/extension/bootstrap", () => {
     mocks.createDb.mockClear();
     mocks.findCardBySlug.mockReset();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
+    mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsBySlug.mockReset();
     mocks.findResearchSectionsBySlug.mockReset();
     mocks.findSourceSummariesBySlug.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
     mocks.retireStaleResearchSections.mockReset();
     mocks.findResearchSectionsBySlug.mockResolvedValue([]);
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
     mocks.findResearchRunEventsBySlug.mockResolvedValue([]);
     mocks.findSourceSummariesBySlug.mockResolvedValue([]);
     mocks.retireStaleGenerationRuns.mockResolvedValue(0);
     mocks.retireStaleResearchSections.mockResolvedValue(0);
+    mocks.retireGenerationRunById.mockResolvedValue(null);
   });
 
   afterEach(() => {

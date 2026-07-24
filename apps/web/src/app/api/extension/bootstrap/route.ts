@@ -16,6 +16,7 @@ import { canonicalCompanyDomain } from "../../../../lib/domain";
 import { webEnv } from "../../../../lib/web-env";
 import { boundedErrorMessage } from "../../../../lib/errors";
 import { assertExtensionRequest } from "../../../../lib/extension-auth";
+import { retireDeadGenerationRun } from "../../../../lib/generation-run-watchdog";
 
 type GenerationMode = "basics" | "analysis";
 
@@ -134,6 +135,10 @@ export async function GET(request: Request) {
     findSourceSummariesBySlug(db, slug, { limit: 24 }),
     findResearchRunEventsBySlug(db, slug, { limit: 30 }).catch(() => [])
   ]);
+  const [settledBasics, settledAnalysis] = await Promise.all([
+    basicsRun ? retireDeadGenerationRun(db, basicsRun) : null,
+    analysisRun ? retireDeadGenerationRun(db, analysisRun) : null
+  ]);
   const sections = mergeStoredResearchSectionsWithLegacy({ card, storedSections });
   const sourceSummaries = mergeSourceSummaries(sources, citationSourceSummaries(card));
   const metrics: ServerTimingMetric[] = [
@@ -150,8 +155,8 @@ export async function GET(request: Request) {
       sources: sourceSummaries,
       events,
       runs: {
-        basics: basicsRun ? serializeRun(basicsRun) : idleRun(slug, domain, "basics"),
-        analysis: analysisRun ? serializeRun(analysisRun) : idleRun(slug, domain, "analysis")
+        basics: settledBasics ? serializeRun(settledBasics.run) : idleRun(slug, domain, "basics"),
+        analysis: settledAnalysis ? serializeRun(settledAnalysis.run) : idleRun(slug, domain, "analysis")
       }
     },
     metrics

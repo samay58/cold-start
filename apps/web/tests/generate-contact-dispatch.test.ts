@@ -128,9 +128,11 @@ const mocks = vi.hoisted(() => ({
   isCardSignalsFresh: vi.fn(),
   markGenerationRun: vi.fn(),
   markResearchSectionFailed: vi.fn(),
+  mutateCard: vi.fn(),
   recordResearchRunEvent: vi.fn(),
   recordCardEvidence: vi.fn(),
   recordSource: vi.fn(),
+  transitionGenerationRunById: vi.fn(),
   updateGenerationRunTrace: vi.fn(),
   upsertCard: vi.fn(),
   upsertResearchSection: vi.fn(),
@@ -159,9 +161,11 @@ vi.mock("@cold-start/db", () => ({
   isCardSignalsFresh: mocks.isCardSignalsFresh,
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
+  mutateCard: mocks.mutateCard,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
   recordCardEvidence: mocks.recordCardEvidence,
   recordSource: mocks.recordSource,
+  transitionGenerationRunById: mocks.transitionGenerationRunById,
   updateGenerationRunTrace: mocks.updateGenerationRunTrace,
   upsertCard: mocks.upsertCard,
   upsertResearchSection: mocks.upsertResearchSection,
@@ -314,6 +318,8 @@ describe("generate-card contact dispatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
+    mocks.mutateCard.mockResolvedValue(null);
+    mocks.transitionGenerationRunById.mockResolvedValue({ id: "generation-run-id" });
     mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.recordCardEvidence.mockResolvedValue(undefined);
@@ -638,10 +644,8 @@ describe("generate-card contact dispatch", () => {
       domain: "modal.com"
     }));
     expect(mocks.upsertResearchSections).toHaveBeenCalled();
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      slug: "modal",
-      mode: "basics",
-      jobKind: "basics",
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      id: "generation-run-id",
       status: "complete"
     }));
     expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
@@ -700,10 +704,8 @@ describe("generate-card contact dispatch", () => {
     await expect(runGeneration("true", {}, { domain: "modal.com", mode: "analysis", sectionId: "market" }))
       .rejects.toThrow("profile not found");
 
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      slug: "modal",
-      mode: "analysis",
-      jobKind: "section:market",
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      id: "generation-run-id",
       status: "failed",
       error: "profile not found"
     }));
@@ -775,10 +777,8 @@ describe("generate-card contact dispatch", () => {
 
     expect(mocks.synthesizeResearchSection).not.toHaveBeenCalled();
     expect(mocks.upsertResearchSection).toHaveBeenCalledWith(expect.anything(), section);
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      slug: "modal",
-      mode: "analysis",
-      jobKind: "section:market",
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      id: "generation-run-id",
       status: "complete",
       costUsd: 0.0195,
       traceJson: expect.objectContaining({
@@ -814,9 +814,9 @@ describe("generate-card contact dispatch", () => {
     const { names } = await runBasicsGeneration("true");
 
     expect(names).toContain("persist-generation-trace-before-complete");
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ slug: "modal", mode: "basics", status: "complete" })
+      expect.objectContaining({ id: "generation-run-id", status: "complete" })
     );
   });
 
@@ -828,9 +828,9 @@ describe("generate-card contact dispatch", () => {
 
     await expect(runBasicsGeneration("true")).rejects.toThrow("generation blew up");
 
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ slug: "modal", mode: "basics", status: "failed" })
+      expect.objectContaining({ id: "generation-run-id", status: "failed" })
     );
   });
 });
@@ -868,6 +868,7 @@ describe("card block enrichment worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findCardBySlug.mockResolvedValue(card);
+    mocks.mutateCard.mockResolvedValue(null);
     mocks.findSourcesBySlug.mockResolvedValue([{
       url: "https://modal.com",
       title: "Modal",

@@ -130,6 +130,7 @@ const mocks = vi.hoisted(() => ({
   findSourcesBySlug: vi.fn(),
   isCardSignalsFresh: vi.fn(),
   markGenerationRun: vi.fn(),
+  mutateCard: vi.fn(),
   markResearchSectionFailed: vi.fn(),
   recordResearchRunEvent: vi.fn(),
   recordCardEvidence: vi.fn(),
@@ -138,6 +139,7 @@ const mocks = vi.hoisted(() => ({
   upsertCard: vi.fn(),
   upsertResearchSection: vi.fn(),
   upsertResearchSections: vi.fn(),
+  transitionGenerationRunById: vi.fn(),
   agentcashWalletSnapshot: vi.fn(),
   generateCardForDomainWithTrace: vi.fn(),
   synthesizeCard: vi.fn(),
@@ -155,6 +157,7 @@ vi.mock("@cold-start/db", () => ({
   findSourcesBySlug: mocks.findSourcesBySlug,
   isCardSignalsFresh: mocks.isCardSignalsFresh,
   markGenerationRun: mocks.markGenerationRun,
+  mutateCard: mocks.mutateCard,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
   recordCardEvidence: mocks.recordCardEvidence,
@@ -162,7 +165,8 @@ vi.mock("@cold-start/db", () => ({
   updateGenerationRunTrace: mocks.updateGenerationRunTrace,
   upsertCard: mocks.upsertCard,
   upsertResearchSection: mocks.upsertResearchSection,
-  upsertResearchSections: mocks.upsertResearchSections
+  upsertResearchSections: mocks.upsertResearchSections,
+  transitionGenerationRunById: mocks.transitionGenerationRunById
 }));
 
 vi.mock("@cold-start/providers", () => ({
@@ -292,6 +296,8 @@ describe("generate-card analysis synthesize/verify steps", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
+    mocks.mutateCard.mockResolvedValue(null);
+    mocks.transitionGenerationRunById.mockResolvedValue({ id: "generation-run-id" });
     mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.recordCardEvidence.mockResolvedValue(undefined);
@@ -508,11 +514,11 @@ describe("generate-card analysis synthesize/verify steps", () => {
 
     await runAnalysisGeneration();
 
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "complete" })
     );
-    expect(mocks.markGenerationRun).not.toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).not.toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "failed" })
     );
@@ -529,6 +535,7 @@ describe("generate-card analysis synthesize/verify steps", () => {
     // analysisReadyMs. Only the no-store preserve paths (b, c below) leave it unstamped.
     const trace = persistedTrace();
     expect(trace.milestones?.analysisReadyMs).toEqual(expect.any(Number));
+    expect(trace.synthesis?.evidenceFingerprint).toMatch(/^[a-f0-9]{64}$/);
 
     const types = eventTypes();
     // verify-synthesis really ran and returned (0 survivors), so verify.complete still fires.
@@ -557,7 +564,7 @@ describe("generate-card analysis synthesize/verify steps", () => {
     await runAnalysisGeneration();
 
     expect(mocks.upsertCard).not.toHaveBeenCalled();
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "complete" })
     );
@@ -597,7 +604,7 @@ describe("generate-card analysis synthesize/verify steps", () => {
     expect(mocks.synthesizeCard).not.toHaveBeenCalled();
     expect(mocks.verifySynthesis).not.toHaveBeenCalled();
     expect(mocks.upsertCard).not.toHaveBeenCalled();
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "complete" })
     );
@@ -621,7 +628,7 @@ describe("generate-card analysis synthesize/verify steps", () => {
 
     expect(mocks.verifySynthesis).not.toHaveBeenCalled();
     expect(mocks.upsertCard).not.toHaveBeenCalled();
-    expect(mocks.markGenerationRun).toHaveBeenCalledWith(
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "failed" })
     );

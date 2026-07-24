@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import {
   coldStartCardObjectSchema,
@@ -248,4 +248,48 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
   }
 
   return row;
+}
+
+export async function mutateCard(
+  db: ColdStartDb,
+  slug: string,
+  mutate: (current: ColdStartCard) => ColdStartCard,
+  maxAttempts = 4
+) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const [existing] = await db
+      .select({ cardJson: cards.cardJson, updatedAt: cards.updatedAt })
+      .from(cards)
+      .where(eq(cards.slug, slug))
+      .limit(1);
+    if (!existing) {
+      return null;
+    }
+
+    const next = coldStartCardSchema.parse(mutate(coldStartCardSchema.parse(existing.cardJson)));
+    const cardToStore = next.cacheStatus === "stale" ? { ...next, cacheStatus: "hit" as const } : next;
+    const now = new Date();
+    const expiresAt = cardExpiryDates(now);
+    const hasSynthesis = Boolean(cardToStore.synthesis);
+    const [row] = await db
+      .update(cards)
+      .set({
+        cardJson: cardToStore,
+        cacheStatus: cardToStore.cacheStatus === "stale" ? "hit" : cardToStore.cacheStatus,
+        generationCostUsd: String(cardToStore.generationCostUsd),
+        generatedAt: new Date(cardToStore.generatedAt),
+        identityExpiresAt: expiresAt.identityExpiresAt,
+        signalsExpiresAt: expiresAt.signalsExpiresAt,
+        ...(hasSynthesis ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
+        updatedAt: now
+      })
+      .where(and(eq(cards.slug, slug), eq(cards.updatedAt, existing.updatedAt)))
+      .returning();
+
+    if (row) {
+      return { card: cardToStore, row };
+    }
+  }
+
+  throw new Error(`Failed to update card for ${slug} after concurrent writes`);
 }

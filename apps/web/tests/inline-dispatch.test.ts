@@ -104,7 +104,13 @@ describe("startInlineGeneration", () => {
   it("invokes the generate-card handler immediately and keeps the invocation alive via after", async () => {
     mocks.generateCardHandler.mockResolvedValue({ slug: "cartesia", mode: "basics" });
 
-    startInlineGeneration({ domain: "cartesia.ai", slug: "cartesia", mode: "basics", requestedAtMs: 1_753_000_000_000 });
+    startInlineGeneration({
+      domain: "cartesia.ai",
+      generationRunId: "run-db-1",
+      slug: "cartesia",
+      mode: "basics",
+      requestedAtMs: 1_753_000_000_000
+    });
 
     expect(mocks.generateCardHandler).toHaveBeenCalledTimes(1);
     const context = mocks.generateCardHandler.mock.calls[0]![0] as {
@@ -114,6 +120,7 @@ describe("startInlineGeneration", () => {
     };
     expect(context.event.data).toEqual({
       domain: "cartesia.ai",
+      generationRunId: "run-db-1",
       slug: "cartesia",
       mode: "basics",
       requestedAtMs: 1_753_000_000_000
@@ -131,7 +138,13 @@ describe("startInlineGeneration", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.generateCardHandler.mockRejectedValue(new Error("run failed"));
 
-    startInlineGeneration({ domain: "tenex.com", slug: "tenex", mode: "analysis", requestedAtMs: 1 });
+    startInlineGeneration({
+      domain: "tenex.com",
+      generationRunId: "run-db-2",
+      slug: "tenex",
+      mode: "analysis",
+      requestedAtMs: 1
+    });
 
     await expect(mocks.after.mock.calls[0]![0]).resolves.toBeUndefined();
     expect(consoleError).toHaveBeenCalled();

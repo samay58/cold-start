@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   clusterSignals,
   type ColdStartCard,
@@ -106,7 +108,40 @@ function traceGateFromDecision(decision: SynthesisGateDecision) {
   };
 }
 
-function synthesisWithheldFromGate(gate: ReturnType<typeof traceGateFromDecision>): SynthesisWithheld {
+function stableEvidenceValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .map(stableEvidenceValue)
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stableEvidenceValue(child)])
+    );
+  }
+  return value;
+}
+
+export function synthesisEvidenceFingerprint(card: ColdStartCard) {
+  const {
+    cacheStatus: _cacheStatus,
+    generatedAt: _generatedAt,
+    generationCostUsd: _generationCostUsd,
+    synthesis: _synthesis,
+    synthesisWithheld: _synthesisWithheld,
+    ...evidence
+  } = card;
+  return createHash("sha256")
+    .update(JSON.stringify(stableEvidenceValue(evidence)))
+    .digest("hex");
+}
+
+function synthesisWithheldFromGate(
+  card: ColdStartCard,
+  gate: ReturnType<typeof traceGateFromDecision>
+): SynthesisWithheld {
   return {
     at: new Date().toISOString(),
     reasons: gate.reasons,
@@ -170,12 +205,13 @@ export function evaluateSynthesisGate(
         produced: false,
         claimCountBeforeVerify: 0,
         claimCountAfterVerify: 0,
+        evidenceFingerprint: synthesisEvidenceFingerprint(card),
         gateMessage: gateEvaluation.message,
         ...(gateEvaluation.gate ? { gate: gateEvaluation.gate } : {})
       }
     };
     const nextCard = gateEvaluation.gate
-      ? { ...card, synthesisWithheld: synthesisWithheldFromGate(gateEvaluation.gate) }
+      ? { ...card, synthesisWithheld: synthesisWithheldFromGate(card, gateEvaluation.gate) }
       : card;
     return {
       blocked: true,

@@ -9,7 +9,14 @@ import {
   type ResearchSection,
   type ResearchSectionId
 } from "@cold-start/core";
-import { findCardBySlug, findSourcesBySlug, markGenerationRun, upsertResearchSection, type ColdStartDb } from "@cold-start/db";
+import {
+  findCardBySlug,
+  findSourcesBySlug,
+  markGenerationRun,
+  transitionGenerationRunById,
+  upsertResearchSection,
+  type ColdStartDb
+} from "@cold-start/db";
 import {
   createAnthropicClient,
   isTransientLlmError,
@@ -274,17 +281,27 @@ export async function runResearchSectionJobStep(input: {
     sectionId
   );
   await step.run("mark-section-generation-complete", () =>
-    markGenerationRun(db, {
-      slug,
-      domain,
-      mode,
-      jobKind,
-      status: "complete",
-      costUsd: generationRunAnthropicCostUsd(trace),
-      traceJson: trace,
-      ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-      ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-    })
+    generationRunDbId
+      ? transitionGenerationRunById(db, {
+          id: generationRunDbId,
+          from: ["queued", "running"],
+          status: "complete",
+          costUsd: generationRunAnthropicCostUsd(trace),
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
+      : markGenerationRun(db, {
+          slug,
+          domain,
+          mode,
+          jobKind,
+          status: "complete",
+          costUsd: generationRunAnthropicCostUsd(trace),
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
   );
 
   return { slug, mode, sectionId: sectionId };

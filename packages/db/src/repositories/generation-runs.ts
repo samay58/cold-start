@@ -376,6 +376,37 @@ export async function retireGenerationRunById(
   return row ?? null;
 }
 
+export async function transitionGenerationRunById(
+  db: ColdStartDb,
+  input: {
+    id: string;
+    from: ActiveGenerationStatus[];
+    status: GenerationStatus;
+    error?: string;
+    costUsd?: number;
+    traceJson?: GenerationTrace;
+    inngestEventId?: string;
+    inngestRunId?: string;
+  }
+) {
+  const values = {
+    status: input.status,
+    ...(input.error !== undefined ? { error: input.error } : {}),
+    ...(input.costUsd !== undefined ? { costUsd: String(input.costUsd) } : {}),
+    ...(input.traceJson !== undefined ? { traceJson: input.traceJson } : {}),
+    ...(input.inngestEventId !== undefined ? { inngestEventId: input.inngestEventId } : {}),
+    ...(input.inngestRunId !== undefined ? { inngestRunId: input.inngestRunId } : {}),
+    ...(input.status === "complete" || input.status === "failed" ? { completedAt: new Date() } : {})
+  };
+  const [row] = await db
+    .update(generationRuns)
+    .set(values)
+    .where(and(eq(generationRuns.id, input.id), inArray(generationRuns.status, input.from)))
+    .returning();
+
+  return row ?? null;
+}
+
 export async function markGenerationRun(
   db: ColdStartDb,
   input: {

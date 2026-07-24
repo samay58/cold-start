@@ -17,8 +17,10 @@ import {
   isCardSignalsFresh,
   markGenerationRun,
   markResearchSectionFailed,
+  mutateCard,
   recordResearchRunEvent,
   recordCardEvidence,
+  transitionGenerationRunById,
   updateGenerationRunTrace,
   upsertCard,
   upsertResearchSections
@@ -41,6 +43,7 @@ import {
   evaluateSynthesisGate,
   generateCardForDomainWithTrace,
   applyProviderFactCandidates,
+  synthesisEvidenceFingerprint,
   withheldCardForNoSurvivors,
   type EvidenceLedgerEntry,
   type ExtractedCardSections
@@ -113,6 +116,10 @@ import {
   stableenrichLateEnrichmentSkipsForBlocks
 } from "./source-fetching";
 
+function analysisStateSignature(card: ColdStartCard | null) {
+  return JSON.stringify(card?.synthesis ?? card?.synthesisWithheld);
+}
+
 export const generateCardHandler = async ({ event, runId, step }: WorkerEventContext) => {
   const runtimeEnv = webEnv();
   const { DATABASE_URL } = runtimeEnv;
@@ -170,20 +177,36 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
   }
 
   let generationRunDbId: string | null = null;
+  const requestedGenerationRunId =
+    typeof event.data.generationRunId === "string" && event.data.generationRunId.trim()
+      ? event.data.generationRunId.trim()
+      : null;
   const walletSnapshotBefore = await step.run("wallet-snapshot-before", () => safeAgentcashWalletSnapshot());
   applyStableenrichWalletTrace(trace, walletSnapshotBefore);
   const runningGenerationRun = await step.run("mark-generation-running", () =>
-    markGenerationRun(db, {
-      slug,
-      domain,
-      mode,
-      jobKind,
-      status: "running",
-      traceJson: trace,
-      ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-      ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-    })
+    requestedGenerationRunId
+      ? transitionGenerationRunById(db, {
+          id: requestedGenerationRunId,
+          from: ["queued"],
+          status: "running",
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
+      : markGenerationRun(db, {
+          slug,
+          domain,
+          mode,
+          jobKind,
+          status: "running",
+          traceJson: trace,
+          ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+          ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+        })
   );
+  if (requestedGenerationRunId && !runningGenerationRun) {
+    throw new Error("generation run is no longer active");
+  }
   generationRunDbId = runningGenerationRun?.id ?? null;
 
   currentStage = "plan-research";
@@ -208,6 +231,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     );
 
   let contactEnrichmentRequested = false;
+  let analysisStateAtRunStart: string | undefined;
   const requestContactEnrichmentForStoredCard = async (card: ColdStartCard, trigger: string) => {
     if (contactEnrichmentRequested) {
       return;
@@ -262,28 +286,39 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     event: { stepId: string; type: "card.partial" | "card.saved" | "card.enriched"; message: string; metadata?: Record<string, unknown> };
     skipNoteId: string;
     contactTrigger: string | null;
-  }): Promise<{ milestoneMs: number } | null> => {
+  }): Promise<{ card: ColdStartCard; milestoneMs: number } | null> => {
     if (!canStoreCardSnapshot(mode, input.cardToStore)) {
       noteSkippedUnderfilledSnapshot(trace, input.skipNoteId, input.cardToStore);
       return null;
     }
-    const stored = await step.run(input.steps.upsert, async () => ({
-      row: await upsertCard(db, input.cardToStore),
-      milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-    }));
+    const stored = await step.run(input.steps.upsert, async () => {
+      const mutated = await mutateCard(
+        db,
+        input.cardToStore.slug,
+        (current) => prepareCardSnapshotForStorage(mode, current, input.cardToStore, {
+          preserveAnalysis: mode === "analysis"
+            || analysisStateSignature(current) !== analysisStateAtRunStart
+        })
+      );
+      return {
+        card: mutated?.card ?? input.cardToStore,
+        row: mutated?.row ?? await upsertCard(db, input.cardToStore),
+        milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+      };
+    });
     const rowId = stored.row.id;
-    await step.run(input.steps.evidence, () => recordCardEvidence(db, rowId, input.cardToStore));
-    await step.run(input.steps.sections, () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(input.cardToStore)));
+    await step.run(input.steps.evidence, () => recordCardEvidence(db, rowId, stored.card));
+    await step.run(input.steps.sections, () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(stored.card)));
     await step.run(input.steps.sources, () => recordSourcesForCard(db, rowId, input.sources));
     await recordEvent(input.event.stepId, input.event.type, input.event.message, {
-      citationCount: input.cardToStore.citations.length,
+      citationCount: stored.card.citations.length,
       sourceCount: input.sources.length,
       ...(input.event.metadata ?? {})
     }, null);
     if (input.contactTrigger) {
-      await requestContactEnrichmentForStoredCard(input.cardToStore, input.contactTrigger);
+      await requestContactEnrichmentForStoredCard(stored.card, input.contactTrigger);
     }
-    return { milestoneMs: stored.milestoneMs };
+    return { card: stored.card, milestoneMs: stored.milestoneMs };
   };
 
   await recordEvent(
@@ -344,6 +379,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       queryCount: Object.keys(researchPlan.searchQueries).length
     }, null);
     const existingCard = await step.run("load-existing-card", () => findCardBySlug(db, slug, { allowStale: true }));
+    analysisStateAtRunStart = analysisStateSignature(existingCard);
     const reuseExistingForAnalysis = mode === "analysis" && existingCard !== null && hasInvestorUsableProfile(existingCard);
     // Never replace a filed read with nothing (issue #10): a gate block or an all-claims-dropped
     // verify result must not overwrite a card that already carries a good synthesis read. Read
@@ -758,6 +794,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           // so the extension renders it as a withheld read and the route's free pre-check can
           // answer a re-click for free once the evidence stops moving.
           generatedCard = withheldCardForNoSurvivors(generatedCard);
+          if (trace.synthesis) {
+            trace.synthesis.evidenceFingerprint = synthesisEvidenceFingerprint(generatedCard);
+          }
         }
       }
 
@@ -781,6 +820,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       contactTrigger: null
     });
     if (generatedStore) {
+      cardToStore = generatedStore.card;
       if (mode === "basics") {
         firstUsableStored = true;
         writeGenerationMilestoneValue(trace, "firstUsableCardMs", generatedStore.milestoneMs);
@@ -943,6 +983,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           contactTrigger: "enriched-card"
         });
         if (enrichedStore) {
+          cardToStore = enrichedStore.card;
           writeGenerationMilestoneValue(trace, "firstUsableCardMs", enrichedStore.milestoneMs);
         }
       }
@@ -969,17 +1010,26 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     }
     const finalGenerationCostUsd = generationRunAnthropicCostUsd(trace, cardToStore.generationCostUsd);
     await step.run("mark-generation-complete", () =>
-      markGenerationRun(db, {
-        slug,
-        domain,
-        mode,
-        jobKind,
-        status: "complete",
-        costUsd: finalGenerationCostUsd,
-        ...(generationRunDbId ? {} : { traceJson: trace }),
-        ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-        ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-      })
+      generationRunDbId
+        ? transitionGenerationRunById(db, {
+            id: generationRunDbId,
+            from: ["queued", "running"],
+            status: "complete",
+            costUsd: finalGenerationCostUsd,
+            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+          })
+        : markGenerationRun(db, {
+            slug,
+            domain,
+            mode,
+            jobKind,
+            status: "complete",
+            costUsd: finalGenerationCostUsd,
+            traceJson: trace,
+            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+          })
     );
     await recordEvent("generation-complete", "generation.complete", "Research run complete", {
       costUsd: finalGenerationCostUsd,
@@ -1009,17 +1059,26 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       );
     }
     await step.run("mark-generation-failed", () =>
-      markGenerationRun(db, {
-        slug,
-        domain,
-        mode,
-        jobKind,
-        status: "failed",
-        error: boundedErrorMessage(error),
-        ...(generationRunDbId ? {} : { traceJson: trace }),
-        ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
-        ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-      })
+      generationRunDbId
+        ? transitionGenerationRunById(db, {
+            id: generationRunDbId,
+            from: ["queued", "running"],
+            status: "failed",
+            error: boundedErrorMessage(error),
+            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+          })
+        : markGenerationRun(db, {
+            slug,
+            domain,
+            mode,
+            jobKind,
+            status: "failed",
+            error: boundedErrorMessage(error),
+            traceJson: trace,
+            ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
+            ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
+          })
     );
     if (requestedSectionId) {
       await step.run("mark-research-section-failed", () =>

@@ -39,6 +39,7 @@ export function createInlineStepTools(): GenerationStepTools {
 
 export function startInlineGeneration(input: {
   domain: string;
+  generationRunId: string;
   slug: string;
   mode: "basics" | "analysis";
   requestedAtMs: number;
@@ -50,6 +51,7 @@ export function startInlineGeneration(input: {
       ts: input.requestedAtMs,
       data: {
         domain: input.domain,
+        generationRunId: input.generationRunId,
         slug: input.slug,
         mode: input.mode,
         requestedAtMs: input.requestedAtMs

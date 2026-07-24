@@ -23,6 +23,7 @@ import {
   latestProviderFailureSummary,
   listPublicCardSummaries,
   markGenerationRun,
+  mutateCard,
   recordResearchRunEvent,
   recordCardEvidence,
   recordSource,
@@ -30,6 +31,7 @@ import {
   generationRunDeadAfterMs,
   retireGenerationRunById,
   retireStaleGenerationRuns,
+  transitionGenerationRunById,
   updateGenerationRunTrace,
   upsertCard
 } from "../src/index";
@@ -407,6 +409,49 @@ describe("upsertCard", () => {
     const insertedSynthesisExpiresAt = (insertValues?.synthesisExpiresAt as Date).getTime();
     expect(insertedSynthesisExpiresAt).toBeGreaterThanOrEqual(before);
     expect(insertedSynthesisExpiresAt).toBeLessThanOrEqual(after);
+  });
+});
+
+describe("mutateCard", () => {
+  it("recomputes from the concurrent winner after an optimistic conflict", async () => {
+    let current = structuredClone(card);
+    let updatedAt = new Date("2026-05-06T12:00:00.000Z");
+    let updateAttempts = 0;
+    const mutate = vi.fn((value: ColdStartCard) => ({
+      ...value,
+      generationCostUsd: value.generationCostUsd + 1
+    }));
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ cardJson: current, updatedAt }]
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: { cardJson: ColdStartCard }) => ({
+          where: () => ({
+            returning: async () => {
+              updateAttempts += 1;
+              if (updateAttempts === 1) {
+                current = { ...current, generationCostUsd: 9 };
+                updatedAt = new Date("2026-05-06T12:01:00.000Z");
+                return [];
+              }
+              current = values.cardJson;
+              return [{ id: "card-id", cardJson: current }];
+            }
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    const result = await mutateCard(db, card.slug, mutate);
+
+    expect(mutate).toHaveBeenCalledTimes(2);
+    expect(result?.card.generationCostUsd).toBe(10);
+    expect(current.generationCostUsd).toBe(10);
   });
 });
 
@@ -921,6 +966,58 @@ describe("retireGenerationRunById", () => {
 
     expect(retired).toBeNull();
     expect(rows[0]).toMatchObject({ status: "complete" });
+  });
+});
+
+describe("transitionGenerationRunById", () => {
+  it("prevents a retired executor from completing its replacement run", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+    const first = await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(first).toBeDefined();
+    if (!first) {
+      throw new Error("expected first generation run");
+    }
+    await transitionGenerationRunById(db, { id: first.id, from: ["queued"], status: "running" });
+    await retireGenerationRunById(db, { id: first.id, target: "failed" });
+    const replacement = await markGenerationRun(db, {
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "queued"
+    });
+    expect(replacement).toBeDefined();
+    if (!replacement) {
+      throw new Error("expected replacement generation run");
+    }
+
+    await expect(
+      transitionGenerationRunById(db, {
+        id: first.id,
+        from: ["queued", "running"],
+        status: "complete",
+        costUsd: 9
+      })
+    ).resolves.toBeNull();
+    expect(rows.find((row) => row.id === replacement.id)).toMatchObject({ status: "queued" });
+
+    await transitionGenerationRunById(db, { id: replacement.id, from: ["queued"], status: "running" });
+    await transitionGenerationRunById(db, {
+      id: replacement.id,
+      from: ["running"],
+      status: "complete",
+      costUsd: 2
+    });
+    expect(rows.find((row) => row.id === replacement.id)).toMatchObject({
+      status: "complete",
+      costUsd: "2"
+    });
   });
 });
 

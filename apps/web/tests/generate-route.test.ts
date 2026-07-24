@@ -1,4 +1,5 @@
 import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from "@cold-start/core";
+import { synthesisEvidenceFingerprint } from "@cold-start/pipeline";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -8,6 +9,7 @@ const mocks = vi.hoisted(() => {
     db,
     createDb: vi.fn(() => db),
     findActiveGenerationRunStatusBySlug: vi.fn(),
+    findLatestGenerationRunBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
     findCardBySlug: vi.fn(),
@@ -29,6 +31,7 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   deadGenerationRunTarget: (await importOriginal<typeof import("@cold-start/db")>()).deadGenerationRunTarget,
   createDb: mocks.createDb,
   findActiveGenerationRunStatusBySlug: mocks.findActiveGenerationRunStatusBySlug,
+  findLatestGenerationRunBySlug: mocks.findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findCardBySlug: mocks.findCardBySlug,
@@ -187,9 +190,12 @@ function withheldCard(overrides: {
   reasons?: string[];
 } = {}) {
   const base = usablePublicCard();
-  return {
+  const card = {
     ...base,
-    citations: overrides.extraCitations ? [...base.citations, ...overrides.extraCitations] : base.citations,
+    citations: overrides.extraCitations ? [...base.citations, ...overrides.extraCitations] : base.citations
+  };
+  return {
+    ...card,
     synthesisWithheld: {
       at: overrides.synthesisWithheldAt ?? "2026-05-14T00:00:00.000Z",
       reasons: overrides.reasons ?? ["insufficient-citations"],
@@ -214,6 +220,20 @@ describe("POST /api/generate", () => {
     mocks.retireGenerationRunById.mockResolvedValue(null);
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunStatusBySlug.mockReset();
+    mocks.findLatestGenerationRunBySlug.mockReset();
+    mocks.findLatestGenerationRunBySlug.mockResolvedValue({
+      traceJson: {
+        jobKind: "analysis",
+        mode: "analysis",
+        synthesis: {
+          required: true,
+          produced: false,
+          claimCountBeforeVerify: 0,
+          claimCountAfterVerify: 0,
+          evidenceFingerprint: synthesisEvidenceFingerprint(usablePublicCard())
+        }
+      }
+    });
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
@@ -304,6 +324,7 @@ describe("POST /api/generate", () => {
       ts: expect.any(Number),
       data: {
         domain: "cartesia.ai",
+        generationRunId: "run-id",
         slug: "cartesia",
         mode: "basics",
         requestedAtMs: expect.any(Number)
@@ -434,6 +455,31 @@ describe("POST /api/generate", () => {
     expect(mocks.send).toHaveBeenCalled();
   });
 
+  it("queues when evidence content changes without changing its counts", async () => {
+    const changedCard = withheldCard();
+    changedCard.citations[1] = {
+      ...changedCard.citations[1]!,
+      url: "https://example.com/materially-new-report",
+      title: "Materially new independent report"
+    };
+    mocks.findCardBySlug.mockResolvedValue(changedCard);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", { mode: "analysis", confirmStart: true, extensionAuth: true })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({
+      slug: "cartesia",
+      status: "queued",
+      mode: "analysis"
+    });
+    expect(response.status).toBe(202);
+    expect(mocks.markGenerationRun).toHaveBeenCalled();
+  });
+
   it("queues when only the recorded source-type count differs from the card's live citations", async () => {
     // citationCount still matches (3 == 3); only sourceTypeCount is stale (1 vs. the live 3).
     // Either count alone diverging must be treated as evidence having moved.
@@ -562,6 +608,7 @@ describe("POST /api/generate", () => {
       ts: expect.any(Number),
       data: {
         domain: "cartesia.ai",
+        generationRunId: "run-id",
         slug: "cartesia",
         mode: "analysis",
         sectionId: "market",
@@ -928,6 +975,7 @@ describe("POST /api/generate", () => {
       ts: expect.any(Number),
       data: {
         domain: "cartesia.ai",
+        generationRunId: "run-id",
         slug: "cartesia",
         mode: "basics",
         requestedAtMs: expect.any(Number)
@@ -1170,6 +1218,7 @@ describe("POST /api/generate", () => {
     expect(response.status).toBe(202);
     expect(mocks.startInlineGeneration).toHaveBeenCalledWith({
       domain: "cartesia.ai",
+      generationRunId: "run-id",
       slug: "cartesia",
       mode: "basics",
       requestedAtMs: Date.parse("2026-07-23T15:00:00.000Z")
@@ -1512,6 +1561,55 @@ describe("GET /api/generate", () => {
       jobKind: "basics"
     });
     expect(mocks.findLatestGenerationRunStatusBySlug).toHaveBeenCalledWith(mocks.db, "cartesia", "basics", "basics");
+  });
+
+  it("retires a six-minute silent run while serving status GET", async () => {
+    const startedAt = new Date(Date.now() - 6 * 60_000);
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
+      id: "silent-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "running",
+      startedAt
+    });
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([
+      {
+        id: "event-1",
+        runId: "silent-run",
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: null,
+        type: "generation.started",
+        message: "Started investor analysis",
+        metadata: {},
+        createdAt: startedAt.toISOString()
+      }
+    ]);
+    mocks.retireGenerationRunById.mockResolvedValue({
+      id: "silent-run",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "analysis",
+      jobKind: "analysis",
+      status: "failed",
+      error: "generation run went silent; retired by the request watchdog",
+      startedAt,
+      completedAt: new Date()
+    });
+
+    const response = await GET(statusRequest("cartesia.ai", "analysis"));
+
+    await expect(response.json()).resolves.toMatchObject({
+      runId: "silent-run",
+      status: "failed",
+      error: "generation run went silent; retired by the request watchdog"
+    });
+    expect(mocks.retireGenerationRunById).toHaveBeenCalledWith(mocks.db, {
+      id: "silent-run",
+      target: "failed"
+    });
   });
 
   it("reports idle when no generation run exists", async () => {

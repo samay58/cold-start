@@ -174,7 +174,7 @@ The LLM is asked for three bull and three bear claims, but storage is stricter t
 | DB | Neon Postgres + pgvector | Free tier covers v0; pgvector for fuzzy company matching across slugs |
 | Cache | Postgres `cards` table with TTLs per section | Identity 7d, signals 6h, synthesis 24h |
 | Object store | Cloudflare R2 | OG images for X previews; egress-free |
-| Background jobs | Inngest | Step functions map to the card pipeline; 60-90s deep generations cannot run in a request handler |
+| Generation jobs | Retained inline execution for profile runs; Inngest for sections and enrichment | User-facing basics and analysis start inside the route invocation and stay alive through Next `after`; durable background work remains on Inngest |
 | LLM | Claude Sonnet 4.6 (Anthropic direct) | Single model for extraction + synthesis in v0; prompt caching reduces repeated system-prompt cost, up to ~90% at steady traffic |
 | Extension | MV3 + Side Panel API + Vite + CRXJS + React + Tailwind + shadcn | Standard 2026 stack; side panel persists across navigation |
 

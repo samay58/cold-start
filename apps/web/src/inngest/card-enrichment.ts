@@ -8,6 +8,7 @@ import {
   createDb,
   findCardBySlug,
   findSourcesBySlug,
+  mutateCard,
   recordCardEvidence,
   recordResearchRunEvent,
   updateGenerationRunTrace,
@@ -303,10 +304,22 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     // is not clobbered; contact enrichment is dispatched only after this store, but the re-read keeps
     // the write order-independent.
     const enrichedCard = cardWithExtractedSections(existingCard, enrichedValue.sections);
-    const cardToStore = prepareCardForStorage("basics", existingCard, enrichedCard);
+    let cardToStore = prepareCardForStorage("basics", existingCard, enrichedCard);
     assertTerminalCardQuality("basics", cardToStore);
     if (canStoreCardSnapshot("basics", cardToStore)) {
-      const stored = await step.run("upsert-enriched-card", () => upsertCard(db, cardToStore));
+      const storedResult = await step.run("upsert-enriched-card", async () => {
+        const mutated = await mutateCard(db, slug, (current) =>
+          prepareCardForStorage(
+            "basics",
+            current,
+            cardWithExtractedSections(current, enrichedValue.sections),
+            { preferExisting: true, preserveAnalysis: true }
+          )
+        );
+        return mutated ?? { card: cardToStore, row: await upsertCard(db, cardToStore) };
+      });
+      cardToStore = storedResult.card;
+      const stored = storedResult.row;
       await step.run("record-enriched-card-evidence", () => recordCardEvidence(db, stored.id, cardToStore));
       await step.run("record-enriched-research-sections", () => upsertResearchSections(db, deriveLegacyResearchSectionsFromCard(cardToStore)));
       await step.run("record-enriched-sources", () =>

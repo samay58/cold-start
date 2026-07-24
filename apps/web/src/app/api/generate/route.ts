@@ -11,11 +11,12 @@ import {
   type GenerationJobKind,
   type ResearchSectionId
 } from "@cold-start/core";
+import { synthesisEvidenceFingerprint } from "@cold-start/pipeline";
 import {
   createDb,
-  deadGenerationRunTarget,
   findActiveGenerationRunStatusBySlug,
   findCardBySlug,
+  findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   findResearchRunEventsByRunId,
@@ -23,7 +24,6 @@ import {
   markResearchSectionFailed,
   markResearchSectionRunning,
   recordResearchRunEvent,
-  retireGenerationRunById,
   retireStaleGenerationRuns,
   type ColdStartDb,
   type GenerationRunStatusSummary,
@@ -33,6 +33,7 @@ import { inngest } from "../../../inngest/client";
 import { startInlineGeneration } from "../../../inngest/inline-dispatch";
 import { generationDispatchModeFromProcess } from "../../../inngest/worker-env";
 import { boundedErrorMessage } from "../../../lib/errors";
+import { retireDeadGenerationRun } from "../../../lib/generation-run-watchdog";
 import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/web-env";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-response";
@@ -209,17 +210,21 @@ export async function GET(request: Request) {
   const db = createDb(webEnv().DATABASE_URL);
   await retireStaleGenerationRuns(db, { slug, mode, jobKind });
   const latestRun = await findLatestGenerationRunStatusBySlug(db, slug, mode, jobKind);
+
+  if (!latestRun) {
+    const metrics: ServerTimingMetric[] = [
+      { name: "db", durationMs: elapsedMs(dbStartedAt) },
+      { name: "total", durationMs: elapsedMs(startedAt) }
+    ];
+    return apiJsonWithTiming(serializeGenerationRun({ slug, domain, mode, status: "idle" }), metrics, { status: 200 });
+  }
+
+  const settled = await retireDeadGenerationRun(db, latestRun);
   const metrics: ServerTimingMetric[] = [
     { name: "db", durationMs: elapsedMs(dbStartedAt) },
     { name: "total", durationMs: elapsedMs(startedAt) }
   ];
-
-  if (!latestRun) {
-    return apiJsonWithTiming(serializeGenerationRun({ slug, domain, mode, status: "idle" }), metrics, { status: 200 });
-  }
-
-  const events = latestRun.id ? await findResearchRunEventsByRunId(db, latestRun.id, { limit: 12 }).catch(() => []) : [];
-  return apiJsonWithTiming(serializeGenerationRun({ ...latestRun, events }), metrics, { status: 200 });
+  return apiJsonWithTiming(serializeGenerationRun({ ...settled.run, events: settled.events }), metrics, { status: 200 });
 }
 
 export async function POST(request: Request) {
@@ -282,7 +287,7 @@ export async function POST(request: Request) {
   // allowStale: an analysis existence check must not run the TTL-freshness gate, or a card whose
   // TTL lapsed reads as absent and 404s instead of queueing a refresh (the stale-TTL dead end).
   const cached = mode === "analysis" ? await findCardBySlug(db, slug, { allowStale: true }) : await findPublicCardBySlug(db, slug);
-  const cacheLookupMs = elapsedMs(dbStartedAt);
+  let cacheLookupMs = elapsedMs(dbStartedAt);
 
   if (mode === "analysis" && !cached) {
     return timedJson({ error: "profile not found" }, { status: 404 }, [{ name: "db", durationMs: cacheLookupMs }]);
@@ -311,16 +316,20 @@ export async function POST(request: Request) {
   // duplicate of a run that will just re-hit the same gate is structurally impossible.
   // forceRefresh always bypasses it. Only the analysis branch's fetch (findCardBySlug) can ever
   // carry synthesisWithheld; the basics branch's PublicCard type structurally omits it.
-  // The comparison is evidence-content-based (citation count plus non-enrichment source-type
-  // count), not timestamp-based: synthesisWithheld.at is stamped mid-pipeline during card
-  // assembly, before upsertCard sets cards.updated_at at persist time, so updated_at is always
-  // later than at in production and a `updated_at <= at` comparison can never pass.
+  // The comparison is evidence-content-based, not timestamp-based. The prior run keeps the
+  // fingerprint in internal trace telemetry so this does not widen the card or API contract.
   const analysisCard = mode === "analysis" ? (cached as ColdStartCard | null) : null;
   const withheldRecord = analysisCard?.synthesisWithheld;
 
   if (!sectionId && mode === "analysis" && !forceRefresh && analysisCard && withheldRecord) {
+    const traceLookupStartedAt = performance.now();
+    const previousRun = await findLatestGenerationRunBySlug(db, slug, "analysis", "analysis");
+    cacheLookupMs += elapsedMs(traceLookupStartedAt);
+    const evidenceFingerprint = previousRun?.traceJson?.synthesis?.evidenceFingerprint;
     const liveSignals = synthesisEvidenceSignals(analysisCard);
     const evidenceUnchanged =
+      evidenceFingerprint !== undefined &&
+      synthesisEvidenceFingerprint(analysisCard) === evidenceFingerprint &&
       liveSignals.citationCount === withheldRecord.citationCount &&
       liveSignals.nonEnrichmentSourceTypes.length === withheldRecord.sourceTypeCount;
 
@@ -378,19 +387,8 @@ export async function POST(request: Request) {
   // second concurrent run against the same target; it attaches to whatever is already running.
   if (activeRun) {
     const activeRunEvents = activeRun.id ? await findResearchRunEventsByRunId(db, activeRun.id, { limit: 12 }).catch(() => []) : [];
-    // Dead-run watchdog: an inline run whose instance died mid-run leaves its row `running`
-    // with a silent event trail. Retire it by the repair-script classification (card event
-    // seen means complete, else failed) so this request starts fresh instead of joining a
-    // corpse for the full 15-minute stale window. Queued rows are left to the stale retire:
-    // during an Inngest backlog, dispatch may still arrive.
-    const deadTarget =
-      activeRun.status === "running" && activeRun.startedAt
-        ? deadGenerationRunTarget({ startedAt: activeRun.startedAt, events: activeRunEvents })
-        : null;
-    const retiredDeadRun =
-      deadTarget && activeRun.id
-        ? await retireGenerationRunById(db, { id: activeRun.id, target: deadTarget }).catch(() => null)
-        : null;
+    const settledActiveRun = await retireDeadGenerationRun(db, activeRun, activeRunEvents);
+    const retiredDeadRun = settledActiveRun.run.status !== activeRun.status;
 
     if (!retiredDeadRun) {
       if (activeRun.jobKind !== jobKindForRequest(mode, sectionId)) {
@@ -493,13 +491,17 @@ export async function POST(request: Request) {
       // the 202 by `after` inside startInlineGeneration) instead of waiting on Inngest's
       // dispatcher. GENERATION_DISPATCH=inngest restores queue dispatch without a deploy.
       // Section jobs always take the Inngest path below.
-      startInlineGeneration({ domain, slug, mode, requestedAtMs });
+      if (!queuedRun?.id) {
+        throw new Error("queued generation run is missing its id");
+      }
+      startInlineGeneration({ domain, generationRunId: queuedRun.id, slug, mode, requestedAtMs });
     } else {
       await inngest.send({
         name: "card/generate.requested",
         ts: requestedAtMs,
         data: {
           domain,
+          ...(queuedRun?.id ? { generationRunId: queuedRun.id } : {}),
           slug,
           mode,
           requestedAtMs,

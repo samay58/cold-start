@@ -9,6 +9,7 @@ import {
   findCardBySlug,
   findGenerationRunById,
   findSourcesBySlug,
+  mutateCard,
   recordCardEvidence,
   recordResearchRunEvent,
   updateGenerationRunTrace,
@@ -805,13 +806,25 @@ export const contactEnrichmentFunction = inngest.createFunction(
       }
 
       const contactCard = cardWithExtractedSections(existingCard, sectionsWithReads);
-      const cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
+      let cardToStore = prepareCardSnapshotForStorage("basics", existingCard, contactCard);
       let contactsReadyMs: number | null = null;
       if (canStoreCardSnapshot("basics", cardToStore)) {
-        const contactStore = await step.run("upsert-contact-card", async () => ({
-          row: await upsertCard(db, cardToStore),
-          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
-        }));
+        const contactStore = await step.run("upsert-contact-card", async () => {
+          const mutated = await mutateCard(db, slug, (current) =>
+            prepareCardSnapshotForStorage(
+              "basics",
+              current,
+              cardWithExtractedSections(current, sectionsWithReads),
+              { preferExisting: true, preserveAnalysis: true }
+            )
+          );
+          return {
+            card: mutated?.card ?? cardToStore,
+            row: mutated?.row ?? await upsertCard(db, cardToStore),
+            milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+          };
+        });
+        cardToStore = contactStore.card;
         contactsReadyMs = contactStore.milestoneMs;
         const contactRow = contactStore.row;
         await step.run("record-contact-card-evidence", () => recordCardEvidence(db, contactRow.id, cardToStore));
