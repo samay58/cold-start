@@ -88,6 +88,7 @@ test("dark: inferred email dossier keeps status, basis, and readable hierarchy",
   await expect(tooltip.locator(".cs-dossier-email-basis")).toHaveText(
     "domain pattern first.last, 3 observed addresses"
   );
+  await expect(page.locator('.cs-panel-stage-scene[data-panel="loading"]')).toHaveCount(0);
   await page.screenshot({
     fullPage: true,
     path: fileURLToPath(new URL("../../../../docs/archive/specs/screenshots/inferred-email-coverage/after/dark-inferred-dossier.png", import.meta.url))

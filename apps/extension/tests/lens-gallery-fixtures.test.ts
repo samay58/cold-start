@@ -2,11 +2,13 @@ import { coldStartCardSchema, synthesisEvidenceSignals } from "@cold-start/core"
 import { describe, expect, it } from "vitest";
 import {
   LENS_GALLERY_PHASE_IDS,
+  blockedCard,
   deepinfraRunningCard,
   dossierCard,
   failedCard,
   readFullCard,
   readSparseCard,
+  readyCard,
   runningEvents,
   withheldAdvisoryCard,
   withheldCard
@@ -17,6 +19,8 @@ import {
 // up as a silently-wrong screenshot in the gallery.
 describe("lens gallery card fixtures", () => {
   it.each([
+    ["blocked", blockedCard],
+    ["ready", readyCard],
     ["read-full", readFullCard],
     ["read-sparse", readSparseCard],
     ["withheld", withheldCard],
@@ -33,6 +37,8 @@ describe("lens gallery card fixtures", () => {
 
   it("covers every named gallery phase with a loader", () => {
     expect(LENS_GALLERY_PHASE_IDS).toEqual([
+      "blocked",
+      "ready",
       "read-full",
       "read-sparse",
       "withheld",

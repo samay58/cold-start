@@ -11,6 +11,8 @@ const require = createRequire(import.meta.url);
 // as tests/e2e/fixtures.ts). Later Phase 2 tasks screenshot this same gallery to iterate on the
 // investor read card and its CSS.
 export type LensGalleryPhaseId =
+  | "blocked"
+  | "ready"
   | "read-full"
   | "read-sparse"
   | "withheld"
@@ -20,6 +22,8 @@ export type LensGalleryPhaseId =
   | "dossier";
 
 export const LENS_GALLERY_PHASE_IDS: readonly LensGalleryPhaseId[] = [
+  "blocked",
+  "ready",
   "read-full",
   "read-sparse",
   "withheld",
@@ -66,6 +70,18 @@ export function withheldAdvisoryCard(): ColdStartCard {
 // case from the brief.
 export function failedCard(): ColdStartCard {
   return readFixtureCard("failed");
+}
+
+export function readyCard(): ColdStartCard {
+  return failedCard();
+}
+
+export function blockedCard(): ColdStartCard {
+  const card = failedCard();
+  card.citations = card.citations.map((citation, index) => (
+    index < 2 ? citation : { ...citation, sourceType: "enrichment" }
+  ));
+  return card;
 }
 
 // dossier.json: task 4.2's content-hierarchy and size-budget fixture. 6 people (mirroring the
@@ -279,6 +295,16 @@ async function installRunningAnalysis(page: Page, card: ColdStartCard, events: L
 // (via chrome.storage.session.activeDomain, already seeded by installChromeShim above).
 export async function installLensGalleryPhase(page: Page, phaseId: LensGalleryPhaseId): Promise<string> {
   switch (phaseId) {
+    case "blocked": {
+      const card = blockedCard();
+      await installStaticProfile(page, card);
+      return card.domain;
+    }
+    case "ready": {
+      const card = readyCard();
+      await installStaticProfile(page, card);
+      return card.domain;
+    }
     case "read-full": {
       const card = readFullCard();
       await installStaticProfile(page, card);

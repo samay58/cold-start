@@ -22,11 +22,12 @@ async function openGalleryPhase(page: Page, phaseId: LensGalleryPhaseId) {
   // sidepanel-ui.spec.ts test in this harness.
   await page.goto(`/sidepanel.html?fixture=${phaseId}`);
   await expect(page.locator("#root > *")).toHaveCount(1);
+  await expect(page.locator('.cs-panel-stage-scene[data-panel="loading"]')).toHaveCount(0);
 }
 
 type PhaseCheck = {
   heading: string;
-  verify: (page: Page) => Promise<void>;
+  verify: (page: Page, screenshotDir: string) => Promise<void>;
 };
 
 async function investorRead(page: Page): Promise<Locator> {
@@ -36,6 +37,24 @@ async function investorRead(page: Page): Promise<Locator> {
 }
 
 const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
+  blocked: {
+    heading: "Loom Signal",
+    verify: async (page) => {
+      const control = page.getByRole("button", { name: "Run Investor Lens" });
+      await expect(control).toBeDisabled();
+      await expect(control).toContainText("profile needs source-backed evidence before analysis");
+      await expect(control).toContainText("Sealed");
+    }
+  },
+  ready: {
+    heading: "Loom Signal",
+    verify: async (page) => {
+      const control = page.getByRole("button", { name: "Run Investor Lens" });
+      await expect(control).toBeEnabled();
+      await expect(control).toContainText("Weigh the case, timing, and next question against cited sources.");
+      await expect(control).toContainText("Run lens");
+    }
+  },
   "read-full": {
     heading: "Baseten",
     verify: async (page) => {
@@ -98,10 +117,14 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   },
   dossier: {
     heading: "Wharf Robotics",
-    verify: async (page) => {
+    verify: async (page, screenshotDir) => {
+      await expect(page.locator("#cs-company-shared-tooltip")).toHaveCount(0);
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "dossier-closed.png") });
+
       // Hover the rich person: identity, a 3-line-clamped read, provenance, email, and
       // channels all render inside the dossier, with the read still clamped (unpinned).
       const mara = page.locator(".cs-people-person", { hasText: "Mara Voss" });
+      await expect(mara.locator(".cs-person-dossier-cue")).toHaveText("View");
       await mara.hover();
       const tooltip = page.locator("#cs-company-shared-tooltip");
       await expect(tooltip).toBeVisible();
@@ -111,15 +134,24 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
       await expect(tooltip.locator(".cs-dossier-email-address")).toHaveText("mara.voss@wharfrobotics.com");
       await expect(tooltip.locator(".cs-dossier-channel")).toHaveCount(2);
-      await page.screenshot({ fullPage: true, path: path.join(SCREENSHOT_DIR, "dossier-hover.png") });
+      const dismiss = tooltip.getByRole("button", { name: "Close Mara Voss dossier" });
+      await expect(dismiss).toBeVisible();
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "dossier-hover.png") });
+      await dismiss.click();
+      await expect(tooltip).toHaveCount(0);
+      await expect(mara).toBeFocused();
 
       // Pin it: the ARIA role promotes to dialog, focus moves in, and the read unclamps.
       await mara.focus();
       await page.keyboard.press("Enter");
       await expect(tooltip).toHaveAttribute("data-pinned", "true");
       await expect(tooltip).toHaveAttribute("role", "dialog");
-      await page.screenshot({ fullPage: true, path: path.join(SCREENSHOT_DIR, "dossier-pinned.png") });
+      await page.keyboard.press("Tab");
+      await expect(dismiss).toBeFocused();
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "dossier-pinned.png") });
       await page.keyboard.press("Escape");
+      await expect(tooltip).toHaveCount(0);
+      await expect(mara).toBeFocused();
 
       // The inferred-email person: basis line only, since Idris has no read.
       const idris = page.locator(".cs-people-person", { hasText: "Idris Kanu" });
@@ -139,17 +171,31 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
 };
 
 test.describe("lens fixture gallery", () => {
-  for (const phaseId of LENS_GALLERY_PHASE_IDS) {
-    test(`renders the ${phaseId} phase`, async ({ page }) => {
-      await installLensGalleryPhase(page, phaseId);
-      await openGalleryPhase(page, phaseId);
+  for (const theme of ["light", "dark"] as const) {
+    for (const phaseId of LENS_GALLERY_PHASE_IDS) {
+      test(`renders the ${phaseId} phase in ${theme}`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: theme });
+        await page.addInitScript((selectedTheme) => {
+          localStorage.setItem("coldStartThemeEffective", selectedTheme);
+          localStorage.setItem("coldStartThemePreference", selectedTheme);
+        }, theme);
+        await installLensGalleryPhase(page, phaseId);
+        await openGalleryPhase(page, phaseId);
+        await page.evaluate((selectedTheme) => {
+          document.documentElement.dataset.theme = selectedTheme;
+          document.documentElement.dataset.themeReason = "manual";
+        }, theme);
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
 
-      const check = PHASE_CHECKS[phaseId];
-      await expect(page.getByRole("heading", { name: check.heading })).toBeVisible();
-      await check.verify(page);
+        const check = PHASE_CHECKS[phaseId];
+        await expect(page.getByRole("heading", { name: check.heading })).toBeVisible();
+        const screenshotDir = path.join(SCREENSHOT_DIR, theme);
+        fs.mkdirSync(screenshotDir, { recursive: true });
+        await check.verify(page, screenshotDir);
 
-      await page.waitForTimeout(300);
-      await page.screenshot({ fullPage: true, path: path.join(SCREENSHOT_DIR, `${phaseId}.png`) });
-    });
+        await page.waitForTimeout(300);
+        await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${phaseId}.png`) });
+      });
+    }
   }
 });
