@@ -59,7 +59,7 @@ const SECTION_RUN_CONCURRENCY = 1;
 const STORAGE_KEYS = ["coldStartApiOrigin", "coldStartApiToken"] as const;
 const LAST_ALPHA_ERROR_KEY = "coldStartLastAlphaError";
 const STALE_CACHE_NOTICE = "Could not check for a fresher profile. Showing the saved profile.";
-const ALPHA_SUPPORT_HREF = "mailto:samay@semitechie.vc?subject=Cold%20Start%20alpha%20help";
+const ALPHA_SUPPORT_HREF = "mailto:semitechie.vc@gmail.com?cc=samay58@gmail.com&subject=Cold%20Start%20alpha%20help";
 
 type RedactedClientError = {
   code: string;

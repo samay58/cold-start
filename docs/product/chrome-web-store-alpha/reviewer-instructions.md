@@ -11,7 +11,7 @@ Complete the bracketed fields outside git before submission. Never commit the in
 - Chrome Web Store item: `[ITEM_ID]`
 - Review invitation expires: `[UTC_TIMESTAMP]`
 - Reviewer allowance: 2 fresh profiles and 1 Investor Lens run
-- Support contact: `samay@semitechie.vc`
+- Support contact: `semitechie.vc@gmail.com` (backup: `samay58@gmail.com`)
 
 ## Access
 

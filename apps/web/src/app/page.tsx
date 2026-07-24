@@ -62,7 +62,7 @@ export default async function HomePage() {
               {latestProfile ? (
                 <Link className="cs-home-primary" href={`/c/${latestProfile.slug}`}>Open latest profile</Link>
               ) : null}
-              <a className="cs-home-secondary" href="mailto:samay@semitechie.vc?subject=Cold%20Start%20access">Request access</a>
+              <a className="cs-home-secondary" href="mailto:semitechie.vc@gmail.com?cc=samay58@gmail.com&subject=Cold%20Start%20access">Request access</a>
             </div>
           </div>
         </header>

@@ -24,7 +24,7 @@ Cold Start reads the active tab URL only when you click the extension. It does n
 - Homepage: `https://cold-start.semitechie.vc`
 - Privacy policy: `https://cold-start.semitechie.vc/privacy`
 - Support: `https://cold-start.semitechie.vc`
-- Support email: `samay@semitechie.vc`
+- Support email: `semitechie.vc@gmail.com` (backup: `samay58@gmail.com`)
 
 ## Dashboard fields
 

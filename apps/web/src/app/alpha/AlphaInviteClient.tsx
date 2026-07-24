@@ -11,7 +11,7 @@ import {
   retainedInviteToken
 } from "./alpha-invite";
 
-const SUPPORT_HREF = "mailto:samay@semitechie.vc?subject=Cold%20Start%20alpha%20help";
+const SUPPORT_HREF = "mailto:semitechie.vc@gmail.com?cc=samay58@gmail.com&subject=Cold%20Start%20alpha%20help";
 
 type Allowance = {
   profile: { limit: number; remaining: number };

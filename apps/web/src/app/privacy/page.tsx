@@ -73,7 +73,7 @@ export default function PrivacyPage() {
         <h2>Questions</h2>
         <p>
           Cold Start is a small product run by its owner. Questions and deletion requests can be sent to{" "}
-          <a href="mailto:samay@semitechie.vc">samay@semitechie.vc</a>.
+          <a href="mailto:semitechie.vc@gmail.com">semitechie.vc@gmail.com</a>.
         </p>
       </article>
     </main>
