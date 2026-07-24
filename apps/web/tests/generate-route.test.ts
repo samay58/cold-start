@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => {
   return {
     db,
     createDb: vi.fn(() => db),
+    findActiveAlphaInstallationByTokenHash: vi.fn(),
     findActiveGenerationRunStatusBySlug: vi.fn(),
+    findGenerationRunById: vi.fn(),
     findLatestGenerationRunBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
@@ -17,9 +19,14 @@ const mocks = vi.hoisted(() => {
     markGenerationRun: vi.fn(),
     markResearchSectionFailed: vi.fn(),
     markResearchSectionRunning: vi.fn(),
+    recordAlphaRunDisposition: vi.fn(),
     recordResearchRunEvent: vi.fn(),
+    reserveAlphaRunRequest: vi.fn(),
     retireGenerationRunById: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
+    runProducedCardEvent: vi.fn(),
+    settleAlphaRunRequest: vi.fn(),
+    touchAlphaInstallation: vi.fn(),
     send: vi.fn(),
     startInlineGeneration: vi.fn()
   };
@@ -30,7 +37,9 @@ const mocks = vi.hoisted(() => {
 vi.mock("@cold-start/db", async (importOriginal) => ({
   deadGenerationRunTarget: (await importOriginal<typeof import("@cold-start/db")>()).deadGenerationRunTarget,
   createDb: mocks.createDb,
+  findActiveAlphaInstallationByTokenHash: mocks.findActiveAlphaInstallationByTokenHash,
   findActiveGenerationRunStatusBySlug: mocks.findActiveGenerationRunStatusBySlug,
+  findGenerationRunById: mocks.findGenerationRunById,
   findLatestGenerationRunBySlug: mocks.findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
@@ -39,9 +48,14 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
   markResearchSectionRunning: mocks.markResearchSectionRunning,
+  recordAlphaRunDisposition: mocks.recordAlphaRunDisposition,
   recordResearchRunEvent: mocks.recordResearchRunEvent,
+  reserveAlphaRunRequest: mocks.reserveAlphaRunRequest,
   retireGenerationRunById: mocks.retireGenerationRunById,
-  retireStaleGenerationRuns: mocks.retireStaleGenerationRuns
+  retireStaleGenerationRuns: mocks.retireStaleGenerationRuns,
+  runProducedCardEvent: mocks.runProducedCardEvent,
+  settleAlphaRunRequest: mocks.settleAlphaRunRequest,
+  touchAlphaInstallation: mocks.touchAlphaInstallation
 }));
 
 vi.mock("../src/inngest/client", () => ({
@@ -68,7 +82,9 @@ function generateRequest(
   options: {
     confirmStart?: boolean;
     forceRefresh?: boolean;
+    interactionId?: string;
     mode?: unknown;
+    alphaAuth?: boolean;
     extensionAuth?: boolean;
     sectionId?: string;
   } = { confirmStart: true }
@@ -77,6 +93,9 @@ function generateRequest(
   if (options.extensionAuth) {
     headers.set("authorization", "Bearer secret");
     headers.set("x-cold-start-extension-id", "extension-test-id");
+  } else if (options.alphaAuth) {
+    headers.set("authorization", "Bearer alpha-installation-secret");
+    headers.set("x-cold-start-extension-id", "extension-test-id");
   }
 
   return new Request("http://localhost/api/generate", {
@@ -84,6 +103,7 @@ function generateRequest(
     headers,
     body: JSON.stringify({
       domain,
+      ...(options.interactionId ? { interactionId: options.interactionId } : {}),
       ...("mode" in options ? { mode: options.mode } : {}),
       ...(options.sectionId ? { sectionId: options.sectionId } : {}),
       ...(options.confirmStart ? { confirmStart: true } : {}),
@@ -206,10 +226,38 @@ function withheldCard(overrides: {
   };
 }
 
+function authenticateAlphaInstallation(scopes = [
+  "cards:read",
+  "generation:write",
+  "events:write"
+]) {
+  mocks.findActiveAlphaInstallationByTokenHash.mockResolvedValue({
+    installation: {
+      id: "10000000-0000-4000-8000-000000000001",
+      inviteId: "20000000-0000-4000-8000-000000000001",
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.0",
+      connectedAt: new Date(),
+      lastSeenAt: new Date()
+    },
+    invite: {
+      id: "20000000-0000-4000-8000-000000000001",
+      label: "Friend",
+      status: "active",
+      scopes,
+      expiresAt: new Date(Date.now() + 60_000),
+      profileLimit: 12,
+      lensLimit: 6
+    }
+  });
+}
+
 describe("POST /api/generate", () => {
   beforeEach(() => {
     process.env.NODE_ENV = "test";
     process.env.EXTENSION_API_TOKEN = "secret";
+    delete process.env.ALPHA_GENERATION_ENABLED;
     delete process.env.PUBLIC_GENERATION_ENABLED;
     // Most of this suite predates inline dispatch and asserts the Inngest send path; pin the
     // flag so those assertions stay meaningful. The inline-dispatch tests below delete it to
@@ -217,9 +265,12 @@ describe("POST /api/generate", () => {
     process.env.GENERATION_DISPATCH = "inngest";
     mocks.startInlineGeneration.mockReset();
     mocks.retireGenerationRunById.mockReset();
+    mocks.settleAlphaRunRequest.mockReset().mockResolvedValue(null);
     mocks.retireGenerationRunById.mockResolvedValue(null);
     mocks.createDb.mockClear();
     mocks.findActiveGenerationRunStatusBySlug.mockReset();
+    mocks.findActiveAlphaInstallationByTokenHash.mockReset().mockResolvedValue(null);
+    mocks.findGenerationRunById.mockReset();
     mocks.findLatestGenerationRunBySlug.mockReset();
     mocks.findLatestGenerationRunBySlug.mockResolvedValue({
       traceJson: {
@@ -243,11 +294,15 @@ describe("POST /api/generate", () => {
     mocks.markResearchSectionFailed.mockReset();
     mocks.markResearchSectionRunning.mockReset();
     mocks.recordResearchRunEvent.mockReset();
+    mocks.recordAlphaRunDisposition.mockReset().mockResolvedValue(null);
+    mocks.reserveAlphaRunRequest.mockReset();
+    mocks.touchAlphaInstallation.mockReset().mockResolvedValue(true);
     mocks.retireStaleGenerationRuns.mockReset();
+    mocks.runProducedCardEvent.mockReset().mockResolvedValue(false);
     mocks.markResearchSectionFailed.mockResolvedValue(null);
     mocks.markResearchSectionRunning.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
-    mocks.retireStaleGenerationRuns.mockResolvedValue(0);
+    mocks.retireStaleGenerationRuns.mockResolvedValue([]);
     mocks.send.mockReset();
   });
 
@@ -262,6 +317,247 @@ describe("POST /api/generate", () => {
     expect(mocks.findActiveGenerationRunStatusBySlug).not.toHaveBeenCalled();
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
     expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("records an authenticated alpha cache hit without reserving allowance", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(usablePublicCard());
+    const interactionId = "30000000-0000-4000-8000-000000000001";
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      alphaAuth: true,
+      interactionId
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordAlphaRunDisposition).toHaveBeenCalledWith(mocks.db, {
+      inviteId: "20000000-0000-4000-8000-000000000001",
+      installationId: "10000000-0000-4000-8000-000000000001",
+      interactionId,
+      kind: "profile",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      disposition: "cached",
+      reason: "fresh_cache"
+    });
+    expect(mocks.reserveAlphaRunRequest).not.toHaveBeenCalled();
+  });
+
+  it("rejects an alpha installation without generation permission", async () => {
+    authenticateAlphaInstallation(["cards:read", "events:write"]);
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      alphaAuth: true,
+      interactionId: "30000000-0000-4000-8000-000000000004"
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "authorization" });
+    expect(mocks.findPublicCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.reserveAlphaRunRequest).not.toHaveBeenCalled();
+  });
+
+  it("blocks only fresh alpha work when generation is disabled", async () => {
+    authenticateAlphaInstallation();
+    process.env.ALPHA_GENERATION_ENABLED = "false";
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    const interactionId = "30000000-0000-4000-8000-000000000002";
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      alphaAuth: true,
+      interactionId
+    }));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "generation_disabled"
+    });
+    expect(mocks.recordAlphaRunDisposition).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({
+        interactionId,
+        disposition: "blocked",
+        reason: "generation_disabled"
+      })
+    );
+    expect(mocks.reserveAlphaRunRequest).not.toHaveBeenCalled();
+    delete process.env.ALPHA_GENERATION_ENABLED;
+  });
+
+  it("uses the atomic alpha reservation instead of creating a second run", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    const interactionId = "30000000-0000-4000-8000-000000000003";
+    mocks.reserveAlphaRunRequest.mockResolvedValue({
+      requestId: "request-1",
+      inviteId: "20000000-0000-4000-8000-000000000001",
+      installationId: "10000000-0000-4000-8000-000000000001",
+      interactionId,
+      kind: "profile",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      disposition: "started",
+      dispositionReason: null,
+      generationRunId: "40000000-0000-4000-8000-000000000001",
+      outcome: null,
+      failureCode: null,
+      settledAt: null,
+      createdAt: new Date(),
+      debited: true
+    });
+    mocks.findGenerationRunById.mockResolvedValue({
+      id: "40000000-0000-4000-8000-000000000001",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "queued",
+      startedAt: new Date()
+    });
+    mocks.send.mockResolvedValue(undefined);
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      alphaAuth: true,
+      interactionId
+    }));
+
+    expect(response.status).toBe(202);
+    expect(mocks.reserveAlphaRunRequest).toHaveBeenCalledTimes(1);
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.send).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        generationRunId: "40000000-0000-4000-8000-000000000001"
+      })
+    }));
+  });
+
+  // A replayed interaction id used to fall straight through to a second dispatch, so one click
+  // retried by the network re-ran the whole pipeline against a run it already owned.
+  function replayedReservation(interactionId: string) {
+    return {
+      requestId: "request-1",
+      inviteId: "20000000-0000-4000-8000-000000000001",
+      installationId: "10000000-0000-4000-8000-000000000001",
+      interactionId,
+      kind: "profile" as const,
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      disposition: "started" as const,
+      dispositionReason: null,
+      generationRunId: "40000000-0000-4000-8000-000000000001",
+      outcome: null,
+      failureCode: null,
+      settledAt: null,
+      createdAt: new Date(),
+      debited: true,
+      replayed: true
+    };
+  }
+
+  it("attaches to the run a replayed interaction id already started instead of dispatching again", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    const interactionId = "30000000-0000-4000-8000-000000000009";
+    mocks.reserveAlphaRunRequest.mockResolvedValue(replayedReservation(interactionId));
+    mocks.findGenerationRunById.mockResolvedValue({
+      id: "40000000-0000-4000-8000-000000000001",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "running",
+      startedAt: new Date()
+    });
+
+    const response = await POST(generateRequest("cartesia.ai", { alphaAuth: true, interactionId }));
+
+    expect(response.status).toBe(202);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.startInlineGeneration).not.toHaveBeenCalled();
+  });
+
+  it("rejects a replayed interaction id whose run already finished", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    const interactionId = "30000000-0000-4000-8000-000000000010";
+    mocks.reserveAlphaRunRequest.mockResolvedValue(replayedReservation(interactionId));
+    mocks.findGenerationRunById.mockResolvedValue({
+      id: "40000000-0000-4000-8000-000000000001",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      mode: "basics",
+      jobKind: "basics",
+      status: "complete",
+      startedAt: new Date()
+    });
+
+    const response = await POST(generateRequest("cartesia.ai", { alphaAuth: true, interactionId }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: "interaction_replayed" });
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.startInlineGeneration).not.toHaveBeenCalled();
+  });
+
+  it("settles the alpha reservation of every run the stale sweep retires", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.retireStaleGenerationRuns.mockResolvedValue([
+      { id: "40000000-0000-4000-8000-00000000000a" }
+    ]);
+    mocks.markGenerationRun.mockResolvedValue({ id: "40000000-0000-4000-8000-00000000000b" });
+    mocks.send.mockResolvedValue(undefined);
+
+    await POST(generateRequest("cartesia.ai", { extensionAuth: true, confirmStart: true }));
+
+    expect(mocks.settleAlphaRunRequest).toHaveBeenCalledWith(
+      mocks.db,
+      expect.objectContaining({
+        generationRunId: "40000000-0000-4000-8000-00000000000a",
+        outcome: "watchdog_retired",
+        failureCode: "timeout"
+      })
+    );
+  });
+
+  it("returns a retryable conflict when different work is already active", async () => {
+    authenticateAlphaInstallation();
+    mocks.findPublicCardBySlug.mockResolvedValue(null);
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.reserveAlphaRunRequest.mockResolvedValue({
+      requestId: "request-busy",
+      inviteId: "20000000-0000-4000-8000-000000000001",
+      installationId: "10000000-0000-4000-8000-000000000001",
+      interactionId: "30000000-0000-4000-8000-000000000005",
+      kind: "profile",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      disposition: "rejected",
+      dispositionReason: "generation_busy",
+      generationRunId: null,
+      outcome: null,
+      failureCode: null,
+      settledAt: null,
+      createdAt: new Date(),
+      debited: false
+    });
+
+    const response = await POST(generateRequest("cartesia.ai", {
+      alphaAuth: true,
+      interactionId: "30000000-0000-4000-8000-000000000005"
+    }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "generation_busy",
+      error: "Another research job is running for this company. Try again when it finishes."
+    });
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
   });
 
   it("rejects unconfirmed generation requests before touching DB or Inngest", async () => {
@@ -1388,7 +1684,9 @@ describe("GET /api/generate", () => {
     mocks.createDb.mockClear();
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.retireStaleGenerationRuns.mockReset();
-    mocks.retireStaleGenerationRuns.mockResolvedValue(0);
+    mocks.retireStaleGenerationRuns.mockResolvedValue([]);
+    mocks.runProducedCardEvent.mockReset().mockResolvedValue(false);
+    mocks.settleAlphaRunRequest.mockReset().mockResolvedValue(null);
   });
 
   function statusRequest(domain = "cartesia.ai", mode: unknown = "analysis") {

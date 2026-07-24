@@ -34,7 +34,7 @@ const stableenrichPaths = {
   STABLEENRICH_EXA_SEARCH_URL: "/api/exa/search",
   STABLEENRICH_EXA_SIMILAR_URL: "/api/exa/find-similar",
   STABLEENRICH_FIRECRAWL_URL: "/api/firecrawl/scrape",
-  STABLEENRICH_ORG_ENRICH_URL: "/api/apollo/org-enrich",
+  STABLEENRICH_ORG_ENRICH_URL: "/api/companyenrich/org-enrich",
   STABLEENRICH_APOLLO_ORG_SEARCH_URL: "/api/apollo/org-search",
   STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL: "/api/apollo/people-search",
   STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL: "/api/apollo/people-enrich",
@@ -150,6 +150,7 @@ export type StableenrichSourcesResult = {
   }>;
   emailDiscovery?: StableenrichEmailDiscovery[];
   budgetCeilingHit?: boolean;
+  skippedProbeNames?: StableenrichProbe["name"][];
 };
 
 export function missingStableenrichConfig(env: StableenrichEnv): string[] {

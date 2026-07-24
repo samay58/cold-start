@@ -304,7 +304,13 @@ export async function runStableenrichPeopleFollowups(input: {
   budgetState?: AgentcashBudgetState | undefined;
 }): Promise<PromiseSettledResult<StableenrichProbeResult>[]> {
   const cheapLeaders = peopleHintsFromSearchResults(input.results, input.domain);
-  const skipApolloPeople = namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
+  const apolloSearchConfigured = Boolean(
+    input.env.STABLEENRICH_APOLLO_ORG_SEARCH_URL &&
+    input.env.STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL
+  );
+  const skipApolloPeople =
+    !apolloSearchConfigured ||
+    namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
   const discovery = skipApolloPeople
     ? { people: [], results: [] as PromiseSettledResult<StableenrichProbeResult>[] }
     : await runApolloPeopleDiscovery({
@@ -320,7 +326,7 @@ export async function runStableenrichPeopleFollowups(input: {
   const followups = await runPeopleFollowupRequests({
     ...input,
     leaders,
-    allowApolloEnrich: !skipApolloPeople
+    allowApolloEnrich: !skipApolloPeople && Boolean(input.env.STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL)
   });
 
   return [...discovery.results, ...followups];

@@ -117,7 +117,7 @@ describe("buildStableenrichRequests", () => {
       "https://stableenrich.dev/api/firecrawl/scrape",
       "https://stableenrich.dev/api/firecrawl/scrape",
       "https://stableenrich.dev/api/firecrawl/scrape",
-      "https://stableenrich.dev/api/apollo/org-enrich",
+      "https://stableenrich.dev/api/companyenrich/org-enrich",
     ]);
     expect(requests[0]?.body).toMatchObject({
       query: expect.stringContaining("funding"),

@@ -9,12 +9,13 @@
 // in-flight or already-healed run is never touched.
 //
 // Usage:
-//   set -a; source .env.production.migrate.local; set +a
 //   npm run repair:stuck-runs                 # dry run, prints the plan, no writes
 //   npm run repair:stuck-runs -- --apply      # write the terminal statuses
 import { and, eq, inArray, lt } from "drizzle-orm";
 
 import { createDb, generationRunStaleAfterMs, generationRuns, researchRunEvents } from "@cold-start/db";
+
+import { loadProductionEnv } from "./alpha-common";
 
 const CARD_EVENT_TYPES = ["card.saved", "card.enriched", "card.partial"];
 
@@ -23,6 +24,7 @@ function applyMode() {
 }
 
 async function main() {
+  loadProductionEnv();
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required");

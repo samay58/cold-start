@@ -8,7 +8,6 @@ import {
   createDb,
   findCardBySlug,
   findSourcesBySlug,
-  mutateCard,
   recordCardEvidence,
   recordResearchRunEvent,
   updateGenerationRunTrace,
@@ -33,10 +32,12 @@ import { stableenrichEnvFromProcess } from "./worker-env";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
+import { generationFailureCode } from "../lib/failure-code";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
+  mutateCardWithRetry,
   noteSkippedUnderfilledSnapshot,
   prepareCardForStorage
 } from "./card-storage";
@@ -178,7 +179,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     domain = canonicalCompanyDomain(event.data.domain);
     slug = companySlugFromDomain(domain);
   } catch (error) {
-    trace.failure = { stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
+    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
     await recordEvent("invalid-domain", "generation.failed", boundedErrorMessage(error));
     throw error;
   }
@@ -308,7 +309,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     assertTerminalCardQuality("basics", cardToStore);
     if (canStoreCardSnapshot("basics", cardToStore)) {
       const storedResult = await step.run("upsert-enriched-card", async () => {
-        const mutated = await mutateCard(db, slug, (current) =>
+        const mutated = await mutateCardWithRetry(db, slug, (current) =>
           prepareCardForStorage(
             "basics",
             current,
@@ -337,7 +338,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     await patchParentTrace();
     return { slug, enriched: true };
   } catch (error) {
-    trace.failure = { stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
+    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
     await recordEvent("enrichment-failed", "generation.failed", boundedErrorMessage(error), { stage: currentStage });
     await patchParentTrace();
     throw error;

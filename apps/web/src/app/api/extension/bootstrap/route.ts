@@ -2,21 +2,25 @@ import { companySlugFromDomain, mergeStoredResearchSectionsWithLegacy } from "@c
 import {
   createDb,
   findCardBySlug,
+  getAlphaAllowanceSnapshot,
   findLatestGenerationRunStatusBySlug,
   findResearchRunEventsBySlug,
   findResearchSectionsBySlug,
   findSourceSummariesBySlug,
   retireStaleResearchSections,
-  retireStaleGenerationRuns,
   type GenerationRunStatusSummary,
   type SourceSummary
 } from "@cold-start/db";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../../lib/api-response";
+import { alphaGenerationEnabled } from "../../../../lib/alpha-config";
 import { canonicalCompanyDomain } from "../../../../lib/domain";
 import { webEnv } from "../../../../lib/web-env";
 import { boundedErrorMessage } from "../../../../lib/errors";
-import { assertExtensionRequest } from "../../../../lib/extension-auth";
-import { retireDeadGenerationRun } from "../../../../lib/generation-run-watchdog";
+import {
+  authenticateExtensionRequest,
+  principalHasScope
+} from "../../../../lib/extension-auth";
+import { retireAndSettleStaleGenerationRuns, retireDeadGenerationRun } from "../../../../lib/generation-run-watchdog";
 
 type GenerationMode = "basics" | "analysis";
 
@@ -96,13 +100,21 @@ function mergeSourceSummaries(primary: SourceSummary[], fallback: SourceSummary[
 
 export async function GET(request: Request) {
   const startedAt = performance.now();
-  const auth = assertExtensionRequest(request.headers);
+  const db = createDb(webEnv().DATABASE_URL);
+  const auth = await authenticateExtensionRequest(request.headers, db);
 
   if (!auth.ok) {
     return apiJsonWithTiming(
-      { error: auth.error },
+      { error: auth.error, code: auth.code },
       [{ name: "total", durationMs: elapsedMs(startedAt) }],
       { status: auth.status }
+    );
+  }
+  if (!principalHasScope(auth.principal, "cards:read")) {
+    return apiJsonWithTiming(
+      { error: "card access is not allowed for this installation", code: "authorization" },
+      [{ name: "total", durationMs: elapsedMs(startedAt) }],
+      { status: 403 }
     );
   }
 
@@ -119,22 +131,40 @@ export async function GET(request: Request) {
 
   const slug = companySlugFromDomain(domain);
   const dbStartedAt = performance.now();
-  const db = createDb(webEnv().DATABASE_URL);
 
   await Promise.all([
-    retireStaleGenerationRuns(db, { slug, mode: "basics" }),
-    retireStaleGenerationRuns(db, { slug, mode: "analysis" }),
+    retireAndSettleStaleGenerationRuns(db, { slug, mode: "basics" }),
+    retireAndSettleStaleGenerationRuns(db, { slug, mode: "analysis" }),
     retireStaleResearchSections(db, { slug })
   ]);
 
-  const [card, storedSections, basicsRun, analysisRun, sources, events] = await Promise.all([
+  const [card, storedSections, basicsRun, analysisRun, sources, events, allowance] = await Promise.all([
     findCardBySlug(db, slug, { allowStale: true }),
     findResearchSectionsBySlug(db, slug),
     findLatestGenerationRunStatusBySlug(db, slug, "basics", "basics"),
     findLatestGenerationRunStatusBySlug(db, slug, "analysis", "analysis"),
     findSourceSummariesBySlug(db, slug, { limit: 24 }),
-    findResearchRunEventsBySlug(db, slug, { limit: 30 }).catch(() => [])
+    findResearchRunEventsBySlug(db, slug, { limit: 30 }).catch(() => []),
+    auth.principal.kind === "alpha" && auth.principal.inviteId
+      ? getAlphaAllowanceSnapshot(db, auth.principal.inviteId)
+      : Promise.resolve(null)
   ]);
+  const conflictingDomain = [
+    card?.domain,
+    basicsRun?.domain,
+    analysisRun?.domain,
+    ...storedSections.map((section) => section.domain)
+  ].find((candidate) => candidate && candidate !== domain);
+  if (conflictingDomain) {
+    return apiJsonWithTiming(
+      { error: "company domain conflicts with an existing card identity" },
+      [
+        { name: "db", durationMs: elapsedMs(dbStartedAt) },
+        { name: "total", durationMs: elapsedMs(startedAt) }
+      ],
+      { status: 409 }
+    );
+  }
   const [settledBasics, settledAnalysis] = await Promise.all([
     basicsRun ? retireDeadGenerationRun(db, basicsRun) : null,
     analysisRun ? retireDeadGenerationRun(db, analysisRun) : null
@@ -154,6 +184,15 @@ export async function GET(request: Request) {
       sections,
       sources: sourceSummaries,
       events,
+      ...(auth.principal.kind === "alpha"
+        ? {
+            alpha: {
+              generationEnabled: alphaGenerationEnabled(),
+              profile: allowance?.profile ?? null,
+              lens: allowance?.lens ?? null
+            }
+          }
+        : {}),
       runs: {
         basics: settledBasics ? serializeRun(settledBasics.run) : idleRun(slug, domain, "basics"),
         analysis: settledAnalysis ? serializeRun(settledAnalysis.run) : idleRun(slug, domain, "analysis")

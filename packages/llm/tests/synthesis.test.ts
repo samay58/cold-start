@@ -276,6 +276,52 @@ describe("parseSynthesisToolUse", () => {
     });
   });
 
+  it("treats the provider's null-shaped market claim as absent", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            marketStructureAndTiming: {
+              ...validSynthesisPayload.marketStructureAndTiming,
+              timingRisk: {
+                text: null,
+                citationIds: null
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.marketStructureAndTiming?.timingRisk).toBeNull();
+  });
+
+  it("still rejects contradictory partial market claims", () => {
+    expect(() =>
+      parseSynthesisToolUse({
+        content: [
+          {
+            type: "tool_use",
+            name: "emit_investor_synthesis",
+            input: {
+              ...validSynthesisPayload,
+              marketStructureAndTiming: {
+                ...validSynthesisPayload.marketStructureAndTiming,
+                timingRisk: {
+                  text: null,
+                  citationIds: ["c1"]
+                }
+              }
+            }
+          }
+        ]
+      })
+    ).toThrow();
+  });
+
   it("rejects market structure claims without citation IDs", () => {
     expect(() =>
       parseSynthesisToolUse({

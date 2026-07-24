@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
     deadGenerationRunTarget: vi.fn(() => null),
     db,
     findCardBySlug: vi.fn(),
+    findActiveAlphaInstallationByTokenHash: vi.fn(),
+    touchAlphaInstallation: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
     findResearchRunEventsBySlug: vi.fn(),
@@ -16,7 +18,9 @@ const mocks = vi.hoisted(() => {
     findSourceSummariesBySlug: vi.fn(),
     retireStaleGenerationRuns: vi.fn(),
     retireStaleResearchSections: vi.fn(),
-    retireGenerationRunById: vi.fn()
+    retireGenerationRunById: vi.fn(),
+    runProducedCardEvent: vi.fn(),
+    settleAlphaRunRequest: vi.fn()
   };
 });
 
@@ -24,6 +28,8 @@ vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   deadGenerationRunTarget: mocks.deadGenerationRunTarget,
   findCardBySlug: mocks.findCardBySlug,
+  findActiveAlphaInstallationByTokenHash: mocks.findActiveAlphaInstallationByTokenHash,
+  touchAlphaInstallation: mocks.touchAlphaInstallation,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
   findResearchRunEventsBySlug: mocks.findResearchRunEventsBySlug,
@@ -31,7 +37,9 @@ vi.mock("@cold-start/db", () => ({
   findSourceSummariesBySlug: mocks.findSourceSummariesBySlug,
   retireStaleGenerationRuns: mocks.retireStaleGenerationRuns,
   retireStaleResearchSections: mocks.retireStaleResearchSections,
-  retireGenerationRunById: mocks.retireGenerationRunById
+  retireGenerationRunById: mocks.retireGenerationRunById,
+  runProducedCardEvent: mocks.runProducedCardEvent,
+  settleAlphaRunRequest: mocks.settleAlphaRunRequest
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -68,6 +76,8 @@ describe("GET /api/extension/bootstrap", () => {
     process.env.EXTENSION_API_TOKEN = "secret";
     mocks.createDb.mockClear();
     mocks.findCardBySlug.mockReset();
+    mocks.findActiveAlphaInstallationByTokenHash.mockReset().mockResolvedValue(null);
+    mocks.touchAlphaInstallation.mockReset().mockResolvedValue(true);
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsBySlug.mockReset();
@@ -79,9 +89,11 @@ describe("GET /api/extension/bootstrap", () => {
     mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
     mocks.findResearchRunEventsBySlug.mockResolvedValue([]);
     mocks.findSourceSummariesBySlug.mockResolvedValue([]);
-    mocks.retireStaleGenerationRuns.mockResolvedValue(0);
+    mocks.retireStaleGenerationRuns.mockResolvedValue([]);
     mocks.retireStaleResearchSections.mockResolvedValue(0);
     mocks.retireGenerationRunById.mockResolvedValue(null);
+    mocks.runProducedCardEvent.mockReset().mockResolvedValue(false);
+    mocks.settleAlphaRunRequest.mockReset().mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -97,13 +109,50 @@ describe("GET /api/extension/bootstrap", () => {
     }
   });
 
-  it("requires extension auth before reading the database", async () => {
+  it("requires extension auth before reading company data", async () => {
     const response = await GET(browserOriginRequest("cartesia.ai"));
 
-    await expect(response.json()).resolves.toEqual({ error: "extension token required" });
+    await expect(response.json()).resolves.toEqual({
+      error: "extension connection required",
+      code: "authentication"
+    });
     expect(response.status).toBe(401);
-    expect(mocks.createDb).not.toHaveBeenCalled();
+    expect(mocks.createDb).toHaveBeenCalledTimes(1);
+    expect(mocks.findCardBySlug).not.toHaveBeenCalled();
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
+  });
+
+  it("rejects an alpha installation without card permission", async () => {
+    mocks.findActiveAlphaInstallationByTokenHash.mockResolvedValue({
+      installation: {
+        id: "installation-1",
+        inviteId: "invite-1",
+        browser: "chrome",
+        channel: "unlisted",
+        extensionVersion: "0.2.0",
+        connectedAt: new Date(),
+        lastSeenAt: new Date()
+      },
+      invite: {
+        id: "invite-1",
+        label: "Friend",
+        status: "active",
+        scopes: ["events:write"],
+        expiresAt: new Date(Date.now() + 60_000),
+        profileLimit: 12,
+        lensLimit: 6
+      }
+    });
+
+    const response = await GET(extensionRequest(
+      "cartesia.ai",
+      "alpha-installation-secret",
+      "extension-test-id"
+    ));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: "authorization" });
+    expect(mocks.findCardBySlug).not.toHaveBeenCalled();
   });
 
   it("returns card plus minimal basics and analysis run snapshots", async () => {

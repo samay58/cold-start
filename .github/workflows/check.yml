@@ -9,6 +9,20 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: coldstart_test
+          POSTGRES_USER: coldstart
+          POSTGRES_PASSWORD: local
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U coldstart -d coldstart_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +33,7 @@ jobs:
       - run: npm run lint -- --max-warnings=0
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run test:alpha-db
       - run: npm run build
       - run: npm run build:firefox -w @cold-start/extension
       - run: npx --yes web-ext@10.5.0 lint --source-dir apps/extension/dist-firefox --self-hosted

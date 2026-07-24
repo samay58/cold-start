@@ -17,6 +17,8 @@ eval/provider-matrix/runs/
 /drizzle/
 playwright-report/
 test-results/
+.playwright-cli/
+/output/
 .specstory/
 .DS_Store
 .vercel

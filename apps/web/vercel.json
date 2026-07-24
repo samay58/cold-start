@@ -6,5 +6,11 @@
     "src/app/api/inngest/route.ts": {
       "maxDuration": 300
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/alpha/retention",
+      "schedule": "17 4 * * *"
+    }
+  ]
 }

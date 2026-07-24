@@ -140,6 +140,7 @@ const mocks = vi.hoisted(() => ({
   upsertResearchSection: vi.fn(),
   upsertResearchSections: vi.fn(),
   transitionGenerationRunById: vi.fn(),
+  settleAlphaRunRequest: vi.fn(),
   agentcashWalletSnapshot: vi.fn(),
   generateCardForDomainWithTrace: vi.fn(),
   synthesizeCard: vi.fn(),
@@ -166,7 +167,8 @@ vi.mock("@cold-start/db", () => ({
   upsertCard: mocks.upsertCard,
   upsertResearchSection: mocks.upsertResearchSection,
   upsertResearchSections: mocks.upsertResearchSections,
-  transitionGenerationRunById: mocks.transitionGenerationRunById
+  transitionGenerationRunById: mocks.transitionGenerationRunById,
+  settleAlphaRunRequest: mocks.settleAlphaRunRequest
 }));
 
 vi.mock("@cold-start/providers", () => ({
@@ -298,6 +300,7 @@ describe("generate-card analysis synthesize/verify steps", () => {
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
     mocks.mutateCard.mockResolvedValue(null);
     mocks.transitionGenerationRunById.mockResolvedValue({ id: "generation-run-id" });
+    mocks.settleAlphaRunRequest.mockResolvedValue(null);
     mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.recordCardEvidence.mockResolvedValue(undefined);
@@ -403,7 +406,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
       expect.objectContaining({ synthesis: expect.objectContaining({ whyItMatters }) })
     );
     expect(step.sendEvent).not.toHaveBeenCalled();
-  });
+    // Runs the whole analysis handler with the real gate, synthesize, and verify units. It lands
+    // around 2s alone and can pass 5s when the rest of the suite is competing for the machine.
+  }, 15_000);
 
   // Migrated from packages/pipeline/tests/generate-card.test.ts (Task 1 tightening pass): the
   // stale-synthesisWithheld strip used to live inside the combined generateCardForDomainWithTrace
@@ -542,8 +547,13 @@ describe("generate-card analysis synthesize/verify steps", () => {
     expect(types).toContain("verify.complete");
   });
 
-  it("(b) preserves an existing filed read instead of overwriting it when verify-synthesis drops every claim (issue #10)", async () => {
-    const existingCardWithSynthesis: ColdStartCard = {
+  // (b) and (b2) split the all-dropped-over-a-filed-read case by whether the run found anything.
+  // Skipping the write outright used to leave the synthesis TTL frozen, so every post-TTL click
+  // re-paid synthesis and verification for a verdict that could not change and burned a Lens run
+  // each time. The write now happens when the evidence is unchanged, which refreshes the TTL and
+  // lets the next click answer from cache for free.
+  function filedReadFixture(): ColdStartCard {
+    return {
       ...cardWithCitationCount(8),
       synthesis: {
         whyItMatters,
@@ -552,7 +562,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
         openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
       }
     };
-    mocks.findCardBySlug.mockResolvedValue(existingCardWithSynthesis);
+  }
+
+  function dropEveryClaim() {
     mocks.synthesizeCard.mockResolvedValue({
       whyItMatters,
       bullCase: [],
@@ -560,6 +572,50 @@ describe("generate-card analysis synthesize/verify steps", () => {
       openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
     });
     mocks.verifySynthesis.mockResolvedValue([{ ...whyItMatters, status: "contradicted" }]);
+  }
+
+  it("(b) refiles the existing read, TTL and all, when verify drops every claim and the evidence has not moved", async () => {
+    const existingCardWithSynthesis = filedReadFixture();
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithSynthesis);
+    dropEveryClaim();
+
+    await runAnalysisGeneration();
+
+    expect(mocks.upsertCard).toHaveBeenCalledTimes(1);
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis).toEqual(existingCardWithSynthesis.synthesis);
+    expect(storedCard.synthesisWithheld).toBeUndefined();
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+
+    const trace = persistedTrace();
+    expect(trace.milestones?.analysisReadyMs).toEqual(expect.any(Number));
+    expect(trace.synthesis?.evidenceFingerprint).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("(b2) leaves the stored card and its TTL alone when the evidence moved under the filed read", async () => {
+    mocks.findCardBySlug.mockResolvedValue(filedReadFixture());
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: {
+        ...cardWithCitationCount(9),
+        signals: [{
+          title: "Modal lands a public reference customer",
+          date: "2026-07-24",
+          url: "https://example.com/modal-reference-customer",
+          source: "Example",
+          type: "customer" as const,
+          citationIds: ["c9"]
+        }]
+      },
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 9, fallbackUsed: false }
+      }
+    });
+    dropEveryClaim();
 
     await runAnalysisGeneration();
 
@@ -569,7 +625,6 @@ describe("generate-card analysis synthesize/verify steps", () => {
       expect.objectContaining({ status: "complete" })
     );
 
-    // No store happened this run, so no new analysisReadyMs milestone was written.
     const trace = persistedTrace();
     expect(trace.milestones?.analysisReadyMs).toBeUndefined();
   });

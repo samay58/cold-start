@@ -345,7 +345,16 @@ export async function fetchInitialSourcesForGeneration(input: {
         factCount: stableFacts.length,
         failureCount: stableResult.status === "fulfilled" ? stableResult.value.failures.length : 1,
         ...(stableResult.status === "fulfilled" && stableResult.value.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
-        ...(stableSkipProbeNames.length > 0 ? { skippedProbeNames: stableSkipProbeNames } : {}),
+        ...(
+          stableSkipProbeNames.length > 0 || (stableResult.status === "fulfilled" && stableResult.value.skippedProbeNames?.length)
+            ? {
+                skippedProbeNames: Array.from(new Set([
+                  ...stableSkipProbeNames,
+                  ...(stableResult.status === "fulfilled" ? stableResult.value.skippedProbeNames ?? [] : [])
+                ]))
+              }
+            : {}
+        ),
         // Trace honesty for Task 5.3: which ANALYSIS_SOURCE_REFRESH branch actually ran this
         // fetch. Absent on basics runs (the plan never applies there). Lets shadow-run comparison
         // and the wait-surface progress copy tell "reused filed evidence" apart from "fetched
@@ -467,6 +476,7 @@ export async function fetchLateEnrichmentSources(input: {
           ...(initialStable?.budgetCeilingHit || stableResult.budgetCeilingHit ? { budgetCeilingHit: true } : {}),
           skippedProbeNames: Array.from(new Set([
             ...(initialStable?.skippedProbeNames ?? []),
+            ...(stableResult.skippedProbeNames ?? []),
             ...lateEnrichmentSkipProbeNames
           ])),
           endpoints: [...(initialStable?.endpoints ?? []), ...withStableenrichEndpointBudgets(stableResult.endpoints)]

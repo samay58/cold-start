@@ -1,0 +1,158 @@
+import { createHash } from "node:crypto";
+
+import {
+  COLD_START_API_CONTRACT_VERSION,
+  COLD_START_CLIENT_CONTRACT_HEADER
+} from "@cold-start/core";
+import type { ColdStartDb } from "@cold-start/db";
+import { sql } from "drizzle-orm";
+import { z } from "zod";
+
+const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
+const MAX_REQUEST_BYTES = 2_048;
+
+export const alphaInviteRequestSchema = z.object({
+  inviteToken: z.string().regex(INVITE_TOKEN_PATTERN)
+}).strict();
+
+export const alphaInviteRedeemRequestSchema = alphaInviteRequestSchema.extend({
+  browser: z.literal("chrome"),
+  channel: z.literal("unlisted"),
+  extensionVersion: z.string().regex(/^\d+(?:\.\d+){1,3}$/).max(32),
+  clientContract: z.string().min(1).max(128),
+  consent: z.literal(true),
+  storeVisited: z.boolean(),
+  reducedMotion: z.boolean(),
+  theme: z.enum(["light", "dark"])
+}).strict();
+
+export type AlphaInviteState =
+  | "ready"
+  | "expired"
+  | "installation_limit"
+  | "invalid_invite"
+  | "revoked"
+  | "used";
+
+export type AlphaClientCompatibility = "current" | "old_supported" | "update_required";
+
+type InviteInspectionRow = {
+  status: "pending" | "active" | "revoked";
+  expires_at: Date | string;
+  profile_limit: number;
+  lens_limit: number;
+  max_installations: number;
+  active_installations: number | string;
+};
+
+export type AlphaInviteInspection = {
+  state: AlphaInviteState;
+  profileLimit?: number;
+  lensLimit?: number;
+};
+
+export async function readBoundedJson(request: Request): Promise<unknown | null> {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return null;
+  }
+
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > MAX_REQUEST_BYTES) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+export function hashAlphaSecret(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+export function alphaClientCompatibility(headers: Headers, bodyContract?: string): AlphaClientCompatibility {
+  const clientContract =
+    bodyContract?.trim() ||
+    headers.get(COLD_START_CLIENT_CONTRACT_HEADER)?.trim() ||
+    "";
+  if (clientContract === COLD_START_API_CONTRACT_VERSION) {
+    return "current";
+  }
+
+  const supportedPrevious = new Set(
+    (process.env.ALPHA_SUPPORTED_PREVIOUS_CLIENT_CONTRACTS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+  return supportedPrevious.has(clientContract) ? "old_supported" : "update_required";
+}
+
+export async function inspectAlphaInvite(
+  db: ColdStartDb,
+  tokenHash: string,
+  now = new Date()
+): Promise<AlphaInviteInspection> {
+  const result = await db.execute<InviteInspectionRow>(sql`
+    select
+      invite.status,
+      invite.expires_at,
+      invite.profile_limit,
+      invite.lens_limit,
+      invite.max_installations,
+      count(installation.id) filter (where installation.revoked_at is null) as active_installations
+    from alpha_invites invite
+    left join alpha_installations installation on installation.invite_id = invite.id
+    where invite.token_hash = ${tokenHash}
+    group by invite.id
+    limit 1
+  `);
+  const row = executeRows<InviteInspectionRow>(result)[0];
+  if (!row) {
+    return { state: "invalid_invite" };
+  }
+  if (row.status === "revoked") {
+    return { state: "revoked" };
+  }
+  if (new Date(row.expires_at).getTime() <= now.getTime()) {
+    return { state: "expired" };
+  }
+  if (row.status !== "pending") {
+    return { state: "used" };
+  }
+  if (Number(row.active_installations) >= row.max_installations) {
+    return { state: "installation_limit" };
+  }
+  return {
+    state: "ready",
+    profileLimit: row.profile_limit,
+    lensLimit: row.lens_limit
+  };
+}
+
+export function alphaInviteErrorStatus(state: Exclude<AlphaInviteState, "ready">) {
+  switch (state) {
+    case "invalid_invite":
+      return 404;
+    case "expired":
+    case "revoked":
+      return 410;
+    case "installation_limit":
+    case "used":
+      return 409;
+  }
+}
+
+function executeRows<T>(result: unknown): T[] {
+  if (Array.isArray(result)) {
+    return result as T[];
+  }
+  if (result && typeof result === "object" && "rows" in result) {
+    const rows = (result as { rows?: unknown }).rows;
+    return Array.isArray(rows) ? rows as T[] : [];
+  }
+  return [];
+}

@@ -453,6 +453,66 @@ describe("mutateCard", () => {
     expect(result?.card.generationCostUsd).toBe(10);
     expect(current.generationCostUsd).toBe(10);
   });
+
+  it("preserves all fifty overlapping mutations", async () => {
+    let current = structuredClone(card);
+    let revision = 0;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => {
+              await Promise.resolve();
+              return [{ cardJson: structuredClone(current), updatedAt: new Date(revision) }];
+            }
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: { cardJson: ColdStartCard }) => ({
+          where: () => ({
+            returning: async () => {
+              await Promise.resolve();
+              const expectedGenerationCost = values.cardJson.generationCostUsd - 1;
+              if (Math.abs(current.generationCostUsd - expectedGenerationCost) > 0.000_001) {
+                return [];
+              }
+              current = structuredClone(values.cardJson);
+              revision += 1;
+              return [{ id: "card-id", cardJson: current }];
+            }
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await Promise.all(
+      Array.from({ length: 50 }, () =>
+        mutateCard(db, card.slug, (value) => ({
+          ...value,
+          generationCostUsd: value.generationCostUsd + 1
+        }))
+      )
+    );
+
+    expect(current.generationCostUsd).toBeCloseTo(card.generationCostUsd + 50, 8);
+  }, 15_000);
+
+  it("refuses a mutation that changes the canonical domain", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ cardJson: card, updatedAt: new Date() }]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(
+      mutateCard(db, card.slug, (value) => ({ ...value, domain: "cartesia.com" }))
+    ).rejects.toThrow("Card mutation cannot change identity");
+  });
 });
 
 describe("findPublicCardBySlug", () => {
@@ -541,6 +601,30 @@ describe("findPublicCardBySlug", () => {
 });
 
 describe("findCardBySlug", () => {
+  it("refuses a row whose canonical domain disagrees with card JSON", async () => {
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [
+              {
+                cardJson: card,
+                domain: "cartesia.com",
+                identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+                signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+                synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
+              }
+            ]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await expect(
+      findCardBySlug(db, "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") })
+    ).rejects.toThrow("Card domain invariant failed");
+  });
+
   it("returns null for analysis mode when synthesis is stale", async () => {
     const db = {
       select: () => ({
@@ -804,7 +888,9 @@ describe("retireStaleGenerationRuns", () => {
       staleAfterMs: generationRunStaleAfterMs
     });
 
-    expect(retired).toBe(1);
+    // The ids come back so the caller can settle each retired run's alpha reservation; a bare
+    // count left those reservations held against the invitation for good.
+    expect(retired).toEqual([{ id: rows[0]?.id }]);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       status: "failed",
@@ -827,7 +913,7 @@ describe("retireStaleGenerationRuns", () => {
         now: new Date("2026-05-06T12:20:00.000Z"),
         staleAfterMs: generationRunStaleAfterMs
       })
-    ).resolves.toBe(0);
+    ).resolves.toEqual([]);
     await expect(findActiveGenerationRunBySlug(db, "cartesia", "basics")).resolves.toMatchObject({
       status: "running"
     });
@@ -847,7 +933,7 @@ describe("retireStaleGenerationRuns", () => {
         now: new Date("2026-05-06T12:20:00.000Z"),
         staleAfterMs: generationRunStaleAfterMs
       })
-    ).resolves.toBe(0);
+    ).resolves.toEqual([]);
     await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toMatchObject({
       jobKind: "analysis",
       status: "running"
@@ -861,7 +947,7 @@ describe("retireStaleGenerationRuns", () => {
         now: new Date("2026-05-06T12:20:00.000Z"),
         staleAfterMs: generationRunStaleAfterMs
       })
-    ).resolves.toBe(1);
+    ).resolves.toEqual([{ id: rows[0]?.id }]);
     await expect(findActiveGenerationRunBySlug(db, "cartesia", "analysis")).resolves.toBeNull();
   });
 });
@@ -910,6 +996,19 @@ describe("deadGenerationRunTarget", () => {
         now: new Date("2026-05-06T12:08:00.000Z")
       })
     ).toBe("complete");
+  });
+
+  // The watchdog hands in the newest events only, so a card write older than that window is
+  // invisible to the scan and the run would be called a failure despite having produced output.
+  it("takes producedCard from the caller over what the truncated event tail shows", () => {
+    const silentTail = {
+      startedAt,
+      events: [{ type: "generation.started", createdAt: "2026-05-06T12:00:05.000Z" }],
+      now: new Date("2026-05-06T12:06:00.000Z")
+    };
+
+    expect(deadGenerationRunTarget(silentTail)).toBe("failed");
+    expect(deadGenerationRunTarget({ ...silentTail, producedCard: true })).toBe("complete");
   });
 
   it("measures silence from the latest event, tolerating Date createdAt and a custom threshold", () => {
@@ -966,6 +1065,18 @@ describe("retireGenerationRunById", () => {
 
     expect(retired).toBeNull();
     expect(rows[0]).toMatchObject({ status: "complete" });
+  });
+
+  // A queued row that nothing ever picked up is dead in exactly the way a silent running row is,
+  // and until this guard covered it nothing retired it or refunded its reservation.
+  it("retires a queued run that never started", async () => {
+    const { db, rows } = generationRunLifecycleDb();
+
+    await markGenerationRun(db, { slug: "cartesia", domain: "cartesia.ai", mode: "basics", jobKind: "basics", status: "queued" });
+
+    const retired = await retireGenerationRunById(db, { id: rows[0]!.id, target: "failed" });
+
+    expect(retired).toMatchObject({ status: "failed" });
   });
 });
 

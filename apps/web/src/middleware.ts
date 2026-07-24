@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 // by itself because the API is bearer-token gated and cookie-free. Firefox
 // origins are per-install random UUIDs (Bugzilla 1405971), so they cannot be
 // enumerated in config and are reflected by scheme instead.
-const ALLOWED_HEADERS = "authorization, content-type, x-cold-start-extension-id, x-cold-start-client-contract";
+const ALLOWED_HEADERS = "authorization, content-type, x-cold-start-extension-id, x-cold-start-extension-version, x-cold-start-client-contract";
 
 // The extension validates this response header cross-origin; without an
 // expose header Firefox hides it from the panel's JS.
@@ -52,5 +52,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/extension/:path*", "/api/generate"]
+  matcher: [
+    "/api/alpha/events",
+    "/api/alpha/invite/status",
+    "/api/alpha/invite/redeem",
+    "/api/extension/:path*",
+    "/api/generate"
+  ]
 };

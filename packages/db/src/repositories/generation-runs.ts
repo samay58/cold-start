@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { generationTraceSchema, type GenerationJobKind, type GenerationTrace } from "@cold-start/core";
 
 import type { ColdStartDb } from "../client";
-import { generationRuns } from "../schema";
+import { generationRuns, researchRunEvents } from "../schema";
 
 export type GenerationMode = "basics" | "analysis";
 type GenerationStatus = "queued" | "running" | "complete" | "failed";
@@ -297,6 +297,9 @@ export async function retireStaleGenerationRuns(
   const staleAfterMs = input.staleAfterMs ?? generationRunStaleAfterMs;
   const cutoff = new Date(now.getTime() - staleAfterMs);
   const minutes = Math.round(staleAfterMs / 60000);
+  // Returns the retired rows, not a count: a retired run may still hold an unsettled alpha
+  // allowance reservation, and callers settle each id so the reservation is refunded instead of
+  // leaking for the life of the invitation.
   const retired = await db
     .update(generationRuns)
     .set({
@@ -315,23 +318,30 @@ export async function retireStaleGenerationRuns(
     )
     .returning();
 
-  return retired.length;
+  return retired.map((row) => ({ id: row.id }));
 }
 
 export const generationRunDeadAfterMs = 5 * 60 * 1000;
 
 const DEAD_RUN_CARD_EVENT_TYPES = new Set(["card.saved", "card.enriched", "card.partial"]);
 
-// Event-trail deadness check for an active `running` run, mirroring the classification in
-// scripts/repair-stuck-generation-runs.ts: a run silent for over the threshold lost its
-// executor (an inline route invocation whose instance was recycled, or a worker that died
-// before its terminal write). A run that already emitted a card event produced usable output
-// and retires as `complete`; one that never did retires as `failed`.
+// Event-trail deadness check for an active `queued` or `running` run, mirroring the
+// classification in scripts/repair-stuck-generation-runs.ts: a run silent for over the threshold
+// lost its executor (an inline route invocation whose instance was recycled, or a worker that
+// died before its terminal write). A queued row is dead the same way: nothing ever picked it up,
+// and generation_runs.started_at is set at insert for every row, so the silence clock is honest
+// for both statuses. A run that already emitted a card event produced usable output and retires
+// as `complete`; one that never did retires as `failed`.
+//
+// `producedCard` overrides the event scan. Callers pass the answer from runProducedCardEvent
+// below, because the events handed in here are the newest N only and a card event older than
+// that window is invisible to the scan.
 export function deadGenerationRunTarget(input: {
   startedAt: Date;
   events: Array<{ type: string; createdAt: string | Date }>;
   now?: Date;
   deadAfterMs?: number;
+  producedCard?: boolean;
 }): "complete" | "failed" | null {
   const now = input.now ?? new Date();
   const deadAfterMs = input.deadAfterMs ?? generationRunDeadAfterMs;
@@ -352,11 +362,23 @@ export function deadGenerationRunTarget(input: {
     return null;
   }
 
-  return producedCard ? "complete" : "failed";
+  return (input.producedCard ?? producedCard) ? "complete" : "failed";
+}
+
+// Whether a run ever emitted a card-storage event, asked of the whole trail rather than the
+// truncated tail the watchdog carries for its silence check.
+export async function runProducedCardEvent(db: ColdStartDb, runId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: researchRunEvents.id })
+    .from(researchRunEvents)
+    .where(and(eq(researchRunEvents.runId, runId), inArray(researchRunEvents.type, [...DEAD_RUN_CARD_EVENT_TYPES])))
+    .limit(1);
+
+  return rows.length > 0;
 }
 
 // Terminal write for a run the watchdog classified as dead. Guarded on the id still being
-// `running`, so a run that reached its own terminal status between the read and this write is
+// active, so a run that reached its own terminal status between the read and this write is
 // never touched and no duplicate row is ever inserted (unlike markGenerationRun's upsert path).
 export async function retireGenerationRunById(
   db: ColdStartDb,
@@ -370,7 +392,7 @@ export async function retireGenerationRunById(
       completedAt: now,
       ...(input.target === "failed" ? { error: input.error ?? "generation run went silent; retired by the request watchdog" } : {})
     })
-    .where(and(eq(generationRuns.id, input.id), eq(generationRuns.status, "running")))
+    .where(and(eq(generationRuns.id, input.id), inArray(generationRuns.status, ["queued", "running"])))
     .returning();
 
   return row ?? null;

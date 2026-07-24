@@ -52,9 +52,10 @@ if (process.env[confirmationEnv] !== "1") {
   fail(`Set ${confirmationEnv}=1 to confirm you intend to migrate the production database.`);
 }
 
-const databaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+const runtimeDatabaseUrl = process.env.DATABASE_URL?.trim() ?? "";
+const databaseUrl = process.env.DATABASE_DIRECT_URL?.trim() ?? "";
 if (!databaseUrl) {
-  fail("DATABASE_URL is empty. Export the production Neon pooled connection string before running this command.");
+  fail("DATABASE_DIRECT_URL is empty. Export the production Neon direct connection string before running this command.");
 }
 
 if (!databaseUrl.startsWith("postgres://") && !databaseUrl.startsWith("postgresql://")) {
@@ -63,6 +64,14 @@ if (!databaseUrl.startsWith("postgres://") && !databaseUrl.startsWith("postgresq
 
 if (isLocalDatabase(databaseUrl)) {
   fail("Refusing to run a production migration against a local database URL.");
+}
+
+if (/pooler/i.test(databaseHostname(databaseUrl))) {
+  fail("Refusing to run a production migration through a pooled endpoint. Use the direct Neon connection.");
+}
+
+if (runtimeDatabaseUrl && databaseUrl === runtimeDatabaseUrl) {
+  fail("DATABASE_DIRECT_URL must differ from the pooled runtime DATABASE_URL.");
 }
 
 const localDatabaseUrl = readDotenvValue(resolve(repoRoot, ".env.local"), "DATABASE_URL")?.trim();
@@ -75,10 +84,10 @@ if (checkOnly) {
   process.exit(0);
 }
 
-console.log("Running production migration. DATABASE_URL value hidden.");
+console.log("Running production migration. Direct database URL hidden.");
 const result = spawnSync("npm", ["run", "db:migrate", "-w", "@cold-start/db"], {
   cwd: repoRoot,
-  env: process.env,
+  env: { ...process.env, DATABASE_URL: databaseUrl },
   stdio: "inherit"
 });
 

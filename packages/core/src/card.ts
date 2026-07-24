@@ -254,10 +254,18 @@ function validateCitationRefs(input: unknown, validIds: Set<string>, ctx: z.Refi
   Object.entries(input).forEach(([key, value]) => validateCitationRefs(value, validIds, ctx, [...path, key]));
 }
 
-export const coldStartCardSchema = coldStartCardObjectSchema.superRefine((card, ctx) => {
-  const validIds = new Set(card.citations.map((citation) => citation.id));
-  validateCitationRefs(card, validIds, ctx, []);
-});
+export const coldStartCardSchema = coldStartCardObjectSchema
+  .superRefine((card, ctx) => {
+    const validIds = new Set(card.citations.map((citation) => citation.id));
+    validateCitationRefs(card, validIds, ctx, []);
+  })
+  // A filed read and a withheld record describe the same slot and cannot both be true. The
+  // storage merge already drops the withheld record whenever synthesis survives; this keeps any
+  // other write path from storing a card the extension would have to guess about.
+  .refine((card) => !(card.synthesis && card.synthesisWithheld), {
+    message: "a card carries either synthesis or synthesisWithheld, never both",
+    path: ["synthesisWithheld"]
+  });
 
 export type Citation = z.infer<typeof citationSchema>;
 export type ColdStartCard = z.infer<typeof coldStartCardSchema>;

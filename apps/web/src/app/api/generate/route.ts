@@ -15,6 +15,7 @@ import { synthesisEvidenceFingerprint } from "@cold-start/pipeline";
 import {
   createDb,
   findActiveGenerationRunStatusBySlug,
+  findGenerationRunById,
   findCardBySlug,
   findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug,
@@ -23,8 +24,10 @@ import {
   markGenerationRun,
   markResearchSectionFailed,
   markResearchSectionRunning,
+  recordAlphaRunDisposition,
   recordResearchRunEvent,
-  retireStaleGenerationRuns,
+  reserveAlphaRunRequest,
+  settleAlphaRunRequest,
   type ColdStartDb,
   type GenerationRunStatusSummary,
   type ResearchRunEvent
@@ -32,12 +35,19 @@ import {
 import { inngest } from "../../../inngest/client";
 import { startInlineGeneration } from "../../../inngest/inline-dispatch";
 import { generationDispatchModeFromProcess } from "../../../inngest/worker-env";
+import { alphaGenerationEnabled } from "../../../lib/alpha-config";
 import { boundedErrorMessage } from "../../../lib/errors";
-import { retireDeadGenerationRun } from "../../../lib/generation-run-watchdog";
+import { generationFailureCode } from "../../../lib/failure-code";
+import { retireAndSettleStaleGenerationRuns, retireDeadGenerationRun } from "../../../lib/generation-run-watchdog";
 import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/web-env";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-response";
-import { assertExtensionRequest } from "../../../lib/extension-auth";
+import {
+  assertExtensionRequest,
+  authenticateExtensionRequest,
+  principalHasScope,
+  type AlphaPrincipal
+} from "../../../lib/extension-auth";
 
 // Inline-dispatched profile runs execute inside this invocation past the 202 (via `after` in
 // inline-dispatch.ts): basics runs ~45-90s, analysis ~85s, so 300s covers both with margin.
@@ -45,6 +55,7 @@ import { assertExtensionRequest } from "../../../lib/extension-auth";
 export const maxDuration = 300;
 
 type GenerationMode = "basics" | "analysis";
+type QueuedGenerationRun = NonNullable<Awaited<ReturnType<typeof markGenerationRun>>>;
 
 function generationMode(input: unknown): GenerationMode {
   if (input === undefined || input === null || input === "") {
@@ -84,6 +95,77 @@ function jobKindForRequest(mode: GenerationMode, sectionId: ResearchSectionId | 
 
 function publicGenerationEnabled() {
   return process.env.NODE_ENV !== "production" || process.env.PUBLIC_GENERATION_ENABLED === "true";
+}
+
+function hasBearerCredential(headers: Headers) {
+  return (headers.get("authorization") ?? "").startsWith("Bearer ");
+}
+
+function operatorPrincipal() {
+  return {
+    ok: true as const,
+    principal: {
+      kind: "operator",
+      inviteId: null,
+      installationId: null,
+      scopes: ["operator"]
+    } satisfies AlphaPrincipal
+  };
+}
+
+function interactionId(input: unknown) {
+  if (typeof input !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)) {
+    return null;
+  }
+  return input;
+}
+
+function alphaReservationRejection(reason: string | null) {
+  switch (reason) {
+    case "allowance_exhausted":
+      return {
+        status: 429,
+        error: "No fresh runs remain for this allowance. Cached work is still available."
+      };
+    case "rate_limited":
+      return {
+        status: 429,
+        error: "Too many requests arrived together. Wait a minute, then try once more."
+      };
+    case "domain_failure_breaker":
+      return {
+        status: 503,
+        error: "New work is paused for this company after repeated failures. Try another company or contact support."
+      };
+    case "invite_failure_breaker":
+      return {
+        status: 503,
+        error: "New work is paused for this invitation after repeated failures. Contact support."
+      };
+    case "generation_busy":
+      return {
+        status: 409,
+        error: "Another research job is running for this company. Try again when it finishes."
+      };
+    case "access_inactive":
+      return {
+        status: 401,
+        error: "This extension connection is no longer active. Reconnect from the invitation page."
+      };
+    default:
+      return {
+        status: 403,
+        error: "This run could not be started."
+      };
+  }
+}
+
+function logAlphaReservationRejection(reason: string | null, status: number) {
+  console.warn("[alpha-security]", {
+    signal: "generation_reservation_rejected",
+    reason: reason ?? "unknown",
+    status
+  });
 }
 
 function isUniqueGenerationRunConflict(error: unknown) {
@@ -136,20 +218,30 @@ async function markQueuedGenerationFailed(
     domain: string;
     mode: GenerationMode;
     sectionId: ResearchSectionId | null;
-    queuedRun: Awaited<ReturnType<typeof markGenerationRun>> | null;
+    queuedRun: QueuedGenerationRun | null | undefined;
     error: unknown;
   }
 ) {
   const errorMessage = boundedErrorMessage(input.error);
   const jobKind = jobKindForRequest(input.mode, input.sectionId);
-  await markGenerationRun(db, {
-    slug: input.slug,
-    domain: input.domain,
-    mode: input.mode,
-    jobKind,
-    status: "failed",
-    error: errorMessage
-  });
+  const alphaSettlement = input.queuedRun?.id
+    ? await settleAlphaRunRequest(db, {
+      generationRunId: input.queuedRun.id,
+      outcome: "failed",
+      failureCode: generationFailureCode(input.error),
+      error: errorMessage
+    })
+    : null;
+  if (!alphaSettlement) {
+    await markGenerationRun(db, {
+      slug: input.slug,
+      domain: input.domain,
+      mode: input.mode,
+      jobKind,
+      status: "failed",
+      error: errorMessage
+    });
+  }
   await recordResearchRunEvent(db, {
     runId: input.queuedRun?.id ?? `${input.slug}:${jobKind}`,
     slug: input.slug,
@@ -173,10 +265,13 @@ async function markQueuedGenerationFailed(
 
 export async function GET(request: Request) {
   const startedAt = performance.now();
-  const extensionAuth = assertExtensionRequest(request.headers);
-
-  if (!extensionAuth.ok) {
-    return apiJsonWithTiming({ error: extensionAuth.error }, [{ name: "total", durationMs: elapsedMs(startedAt) }], { status: extensionAuth.status });
+  const operatorAuth = assertExtensionRequest(request.headers);
+  if (!operatorAuth.ok && !hasBearerCredential(request.headers)) {
+    return apiJsonWithTiming(
+      { error: operatorAuth.error },
+      [{ name: "total", durationMs: elapsedMs(startedAt) }],
+      { status: operatorAuth.status }
+    );
   }
 
   const url = new URL(request.url);
@@ -208,7 +303,24 @@ export async function GET(request: Request) {
   const slug = companySlugFromDomain(domain);
   const dbStartedAt = performance.now();
   const db = createDb(webEnv().DATABASE_URL);
-  await retireStaleGenerationRuns(db, { slug, mode, jobKind });
+  const extensionAuth = operatorAuth.ok
+    ? operatorPrincipal()
+    : await authenticateExtensionRequest(request.headers, db);
+  if (!extensionAuth.ok) {
+    return apiJsonWithTiming(
+      { error: extensionAuth.error },
+      [{ name: "total", durationMs: elapsedMs(startedAt) }],
+      { status: extensionAuth.status }
+    );
+  }
+  if (!principalHasScope(extensionAuth.principal, "generation:write")) {
+    return apiJsonWithTiming(
+      { error: "generation access is not allowed for this installation", code: "authorization" },
+      [{ name: "total", durationMs: elapsedMs(startedAt) }],
+      { status: 403 }
+    );
+  }
+  await retireAndSettleStaleGenerationRuns(db, { slug, mode, jobKind });
   const latestRun = await findLatestGenerationRunStatusBySlug(db, slug, mode, jobKind);
 
   if (!latestRun) {
@@ -217,6 +329,16 @@ export async function GET(request: Request) {
       { name: "total", durationMs: elapsedMs(startedAt) }
     ];
     return apiJsonWithTiming(serializeGenerationRun({ slug, domain, mode, status: "idle" }), metrics, { status: 200 });
+  }
+  if (latestRun.domain !== domain) {
+    return apiJsonWithTiming(
+      { error: "company domain conflicts with an existing card identity" },
+      [
+        { name: "db", durationMs: elapsedMs(dbStartedAt) },
+        { name: "total", durationMs: elapsedMs(startedAt) }
+      ],
+      { status: 409 }
+    );
   }
 
   const settled = await retireDeadGenerationRun(db, latestRun);
@@ -231,10 +353,17 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   const timedJson = (body: unknown, init?: ResponseInit, extraMetrics: ServerTimingMetric[] = []) =>
     apiJsonWithTiming(body, [...extraMetrics, { name: "total", durationMs: elapsedMs(startedAt) }], init);
-  let body: { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown; sectionId?: unknown };
+  let body: {
+    domain?: unknown;
+    confirmStart?: unknown;
+    forceRefresh?: unknown;
+    interactionId?: unknown;
+    mode?: unknown;
+    sectionId?: unknown;
+  };
 
   try {
-    body = (await request.json()) as { domain?: unknown; confirmStart?: unknown; forceRefresh?: unknown; mode?: unknown; sectionId?: unknown };
+    body = (await request.json()) as typeof body;
   } catch {
     return timedJson({ error: "invalid json body" }, { status: 400 });
   }
@@ -252,24 +381,25 @@ export async function POST(request: Request) {
   if (sectionId && hasExplicitGenerationMode(body.mode) && requestedMode !== mode) {
     return timedJson({ error: "section mode does not match requested mode" }, { status: 400 });
   }
-  const extensionAuth = assertExtensionRequest(request.headers);
+  const operatorAuth = assertExtensionRequest(request.headers);
+  const hasCredential = operatorAuth.ok || hasBearerCredential(request.headers);
   const confirmed = body.confirmStart === true;
   const forceRefresh = body.forceRefresh === true;
-  const acceptsUnconfirmedExtensionBasics = !sectionId && mode === "basics" && extensionAuth.ok;
+  const acceptsUnconfirmedExtensionBasics = !sectionId && mode === "basics" && hasCredential;
 
-  if ((mode === "analysis" || sectionId) && !extensionAuth.ok) {
-    return timedJson({ error: extensionAuth.error }, { status: extensionAuth.status });
+  if ((mode === "analysis" || sectionId) && !hasCredential) {
+    return timedJson({ error: operatorAuth.error }, { status: operatorAuth.status });
   }
 
   if (!confirmed && !acceptsUnconfirmedExtensionBasics) {
     return timedJson({ error: "generation start confirmation required" }, { status: 400 });
   }
 
-  if (mode === "basics" && !extensionAuth.ok && !publicGenerationEnabled()) {
+  if (mode === "basics" && !hasCredential && !publicGenerationEnabled()) {
     return timedJson({ error: "extension identity required" }, { status: 403 });
   }
 
-  if (forceRefresh && (!extensionAuth.ok || !confirmed)) {
+  if (forceRefresh && (!hasCredential || !confirmed)) {
     return timedJson({ error: "extension refresh requires confirmation" }, { status: 400 });
   }
 
@@ -284,12 +414,72 @@ export async function POST(request: Request) {
   const slug = companySlugFromDomain(domain);
   const dbStartedAt = performance.now();
   const db = createDb(webEnv().DATABASE_URL);
+  const extensionAuth = operatorAuth.ok
+    ? operatorPrincipal()
+    : hasBearerCredential(request.headers)
+      ? await authenticateExtensionRequest(request.headers, db)
+      : operatorAuth;
+  if (hasCredential && !extensionAuth.ok) {
+    return timedJson({ error: extensionAuth.error }, { status: extensionAuth.status });
+  }
+  if (
+    extensionAuth.ok &&
+    hasCredential &&
+    !principalHasScope(extensionAuth.principal, "generation:write")
+  ) {
+    return timedJson(
+      { error: "generation access is not allowed for this installation", code: "authorization" },
+      { status: 403 }
+    );
+  }
+  const alphaPrincipal =
+    extensionAuth.ok && extensionAuth.principal.kind === "alpha"
+      ? extensionAuth.principal
+      : null;
+  const alphaInteractionId = alphaPrincipal ? interactionId(body.interactionId) : null;
+  if (alphaPrincipal && !alphaInteractionId) {
+    return timedJson(
+      { error: "this extension needs an update before starting new work", code: "unsupported_client" },
+      { status: 426 }
+    );
+  }
+  const recordAlphaDisposition = async (
+    disposition: "cached" | "withheld" | "blocked" | "rejected",
+    reason?: string
+  ) => {
+    if (
+      !alphaPrincipal?.inviteId ||
+      !alphaPrincipal.installationId ||
+      !alphaInteractionId
+    ) {
+      return null;
+    }
+    return recordAlphaRunDisposition(db, {
+      inviteId: alphaPrincipal.inviteId,
+      installationId: alphaPrincipal.installationId,
+      interactionId: alphaInteractionId,
+      kind: mode === "analysis" ? "lens" : "profile",
+      slug,
+      domain,
+      disposition,
+      ...(reason ? { reason } : {})
+    });
+  };
   // allowStale: an analysis existence check must not run the TTL-freshness gate, or a card whose
   // TTL lapsed reads as absent and 404s instead of queueing a refresh (the stale-TTL dead end).
   const cached = mode === "analysis" ? await findCardBySlug(db, slug, { allowStale: true }) : await findPublicCardBySlug(db, slug);
   let cacheLookupMs = elapsedMs(dbStartedAt);
 
+  if (cached && cached.domain !== domain) {
+    return timedJson(
+      { error: "company domain conflicts with an existing card identity" },
+      { status: 409 },
+      [{ name: "db", durationMs: cacheLookupMs }]
+    );
+  }
+
   if (mode === "analysis" && !cached) {
+    await recordAlphaDisposition("blocked", "profile_not_found");
     return timedJson({ error: "profile not found" }, { status: 404 }, [{ name: "db", durationMs: cacheLookupMs }]);
   }
 
@@ -302,11 +492,13 @@ export async function POST(request: Request) {
       ? analysisBlockedReason(cached)
       : hasUsablePublicProfile(cached) ? null : "profile needs more structured facts before section generation";
     if (blockedReason) {
+      await recordAlphaDisposition("blocked", "quality_gate");
       return timedJson({ error: blockedReason }, { status: 409 }, [{ name: "db", durationMs: cacheLookupMs }]);
     }
   } else if (mode === "analysis" && cached) {
     const blockedReason = analysisBlockedReason(cached);
     if (blockedReason) {
+      await recordAlphaDisposition("blocked", "quality_gate");
       return timedJson({ error: blockedReason }, { status: 409 }, [{ name: "db", durationMs: cacheLookupMs }]);
     }
   }
@@ -334,6 +526,7 @@ export async function POST(request: Request) {
       liveSignals.nonEnrichmentSourceTypes.length === withheldRecord.sourceTypeCount;
 
     if (evidenceUnchanged) {
+      await recordAlphaDisposition("withheld", "evidence_unchanged");
       return timedJson(
         { slug, domain, mode, status: "withheld" as const, card: cached },
         { status: 200 },
@@ -350,14 +543,15 @@ export async function POST(request: Request) {
       ? hasUsablePublicProfile(cached)
       : cached.cacheStatus !== "stale" && "synthesis" in cached && cached.synthesis)
   ) {
+    await recordAlphaDisposition("cached", "fresh_cache");
     return timedJson(serializeGenerationRun({ slug, domain, mode, status: "cached" }), { status: 200 }, [{ name: "db", durationMs: cacheLookupMs }]);
   }
 
   const runLookupStartedAt = performance.now();
-  await retireStaleGenerationRuns(db, { slug, mode });
+  await retireAndSettleStaleGenerationRuns(db, { slug, mode });
   const oppositeProfileMode = mode === "basics" ? "analysis" : "basics";
   if (sectionId) {
-    await retireStaleGenerationRuns(db, {
+    await retireAndSettleStaleGenerationRuns(db, {
       slug,
       mode: oppositeProfileMode,
       jobKind: profileJobKind(oppositeProfileMode)
@@ -386,6 +580,16 @@ export async function POST(request: Request) {
   // same slug/mode is joined below, never superseded. A forceRefresh request never starts a
   // second concurrent run against the same target; it attaches to whatever is already running.
   if (activeRun) {
+    if (activeRun.domain !== domain) {
+      return timedJson(
+        { error: "company domain conflicts with an existing card identity" },
+        { status: 409 },
+        [
+          { name: "db-cache", durationMs: cacheLookupMs },
+          { name: "db-run", durationMs: runLookupMs }
+        ]
+      );
+    }
     const activeRunEvents = activeRun.id ? await findResearchRunEventsByRunId(db, activeRun.id, { limit: 12 }).catch(() => []) : [];
     const settledActiveRun = await retireDeadGenerationRun(db, activeRun, activeRunEvents);
     const retiredDeadRun = settledActiveRun.run.status !== activeRun.status;
@@ -402,6 +606,40 @@ export async function POST(request: Request) {
         );
       }
 
+      if (
+        alphaPrincipal?.inviteId &&
+        alphaPrincipal.installationId &&
+        alphaInteractionId
+      ) {
+        const joined = await reserveAlphaRunRequest(db, {
+          inviteId: alphaPrincipal.inviteId,
+          installationId: alphaPrincipal.installationId,
+          interactionId: alphaInteractionId,
+          kind: mode === "analysis" ? "lens" : "profile",
+          jobKind: jobKindForRequest(mode, sectionId),
+          slug,
+          domain
+        });
+        // A replayed `started` row means this interaction id already opened a run; attaching to
+        // whatever is active now is the same answer a fresh join would give, and it never
+        // reserves a second allowance.
+        if (joined.disposition !== "joined" && !(joined.disposition === "started" && joined.replayed)) {
+          const rejection = alphaReservationRejection(joined.dispositionReason);
+          logAlphaReservationRejection(joined.dispositionReason, rejection.status);
+          return timedJson(
+            {
+              error: rejection.error,
+              code: joined.dispositionReason ?? "allowance_exhausted"
+            },
+            { status: rejection.status },
+            [
+              { name: "db-cache", durationMs: cacheLookupMs },
+              { name: "db-run", durationMs: runLookupMs }
+            ]
+          );
+        }
+      }
+
       return timedJson(
         serializeGenerationRun({ ...activeRun, slug, domain, mode, events: activeRunEvents }),
         { status: 202 },
@@ -414,12 +652,117 @@ export async function POST(request: Request) {
     // The dead run now holds a terminal status, so this request proceeds to start a fresh one.
   }
 
+  if (alphaPrincipal && !alphaGenerationEnabled()) {
+    await recordAlphaDisposition("blocked", "generation_disabled");
+    return timedJson(
+      {
+        error: "New generation is temporarily paused. Cached profiles and filed Lens reads remain available.",
+        code: "generation_disabled"
+      },
+      { status: 503 },
+      [
+        { name: "db-cache", durationMs: cacheLookupMs },
+        { name: "db-run", durationMs: runLookupMs }
+      ]
+    );
+  }
+
   // The DB partial unique index is the final guard if two fresh POSTs pass the read above.
-  let queuedRun: Awaited<ReturnType<typeof markGenerationRun>> | null = null;
+  let queuedRun: QueuedGenerationRun | null | undefined = null;
   let queuedEvent: ResearchRunEvent | null = null;
 
   try {
-    queuedRun = await markGenerationRun(db, { slug, domain, mode, jobKind: jobKindForRequest(mode, sectionId), status: "queued" });
+    if (
+      alphaPrincipal?.inviteId &&
+      alphaPrincipal.installationId &&
+      alphaInteractionId
+    ) {
+      const reservation = await reserveAlphaRunRequest(db, {
+        inviteId: alphaPrincipal.inviteId,
+        installationId: alphaPrincipal.installationId,
+        interactionId: alphaInteractionId,
+        kind: mode === "analysis" ? "lens" : "profile",
+        jobKind: jobKindForRequest(mode, sectionId),
+        slug,
+        domain
+      });
+      if (reservation.disposition === "rejected") {
+        const rejection = alphaReservationRejection(reservation.dispositionReason);
+        logAlphaReservationRejection(reservation.dispositionReason, rejection.status);
+        return timedJson(
+          {
+            error: rejection.error,
+            code: reservation.dispositionReason ?? "allowance_exhausted"
+          },
+          { status: rejection.status },
+          [
+            { name: "db-cache", durationMs: cacheLookupMs },
+            { name: "db-run", durationMs: runLookupMs }
+          ]
+        );
+      }
+      if (reservation.disposition === "joined") {
+        const joinedRun = reservation.generationRunId
+          ? await findGenerationRunById(db, reservation.generationRunId)
+          : null;
+        if (!joinedRun) {
+          throw new Error("joined generation run was not found");
+        }
+        return timedJson(
+          serializeGenerationRun(joinedRun),
+          { status: 202 },
+          [
+            { name: "db-cache", durationMs: cacheLookupMs },
+            { name: "db-run", durationMs: runLookupMs }
+          ]
+        );
+      }
+      const reservedRun = reservation.generationRunId
+        ? await findGenerationRunById(db, reservation.generationRunId)
+        : null;
+      if (!reservedRun?.id) {
+        throw new Error("reserved generation run was not found");
+      }
+      // A replayed reservation carries a request row this interaction id already owned, so the
+      // work it describes is already under way or already finished. Starting a second execution
+      // against it would re-pay the whole pipeline for one click. While the run is still active
+      // this is an ordinary network retry, so attach to it; once it is terminal there is nothing
+      // to attach to and the client needs a fresh interaction id.
+      if (reservation.replayed) {
+        const stillRunning = reservedRun.status === "queued" || reservedRun.status === "running";
+        if (reservation.debited && stillRunning) {
+          return timedJson(
+            serializeGenerationRun(reservedRun),
+            { status: 202 },
+            [
+              { name: "db-cache", durationMs: cacheLookupMs },
+              { name: "db-run", durationMs: runLookupMs }
+            ]
+          );
+        }
+        logAlphaReservationRejection("interaction_replayed", 409);
+        return timedJson(
+          {
+            error: "That request already finished. Start a new one from the panel.",
+            code: "interaction_replayed"
+          },
+          { status: 409 },
+          [
+            { name: "db-cache", durationMs: cacheLookupMs },
+            { name: "db-run", durationMs: runLookupMs }
+          ]
+        );
+      }
+      queuedRun = { ...reservedRun, id: reservedRun.id } as QueuedGenerationRun;
+    } else {
+      queuedRun = await markGenerationRun(db, {
+        slug,
+        domain,
+        mode,
+        jobKind: jobKindForRequest(mode, sectionId),
+        status: "queued"
+      });
+    }
     queuedEvent = await recordResearchRunEvent(db, {
       runId: queuedRun?.id ?? `${slug}:${jobKindForRequest(mode, sectionId)}`,
       slug,

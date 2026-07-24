@@ -2,9 +2,20 @@ import { COLD_START_API_CONTRACT_HEADER, COLD_START_API_CONTRACT_VERSION } from 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createDb: vi.fn(),
+  findActiveAlphaInstallationByTokenHash: vi.fn(),
   getFullCachedCard: vi.fn(),
   getLatestProviderFailureSummary: vi.fn()
 }));
+
+vi.mock("@cold-start/db", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@cold-start/db")>();
+  return {
+    ...original,
+    createDb: mocks.createDb,
+    findActiveAlphaInstallationByTokenHash: mocks.findActiveAlphaInstallationByTokenHash
+  };
+});
 
 vi.mock("../src/lib/cards", () => ({
   getFullCachedCard: mocks.getFullCachedCard,
@@ -17,6 +28,7 @@ const originalAllowedExtensionIds = process.env.ALLOWED_EXTENSION_IDS;
 const originalChromeExtensionId = process.env.CHROME_EXTENSION_ID;
 const originalApiTokens = process.env.EXTENSION_API_TOKENS;
 const originalApiToken = process.env.EXTENSION_API_TOKEN;
+const originalDatabaseUrl = process.env.DATABASE_URL;
 const originalNodeEnv = process.env.NODE_ENV;
 
 function extensionRequest(origin?: string, token?: string, extensionId?: string) {
@@ -46,6 +58,9 @@ describe("GET /api/extension/cards/[slug]", () => {
     delete process.env.CHROME_EXTENSION_ID;
     delete process.env.EXTENSION_API_TOKENS;
     process.env.EXTENSION_API_TOKEN = "secret";
+    process.env.DATABASE_URL = "postgres://test:test@localhost:5432/test";
+    mocks.createDb.mockReset().mockReturnValue({});
+    mocks.findActiveAlphaInstallationByTokenHash.mockReset().mockResolvedValue(null);
     mocks.getFullCachedCard.mockReset();
     mocks.getLatestProviderFailureSummary.mockReset();
     // Default: no provider failures recorded. Individual tests override when asserting header behavior.
@@ -78,6 +93,11 @@ describe("GET /api/extension/cards/[slug]", () => {
     } else {
       process.env.EXTENSION_API_TOKEN = originalApiToken;
     }
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
     if (originalChromeExtensionId === undefined) {
       delete process.env.CHROME_EXTENSION_ID;
     } else {
@@ -95,6 +115,7 @@ describe("GET /api/extension/cards/[slug]", () => {
 
     await expect(response.json()).resolves.toEqual({ error: "extension token required" });
     expect(response.status).toBe(401);
+    expect(mocks.createDb).not.toHaveBeenCalled();
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
 
@@ -164,6 +185,7 @@ describe("GET /api/extension/cards/[slug]", () => {
 
     await expect(response.json()).resolves.toEqual(fullCard);
     expect(response.status).toBe(200);
+    expect(mocks.createDb).not.toHaveBeenCalled();
     expect(mocks.getFullCachedCard).toHaveBeenCalledWith("cartesia");
   });
 

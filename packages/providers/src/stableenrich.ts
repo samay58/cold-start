@@ -6,6 +6,32 @@ import { MAX_LEADERS_FOR_ENRICHMENT, namedLeadersWithSourceUrl, runApolloPeopleD
 import { collectStableenrichSources } from "./stableenrich/facts";
 import { extractPeopleFromExaEmailResults, peopleHintsFromProviderSources, peopleRecordsFromEmailHints, rankPeople, summarizeEmailDiscovery } from "./stableenrich/people";
 
+const unavailableApolloProbeNames = [
+  "apollo_org_search",
+  "apollo_people_search",
+  "apollo_people_enrich"
+] as const;
+
+function markUnavailableApolloProbes(
+  budgetState: ReturnType<typeof createAgentcashBudgetState>,
+  env: StableenrichEnv
+) {
+  const configured = new Set([
+    ...(env.STABLEENRICH_APOLLO_ORG_SEARCH_URL ? ["apollo_org_search"] : []),
+    ...(env.STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL ? ["apollo_people_search"] : []),
+    ...(env.STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL ? ["apollo_people_enrich"] : [])
+  ]);
+  budgetState.skippedEndpoints.push(...unavailableApolloProbeNames.filter((name) => !configured.has(name)));
+}
+
+function withBudgetState(result: StableenrichSourcesResult, budgetState: ReturnType<typeof createAgentcashBudgetState>) {
+  return {
+    ...result,
+    ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}),
+    skippedProbeNames: Array.from(new Set(budgetState.skippedEndpoints))
+  };
+}
+
 export async function fetchStableenrichSources(input: {
   env: StableenrichEnv;
   domain: string;
@@ -15,6 +41,7 @@ export async function fetchStableenrichSources(input: {
   maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
   const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  markUnavailableApolloProbes(budgetState, input.env);
   const results = await runStableenrichProbe({ ...input, budgetState });
   const followups = await runStableenrichPeopleFollowups({
     env: input.env,
@@ -23,7 +50,7 @@ export async function fetchStableenrichSources(input: {
     agentcashFetch: input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request)),
     budgetState,
   });
-  return { ...collectStableenrichSources([...results, ...followups]), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
+  return withBudgetState(collectStableenrichSources([...results, ...followups]), budgetState);
 }
 
 export async function fetchStableenrichFastSources(input: {
@@ -35,8 +62,9 @@ export async function fetchStableenrichFastSources(input: {
   maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
   const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  markUnavailableApolloProbes(budgetState, input.env);
   const results = await runStableenrichProbe({ ...input, tier: "fast", budgetState });
-  return { ...collectStableenrichSources(results), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
+  return withBudgetState(collectStableenrichSources(results), budgetState);
 }
 
 export async function fetchStableenrichEnrichmentSources(input: {
@@ -48,6 +76,7 @@ export async function fetchStableenrichEnrichmentSources(input: {
   maxBudgetUsd?: number | undefined;
 }): Promise<StableenrichSourcesResult> {
   const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  markUnavailableApolloProbes(budgetState, input.env);
   const results = await runStableenrichProbe({ ...input, tier: "enrichment", budgetState });
   const followups = await runStableenrichPeopleFollowups({
     env: input.env,
@@ -56,7 +85,7 @@ export async function fetchStableenrichEnrichmentSources(input: {
     agentcashFetch: input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request)),
     budgetState,
   });
-  return { ...collectStableenrichSources([...results, ...followups]), ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}) };
+  return withBudgetState(collectStableenrichSources([...results, ...followups]), budgetState);
 }
 
 export async function fetchStableenrichPeopleEmailSources(input: {
@@ -71,6 +100,7 @@ export async function fetchStableenrichPeopleEmailSources(input: {
   requireStableenrichConfig(input.env);
   const agentcashFetch = input.agentcashFetch ?? ((request) => agentcashJson<unknown>(request));
   const budgetState = createAgentcashBudgetState(input.maxBudgetUsd);
+  markUnavailableApolloProbes(budgetState, input.env);
   const hintedPeople = rankPeople(peopleRecordsFromEmailHints(input.peopleHints ?? []));
   const sourceHintPeople = peopleHintsFromProviderSources(input.sourceHints, input.domain);
   const [secFormD, exaEmails] = await Promise.all([
@@ -84,7 +114,13 @@ export async function fetchStableenrichPeopleEmailSources(input: {
     }),
   ]);
   const cheapLeaders = rankPeople([...hintedPeople, ...sourceHintPeople, ...secFormD.people]);
-  const skipApolloPeople = namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
+  const apolloSearchConfigured = Boolean(
+    input.env.STABLEENRICH_APOLLO_ORG_SEARCH_URL &&
+    input.env.STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL
+  );
+  const skipApolloPeople =
+    !apolloSearchConfigured ||
+    namedLeadersWithSourceUrl(cheapLeaders).length >= MAX_LEADERS_FOR_ENRICHMENT;
   const discovery = skipApolloPeople
     ? { people: [], results: [] as PromiseSettledResult<StableenrichProbeResult>[] }
     : await runApolloPeopleDiscovery({ env: input.env, domain: input.domain, agentcashFetch, budgetState });
@@ -98,7 +134,7 @@ export async function fetchStableenrichPeopleEmailSources(input: {
     domain: input.domain,
     leaders,
     agentcashFetch,
-    allowApolloEnrich: !skipApolloPeople,
+    allowApolloEnrich: !skipApolloPeople && Boolean(input.env.STABLEENRICH_APOLLO_PEOPLE_ENRICH_URL),
     budgetState,
   });
   const collected = collectStableenrichSources([...discovery.results, ...followups, ...exaEmails.results]);
@@ -109,6 +145,7 @@ export async function fetchStableenrichPeopleEmailSources(input: {
     sources: [...collected.sources, ...extraSources],
     facts: [...collected.facts, ...extraFacts],
     ...(budgetState.ceilingHit ? { budgetCeilingHit: true } : {}),
+    skippedProbeNames: Array.from(new Set(budgetState.skippedEndpoints)),
     emailDiscovery: summarizeEmailDiscovery(leaders, [...discovery.results, ...followups, ...exaEmails.results], {
       secOfficers: secFormD.officers,
       exaPeople: exaEmails.people,

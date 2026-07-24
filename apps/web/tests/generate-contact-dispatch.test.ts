@@ -133,6 +133,7 @@ const mocks = vi.hoisted(() => ({
   recordCardEvidence: vi.fn(),
   recordSource: vi.fn(),
   transitionGenerationRunById: vi.fn(),
+  settleAlphaRunRequest: vi.fn(),
   updateGenerationRunTrace: vi.fn(),
   upsertCard: vi.fn(),
   upsertResearchSection: vi.fn(),
@@ -166,6 +167,7 @@ vi.mock("@cold-start/db", () => ({
   recordCardEvidence: mocks.recordCardEvidence,
   recordSource: mocks.recordSource,
   transitionGenerationRunById: mocks.transitionGenerationRunById,
+  settleAlphaRunRequest: mocks.settleAlphaRunRequest,
   updateGenerationRunTrace: mocks.updateGenerationRunTrace,
   upsertCard: mocks.upsertCard,
   upsertResearchSection: mocks.upsertResearchSection,
@@ -320,6 +322,7 @@ describe("generate-card contact dispatch", () => {
     mocks.markGenerationRun.mockResolvedValue({ id: "generation-run-id" });
     mocks.mutateCard.mockResolvedValue(null);
     mocks.transitionGenerationRunById.mockResolvedValue({ id: "generation-run-id" });
+    mocks.settleAlphaRunRequest.mockResolvedValue(null);
     mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.recordCardEvidence.mockResolvedValue(undefined);
@@ -651,6 +654,54 @@ describe("generate-card contact dispatch", () => {
     expect(mocks.markResearchSectionFailed).not.toHaveBeenCalled();
   });
 
+  it("lets transactional alpha settlement own the terminal success transition", async () => {
+    mocks.settleAlphaRunRequest.mockResolvedValue({
+      requestId: "alpha-request",
+      generationRunId: "generation-run-id",
+      outcome: "complete",
+      failureCode: null,
+      settledAt: new Date(),
+      refunded: false,
+      applied: true
+    });
+
+    await runBasicsGeneration("true");
+
+    expect(mocks.settleAlphaRunRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        generationRunId: "generation-run-id",
+        outcome: "complete"
+      })
+    );
+    expect(mocks.transitionGenerationRunById).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+  });
+
+  // settle returns a record with applied:false when the request already carries an outcome, which
+  // is what a watchdog-retired run looks like. Reading that as ownership left the run row in
+  // whatever status the watchdog had put it in, and the terminal write never happened.
+  it("still writes the terminal status when the alpha settlement was a no-op", async () => {
+    mocks.settleAlphaRunRequest.mockResolvedValue({
+      requestId: "alpha-request",
+      generationRunId: "generation-run-id",
+      outcome: "watchdog_retired",
+      failureCode: "timeout",
+      settledAt: new Date(),
+      refunded: true,
+      applied: false
+    });
+
+    await runBasicsGeneration("true");
+
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: "generation-run-id", status: "complete" })
+    );
+  });
+
   it("fails malformed section events instead of treating them as profile generation", async () => {
     await expect(runGeneration("true", {}, { domain: "modal.com", mode: "analysis", sectionId: "not_a_section" }))
       .rejects.toThrow("invalid research section id: not_a_section");
@@ -825,6 +876,53 @@ describe("generate-card contact dispatch", () => {
     mocks.updateGenerationRunTrace.mockRejectedValue(
       new Error("No transactions support in neon-http driver")
     );
+
+    await expect(runBasicsGeneration("true")).rejects.toThrow("generation blew up");
+
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: "generation-run-id", status: "failed" })
+    );
+  });
+
+  it("lets transactional alpha settlement own the terminal failure transition", async () => {
+    mocks.generateCardForDomainWithTrace.mockRejectedValue(new Error("generation blew up"));
+    mocks.settleAlphaRunRequest.mockResolvedValue({
+      requestId: "alpha-request",
+      generationRunId: "generation-run-id",
+      outcome: "failed",
+      failureCode: "unknown",
+      settledAt: new Date(),
+      refunded: true,
+      applied: true
+    });
+
+    await expect(runBasicsGeneration("true")).rejects.toThrow("generation blew up");
+
+    expect(mocks.settleAlphaRunRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        generationRunId: "generation-run-id",
+        outcome: "failed"
+      })
+    );
+    expect(mocks.transitionGenerationRunById).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "failed" })
+    );
+  });
+
+  it("still writes the terminal failure when the alpha settlement was a no-op", async () => {
+    mocks.generateCardForDomainWithTrace.mockRejectedValue(new Error("generation blew up"));
+    mocks.settleAlphaRunRequest.mockResolvedValue({
+      requestId: "alpha-request",
+      generationRunId: "generation-run-id",
+      outcome: "watchdog_retired",
+      failureCode: "timeout",
+      settledAt: new Date(),
+      refunded: true,
+      applied: false
+    });
 
     await expect(runBasicsGeneration("true")).rejects.toThrow("generation blew up");
 

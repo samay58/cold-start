@@ -33,6 +33,10 @@ type WalletAccountsResponse = {
 type RunCostRow = {
   cost_usd: string | null;
   trace_json: {
+    costUsdAnthropic?: number;
+    llm?: {
+      totalEstimatedCostUsd?: number;
+    };
     providers?: {
       stableenrich?: {
         endpoints?: Array<{ name: string; status: string }>;
@@ -83,20 +87,29 @@ async function fetchLast24hRuns(client: Client): Promise<RunCostRow[]> {
 }
 
 function summarizeRuns(rows: RunCostRow[]) {
-  let anthropicCost = 0;
-  let costCount = 0;
+  let successfulAnthropicCost = 0;
+  let failedAnthropicCost = 0;
+  let successfulCostCount = 0;
+  let failedCostCount = 0;
   const providerFailures = new Map<string, number>();
   const statusCounts = new Map<string, number>();
 
   for (const row of rows) {
     statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
 
-    if (row.cost_usd) {
-      const cost = Number(row.cost_usd);
-      if (Number.isFinite(cost)) {
-        anthropicCost += cost;
-        costCount += 1;
-      }
+    const storedCost = row.cost_usd === null ? null : Number(row.cost_usd);
+    const tracedCost = row.trace_json?.costUsdAnthropic ?? row.trace_json?.llm?.totalEstimatedCostUsd;
+    const cost = storedCost !== null && Number.isFinite(storedCost)
+      ? storedCost
+      : typeof tracedCost === "number" && Number.isFinite(tracedCost)
+        ? tracedCost
+        : null;
+    if (cost !== null && row.status === "failed") {
+      failedAnthropicCost += cost;
+      failedCostCount += 1;
+    } else if (cost !== null) {
+      successfulAnthropicCost += cost;
+      successfulCostCount += 1;
     }
 
     const endpoints = row.trace_json?.providers?.stableenrich?.endpoints ?? [];
@@ -111,9 +124,14 @@ function summarizeRuns(rows: RunCostRow[]) {
   return {
     runCount: rows.length,
     statusCounts,
-    anthropicCost,
-    costCount,
-    avgAnthropicCost: costCount > 0 ? anthropicCost / costCount : 0,
+    successfulAnthropicCost,
+    failedAnthropicCost,
+    successfulCostCount,
+    failedCostCount,
+    avgAnthropicCost:
+      successfulCostCount + failedCostCount > 0
+        ? (successfulAnthropicCost + failedAnthropicCost) / (successfulCostCount + failedCostCount)
+        : 0,
     providerFailures,
   };
 }
@@ -180,7 +198,12 @@ async function main() {
   for (const [status, count] of summary.statusCounts) {
     console.log(`    ${status}: ${count}`);
   }
-  console.log(`  Anthropic spend: ${formatUsd(summary.anthropicCost)} across ${summary.costCount} runs`);
+  console.log(
+    `  Successful Anthropic spend: ${formatUsd(summary.successfulAnthropicCost)} across ${summary.successfulCostCount} runs`
+  );
+  console.log(
+    `  Failed Anthropic spend: ${formatUsd(summary.failedAnthropicCost)} across ${summary.failedCostCount} runs`
+  );
   if (summary.avgAnthropicCost > 0) {
     console.log(`  Avg Anthropic / run: ${formatUsd(summary.avgAnthropicCost)}`);
   }

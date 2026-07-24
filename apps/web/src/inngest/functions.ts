@@ -17,9 +17,9 @@ import {
   isCardSignalsFresh,
   markGenerationRun,
   markResearchSectionFailed,
-  mutateCard,
   recordResearchRunEvent,
   recordCardEvidence,
+  settleAlphaRunRequest,
   transitionGenerationRunById,
   updateGenerationRunTrace,
   upsertCard,
@@ -31,6 +31,7 @@ import {
   extractCompanyBlockClaims,
   extractCompanyClaims,
   fallbackResearchPlan,
+  isTransientLlmError,
   modelForStage,
   type AnthropicTelemetrySink,
 } from "@cold-start/llm";
@@ -55,6 +56,7 @@ import {
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
+import { generationFailureCode } from "../lib/failure-code";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import { buildBlockEnrichmentRequestedEvent } from "./card-enrichment";
 import { buildContactEnrichmentRequestedEvent, cardHasContactTargets } from "./contact-enrichment";
@@ -90,6 +92,7 @@ import { runResearchSectionJobStep } from "./research-section-generation";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
+  mutateCardWithRetry,
   noteSkippedUnderfilledSnapshot,
   prepareCardForStorage,
   prepareCardSnapshotForStorage
@@ -140,6 +143,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     },
     steps: {}
   };
+  const requestedGenerationRunId =
+    typeof event.data.generationRunId === "string" && event.data.generationRunId.trim()
+      ? event.data.generationRunId.trim()
+      : null;
 
   let currentStage = "validate-mode";
   try {
@@ -155,8 +162,22 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     domain = canonicalCompanyDomain(event.data.domain);
     slug = companySlugFromDomain(domain);
   } catch (error) {
-    await step.run("mark-invalid-generation", () =>
-      markGenerationRun(db, {
+    await step.run("mark-invalid-generation", async () => {
+      const alphaSettlement = requestedGenerationRunId
+        ? await settleAlphaRunRequest(db, {
+            generationRunId: requestedGenerationRunId,
+            outcome: "failed",
+            failureCode: generationFailureCode(error),
+            error: boundedErrorMessage(error)
+          })
+        : null;
+      // Truthiness, not `applied`, on purpose: the fallback here is markGenerationRun's
+      // slug-keyed upsert, which would insert a second failed row for a run that is already
+      // terminal. An unapplied settlement means the row already reached a terminal status.
+      if (alphaSettlement) {
+        return alphaSettlement;
+      }
+      return markGenerationRun(db, {
         slug: rawSlugForRun(event.data.slug, event.data.domain),
         domain: rawDomainForRun(event.data.domain),
         mode,
@@ -166,21 +187,18 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         traceJson: {
           ...trace,
           failure: {
+            code: generationFailureCode(error),
             stage: currentStage,
             message: boundedErrorMessage(error),
             ...(error instanceof Error ? { className: error.name } : {})
           }
         }
-      })
-    );
+      });
+    });
     throw error;
   }
 
   let generationRunDbId: string | null = null;
-  const requestedGenerationRunId =
-    typeof event.data.generationRunId === "string" && event.data.generationRunId.trim()
-      ? event.data.generationRunId.trim()
-      : null;
   const walletSnapshotBefore = await step.run("wallet-snapshot-before", () => safeAgentcashWalletSnapshot());
   applyStableenrichWalletTrace(trace, walletSnapshotBefore);
   const runningGenerationRun = await step.run("mark-generation-running", () =>
@@ -292,7 +310,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       return null;
     }
     const stored = await step.run(input.steps.upsert, async () => {
-      const mutated = await mutateCard(
+      const mutated = await mutateCardWithRetry(
         db,
         input.cardToStore.slug,
         (current) => prepareCardSnapshotForStorage(mode, current, input.cardToStore, {
@@ -629,6 +647,13 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           tracePatch: generated.tracePatch
         };
       } catch (error) {
+        // Same split the synthesize and verify step bodies make: a transient transport failure
+        // re-throws so the step layer retries it, while a semantic failure stays a memoized
+        // {ok:false} outcome. Swallowing a 429 or a 529 here turned an outage into a permanent
+        // run failure and burned the caller's allowance for it.
+        if (isTransientLlmError(error)) {
+          throw error;
+        }
         return {
           ok: false as const,
           error: boundedErrorMessage(error),
@@ -665,11 +690,14 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     let generatedCard: ColdStartCard = cardWithTraceCost(clean.value.card, trace);
     let generatedSections = clean.value.sections;
     let sourcesToRecord = clean.value.sources;
-    // Set when this run must not write a card at all: a gate block or an all-claims-dropped
-    // verify result over a slug that already has a filed synthesis read (issue #10). The run
-    // still completes normally; it just skips storeCardSnapshot below, so the existing stored
-    // card (and its synthesis) is untouched.
+    // Set when this run must not write a card at all: a gate block over a slug that already has a
+    // filed synthesis read (issue #10). The run still completes normally; it just skips
+    // storeCardSnapshot below, so the existing stored card (and its synthesis) is untouched.
     let skipCardStore = false;
+    // Set on the sibling case: synthesis ran and the verifier dropped every claim over a slug
+    // that already has a filed read. The read is preserved either way, but whether the write
+    // happens at all depends on the evidence comparison made once cardToStore exists below.
+    let preserveFiledSynthesis = false;
 
     if (mode === "analysis") {
       currentStage = "evaluate-synthesis-gate";
@@ -785,8 +813,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           generatedCard = { ...cardWithoutWithheld, synthesis: verified.synthesis };
         } else if (existingCardHasSynthesis) {
           // All claims dropped, but the slug already has a filed read: preserve it (issue #10)
-          // instead of storing an empty result over it.
-          skipCardStore = true;
+          // instead of storing an empty result over it. The store decision is made below, once
+          // the merged card exists and its evidence can be compared against the stored one.
+          preserveFiledSynthesis = true;
         } else {
           // All claims dropped and there is no existing read to fall back on: converge honestly
           // instead of throwing and forcing every re-click to re-pay for synthesis and fail the
@@ -794,9 +823,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           // so the extension renders it as a withheld read and the route's free pre-check can
           // answer a re-click for free once the evidence stops moving.
           generatedCard = withheldCardForNoSurvivors(generatedCard);
-          if (trace.synthesis) {
-            trace.synthesis.evidenceFingerprint = synthesisEvidenceFingerprint(generatedCard);
-          }
         }
       }
 
@@ -805,6 +831,33 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
     let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
     let analysisReadyMs: number | null = null;
+
+    if (preserveFiledSynthesis) {
+      // The verifier dropped every claim over a slug that already has a filed read. Writing the
+      // merged card (which carries that read forward) refreshes the synthesis TTL, and that
+      // refresh is the only thing that stops the next post-TTL click from re-paying synthesis and
+      // verification for a verdict that cannot change. Only do it when this run's evidence hashes
+      // the same as the stored card's: matching evidence means the run found nothing new, so the
+      // filed read is still the honest best answer. When the evidence moved, skip the write so no
+      // TTL is granted and the next click looks again.
+      skipCardStore = existingCard === null
+        || synthesisEvidenceFingerprint(existingCard) !== synthesisEvidenceFingerprint(cardToStore);
+    }
+
+    if (mode === "analysis") {
+      // Every analysis run records the evidence it read, whatever the outcome. The hash has to
+      // describe the card as stored, not the pre-merge generated one: /api/generate's free
+      // re-click check hashes the stored card and compares it against this value, so stamping
+      // anything else guarantees a miss and another paid run.
+      trace.synthesis = {
+        required: true,
+        produced: false,
+        claimCountBeforeVerify: 0,
+        claimCountAfterVerify: 0,
+        ...trace.synthesis,
+        evidenceFingerprint: synthesisEvidenceFingerprint(cardToStore)
+      };
+    }
 
     // skipCardStore (issue #10 / all-claims-dropped preservation): the existing stored card
     // already carries a good synthesis read, so this run must not touch it. No upsert, no
@@ -1009,17 +1062,33 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       );
     }
     const finalGenerationCostUsd = generationRunAnthropicCostUsd(trace, cardToStore.generationCostUsd);
-    await step.run("mark-generation-complete", () =>
-      generationRunDbId
-        ? transitionGenerationRunById(db, {
+    await step.run("mark-generation-complete", async () => {
+      if (generationRunDbId) {
+        const alphaSettlement = await settleAlphaRunRequest(db, {
+          generationRunId: generationRunDbId,
+          outcome:
+            mode === "analysis" && cardToStore.synthesisWithheld
+              ? "withheld"
+              : "complete",
+          costUsd: String(finalGenerationCostUsd)
+        });
+        // `applied`, not truthiness: settle returns a record with applied:false when the request
+        // already carries an outcome, and treating that as ownership would leave the run row in
+        // whatever status it held. Falling through is safe because transitionGenerationRunById is
+        // guarded on the row still being active, so it refuses to resurrect a retired run.
+        if (alphaSettlement?.applied) {
+          return alphaSettlement;
+        }
+        return transitionGenerationRunById(db, {
             id: generationRunDbId,
             from: ["queued", "running"],
             status: "complete",
             costUsd: finalGenerationCostUsd,
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-          })
-        : markGenerationRun(db, {
+          });
+      }
+      return markGenerationRun(db, {
             slug,
             domain,
             mode,
@@ -1029,8 +1098,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             traceJson: trace,
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-          })
-    );
+          });
+    });
     await recordEvent("generation-complete", "generation.complete", "Research run complete", {
       costUsd: finalGenerationCostUsd,
       mode
@@ -1039,6 +1108,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     return { slug: cardToStore.slug, mode };
   } catch (error) {
     trace.failure = {
+      code: generationFailureCode(error),
       stage: currentStage,
       message: boundedErrorMessage(error),
       ...(error instanceof Error ? { className: error.name } : {})
@@ -1058,28 +1128,43 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         })
       );
     }
-    await step.run("mark-generation-failed", () =>
-      generationRunDbId
-        ? transitionGenerationRunById(db, {
+    await step.run("mark-generation-failed", async () => {
+      if (generationRunDbId) {
+        const alphaSettlement = await settleAlphaRunRequest(db, {
+          generationRunId: generationRunDbId,
+          outcome: "failed",
+          failureCode: trace.failure?.code ?? "unknown",
+          costUsd: String(generationRunAnthropicCostUsd(trace)),
+          error: boundedErrorMessage(error)
+        });
+        // Same reasoning as the success path: an unapplied settlement is not ownership, and the
+        // id-guarded transition below refuses a row that is already terminal.
+        if (alphaSettlement?.applied) {
+          return alphaSettlement;
+        }
+        return transitionGenerationRunById(db, {
             id: generationRunDbId,
             from: ["queued", "running"],
             status: "failed",
             error: boundedErrorMessage(error),
+            costUsd: generationRunAnthropicCostUsd(trace),
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-          })
-        : markGenerationRun(db, {
+          });
+      }
+      return markGenerationRun(db, {
             slug,
             domain,
             mode,
             jobKind,
             status: "failed",
             error: boundedErrorMessage(error),
+            costUsd: generationRunAnthropicCostUsd(trace),
             traceJson: trace,
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
-          })
-    );
+          });
+    });
     if (requestedSectionId) {
       await step.run("mark-research-section-failed", () =>
         markResearchSectionFailed(db, {

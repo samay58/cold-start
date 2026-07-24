@@ -77,8 +77,18 @@ describe("preserveExistingBasics", () => {
       oneLiner: "The current stored comparison.",
       citationIds: ["c1"]
     }];
-    existing.signals = Array.from({ length: 6 }, (_, index) => ({
-      title: `Stored signal ${index + 1}`,
+    // Six distinct announcements, not six restatements of one: the merge clusters signals by
+    // event, so a fixture of near-identical titles would collapse and stop testing the cap.
+    const storedSignalTitles = [
+      "Cognition ships an autonomous refactor mode",
+      "Cognition hires a head of platform security",
+      "Cognition opens a London engineering office",
+      "Cognition publishes SWE-bench verified results",
+      "Cognition partners with a payroll vendor on agents",
+      "Cognition retires its early waitlist program"
+    ];
+    existing.signals = storedSignalTitles.map((title, index) => ({
+      title,
       date: `2026-07-${String(23 - index).padStart(2, "0")}`,
       url: `https://current.example/signals/${index + 1}`,
       source: "Current source",
@@ -111,7 +121,7 @@ describe("preserveExistingBasics", () => {
       citationIds: ["c2"]
     }];
     stale.signals = [{
-      title: "Newest incoming signal",
+      title: "Cognition names a new chief revenue officer",
       date: "2026-07-24",
       url: "https://incoming.example/newest",
       source: "Incoming source",
@@ -138,6 +148,33 @@ describe("preserveExistingBasics", () => {
     expect(merged.signals).toHaveLength(6);
     expect(merged.signals[0]?.url).toBe("https://incoming.example/newest");
     expect(merged.signals.some((signal) => signal.url.endsWith("/6"))).toBe(false);
+  });
+
+  it("collapses two outlets covering one announcement into a single corroborated signal", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.signals = [{
+      title: "Cognition raises $175M Series C",
+      date: "2026-07-20",
+      url: "https://firstoutlet.example/cognition-series-c",
+      source: "First outlet",
+      type: "funding",
+      citationIds: ["c1"]
+    }];
+
+    const next = buildSkeletonCard("cognition.ai");
+    next.signals = [{
+      title: "Cognition raises $175M Series C round",
+      date: "2026-07-20",
+      url: "https://secondoutlet.example/cognition-raises",
+      source: "Second outlet",
+      type: "funding",
+      citationIds: ["c2"]
+    }];
+
+    const merged = preserveExistingBasics(existing, next);
+
+    expect(merged.signals).toHaveLength(1);
+    expect(merged.signals[0]?.citationIds).toEqual(expect.arrayContaining(["c1", "c2"]));
   });
 
   it("rejects underfilled basics instead of storing a terminal partial card", () => {

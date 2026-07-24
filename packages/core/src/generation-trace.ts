@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { FirstPayoff } from "./first-payoff";
+import type { GenerationFailureCode } from "./failure-code";
 
 export type GenerationJobKind =
   | "basics"
@@ -242,6 +243,7 @@ export type GenerationTrace = {
   // recorded as "derived", never as "deep".
   sections?: GenerationSectionTrace[];
   failure?: {
+    code: GenerationFailureCode;
     stage: string;
     message: string;
     className?: string;

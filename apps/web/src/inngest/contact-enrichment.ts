@@ -9,7 +9,6 @@ import {
   findCardBySlug,
   findGenerationRunById,
   findSourcesBySlug,
-  mutateCard,
   recordCardEvidence,
   recordResearchRunEvent,
   updateGenerationRunTrace,
@@ -34,6 +33,7 @@ import {
   sourceGateTrace,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
+import { generationFailureCode } from "../lib/failure-code";
 import {
   createPeopleEmailWebset,
   fetchDirectExaContactSources,
@@ -55,6 +55,7 @@ import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage } from "../lib/errors";
 import {
   canStoreCardSnapshot,
+  mutateCardWithRetry,
   noteSkippedUnderfilledSnapshot,
   prepareCardSnapshotForStorage
 } from "./card-storage";
@@ -346,6 +347,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
       slug = companySlugFromDomain(domain);
     } catch (error) {
       trace.failure = {
+        code: generationFailureCode(error),
         stage: currentStage,
         message: boundedErrorMessage(error),
         ...(error instanceof Error ? { className: error.name } : {})
@@ -810,7 +812,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
       let contactsReadyMs: number | null = null;
       if (canStoreCardSnapshot("basics", cardToStore)) {
         const contactStore = await step.run("upsert-contact-card", async () => {
-          const mutated = await mutateCard(db, slug, (current) =>
+          const mutated = await mutateCardWithRetry(db, slug, (current) =>
             prepareCardSnapshotForStorage(
               "basics",
               current,
@@ -861,6 +863,7 @@ export const contactEnrichmentFunction = inngest.createFunction(
       return { slug, emailCount: peopleEmailCount(contactEnriched.value.sections) };
     } catch (error) {
       trace.failure = {
+        code: generationFailureCode(error),
         stage: currentStage,
         message: boundedErrorMessage(error),
         ...(error instanceof Error ? { className: error.name } : {})

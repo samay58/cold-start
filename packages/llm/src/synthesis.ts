@@ -180,6 +180,37 @@ function normalizeNullableMarketClaim(claim: SourcedText | null): SourcedText | 
   return claim ? normalizeMarketClaimCitations(claim) : null;
 }
 
+function normalizeProviderNullMarketClaims(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+
+  const synthesis = input as Record<string, unknown>;
+  const market = synthesis.marketStructureAndTiming;
+  if (!market || typeof market !== "object" || Array.isArray(market)) {
+    return input;
+  }
+
+  const normalizedMarket = { ...(market as Record<string, unknown>) };
+  for (const field of Object.keys(normalizedMarket)) {
+    const claim = normalizedMarket[field];
+    if (
+      claim &&
+      typeof claim === "object" &&
+      !Array.isArray(claim) &&
+      (claim as Record<string, unknown>).text === null &&
+      (claim as Record<string, unknown>).citationIds === null
+    ) {
+      normalizedMarket[field] = null;
+    }
+  }
+
+  return {
+    ...synthesis,
+    marketStructureAndTiming: normalizedMarket
+  };
+}
+
 function normalizeSynthesisCitations(synthesis: NonNullable<ColdStartCard["synthesis"]>): NonNullable<ColdStartCard["synthesis"]> {
   return {
     ...synthesis,
@@ -245,7 +276,7 @@ export function parseSynthesisToolUse(message: { content: ToolUseLike[] }) {
     message,
     SYNTHESIS_TOOL_NAME,
     citedSynthesisSchema,
-    (input) => normalizeSynthesisCitations(synthesisSchema.parse(input))
+    (input) => normalizeSynthesisCitations(synthesisSchema.parse(normalizeProviderNullMarketClaims(input)))
   );
 }
 

@@ -1,10 +1,12 @@
 import {
+  clusterSignals,
   hasUsablePublicProfile,
   publicProfileQuality,
   type ColdStartCard,
   type GenerationTrace,
   type ResolvedFact
 } from "@cold-start/core";
+import { mutateCard, type ColdStartDb } from "@cold-start/db";
 
 type GenerationMode = "basics" | "analysis";
 type CardPerson = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
@@ -111,6 +113,7 @@ export function preserveExistingBasics(
   const linkedinUrl = mergeOptionalFact(existing.identity.linkedinUrl, next.identity.linkedinUrl);
   const description = mergeOptionalFact(existing.identity.description, next.identity.description);
   const rounds = mergeOptionalFact(existing.funding.rounds, next.funding.rounds);
+  const name = mergeFact(existing.identity.name, next.identity.name);
 
   return {
     ...next,
@@ -118,7 +121,7 @@ export function preserveExistingBasics(
     ...(synthesisWithheld ? { synthesisWithheld } : {}),
     identity: {
       ...next.identity,
-      name: mergeFact(existing.identity.name, next.identity.name),
+      name,
       ...(websiteUrl ? { websiteUrl } : {}),
       ...(linkedinUrl ? { linkedinUrl } : {}),
       oneLiner: mergeFact(existing.identity.oneLiner, next.identity.oneLiner),
@@ -138,9 +141,14 @@ export function preserveExistingBasics(
       keyExecs: mergePeopleFact(existing.team.keyExecs, next.team.keyExecs, options.preferExisting === true),
       headcount: mergeFact(existing.team.headcount, next.team.headcount),
     },
-    signals: mergeByKey(next.signals, existing.signals, (signal) => signal.url.trim().toLowerCase())
-      .sort((left, right) => right.date.localeCompare(left.date))
-      .slice(0, 6),
+    // A URL-keyed merge only dedupes the same link. Two runs that each caught a different outlet
+    // covering one announcement would otherwise land as two signals, so the merged list goes
+    // through the same one-per-event clustering the pipeline applies at generation time; it
+    // carries the corroboration in citationIds, orders date-descending, and caps at six.
+    signals: clusterSignals(
+      mergeByKey(next.signals, existing.signals, (signal) => signal.url.trim().toLowerCase()),
+      { companyDomain: next.domain, companyName: name.value }
+    ),
     comparables: mergeByKey(
       options.preferExisting ? existing.comparables : next.comparables,
       options.preferExisting ? next.comparables : existing.comparables,
@@ -215,4 +223,15 @@ export function assertTerminalCardQuality(mode: GenerationMode, card: ColdStartC
   if (mode === "basics" && !hasUsablePublicProfile(card)) {
     throw new Error(underfilledBasicsErrorMessage(card));
   }
+}
+
+// mutateCard returns null only when the slug has no row yet, which is why every caller falls back
+// to a blind upsert. A row inserted between the read and that fallback would be overwritten
+// wholesale, so retry the merge once first and let the fallback handle the genuinely absent row.
+export async function mutateCardWithRetry(
+  db: ColdStartDb,
+  slug: string,
+  mutate: (current: ColdStartCard) => ColdStartCard
+) {
+  return (await mutateCard(db, slug, mutate)) ?? (await mutateCard(db, slug, mutate));
 }

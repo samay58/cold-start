@@ -41,12 +41,14 @@ type CardCacheOptions = {
 };
 type CardCacheRow = {
   cardJson: unknown;
+  domain: string;
   identityExpiresAt: Date;
   signalsExpiresAt: Date;
   synthesisExpiresAt: Date;
 };
 
 const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true, synthesisWithheld: true });
+const cardMutationLocks = new Map<string, Promise<void>>();
 
 export function cardExpiryDates(now = new Date()) {
   const time = now.getTime();
@@ -71,6 +73,9 @@ function isFreshCacheRow(row: CardCacheRow, options: CardCacheOptions = {}) {
 
 function parseCachedCard(row: CardCacheRow, options: CardCacheOptions = {}) {
   const parsed = coldStartCardSchema.parse(row.cardJson);
+  if (typeof row.domain === "string" && parsed.domain !== row.domain) {
+    throw new Error(`Card domain invariant failed: row=${row.domain} card=${parsed.domain}`);
+  }
   return isFreshCacheRow(row, options) ? parsed : { ...parsed, cacheStatus: "stale" as const };
 }
 
@@ -78,6 +83,7 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
   const rows = await db
     .select({
       cardJson: cards.cardJson,
+      domain: cards.domain,
       identityExpiresAt: cards.identityExpiresAt,
       signalsExpiresAt: cards.signalsExpiresAt,
       synthesisExpiresAt: cards.synthesisExpiresAt
@@ -117,6 +123,7 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
   const rows = await db
     .select({
       cardJson: cards.cardJson,
+      domain: cards.domain,
       identityExpiresAt: cards.identityExpiresAt,
       signalsExpiresAt: cards.signalsExpiresAt,
       synthesisExpiresAt: cards.synthesisExpiresAt
@@ -142,7 +149,7 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
 export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
   const [cardRows, sectionRows] = await Promise.all([
     db
-      .select({ cardJson: cards.cardJson })
+      .select({ cardJson: cards.cardJson, domain: cards.domain })
       .from(cards)
       .orderBy(desc(cards.generatedAt)),
     db
@@ -178,7 +185,7 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
   return cardRows.flatMap((row) => {
     const parsed = coldStartCardSchema.safeParse(row.cardJson);
 
-    if (!parsed.success) {
+    if (!parsed.success || (typeof row.domain === "string" && parsed.data.domain !== row.domain)) {
       return [];
     }
 
@@ -232,6 +239,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
     })
     .onConflictDoUpdate({
       target: cards.slug,
+      setWhere: eq(cards.domain, cardToStore.domain),
       set: {
         cardJson: cardToStore,
         cacheStatus: persistedCacheStatus,
@@ -254,42 +262,66 @@ export async function mutateCard(
   db: ColdStartDb,
   slug: string,
   mutate: (current: ColdStartCard) => ColdStartCard,
-  maxAttempts = 4
+  maxAttempts = 32
 ) {
-  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const [existing] = await db
-      .select({ cardJson: cards.cardJson, updatedAt: cards.updatedAt })
-      .from(cards)
-      .where(eq(cards.slug, slug))
-      .limit(1);
-    if (!existing) {
-      return null;
+  const previous = cardMutationLocks.get(slug) ?? Promise.resolve();
+  let releaseLock: () => void = () => undefined;
+  const currentLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+  const tail = previous.then(() => currentLock);
+  cardMutationLocks.set(slug, tail);
+  await previous;
+
+  try {
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const [existing] = await db
+        .select({ cardJson: cards.cardJson, updatedAt: cards.updatedAt })
+        .from(cards)
+        .where(eq(cards.slug, slug))
+        .limit(1);
+      if (!existing) {
+        return null;
+      }
+
+      const current = coldStartCardSchema.parse(existing.cardJson);
+      const next = coldStartCardSchema.parse(mutate(current));
+      if (next.slug !== current.slug || next.domain !== current.domain) {
+        throw new Error(`Card mutation cannot change identity for ${slug}`);
+      }
+      const cardToStore = next.cacheStatus === "stale" ? { ...next, cacheStatus: "hit" as const } : next;
+      const now = new Date();
+      const expiresAt = cardExpiryDates(now);
+      const hasSynthesis = Boolean(cardToStore.synthesis);
+      const [row] = await db
+        .update(cards)
+        .set({
+          cardJson: cardToStore,
+          cacheStatus: cardToStore.cacheStatus === "stale" ? "hit" : cardToStore.cacheStatus,
+          generationCostUsd: String(cardToStore.generationCostUsd),
+          generatedAt: new Date(cardToStore.generatedAt),
+          identityExpiresAt: expiresAt.identityExpiresAt,
+          signalsExpiresAt: expiresAt.signalsExpiresAt,
+          ...(hasSynthesis ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
+          updatedAt: now
+        })
+        .where(and(eq(cards.slug, slug), eq(cards.updatedAt, existing.updatedAt)))
+        .returning();
+
+      if (row) {
+        return { card: cardToStore, row };
+      }
+
+      const baseBackoffMs = Math.min(32, 2 ** Math.min(attempt, 5));
+      const backoffMs = baseBackoffMs + Math.floor(Math.random() * baseBackoffMs);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
     }
 
-    const next = coldStartCardSchema.parse(mutate(coldStartCardSchema.parse(existing.cardJson)));
-    const cardToStore = next.cacheStatus === "stale" ? { ...next, cacheStatus: "hit" as const } : next;
-    const now = new Date();
-    const expiresAt = cardExpiryDates(now);
-    const hasSynthesis = Boolean(cardToStore.synthesis);
-    const [row] = await db
-      .update(cards)
-      .set({
-        cardJson: cardToStore,
-        cacheStatus: cardToStore.cacheStatus === "stale" ? "hit" : cardToStore.cacheStatus,
-        generationCostUsd: String(cardToStore.generationCostUsd),
-        generatedAt: new Date(cardToStore.generatedAt),
-        identityExpiresAt: expiresAt.identityExpiresAt,
-        signalsExpiresAt: expiresAt.signalsExpiresAt,
-        ...(hasSynthesis ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
-        updatedAt: now
-      })
-      .where(and(eq(cards.slug, slug), eq(cards.updatedAt, existing.updatedAt)))
-      .returning();
-
-    if (row) {
-      return { card: cardToStore, row };
+    throw new Error(`Failed to update card for ${slug} after concurrent writes`);
+  } finally {
+    releaseLock();
+    if (cardMutationLocks.get(slug) === tail) {
+      cardMutationLocks.delete(slug);
     }
   }
-
-  throw new Error(`Failed to update card for ${slug} after concurrent writes`);
 }
