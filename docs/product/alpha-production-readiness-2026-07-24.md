@@ -21,7 +21,7 @@ the friend path.
 
 Read-only production checks on July 24 showed:
 
-- GitHub Check run `30127843913` passed against `main` commit `6575acc`.
+- Latest `main` CI passed the full repository gate.
 - The matching Vercel production deployment was Ready on the custom domain.
 - The live API contract was `2026-07-24.alpha-principal-v1`.
 - 18 runs existed in the latest 24-hour view: 12 complete and 6 failed.
@@ -144,7 +144,7 @@ The full repository `npm run check` passed on July 24. It covered lint,
 typecheck, all unit tests, the real Postgres suite, Chrome and Firefox builds,
 Firefox manifest lint, golden-eval dry run, dead-code analysis, secret scanning,
 and the dependency audit.
-- GitHub Check run `30127843913` passed the same gate against commit `6575acc`.
+- The latest `main` CI run passed the same gate.
 - The deterministic 0.2.0 ZIP built twice from commit `f108f26` with identical bytes. The artifact is `dist/chrome-web-store/cold-start-chrome-0.2.0-f108f261acc8.zip`; SHA256 is `74c8de20d7460f5d3edbef861efd3bd9e862da8ba2358b77fa8bdf72d8d0e524`.
 
 ## Production Gates

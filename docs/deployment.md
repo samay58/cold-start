@@ -22,16 +22,12 @@ Generation is private by default. Public pages at `/c/{slug}` can be shared, but
 ## Friend-Alpha Readiness
 
 Repository implementation is complete as of July 24, 2026. Vercel Pro, Neon
-Launch, migration, restore, and retention scheduling are proven. Production
-rollout is still blocked until all of these are true:
+Launch, migration, restore, retention scheduling, and the provider-wallet floor
+are proven. Current evidence and blockers live in
+`docs/product/alpha-production-readiness-2026-07-24.md`.
 
-- Vercel spend controls are configured and observed.
-- AgentCash Base holds at least $35.
-- The paid five-company canary passes.
-- The Unlisted store submission is reviewed and deferred for publication.
-
-Do not create friend invitations before the production migration, compatible
-deployment, canary, and store review are complete.
+Do not create friend invitations before the paid canary and store review are
+complete.
 
 Production proof on July 24:
 
@@ -40,7 +36,8 @@ Production proof on July 24:
 - `ALPHA_GENERATION_ENABLED=false` returned `503 generation_disabled`.
 - `ALPHA_ACCESS_ENABLED=false` returned `503 access_disabled`; access was restored and returned `200 ready`.
 - The authenticated retention route returned `200` with zero eligible deletions.
-- The final alpha status contained zero testers and zero stale runs. Its only gate failure was the AgentCash wallet floor.
+- Before wallet funding, alpha status contained zero testers and zero stale runs; its only gate failure was the wallet floor.
+- After funding, AgentCash Base held $35.2148 and the pre-canary alpha gate passed.
 
 ## Vercel Project
 
@@ -275,10 +272,10 @@ The web API, Chrome extension, and eval runner share one contract file: `package
 - Extension and eval requests send `x-cold-start-client-contract`.
 - The extension rejects successful responses without the matching API contract and shows an out-of-date deployment message.
 
-Alpha routes and allowance posture are additive to the current contract.
-Operator authentication remains accepted during rollout. No response shape
-changed, so the API and extension remain on the shared
-`2026-07-20.synthesis-withheld-v1` contract.
+Alpha principal and extension-facing error shapes changed during rollout. The
+web API and extension now share the
+`2026-07-24.alpha-principal-v1` contract. Operator authentication remains
+accepted during rollout.
 
 Deploy additive server support before publishing extension `0.2.0`. Keep the
 previous server deployment available for rollback. The compatibility matrix is
@@ -386,14 +383,9 @@ curl -s https://cold-start-samay58s-projects.vercel.app/api/extension/cards/cart
   -H "authorization: Bearer $TOKEN" | jq '.domain, has("synthesis")'
 ```
 
-## Remaining Alpha Blockers
+## Release State
 
-- Vercel Pro, the compatible deployment, both kill switches, and daily retention are verified. Production spend controls are not yet observed.
-- The provider wallet is below the $35 release floor.
-- The five-company paid canary has not run.
-- The Chrome publisher registration, submission, review, and deferred publication are not verified.
-- An owner-only fresh-profile rehearsal and 24-hour soak have not run.
-- Temporal event-endpoint throttling and auth-failure aggregation are not persisted as separate alert streams. Payload bounds and generation rate limits are enforced, but this operational alert evidence remains unproven.
-
-These are release blockers. They are not reasons to distribute the operator
-token or bypass the invitation path.
+Current blockers and release order live in
+`docs/product/alpha-production-readiness-2026-07-24.md`. Do not copy live gate
+state into this runbook. Do not distribute the operator token or bypass the
+invitation path.

@@ -18,8 +18,8 @@ Start here before adding or editing docs.
 - `theme-sources.md`: dark-mode palette sources and token rationale (referenced by DESIGN.md).
 - `evo-autoresearch-pilot.md`: the benchmark loop behind the `npm run evo:*` commands.
 - `product/cost-quality-optimization-playbook-2026-06-23.md`: cost and quality tuning levers.
-- `product/alpha-packaging-spec-2026-07-01.md`: live ledgered friend-alpha contract, implementation receipt, and release sequence.
-- `product/alpha-production-readiness-2026-07-24.md`: strict code-ready and invite-ready gates with current proof and blockers.
+- `product/alpha-packaging-spec-2026-07-01.md`: ledgered friend-alpha package contract and product truth.
+- `product/alpha-production-readiness-2026-07-24.md`: single source for current alpha evidence, blockers, and release order.
 - `product/diagnose-iterate-craft-playbook.md`: interaction-craft loop for sidebar work.
 - `product/extension-motion-playbook.md`: motion rules for the extension.
 - `product/provider-cost-assumptions.md`: cost model behind provider budgets.
