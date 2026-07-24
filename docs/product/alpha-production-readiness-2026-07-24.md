@@ -144,7 +144,7 @@ typecheck, all unit tests, the real Postgres suite, Chrome and Firefox builds,
 Firefox manifest lint, golden-eval dry run, dead-code analysis, secret scanning,
 and the dependency audit.
 - GitHub Check run `30123762133` passed the same gate against commit `5bb342b`.
-- The deterministic 0.2.0 ZIP built twice from commit `87bdddf` with identical bytes. The artifact is `dist/chrome-web-store/cold-start-chrome-0.2.0-87bdddfa3d79.zip`; SHA256 is `03a28aeea2e29ef6021360ed28c0824a29c91fc3cd98e10ce41f70734740b050`.
+- The deterministic 0.2.0 ZIP built twice from commit `f108f26` with identical bytes. The artifact is `dist/chrome-web-store/cold-start-chrome-0.2.0-f108f261acc8.zip`; SHA256 is `74c8de20d7460f5d3edbef861efd3bd9e862da8ba2358b77fa8bdf72d8d0e524`.
 
 ## Production Gates
 
