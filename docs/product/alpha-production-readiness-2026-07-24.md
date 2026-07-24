@@ -12,18 +12,18 @@ Chrome Web Store item.
 Cold Start is not ready for friend-alpha invitations.
 
 The repository implementation, production migration, compatible deployment,
-recovery proof, and kill-switch proof are complete. Paid canary, store review,
-owner rehearsal, and soak remain open. Do not distribute the operator token.
-Do not use unpacked installation as the friend path.
+recovery proof, kill-switch proof, and wallet funding are complete. Spend-control
+and alert proof, paid canary, store review, owner rehearsal, and soak remain
+open. Do not distribute the operator token. Do not use unpacked installation as
+the friend path.
 
 ## Production Evidence
 
 Read-only production checks on July 24 showed:
 
-- Latest `main` CI was green.
-- Latest Vercel production deployment was Ready.
-- API contract was `2026-07-20.synthesis-withheld-v1`.
-- Commit `5bb342b` was deployed to the custom domain without changing that contract.
+- GitHub Check run `30127843913` passed against `main` commit `6575acc`.
+- The matching Vercel production deployment was Ready on the custom domain.
+- The live API contract was `2026-07-24.alpha-principal-v1`.
 - 18 runs existed in the latest 24-hour view: 12 complete and 6 failed.
 - Two failures were honest evidence insufficiency.
 - Two failures came from null-shaped Lens timing claims.
@@ -34,7 +34,8 @@ Read-only production checks on July 24 showed:
 - Skip-fresh Lens had seven runs. p50 was 54.2 seconds and p90 was 68 seconds.
 - Full-refresh Lens had 28 runs. p50 was 95 seconds and p90 was 143 seconds.
 - No silent active runs crossed policy at inspection time.
-- AgentCash Base held $1.5702.
+- AgentCash Base held $35.2148 after funding.
+- The pre-canary `alpha:status --gate` passed with no invitations or tester activity.
 - Vercel Pro was verified through the project API.
 - Neon Launch and seven days of restore history were verified.
 - A guarded direct migration URL passed preflight and applied migration `0009`.
@@ -143,7 +144,7 @@ The full repository `npm run check` passed on July 24. It covered lint,
 typecheck, all unit tests, the real Postgres suite, Chrome and Firefox builds,
 Firefox manifest lint, golden-eval dry run, dead-code analysis, secret scanning,
 and the dependency audit.
-- GitHub Check run `30123762133` passed the same gate against commit `5bb342b`.
+- GitHub Check run `30127843913` passed the same gate against commit `6575acc`.
 - The deterministic 0.2.0 ZIP built twice from commit `f108f26` with identical bytes. The artifact is `dist/chrome-web-store/cold-start-chrome-0.2.0-f108f261acc8.zip`; SHA256 is `74c8de20d7460f5d3edbef861efd3bd9e862da8ba2358b77fa8bdf72d8d0e524`.
 
 ## Production Gates
@@ -179,22 +180,20 @@ Invite-ready requires:
 As of this update:
 
 - Vercel production spend controls are not yet observed.
-- AgentCash Base is below the $35 floor.
 - The paid canary has not run.
 - Production alert evidence for repeated auth failures and event throttling is not proven.
 - Chrome publisher registration, fee, submission, and review are not verified.
 - The owner rehearsal and 24-hour soak have not run.
 
-These are hard blockers. AgentCash funding and store submission require owner
-action.
+These are hard blockers. Store submission requires owner action.
 
 ## Next Action
 
 Complete the production prerequisites in order:
 
 1. Configure and observe Vercel spend controls.
-2. Fund AgentCash.
-3. Run the paid canary and alpha gate.
+2. Run the paid canary and alpha gate.
+3. Prove production alert handling.
 4. Submit the Unlisted extension.
 5. Rehearse with the owner.
 6. Soak for 24 hours.
