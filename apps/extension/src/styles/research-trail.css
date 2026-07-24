@@ -535,15 +535,11 @@
   border: 1px solid var(--color-rule-strong);
   border-radius: 6px;
   background: var(--cs-surface-lens);
-  box-shadow:
-    0 5px 15px rgb(var(--cs-c-23-26-31) / 0.045),
-    0 1px 0 var(--cs-edge-highlight) inset;
+  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
 }
 
 .cs-investor-read-category[data-open="true"] {
-  box-shadow:
-    0 7px 18px rgb(var(--cs-c-23-26-31) / 0.07),
-    0 1px 0 var(--cs-edge-highlight) inset;
+  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
 }
 
 .cs-investor-read-category-trigger {
@@ -818,10 +814,8 @@
   white-space: nowrap;
 }
 
-/* Inline progressive disclosure: the measured-height pattern already used for research-layer
-   card bodies (.cs-active-enrichment-body-frame below), applied to the three retiring lens
-   tooltips. transform/opacity plus a grid-template-rows height, 200ms; reduced motion collapses
-   it to instant with the content still present, never hidden. */
+/* Inline progressive disclosure uses the same measured-height pattern as the research card
+   bodies. Reduced motion keeps a short opacity and height transition rather than freezing. */
 .cs-investor-read-disclosure {
   margin-top: 2px;
 }
@@ -857,9 +851,8 @@
    today, but the same omission would resurface the instant a link or button lands inside it,
    so the frame carries the fix now rather than waiting for that regression. The delayed
    transition lets the collapse animation finish before the hide takes effect, and reveals
-   instantly on expand. Under reduced motion the [data-reduced-motion="true"] override below
-   already collapses the whole transition list to nothing, so visibility flips exactly as
-   instantly as grid-template-rows and opacity do. */
+   immediately on expand. The reduced-motion override shortens the transition and preserves
+   the same visibility ordering. */
 .cs-investor-read-disclosure-frame {
   display: grid;
   grid-template-rows: 0fr;
@@ -882,7 +875,16 @@
 }
 
 .cs-investor-read-disclosure-frame[data-reduced-motion="true"] {
-  transition: none;
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out),
+    visibility 0s linear 120ms;
+}
+
+.cs-investor-read-disclosure-frame[data-expanded="true"][data-reduced-motion="true"] {
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out);
 }
 
 .cs-investor-read-disclosure-body {

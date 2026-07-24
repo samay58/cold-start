@@ -621,4 +621,90 @@ describe("startAnalysisGenerationAndPoll forceRefresh threading", () => {
     expect(body).not.toBeNull();
     expect(body).not.toHaveProperty("forceRefresh");
   });
+
+  it("does not settle a forced retry from the prior withheld card", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const priorCard: ColdStartCard = {
+      ...cardForDomain(domain),
+      synthesisWithheld: {
+        at: "2026-07-20T12:00:00.000Z",
+        reasons: ["citation-floor"],
+        advisories: [],
+        citationCount: 3,
+        sourceTypeCount: 1
+      }
+    };
+    const refreshedCard: ColdStartCard = {
+      ...priorCard,
+      synthesisWithheld: {
+        ...priorCard.synthesisWithheld!,
+        at: "2026-07-20T12:10:00.000Z",
+        reasons: ["no-claims-survived"]
+      }
+    };
+    const savedEvent = {
+      ...eventFor(domain, "card.saved", "2026-07-20T12:09:50.000Z"),
+      runId: "run-new"
+    };
+    let cardReads = 0;
+    let statusReads = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          runId: "run-new",
+          status: "queued",
+          mode: "analysis"
+        }, { status: 202 });
+      }
+      if (String(url).includes("/api/extension/cards/")) {
+        cardReads += 1;
+        return jsonResponse(cardReads === 1 ? priorCard : refreshedCard);
+      }
+      if (String(url).includes("/api/generate?")) {
+        statusReads += 1;
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          runId: "run-new",
+          status: "running",
+          mode: "analysis",
+          events: statusReads === 1 ? [] : [savedEvent]
+        });
+      }
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = startAnalysisGenerationAndPoll(
+      domain,
+      settings,
+      new AbortController().signal,
+      true,
+      priorCard,
+      [],
+      vi.fn(),
+      true
+    );
+
+    await vi.waitFor(() => expect(cardReads).toBe(1));
+    expect(statusReads).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350);
+    expect(cardReads).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(350);
+    await expect(resultPromise).resolves.toMatchObject({
+      card: {
+        synthesisWithheld: {
+          at: "2026-07-20T12:10:00.000Z",
+          reasons: ["no-claims-survived"]
+        }
+      }
+    });
+    expect(cardReads).toBe(2);
+  });
 });

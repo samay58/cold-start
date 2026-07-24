@@ -622,8 +622,11 @@ test("core metrics and people stay compact in the company context", async ({ pag
   await expect(management.locator('a[href="https://github.com/charlieholtz"]')).toHaveCount(0);
 
   const charlie = page.locator(".cs-people-person", { hasText: "Charlie Holtz" });
-  await expect(charlie).toHaveAttribute("aria-describedby", "cs-company-shared-tooltip");
+  await expect(charlie).toHaveAttribute("aria-controls", "cs-company-shared-tooltip");
+  await expect(charlie).toHaveAttribute("aria-haspopup", "dialog");
+  await expect(charlie).toHaveAttribute("aria-expanded", "false");
   await charlie.focus();
+  await expect(charlie).toHaveAttribute("aria-expanded", "true");
   const peopleTooltip = page.locator("#cs-company-shared-tooltip");
   await expect(peopleTooltip).toBeVisible();
   await expect(peopleTooltip).toHaveAttribute("data-variant", "dossier");

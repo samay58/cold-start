@@ -54,6 +54,7 @@ type RequestState =
       status: "success";
       card: ColdStartCard;
       sections: ResearchSection[];
+      analysisFailed?: boolean;
       analysisNotice?: string;
       analysisRun?: AnalysisRunState;
       contactRun?: AnalysisRunState;
@@ -712,7 +713,13 @@ export function SidePanel() {
         if (!controller.signal.aborted) {
           setRequestState(
             result.analysisNotice
-              ? { status: "success", card: result.card, sections: result.sections, analysisNotice: result.analysisNotice }
+              ? {
+                  status: "success",
+                  card: result.card,
+                  sections: result.sections,
+                  ...(result.analysisFailed ? { analysisFailed: true } : {}),
+                  analysisNotice: result.analysisNotice
+                }
               : { status: "success", card: result.card, sections: result.sections }
           );
         }
@@ -775,11 +782,17 @@ export function SidePanel() {
               return { status: "success", card: result.card, sections: result.sections };
             }
 
-            const { analysisRun: _analysisRun, ...nextState } = current;
+            const {
+              analysisRun: _analysisRun,
+              analysisFailed: _analysisFailed,
+              analysisNotice: _analysisNotice,
+              ...nextState
+            } = current;
             return {
               ...nextState,
               card: result.card,
               sections: sectionsForCard(result.card, current.sections),
+              ...(result.analysisFailed ? { analysisFailed: true } : {}),
               ...(result.analysisNotice ? { analysisNotice: result.analysisNotice } : {})
             };
           });
@@ -983,7 +996,15 @@ export function SidePanel() {
           }
 
           const successState: Extract<RequestState, { status: "success" }> = analysisStatus.status === "failed" && !card.synthesis && !card.synthesisWithheld
-            ? { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [], analysisNotice: LENS_RUN_FAILED_NOTICE }
+            ? {
+                status: "success",
+                card,
+                sections: bootstrapSections,
+                events: bootstrap.events ?? [],
+                sources: bootstrap.sources ?? [],
+                analysisFailed: true,
+                analysisNotice: LENS_RUN_FAILED_NOTICE
+              }
             : { status: "success", card, sections: bootstrapSections, events: bootstrap.events ?? [], sources: bootstrap.sources ?? [] };
           const runningLayerId = runningSectionLayerId(bootstrapSections);
           if (runningLayerId) {
@@ -1099,7 +1120,12 @@ export function SidePanel() {
     const controller = new AbortController();
     abortAllRequests();
     activeRequest.current = controller;
-    const { activeSectionRun: _activeSectionRun, analysisNotice: _analysisNotice, ...analysisState } = requestState;
+    const {
+      activeSectionRun: _activeSectionRun,
+      analysisFailed: _analysisFailed,
+      analysisNotice: _analysisNotice,
+      ...analysisState
+    } = requestState;
     runAnalysisGenerationWithController(controller, domain, settings, analysisState, forceRefresh);
   }
 
@@ -1256,19 +1282,20 @@ export function SidePanel() {
 
   // Panel swaps here are entry/exit/error boundaries only: the intake -> building -> profile
   // arc lives under one key and animates its own regions. Sync presence (not mode="wait") so
-  // rapid status flips can never wedge the swap: the next panel mounts immediately while the
-  // old one fades out on top. Reduced motion keeps a calm opacity-only fade.
+  // rapid status flips can never wedge the swap: the next panel mounts immediately while
+  // popLayout removes the exiting panel from document flow. Reduced motion keeps a calm
+  // opacity-only fade.
   return (
     <div className="cs-panel-stage">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         <motion.div
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
           className="cs-panel-stage-scene"
           data-panel={panelKey}
           exit={
             prefersReducedMotion
-              ? { opacity: 0, position: "absolute", inset: 0, zIndex: 1 }
-              : { opacity: 0, y: -4, position: "absolute", inset: 0, zIndex: 1 }
+              ? { opacity: 0 }
+              : { opacity: 0, y: -4 }
           }
           initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
           key={panelKey}

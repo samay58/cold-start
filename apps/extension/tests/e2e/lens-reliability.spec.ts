@@ -24,6 +24,8 @@ async function installReadyAnalysis(
 ) {
   const initialCard = readyCard();
   let started = false;
+  let statusReads = 0;
+  const runId = "analysis-live";
   await installChromeShim(page, { activeDomain: initialCard.domain });
   await page.route("**/api/extension/bootstrap?**", async (route) => {
     await fulfillJson(route, {
@@ -47,15 +49,34 @@ async function installReadyAnalysis(
         slug: initialCard.slug,
         domain: initialCard.domain,
         mode: "analysis",
-        status: input.postStatus ?? "cached"
+        status: input.postStatus ?? "cached",
+        ...((input.postStatus ?? "cached") === "queued" ? { runId } : {})
       });
       return;
     }
+    statusReads += 1;
+    const running = input.postStatus === "queued" && started && statusReads === 1;
     await fulfillJson(route, {
       slug: initialCard.slug,
       domain: initialCard.domain,
       mode: "analysis",
-      status: started ? "complete" : "idle"
+      status: started ? (running ? "running" : "complete") : "idle",
+      ...(started && input.postStatus === "queued"
+        ? {
+            runId,
+            events: [{
+              id: running ? "analysis-started" : "analysis-complete",
+              runId,
+              slug: initialCard.slug,
+              domain: initialCard.domain,
+              sectionId: null,
+              type: running ? "synthesis.started" : "generation.complete",
+              message: running ? "Reading the filed evidence" : "Research run complete",
+              metadata: {},
+              createdAt: new Date().toISOString()
+            }]
+          }
+        : {})
     });
   });
 }
@@ -207,7 +228,7 @@ test("a cached card renders at rest without replaying the memo entrance", async 
 for (const reducedMotion of [false, true]) {
   test(`live filing visibly enters with ${reducedMotion ? "reduced" : "full"} motion`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: reducedMotion ? "reduce" : "no-preference" });
-    await installReadyAnalysis(page, { cardAfterPost: readFullCard() });
+    await installReadyAnalysis(page, { cardAfterPost: readFullCard(), postStatus: "queued" });
     await openSidePanel(page);
     await installEntranceSampler(page);
 

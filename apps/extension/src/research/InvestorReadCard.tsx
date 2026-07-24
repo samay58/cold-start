@@ -21,17 +21,8 @@ import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 
 const LENS_FOOTER_SOURCE_COUNT = 4;
 
-// Five-role type scale, DESIGN.md "Investor Lens Memo" (verbatim table, memo typography track
-// of docs/product/gold-standard-references.md): Lede 16px/1.45 At Umami 640 is the only
-// display-face content text; Section label ("The case", "Timing", "Next question") is 11px At
-// Umami 620 in the seal color, sentence case; Claim rows (bull/bear/timing/question bodies) are
-// 13px IBM Plex Sans 450 at 1.55 line-height; Meta (posture line, "changes the read if" note) is
-// 11.5px IBM Plex Sans 480; Receipt (citation marks, source domains, the filed stamp) is 10px At
-// Textual tabular with at least 0.32px tracking. Section label and Meta sit 0.5px apart on
-// purpose: Carbon's heading-01/body-01 pairing (both roles equal in size elsewhere in Carbon,
-// split by weight and color alone) is the citation for reading that boundary through face and
-// color rather than the gap. Every rule in the card maps to one of these five rows; nothing
-// else earns its own size.
+// The category packet uses DESIGN.md's five Lens type roles. A new state must reuse those
+// roles rather than minting another size or face.
 
 // Staged spring entrance for a freshly filed read. Four stages -- lede, the case, timing plus
 // next question, footer plus posture -- fire in sequence, each on commitSpring (stiffness 470,
@@ -282,6 +273,11 @@ function LensCategoryBody({
         )}
       </section>
     );
+  }
+
+  if (categoryId !== "learn-next") {
+    const exhaustiveCategory: never = categoryId;
+    return exhaustiveCategory;
   }
 
   return (

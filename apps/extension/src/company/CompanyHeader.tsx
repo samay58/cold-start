@@ -501,11 +501,11 @@ export function PeopleLine({
       : undefined;
 
     return (
-      <article
+      <button
         className="cs-people-person"
         data-has-email={person.email ? "true" : "false"}
         key={`${person.name}-${person.email ?? person.role ?? "person"}`}
-        tabIndex={tooltip ? 0 : undefined}
+        type="button"
         {...tooltip}
       >
         <span className="cs-person-avatar" aria-hidden="true">{personInitials(person.name)}</span>
@@ -514,7 +514,7 @@ export function PeopleLine({
           <span className="cs-people-role">{personRole(person)}</span>
         </span>
         <span className="cs-person-dossier-cue" aria-hidden="true">View</span>
-      </article>
+      </button>
     );
   }
 

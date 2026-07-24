@@ -306,7 +306,7 @@ describe("PeopleLine overflow", () => {
     expect(frame.querySelectorAll(".cs-people-person")).toHaveLength(2);
   });
 
-  it("marks the overflow frame reduced-motion so the reveal is instant, content never hidden", async () => {
+  it("marks the overflow frame for the shorter reduced-motion reveal without unmounting content", async () => {
     const { container } = await renderPeople(many, { prefersReducedMotion: true });
     const frame = container.querySelector(".cs-people-overflow-frame");
 

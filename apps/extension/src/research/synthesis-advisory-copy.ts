@@ -18,7 +18,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
 // this replaced) so a new SynthesisGateReason or SynthesisAdvisory value fails the build here
 // instead of silently rendering nothing.
 export const REASON_COPY: Record<SynthesisGateReason, string> = {
-  "citation-floor": "Fewer than 8 cited sources survived.",
+  "citation-floor": "Too few cited sources survived the evidence floor.",
   "no-usable-source-type": "Only enrichment records are cited so far.",
   "no-claims-survived": "Analysis ran; no claim survived verification against its sources."
 };

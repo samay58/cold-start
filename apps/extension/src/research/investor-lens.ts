@@ -42,7 +42,6 @@ function cleanQuestionText(question: string) {
 
 type LensClaim = {
   text: string;
-  sourcePosture: SourcePosture;
 };
 
 // A tension side (If true / It breaks if) keeps its lead claim in the card and files any
@@ -55,7 +54,6 @@ export type LensTensionClaim = LensClaim & {
 type LensTiming = {
   field: string;
   text: string;
-  sourcePosture: SourcePosture;
   // The other supported timing fields, in memo order, so the card can file them
   // behind a "+N more" affordance instead of a bare count.
   moreFields: Array<{ field: string; text: string }>;
@@ -69,12 +67,6 @@ type LensQuestion = {
   // category labels preserved so the memo does not drop what a dedicated Next Question layer
   // used to show.
   moreQuestions: Array<{ question: string; categoryLabel: string | null; changesReadIf: string | null }>;
-};
-
-type LensPostureMark = {
-  posture: SourcePosture;
-  label: string;
-  count: number;
 };
 
 // Structurally matches the research-layer source reference so the shared SourceChips
@@ -94,12 +86,9 @@ export type InvestorReadDisplay = {
   holds: LensTensionClaim | null;
   breaks: LensTensionClaim | null;
   timing: LensTiming | null;
-  timingNotFound: boolean;
   nextQuestion: LensQuestion | null;
-  postureMarks: LensPostureMark[];
   sources: LensSource[];
   independentlyBacked: boolean;
-  supportedClaimCount: number;
 };
 
 export type InvestorLensCategoryId =
@@ -113,7 +102,6 @@ export type InvestorLensCategory = {
   id: InvestorLensCategoryId;
   label: string;
   preview: string;
-  itemCount: number;
 };
 
 export function investorLensCategories(read: InvestorReadDisplay): InvestorLensCategory[] {
@@ -121,45 +109,32 @@ export function investorLensCategories(read: InvestorReadDisplay): InvestorLensC
     {
       id: "why-care",
       label: "Why care",
-      preview: read.lede.text,
-      itemCount: 1
+      preview: read.lede.text
     },
     {
       id: "must-be-true",
       label: "What must be true",
-      preview: read.holds?.text ?? LENS_TENSION_EMPTY_COPY.holds,
-      itemCount: read.holds ? 1 + read.holds.moreClaims.length : 0
+      preview: read.holds?.text ?? LENS_TENSION_EMPTY_COPY.holds
     },
     {
       id: "could-break",
       label: "What could break",
-      preview: read.breaks?.text ?? LENS_TENSION_EMPTY_COPY.breaks,
-      itemCount: read.breaks ? 1 + read.breaks.moreClaims.length : 0
+      preview: read.breaks?.text ?? LENS_TENSION_EMPTY_COPY.breaks
     },
     {
       id: "why-now",
       label: "Why now",
       preview: read.timing
         ? `${read.timing.field}. ${read.timing.text}`
-        : "Not supported by current sources.",
-      itemCount: read.timing ? 1 + read.timing.moreFields.length : 0
+        : "Not supported by current sources."
     },
     {
       id: "learn-next",
       label: "What to learn next",
-      preview: read.nextQuestion?.question ?? "No ranked question survived verification.",
-      itemCount: read.nextQuestion ? 1 + read.nextQuestion.moreQuestions.length : 0
+      preview: read.nextQuestion?.question ?? "No ranked question survived verification."
     }
   ];
 }
-
-const POSTURE_LABELS: Record<SourcePosture, string> = {
-  independent: "independent",
-  reporting: "reported",
-  "company-authored": "company",
-  enrichment: "enrichment",
-  unknown: "unknown"
-};
 
 const POSTURE_ORDER: SourcePosture[] = ["independent", "reporting", "company-authored", "enrichment", "unknown"];
 
@@ -229,23 +204,20 @@ function strongestPosture(
   return "unknown";
 }
 
-function lensClaim(citations: Map<string, Citation>, claim: SourcedText): LensClaim {
-  return {
-    text: stripCitationMarkers(claim.text),
-    sourcePosture: strongestPosture(citations, claim.citationIds)
-  };
+function lensClaim(claim: SourcedText): LensClaim {
+  return { text: stripCitationMarkers(claim.text) };
 }
 
 // A tension side keeps its lead claim in the standard LensClaim shape and files whatever
 // verified claims remain (bullCase/bearCase are 0-3 post-verification) behind moreClaims.
-function tensionClaim(citations: Map<string, Citation>, claims: SourcedText[]): LensTensionClaim | null {
+function tensionClaim(claims: SourcedText[]): LensTensionClaim | null {
   const [first, ...rest] = claims;
   if (!first) {
     return null;
   }
 
   return {
-    ...lensClaim(citations, first),
+    ...lensClaim(first),
     moreClaims: rest.map((claim) => ({ text: stripCitationMarkers(claim.text) }))
   };
 }
@@ -268,7 +240,7 @@ function supportedClaims(card: ColdStartCard): SourcedText[] {
   ];
 }
 
-function timingDisplay(card: ColdStartCard, citations: Map<string, Citation>): LensTiming | null {
+function timingDisplay(card: ColdStartCard): LensTiming | null {
   const market = card.synthesis?.marketStructureAndTiming;
   if (!market) {
     return null;
@@ -286,7 +258,6 @@ function timingDisplay(card: ColdStartCard, citations: Map<string, Citation>): L
   return {
     field: first.label,
     text: stripCitationMarkers(first.claim.text),
-    sourcePosture: strongestPosture(citations, first.claim.citationIds),
     moreFields: supported.slice(1).map((entry) => ({
       field: entry.label,
       text: stripCitationMarkers(entry.claim.text)
@@ -347,19 +318,6 @@ function nextQuestionDisplay(card: ColdStartCard): LensQuestion | null {
     changesReadIf: first.changesReadIf,
     moreQuestions: rest.map((entry) => ({ question: entry.question, categoryLabel: entry.categoryLabel, changesReadIf: entry.changesReadIf }))
   };
-}
-
-function postureMarks(citations: Map<string, Citation>, claims: SourcedText[]): LensPostureMark[] {
-  const counts = new Map<SourcePosture, number>();
-  for (const claim of claims) {
-    const posture = strongestPosture(citations, claim.citationIds);
-    counts.set(posture, (counts.get(posture) ?? 0) + 1);
-  }
-
-  return POSTURE_ORDER.flatMap((posture) => {
-    const count = counts.get(posture);
-    return count ? [{ posture, label: POSTURE_LABELS[posture], count }] : [];
-  });
 }
 
 function domainFromHref(href: string) {
@@ -445,20 +403,19 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
 
   const citations = citationLookup(card);
   const claims = supportedClaims(card);
-  const marks = postureMarks(citations, claims);
-  const timing = timingDisplay(card, citations);
+  const timing = timingDisplay(card);
 
   return {
     receiptLine: receiptLine(card),
-    lede: lensClaim(citations, card.synthesis.whyItMatters),
-    holds: tensionClaim(citations, card.synthesis.bullCase),
-    breaks: tensionClaim(citations, card.synthesis.bearCase),
+    lede: lensClaim(card.synthesis.whyItMatters),
+    holds: tensionClaim(card.synthesis.bullCase),
+    breaks: tensionClaim(card.synthesis.bearCase),
     timing,
-    timingNotFound: timingIsNotFound(card),
     nextQuestion: nextQuestionDisplay(card),
-    postureMarks: marks,
     sources: lensSources(citations, claims),
-    independentlyBacked: marks.some((mark) => mark.posture === "independent" || mark.posture === "reporting"),
-    supportedClaimCount: claims.length
+    independentlyBacked: claims.some((claim) => {
+      const posture = strongestPosture(citations, claim.citationIds);
+      return posture === "independent" || posture === "reporting";
+    })
   };
 }

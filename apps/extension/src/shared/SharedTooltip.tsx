@@ -34,9 +34,8 @@ type SharedTooltipState = {
   // has no space rather than by a fixed cap.
   maxHeight: number;
   mode: TooltipMode;
-  // True only when the dossier is pinned open (by keyboard or click): focus lives inside it
-  // and it ignores pointer-leave until Escape, a re-click, or a focus-out hands control back
-  // to the row.
+  // True only when the dossier is pinned open: focus lives inside it and it ignores
+  // pointer-leave until Escape, a re-click, or a focus-out hands control back to the row.
   pinned: boolean;
   placement: TooltipPlacement;
   title: string;
@@ -45,11 +44,12 @@ type SharedTooltipState = {
 };
 
 export type TooltipTriggerProps = {
-  "aria-describedby": string;
+  "aria-controls"?: string;
+  "aria-describedby"?: string;
+  "aria-expanded"?: boolean;
+  "aria-haspopup"?: "dialog";
   onBlur: (event: FocusEvent<HTMLElement>) => void;
-  // Pin is a semantic promotion (WAI-ARIA APG): the unpinned dossier is informational, the
-  // pinned dossier is a real interactive region. Click extends the existing keyboard (Enter)
-  // pin path; no-op for plain-text (non-dossier) triggers.
+  // Click pins an interactive dossier. Native button activation supplies the keyboard path.
   onClick: (event: MouseEvent<HTMLElement>) => void;
   onFocus: (event: FocusEvent<HTMLElement>) => void;
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
@@ -212,6 +212,8 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     clearHideTimer();
     clearIntentTimer();
     pinnedRef.current = false;
+    previousTooltipId.current = null;
+    previousTooltipMode.current = null;
     setTooltip(null);
   }
 
@@ -220,6 +222,8 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     hideTimer.current = setTimeout(() => {
       hideTimer.current = null;
       if (!pinnedRef.current) {
+        previousTooltipId.current = null;
+        previousTooltipMode.current = null;
         setTooltip(null);
       }
     }, HIDE_GRACE_MS);
@@ -269,7 +273,13 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     const interactive = asDossier(input.body) !== null;
 
     return {
-      "aria-describedby": SHARED_TOOLTIP_ID,
+      ...(interactive
+        ? {
+            "aria-controls": SHARED_TOOLTIP_ID,
+            "aria-expanded": tooltip?.id === input.id,
+            "aria-haspopup": "dialog" as const
+          }
+        : { "aria-describedby": SHARED_TOOLTIP_ID }),
       onBlur: (event) => {
         // While pinned, focus is intentionally leaving the row for the tooltip; keep it up.
         if (pinnedRef.current) {
@@ -288,8 +298,8 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
         clearIntentTimer();
         const alreadyPinnedHere = pinnedRef.current && previousTooltipId.current === input.id;
         if (alreadyPinnedHere) {
-          // Second click demotes the dossier back to its informational, unpinned state. It
-          // stays open (the pointer is still over the row) and closes normally on leave.
+          // Second click unpins the dossier. It stays open while the pointer remains over
+          // the row and closes normally on leave.
           pinnedRef.current = false;
           setTooltip((current) => (current && current.id === input.id ? { ...current, pinned: false } : current));
           return;
@@ -308,13 +318,6 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
       },
       onKeyDown: (event) => {
         if (!interactive) {
-          return;
-        }
-        if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
-          event.preventDefault();
-          clearIntentTimer();
-          triggerRef.current = event.currentTarget;
-          commitTooltip(input, event.currentTarget, true);
           return;
         }
         // A focus-revealed dossier is unpinned: focus never moved off the trigger, so the
@@ -427,9 +430,7 @@ function DossierBody({ dossier, pinned }: { dossier: TooltipDossier; pinned: boo
     <div
       className="cs-dossier"
       data-has-read={dossier.read ? "true" : "false"}
-      // The read clamps to 3 lines while merely hovered/focused and unclamps once pinned
-      // (expand-on-pin): pinning already moves focus into the dossier and turns it interactive,
-      // so the same gesture that promotes the ARIA role also earns the full read.
+      // The read clamps to 3 lines while merely hovered or focused and unclamps once pinned.
       data-pinned={pinned ? "true" : "false"}
     >
       <p className="cs-dossier-identity">
@@ -526,13 +527,9 @@ export function SharedTooltip({
       onPointerEnter={interaction?.onPointerEnter}
       onPointerLeave={interaction?.onPointerLeave}
       ref={nodeRef}
-      // Semantic promotion (WAI-ARIA APG, riding item from the Task 4.1 review): an unpinned
-      // dossier is informational and stays role="tooltip". Pinning moves focus into it and
-      // exposes interactive children (the email copy button, the channel links), which the
-      // tooltip pattern forbids, so a pin promotes the region to role="dialog" with its own
-      // accessible name. Unpin (Escape, a second click, or focus leaving) demotes it back.
-      role={interactive && pinned ? "dialog" : "tooltip"}
-      aria-label={interactive && pinned ? `${tooltip.title} details` : undefined}
+      role={interactive ? "dialog" : "tooltip"}
+      aria-label={interactive ? `${tooltip.title} details` : undefined}
+      aria-modal={interactive ? false : undefined}
       style={{
         left: tooltip.left,
         maxHeight: tooltip.maxHeight,

@@ -209,7 +209,9 @@ describe("SidePanel profile context", () => {
 
     expect(personRows).toHaveLength(4);
     expect(jessica).toBeTruthy();
-    expect(jessica?.getAttribute("aria-describedby")).toBe("cs-company-shared-tooltip");
+    expect(jessica?.getAttribute("aria-controls")).toBe("cs-company-shared-tooltip");
+    expect(jessica?.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(jessica?.getAttribute("aria-expanded")).toBe("false");
     jessica!.getBoundingClientRect = () => ({
       bottom: 220,
       height: 44,

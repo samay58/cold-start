@@ -54,6 +54,7 @@ export type CompanyArcState =
       phase: "profile";
       card: ColdStartCard;
       sections: ResearchSection[];
+      analysisFailed?: boolean | undefined;
       analysisNotice?: string | undefined;
       analysisRun?: RunState | undefined;
       contactRun?: RunState | undefined;
@@ -297,6 +298,7 @@ export function CompanyArc({
         {profile ? (
           <Suspense fallback={null}>
             <ResearchLayerPanel
+              analysisFailed={profile.analysisFailed}
               analysisNotice={profile.analysisNotice}
               analysisRun={profile.analysisRun}
               card={profile.card}

@@ -101,7 +101,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const withheldCard = page.getByLabel("Lens withheld");
       await expect(withheldCard).toBeVisible();
-      await expect(withheldCard).toContainText("Fewer than 8 cited sources survived.");
+      await expect(withheldCard).toContainText("Too few cited sources survived the evidence floor.");
     }
   },
   "withheld-advisory": {
@@ -122,12 +122,11 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const running = page.getByLabel("Investor Lens running");
       await expect(running).toBeVisible();
-      // The fixture's full event stream (through card.saved/generation.complete) is served on
-      // every poll tick by this phase's static route mock, so by the time the gallery screenshots
-      // it the stage list has advanced all the way to File, with the Verify stage's stamp marks
-      // visible from the fixture's 5-survivor verify.complete event.
-      await expect(running.locator(".cs-wait-stage[data-status='done']")).toHaveCount(4);
-      await expect(running.locator(".cs-wait-stage-copy strong", { hasText: "File" })).toBeVisible();
+      // The running phase deliberately stops after verify.complete. File remains pending until
+      // card.saved, while the verifier's five survivor marks are already visible.
+      await expect(running.locator(".cs-wait-stage[data-status='done']")).toHaveCount(3);
+      await expect(running.locator(".cs-wait-stage[data-status='current'] .cs-wait-stage-copy strong")).toHaveText("Verify");
+      await expect(running.locator(".cs-wait-stage[data-status='pending'] .cs-wait-stage-copy strong")).toHaveText("File");
       await expect(running.locator(".cs-wait-stamp")).toHaveCount(5);
     }
   },
@@ -153,7 +152,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const tooltip = page.locator("#cs-company-shared-tooltip");
       await expect(tooltip).toBeVisible();
       await expect(tooltip).toHaveAttribute("data-variant", "dossier");
-      await expect(tooltip).toHaveAttribute("role", "tooltip");
+      await expect(tooltip).toHaveAttribute("role", "dialog");
       await expect(tooltip.locator(".cs-dossier-read")).toContainText("Voss spent six years");
       await expect(tooltip.locator(".cs-dossier-provenance")).toBeVisible();
       await expect(tooltip.locator(".cs-dossier-email-address")).toHaveText("mara.voss@wharfrobotics.com");
@@ -165,7 +164,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       await expect(tooltip).toHaveCount(0);
       await expect(mara).toBeFocused();
 
-      // Pin it: the ARIA role promotes to dialog, focus moves in, and the read unclamps.
+      // Pin it: focus moves into the dialog and the read unclamps.
       await mara.focus();
       await page.keyboard.press("Enter");
       await expect(tooltip).toHaveAttribute("data-pinned", "true");

@@ -337,7 +337,10 @@ export async function installLensGalleryPhase(page: Page, phaseId: LensGalleryPh
     }
     case "running-events": {
       const card = deepinfraRunningCard();
-      await installRunningAnalysis(page, card, runningEvents());
+      const events = runningEvents().filter(
+        (event) => event.type !== "card.saved" && event.type !== "generation.complete"
+      );
+      await installRunningAnalysis(page, card, events);
       return card.domain;
     }
     default: {

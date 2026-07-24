@@ -211,7 +211,7 @@ export function AnalysisWaitInstrument({
   const currentStage = stages.find((stage) => stage.status === "current") ?? stages[0];
 
   return (
-    <div aria-label="Investor Lens running" className="cs-wait" role="status">
+    <section aria-label="Investor Lens running" className="cs-wait">
       <div className="cs-wait-head">
         <strong>Investor Lens running</strong>
         <span className="cs-wait-elapsed" aria-hidden="true">{formatElapsed(elapsedSeconds)}</span>
@@ -233,6 +233,6 @@ export function AnalysisWaitInstrument({
       <p aria-live="polite" className="sr-only">
         {currentStage ? `${currentStage.label}. ${currentStage.proofLine}.` : null}
       </p>
-    </div>
+    </section>
   );
 }

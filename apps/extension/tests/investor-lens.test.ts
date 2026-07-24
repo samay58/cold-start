@@ -120,21 +120,17 @@ describe("investor lens display", () => {
     expect(display).toMatchObject({
       receiptLine: "Filed Jun 23",
       lede: {
-        text: "Warp could matter if terminal work becomes the control plane for engineering agents.",
-        sourcePosture: "independent"
+        text: "Warp could matter if terminal work becomes the control plane for engineering agents."
       },
       holds: {
-        text: "The wedge is a daily developer workflow rather than a separate planning surface.",
-        sourcePosture: "independent"
+        text: "The wedge is a daily developer workflow rather than a separate planning surface."
       },
       breaks: {
-        text: "It breaks if IDE agents absorb terminal workflows before Warp owns team budgets.",
-        sourcePosture: "independent"
+        text: "It breaks if IDE agents absorb terminal workflows before Warp owns team budgets."
       },
       timing: {
         field: "Buyer budget",
         text: "The budget appears to sit with engineering productivity owners.",
-        sourcePosture: "independent",
         moreFields: []
       },
       nextQuestion: {
@@ -142,11 +138,8 @@ describe("investor lens display", () => {
         categoryLabel: "Buyer & budget",
         changesReadIf: "A named platform team pays for seats out of a tooling budget."
       },
-      independentlyBacked: true,
-      supportedClaimCount: 4,
-      timingNotFound: false
+      independentlyBacked: true
     });
-    expect(display?.postureMarks).toEqual([{ posture: "independent", label: "independent", count: 4 }]);
     expect(display?.sources.map((source) => source.id)).toEqual(["c2"]);
   });
 
@@ -186,32 +179,27 @@ describe("investor lens display", () => {
       {
         id: "why-care",
         label: "Why care",
-        preview: "Warp has a developer workflow wedge.",
-        itemCount: 1
+        preview: "Warp has a developer workflow wedge."
       },
       {
         id: "must-be-true",
         label: "What must be true",
-        preview: "Developers already show daily usage.",
-        itemCount: 3
+        preview: "Developers already show daily usage."
       },
       {
         id: "could-break",
         label: "What could break",
-        preview: "IDEs could bundle a comparable terminal agent.",
-        itemCount: 2
+        preview: "IDEs could bundle a comparable terminal agent."
       },
       {
         id: "why-now",
         label: "Why now",
-        preview: "Not supported by current sources.",
-        itemCount: 0
+        preview: "Not supported by current sources."
       },
       {
         id: "learn-next",
         label: "What to learn next",
-        preview: "Can this reach team budgets?",
-        itemCount: 1
+        preview: "Can this reach team budgets?"
       }
     ]);
   });
@@ -237,7 +225,6 @@ describe("investor lens display", () => {
     expect(display?.holds).toBeNull();
     expect(display?.breaks).toBeNull();
     expect(display?.nextQuestion?.changesReadIf).toBeNull();
-    expect(display?.supportedClaimCount).toBe(1);
   });
 
   it("shows the top-ranked question and files the rest behind moreQuestions, rewriting a generic revenue ask", () => {
@@ -284,7 +271,6 @@ describe("investor lens display", () => {
     expect(display?.timing).toMatchObject({
       field: "Adoption trigger",
       text: "Agent rollouts are forcing terminal standardization.",
-      sourcePosture: "independent",
       moreFields: [{ field: "Buyer budget", text: "Budget sits with platform teams." }]
     });
   });
@@ -302,9 +288,7 @@ describe("investor lens display", () => {
 
     expect(timingIsNotFound(noTimingCard)).toBe(true);
     expect(display?.timing).toBeNull();
-    expect(display?.timingNotFound).toBe(true);
     expect(display?.receiptLine).toBe("Filed Jun 23");
-    expect(display?.postureMarks).toEqual([{ posture: "company-authored", label: "company", count: 1 }]);
     expect(display?.independentlyBacked).toBe(false);
   });
 

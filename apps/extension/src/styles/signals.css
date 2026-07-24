@@ -127,17 +127,16 @@
   gap: 10px;
   align-items: center;
   min-width: 0;
+  width: 100%;
   min-height: 50px;
   padding: 8px 10px;
   border: 1px solid rgb(var(--cs-c-216-208-191) / 0.70);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.80), rgb(var(--cs-c-252-250-245) / 0.68)),
-    rgb(var(--cs-c-250-250-247) / 0.74);
-}
-
-.cs-people-person[aria-describedby] {
+  background: var(--cs-surface-1);
+  color: inherit;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .cs-people-person:focus-visible {
@@ -147,9 +146,7 @@
 
 .cs-people-person[data-has-email="true"] {
   border-color: rgb(var(--cs-c-110-92-158) / 0.26);
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.86), rgb(var(--cs-c-246-250-255) / 0.72)),
-    rgb(var(--cs-c-110-92-158) / 0.045);
+  background: var(--cs-surface-1);
 }
 
 .cs-people-name {
@@ -219,16 +216,15 @@
    pattern as the investor-lens disclosure (.cs-investor-read-disclosure-frame in
    research-trail.css) and the active-enrichment body (evidence.css). The overflow rows stay
    mounted at all times -- collapsed is a 0-height row, not an unmounted subtree -- so a
-   reduced-motion viewer still sees every row, just without the animated reveal. visibility
+   reduced-motion viewer still sees every row through a shorter reveal. visibility
    is the load-bearing addition (matching .cs-active-enrichment-body-frame in evidence.css):
    grid-template-rows: 0fr and opacity: 0 alone still leave the collapsed rows in the tab
    order, so a keyboard user tabbing past the visible four lands on an invisible row whose
    focus opens its dossier. visibility: hidden removes the whole collapsed subtree from
    keyboard focus and the accessibility tree while keeping it mounted; the delayed transition
    lets the collapse animation finish before the hide takes effect, and reveals instantly on
-   expand so the content is visible for its own opening animation. Under reduced motion the
-   [data-reduced-motion="true"] override below already collapses the whole transition list to
-   nothing, so visibility flips exactly as instantly as grid-template-rows and opacity do. */
+   expand so the content is visible for its own opening animation. The reduced-motion override
+   shortens that animation while preserving the same visibility ordering. */
 .cs-people-overflow-frame {
   display: grid;
   grid-template-rows: 0fr;
@@ -251,7 +247,16 @@
 }
 
 .cs-people-overflow-frame[data-reduced-motion="true"] {
-  transition: none;
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out),
+    visibility 0s linear 120ms;
+}
+
+.cs-people-overflow-frame[data-expanded="true"][data-reduced-motion="true"] {
+  transition:
+    grid-template-rows 120ms var(--cs-motion-ease-out),
+    opacity 120ms var(--cs-motion-ease-out);
 }
 
 .cs-people-overflow-body {

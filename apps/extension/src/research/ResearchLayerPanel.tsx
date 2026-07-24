@@ -41,6 +41,7 @@ type ActiveSectionRun = AnalysisRun & {
 };
 
 type ResearchLayerPanelProps = {
+  analysisFailed?: boolean | undefined;
   analysisNotice?: string | undefined;
   analysisRun?: AnalysisRun | undefined;
   card: ColdStartCard;
@@ -571,6 +572,7 @@ function DormantPileCard({
 }
 
 export function ResearchLayerPanel({
+  analysisFailed,
   analysisNotice,
   analysisRun,
   card,
@@ -738,7 +740,7 @@ export function ResearchLayerPanel({
   // neither (analysis has simply not run yet). The client never infers withholding from
   // !card.synthesis alone; card.synthesisWithheld is the only signal for that state.
   const lensWithheld = !lensRunning && !card.synthesis && Boolean(card.synthesisWithheld);
-  const lensFailed = !lensRunning && !card.synthesis && !lensWithheld && analysisNotice === LENS_RUN_FAILED_NOTICE;
+  const lensFailed = !lensRunning && !card.synthesis && !lensWithheld && analysisFailed === true;
   // Same precedence the ternary below used to encode directly: running always wins, then a
   // filed read, then a withheld verdict, and trigger (with an optional failed-run notice folded
   // in) is the fallback. LensSlot's crossfade keys off this single discriminator.
@@ -751,7 +753,7 @@ export function ResearchLayerPanel({
         : "trigger";
   // The withheld and run-failed outcomes each carry their own receipt in the lens slot; only a
   // real, unclassified notice keeps the generic research-status box below.
-  const visibleAnalysisNotice = analysisNotice === LENS_RUN_FAILED_NOTICE ? undefined : analysisNotice;
+  const visibleAnalysisNotice = analysisFailed ? undefined : analysisNotice;
 
   // The identity header and the early read render above this panel in the CompanyArc shell;
   // the gate here only decides between the research layer and the honest partial state.

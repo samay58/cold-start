@@ -46,6 +46,7 @@ const ACTIVE_CARD_FETCH_FALLBACK_INTERVAL = 6;
 export type GenerationPollResult = {
   card: ColdStartCard;
   sections: ResearchSection[];
+  analysisFailed?: boolean;
   analysisNotice?: string;
 };
 
@@ -412,7 +413,8 @@ export async function pollGenerationUntilCard(
   latestCard: ColdStartCard | null = null,
   waitForRunCompletion = false,
   onInterimCard?: (result: GenerationPollResult) => void,
-  latestSections: ResearchSection[] = []
+  latestSections: ResearchSection[] = [],
+  expectedRunId?: string
 ): Promise<GenerationPollResult> {
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
   const pollStartedAt = Date.now();
@@ -421,6 +423,7 @@ export async function pollGenerationUntilCard(
   let currentSections = latestCard ? sectionsForCard(latestCard, latestSections) : latestSections;
   let lastFetchedCardReadyEventKey: string | null = null;
   let lastKnownAnalysisReadyEvent: ExtensionResearchRunEvent | null = null;
+  let observedExpectedAnalysisRun = expectedRunId === undefined;
   const requireRunCompletion = waitForRunCompletion;
   const requiresMarketStructure = Boolean(
     mode === "analysis" && latestCard?.synthesis && !latestCard.synthesis.marketStructureAndTiming
@@ -529,7 +532,10 @@ export async function pollGenerationUntilCard(
           lastFetchedCardReadyEventKey = cardFetch.readyEventKey;
         }
 
-        if (analysisCardIsComplete(card, requiresMarketStructure)) {
+        const terminalCardBelongsToCurrentRun =
+          observedExpectedAnalysisRun &&
+          (!expectedRunId || lastKnownAnalysisReadyEvent !== null);
+        if (terminalCardBelongsToCurrentRun && analysisCardIsComplete(card, requiresMarketStructure)) {
           return { card, sections: updateCurrentCard(card) };
         }
 
@@ -553,6 +559,13 @@ export async function pollGenerationUntilCard(
     }
 
     lastKnownAnalysisReadyEvent = latestAnalysisCardReadyEvent(runStatus.events);
+    if (expectedRunId && runStatus.runId === expectedRunId) {
+      observedExpectedAnalysisRun = true;
+    }
+
+    if (expectedRunId && runStatus.runId && runStatus.runId !== expectedRunId) {
+      continue;
+    }
 
     if (isActiveRun(runStatus.status)) {
       onGenerationStatus(runStatus.status, { events: runStatus.events });
@@ -561,12 +574,13 @@ export async function pollGenerationUntilCard(
         return {
           card: currentCard,
           sections: currentSections,
+          analysisFailed: true,
           analysisNotice: LENS_RUN_FAILED_NOTICE
         };
       }
 
       throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
-    } else if (runStatus.status === "complete" && currentCard) {
+    } else if (runStatus.status === "complete" && observedExpectedAnalysisRun) {
       // The server is done. currentCard already reflects whatever the run produced: full
       // synthesis, a synthesisWithheld record when the evidence gate blocked it, or (rarely)
       // neither. Trusting the terminal status here, rather than re-requiring synthesis before
@@ -577,14 +591,14 @@ export async function pollGenerationUntilCard(
       // earlier in this same iteration can still land pre-write while this status check lands
       // post-write: currentCard would then carry neither synthesis nor synthesisWithheld even
       // though the run is done. One more fetch closes that window before settling.
-      if (!currentCard.synthesis && !currentCard.synthesisWithheld) {
-        const freshCard = await fetchAvailableCard();
-        if (freshCard) {
-          return { card: freshCard, sections: updateCurrentCard(freshCard) };
-        }
+      const freshCard = await fetchAvailableCard();
+      if (freshCard) {
+        return { card: freshCard, sections: updateCurrentCard(freshCard) };
       }
 
-      return { card: currentCard, sections: currentSections };
+      if (currentCard) {
+        return { card: currentCard, sections: currentSections };
+      }
     }
   }
 
@@ -650,7 +664,8 @@ export async function startAnalysisGenerationAndPoll(
     latestCard,
     false,
     undefined,
-    latestSections
+    latestSections,
+    generation.runId
   );
 }
 

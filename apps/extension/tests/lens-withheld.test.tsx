@@ -39,6 +39,7 @@ function synthesizedCard(): ColdStartCard {
 
 async function renderArc(input: {
   card: ColdStartCard;
+  analysisFailed?: boolean;
   analysisNotice?: string;
   onRunAnalysis?: (forceRefresh?: boolean) => void;
 }) {
@@ -56,6 +57,7 @@ async function renderArc(input: {
           sections: [],
           events: [],
           sources: [],
+          ...(input.analysisFailed ? { analysisFailed: true } : {}),
           ...(input.analysisNotice ? { analysisNotice: input.analysisNotice } : {})
         }}
         domain="exa.ai"
@@ -125,7 +127,7 @@ describe("Investor Lens withheld and failed states", () => {
     const withheld = container.querySelector("[aria-label='Lens withheld']");
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("Analysis ran");
-    expect(withheld?.textContent).toContain("Fewer than 8 cited sources survived");
+    expect(withheld?.textContent).toContain("Too few cited sources survived the evidence floor.");
     expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
 
     await unmount();
@@ -154,6 +156,7 @@ describe("Investor Lens withheld and failed states", () => {
   it("(b) renders failure copy for a run-status failure with no withheld record", async () => {
     const { container, unmount } = await renderArc({
       card: card(),
+      analysisFailed: true,
       analysisNotice: LENS_RUN_FAILED_NOTICE
     });
 
@@ -161,6 +164,18 @@ describe("Investor Lens withheld and failed states", () => {
     expect(failed).not.toBeNull();
     expect(failed?.textContent).toContain(LENS_RUN_FAILED_NOTICE);
     expect(container.querySelector("[aria-label='Lens withheld']")).toBeNull();
+
+    await unmount();
+  });
+
+  it("does not infer failure state from matching notice copy", async () => {
+    const { container, unmount } = await renderArc({
+      card: card(),
+      analysisNotice: LENS_RUN_FAILED_NOTICE
+    });
+
+    expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
+    expect(container.querySelector(".cs-research-notice")?.textContent).toContain(LENS_RUN_FAILED_NOTICE);
 
     await unmount();
   });
