@@ -45,6 +45,7 @@ Read-only production checks on July 24 showed:
 - One short-lived QA invitation proved inspect, redemption, authenticated bootstrap, and generation-disabled behavior. All QA tester data was deleted.
 - Both production kill switches were exercised and access was restored.
 - The authenticated retention job returned `200` with zero eligible deletions.
+- The Chrome Web Store publisher account is active. Trader information was submitted and verification is pending.
 - The `framer` row and card JSON disagreed about `.co` and `.com`.
 - Known-dead Apollo-family probes repeatedly returned 404.
 
@@ -182,7 +183,7 @@ As of this update:
 - Vercel production spend controls are not yet observed.
 - The paid canary has not run.
 - Production alert evidence for repeated auth failures and event throttling is not proven.
-- Chrome publisher registration, fee, submission, and review are not verified.
+- Chrome trader verification is pending. Item submission and review have not started.
 - The owner rehearsal and 24-hour soak have not run.
 
 These are hard blockers. Store submission requires owner action.
@@ -194,7 +195,7 @@ Complete the production prerequisites in order:
 1. Configure and observe Vercel spend controls.
 2. Run the paid canary and alpha gate.
 3. Prove production alert handling.
-4. Submit the Unlisted extension.
+4. Complete trader verification and submit the Unlisted extension.
 5. Rehearse with the owner.
 6. Soak for 24 hours.
 7. Prepare five invitations. Do not send them from the build session.
