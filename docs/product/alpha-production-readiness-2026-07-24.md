@@ -183,19 +183,21 @@ As of this update:
 - Vercel production spend controls are not yet observed.
 - The paid canary has not run.
 - Production alert evidence for repeated auth failures and event throttling is not proven.
-- Chrome trader verification is pending. Item submission and review have not started.
 - The owner rehearsal and 24-hour soak have not run.
 
-These are hard blockers. Store submission requires owner action.
+These are hard blockers for sending invitations. The store submission itself is in.
+
+## Store Review Status
+
+Submitted for Chrome Web Store review on 2026-07-24 (Unlisted). Trader verification proceeds in parallel; until it completes the public listing carries a non-trader label, which does not block review. Confirm in the dashboard Package tab which artifact went to review (`5ec36e6d33af` or the support-email rebuild `5160def7cd3f`); if it is the older one, upload the rebuilt ZIP with the next revision. Listing images can be revised after review without resubmitting the package.
 
 ## Next Action
 
-Complete the production prerequisites in order:
+While the review clock runs:
 
 1. Configure and observe Vercel spend controls.
 2. Run the paid canary and alpha gate.
 3. Prove production alert handling.
-4. Complete trader verification and submit the Unlisted extension.
-5. Rehearse with the owner.
-6. Soak for 24 hours.
+4. Rehearse with the owner.
+5. Soak for 24 hours.
 7. Prepare five invitations. Do not send them from the build session.
