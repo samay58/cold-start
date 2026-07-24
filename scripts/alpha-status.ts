@@ -5,6 +5,9 @@ import { resolve } from "node:path";
 
 import { Client } from "pg";
 
+import type { GenerationFailureCode } from "@cold-start/core";
+import { generationRunDeadAfterMs } from "@cold-start/db";
+
 import {
   databaseUrl,
   dateBefore,
@@ -12,13 +15,13 @@ import {
   hasFlag,
   loadProductionEnv,
   parseCliArguments,
+  runCli,
   safeError,
   valueFor
 } from "./alpha-common";
 
 const MAX_RUN_ROWS = 10_000;
-const WATCHDOG_MS = 5 * 60_000;
-const SOFTWARE_FAILURE_CODES = new Set(["model_contract", "concurrent_write", "unknown"]);
+const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
 
 type JsonObject = Record<string, unknown>;
 
@@ -539,7 +542,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   const failureCodes = countBy(
     failureEvidence
       .map((run) => failureCode(run))
-      .filter((code): code is string => code !== null),
+      .filter((code): code is GenerationFailureCode => code !== null),
     (code) => code
   );
   const staleOrSilentRuns = uniqueRuns.flatMap((run) => {
@@ -551,7 +554,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
     const ageMs = input.now.getTime() - run.generation_started_at.getTime();
     const lastActivityAt = run.last_event_at ?? run.generation_started_at;
     const silentMs = input.now.getTime() - lastActivityAt.getTime();
-    if (ageMs <= WATCHDOG_MS || silentMs <= WATCHDOG_MS) return [];
+    if (ageMs <= generationRunDeadAfterMs || silentMs <= generationRunDeadAfterMs) return [];
     return [{
       runId: run.generation_run_id,
       inviteId: run.invite_id,
@@ -589,7 +592,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   const remainingAllowanceExposureUsd =
     profileRemaining * input.profileCostAnchorUsd + lensRemaining * input.lensCostAnchorUsd;
   const softwareFailureCount = Object.entries(failureCodes)
-    .filter(([code]) => SOFTWARE_FAILURE_CODES.has(code))
+    .filter(([code]) => SOFTWARE_FAILURE_CODES.has(code as GenerationFailureCode))
     .reduce((sum, [, count]) => sum + count, 0);
 
   const gateFailures: Array<{ code: string; message: string }> = [];
@@ -864,9 +867,11 @@ function runCost(run: RunRow): number | null {
   return traced;
 }
 
-function failureCode(run: RunRow): string | null {
-  return run.request_failure_code
-    ?? stringValue(objectAt(run.trace_json, "failure")?.code);
+// request_failure_code and the traced failure.code are both app-written from
+// generationFailureCode(), so this cast reflects an existing invariant rather than adding one.
+function failureCode(run: RunRow): GenerationFailureCode | null {
+  return (run.request_failure_code
+    ?? stringValue(objectAt(run.trace_json, "failure")?.code)) as GenerationFailureCode | null;
 }
 
 function latenciesForRuns(runs: RunRow[]): TesterReport["latencyMs"] {
@@ -1084,9 +1089,4 @@ function money(value: number): string {
   return `$${value.toFixed(4)}`;
 }
 
-if (import.meta.url === new URL(process.argv[1] ?? "", "file:").href) {
-  main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
-}
+runCli(import.meta.url, main);

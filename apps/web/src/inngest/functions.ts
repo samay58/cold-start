@@ -95,7 +95,8 @@ import {
   mutateCardWithRetry,
   noteSkippedUnderfilledSnapshot,
   prepareCardForStorage,
-  prepareCardSnapshotForStorage
+  prepareCardSnapshotForStorage,
+  type CardWriteArgs
 } from "./card-storage";
 import {
   analysisSourceRefreshModeFromProcess,
@@ -147,6 +148,18 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     typeof event.data.generationRunId === "string" && event.data.generationRunId.trim()
       ? event.data.generationRunId.trim()
       : null;
+  // The inline executor swallows a terminal enrichment-dispatch failure so a completed profile is
+  // not reported to the user as a failure. Stamping the failure onto the step it belongs to stops
+  // the trace from claiming a dispatch that never happened. Inngest's executor fails the step
+  // itself, so its tools carry no warnings and this is a no-op there.
+  const applySwallowedStepWarnings = () => {
+    for (const warning of step.stepWarnings ?? []) {
+      trace.steps = {
+        ...trace.steps,
+        [warning.stepId]: { status: "failed", message: warning.message }
+      };
+    }
+  };
 
   let currentStage = "validate-mode";
   try {
@@ -304,11 +317,17 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     event: { stepId: string; type: "card.partial" | "card.saved" | "card.enriched"; message: string; metadata?: Record<string, unknown> };
     skipNoteId: string;
     contactTrigger: string | null;
+    extendSynthesisTtl?: boolean;
   }): Promise<{ card: ColdStartCard; milestoneMs: number } | null> => {
     if (!canStoreCardSnapshot(mode, input.cardToStore)) {
       noteSkippedUnderfilledSnapshot(trace, input.skipNoteId, input.cardToStore);
       return null;
     }
+    // Spread, so a write on today's terms keeps its existing two-argument call shape and only a
+    // run that must leave the synthesis TTL alone carries an options argument at all.
+    const writeArgs: CardWriteArgs = input.extendSynthesisTtl === false
+      ? [{ extendSynthesisTtl: false }]
+      : [];
     const stored = await step.run(input.steps.upsert, async () => {
       const mutated = await mutateCardWithRetry(
         db,
@@ -316,11 +335,12 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         (current) => prepareCardSnapshotForStorage(mode, current, input.cardToStore, {
           preserveAnalysis: mode === "analysis"
             || analysisStateSignature(current) !== analysisStateAtRunStart
-        })
+        }),
+        ...writeArgs
       );
       return {
         card: mutated?.card ?? input.cardToStore,
-        row: mutated?.row ?? await upsertCard(db, input.cardToStore),
+        row: mutated?.row ?? await upsertCard(db, input.cardToStore, ...writeArgs),
         milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
       };
     });
@@ -831,17 +851,20 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
     let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
     let analysisReadyMs: number | null = null;
+    // Only the preserve branch below ever clears this. Every other path writes on today's terms.
+    let extendSynthesisTtl = true;
 
     if (preserveFiledSynthesis) {
-      // The verifier dropped every claim over a slug that already has a filed read. Writing the
-      // merged card (which carries that read forward) refreshes the synthesis TTL, and that
-      // refresh is the only thing that stops the next post-TTL click from re-paying synthesis and
-      // verification for a verdict that cannot change. Only do it when this run's evidence hashes
-      // the same as the stored card's: matching evidence means the run found nothing new, so the
-      // filed read is still the honest best answer. When the evidence moved, skip the write so no
-      // TTL is granted and the next click looks again.
-      skipCardStore = existingCard === null
-        || synthesisEvidenceFingerprint(existingCard) !== synthesisEvidenceFingerprint(cardToStore);
+      // The verifier dropped every claim over a slug that already has a filed read. The merged
+      // card carries that read forward either way, so the write always happens and this run's
+      // fresher basics facts land. What the evidence decides is the synthesis TTL. Matching
+      // evidence means the run found nothing new, so the filed read is still the honest best
+      // answer and refreshing its TTL is what stops the next post-TTL click from re-paying
+      // synthesis and verification for a verdict that cannot change. When the evidence moved,
+      // store without extending: the read stays readable until its original expiry, and the next
+      // click after that looks again.
+      extendSynthesisTtl = existingCard !== null
+        && synthesisEvidenceFingerprint(existingCard) === synthesisEvidenceFingerprint(cardToStore);
     }
 
     if (mode === "analysis") {
@@ -859,8 +882,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       };
     }
 
-    // skipCardStore (issue #10 / all-claims-dropped preservation): the existing stored card
-    // already carries a good synthesis read, so this run must not touch it. No upsert, no
+    // skipCardStore (issue #10): the synthesis gate blocked this run over a slug that already
+    // carries a good read, so nothing this run produced is worth writing. No upsert, no
     // evidence/sections/sources write, no analysisReadyMs stamp; the run still completes below.
     const generatedStore = skipCardStore ? null : await storeCardSnapshot({
       cardToStore,
@@ -870,7 +893,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       skipNoteId: "skip-underfilled-generated-card",
       // Contacts are dispatched below once the enrichment path is decided (or by the async enrichment
       // worker), so they read the most complete card and are dispatched exactly once.
-      contactTrigger: null
+      contactTrigger: null,
+      extendSynthesisTtl
     });
     if (generatedStore) {
       cardToStore = generatedStore.card;
@@ -1048,6 +1072,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
     const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
     applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
+    applySwallowedStepWarnings();
     if (generationRunDbId) {
       await step.run("persist-generation-trace-before-complete", () =>
         updateGenerationRunTrace(db, {
@@ -1115,6 +1140,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     };
     const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
     applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);
+    applySwallowedStepWarnings();
     if (generationRunDbId) {
       await step.run("persist-generation-trace-before-fail", () =>
         updateGenerationRunTrace(db, {

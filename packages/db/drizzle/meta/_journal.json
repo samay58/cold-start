@@ -71,6 +71,13 @@
       "when": 1784913699768,
       "tag": "0009_reflective_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784926246030,
+      "tag": "0010_redeem_alpha_invite",
+      "breakpoints": true
     }
   ]
 }

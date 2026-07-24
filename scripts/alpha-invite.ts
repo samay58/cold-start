@@ -11,6 +11,7 @@ import {
   loadProductionEnv,
   parseCliArguments,
   requiredValue,
+  runCli,
   sha256,
   valueFor,
   withAlphaDb
@@ -95,9 +96,4 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   console.log(inviteUrl(secret));
 }
 
-if (import.meta.url === new URL(process.argv[1] ?? "", "file:").href) {
-  main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
-}
+runCli(import.meta.url, main);

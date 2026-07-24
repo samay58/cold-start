@@ -98,37 +98,62 @@ function hasUnsafeProductionConfig(allowedOrigins: string[], allowedExtensionIds
   );
 }
 
-export function assertExtensionRequest(headers: Headers) {
+// Shared identity gate for the two auth entry points: assertExtensionRequest (the transitional
+// operator-token path, which also checks the bearer token itself) and assertExtensionIdentity
+// (the alpha-installation path, which defers token checking to authenticateExtensionRequest).
+// Both need byte-identical origin/extension-id/config-safety verdicts; this is the one place
+// that logic lives.
+function extensionIdentityGate(headers: Headers): { ok: true } | { ok: false; status: number; error: string } {
   const origin = headers.get("origin") ?? "";
   const extensionId = headers.get(extensionIdHeader)?.trim() ?? "";
   const configuredOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
   const allowedExtensionIds = configuredValues(process.env.ALLOWED_EXTENSION_IDS, process.env.CHROME_EXTENSION_ID);
   const apiTokens = configuredValues(process.env.EXTENSION_API_TOKENS, process.env.EXTENSION_API_TOKEN);
-
-  if ((process.env.NODE_ENV === "production" && allowedExtensionIds.length === 0) || apiTokens.length === 0) {
-    return { ok: false as const, status: 500, error: "extension auth not configured" };
-  }
-
   const defaultOrigins = process.env.NODE_ENV === "production" ? "" : LOCAL_DEFAULT_EXTENSION_ORIGINS;
-  const allowed = parseConfiguredValues(configuredOrigins ?? defaultOrigins);
+  const allowedOrigins = parseConfiguredValues(configuredOrigins ?? defaultOrigins);
 
-  if (hasUnsafeProductionConfig(allowed, allowedExtensionIds, apiTokens)) {
-    return { ok: false as const, status: 500, error: "extension auth not configured" };
+  if (
+    (process.env.NODE_ENV === "production" && allowedExtensionIds.length === 0) ||
+    apiTokens.length === 0 ||
+    hasUnsafeProductionConfig(allowedOrigins, allowedExtensionIds, apiTokens)
+  ) {
+    return { ok: false, status: 500, error: "extension auth not configured" };
   }
 
   const allowedByExtensionId =
     process.env.NODE_ENV === "production" ? allowedExtensionIds.includes(extensionId) : extensionId.length > 0;
   const allowedByOrigin =
     process.env.NODE_ENV === "production"
-      ? isAllowedProductionOrigin(origin, allowed)
-      : isAllowedOrigin(origin, allowed);
+      ? isAllowedProductionOrigin(origin, allowedOrigins)
+      : isAllowedOrigin(origin, allowedOrigins);
   const identityAllowed =
-    process.env.NODE_ENV === "production" ? allowedByExtensionId && allowedByOrigin : allowedByExtensionId || allowedByOrigin;
+    process.env.NODE_ENV === "production"
+      ? allowedByExtensionId && allowedByOrigin
+      : allowedByExtensionId || allowedByOrigin;
 
   if (!identityAllowed) {
-    return { ok: false as const, status: 403, error: "extension identity required" };
+    return { ok: false, status: 403, error: "extension identity required" };
   }
 
+  return { ok: true };
+}
+
+export function operatorPrincipal(): AlphaPrincipal {
+  return {
+    kind: "operator",
+    inviteId: null,
+    installationId: null,
+    scopes: ["operator"]
+  };
+}
+
+export function assertExtensionRequest(headers: Headers) {
+  const identity = extensionIdentityGate(headers);
+  if (!identity.ok) {
+    return identity;
+  }
+
+  const apiTokens = configuredValues(process.env.EXTENSION_API_TOKENS, process.env.EXTENSION_API_TOKEN);
   const authorization = headers.get("authorization") ?? "";
   if (!authorization.startsWith("Bearer ")) {
     return { ok: false as const, status: 401, error: "extension token required" };
@@ -175,12 +200,7 @@ export async function authenticateExtensionRequest(
   if (operatorMatches) {
     return {
       ok: true,
-      principal: {
-        kind: "operator",
-        inviteId: null,
-        installationId: null,
-        scopes: ["operator"]
-      }
+      principal: operatorPrincipal()
     };
   }
 
@@ -225,45 +245,9 @@ export async function authenticateExtensionRequest(
 function assertExtensionIdentity(
   headers: Headers
 ): { ok: true } | { ok: false; status: number; error: string; code: string } {
-  const origin = headers.get("origin") ?? "";
-  const extensionId = headers.get(extensionIdHeader)?.trim() ?? "";
-  const configuredOrigins = process.env.ALLOWED_EXTENSION_ORIGINS;
-  const allowedExtensionIds = configuredValues(process.env.ALLOWED_EXTENSION_IDS, process.env.CHROME_EXTENSION_ID);
-  const apiTokens = configuredValues(process.env.EXTENSION_API_TOKENS, process.env.EXTENSION_API_TOKEN);
-  const defaultOrigins = process.env.NODE_ENV === "production" ? "" : LOCAL_DEFAULT_EXTENSION_ORIGINS;
-  const allowedOrigins = parseConfiguredValues(configuredOrigins ?? defaultOrigins);
-
-  if (
-    (process.env.NODE_ENV === "production" && allowedExtensionIds.length === 0) ||
-    apiTokens.length === 0 ||
-    hasUnsafeProductionConfig(allowedOrigins, allowedExtensionIds, apiTokens)
-  ) {
-    return {
-      ok: false,
-      status: 500,
-      error: "extension auth not configured",
-      code: "authentication"
-    };
-  }
-
-  const allowedByExtensionId =
-    process.env.NODE_ENV === "production" ? allowedExtensionIds.includes(extensionId) : extensionId.length > 0;
-  const allowedByOrigin =
-    process.env.NODE_ENV === "production"
-      ? isAllowedProductionOrigin(origin, allowedOrigins)
-      : isAllowedOrigin(origin, allowedOrigins);
-  const identityAllowed =
-    process.env.NODE_ENV === "production"
-      ? allowedByExtensionId && allowedByOrigin
-      : allowedByExtensionId || allowedByOrigin;
-
-  if (!identityAllowed) {
-    return {
-      ok: false,
-      status: 403,
-      error: "extension identity required",
-      code: "authentication"
-    };
+  const identity = extensionIdentityGate(headers);
+  if (!identity.ok) {
+    return { ...identity, code: "authentication" };
   }
 
   return { ok: true };

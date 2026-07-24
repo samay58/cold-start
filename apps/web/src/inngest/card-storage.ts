@@ -6,7 +6,7 @@ import {
   type GenerationTrace,
   type ResolvedFact
 } from "@cold-start/core";
-import { mutateCard, type ColdStartDb } from "@cold-start/db";
+import { mutateCard, type CardWriteOptions, type ColdStartDb } from "@cold-start/db";
 
 type GenerationMode = "basics" | "analysis";
 type CardPerson = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
@@ -225,13 +225,18 @@ export function assertTerminalCardQuality(mode: GenerationMode, card: ColdStartC
   }
 }
 
+// Spread args so a default write keeps the exact three-argument mutateCard call shape; only a
+// caller that must leave the synthesis TTL alone carries an options argument at all.
+export type CardWriteArgs = [CardWriteOptions] | [];
+
 // mutateCard returns null only when the slug has no row yet, which is why every caller falls back
 // to a blind upsert. A row inserted between the read and that fallback would be overwritten
 // wholesale, so retry the merge once first and let the fallback handle the genuinely absent row.
 export async function mutateCardWithRetry(
   db: ColdStartDb,
   slug: string,
-  mutate: (current: ColdStartCard) => ColdStartCard
+  mutate: (current: ColdStartCard) => ColdStartCard,
+  ...options: CardWriteArgs
 ) {
-  return (await mutateCard(db, slug, mutate)) ?? (await mutateCard(db, slug, mutate));
+  return (await mutateCard(db, slug, mutate, ...options)) ?? (await mutateCard(db, slug, mutate, ...options));
 }

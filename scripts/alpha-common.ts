@@ -186,6 +186,20 @@ export function safeError(error: unknown): string {
   return "unknown error";
 }
 
+// Shared entrypoint guard for the alpha operator CLI scripts: only runs `main` when the script
+// was executed directly (`tsx scripts/alpha-foo.ts`), not when imported for its exports (as
+// alpha-operator.test.ts does for alpha-status.ts). `moduleUrl` must be the caller's own
+// `import.meta.url`: it is lexically bound to the file it appears in, so it cannot be read from
+// inside this shared helper and has to be passed in.
+export function runCli(moduleUrl: string, main: () => Promise<void>): void {
+  if (moduleUrl === new URL(process.argv[1] ?? "", "file:").href) {
+    main().catch((error: unknown) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    });
+  }
+}
+
 function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {

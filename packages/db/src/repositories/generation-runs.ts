@@ -323,7 +323,9 @@ export async function retireStaleGenerationRuns(
 
 export const generationRunDeadAfterMs = 5 * 60 * 1000;
 
-const DEAD_RUN_CARD_EVENT_TYPES = new Set(["card.saved", "card.enriched", "card.partial"]);
+// Shared with scripts/repair-stuck-generation-runs.ts, which classifies the same stranded-run
+// backlog by the same card-produced signal outside this watchdog's live-request path.
+export const DEAD_RUN_CARD_EVENT_TYPES = new Set(["card.saved", "card.enriched", "card.partial"]);
 
 // Event-trail deadness check for an active `queued` or `running` run, mirroring the
 // classification in scripts/repair-stuck-generation-runs.ts: a run silent for over the threshold

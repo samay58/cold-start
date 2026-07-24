@@ -158,6 +158,16 @@ export async function findAlphaInviteById(db: ColdStartDb, inviteId: string): Pr
   return rows[0] ? alphaInviteFromRow(rows[0]) : null;
 }
 
+// The one path that attaches an installation to an invitation, for the first seat and every later
+// one. An already-active invitation is still a candidate, so a second browser or a reinstall
+// redeems normally while max_installations decides; accepted_at keeps the moment of the first
+// redemption. A seat is spent permanently, so revoking an installation cannot resurrect the link.
+// That leaves the default single-seat invitation answering exactly as it did before.
+//
+// The seat check lives in redeem_alpha_invite rather than in a CTE here for the reason spelled out
+// in that function: one statement cannot both take the advisory lock and then count against a
+// snapshot that includes the winner's write, so the CTE form handed out more seats than the
+// invitation had whenever redemptions raced.
 export async function redeemAlphaInvite(
   db: ColdStartDb,
   input: {
@@ -172,167 +182,18 @@ export async function redeemAlphaInvite(
   assertSha256Hash(input.tokenHash, "tokenHash");
   assertSha256Hash(input.accessTokenHash, "accessTokenHash");
   const now = input.now ?? new Date();
-  const result = await db.execute<AlphaAuthSqlRow>(sql`
-    with invite_lock as materialized (
-      select pg_advisory_xact_lock(hashtextextended(${input.tokenHash}, 811))
-    ),
-    candidate as materialized (
-      select i.*
-      from alpha_invites i, invite_lock
-      where i.token_hash = ${input.tokenHash}
-        and i.status = 'pending'
-        and i.expires_at > ${now}
-      limit 1
-    ),
-    installation as (
-      insert into alpha_installations (
-        invite_id,
-        access_token_hash,
-        browser,
-        channel,
-        extension_version,
-        connected_at,
-        last_seen_at,
-        created_at,
-        updated_at
-      )
-      select
-        c.id,
-        ${input.accessTokenHash},
-        ${input.browser}::alpha_browser,
-        ${input.channel}::alpha_install_channel,
-        ${input.extensionVersion},
-        ${now},
-        ${now},
-        ${now},
-        ${now}
-      from candidate c
-      where (
-        select count(*)
-        from alpha_installations existing
-        where existing.invite_id = c.id and existing.revoked_at is null
-      ) < c.max_installations
-      on conflict (access_token_hash) do nothing
-      returning *
-    ),
-    accepted as (
-      update alpha_invites i
-      set status = 'active', accepted_at = ${now}, updated_at = ${now}
-      from installation installation
-      where i.id = installation.invite_id and i.status = 'pending'
-      returning i.*
-    ),
-    allowance as (
-      insert into alpha_allowances (
-        invite_id,
-        profile_limit,
-        lens_limit,
-        created_at,
-        updated_at
-      )
-      select id, profile_limit, lens_limit, ${now}, ${now}
-      from accepted
-      on conflict (invite_id) do nothing
-      returning invite_id
-    )
-    select
-      installation.id as installation_id,
-      installation.invite_id,
-      installation.browser,
-      installation.channel,
-      installation.extension_version,
-      installation.connected_at,
-      installation.last_seen_at,
-      accepted.label,
-      accepted.status,
-      accepted.scopes,
-      accepted.expires_at,
-      accepted.profile_limit,
-      accepted.lens_limit
-    from installation
-    join accepted on accepted.id = installation.invite_id
-    join allowance on allowance.invite_id = accepted.id
+  const result = await db.execute<{ result: AlphaAuthSqlRow | null }>(sql`
+    select redeem_alpha_invite(
+      ${input.tokenHash},
+      ${input.accessTokenHash},
+      ${input.browser}::alpha_browser,
+      ${input.channel}::alpha_install_channel,
+      ${input.extensionVersion},
+      ${now}
+    ) as result
   `);
 
-  const row = executeRows<AlphaAuthSqlRow>(result)[0];
-  return row ? alphaAuthFromSqlRow(row) : null;
-}
-
-export async function createAlphaInstallationForInvite(
-  db: ColdStartDb,
-  input: {
-    inviteId: string;
-    accessTokenHash: string;
-    browser: AlphaBrowser;
-    channel: AlphaInstallChannel;
-    extensionVersion: string;
-    now?: Date;
-  }
-): Promise<AlphaInstallationAuth | null> {
-  assertSha256Hash(input.accessTokenHash, "accessTokenHash");
-  const now = input.now ?? new Date();
-  const result = await db.execute<AlphaAuthSqlRow>(sql`
-    with invite_lock as materialized (
-      select pg_advisory_xact_lock(hashtextextended(${input.inviteId}, 812))
-    ),
-    candidate as materialized (
-      select i.*
-      from alpha_invites i, invite_lock
-      where i.id = ${input.inviteId}::uuid
-        and i.status = 'active'
-        and i.expires_at > ${now}
-      limit 1
-    ),
-    installation as (
-      insert into alpha_installations (
-        invite_id,
-        access_token_hash,
-        browser,
-        channel,
-        extension_version,
-        connected_at,
-        last_seen_at,
-        created_at,
-        updated_at
-      )
-      select
-        c.id,
-        ${input.accessTokenHash},
-        ${input.browser}::alpha_browser,
-        ${input.channel}::alpha_install_channel,
-        ${input.extensionVersion},
-        ${now},
-        ${now},
-        ${now},
-        ${now}
-      from candidate c
-      where (
-        select count(*)
-        from alpha_installations existing
-        where existing.invite_id = c.id and existing.revoked_at is null
-      ) < c.max_installations
-      on conflict (access_token_hash) do nothing
-      returning *
-    )
-    select
-      installation.id as installation_id,
-      installation.invite_id,
-      installation.browser,
-      installation.channel,
-      installation.extension_version,
-      installation.connected_at,
-      installation.last_seen_at,
-      candidate.label,
-      candidate.status,
-      candidate.scopes,
-      candidate.expires_at,
-      candidate.profile_limit,
-      candidate.lens_limit
-    from installation
-    join candidate on candidate.id = installation.invite_id
-  `);
-
-  const row = executeRows<AlphaAuthSqlRow>(result)[0];
+  const row = executeRows<{ result: AlphaAuthSqlRow | null }>(result)[0]?.result;
   return row ? alphaAuthFromSqlRow(row) : null;
 }
 

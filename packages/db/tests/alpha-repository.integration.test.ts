@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -11,6 +11,7 @@ import {
   createAlphaInvite,
   deleteAlphaTesterData,
   findActiveAlphaInstallationByTokenHash,
+  findAlphaInviteById,
   getAlphaAllowanceSnapshot,
   insertAlphaEvents,
   pruneAlphaEvents,
@@ -83,6 +84,140 @@ describeDatabase("alpha repositories against Postgres", () => {
     expect(await revokeAlphaInstallation(db, auth!.installation.id, now)).toBe(true);
     expect(await findActiveAlphaInstallationByTokenHash(db, hashChar("b"), now)).toBeNull();
     expect(await deleteAlphaTesterData(db, invite.id)).toBe(true);
+  });
+
+  it("gives a two-seat invitation a second installation with its own credential, then stops", async () => {
+    const tokenHash = hashSeed("two-seat-invite");
+    const now = new Date("2026-07-24T12:00:00.000Z");
+    const later = new Date("2026-07-25T09:00:00.000Z");
+    const invite = await createAlphaInvite(db, {
+      label: `two-seat-${randomUUID()}`,
+      tokenHash,
+      scopes: ["cards:read", "generation:write"],
+      expiresAt: new Date("2026-07-31T12:00:00.000Z"),
+      maxInstallations: 2,
+      now
+    });
+
+    const redeem = (accessTokenHash: string, at: Date) =>
+      redeemAlphaInvite(db, {
+        tokenHash,
+        accessTokenHash,
+        browser: "chrome",
+        channel: "unlisted",
+        extensionVersion: "0.2.0",
+        now: at
+      });
+
+    const first = await redeem(hashSeed("two-seat-first"), now);
+    const second = await redeem(hashSeed("two-seat-second"), later);
+
+    expect(first?.invite.id).toBe(invite.id);
+    expect(second?.invite.id).toBe(invite.id);
+    expect(second?.installation.id).toBeTruthy();
+    expect(second?.installation.id).not.toBe(first?.installation.id);
+
+    // Each browser authenticates on its own credential.
+    expect((await findActiveAlphaInstallationByTokenHash(db, hashSeed("two-seat-first"), later))?.installation.id)
+      .toBe(first?.installation.id);
+    expect((await findActiveAlphaInstallationByTokenHash(db, hashSeed("two-seat-second"), later))?.installation.id)
+      .toBe(second?.installation.id);
+
+    // Only the pending-to-active transition stamps accepted_at, so the second seat leaves it be.
+    const stored = await findAlphaInviteById(db, invite.id);
+    expect(stored?.status).toBe("active");
+    expect(stored?.acceptedAt?.toISOString()).toBe(now.toISOString());
+
+    // One allowance for the invitation, not one per seat, and the second redemption spends none.
+    expect(await getAlphaAllowanceSnapshot(db, invite.id)).toMatchObject({
+      profile: { limit: 12, reserved: 0, used: 0, remaining: 12 },
+      lens: { limit: 6, reserved: 0, used: 0, remaining: 6 }
+    });
+
+    expect(await redeem(hashSeed("two-seat-third"), later)).toBeNull();
+    const installations = await pool.query(
+      "select count(*)::int as count from alpha_installations where invite_id = $1",
+      [invite.id]
+    );
+    expect(installations.rows[0]?.count).toBe(2);
+
+    await deleteAlphaTesterData(db, invite.id);
+  });
+
+  // Eight callers at once, because the seat gate has to hold against a race and not just against
+  // a sequential replay. Written as one CTE it did not: the count ran against a snapshot taken
+  // before the advisory lock was granted, and a two-seat invitation handed out four installations.
+  it.each([1, 2])("stops eight concurrent redemptions exactly at %i seat(s)", async (maxInstallations) => {
+    const tokenHash = hashSeed(`concurrent-seat-invite-${maxInstallations}`);
+    const now = new Date("2026-07-24T12:00:00.000Z");
+    const invite = await createAlphaInvite(db, {
+      label: `concurrent-seat-${randomUUID()}`,
+      tokenHash,
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-07-31T12:00:00.000Z"),
+      maxInstallations,
+      now
+    });
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        redeemAlphaInvite(db, {
+          tokenHash,
+          accessTokenHash: hashSeed(`concurrent-seat-${maxInstallations}-${index}`),
+          browser: "chrome",
+          channel: "unlisted",
+          extensionVersion: "0.2.0",
+          now
+        })
+      )
+    );
+
+    const granted = results.filter((result) => result !== null);
+    expect(granted).toHaveLength(maxInstallations);
+    expect(new Set(granted.map((result) => result!.installation.id)).size).toBe(maxInstallations);
+
+    const installations = await pool.query(
+      "select count(*)::int as count from alpha_installations where invite_id = $1",
+      [invite.id]
+    );
+    expect(installations.rows[0]?.count).toBe(maxInstallations);
+
+    await deleteAlphaTesterData(db, invite.id);
+  });
+
+  it("does not hand a revoked seat back to the invitation that spent it", async () => {
+    const tokenHash = hashSeed("revoked-seat-invite");
+    const now = new Date("2026-07-24T12:00:00.000Z");
+    const invite = await createAlphaInvite(db, {
+      label: `revoked-seat-${randomUUID()}`,
+      tokenHash,
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-07-31T12:00:00.000Z"),
+      now
+    });
+
+    const auth = await redeemAlphaInvite(db, {
+      tokenHash,
+      accessTokenHash: hashSeed("revoked-seat-first"),
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.0",
+      now
+    });
+    expect(await revokeAlphaInstallation(db, auth!.installation.id, now)).toBe(true);
+
+    // Revoking is terminal for the link. Repairing a lost connection means a new invitation or a
+    // raised seat count, never a quietly reusable token.
+    expect(await redeemAlphaInvite(db, {
+      tokenHash,
+      accessTokenHash: hashSeed("revoked-seat-second"),
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.0",
+      now
+    })).toBeNull();
+
+    await deleteAlphaTesterData(db, invite.id);
   });
 
   it("stops 50 concurrent reservations exactly at the allowance limit", async () => {
@@ -437,6 +572,10 @@ async function connectedInvite(profileLimit: number, tokenHash: string, accessTo
 
 function hashChar(char: string) {
   return char.repeat(64);
+}
+
+function hashSeed(seed: string) {
+  return createHash("sha256").update(seed).digest("hex");
 }
 
 function assertSafeTestDatabase(value: string | undefined): asserts value is string {

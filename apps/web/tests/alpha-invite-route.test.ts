@@ -57,9 +57,14 @@ describe("alpha invitation routes", () => {
     vi.restoreAllMocks();
   });
 
+  // The allowance figures are load-bearing before redemption: the disclosure panel in
+  // src/app/alpha/AlphaInviteClient.tsx renders them ("This invitation includes N fresh profiles
+  // and M Investor Lens runs") from this response, and falls back to a hardcoded 12/6 without
+  // them, which would quietly misstate any invitation issued with different limits. Trimming them
+  // needs the panel's copy moved to post-redeem data first.
   it("inspects a pending invitation without redeeming it", async () => {
     mocks.execute.mockResolvedValue({
-      rows: [inviteRow({ status: "pending", active_installations: 0 })]
+      rows: [inviteRow({ status: "pending", claimed_installations: 0 })]
     });
 
     const response = await inspectRoute.POST(jsonRequest(
@@ -79,8 +84,14 @@ describe("alpha invitation routes", () => {
   it.each([
     ["expired", inviteRow({ expires_at: "2020-01-01T00:00:00.000Z" }), 410],
     ["revoked", inviteRow({ status: "revoked" }), 410],
-    ["used", inviteRow({ status: "active" }), 409],
-    ["installation_limit", inviteRow({ active_installations: 1 }), 409]
+    // A single-seat invitation that has spent its seat keeps answering "used". Only a multi-seat
+    // invitation reaches "installation_limit".
+    ["used", inviteRow({ status: "active", claimed_installations: 1 }), 409],
+    [
+      "installation_limit",
+      inviteRow({ status: "active", max_installations: 2, claimed_installations: 2 }),
+      409
+    ]
   ])("reports a %s invitation without collapsing it to a generic error", async (code, row, status) => {
     mocks.execute.mockResolvedValue({ rows: [row] });
 
@@ -91,6 +102,44 @@ describe("alpha invitation routes", () => {
 
     expect(response.status).toBe(status);
     await expect(response.json()).resolves.toMatchObject({ ok: false, code });
+  });
+
+  it("still reads ready while a multi-seat invitation has a free seat", async () => {
+    mocks.execute.mockResolvedValue({
+      rows: [inviteRow({ status: "active", max_installations: 2, claimed_installations: 1 })]
+    });
+
+    const response = await inspectRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/inspect",
+      { inviteToken }
+    ));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ ok: true, state: "ready" });
+  });
+
+  it("keeps redemption disabled ahead of all database work", async () => {
+    process.env.ALPHA_ACCESS_ENABLED = "false";
+
+    const response = await redeemRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/redeem",
+      {
+        inviteToken,
+        browser: "chrome",
+        channel: "unlisted",
+        extensionVersion: "0.1.0",
+        clientContract: COLD_START_API_CONTRACT_VERSION,
+        consent: true,
+        storeVisited: false,
+        reducedMotion: false,
+        theme: "light"
+      }
+    ));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ ok: false, code: "access_disabled" });
+    expect(mocks.createDb).not.toHaveBeenCalled();
+    expect(mocks.redeemAlphaInvite).not.toHaveBeenCalled();
   });
 
   it("keeps access disabled ahead of all database work", async () => {
@@ -283,7 +332,7 @@ function inviteRow(overrides: Record<string, unknown> = {}) {
     profile_limit: 12,
     lens_limit: 6,
     max_installations: 1,
-    active_installations: 0,
+    claimed_installations: 0,
     ...overrides
   };
 }

@@ -47,6 +47,13 @@ type CardCacheRow = {
   synthesisExpiresAt: Date;
 };
 
+export type CardWriteOptions = {
+  // Defaults to true, which is every caller today. Pass false to store a synthesis-bearing card
+  // without moving synthesis_expires_at: the write lands the run's fresher basics facts while the
+  // stored read still expires on its original schedule. Identity and signals TTLs always refresh.
+  extendSynthesisTtl?: boolean | undefined;
+};
+
 const publicCardSchema = coldStartCardObjectSchema.omit({ synthesis: true, synthesisWithheld: true });
 const cardMutationLocks = new Map<string, Promise<void>>();
 
@@ -71,12 +78,30 @@ function isFreshCacheRow(row: CardCacheRow, options: CardCacheOptions = {}) {
   return mode === "basics" || row.synthesisExpiresAt > now;
 }
 
-function parseCachedCard(row: CardCacheRow, options: CardCacheOptions = {}) {
-  const parsed = coldStartCardSchema.parse(row.cardJson);
-  if (typeof row.domain === "string" && parsed.domain !== row.domain) {
-    throw new Error(`Card domain invariant failed: row=${row.domain} card=${parsed.domain}`);
+// Null means the stored row cannot be served: a card written before a schema change no longer
+// satisfies today's schema, and throwing would 500 every read of that slug until someone
+// intervenes. Callers treat null as a cache miss so the next visit regenerates the card. A row
+// that does parse still has its domain invariant enforced by a throw; that one is a real
+// corruption signal, not drift.
+function parseCachedCard(row: CardCacheRow, slug: string, options: CardCacheOptions = {}): ColdStartCard | null {
+  const parsed = coldStartCardSchema.safeParse(row.cardJson);
+  if (!parsed.success) {
+    console.warn("[repository] dropping unparsable stored card", {
+      slug,
+      issues: parsed.error.issues.slice(0, 3).map((issue) => ({
+        path: issue.path.join("."),
+        code: issue.code,
+        message: issue.message
+      }))
+    });
+    return null;
   }
-  return isFreshCacheRow(row, options) ? parsed : { ...parsed, cacheStatus: "stale" as const };
+
+  const card = parsed.data;
+  if (typeof row.domain === "string" && card.domain !== row.domain) {
+    throw new Error(`Card domain invariant failed: row=${row.domain} card=${card.domain}`);
+  }
+  return isFreshCacheRow(row, options) ? card : { ...card, cacheStatus: "stale" as const };
 }
 
 export async function findCardBySlug(db: ColdStartDb, slug: string, options: CardCacheOptions = {}): Promise<ColdStartCard | null> {
@@ -101,7 +126,7 @@ export async function findCardBySlug(db: ColdStartDb, slug: string, options: Car
     return null;
   }
 
-  return parseCachedCard(row, options);
+  return parseCachedCard(row, slug, options);
 }
 
 // Signals TTL only (6h), not the combined identity+signals(+synthesis) check isFreshCacheRow
@@ -143,7 +168,8 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
     return null;
   }
 
-  return publicCardSchema.parse(publicCard(parseCachedCard(row, cacheOptions)));
+  const parsed = parseCachedCard(row, slug, cacheOptions);
+  return parsed ? publicCardSchema.parse(publicCard(parsed)) : null;
 }
 
 export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
@@ -210,19 +236,19 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
   });
 }
 
-export async function upsertCard(db: ColdStartDb, card: ColdStartCard) {
+export async function upsertCard(db: ColdStartDb, card: ColdStartCard, options: CardWriteOptions = {}) {
   const cardToStore = card.cacheStatus === "stale" ? { ...card, cacheStatus: "hit" as const } : card;
   const generatedAt = new Date(cardToStore.generatedAt);
   const now = new Date();
   const expiresAt = cardExpiryDates(now);
   const persistedCacheStatus: "hit" | "partial" | "miss" = card.cacheStatus === "stale" ? "hit" : card.cacheStatus;
-  // Only extend the synthesis TTL when this write actually carries synthesis. A basics-only or
-  // withheld write has nothing fresh to serve for analysis mode; granting it a full synthesis
-  // window anyway would misreport freshness on the next analysis read. Identity/signals TTLs
-  // always refresh, on every write, regardless of synthesis presence.
-  const hasSynthesis = Boolean(cardToStore.synthesis);
-  const insertExpiresAt = hasSynthesis ? expiresAt : { ...expiresAt, synthesisExpiresAt: now };
-  const updateExpiresAt: { identityExpiresAt: Date; signalsExpiresAt: Date; synthesisExpiresAt?: Date } = hasSynthesis
+  // Only extend the synthesis TTL when this write actually carries synthesis and the caller wants
+  // the window moved. A basics-only or withheld write has nothing fresh to serve for analysis
+  // mode; granting it a full synthesis window anyway would misreport freshness on the next
+  // analysis read. Identity/signals TTLs always refresh, on every write.
+  const refreshSynthesisTtl = Boolean(cardToStore.synthesis) && options.extendSynthesisTtl !== false;
+  const insertExpiresAt = refreshSynthesisTtl ? expiresAt : { ...expiresAt, synthesisExpiresAt: now };
+  const updateExpiresAt: { identityExpiresAt: Date; signalsExpiresAt: Date; synthesisExpiresAt?: Date } = refreshSynthesisTtl
     ? expiresAt
     : { identityExpiresAt: expiresAt.identityExpiresAt, signalsExpiresAt: expiresAt.signalsExpiresAt };
 
@@ -262,8 +288,9 @@ export async function mutateCard(
   db: ColdStartDb,
   slug: string,
   mutate: (current: ColdStartCard) => ColdStartCard,
-  maxAttempts = 32
+  options: CardWriteOptions & { maxAttempts?: number | undefined } = {}
 ) {
+  const maxAttempts = options.maxAttempts ?? 32;
   const previous = cardMutationLocks.get(slug) ?? Promise.resolve();
   let releaseLock: () => void = () => undefined;
   const currentLock = new Promise<void>((resolve) => {
@@ -292,7 +319,7 @@ export async function mutateCard(
       const cardToStore = next.cacheStatus === "stale" ? { ...next, cacheStatus: "hit" as const } : next;
       const now = new Date();
       const expiresAt = cardExpiryDates(now);
-      const hasSynthesis = Boolean(cardToStore.synthesis);
+      const refreshSynthesisTtl = Boolean(cardToStore.synthesis) && options.extendSynthesisTtl !== false;
       const [row] = await db
         .update(cards)
         .set({
@@ -302,7 +329,7 @@ export async function mutateCard(
           generatedAt: new Date(cardToStore.generatedAt),
           identityExpiresAt: expiresAt.identityExpiresAt,
           signalsExpiresAt: expiresAt.signalsExpiresAt,
-          ...(hasSynthesis ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
+          ...(refreshSynthesisTtl ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
           updatedAt: now
         })
         .where(and(eq(cards.slug, slug), eq(cards.updatedAt, existing.updatedAt)))

@@ -13,11 +13,9 @@
 //   npm run repair:stuck-runs -- --apply      # write the terminal statuses
 import { and, eq, inArray, lt } from "drizzle-orm";
 
-import { createDb, generationRunStaleAfterMs, generationRuns, researchRunEvents } from "@cold-start/db";
+import { DEAD_RUN_CARD_EVENT_TYPES, createDb, generationRunStaleAfterMs, generationRuns, researchRunEvents } from "@cold-start/db";
 
 import { loadProductionEnv } from "./alpha-common";
-
-const CARD_EVENT_TYPES = ["card.saved", "card.enriched", "card.partial"];
 
 function applyMode() {
   return process.argv.includes("--apply");
@@ -50,7 +48,7 @@ async function main() {
     ? await db
         .select({ runId: researchRunEvents.runId })
         .from(researchRunEvents)
-        .where(and(inArray(researchRunEvents.runId, ids), inArray(researchRunEvents.type, CARD_EVENT_TYPES)))
+        .where(and(inArray(researchRunEvents.runId, ids), inArray(researchRunEvents.type, [...DEAD_RUN_CARD_EVENT_TYPES])))
     : [];
   const producedCard = new Set(cardEvents.map((event) => event.runId));
 

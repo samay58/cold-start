@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { isTransientLlmError } from "@cold-start/llm";
-import { inngest, type GenerationStepTools } from "./client";
+import { inngest, type GenerationStepTools, type GenerationStepWarning } from "./client";
 import { generateCardHandler } from "./functions";
 
 // In-process execution of the user-facing profile runs (basics, analysis) for /api/generate,
@@ -46,6 +46,7 @@ function isTransientEventSendError(error: unknown): boolean {
 // failures get one bounded in-process retry, standing in for the step-level retry Inngest
 // provides; everything else fails the run immediately.
 export function createInlineStepTools(): GenerationStepTools {
+  const stepWarnings: GenerationStepWarning[] = [];
   const run = (async (_id: unknown, fn: (...input: unknown[]) => unknown, ...input: unknown[]) => {
     for (let attempt = 1; ; attempt += 1) {
       try {
@@ -62,7 +63,8 @@ export function createInlineStepTools(): GenerationStepTools {
   // The enrichment dispatches keep going through Inngest even inline, so they get the same
   // bounded retry the step bodies get. A dispatch that still fails is logged and swallowed: the
   // card this run produced is already stored, and failing the run over a missed enrichment
-  // dispatch would report a completed profile to the user as a failure.
+  // dispatch would report a completed profile to the user as a failure. It is also recorded on
+  // stepWarnings so the trace stops claiming the dispatch completed.
   const sendEvent = (async (id: unknown, payload: Parameters<typeof inngest.send>[0]) => {
     for (let attempt = 1; ; attempt += 1) {
       try {
@@ -72,16 +74,23 @@ export function createInlineStepTools(): GenerationStepTools {
           await new Promise((resolve) => setTimeout(resolve, INLINE_TRANSIENT_RETRY_PAUSE_MS));
           continue;
         }
+        const stepId = typeof id === "string" ? id : "unknown-step";
         console.warn("[generation] inline event dispatch failed; continuing without it", {
           step: typeof id === "string" ? id : null,
           attempts: attempt
         }, error);
+        stepWarnings.push({
+          stepId,
+          message: `inline event dispatch failed after ${attempt} attempt${attempt === 1 ? "" : "s"}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        });
         return undefined;
       }
     }
   }) as GenerationStepTools["sendEvent"];
 
-  return { run, sendEvent };
+  return { run, sendEvent, stepWarnings };
 }
 
 export function startInlineGeneration(input: {

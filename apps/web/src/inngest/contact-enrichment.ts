@@ -1,3 +1,4 @@
+import type { GetStepTools } from "inngest";
 import {
   companySlugFromDomain,
   deriveLegacyResearchSectionsFromCard,
@@ -296,13 +297,13 @@ async function fetchContactSourcesForBasics(input: {
 
 const contactEnrichmentConcurrency = backgroundConcurrencyLimit("INNGEST_CONTACT_ENRICHMENT_CONCURRENCY");
 
-export const contactEnrichmentFunction = inngest.createFunction(
-  {
-    id: "contact-enrichment",
-    triggers: { event: CONTACT_ENRICHMENT_EVENT_NAME },
-    ...(contactEnrichmentConcurrency ? { concurrency: { limit: contactEnrichmentConcurrency } } : {})
-  },
-  async ({ event, runId, step }) => {
+type ContactEnrichmentContext = {
+  event: { id?: string; ts?: number; data: Record<string, unknown> };
+  runId: string;
+  step: Pick<GetStepTools<typeof inngest>, "run" | "sendEvent" | "sleep">;
+};
+
+export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEnrichmentContext) => {
     const runtimeEnv = webEnv();
     const { DATABASE_URL } = runtimeEnv;
     const db = createDb(DATABASE_URL);
@@ -873,5 +874,13 @@ export const contactEnrichmentFunction = inngest.createFunction(
       });
       throw error;
     }
-  }
+  };
+
+export const contactEnrichmentFunction = inngest.createFunction(
+  {
+    id: "contact-enrichment",
+    triggers: { event: CONTACT_ENRICHMENT_EVENT_NAME },
+    ...(contactEnrichmentConcurrency ? { concurrency: { limit: contactEnrichmentConcurrency } } : {})
+  },
+  contactEnrichmentHandler
 );

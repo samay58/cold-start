@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
 
+import type { GenerationStepWarning } from "../src/inngest/client";
+
 // Phase 4 Task 5.2: synthesize and verify used to run inside one atomic "generate-card" Inngest
 // step. They now run as their own steps (synthesize-card, verify-synthesis) with real progress
 // events (synthesis.started, verify.started, verify.complete) bracketing the LLM calls. These
@@ -219,7 +221,9 @@ vi.mock("../src/inngest/source-fetching", async () => {
   };
 });
 
-function stepHarness() {
+// stepWarnings is the inline executor's channel for a dispatch failure it swallowed, so the
+// handler can stamp it on the trace. Inngest's own tools never populate it.
+function stepHarness(stepWarnings: GenerationStepWarning[] = []) {
   const names: string[] = [];
   const sendEvent = vi.fn(async (name: string) => {
     names.push(name);
@@ -231,7 +235,8 @@ function stepHarness() {
         names.push(name);
         return fn();
       }),
-      sendEvent
+      sendEvent,
+      stepWarnings
     }
   };
 }
@@ -417,6 +422,34 @@ describe("generate-card analysis synthesize/verify steps", () => {
   // carrying a synthesisWithheld mark from an earlier gate-blocked run (as a re-run with improved
   // evidence would) and confirms a later successful synthesis clears it rather than storing it
   // stale alongside the synthesis it predates.
+  it("stamps a dispatch the inline executor swallowed onto the trace instead of leaving it reported as done", async () => {
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [bullCase],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    mocks.verifySynthesis.mockResolvedValue([{ ...whyItMatters, status: "supported" }]);
+
+    await runAnalysisGeneration(stepHarness([{
+      stepId: "request-contact-enrichment",
+      message: "inline event dispatch failed after 2 attempts: event key rejected"
+    }]));
+
+    // The handler had already stamped this step (skipped, because contact enrichment is off in
+    // this harness). The swallowed failure has to win, or the trace reports a dispatch that
+    // never happened.
+    const trace = persistedTrace();
+    expect(trace.steps?.["request-contact-enrichment"]).toEqual({
+      status: "failed",
+      message: "inline event dispatch failed after 2 attempts: event key rejected"
+    });
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: "complete" })
+    );
+  });
+
   it("strips a stale synthesisWithheld mark once a later run produces synthesis", async () => {
     mocks.generateCardForDomainWithTrace.mockResolvedValue({
       card: {
@@ -548,10 +581,11 @@ describe("generate-card analysis synthesize/verify steps", () => {
   });
 
   // (b) and (b2) split the all-dropped-over-a-filed-read case by whether the run found anything.
-  // Skipping the write outright used to leave the synthesis TTL frozen, so every post-TTL click
-  // re-paid synthesis and verification for a verdict that could not change and burned a Lens run
-  // each time. The write now happens when the evidence is unchanged, which refreshes the TTL and
-  // lets the next click answer from cache for free.
+  // Both write: the merged card carries the filed read forward, so the run's fresher basics facts
+  // land either way. The evidence decides the synthesis TTL only. Unchanged evidence refreshes it,
+  // so the next click answers from cache for free instead of re-paying synthesis and verification
+  // for a verdict that cannot change. Moved evidence writes without extending, so the read stays
+  // readable until its original expiry and the next click after that looks again.
   function filedReadFixture(): ColdStartCard {
     return {
       ...cardWithCitationCount(8),
@@ -585,6 +619,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
     expect(storedCard.synthesis).toEqual(existingCardWithSynthesis.synthesis);
     expect(storedCard.synthesisWithheld).toBeUndefined();
+    // No write options at all: the TTL moves on the repository's own terms.
+    expect(mocks.upsertCard.mock.calls.at(-1)).toHaveLength(2);
+    expect(mocks.mutateCard.mock.calls.at(-1)).toHaveLength(3);
     expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "complete" })
@@ -595,8 +632,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
     expect(trace.synthesis?.evidenceFingerprint).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("(b2) leaves the stored card and its TTL alone when the evidence moved under the filed read", async () => {
-    mocks.findCardBySlug.mockResolvedValue(filedReadFixture());
+  it("(b2) stores the fresher facts without extending the TTL when the evidence moved under the filed read", async () => {
+    const existingCardWithSynthesis = filedReadFixture();
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithSynthesis);
     mocks.generateCardForDomainWithTrace.mockResolvedValue({
       card: {
         ...cardWithCitationCount(9),
@@ -619,14 +657,26 @@ describe("generate-card analysis synthesize/verify steps", () => {
 
     await runAnalysisGeneration();
 
-    expect(mocks.upsertCard).not.toHaveBeenCalled();
+    // The write happens, so this run's newer signal lands, and it carries the filed read forward.
+    expect(mocks.upsertCard).toHaveBeenCalledTimes(1);
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis).toEqual(existingCardWithSynthesis.synthesis);
+    expect(storedCard.synthesisWithheld).toBeUndefined();
+    expect(storedCard.signals.map((signal) => signal.url)).toContain(
+      "https://example.com/modal-reference-customer"
+    );
+
+    // The one thing this run must not do is move the synthesis TTL forward.
+    expect(mocks.upsertCard.mock.calls.at(-1)?.[2]).toEqual({ extendSynthesisTtl: false });
+    expect(mocks.mutateCard.mock.calls.at(-1)?.[3]).toEqual({ extendSynthesisTtl: false });
+
     expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ status: "complete" })
     );
 
     const trace = persistedTrace();
-    expect(trace.milestones?.analysisReadyMs).toBeUndefined();
+    expect(trace.milestones?.analysisReadyMs).toEqual(expect.any(Number));
   });
 
   it("(c) preserves an existing filed read instead of overwriting it when the evidence gate blocks (issue #10)", async () => {

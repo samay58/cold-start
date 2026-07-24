@@ -410,9 +410,105 @@ describe("upsertCard", () => {
     expect(insertedSynthesisExpiresAt).toBeGreaterThanOrEqual(before);
     expect(insertedSynthesisExpiresAt).toBeLessThanOrEqual(after);
   });
+
+  it("gates only the synthesis TTL column when extendSynthesisTtl is false", async () => {
+    let insertValues: Record<string, unknown> | undefined;
+    let updateSet: Record<string, unknown> | undefined;
+
+    const db = {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertValues = values;
+          return {
+            onConflictDoUpdate: (config: { set: Record<string, unknown> }) => {
+              updateSet = config.set;
+              return {
+                returning: async () => [{ id: "card-id" }]
+              };
+            }
+          };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    const before = Date.now();
+    await upsertCard(db, card, { extendSynthesisTtl: false });
+
+    // Everything a normal synthesis-bearing write does still happens.
+    expect(insertValues?.cardJson).toMatchObject({ slug: card.slug, synthesis: card.synthesis });
+    expect(updateSet?.cardJson).toMatchObject({ slug: card.slug, synthesis: card.synthesis });
+    expect(updateSet?.identityExpiresAt).toBeInstanceOf(Date);
+    expect(updateSet?.signalsExpiresAt).toBeInstanceOf(Date);
+    expect((updateSet?.identityExpiresAt as Date).getTime()).toBeGreaterThan(before);
+    expect((updateSet?.signalsExpiresAt as Date).getTime()).toBeGreaterThan(before);
+
+    // The one column the option gates: a conflict update never writes it, and the insert value
+    // grants no window rather than a fresh 24h one.
+    expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(false);
+    expect((insertValues?.synthesisExpiresAt as Date).getTime()).toBeLessThan(before + 60_000);
+  });
 });
 
 describe("mutateCard", () => {
+  it("gates only the synthesis TTL column when extendSynthesisTtl is false", async () => {
+    let updateSet: Record<string, unknown> | undefined;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ cardJson: card, updatedAt: new Date("2026-05-06T12:00:00.000Z") }]
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: Record<string, unknown>) => {
+          updateSet = values;
+          return {
+            where: () => ({
+              returning: async () => [{ id: "card-id" }]
+            })
+          };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    const before = Date.now();
+    await mutateCard(db, card.slug, (value) => value, { extendSynthesisTtl: false });
+
+    expect(updateSet?.cardJson).toMatchObject({ slug: card.slug, synthesis: card.synthesis });
+    expect((updateSet?.identityExpiresAt as Date).getTime()).toBeGreaterThan(before);
+    expect((updateSet?.signalsExpiresAt as Date).getTime()).toBeGreaterThan(before);
+    expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(false);
+  });
+
+  it("still extends the synthesis TTL by default", async () => {
+    let updateSet: Record<string, unknown> | undefined;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ cardJson: card, updatedAt: new Date("2026-05-06T12:00:00.000Z") }]
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: Record<string, unknown>) => {
+          updateSet = values;
+          return {
+            where: () => ({
+              returning: async () => [{ id: "card-id" }]
+            })
+          };
+        }
+      })
+    } as unknown as ColdStartDb;
+
+    const before = Date.now();
+    await mutateCard(db, card.slug, (value) => value);
+
+    expect((updateSet?.synthesisExpiresAt as Date).getTime()).toBeGreaterThan(before + 23 * 60 * 60 * 1000);
+  });
+
   it("recomputes from the concurrent winner after an optimistic conflict", async () => {
     let current = structuredClone(card);
     let updatedAt = new Date("2026-05-06T12:00:00.000Z");
@@ -497,6 +593,81 @@ describe("mutateCard", () => {
 
     expect(current.generationCostUsd).toBeCloseTo(card.generationCostUsd + 50, 8);
   }, 15_000);
+
+  it("preserves overlapping analysis, block enrichment, and contact enrichment writes", async () => {
+    let current = structuredClone(card);
+    let revision = 0;
+    const db = {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [{ cardJson: structuredClone(current), updatedAt: new Date(revision) }]
+          })
+        })
+      }),
+      update: () => ({
+        set: (values: { cardJson: ColdStartCard }) => ({
+          where: () => ({
+            returning: async () => {
+              current = structuredClone(values.cardJson);
+              revision += 1;
+              return [{ id: "card-id", cardJson: current }];
+            }
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    await Promise.all([
+      mutateCard(db, card.slug, (value) => {
+        if (!value.synthesis) {
+          return value;
+        }
+        return {
+          ...value,
+          synthesis: {
+            ...value.synthesis,
+            whyItMatters: {
+              text: "Analysis preserved its filed thesis [c1].",
+              citationIds: ["c1"]
+            }
+          }
+        };
+      }),
+      mutateCard(db, card.slug, (value) => ({
+        ...value,
+        comparables: [
+          ...value.comparables,
+          {
+            name: "Overlap Systems",
+            domain: "overlap.example",
+            oneLiner: "Block enrichment preserved its comparable."
+          }
+        ]
+      })),
+      mutateCard(db, card.slug, (value) => ({
+        ...value,
+        team: {
+          ...value.team,
+          founders: {
+            ...value.team.founders,
+            value: (value.team.founders.value ?? []).map((founder) => ({
+              ...founder,
+              email: "karan@cartesia.ai",
+              emailStatus: "observed" as const
+            }))
+          }
+        }
+      }))
+    ]);
+
+    expect(current.synthesis?.whyItMatters.text).toBe("Analysis preserved its filed thesis [c1].");
+    expect(current.comparables).toContainEqual(expect.objectContaining({ domain: "overlap.example" }));
+    expect(current.team.founders.value?.[0]).toMatchObject({
+      email: "karan@cartesia.ai",
+      emailStatus: "observed"
+    });
+  });
 
   it("refuses a mutation that changes the canonical domain", async () => {
     const db = {
@@ -597,6 +768,62 @@ describe("findPublicCardBySlug", () => {
     } as unknown as ColdStartDb;
 
     await expect(findPublicCardBySlug(db, "missing")).resolves.toBeNull();
+  });
+});
+
+describe("stored cards that no longer parse", () => {
+  // A card written before a schema change keeps its old shape in card_json forever. Throwing on
+  // it turned every read of that slug into a 500 that no amount of retrying could clear (the
+  // `graphite` row, written 2026-05-19, did exactly this in production). Reading it as a cache
+  // miss lets the next visit regenerate the card.
+  function driftedCardRow() {
+    const { identity: _identity, ...cardMissingIdentity } = structuredClone(card) as Record<string, unknown>;
+    return {
+      cardJson: cardMissingIdentity,
+      domain: "cartesia.ai",
+      identityExpiresAt: new Date("2026-05-13T12:00:00.000Z"),
+      signalsExpiresAt: new Date("2026-05-06T18:00:00.000Z"),
+      synthesisExpiresAt: new Date("2026-05-07T12:00:00.000Z")
+    };
+  }
+
+  function dbReturning(row: Record<string, unknown>) {
+    return {
+      select: () => ({
+        from: () => ({
+          where: () => ({
+            limit: async () => [row]
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+  }
+
+  it("reads an unparsable stored card as a cache miss instead of throwing", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await expect(
+      findCardBySlug(dbReturning(driftedCardRow()), "cartesia", { now: new Date("2026-05-06T12:00:00.000Z") })
+    ).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      "[repository] dropping unparsable stored card",
+      expect.objectContaining({ slug: "cartesia" })
+    );
+
+    warn.mockRestore();
+  });
+
+  it("reads an unparsable stored card as a public cache miss too, even with stale reads allowed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await expect(
+      findPublicCardBySlug(dbReturning(driftedCardRow()), "cartesia", {
+        allowStale: true,
+        now: new Date("2026-05-06T12:00:00.000Z")
+      })
+    ).resolves.toBeNull();
+
+    warn.mockRestore();
   });
 });
 

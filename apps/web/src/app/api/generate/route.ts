@@ -45,8 +45,8 @@ import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-res
 import {
   assertExtensionRequest,
   authenticateExtensionRequest,
-  principalHasScope,
-  type AlphaPrincipal
+  operatorPrincipal as buildOperatorPrincipal,
+  principalHasScope
 } from "../../../lib/extension-auth";
 
 // Inline-dispatched profile runs execute inside this invocation past the 202 (via `after` in
@@ -104,12 +104,7 @@ function hasBearerCredential(headers: Headers) {
 function operatorPrincipal() {
   return {
     ok: true as const,
-    principal: {
-      kind: "operator",
-      inviteId: null,
-      installationId: null,
-      scopes: ["operator"]
-    } satisfies AlphaPrincipal
+    principal: buildOperatorPrincipal()
   };
 }
 
