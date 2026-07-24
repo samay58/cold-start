@@ -171,15 +171,17 @@ for (const reducedMotion of [false, true]) {
 }
 
 for (const reducedMotion of [false, true]) {
-  test(`source-less layer and empty memo stay compact (${reducedMotion ? "reduced" : "full"} motion)`, async ({ page }) => {
+  test(`source-less layer and empty Lens categories stay compact (${reducedMotion ? "reduced" : "full"} motion)`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: reducedMotion ? "reduce" : "no-preference" });
     await installChromeShim(page);
     await mockExtensionApi(page, researchPanelPolishCard());
     await openSidePanel(page);
 
-    const memo = page.getByRole("article", { name: "Investor read" });
-    await expect(memo.locator(".cs-lens-tension-side")).toHaveCount(0);
-    await expect(memo.locator(".cs-lens-case-empty")).toContainText(LENS_TENSION_EMPTY_COPY.both);
+    const packet = page.getByRole("article", { name: "Investor read" });
+    await expect(packet.locator(".cs-investor-read-category")).toHaveCount(5);
+    await expect(packet.locator('[data-category="must-be-true"]')).toContainText(LENS_TENSION_EMPTY_COPY.holds);
+    await expect(packet.locator('[data-category="could-break"]')).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
+    await expect(packet.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(1);
 
     const comps = page.locator(".cs-dormant-card", { hasText: "Comps" });
     await comps.click();
@@ -1182,7 +1184,7 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
     },
     {
       deltas: [
-        { label: "initial", y: -12 },
+        { label: "initial", y: -18 },
         { label: "mid", y: -42 },
         { label: "ready", y: -116 }
       ],
@@ -1209,10 +1211,12 @@ test("dormant card drag stays attached across pile depth", async ({ page }) => {
       page,
       screenshotPrefix: `cold-start-drag-${scenario.slug}`
     });
-    // Pickup intentionally straightens the card to a neutral position, absorbing its resting
-    // pile-depth offset (up to ~5px for deep cards) on top of the drag activation distance.
-    // The budget allows that designed lift while still failing on real pointer detachment.
-    expectPointerAttached(samples, 9);
+    // Pickup straightens the filed card and absorbs its resting pile transform. At the compact
+    // packet's higher page position that projection can shift the visual center by about 14px.
+    // A constant pickup offset is fine; changing offset across the drag is actual detachment.
+    expectPointerAttached(samples, 15);
+    const pointerOffsets = samples.map((sample) => sample.deltaFromPointer);
+    expect(Math.max(...pointerOffsets) - Math.min(...pointerOffsets)).toBeLessThanOrEqual(4.5);
     await page.mouse.up();
     await expect(page.locator(".cs-active-enrichment", { hasText: scenario.label })).toBeVisible();
     await expect(page.locator(".cs-dormant-card", { hasText: scenario.label })).toHaveCount(0);
@@ -1582,14 +1586,6 @@ test("the docked person dossier never overlaps any person row's own bounding box
 
   const rows = page.locator(".cs-people-person");
   await expect(rows).toHaveCount(4);
-  const rowBoxes = [];
-  for (let index = 0; index < 4; index += 1) {
-    const box = await rows.nth(index).boundingBox();
-    if (!box) {
-      throw new Error(`Expected a bounding box for person row ${index}`);
-    }
-    rowBoxes.push(box);
-  }
 
   // Every trigger, not just a lucky one: the dock never moves, but this proves the contract
   // holds for the row nearest the dock (row 4) and every row further from it (rows 1-3),
@@ -1601,6 +1597,14 @@ test("the docked person dossier never overlaps any person row's own bounding box
     const tooltipBox = await tooltip.boundingBox();
     if (!tooltipBox) {
       throw new Error(`Expected a bounding box for the dossier opened from row ${index}`);
+    }
+    const rowBoxes = [];
+    for (let rowIndex = 0; rowIndex < 4; rowIndex += 1) {
+      const box = await rows.nth(rowIndex).boundingBox();
+      if (!box) {
+        throw new Error(`Expected a live bounding box for person row ${rowIndex}`);
+      }
+      rowBoxes.push(box);
     }
     for (const [rowIndex, rowBox] of rowBoxes.entries()) {
       const intersects =
@@ -1644,14 +1648,6 @@ test("the pinned, expanded person dossier still never overlaps any row and stays
 
   const rows = page.locator(".cs-people-person");
   await expect(rows).toHaveCount(4);
-  const rowBoxes = [];
-  for (let index = 0; index < 4; index += 1) {
-    const box = await rows.nth(index).boundingBox();
-    if (!box) {
-      throw new Error(`Expected a bounding box for person row ${index}`);
-    }
-    rowBoxes.push(box);
-  }
 
   await rows.first().click();
   const tooltip = page.locator(".cs-shared-tooltip");
@@ -1666,6 +1662,14 @@ test("the pinned, expanded person dossier still never overlaps any row and stays
   const tooltipBox = await tooltip.boundingBox();
   if (!tooltipBox) {
     throw new Error("Expected a bounding box for the pinned dossier");
+  }
+  const rowBoxes = [];
+  for (let rowIndex = 0; rowIndex < 4; rowIndex += 1) {
+    const box = await rows.nth(rowIndex).boundingBox();
+    if (!box) {
+      throw new Error(`Expected a live bounding box for person row ${rowIndex}`);
+    }
+    rowBoxes.push(box);
   }
   for (const [rowIndex, rowBox] of rowBoxes.entries()) {
     const intersects =
@@ -2078,7 +2082,10 @@ test("timing files the remaining supported fields behind an inline disclosure", 
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const timing = page.getByRole("article", { name: "Investor read" }).locator(".cs-lens-timing");
+  const read = page.getByRole("article", { name: "Investor read" });
+  const timingCategory = read.locator('[data-category="why-now"]');
+  await timingCategory.getByRole("button").click();
+  const timing = timingCategory.locator(".cs-lens-timing");
   await expect(timing).toContainText("Adoption trigger");
   await expect(timing).toContainText("Agent rollouts are forcing teams to standardize browser infrastructure.");
 
@@ -2128,11 +2135,23 @@ test("the case files extra holds and breaks claims behind inline disclosure, not
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const theCase = page.getByRole("article", { name: "Investor read" }).getByLabel("The case");
-  const holds = theCase.locator('.cs-lens-tension-side[data-side="holds"]');
-  const breaks = theCase.locator('.cs-lens-tension-side[data-side="breaks"]');
+  const investorRead = page.getByRole("article", { name: "Investor read" });
+  const categorySides = [
+    {
+      category: investorRead.locator('[data-category="must-be-true"]'),
+      sideSelector: '.cs-lens-tension-side[data-side="holds"]',
+      overflowClaim: "Enterprise pilots have converted to paid multi-team contracts."
+    },
+    {
+      category: investorRead.locator('[data-category="could-break"]'),
+      sideSelector: '.cs-lens-tension-side[data-side="breaks"]',
+      overflowClaim: "Open-source automation frameworks lower the switching cost to self-host."
+    }
+  ];
 
-  for (const side of [holds, breaks]) {
+  for (const { category, sideSelector, overflowClaim } of categorySides) {
+    await category.getByRole("button").click();
+    const side = category.locator(sideSelector);
     const more = side.locator(".cs-investor-read-more");
     const frame = side.locator(".cs-investor-read-disclosure-frame");
     await expect(more).toHaveText("+1 more");
@@ -2145,10 +2164,8 @@ test("the case files extra holds and breaks claims behind inline disclosure, not
     await expect(frame).toHaveAttribute("data-expanded", "true");
     // The retired tooltip never mounts: expanding is purely inline, same document flow.
     await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
+    await expect(side).toContainText(overflowClaim);
   }
-
-  await expect(holds).toContainText("Enterprise pilots have converted to paid multi-team contracts.");
-  await expect(breaks).toContainText("Open-source automation frameworks lower the switching cost to self-host.");
 });
 
 // Task 4.3 call-site sweep, retired site 2 of 3: next question's ranked list used to carry
@@ -2180,7 +2197,9 @@ test("next question files extra ranked questions behind inline disclosure, not a
   await mockExtensionApi(page, card);
   await openSidePanel(page);
 
-  const question = page.getByRole("article", { name: "Investor read" }).getByLabel("Next question");
+  const questionCategory = page.getByRole("article", { name: "Investor read" }).locator('[data-category="learn-next"]');
+  await questionCategory.getByRole("button").click();
+  const question = questionCategory.getByLabel("What to learn next");
   await expect(question).toContainText("What share of managed sessions convert from a free trial");
 
   const more = question.locator(".cs-investor-read-more");
@@ -2195,6 +2214,66 @@ test("next question files extra ranked questions behind inline disclosure, not a
   await expect(question).toContainText("What is the gross margin on a managed browser session once proxy and compute costs are included?");
   // The retired tooltip never mounts: expanding is purely inline, same document flow.
   await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
+});
+
+test("the filed Lens packet supports keyboard travel through categories and nested disclosures", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  card.synthesis = {
+    whyItMatters: {
+      text: "Browserbase matters because managed browser sessions can become the execution layer for AI agents, joining reliable runtime infrastructure, observability, and policy controls in one daily platform. If that behavior compounds across teams, the product can own both developer usage and a durable platform budget [c1].",
+      citationIds: ["c1"]
+    },
+    bullCase: [
+      { text: "Developers need reliable browser sessions for AI workflows [c2].", citationIds: ["c2"] },
+      { text: "Enterprise pilots have converted to paid multi-team contracts [c3].", citationIds: ["c3"] }
+    ],
+    bearCase: [
+      { text: "Cloud providers could bundle a comparable managed browser runtime [c1].", citationIds: ["c1"] }
+    ],
+    openQuestions: [
+      {
+        question: "What share of managed sessions converts from trial to a paid team deployment?",
+        category: "buyer_budget"
+      }
+    ]
+  };
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const read = page.getByRole("article", { name: "Investor read" });
+  const whyCare = read.locator('[data-category="why-care"]');
+  const mustBeTrue = read.locator('[data-category="must-be-true"]');
+  const couldBreak = read.locator('[data-category="could-break"]');
+  const whyCareButton = whyCare.locator(".cs-investor-read-category-trigger");
+  const mustBeTrueButton = mustBeTrue.locator(".cs-investor-read-category-trigger");
+  const couldBreakButton = couldBreak.locator(".cs-investor-read-category-trigger");
+
+  await whyCareButton.focus();
+  await expect(whyCareButton).toBeFocused();
+  await page.keyboard.press("Tab");
+  const readFull = whyCare.locator(".cs-investor-read-lede-more");
+  await expect(readFull).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(readFull).toHaveAttribute("aria-expanded", "true");
+
+  await page.keyboard.press("Tab");
+  await expect(mustBeTrueButton).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(mustBeTrueButton).toHaveAttribute("aria-expanded", "true");
+  await expect(whyCareButton).toHaveAttribute("aria-expanded", "false");
+
+  await page.keyboard.press("Tab");
+  const moreClaims = mustBeTrue.locator(".cs-investor-read-more");
+  await expect(moreClaims).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(moreClaims).toHaveAttribute("aria-expanded", "true");
+
+  await page.keyboard.press("Tab");
+  await expect(couldBreakButton).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(couldBreakButton).toHaveAttribute("aria-expanded", "true");
+  await expect(mustBeTrueButton).toHaveAttribute("aria-expanded", "false");
 });
 
 // Task 4.3 call-site sweep, site 5 of 5 (SharedTooltip's own consumer, not a retired site):

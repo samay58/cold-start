@@ -66,14 +66,14 @@ async function installEntranceSampler(page: Page) {
     Object.assign(window, { __coldStartLensEntranceSamples: samples });
     let sampling = false;
     const observer = new MutationObserver(() => {
-      const lede = document.querySelector<HTMLElement>(".cs-investor-read-lede");
-      if (!lede || sampling) {
+      const category = document.querySelector<HTMLElement>('.cs-investor-read-category[data-category="why-care"]');
+      if (!category || sampling) {
         return;
       }
       sampling = true;
       let frames = 0;
       const sample = () => {
-        const style = getComputedStyle(lede);
+        const style = getComputedStyle(category);
         samples.push({ opacity: Number(style.opacity), transform: style.transform });
         frames += 1;
         if (frames < 48) {
@@ -193,9 +193,9 @@ test("a cached card renders at rest without replaying the memo entrance", async 
   });
   await openSidePanel(page);
 
-  const lede = page.locator(".cs-investor-read-lede");
-  await expect(lede).toBeVisible();
-  const resting = await lede.evaluate((node) => {
+  const firstCategory = page.locator('.cs-investor-read-category[data-category="why-care"]');
+  await expect(firstCategory).toBeVisible();
+  const resting = await firstCategory.evaluate((node) => {
     const style = getComputedStyle(node);
     return { animations: node.getAnimations().length, opacity: style.opacity, transform: style.transform };
   });

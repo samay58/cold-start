@@ -55,10 +55,7 @@ test("built MV3 extension boots and renders a cached card", async () => {
 
     const serviceWorker = context.serviceWorkers()[0] ?? await context.waitForEvent("serviceworker");
     const extensionId = new URL(serviceWorker.url()).hostname;
-    const page = await context.newPage();
-
-    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
-    await page.evaluate(
+    await serviceWorker.evaluate(
       ({ apiOrigin, apiToken }) => new Promise<void>((resolve) => {
         chrome.storage.local.set({ coldStartApiOrigin: apiOrigin, coldStartApiToken: apiToken }, () => {
           chrome.storage.session.set({ activeDomain: "browserbase.com" }, () => resolve());
@@ -67,7 +64,8 @@ test("built MV3 extension boots and renders a cached card", async () => {
       { apiOrigin: QA_API_ORIGIN, apiToken: QA_TOKEN }
     );
 
-    await page.reload();
+    const page = await context.newPage();
+    await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
     await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
     await expect(page.getByLabel("Research layer")).toBeVisible();
     await expect(page.getByLabel("Research card stack")).toBeVisible();

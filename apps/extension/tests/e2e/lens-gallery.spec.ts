@@ -57,15 +57,39 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   },
   "read-full": {
     heading: "Baseten",
-    verify: async (page) => {
+    verify: async (page, screenshotDir) => {
       const read = await investorRead(page);
-      await expect(read).toContainText("inference layer");
+      const categories = read.locator(".cs-investor-read-category");
+      await expect(categories).toHaveCount(5);
+      await expect(categories.nth(0)).toHaveAttribute("data-category", "why-care");
+      await expect(categories.nth(0).locator(".cs-investor-read-category-trigger")).toHaveAttribute("aria-expanded", "true");
+      await expect(read.locator(".cs-investor-read-lede")).toContainText("inference layer");
+
+      for (const categoryId of ["must-be-true", "could-break", "why-now", "learn-next"] as const) {
+        const category = read.locator(`[data-category="${categoryId}"]`);
+        const trigger = category.locator(".cs-investor-read-category-trigger");
+        await trigger.click();
+        await expect(trigger).toHaveAttribute("aria-expanded", "true");
+        await expect(read.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(1);
+        await page.waitForTimeout(220);
+        await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `read-full-${categoryId}.png`) });
+      }
+
+      const learnNext = read.locator('[data-category="learn-next"]');
+      await learnNext.locator(".cs-investor-read-category-trigger").click();
+      await expect(read.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(0);
+      await page.waitForTimeout(350);
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "read-full-collapsed.png") });
+
+      await read.locator('[data-category="why-care"] .cs-investor-read-category-trigger').click();
+      await expect(read.locator('[data-category="why-care"]')).toHaveAttribute("data-open", "true");
     }
   },
   "read-sparse": {
     heading: "Harbor Compute",
     verify: async (page) => {
       const read = await investorRead(page);
+      await expect(read.locator(".cs-investor-read-category")).toHaveCount(5);
       await expect(read).toContainText(LENS_TENSION_LABEL.holds);
       // The 0-bear side gets its own honest, specific empty state, not the generic
       // "None survived verification." every empty row used to share.
