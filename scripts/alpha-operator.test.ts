@@ -81,6 +81,7 @@ describe("alpha status report", () => {
   it("passes when wallet, reliability, and compatibility evidence are clean", () => {
     const fixture = failingFixture();
     fixture.runRows = fixture.runRows.filter((run) => run.generation_run_id === "run-complete");
+    fixture.allTrafficRunRows = fixture.allTrafficRunRows.filter((run) => run.id === "run-complete");
     fixture.inviteRows[0].extension_version = "0.1.0";
     fixture.providerFailureRows = [];
     fixture.walletBalanceUsd = 35;
@@ -92,6 +93,94 @@ describe("alpha status report", () => {
     assert.equal(report.totals.staleOrSilentRuns.length, 0);
     assert.deepEqual(report.totals.failureCodes, {});
     assert.equal(report.wallet.requiredFloorUsd, 35);
+  });
+
+  // The 2026-07-24 through 2026-07-27 outage: seventeen software failures across three days of
+  // operator-token traffic, and the gate reported "Failure codes: none" because its reliability
+  // evidence only covered alpha-linked runs. The gate must see every generation run.
+  it("fails the gate on software failures from operator-token runs with no alpha traffic", () => {
+    const fixture = failingFixture();
+    fixture.inviteRows = [];
+    fixture.runRows = [];
+    fixture.ledgerRows = [];
+    fixture.eventSummaryRows = [];
+    fixture.clientErrorRows = [];
+    fixture.providerFailureRows = [];
+    fixture.walletBalanceUsd = 40;
+    fixture.allTrafficRunRows = [
+      {
+        id: "operator-run-1",
+        slug: "economist",
+        mode: "analysis",
+        job_kind: "analysis",
+        status: "failed",
+        failure_code: "concurrent_write",
+        started_at: new Date("2026-07-24T12:00:00.000Z"),
+        completed_at: new Date("2026-07-24T12:01:00.000Z"),
+        last_event_at: new Date("2026-07-24T12:01:00.000Z")
+      },
+      {
+        id: "operator-run-2",
+        slug: "varda",
+        mode: "analysis",
+        job_kind: "analysis",
+        status: "failed",
+        failure_code: "model_contract",
+        started_at: new Date("2026-07-24T13:00:00.000Z"),
+        completed_at: new Date("2026-07-24T13:01:00.000Z"),
+        last_event_at: new Date("2026-07-24T13:01:00.000Z")
+      },
+      {
+        id: "operator-run-3",
+        slug: "usb",
+        mode: "basics",
+        job_kind: "basics",
+        status: "complete",
+        failure_code: null,
+        started_at: new Date("2026-07-24T14:00:00.000Z"),
+        completed_at: new Date("2026-07-24T14:01:00.000Z"),
+        last_event_at: new Date("2026-07-24T14:01:00.000Z")
+      }
+    ];
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(report.gate.passed, false);
+    assert.ok(report.gate.failures.some((failure) => failure.code === "software_failures"));
+    assert.equal(report.totals.allTraffic.runs, 3);
+    assert.equal(report.totals.allTraffic.failed, 2);
+    assert.equal(report.totals.allTraffic.softwareFailureCount, 2);
+    assert.deepEqual(report.totals.allTraffic.failureCodes, { concurrent_write: 1, model_contract: 1 });
+  });
+
+  it("fails the gate on a silent operator-token run stuck past the dead threshold", () => {
+    const fixture = failingFixture();
+    fixture.inviteRows = [];
+    fixture.runRows = [];
+    fixture.ledgerRows = [];
+    fixture.eventSummaryRows = [];
+    fixture.clientErrorRows = [];
+    fixture.providerFailureRows = [];
+    fixture.walletBalanceUsd = 40;
+    fixture.allTrafficRunRows = [
+      {
+        id: "operator-run-stuck",
+        slug: "gamma",
+        mode: "analysis",
+        job_kind: "analysis",
+        status: "running",
+        failure_code: null,
+        started_at: new Date("2026-07-24T16:10:00.000Z"),
+        completed_at: null,
+        last_event_at: new Date("2026-07-24T16:12:00.000Z")
+      }
+    ];
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(report.gate.passed, false);
+    assert.ok(report.gate.failures.some((failure) => failure.code === "stale_runs"));
+    assert.equal(report.totals.allTraffic.staleOrSilentRunCount, 1);
   });
 });
 
@@ -197,6 +286,42 @@ function failingFixture(): AlphaStatusReportInputs {
       }
     ],
     runRowsTruncated: false,
+    allTrafficRunRows: [
+      {
+        id: "run-complete",
+        slug: "acme",
+        mode: "basics",
+        job_kind: "basics",
+        status: "complete",
+        failure_code: null,
+        started_at: new Date("2026-07-24T14:00:00.000Z"),
+        completed_at: new Date("2026-07-24T14:01:00.000Z"),
+        last_event_at: new Date("2026-07-24T14:01:00.000Z")
+      },
+      {
+        id: "run-failed",
+        slug: "beta",
+        mode: "analysis",
+        job_kind: "analysis",
+        status: "failed",
+        failure_code: "model_contract",
+        started_at: new Date("2026-07-24T15:00:00.000Z"),
+        completed_at: new Date("2026-07-24T15:01:00.000Z"),
+        last_event_at: new Date("2026-07-24T15:01:00.000Z")
+      },
+      {
+        id: "run-stale",
+        slug: "gamma",
+        mode: "basics",
+        job_kind: "basics",
+        status: "running",
+        failure_code: null,
+        started_at: new Date("2026-07-24T16:18:00.000Z"),
+        completed_at: null,
+        last_event_at: new Date("2026-07-24T16:20:00.000Z")
+      }
+    ],
+    allTrafficRunRowsTruncated: false,
     ledgerRows: [
       {
         invite_id: inviteId,

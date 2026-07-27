@@ -102,6 +102,21 @@ type ProviderFailureRow = {
   failures: string;
 };
 
+// Every generation run in the window, whatever principal started it. The alpha-scoped RunRow
+// evidence above only covers runs that opened an alpha_run_requests row, which left three days
+// of operator-token software failures invisible to the gate (2026-07-24 through 2026-07-27).
+type AllTrafficRunRow = {
+  id: string;
+  slug: string;
+  mode: string;
+  job_kind: string;
+  status: string;
+  failure_code: string | null;
+  started_at: Date;
+  completed_at: Date | null;
+  last_event_at: Date | null;
+};
+
 type TesterReport = {
   inviteId: string;
   label: string;
@@ -203,6 +218,13 @@ export type AlphaStatusReport = {
       ageMs: number;
       silentMs: number;
     }>;
+    allTraffic: {
+      runs: number;
+      failed: number;
+      failureCodes: Record<string, number>;
+      softwareFailureCount: number;
+      staleOrSilentRunCount: number;
+    };
     clientErrors: Record<string, number>;
     queueDrops: number;
   };
@@ -240,6 +262,8 @@ export type AlphaStatusReportInputs = {
   inviteRows: InviteInstallationRow[];
   runRows: RunRow[];
   runRowsTruncated: boolean;
+  allTrafficRunRows: AllTrafficRunRow[];
+  allTrafficRunRowsTruncated: boolean;
   ledgerRows: LedgerRow[];
   eventSummaryRows: EventSummaryRow[];
   clientErrorRows: ClientErrorRow[];
@@ -392,6 +416,29 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
     [sinceAt, MAX_RUN_ROWS + 1]
   );
 
+  const allTrafficRuns = await client.query<AllTrafficRunRow>(
+    `select
+       run.id,
+       run.slug,
+       run.mode,
+       run.job_kind,
+       run.status,
+       run.trace_json #>> '{failure,code}' as failure_code,
+       run.started_at,
+       run.completed_at,
+       event_bounds.last_event_at
+     from generation_runs run
+     left join lateral (
+       select max(event.created_at) as last_event_at
+       from research_run_events event
+       where event.run_id = run.id::text
+     ) event_bounds on true
+     where run.started_at >= $1
+     order by run.started_at desc
+     limit $2`,
+    [sinceAt, MAX_RUN_ROWS + 1]
+  );
+
   const ledgerRows = await client.query<LedgerRow>(
     `select invite_id, allowance_kind, entry_kind, count(*)::text as entries, sum(amount)::text as amount
      from alpha_allowance_ledger
@@ -448,10 +495,13 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
   );
 
   const runRowsTruncated = rawRuns.rows.length > MAX_RUN_ROWS;
+  const allTrafficRunRowsTruncated = allTrafficRuns.rows.length > MAX_RUN_ROWS;
   return {
     inviteRows: inviteRows.rows,
     runRows: rawRuns.rows.slice(0, MAX_RUN_ROWS),
     runRowsTruncated,
+    allTrafficRunRows: allTrafficRuns.rows.slice(0, MAX_RUN_ROWS),
+    allTrafficRunRowsTruncated,
     ledgerRows: ledgerRows.rows,
     eventSummaryRows: eventSummaryRows.rows,
     clientErrorRows: clientErrorRows.rows,
@@ -596,21 +646,38 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   );
   const remainingAllowanceExposureUsd =
     profileRemaining * input.profileCostAnchorUsd + lensRemaining * input.lensCostAnchorUsd;
-  const softwareFailureCount = Object.entries(failureCodes)
-    .filter(([code]) => SOFTWARE_FAILURE_CODES.has(code as GenerationFailureCode))
-    .reduce((sum, [, count]) => sum + count, 0);
+  // Reliability evidence over every generation run in the window, whatever principal started
+  // it. Alpha-linked runs are a subset; alpha request rows that never opened a generation run
+  // are counted separately below so nothing is double-counted or missed.
+  const allTrafficFailed = input.allTrafficRunRows.filter((run) => run.status === "failed");
+  const allTrafficFailureCodes = countBy(allTrafficFailed, (run) => run.failure_code ?? "unknown");
+  const allTrafficSoftwareFailureCount = allTrafficFailed.filter((run) =>
+    SOFTWARE_FAILURE_CODES.has((run.failure_code ?? "unknown") as GenerationFailureCode)
+  ).length;
+  const allTrafficStaleOrSilentRunCount = input.allTrafficRunRows.filter((run) => {
+    if (!["queued", "running"].includes(run.status)) return false;
+    const ageMs = input.now.getTime() - run.started_at.getTime();
+    const silentMs = input.now.getTime() - (run.last_event_at ?? run.started_at).getTime();
+    return ageMs > generationRunDeadAfterMs && silentMs > generationRunDeadAfterMs;
+  }).length;
+  const requestOnlySoftwareFailureCount = input.runRows
+    .filter((run) => run.generation_run_id === null)
+    .map((run) => failureCode(run))
+    .filter((code): code is GenerationFailureCode => code !== null && SOFTWARE_FAILURE_CODES.has(code))
+    .length;
+  const softwareFailureCount = allTrafficSoftwareFailureCount + requestOnlySoftwareFailureCount;
 
   const gateFailures: Array<{ code: string; message: string }> = [];
   if (softwareFailureCount > 0) {
     gateFailures.push({
       code: "software_failures",
-      message: `${softwareFailureCount} software failure(s) appeared in the reporting window.`
+      message: `${softwareFailureCount} software failure(s) appeared in the reporting window across all traffic.`
     });
   }
-  if (staleOrSilentRuns.length > 0) {
+  if (allTrafficStaleOrSilentRunCount > 0) {
     gateFailures.push({
       code: "stale_runs",
-      message: `${staleOrSilentRuns.length} alpha run(s) exceeded the five-minute silence policy.`
+      message: `${allTrafficStaleOrSilentRunCount} run(s) exceeded the five-minute silence policy.`
     });
   }
   if (input.walletBalanceUsd === null) {
@@ -630,7 +697,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
       message: `${unsupportedActiveInstallations.length} recently active installation(s) use an unsupported version.`
     });
   }
-  if (input.runRowsTruncated) {
+  if (input.runRowsTruncated || input.allTrafficRunRowsTruncated) {
     gateFailures.push({
       code: "report_truncated",
       message: `Run evidence exceeded the ${MAX_RUN_ROWS} row reporting bound.`
@@ -679,6 +746,13 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
         input.providerFailureRows.map((row) => [row.endpoint || "unknown", integer(row.failures)])
       ),
       staleOrSilentRuns,
+      allTraffic: {
+        runs: input.allTrafficRunRows.length,
+        failed: allTrafficFailed.length,
+        failureCodes: allTrafficFailureCodes,
+        softwareFailureCount: allTrafficSoftwareFailureCount,
+        staleOrSilentRunCount: allTrafficStaleOrSilentRunCount
+      },
       clientErrors: totalsClientErrors,
       queueDrops: totalsClientErrors.analytics_queue_dropped ?? 0
     },
@@ -748,6 +822,12 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
     `Stale or silent runs: ${report.totals.staleOrSilentRuns.length}`,
     `Client errors: ${formatCounts(report.totals.clientErrors)}`,
     `Offline queue drops: ${report.totals.queueDrops}`,
+    "",
+    "Reliability, all traffic (any principal)",
+    `Runs: ${report.totals.allTraffic.runs}; failed: ${report.totals.allTraffic.failed}`,
+    `Failure codes: ${formatCounts(report.totals.allTraffic.failureCodes)}`,
+    `Software failures: ${report.totals.allTraffic.softwareFailureCount}`,
+    `Stale or silent runs: ${report.totals.allTraffic.staleOrSilentRunCount}`,
     "",
     "Spend and exposure",
     `Successful spend: ${money(report.spend.successfulUsd)} across ${report.spend.successfulRunsWithCost} costed runs; ${report.spend.successfulRunsMissingCost} missing cost`,
