@@ -1,0 +1,1 @@
+ALTER TABLE "cards" ADD COLUMN "version" bigint DEFAULT 0 NOT NULL;

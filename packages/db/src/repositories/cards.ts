@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import {
   coldStartCardObjectSchema,
@@ -261,7 +261,8 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard, options: 
       cacheStatus: persistedCacheStatus,
       generationCostUsd: String(cardToStore.generationCostUsd),
       generatedAt,
-      ...insertExpiresAt
+      ...insertExpiresAt,
+      updatedAt: now
     })
     .onConflictDoUpdate({
       target: cards.slug,
@@ -272,6 +273,7 @@ export async function upsertCard(db: ColdStartDb, card: ColdStartCard, options: 
         generationCostUsd: String(cardToStore.generationCostUsd),
         generatedAt,
         ...updateExpiresAt,
+        version: sql`${cards.version} + 1`,
         updatedAt: now
       }
     })
@@ -303,7 +305,7 @@ export async function mutateCard(
   try {
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
       const [existing] = await db
-        .select({ cardJson: cards.cardJson, updatedAt: cards.updatedAt })
+        .select({ cardJson: cards.cardJson, version: cards.version })
         .from(cards)
         .where(eq(cards.slug, slug))
         .limit(1);
@@ -330,9 +332,13 @@ export async function mutateCard(
           identityExpiresAt: expiresAt.identityExpiresAt,
           signalsExpiresAt: expiresAt.signalsExpiresAt,
           ...(refreshSynthesisTtl ? { synthesisExpiresAt: expiresAt.synthesisExpiresAt } : {}),
+          version: existing.version + 1,
           updatedAt: now
         })
-        .where(and(eq(cards.slug, slug), eq(cards.updatedAt, existing.updatedAt)))
+        // The compare must stay on an integer column. Timestamps round-trip through JS at
+        // millisecond precision while Postgres stores microseconds, so a timestamp equality
+        // here silently never matches rows stamped by the column default.
+        .where(and(eq(cards.slug, slug), eq(cards.version, existing.version)))
         .returning();
 
       if (row) {

@@ -1,4 +1,5 @@
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -65,6 +66,11 @@ export const cards = pgTable(
     identityExpiresAt: timestamp("identity_expires_at", { withTimezone: true }).notNull(),
     signalsExpiresAt: timestamp("signals_expires_at", { withTimezone: true }).notNull(),
     synthesisExpiresAt: timestamp("synthesis_expires_at", { withTimezone: true }).notNull(),
+    // Optimistic-concurrency counter for mutateCard. The compare used to be on updated_at, but
+    // Postgres stamps that column with microseconds and a JS Date reads back only milliseconds,
+    // so the equality could never match a freshly inserted row (every post-insert mutation failed
+    // in production, 2026-07-24 through 2026-07-27). An integer compares exactly.
+    version: bigint("version", { mode: "number" }).default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
   },

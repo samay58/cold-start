@@ -446,6 +446,12 @@ describe("upsertCard", () => {
     // grants no window rather than a fresh 24h one.
     expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(false);
     expect((insertValues?.synthesisExpiresAt as Date).getTime()).toBeLessThan(before + 60_000);
+
+    // Both branches participate in optimistic concurrency: the insert stamps updated_at at JS
+    // precision instead of leaving it to the column default, and a conflict update bumps the
+    // version counter so an in-flight mutateCard compare loses and retries.
+    expect(insertValues?.updatedAt).toBeInstanceOf(Date);
+    expect(updateSet?.version).toBeDefined();
   });
 });
 
@@ -456,7 +462,7 @@ describe("mutateCard", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ cardJson: card, updatedAt: new Date("2026-05-06T12:00:00.000Z") }]
+            limit: async () => [{ cardJson: card, version: 0 }]
           })
         })
       }),
@@ -479,6 +485,7 @@ describe("mutateCard", () => {
     expect((updateSet?.identityExpiresAt as Date).getTime()).toBeGreaterThan(before);
     expect((updateSet?.signalsExpiresAt as Date).getTime()).toBeGreaterThan(before);
     expect(updateSet && "synthesisExpiresAt" in updateSet).toBe(false);
+    expect(updateSet?.version).toBe(1);
   });
 
   it("still extends the synthesis TTL by default", async () => {
@@ -487,7 +494,7 @@ describe("mutateCard", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ cardJson: card, updatedAt: new Date("2026-05-06T12:00:00.000Z") }]
+            limit: async () => [{ cardJson: card, version: 0 }]
           })
         })
       }),
@@ -511,7 +518,7 @@ describe("mutateCard", () => {
 
   it("recomputes from the concurrent winner after an optimistic conflict", async () => {
     let current = structuredClone(card);
-    let updatedAt = new Date("2026-05-06T12:00:00.000Z");
+    let version = 0;
     let updateAttempts = 0;
     const mutate = vi.fn((value: ColdStartCard) => ({
       ...value,
@@ -521,7 +528,7 @@ describe("mutateCard", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ cardJson: current, updatedAt }]
+            limit: async () => [{ cardJson: current, version }]
           })
         })
       }),
@@ -532,7 +539,7 @@ describe("mutateCard", () => {
               updateAttempts += 1;
               if (updateAttempts === 1) {
                 current = { ...current, generationCostUsd: 9 };
-                updatedAt = new Date("2026-05-06T12:01:00.000Z");
+                version += 1;
                 return [];
               }
               current = values.cardJson;
@@ -559,7 +566,7 @@ describe("mutateCard", () => {
           where: () => ({
             limit: async () => {
               await Promise.resolve();
-              return [{ cardJson: structuredClone(current), updatedAt: new Date(revision) }];
+              return [{ cardJson: structuredClone(current), version: revision }];
             }
           })
         })
@@ -601,7 +608,7 @@ describe("mutateCard", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ cardJson: structuredClone(current), updatedAt: new Date(revision) }]
+            limit: async () => [{ cardJson: structuredClone(current), version: revision }]
           })
         })
       }),
@@ -674,7 +681,7 @@ describe("mutateCard", () => {
       select: () => ({
         from: () => ({
           where: () => ({
-            limit: async () => [{ cardJson: card, updatedAt: new Date() }]
+            limit: async () => [{ cardJson: card, version: 0 }]
           })
         })
       })

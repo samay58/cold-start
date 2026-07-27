@@ -78,6 +78,13 @@
       "when": 1784926246030,
       "tag": "0010_redeem_alpha_invite",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785181273583,
+      "tag": "0011_illegal_cerebro",
+      "breakpoints": true
     }
   ]
 }
