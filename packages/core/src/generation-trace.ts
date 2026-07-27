@@ -247,6 +247,9 @@ export type GenerationTrace = {
     stage: string;
     message: string;
     className?: string;
+    // Structured error detail (e.g. validation issues) whose prose summary is in `message`.
+    // Operator surfaces show the message; this keeps the raw shape queryable from the trace.
+    detail?: unknown;
   };
 };
 

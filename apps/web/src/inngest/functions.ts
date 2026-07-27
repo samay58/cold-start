@@ -55,7 +55,7 @@ import {
 } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
-import { boundedErrorMessage } from "../lib/errors";
+import { boundedErrorMessage, rawErrorDetail } from "../lib/errors";
 import { generationFailureCode } from "../lib/failure-code";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import { buildBlockEnrichmentRequestedEvent } from "./card-enrichment";
@@ -203,7 +203,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             code: generationFailureCode(error),
             stage: currentStage,
             message: boundedErrorMessage(error),
-            ...(error instanceof Error ? { className: error.name } : {})
+            ...(error instanceof Error ? { className: error.name } : {}),
+            ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {})
           }
         }
       });
@@ -1136,7 +1137,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       code: generationFailureCode(error),
       stage: currentStage,
       message: boundedErrorMessage(error),
-      ...(error instanceof Error ? { className: error.name } : {})
+      ...(error instanceof Error ? { className: error.name } : {}),
+      ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {})
     };
     const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());
     applyStableenrichWalletTrace(trace, walletSnapshotBefore, walletSnapshotAfter);

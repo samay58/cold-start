@@ -53,7 +53,7 @@ import {
 
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
-import { boundedErrorMessage } from "../lib/errors";
+import { boundedErrorMessage, rawErrorDetail } from "../lib/errors";
 import {
   canStoreCardSnapshot,
   mutateCardWithRetry,
@@ -351,7 +351,8 @@ export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEn
         code: generationFailureCode(error),
         stage: currentStage,
         message: boundedErrorMessage(error),
-        ...(error instanceof Error ? { className: error.name } : {})
+        ...(error instanceof Error ? { className: error.name } : {}),
+        ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {})
       };
       await recordEvent("invalid-domain", "contacts.failed", boundedErrorMessage(error));
       throw error;
@@ -867,7 +868,8 @@ export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEn
         code: generationFailureCode(error),
         stage: currentStage,
         message: boundedErrorMessage(error),
-        ...(error instanceof Error ? { className: error.name } : {})
+        ...(error instanceof Error ? { className: error.name } : {}),
+        ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {})
       };
       await recordEvent("failed", "contacts.failed", boundedErrorMessage(error), {
         stage: currentStage

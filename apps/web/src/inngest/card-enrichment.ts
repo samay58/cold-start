@@ -31,7 +31,7 @@ import {
 import { stableenrichEnvFromProcess } from "./worker-env";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
-import { boundedErrorMessage } from "../lib/errors";
+import { boundedErrorMessage, rawErrorDetail } from "../lib/errors";
 import { generationFailureCode } from "../lib/failure-code";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import {
@@ -179,7 +179,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     domain = canonicalCompanyDomain(event.data.domain);
     slug = companySlugFromDomain(domain);
   } catch (error) {
-    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
+    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}), ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {}) };
     await recordEvent("invalid-domain", "generation.failed", boundedErrorMessage(error));
     throw error;
   }
@@ -338,7 +338,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     await patchParentTrace();
     return { slug, enriched: true };
   } catch (error) {
-    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}) };
+    trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}), ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {}) };
     await recordEvent("enrichment-failed", "generation.failed", boundedErrorMessage(error), { stage: currentStage });
     await patchParentTrace();
     throw error;
