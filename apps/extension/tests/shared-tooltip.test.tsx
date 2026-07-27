@@ -36,7 +36,7 @@ const dossierB: TooltipDossier = {
   channels: []
 };
 
-function Harness({ body, handleRef, title = "Ada Lovelace" }: { body: string | TooltipDossier | TooltipMemo; handleRef: { current: Handle | null }; title?: string }) {
+function Harness({ body, handleRef, title = "Ada Lovelace" }: { body: string | TooltipDossier | TooltipMemo; handleRef: { current: Handle | null }; title?: string | undefined }) {
   const { tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(false);
   const props = triggerProps({ body, id: "person-ada", title });
   handleRef.current = { props, interaction: tooltipInteraction };
