@@ -1,5 +1,5 @@
 {
-  "version": "2026-07-24.alpha-principal-v1",
+  "version": "2026-07-27.expanded-description-v1",
   "apiHeader": "x-cold-start-api-contract",
   "clientHeader": "x-cold-start-client-contract"
 }

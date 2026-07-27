@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
 import { LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { investorReadForCard } from "../src/research/investor-lens";
-import type { TooltipDossier } from "../src/shared/SharedTooltip";
+import type { TooltipDossier, TooltipMemo } from "../src/shared/SharedTooltip";
 import { AlphaAnalyticsProvider } from "../src/shared/alpha-event-context";
 import { minimalWarpCard as baseCard } from "./lens-card-fixtures";
 import { stubReducedMotion } from "./sidepanel-harness";
@@ -17,7 +17,7 @@ const analytics = vi.hoisted(() => ({
 }));
 vi.mock("../src/shared/alpha-analytics", () => analytics);
 
-type Captured = { body: string | TooltipDossier; id: string; title: string };
+type Captured = { body: string | TooltipDossier | TooltipMemo; id: string; title: string };
 const analyticsSettings = { apiOrigin: "https://example.com", apiToken: "token" };
 
 // (b)/(e): rich synthesis with multiple bull/bear claims and multiple timing fields, so the
@@ -90,7 +90,7 @@ function advisoryCard(): ColdStartCard {
 
 function tooltipStub() {
   const calls: Captured[] = [];
-  const tooltipProps = (input: { body: string | TooltipDossier; id: string; placement?: unknown; title: string }) => {
+  const tooltipProps = (input: { body: string | TooltipDossier | TooltipMemo; id: string; placement?: unknown; title: string }) => {
     calls.push({ body: input.body, id: input.id, title: input.title });
     return {
       "aria-describedby": "cs-shared-tooltip",

@@ -189,6 +189,18 @@ export const synthesisWithheldSchema = z.object({
   sourceTypeCount: z.number().int().nonnegative()
 });
 
+// The long-form company description behind the header's "(more)" affordance: a short plain
+// memo saying what the company makes and who uses it, how it makes money, and where it sits
+// among the players around it. Descriptive only; bull, bear, and risk language stays in the
+// gated synthesis. Grounded in card citations like any other citation-bearing block, so
+// validateCitationRefs covers it. Absent means the surface falls back to the one-liner tier
+// inside identity.description.
+export const expandedDescriptionSchema = z.object({
+  paragraphs: z.array(z.string().min(1)).min(1).max(4),
+  citationIds: z.array(z.string().min(1)).min(1)
+});
+export type ExpandedDescription = z.infer<typeof expandedDescriptionSchema>;
+
 export const coldStartCardObjectSchema = z.object({
   slug: z.string().min(1),
   domain: z.string().min(1),
@@ -223,6 +235,7 @@ export const coldStartCardObjectSchema = z.object({
   // that slice is. Citation-backed like every other resolved fact; extracted only when cited
   // evidence supports it, never invented market commentary. Card JSON only, no normalized rows.
   competitionFraming: resolvedFactSchema(z.string().min(1)).optional(),
+  expandedDescription: expandedDescriptionSchema.optional(),
   citations: z.array(citationSchema),
   synthesis: synthesisSchema.optional(),
   synthesisWithheld: synthesisWithheldSchema.optional()

@@ -20,12 +20,15 @@ import {
   extractCompanyBlockClaims,
   fallbackResearchPlan,
   modelForStage,
+  synthesizeExpandedDescription,
 } from "@cold-start/llm";
 import {
   applyProviderFactCandidates,
   blocksNeedingEnrichmentForSections,
+  buildExpandedDescriptionEvidence,
   cardWithExtractedSections,
   enrichExtractedSectionsForDomain,
+  expandedDescriptionCardFacts,
   extractedCardSectionsSchema,
 } from "@cold-start/pipeline";
 import { stableenrichEnvFromProcess } from "./worker-env";
@@ -43,7 +46,7 @@ import {
 } from "./card-storage";
 import { inngest, type WorkerEventContext } from "./client";
 import { createStepLlmTelemetryCollector, rawSlugForRun, stringValue, timed } from "./generation-helpers";
-import { backgroundConcurrencyLimit, contactEnrichmentEnabled } from "./worker-env";
+import { backgroundConcurrencyLimit, contactEnrichmentEnabled, expandedDescriptionEnabled } from "./worker-env";
 import {
   buildContactEnrichmentRequestedEvent,
   cardHasContactTargets
@@ -175,6 +178,73 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     });
   };
 
+  // Best-effort long-form description behind the header's "(more)" affordance, generated here
+  // so the basics critical path pays zero extra latency. A suppressed or failed draft falls
+  // back to the short description and never blocks the contact dispatch that follows.
+  const ensureExpandedDescription = async (
+    card: ColdStartCard,
+    sources: Array<{ url: string; title: string; rawText: string }>
+  ): Promise<ColdStartCard> => {
+    if (card.expandedDescription) {
+      return card;
+    }
+    if (!expandedDescriptionEnabled()) {
+      trace.steps = { ...trace.steps, "expand-description": skippedStep("EXPANDED_DESCRIPTION_ENABLED=false") };
+      return card;
+    }
+
+    const described = await step.run("expand-description", async () => {
+      const llmTelemetry = createStepLlmTelemetryCollector();
+      const result = await timed(async () => {
+        try {
+          const synthesized = await synthesizeExpandedDescription({
+            client: createAnthropicClient(),
+            model: modelForStage("expanded_description", anthropicModel()),
+            evidence: {
+              companyName: card.identity.name.value ?? domain,
+              domain,
+              cardFacts: expandedDescriptionCardFacts(card),
+              sources: buildExpandedDescriptionEvidence({ card, sources })
+            },
+            telemetry: llmTelemetry.telemetry
+          });
+          return {
+            ok: true as const,
+            description: synthesized.expandedDescription,
+            suppressionReason: synthesized.suppressionReason
+          };
+        } catch (error) {
+          return { ok: false as const, error: boundedErrorMessage(error) };
+        }
+      });
+      return {
+        value: result.value,
+        tracePatch: {
+          ...llmTelemetry.tracePatch(),
+          steps: {
+            "expand-description": result.value.ok
+              ? completedStep(result.durationMs)
+              : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
+          }
+        }
+      };
+    });
+    mergeTracePatch(trace, described.tracePatch);
+    if (!described.value.ok || !described.value.description) {
+      return card;
+    }
+
+    const description = described.value.description;
+    const stored = await step.run("store-expanded-description", () =>
+      mutateCardWithRetry(db, slug, (current) => ({ ...current, expandedDescription: description }))
+    );
+    await recordEvent("expanded-description-saved", "card.enriched", "Filed the expanded company description", {
+      paragraphCount: description.paragraphs.length,
+      citationCount: description.citationIds.length
+    });
+    return stored?.card ?? { ...card, expandedDescription: description };
+  };
+
   try {
     domain = canonicalCompanyDomain(event.data.domain);
     slug = companySlugFromDomain(domain);
@@ -205,7 +275,8 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     const missingBlocks = blocksNeedingEnrichmentForSections(baseSections);
     if (missingBlocks.length === 0) {
       trace.steps = { ...trace.steps, "enrich-card": skippedStep("stored card already filled enrichment blocks") };
-      await requestContactEnrichment(existingCard);
+      const describedCard = await ensureExpandedDescription(existingCard, acceptedSources);
+      await requestContactEnrichment(describedCard);
       await patchParentTrace();
       return { slug, skipped: "no_missing_blocks" };
     }
@@ -337,6 +408,10 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
       noteSkippedUnderfilledSnapshot(trace, "skip-underfilled-enriched-card", cardToStore);
     }
 
+    cardToStore = await ensureExpandedDescription(
+      cardToStore,
+      mergeSources(acceptedSources, enrichmentSourceResult.value.sources)
+    );
     await requestContactEnrichment(cardToStore);
     await patchParentTrace();
     return { slug, enriched: true };

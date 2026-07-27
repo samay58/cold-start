@@ -4,7 +4,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SharedTooltip, useSharedTooltip } from "../src/shared/SharedTooltip";
-import type { TooltipDossier, TooltipTriggerProps } from "../src/shared/SharedTooltip";
+import type { TooltipDossier, TooltipMemo, TooltipTriggerProps } from "../src/shared/SharedTooltip";
 
 type Interaction = ReturnType<typeof useSharedTooltip>["tooltipInteraction"];
 
@@ -36,9 +36,9 @@ const dossierB: TooltipDossier = {
   channels: []
 };
 
-function Harness({ body, handleRef }: { body: string | TooltipDossier; handleRef: { current: Handle | null } }) {
+function Harness({ body, handleRef, title = "Ada Lovelace" }: { body: string | TooltipDossier | TooltipMemo; handleRef: { current: Handle | null }; title?: string }) {
   const { tooltip, triggerProps, tooltipInteraction } = useSharedTooltip(false);
-  const props = triggerProps({ body, id: "person-ada", title: "Ada Lovelace" });
+  const props = triggerProps({ body, id: "person-ada", title });
   handleRef.current = { props, interaction: tooltipInteraction };
   return (
     <>
@@ -82,13 +82,13 @@ function stubRect(node: HTMLElement, rect: Partial<DOMRect>) {
 
 let cleanup: (() => Promise<void>) | null = null;
 
-async function mount(body: string | TooltipDossier) {
+async function mount(body: string | TooltipDossier | TooltipMemo, title?: string) {
   const handleRef: { current: Handle | null } = { current: null };
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => {
-    root.render(<Harness body={body} handleRef={handleRef} />);
+    root.render(<Harness body={body} handleRef={handleRef} title={title} />);
   });
   const trigger = container.querySelector(".cs-test-trigger") as HTMLElement;
   cleanup = async () => {
@@ -234,6 +234,78 @@ describe("dossier hovercard bridge", () => {
     });
     expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe("expanded description memo window", () => {
+  const memo: TooltipMemo = {
+    kind: "memo",
+    paragraphs: [
+      "Acme sells a scheduling engine hotels run at the front desk.",
+      "It charges a monthly fee per property; pricing is not publicly disclosed.",
+      "It replaces paper logbooks and competes with legacy property systems."
+    ]
+  };
+
+  it("renders the memo as an interactive dialog with the shared close control", async () => {
+    vi.useFakeTimers();
+    const { container, handleRef, trigger } = await mount(memo, "Description");
+    await act(async () => {
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+
+    const node = container.querySelector(".cs-shared-tooltip");
+    expect(node?.getAttribute("data-variant")).toBe("memo");
+    expect(node?.getAttribute("role")).toBe("dialog");
+    expect(container.querySelectorAll(".cs-memo-paragraph")).toHaveLength(3);
+
+    const dismiss = container.querySelector<HTMLButtonElement>(".cs-dossier-dismiss");
+    expect(dismiss?.getAttribute("aria-label")).toBe("Close Description");
+    await act(async () => {
+      dismiss?.click();
+    });
+    // The memo is the only overlay: dismissing the final window must leave the arc with no
+    // tooltip node at all, and hand focus back to the trigger.
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("pins on click and dismisses on Escape like the dossier", async () => {
+    vi.useFakeTimers();
+    const { container, handleRef, trigger } = await mount(memo, "Description");
+    await act(async () => {
+      handleRef.current!.props.onClick(clickEvent(trigger));
+    });
+
+    const node = container.querySelector<HTMLElement>(".cs-shared-tooltip");
+    expect(node?.getAttribute("data-pinned")).toBe("true");
+    expect(document.activeElement).toBe(node);
+
+    await act(async () => {
+      node?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(container.querySelector(".cs-shared-tooltip")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("renders unusually long content in full inside the scrolling window", async () => {
+    vi.useFakeTimers();
+    const longMemo: TooltipMemo = {
+      kind: "memo",
+      paragraphs: Array.from({ length: 8 }, (_, index) =>
+        `Paragraph ${index + 1} carries a full sentence of body copy so the window has real height to scroll through.`
+      )
+    };
+    const { container, handleRef, trigger } = await mount(longMemo, "Description");
+    await act(async () => {
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+
+    expect(container.querySelectorAll(".cs-memo-paragraph")).toHaveLength(8);
+    // Scrolling lives on the tooltip node itself (overflow: auto with an inline maxHeight
+    // from the placement geometry), so long content never widens or clips the panel.
+    const node = container.querySelector<HTMLElement>(".cs-shared-tooltip");
+    expect(node?.style.maxHeight).not.toBe("");
   });
 });
 

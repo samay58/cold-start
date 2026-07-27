@@ -22,7 +22,15 @@ export type TooltipDossier = {
   channels: Array<{ label: "GitHub" | "X" | "Site"; url: string }>;
 };
 
-type TooltipBody = string | TooltipDossier;
+// A long-form memo body: the expanded company description behind the header's "(more)"
+// affordance. Interactive like the dossier (pin, Escape, close button), so a reader can
+// dismiss it deliberately instead of chasing a hover.
+export type TooltipMemo = {
+  kind: "memo";
+  paragraphs: string[];
+};
+
+type TooltipBody = string | TooltipDossier | TooltipMemo;
 
 type SharedTooltipState = {
   animate: boolean;
@@ -109,6 +117,16 @@ function clamp(value: number, min: number, max: number) {
 
 function asDossier(body: TooltipBody): TooltipDossier | null {
   return typeof body === "object" && body !== null && body.kind === "dossier" ? body : null;
+}
+
+function asMemo(body: TooltipBody): TooltipMemo | null {
+  return typeof body === "object" && body !== null && body.kind === "memo" ? body : null;
+}
+
+// Structured bodies share the interactive treatment: pin on click, Escape and the close
+// button to dismiss, dialog semantics. Plain strings stay passive tooltips.
+function isInteractiveBody(body: TooltipBody): boolean {
+  return asDossier(body) !== null || asMemo(body) !== null;
 }
 
 function popoverGeometry(
@@ -270,7 +288,7 @@ export function useSharedTooltip(prefersReducedMotion: boolean) {
     placement?: TooltipPlacement;
     title: string;
   }): TooltipTriggerProps {
-    const interactive = asDossier(input.body) !== null;
+    const interactive = isInteractiveBody(input.body);
 
     return {
       ...(interactive
@@ -482,7 +500,8 @@ export function SharedTooltip({
   const nodeRef = useRef<HTMLDivElement | null>(null);
   const pinned = tooltip?.pinned ?? false;
   const dossier = tooltip ? asDossier(tooltip.body) : null;
-  const interactive = dossier !== null;
+  const memo = tooltip ? asMemo(tooltip.body) : null;
+  const interactive = dossier !== null || memo !== null;
 
   useEffect(() => {
     if (pinned && interactive) {
@@ -501,7 +520,7 @@ export function SharedTooltip({
       data-mode={tooltip.mode}
       data-pinned={pinned ? "true" : "false"}
       data-placement={tooltip.placement}
-      data-variant={dossier ? "dossier" : "text"}
+      data-variant={dossier ? "dossier" : memo ? "memo" : "text"}
       id={SHARED_TOOLTIP_ID}
       onBlur={
         interactive && pinned
@@ -538,9 +557,9 @@ export function SharedTooltip({
       }}
       tabIndex={interactive ? -1 : undefined}
     >
-      {dossier ? (
+      {interactive ? (
         <button
-          aria-label={`Close ${tooltip.title} dossier`}
+          aria-label={dossier ? `Close ${tooltip.title} dossier` : `Close ${tooltip.title}`}
           className="cs-dossier-dismiss"
           onClick={() => interaction?.onDismiss()}
           type="button"
@@ -556,6 +575,13 @@ export function SharedTooltip({
       <div className="cs-shared-tooltip-content" key={tooltip.id}>
         {dossier ? (
           <DossierBody dossier={dossier} pinned={pinned} />
+        ) : memo ? (
+          <div className="cs-memo">
+            <strong className="cs-memo-title">{tooltip.title}</strong>
+            {memo.paragraphs.map((paragraph, index) => (
+              <p className="cs-memo-paragraph" key={index}>{paragraph}</p>
+            ))}
+          </div>
         ) : (
           <>
             <strong>{tooltip.title}</strong>

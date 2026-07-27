@@ -1,4 +1,4 @@
-import type { ColdStartCard } from "@cold-start/core";
+import type { ColdStartCard, ExpandedDescription } from "@cold-start/core";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import type { ReactNode, RefObject } from "react";
@@ -78,15 +78,21 @@ function readableCompanyNameFallback(domain: string) {
 }
 
 export function ProfileSummary({
+  expandedDescription,
   fullSummary,
   summary,
   tooltipProps
 }: {
+  // The card-level long-form memo. When present, "(more)" opens the interactive description
+  // window (dossier-style close, pin, Escape); absent, it falls back to the untruncated
+  // one-liner tier as a plain tooltip.
+  expandedDescription?: ExpandedDescription | null | undefined;
   fullSummary: string;
   summary: string;
   tooltipProps: TooltipPropsFor;
 }) {
-  const hasMore = fullSummary !== summary;
+  const memoParagraphs = expandedDescription?.paragraphs ?? null;
+  const hasMore = memoParagraphs !== null || fullSummary !== summary;
   return (
     <div className="cs-company-summary-wrap">
       {hasMore ? (
@@ -97,7 +103,7 @@ export function ProfileSummary({
             className="cs-company-summary-more"
             type="button"
             {...tooltipProps({
-              body: fullSummary,
+              body: memoParagraphs ? { kind: "memo", paragraphs: memoParagraphs } : fullSummary,
               id: "profile-summary",
               placement: "below",
               title: "Description"

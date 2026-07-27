@@ -5,11 +5,11 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PeopleLine } from "../src/company/CompanyHeader";
-import type { TooltipDossier } from "../src/shared/SharedTooltip";
+import type { TooltipDossier, TooltipMemo } from "../src/shared/SharedTooltip";
 
 type CardPerson = NonNullable<ColdStartCard["team"]["keyExecs"]["value"]>[number];
 
-type Captured = { body: string | TooltipDossier; id: string; title: string };
+type Captured = { body: string | TooltipDossier | TooltipMemo; id: string; title: string };
 
 let cleanup: (() => Promise<void>) | null = null;
 
@@ -32,7 +32,7 @@ async function renderPeople(
 ) {
   const captured: Captured[] = [];
   const hideTooltip = vi.fn();
-  const tooltipProps = (input: { body: string | TooltipDossier; id: string; placement?: unknown; title: string }) => {
+  const tooltipProps = (input: { body: string | TooltipDossier | TooltipMemo; id: string; placement?: unknown; title: string }) => {
     captured.push({ body: input.body, id: input.id, title: input.title });
     return {
       "aria-describedby": "cs-company-shared-tooltip",

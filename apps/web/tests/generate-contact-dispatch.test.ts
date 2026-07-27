@@ -148,6 +148,7 @@ const mocks = vi.hoisted(() => ({
   agentcashWalletSnapshot: vi.fn(),
   providerBudgetForEndpoint: vi.fn(),
   synthesizeResearchSection: vi.fn(),
+  synthesizeExpandedDescription: vi.fn(),
   buildSeedProfileCard: vi.fn(),
   enrichExtractedSectionsForDomain: vi.fn(),
   generateCardForDomainWithTrace: vi.fn(),
@@ -201,6 +202,7 @@ vi.mock("@cold-start/llm", () => ({
   extractCompanyClaims: vi.fn(),
   fallbackResearchPlan: vi.fn(() => ({ searchQueries: {} })),
   synthesizeResearchSection: mocks.synthesizeResearchSection,
+  synthesizeExpandedDescription: mocks.synthesizeExpandedDescription,
   synthesizeCard: vi.fn(),
   verifySynthesis: vi.fn()
 }));
@@ -986,6 +988,7 @@ describe("card block enrichment worker", () => {
     mocks.recordResearchRunEvent.mockResolvedValue(null);
     mocks.updateGenerationRunTrace.mockResolvedValue(null);
     mocks.providerBudgetForEndpoint.mockReturnValue({ estimatedCostUsd: 0.01, expectedFacts: [], stopCondition: "test" });
+    mocks.synthesizeExpandedDescription.mockResolvedValue({ expandedDescription: null, suppressionReason: "no_draft", usage: undefined });
   });
 
   it("enriches the stored card and then dispatches contact enrichment", async () => {
@@ -1020,6 +1023,62 @@ describe("card block enrichment worker", () => {
     expect(names).not.toContain("upsert-enriched-card");
     expect(mocks.enrichExtractedSectionsForDomain).not.toHaveBeenCalled();
     expect(step.sendEvent).not.toHaveBeenCalled();
+  });
+
+  it("generates and stores the expanded description after block enrichment", async () => {
+    mocks.synthesizeExpandedDescription.mockResolvedValue({
+      expandedDescription: {
+        paragraphs: [
+          "Modal runs containers on demand for AI teams.",
+          "It charges for compute by the second.",
+          "It competes with self-managed GPU clusters."
+        ],
+        citationIds: ["c1"]
+      },
+      suppressionReason: null,
+      usage: undefined
+    });
+    let mutatedCard: ColdStartCard | null = null;
+    mocks.mutateCard.mockImplementation(async (_db, _slug, mutate: (current: ColdStartCard) => ColdStartCard) => {
+      mutatedCard = mutate(card);
+      return { card: mutatedCard, row: { id: "card-row-id" } };
+    });
+
+    const { names } = await runBlockEnrichment("true");
+
+    expect(names).toContain("expand-description");
+    expect(names).toContain("store-expanded-description");
+    expect(names.indexOf("expand-description")).toBeGreaterThan(names.indexOf("upsert-enriched-card"));
+    expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("store-expanded-description"));
+    expect(mutatedCard?.expandedDescription).toMatchObject({ citationIds: ["c1"] });
+    const evidence = mocks.synthesizeExpandedDescription.mock.calls[0]?.[0]?.evidence;
+    expect(evidence?.sources).toContainEqual(expect.objectContaining({ citationId: "c1" }));
+  });
+
+  it("skips the expanded description when the card already carries one", async () => {
+    mocks.findCardBySlug.mockResolvedValue({
+      ...card,
+      expandedDescription: { paragraphs: ["Already filed."], citationIds: ["c1"] }
+    });
+
+    const { names } = await runBlockEnrichment("true");
+
+    expect(names).not.toContain("expand-description");
+    expect(mocks.synthesizeExpandedDescription).not.toHaveBeenCalled();
+  });
+
+  it("falls back without a store when the description is suppressed", async () => {
+    mocks.synthesizeExpandedDescription.mockResolvedValue({
+      expandedDescription: null,
+      suppressionReason: "banned_phrase",
+      usage: undefined
+    });
+
+    const { names, step } = await runBlockEnrichment("true");
+
+    expect(names).toContain("expand-description");
+    expect(names).not.toContain("store-expanded-description");
+    expect(step.sendEvent).toHaveBeenCalled();
   });
 
   // Background block-enrichment failures land on the parent run's event trail on purpose, but

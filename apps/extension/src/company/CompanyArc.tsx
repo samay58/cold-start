@@ -434,7 +434,12 @@ export function CompanyArc({
           identityChildren={
             profile && profileSummary ? (
               <>
-                <ProfileSummary fullSummary={profileSummary.fullSummary} summary={profileSummary.summary} tooltipProps={triggerProps} />
+                <ProfileSummary
+                  expandedDescription={profile.card.expandedDescription ?? null}
+                  fullSummary={profileSummary.fullSummary}
+                  summary={profileSummary.summary}
+                  tooltipProps={triggerProps}
+                />
                 {profileRead?.showSourcesChecked ? (
                   <SourcesCheckedStamp
                     prefersReducedMotion={prefersReducedMotion}

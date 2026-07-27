@@ -374,6 +374,31 @@
   padding-right: 38px;
 }
 
+/* The memo variant (expanded company description) shares the dossier's close-button gutter. */
+.cs-shared-tooltip[data-variant="memo"] {
+  padding-right: 38px;
+}
+
+/* The expanded description memo: a display-face title over short body paragraphs. Long
+   content scrolls inside the tooltip (overflow on .cs-shared-tooltip above); nothing here
+   scrolls horizontally. */
+.cs-memo {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.cs-memo-title {
+  color: var(--color-seal);
+  font: 680 11px/1.15 var(--font-display);
+}
+
+.cs-memo-paragraph {
+  margin: 0;
+  color: rgb(var(--cs-c-23-26-31-text) / 0.82);
+  font: 450 12.5px/1.5 var(--font-body);
+}
+
 .cs-dossier-dismiss {
   position: absolute;
   top: 8px;

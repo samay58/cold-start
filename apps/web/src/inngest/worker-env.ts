@@ -89,6 +89,10 @@ export function personReadsEnabled() {
   return process.env.PERSON_READS_ENABLED !== "false";
 }
 
+export function expandedDescriptionEnabled() {
+  return process.env.EXPANDED_DESCRIPTION_ENABLED !== "false";
+}
+
 export function contactEnrichmentEnabled(input: {
   CONTACT_ENRICHMENT_ENABLED: boolean;
   CONTACT_ENRICHMENT_TIER: ContactEnrichmentTier;

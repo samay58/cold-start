@@ -35,6 +35,7 @@ const stageEnvChain: Record<LlmCallStage, string[]> = {
   verify: ["LLM_VERIFIER_MODEL", "ANTHROPIC_VERIFIER_MODEL"],
   research_section: ["LLM_RESEARCH_SECTION_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
   person_read: ["LLM_PERSON_READ_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
+  expanded_description: ["LLM_EXPANDED_DESCRIPTION_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
 };
 
 export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHROPIC_MODEL): string {
