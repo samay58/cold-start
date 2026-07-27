@@ -103,6 +103,11 @@ export function preserveExistingBasics(
   const synthesisWithheld = synthesis
     ? undefined
     : next.synthesisWithheld ?? (options.preserveAnalysis ? existing.synthesisWithheld : undefined);
+  // Background-earned like synthesis: a profile refresh regenerates facts but never carries
+  // an expanded description of its own, and wiping the stored one would re-pay its LLM call
+  // and churn the copy on every refresh. The citation merge below unions by id, so the
+  // preserved description's citationIds always still resolve.
+  const expandedDescription = next.expandedDescription ?? existing.expandedDescription;
   const mergeFact = <T>(current: ResolvedFact<T>, incoming: ResolvedFact<T>) =>
     options.preferExisting ? preserveFact(incoming, current) : preserveFact(current, incoming);
   const mergeOptionalFact = <T>(current: ResolvedFact<T> | undefined, incoming: ResolvedFact<T> | undefined) =>
@@ -119,6 +124,7 @@ export function preserveExistingBasics(
     ...next,
     ...(synthesis ? { synthesis } : {}),
     ...(synthesisWithheld ? { synthesisWithheld } : {}),
+    ...(expandedDescription ? { expandedDescription } : {}),
     identity: {
       ...next.identity,
       name,

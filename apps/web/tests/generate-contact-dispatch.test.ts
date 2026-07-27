@@ -597,6 +597,83 @@ describe("generate-card contact dispatch", () => {
     expect(mocks.enrichExtractedSectionsForDomain).not.toHaveBeenCalled();
   });
 
+  // A card that fills every block inline never reaches the block worker on its own, but the
+  // expanded description is filed there; the mews force-refresh on 2026-07-27 proved this
+  // ending silently skipped the description. The worker's early path files it and dispatches
+  // contacts itself, so contacts stay dispatched exactly once.
+  it("routes a complete-blocks card through the block worker when it lacks an expanded description", async () => {
+    delete process.env.EXPANDED_DESCRIPTION_ENABLED;
+    const completeSections = {
+      ...sections,
+      signals: [signal("Launched new GPU capacity"), signal("Expanded enterprise workloads")],
+      comparables: [
+        comparable("Runpod", "runpod.io"),
+        comparable("Replicate", "replicate.com"),
+        comparable("Lambda", "lambdalabs.com")
+      ]
+    };
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: {
+        ...card,
+        signals: completeSections.signals,
+        comparables: completeSections.comparables
+      },
+      sections: completeSections,
+      sources: [providerSource],
+      tracePatch: { extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 1, fallbackUsed: false } }
+    });
+
+    const { names, step } = await runBasicsGeneration("true");
+
+    expect(step.sendEvent).toHaveBeenCalledWith(
+      "request-block-enrichment",
+      expect.objectContaining({ name: "card/block-enrichment.requested" })
+    );
+    expect(step.sendEvent).not.toHaveBeenCalledWith(
+      "request-contact-enrichment",
+      expect.anything()
+    );
+    expect(names).not.toContain("enrich-card");
+  });
+
+  it("keeps the direct contact dispatch when the expanded description is disabled", async () => {
+    process.env.EXPANDED_DESCRIPTION_ENABLED = "false";
+    try {
+      const completeSections = {
+        ...sections,
+        signals: [signal("Launched new GPU capacity"), signal("Expanded enterprise workloads")],
+        comparables: [
+          comparable("Runpod", "runpod.io"),
+          comparable("Replicate", "replicate.com"),
+          comparable("Lambda", "lambdalabs.com")
+        ]
+      };
+      mocks.generateCardForDomainWithTrace.mockResolvedValue({
+        card: {
+          ...card,
+          signals: completeSections.signals,
+          comparables: completeSections.comparables
+        },
+        sections: completeSections,
+        sources: [providerSource],
+        tracePatch: { extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 1, fallbackUsed: false } }
+      });
+
+      const { step } = await runBasicsGeneration("true");
+
+      expect(step.sendEvent).not.toHaveBeenCalledWith(
+        "request-block-enrichment",
+        expect.anything()
+      );
+      expect(step.sendEvent).toHaveBeenCalledWith(
+        "request-contact-enrichment",
+        expect.objectContaining({ name: "card/contact-enrichment.requested" })
+      );
+    } finally {
+      delete process.env.EXPANDED_DESCRIPTION_ENABLED;
+    }
+  });
+
   it("dispatches contact enrichment from a stored final card when the seed card is underfilled", async () => {
     mocks.buildSeedProfileCard.mockReturnValue({
       card: underfilledSeedCard(),

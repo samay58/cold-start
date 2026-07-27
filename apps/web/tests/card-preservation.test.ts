@@ -42,6 +42,21 @@ describe("preserveExistingBasics", () => {
     expect(preserveExistingBasics(existing, next).synthesis).toEqual(next.synthesis);
   });
 
+  it("carries the stored expanded description across a basics refresh", () => {
+    const expandedDescription = {
+      paragraphs: [
+        "Cognition sells an autonomous coding agent engineering teams run on real tickets.",
+        "How it charges is not publicly disclosed.",
+        "It competes with in-editor assistants by owning whole tasks rather than completions."
+      ],
+      citationIds: ["c1"]
+    };
+    const existing = { ...buildSkeletonCard("cognition.ai"), expandedDescription };
+    const next = buildSkeletonCard("cognition.ai");
+
+    expect(preserveExistingBasics(existing, next).expandedDescription).toEqual(expandedDescription);
+  });
+
   it("preserves a filed read and enriched person fields for a stale background write", () => {
     const existing = buildSkeletonCard("cognition.ai");
     existing.identity.name = {

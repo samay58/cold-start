@@ -102,6 +102,7 @@ import {
   analysisSourceRefreshModeFromProcess,
   contactEnrichmentEnabled,
   directExaEnvFromProcess,
+  expandedDescriptionEnabled,
   stableenrichEnvFromProcess
 } from "./worker-env";
 import {
@@ -917,7 +918,24 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           "fetch-enrichment-sources": skippedStep("generated card already filled enrichment blocks"),
           "enrich-card": skippedStep("generated card already filled enrichment blocks")
         };
-        await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
+        if (!cardToStore.expandedDescription && expandedDescriptionEnabled()) {
+          // No block work remains, but the expanded description is filed by the block worker.
+          // Its early path files it and dispatches contacts itself, so contacts stay
+          // dispatched exactly once and read the description-bearing card.
+          await step.sendEvent(
+            "request-block-enrichment",
+            buildBlockEnrichmentRequestedEvent({
+              domain,
+              slug,
+              requestedAtMs,
+              parentGenerationRunId: generationRunDbId,
+              parentInngestRunId: trace.inngest?.runId ?? null
+            })
+          );
+          trace.steps = { ...trace.steps, "request-block-enrichment": completedStep(0) };
+        } else {
+          await requestContactEnrichmentForStoredCard(cardToStore, "stored-card");
+        }
       } else if (firstUsableStored) {
         // A first-usable card is already stored, so the deeper block enrichment can run in an async
         // worker. Dispatching it frees this Inngest concurrency slot at first usable instead of
@@ -1052,17 +1070,33 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
         cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
         assertTerminalCardQuality(mode, cardToStore);
+        // Same reasoning as the complete-blocks branch: when the description is missing, the
+        // block worker files it and owns the contact dispatch, so it is not triggered here.
+        const descriptionNeedsWorker = !cardToStore.expandedDescription && expandedDescriptionEnabled();
         const enrichedStore = await storeCardSnapshot({
           cardToStore,
           sources: sourcesToRecord,
           steps: { upsert: "upsert-enriched-card", evidence: "record-enriched-card-evidence", sections: "record-enriched-research-sections", sources: "record-enriched-sources" },
           event: { stepId: "enriched-card-saved", type: "card.enriched", message: "Saved enriched company card" },
           skipNoteId: "skip-underfilled-enriched-card",
-          contactTrigger: "enriched-card"
+          contactTrigger: descriptionNeedsWorker ? null : "enriched-card"
         });
         if (enrichedStore) {
           cardToStore = enrichedStore.card;
           writeGenerationMilestoneValue(trace, "firstUsableCardMs", enrichedStore.milestoneMs);
+          if (descriptionNeedsWorker) {
+            await step.sendEvent(
+              "request-block-enrichment",
+              buildBlockEnrichmentRequestedEvent({
+                domain,
+                slug,
+                requestedAtMs,
+                parentGenerationRunId: generationRunDbId,
+                parentInngestRunId: trace.inngest?.runId ?? null
+              })
+            );
+            trace.steps = { ...trace.steps, "request-block-enrichment": completedStep(0) };
+          }
         }
       }
     }
