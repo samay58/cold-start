@@ -400,6 +400,51 @@ describe("fetchStableenrichSources", () => {
     expect(firecrawlSource).not.toHaveProperty("imageUrl");
   });
 
+  // The synthetic agentcash:firecrawl_* URL made every firecrawl homepage/about/team source
+  // die at the source gate as unsupported_protocol, for every company (issue #9). The scrape
+  // response is locked to { url, title, content }, so the real page URL is always available.
+  it("builds firecrawl scrape sources from the real page URL so the source gate can accept them", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      agentcashFetch: async ({ url, body }) => {
+        if (url === "https://stable.example/firecrawl") {
+          return {
+            url: (body as { url: string }).url,
+            title: "About Cartesia",
+            content: "Cartesia builds real-time voice models. Founded by Karan Goel."
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    const aboutSource = result.sources.find((source) => source.url === "https://cartesia.ai/about");
+    expect(aboutSource).toMatchObject({
+      sourceType: "company_site",
+      title: "About Cartesia",
+      rawText: expect.stringContaining("Karan Goel")
+    });
+    expect(result.sources.filter((source) => source.url.startsWith("agentcash:firecrawl"))).toHaveLength(0);
+  });
+
+  it("keeps the synthetic fallback when a firecrawl response carries no usable page", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/firecrawl") {
+          return { error: "blocked" };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.sources.filter((source) => source.url.startsWith("agentcash:firecrawl"))).toHaveLength(3);
+  });
+
   it("returns endpoint failures instead of silently dropping rejected probes", async () => {
     const result = await fetchStableenrichSources({
       env: stableenrichEnv(),

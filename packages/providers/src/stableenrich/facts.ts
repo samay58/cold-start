@@ -66,9 +66,26 @@ function providerSourcesFromProbeResult(result: StableenrichProbeResult): Provid
     }
   }
 
-  // firecrawl_homepage/about/team land here too: the stableenrich.dev firecrawl/scrape
-  // endpoint's response is locked to { url, title, content } (verified against its live
-  // OpenAPI schema), so there is no metadata or image field to carry through as imageUrl.
+  // The stableenrich.dev firecrawl/scrape response is locked to { url, title, content }
+  // (verified against its live OpenAPI schema; no metadata or image field to carry through
+  // as imageUrl). The source must carry that real page URL: the synthetic agentcash: scheme
+  // used to make the source gate reject every firecrawl homepage/about/team source as
+  // unsupported_protocol, for every company (issue #9).
+  if (isFirecrawlProbe(result.name)) {
+    const page = firecrawlScrapePage(result.result);
+    if (page) {
+      return [
+        providerSourceFromText({
+          url: page.url,
+          title: page.title ?? result.name,
+          sourceType,
+          rawText: page.content,
+          ...(intent ? { intent } : {}),
+        }),
+      ];
+    }
+  }
+
   return [
     providerSourceFromText({
       url: `agentcash:${result.name}`,
@@ -78,6 +95,24 @@ function providerSourcesFromProbeResult(result: StableenrichProbeResult): Provid
       ...(intent ? { intent } : {}),
     }),
   ];
+}
+
+function isFirecrawlProbe(name: StableenrichProbeResult["name"]) {
+  return name === "firecrawl_homepage" || name === "firecrawl_about" || name === "firecrawl_team";
+}
+
+function firecrawlScrapePage(value: unknown): { url: string; title: string | null; content: string } | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as { url?: unknown; title?: unknown; content?: unknown };
+  const url = typeof record.url === "string" && /^https?:\/\//.test(record.url) ? record.url : null;
+  const content = typeof record.content === "string" && record.content.trim().length > 0 ? record.content : null;
+  if (!url || !content) {
+    return null;
+  }
+  const title = typeof record.title === "string" && record.title.trim().length > 0 ? record.title.trim() : null;
+  return { url, title, content };
 }
 
 function providerFactsFromProbeResult(result: StableenrichProbeResult): ProviderFactCandidate[] {
