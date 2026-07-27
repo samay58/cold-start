@@ -180,7 +180,10 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     slug = companySlugFromDomain(domain);
   } catch (error) {
     trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}), ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {}) };
-    await recordEvent("invalid-domain", "generation.failed", boundedErrorMessage(error));
+    // enrichment.failed, not generation.failed: these events ride the parent run's trail, and
+    // the parent basics run is already complete. Its own type keeps a background failure from
+    // reading as a failed generation (the extension scopes run-level failure types only).
+    await recordEvent("invalid-domain", "enrichment.failed", boundedErrorMessage(error));
     throw error;
   }
 
@@ -339,7 +342,7 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
     return { slug, enriched: true };
   } catch (error) {
     trace.failure = { code: generationFailureCode(error), stage: currentStage, message: boundedErrorMessage(error), ...(error instanceof Error ? { className: error.name } : {}), ...(rawErrorDetail(error) !== undefined ? { detail: rawErrorDetail(error) } : {}) };
-    await recordEvent("enrichment-failed", "generation.failed", boundedErrorMessage(error), { stage: currentStage });
+    await recordEvent("enrichment-failed", "enrichment.failed", boundedErrorMessage(error), { stage: currentStage });
     await patchParentTrace();
     throw error;
   }

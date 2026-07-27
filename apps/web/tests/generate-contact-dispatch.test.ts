@@ -1022,6 +1022,19 @@ describe("card block enrichment worker", () => {
     expect(step.sendEvent).not.toHaveBeenCalled();
   });
 
+  // Background block-enrichment failures land on the parent run's event trail on purpose, but
+  // they must carry their own type: a completed basics run whose trail ends in
+  // generation.failed reads as a failed run to anyone (and any surface) scanning events.
+  it("records background failures as enrichment.failed, never generation.failed", async () => {
+    mocks.enrichExtractedSectionsForDomain.mockRejectedValue(new Error("provider blew up"));
+
+    await expect(runBlockEnrichment("true")).rejects.toThrow("provider blew up");
+
+    const types = mocks.recordResearchRunEvent.mock.calls.map(([, input]) => (input as { type: string }).type);
+    expect(types).toContain("enrichment.failed");
+    expect(types).not.toContain("generation.failed");
+  });
+
   it("builds a small replay-safe block enrichment event", async () => {
     const { buildBlockEnrichmentRequestedEvent } = await import("../src/inngest/card-enrichment");
     expect(
