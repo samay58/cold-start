@@ -123,6 +123,24 @@ function resolvedFact<T>(value: T | null) {
   };
 }
 
+function deepSectionRow(overrides: Record<string, unknown> = {}) {
+  return {
+    slug: "cartesia",
+    domain: "cartesia.ai",
+    sectionId: "market",
+    visibility: "gated",
+    status: "available",
+    content: { blocks: [] },
+    citationIds: [],
+    sourceIds: [],
+    runId: "earlier-run",
+    error: null,
+    generatedAt: new Date().toISOString(),
+    staleAt: null,
+    ...overrides
+  };
+}
+
 function usablePublicCard() {
   return {
     slug: "cartesia",
@@ -918,24 +936,13 @@ describe("POST /api/generate", () => {
   });
 
   // drinkpoppi ran section:customer_proof twice within ten seconds on 2026-07-26, both billed:
-  // the route had no fresh-section short-circuit, so any repeat request between runs paid again.
-  it("answers a repeat section request from the stored fresh section instead of paying twice", async () => {
+  // the route had no settled-section short-circuit, so any repeat request between runs paid
+  // again. Deep rows carry generatedAt (runId too) and prod deep rows leave staleAt null, so
+  // freshness falls back to the section definition's staleAfterMs window.
+  it("answers a repeat section request from a settled deep run instead of paying twice", async () => {
     mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
     mocks.findResearchSectionsBySlug.mockResolvedValue([
-      {
-        slug: "cartesia",
-        domain: "cartesia.ai",
-        sectionId: "market",
-        visibility: "gated",
-        status: "available",
-        content: { blocks: [] },
-        citationIds: [],
-        sourceIds: [],
-        runId: "earlier-run",
-        error: null,
-        generatedAt: new Date().toISOString(),
-        staleAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
-      }
+      deepSectionRow({ status: "available", generatedAt: new Date().toISOString() })
     ]);
 
     const response = await POST(
@@ -954,26 +961,60 @@ describe("POST /api/generate", () => {
     expect(mocks.send).not.toHaveBeenCalled();
   });
 
-  it("still dispatches a section run when the stored section has gone stale", async () => {
+  // The exact drinkpoppi shape: the first run settled "empty" (honest absence), the repeat
+  // request arrived seconds later. Re-running an honest absence buys nothing.
+  it("answers a repeat request for a section whose deep run settled empty", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findResearchSectionsBySlug.mockResolvedValue([
+      deepSectionRow({ status: "empty", generatedAt: new Date(Date.now() - 10_000).toISOString() })
+    ]);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ status: "cached" });
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+  });
+
+  // Card-derived rows are stored "available" with generatedAt null. They are a display
+  // fallback, not a deep run; a paid deep pass over them must stay possible.
+  it("still dispatches a deep section run over a card-derived section", async () => {
     mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
     mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
     mocks.findResearchSectionsBySlug.mockResolvedValue([
-      {
-        slug: "cartesia",
-        domain: "cartesia.ai",
+      deepSectionRow({ status: "available", generatedAt: null, runId: null })
+    ]);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
         sectionId: "market",
-        visibility: "gated",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ status: "queued", runId: "run-id" });
+  });
+
+  it("still dispatches a section run when the stored deep section has gone stale", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+    mocks.findResearchSectionsBySlug.mockResolvedValue([
+      deepSectionRow({
         status: "available",
-        content: { blocks: [] },
-        citationIds: [],
-        sourceIds: [],
-        runId: "earlier-run",
-        error: null,
-        generatedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        staleAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-      }
+        generatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      })
     ]);
 
     const response = await POST(
@@ -994,20 +1035,7 @@ describe("POST /api/generate", () => {
     mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
     mocks.send.mockResolvedValue(undefined);
     mocks.findResearchSectionsBySlug.mockResolvedValue([
-      {
-        slug: "cartesia",
-        domain: "cartesia.ai",
-        sectionId: "market",
-        visibility: "gated",
-        status: "failed",
-        content: null,
-        citationIds: [],
-        sourceIds: [],
-        runId: "earlier-run",
-        error: "provider blew up",
-        generatedAt: new Date().toISOString(),
-        staleAt: null
-      }
+      deepSectionRow({ status: "failed", generatedAt: new Date().toISOString(), error: "provider blew up", content: null })
     ]);
 
     const response = await POST(

@@ -492,19 +492,30 @@ export async function POST(request: Request) {
       return timedJson({ error: blockedReason }, { status: 409 }, [{ name: "db", durationMs: cacheLookupMs }]);
     }
 
-    // Section jobs are idempotent per slug and section: a stored section that is still fresh
-    // answers the request instead of dispatching a second paid run (drinkpoppi paid twice for
-    // customer_proof ten seconds apart on 2026-07-26). The extension's section poll settles
-    // from the bootstrap read, so "cached" needs no client-side handling. forceRefresh and a
-    // stale or failed stored section still dispatch.
+    // Section jobs are idempotent per slug and section: a deep run that already settled and is
+    // still inside its staleness window answers the request instead of dispatching a second
+    // paid run (drinkpoppi paid twice for customer_proof ten seconds apart on 2026-07-26).
+    // Only rows a deep run wrote carry generatedAt; card-derived rows leave it null and never
+    // short-circuit, so a paid deep pass over a derived display stays possible. "empty" is a
+    // settled outcome too: re-running an honest absence ten seconds later buys nothing. The
+    // extension's section poll settles from the bootstrap read, so "cached" needs no
+    // client-side handling. forceRefresh, failed, and stale sections still dispatch.
     if (!forceRefresh) {
       const sectionLookupStartedAt = performance.now();
       const storedSections = await findResearchSectionsBySlug(db, slug);
       cacheLookupMs += elapsedMs(sectionLookupStartedAt);
       const storedSection = storedSections.find((section) => section.sectionId === sectionId);
-      const sectionFresh =
-        storedSection?.status === "available" &&
-        (!storedSection.staleAt || new Date(storedSection.staleAt) > new Date());
+      const deepGeneratedAt = storedSection?.generatedAt ? new Date(storedSection.generatedAt) : null;
+      const sectionSettled =
+        storedSection !== undefined &&
+        deepGeneratedAt !== null &&
+        (storedSection.status === "available" || storedSection.status === "empty");
+      const now = new Date();
+      const sectionFresh = sectionSettled && (
+        storedSection.staleAt
+          ? new Date(storedSection.staleAt) > now
+          : now.getTime() - deepGeneratedAt.getTime() < RESEARCH_SECTION_DEFINITIONS_BY_ID[sectionId].staleAfterMs
+      );
       if (sectionFresh) {
         await recordAlphaDisposition("cached", "fresh_section");
         return timedJson(
