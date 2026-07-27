@@ -77,6 +77,7 @@ export const expandedDescriptionSystemPrompt = [
   "Second paragraph: how it makes money, who pays, and price points when disclosed. When the sources do not say, write one plain sentence saying so, such as: How it charges is not publicly disclosed. Honest absence is a successful state; never guess.",
   "Third paragraph: where it sits among the players around it: what it replaces, what it complements, who it competes with.",
   "Concrete nouns and verbs only. Never write phrases like: platform for, AI-powered, solutions, best-in-class, world-class, cutting-edge, or any generic superlative. If a sentence could describe three other companies, rewrite it until it cannot.",
+  "Never use em-dashes. Use a comma, colon, or a new sentence.",
   "State only what the supplied evidence backs. This is description, not judgment: no bull case, no bear case, no risk language.",
   "Set citationIds to the citation ids of the evidence you actually used, exactly as supplied. Do not invent ids.",
   "If the evidence cannot support an honest description, return null."
@@ -90,9 +91,31 @@ function wordCount(paragraphs: string[]): number {
   return paragraphs.join(" ").split(/\s+/).filter(Boolean).length;
 }
 
-function containsBannedPhrase(paragraphs: string[]): boolean {
+function firstBannedPhrase(paragraphs: string[]): string | null {
   const text = paragraphs.join(" ").toLowerCase();
-  return BANNED_PHRASES.some((phrase) => text.includes(phrase));
+  return BANNED_PHRASES.find((phrase) => text.includes(phrase)) ?? null;
+}
+
+// The correction message for a repairable first draft. Banned phrases and word bounds are
+// style violations a model fixes reliably when told exactly what broke; the other
+// suppression reasons (null draft, truncation, unresolvable citations) are evidence or
+// budget problems a re-ask cannot repair.
+export function expandedDescriptionCorrection(
+  draft: { paragraphs: string[] },
+  reason: "banned_phrase" | "word_bounds"
+): string {
+  if (reason === "banned_phrase") {
+    const phrase = firstBannedPhrase(draft.paragraphs);
+    return [
+      `Your draft used the banned phrase "${phrase ?? "a banned phrase"}".`,
+      "Rewrite the sentence around the concrete noun for what the thing actually is, then emit the corrected description.",
+      "Everything else about the draft may stay."
+    ].join(" ");
+  }
+  return [
+    `Your draft was ${wordCount(draft.paragraphs)} words; the description must total 120 to 220 words across three paragraphs.`,
+    "Emit the corrected description."
+  ].join(" ");
 }
 
 export function validateExpandedDescriptionDraft(
@@ -103,7 +126,11 @@ export function validateExpandedDescriptionDraft(
     return { expandedDescription: null, suppressionReason: "no_draft" };
   }
 
-  const paragraphs = draft.paragraphs.map((paragraph) => paragraph.trim()).filter(Boolean);
+  // Em- and en-dashes normalize to a comma deterministically rather than costing a re-ask:
+  // the prompt bans them, but a mechanical fix beats suppressing or re-paying for one glyph.
+  const paragraphs = draft.paragraphs
+    .map((paragraph) => paragraph.replace(/\s*[—–]\s*/g, ", ").trim())
+    .filter(Boolean);
   if (paragraphs.length === 0) {
     return { expandedDescription: null, suppressionReason: "no_draft" };
   }
@@ -113,7 +140,7 @@ export function validateExpandedDescriptionDraft(
     return { expandedDescription: null, suppressionReason: "truncated" };
   }
 
-  if (containsBannedPhrase(paragraphs)) {
+  if (firstBannedPhrase(paragraphs) !== null) {
     return { expandedDescription: null, suppressionReason: "banned_phrase" };
   }
 
@@ -136,38 +163,59 @@ export async function synthesizeExpandedDescription(input: {
   model: string;
   telemetry?: AnthropicTelemetrySink;
 }): Promise<ExpandedDescriptionResult> {
-  const response = await createTracedAnthropicMessage({
-    client: input.client,
-    label: "synthesize-expanded-description",
-    model: input.model,
-    stage: "expanded_description",
-    telemetry: input.telemetry,
-    params: {
-      model: input.model,
-      max_tokens: MAX_TOKENS,
-      temperature: 0,
-      system: [{ type: "text", text: expandedDescriptionSystemPrompt, cache_control: anthropicSystemCacheControl() }],
-      tool_choice: { type: "tool", name: EXPANDED_DESCRIPTION_TOOL_NAME },
-      tools: [expandedDescriptionTool],
-      messages: [
-        {
-          role: "user",
-          content: [
-            `Company: ${input.evidence.companyName} (${input.evidence.domain})`,
-            "Card facts JSON:",
-            JSON.stringify(input.evidence.cardFacts, null, 2),
-            "Source evidence JSON:",
-            JSON.stringify(input.evidence.sources, null, 2)
-          ].join("\n\n")
-        }
-      ]
-    }
-  });
+  const evidenceMessage = {
+    role: "user" as const,
+    content: [
+      `Company: ${input.evidence.companyName} (${input.evidence.domain})`,
+      "Card facts JSON:",
+      JSON.stringify(input.evidence.cardFacts, null, 2),
+      "Source evidence JSON:",
+      JSON.stringify(input.evidence.sources, null, 2)
+    ].join("\n\n")
+  };
 
-  const usage = (response as { usage?: unknown }).usage;
-  const parsed = parseExpandedDescriptionToolUse(response);
+  const draftCall = (label: string, extraMessages: Array<{ role: "assistant" | "user"; content: string }>) =>
+    createTracedAnthropicMessage({
+      client: input.client,
+      label,
+      model: input.model,
+      stage: "expanded_description",
+      telemetry: input.telemetry,
+      params: {
+        model: input.model,
+        max_tokens: MAX_TOKENS,
+        temperature: 0,
+        system: [{ type: "text", text: expandedDescriptionSystemPrompt, cache_control: anthropicSystemCacheControl() }],
+        tool_choice: { type: "tool", name: EXPANDED_DESCRIPTION_TOOL_NAME },
+        tools: [expandedDescriptionTool],
+        messages: [evidenceMessage, ...extraMessages]
+      }
+    });
+
   const validCitationIds = new Set(input.evidence.sources.map((source) => source.citationId));
+
+  const response = await draftCall("synthesize-expanded-description", []);
+  let usage = (response as { usage?: unknown }).usage;
+  const parsed = parseExpandedDescriptionToolUse(response);
   const validated = validateExpandedDescriptionDraft(parsed.description, validCitationIds);
 
-  return { ...validated, usage };
+  // Style violations get exactly one corrective re-ask naming the problem; suppressing the
+  // whole paid draft over one brochure word (hospitality copy leans on "solutions"
+  // constantly) would silently starve the surface. Evidence-shaped failures are not
+  // repairable by re-asking and suppress immediately.
+  const repairable = validated.suppressionReason === "banned_phrase" || validated.suppressionReason === "word_bounds";
+  if (!repairable || !parsed.description) {
+    return { ...validated, usage };
+  }
+
+  const correction = expandedDescriptionCorrection(parsed.description, validated.suppressionReason as "banned_phrase" | "word_bounds");
+  const retryResponse = await draftCall("synthesize-expanded-description-retry", [
+    { role: "assistant", content: JSON.stringify({ description: parsed.description }) },
+    { role: "user", content: correction }
+  ]);
+  usage = (retryResponse as { usage?: unknown }).usage ?? usage;
+  const retryParsed = parseExpandedDescriptionToolUse(retryResponse);
+  const retryValidated = validateExpandedDescriptionDraft(retryParsed.description, validCitationIds);
+
+  return { ...retryValidated, usage };
 }

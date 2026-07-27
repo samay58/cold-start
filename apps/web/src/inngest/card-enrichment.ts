@@ -223,7 +223,13 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
           ...llmTelemetry.tracePatch(),
           steps: {
             "expand-description": result.value.ok
-              ? completedStep(result.durationMs)
+              ? {
+                  status: "complete" as const,
+                  durationMs: result.durationMs,
+                  // A suppressed draft is a completed call with a fallback outcome; the reason
+                  // must be readable from the trace, or prod suppressions are silent.
+                  ...(result.value.suppressionReason ? { message: `draft suppressed: ${result.value.suppressionReason}` } : {})
+                }
               : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
           }
         }
