@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     findLatestGenerationRunBySlug: vi.fn(),
     findLatestGenerationRunStatusBySlug: vi.fn(),
     findResearchRunEventsByRunId: vi.fn(),
+    findResearchSectionsBySlug: vi.fn(),
     findCardBySlug: vi.fn(),
     findPublicCardBySlug: vi.fn(),
     markGenerationRun: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("@cold-start/db", async (importOriginal) => ({
   findLatestGenerationRunBySlug: mocks.findLatestGenerationRunBySlug,
   findLatestGenerationRunStatusBySlug: mocks.findLatestGenerationRunStatusBySlug,
   findResearchRunEventsByRunId: mocks.findResearchRunEventsByRunId,
+  findResearchSectionsBySlug: mocks.findResearchSectionsBySlug,
   findCardBySlug: mocks.findCardBySlug,
   findPublicCardBySlug: mocks.findPublicCardBySlug,
   markGenerationRun: mocks.markGenerationRun,
@@ -288,6 +290,8 @@ describe("POST /api/generate", () => {
     mocks.findLatestGenerationRunStatusBySlug.mockReset();
     mocks.findResearchRunEventsByRunId.mockReset();
     mocks.findResearchRunEventsByRunId.mockResolvedValue([]);
+    mocks.findResearchSectionsBySlug.mockReset();
+    mocks.findResearchSectionsBySlug.mockResolvedValue([]);
     mocks.findCardBySlug.mockReset();
     mocks.findPublicCardBySlug.mockReset();
     mocks.markGenerationRun.mockReset();
@@ -911,6 +915,111 @@ describe("POST /api/generate", () => {
         requestedAtMs: expect.any(Number)
       }
     });
+  });
+
+  // drinkpoppi ran section:customer_proof twice within ten seconds on 2026-07-26, both billed:
+  // the route had no fresh-section short-circuit, so any repeat request between runs paid again.
+  it("answers a repeat section request from the stored fresh section instead of paying twice", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findResearchSectionsBySlug.mockResolvedValue([
+      {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: "market",
+        visibility: "gated",
+        status: "available",
+        content: { blocks: [] },
+        citationIds: [],
+        sourceIds: [],
+        runId: "earlier-run",
+        error: null,
+        generatedAt: new Date().toISOString(),
+        staleAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      }
+    ]);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ slug: "cartesia", status: "cached", mode: "analysis" });
+    expect(mocks.markGenerationRun).not.toHaveBeenCalled();
+    expect(mocks.markResearchSectionRunning).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it("still dispatches a section run when the stored section has gone stale", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+    mocks.findResearchSectionsBySlug.mockResolvedValue([
+      {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: "market",
+        visibility: "gated",
+        status: "available",
+        content: { blocks: [] },
+        citationIds: [],
+        sourceIds: [],
+        runId: "earlier-run",
+        error: null,
+        generatedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        staleAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
+      }
+    ]);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ status: "queued", runId: "run-id" });
+  });
+
+  it("still dispatches a section run after a stored failed section", async () => {
+    mocks.findCardBySlug.mockResolvedValue(usablePublicCard());
+    mocks.findActiveGenerationRunStatusBySlug.mockResolvedValue(null);
+    mocks.markGenerationRun.mockResolvedValue({ id: "run-id" });
+    mocks.send.mockResolvedValue(undefined);
+    mocks.findResearchSectionsBySlug.mockResolvedValue([
+      {
+        slug: "cartesia",
+        domain: "cartesia.ai",
+        sectionId: "market",
+        visibility: "gated",
+        status: "failed",
+        content: null,
+        citationIds: [],
+        sourceIds: [],
+        runId: "earlier-run",
+        error: "provider blew up",
+        generatedAt: new Date().toISOString(),
+        staleAt: null
+      }
+    ]);
+
+    const response = await POST(
+      generateRequest("cartesia.ai", {
+        sectionId: "market",
+        mode: "analysis",
+        confirmStart: true,
+        extensionAuth: true
+      })
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ status: "queued", runId: "run-id" });
   });
 
   it("treats a null section mode as omitted", async () => {

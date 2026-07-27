@@ -21,6 +21,7 @@ import {
   findLatestGenerationRunStatusBySlug,
   findPublicCardBySlug,
   findResearchRunEventsByRunId,
+  findResearchSectionsBySlug,
   markGenerationRun,
   markResearchSectionFailed,
   markResearchSectionRunning,
@@ -489,6 +490,29 @@ export async function POST(request: Request) {
     if (blockedReason) {
       await recordAlphaDisposition("blocked", "quality_gate");
       return timedJson({ error: blockedReason }, { status: 409 }, [{ name: "db", durationMs: cacheLookupMs }]);
+    }
+
+    // Section jobs are idempotent per slug and section: a stored section that is still fresh
+    // answers the request instead of dispatching a second paid run (drinkpoppi paid twice for
+    // customer_proof ten seconds apart on 2026-07-26). The extension's section poll settles
+    // from the bootstrap read, so "cached" needs no client-side handling. forceRefresh and a
+    // stale or failed stored section still dispatch.
+    if (!forceRefresh) {
+      const sectionLookupStartedAt = performance.now();
+      const storedSections = await findResearchSectionsBySlug(db, slug);
+      cacheLookupMs += elapsedMs(sectionLookupStartedAt);
+      const storedSection = storedSections.find((section) => section.sectionId === sectionId);
+      const sectionFresh =
+        storedSection?.status === "available" &&
+        (!storedSection.staleAt || new Date(storedSection.staleAt) > new Date());
+      if (sectionFresh) {
+        await recordAlphaDisposition("cached", "fresh_section");
+        return timedJson(
+          serializeGenerationRun({ slug, domain, mode, status: "cached" }),
+          { status: 200 },
+          [{ name: "db", durationMs: cacheLookupMs }]
+        );
+      }
     }
   } else if (mode === "analysis" && cached) {
     const blockedReason = analysisBlockedReason(cached);
