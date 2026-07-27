@@ -272,9 +272,10 @@ The web API, Chrome extension, and eval runner share one contract file: `package
 - Extension and eval requests send `x-cold-start-client-contract`.
 - The extension rejects successful responses without the matching API contract and shows an out-of-date deployment message.
 
-Alpha principal and extension-facing error shapes changed during rollout. The
-web API and extension now share the
-`2026-07-24.alpha-principal-v1` contract. Operator authentication remains
+Alpha principal and extension-facing error shapes changed during rollout; the
+expanded-description field bumped the contract again on 2026-07-27. The
+current version is pinned in `packages/core/api-contract.json`; read that file
+rather than trusting any literal here. Operator authentication remains
 accepted during rollout.
 
 Deploy additive server support before publishing extension `0.2.0`. Keep the

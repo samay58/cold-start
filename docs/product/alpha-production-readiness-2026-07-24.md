@@ -132,7 +132,7 @@ docs/qa/analysis-run-observations.md, 2026-07-27 entry.
 
 - `alpha:invite`, `alpha:revoke`, `alpha:delete-tester`, `alpha:prune`, `alpha:status`, and `alpha:test` exist.
 - `alpha:status` reports tester funnel, allowances, dispositions, latency, failures, compatibility, wallet exposure, and successful and failed spend.
-- `alpha:status --gate` fails on software failures, stale runs, wallet floor, and unsupported clients.
+- `alpha:status --gate` fails on software failures and stale runs across all generation runs (any principal, since 2026-07-27), wallet floor, and unsupported clients.
 - Background enrichment caps reserve Inngest capacity.
 - The production migration command requires a distinct direct URL and rejects poolers.
 - Production migration and restore drill receipts are recorded in `docs/deployment.md`.
