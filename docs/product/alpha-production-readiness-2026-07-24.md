@@ -1,7 +1,7 @@
 # Friend Alpha Production Readiness
 
 Captured July 24, 2026.
-Last updated July 24, 2026.
+Last updated July 27, 2026.
 
 This is the strict ship gate for five invited friends. The product remains
 free, invitation-gated, server-metered, and distributed through an Unlisted
@@ -61,6 +61,25 @@ production evidence.
 - Contradictory partial claims remain invalid.
 - Card writes serialize per slug and retry through one bounded mutation seam.
 - Fifty concurrent mutations preserve all fields.
+
+2026-07-27 amendment. The mutation seam above was broken in production
+from 2026-07-24 through 2026-07-27: its optimistic compare used
+`updated_at`, which a fresh insert stamps with microseconds while a JS
+Date reads back milliseconds, so every post-insert write failed. That
+killed 17 of 18 analysis attempts plus all fresh-card contact and block
+enrichment for three days, and would have failed every invited friend's
+second interaction with any company. It was a hard blocker for
+invitations. Fixed by migration 0011's version counter; a null-text
+timing-claim leaf that killed three paid runs was normalized in the
+same pass, and `alpha:status --gate` was extended to scan all
+generation runs because the alpha-scoped gate saw none of this. A
+real-Postgres suite (`test:cards-db`, chained into `check`) now
+reproduces the insert-path failure the fifty-mutation mock suite could
+not. Post-deploy verification: the three stuck slugs completed clean,
+and a never-tested company ran basics, block enrichment, contact
+enrichment (3 work emails, 3 person reads), and analysis end to end
+with zero failure events. Details in
+docs/qa/analysis-run-observations.md, 2026-07-27 entry.
 - Stable failure codes cover evidence, provider, model contract, concurrent write, timeout, authentication, allowance, and unknown outcomes.
 - Known-dead provider probes are skipped.
 - Failed terminal rows retain trace-derived cost.
