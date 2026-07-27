@@ -299,6 +299,33 @@ describe("parseSynthesisToolUse", () => {
     expect(payload.marketStructureAndTiming?.timingRisk).toBeNull();
   });
 
+  // A null text means there is no claim to render, whatever the model left in citationIds;
+  // that shape killed paid varda and adaptivesecurity runs on 2026-07-26. Contradictory
+  // partials keep their teeth on the other side: real text with broken provenance stays
+  // invalid (next test and the citation-ID test below).
+  it("treats a null-text claim with leftover citations as absent", () => {
+    const payload = parseSynthesisToolUse({
+      content: [
+        {
+          type: "tool_use",
+          name: "emit_investor_synthesis",
+          input: {
+            ...validSynthesisPayload,
+            marketStructureAndTiming: {
+              ...validSynthesisPayload.marketStructureAndTiming,
+              timingRisk: {
+                text: null,
+                citationIds: ["c1"]
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    expect(payload.marketStructureAndTiming?.timingRisk).toBeNull();
+  });
+
   it("still rejects contradictory partial market claims", () => {
     expect(() =>
       parseSynthesisToolUse({
@@ -311,8 +338,8 @@ describe("parseSynthesisToolUse", () => {
               marketStructureAndTiming: {
                 ...validSynthesisPayload.marketStructureAndTiming,
                 timingRisk: {
-                  text: null,
-                  citationIds: ["c1"]
+                  text: "Timing risk with broken provenance.",
+                  citationIds: null
                 }
               }
             }

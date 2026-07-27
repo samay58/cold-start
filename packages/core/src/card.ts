@@ -102,14 +102,27 @@ export const sourcedTextSchema = z.object({
   citationIds: z.array(z.string().min(1))
 });
 
+// The synthesis prompt's "use null when sources do not support a field" license reaches one
+// level deeper than the claim: models sometimes null the text inside the claim object
+// ({text: null}) instead of the claim itself. That shape means the same honest absence, so it
+// normalizes to an absent claim instead of failing the parse after synthesis was paid for. A
+// claim with real text but malformed citations is a contradictory partial and stays invalid.
+const timingClaimSchema = z.preprocess((value) => {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+  const text = (value as { text?: unknown }).text;
+  return typeof text === "string" && text.length > 0 ? value : null;
+}, sourcedTextSchema.nullable());
+
 export const marketStructureAndTimingSchema = z.object({
-  buyerBudget: sourcedTextSchema.nullable(),
-  painSeverity: sourcedTextSchema.nullable(),
-  adoptionTrigger: sourcedTextSchema.nullable(),
-  marketStructure: sourcedTextSchema.nullable(),
-  profitPool: sourcedTextSchema.nullable(),
-  expansionPath: sourcedTextSchema.nullable(),
-  timingRisk: sourcedTextSchema.nullable()
+  buyerBudget: timingClaimSchema,
+  painSeverity: timingClaimSchema,
+  adoptionTrigger: timingClaimSchema,
+  marketStructure: timingClaimSchema,
+  profitPool: timingClaimSchema,
+  expansionPath: timingClaimSchema,
+  timingRisk: timingClaimSchema
 });
 
 // Fixed, shared taxonomy for open questions. The model assigns one category per
@@ -156,6 +169,10 @@ export const synthesisSchema = z.object({
   marketStructureAndTiming: z.preprocess(
     (value) => (value === null ? undefined : value),
     marketStructureAndTimingSchema.optional()
+  // A container whose seven claims all normalized away carries nothing; collapse it to
+  // undefined so downstream surfaces see one absence shape instead of two.
+  ).transform((value) =>
+    value && Object.values(value).some((claim) => claim !== null) ? value : undefined
   )
 });
 
