@@ -146,7 +146,10 @@ describe("Clippings", () => {
 
   it("hides a broken favicon back to the classification dot on error", async () => {
     vi.stubGlobal("chrome", {
-      runtime: { getURL: (path: string) => `chrome-extension://abc/${path}` }
+      runtime: {
+        getURL: (path: string) => `chrome-extension://abc/${path}`,
+        getManifest: () => ({ permissions: ["favicon", "activeTab", "storage"] })
+      }
     });
     try {
       const container = await render(

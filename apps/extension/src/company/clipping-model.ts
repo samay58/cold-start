@@ -114,16 +114,26 @@ export function clippingsFromSources(sources: ExtensionSourceSummary[]): Clippin
   return [...byUrl.values()];
 }
 
-type ChromeFaviconRuntime = { runtime?: { getURL?: (path: string) => string } };
+type ChromeFaviconRuntime = {
+  runtime?: {
+    getURL?: (path: string) => string;
+    getManifest?: () => { permissions?: string[] };
+  };
+};
 
-// MV3 favicon lookup: browser-cached, no external request. Absent in jsdom and until the
-// manifest gains the permission, so callers degrade to the classification dot.
+// MV3 favicon lookup: browser-cached, no external request. Gated on the manifest's favicon
+// permission, not on getURL existing: Firefox has getURL but no _favicon/ endpoint, so an
+// existence check emits a dead moz-extension URL per clipping (Bugzilla 1315616). Absent in
+// jsdom and in permission-less manifests, so callers degrade to the classification dot.
 export function faviconUrl(pageUrl: string): string | null {
   const runtime = (globalThis as { chrome?: ChromeFaviconRuntime }).chrome?.runtime;
-  if (!runtime?.getURL) {
+  if (!runtime?.getURL || !runtime.getManifest) {
     return null;
   }
   try {
+    if (!runtime.getManifest().permissions?.includes("favicon")) {
+      return null;
+    }
     return runtime.getURL(`_favicon/?pageUrl=${encodeURIComponent(pageUrl)}&size=16`);
   } catch {
     return null;

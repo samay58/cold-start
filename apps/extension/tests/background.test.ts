@@ -113,6 +113,26 @@ describe("background prefetch", () => {
     expect(sessionItems.activeDomain).toBe("linear.app");
     expect(Object.keys(sessionItems).some((key) => key.startsWith("coldStartCard:"))).toBe(true);
   });
+
+  it("records the researched tab and window at click time for the Firefox stale-tab hint", async () => {
+    let clickListener: ((tab: chrome.tabs.Tab) => void) | undefined;
+    const sessionItems: Record<string, unknown> = {};
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({})));
+    installChromeStub(() => undefined, {}, vi.fn(async () => undefined), undefined, {
+      captureClick: (listener) => {
+        clickListener = listener;
+      },
+      sessionItems
+    });
+
+    await import("../src/background");
+    clickListener?.({ id: 7, windowId: 3, url: "https://linear.app/docs" } as chrome.tabs.Tab);
+    await flushMicrotasks();
+
+    expect(sessionItems.activeDomain).toBe("linear.app");
+    expect(sessionItems.lastResearchTabId).toBe(7);
+    expect(sessionItems.lastResearchWindowId).toBe(3);
+  });
 });
 
 describe("background alpha invitation bridge", () => {
@@ -286,8 +306,13 @@ function installChromeStub(
   captureExternal: (listener: ExternalListener) => void,
   storageItems: Record<string, unknown> = {},
   setAccessLevel = vi.fn(async () => undefined),
-  captureInstalled?: (listener: (details: chrome.runtime.InstalledDetails) => void) => void
+  captureInstalled?: (listener: (details: chrome.runtime.InstalledDetails) => void) => void,
+  options?: {
+    captureClick?: (listener: (tab: chrome.tabs.Tab) => void) => void;
+    sessionItems?: Record<string, unknown>;
+  }
 ) {
+  const sessionItems = options?.sessionItems ?? {};
   vi.stubGlobal("chrome", {
     runtime: {
       id: "extension-test-id",
@@ -303,7 +328,11 @@ function installChromeStub(
       }
     },
     action: {
-      onClicked: { addListener: vi.fn() }
+      onClicked: {
+        addListener: (listener: (tab: chrome.tabs.Tab) => void) => {
+          options?.captureClick?.(listener);
+        }
+      }
     },
     sidePanel: {
       open: vi.fn(),
@@ -321,8 +350,11 @@ function installChromeStub(
         setAccessLevel
       },
       session: {
-        get: (_keys: string | null, callback: (items: Record<string, unknown>) => void) => callback({}),
-        set: (_items: Record<string, unknown>, callback?: () => void) => callback?.(),
+        get: (_keys: string | null, callback: (items: Record<string, unknown>) => void) => callback({ ...sessionItems }),
+        set: (items: Record<string, unknown>, callback?: () => void) => {
+          Object.assign(sessionItems, items);
+          callback?.();
+        },
         remove: vi.fn()
       }
     }

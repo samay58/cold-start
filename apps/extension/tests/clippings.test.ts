@@ -162,9 +162,23 @@ describe("faviconUrl", () => {
     expect(faviconUrl("https://exa.ai/")).toBeNull();
   });
 
-  it("builds a browser-cached favicon url through chrome.runtime.getURL", () => {
+  it("returns null when the manifest lacks the favicon permission (Firefox: getURL exists but _favicon/ 404s)", () => {
     vi.stubGlobal("chrome", {
-      runtime: { getURL: (path: string) => `chrome-extension://abc/${path}` }
+      runtime: {
+        getURL: (path: string) => `moz-extension://uuid/${path}`,
+        getManifest: () => ({ permissions: ["activeTab", "storage"] })
+      }
+    });
+
+    expect(faviconUrl("https://exa.ai/")).toBeNull();
+  });
+
+  it("builds a browser-cached favicon url when the manifest carries the favicon permission", () => {
+    vi.stubGlobal("chrome", {
+      runtime: {
+        getURL: (path: string) => `chrome-extension://abc/${path}`,
+        getManifest: () => ({ permissions: ["favicon", "activeTab", "storage"] })
+      }
     });
 
     expect(faviconUrl("https://exa.ai/")).toBe(

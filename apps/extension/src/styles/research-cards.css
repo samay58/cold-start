@@ -918,6 +918,19 @@ a.cs-source-chip:focus-visible {
   min-height: 100vh;
 }
 
+/* Firefox stale-tab hint: the window-scoped sidebar outlives tab switches, so this
+   quiet filing note points back at the toolbar when the visible tab no longer
+   matches the researched one. A static strip, present or absent; no motion. */
+.cs-stale-tab-hint {
+  margin: 0;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--cs-rule);
+  background: var(--cs-surface-sunken);
+  color: var(--cs-text-2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 /* Freshness mark: a quiet filed stamp, not an alert. Shown only when the read is
    explicitly a saved/stale card; gains a "refreshing" suffix while a run updates it. */
 .cs-freshness-mark {

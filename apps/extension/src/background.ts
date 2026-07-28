@@ -47,7 +47,14 @@ chrome.action.onClicked.addListener((tab) => {
   }
 
   const activeDomain = activeTabDomain(tab.url);
-  void chrome.storage.session.set({ activeDomain });
+  // The tab and window ids feed the Firefox stale-tab hint: the sidebar stays open
+  // across tab switches there, so the panel compares tabs.onActivated payloads (ids
+  // only, no permission) against the tab this research click landed on.
+  void chrome.storage.session.set({
+    activeDomain,
+    lastResearchTabId: tab.id ?? null,
+    lastResearchWindowId: tab.windowId ?? null
+  });
   void readSettings().then((settings) =>
     enqueueAlphaEvent(settings, "extension.action_invoked", {}, "background")
   );

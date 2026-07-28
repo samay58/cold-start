@@ -29,6 +29,7 @@ import {
 } from "./shared/extension-config";
 import { clearCachedCards, readCachedCard, writeCachedCard } from "./shared/card-cache";
 import { BrandMark } from "./shared/BrandMark";
+import { StaleTabHint } from "./shared/StaleTabHint";
 import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
 import { CompanyLogo } from "./company/CompanyLogo";
 import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
@@ -1720,6 +1721,7 @@ export function SidePanel() {
   // opacity-only fade.
   return (
     <div className="cs-panel-stage">
+      <StaleTabHint />
       <AnimatePresence initial={false} mode="popLayout">
         <motion.div
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
