@@ -105,6 +105,26 @@ const nextConfig: NextConfig = {
     "@cold-start/providers",
     "@cold-start/ui",
   ],
+  async headers() {
+    return [
+      {
+        // Signed Firefox builds self-hosted under public/firefox/. Firefox's
+        // click-to-install path wants the XPI served as x-xpinstall; the update
+        // checker itself is content-type agnostic.
+        source: "/firefox/:artifact*.xpi",
+        headers: [
+          { key: "Content-Type", value: "application/x-xpinstall" },
+          { key: "Cache-Control", value: "public, max-age=300, must-revalidate" },
+        ],
+      },
+      {
+        // updates.json is the Firefox update manifest; keep it fresh so a new
+        // release reaches installed sidebars on the next update check.
+        source: "/firefox/updates.json",
+        headers: [{ key: "Cache-Control", value: "public, max-age=300, must-revalidate" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
