@@ -1,5 +1,14 @@
+import { readFileSync } from "node:fs";
 import { defineManifest } from "@crxjs/vite-plugin";
 import type { ConfigEnv } from "vite";
+
+// Single version source: apps/extension/package.json. Every AMO signing requires a
+// version bump, so a release is one `npm version <part> --no-git-tag-version -w
+// @cold-start/extension` (plus `npm install --package-lock-only`), never a hunt for
+// hardcoded strings.
+const EXTENSION_VERSION = (JSON.parse(
+  readFileSync(new URL("./package.json", import.meta.url), "utf8")
+) as { version: string }).version;
 
 // The retired coldstart.semitechie.vc origin is intentionally absent: extension-config
 // treats it as legacy and remaps stored settings to the current API origin, so granting
@@ -35,7 +44,7 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
     return {
       manifest_version: 3,
       name: "Cold Start Alpha",
-      version: "0.2.1",
+      version: EXTENSION_VERSION,
       description: "Understand a company without leaving its website. Every claim keeps its source.",
       // No sidePanel (Chrome-only API) and no favicon (Chrome-only _favicon/ URL;
       // clipping-model falls back to null icons when the permission is absent).
@@ -71,7 +80,11 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
           strict_min_version: "140.0",
           data_collection_permissions: {
             required: ["browsingActivity" as const]
-          }
+          },
+          // Unlisted builds get no AMO update hosting; the panel self-updates from
+          // the public web origin. Baked into the signed XPI, so it must stay the
+          // permanent custom domain.
+          update_url: "https://cold-start.semitechie.vc/firefox/updates.json"
         }
       },
       incognito: "not_allowed",
@@ -94,7 +107,7 @@ export function extensionManifest(env: ConfigEnv, browser: "chrome" | "firefox" 
   return {
     manifest_version: 3,
     name: "Cold Start Alpha",
-    version: "0.2.1",
+    version: EXTENSION_VERSION,
     minimum_chrome_version: "116",
     description: "Understand a company without leaving its website. Every claim keeps its source.",
     permissions: ["sidePanel", "activeTab", "storage"],

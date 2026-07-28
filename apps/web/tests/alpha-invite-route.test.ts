@@ -231,6 +231,41 @@ describe("alpha invitation routes", () => {
     expect(JSON.stringify(analyticsInput?.events)).not.toContain("installationId");
   });
 
+  it("redeems a Firefox installation (the panel redeems directly; Firefox has no page-to-extension messaging)", async () => {
+    mocks.redeemAlphaInvite.mockResolvedValue({
+      installation: { id: "6a50d643-83dd-42e0-9eb9-45c7aaa1b2c3" },
+      invite: {
+        id: "b4f48495-c594-48ab-815c-fc62d45caa91",
+        profileLimit: 12,
+        lensLimit: 6
+      }
+    });
+
+    const response = await redeemRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/redeem",
+      {
+        inviteToken,
+        browser: "firefox",
+        channel: "unlisted",
+        extensionVersion: "0.2.2",
+        clientContract: COLD_START_API_CONTRACT_VERSION,
+        consent: true,
+        storeVisited: false,
+        reducedMotion: false,
+        theme: "light"
+      },
+      {
+        [COLD_START_CLIENT_CONTRACT_HEADER]: COLD_START_API_CONTRACT_VERSION
+      }
+    ));
+
+    expect(response.status).toBe(200);
+    expect(mocks.redeemAlphaInvite).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ browser: "firefox" })
+    );
+  });
+
   it("does not redeem or write events without explicit consent", async () => {
     const response = await redeemRoute.POST(jsonRequest(
       "http://localhost/api/alpha/invite/redeem",

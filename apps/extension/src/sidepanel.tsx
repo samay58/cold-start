@@ -28,6 +28,7 @@ import {
   type Settings
 } from "./shared/extension-config";
 import { clearCachedCards, readCachedCard, writeCachedCard } from "./shared/card-cache";
+import { connectAlphaInvitation, inviteTokenFromInput } from "./shared/alpha-connect";
 import { BrandMark } from "./shared/BrandMark";
 import { StaleTabHint } from "./shared/StaleTabHint";
 import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
@@ -360,29 +361,130 @@ function OperatorSettingsForm({
   );
 }
 
-function ConnectionPanel({
+const REDEEM_ERROR_COPY: Record<string, string> = {
+  access_disabled: "The alpha is paused right now. Try again a little later.",
+  connection_lost: "Could not connect. Try again, then ask Samay if it keeps failing.",
+  expired: "This invitation has expired. Ask Samay for a fresh one.",
+  installation_limit: "This invitation is already attached to another installation.",
+  invalid_invite: "That does not look like an invitation. Paste the full invitation link Samay sent you.",
+  offline: "You look offline. Reconnect and try again.",
+  revoked: "This invitation has been revoked. Ask Samay if that seems wrong.",
+  unknown: "Could not connect. Try again, then ask Samay if it keeps failing.",
+  update_required: "This build is too old to connect. Install the current release first.",
+  used: "This invitation was already connected elsewhere. Samay can repair the connection."
+};
+
+// Firefox has no page-to-extension messaging (Bugzilla 1319168), so the invite
+// page cannot connect the installation the way it does on Chrome. The panel
+// collects the invitation link instead and redeems it directly.
+function FirefoxInviteForm({
+  onConnected,
+  themePreference
+}: {
+  onConnected: () => void;
+  themePreference: ThemePreference;
+}) {
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [inviteInput, setInviteInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (connecting) {
+      return;
+    }
+
+    const inviteToken = inviteTokenFromInput(inviteInput);
+    if (!inviteToken) {
+      setError(REDEEM_ERROR_COPY.invalid_invite ?? null);
+      return;
+    }
+
+    setError(null);
+    setConnecting(true);
+    const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    void connectAlphaInvitation({
+      inviteToken,
+      storeVisited: false,
+      reducedMotion: prefersReducedMotion,
+      theme: resolveTheme(themePreference, systemDark).theme
+    }).then((response) => {
+      setConnecting(false);
+      if (response.ok && response.state === "connected") {
+        onConnected();
+        return;
+      }
+      const code = response.ok ? "unknown" : response.code;
+      setError(REDEEM_ERROR_COPY[code] ?? REDEEM_ERROR_COPY.unknown ?? null);
+    });
+  }
+
+  return (
+    <form className="cs-access-card" onSubmit={handleSubmit}>
+      <div className="cs-access-card-head">
+        <span>Invitation</span>
+        <strong>Friend alpha</strong>
+      </div>
+      <label className="cs-extension-field">
+        <span>Invitation link</span>
+        <input
+          autoComplete="off"
+          className="cs-invite-code-input"
+          onChange={(event) => setInviteInput(event.target.value)}
+          type="text"
+          value={inviteInput}
+        />
+      </label>
+      <p className="cs-extension-note">
+        Connecting creates research that is saved as a public sourced fact card. Cards never identify who requested them.
+      </p>
+      {error ? <p className="cs-extension-error">{error}</p> : null}
+      <div className="cs-extension-actions">
+        <span>Paste the link Samay sent you</span>
+        <button className="cs-extension-button" disabled={connecting} type="submit">
+          {connecting ? "Connecting" : "Connect"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export function ConnectionPanel({
+  onConnected,
   onSupport,
   themePreference,
   onThemePreferenceChange
 }: {
+  onConnected: () => void;
   onSupport: () => void;
   themePreference: ThemePreference;
   onThemePreferenceChange: (preference: ThemePreference) => void;
 }) {
+  const firefox = typeof chrome !== "undefined" && !("sidePanel" in chrome);
+
   return (
     <ExtensionFrame className="cs-intake-panel" title="Invitation required">
       <PanelHeader
         eyebrow="Friend alpha"
-        title="Open your invitation"
-        value="The invitation connects this installation in one click."
+        title={firefox ? "Connect your invitation" : "Open your invitation"}
+        value={
+          firefox
+            ? "Paste the invitation link to connect this installation."
+            : "The invitation connects this installation in one click."
+        }
       />
-      <div className="cs-access-card cs-access-card-friendly">
-        <span className="cs-classification-dot" aria-hidden="true" />
-        <div>
-          <strong>Return to the invitation Samay sent you.</strong>
-          <p>Install Cold Start, come back to that page, then choose Connect Cold Start. No setup code is needed here.</p>
+      {firefox ? (
+        <FirefoxInviteForm onConnected={onConnected} themePreference={themePreference} />
+      ) : (
+        <div className="cs-access-card cs-access-card-friendly">
+          <span className="cs-classification-dot" aria-hidden="true" />
+          <div>
+            <strong>Return to the invitation Samay sent you.</strong>
+            <p>Install Cold Start, come back to that page, then choose Connect Cold Start. No setup code is needed here.</p>
+          </div>
         </div>
-      </div>
+      )}
       <div className="cs-extension-actions">
         <a
           className="cs-extension-button"
@@ -1556,6 +1658,13 @@ export function SidePanel() {
     if (import.meta.env.PROD) {
       return (
         <ConnectionPanel
+          onConnected={() => {
+            void clearCachedCards().finally(() => {
+              firstCardPainted.current = false;
+              setAlphaAccess(null);
+              void readSettings().then((nextSettings) => setSettings(nextSettings));
+            });
+          }}
           onSupport={requestSupport}
           onThemePreferenceChange={handleThemePreferenceChange}
           themePreference={themePreference}

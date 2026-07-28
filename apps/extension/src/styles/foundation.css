@@ -355,6 +355,12 @@ button {
   box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.78) inset;
 }
 
+/* The pasted invitation link is far wider than the panel; keep the tail visible
+   as an ellipsis instead of scrolling the field. */
+.cs-invite-code-input {
+  text-overflow: ellipsis;
+}
+
 .cs-extension-field input:focus {
   border-color: var(--color-seal);
   box-shadow:

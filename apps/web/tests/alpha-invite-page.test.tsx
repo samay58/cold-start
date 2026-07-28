@@ -21,7 +21,7 @@ describe("alpha invitation page", () => {
   it("requires desktop Chrome 116 or newer", () => {
     expect(browserSupportFromUserAgent(
       "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/116.0.0.0 Safari/537.36"
-    )).toEqual({ supported: true, chromeMajor: 116 });
+    )).toEqual({ supported: true, browser: "chrome", chromeMajor: 116 });
     expect(browserSupportFromUserAgent(
       "Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36"
     )).toEqual({ supported: false, reason: "version" });
@@ -31,6 +31,30 @@ describe("alpha invitation page", () => {
     expect(browserSupportFromUserAgent(
       "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 CriOS/126.0 Mobile"
     )).toEqual({ supported: false, reason: "mobile" });
+  });
+
+  it("accepts desktop Firefox 140 or newer, matching the extension's strict_min_version", () => {
+    expect(browserSupportFromUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:140.0) Gecko/20100101 Firefox/140.0"
+    )).toEqual({ supported: true, browser: "firefox", firefoxMajor: 140 });
+    expect(browserSupportFromUserAgent(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:139.0) Gecko/20100101 Firefox/139.0"
+    )).toEqual({ supported: false, reason: "version" });
+    expect(browserSupportFromUserAgent(
+      "Mozilla/5.0 (Android 15; Mobile; rv:140.0) Gecko/140.0 Firefox/140.0"
+    )).toEqual({ supported: false, reason: "mobile" });
+  });
+
+  it("walks Firefox testers through install and panel-side connection", () => {
+    const html = renderJourney({
+      code: "firefox_connect",
+      inviteAllowance: { profile: 12, lens: 6 }
+    });
+
+    expect(html).toContain("/firefox/cold-start.xpi");
+    expect(html).toContain("paste");
+    expect(html).toContain("invitation link");
+    expect(html).toContain("sidebar");
   });
 
   it("scrubs the fragment before hydration and keeps it only in session storage", () => {

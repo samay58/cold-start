@@ -16,7 +16,9 @@ export const alphaInviteRequestSchema = z.object({
 }).strict();
 
 export const alphaInviteRedeemRequestSchema = alphaInviteRequestSchema.extend({
-  browser: z.literal("chrome"),
+  // Chrome redeems through the invite page's external message; Firefox has no
+  // page-to-extension messaging (Bugzilla 1319168), so its panel redeems directly.
+  browser: z.enum(["chrome", "firefox"]),
   channel: z.literal("unlisted"),
   extensionVersion: z.string().regex(/^\d+(?:\.\d+){1,3}$/).max(32),
   clientContract: z.string().min(1).max(128),

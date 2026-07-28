@@ -1,7 +1,17 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { extensionManifest } from "../manifest.config";
 
 describe("extensionManifest", () => {
+  it("sources its version from the extension package.json so a release is one bump", () => {
+    const packageVersion = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    }).version;
+
+    expect(extensionManifest({ command: "build", mode: "production" }).version).toBe(packageVersion);
+    expect(extensionManifest({ command: "build", mode: "production" }, "firefox").version).toBe(packageVersion);
+  });
+
   it("does not ship localhost host permissions in production builds", () => {
     const manifest = extensionManifest({ command: "build", mode: "production" });
 
@@ -24,6 +34,7 @@ describe("extensionManifest", () => {
     expect(manifest.externally_connectable).toEqual({
       matches: ["https://cold-start.semitechie.vc/*"]
     });
+    expect("browser_specific_settings" in manifest).toBe(false);
   });
 
   it("builds the firefox variant with sidebar_action and no Chrome-only permissions", () => {
@@ -40,6 +51,12 @@ describe("extensionManifest", () => {
     expect(manifest.browser_specific_settings.gecko.id).toBe("cold-start@semitechie.vc");
     expect(manifest.browser_specific_settings.gecko.strict_min_version).toBe("140.0");
     expect(manifest.browser_specific_settings.gecko.data_collection_permissions.required).toEqual(["browsingActivity"]);
+    // Unlisted builds get no AMO update hosting; updates are self-hosted from the
+    // public web origin. The url is baked into the signed XPI, so it must be the
+    // permanent custom domain, never a vercel.app deployment origin.
+    expect(manifest.browser_specific_settings.gecko.update_url).toBe(
+      "https://cold-start.semitechie.vc/firefox/updates.json"
+    );
     expect(manifest.incognito).toBe("not_allowed");
     // CRXJS 2.7.1's firefox target requires the event-page shape in source; it
     // does not translate a service_worker key (crashes in renderCrxManifest).

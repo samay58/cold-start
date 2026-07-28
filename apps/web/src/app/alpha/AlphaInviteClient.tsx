@@ -52,6 +52,7 @@ type ViewCode =
   | "connecting"
   | "disclosure"
   | "expired"
+  | "firefox_connect"
   | "generation_disabled"
   | "installation_limit"
   | "invalid_invite"
@@ -147,6 +148,32 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
           setView({
             code: browserSupport.reason === "version" ? "unsupported_version" : "unsupported_browser"
           });
+        }
+        return;
+      }
+
+      // Firefox has no page-to-extension messaging (Bugzilla 1319168), so the page
+      // cannot detect or connect the installation. It inspects the invitation,
+      // gathers the same disclosure consent, then hands off to the sidebar panel,
+      // which redeems the pasted invitation link itself.
+      if (browserSupport.browser === "firefox") {
+        const firefoxInvite = retainedInviteToken(window.sessionStorage);
+        if (!firefoxInvite) {
+          if (active) setView({ code: "invalid_invite" });
+          return;
+        }
+        const firefoxInspection = await inspectInvite(firefoxInvite);
+        if (!firefoxInspection.ok) {
+          if (active) setView({ code: firefoxInspection.code });
+          return;
+        }
+        const firefoxConsented = window.sessionStorage.getItem(ALPHA_CONSENT_SESSION_KEY) === "yes";
+        if (active) {
+          setView(
+            firefoxConsented
+              ? { code: "firefox_connect", inviteAllowance: firefoxInspection.allowance }
+              : { code: "disclosure", inviteAllowance: firefoxInspection.allowance }
+          );
         }
         return;
       }
@@ -335,6 +362,24 @@ export function JourneyPanel({
     );
   }
 
+  if (view.code === "firefox_connect") {
+    return (
+      <section className={styles.panel}>
+        <p className={styles.stateLabel}>Firefox setup</p>
+        <h2>Install, then connect in the sidebar</h2>
+        <ul className={styles.disclosures}>
+          <li>Download the signed build below; Firefox installs it directly.</li>
+          <li>Open any company site and click the Cold Start toolbar button to open the sidebar.</li>
+          <li>In the sidebar, paste the invitation link Samay sent you and choose Connect.</li>
+          <li>Once connected, the sidebar shows your allowance. This page cannot check the connection from Firefox.</li>
+        </ul>
+        <a className={styles.primaryAction} href="/firefox/cold-start.xpi">
+          Download Cold Start for Firefox
+        </a>
+      </section>
+    );
+  }
+
   if (view.code === "not_installed") {
     return (
       <StatePanel
@@ -415,7 +460,10 @@ function allowanceCopy(allowance: Allowance | undefined) {
 function stateCopy(code: ViewCode, storeUrl: string) {
   void storeUrl;
   const states: Record<
-    Exclude<ViewCode, "checking" | "connecting" | "disclosure" | "not_installed" | "ready" | "ready_to_connect">,
+    Exclude<
+      ViewCode,
+      "checking" | "connecting" | "disclosure" | "firefox_connect" | "not_installed" | "ready" | "ready_to_connect"
+    >,
     { label: string; title: string; copy: string; action: "retry" | "store" | "support" }
   > = {
     access_disabled: {
@@ -491,15 +539,15 @@ function stateCopy(code: ViewCode, storeUrl: string) {
       action: "retry"
     },
     unsupported_browser: {
-      label: "Desktop Chrome required",
-      title: "Open this invitation in Chrome on a computer",
-      copy: "The friend alpha uses Chrome’s side panel and is not available in mobile browsers, Safari, Firefox, or Edge yet.",
+      label: "Desktop browser required",
+      title: "Open this invitation in Chrome or Firefox on a computer",
+      copy: "The friend alpha runs in Chrome’s side panel or Firefox’s sidebar and is not available in mobile browsers, Safari, or Edge yet.",
       action: "support"
     },
     unsupported_version: {
-      label: "Chrome update required",
-      title: "Update Chrome before installing",
-      copy: "Cold Start needs Chrome 116 or newer for the side panel connection.",
+      label: "Browser update required",
+      title: "Update your browser before installing",
+      copy: "Cold Start needs Chrome 116 or newer, or Firefox 140 or newer, for the sidebar connection.",
       action: "support"
     },
     update_required: {
