@@ -9,6 +9,7 @@ export type Clipping = {
   url: string;
   domain: string;
   title: string;
+  note: string;
   sourceClass: ClippingSourceClass;
   imageUrl: string | null;
 };
@@ -51,6 +52,37 @@ function domainFromUrl(url: string): string {
   }
 }
 
+function titleCarriesContext(title: string, domain: string) {
+  const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9]+/g, " ").trim();
+  if (!normalizedTitle || new Set(["company", "docs", "filing", "home", "homepage", "official site", "repo"]).has(normalizedTitle)) {
+    return false;
+  }
+  const domainWords = new Set(normalizedDomain.split(" ").filter(Boolean));
+  return normalizedTitle.split(" ").some((word) => !domainWords.has(word));
+}
+
+function clippingNote(sourceClass: ClippingSourceClass, title: string, domain: string) {
+  const cleanTitle = title.replace(/\s+/g, " ").trim();
+  if (cleanTitle && titleCarriesContext(cleanTitle, domain)) {
+    return cleanTitle;
+  }
+
+  const fallback: Record<ClippingSourceClass, string> = {
+    company_site: "How the company describes its product and position",
+    customer_proof: "Customer evidence and the work the product supports",
+    database: "Company registration and operating details",
+    docs: "How the product works in practice",
+    funding: "Financing history and the investors behind it",
+    jobs: "Hiring priorities and operating footprint",
+    news: "Recent reporting on the company",
+    other: "Public context on the company",
+    people: "Team and leadership background",
+    registry: "Filed company records"
+  };
+  return fallback[sourceClass];
+}
+
 function clippingFromRaw(raw: unknown): Clipping | null {
   if (!raw || typeof raw !== "object") {
     return null;
@@ -64,11 +96,13 @@ function clippingFromRaw(raw: unknown): Clipping | null {
   const title = typeof record.title === "string" ? record.title : "";
   const domain = typeof record.domain === "string" && record.domain ? record.domain : domainFromUrl(url);
   const imageUrl = typeof record.imageUrl === "string" ? record.imageUrl : null;
+  const sourceClass = clippingSourceClass(sourceType as ClippingSourceType, url, title);
   return {
     url,
     domain,
     title,
-    sourceClass: clippingSourceClass(sourceType as ClippingSourceType, url, title),
+    sourceClass,
+    note: clippingNote(sourceClass, title, domain),
     imageUrl
   };
 }
@@ -103,11 +137,13 @@ export function clippingsFromSources(sources: ExtensionSourceSummary[]): Clippin
     if (byUrl.has(source.url)) {
       continue;
     }
+    const sourceClass = clippingSourceClass(source.sourceType, source.url, source.title);
     byUrl.set(source.url, {
       url: source.url,
       domain: source.domain,
       title: source.title,
-      sourceClass: clippingSourceClass(source.sourceType, source.url, source.title),
+      sourceClass,
+      note: clippingNote(sourceClass, source.title, source.domain),
       imageUrl: source.imageUrl ?? null
     });
   }

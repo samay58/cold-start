@@ -125,28 +125,30 @@ function SealedLensRow() {
   );
 }
 
-// What the research layer will hold, shown with the real module titles before any of them can
-// run. The first four modules preview the shape; the rest are counted, not invented.
-// This only ever mounts at intake: building does not render ArcStack at all, so there is no
-// separate head note to state here (the intake note above this stack already covers scope).
-function ArcStack() {
+// A flat filing preview. It shows the real profile modules without turning the intake into a
+// stack of nested cards or inventing research that has not happened yet.
+function FilingPreview() {
   const previews = RESEARCH_LAYER_CARDS.slice(0, 4);
   const remaining = RESEARCH_LAYER_CARDS.length - previews.length;
 
   return (
-    <section className="cs-arc-stack" aria-label="Research scope">
-      <div className="cs-arc-stack-cards">
+    <section className="cs-intake-file" aria-label="Research scope">
+      <div className="cs-intake-file-head">
+        <span>What gets filed</span>
+        <span>{RESEARCH_LAYER_CARDS.length} sections</span>
+      </div>
+      <div className="cs-intake-file-rows">
         {previews.map((layer, index) => (
-          <article className="cs-arc-stack-card" key={layer.id}>
-            <span className="cs-arc-stack-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-            <span className="cs-arc-stack-copy">
+          <div className="cs-intake-file-row" key={layer.id}>
+            <span className="cs-intake-file-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+            <span className="cs-intake-file-copy">
               <strong>{layer.title}</strong>
               <span>{layer.description}</span>
             </span>
-          </article>
+          </div>
         ))}
       </div>
-      <p className="cs-arc-stack-more">{`+${remaining} more file once the profile is ready`}</p>
+      <p className="cs-intake-file-more">{`+${remaining} more file once the profile is ready`}</p>
       <SealedLensRow />
     </section>
   );
@@ -481,13 +483,7 @@ export function CompanyArc({
         {alphaAccess && arc.phase !== "building" ? <AlphaPosture access={alphaAccess} /> : null}
 
         <AnimatePresence initial={false}>
-          {building && buildingPayoff?.firstPayoff ? (
-            <ReadRegion
-              context="building"
-              domain={domain}
-              firstPayoff={buildingPayoff.firstPayoff}
-            />
-          ) : profile && profileRead?.showRead && profileRead.firstPayoff ? (
+          {profile && profileRead?.showRead && profileRead.firstPayoff ? (
             <ReadRegion
               context="profile"
               domain={domain}
@@ -497,19 +493,29 @@ export function CompanyArc({
         </AnimatePresence>
 
         {building ? (
-          <>
+          <section className="cs-building-flow" aria-label="Research in progress">
             <Clippings
               clippings={clippingsFromEvents(building.events)}
               companyDomain={domain}
               prefersReducedMotion={prefersReducedMotion}
+              variant="carousel"
             />
+            <AnimatePresence initial={false}>
+              {buildingPayoff?.firstPayoff ? (
+                <ReadRegion
+                  context="building"
+                  domain={domain}
+                  firstPayoff={buildingPayoff.firstPayoff}
+                />
+              ) : null}
+            </AnimatePresence>
+            <SealedLensRow />
             <ResearchTrail
               companyDomain={domain}
               events={building.events}
               generationStatus={building.generationStatus}
             />
-            <SealedLensRow />
-          </>
+          </section>
         ) : null}
 
         {profile ? (
@@ -520,6 +526,7 @@ export function CompanyArc({
             clippings={clippingsFromSources(profile.sources ?? [])}
             companyDomain={domain}
             prefersReducedMotion={prefersReducedMotion}
+            variant="filed"
           />
         ) : null}
 
@@ -538,7 +545,7 @@ export function CompanyArc({
                 </svg>
               </button>
             </section>
-            <ArcStack />
+            <FilingPreview />
           </>
         ) : null}
 

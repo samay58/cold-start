@@ -40,6 +40,7 @@ function clipping(overrides: Partial<Clipping> & Pick<Clipping, "domain">): Clip
   return {
     url: `https://${overrides.domain}`,
     title: overrides.domain,
+    note: "How the company describes its product and position",
     sourceClass: "company_site",
     imageUrl: null,
     ...overrides
@@ -89,6 +90,26 @@ describe("Clippings", () => {
     expect(items[0]?.querySelector(".cs-clipping-domain")?.textContent).toBe("exa.ai");
     expect(items[1]?.querySelector(".cs-clipping-dot")?.getAttribute("data-source-class")).toBe("funding");
     expect(container.textContent).toContain("Funding");
+  });
+
+  it("keeps one source in focus with only two faded sources waiting behind it", async () => {
+    const clippings = [
+      clipping({ domain: "a.com", note: "Company positioning" }),
+      clipping({ domain: "b.com", note: "Product documentation" }),
+      clipping({ domain: "c.com", note: "Customer evidence" }),
+      clipping({ domain: "d.com", note: "Funding history" })
+    ];
+    const container = await render(
+      <Clippings clippings={clippings} prefersReducedMotion={true} variant="carousel" />
+    );
+
+    const items = container.querySelectorAll(".cs-clipping");
+    expect(items).toHaveLength(3);
+    expect(items[0]?.getAttribute("data-active")).toBe("true");
+    expect(items[1]?.getAttribute("data-position")).toBe("1");
+    expect(items[2]?.getAttribute("data-position")).toBe("2");
+    expect(container.textContent).toContain("Company positioning");
+    expect(container.textContent).not.toContain("Funding history");
   });
 
   it("falls back to a plain classification dot instead of a favicon when the chrome api is absent", async () => {

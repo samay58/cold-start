@@ -5,7 +5,8 @@ import {
   acceptedSourceCountFromEvents,
   buildResearchProgressPlan,
   generationStageIndexFromEvents,
-  RESEARCH_PROGRESS_STAGES
+  RESEARCH_PROGRESS_STAGES,
+  type ResearchProgressStatus
 } from "./research-progress";
 
 // The full build tree only appears behind the Details toggle (or on attention), so its chunk
@@ -48,9 +49,24 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
   return "Checking company, product, funding, and proof sources";
 }
 
-// The header whisper (cs-assembly-whisper in CompanyArc) is the status voice and the clippings
-// are the content, so the trail is only the quiet details toggle plus the tree it opens
-// (auto-open on attention).
+function StageMark({ status }: { status: ResearchProgressStatus }) {
+  return (
+    <span aria-hidden="true" className="cs-progress-ledger-mark" data-status={status}>
+      {status === "done" ? (
+        <svg viewBox="0 0 16 16"><path d="m3.5 8.2 2.7 2.7 6.2-6.1" /></svg>
+      ) : status === "failed" ? (
+        <svg viewBox="0 0 16 16"><path d="m4.2 4.2 7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
+      ) : status === "attention" ? (
+        <svg viewBox="0 0 16 16"><path d="M8 3.5v5.3M8 12.2h.01" /></svg>
+      ) : (
+        <span />
+      )}
+    </span>
+  );
+}
+
+// Clippings carry the readable content. This ledger keeps the four real research stages visible,
+// while the deeper event tree stays behind Details unless something needs attention.
 export function ResearchTrail({
   companyDomain,
   events,
@@ -86,6 +102,20 @@ export function ResearchTrail({
       aria-label="Research details"
       data-attention={needsAttention ? "true" : "false"}
     >
+      <ol className="cs-progress-ledger">
+        {plan.map((stage, index) => (
+          <li
+            aria-current={index === activeIndex ? "step" : undefined}
+            data-active={index === activeIndex ? "true" : "false"}
+            data-status={stage.status}
+            key={stage.marker}
+          >
+            <StageMark status={stage.status} />
+            <span className="cs-progress-ledger-label">{stage.label}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="cs-progress-ledger-note">{plan[activeIndex]?.proofLine ?? stageNote}</p>
       {showDetailsControl ? (
         <button
           aria-expanded={detailsOpen}

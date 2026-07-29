@@ -81,8 +81,8 @@
 
 .cs-arc-intake {
   display: grid;
-  gap: 12px;
-  margin: 4px 12px 0;
+  gap: 14px;
+  margin: 8px 12px 0;
 }
 
 .cs-arc-intake-note {
@@ -154,64 +154,81 @@
   background: transparent;
 }
 
-.cs-arc-stack {
+.cs-intake-file {
   display: grid;
-  gap: 10px;
-  margin: 0 12px 12px;
-  padding: 12px 14px 13px;
-  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.72);
-  border-radius: 8px;
-  background: rgb(var(--cs-c-255-253-248) / 0.66);
+  gap: 0;
+  margin: 6px 12px 12px;
+  padding-top: 11px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.72);
 }
 
-.cs-arc-stack-cards {
-  display: grid;
-  gap: 7px;
+.cs-intake-file-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px 10px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.cs-arc-stack-card {
+.cs-intake-file-head span:first-child {
+  color: var(--color-ink);
+}
+
+.cs-intake-file-rows {
+  display: grid;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.5);
+  border-bottom: 1px solid rgb(var(--cs-c-204-199-184) / 0.5);
+}
+
+.cs-intake-file-row {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
-  gap: 11px;
+  gap: 10px;
   align-items: center;
-  padding: 8px 11px;
-  border: 1px solid var(--color-rule);
-  border-radius: 7px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-254-250) / 0.94), rgb(var(--cs-c-253-250-243) / 0.88)),
-    var(--color-plate);
+  min-height: 48px;
+  padding: 8px 2px;
 }
 
-.cs-arc-stack-index {
+.cs-intake-file-row + .cs-intake-file-row {
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.42);
+}
+
+.cs-intake-file-index {
   color: var(--color-seal);
   font-family: var(--font-text);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
 }
 
-.cs-arc-stack-copy {
+.cs-intake-file-copy {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
-.cs-arc-stack-copy strong {
+.cs-intake-file-copy strong {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 12.5px;
+  font-size: 12.75px;
   font-weight: 640;
   line-height: 1.1;
 }
 
-.cs-arc-stack-copy span {
+.cs-intake-file-copy span {
   color: var(--color-muted);
   font-size: 11px;
   line-height: 1.25;
 }
 
-.cs-arc-stack-more {
-  margin: 0;
+.cs-intake-file-more {
+  margin: 9px 2px 12px;
   color: var(--color-muted);
   font-size: 10.5px;
   font-weight: 560;
@@ -732,11 +749,27 @@
   overflow: hidden;
 }
 
-/*
- * Clippings: source receipts as the card's first content. Awaiting reserves a quiet ruled slot
- * with no shimmer; each clipping arrives on its own source event and carries a favicon (or a
- * thumbnail for up to two news/funding items), a classification dot, the domain, and the kind.
- */
+/* Source clippings. The building variant is a three-position reading carousel. The filed
+   variant remains a compact source receipt row on completed profiles. */
+.cs-building-flow {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: clamp(410px, calc(100vh - 250px), 620px);
+}
+
+.cs-building-flow > .cs-read-region {
+  margin-top: 12px;
+}
+
+.cs-building-flow > .cs-lens-sealed {
+  margin: 14px 12px 0;
+}
+
+.cs-building-flow > .cs-assembly-details {
+  margin-top: auto;
+}
+
 .cs-clippings {
   margin: 10px 12px 0;
 }
@@ -766,7 +799,7 @@
   max-width: 100%;
 }
 
-.cs-clipping a {
+.cs-clipping-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -779,6 +812,25 @@
     var(--color-plate);
   color: var(--color-ink);
   text-decoration: none;
+}
+
+.cs-clipping-copy,
+.cs-clipping-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.cs-clipping-copy {
+  gap: 0;
+}
+
+.cs-clipping-meta {
+  gap: 6px;
+}
+
+.cs-clipping-note {
+  display: none;
 }
 
 .cs-clipping-thumb {
@@ -841,4 +893,160 @@
   letter-spacing: 0.04em;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.cs-clippings[data-variant="carousel"] {
+  margin-top: 14px;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clippings-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clippings-head span:first-child {
+  color: var(--color-ink);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clippings-list {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  min-height: 194px;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping {
+  width: 100%;
+  transform-origin: center top;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-link {
+  position: relative;
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 11px;
+  width: 100%;
+  max-width: none;
+  min-height: 58px;
+  overflow: hidden;
+  padding: 9px 11px;
+  border-color: rgb(var(--cs-c-204-199-184) / 0.68);
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.94), rgb(var(--cs-c-247-244-236) / 0.86)),
+    var(--color-plate);
+  box-shadow: 0 3px 12px rgb(var(--cs-c-23-26-31) / 0.035);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-active="true"] .cs-clipping-link {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.38);
+  background:
+    linear-gradient(102deg, rgb(var(--cs-c-110-92-158) / 0.12), transparent 42%),
+    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.98), rgb(var(--cs-c-247-244-236) / 0.9)),
+    var(--color-plate);
+  box-shadow:
+    0 8px 22px rgb(var(--cs-c-23-26-31) / 0.07),
+    0 0 0 1px rgb(var(--cs-c-110-92-158) / 0.06);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
+.cs-clippings[data-variant="carousel"] .cs-clipping-favicon,
+.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
+  align-self: center;
+  width: 50px;
+  height: 40px;
+  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
+  border-radius: 5px;
+  background: var(--color-field);
+  object-fit: cover;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
+  display: grid;
+  place-items: center;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark .cs-clipping-dot {
+  width: 9px;
+  height: 9px;
+  box-shadow: 0 0 0 5px rgb(var(--cs-c-110-92-158) / 0.07);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
+  padding: 12px;
+  object-fit: contain;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-copy {
+  display: grid;
+  gap: 5px;
+  align-content: center;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-note {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 12.25px;
+  font-weight: 540;
+  line-height: 1.32;
+  text-wrap: pretty;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-domain {
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-kind {
+  font-size: 8.5px;
+}
+
+.cs-clipping-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(104deg, transparent 20%, rgb(var(--cs-c-255-255-255-sheen) / 0.58) 47%, transparent 72%);
+  pointer-events: none;
+  transform: translateX(-120%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-clipping[data-active="true"] .cs-clipping-sweep {
+    animation: cs-clipping-sweep 620ms var(--cs-motion-ease-out) 90ms both;
+  }
+}
+
+@keyframes cs-clipping-sweep {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@media (max-width: 360px) {
+  .cs-clippings[data-variant="carousel"] .cs-clipping-link {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 9px;
+  }
+
+  .cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
+  .cs-clippings[data-variant="carousel"] .cs-clipping-favicon,
+  .cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
+    width: 42px;
+    height: 36px;
+  }
+
+  .cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
+    padding: 10px;
+  }
 }

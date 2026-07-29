@@ -781,8 +781,18 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(page.locator(".cs-clippings")).toHaveAttribute("data-state", "settled");
   const clippings = page.locator(".cs-clipping");
   await expect(clippings).toHaveCount(3);
+  await expect(clippings.nth(0)).toHaveAttribute("data-active", "true");
   await expect(clippings.nth(2)).toContainText("techcrunch.com");
   await expect(clippings.nth(2)).toContainText("Funding");
+
+  const stageLedger = page.locator(".cs-progress-ledger");
+  await expect(stageLedger).toBeVisible();
+  await expect(stageLedger.locator('[data-active="true"]')).toContainText("Proof");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
+
+  await page.waitForTimeout(3600);
+  await expect(page.locator('.cs-clipping[data-active="true"]')).toContainText("docs.cartesia.ai");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings-next.png" });
 
   // The full tree waits behind Details, and still carries the honest verbs when opened.
   await page.locator(".cs-assembly-details-toggle").click();

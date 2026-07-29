@@ -62,6 +62,8 @@ describe("clippingsFromEvents", () => {
     ]);
     expect(clippings[2]?.imageUrl).toBe("https://img/tc.png");
     expect(clippings[0]?.imageUrl).toBeNull();
+    expect(clippings[0]?.note).toBe("How the company describes its product and position");
+    expect(clippings[2]?.note).toBe("Exa raises a Series B round");
   });
 
   it("dedupes repeated urls across events and ignores non-source events", () => {
@@ -150,6 +152,7 @@ describe("clippingsFromSources", () => {
     expect(clippings.map((clipping) => clipping.sourceClass)).toEqual(["company_site", "database", "funding"]);
     expect(clippings[2]?.imageUrl).toBe("https://img/w.png");
     expect(clippings[0]?.imageUrl).toBeNull();
+    expect(clippings[1]?.note).toBe("Company registration and operating details");
   });
 });
 

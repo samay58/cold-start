@@ -1,12 +1,119 @@
 /* Building details: the quiet toggle and the tree it opens; the whisper carries the status. */
 .cs-assembly-details {
   display: grid;
-  gap: 8px;
-  margin: 8px 12px 0;
+  gap: 9px;
+  margin: 14px 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.58);
+}
+
+.cs-progress-ledger {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-progress-ledger::before {
+  position: absolute;
+  top: 8px;
+  right: 11%;
+  left: 11%;
+  height: 1px;
+  background: var(--color-rule);
+  content: "";
+}
+
+.cs-progress-ledger li {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.cs-progress-ledger li[data-status="done"],
+.cs-progress-ledger li[data-active="true"] {
+  color: var(--color-ink);
+}
+
+.cs-progress-ledger-mark {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 50%;
+  background: var(--color-plate);
+  color: var(--color-muted);
+}
+
+.cs-progress-ledger-mark > span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cs-progress-ledger-mark svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.cs-progress-ledger-mark[data-status="done"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.28);
+  background: rgb(var(--cs-c-110-92-158) / 0.1);
+  color: var(--color-seal);
+}
+
+.cs-progress-ledger-mark[data-status="running"] {
+  border-color: rgb(var(--cs-c-110-92-158) / 0.45);
+  color: var(--color-seal);
+  box-shadow: 0 0 0 4px rgb(var(--cs-c-110-92-158) / 0.08);
+}
+
+.cs-progress-ledger-mark[data-status="attention"] {
+  color: var(--color-company);
+}
+
+.cs-progress-ledger-mark[data-status="failed"] {
+  color: var(--color-conflict);
+}
+
+.cs-progress-ledger-label {
+  overflow: hidden;
+  max-width: 100%;
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 620;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-progress-ledger-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 10.5px;
+  font-weight: 540;
+  line-height: 1.35;
+  text-align: center;
 }
 
 .cs-assembly-details-toggle {
-  justify-self: start;
+  justify-self: center;
   padding: 0;
   border: 0;
   background: transparent;
@@ -17,6 +124,24 @@
   font-weight: 720;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-progress-ledger-mark[data-status="running"] > span {
+    animation: cs-ledger-pulse 1.4s var(--cs-motion-ease-out) infinite;
+  }
+}
+
+@keyframes cs-ledger-pulse {
+  0%, 100% {
+    opacity: 0.38;
+    transform: scale(0.82);
+  }
+
+  48% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
 }
 
 .cs-assembly-details-toggle:hover,

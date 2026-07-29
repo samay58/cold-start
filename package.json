@@ -120,7 +120,8 @@
       "dropdb"
     ],
     "ignore": [
-      "apps/extension/public/theme-boot.js"
+      "apps/extension/public/theme-boot.js",
+      "docs/design/mockups/**"
     ]
   }
 }
