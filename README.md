@@ -267,9 +267,15 @@ npm run build -w @cold-start/extension
 
 If the side panel reports an API contract mismatch, restart or deploy the API, rebuild the extension, reload `apps/extension/dist`, and reopen the side panel. The contract version lives in `packages/core/api-contract.json`.
 
-### Firefox (experimental)
+### Firefox
 
-The Firefox port is in progress (`docs/superpowers/plans/2026-07-13-firefox-port.md`). Build the Firefox target and run it in a scratch profile:
+The Firefox build ships as a Mozilla-signed, self-distributed XPI (`docs/superpowers/plans/2026-07-13-firefox-port.md` records the port). Firefox 140 or newer is required.
+
+Testers install from the invitation: the invite page detects Firefox, links the signed XPI at `/firefox/cold-start.xpi`, and Firefox installs it directly. Because Firefox has no page-to-extension messaging, the invitation is connected inside the sidebar: open any company site, click the Cold Start toolbar button, and paste the invitation link into the panel's connect form.
+
+Firefox uses a window-scoped sidebar instead of Chrome's per-tab side panel: the sidebar shows the last researched company in that window, the toolbar click is what researches the current tab, and a quiet hint appears when the visible tab no longer matches the researched one.
+
+For local development, build with the local origin and run in a scratch profile:
 
 ```bash
 VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN=true \
@@ -278,7 +284,7 @@ npm run build:firefox -w @cold-start/extension
 npx web-ext run --source-dir apps/extension/dist-firefox
 ```
 
-Firefox uses a window-scoped sidebar instead of Chrome's per-tab side panel: the sidebar shows the last researched company in that window, and the toolbar click is what researches the current tab. Local builds relax the extension-pages CSP because Firefox's default upgrades `http://localhost` fetches to https; production builds keep the default.
+Local builds relax the extension-pages CSP because Firefox's default upgrades `http://localhost` fetches to https; production builds keep Mozilla's default. Releases go through `npm run package:firefox` (deterministic artifact plus manifest inspection), `npm run sign:firefox` (AMO unlisted signing with the reviewer source package attached), and `npm run release:firefox -- <signed.xpi>` (publishes the XPI and stamps `updates.json` for self-hosted updates); `docs/deployment.md` documents the lane.
 
 ## Quality Gates
 

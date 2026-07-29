@@ -316,6 +316,54 @@ Submit the ZIP manually as Unlisted with deferred publishing. Use the materials
 in `docs/product/chrome-web-store-alpha/`. Do not advance
 `release-version.json` until Chrome accepts the version.
 
+## Firefox Release Lane
+
+The Firefox build is Mozilla-signed and self-distributed (unlisted channel; AMO
+does not host unlisted updates). Firefox floor is 140.0. One version source:
+`apps/extension/package.json`. Every AMO signing needs a bump first:
+
+```bash
+npm version patch --no-git-tag-version -w @cold-start/extension
+npm install --package-lock-only
+```
+
+Then, from a clean committed tree:
+
+```bash
+npm run package:firefox            # pinned-env production build, manifest inspection,
+                                   # deterministic zip under dist/firefox/; --verify double-builds
+npm run sign:firefox               # packager + reviewer source zip + web-ext sign
+npm run release:firefox -- apps/extension/web-ext-artifacts/<signed>.xpi
+```
+
+`sign:firefox` needs `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` in the
+environment (addons.mozilla.org → Tools → Manage API Keys; keep them in
+`.env.local` or `~/.secrets.zsh`, never git). It attaches the reviewer source
+package (`package:firefox:source`, a `git archive` of the extension build graph
+plus `apps/extension/README-REVIEWERS.md`) to the submission via
+`--upload-source-code`. Automated signing can take up to 24 hours; manual review
+up to two weeks.
+
+`release:firefox` copies the signed XPI into `apps/web/public/firefox/` under
+its versioned name plus the stable `cold-start.xpi` the invite page links, and
+stamps the version and sha256 into `updates.json`, which the extension's baked
+`gecko.update_url` (`https://cold-start.semitechie.vc/firefox/updates.json`)
+polls. Commit and deploy the web app afterwards; nothing reaches testers until
+it ships. The web app serves `.xpi` as `application/x-xpinstall`.
+
+Reproducibility is enforced twice: `package:firefox --verify` builds twice
+locally and asserts identical zip bytes, and the `firefox-reproducibility` CI
+job builds two clean checkouts on Node 24.14.0 (the documented AMO reviewer
+environment) and diffs the `dist-firefox` file hashes.
+
+Vercel env for Firefox clients: `ALLOWED_EXTENSION_IDS` must include the gecko
+ID `cold-start@semitechie.vc` (the alpha auth path enforces extension ID in
+production). Verify by behavior with a curl, not `vercel env pull`
+(`CHROME_EXTENSION_ID` is Vercel-sensitive and pulls empty). Firefox testers
+connect through the friend-alpha invite: the invite page links the XPI and the
+sidebar panel redeems the pasted invitation link (Firefox has no
+page-to-extension messaging).
+
 ## First Smoke Test
 
 1. Open `/alpha`, `/privacy`, `/robots.txt`, and `/sitemap.xml`.

@@ -41,6 +41,7 @@ Production secrets:
 - `DATABASE_URL`: Neon Postgres connection string.
 - `DATABASE_DIRECT_URL`: dedicated direct Neon connection used only by the guarded production migration command.
 - `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`: hosted Inngest credentials.
+- `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`: AMO JWT credentials for Firefox signing (`npm run sign:firefox`). Local-machine only (`.env.local` or `~/.secrets.zsh`), never Vercel, never git. These can sign and revoke Firefox releases; rotate at addons.mozilla.org → Tools → Manage API Keys if exposed.
 
 The current internal extension token is stored locally at `.vercel/extension-api-token.production.local`. That file is ignored and must not be pasted into docs, commits, screenshots, issue comments, or PR descriptions.
 
@@ -49,6 +50,20 @@ If any real token is exposed, rotate it immediately in the upstream service and 
 ## Extension And Alpha Auth
 
 The extension ID is not a secret. Bearer credentials are secrets.
+
+Two browsers, one identity model: production accepts a request only when the
+`x-cold-start-extension-id` header matches an entry in the allowed-ID list
+(the Chrome store ID or the Firefox gecko ID `cold-start@semitechie.vc`) AND
+the bearer credential validates. The Origin header is demoted to a Chrome-only
+consistency check: a `chrome-extension://` origin must exactly match the
+configured origin, while `moz-extension://` and absent origins are ignored as
+identity, because Firefox sends a per-install random UUID origin (Bugzilla
+1405971) that can be neither enumerated nor trusted. `http(s)` origins stay
+rejected in production unless explicitly allowlisted. The alpha-installation
+path enforces the same ID gate as the operator path. An ID header is
+caller-controlled routing metadata; the credential is the secret, and any
+credential embedded in a distributed build is extractable, which is why testers
+get per-invite revocable credentials rather than a shared token.
 
 Friend invitations and installation access tokens are 32 bytes of randomness
 (`randomBytes(32)`, base64url-encoded). The database stores only their
@@ -106,6 +121,13 @@ The invitation page sends only two typed external messages to the extension.
 The service worker accepts them only from the exact trusted invitation origin.
 Invitation secrets use the URL fragment and are removed immediately with
 `history.replaceState`.
+
+Firefox has no page-to-extension messaging, so on Firefox the sidebar panel
+itself redeems a pasted invitation link through the same `/api/alpha/invite/redeem`
+route and the shared redemption module (`apps/extension/src/shared/alpha-connect.ts`).
+The credential handling is identical: the raw installation credential is stored
+in trusted extension storage and never rendered back to any page. Firefox beta
+distribution is the friend-alpha invite system; no shared Firefox token exists.
 
 `/api/alpha/invite/inspect` and `/api/alpha/invite/redeem` are intentionally
 unauthenticated: a tester has no credential yet when they open the invitation

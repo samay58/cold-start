@@ -51,8 +51,8 @@ export default function PrivacyPage() {
         <p>
           Running Cold Start on a company creates or updates a public fact card at /c/&#123;slug&#125;. That card
           shows sourced public facts and their citations. It never shows investor synthesis, contact emails, or who
-          asked for it. Investor synthesis and professional work emails appear only inside the authenticated Chrome
-          extension.
+          asked for it. Investor synthesis and professional work emails appear only inside the authenticated
+          browser extension.
         </p>
 
         <h2>Work emails</h2>
