@@ -20,7 +20,7 @@ const DEFAULT_API_ORIGIN = defaultApiOrigin(import.meta.env);
 
 export const API_ORIGIN_KEY = "coldStartApiOrigin";
 export const API_TOKEN_KEY = "coldStartApiToken";
-export const INSTALL_CHANNEL_KEY = "coldStartInstallChannel";
+const INSTALL_CHANNEL_KEY = "coldStartInstallChannel";
 export const PENDING_LIFECYCLE_KEY = "coldStartPendingLifecycleEvents";
 
 export function detectedAlphaBrowser(): "chrome" | "firefox" {
@@ -110,7 +110,7 @@ export function pendingLifecycleEvents(value: unknown): PendingLifecycleEvent[] 
   return pending.slice(-4);
 }
 
-export async function flushPendingLifecycle(settings: Settings) {
+async function flushPendingLifecycle(settings: Settings) {
   if (!settings.apiToken) {
     return;
   }
@@ -224,7 +224,7 @@ function safeAllowanceCounter(value: unknown) {
     : null;
 }
 
-export async function alphaResponseFromFetch(response: Response): Promise<AlphaInviteExternalResponse> {
+async function alphaResponseFromFetch(response: Response): Promise<AlphaInviteExternalResponse> {
   const body = await response.json().catch(() => null);
   const parsed = safeAlphaResponse(body);
   if (parsed) {
