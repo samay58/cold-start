@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Petrona:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E4DCC8; }
+  a { color: #6E5C9E; text-decoration: none; border-bottom: 1px solid rgba(110,92,158,0.4); }
+  a:hover { color: #4C3E80; border-bottom-color: #4C3E80; }
+</style>
+</helmet>
+<section style="padding: 56px 64px 96px; font-family: 'IBM Plex Sans', system-ui, sans-serif; color: #20201E; display: flex; flex-direction: column; gap: 40px">
+
+  <div style="display: flex; align-items: flex-start; gap: 22px; max-width: 1060px">
+    <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; border: 1px solid #C3B79A; border-radius: 4px; padding: 4px 8px">1a</div>
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 12px; color: #6E5C9E">cs · cartesia · side panel</div>
+      <h1 style="margin: 0; font-family: 'At Umami', 'Petrona', Georgia, serif; font-weight: 600; font-size: 38px; line-height: 1.08; letter-spacing: -0.01em; max-width: 22ch">The card is filed while you watch</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; max-width: 60ch; text-wrap: pretty; color: #4A463E">The panel is a clerk's desk. Clippings land as the pipeline finds them, each already marked with its source class, and each one retires into the ledger once it is read. The seal inks one arc per closed stage, so the wait is evidence arriving.</p>
+    </div>
+  </div>
+
+  <sc-if value="{{ showEvidenceKey }}" hint-placeholder-val="{{ true }}">
+  <div style="display: flex; flex-wrap: wrap; gap: 26px; align-items: center; padding: 14px 18px; background: #F4EDDC; border: 1px solid #D8CEB6; border-radius: 6px; width: fit-content">
+    <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Source classes</div>
+    <div style="display: flex; align-items: center; gap: 9px; font-size: 13px"><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>verified</div>
+    <div style="display: flex; align-items: center; gap: 9px; font-size: 13px"><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span>reported</div>
+    <div style="display: flex; align-items: center; gap: 9px; font-size: 13px"><span style="width: 9px; height: 9px; border: 1.5px solid #9B6A1E; display: flex; flex: none"><span style="width: 3px; background: #9B6A1E"></span></span>company</div>
+    <div style="display: flex; align-items: center; gap: 9px; font-size: 13px"><span style="width: 9px; height: 9px; border: 1.5px solid #B63A2A; position: relative; overflow: hidden; flex: none"><span style="position: absolute; left: -2px; top: 2px; width: 12px; height: 1.5px; background: #B63A2A; transform: rotate(45deg)"></span></span>conflict</div>
+    <div style="display: flex; align-items: center; gap: 9px; font-size: 13px"><span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #786F62; flex: none"></span>no source</div>
+    <div style="font-size: 13px; color: #786F62">Marks lead the fact. Sections are never tinted.</div>
+  </div>
+  </sc-if>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 44px; align-items: flex-start">
+
+    <!-- 01 INTAKE -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">01 intake · 0:00</div>
+      <div style="width: 400px; min-height: 640px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+        <div style="padding: 26px 24px 24px; display: flex; flex-direction: column; flex: 1">
+          <div style="display: flex; align-items: center; gap: 14px">
+            <div style="width: 46px; height: 46px; border-radius: 4px; border: 1px dashed #C3B79A; display: flex; align-items: center; justify-content: center; flex: none">
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">logo</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 3px; flex: 1">
+              <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 28px; line-height: 1.02; font-weight: 600">Cartesia</div>
+              <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai · no card on file</div>
+            </div>
+          </div>
+
+          <div style="height: 1px; background: #C3B79A; margin-top: 20px"></div>
+
+          <div style="margin: auto 0; display: flex; flex-direction: column">
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 26px; line-height: 1; font-weight: 600; letter-spacing: -0.01em">Ninety seconds</div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px">
+              <span style="width: 22px; height: 1px; background: #6E5C9E; flex: none"></span>
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.2; color: #4A463E">to get up to speed</span>
+            </div>
+
+            <button style="font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 500; color: #F7F5EE; background: #6E5C9E; border: 1px solid #5C4B88; border-radius: 4px; padding: 14px 16px; margin-top: 28px; width: 100%; cursor: pointer" style-hover="background: #5C4B88">Build profile</button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px">
+            <div style="height: 1px; background: #E2D9C4; flex: 1"></div>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">unfiled</span>
+          </div>
+          <div style="position: relative; height: 118px; margin-top: 10px">
+            <div style="position: absolute; left: 202px; top: -10px; transform: rotate(6deg); z-index: 1; width: 146px; height: 106px; background: #FFFDF8; border: 1px solid #CCC7B8; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Comps</span>
+              <div style="height: 1px; background: #EDE6D6"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 78%"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 55%"></div>
+            </div>
+            <div style="position: absolute; left: 0; top: 4px; transform: rotate(-5deg); z-index: 1; width: 146px; height: 106px; background: #FFFDF8; border: 1px solid #CCC7B8; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Who pays</span>
+              <div style="height: 1px; background: #EDE6D6"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 78%"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 55%"></div>
+            </div>
+            <div style="position: absolute; left: -18px; top: 68px; transform: rotate(-11deg); z-index: 2; width: 146px; height: 106px; background: #FFFDF8; border: 1px solid #CCC7B8; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Funding</span>
+              <div style="height: 1px; background: #EDE6D6"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 78%"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 55%"></div>
+            </div>
+            <div style="position: absolute; left: 228px; top: 66px; transform: rotate(9deg); z-index: 2; width: 146px; height: 106px; background: #FFFDF8; border: 1px solid #CCC7B8; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Founders</span>
+              <div style="height: 1px; background: #EDE6D6"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 78%"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 55%"></div>
+            </div>
+            <div style="position: absolute; left: 62px; top: 34px; transform: rotate(-2deg); z-index: 3; width: 146px; height: 106px; background: #FFFDF8; border: 1px solid #CCC7B8; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 9px; box-shadow: 0 6px 18px rgb(23 26 31 / 0.08)">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Product</span>
+              <div style="height: 1px; background: #EDE6D6"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 78%"></div>
+              <div style="height: 1px; background: #EDE6D6; width: 55%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">Recognition at the head, the promise as a ruled display lockup at the optical centre, one lilac action beneath it. At the foot, the sections wait as a loose pile of blank cards, cropped by the panel edge, so what the ninety seconds buys is visible without being spelled out.</div>
+    </div>
+
+    <!-- 02 BUILDING -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">02 building · 0:06 to 1:05</div>
+      <div style="width: 400px; min-height: 640px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">6 sources</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 20px 24px 18px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #E2D9C4">
+          <div style="width: 54px; height: 54px; flex: none; position: relative">
+            <svg viewBox="0 0 56 56" style="width: 54px; height: 54px; display: block">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle>
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="60.3" transform="rotate(-90 28 28)"></circle>
+            </svg>
+            <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">3/5</span>
+          </div>
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.2; flex: 1">Reading what happened since March</div>
+        </div>
+
+        <div style="padding: 18px 24px 22px; display: flex; flex-direction: column; gap: 12px; flex: 1">
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Clippings</div>
+
+          <div style="border: 1px solid #CCC7B8; border-radius: 6px; background: #FFFDF8; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">TechCrunch · Mar 4, 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45; color: #171A1F">Series B led by Kleiner Perkins, closed March 2026.</div>
+          </div>
+
+          <div style="border: 1px solid #CCC7B8; border-radius: 6px; background: #FFFDF8; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">LinkedIn · Jun 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[2]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45; color: #171A1F">37 people. 12 open roles, weighted to inference infrastructure.</div>
+          </div>
+
+          <div style="border: 1px solid #CCC7B8; border-radius: 6px; background: #FFFDF8; padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; opacity: 0.5">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">SEC EDGAR · Mar 1, 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[4]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45; color: #171A1F">Form D lists the round.</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">
+            <span style="flex: 1; height: 1px; background: #E2D9C4"></span>
+            <span>three read, filed</span>
+            <span style="flex: 1; height: 1px; background: #E2D9C4"></span>
+          </div>
+
+          <div style="border: 1px dashed #C3B79A; border-radius: 6px; padding: 11px 13px; display: flex; align-items: center; gap: 9px">
+            <span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #A79C8A; flex: none"></span>
+            <span style="font-size: 13px; color: #786F62">Fetching cartesia.ai press page</span>
+          </div>
+
+          <div style="margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 10px">
+            <div style="height: 1px; background: #E2D9C4"></div>
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Stages</div>
+            <div style="display: flex; flex-direction: column; gap: 7px; font-size: 13px">
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>What it does</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>Who works there</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>Where the money came from</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #A79C8A; width: 12px">·</span><span>The last four months</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline; color: #786F62"><span style="color: #A79C8A; width: 12px">·</span><span>The five questions</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">Clippings are the progress. Stages are written only once their event arrives.</div>
+    </div>
+
+    <!-- ANNOTATION A -->
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+    <div style="width: 296px; padding-left: 22px; border-left: 1px dashed #C3B79A; display: flex; flex-direction: column; gap: 14px; margin-top: 34px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.15; color: #6E5C9E">A clipping enters, is read, retires</div>
+      <div style="display: flex; flex-direction: column; gap: 11px; font-size: 13px; line-height: 1.5">
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">0ms</span><span>Lands from 8px above on a stiff spring, damping 0.9. One breath of follow-through, no bounce. It arrives legible; nothing fades in.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">180</span><span>Source mark sets last, 90ms. The only element that scales, 0.9 to 1.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">3.5s</span><span>Dims to half, collapses into the rule below over 200ms. The count on that rule goes up as it closes.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">stage</span><span>Seal inks one arc per closed stage, 400ms. Between events it holds still, so stillness reads as work rather than a stall.</span></div>
+      </div>
+      <div style="height: 1px; background: #D8CEB6"></div>
+      <div style="font-size: 12px; line-height: 1.5; color: #786F62">No shimmer, no spinner, no percentage the pipeline cannot prove. Three clippings on screen at most.</div>
+    </div>
+    </sc-if>
+
+    <!-- 03 EARLY READ -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">03 early read · 1:05</div>
+      <div style="width: 400px; min-height: 640px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">6 sources</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 20px 24px 18px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #E2D9C4">
+          <div style="width: 54px; height: 54px; flex: none; position: relative">
+            <svg viewBox="0 0 56 56" style="width: 54px; height: 54px; display: block">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle>
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="30.2" transform="rotate(-90 28 28)"></circle>
+            </svg>
+            <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">4/5</span>
+          </div>
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.2; flex: 1">Checking the last claims</div>
+        </div>
+
+        <div style="padding: 20px 24px 22px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Known so far</div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+              <div style="font-size: 15px; line-height: 1.5; text-wrap: pretty">Builds real-time voice AI models with sub-100ms latency. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span>
+              <div style="font-size: 15px; line-height: 1.5; text-wrap: pretty">Sold to product teams shipping voice agents. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[5]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span>
+              <div style="font-size: 15px; line-height: 1.5; text-wrap: pretty">Shipped Sonic 3 on May 18, 2026, with cloned-voice support. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[5]</span></div>
+            </div>
+          </div>
+
+          <div style="height: 1px; background: #E2D9C4"></div>
+
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Held back</div>
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #B63A2A; position: relative; overflow: hidden; flex: none; margin-top: 5px"><span style="position: absolute; left: -2px; top: 2px; width: 12px; height: 1.5px; background: #B63A2A; transform: rotate(45deg)"></span></span>
+              <div style="font-size: 14px; line-height: 1.5; color: #4A463E">Headcount: 37 <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[2]</span> and 52 <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[8]</span>.</div>
+            </div>
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #9B6A1E; display: flex; flex: none; margin-top: 5px"><span style="width: 3px; background: #9B6A1E"></span></span>
+              <div style="font-size: 14px; line-height: 1.5; color: #4A463E">Customer proof is company-sourced only.</div>
+            </div>
+          </div>
+
+          <div style="margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; gap: 9px">
+            <div style="height: 1px; background: #E2D9C4"></div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">The early read is short and says what it is holding back. If nothing had cleared, it reads "Nothing verified yet" and stops.</div>
+    </div>
+
+    <!-- ANNOTATION B -->
+    <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+    <div style="width: 296px; padding-left: 22px; border-left: 1px dashed #C3B79A; display: flex; flex-direction: column; gap: 14px; margin-top: 34px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.15; color: #6E5C9E">Building to filed, the one scene</div>
+      <div style="display: flex; flex-direction: column; gap: 11px; font-size: 13px; line-height: 1.5">
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">0ms</span><span>Last stage closes. Remaining clippings retire top to bottom, 40ms apart. The desk empties first.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">240</span><span>Fifth arc closes and the seal presses: 1 to 0.94 in 120ms, back on a spring. Filed and the date set on the release.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">440</span><span>Seal travels to the card head in one 240ms move, shrinking as it goes. Same object throughout, never a swap.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">500</span><span>Building view crossfades to the card over 200ms, sections rising 6px in filed order, 50ms apart. Never a hard cut, never a reload.</span></div>
+        <div style="display: flex; gap: 10px"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; flex: none; width: 40px">1.0s</span><span>Settled. No toast, no confetti. A card you can scroll.</span></div>
+      </div>
+      <div style="height: 1px; background: #D8CEB6"></div>
+      <div style="font-size: 12px; line-height: 1.5; color: #786F62">If the reader scrolls mid-transition the seal still travels, but sections appear in place. Nothing fights the reader.</div>
+    </div>
+    </sc-if>
+
+    <!-- 04 FILED -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">04 filed · 1:22</div>
+      <div style="width: 400px; min-height: 640px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">6 sources</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 22px 24px 20px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #C3B79A">
+          <div style="display: flex; align-items: flex-start; gap: 12px">
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 30px; line-height: 1.05; font-weight: 600; flex: 1">Cartesia</div>
+            <div style="border: 1px solid #6E5C9E; border-radius: 4px; padding: 4px 7px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; line-height: 1.3; color: #6E5C9E; text-align: center; flex: none">filed<br>Jul 27, 2026</div>
+          </div>
+          <div style="font-size: 14px; line-height: 1.5; text-wrap: pretty">Real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1]</span></div>
+          <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">Founded 2023 · San Francisco</div>
+        </div>
+
+        <div style="padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 20px; flex: 1">
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Why care</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; gap: 10px">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+              <div style="font-size: 15px; line-height: 1.5; text-wrap: pretty">Voice agents are becoming a default interface, and latency is the quality bar people feel. Cartesia's sub-100ms models are the current benchmark. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1][5]</span></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Money</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>
+              <div style="font-size: 14px; line-height: 1.5">$91M raised across disclosed rounds. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1][4]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>
+              <div style="font-size: 14px; line-height: 1.5">Series B, March 2026, led by Kleiner Perkins. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #A79C8A; flex: none"></span>
+              <div style="font-size: 14px; line-height: 1.5; color: #786F62">Valuation: not publicly disclosed.</div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">People</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span>
+              <div style="font-size: 14px; line-height: 1.5">Karan Goel, chief executive. Albert Gu, chief scientist. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[2]</span></div>
+            </div>
+            <div style="border: 1px solid #CCC7B8; border-radius: 6px; background: #FFFDF8; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 9px">
+                <span style="width: 9px; height: 9px; border: 1.5px solid #B63A2A; position: relative; overflow: hidden; flex: none"><span style="position: absolute; left: -2px; top: 2px; width: 12px; height: 1.5px; background: #B63A2A; transform: rotate(45deg)"></span></span>
+                <span style="font-size: 13px; color: #171A1F">Headcount</span>
+              </div>
+              <div style="display: flex; gap: 22px; align-items: baseline">
+                <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums">37</span><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">LinkedIn [2]</span></div>
+                <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums">52</span><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">Apollo [8]</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Signals</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62; flex: none; width: 84px">Mar 4, 2026</span>
+              <div style="font-size: 13px; line-height: 1.45">Raised Series B <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[1]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62; flex: none; width: 84px">May 18, 2026</span>
+              <div style="font-size: 13px; line-height: 1.45">Shipped Sonic 3, with cloned-voice support <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[5]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #9B6A1E; display: flex; flex: none"><span style="width: 3px; background: #9B6A1E"></span></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62; flex: none; width: 84px">Jun 2, 2026</span>
+              <div style="font-size: 13px; line-height: 1.45">Announced a contact-center deployment. Company-sourced. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[7]</span></div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62; flex: none; width: 84px">Jun 20, 2026</span>
+              <div style="font-size: 13px; line-height: 1.45">12 open roles, weighted to inference infrastructure <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[2]</span></div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Comps</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; gap: 10px; align-items: baseline">
+              <div style="display: flex; flex-direction: column; gap: 9px; flex: 1">
+                <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #68706A">exa · 42 read · 6 kept · 3 set aside</div>
+                <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 14px">ElevenLabs</span><span style="flex: 1; height: 1px; background: #E7E2D5"></span><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.91</span></div>
+                <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 14px">Rime</span><span style="flex: 1; height: 1px; background: #E7E2D5"></span><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.88</span></div>
+                <div style="display: flex; align-items: baseline; gap: 10px"><span style="font-size: 14px">OpenAI realtime</span><span style="flex: 1; height: 1px; background: #E7E2D5"></span><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.69</span></div>
+                <a href="#comps" style="font-size: 13px; color: #6E5C9E; border-bottom: 1px solid rgba(110,92,158,0.4); width: fit-content">Open comps</a>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Next question</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 18px; line-height: 1.3; text-wrap: pretty">Ask for one referenceable production customer with call-volume numbers.</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="display: flex; align-items: center; gap: 10px"><span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Sources</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span></div>
+            <div style="display: flex; flex-direction: column; gap: 7px; font-size: 12px; line-height: 1.45">
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[1]</span><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span><span>TechCrunch · Mar 4, 2026 · cartesia-series-b</span></div>
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[2]</span><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span><span>LinkedIn · Jun 2026 · linkedin.com/company/cartesia</span></div>
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[4]</span><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none"></span><span>SEC EDGAR · Mar 1, 2026</span></div>
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[5]</span><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span><span>Company changelog, covered by press · May 18, 2026</span></div>
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[7]</span><span style="width: 9px; height: 9px; border: 1.5px solid #9B6A1E; display: flex; flex: none"><span style="width: 3px; background: #9B6A1E"></span></span><span>cartesia.ai press page · Jun 2, 2026</span></div>
+              <div style="display: flex; gap: 9px; align-items: baseline"><span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; color: #6E5C9E; width: 20px; flex: none">[8]</span><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none"></span><span>Apollo · May 2026</span></div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 12px; padding-top: 4px">
+            <div style="height: 1px; background: #E2D9C4; flex: 1"></div>
+            <div style="border: 1px solid #C3B79A; border-radius: 4px; padding: 3px 7px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #786F62; transform: rotate(-1.5deg)">vetted · 3 of 6 corroborated</div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">Filed order never changes, so a reader who knows one card knows the next. The stamp carries the date it was filed, not a version number.</div>
+    </div>
+
+    <!-- 05 DARK BUILDING -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">05 building · warm paper dark</div>
+      <div style="width: 400px; min-height: 640px; background: #1B1612; border: 1px solid #372F26; border-top: 2px solid #BBA8DF; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; color: #E8DDC9">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #372F26">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #BBA8DF">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">6 sources</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 20px 24px 18px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #372F26">
+          <div style="width: 54px; height: 54px; flex: none; position: relative">
+            <svg viewBox="0 0 56 56" style="width: 54px; height: 54px; display: block">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#372F26" stroke-width="3"></circle>
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#BBA8DF" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="60.3" transform="rotate(-90 28 28)"></circle>
+            </svg>
+            <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #BBA8DF">3/5</span>
+          </div>
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.2; flex: 1">Reading what happened since March</div>
+        </div>
+
+        <div style="padding: 18px 24px 22px; display: flex; flex-direction: column; gap: 12px; flex: 1">
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #BBA8DF">Clippings</div>
+
+          <div style="border: 1px solid #423A2E; border-top: 1px solid #52463489; border-radius: 6px; background: #241E18; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; background: #4FA391; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">TechCrunch · Mar 4, 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #BBA8DF">[1]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45">Series B led by Kleiner Perkins, closed March 2026.</div>
+          </div>
+
+          <div style="border: 1px solid #423A2E; border-radius: 6px; background: #241E18; padding: 11px 13px; display: flex; flex-direction: column; gap: 7px">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; border: 1.5px solid #7BA3DF; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">LinkedIn · Jun 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #BBA8DF">[2]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45">37 people. 12 open roles, weighted to inference infrastructure.</div>
+          </div>
+
+          <div style="border: 1px solid #423A2E; border-radius: 6px; background: #241E18; padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; opacity: 0.45">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; background: #4FA391; flex: none"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">SEC EDGAR · Mar 1, 2026</span>
+              <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #BBA8DF">[4]</span>
+            </div>
+            <div style="font-size: 13px; line-height: 1.45">Form D lists the round.</div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #9A9082">
+            <span style="flex: 1; height: 1px; background: #372F26"></span><span>three read, filed</span><span style="flex: 1; height: 1px; background: #372F26"></span>
+          </div>
+
+          <div style="border: 1px dashed #4A4133; border-radius: 6px; padding: 11px 13px; display: flex; align-items: center; gap: 9px">
+            <span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #6B6252; flex: none"></span>
+            <span style="font-size: 13px; color: #9A9082">Fetching cartesia.ai press page</span>
+          </div>
+
+          <div style="margin-top: auto; padding-top: 24px; display: flex; flex-direction: column; gap: 10px">
+            <div style="height: 1px; background: #372F26"></div>
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #BBA8DF">Stages</div>
+            <div style="display: flex; flex-direction: column; gap: 7px; font-size: 13px">
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #BBA8DF; width: 12px">✓</span><span>What it does</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #BBA8DF; width: 12px">✓</span><span>Who works there</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #BBA8DF; width: 12px">✓</span><span>Where the money came from</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6B6252; width: 12px">·</span><span>The last four months</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline; color: #9A9082"><span style="color: #6B6252; width: 12px">·</span><span>The five questions</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">The same card under a dimmed lamp: brown-black ground, aged off-white ink, seal lifted so it stays the brightest object. Panel only. The public card is never dark.</div>
+    </div>
+
+    <!-- 06 NOTHING FOUND -->
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">06 a stage found nothing · 0:48</div>
+      <div style="width: 400px; min-height: 640px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 12px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">4 sources</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 20px 24px 18px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid #E2D9C4">
+          <div style="width: 54px; height: 54px; flex: none; position: relative">
+            <svg viewBox="0 0 56 56" style="width: 54px; height: 54px; display: block">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle>
+              <circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="90.5" transform="rotate(-90 28 28)"></circle>
+            </svg>
+            <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">3/5</span>
+          </div>
+          <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; line-height: 1.2; flex: 1">Funding checked</div>
+        </div>
+
+        <div style="padding: 20px 24px 22px; display: flex; flex-direction: column; gap: 16px; flex: 1">
+          <div style="border: 1px solid #CCC7B8; border-radius: 6px; background: #FFFDF8; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+            <div style="display: flex; align-items: center; gap: 9px">
+              <span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #A79C8A; flex: none"></span>
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Money</span>
+            </div>
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 23px; line-height: 1.15; font-weight: 600; color: #171A1F">No public funding found</div>
+            <div style="font-size: 13px; line-height: 1.5; color: #171A1F">The card will read "not publicly disclosed".</div>
+            <div style="height: 1px; background: #E7E2D5"></div>
+            <div style="display: flex; flex-direction: column; gap: 5px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.6; color: #68706A">
+              <div>press · TechCrunch, Business Wire</div>
+              <div>filings · EDGAR full text</div>
+              <div>site · cartesia.ai press, blog, about</div>
+              <div>result · nothing</div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">
+            <span style="flex: 1; height: 1px; background: #E2D9C4"></span><span>continuing</span><span style="flex: 1; height: 1px; background: #E2D9C4"></span>
+          </div>
+
+          <div style="border: 1px dashed #C3B79A; border-radius: 6px; padding: 11px 13px; display: flex; align-items: center; gap: 9px">
+            <span style="width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #A79C8A; flex: none"></span>
+            <span style="font-size: 13px; color: #786F62">Reading what happened since March</span>
+          </div>
+
+          <div style="margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; gap: 10px">
+            <div style="height: 1px; background: #E2D9C4"></div>
+            <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 14px; color: #6E5C9E">Stages</div>
+            <div style="display: flex; flex-direction: column; gap: 7px; font-size: 13px">
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>What it does</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>Who works there</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #6E5C9E; width: 12px">✓</span><span>Where the money came from, if anywhere</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline"><span style="color: #A79C8A; width: 12px">·</span><span>The last four months</span></div>
+              <div style="display: flex; gap: 10px; align-items: baseline; color: #786F62"><span style="color: #A79C8A; width: 12px">·</span><span>The five questions</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">Absence gets the same weight as a fact, a ring mark instead of a class, and a receipt of where the pipeline looked. No red, no retry prompt.</div>
+    </div>
+
+    <!-- 07 COMPS OPENED -->
+    <div id="comps" style="display: flex; flex-direction: column; gap: 12px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-style: italic; font-size: 16px; color: #786F62">07 comps, opened in the card</div>
+      <div style="width: 400px; background: #F4EDDC; border: 1px solid #D8CEB6; border-top: 2px solid #6E5C9E; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden">
+        <div style="display: flex; align-items: baseline; gap: 10px; padding: 11px 18px; border-bottom: 1px solid #D8CEB6">
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">cs · cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">filed Jul 27, 2026</span>
+          <span style="margin-left: auto; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #786F62">cartesia.ai</span>
+        </div>
+
+        <div style="padding: 14px 20px 4px; display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid #C3B79A; padding-bottom: 12px">
+          <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 20px; font-weight: 600">Cartesia</span>
+          <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #786F62">37 or 52 people · $91M raised</span>
+        </div>
+
+        <div style="padding: 6px 20px 18px; display: flex; flex-direction: column">
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Why care</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">2 sources</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Money</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">3 facts</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">People</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">1 conflict</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Signals</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">4 dated</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+
+          <div style="padding: 14px 0 4px; display: flex; flex-direction: column; gap: 14px">
+            <div style="display: flex; align-items: baseline; gap: 9px">
+              <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 16px; color: #6E5C9E">Comps</span>
+              <span style="flex: 1; height: 1px; background: #C3B79A"></span>
+              <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #786F62">match</span>
+              <span style="font-size: 12px; color: #6E5C9E">⌄</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 5px">
+              <div style="display: flex; gap: 8px; align-items: baseline">
+                <span style="width: 8px; height: 8px; background: #0E6B5B; flex: none"></span>
+                <span style="font-size: 12.5px; line-height: 1.4">Compared against Cartesia: sub-100ms speech models sold to product teams.</span>
+              </div>
+              <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 1.5; color: #68706A; padding-left: 16px">exa · "vendors selling sub-second voice synthesis to product teams" · 42 read, 6 kept</div>
+            </div>
+
+            <div style="display: flex; flex-direction: column">
+              <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E; padding-bottom: 2px">Competes on latency</div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #EDE6D6">
+                <div style="display: flex; align-items: baseline; gap: 9px">
+                  <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 15px">ElevenLabs</span>
+                  <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.91</span>
+                </div>
+                <div style="display: flex; gap: 8px; padding-bottom: 2px">
+                  <span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none; margin-top: 5px"></span>
+                  <div style="font-size: 12.5px; line-height: 1.4">Speech API publishing first-byte latency for its fast model. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[11]</span></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">shares</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #20201E">latency is the pitch</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">differs</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #786F62">also sells to creators</span>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #EDE6D6">
+                <div style="display: flex; align-items: baseline; gap: 9px">
+                  <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 15px">Rime</span>
+                  <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.88</span>
+                </div>
+                <div style="display: flex; gap: 8px; padding-bottom: 2px">
+                  <span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none; margin-top: 5px"></span>
+                  <div style="font-size: 12.5px; line-height: 1.4">Real-time speech aimed at contact centers. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[12]</span></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">shares</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #20201E">the contact-center buyer</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">differs</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #786F62">narrower model line</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E; padding-bottom: 2px">Competes on expressiveness</div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #EDE6D6">
+                <div style="display: flex; align-items: baseline; gap: 9px">
+                  <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 15px">Hume</span>
+                  <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.74</span>
+                </div>
+                <div style="display: flex; gap: 8px; padding-bottom: 2px">
+                  <span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none; margin-top: 5px"></span>
+                  <div style="font-size: 12.5px; line-height: 1.4">Emotive speech API sold to product teams. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[13]</span></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">shares</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #20201E">the same buyer</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">differs</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #786F62">latency not disclosed</span>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #EDE6D6">
+                <div style="display: flex; align-items: baseline; gap: 9px">
+                  <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 15px">PlayAI</span>
+                  <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.71</span>
+                </div>
+                <div style="display: flex; gap: 8px; padding-bottom: 2px">
+                  <span style="width: 8px; height: 8px; border: 1.5px solid #9B6A1E; display: flex; flex: none; margin-top: 5px"><span style="width: 2.5px; background: #9B6A1E"></span></span>
+                  <div style="font-size: 12.5px; line-height: 1.4">Speech models for voice agents, per its own site. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[15]</span></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">shares</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #20201E">the same job</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">differs</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #786F62">no independent latency figure</span>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column">
+              <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E; padding-bottom: 2px">Bundles voice into a platform</div>
+              <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid #EDE6D6">
+                <div style="display: flex; align-items: baseline; gap: 9px">
+                  <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 15px">OpenAI realtime</span>
+                  <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E; font-variant-numeric: tabular-nums">0.69</span>
+                </div>
+                <div style="display: flex; gap: 8px; padding-bottom: 2px">
+                  <span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none; margin-top: 5px"></span>
+                  <div style="font-size: 12.5px; line-height: 1.4">Voice inside a general model, priced with the platform. <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 11px; color: #6E5C9E">[14]</span></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">shares</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #20201E">the same job</span>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: baseline">
+                  <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; color: #A79C8A; width: 46px; flex: none">differs</span>
+                  <span style="font-size: 12.5px; line-height: 1.4; color: #786F62">not chosen separately</span>
+                </div>
+              </div>
+            </div>
+            <div style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 1.6; color: #68706A">set aside · Deepgram, AssemblyAI, transcription not synthesis · Descript, an editing tool</div>
+          </div>
+
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Next question</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">1</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 9px; padding: 9px 0; border-bottom: 1px solid #E2D9C4">
+            <span style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 13px; color: #6E5C9E">Sources</span>
+            <span style="flex: 1; height: 1px; background: #EDE6D6"></span>
+            <span style="font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 10px; color: #A79C8A">11 filed</span>
+            <span style="font-size: 12px; color: #A79C8A">›</span>
+          </div>
+        </div>
+      </div>
+      </div>
+      <div style="width: 400px; font-size: 12px; line-height: 1.5; color: #786F62">Comps opens inside the filed card, its neighbours collapsed to a rule and a count. The section states what the comparison is against, then groups neighbours by the claim they contest: competes on latency, competes on expressiveness, bundles voice into a platform. Every entry keeps the same two aligned lines, shares and differs, so the column scans in one pass.</div>
+    </div>
+
+  </div>
+
+  <sc-if value="{{ showNotes }}" hint-placeholder-val="{{ true }}">
+  <div style="display: flex; flex-wrap: wrap; gap: 44px; padding: 22px 24px; background: #F4EDDC; border: 1px solid #D8CEB6; border-radius: 6px; max-width: 1100px">
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 330px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 16px; color: #6E5C9E">The seal at five stages</div>
+      <div style="display: flex; gap: 14px; align-items: center">
+        <div style="width: 38px; height: 38px"><svg viewBox="0 0 56 56" style="width: 38px; height: 38px"><circle cx="28" cy="28" r="24" fill="none" stroke="#C3B79A" stroke-width="3" stroke-dasharray="4 6"></circle></svg></div>
+        <div style="width: 38px; height: 38px"><svg viewBox="0 0 56 56" style="width: 38px; height: 38px"><circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle><circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="120.6" transform="rotate(-90 28 28)"></circle></svg></div>
+        <div style="width: 38px; height: 38px"><svg viewBox="0 0 56 56" style="width: 38px; height: 38px"><circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle><circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="90.5" transform="rotate(-90 28 28)"></circle></svg></div>
+        <div style="width: 38px; height: 38px"><svg viewBox="0 0 56 56" style="width: 38px; height: 38px"><circle cx="28" cy="28" r="24" fill="none" stroke="#D8CEB6" stroke-width="3"></circle><circle cx="28" cy="28" r="24" fill="none" stroke="#6E5C9E" stroke-width="3" stroke-dasharray="150.8" stroke-dashoffset="30.2" transform="rotate(-90 28 28)"></circle></svg></div>
+        <div style="width: 38px; height: 38px; position: relative"><svg viewBox="0 0 56 56" style="width: 38px; height: 38px"><circle cx="28" cy="28" r="24" fill="#6E5C9E"></circle><circle cx="28" cy="28" r="19" fill="none" stroke="#F4EDDC" stroke-width="1"></circle></svg><span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'At Textual', 'IBM Plex Mono', monospace; font-size: 8px; color: #F4EDDC; transform: rotate(-8deg)">filed</span></div>
+      </div>
+      <div style="font-size: 12px; line-height: 1.5; color: #786F62">Dashed before consent. One arc per closed stage. On the fifth it fills and takes the stamp. It is the only thing in the panel that moves on its own.</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 300px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 16px; color: #6E5C9E">The wit</div>
+      <div style="font-size: 13px; line-height: 1.55; color: #4A463E; text-wrap: pretty">A clipping does not vanish. It dims and slides into the rule that counts what is already read, so the pile of read paper stays visible. By the end that line and the seal agree.</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px; width: 300px">
+      <div style="font-family: 'At Umami', 'Petrona', Georgia, serif; font-size: 16px; color: #6E5C9E">Held to</div>
+      <div style="font-size: 13px; line-height: 1.55; color: #4A463E; text-wrap: pretty">Source class shows as a mark, never a tint. Absence keeps its own mark. No stage is claimed before its event lands, and no number appears that the pipeline cannot prove.</div>
+    </div>
+  </div>
+  </sc-if>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showNotes&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Storyboard&quot;},&quot;showEvidenceKey&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Storyboard&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showNotes: this.props.showNotes ?? true,
+      showEvidenceKey: this.props.showEvidenceKey ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>
