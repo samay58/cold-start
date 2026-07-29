@@ -122,8 +122,12 @@ describe("background prefetch", () => {
       captureClick: (listener) => {
         clickListener = listener;
       },
+      firefox: true,
       sessionItems
     });
+
+    expect("sidePanel" in chrome).toBe(false);
+    expect("setAccessLevel" in chrome.storage.local).toBe(false);
 
     await import("../src/background");
     clickListener?.({ id: 7, windowId: 3, url: "https://linear.app/docs" } as chrome.tabs.Tab);
@@ -309,13 +313,21 @@ function installChromeStub(
   captureInstalled?: (listener: (details: chrome.runtime.InstalledDetails) => void) => void,
   options?: {
     captureClick?: (listener: (tab: chrome.tabs.Tab) => void) => void;
+    firefox?: boolean;
     sessionItems?: Record<string, unknown>;
   }
 ) {
   const sessionItems = options?.sessionItems ?? {};
+  if (options?.firefox) {
+    vi.stubGlobal("browser", {
+      sidebarAction: {
+        open: vi.fn(async () => undefined)
+      }
+    });
+  }
   vi.stubGlobal("chrome", {
     runtime: {
-      id: "extension-test-id",
+      id: options?.firefox ? "cold-start@semitechie.vc" : "extension-test-id",
       lastError: undefined,
       getManifest: () => ({ version: "0.1.0" }),
       onInstalled: {
@@ -334,10 +346,14 @@ function installChromeStub(
         }
       }
     },
-    sidePanel: {
-      open: vi.fn(),
-      setPanelBehavior: vi.fn()
-    },
+    ...(options?.firefox
+      ? {}
+      : {
+          sidePanel: {
+            open: vi.fn(),
+            setPanelBehavior: vi.fn()
+          }
+        }),
     storage: {
       local: {
         get: (keys: readonly string[], callback: (items: Record<string, unknown>) => void) => {
@@ -347,7 +363,7 @@ function installChromeStub(
           Object.assign(storageItems, items);
           callback?.();
         },
-        setAccessLevel
+        ...(options?.firefox ? {} : { setAccessLevel })
       },
       session: {
         get: (_keys: string | null, callback: (items: Record<string, unknown>) => void) => callback({ ...sessionItems }),

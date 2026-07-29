@@ -25,7 +25,7 @@ function installChrome({ firefox }: { firefox: boolean }) {
           Object.assign(storageItems, items);
           callback?.();
         },
-        setAccessLevel: vi.fn(async () => undefined)
+        ...(firefox ? {} : { setAccessLevel: vi.fn(async () => undefined) })
       },
       onChanged: { addListener: vi.fn(), removeListener: vi.fn() }
     }
@@ -114,6 +114,12 @@ describe("ConnectionPanel", () => {
 
     expect(inviteInput()).toBeNull();
     expect(container.textContent).toContain("Return to the invitation Samay sent you");
+  });
+
+  it("models Firefox without Chrome-only storage access controls", () => {
+    installChrome({ firefox: true });
+
+    expect("setAccessLevel" in chrome.storage.local).toBe(false);
   });
 
   it("redeems a pasted invitation link on Firefox and reports the connection", async () => {
