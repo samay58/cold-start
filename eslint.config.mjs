@@ -19,6 +19,7 @@ export default tseslint.config(
       "**/.cold-start/**",
       "**/.pytest_cache/**",
       "docs/motion-references/**",
+      "docs/design/mockups/**",
       ".worktrees/**",
       "**/*.tsbuildinfo",
       "apps/web/next-env.d.ts",
