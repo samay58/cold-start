@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connectAlphaInvitation, detectedAlphaBrowser, inviteTokenFromInput } from "../src/shared/alpha-connect";
 
-function installChrome({ firefox }: { firefox: boolean }) {
+// Firefox's storage schema exposes only get/set/remove/clear on storage.local:
+// there is no setAccessLevel there, so the firefox-shaped runtime must omit it
+// or the harness hides the exact TypeError that burned a live invite (2026-07-28).
+function installChrome({ firefox, setAccessLevel }: {
+  firefox: boolean;
+  setAccessLevel?: ReturnType<typeof vi.fn> | undefined;
+}) {
   const storageItems: Record<string, unknown> = {};
-  const setAccessLevel = vi.fn(async () => undefined);
+  const accessLevelMock = firefox
+    ? undefined
+    : setAccessLevel ?? vi.fn(async () => undefined);
   vi.stubGlobal("chrome", {
     runtime: {
       id: firefox ? "cold-start@semitechie.vc" : "extension-test-id",
@@ -20,11 +28,11 @@ function installChrome({ firefox }: { firefox: boolean }) {
           Object.assign(storageItems, items);
           callback?.();
         },
-        setAccessLevel
+        ...(accessLevelMock ? { setAccessLevel: accessLevelMock } : {})
       }
     }
   });
-  return { storageItems, setAccessLevel };
+  return { storageItems, setAccessLevel: accessLevelMock };
 }
 
 const connectedBody = {
@@ -78,7 +86,7 @@ describe("alpha-connect", () => {
   });
 
   it("redeems with browser firefox from a Firefox-shaped runtime and stores the credential", async () => {
-    const { storageItems, setAccessLevel } = installChrome({ firefox: true });
+    const { storageItems } = installChrome({ firefox: true });
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(connectedBody), {
       status: 200,
       headers: { "Content-Type": "application/json" }
@@ -99,9 +107,49 @@ describe("alpha-connect", () => {
       browser: "firefox",
       consent: true
     });
-    expect(setAccessLevel).toHaveBeenCalledWith({ accessLevel: "TRUSTED_CONTEXTS" });
     expect(storageItems.coldStartApiToken).toBe("credential-abc");
     expect(JSON.stringify(response)).not.toContain("credential-abc");
+  });
+
+  it("still stores the credential when setAccessLevel rejects", async () => {
+    const { storageItems } = installChrome({
+      firefox: false,
+      setAccessLevel: vi.fn(async () => {
+        throw new Error("access level unavailable");
+      })
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(connectedBody), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    })));
+
+    const response = await connectAlphaInvitation({
+      inviteToken: "a".repeat(32),
+      storeVisited: false,
+      reducedMotion: false,
+      theme: "light"
+    });
+
+    expect(response).toMatchObject({ ok: true, state: "connected" });
+    expect(storageItems.coldStartApiToken).toBe("credential-abc");
+  });
+
+  it("applies the access level restriction on runtimes that support it", async () => {
+    const { storageItems, setAccessLevel } = installChrome({ firefox: false });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(connectedBody), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    })));
+
+    await connectAlphaInvitation({
+      inviteToken: "a".repeat(32),
+      storeVisited: false,
+      reducedMotion: false,
+      theme: "light"
+    });
+
+    expect(setAccessLevel).toHaveBeenCalledWith({ accessLevel: "TRUSTED_CONTEXTS" });
+    expect(storageItems.coldStartApiToken).toBe("credential-abc");
   });
 
   it("redeems with browser chrome when the sidePanel API exists", async () => {

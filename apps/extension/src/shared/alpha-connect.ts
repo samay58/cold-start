@@ -64,8 +64,23 @@ export function storageLocalSet(items: Record<string, unknown>): Promise<void> {
   });
 }
 
-function setTrustedStorageAccess(): Promise<void> {
-  return chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+// Firefox's storage schema has no setAccessLevel on storage.local (only
+// get/set/remove/clear), so this hardening call is strictly best-effort. It must
+// never fail a connect: the redeem is already consumed server-side by the time
+// this runs, and an exception here once burned a single-use invite (2026-07-28).
+async function setTrustedStorageAccess(): Promise<void> {
+  const area = chrome.storage.local as typeof chrome.storage.local & {
+    setAccessLevel?: (details: { accessLevel: "TRUSTED_CONTEXTS" }) => Promise<void>;
+  };
+  if (typeof area.setAccessLevel !== "function") {
+    return;
+  }
+  try {
+    await area.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
+  } catch {
+    // Restricting content-script visibility is defense-in-depth; the extension
+    // registers no content scripts, so a refusal here changes nothing.
+  }
 }
 
 function extensionVersion() {
@@ -310,7 +325,9 @@ export async function connectAlphaInvitation(input: {
       return alphaExternalError("unknown");
     }
 
-    await setTrustedStorageAccess();
+    // The invite is consumed server-side the moment the redeem responds, so the
+    // credential write comes first; everything after it is best-effort and must
+    // not turn a successful connect into a user-visible failure.
     await storageLocalSet({
       [API_ORIGIN_KEY]: DEFAULT_API_ORIGIN,
       [API_TOKEN_KEY]: apiToken,
@@ -319,7 +336,8 @@ export async function connectAlphaInvitation(input: {
         : {}),
       [INSTALL_CHANNEL_KEY]: "unlisted"
     });
-    await flushPendingLifecycle({ apiOrigin: DEFAULT_API_ORIGIN, apiToken });
+    await setTrustedStorageAccess();
+    await flushPendingLifecycle({ apiOrigin: DEFAULT_API_ORIGIN, apiToken }).catch(() => undefined);
     return safeResponse;
   } catch {
     return alphaExternalError(alphaOfflineCode());
