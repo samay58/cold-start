@@ -21,6 +21,9 @@ const outputDirectory = path.join(repoRoot, "dist", "firefox");
 const SOURCE_PATHSPECS = [
   "package.json",
   "package-lock.json",
+  // Vite's esbuild transform resolves the tsconfig extends chain up to the repo
+  // root; without this the reviewer rebuild dies on the first .tsx file.
+  "tsconfig.base.json",
   "apps/extension",
   "packages/core",
   "packages/ui",

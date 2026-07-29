@@ -41,3 +41,39 @@ jobs:
       - run: npm run knip
       - run: npm run secrets:check
       - run: npm run audit:deps
+
+  # AMO reviewers rebuild the Firefox source package and diff against the
+  # submitted XPI expecting zero differences. This job proves the build is
+  # environment-independent before a reviewer does: two clean checkouts, the
+  # pinned release env from README-REVIEWERS.md, and a file-hash diff of the
+  # dist trees (never the zip; zip timestamps are the classic false positive).
+  # Node is pinned to the documented reviewer default, not a floating major.
+  firefox-reproducibility:
+    runs-on: ubuntu-latest
+    env:
+      VITE_COLD_START_API_ORIGIN: https://cold-start-samay58s-projects.vercel.app
+      VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN: "false"
+      VITE_COLD_START_ALPHA_INVITE_ORIGIN: https://cold-start.semitechie.vc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: build-a
+      - uses: actions/checkout@v4
+        with:
+          path: build-b
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: npm
+          cache-dependency-path: build-a/package-lock.json
+      - name: Build both checkouts
+        run: |
+          for tree in build-a build-b; do
+            (cd "$tree" && npm ci && NODE_ENV=production npm run build:firefox -w @cold-start/extension)
+          done
+      - name: Diff dist-firefox file hashes
+        run: |
+          (cd build-a/apps/extension/dist-firefox && find . -type f -print0 | sort -z | xargs -0 sha256sum) > hashes-a.txt
+          (cd build-b/apps/extension/dist-firefox && find . -type f -print0 | sort -z | xargs -0 sha256sum) > hashes-b.txt
+          diff hashes-a.txt hashes-b.txt
+          echo "Firefox build is reproducible across clean checkouts."
