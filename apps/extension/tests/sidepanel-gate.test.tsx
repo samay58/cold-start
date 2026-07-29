@@ -37,13 +37,12 @@ describe("SidePanel generation gate", () => {
     // The scope statement appears once, from the intake note; the module pile no longer
     // restates it in different words.
     expect(container.textContent).toContain("Build a cited profile from public sources: identity, funding, people, and proof.");
-    // The intake previews the real research modules and the sealed Investor Lens, not
-    // marketing copy or invented card names.
+    // The intake previews the real research modules without advertising a later Lens state.
     expect(container.textContent).not.toContain("Get up to speed");
     expect(container.textContent).toContain("Who pays");
     expect(container.textContent).toContain("Proof");
-    expect(container.textContent).toContain("Investor Lens");
-    expect(container.textContent).toContain("Opens when the cited profile is filed.");
+    expect(container.textContent).not.toContain("Investor Lens");
+    expect(container.textContent).not.toContain("Opens when the cited profile is filed.");
     const generateButton = Array.from(container.querySelectorAll("button")).find(
       (button) => button.textContent === "Begin research"
     );

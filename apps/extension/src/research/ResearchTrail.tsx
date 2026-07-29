@@ -49,24 +49,15 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
   return "Checking company, product, funding, and proof sources";
 }
 
-function StageMark({ status }: { status: ResearchProgressStatus }) {
-  return (
-    <span aria-hidden="true" className="cs-progress-ledger-mark" data-status={status}>
-      {status === "done" ? (
-        <svg viewBox="0 0 16 16"><path d="m3.5 8.2 2.7 2.7 6.2-6.1" /></svg>
-      ) : status === "failed" ? (
-        <svg viewBox="0 0 16 16"><path d="m4.2 4.2 7.6 7.6M11.8 4.2l-7.6 7.6" /></svg>
-      ) : status === "attention" ? (
-        <svg viewBox="0 0 16 16"><path d="M8 3.5v5.3M8 12.2h.01" /></svg>
-      ) : (
-        <span />
-      )}
-    </span>
-  );
+function stageMark(status: ResearchProgressStatus, active: boolean) {
+  if (status === "done") return "✓";
+  if (status === "failed") return "×";
+  if (status === "attention") return "!";
+  return active ? "•" : "·";
 }
 
-// Clippings carry the readable content. This ledger keeps the four real research stages visible,
-// while the deeper event tree stays behind Details unless something needs attention.
+// Clippings carry the readable content. The stage list is a quiet filing ledger, not a progress
+// bar. The deeper event tree stays behind Details unless something needs attention.
 export function ResearchTrail({
   companyDomain,
   events,
@@ -102,20 +93,28 @@ export function ResearchTrail({
       aria-label="Research details"
       data-attention={needsAttention ? "true" : "false"}
     >
+      <div className="cs-progress-ledger-head">Stages</div>
       <ol className="cs-progress-ledger">
-        {plan.map((stage, index) => (
-          <li
-            aria-current={index === activeIndex ? "step" : undefined}
-            data-active={index === activeIndex ? "true" : "false"}
-            data-status={stage.status}
-            key={stage.marker}
-          >
-            <StageMark status={stage.status} />
-            <span className="cs-progress-ledger-label">{stage.label}</span>
-          </li>
-        ))}
+        {plan.map((stage, index) => {
+          const active = index === activeIndex;
+          return (
+            <li
+              aria-current={active ? "step" : undefined}
+              data-active={active ? "true" : "false"}
+              data-status={stage.status}
+              key={stage.marker}
+            >
+              <span aria-hidden="true" className="cs-progress-ledger-mark">
+                {stageMark(stage.status, active)}
+              </span>
+              <span className="cs-progress-ledger-label">{stage.label}</span>
+              {active ? (
+                <span className="cs-progress-ledger-note">{stage.proofLine || stageNote}</span>
+              ) : null}
+            </li>
+          );
+        })}
       </ol>
-      <p className="cs-progress-ledger-note">{plan[activeIndex]?.proofLine ?? stageNote}</p>
       {showDetailsControl ? (
         <button
           aria-expanded={detailsOpen}

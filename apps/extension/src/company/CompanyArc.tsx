@@ -1,4 +1,3 @@
-import { LENS_WAITS_FOR_PROFILE_REASON } from "../research/investor-lens";
 import type { ColdStartCard, ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
@@ -115,16 +114,6 @@ function useElapsedSeconds(active: boolean, startedAt?: number) {
   return Math.floor(elapsedMs / 1000);
 }
 
-// The gated tier stays legible from the first second without presenting a disabled action.
-function SealedLensRow() {
-  return (
-    <div className="cs-lens-sealed" data-sealed="true">
-      <strong>Investor Lens</strong>
-      <span>{LENS_WAITS_FOR_PROFILE_REASON}</span>
-    </div>
-  );
-}
-
 // A flat filing preview. It shows the real profile modules without turning the intake into a
 // stack of nested cards or inventing research that has not happened yet.
 function FilingPreview() {
@@ -149,7 +138,6 @@ function FilingPreview() {
         ))}
       </div>
       <p className="cs-intake-file-more">{`+${remaining} more file once the profile is ready`}</p>
-      <SealedLensRow />
     </section>
   );
 }
@@ -509,7 +497,6 @@ export function CompanyArc({
                 />
               ) : null}
             </AnimatePresence>
-            <SealedLensRow />
             <ResearchTrail
               companyDomain={domain}
               events={building.events}

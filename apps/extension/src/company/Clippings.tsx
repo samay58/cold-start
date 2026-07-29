@@ -197,7 +197,7 @@ export function Clippings({
 
   return (
     <section
-      aria-label={variant === "carousel" ? "Source notes" : "Sources found"}
+      aria-label={variant === "carousel" ? "Clippings" : "Sources found"}
       className="cs-clippings"
       data-state={awaiting ? "awaiting" : "settled"}
       data-variant={variant}
@@ -216,7 +216,7 @@ export function Clippings({
         <>
           {variant === "carousel" ? (
             <div className="cs-clippings-head">
-              <span>Source notes</span>
+              <span>Clippings</span>
               <span>{clippings.length} found</span>
             </div>
           ) : null}

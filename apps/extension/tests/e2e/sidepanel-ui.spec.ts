@@ -709,7 +709,7 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await expect(page.getByText("No profile")).toHaveCount(0);
   await expect(page.getByText("Build a cited profile from public sources: identity, funding, people, and proof.")).toBeVisible();
   await expect(page.getByText("Who pays", { exact: true })).toBeVisible();
-  await expect(page.locator(".cs-lens-sealed")).toContainText("Investor Lens");
+  await expect(page.locator(".cs-lens-sealed")).toHaveCount(0);
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
   await page.waitForTimeout(400);
@@ -779,6 +779,7 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
 
   // Source receipts become clippings, the card's first content before any fact exists.
   await expect(page.locator(".cs-clippings")).toHaveAttribute("data-state", "settled");
+  await expect(page.getByText("Clippings", { exact: true })).toBeVisible();
   const clippings = page.locator(".cs-clipping");
   await expect(clippings).toHaveCount(3);
   await expect(clippings.nth(0)).toHaveAttribute("data-active", "true");
@@ -812,7 +813,7 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   expect(new Set(samples).size, `Drizzle opacity should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
 });
 
-test("Dia-width building state keeps identity clear and the sealed lens quiet", async ({ page }) => {
+test("Dia-width building state keeps identity clear and the stage ledger quiet", async ({ page }) => {
   await page.setViewportSize({ width: 437, height: 844 });
   await installChromeShim(page, { activeDomain: "symphonyai.com" });
   const startedAt = new Date(Date.now() - 30_000).toISOString();
@@ -882,11 +883,7 @@ test("Dia-width building state keeps identity clear and the sealed lens quiet", 
   expect(geometry.statusTop).toBeGreaterThanOrEqual(geometry.identityBottom + 8);
   await expect(page.locator('.cs-panel-stage-scene[data-panel="loading"]')).toHaveCount(0);
 
-  const sealedLens = page.locator(".cs-lens-sealed");
-  await expect(sealedLens).toContainText("Investor Lens");
-  await expect(sealedLens.getByRole("button")).toHaveCount(0);
-  await expect(sealedLens).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-  await expect(sealedLens).toHaveCSS("border-right-width", "0px");
+  await expect(page.locator(".cs-lens-sealed")).toHaveCount(0);
   const shellHeight = await page.locator(".cs-research-shell").evaluate((shell) => shell.getBoundingClientRect().height);
   expect(shellHeight).toBeGreaterThanOrEqual(844);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-symphony-dia-width-after.png" });

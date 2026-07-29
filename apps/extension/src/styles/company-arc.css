@@ -762,10 +762,6 @@
   margin-top: 12px;
 }
 
-.cs-building-flow > .cs-lens-sealed {
-  margin: 14px 12px 0;
-}
-
 .cs-building-flow > .cs-assembly-details {
   margin-top: auto;
 }
@@ -907,14 +903,17 @@
   margin-bottom: 8px;
   color: var(--color-muted);
   font-family: var(--font-text);
-  font-size: 9.5px;
-  font-weight: 620;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 560;
+  letter-spacing: 0;
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clippings-head span:first-child {
   color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.15;
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clippings-list {
