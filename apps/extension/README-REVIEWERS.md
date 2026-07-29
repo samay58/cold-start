@@ -1,4 +1,4 @@
-# Cold Start — source package for AMO reviewers
+# Cold Start source package for AMO reviewers
 
 This archive contains the complete source needed to rebuild the submitted Firefox
 extension byte for byte. The extension workspace is `apps/extension`; it compiles
