@@ -251,6 +251,66 @@ describeDatabase("alpha repositories against Postgres", () => {
     await deleteAlphaTesterData(db, invite.id);
   });
 
+  it("keeps an invite terminal when revocation races redemption", async () => {
+    const tokenHash = hashSeed("revocation-race-invite");
+    const now = new Date("2026-07-24T12:00:00.000Z");
+    const invite = await createAlphaInvite(db, {
+      label: `revocation-race-${randomUUID()}`,
+      tokenHash,
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-07-31T12:00:00.000Z"),
+      now
+    });
+    const lockClient = await pool.connect();
+    const revokePool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const redeemPool = new Pool({ connectionString: databaseUrl, max: 1 });
+    const revokeDb = drizzle(revokePool, { schema }) as ColdStartDb;
+    const redeemDb = drizzle(redeemPool, { schema }) as ColdStartDb;
+
+    try {
+      await lockClient.query("begin");
+      await lockClient.query("select id from alpha_invites where id = $1 for update", [invite.id]);
+
+      const revokePid = Number((await revokePool.query("select pg_backend_pid() as pid")).rows[0]?.pid);
+      const revoke = revokeAlphaInvite(revokeDb, invite.id, now);
+      await waitForDatabaseLock(pool, revokePid);
+
+      const redeemPid = Number((await redeemPool.query("select pg_backend_pid() as pid")).rows[0]?.pid);
+      const redeem = redeemAlphaInvite(redeemDb, {
+        tokenHash,
+        accessTokenHash: hashSeed("revocation-race-installation"),
+        browser: "firefox",
+        channel: "unlisted",
+        extensionVersion: "0.2.1",
+        now
+      });
+      await waitForDatabaseLock(pool, redeemPid);
+
+      await lockClient.query("commit");
+      expect(await revoke).toBe(true);
+      expect(await redeem).toBeNull();
+
+      const stored = await findAlphaInviteById(db, invite.id);
+      expect(stored?.status).toBe("revoked");
+      expect(stored?.revokedAt).not.toBeNull();
+      expect(await findActiveAlphaInstallationByTokenHash(
+        db,
+        hashSeed("revocation-race-installation"),
+        now
+      )).toBeNull();
+      const installations = await pool.query(
+        "select count(*)::int as active from alpha_installations where invite_id = $1 and revoked_at is null",
+        [invite.id]
+      );
+      expect(installations.rows[0]?.active).toBe(0);
+    } finally {
+      await lockClient.query("rollback").catch(() => undefined);
+      lockClient.release();
+      await Promise.all([revokePool.end(), redeemPool.end()]);
+      await deleteAlphaTesterData(db, invite.id);
+    }
+  });
+
   it("stops 50 concurrent reservations exactly at the allowance limit", async () => {
     const fixture = await connectedInvite(12, hashChar("d"), hashChar("e"));
     const prefix = randomUUID().slice(0, 8);
@@ -573,6 +633,21 @@ describeDatabase("alpha repositories against Postgres", () => {
     await deleteAlphaTesterData(db, fixture.inviteId);
   }, 30_000);
 });
+
+async function waitForDatabaseLock(queryPool: Pool, pid: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const result = await queryPool.query(
+      "select 1 from pg_stat_activity where pid = $1 and wait_event_type = 'Lock'",
+      [pid]
+    );
+    if (result.rowCount === 1) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`Database process ${pid} did not reach the expected lock wait.`);
+}
 
 async function connectedInvite(profileLimit: number, tokenHash: string, accessTokenHash: string) {
   const now = new Date("2026-07-24T12:00:00.000Z");

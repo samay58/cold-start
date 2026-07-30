@@ -271,22 +271,10 @@ export async function revokeAlphaInvite(
   inviteId: string,
   now = new Date()
 ): Promise<boolean> {
-  const result = await db.execute<{ id: string }>(sql`
-    with revoked_invite as (
-      update alpha_invites
-      set status = 'revoked', revoked_at = ${now}, updated_at = ${now}
-      where id = ${inviteId}::uuid and status <> 'revoked'
-      returning id
-    ),
-    revoked_installations as (
-      update alpha_installations
-      set revoked_at = ${now}, updated_at = ${now}
-      where invite_id in (select id from revoked_invite) and revoked_at is null
-      returning id
-    )
-    select id from revoked_invite
+  const result = await db.execute<{ result: boolean }>(sql`
+    select revoke_alpha_invite(${inviteId}::uuid, ${now}) as result
   `);
-  return executeRows(result).length === 1;
+  return executeRows<{ result: boolean }>(result)[0]?.result === true;
 }
 
 export async function getAlphaAllowanceSnapshot(

@@ -92,6 +92,13 @@
       "when": 1785378600000,
       "tag": "0012_release_revoked_alpha_seats",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785379496000,
+      "tag": "0013_keep_revoked_invites_terminal",
+      "breakpoints": true
     }
   ]
 }

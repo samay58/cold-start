@@ -60,7 +60,7 @@ npm run repair:signal-clusters          # tsx scripts/repair-signal-clusters.ts 
 npm run repair:stuck-runs               # tsx scripts/repair-stuck-generation-runs.ts (retire runs stranded in running; --apply to write)
 npm run wallet:status                   # tsx scripts/wallet-status.ts (read-only AgentCash balance, spend, burn rate)
 npm run alpha:invite                    # tsx scripts/alpha-invite.ts (create one expiring friend-alpha invitation; prints the one-time invite URL)
-npm run alpha:revoke                    # tsx scripts/alpha-revoke.ts (revoke an invite or one installation via --invite or --installation)
+npm run alpha:revoke                    # tsx scripts/alpha-revoke.ts (terminal --invite revoke, or repair-only --installation <id> --repair)
 npm run alpha:delete-tester             # tsx scripts/alpha-delete-tester.ts (hard-delete one tester's data; --confirm must match --invite)
 npm run alpha:prune                     # tsx scripts/alpha-prune.ts (delete raw alpha events older than 30d by default, the privacy-page retention commitment)
 npm run alpha:status                    # tsx scripts/alpha-status.ts (funnel, allowance, reliability, and spend report; add --gate to fail on regressions)

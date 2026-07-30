@@ -17,7 +17,7 @@ Complete the bracketed fields outside git before submission. Never commit the in
 
 Invitation URL: `[HTTPS_INVITATION_URL_WITH_TOKEN_IN_FRAGMENT]`
 
-The invitation is single-use, expires after review, and creates one revocable installation. It is intentionally low allowance. Send a new invitation through the private reviewer-notes field if the first one expires or is consumed.
+The invitation expires after review and creates one active installation. It is intentionally low allowance. Send a new invitation through the private reviewer-notes field if the first one expires or is consumed.
 
 ## Review path
 

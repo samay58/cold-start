@@ -368,7 +368,7 @@ page-to-extension messaging).
 
 1. Open `/alpha`, `/privacy`, `/robots.txt`, and `/sitemap.xml`.
 2. Use a fresh Chrome profile with no seeded extension storage.
-3. Open a single-use owner invitation and accept the disclosure.
+3. Open an owner invitation and accept the disclosure.
 4. Install the Unlisted extension and connect from the same invitation page.
 5. Open a novel company site and invoke Cold Start.
 6. Confirm the allowance meter reads 12 profiles and 6 Lens runs.
@@ -387,13 +387,17 @@ outcomes are reported separately from software failures.
 
 ```bash
 npm run alpha:invite -- --label "Owner"
-npm run alpha:revoke -- --installation <uuid>
+npm run alpha:revoke -- --installation <uuid> --repair
 npm run alpha:delete-tester -- --invite <uuid>
 npm run alpha:prune -- --before 30d
 npm run alpha:status -- --since 7d
 npm run alpha:status -- --since 7d --json
 npm run alpha:status -- --gate
 ```
+
+Installation revocation is repair-only. It frees the seat and makes the original
+invite redeemable again. Use `--invite <uuid> --apply` instead if the invitation
+link or browser may be compromised.
 
 `alpha:status --gate` fails on software failures, stale active runs, an
 insufficient wallet floor, and unsupported extension versions. It reports

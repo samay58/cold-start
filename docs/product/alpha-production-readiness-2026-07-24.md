@@ -1,7 +1,7 @@
 # Friend Alpha Production Readiness
 
 Captured July 24, 2026.
-Last updated July 27, 2026.
+Last updated July 29, 2026.
 
 This is the strict ship gate for five invited friends. The product remains
 free, invitation-gated, server-metered, and distributed through an Unlisted
@@ -89,7 +89,9 @@ docs/qa/analysis-run-observations.md, 2026-07-27 entry.
 
 ### Identity And Spend
 
-- Invitations are single-use, expiring, and stored as hashes.
+- Invitations are expiring, stored as hashes, and capped by active installations.
+- Revoking an installation with the explicit `--repair` flag frees its seat and makes the original invite redeemable again.
+- Revoking an invitation remains terminal and revokes every active installation.
 - Each installation receives a separate hashed, revocable credential.
 - Authentication returns a server-derived alpha or operator principal.
 - The operator credential remains transitional and is never distributed.

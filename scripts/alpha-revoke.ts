@@ -24,11 +24,14 @@ const HELP = `Revoke an alpha invitation or one installation.
 Usage:
   npm run alpha:revoke -- --invite <invite-id>                  # dry run, no writes
   npm run alpha:revoke -- --invite <invite-id> --apply           # revoke
-  npm run alpha:revoke -- --installation <installation-id>       # dry run, no writes
-  npm run alpha:revoke -- --installation <installation-id> --apply
+  npm run alpha:revoke -- --installation <installation-id> --repair
+  npm run alpha:revoke -- --installation <installation-id> --repair --apply
 
 Exactly one target is required. Revoking an invitation also revokes all of its
-active installations. Without --apply, prints the plan and writes nothing.`;
+active installations. Installation revocation is only for repairing a failed
+setup: it frees the seat and makes the original invite redeemable again. Revoke
+the invitation instead if its link may be exposed. Without --apply, prints the
+plan and writes nothing.`;
 
 type InvitePlan = {
   target: "invite";
@@ -45,7 +48,17 @@ type InstallationPlan = {
   found: boolean;
   alreadyRevoked: boolean;
   inviteId: string | null;
+  repairOnly: true;
+  inviteBecomesRedeemable: true;
 };
+
+export function requireRepairIntent(installationId: string | undefined, repair: boolean): void {
+  if (installationId && !repair) {
+    throw new Error(
+      "Installation revocation is repair-only and reopens the original invite. Add --repair, or revoke the invite if its link may be exposed."
+    );
+  }
+}
 
 async function invitePlan(db: ColdStartDb, inviteId: string): Promise<InvitePlan> {
   const invite = await findAlphaInviteById(db, inviteId);
@@ -77,7 +90,15 @@ async function installationPlan(db: ColdStartDb, installationId: string): Promis
   const row = rows[0];
 
   if (!row) {
-    return { target: "installation", installationId, found: false, alreadyRevoked: false, inviteId: null };
+    return {
+      target: "installation",
+      installationId,
+      found: false,
+      alreadyRevoked: false,
+      inviteId: null,
+      repairOnly: true,
+      inviteBecomesRedeemable: true
+    };
   }
 
   return {
@@ -85,7 +106,9 @@ async function installationPlan(db: ColdStartDb, installationId: string): Promis
     installationId,
     found: true,
     alreadyRevoked: row.revokedAt !== null,
-    inviteId: row.inviteId
+    inviteId: row.inviteId,
+    repairOnly: true,
+    inviteBecomesRedeemable: true
   };
 }
 
@@ -101,6 +124,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (Boolean(inviteId) === Boolean(installationId)) {
     throw new Error("Provide exactly one of --invite or --installation.");
   }
+  requireRepairIntent(installationId, hasFlag(args, "--repair"));
 
   loadProductionEnv();
   const apply = hasFlag(args, "--apply");

@@ -12,6 +12,7 @@ import {
   buildAlphaStatusReport,
   type AlphaStatusReportInputs
 } from "./alpha-status";
+import { requireRepairIntent } from "./alpha-revoke";
 
 describe("alpha operator CLI primitives", () => {
   it("creates a 256-bit URL-safe invitation secret and keeps it in the fragment", () => {
@@ -44,6 +45,15 @@ describe("alpha operator CLI primitives", () => {
     assert.equal(durationMs("12h"), 43_200_000);
     assert.equal(durationMs("7d"), 604_800_000);
     assert.throws(() => durationMs("1.5d"), /whole-number duration/);
+  });
+
+  it("requires explicit repair intent before an installation revoke", () => {
+    assert.doesNotThrow(() => requireRepairIntent(undefined, false));
+    assert.doesNotThrow(() => requireRepairIntent("installation-id", true));
+    assert.throws(
+      () => requireRepairIntent("installation-id", false),
+      /repair-only and reopens the original invite/
+    );
   });
 });
 
