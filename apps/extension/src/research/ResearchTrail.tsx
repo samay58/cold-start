@@ -49,15 +49,43 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
   return "Checking company, product, funding, and proof sources";
 }
 
-function stageMark(status: ResearchProgressStatus, active: boolean) {
-  if (status === "done") return "✓";
-  if (status === "failed") return "×";
-  if (status === "attention") return "!";
-  return active ? "•" : "·";
+// Drawn marks, sharing the analysis wait's vocabulary (research-trail.css .cs-wait-mark): a
+// verified check for done, a pulsing seal square for the running stage (the ledger's one live
+// signal; reduced motion swaps it for the shared slow breath), a quiet ring while waiting, and
+// the conflict/company colors for failed and attention. Status only ever changes on a real run
+// event, so every mark transition here is event-driven by construction.
+function StageLedgerMark({ status }: { status: ResearchProgressStatus }) {
+  if (status === "running") {
+    return <span aria-hidden="true" className="cs-progress-ledger-mark" data-status={status} />;
+  }
+
+  return (
+    <span aria-hidden="true" className="cs-progress-ledger-mark" data-status={status}>
+      <svg viewBox="0 0 14 14" width="14" height="14" focusable="false">
+        {status === "done" ? (
+          <path d="M3 7.2 5.8 10 11 4.4" />
+        ) : status === "failed" ? (
+          <>
+            <path d="M4.2 4.2 9.8 9.8" />
+            <path d="M9.8 4.2 4.2 9.8" />
+          </>
+        ) : status === "attention" ? (
+          <>
+            <path d="M7 3.4v4.4" />
+            <path d="M7 10.4h.01" />
+          </>
+        ) : (
+          <circle cx="7" cy="7" r="4.4" />
+        )}
+      </svg>
+    </span>
+  );
 }
 
 // Clippings carry the readable content. The stage list is a quiet filing ledger, not a progress
-// bar. The deeper event tree stays behind Details unless something needs attention.
+// bar. The deeper event tree stays behind Details unless something needs attention, and when it
+// opens it replaces the ledger in place: both surfaces speak the same four stages, so showing
+// them stacked would say everything twice.
 export function ResearchTrail({
   companyDomain,
   events,
@@ -93,28 +121,29 @@ export function ResearchTrail({
       aria-label="Research details"
       data-attention={needsAttention ? "true" : "false"}
     >
-      <div className="cs-progress-ledger-head">Stages</div>
-      <ol className="cs-progress-ledger">
-        {plan.map((stage, index) => {
-          const active = index === activeIndex;
-          return (
-            <li
-              aria-current={active ? "step" : undefined}
-              data-active={active ? "true" : "false"}
-              data-status={stage.status}
-              key={stage.marker}
-            >
-              <span aria-hidden="true" className="cs-progress-ledger-mark">
-                {stageMark(stage.status, active)}
-              </span>
-              <span className="cs-progress-ledger-label">{stage.label}</span>
-              {active ? (
-                <span className="cs-progress-ledger-note">{stage.proofLine || stageNote}</span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
+      {showDetailsTree ? null : (
+        <ol className="cs-progress-ledger">
+          {plan.map((stage, index) => {
+            const active = index === activeIndex;
+            return (
+              <li
+                aria-current={active ? "step" : undefined}
+                data-active={active ? "true" : "false"}
+                data-status={stage.status}
+                key={stage.marker}
+              >
+                <StageLedgerMark status={stage.status} />
+                <span className="cs-progress-ledger-copy">
+                  <strong className="cs-progress-ledger-label">{stage.label}</strong>
+                  {active ? (
+                    <span className="cs-progress-ledger-note">{stage.proofLine || stageNote}</span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
       {showDetailsControl ? (
         <button
           aria-expanded={detailsOpen}

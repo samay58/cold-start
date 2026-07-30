@@ -23,11 +23,16 @@ export type ResearchProgressStagePlan = ResearchProgressStage & {
   substeps: ResearchProgressSubstep[];
 };
 
+// Verbs, not pipeline nouns, and each one is anchored to real basics-run events: Find covers
+// plan.ready and source.found, Read covers source.enrichment and the first-payoff receipts,
+// Build covers card.partial, File covers card.saved through generation.complete. Synthesize and
+// Verify stay out of this vocabulary because only the later analysis run performs them (see
+// AnalysisWaitInstrument's Queue/Gather/Read/Verify/File plan).
 export const RESEARCH_PROGRESS_STAGES: ResearchProgressStage[] = [
-  { label: "Sources", marker: "01", note: "Checking company, product, funding, and proof sources" },
-  { label: "Proof", marker: "02", note: "Waiting for sources" },
-  { label: "Profile", marker: "03", note: "Waiting for evidence" },
-  { label: "Filed", marker: "04", note: "Waiting for profile" }
+  { label: "Find", marker: "01", note: "Checking company, product, funding, and proof sources" },
+  { label: "Read", marker: "02", note: "Waiting for sources" },
+  { label: "Build", marker: "03", note: "Waiting for evidence" },
+  { label: "File", marker: "04", note: "Waiting for profile" }
 ];
 
 const boundedSourceCategories = [

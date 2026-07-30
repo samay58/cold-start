@@ -33,7 +33,7 @@ function source(input: Partial<ExtensionSourceSummary> & Pick<ExtensionSourceSum
 }
 
 describe("artifact-led research progress", () => {
-  it("uses noun stage labels and honest waiting proof lines without events", () => {
+  it("uses verb stage labels and honest waiting proof lines without events", () => {
     const plan = buildResearchProgressPlan({
       activeIndex: 0,
       events: [],
@@ -41,7 +41,7 @@ describe("artifact-led research progress", () => {
       stages: RESEARCH_PROGRESS_STAGES
     });
 
-    expect(plan.map((stage) => stage.label)).toEqual(["Sources", "Proof", "Profile", "Filed"]);
+    expect(plan.map((stage) => stage.label)).toEqual(["Find", "Read", "Build", "File"]);
     expect(plan.map((stage) => stage.proofLine)).toEqual([
       "Checking company, product, funding, and proof sources",
       "Waiting for sources",

@@ -895,7 +895,15 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
 
   const stageLedger = page.locator(".cs-progress-ledger");
   await expect(stageLedger).toBeVisible();
-  await expect(stageLedger.locator('[data-active="true"]')).toContainText("Proof");
+  await expect(stageLedger.locator('[data-active="true"]')).toContainText("Read");
+  // The ledger speaks verbs anchored to real events, never the old pipeline nouns or a heading.
+  await expect(page.getByText("Stages", { exact: true })).toHaveCount(0);
+  // The running verb's mark is the ledger's one live signal.
+  const runningMark = stageLedger.locator('.cs-progress-ledger-mark[data-status="running"]');
+  await expect(runningMark).toHaveCount(1);
+  await expect.poll(() =>
+    runningMark.evaluate((element) => getComputedStyle(element, "::before").animationName)
+  ).toBe("cs-dot-pulse");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
 
   await page.waitForTimeout(3600);
@@ -903,10 +911,12 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(page.locator(".cs-clipping").nth(1).locator(".cs-clipping-domain")).toHaveText("docs.cartesia.ai");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings-next.png" });
 
-  // The full tree waits behind Details, and still carries the honest verbs when opened.
+  // The full tree waits behind Details, and replaces the ledger in place when opened: both
+  // surfaces speak the same four stages, so they never render stacked.
   await page.locator(".cs-assembly-details-toggle").click();
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible();
+  await expect(stageLedger).toHaveCount(0);
   await expect(tree).toContainText("3 sources found");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
@@ -1208,6 +1218,11 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await expect(seal).toHaveAttribute("data-level", "0");
   await expect(seal).toHaveAttribute("data-filed", "false");
   await expect(page.locator(".cs-assembly-whisper")).toContainText("Queued");
+  // The ledger's running mark breathes in place instead of pulsing spatially.
+  const reducedRunningMark = page.locator('.cs-progress-ledger-mark[data-status="running"]');
+  await expect.poll(() =>
+    reducedRunningMark.evaluate((element) => getComputedStyle(element, "::before").animationName)
+  ).toBe("cs-reduced-breathe");
   await page.locator(".cs-assembly-details-toggle").click();
   await expect(page.locator(".cs-build-tree")).toBeVisible();
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
