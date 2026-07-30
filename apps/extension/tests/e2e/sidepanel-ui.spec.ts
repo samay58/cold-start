@@ -51,6 +51,49 @@ type CollapsedTextViolation = {
   width: number;
 };
 
+test("Firefox invitation screen stays focused and tactile", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "no-preference" });
+  await installChromeShim(page, { apiToken: "", browser: "firefox" });
+  await openSidePanel(page);
+
+  await expect(page.getByRole("heading", { name: "Connect Cold Start" })).toBeVisible();
+  await expect(page.getByLabel("Paste your invitation link")).toBeFocused();
+  await expect(page.getByText("Connect your invitation")).toHaveCount(0);
+  await expect(page.getByText("Friend alpha")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
+  await expect(page.getByText("Profiles are public. Requests stay private.")).toBeVisible();
+  await expect(page.getByRole("group", { name: "Appearance" })).toHaveCount(0);
+  await expect(page.locator(".cs-firefox-invite-slip")).toHaveCSS("border-radius", "8px");
+
+  const button = page.getByRole("button", { name: "Connect" });
+  const arrow = button.locator("svg");
+  const rest = await arrow.evaluate((element) => getComputedStyle(element).transform);
+  await button.hover();
+  await expect.poll(() => arrow.evaluate((element) => getComputedStyle(element).transform)).not.toBe(rest);
+
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-firefox-connect-light.png" });
+  await setTheme(page, "dark");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-firefox-connect-dark.png" });
+
+  await page.setViewportSize({ width: 360, height: 640 });
+  await expect(page.locator(".cs-firefox-invite-slip")).toBeInViewport();
+  await expect(page.getByText("Ask Samay for help")).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-firefox-connect-short.png" });
+});
+
+test("Firefox invitation action stays still with reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installChromeShim(page, { apiToken: "", browser: "firefox" });
+  await openSidePanel(page);
+
+  const button = page.getByRole("button", { name: "Connect" });
+  const arrow = button.locator("svg");
+  const rest = await arrow.evaluate((element) => getComputedStyle(element).transform);
+  await button.hover();
+  await expect(arrow).toHaveCSS("transform", rest);
+});
+
 // Guards the one-character-per-line class of bug: a leftover multi-column CSS grid (a dot
 // column with nothing left to fill it) collapses its text sibling into a track only a few
 // pixels wide, so long strings wrap one glyph per line. Any visible text node longer than

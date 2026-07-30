@@ -272,7 +272,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("uses the aperture brand mark for access setup instead of a block logo", async () => {
+  it("shows the focused Firefox invitation screen without operator setup", async () => {
     const fetchMock = vi.fn();
     const { container, unmount } = await renderSidePanel({
       domain: "linear.app",
@@ -280,10 +280,10 @@ describe("SidePanel generation gate", () => {
       storedSettings: { coldStartApiToken: "" }
     });
 
-    expect(container.textContent).toContain("Connect");
-    expect(container.textContent).toContain("Private cards use the browser token.");
-    expect(container.textContent).toContain("Extension token");
-    expect(container.querySelector(".cs-panel-brand-mark .cs-brand-mark")).toBeTruthy();
+    expect(container.textContent).toContain("Connect Cold Start");
+    expect(container.textContent).toContain("Profiles are public. Requests stay private.");
+    expect(container.textContent).not.toContain("Extension token");
+    expect(container.querySelector(".cs-firefox-invite-mark .cs-brand-mark")).toBeTruthy();
     expect(container.querySelector(".cs-extension-brand")).toBeNull();
     expect(container.querySelector(".cs-extension-mark")).toBeNull();
     expect(container.textContent).not.toContain("CS");

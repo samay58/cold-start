@@ -144,7 +144,10 @@ describe("ConnectionPanel", () => {
     installChrome({ firefox: true });
     render();
 
-    expect(container.textContent).toContain("public sourced fact card");
+    expect(container.textContent).toContain("Profiles are public. Requests stay private.");
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+    expect(container.querySelector("h1")?.textContent).toBe("Connect Cold Start");
+    expect(container.textContent).not.toContain("Connect your invitation");
   });
 
   it("rejects malformed input without a network request", async () => {

@@ -421,31 +421,56 @@ function FirefoxInviteForm({
   }
 
   return (
-    <form className="cs-access-card" onSubmit={handleSubmit}>
-      <div className="cs-access-card-head">
-        <span>Invitation</span>
-        <strong>Friend alpha</strong>
-      </div>
-      <label className="cs-extension-field">
-        <span>Invitation link</span>
-        <input
-          autoComplete="off"
-          className="cs-invite-code-input"
-          onChange={(event) => setInviteInput(event.target.value)}
-          type="text"
-          value={inviteInput}
-        />
-      </label>
-      <p className="cs-extension-note">
-        Connecting creates research that is saved as a public sourced fact card. Cards never identify who requested them.
-      </p>
-      {error ? <p className="cs-extension-error">{error}</p> : null}
-      <div className="cs-extension-actions">
-        <span>Paste the link Samay sent you</span>
-        <button className="cs-extension-button" disabled={connecting} type="submit">
-          {connecting ? "Connecting" : "Connect"}
+    <form className="cs-firefox-invite" onSubmit={handleSubmit}>
+      <header className="cs-firefox-invite-head">
+        <span className="cs-firefox-invite-mark" aria-hidden="true">
+          <BrandMark />
+        </span>
+        <div>
+          <p>Friend alpha</p>
+          <h1>Connect Cold Start</h1>
+        </div>
+      </header>
+
+      <div className="cs-firefox-invite-slip">
+        <div className="cs-firefox-invite-slip-head">
+          <span>Invitation</span>
+          <i aria-hidden="true" />
+        </div>
+        <label className="cs-extension-field">
+          <span>Paste your invitation link</span>
+          <input
+            autoComplete="off"
+            autoFocus
+            className="cs-invite-code-input"
+            onChange={(event) => {
+              setInviteInput(event.target.value);
+              setError(null);
+            }}
+            spellCheck={false}
+            type="text"
+            value={inviteInput}
+          />
+        </label>
+        {error ? <p aria-live="polite" className="cs-extension-error">{error}</p> : null}
+        <button
+          aria-label={connecting ? "Connecting" : "Connect"}
+          className="cs-invite-connect-button"
+          disabled={connecting}
+          type="submit"
+        >
+          <span>{connecting ? "Connecting" : "Connect"}</span>
+          <i aria-hidden="true">
+            <svg viewBox="0 0 20 20">
+              <path d="M5 10h9M10.5 6.5 14 10l-3.5 3.5" />
+            </svg>
+          </i>
         </button>
       </div>
+
+      <p className="cs-firefox-invite-disclosure">
+        Profiles are public. Requests stay private.
+      </p>
     </form>
   );
 }
@@ -463,28 +488,33 @@ export function ConnectionPanel({
 }) {
   const firefox = typeof chrome !== "undefined" && !("sidePanel" in chrome);
 
+  if (firefox) {
+    return (
+      <ExtensionFrame className="cs-firefox-connection" title="Invitation required">
+        <FirefoxInviteForm onConnected={onConnected} themePreference={themePreference} />
+        <div className="cs-firefox-connection-foot">
+          <a href={ALPHA_SUPPORT_HREF} onClick={onSupport} target="_blank" rel="noreferrer">
+            Ask Samay for help
+          </a>
+        </div>
+      </ExtensionFrame>
+    );
+  }
+
   return (
     <ExtensionFrame className="cs-intake-panel" title="Invitation required">
       <PanelHeader
         eyebrow="Friend alpha"
-        title={firefox ? "Connect your invitation" : "Open your invitation"}
-        value={
-          firefox
-            ? "Paste the invitation link to connect this installation."
-            : "The invitation connects this installation in one click."
-        }
+        title="Open your invitation"
+        value="The invitation connects this installation in one click."
       />
-      {firefox ? (
-        <FirefoxInviteForm onConnected={onConnected} themePreference={themePreference} />
-      ) : (
-        <div className="cs-access-card cs-access-card-friendly">
-          <span className="cs-classification-dot" aria-hidden="true" />
-          <div>
-            <strong>Return to the invitation Samay sent you.</strong>
-            <p>Install Cold Start, come back to that page, then choose Connect Cold Start. No setup code is needed here.</p>
-          </div>
+      <div className="cs-access-card cs-access-card-friendly">
+        <span className="cs-classification-dot" aria-hidden="true" />
+        <div>
+          <strong>Return to the invitation Samay sent you.</strong>
+          <p>Install Cold Start, come back to that page, then choose Connect Cold Start. No setup code is needed here.</p>
         </div>
-      )}
+      </div>
       <div className="cs-extension-actions">
         <a
           className="cs-extension-button"
@@ -1655,7 +1685,8 @@ export function SidePanel() {
   }
 
   if (!settings.apiToken) {
-    if (import.meta.env.PROD) {
+    const firefox = typeof chrome !== "undefined" && !("sidePanel" in chrome);
+    if (import.meta.env.PROD || firefox) {
       return (
         <ConnectionPanel
           onConnected={() => {

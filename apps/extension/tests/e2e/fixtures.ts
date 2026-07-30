@@ -20,6 +20,7 @@ type ChromeStorageSeed = {
   activeDomain?: string;
   apiOrigin?: string;
   apiToken?: string;
+  browser?: "chrome" | "firefox";
 };
 
 export function browserbaseCard(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
@@ -268,11 +269,19 @@ export async function installChromeShim(page: Page, seed: ChromeStorageSeed = {}
       };
     }
 
+    const localStorage = storageArea("local");
+    if (input.browser === "chrome") {
+      Object.assign(localStorage, {
+        setAccessLevel: async () => undefined
+      });
+    }
+
     Object.assign(window, {
       chrome: {
-        runtime: { id: "extension-test-id" },
+        runtime: { id: input.browser === "firefox" ? "cold-start@semitechie.vc" : "extension-test-id" },
+        ...(input.browser === "chrome" ? { sidePanel: { open: async () => undefined } } : {}),
         storage: {
-          local: storageArea("local"),
+          local: localStorage,
           session: storageArea("session"),
           onChanged: {
             addListener(listener: Listener) {
@@ -295,7 +304,8 @@ export async function installChromeShim(page: Page, seed: ChromeStorageSeed = {}
   }, {
     activeDomain: seed.activeDomain ?? "browserbase.com",
     apiOrigin: seed.apiOrigin ?? QA_API_ORIGIN,
-    apiToken: seed.apiToken ?? QA_TOKEN
+    apiToken: seed.apiToken ?? QA_TOKEN,
+    browser: seed.browser ?? "chrome"
   });
 }
 
