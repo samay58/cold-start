@@ -241,6 +241,26 @@ describe("Clippings", () => {
     expect(container.querySelector('.cs-clipping[data-active="true"]')?.textContent).toBe(before);
   });
 
+  it("drops the leading well entirely for an imageless carousel clipping and keeps the meta dot", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[
+          clipping({ domain: "news.com", sourceClass: "funding", imageUrl: "https://img/a.png", note: "Raised a round" }),
+          clipping({ domain: "a.com", note: "Company positioning" })
+        ]}
+        prefersReducedMotion={true}
+        variant="carousel"
+      />
+    );
+
+    const links = container.querySelectorAll(".cs-clipping-link");
+    expect(links[0]?.getAttribute("data-lead")).toBe("thumb");
+    expect(links[1]?.getAttribute("data-lead")).toBe("none");
+    // The old empty-well placeholder is gone for good; the class dot leads the meta row instead.
+    expect(container.querySelector(".cs-clipping-source-mark")).toBeNull();
+    expect(links[1]?.querySelector(".cs-clipping-meta .cs-clipping-dot")).not.toBeNull();
+  });
+
   it("falls back to a plain classification dot instead of a favicon when the chrome api is absent", async () => {
     const container = await render(
       <Clippings clippings={[clipping({ domain: "exa.ai" })]} prefersReducedMotion={false} />

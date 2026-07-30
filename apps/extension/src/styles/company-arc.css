@@ -1150,6 +1150,12 @@
   background: var(--color-plate);
 }
 
+/* An imageless clipping keeps no empty well: the copy takes the full width and the
+   classification dot returns to the meta row as its lead mark. */
+.cs-clippings[data-variant="carousel"] .cs-clipping-link[data-lead="none"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .cs-clippings[data-variant="carousel"] .cs-clipping[data-active="true"] .cs-clipping-link {
   border-color: rgb(var(--cs-c-110-92-158) / 0.38);
   border-top-color: var(--color-seal);
@@ -1157,8 +1163,7 @@
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
-.cs-clippings[data-variant="carousel"] .cs-clipping-favicon,
-.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
+.cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
   align-self: center;
   width: 50px;
   height: 40px;
@@ -1168,17 +1173,7 @@
   object-fit: cover;
 }
 
-.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
-  display: grid;
-  place-items: center;
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping-source-mark .cs-clipping-dot {
-  width: 9px;
-  height: 9px;
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping-meta > .cs-clipping-dot {
+.cs-clippings[data-variant="carousel"] .cs-clipping-link:not([data-lead="none"]) .cs-clipping-meta > .cs-clipping-dot {
   display: none;
 }
 
@@ -1220,9 +1215,12 @@
     gap: 9px;
   }
 
+  .cs-clippings[data-variant="carousel"] .cs-clipping-link[data-lead="none"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
-  .cs-clippings[data-variant="carousel"] .cs-clipping-favicon,
-  .cs-clippings[data-variant="carousel"] .cs-clipping-source-mark {
+  .cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
     width: 42px;
     height: 36px;
   }

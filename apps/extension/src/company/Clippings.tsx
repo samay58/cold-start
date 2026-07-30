@@ -84,9 +84,9 @@ function ClippingRow({
   const active = variant === "carousel" && focused;
   const lead = variant === "carousel" && position === 0;
   const carouselMotion = prefersReducedMotion
-    ? { opacity: lead ? 1 : position === 1 ? 0.5 : 0.3 }
+    ? { opacity: lead ? 1 : position === 1 ? 0.52 : 0.3 }
     : {
-        opacity: lead ? 1 : position === 1 ? 0.48 : 0.27,
+        opacity: lead ? 1 : position === 1 ? 0.52 : 0.3,
         scale: lead ? 1 : position === 1 ? 0.982 : 0.965,
         x: 0,
         y: 0
@@ -98,26 +98,34 @@ function ClippingRow({
       data-active={active ? "true" : "false"}
       data-position={position}
       data-source-class={clipping.sourceClass}
+      // One vertical axis for the whole desk: new evidence lands into focus from above and
+      // settles on the snap spring (a breath of follow-through, no bounce), the waiting queue
+      // rises quietly from below, and a retiring clipping fades down as if filed. The focused
+      // slot's opacity trails the others by a beat so the outgoing clipping yields before the
+      // incoming one becomes readable.
       initial={prefersReducedMotion
         ? { opacity: 0 }
         : variant === "carousel"
-          ? { opacity: 0, scale: 0.95, x: position === 0 ? -42 : 0, y: position === 0 ? 8 : 18 }
+          ? position === 0
+            ? { opacity: 0, scale: 0.985, y: -16 }
+            : { opacity: 0, y: 12 }
           : { opacity: 0, y: 6 }}
       animate={variant === "carousel" ? carouselMotion : { opacity: 1, y: 0 }}
       exit={prefersReducedMotion
         ? { opacity: 0 }
         : variant === "carousel"
-          ? { opacity: 0, scale: 0.96, x: 34, y: -6 }
+          ? { opacity: 0, scale: 0.99, y: 10, transition: { duration: 0.2, ease: "easeIn" } }
           : { opacity: 0 }}
       layout={variant === "carousel" && !prefersReducedMotion ? "position" : false}
       transition={prefersReducedMotion
         ? { duration: 0.14, ease: "easeOut" }
         : variant === "carousel"
-          ? { ...snapSpring, opacity: { duration: 0.26, ease: "easeOut" } }
+          ? { ...snapSpring, opacity: { duration: 0.26, ease: "easeOut", delay: lead ? 0.06 : 0 } }
           : { ...commitSpring, delay: index * 0.05 }}
     >
       <a
         className="cs-clipping-link"
+        data-lead={showThumb ? "thumb" : showFavicon ? "favicon" : "none"}
         href={clipping.url}
         onClick={() => {
           emitAlphaEvent("source.opened", {
@@ -130,6 +138,8 @@ function ClippingRow({
         target="_blank"
         title={clipping.title || clipping.domain}
       >
+        {/* No image, no well: an empty plate box is dead weight in the most common state, so an
+            imageless clipping leads with its classification dot in the meta row instead. */}
         {showThumb && clipping.imageUrl ? (
           <img
             alt=""
@@ -148,10 +158,6 @@ function ClippingRow({
             src={favicon}
             width={16}
           />
-        ) : variant === "carousel" ? (
-          <span aria-hidden="true" className="cs-clipping-source-mark">
-            <span className="cs-clipping-dot" data-source-class={clipping.sourceClass} />
-          </span>
         ) : null}
         <span className="cs-clipping-copy">
           <span className="cs-clipping-meta">
