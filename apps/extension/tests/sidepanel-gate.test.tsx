@@ -34,18 +34,16 @@ describe("SidePanel generation gate", () => {
     expect(generateCalls(fetchMock)).toHaveLength(0);
     // The intake status slot renders empty; there is no "No profile" chip to earn its space.
     expect(container.textContent).not.toContain("No profile");
-    // The scope statement appears once, from the intake note; the module pile no longer
-    // restates it in different words.
-    expect(container.textContent).toContain("Build a cited profile from public sources: identity, funding, people, and proof.");
-    // The intake previews the real research modules without advertising a later Lens state.
+    // The intake previews the real research modules without a slogan, time promise, or later Lens state.
+    expect(container.textContent).not.toContain("Build a cited profile");
+    expect(container.textContent).not.toContain("from public sources");
     expect(container.textContent).not.toContain("Get up to speed");
+    expect(container.textContent).not.toContain("Ninety seconds");
     expect(container.textContent).toContain("Who pays");
     expect(container.textContent).toContain("Proof");
     expect(container.textContent).not.toContain("Investor Lens");
     expect(container.textContent).not.toContain("Opens when the cited profile is filed.");
-    const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Begin research"
-    );
+    const generateButton = container.querySelector<HTMLButtonElement>('button[aria-label="Begin research"]');
     expect(generateButton).toBeTruthy();
 
     await act(async () => {
@@ -392,9 +390,7 @@ describe("SidePanel generation gate", () => {
     await panel.changeDomain("linear.app");
 
     expect(generateCalls(fetchMock)).toHaveLength(0);
-    const generateButton = Array.from(panel.container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Begin research"
-    );
+    const generateButton = panel.container.querySelector<HTMLButtonElement>('button[aria-label="Begin research"]');
     expect(generateButton).toBeTruthy();
     expect(panel.container.textContent).toContain("Linear");
     await panel.unmount();

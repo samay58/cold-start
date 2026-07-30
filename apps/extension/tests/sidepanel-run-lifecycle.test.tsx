@@ -335,9 +335,7 @@ describe("SidePanel run lifecycle", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Begin research"
-    );
+    const generateButton = container.querySelector<HTMLButtonElement>('button[aria-label="Begin research"]');
     expect(generateButton).toBeTruthy();
     await act(async () => {
       generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -997,7 +995,7 @@ describe("SidePanel run lifecycle", () => {
     });
     const { changeDomain, container, unmount } = await renderSidePanel({ domain, fetchMock });
 
-    const beginButton = interactiveControls(container).find((button) => button.textContent === "Begin research");
+    const beginButton = container.querySelector<HTMLButtonElement>('button[aria-label="Begin research"]');
     expect(beginButton).toBeTruthy();
 
     await act(async () => {

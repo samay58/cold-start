@@ -114,30 +114,26 @@ function useElapsedSeconds(active: boolean, startedAt?: number) {
   return Math.floor(elapsedMs / 1000);
 }
 
-// A flat filing preview. It shows the real profile modules without turning the intake into a
-// stack of nested cards or inventing research that has not happened yet.
 function FilingPreview() {
-  const previews = RESEARCH_LAYER_CARDS.slice(0, 4);
-  const remaining = RESEARCH_LAYER_CARDS.length - previews.length;
+  const previews = RESEARCH_LAYER_CARDS.filter((layer) => layer.id !== "signals");
 
   return (
     <section className="cs-intake-file" aria-label="Research scope">
-      <div className="cs-intake-file-head">
-        <span>What gets filed</span>
-        <span>{RESEARCH_LAYER_CARDS.length} sections</span>
+      <div className="cs-intake-file-rule">
+        <span aria-hidden="true" />
+        <strong>Unfiled</strong>
+        <span aria-hidden="true" />
       </div>
-      <div className="cs-intake-file-rows">
-        {previews.map((layer, index) => (
-          <div className="cs-intake-file-row" key={layer.id}>
-            <span className="cs-intake-file-index" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-            <span className="cs-intake-file-copy">
-              <strong>{layer.title}</strong>
-              <span>{layer.description}</span>
-            </span>
+      <div className="cs-intake-file-spread" role="list">
+        {previews.map((layer) => (
+          <div aria-label={`${layer.title}: ${layer.description}`} className="cs-intake-file-card" key={layer.id} role="listitem">
+            <strong>{layer.title}</strong>
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
+            <span aria-hidden="true" />
           </div>
         ))}
       </div>
-      <p className="cs-intake-file-more">{`+${remaining} more file once the profile is ready`}</p>
     </section>
   );
 }
@@ -217,6 +213,7 @@ export function CompanyArc({
     : alphaAccess?.profile?.remaining === 0
       ? "This invitation has used its fresh profile runs."
       : null;
+  const profileStartLabel = profileStartDisabled ? "Research unavailable" : "Begin research";
   const lensUnavailableReason = alphaAccess?.generationEnabled === false
     ? "New research is temporarily paused. Filed Lens results still open."
     : alphaAccess?.lens?.remaining === 0
@@ -520,16 +517,22 @@ export function CompanyArc({
         {arc.phase === "intake" ? (
           <>
             <section className="cs-arc-intake" aria-label="Start research">
-              <p className="cs-arc-intake-note">
-                Build a cited profile from public sources: identity, funding, people, and proof.
-              </p>
               {profileStartReason ? <p className="cs-arc-intake-limit">{profileStartReason}</p> : null}
-              <button className="cs-start-primary" disabled={profileStartDisabled} onClick={onStart} type="button">
-                <span>{profileStartDisabled ? "Research unavailable" : "Begin research"}</span>
-                <svg aria-hidden="true" height="18" viewBox="0 0 18 18" width="18">
-                  <path d="M3 9h11" />
-                  <path d="m10 4.5 4.5 4.5L10 13.5" />
-                </svg>
+              <button
+                aria-label={profileStartLabel}
+                className="cs-start-primary"
+                disabled={profileStartDisabled}
+                onClick={onStart}
+                type="button"
+              >
+                <span aria-hidden="true" className="cs-start-primary-copy">
+                  <span>{profileStartLabel}</span>
+                  <span>{profileStartLabel}</span>
+                </span>
+                <span aria-hidden="true" className="cs-start-primary-mark">
+                  <span>→</span>
+                  <span>→</span>
+                </span>
               </button>
             </section>
             <FilingPreview />

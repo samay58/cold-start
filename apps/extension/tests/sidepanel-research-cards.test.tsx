@@ -190,9 +190,7 @@ describe("SidePanel research cards", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "obvious.ai", fetchMock });
 
-    const generateButton = Array.from(container.querySelectorAll("button")).find(
-      (button) => button.textContent === "Begin research"
-    );
+    const generateButton = container.querySelector<HTMLButtonElement>('button[aria-label="Begin research"]');
     await act(async () => {
       generateButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });

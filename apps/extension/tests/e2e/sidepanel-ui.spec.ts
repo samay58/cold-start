@@ -703,17 +703,52 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await openSidePanel(page);
 
   await expect(page.getByRole("heading", { name: "Legora" })).toBeVisible();
-  // The intake is the profile shell in waiting: real module titles, the sealed lens, one action.
+  // The intake is the profile shell in waiting: one action and a quiet spread of the future file.
   // The status slot renders empty; there is no "No profile" chip duplicating the intake note.
   await expect(page.getByRole("button", { name: "Begin research" })).toBeVisible();
   await expect(page.getByText("No profile")).toHaveCount(0);
-  await expect(page.getByText("Build a cited profile from public sources: identity, funding, people, and proof.")).toBeVisible();
+  await expect(page.getByText("Build a cited profile")).toHaveCount(0);
+  await expect(page.getByText("from public sources", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Who pays", { exact: true })).toBeVisible();
+  await expect(page.locator(".cs-intake-file-card")).toHaveCount(5);
+  await expect(page.getByText("Ninety seconds")).toHaveCount(0);
   await expect(page.locator(".cs-lens-sealed")).toHaveCount(0);
   expect(generateRequests).toHaveLength(0);
   await expect(page.locator('input[value="http://localhost:3000"]')).toHaveCount(0);
   await page.waitForTimeout(400);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake.png" });
+
+  const startButton = page.getByRole("button", { name: "Begin research" });
+  const restingLabelTransform = await startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+    (label) => getComputedStyle(label).transform
+  );
+  await startButton.hover();
+  await expect.poll(() => startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+    (label) => getComputedStyle(label).transform
+  )).not.toBe(restingLabelTransform);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-hover.png" });
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(350);
+
+  await page.setViewportSize({ width: 360, height: 640 });
+  const startBox = await page.getByRole("button", { name: "Begin research" }).boundingBox();
+  const fileBox = await page.locator(".cs-intake-file").boundingBox();
+  expect(startBox).not.toBeNull();
+  expect(fileBox).not.toBeNull();
+  expect(fileBox!.y).toBeGreaterThan(startBox!.y + startBox!.height + 24);
+  expect(fileBox!.y + fileBox!.height).toBeLessThanOrEqual(652);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-short.png" });
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const reducedMotionTransform = await startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+    (label) => getComputedStyle(label).transform
+  );
+  await startButton.hover();
+  await page.waitForTimeout(100);
+  await expect(startButton.locator(".cs-start-primary-copy > span").first()).toHaveCSS(
+    "transform",
+    reducedMotionTransform
+  );
 });
 
 test("running basics progress shows the assembly whisper, seal, and clippings", async ({ page }) => {
