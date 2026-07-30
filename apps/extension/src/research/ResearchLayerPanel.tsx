@@ -109,7 +109,7 @@ function investorLensControlState({
     return { disabled: true, reason: blockedReason };
   }
 
-  return { disabled: false, reason: "Weigh the case, timing, and next question against cited sources." };
+  return { disabled: false, reason: "Read the case, timing, and open questions." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -174,7 +174,7 @@ function LayerContent({
   display,
   onAction,
   running,
-  runningCopy = "Extracting structure from cited sources",
+  runningCopy = "Reading sources",
   tooltipProps
 }: {
   actionLabel?: string | undefined;
@@ -400,10 +400,10 @@ function PartialProfilePanel({
   onRegenerate: () => void;
   quality: PublicProfileQuality;
 }) {
-  const status = quality.hasCitations ? "Profile saved with gaps" : "No cited profile yet";
+  const status = quality.hasCitations ? "Profile saved with gaps" : "Profile not ready";
   const body = quality.hasCitations
-    ? "Some cited facts were saved, but not enough to open Research."
-    : "No cited sources were saved. Rebuild the profile from public sources.";
+    ? "Some facts were saved, but not enough to open Research."
+    : "No usable sources were saved. Rebuild the profile.";
   // showPartialProfileGate only routes here when !hasUsablePublicProfile(card), and
   // analysisBlockedReason's first two checks are that same condition, so it is never null here.
   const lensReason = analysisBlockedReason(card);
@@ -941,7 +941,7 @@ export function ResearchLayerPanel({
                     : id === "signals"
                       ? "Checking recent traction"
                       : "Refreshing the evidence"
-                : "Reading cited sources";
+                : "Reading sources";
             const contentDisplay = queuedBehindAnalysis
               ? {
                   ...display,

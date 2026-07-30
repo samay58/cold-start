@@ -87,7 +87,7 @@ function AlphaPosture({ access }: { access: AlphaAccessState }) {
             ? "Saved profiles and filed Lens results still open."
             : `${access.profile?.remaining ?? "Current"} profiles · ${access.lens?.remaining ?? "Current"} Lens runs left`}
         </p>
-        <small>Generating creates or updates a public sourced fact card. It never identifies who requested it.</small>
+        <small>Profiles are public. They never show who requested them.</small>
       </div>
     </aside>
   );

@@ -280,13 +280,13 @@ function sourceArtifactLine({
 
 function citationArtifactLine(event: ExtensionResearchRunEvent | undefined) {
   if (!event) {
-    return "First cited profile ready";
+    return "First profile ready";
   }
 
   const citationCount = metadataNumber(event, ["citationCount"]);
   return citationCount !== null
-    ? `First cited profile ready · ${citationCount} ${citationCount === 1 ? "citation" : "citations"}`
-    : "First cited profile ready";
+    ? `First profile ready · ${citationCount} ${citationCount === 1 ? "reference" : "references"}`
+    : "First profile ready";
 }
 
 function proofLineForStage({
@@ -329,7 +329,7 @@ function proofLineForStage({
     if (profileEvent) {
       return citationArtifactLine(profileEvent);
     }
-    return activeIndex >= 2 ? "Building first cited profile" : "Waiting for evidence";
+    return activeIndex >= 2 ? "Building first profile" : "Waiting for evidence";
   }
 
   const savedEvent = latestEventOfType(events, "card.saved");

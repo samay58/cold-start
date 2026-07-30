@@ -144,7 +144,7 @@ describe("ConnectionPanel", () => {
     installChrome({ firefox: true });
     render();
 
-    expect(container.textContent).toContain("Profiles are public. Requests stay private.");
+    expect(container.textContent).toContain("Profiles are public. They never show who requested them.");
     expect(container.querySelectorAll("h1")).toHaveLength(1);
     expect(container.querySelector("h1")?.textContent).toBe("Connect Cold Start");
     expect(container.textContent).not.toContain("Connect your invitation");

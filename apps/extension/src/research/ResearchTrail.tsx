@@ -41,7 +41,7 @@ function stageNoteFor(activeIndex: number, sourceCount: number) {
     return `${plural(sourceCount, "source")} found`;
   }
   if (activeIndex === 2) {
-    return "Building first cited profile";
+    return "Building first profile";
   }
   if (activeIndex === 3) {
     return "Saving with sources attached";

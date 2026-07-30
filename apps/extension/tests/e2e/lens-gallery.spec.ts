@@ -51,7 +51,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const control = page.getByRole("button", { name: "Run Investor Lens" });
       await expect(control).toBeEnabled();
-      await expect(control).toContainText("Weigh the case, timing, and next question against cited sources.");
+      await expect(control).toContainText("Read the case, timing, and open questions.");
       await expect(control).toContainText("Run lens");
     }
   },
@@ -108,7 +108,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const withheldCard = page.getByLabel("Lens withheld");
       await expect(withheldCard).toBeVisible();
-      await expect(withheldCard).toContainText("Too few cited sources survived the evidence floor.");
+      await expect(withheldCard).toContainText("Not enough sources met the evidence bar.");
     }
   },
   "withheld-advisory": {

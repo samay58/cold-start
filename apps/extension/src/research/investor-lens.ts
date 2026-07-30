@@ -28,7 +28,7 @@ function labelForQuestionCategory(category: QuestionCategory | null): string | n
 }
 
 // The sealed lens row and partial profile use the same honest prerequisite.
-export const LENS_WAITS_FOR_PROFILE_REASON = "Opens when the cited profile is filed.";
+export const LENS_WAITS_FOR_PROFILE_REASON = "Finish the profile to open it.";
 
 function cleanQuestionText(question: string) {
   return stripCitationMarkers(question)

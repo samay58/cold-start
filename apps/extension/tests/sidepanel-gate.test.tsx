@@ -281,7 +281,7 @@ describe("SidePanel generation gate", () => {
     });
 
     expect(container.textContent).toContain("Connect Cold Start");
-    expect(container.textContent).toContain("Profiles are public. Requests stay private.");
+    expect(container.textContent).toContain("Profiles are public. They never show who requested them.");
     expect(container.textContent).not.toContain("Extension token");
     expect(container.querySelector(".cs-firefox-invite-mark .cs-brand-mark")).toBeTruthy();
     expect(container.querySelector(".cs-extension-brand")).toBeNull();
@@ -309,8 +309,7 @@ describe("SidePanel generation gate", () => {
     const { container, unmount } = await renderSidePanel({ domain: "amazon.com", fetchMock });
 
     expect(container.textContent).toContain("10 profiles · 5 Lens runs left");
-    expect(container.textContent).toContain("public sourced fact card");
-    expect(container.textContent).toContain("never identifies who requested it");
+    expect(container.textContent).toContain("Profiles are public. They never show who requested them.");
     expect(container.querySelector<HTMLButtonElement>(".cs-start-primary")?.disabled).toBe(false);
     await unmount();
   });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Clippings } from "../src/company/Clippings";
@@ -20,6 +20,7 @@ afterEach(async () => {
     await cleanup();
     cleanup = null;
   }
+  vi.useRealTimers();
 });
 
 async function render(node: ReactNode) {
@@ -39,7 +40,7 @@ async function render(node: ReactNode) {
 function clipping(overrides: Partial<Clipping> & Pick<Clipping, "domain">): Clipping {
   return {
     url: `https://${overrides.domain}`,
-    title: overrides.domain,
+    title: overrides.note ?? overrides.domain,
     note: "How the company describes its product and position",
     sourceClass: "company_site",
     imageUrl: null,
@@ -59,6 +60,28 @@ function sourceEvent(sources: unknown[]): ExtensionResearchRunEvent {
     metadata: { acceptedCount: sources.length, sources },
     createdAt: "2026-07-05T00:00:00.000Z"
   };
+}
+
+function ClippingArrivalHarness() {
+  const [clippings, setClippings] = useState([
+    clipping({ domain: "a.com", note: "Company positioning" }),
+    clipping({ domain: "b.com", note: "Product documentation" }),
+    clipping({ domain: "c.com", note: "Customer evidence" })
+  ]);
+  return (
+    <>
+      <button
+        onClick={() => setClippings((current) => [
+          ...current,
+          clipping({ domain: "d.com", note: "Funding history" })
+        ])}
+        type="button"
+      >
+        Add source
+      </button>
+      <Clippings clippings={clippings} prefersReducedMotion={false} variant="carousel" />
+    </>
+  );
 }
 
 describe("Clippings", () => {
@@ -110,6 +133,55 @@ describe("Clippings", () => {
     expect(items[2]?.getAttribute("data-position")).toBe("2");
     expect(container.textContent).toContain("Company positioning");
     expect(container.textContent).not.toContain("Funding history");
+  });
+
+  it("brings a newly arrived source straight into focus", async () => {
+    const container = await render(<ClippingArrivalHarness />);
+
+    await act(async () => {
+      container.querySelector("button")?.click();
+    });
+
+    const active = container.querySelector('.cs-clipping[data-active="true"]');
+    expect(active?.textContent).toContain("Funding history");
+  });
+
+  it("cycles through every source instead of stopping after six", async () => {
+    vi.useFakeTimers();
+    const clippings = Array.from({ length: 8 }, (_, index) =>
+      clipping({ domain: `${String.fromCharCode(97 + index)}.com`, note: `Source ${index + 1}` })
+    );
+    const container = await render(
+      <Clippings clippings={clippings} prefersReducedMotion={false} variant="carousel" />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(6 * 3400);
+    });
+
+    const active = container.querySelector('.cs-clipping[data-active="true"]');
+    expect(active?.textContent).toContain("Source 7");
+    expect(container.textContent).toContain("8 found");
+  });
+
+  it("keeps its reading focus still under reduced motion", async () => {
+    vi.useFakeTimers();
+    const clippings = [
+      clipping({ domain: "a.com", note: "Company positioning" }),
+      clipping({ domain: "b.com", note: "Product documentation" }),
+      clipping({ domain: "c.com", note: "Customer evidence" }),
+      clipping({ domain: "d.com", note: "Funding history" })
+    ];
+    const container = await render(
+      <Clippings clippings={clippings} prefersReducedMotion={true} variant="carousel" />
+    );
+    const before = container.querySelector('.cs-clipping[data-active="true"]')?.textContent;
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_200);
+    });
+
+    expect(container.querySelector('.cs-clipping[data-active="true"]')?.textContent).toBe(before);
   });
 
   it("falls back to a plain classification dot instead of a favicon when the chrome api is absent", async () => {

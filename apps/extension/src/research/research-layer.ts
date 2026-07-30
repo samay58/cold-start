@@ -268,7 +268,7 @@ function displayFromSection(card: ColdStartCard, layer: ResearchLayerCard, secti
     return {
       id: layer.id,
       title,
-      body: "This section failed to generate. Retry to rebuild it from cited sources.",
+      body: "This section failed to generate. Retry to rebuild it from the sources.",
       sources,
       sourceCount: displaySourceCount(sources),
       status: "failed"

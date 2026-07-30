@@ -106,7 +106,7 @@ describe("Investor Lens withheld and failed states", () => {
     const withheld = container.querySelector("[aria-label='Lens withheld']");
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("Analysis ran");
-    expect(withheld?.textContent).toContain("Too few cited sources survived the evidence floor.");
+    expect(withheld?.textContent).toContain("Not enough sources met the evidence bar.");
     expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
 
     await unmount();

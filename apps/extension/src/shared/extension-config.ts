@@ -492,7 +492,7 @@ export function readableCardError(message: string, apiOrigin: string): string {
   }
 
   if (message === "profile needs cited sources before analysis") {
-    return "Regenerate the profile first. Investor analysis needs cited sources.";
+    return "Regenerate the profile first. Investor analysis needs sources.";
   }
 
   if (message === "profile needs more structured facts before analysis") {
@@ -512,7 +512,7 @@ export function readableCardError(message: string, apiOrigin: string): string {
   }
 
   if (message === "No cited sources survived extraction") {
-    return "Sources were found, but the API could not structure a cited profile. Retry generation, then check the worker logs if it fails again.";
+    return "Sources were found, but the API could not build a profile. Retry generation, then check the worker logs if it fails again.";
   }
 
   if (message === "api deployment out of date") {

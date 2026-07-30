@@ -433,10 +433,6 @@ function FirefoxInviteForm({
       </header>
 
       <div className="cs-firefox-invite-slip">
-        <div className="cs-firefox-invite-slip-head">
-          <span>Invitation</span>
-          <i aria-hidden="true" />
-        </div>
         <label className="cs-extension-field">
           <span>Paste your invitation link</span>
           <input
@@ -469,7 +465,7 @@ function FirefoxInviteForm({
       </div>
 
       <p className="cs-firefox-invite-disclosure">
-        Profiles are public. Requests stay private.
+        Profiles are public. They never show who requested them.
       </p>
     </form>
   );
@@ -612,7 +608,7 @@ function SettingsPanel({
       </section>
 
       <p className="cs-settings-disclosure">
-        Generating creates or updates a public sourced fact card. Public cards never identify who requested them.
+        Profiles are public. They never show who requested them.
       </p>
 
       <ThemeToggle onChange={onThemePreferenceChange} preference={themePreference} />
@@ -1868,7 +1864,9 @@ export function SidePanel() {
           className="cs-panel-stage-scene"
           data-panel={panelKey}
           exit={
-            prefersReducedMotion
+            panelKey === "loading"
+              ? { opacity: 0, transition: { duration: 0 } }
+              : prefersReducedMotion
               ? { opacity: 0 }
               : { opacity: 0, y: -4 }
           }

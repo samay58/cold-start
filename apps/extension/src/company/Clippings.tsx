@@ -1,10 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
-import { faviconUrl, type Clipping, type ClippingSourceClass } from "./clipping-model";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  clippingHasUsefulTitle,
+  faviconUrl,
+  type Clipping,
+  type ClippingSourceClass
+} from "./clipping-model";
 import { commitSpring, snapSpring } from "../shared/motion-primitives";
 import { useAlphaEvent } from "../shared/alpha-event-context";
 
-const MAX_CLIPPINGS = 6;
+const MAX_FILED_CLIPPINGS = 6;
 const MAX_CAROUSEL_CLIPPINGS = 3;
 const MAX_THUMBNAILS = 2;
 const CAROUSEL_DWELL_MS = 3400;
@@ -26,6 +31,19 @@ const KIND_LABEL: Record<ClippingSourceClass, string> = {
   registry: "Filing"
 };
 
+const CAROUSEL_PRIORITY: Record<ClippingSourceClass, number> = {
+  customer_proof: 0,
+  funding: 0,
+  news: 0,
+  database: 1,
+  registry: 1,
+  company_site: 2,
+  docs: 2,
+  jobs: 2,
+  other: 2,
+  people: 2
+};
+
 function analyticsSourceClass(sourceClass: ClippingSourceClass) {
   if (sourceClass === "company_site" || sourceClass === "docs" || sourceClass === "jobs") {
     return "company" as const;
@@ -39,6 +57,7 @@ function analyticsSourceClass(sourceClass: ClippingSourceClass) {
 function ClippingRow({
   clipping,
   companyDomain,
+  focused,
   index,
   ordinal,
   position,
@@ -48,6 +67,7 @@ function ClippingRow({
 }: {
   clipping: Clipping;
   companyDomain: string;
+  focused: boolean;
   index: number;
   ordinal: number;
   position: number;
@@ -61,7 +81,7 @@ function ClippingRow({
   const showThumb = thumbEligible && !thumbFailed && Boolean(clipping.imageUrl);
   const favicon = showThumb ? null : faviconUrl(clipping.url);
   const showFavicon = Boolean(favicon) && !faviconFailed;
-  const active = variant === "carousel" && position === 0;
+  const active = variant === "carousel" && focused;
   const carouselMotion = prefersReducedMotion
     ? { opacity: active ? 1 : position === 1 ? 0.5 : 0.3 }
     : {
@@ -138,9 +158,8 @@ function ClippingRow({
             <span className="cs-clipping-domain">{clipping.domain}</span>
             {KIND_LABEL[clipping.sourceClass] ? <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span> : null}
           </span>
-          <span className="cs-clipping-note">{clipping.note}</span>
+          {clipping.note ? <span className="cs-clipping-note">{clipping.note}</span> : null}
         </span>
-        {active ? <span aria-hidden="true" className="cs-clipping-sweep" /> : null}
       </a>
     </motion.li>
   );
@@ -160,33 +179,75 @@ export function Clippings({
   variant?: "carousel" | "filed";
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [queueIndex, setQueueIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const capped = useMemo(() => clippings.slice(0, MAX_CLIPPINGS), [clippings]);
-  const clippingSignature = capped.map((clipping) => clipping.url).join("|");
+  const previousUrls = useRef<string[]>([]);
+  const available = useMemo(
+    () => variant === "carousel"
+      ? clippings
+          .map((clipping, index) => ({ clipping, index }))
+          .sort((left, right) =>
+            Number(clippingHasUsefulTitle(right.clipping)) - Number(clippingHasUsefulTitle(left.clipping))
+              || CAROUSEL_PRIORITY[left.clipping.sourceClass] - CAROUSEL_PRIORITY[right.clipping.sourceClass]
+              || left.index - right.index
+          )
+          .map(({ clipping }) => clipping)
+      : clippings.slice(0, MAX_FILED_CLIPPINGS),
+    [clippings, variant]
+  );
+  const focusable = useMemo(
+    () => available.filter((clipping) => clippingHasUsefulTitle(clipping)),
+    [available]
+  );
+  const activeClipping = variant === "carousel" && focusable.length > 0
+    ? focusable[activeIndex % focusable.length] ?? null
+    : null;
+  const clippingSignature = JSON.stringify(available.map((clipping) => ({
+    url: clipping.url,
+    useful: clippingHasUsefulTitle(clipping)
+  })));
   const displayed = useMemo(() => {
-    if (variant !== "carousel" || capped.length <= 1) {
-      return capped.slice(0, variant === "carousel" ? MAX_CAROUSEL_CLIPPINGS : MAX_CLIPPINGS);
+    if (variant !== "carousel") {
+      return available.slice(0, MAX_FILED_CLIPPINGS);
     }
-    return Array.from(
-      { length: Math.min(MAX_CAROUSEL_CLIPPINGS, capped.length) },
-      (_, offset) => capped[(activeIndex + offset) % capped.length]
+    const queued = available.filter((clipping) => clipping.url !== activeClipping?.url);
+    const fadedCount = Math.min(activeClipping ? 2 : MAX_CAROUSEL_CLIPPINGS, queued.length);
+    const faded = Array.from(
+      { length: fadedCount },
+      (_, offset) => queued[(queueIndex + offset) % queued.length]
     ).filter((clipping): clipping is Clipping => Boolean(clipping));
-  }, [activeIndex, capped, variant]);
+    return activeClipping ? [activeClipping, ...faded] : faded;
+  }, [activeClipping, available, queueIndex, variant]);
   const awaiting = displayed.length === 0;
 
   useEffect(() => {
-    setActiveIndex(0);
+    const entries = JSON.parse(clippingSignature) as Array<{ url: string; useful: boolean }>;
+    const urls = entries.map((entry) => entry.url);
+    const seen = new Set(previousUrls.current);
+    const firstNewIndex = urls.findIndex((url) => !seen.has(url));
+    if (firstNewIndex >= 0) {
+      const newEntry = entries[firstNewIndex];
+      if (newEntry?.useful) {
+        setActiveIndex(entries.filter((entry) => entry.useful).findIndex((entry) => entry.url === newEntry.url));
+      }
+      setQueueIndex(Math.max(0, firstNewIndex - 1));
+    } else if (urls.length === 0) {
+      setActiveIndex(0);
+      setQueueIndex(0);
+    }
+    previousUrls.current = urls;
   }, [clippingSignature, variant]);
 
   useEffect(() => {
-    if (variant !== "carousel" || paused || capped.length <= 1) {
+    if (variant !== "carousel" || paused || prefersReducedMotion || available.length <= 1) {
       return;
     }
     const interval = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % capped.length);
+      setActiveIndex((current) => focusable.length > 0 ? (current + 1) % focusable.length : 0);
+      setQueueIndex((current) => (current + 1) % available.length);
     }, CAROUSEL_DWELL_MS);
     return () => window.clearInterval(interval);
-  }, [capped.length, paused, variant]);
+  }, [available.length, focusable.length, paused, prefersReducedMotion, variant]);
 
   const thumbUrls = new Set<string>();
   for (const clipping of displayed) {
@@ -226,10 +287,11 @@ export function Clippings({
                 <ClippingRow
                   clipping={clipping}
                   companyDomain={companyDomain}
+                  focused={clipping.url === activeClipping?.url}
                   index={index}
                   key={clipping.url}
-                  ordinal={Math.max(1, capped.findIndex((candidate) => candidate.url === clipping.url) + 1)}
-                  position={index}
+                  ordinal={Math.max(1, available.findIndex((candidate) => candidate.url === clipping.url) + 1)}
+                  position={activeClipping ? index : index + 1}
                   prefersReducedMotion={prefersReducedMotion}
                   thumbEligible={thumbUrls.has(clipping.url)}
                   variant={variant}

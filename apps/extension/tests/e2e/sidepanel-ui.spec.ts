@@ -61,7 +61,7 @@ test("Firefox invitation screen stays focused and tactile", async ({ page }) => 
   await expect(page.getByText("Connect your invitation")).toHaveCount(0);
   await expect(page.getByText("Friend alpha")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
-  await expect(page.getByText("Profiles are public. Requests stay private.")).toBeVisible();
+  await expect(page.getByText("Profiles are public. They never show who requested them.")).toBeVisible();
   await expect(page.getByRole("group", { name: "Appearance" })).toHaveCount(0);
   await expect(page.locator(".cs-firefox-invite-slip")).toHaveCSS("border-radius", "8px");
 
@@ -861,8 +861,8 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   const clippings = page.locator(".cs-clipping");
   await expect(clippings).toHaveCount(3);
   await expect(clippings.nth(0)).toHaveAttribute("data-active", "true");
-  await expect(clippings.nth(2)).toContainText("techcrunch.com");
-  await expect(clippings.nth(2)).toContainText("Funding");
+  await expect(clippings.nth(0)).toContainText("techcrunch.com");
+  await expect(clippings.nth(0)).toContainText("Funding");
 
   const stageLedger = page.locator(".cs-progress-ledger");
   await expect(stageLedger).toBeVisible();
@@ -870,7 +870,8 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
 
   await page.waitForTimeout(3600);
-  await expect(page.locator('.cs-clipping[data-active="true"]')).toContainText("docs.cartesia.ai");
+  await expect(page.locator('.cs-clipping[data-active="true"] .cs-clipping-domain')).toHaveText("techcrunch.com");
+  await expect(page.locator(".cs-clipping").nth(1).locator(".cs-clipping-domain")).toHaveText("docs.cartesia.ai");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings-next.png" });
 
   // The full tree waits behind Details, and still carries the honest verbs when opened.
@@ -1046,9 +1047,9 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).not.toContainText("Picked a research plan");
   await expect(tree).toContainText("12 sources found");
-  await expect(tree).toContainText("First cited profile ready · 7 citations");
+  await expect(tree).toContainText("First profile ready · 7 references");
   await expect(tree).not.toContainText("Started async contact enrichment");
-  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First cited profile ready" })).toHaveCount(0);
+  await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First profile ready" })).toHaveCount(0);
 });
 
 test("building phase files the early read inline under the header", async ({ page }) => {

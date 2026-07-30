@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clippingsFromEvents, clippingsFromSources, faviconUrl } from "../src/company/clipping-model";
+import {
+  clippingHasUsefulTitle,
+  clippingsFromEvents,
+  clippingsFromSources,
+  faviconUrl
+} from "../src/company/clipping-model";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../src/shared/extension-config";
 
 function event(
@@ -62,7 +67,7 @@ describe("clippingsFromEvents", () => {
     ]);
     expect(clippings[2]?.imageUrl).toBe("https://img/tc.png");
     expect(clippings[0]?.imageUrl).toBeNull();
-    expect(clippings[0]?.note).toBe("How the company describes its product and position");
+    expect(clippings[0]?.note).toBe("Exa");
     expect(clippings[2]?.note).toBe("Exa raises a Series B round");
   });
 
@@ -152,7 +157,18 @@ describe("clippingsFromSources", () => {
     expect(clippings.map((clipping) => clipping.sourceClass)).toEqual(["company_site", "database", "funding"]);
     expect(clippings[2]?.imageUrl).toBe("https://img/w.png");
     expect(clippings[0]?.imageUrl).toBeNull();
-    expect(clippings[1]?.note).toBe("Company registration and operating details");
+    expect(clippings[1]?.note).toBeNull();
+  });
+});
+
+describe("clippingHasUsefulTitle", () => {
+  it("keeps boilerplate source titles quiet and lets real headlines take focus", () => {
+    const base = { domain: "cartesia.ai", sourceClass: "company_site" as const };
+    expect(clippingHasUsefulTitle({ ...base, title: "Cartesia" })).toBe(false);
+    expect(clippingHasUsefulTitle({ ...base, domain: "docs.cartesia.ai", title: "Cartesia docs" })).toBe(false);
+    expect(clippingHasUsefulTitle({ ...base, title: "Real-time multimodal intelligence | Cartesia" })).toBe(true);
+    expect(clippingHasUsefulTitle({ ...base, sourceClass: "funding", title: "Cartesia raises a Series B" })).toBe(true);
+    expect(clippingHasUsefulTitle({ ...base, sourceClass: "database", title: "Jessica N." })).toBe(false);
   });
 });
 

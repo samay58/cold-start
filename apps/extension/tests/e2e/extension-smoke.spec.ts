@@ -99,7 +99,7 @@ test("built MV3 extension boots and renders a cached card", async () => {
     await expect(page.getByRole("heading", { name: "Cold Start" })).toBeVisible();
     await expect(page.getByLabel("Alpha allowance")).toContainText("10");
     await expect(page.getByLabel("Alpha allowance")).toContainText("5");
-    await expect(page.getByText("Public cards never identify who requested them.")).toBeVisible();
+    await expect(page.getByText("Profiles are public. They never show who requested them.")).toBeVisible();
     await expect(page.getByText("Extension token")).toHaveCount(0);
     await expect(page.getByText("Origin", { exact: true })).toHaveCount(0);
     await page.screenshot({

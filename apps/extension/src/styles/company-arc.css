@@ -1025,7 +1025,7 @@
   flex-shrink: 0;
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--color-muted);
 }
 
@@ -1154,7 +1154,10 @@
 .cs-clippings[data-variant="carousel"] .cs-clipping-source-mark .cs-clipping-dot {
   width: 9px;
   height: 9px;
-  box-shadow: 0 0 0 5px rgb(var(--cs-c-110-92-158) / 0.07);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-meta > .cs-clipping-dot {
+  display: none;
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
@@ -1187,26 +1190,6 @@
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-kind {
   font-size: 8.5px;
-}
-
-.cs-clipping-sweep {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(104deg, transparent 20%, rgb(var(--cs-c-255-255-255-sheen) / 0.58) 47%, transparent 72%);
-  pointer-events: none;
-  transform: translateX(-120%);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .cs-clipping[data-active="true"] .cs-clipping-sweep {
-    animation: cs-clipping-sweep 620ms var(--cs-motion-ease-out) 90ms both;
-  }
-}
-
-@keyframes cs-clipping-sweep {
-  to {
-    transform: translateX(120%);
-  }
 }
 
 @media (max-width: 360px) {

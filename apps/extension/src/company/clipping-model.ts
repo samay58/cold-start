@@ -9,10 +9,27 @@ export type Clipping = {
   url: string;
   domain: string;
   title: string;
-  note: string;
+  note: string | null;
   sourceClass: ClippingSourceClass;
   imageUrl: string | null;
 };
+
+const GENERIC_TITLE_WORDS = new Set([
+  "co",
+  "company",
+  "design",
+  "docs",
+  "documentation",
+  "filing",
+  "home",
+  "homepage",
+  "inc",
+  "llc",
+  "ltd",
+  "official",
+  "repo",
+  "site"
+]);
 
 type ClippingSourceType = ExtensionSourceSummary["sourceType"];
 
@@ -52,35 +69,26 @@ function domainFromUrl(url: string): string {
   }
 }
 
-function titleCarriesContext(title: string, domain: string) {
-  const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "").replace(/[^a-z0-9]+/g, " ").trim();
-  if (!normalizedTitle || new Set(["company", "docs", "filing", "home", "homepage", "official site", "repo"]).has(normalizedTitle)) {
-    return false;
+function clippingNote(title: string, domain: string) {
+  const cleanTitle = title.replace(/\s+/g, " ").trim();
+  if (!cleanTitle || cleanTitle.toLowerCase() === domain.toLowerCase()) {
+    return null;
   }
-  const domainWords = new Set(normalizedDomain.split(" ").filter(Boolean));
-  return normalizedTitle.split(" ").some((word) => !domainWords.has(word));
+  return cleanTitle;
 }
 
-function clippingNote(sourceClass: ClippingSourceClass, title: string, domain: string) {
-  const cleanTitle = title.replace(/\s+/g, " ").trim();
-  if (cleanTitle && titleCarriesContext(cleanTitle, domain)) {
-    return cleanTitle;
+export function clippingHasUsefulTitle(
+  clipping: Pick<Clipping, "domain" | "sourceClass" | "title">
+): boolean {
+  const words = clipping.title.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const domainWords = new Set(clipping.domain.toLowerCase().match(/[a-z0-9]+/g) ?? []);
+  const usefulWords = words.filter((word) =>
+    word.length > 1 && !domainWords.has(word) && !GENERIC_TITLE_WORDS.has(word)
+  );
+  if (clipping.sourceClass === "database" || clipping.sourceClass === "people") {
+    return usefulWords.length >= 3;
   }
-
-  const fallback: Record<ClippingSourceClass, string> = {
-    company_site: "How the company describes its product and position",
-    customer_proof: "Customer evidence and the work the product supports",
-    database: "Company registration and operating details",
-    docs: "How the product works in practice",
-    funding: "Financing history and the investors behind it",
-    jobs: "Hiring priorities and operating footprint",
-    news: "Recent reporting on the company",
-    other: "Public context on the company",
-    people: "Team and leadership background",
-    registry: "Filed company records"
-  };
-  return fallback[sourceClass];
+  return usefulWords.length > 0;
 }
 
 function clippingFromRaw(raw: unknown): Clipping | null {
@@ -102,7 +110,7 @@ function clippingFromRaw(raw: unknown): Clipping | null {
     domain,
     title,
     sourceClass,
-    note: clippingNote(sourceClass, title, domain),
+    note: clippingNote(title, domain),
     imageUrl
   };
 }
@@ -143,7 +151,7 @@ export function clippingsFromSources(sources: ExtensionSourceSummary[]): Clippin
       domain: source.domain,
       title: source.title,
       sourceClass,
-      note: clippingNote(sourceClass, source.title, source.domain),
+      note: clippingNote(source.title, source.domain),
       imageUrl: source.imageUrl ?? null
     });
   }

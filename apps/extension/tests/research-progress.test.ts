@@ -179,7 +179,7 @@ describe("artifact-led research progress", () => {
     expect(plan[1]?.substeps.map((substep) => substep.message)).toEqual([]);
   });
 
-  it("shows first cited profile readiness with citation count", () => {
+  it("shows first profile readiness with its reference count", () => {
     const plan = buildResearchProgressPlan({
       activeIndex: 2,
       events: [
@@ -194,7 +194,7 @@ describe("artifact-led research progress", () => {
       stages: RESEARCH_PROGRESS_STAGES
     });
 
-    expect(plan[2]?.proofLine).toBe("First cited profile ready · 7 citations");
+    expect(plan[2]?.proofLine).toBe("First profile ready · 7 references");
     expect(plan[2]?.substeps.map((substep) => substep.message)).toEqual([]);
   });
 
