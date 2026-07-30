@@ -85,6 +85,13 @@
       "when": 1785181273583,
       "tag": "0011_illegal_cerebro",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785378600000,
+      "tag": "0012_release_revoked_alpha_seats",
+      "breakpoints": true
     }
   ]
 }

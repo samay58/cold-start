@@ -67,11 +67,15 @@ get per-invite revocable credentials rather than a shared token.
 
 Friend invitations and installation access tokens are 32 bytes of randomness
 (`randomBytes(32)`, base64url-encoded). The database stores only their
-SHA-256 hashes, never the raw value. Each invitation is single-use, expiring,
-and limited to a configured number of installations. Redemption creates a
+SHA-256 hashes, never the raw value. Each invitation is expiring and limited to
+a configured number of active installations. Redemption creates a
 separate revocable per-install credential whose hash is stored in
 `alpha_installations`. The raw installation credential stays in
 `chrome.storage.local`, restricted to trusted extension contexts.
+
+Revoking one installation returns that seat to its invitation so an operator can
+repair a failed client-side connection. Revoking the invitation remains terminal.
+There is no automatic re-redeem grace window.
 
 The pre-existing operator bearer-token compare is unchanged: `timingSafeStringEqual`
 in `apps/web/src/lib/extension-auth.ts` still guards the `EXTENSION_API_TOKEN`
@@ -135,9 +139,9 @@ link. Both routes validate the token shape, hash it, and consult the database
 before any state change; redemption takes a per-token advisory lock in
 Postgres so concurrent redemptions cannot double-spend an installation slot.
 Neither route is currently rate-limited or IP-throttled beyond the
-invitation's own single-use and installation-limit checks. This is a known
+invitation's own active-installation limit. This is a known
 limitation for a public-internet endpoint: the invitation token itself (32
-bytes, hashed, single-use) is the only guard against a brute-force
+bytes and stored hashed) is the only guard against a brute-force
 enumeration attempt today.
 
 ## Allowances

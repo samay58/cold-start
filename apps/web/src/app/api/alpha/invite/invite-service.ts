@@ -107,7 +107,9 @@ export async function inspectAlphaInvite(
       invite.max_installations,
       count(installation.id) as claimed_installations
     from alpha_invites invite
-    left join alpha_installations installation on installation.invite_id = invite.id
+    left join alpha_installations installation
+      on installation.invite_id = invite.id
+      and installation.revoked_at is null
     where invite.token_hash = ${tokenHash}
     group by invite.id
     limit 1
@@ -122,10 +124,8 @@ export async function inspectAlphaInvite(
   if (new Date(row.expires_at).getTime() <= now.getTime()) {
     return { state: "expired" };
   }
-  // Seats, not invite status, decide whether this invitation can still attach an installation.
-  // The count matches redeemAlphaInvite's: every installation the invitation ever had, so a
-  // revoked installation does not free its seat. A used-up single-seat invitation keeps
-  // answering "used"; only a multi-seat invitation reaches "installation_limit".
+  // Seats, not active invite status, decide whether this invitation can attach an installation.
+  // The count matches redeemAlphaInvite's: only unrevoked installations occupy seats.
   if (Number(row.claimed_installations) >= row.max_installations) {
     return { state: row.max_installations === 1 ? "used" : "installation_limit" };
   }

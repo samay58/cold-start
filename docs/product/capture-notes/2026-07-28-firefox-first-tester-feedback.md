@@ -21,3 +21,7 @@ Fixed client-side the same night (credential write now comes first; `setAccessLe
    - Redeem is strictly one-shot. Proposal to discuss: a short re-redeem grace window (same invite token re-issues credentials for the just-created installation within ~15 minutes, rotating the access token), so a client-side failure right after redemption self-heals on retry instead of burning the invite. Weigh against the link-hijack window it opens.
 
 5. **Test-harness honesty.** The Firefox-shaped mocks must model what Firefox actually implements (this incident's lesson, now partly encoded in `alpha-connect.test.ts`). Sweep `background.test.ts` and `connection-panel.test.tsx` for the same always-succeeding `setAccessLevel` assumption where a Firefox-shaped runtime is simulated.
+
+## Decision (2026-07-29)
+
+Samay approved the more liberal repair path: only unrevoked installations consume seats. Revoking a failed installation makes the same invite usable again. Revoking the invite remains terminal. No automatic grace window or credential reissue.

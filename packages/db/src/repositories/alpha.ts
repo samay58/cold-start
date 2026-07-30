@@ -161,8 +161,8 @@ export async function findAlphaInviteById(db: ColdStartDb, inviteId: string): Pr
 // The one path that attaches an installation to an invitation, for the first seat and every later
 // one. An already-active invitation is still a candidate, so a second browser or a reinstall
 // redeems normally while max_installations decides; accepted_at keeps the moment of the first
-// redemption. A seat is spent permanently, so revoking an installation cannot resurrect the link.
-// That leaves the default single-seat invitation answering exactly as it did before.
+// redemption. Only active installations occupy seats. Revoking a broken installation deliberately
+// returns its seat to the invitation while revoking the invitation itself remains terminal.
 //
 // The seat check lives in redeem_alpha_invite rather than in a CTE here for the reason spelled out
 // in that function: one statement cannot both take the advisory lock and then count against a

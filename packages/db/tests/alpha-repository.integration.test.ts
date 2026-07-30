@@ -19,6 +19,7 @@ import {
   redeemAlphaInvite,
   reserveAlphaRunRequest,
   revokeAlphaInstallation,
+  revokeAlphaInvite,
   settleAlphaRunRequest
 } from "../src/repositories/alpha";
 import * as schema from "../src/schema";
@@ -185,7 +186,7 @@ describeDatabase("alpha repositories against Postgres", () => {
     await deleteAlphaTesterData(db, invite.id);
   });
 
-  it("does not hand a revoked seat back to the invitation that spent it", async () => {
+  it("returns a revoked seat to its invitation without restoring the old credential", async () => {
     const tokenHash = hashSeed("revoked-seat-invite");
     const now = new Date("2026-07-24T12:00:00.000Z");
     const invite = await createAlphaInvite(db, {
@@ -206,11 +207,41 @@ describeDatabase("alpha repositories against Postgres", () => {
     });
     expect(await revokeAlphaInstallation(db, auth!.installation.id, now)).toBe(true);
 
-    // Revoking is terminal for the link. Repairing a lost connection means a new invitation or a
-    // raised seat count, never a quietly reusable token.
-    expect(await redeemAlphaInvite(db, {
+    const repaired = await redeemAlphaInvite(db, {
       tokenHash,
       accessTokenHash: hashSeed("revoked-seat-second"),
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.0",
+      now
+    });
+
+    expect(repaired?.invite.id).toBe(invite.id);
+    expect(repaired?.installation.id).not.toBe(auth?.installation.id);
+    expect(await findActiveAlphaInstallationByTokenHash(
+      db,
+      hashSeed("revoked-seat-first"),
+      now
+    )).toBeNull();
+    expect((await findActiveAlphaInstallationByTokenHash(
+      db,
+      hashSeed("revoked-seat-second"),
+      now
+    ))?.installation.id).toBe(repaired?.installation.id);
+
+    const installations = await pool.query(
+      `select count(*)::int as total,
+              count(*) filter (where revoked_at is null)::int as active
+       from alpha_installations
+       where invite_id = $1`,
+      [invite.id]
+    );
+    expect(installations.rows[0]).toMatchObject({ total: 2, active: 1 });
+
+    expect(await revokeAlphaInvite(db, invite.id, now)).toBe(true);
+    expect(await redeemAlphaInvite(db, {
+      tokenHash,
+      accessTokenHash: hashSeed("revoked-seat-third"),
       browser: "chrome",
       channel: "unlisted",
       extensionVersion: "0.2.0",
