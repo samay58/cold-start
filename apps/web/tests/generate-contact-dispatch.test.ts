@@ -464,6 +464,7 @@ describe("generate-card contact dispatch", () => {
         domain: "modal.com",
         title: "Modal",
         sourceType: "company_site",
+        snippet: "Modal runs serverless compute for AI teams.",
         imageUrl: null
       },
       {
@@ -471,6 +472,7 @@ describe("generate-card contact dispatch", () => {
         domain: "modal.com",
         title: "Modal launch",
         sourceType: "news",
+        snippet: "Modal launched a new product.",
         imageUrl: "https://www.modal.com/og.png"
       }
     ]);
@@ -483,6 +485,29 @@ describe("generate-card contact dispatch", () => {
       expect.anything(),
       expect.objectContaining({ url: "https://modal.com", imageUrl: null })
     );
+  }, 10_000);
+
+  it("carries every accepted source into the live source event", async () => {
+    const sources = Array.from({ length: 14 }, (_, index) => ({
+      ...providerSource,
+      url: `https://modal.com/source-${index + 1}`,
+      title: `Modal source ${index + 1}`,
+      rawText: `Source ${index + 1} discusses Modal.`
+    }));
+    mocks.fetchDirectExaFundamentalsSources.mockResolvedValue({
+      sources,
+      failures: [],
+      skipped: false
+    });
+
+    await runBasicsGeneration("true");
+
+    const sourceFoundCall = mocks.recordResearchRunEvent.mock.calls.find(
+      ([, event]) => (event as { type: string }).type === "source.found"
+    );
+    const metadata = (sourceFoundCall?.[1] as { metadata: { sources: Array<{ url: string }> } }).metadata;
+    expect(metadata.sources).toHaveLength(14);
+    expect(metadata.sources.at(-1)?.url).toBe("https://modal.com/source-14");
   }, 10_000);
 
   it("records the saved seed card as the first usable profile across replay", async () => {
@@ -1083,6 +1108,38 @@ describe("card block enrichment worker", () => {
       })
     );
     expect(names.indexOf("request-contact-enrichment")).toBeGreaterThan(names.indexOf("upsert-enriched-card"));
+  });
+
+  it("adds later enrichment sources to the live clipping event", async () => {
+    const storedSources = Array.from({ length: 13 }, (_, index) => ({
+      url: `https://modal.com/source-${index + 1}`,
+      title: `Modal source ${index + 1}`,
+      sourceType: "company_site" as const,
+      fetchedAt: generatedAt,
+      rawText: `Source ${index + 1} discusses Modal.`
+    }));
+    mocks.findSourcesBySlug.mockResolvedValue(storedSources);
+    mocks.fetchStableenrichEnrichmentSources.mockResolvedValue({
+      sources: [
+        { ...providerSource, url: "https://news.example/modal-14", title: "Modal source 14", sourceType: "news", rawText: "Source 14 discusses Modal." },
+        { ...providerSource, url: "https://news.example/modal-15", title: "Modal source 15", sourceType: "news", rawText: "Source 15 discusses Modal." }
+      ],
+      facts: [],
+      failures: [],
+      endpoints: []
+    });
+
+    await runBlockEnrichment("true");
+
+    const eventCall = mocks.recordResearchRunEvent.mock.calls.find(
+      ([, event]) => (event as { type: string }).type === "source.enrichment"
+    );
+    const metadata = (eventCall?.[1] as { metadata: { sources: Array<{ url: string }> } }).metadata;
+    expect(metadata.sources).toHaveLength(15);
+    expect(metadata.sources.slice(-2).map((source) => source.url)).toEqual([
+      "https://news.example/modal-14",
+      "https://news.example/modal-15"
+    ]);
   });
 
   it("does not dispatch contact enrichment when contacts are disabled", async () => {

@@ -45,7 +45,13 @@ import {
   prepareCardForStorage
 } from "./card-storage";
 import { inngest, type WorkerEventContext } from "./client";
-import { createStepLlmTelemetryCollector, rawSlugForRun, stringValue, timed } from "./generation-helpers";
+import {
+  createStepLlmTelemetryCollector,
+  rawSlugForRun,
+  sourceEventSummaries,
+  stringValue,
+  timed
+} from "./generation-helpers";
 import { backgroundConcurrencyLimit, contactEnrichmentEnabled, expandedDescriptionEnabled } from "./worker-env";
 import {
   buildContactEnrichmentRequestedEvent,
@@ -322,7 +328,8 @@ export const cardEnrichmentHandler = async ({ event, runId, step }: WorkerEventC
       sourceCount: enrichmentSourceResult.value.sources.length,
       providerFactCount: enrichmentSourceResult.value.providerFacts.length,
       missingBlocks,
-      skippedProbeNames: lateEnrichmentSkipProbeNames
+      skippedProbeNames: lateEnrichmentSkipProbeNames,
+      sources: sourceEventSummaries(enrichmentSourceResult.value.sources)
     });
 
     currentStage = "enrich-card";

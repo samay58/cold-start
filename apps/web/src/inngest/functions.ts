@@ -82,7 +82,7 @@ import {
   rawDomainForRun,
   rawSlugForRun,
   safeAgentcashWalletSnapshot,
-  sourceEventDomain,
+  sourceEventSummaries,
   synthesizeCardStepBody,
   timed,
   verifySynthesisStepBody,
@@ -477,13 +477,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       directExaCount: sourceResult.value.trace.providers.directExa.sourceCount,
       stableenrichCount: sourceResult.value.trace.providers.stableenrich.sourceCount,
       sourceCategories: progressSourceCategories(sourceResult.value.sources),
-      sources: acceptedSources.slice(0, 12).map((source) => ({
-        url: source.url,
-        domain: sourceEventDomain(source.url),
-        title: source.title,
-        sourceType: source.sourceType,
-        imageUrl: source.imageUrl ?? null
-      }))
+      sources: sourceEventSummaries(acceptedSources)
     }, null);
 
     // Failure count is tracked for observability, but not converted into cost until live costs are measured.
@@ -996,7 +990,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           sourceCount: enrichmentSourceResult.value.sources.length,
           providerFactCount: enrichmentSourceResult.value.providerFacts.length,
           missingBlocks: lateEnrichmentBlocks,
-          skippedProbeNames: lateEnrichmentSkipProbeNames
+          skippedProbeNames: lateEnrichmentSkipProbeNames,
+          sources: sourceEventSummaries(enrichmentSourceResult.value.sources)
         }, null);
 
         currentStage = "enrich-card";

@@ -82,11 +82,12 @@ function ClippingRow({
   const favicon = showThumb ? null : faviconUrl(clipping.url);
   const showFavicon = Boolean(favicon) && !faviconFailed;
   const active = variant === "carousel" && focused;
+  const lead = variant === "carousel" && position === 0;
   const carouselMotion = prefersReducedMotion
-    ? { opacity: active ? 1 : position === 1 ? 0.5 : 0.3 }
+    ? { opacity: lead ? 1 : position === 1 ? 0.5 : 0.3 }
     : {
-        opacity: active ? 1 : position === 1 ? 0.48 : 0.27,
-        scale: active ? 1 : position === 1 ? 0.982 : 0.965,
+        opacity: lead ? 1 : position === 1 ? 0.48 : 0.27,
+        scale: lead ? 1 : position === 1 ? 0.982 : 0.965,
         x: 0,
         y: 0
       };
@@ -202,6 +203,7 @@ export function Clippings({
   const activeClipping = variant === "carousel" && focusable.length > 0
     ? focusable[activeIndex % focusable.length] ?? null
     : null;
+  const queueLength = Math.max(0, available.length - (activeClipping ? 1 : 0));
   const clippingSignature = JSON.stringify(available.map((clipping) => ({
     url: clipping.url,
     useful: clippingHasUsefulTitle(clipping)
@@ -244,10 +246,10 @@ export function Clippings({
     }
     const interval = window.setInterval(() => {
       setActiveIndex((current) => focusable.length > 0 ? (current + 1) % focusable.length : 0);
-      setQueueIndex((current) => (current + 1) % available.length);
+      setQueueIndex((current) => queueLength > 0 ? (current + 1) % queueLength : 0);
     }, CAROUSEL_DWELL_MS);
     return () => window.clearInterval(interval);
-  }, [available.length, focusable.length, paused, prefersReducedMotion, variant]);
+  }, [available.length, focusable.length, paused, prefersReducedMotion, queueLength, variant]);
 
   const thumbUrls = new Set<string>();
   for (const clipping of displayed) {
@@ -291,7 +293,7 @@ export function Clippings({
                   index={index}
                   key={clipping.url}
                   ordinal={Math.max(1, available.findIndex((candidate) => candidate.url === clipping.url) + 1)}
-                  position={activeClipping ? index : index + 1}
+                  position={index}
                   prefersReducedMotion={prefersReducedMotion}
                   thumbEligible={thumbUrls.has(clipping.url)}
                   variant={variant}

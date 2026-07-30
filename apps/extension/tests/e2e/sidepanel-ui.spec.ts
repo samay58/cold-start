@@ -863,6 +863,10 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(clippings.nth(0)).toHaveAttribute("data-active", "true");
   await expect(clippings.nth(0)).toContainText("techcrunch.com");
   await expect(clippings.nth(0)).toContainText("Funding");
+  await expect(clippings.nth(1)).toHaveAttribute("data-active", "false");
+  await expect(clippings.nth(2)).toHaveAttribute("data-active", "false");
+  await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveCSS("background-image", "none");
+  await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveCSS("box-shadow", "none");
 
   const stageLedger = page.locator(".cs-progress-ledger");
   await expect(stageLedger).toBeVisible();

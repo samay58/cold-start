@@ -164,6 +164,63 @@ describe("Clippings", () => {
     expect(container.textContent).toContain("8 found");
   });
 
+  it("advances the faded queue on every dwell when only one clipping can take focus", async () => {
+    vi.useFakeTimers();
+    const clippings = [
+      clipping({ domain: "news.com", title: "Named customer adopts the product", note: "Named customer adopts the product", sourceClass: "news" }),
+      clipping({ domain: "company.com", title: "company.com", note: null }),
+      clipping({ domain: "docs.company.com", title: "Docs", note: null, sourceClass: "docs" })
+    ];
+    const container = await render(
+      <Clippings clippings={clippings} prefersReducedMotion={false} variant="carousel" />
+    );
+    const fadedDomains = () => Array.from(container.querySelectorAll('.cs-clipping[data-active="false"] .cs-clipping-domain'))
+      .map((node) => node.textContent);
+
+    expect(fadedDomains()).toEqual(["company.com", "docs.company.com"]);
+    await act(async () => vi.advanceTimersByTime(3400));
+    expect(fadedDomains()).toEqual(["docs.company.com", "company.com"]);
+    await act(async () => vi.advanceTimersByTime(3400));
+    expect(fadedDomains()).toEqual(["company.com", "docs.company.com"]);
+    await act(async () => vi.advanceTimersByTime(3400));
+    expect(fadedDomains()).toEqual(["docs.company.com", "company.com"]);
+  });
+
+  it("keeps the first generic receipt readable without giving it the active treatment", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[clipping({ domain: "company.com", title: "company.com", note: null })]}
+        prefersReducedMotion={true}
+        variant="carousel"
+      />
+    );
+
+    const item = container.querySelector<HTMLElement>(".cs-clipping");
+    expect(item?.getAttribute("data-active")).toBe("false");
+    expect(item?.getAttribute("data-position")).toBe("0");
+    expect(item?.style.opacity).toBe("1");
+  });
+
+  it("lets a useful source snippet take focus when the page title is generic", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[
+          clipping({
+            domain: "company.com",
+            title: "Company",
+            note: "Regional clinics use the product to schedule home visits."
+          })
+        ]}
+        prefersReducedMotion={true}
+        variant="carousel"
+      />
+    );
+
+    const item = container.querySelector<HTMLElement>(".cs-clipping");
+    expect(item?.getAttribute("data-active")).toBe("true");
+    expect(item?.textContent).toContain("Regional clinics use the product");
+  });
+
   it("keeps its reading focus still under reduced motion", async () => {
     vi.useFakeTimers();
     const clippings = [

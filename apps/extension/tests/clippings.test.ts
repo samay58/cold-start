@@ -95,6 +95,58 @@ describe("clippingsFromEvents", () => {
     expect(clippings[1]?.sourceClass).toBe("customer_proof");
   });
 
+  it("merges later enrichment sources into the same clipping set", () => {
+    const initial = Array.from({ length: 13 }, (_, index) => ({
+      url: `https://company.com/source-${index + 1}`,
+      domain: "company.com",
+      title: `Company source ${index + 1}`,
+      sourceType: "company_site",
+      snippet: `Source ${index + 1} discusses the company.`,
+      imageUrl: null
+    }));
+    const clippings = clippingsFromEvents([
+      event({ id: "sources", type: "source.found", metadata: { acceptedCount: 13, sources: initial } }),
+      event({
+        id: "enrichment",
+        type: "source.enrichment",
+        metadata: {
+          sourceCount: 15,
+          sources: [
+            ...initial,
+            { url: "https://news.com/source-14", domain: "news.com", title: "Company source 14", sourceType: "news", snippet: "Source 14 discusses the company.", imageUrl: null },
+            { url: "https://news.com/source-15", domain: "news.com", title: "Company source 15", sourceType: "news", snippet: "Source 15 discusses the company.", imageUrl: null }
+          ]
+        }
+      })
+    ]);
+
+    expect(clippings).toHaveLength(15);
+    expect(clippings.slice(-2).map((clipping) => clipping.url)).toEqual([
+      "https://news.com/source-14",
+      "https://news.com/source-15"
+    ]);
+  });
+
+  it("uses a source snippet when the page title says nothing useful", () => {
+    const [clipping] = clippingsFromEvents([
+      event({
+        id: "sources",
+        type: "source.found",
+        metadata: {
+          sources: [{
+            url: "https://company.com",
+            domain: "company.com",
+            title: "Company",
+            sourceType: "company_site",
+            snippet: "The company sells workflow software to regional clinics. A second sentence is omitted."
+          }]
+        }
+      })
+    ]);
+
+    expect(clipping?.note).toBe("The company sells workflow software to regional clinics.");
+  });
+
   it("returns an empty list when no source metadata is present", () => {
     expect(clippingsFromEvents([event({ id: "queued", type: "generation.queued" })])).toEqual([]);
     expect(clippingsFromEvents([])).toEqual([]);

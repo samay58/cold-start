@@ -237,12 +237,31 @@ export function progressSourceCategories(sources: ProviderSource[]) {
   return progressSourceCategoryOrder.filter((category) => categories.has(category));
 }
 
-export function sourceEventDomain(url: string) {
+function sourceEventDomain(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
+}
+
+function compactSourceSnippet(rawText: string, maxLength = 240) {
+  const normalized = rawText.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength).trimEnd()}...`;
+}
+
+export function sourceEventSummaries(sources: ProviderSource[]) {
+  return sources.map((source) => ({
+    url: source.url,
+    domain: sourceEventDomain(source.url),
+    title: source.title,
+    sourceType: source.sourceType,
+    snippet: compactSourceSnippet(source.rawText),
+    imageUrl: source.imageUrl ?? null
+  }));
 }
 
 export function stringValue(input: unknown): string | null {

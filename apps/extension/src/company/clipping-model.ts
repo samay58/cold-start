@@ -1,4 +1,10 @@
-import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
+import {
+  firstSentence,
+  textLooksLikeCustomerProof,
+  textLooksLikeDocs,
+  textLooksLikeFunding,
+  type FirstPayoff
+} from "@cold-start/core";
 import type { ExtensionResearchRunEvent, ExtensionSourceSummary } from "../shared/extension-config";
 import { currentProfileProgressEvents } from "../research/research-progress";
 
@@ -69,18 +75,28 @@ function domainFromUrl(url: string): string {
   }
 }
 
-function clippingNote(title: string, domain: string) {
+function clippingNote(
+  title: string,
+  domain: string,
+  sourceClass: ClippingSourceClass,
+  snippet?: string
+) {
   const cleanTitle = title.replace(/\s+/g, " ").trim();
-  if (!cleanTitle || cleanTitle.toLowerCase() === domain.toLowerCase()) {
-    return null;
+  if (clippingHasUsefulTitle({ title: cleanTitle, domain, sourceClass })) {
+    return cleanTitle;
   }
-  return cleanTitle;
+  const cleanSnippet = firstSentence(snippet?.replace(/\s+/g, " ").trim() ?? "");
+  if (cleanSnippet && cleanSnippet.toLowerCase() !== domain.toLowerCase()) {
+    return cleanSnippet.length > 180 ? `${cleanSnippet.slice(0, 177).trimEnd()}...` : cleanSnippet;
+  }
+  return cleanTitle && cleanTitle.toLowerCase() !== domain.toLowerCase() ? cleanTitle : null;
 }
 
 export function clippingHasUsefulTitle(
-  clipping: Pick<Clipping, "domain" | "sourceClass" | "title">
+  clipping: Pick<Clipping, "domain" | "sourceClass" | "title"> & Partial<Pick<Clipping, "note">>
 ): boolean {
-  const words = clipping.title.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const focusText = clipping.note ?? clipping.title;
+  const words = focusText.toLowerCase().match(/[a-z0-9]+/g) ?? [];
   const domainWords = new Set(clipping.domain.toLowerCase().match(/[a-z0-9]+/g) ?? []);
   const usefulWords = words.filter((word) =>
     word.length > 1 && !domainWords.has(word) && !GENERIC_TITLE_WORDS.has(word)
@@ -105,24 +121,25 @@ function clippingFromRaw(raw: unknown): Clipping | null {
   const domain = typeof record.domain === "string" && record.domain ? record.domain : domainFromUrl(url);
   const imageUrl = typeof record.imageUrl === "string" ? record.imageUrl : null;
   const sourceClass = clippingSourceClass(sourceType as ClippingSourceType, url, title);
+  const snippet = typeof record.snippet === "string" ? record.snippet : undefined;
   return {
     url,
     domain,
     title,
     sourceClass,
-    note: clippingNote(title, domain),
+    note: clippingNote(title, domain, sourceClass, snippet),
     imageUrl
   };
 }
 
-// Reads the accepted-source list carried on source.found events (B1), deduped by url in
+// Reads the accepted-source lists carried on source events, deduped by url in
 // arrival order, so building can show what research found before any fact exists. Scoped to
 // the current run with the same currentProfileProgressEvents logic the seal and whisper use,
 // so a resumed panel never mixes a previous run's clippings into the live run's display.
 export function clippingsFromEvents(events: ExtensionResearchRunEvent[]): Clipping[] {
   const byUrl = new Map<string, Clipping>();
   for (const event of currentProfileProgressEvents(events)) {
-    if (event.type !== "source.found") {
+    if (event.type !== "source.found" && event.type !== "source.enrichment") {
       continue;
     }
     const rawSources = event.metadata.sources;
@@ -151,7 +168,7 @@ export function clippingsFromSources(sources: ExtensionSourceSummary[]): Clippin
       domain: source.domain,
       title: source.title,
       sourceClass,
-      note: clippingNote(source.title, source.domain),
+      note: clippingNote(source.title, source.domain, sourceClass, source.snippet),
       imageUrl: source.imageUrl ?? null
     });
   }
