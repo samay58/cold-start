@@ -104,6 +104,38 @@
   margin: 0 12px;
 }
 
+/* On tall panels the action sits at the optical center rather than stranded at the geometric
+   one, and the unfiled pile grows to claim the foot, so the middle reads as breathing room
+   instead of two unowned voids. */
+@media (min-height: 760px) {
+  .cs-arc-intake {
+    padding-bottom: 96px;
+  }
+
+  .cs-intake-file-spread {
+    height: 196px;
+  }
+
+  .cs-intake-file-card {
+    min-height: 128px;
+    width: clamp(128px, 36vw, 156px);
+  }
+}
+
+@media (min-height: 860px) {
+  .cs-arc-intake {
+    padding-bottom: 118px;
+  }
+
+  .cs-intake-file-spread {
+    height: 214px;
+  }
+
+  .cs-intake-file-card {
+    min-height: 140px;
+  }
+}
+
 .cs-arc-intake-limit {
   margin: -3px 0 0;
   color: var(--color-conflict);
@@ -135,6 +167,11 @@
   background: var(--color-seal);
   color: var(--color-plate);
   box-shadow: 0 9px 22px rgb(var(--cs-c-44-36-19) / 0.12);
+}
+
+.cs-arc[data-phase="intake"] .cs-start-primary:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.55);
+  outline-offset: 3px;
 }
 
 :root[data-theme="dark"] .cs-arc[data-phase="intake"] .cs-start-primary:not(:disabled) {
@@ -363,23 +400,29 @@
   transform-origin: center bottom;
 }
 
+/* The pile crops at the panel foot (cards sinking below the fold), never through a title: a
+   clipped word reads as a bug, clipped paper reads as a file. Lower cards drop instead of
+   sliding off the side edges, and the fan stays slightly uneven so it reads hand-placed. */
 .cs-intake-file-card:nth-child(1) {
   z-index: 2;
-  top: 24px;
-  left: 4px;
-  transform: rotate(-5deg);
+  top: 28px;
+  left: 2px;
+  transform: rotate(-6deg);
 }
 
+/* The lower cards pivot from their top edge: the visible head of the card holds still while
+   the buried end swings, so no rotation can carry a title past the panel edge. */
 .cs-intake-file-card:nth-child(2) {
   z-index: 3;
-  top: 88px;
-  left: -8px;
-  transform: rotate(-10deg);
+  top: 98px;
+  left: -2px;
+  transform: rotate(-9deg);
+  transform-origin: center top;
 }
 
 .cs-intake-file-card:nth-child(3) {
   z-index: 5;
-  top: 44px;
+  top: 48px;
   left: 50%;
   transform: translateX(-50%) rotate(-1.5deg);
 }
@@ -387,17 +430,19 @@
 .cs-intake-file-card:nth-child(4) {
   z-index: 2;
   top: 24px;
-  right: 4px;
+  right: 2px;
   left: auto;
-  transform: rotate(5deg);
+  transform: rotate(4.5deg);
 }
 
+/* Hangs further into the edge crop so its title clears the dominant center card. */
 .cs-intake-file-card:nth-child(5) {
   z-index: 3;
-  top: 88px;
-  right: -8px;
+  top: 94px;
+  right: -18px;
   left: auto;
-  transform: rotate(10deg);
+  transform: rotate(9deg);
+  transform-origin: center top;
 }
 
 .cs-intake-file-card strong {
