@@ -213,7 +213,44 @@
   background: color-mix(in srgb, var(--alpha-ink) 88%, var(--alpha-paper));
 }
 
+.firefoxActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 13px;
+}
+
+.firefoxActions .primaryAction {
+  margin-top: 0;
+}
+
+.secondaryAction {
+  color: var(--alpha-ink);
+  font: 650 13px/1.2 var(--font-body);
+  text-underline-offset: 4px;
+}
+
+.manualInviteLink {
+  display: grid;
+  gap: 7px;
+  color: var(--alpha-muted);
+  font: 600 11px/1.2 var(--font-body);
+}
+
+.manualInviteLink input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--alpha-rule-strong);
+  border-radius: 4px;
+  background: var(--alpha-paper-raised);
+  color: var(--alpha-ink);
+  font: 500 11px/1.35 var(--font-text);
+}
+
 .primaryAction:focus-visible,
+.secondaryAction:focus-visible,
+.manualInviteLink input:focus-visible,
 .brand:focus-visible,
 .footer a:focus-visible {
   outline: 2px solid var(--color-seal);

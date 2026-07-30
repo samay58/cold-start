@@ -1,6 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
-import { createDb, insertAlphaEvents, redeemAlphaInvite } from "@cold-start/db";
+import {
+  createDb,
+  getAlphaAllowanceSnapshot,
+  insertAlphaEvents,
+  redeemAlphaInvite
+} from "@cold-start/db";
 
 import { apiJsonWithTiming } from "../../../../../lib/api-response";
 import {
@@ -91,6 +96,8 @@ export async function POST(request: Request) {
     }))
   }).catch(() => []);
 
+  const allowance = await getAlphaAllowanceSnapshot(db, auth.invite.id).catch(() => null);
+
   return respond({
     ok: true,
     state: "connected",
@@ -98,9 +105,13 @@ export async function POST(request: Request) {
     installationSuffix: auth.installation.id.slice(-6),
     compatibility,
     generationEnabled: alphaGenerationEnabled(),
-    allowance: {
-      profile: { limit: auth.invite.profileLimit, remaining: auth.invite.profileLimit },
-      lens: { limit: auth.invite.lensLimit, remaining: auth.invite.lensLimit }
-    }
+    ...(allowance
+      ? {
+          allowance: {
+            profile: { limit: allowance.profile.limit, remaining: allowance.profile.remaining },
+            lens: { limit: allowance.lens.limit, remaining: allowance.lens.remaining }
+          }
+        }
+      : {})
   });
 }

@@ -7,6 +7,7 @@ import {
   findAlphaInviteById,
   revokeAlphaInstallation,
   revokeAlphaInvite,
+  type AlphaInvite,
   type ColdStartDb
 } from "@cold-start/db";
 
@@ -49,7 +50,8 @@ type InstallationPlan = {
   alreadyRevoked: boolean;
   inviteId: string | null;
   repairOnly: true;
-  inviteBecomesRedeemable: true;
+  inviteBecomesRedeemable: boolean;
+  repairBlockedReason: string | null;
 };
 
 export function requireRepairIntent(installationId: string | undefined, repair: boolean): void {
@@ -58,6 +60,26 @@ export function requireRepairIntent(installationId: string | undefined, repair: 
       "Installation revocation is repair-only and reopens the original invite. Add --repair, or revoke the invite if its link may be exposed."
     );
   }
+}
+
+export function repairBlockedReason(
+  invite: Pick<AlphaInvite, "status" | "expiresAt" | "maxInstallations"> | null,
+  activeInstallationsAfterRepair: number,
+  now = new Date()
+): string | null {
+  if (!invite) {
+    return "the invitation no longer exists";
+  }
+  if (invite.status === "revoked") {
+    return "the invitation is revoked";
+  }
+  if (invite.expiresAt.getTime() <= now.getTime()) {
+    return "the invitation is expired";
+  }
+  if (activeInstallationsAfterRepair >= invite.maxInstallations) {
+    return "the invitation will still be at its installation limit";
+  }
+  return null;
 }
 
 async function invitePlan(db: ColdStartDb, inviteId: string): Promise<InvitePlan> {
@@ -97,9 +119,20 @@ async function installationPlan(db: ColdStartDb, installationId: string): Promis
       alreadyRevoked: false,
       inviteId: null,
       repairOnly: true,
-      inviteBecomesRedeemable: true
+      inviteBecomesRedeemable: false,
+      repairBlockedReason: "the installation was not found"
     };
   }
+
+  const [invite, active] = await Promise.all([
+    findAlphaInviteById(db, row.inviteId),
+    db
+      .select({ id: alphaInstallations.id })
+      .from(alphaInstallations)
+      .where(and(eq(alphaInstallations.inviteId, row.inviteId), isNull(alphaInstallations.revokedAt)))
+  ]);
+  const activeAfterRepair = Math.max(0, active.length - (row.revokedAt === null ? 1 : 0));
+  const blockedReason = repairBlockedReason(invite, activeAfterRepair);
 
   return {
     target: "installation",
@@ -108,7 +141,8 @@ async function installationPlan(db: ColdStartDb, installationId: string): Promis
     alreadyRevoked: row.revokedAt !== null,
     inviteId: row.inviteId,
     repairOnly: true,
-    inviteBecomesRedeemable: true
+    inviteBecomesRedeemable: blockedReason === null,
+    repairBlockedReason: blockedReason
   };
 }
 
@@ -142,6 +176,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   if (!wouldRevoke) {
     throw new Error("No active matching alpha target was found.");
   }
+  if (plan.target === "installation" && !plan.inviteBecomesRedeemable) {
+    throw new Error(`Installation repair cannot reopen the invite because ${plan.repairBlockedReason}.`);
+  }
 
   const revoked = await withAlphaDb((db) =>
     inviteId ? revokeAlphaInvite(db, inviteId) : revokeAlphaInstallation(db, installationId as string)
@@ -150,7 +187,29 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     throw new Error("No active matching alpha target was found.");
   }
 
-  console.log(JSON.stringify({ mode: "apply", revoked: true, plan }, null, 2));
+  let appliedPlan: InvitePlan | InstallationPlan = plan;
+  if (installationId) {
+    try {
+      appliedPlan = await withAlphaDb((db) => installationPlan(db, installationId));
+    } catch {
+      console.error(JSON.stringify({
+        mode: "apply",
+        revoked: true,
+        verification: "failed",
+        target: "installation",
+        installationId,
+        next: "Run alpha:status before retrying. The installation was already revoked."
+      }, null, 2));
+      throw new Error("The installation was revoked, but the repair readback failed.");
+    }
+  }
+  if (appliedPlan.target === "installation" && !appliedPlan.inviteBecomesRedeemable) {
+    throw new Error(
+      `The installation was revoked, but the invite did not reopen because ${appliedPlan.repairBlockedReason}.`
+    );
+  }
+
+  console.log(JSON.stringify({ mode: "apply", revoked: true, plan: appliedPlan }, null, 2));
 }
 
 runCli(import.meta.url, main);

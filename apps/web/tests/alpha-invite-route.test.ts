@@ -51,6 +51,7 @@ describe("alpha invitation routes", () => {
     mocks.redeemAlphaInvite.mockReset();
     mocks.authenticateExtensionRequest.mockReset();
     mocks.getAlphaAllowanceSnapshot.mockReset();
+    mocks.getAlphaAllowanceSnapshot.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -229,6 +230,50 @@ describe("alpha invitation routes", () => {
     const analyticsInput = mocks.insertAlphaEvents.mock.calls[0]?.[1];
     expect(JSON.stringify(analyticsInput?.events)).not.toContain("inviteId");
     expect(JSON.stringify(analyticsInput?.events)).not.toContain("installationId");
+  });
+
+  it("returns the persisted allowance when a repaired installation reconnects", async () => {
+    mocks.redeemAlphaInvite.mockResolvedValue({
+      installation: { id: "6a50d643-83dd-42e0-9eb9-45c7aaa1b2c3" },
+      invite: {
+        id: "b4f48495-c594-48ab-815c-fc62d45caa91",
+        profileLimit: 12,
+        lensLimit: 6
+      }
+    });
+    mocks.getAlphaAllowanceSnapshot.mockResolvedValue({
+      inviteId: "b4f48495-c594-48ab-815c-fc62d45caa91",
+      profile: { limit: 12, remaining: 7 },
+      lens: { limit: 6, remaining: 4 },
+      updatedAt: new Date("2026-07-29T12:00:00.000Z")
+    });
+
+    const response = await redeemRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/redeem",
+      {
+        inviteToken,
+        browser: "firefox",
+        channel: "unlisted",
+        extensionVersion: "0.2.2",
+        clientContract: COLD_START_API_CONTRACT_VERSION,
+        consent: true,
+        storeVisited: false,
+        reducedMotion: false,
+        theme: "light"
+      }
+    ));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      allowance: {
+        profile: { limit: 12, remaining: 7 },
+        lens: { limit: 6, remaining: 4 }
+      }
+    });
+    expect(mocks.getAlphaAllowanceSnapshot).toHaveBeenCalledWith(
+      expect.anything(),
+      "b4f48495-c594-48ab-815c-fc62d45caa91"
+    );
   });
 
   it("redeems a Firefox installation (the panel redeems directly; Firefox has no page-to-extension messaging)", async () => {

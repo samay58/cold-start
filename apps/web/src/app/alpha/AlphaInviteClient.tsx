@@ -131,8 +131,31 @@ function connectedView(response: Extract<ExtensionResponse, { ok: true }>): View
   return { code: "ready", ...(response.allowance ? { allowance: response.allowance } : {}) };
 }
 
+export function invitationLinkForClipboard(origin: string, inviteToken: string) {
+  return new URL(`/alpha#invite=${inviteToken}`, origin).toString();
+}
+
+export async function writeInvitationLink(
+  writeText: ((value: string) => Promise<void>) | undefined,
+  inviteLink: string
+): Promise<"copied" | "failed"> {
+  if (!writeText) {
+    return "failed";
+  }
+  try {
+    await writeText(inviteLink);
+    return "copied";
+  } catch {
+    return "failed";
+  }
+}
+
 export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientProps) {
   const [view, setView] = useState<ViewState>({ code: "checking" });
+  const [inviteCopy, setInviteCopy] = useState<{
+    status: "idle" | "copied" | "failed";
+    link: string | null;
+  }>({ status: "idle", link: null });
 
   useEffect(() => {
     let active = true;
@@ -272,6 +295,18 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
     setView(connectedView(response));
   };
 
+  const copyInvitationLink = async () => {
+    const inviteToken = retainedInviteToken(window.sessionStorage);
+    if (!inviteToken) {
+      setInviteCopy({ status: "failed", link: null });
+      return;
+    }
+    const link = invitationLinkForClipboard(window.location.origin, inviteToken);
+    const writeText = navigator.clipboard?.writeText?.bind(navigator.clipboard);
+    const status = await writeInvitationLink(writeText, link);
+    setInviteCopy({ status, link });
+  };
+
   return (
     <main className={styles.shell} id="main-content">
       <article className={styles.card} aria-live="polite">
@@ -298,8 +333,11 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
             storeUrl={storeUrl}
             onConnect={() => void connect()}
             onContinue={continueAfterDisclosure}
+            onCopyInvite={() => void copyInvitationLink()}
             onStoreClick={() => window.sessionStorage.setItem(ALPHA_STORE_VISITED_SESSION_KEY, "yes")}
             onRetry={() => window.location.reload()}
+            inviteCopyStatus={inviteCopy.status}
+            manualInviteLink={inviteCopy.link}
           />
         </div>
 
@@ -315,8 +353,11 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
 type JourneyPanelProps = {
   view: ViewState;
   storeUrl: string;
+  inviteCopyStatus: "idle" | "copied" | "failed";
+  manualInviteLink: string | null;
   onConnect: () => void;
   onContinue: () => void;
+  onCopyInvite: () => void;
   onStoreClick: () => void;
   onRetry: () => void;
 };
@@ -324,8 +365,11 @@ type JourneyPanelProps = {
 export function JourneyPanel({
   view,
   storeUrl,
+  inviteCopyStatus,
+  manualInviteLink,
   onConnect,
   onContinue,
+  onCopyInvite,
   onStoreClick,
   onRetry
 }: JourneyPanelProps) {
@@ -368,14 +412,33 @@ export function JourneyPanel({
         <p className={styles.stateLabel}>Firefox setup</p>
         <h2>Install, then connect in the sidebar</h2>
         <ul className={styles.disclosures}>
-          <li>Download the signed build below; Firefox installs it directly.</li>
+          <li>Copy this invitation link, then download Cold Start.</li>
           <li>Open any company site and click the Cold Start toolbar button to open the sidebar.</li>
-          <li>In the sidebar, paste the invitation link Samay sent you and choose Connect.</li>
-          <li>Once connected, the sidebar shows your allowance. This page cannot check the connection from Firefox.</li>
+          <li>Paste the link in the sidebar and choose Connect.</li>
         </ul>
-        <a className={styles.primaryAction} href="/firefox/cold-start.xpi">
-          Download Cold Start for Firefox
-        </a>
+        <div className={styles.firefoxActions}>
+          <button className={styles.primaryAction} type="button" onClick={onCopyInvite}>
+            {inviteCopyStatus === "copied"
+              ? "Invitation link copied"
+              : inviteCopyStatus === "failed"
+                ? "Try copy again"
+                : "Copy invitation link"}
+          </button>
+          <a className={styles.secondaryAction} href="/firefox/cold-start.xpi">
+            Download Cold Start
+          </a>
+        </div>
+        {inviteCopyStatus === "failed" && manualInviteLink ? (
+          <label className={styles.manualInviteLink}>
+            <span>Copy this link</span>
+            <input
+              aria-label="Invitation link"
+              onFocus={(event) => event.currentTarget.select()}
+              readOnly
+              value={manualInviteLink}
+            />
+          </label>
+        ) : null}
       </section>
     );
   }

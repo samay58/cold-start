@@ -12,7 +12,7 @@ import {
   buildAlphaStatusReport,
   type AlphaStatusReportInputs
 } from "./alpha-status";
-import { requireRepairIntent } from "./alpha-revoke";
+import { repairBlockedReason, requireRepairIntent } from "./alpha-revoke";
 
 describe("alpha operator CLI primitives", () => {
   it("creates a 256-bit URL-safe invitation secret and keeps it in the fragment", () => {
@@ -54,6 +54,29 @@ describe("alpha operator CLI primitives", () => {
       () => requireRepairIntent("installation-id", false),
       /repair-only and reopens the original invite/
     );
+  });
+
+  it("refuses to describe revoked or expired invitations as repairable", () => {
+    const now = new Date("2026-07-29T12:00:00.000Z");
+    const base = {
+      status: "active" as const,
+      expiresAt: new Date("2026-08-01T12:00:00.000Z"),
+      maxInstallations: 1
+    };
+
+    assert.equal(
+      repairBlockedReason({ ...base, status: "revoked" }, 0, now),
+      "the invitation is revoked"
+    );
+    assert.equal(
+      repairBlockedReason({ ...base, expiresAt: new Date("2026-07-29T11:59:59.000Z") }, 0, now),
+      "the invitation is expired"
+    );
+    assert.equal(
+      repairBlockedReason({ ...base, maxInstallations: 2 }, 2, now),
+      "the invitation will still be at its installation limit"
+    );
+    assert.equal(repairBlockedReason(base, 0, now), null);
   });
 });
 

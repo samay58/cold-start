@@ -2,7 +2,12 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import { JourneyPanel, type ViewState } from "../src/app/alpha/AlphaInviteClient";
+import {
+  invitationLinkForClipboard,
+  JourneyPanel,
+  writeInvitationLink,
+  type ViewState
+} from "../src/app/alpha/AlphaInviteClient";
 import AlphaInvitePage from "../src/app/alpha/page";
 import {
   browserSupportFromUserAgent,
@@ -52,9 +57,36 @@ describe("alpha invitation page", () => {
     });
 
     expect(html).toContain("/firefox/cold-start.xpi");
-    expect(html).toContain("paste");
+    expect(html).toContain("Paste");
     expect(html).toContain("invitation link");
     expect(html).toContain("sidebar");
+    expect(html).toContain("Copy invitation link");
+    expect(html).toContain("Download Cold Start");
+    expect((html.match(/<li>/g) ?? []).length).toBe(3);
+  });
+
+  it("rebuilds the scrubbed invitation link without putting the token in the query", () => {
+    const token = "a".repeat(32);
+    const link = invitationLinkForClipboard("https://cold-start.example", token);
+
+    expect(link).toBe(`https://cold-start.example/alpha#invite=${token}`);
+    expect(new URL(link).search).toBe("");
+  });
+
+  it("falls back to a selectable link when clipboard writing fails", async () => {
+    const link = "https://cold-start.example/alpha#invite=secret";
+    const writeText = vi.fn(async () => {
+      throw new Error("clipboard denied");
+    });
+
+    await expect(writeInvitationLink(writeText, link)).resolves.toBe("failed");
+    const html = renderJourney(
+      { code: "firefox_connect" },
+      { inviteCopyStatus: "failed", manualInviteLink: link }
+    );
+    expect(html).toContain("Try copy again");
+    expect(html).toContain('aria-label="Invitation link"');
+    expect(html).toContain("#invite=secret");
   });
 
   it("scrubs the fragment before hydration and keeps it only in session storage", () => {
@@ -108,13 +140,22 @@ describe("alpha invitation page", () => {
   });
 });
 
-function renderJourney(view: ViewState) {
+function renderJourney(
+  view: ViewState,
+  copy: { inviteCopyStatus: "idle" | "copied" | "failed"; manualInviteLink: string | null } = {
+    inviteCopyStatus: "idle",
+    manualInviteLink: null
+  }
+) {
   return renderToStaticMarkup(
     <JourneyPanel
       view={view}
       storeUrl="https://chromewebstore.google.com/detail/cold-start/example"
+      inviteCopyStatus={copy.inviteCopyStatus}
+      manualInviteLink={copy.manualInviteLink}
       onConnect={vi.fn()}
       onContinue={vi.fn()}
+      onCopyInvite={vi.fn()}
       onStoreClick={vi.fn()}
       onRetry={vi.fn()}
     />
