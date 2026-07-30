@@ -107,6 +107,9 @@ test("dark: start gate for an ungenerated company", async ({ page }) => {
   await expect(page.getByText("No profile")).toHaveCount(0);
   await page.waitForTimeout(150);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-start.png" });
+  await page.getByRole("button", { name: "Begin research" }).hover();
+  await page.waitForTimeout(440);
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-dark-start-hover.png" });
 });
 
 test("dark: signals ledger with corroborated events", async ({ page }) => {

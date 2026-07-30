@@ -125,6 +125,9 @@
   padding: 9px 10px 9px 19px;
   font-size: 15px;
   font-weight: 640;
+  transition:
+    transform 180ms var(--cs-motion-ease-out),
+    box-shadow 620ms var(--cs-motion-ease);
 }
 
 .cs-arc[data-phase="intake"] .cs-start-primary:not(:disabled) {
@@ -156,24 +159,36 @@
   display: grid;
   height: 20px;
   overflow: hidden;
-  perspective: 140px;
+  perspective: 180px;
 }
 
-.cs-start-primary-copy > span {
+.cs-start-primary-copy-line {
   grid-area: 1 / 1;
+  display: flex;
   min-width: 0;
   line-height: 20px;
   white-space: nowrap;
-  transition:
-    filter 300ms var(--cs-motion-ease-out),
-    opacity 300ms var(--cs-motion-ease-out),
-    transform 300ms var(--cs-motion-ease-out);
+  transform-style: preserve-3d;
 }
 
-.cs-start-primary-copy > span:last-child {
+.cs-start-primary-glyph {
+  display: inline-block;
+  transform-origin: 50% 50% -4px;
+  transition:
+    filter 500ms var(--cs-motion-ease-out),
+    opacity 420ms var(--cs-motion-ease-out),
+    transform 520ms var(--cs-motion-ease-out);
+  transition-delay: calc(var(--cs-glyph-reverse-index) * 44ms);
+}
+
+.cs-start-primary-glyph[data-space="true"] {
+  width: 0.28em;
+}
+
+.cs-start-primary-copy-line[data-state="hovered"] .cs-start-primary-glyph {
   opacity: 0;
   filter: blur(4px);
-  transform: translateY(17px) rotateX(-72deg);
+  transform: translateY(16px) rotateX(-90deg);
 }
 
 .cs-start-primary-mark {
@@ -197,7 +212,7 @@
   font-size: 23px;
   font-weight: 500;
   line-height: 1;
-  transition: transform 340ms var(--cs-motion-ease-out);
+  transition: transform 540ms cubic-bezier(0.16, 1.16, 0.3, 1);
 }
 
 .cs-start-primary-mark > span:last-child {
@@ -205,13 +220,28 @@
 }
 
 @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .cs-start-primary:not(:disabled):hover .cs-start-primary-copy > span:first-child {
-    opacity: 0;
-    filter: blur(4px);
-    transform: translateY(-17px) rotateX(72deg);
+  .cs-arc[data-phase="intake"] .cs-start-primary:not(:disabled):hover {
+    box-shadow: 0 13px 30px rgb(var(--cs-c-44-36-19) / 0.16);
+    transform: translateY(-1px);
   }
 
-  .cs-start-primary:not(:disabled):hover .cs-start-primary-copy > span:last-child {
+  .cs-arc[data-phase="intake"] .cs-start-primary:not(:disabled):active {
+    box-shadow: 0 7px 18px rgb(var(--cs-c-44-36-19) / 0.13);
+    transform: translateY(0) scale(0.985);
+  }
+
+  .cs-start-primary:not(:disabled):hover .cs-start-primary-glyph {
+    transition-delay: calc(var(--cs-glyph-index) * 44ms);
+    will-change: filter, opacity, transform;
+  }
+
+  .cs-start-primary:not(:disabled):hover .cs-start-primary-copy-line[data-state="resting"] .cs-start-primary-glyph {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(-16px) rotateX(80deg);
+  }
+
+  .cs-start-primary:not(:disabled):hover .cs-start-primary-copy-line[data-state="hovered"] .cs-start-primary-glyph {
     opacity: 1;
     filter: blur(0);
     transform: translateY(0) rotateX(0);
@@ -227,7 +257,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cs-start-primary-copy > span,
+  .cs-start-primary-glyph,
   .cs-start-primary-mark > span {
     transition: none;
   }

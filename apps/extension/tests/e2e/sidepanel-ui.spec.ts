@@ -762,16 +762,40 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake.png" });
 
   const startButton = page.getByRole("button", { name: "Begin research" });
-  const restingLabelTransform = await startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+  const restingGlyphs = startButton.locator(
+    '.cs-start-primary-copy-line[data-state="resting"] .cs-start-primary-glyph'
+  );
+  const hoveredGlyphs = startButton.locator(
+    '.cs-start-primary-copy-line[data-state="hovered"] .cs-start-primary-glyph'
+  );
+  await expect(restingGlyphs).toHaveCount("Begin research".length);
+  await expect(hoveredGlyphs).toHaveCount("Begin research".length);
+  const restingFirstGlyphTransform = await restingGlyphs.first().evaluate(
+    (label) => getComputedStyle(label).transform
+  );
+  const restingLastGlyphTransform = await restingGlyphs.last().evaluate(
     (label) => getComputedStyle(label).transform
   );
   await startButton.hover();
-  await expect.poll(() => startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+  await page.waitForTimeout(140);
+  await expect.poll(() => restingGlyphs.first().evaluate(
     (label) => getComputedStyle(label).transform
-  )).not.toBe(restingLabelTransform);
+  )).not.toBe(restingFirstGlyphTransform);
+  const earlyLastGlyphTransform = await restingGlyphs.last().evaluate(
+    (label) => getComputedStyle(label).transform
+  );
+  expect([restingLastGlyphTransform, "matrix(1, 0, 0, 1, 0, 0)"]).toContain(earlyLastGlyphTransform);
+  const lastGlyphDelay = await restingGlyphs.last().evaluate(
+    (label) => getComputedStyle(label).transitionDelay
+  );
+  expect(lastGlyphDelay).toBe("0.572s");
+  await page.waitForTimeout(300);
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-hover.png" });
+  await page.waitForTimeout(700);
+  await expect(hoveredGlyphs.last()).toHaveCSS("opacity", "1");
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-hover-settled.png" });
   await page.mouse.move(1, 1);
-  await page.waitForTimeout(350);
+  await page.waitForTimeout(1_150);
 
   await page.setViewportSize({ width: 360, height: 640 });
   const startBox = await page.getByRole("button", { name: "Begin research" }).boundingBox();
@@ -783,15 +807,16 @@ test("missing card shows an explicit generation gate and does not auto-start", a
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-short.png" });
 
   await page.emulateMedia({ reducedMotion: "reduce" });
-  const reducedMotionTransform = await startButton.locator(".cs-start-primary-copy > span").first().evaluate(
+  const reducedMotionTransform = await restingGlyphs.first().evaluate(
     (label) => getComputedStyle(label).transform
   );
   await startButton.hover();
   await page.waitForTimeout(100);
-  await expect(startButton.locator(".cs-start-primary-copy > span").first()).toHaveCSS(
+  await expect(restingGlyphs.first()).toHaveCSS(
     "transform",
     reducedMotionTransform
   );
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-intake-reduced.png" });
 });
 
 test("running basics progress shows the assembly whisper, seal, and clippings", async ({ page }) => {

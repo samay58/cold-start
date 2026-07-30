@@ -1,7 +1,11 @@
 import type { ColdStartCard, ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import type {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  KeyboardEvent as ReactKeyboardEvent
+} from "react";
 import {
   CompanyHeader,
   FactRibbon,
@@ -74,6 +78,37 @@ type CompanyArcProps = {
   onStart: () => void;
   queuedLayerIds?: ResearchLayerId[] | undefined;
 };
+
+type StartGlyphStyle = CSSProperties & {
+  "--cs-glyph-index": number;
+  "--cs-glyph-reverse-index": number;
+};
+
+function StartButtonCopy({ label }: { label: string }) {
+  const glyphs = Array.from(label);
+
+  return (
+    <span aria-hidden="true" className="cs-start-primary-copy">
+      {["resting", "hovered"].map((state) => (
+        <span className="cs-start-primary-copy-line" data-state={state} key={state}>
+          {glyphs.map((glyph, index) => (
+            <span
+              className="cs-start-primary-glyph"
+              data-space={glyph === " " ? "true" : undefined}
+              key={`${glyph}-${index}`}
+              style={{
+                "--cs-glyph-index": index,
+                "--cs-glyph-reverse-index": glyphs.length - index - 1
+              } as StartGlyphStyle}
+            >
+              {glyph}
+            </span>
+          ))}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 function AlphaPosture({ access }: { access: AlphaAccessState }) {
   const generationPaused = !access.generationEnabled;
@@ -525,10 +560,7 @@ export function CompanyArc({
                 onClick={onStart}
                 type="button"
               >
-                <span aria-hidden="true" className="cs-start-primary-copy">
-                  <span>{profileStartLabel}</span>
-                  <span>{profileStartLabel}</span>
-                </span>
+                <StartButtonCopy label={profileStartLabel} />
                 <span aria-hidden="true" className="cs-start-primary-mark">
                   <span>→</span>
                   <span>→</span>
