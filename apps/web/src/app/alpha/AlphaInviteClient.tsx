@@ -321,7 +321,6 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
         <div className={styles.body}>
           <section className={styles.intro}>
             <div className={styles.seal} aria-hidden="true">CS</div>
-            <p className={styles.eyebrow}>Private field test</p>
             <h1>Company context, when you need it.</h1>
             <p className={styles.lede}>
               Cold Start opens beside a company website and builds a sourced profile in about a minute.
@@ -378,7 +377,6 @@ export function JourneyPanel({
       <section className={styles.panel}>
         <p className={styles.stateLabel}>{view.code === "connecting" ? "Connecting" : "Checking invitation"}</p>
         <h2>{view.code === "connecting" ? "Setting up Cold Start" : "One moment"}</h2>
-        <p>The page is checking the invitation and your browser.</p>
         <span className={styles.progress} aria-hidden="true" />
       </section>
     );
@@ -390,12 +388,12 @@ export function JourneyPanel({
     return (
       <section className={styles.panel}>
         <p className={styles.stateLabel}>Before you continue</p>
-        <h2>A small, observable alpha</h2>
+        <h2>What you should know</h2>
         <ul className={styles.disclosures}>
           <li>Cold Start reads the current company domain only when you invoke it.</li>
           <li>Generating creates or updates a public sourced fact card.</li>
           <li>Public cards show facts and sources. They never identify who requested them.</li>
-          <li>The alpha records named product interactions tied to this invitation for reliability and product improvement. It does not record page content, searches, or general browsing.</li>
+          <li>Product actions you take are recorded against this invitation to keep things reliable. Page content, searches, and browsing are never recorded.</li>
           <li>Raw usage events are kept for up to 30 days. You can ask us to delete invitation-linked events at any time. De-identified operational totals may remain.</li>
           <li>This invitation includes {profileLimit} fresh profiles and {lensLimit} Investor Lens runs. Opening existing work is free.</li>
         </ul>
@@ -448,7 +446,7 @@ export function JourneyPanel({
       <StatePanel
         label="Step one"
         title="Install Cold Start"
-        copy="Chrome will handle the install. Return to this page afterward and the connection step will be waiting."
+        copy="Install from the Chrome Web Store, then come back to this page."
         action={<a className={styles.primaryAction} href={storeUrl} onClick={onStoreClick} target="_blank" rel="noreferrer">Open Chrome Web Store</a>}
       />
     );
@@ -459,7 +457,7 @@ export function JourneyPanel({
       <StatePanel
         label="Step two"
         title="Connect this installation"
-        copy="One click connects the extension to this invitation. The connection stays in Chrome and can be revoked."
+        copy="One click connects the extension to your invitation. You can revoke it anytime."
         action={<button className={styles.primaryAction} type="button" onClick={onConnect}>Connect Cold Start</button>}
       />
     );
@@ -544,7 +542,7 @@ function stateCopy(code: ViewCode, storeUrl: string) {
     expired: {
       label: "Invitation expired",
       title: "This invitation is no longer active",
-      copy: "Invitations expire so a link cannot quietly remain usable forever.",
+      copy: "Invitations go stale after two weeks. Ask Samay for a fresh one.",
       action: "support"
     },
     generation_disabled: {
@@ -562,7 +560,7 @@ function stateCopy(code: ViewCode, storeUrl: string) {
     invalid_invite: {
       label: "Invitation needed",
       title: "Open the invitation Samay sent you",
-      copy: "The private invitation carries the connection needed for this alpha.",
+      copy: "Open the link from Samay's message and this page takes it from there.",
       action: "support"
     },
     lens_exhausted: {
