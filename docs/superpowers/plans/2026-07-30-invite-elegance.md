@@ -893,6 +893,26 @@ git push origin main
 
 ---
 
+### Task 8: Kamya's invitation and the handoff walkthrough
+
+Added mid-execution at Samay's request (2026-07-30). Runs only after Task 7 is fully done (prod migrated, deployed, smoke-tested): minting writes a real invite row to the production database.
+
+- [ ] **Step 1: Mint Kamya's invitation, extra special**
+
+Run: `npm run alpha:invite -- --label "Kamya" --name "Kamya"`
+
+Extra special within the settled design (no new motifs, no copy changes): take the craft up through the approval loop, not the card's content. Re-roll at least once so the pick is from 4+ candidates, and approve only a flawless render: letterpress line crisp, name perfectly spelled, seal clean. If the ordinal counter is still fresh enough that No 01 is available, hers is No 01.
+
+- [ ] **Step 2: Hand Samay the send steps**
+
+Print/report: the `/i/kamya` link to send as its own iMessage bubble (the card preview replaces the URL only when the link is the entire message), the spoken word code on a separate line as the fallback, and a reminder to check the preview renders full-bleed before considering it sent.
+
+- [ ] **Step 3: The walkthrough**
+
+Close with a plain-English walkthrough for Samay (say-less + caveman register, per his standing instructions): what was built step by step, what changed where, why it is verified polished (which gates ran, what they prove), and the exact steps for Kamya to test it and give feedback.
+
+---
+
 ## Execution Deviations
 
 - Task 1: the `{4,8}` length filter yielded 943 words, under the 1024 floor; widened to `{4,9}` per this plan's own contingency, giving 1165 words. The wordlist test asserts `/^[a-z]{4,9}$/` accordingly.
