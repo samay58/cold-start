@@ -39,6 +39,19 @@
 
   --shadow-popover: 0 10px 26px rgb(23 26 31 / 0.10), 0 0 0 1px var(--color-rule);
   --shadow-pickup: 0 6px 18px rgb(23 26 31 / 0.08);
+
+  /* Catalogue card web face (2026-07-30 redesign): additive only */
+  --cat-ghost-1: #EEE4CE;
+  --cat-ghost-2: #F1E8D5;
+  --cat-conflict-fill: #F7EFE0;
+  --cat-conflict-rule: #D8B8AF;
+  --cat-conflict-rule-soft: #E4CCC4;
+  --cat-hold: #EDE3CC;
+  --cat-hold-flash: #DCCFF0;
+  --seal-deep: #3C2F63;
+  --seal-hover: #4E3F79;
+  --cat-rule-dotted: #C9BCA0;
+  --cat-muted-2: #8A8271;
 }
 
 .sr-only,
