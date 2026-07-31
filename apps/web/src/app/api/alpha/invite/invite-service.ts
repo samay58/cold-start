@@ -5,11 +5,31 @@ import {
   COLD_START_CLIENT_CONTRACT_HEADER,
   INVITE_TOKEN_PATTERN
 } from "@cold-start/core";
-import type { ColdStartDb } from "@cold-start/db";
+import {
+  countRecentAlphaInviteAttempts,
+  recordAlphaInviteAttempt,
+  type ColdStartDb
+} from "@cold-start/db";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 const MAX_REQUEST_BYTES = 2_048;
+
+// Global failure breaker: a wrong guess matches no invite row (lookups are by exact
+// hash), so per-invite counting can never attribute a miss. Every invalid-token
+// attempt lands in one anonymous tally; when the trailing hour holds the threshold,
+// inspect and redeem both answer 429 until the window drains.
+const BREAKER_WINDOW_MS = 60 * 60 * 1000;
+const BREAKER_THRESHOLD = 10;
+
+export async function alphaInviteBreakerOpen(db: ColdStartDb, now = new Date()): Promise<boolean> {
+  const since = new Date(now.getTime() - BREAKER_WINDOW_MS);
+  return (await countRecentAlphaInviteAttempts(db, since)) >= BREAKER_THRESHOLD;
+}
+
+export async function recordInvalidInviteAttempt(db: ColdStartDb, now = new Date()): Promise<void> {
+  await recordAlphaInviteAttempt(db, now);
+}
 
 export const alphaInviteRequestSchema = z.object({
   inviteToken: z.string().regex(INVITE_TOKEN_PATTERN)

@@ -2,7 +2,12 @@
 
 import { count, lt } from "drizzle-orm";
 
-import { alphaEvents, pruneAlphaEvents } from "@cold-start/db";
+import {
+  alphaEvents,
+  alphaInviteAttempts,
+  pruneAlphaEvents,
+  pruneAlphaInviteAttempts
+} from "@cold-start/db";
 
 import {
   boundedInteger,
@@ -50,12 +55,23 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   loadProductionEnv();
   const apply = hasFlag(args, "--apply");
 
-  const eligible = await withAlphaDb(async (db) => {
+  // Breaker attempts only matter for the trailing hour; anything older than a day
+  // is noise. Pruned on the same cadence as events, at a fixed 24h boundary.
+  const attemptsBefore = dateBefore(new Date(), "24h", "--before");
+
+  const { eligible, attemptsEligible } = await withAlphaDb(async (db) => {
     const rows = await db
       .select({ value: count() })
       .from(alphaEvents)
       .where(lt(alphaEvents.receivedAt, before));
-    return rows[0]?.value ?? 0;
+    const attemptRows = await db
+      .select({ value: count() })
+      .from(alphaInviteAttempts)
+      .where(lt(alphaInviteAttempts.createdAt, attemptsBefore));
+    return {
+      eligible: rows[0]?.value ?? 0,
+      attemptsEligible: attemptRows[0]?.value ?? 0
+    };
   });
 
   if (!apply) {
@@ -66,7 +82,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           before: before.toISOString(),
           eligible,
           wouldDelete: Math.min(eligible, maximum),
-          cappedByMax: eligible > maximum
+          cappedByMax: eligible > maximum,
+          attemptsBefore: attemptsBefore.toISOString(),
+          attemptsEligible
         },
         null,
         2
@@ -75,7 +93,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const deleted = await withAlphaDb(async (db) => {
+  const { deleted, attemptsDeleted } = await withAlphaDb(async (db) => {
     let countDeleted = 0;
     while (countDeleted < maximum) {
       const removed = await pruneAlphaEvents(db, {
@@ -85,7 +103,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       countDeleted += removed;
       if (removed < batch) break;
     }
-    return countDeleted;
+    const removedAttempts = await pruneAlphaInviteAttempts(db, attemptsBefore);
+    return { deleted: countDeleted, attemptsDeleted: removedAttempts };
   });
 
   console.log(
@@ -94,7 +113,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         mode: "apply",
         before: before.toISOString(),
         deleted,
-        stoppedAtMax: deleted === maximum
+        stoppedAtMax: deleted === maximum,
+        attemptsBefore: attemptsBefore.toISOString(),
+        attemptsDeleted
       },
       null,
       2

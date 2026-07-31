@@ -15,11 +15,13 @@ import {
 import { webEnv } from "../../../../../lib/web-env";
 import {
   alphaClientCompatibility,
+  alphaInviteBreakerOpen,
   alphaInviteErrorStatus,
   alphaInviteRedeemRequestSchema,
   hashAlphaSecret,
   inspectAlphaInvite,
-  readBoundedJson
+  readBoundedJson,
+  recordInvalidInviteAttempt
 } from "../invite-service";
 
 export async function POST(request: Request) {
@@ -50,6 +52,10 @@ export async function POST(request: Request) {
   const accessToken = randomBytes(32).toString("base64url");
   const inviteTokenHash = hashAlphaSecret(parsed.data.inviteToken);
   const db = createDb(webEnv().DATABASE_URL);
+  if (await alphaInviteBreakerOpen(db)) {
+    return respond({ error: "too_many_attempts" }, { status: 429 });
+  }
+
   const auth = await redeemAlphaInvite(db, {
     tokenHash: inviteTokenHash,
     accessTokenHash: hashAlphaSecret(accessToken),
@@ -61,6 +67,11 @@ export async function POST(request: Request) {
   if (!auth) {
     const inspection = await inspectAlphaInvite(db, inviteTokenHash);
     const state = inspection.state === "ready" ? "used" : inspection.state;
+    // Only a token that matches no row counts toward the breaker: expired, used,
+    // and revoked are legitimate friends holding real links, not guesses.
+    if (state === "invalid_invite") {
+      await recordInvalidInviteAttempt(db);
+    }
     return respond(
       { ok: false, code: state },
       { status: alphaInviteErrorStatus(state) }

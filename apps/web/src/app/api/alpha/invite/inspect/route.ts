@@ -4,11 +4,13 @@ import { apiJsonWithTiming } from "../../../../../lib/api-response";
 import { alphaAccessEnabled } from "../../../../../lib/alpha-config";
 import { webEnv } from "../../../../../lib/web-env";
 import {
+  alphaInviteBreakerOpen,
   alphaInviteErrorStatus,
   alphaInviteRequestSchema,
   hashAlphaSecret,
   inspectAlphaInvite,
-  readBoundedJson
+  readBoundedJson,
+  recordInvalidInviteAttempt
 } from "../invite-service";
 
 export async function POST(request: Request) {
@@ -32,8 +34,17 @@ export async function POST(request: Request) {
   }
 
   const db = createDb(webEnv().DATABASE_URL);
+  if (await alphaInviteBreakerOpen(db)) {
+    return respond({ error: "too_many_attempts" }, { status: 429 });
+  }
+
   const inspection = await inspectAlphaInvite(db, hashAlphaSecret(parsed.data.inviteToken));
   if (inspection.state !== "ready") {
+    // Only a token that matches no row counts toward the breaker: expired, used,
+    // and revoked are legitimate friends holding real links, not guesses.
+    if (inspection.state === "invalid_invite") {
+      await recordInvalidInviteAttempt(db);
+    }
     return respond(
       { ok: false, code: inspection.state },
       { status: alphaInviteErrorStatus(inspection.state) }

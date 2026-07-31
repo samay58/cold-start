@@ -8,19 +8,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticateExtensionRequest: vi.fn(),
+  countRecentAlphaInviteAttempts: vi.fn(),
   createDb: vi.fn(),
   execute: vi.fn(),
   getAlphaAllowanceSnapshot: vi.fn(),
   insertAlphaEvents: vi.fn(),
+  recordAlphaInviteAttempt: vi.fn(),
   redeemAlphaInvite: vi.fn()
 }));
 
 mocks.createDb.mockReturnValue({ execute: mocks.execute });
+mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
 
 vi.mock("@cold-start/db", () => ({
+  countRecentAlphaInviteAttempts: mocks.countRecentAlphaInviteAttempts,
   createDb: mocks.createDb,
   getAlphaAllowanceSnapshot: mocks.getAlphaAllowanceSnapshot,
   insertAlphaEvents: mocks.insertAlphaEvents,
+  recordAlphaInviteAttempt: mocks.recordAlphaInviteAttempt,
   redeemAlphaInvite: mocks.redeemAlphaInvite
 }));
 
@@ -47,6 +52,9 @@ describe("alpha invitation routes", () => {
     mocks.createDb.mockClear();
     mocks.createDb.mockReturnValue({ execute: mocks.execute });
     mocks.execute.mockReset();
+    mocks.countRecentAlphaInviteAttempts.mockReset();
+    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
+    mocks.recordAlphaInviteAttempt.mockReset();
     mocks.insertAlphaEvents.mockReset();
     mocks.insertAlphaEvents.mockResolvedValue([]);
     mocks.redeemAlphaInvite.mockReset();
@@ -429,5 +437,55 @@ describe("alphaInviteRequestSchema token shapes", () => {
       inviteToken: "Xk3jP9qLm2vR8tYw4nZbF6hD1cAeG7sUoI5xKdMpQrE"
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe("alpha invite failure breaker", () => {
+  beforeEach(() => {
+    delete process.env.ALPHA_ACCESS_ENABLED;
+    mocks.createDb.mockClear();
+    mocks.createDb.mockReturnValue({ execute: mocks.execute });
+    mocks.execute.mockReset();
+    mocks.countRecentAlphaInviteAttempts.mockReset();
+    mocks.recordAlphaInviteAttempt.mockReset();
+  });
+
+  it("opens the breaker after 10 invalid attempts in the window", async () => {
+    let attempts = 0;
+    mocks.recordAlphaInviteAttempt.mockImplementation(async () => { attempts += 1; });
+    mocks.countRecentAlphaInviteAttempts.mockImplementation(async () => attempts);
+    const db = mocks.createDb();
+    for (let i = 0; i < 10; i += 1) {
+      await inviteService.recordInvalidInviteAttempt(db);
+    }
+    expect(await inviteService.alphaInviteBreakerOpen(db)).toBe(true);
+  });
+
+  it("keeps the breaker closed for a quiet window", async () => {
+    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
+    expect(await inviteService.alphaInviteBreakerOpen(mocks.createDb())).toBe(false);
+  });
+
+  it("records invalid attempts on inspect and answers 429 once the window fills", async () => {
+    let attempts = 0;
+    mocks.recordAlphaInviteAttempt.mockImplementation(async () => { attempts += 1; });
+    mocks.countRecentAlphaInviteAttempts.mockImplementation(async () => attempts);
+    mocks.execute.mockResolvedValue({ rows: [] });
+
+    for (let i = 0; i < 10; i += 1) {
+      const response = await inspectRoute.POST(jsonRequest(
+        "http://localhost/api/alpha/invite/inspect",
+        { inviteToken }
+      ));
+      expect(response.status).toBe(404);
+    }
+    expect(attempts).toBe(10);
+
+    const blocked = await inspectRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/inspect",
+      { inviteToken }
+    ));
+    expect(blocked.status).toBe(429);
+    await expect(blocked.json()).resolves.toMatchObject({ error: "too_many_attempts" });
   });
 });

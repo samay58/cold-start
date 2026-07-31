@@ -436,7 +436,7 @@ git commit -m "Add invite card columns, slug lookup, ordinal, and attempt counte
 - Consumes: `recordAlphaInviteAttempt`, `countRecentAlphaInviteAttempts`, `pruneAlphaInviteAttempts` from Task 3.
 - Produces: `alphaInviteBreakerOpen(db, now?): Promise<boolean>` and `recordInvalidInviteAttempt(db, now?): Promise<void>` in invite-service; both routes return `429 { error: "too_many_attempts" }` while the breaker is open.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Following the existing test file's route-invocation pattern:
 
@@ -455,12 +455,12 @@ it("keeps the breaker closed for a quiet window", async () => {
 
 And one route-level case: an inspect request with an unknown (well-formed) token records an attempt; the same request repeated 10 times then answers 429.
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npm test -w web -- alpha-invite-route`
 Expected: FAIL (functions do not exist).
 
-- [ ] **Step 3: Implement the breaker in invite-service.ts**
+- [x] **Step 3: Implement the breaker in invite-service.ts**
 
 ```typescript
 const BREAKER_WINDOW_MS = 60 * 60 * 1000;
@@ -480,12 +480,12 @@ Wire into both routes, before any hash lookup: if `await alphaInviteBreakerOpen(
 
 In `scripts/alpha-prune.ts`, alongside the existing event pruning, call `pruneAlphaInviteAttempts(db, dateBefore(now, "24h"))` and print the removed count in the same style the script already uses.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w web -- alpha-invite-route`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/app/api/alpha/invite apps/web/tests/alpha-invite-route.test.ts scripts/alpha-prune.ts
