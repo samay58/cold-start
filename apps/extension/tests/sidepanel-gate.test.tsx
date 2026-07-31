@@ -291,7 +291,7 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
-  it("shows friend-alpha allowances and the public-card disclosure before a fresh run", async () => {
+  it("shows invitation allowances and the public-card disclosure before a fresh run", async () => {
     const fetchMock = vi.fn(async () => jsonResponse({
       domain: "amazon.com",
       slug: "amazon",

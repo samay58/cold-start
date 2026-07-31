@@ -427,7 +427,7 @@ function FirefoxInviteForm({
           <BrandMark />
         </span>
         <div>
-          <p>Friend alpha</p>
+          <p>Private release</p>
           <h1>Connect Cold Start</h1>
         </div>
       </header>
@@ -500,7 +500,7 @@ export function ConnectionPanel({
   return (
     <ExtensionFrame className="cs-intake-panel" title="Invitation required">
       <PanelHeader
-        eyebrow="Friend alpha"
+        eyebrow="Private release"
         title="Open your invitation"
         value="The invitation connects this installation in one click."
       />
@@ -592,7 +592,7 @@ function SettingsPanel({
       <div className="cs-settings-back">
         <button className="cs-extension-link-button" onClick={onClose} type="button">Back</button>
       </div>
-      <PanelHeader eyebrow="Friend alpha" title="Cold Start" value="Connected to your invitation." />
+      <PanelHeader eyebrow="Private release" title="Cold Start" value="Connected to your invitation." />
 
       <section className="cs-alpha-posture" aria-label="Alpha allowance">
         <div>

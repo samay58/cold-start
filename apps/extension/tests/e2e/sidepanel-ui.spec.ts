@@ -59,7 +59,7 @@ test("Firefox invitation screen stays focused and tactile", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Connect Cold Start" })).toBeVisible();
   await expect(page.getByLabel("Paste your invitation link")).toBeFocused();
   await expect(page.getByText("Connect your invitation")).toHaveCount(0);
-  await expect(page.getByText("Friend alpha")).toHaveCount(1);
+  await expect(page.getByText("Private release")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Connect" })).toBeVisible();
   await expect(page.getByText("Profiles are public. They never show who requested them.")).toBeVisible();
   await expect(page.getByRole("group", { name: "Appearance" })).toHaveCount(0);

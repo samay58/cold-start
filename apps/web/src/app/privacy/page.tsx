@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           The server stores only hashes of invitation and connection credentials.
         </p>
 
-        <h2>Friend alpha usage records</h2>
+        <h2>Usage records</h2>
         <p>
           After an invited tester accepts the disclosure and connects the extension, Cold Start records named
           product interactions such as opening the panel, requesting a profile, opening a Lens category, or using a
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
 
         <h2>Retention and deletion</h2>
         <p>
-          Raw friend-alpha usage events are retained for 30 days. De-identified operational totals may be retained
+          Raw usage events are retained for 30 days. De-identified operational totals may be retained
           after the raw events are removed. A tester may ask to delete the invitation, installation, allowance, and
           identity-linked usage records at any time. Generated public fact cards are sourced product records rather
           than tester records and are reviewed separately.

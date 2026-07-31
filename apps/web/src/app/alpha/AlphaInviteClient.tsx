@@ -554,7 +554,7 @@ function stateCopy(code: ViewCode, storeUrl: string) {
     installation_limit: {
       label: "Installation limit",
       title: "This invitation is already attached elsewhere",
-      copy: "Each friend-alpha invitation is limited to its intended Chrome installation.",
+      copy: "Each invitation attaches to a single Chrome installation.",
       action: "support"
     },
     invalid_invite: {

@@ -113,10 +113,10 @@ function StartButtonCopy({ label }: { label: string }) {
 function AlphaPosture({ access }: { access: AlphaAccessState }) {
   const generationPaused = !access.generationEnabled;
   return (
-    <aside className="cs-alpha-posture-note" data-paused={generationPaused} aria-label="Friend alpha status">
+    <aside className="cs-alpha-posture-note" data-paused={generationPaused} aria-label="Invitation status">
       <span className="cs-classification-dot" aria-hidden="true" />
       <div>
-        <strong>{generationPaused ? "New research paused" : "Friend alpha allowance"}</strong>
+        <strong>{generationPaused ? "New research paused" : "Research allowance"}</strong>
         <p>
           {generationPaused
             ? "Saved profiles and filed Lens results still open."
