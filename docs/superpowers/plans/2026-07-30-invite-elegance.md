@@ -876,16 +876,16 @@ git commit -m "Mint the letterpress invitation card inside alpha:invite"
 Run: `docker-compose up -d postgres && npm run check`
 Expected: green end to end (lint, typecheck, tests, both real-DB suites, builds, firefox build, eval dry-run, knip, secrets, audit). Fix anything it surfaces before proceeding; do not pipe check through tail (it eats the exit code).
 
-- [ ] **Step 2: Apply the migration to production**
+- [x] **Step 2: Apply the migration to production**
 
 Run: `npm run db:migrate:production`
 Expected: the new migration applies cleanly. This is the step the 5/29 outage memory exists for: Vercel deploys do not run Neon migrations, so this must happen before the deploy that ships the new columns' readers.
 
-- [ ] **Step 3: Deploy and smoke**
+- [x] **Step 3: Deploy and smoke**
 
 Deploy via the normal Vercel flow. Then mint a real test invite (`npm run alpha:invite -- --label "smoke-test" --name "Sam"`), open the printed `/i/` link in a browser, confirm the card renders and the page offers the ceremony, text the link to yourself and confirm the iMessage preview shows the card full-bleed, then delete the tester (`npm run alpha:delete-tester`).
 
-- [ ] **Step 4: Commit any smoke fixes and push**
+- [x] **Step 4: Commit any smoke fixes and push**
 
 ```bash
 git push origin main
@@ -921,6 +921,7 @@ Close with a plain-English walkthrough for Samay (say-less + caveman register, p
 - Task 5: the OG image is a relative URL resolved by the root layout's `metadataBase` (`webOrigin()` in `apps/web/src/lib/site-origin.ts`), the same convention as `/c/[slug]`, instead of the plan's interpolated `NEXT_PUBLIC_WEB_ORIGIN`; no `twitter:` block per the spec (iMessage reads plain OG only). The db handle is `createDb(webEnv().DATABASE_URL)`, matching the alpha routes.
 - Task 5: two strictness fixes surfaced by the web app's `noUncheckedIndexedAccess` typecheck: `randomIndex` in `packages/core/src/invite-codes.ts` guards the `buf[0]` read, and `pruneAlphaInviteAttempts` uses bare `.returning()` (the `ColdStartDb` union type rejects a selection argument, matching `deleteAlphaTesterData`).
 - Task 6: the existing operator test asserting the `/alpha#invite=` URL shape moved to `legacyInviteUrl`; `loadEnvFile` in `alpha-common.ts` went from private to exported so `alpha-invite.ts` can load `OPENROUTER_API_KEY` from `.env.local`; the `createAlphaInvite` input spreads the optional card fields conditionally rather than passing explicit `undefined`.
+- Task 7: production smoke surfaced that the image model returns JPEG bytes under a `data:image/png` label; fixed by converting the approved candidate to real PNG at mint time and sniffing stored bytes' magic in the card route (be70998). The device-side iMessage full-bleed check hands to Samay with the live `smoke-test` invite before Kamya's mint.
 - General: the web workspace is addressed as `-w @cold-start/web`, not the plan's `-w web`; the extension token-input test file is `apps/extension/tests/alpha-connect.test.ts` (`.ts`, not `.tsx`).
 
 ## Self-Review Notes
