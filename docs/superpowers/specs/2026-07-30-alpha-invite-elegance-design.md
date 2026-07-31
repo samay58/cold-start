@@ -69,13 +69,13 @@ Motion is CSS-transform only. One designed payoff moment: the wax seal takes its
 
 - **Word list.** Built once, checked into `packages/core`. EFF methodology: 4 to 8 characters per word, no word is a prefix of another word, profanity-filtered, homophone-culled, phonetically distinct. Target 1,024 to 2,048 words so three words give 30 to 33 bits.
 - **Security floor, by citation rather than vibes.** NIST 800-63B requires 20 bits minimum for lookup secrets and mandates rate limiting below 64 bits. RFC 8628 (OAuth device codes), the closest real standard to this flow, targets about 34.5 bits with roughly 5 attempts allowed per code lifetime. Three words clears the NIST floor with margin and sits in RFC 8628 territory.
-- **Failure counter.** New: an invite burns (moves to a terminal state) after 5 failed redemption attempts, plus a coarse global failed-attempt circuit breaker on the redeem and inspect routes. Today the 256-bit token is the only brute-force defense; this replaces it honestly.
+- **Failure breaker.** New: a global circuit breaker on the redeem and inspect routes. A wrong guess matches no invite row (lookups are by exact hash), so per-invite counting can never attribute a miss; instead every invalid-token attempt is recorded, and when the trailing hour holds 10 or more, both routes answer 429 until the window drains. Twelve friends will never trip it; a brute-force sweep hits the wall after 10 guesses an hour. Today the 256-bit token is the only defense; this replaces it honestly.
 - **Mint-time hygiene.** Re-roll any code whose three words combine into something rude or confusable (the what3words lesson: clean words still make dirty sentences).
 - **Sync points.** The token pattern lives in three places that must change together: server zod schema (`invite-service.ts`), extension parser (`alpha-connect.ts`), invite-page fragment script (`page.tsx`). Legacy base64 tokens stay accepted everywhere.
 
 ## Schema changes
 
-Migration 0012 on `alpha_invites`: `slug` (text, unique, nullable for legacy rows), `card_png` (bytea, nullable), `display_name` (text, nullable), `ordinal` (integer), `failed_attempts` (integer, default 0). No changes to installations, allowances, or the reserve/settle path.
+One new migration (drizzle-kit numbers it; 0013 was the last at design time) on `alpha_invites`: `slug` (text, unique, nullable for legacy rows), `display_name` (text, nullable), `ordinal` (integer, nullable), `card_png_base64` (text, nullable; twelve cards at ~3 MB base64 is nothing at this scale and keeps Drizzle to stock column types). Plus a new `alpha_invite_attempts` table (id, created_at) feeding the failure breaker, pruned by `alpha:prune`. No changes to installations, allowances, or the reserve/settle path.
 
 ## What this deliberately does not do
 
