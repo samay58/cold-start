@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 
 import {
   COLD_START_API_CONTRACT_VERSION,
-  COLD_START_CLIENT_CONTRACT_HEADER
+  COLD_START_CLIENT_CONTRACT_HEADER,
+  INVITE_TOKEN_PATTERN
 } from "@cold-start/core";
 import type { ColdStartDb } from "@cold-start/db";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 
-const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
 const MAX_REQUEST_BYTES = 2_048;
 
 export const alphaInviteRequestSchema = z.object({

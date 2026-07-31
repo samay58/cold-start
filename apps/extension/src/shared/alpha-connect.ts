@@ -1,6 +1,7 @@
 import {
   COLD_START_API_CONTRACT_VERSION,
-  COLD_START_CLIENT_CONTRACT_HEADER
+  COLD_START_CLIENT_CONTRACT_HEADER,
+  INVITE_TOKEN_PATTERN
 } from "@cold-start/core";
 import {
   ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY,
@@ -29,8 +30,8 @@ export function detectedAlphaBrowser(): "chrome" | "firefox" {
 
 // Mirrors the invite page's fragment parsing (inviteTokenFromHash in apps/web):
 // the Firefox panel accepts the whole invitation link or the bare code, since the
-// tester pastes whatever they have at hand.
-const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
+// tester pastes whatever they have at hand. The pattern itself lives in core so
+// all entry points accept the same token shapes.
 
 export function inviteTokenFromInput(raw: string): string | null {
   const trimmed = raw.trim();

@@ -35,6 +35,7 @@ vi.mock("../src/lib/web-env", () => ({
 const inspectRoute = await import("../src/app/api/alpha/invite/inspect/route");
 const redeemRoute = await import("../src/app/api/alpha/invite/redeem/route");
 const statusRoute = await import("../src/app/api/alpha/invite/status/route");
+const inviteService = await import("../src/app/api/alpha/invite/invite-service");
 
 const inviteToken = "i".repeat(32);
 
@@ -416,3 +417,17 @@ function inviteRow(overrides: Record<string, unknown> = {}) {
     ...overrides
   };
 }
+
+describe("alphaInviteRequestSchema token shapes", () => {
+  it("accepts a three-word invite code in the redeem schema", () => {
+    const parsed = inviteService.alphaInviteRequestSchema.safeParse({ inviteToken: "ember-quarto-lark" });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("still accepts a legacy 43-char token", () => {
+    const parsed = inviteService.alphaInviteRequestSchema.safeParse({
+      inviteToken: "Xk3jP9qLm2vR8tYw4nZbF6hD1cAeG7sUoI5xKdMpQrE"
+    });
+    expect(parsed.success).toBe(true);
+  });
+});

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import React from "react";
 
+import { INVITE_TOKEN_PATTERN } from "@cold-start/core";
+
 import { AlphaInviteClient } from "./AlphaInviteClient";
 import { ALPHA_INVITE_SESSION_KEY } from "./alpha-invite";
 
@@ -13,7 +15,7 @@ const fragmentCaptureScript = `
 (() => {
   const raw = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : window.location.hash;
   const token = raw.startsWith("invite=") ? new URLSearchParams(raw).get("invite") : raw;
-  if (token && /^[A-Za-z0-9_-]{22,256}$/.test(token)) {
+  if (token && /${INVITE_TOKEN_PATTERN.source.replace(/\//g, "\\/")}/.test(token)) {
     window.sessionStorage.setItem(${JSON.stringify(ALPHA_INVITE_SESSION_KEY)}, token);
   }
   if (window.location.hash) {

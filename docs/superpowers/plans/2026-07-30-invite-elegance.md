@@ -191,7 +191,7 @@ git commit -m "Add three-word invite codes and the unified token pattern to core
 - Consumes: `INVITE_TOKEN_PATTERN` from `@cold-start/core` (Task 1).
 - Produces: nothing new; the four entry points now accept both token shapes.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `apps/web/tests/alpha-invite-route.test.ts`, add (mirroring how existing cases build request bodies in that file):
 
@@ -220,12 +220,12 @@ it("accepts a bare word code and a full /i/ link", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npm test -w web -- alpha-invite-route` and `npm test -w @cold-start/extension -- alpha-connect`
 Expected: FAIL (14-char-minimum codes are rejected by the current `{22,256}` patterns).
 
-- [ ] **Step 3: Point all four entry points at the core pattern**
+- [x] **Step 3: Point all four entry points at the core pattern**
 
 In `invite-service.ts`, delete the local const and import: `import { INVITE_TOKEN_PATTERN } from "@cold-start/core";`
 
@@ -252,12 +252,12 @@ const fragmentCaptureScript = `
 
 In `alpha-connect.ts`, the extension cannot import server code but CAN import core; replace the literal with `import { INVITE_TOKEN_PATTERN } from "@cold-start/core";` and keep the comment about mirroring the invite page.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test -w web -- alpha-invite-route && npm test -w @cold-start/extension -- alpha-connect`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/app/api/alpha/invite/invite-service.ts apps/web/src/app/alpha/alpha-invite.ts apps/web/src/app/alpha/page.tsx apps/extension/src/shared/alpha-connect.ts apps/web/tests/alpha-invite-route.test.ts apps/extension/tests

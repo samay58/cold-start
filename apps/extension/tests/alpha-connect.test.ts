@@ -66,6 +66,13 @@ describe("inviteTokenFromInput", () => {
     expect(inviteTokenFromInput(`raw ${token} extra`)).toBeNull();
     expect(inviteTokenFromInput("")).toBeNull();
   });
+
+  it("accepts a bare word code and a full /i/ link", () => {
+    expect(inviteTokenFromInput("ember-quarto-lark")).toBe("ember-quarto-lark");
+    expect(
+      inviteTokenFromInput("https://cold-start.semitechie.vc/i/dad#ember-quarto-lark")
+    ).toBe("ember-quarto-lark");
+  });
 });
 
 describe("alpha-connect", () => {

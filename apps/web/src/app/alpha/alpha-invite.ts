@@ -1,8 +1,8 @@
+import { INVITE_TOKEN_PATTERN } from "@cold-start/core";
+
 export const ALPHA_INVITE_SESSION_KEY = "coldStartAlphaInvite";
 export const ALPHA_CONSENT_SESSION_KEY = "coldStartAlphaConsent";
 export const ALPHA_STORE_VISITED_SESSION_KEY = "coldStartAlphaStoreVisited";
-
-const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
 
 export type BrowserSupport =
   | { supported: true; browser: "chrome"; chromeMajor: number }
