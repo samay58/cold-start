@@ -315,7 +315,7 @@ export function AlphaInviteClient({ extensionId, storeUrl }: AlphaInviteClientPr
             <span className={styles.aperture} aria-hidden="true" />
             <span>Cold Start</span>
           </a>
-          <span className={styles.filing}>Friend alpha · private release</span>
+          <span className={styles.filing}>Private release</span>
         </header>
 
         <div className={styles.body}>
@@ -604,7 +604,7 @@ function stateCopy(code: ViewCode, storeUrl: string) {
     unsupported_browser: {
       label: "Desktop browser required",
       title: "Open this invitation in Chrome or Firefox on a computer",
-      copy: "The friend alpha runs in Chrome’s side panel or Firefox’s sidebar and is not available in mobile browsers, Safari, or Edge yet.",
+      copy: "Cold Start runs in Chrome’s side panel or Firefox’s sidebar and is not available in mobile browsers, Safari, or Edge yet.",
       action: "support"
     },
     unsupported_version: {

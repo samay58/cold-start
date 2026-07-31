@@ -7,6 +7,7 @@ import { createDb, findAlphaInviteCardBySlug } from "@cold-start/db";
 import { webEnv } from "../../../lib/web-env";
 import { AlphaInviteClient } from "../../alpha/AlphaInviteClient";
 import { fragmentCaptureScript } from "../../alpha/fragment-capture";
+import styles from "./invite.module.css";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
@@ -53,12 +54,14 @@ export default async function InvitePage({ params }: PageProps) {
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: fragmentCaptureScript() }} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/i/${slug}/card.png`}
-        alt={`Invitation for ${card.displayName ?? "you"}`}
-        style={{ maxWidth: "100%" }}
-      />
+      <div className={styles.artBand}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className={styles.art}
+          src={`/i/${slug}/card.png`}
+          alt={`Invitation for ${card.displayName ?? "you"}`}
+        />
+      </div>
       <AlphaInviteClient
         extensionId={process.env.CHROME_EXTENSION_ID?.trim() ?? ""}
         storeUrl={process.env.CHROME_WEB_STORE_URL?.trim() ?? "https://chromewebstore.google.com/"}

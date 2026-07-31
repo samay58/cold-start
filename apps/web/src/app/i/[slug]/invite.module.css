@@ -1,0 +1,21 @@
+/* The card art band above the connect ceremony. Same ground and gutter as the
+   ceremony's shell (alpha.module.css) so the two read as one page; the art keeps
+   the generous studio margin baked into the generated frame. */
+
+.artBand {
+  padding: clamp(18px, 4vw, 54px) clamp(18px, 4vw, 54px) 0;
+  background: var(--cat-ground);
+}
+
+.art {
+  display: block;
+  width: min(560px, 100%);
+  margin: 0 auto;
+  border-radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .artBand {
+    background: #191815;
+  }
+}

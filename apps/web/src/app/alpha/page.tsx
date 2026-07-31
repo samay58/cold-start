@@ -5,8 +5,8 @@ import { AlphaInviteClient } from "./AlphaInviteClient";
 import { fragmentCaptureScript } from "./fragment-capture";
 
 export const metadata: Metadata = {
-  title: "Friend alpha | Cold Start",
-  description: "Install and connect the Cold Start friend alpha."
+  title: "Cold Start",
+  description: "Install and connect Cold Start."
 };
 
 export default function AlphaInvitePage() {
