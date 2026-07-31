@@ -871,7 +871,7 @@ git commit -m "Mint the letterpress invitation card inside alpha:invite"
 **Files:**
 - None new; this task proves the whole change.
 
-- [ ] **Step 1: Run the full local gate**
+- [x] **Step 1: Run the full local gate**
 
 Run: `docker-compose up -d postgres && npm run check`
 Expected: green end to end (lint, typecheck, tests, both real-DB suites, builds, firefox build, eval dry-run, knip, secrets, audit). Fix anything it surfaces before proceeding; do not pipe check through tail (it eats the exit code).
