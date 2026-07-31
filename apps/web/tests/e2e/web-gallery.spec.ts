@@ -22,9 +22,32 @@ const GALLERY_PAGES: Array<{ name: string; path: string }> = [
   { name: "plainfield", path: "/c/plainfield-example" }
 ];
 
+// The Task 5 card object shell, behind ?face=new. Desktop only for now: the pocket (mobile)
+// treatment is Task 9's, so a mobile capture here would just be the desktop grid squeezed down,
+// not the real design.
+const NEW_FACE_PAGES: Array<{ name: string; path: string }> = [
+  { name: "voxlathe-newface", path: "/c/voxlathe-example?face=new" },
+  { name: "hollowlabs-newface", path: "/c/hollowlabs-example?face=new" },
+  { name: "plainfield-newface", path: "/c/plainfield-example?face=new" }
+];
+
 test.describe("web gallery", () => {
   for (const { name, path: pagePath } of GALLERY_PAGES) {
     test(`captures ${name}`, async ({ page }, testInfo) => {
+      const response = await page.goto(pagePath);
+      expect(response?.ok()).toBe(true);
+      await page.waitForTimeout(400);
+
+      const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+      fs.mkdirSync(screenshotDir, { recursive: true });
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${name}.png`) });
+    });
+  }
+
+  for (const { name, path: pagePath } of NEW_FACE_PAGES) {
+    test(`captures ${name}`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== "desktop", "new face gallery is desktop-only until Task 9's pocket card lands");
+
       const response = await page.goto(pagePath);
       expect(response?.ok()).toBe(true);
       await page.waitForTimeout(400);
