@@ -136,9 +136,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         continue;
       }
       // iMessage reportedly gives the full-width bubble only above ~2400px wide;
-      // below that the card shrinks to a thumbnail. Upscale before storing.
-      execSync(`sips --resampleWidth 2400 ${JSON.stringify(approved)}`);
-      cardPngBase64 = readFileSync(approved).toString("base64");
+      // below that the card shrinks to a thumbnail. Upscale before storing, and
+      // force real PNG bytes: the model labels its data URL image/png but the
+      // payload is JPEG (proven on the first production mint, 2026-07-30).
+      const approvedPng = approved.replace(/\.png$/, "-approved.png");
+      execSync(
+        `sips -s format png --resampleWidth 2400 ${JSON.stringify(approved)} --out ${JSON.stringify(approvedPng)}`
+      );
+      cardPngBase64 = readFileSync(approvedPng).toString("base64");
       slug = slugBase;
       break;
     }

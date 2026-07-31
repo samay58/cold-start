@@ -41,6 +41,22 @@ describe("GET /i/[slug]/card.png", () => {
     expect(Buffer.from(await response.arrayBuffer()).toString("utf8")).toBe("png-bytes");
   });
 
+  it("serves stored JPEG bytes with an honest content type", async () => {
+    const jpegBase64 = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]).toString("base64");
+    mocks.findAlphaInviteCardBySlug.mockResolvedValue({
+      displayName: "Dad",
+      ordinal: 4,
+      cardPngBase64: jpegBase64
+    });
+
+    const response = await cardRoute.GET(request("/i/dad/card.png"), {
+      params: Promise.resolve({ slug: "dad" })
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
+  });
+
   it("404s an unknown slug", async () => {
     mocks.findAlphaInviteCardBySlug.mockResolvedValue(null);
 

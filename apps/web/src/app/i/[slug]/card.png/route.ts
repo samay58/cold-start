@@ -18,9 +18,13 @@ export async function GET(
   if (!card?.cardPngBase64) {
     return new Response("not found", { status: 404 });
   }
-  return new Response(Buffer.from(card.cardPngBase64, "base64"), {
+  const bytes = Buffer.from(card.cardPngBase64, "base64");
+  // The mint normalizes to PNG, but the image model has returned JPEG under a
+  // png data-URL label before; serve whatever the stored bytes actually are.
+  const contentType = bytes[0] === 0xff && bytes[1] === 0xd8 ? "image/jpeg" : "image/png";
+  return new Response(bytes, {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": contentType,
       "Cache-Control": "public, max-age=31536000, immutable"
     }
   });
