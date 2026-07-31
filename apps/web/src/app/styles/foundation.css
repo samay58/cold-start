@@ -1,0 +1,218 @@
+:root {
+  --font-display: var(--font-gt-america-next, "GT America"), var(--font-plex-sans-next, "IBM Plex Sans"), sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+html {
+  background: var(--color-field);
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--color-field);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-feature-settings: "tnum" 1;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+.cs-skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  transform: translateY(-160%);
+  padding: 9px 12px;
+  border: 1px solid var(--color-ink);
+  border-radius: 4px;
+  background: var(--color-plate);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cs-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+.cs-home,
+.cs-card-page {
+  min-height: 100vh;
+}
+
+.cs-home {
+  display: grid;
+  align-items: start;
+  padding: clamp(14px, 2.6vw, 32px);
+}
+
+.cs-loading-body h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(56px, 8vw, 104px);
+  font-weight: 780;
+  letter-spacing: -0.06em;
+  line-height: 0.93;
+  overflow-wrap: anywhere;
+}
+
+.cs-loading-plate {
+  width: min(940px, 100%);
+  margin: 32px auto 0;
+  padding: 18px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+}
+
+.cs-loading-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+}
+
+.cs-home-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+.cs-home-mark,
+.cs-home-hero-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-ink);
+  border-radius: 2px;
+  background: var(--color-focus);
+  color: var(--color-ink);
+  font-family: var(--font-text);
+  font-weight: 700;
+}
+
+.cs-home-mark {
+  width: 24px;
+  height: 18px;
+  font-size: 11px;
+}
+
+.cs-home-hero-mark {
+  width: 42px;
+  height: 32px;
+  font-size: 16px;
+}
+
+.cs-loading-body {
+  display: grid;
+  gap: 20px;
+  padding: 30px 0 4px;
+}
+
+.cs-home-kicker {
+  margin: 0 0 6px;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+}
+
+.cs-loading-shimmer {
+  display: inline-block;
+  width: fit-content;
+}
+
+/* A quiet seal glint passes through the loading title. Under reduced motion the
+   class stays a plain ink title (no sweep), which is a real state, not a freeze. */
+@media (prefers-reduced-motion: no-preference) {
+  .cs-loading-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-ink) 0%,
+      var(--color-ink) 42%,
+      rgb(110 92 158 / 0.55) 50%,
+      var(--color-ink) 58%,
+      var(--color-ink) 100%
+    );
+    background-size: 240% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: cs-loading-shimmer-sweep 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes cs-loading-shimmer-sweep {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+.cs-loading-stages {
+  display: grid;
+  gap: 0;
+  width: min(520px, 100%);
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-loading-stages p {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-size: 13px;
+}
+
+.cs-loading-stages span {
+  color: var(--color-company);
+  font-family: var(--font-text);
+  font-size: 11px;
+}
+
+.cs-loading-body h1 {
+  text-wrap: balance;
+}
+
+@media (max-width: 620px) {
+  .cs-home {
+    padding: 10px;
+  }
+
+  .cs-loading-body h1 {
+    font-size: 44px;
+    letter-spacing: -0.05em;
+    line-height: 0.98;
+  }
+}
