@@ -36,7 +36,7 @@
 - Consumes: nothing.
 - Produces: `INVITE_TOKEN_PATTERN: RegExp` (accepts legacy and word codes), `INVITE_WORDLIST: readonly string[]`, `generateInviteCode(): string` (three hyphen-joined words, e.g. `ember-quarto-lark`). Later tasks import all three from `@cold-start/core`.
 
-- [ ] **Step 1: Generate the word list from the EFF short wordlist 2.0**
+- [x] **Step 1: Generate the word list from the EFF short wordlist 2.0**
 
 The EFF short list 2.0 was built with unique three-character prefixes, public-vulgarity filtering, and 4+ character words, which gives prefix-freedom for free (spec's word-list requirements). Fetch and transform:
 
@@ -55,7 +55,7 @@ console.log(words.length, "words");
 
 Expected: prints a count of roughly 1200 words (the list has 1296; a few fall to the length filter). If the count is below 1024, stop and widen the length filter to `{4,9}` instead of shipping a thin list.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```typescript
 // packages/core/tests/invite-codes.test.ts
@@ -109,12 +109,12 @@ describe("INVITE_TOKEN_PATTERN", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `npm test -w @cold-start/core -- invite-codes`
 Expected: FAIL, cannot resolve `../src/invite-codes`.
 
-- [ ] **Step 4: Implement invite-codes.ts**
+- [x] **Step 4: Implement invite-codes.ts**
 
 ```typescript
 // packages/core/src/invite-codes.ts
@@ -156,7 +156,7 @@ export function generateInviteCode(): string {
 }
 ```
 
-- [ ] **Step 5: Export from the package index**
+- [x] **Step 5: Export from the package index**
 
 In `packages/core/src/index.ts`, add alongside the existing exports:
 
@@ -164,12 +164,12 @@ In `packages/core/src/index.ts`, add alongside the existing exports:
 export { INVITE_TOKEN_PATTERN, INVITE_WORDLIST, generateInviteCode } from "./invite-codes";
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `npm test -w @cold-start/core -- invite-codes`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/core/src/invite-wordlist.ts packages/core/src/invite-codes.ts packages/core/tests/invite-codes.test.ts packages/core/src/index.ts
@@ -892,6 +892,12 @@ git push origin main
 ```
 
 ---
+
+## Execution Deviations
+
+- Task 1: the `{4,8}` length filter yielded 943 words, under the 1024 floor; widened to `{4,9}` per this plan's own contingency, giving 1165 words. The wordlist test asserts `/^[a-z]{4,9}$/` accordingly.
+- Task 1: `packages/core/src/index.ts` uses `export * from "./invite-codes";` (the file's uniform star-export convention) instead of the plan's named-export line.
+- General: the web workspace is addressed as `-w @cold-start/web`, not the plan's `-w web`; the extension token-input test file is `apps/extension/tests/alpha-connect.test.ts` (`.ts`, not `.tsx`).
 
 ## Self-Review Notes
 
