@@ -43,6 +43,8 @@
   /* Catalogue card web face (2026-07-30 redesign): additive only */
   --cat-ghost-1: #EEE4CE;
   --cat-ghost-2: #F1E8D5;
+  --cat-ghost-border-1: #CBBFA2;
+  --cat-ghost-border-2: #CDC1A4;
   --cat-conflict-fill: #F7EFE0;
   --cat-conflict-rule: #D8B8AF;
   --cat-conflict-rule-soft: #E4CCC4;
