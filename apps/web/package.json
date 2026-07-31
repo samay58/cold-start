@@ -9,7 +9,8 @@
     "start": "node ../../scripts/run-next.mjs start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "qa:web:gallery": "playwright test tests/e2e/web-gallery.spec.ts"
   },
   "dependencies": {
     "@cold-start/core": "file:../../packages/core",
@@ -29,6 +30,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "typescript": "^5.9.0"

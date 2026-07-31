@@ -31,6 +31,8 @@
     "db:generate": "npm run db:generate -w @cold-start/db",
     "db:migrate": "npm run db:migrate -w @cold-start/db",
     "db:migrate:production": "node scripts/migrate-production.mjs",
+    "seed:web-gallery": "tsx scripts/seed-web-gallery.ts",
+    "qa:web:gallery": "npm run qa:web:gallery -w @cold-start/web",
     "alpha:invite": "tsx scripts/alpha-invite.ts",
     "alpha:revoke": "tsx scripts/alpha-revoke.ts",
     "alpha:delete-tester": "tsx scripts/alpha-delete-tester.ts",
