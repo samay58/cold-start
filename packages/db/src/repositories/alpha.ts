@@ -5,6 +5,7 @@ import {
   alphaAllowanceLedger,
   alphaAllowances,
   alphaInstallations,
+  alphaInviteAttempts,
   alphaInvites,
   alphaRunRequests
 } from "../schema";
@@ -26,6 +27,10 @@ export type AlphaInvite = {
   profileLimit: number;
   lensLimit: number;
   maxInstallations: number;
+  slug: string | null;
+  displayName: string | null;
+  ordinal: number | null;
+  cardPngBase64: string | null;
   expiresAt: Date;
   acceptedAt: Date | null;
   revokedAt: Date | null;
@@ -123,6 +128,10 @@ export async function createAlphaInvite(
     profileLimit?: number;
     lensLimit?: number;
     maxInstallations?: number;
+    slug?: string;
+    displayName?: string;
+    ordinal?: number;
+    cardPngBase64?: string;
     now?: Date;
   }
 ): Promise<AlphaInvite> {
@@ -144,6 +153,10 @@ export async function createAlphaInvite(
       profileLimit,
       lensLimit,
       maxInstallations,
+      slug: input.slug ?? null,
+      displayName: input.displayName ?? null,
+      ordinal: input.ordinal ?? null,
+      cardPngBase64: input.cardPngBase64 ?? null,
       expiresAt: input.expiresAt,
       createdAt: now,
       updatedAt: now
@@ -156,6 +169,48 @@ export async function createAlphaInvite(
 export async function findAlphaInviteById(db: ColdStartDb, inviteId: string): Promise<AlphaInvite | null> {
   const rows = await db.select().from(alphaInvites).where(eq(alphaInvites.id, inviteId)).limit(1);
   return rows[0] ? alphaInviteFromRow(rows[0]) : null;
+}
+
+export async function findAlphaInviteCardBySlug(
+  db: ColdStartDb,
+  slug: string
+): Promise<{ displayName: string | null; ordinal: number | null; cardPngBase64: string | null } | null> {
+  const rows = await db
+    .select({
+      displayName: alphaInvites.displayName,
+      ordinal: alphaInvites.ordinal,
+      cardPngBase64: alphaInvites.cardPngBase64
+    })
+    .from(alphaInvites)
+    .where(eq(alphaInvites.slug, slug))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function nextAlphaInviteOrdinal(db: ColdStartDb): Promise<number> {
+  const result = await db.execute<{ next: number | string | null }>(
+    sql`select coalesce(max(ordinal), 0) + 1 as next from alpha_invites`
+  );
+  return Number(executeRows<{ next: number | string | null }>(result)[0]?.next ?? 1);
+}
+
+export async function recordAlphaInviteAttempt(db: ColdStartDb, now = new Date()): Promise<void> {
+  await db.insert(alphaInviteAttempts).values({ createdAt: now });
+}
+
+export async function countRecentAlphaInviteAttempts(db: ColdStartDb, since: Date): Promise<number> {
+  const result = await db.execute<{ count: number | string }>(
+    sql`select count(*) as count from alpha_invite_attempts where created_at > ${since}`
+  );
+  return Number(executeRows<{ count: number | string }>(result)[0]?.count ?? 0);
+}
+
+export async function pruneAlphaInviteAttempts(db: ColdStartDb, before: Date): Promise<number> {
+  const rows = await db
+    .delete(alphaInviteAttempts)
+    .where(sql`${alphaInviteAttempts.createdAt} < ${before}`)
+    .returning({ id: alphaInviteAttempts.id });
+  return rows.length;
 }
 
 // The one path that attaches an installation to an invitation, for the first seat and every later

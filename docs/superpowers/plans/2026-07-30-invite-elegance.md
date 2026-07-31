@@ -279,7 +279,7 @@ git commit -m "Accept three-word invite codes at all four token entry points"
 - Consumes: nothing from earlier tasks.
 - Produces: `createAlphaInvite` accepts optional `slug: string`, `displayName: string`, `ordinal: number`, `cardPngBase64: string`; `findAlphaInviteCardBySlug(db, slug): Promise<{ displayName: string | null; ordinal: number | null; cardPngBase64: string | null } | null>`; `nextAlphaInviteOrdinal(db): Promise<number>`; `recordAlphaInviteAttempt(db, now?): Promise<void>`; `countRecentAlphaInviteAttempts(db, since): Promise<number>`; `pruneAlphaInviteAttempts(db, before): Promise<number>`.
 
-- [ ] **Step 1: Add columns and table to schema.ts**
+- [x] **Step 1: Add columns and table to schema.ts**
 
 In the `alphaInvites` table definition, after `maxInstallations`:
 
@@ -305,12 +305,12 @@ export const alphaInviteAttempts = pgTable(
 );
 ```
 
-- [ ] **Step 2: Generate the migration**
+- [x] **Step 2: Generate the migration**
 
 Run: `npm run db:generate`
 Expected: a new migration file appears under `packages/db/drizzle/` adding the four columns, the unique index, and the table. Read the SQL and confirm it contains no destructive statements.
 
-- [ ] **Step 3: Write the failing repository tests**
+- [x] **Step 3: Write the failing repository tests**
 
 In the file found by `grep -rln "createAlphaInvite" packages/db/tests`, following its setup pattern:
 
@@ -353,12 +353,12 @@ it("counts and prunes invite attempts", async () => {
 
 Use that file's existing helpers for hashing and dates (`sha256Of`/`futureDate` stand for whatever the file already names them; match the local convention, do not invent new helpers if equivalents exist).
 
-- [ ] **Step 4: Run the suite to verify it fails**
+- [x] **Step 4: Run the suite to verify it fails**
 
 Run: `docker-compose up -d postgres && set -a; source .env.local; set +a; npm run test:alpha-db`
 Expected: FAIL on the new cases (functions not exported, columns unknown).
 
-- [ ] **Step 5: Implement repository changes**
+- [x] **Step 5: Implement repository changes**
 
 In `createAlphaInvite`: extend the input type with the four optional fields and pass them through in `.values({...})` (`slug: input.slug ?? null` and so on). Add `slug`, `displayName`, `ordinal`, `cardPngBase64` to the `AlphaInvite` type and to `alphaInviteFromRow`.
 
@@ -410,12 +410,12 @@ export async function pruneAlphaInviteAttempts(db: ColdStartDb, before: Date): P
 
 (`executeRows` already exists in that file; `alphaInviteAttempts` comes from the schema import.) Re-export the new functions from `packages/db/src/index.ts` following the existing re-export style.
 
-- [ ] **Step 6: Apply the migration locally and run the suite**
+- [x] **Step 6: Apply the migration locally and run the suite**
 
 Run: `set -a; source .env.local; set +a; npm run db:migrate && npm run test:alpha-db`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/db/src/schema.ts packages/db/drizzle packages/db/src/repositories/alpha.ts packages/db/src/index.ts packages/db/tests
@@ -917,6 +917,7 @@ Close with a plain-English walkthrough for Samay (say-less + caveman register, p
 
 - Task 1: the `{4,8}` length filter yielded 943 words, under the 1024 floor; widened to `{4,9}` per this plan's own contingency, giving 1165 words. The wordlist test asserts `/^[a-z]{4,9}$/` accordingly.
 - Task 1: `packages/core/src/index.ts` uses `export * from "./invite-codes";` (the file's uniform star-export convention) instead of the plan's named-export line.
+- Task 3: drizzle-kit numbered the migration 0014 (`0014_gorgeous_typhoid_mary.sql`); additive only. `packages/db/src/index.ts` needed no change: it already star-exports `./repositories/alpha`.
 - General: the web workspace is addressed as `-w @cold-start/web`, not the plan's `-w web`; the extension token-input test file is `apps/extension/tests/alpha-connect.test.ts` (`.ts`, not `.tsx`).
 
 ## Self-Review Notes

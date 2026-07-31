@@ -215,6 +215,10 @@ export const alphaInvites = pgTable(
     profileLimit: integer("profile_limit").notNull(),
     lensLimit: integer("lens_limit").notNull(),
     maxInstallations: integer("max_installations").default(1).notNull(),
+    slug: text("slug"),
+    displayName: text("display_name"),
+    ordinal: integer("ordinal"),
+    cardPngBase64: text("card_png_base64"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -223,6 +227,7 @@ export const alphaInvites = pgTable(
   },
   (table) => [
     uniqueIndex("alpha_invites_token_hash_idx").on(table.tokenHash),
+    uniqueIndex("alpha_invites_slug_idx").on(table.slug),
     index("alpha_invites_status_expires_idx").on(table.status, table.expiresAt),
     check("alpha_invites_label_length_check", sql`char_length(${table.label}) between 1 and 120`),
     check("alpha_invites_token_hash_check", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
@@ -385,6 +390,17 @@ export const alphaAllowanceLedger = pgTable(
         or (${table.entryKind} = 'refund' and ${table.refundOfLedgerId} is not null)`
     )
   ]
+);
+
+// Anonymous tally of invalid-token attempts on inspect/redeem, feeding the global
+// failure breaker. No invite reference on purpose: a wrong guess matches no row.
+export const alphaInviteAttempts = pgTable(
+  "alpha_invite_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [index("alpha_invite_attempts_created_idx").on(table.createdAt)]
 );
 
 export const alphaEvents = pgTable(

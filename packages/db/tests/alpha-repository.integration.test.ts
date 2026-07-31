@@ -8,13 +8,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ColdStartDb } from "../src/client";
 import {
   AlphaEventRateLimitError,
+  countRecentAlphaInviteAttempts,
   createAlphaInvite,
   deleteAlphaTesterData,
   findActiveAlphaInstallationByTokenHash,
   findAlphaInviteById,
+  findAlphaInviteCardBySlug,
   getAlphaAllowanceSnapshot,
   insertAlphaEvents,
+  nextAlphaInviteOrdinal,
   pruneAlphaEvents,
+  pruneAlphaInviteAttempts,
+  recordAlphaInviteAttempt,
   recordAlphaRunDisposition,
   redeemAlphaInvite,
   reserveAlphaRunRequest,
@@ -632,6 +637,44 @@ describeDatabase("alpha repositories against Postgres", () => {
     expect(count.rows[0]?.count).toBe(300);
     await deleteAlphaTesterData(db, fixture.inviteId);
   }, 30_000);
+
+  it("stores and finds the card by slug", async () => {
+    const invite = await createAlphaInvite(db, {
+      label: "Dad",
+      tokenHash: hashSeed("ember-quarto-lark"),
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+      slug: "dad",
+      displayName: "Dad",
+      ordinal: 4,
+      cardPngBase64: "aGVsbG8="
+    });
+    expect(invite.slug).toBe("dad");
+    const card = await findAlphaInviteCardBySlug(db, "dad");
+    expect(card).toEqual({ displayName: "Dad", ordinal: 4, cardPngBase64: "aGVsbG8=" });
+    expect(await findAlphaInviteCardBySlug(db, "nobody")).toBeNull();
+  });
+
+  it("hands out the next ordinal", async () => {
+    const before = await nextAlphaInviteOrdinal(db);
+    await createAlphaInvite(db, {
+      label: "x",
+      tokenHash: hashSeed(`ordinal-${randomUUID()}`),
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+      ordinal: before
+    });
+    expect(await nextAlphaInviteOrdinal(db)).toBe(before + 1);
+  });
+
+  it("counts and prunes invite attempts", async () => {
+    await recordAlphaInviteAttempt(db);
+    await recordAlphaInviteAttempt(db);
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    expect(await countRecentAlphaInviteAttempts(db, hourAgo)).toBeGreaterThanOrEqual(2);
+    const removed = await pruneAlphaInviteAttempts(db, new Date(Date.now() + 1000));
+    expect(removed).toBeGreaterThanOrEqual(2);
+  });
 });
 
 async function waitForDatabaseLock(queryPool: Pool, pid: number): Promise<void> {
