@@ -263,7 +263,15 @@ export function isTrustedAlphaInviteSender(senderUrl: string | undefined, expect
 
   try {
     const sender = new URL(senderUrl);
-    return sender.origin === expectedOrigin && (sender.pathname === "/alpha" || sender.pathname.startsWith("/alpha/"));
+    // Both invite surfaces: the legacy /alpha ceremony and the personalized
+    // /i/{slug} pages. Pinning paths at all keeps arbitrary pages on the web
+    // origin from probing the extension.
+    return (
+      sender.origin === expectedOrigin &&
+      (sender.pathname === "/alpha" ||
+        sender.pathname.startsWith("/alpha/") ||
+        sender.pathname.startsWith("/i/"))
+    );
   } catch {
     return false;
   }

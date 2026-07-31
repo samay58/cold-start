@@ -102,7 +102,7 @@ describe("alpha invitation bridge", () => {
     })).toBeNull();
   });
 
-  it("trusts only the alpha path on the exact branded origin", () => {
+  it("trusts only the invite paths on the exact branded origin", () => {
     expect(isTrustedAlphaInviteSender(
       "https://cold-start.semitechie.vc/alpha",
       "https://cold-start.semitechie.vc"
@@ -111,12 +111,21 @@ describe("alpha invitation bridge", () => {
       "https://cold-start.semitechie.vc/alpha/connect?return=1",
       "https://cold-start.semitechie.vc"
     )).toBe(true);
+    // The personalized invitation pages connect exactly like /alpha does.
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc/i/kamya",
+      "https://cold-start.semitechie.vc"
+    )).toBe(true);
     expect(isTrustedAlphaInviteSender(
       "https://cold-start.semitechie.vc.evil.example/alpha",
       "https://cold-start.semitechie.vc"
     )).toBe(false);
     expect(isTrustedAlphaInviteSender(
       "https://cold-start.semitechie.vc/c/linear",
+      "https://cold-start.semitechie.vc"
+    )).toBe(false);
+    expect(isTrustedAlphaInviteSender(
+      "https://cold-start.semitechie.vc/inventory",
       "https://cold-start.semitechie.vc"
     )).toBe(false);
   });
