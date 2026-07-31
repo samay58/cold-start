@@ -1,29 +1,40 @@
 #!/usr/bin/env tsx
 
-import { createAlphaInvite } from "@cold-start/db";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
+
+import { generateInviteCode } from "@cold-start/core";
+import { createAlphaInvite, nextAlphaInviteOrdinal, type AlphaInvite } from "@cold-start/db";
 
 import {
   boundedInteger,
-  createInviteSecret,
   dateAfter,
   hasFlag,
   inviteUrl,
+  legacyInviteUrl,
+  loadEnvFile,
   loadProductionEnv,
   parseCliArguments,
   requiredValue,
   runCli,
   sha256,
+  slugify,
   valueFor,
   withAlphaDb
 } from "./alpha-common";
+import { mintInviteCandidates } from "./alpha-mint-card";
 
-const HELP = `Create one expiring friend-alpha invitation.
+const HELP = `Create one expiring friend-alpha invitation with a minted invitation card.
 
 Usage:
   npm run alpha:invite -- --label "Dad" [options]
 
 Options:
   --label <label>              Operator label, required
+  --name <name>                Name lettered on the card, defaults to --label
+  --skip-card                  Mint nothing; print the legacy /alpha link instead
   --expires <duration>         Expiry from now, default 14d
   --profiles <count>           Fresh profile allowance, default 12
   --lenses <count>             Fresh Investor Lens allowance, default 6
@@ -31,8 +42,19 @@ Options:
   --scope <csv>                Server scopes, default cards:read,generation:write,events:write
   --help                       Show this help
 
-The invitation URL contains the only copy of the raw secret. It is printed once
-after the hashed invitation has been stored.`;
+Candidate cards are minted through OpenRouter (OPENROUTER_API_KEY in .env.local),
+written to .cold-start/invites/, and opened for approval. Only an approved card is
+stored; the invite row is created after approval. The invitation URL contains the
+only copy of the raw code. It is printed once after the hashed invitation exists.`;
+
+async function promptOperator(question: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return (await rl.question(question)).trim();
+  } finally {
+    rl.close();
+  }
+}
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const args = parseCliArguments(argv);
@@ -43,6 +65,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   const label = requiredValue(args, "--label");
   if (label.length > 120) throw new Error("--label must be 120 characters or fewer.");
+  const name = valueFor(args, "--name")?.trim() || label;
   const now = new Date();
   const expiresAt = dateAfter(now, valueFor(args, "--expires") ?? "14d", "--expires");
   const profileLimit = boundedInteger(valueFor(args, "--profiles"), 12, {
@@ -75,25 +98,88 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   loadProductionEnv();
-  const secret = createInviteSecret();
-  const invite = await withAlphaDb((db) =>
-    createAlphaInvite(db, {
-      label,
-      tokenHash: sha256(secret),
-      scopes,
-      expiresAt,
-      profileLimit,
-      lensLimit,
-      maxInstallations,
-      now
-    })
-  );
+  // OPENROUTER_API_KEY lives in .env.local, not in the production env file.
+  loadEnvFile(resolve(process.cwd(), ".env.local"));
 
-  console.log(`Invitation ${invite.id} created for ${invite.label}.`);
+  const code = generateInviteCode();
+  const slugBase = slugify(name);
+  const ordinal = await withAlphaDb((db) => nextAlphaInviteOrdinal(db));
+
+  let cardPngBase64: string | undefined;
+  let slug: string | undefined;
+
+  if (!hasFlag(args, "--skip-card")) {
+    const outDir = resolve(process.cwd(), ".cold-start", "invites", `${slugBase}-${ordinal}`);
+    const mintInput = {
+      name,
+      ordinal,
+      referencePath: resolve(process.cwd(), "docs/brand/invite-style-reference.png"),
+      outDir
+    };
+    let candidates = await mintInviteCandidates(mintInput);
+    execSync(`open ${JSON.stringify(outDir)}`);
+    for (;;) {
+      const choice = (await promptOperator(
+        `Candidates in ${outDir}. Approve [1-${candidates.length}], r to re-roll, s to skip the card: `
+      )).toLowerCase();
+      if (choice === "r") {
+        candidates = await mintInviteCandidates(mintInput);
+        console.log(`Re-rolled: ${candidates.length} fresh candidates in ${outDir}.`);
+        continue;
+      }
+      if (choice === "s") {
+        break;
+      }
+      const approved = Number.isInteger(Number(choice)) ? candidates[Number(choice) - 1] : undefined;
+      if (!approved) {
+        console.log("Pick a number in range, r to re-roll, or s to skip the card.");
+        continue;
+      }
+      // iMessage reportedly gives the full-width bubble only above ~2400px wide;
+      // below that the card shrinks to a thumbnail. Upscale before storing.
+      execSync(`sips --resampleWidth 2400 ${JSON.stringify(approved)}`);
+      cardPngBase64 = readFileSync(approved).toString("base64");
+      slug = slugBase;
+      break;
+    }
+  }
+
+  const createInput = (inviteSlug: string | undefined) => ({
+    label,
+    tokenHash: sha256(code),
+    scopes,
+    expiresAt,
+    profileLimit,
+    lensLimit,
+    maxInstallations,
+    ...(inviteSlug ? { slug: inviteSlug } : {}),
+    displayName: name,
+    ordinal,
+    ...(cardPngBase64 ? { cardPngBase64 } : {}),
+    now
+  });
+
+  let invite: AlphaInvite;
+  try {
+    invite = await withAlphaDb((db) => createAlphaInvite(db, createInput(slug)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (slug && /alpha_invites_slug_idx|duplicate key/i.test(message)) {
+      slug = `${slugBase}-${ordinal}`;
+      invite = await withAlphaDb((db) => createAlphaInvite(db, createInput(slug)));
+    } else {
+      throw error;
+    }
+  }
+
+  console.log(`Invitation ${invite.id} created for ${invite.label}. No ${String(ordinal).padStart(2, "0")}.`);
   console.log(`Expires: ${invite.expiresAt.toISOString()}`);
   console.log(`Allowances: ${invite.profileLimit} profiles, ${invite.lensLimit} Lens runs`);
-  console.log("One-time invitation URL:");
-  console.log(inviteUrl(secret));
+  console.log("");
+  console.log("Send this as its own iMessage bubble (the card preview replaces the URL):");
+  console.log(slug ? inviteUrl(slug, code) : legacyInviteUrl(code));
+  console.log("");
+  console.log(`If they ever need to type it, the key is: ${code}`);
 }
 
 runCli(import.meta.url, main);

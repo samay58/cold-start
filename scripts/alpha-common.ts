@@ -117,11 +117,31 @@ export function createInviteSecret(): string {
   return randomBytes(32).toString("base64url");
 }
 
-export function inviteUrl(secret: string, origin = process.env.ALPHA_INVITE_ORIGIN): string {
+// The current invitation link: public per-person slug in the path (so the server
+// can render that person's card for the preview), speakable secret in the fragment
+// (which never reaches a server).
+export function inviteUrl(slug: string, code: string, origin = process.env.ALPHA_INVITE_ORIGIN): string {
+  const normalizedOrigin = (origin?.trim() || DEFAULT_INVITE_ORIGIN).replace(/\/+$/, "");
+  const url = new URL(`/i/${slug}`, normalizedOrigin);
+  url.hash = code;
+  return url.toString();
+}
+
+// The pre-card link shape; still redeemable everywhere, used by --skip-card invites.
+export function legacyInviteUrl(secret: string, origin = process.env.ALPHA_INVITE_ORIGIN): string {
   const normalizedOrigin = (origin?.trim() || DEFAULT_INVITE_ORIGIN).replace(/\/+$/, "");
   const url = new URL("/alpha", normalizedOrigin);
   url.hash = `invite=${encodeURIComponent(secret)}`;
   return url.toString();
+}
+
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
 }
 
 export function loadProductionEnv(cwd = process.cwd()): void {
@@ -200,7 +220,7 @@ export function runCli(moduleUrl: string, main: () => Promise<void>): void {
   }
 }
 
-function loadEnvFile(path: string): void {
+export function loadEnvFile(path: string): void {
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);

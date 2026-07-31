@@ -651,7 +651,7 @@ git commit -m "Serve the personalized invitation page and card image at /i/[slug
 - Consumes: `generateInviteCode` (Task 1), `createAlphaInvite` with card fields and `nextAlphaInviteOrdinal` (Task 3).
 - Produces: `buildMintPrompt(name: string, ordinal: number): string`, `imagesFromOpenRouterResponse(body: unknown): string[]` (base64 payloads), `mintInviteCandidates(input: { name: string; ordinal: number; referencePath: string; outDir: string }): Promise<string[]>` (saved file paths), `slugify(name: string): string`, `inviteUrl(slug: string, code: string, origin?: string): string`.
 
-- [ ] **Step 1: Write the failing unit tests**
+- [x] **Step 1: Write the failing unit tests**
 
 In `scripts/alpha-operator.test.ts` (node:test conventions, matching the file):
 
@@ -687,12 +687,12 @@ test("inviteUrl builds the /i/ link with the code in the fragment", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npm run alpha:test`
 Expected: FAIL (functions missing).
 
-- [ ] **Step 3: Implement alpha-mint-card.ts**
+- [x] **Step 3: Implement alpha-mint-card.ts**
 
 ```typescript
 // scripts/alpha-mint-card.ts
@@ -771,7 +771,7 @@ export async function mintInviteCandidates(input: {
 }
 ```
 
-- [ ] **Step 4: Add slugify and the new inviteUrl to alpha-common.ts**
+- [x] **Step 4: Add slugify and the new inviteUrl to alpha-common.ts**
 
 ```typescript
 export function slugify(name: string): string {
@@ -793,7 +793,7 @@ export function inviteUrl(slug: string, code: string, origin = process.env.ALPHA
 
 Update `inviteUrl`'s existing call sites in `scripts/` to the new signature (find them: `grep -rn "inviteUrl(" scripts/`).
 
-- [ ] **Step 5: Rework alpha-invite.ts around the mint loop**
+- [x] **Step 5: Rework alpha-invite.ts around the mint loop**
 
 New flags: `--name <name>` (defaults to `--label`), `--skip-card` (mint nothing, legacy behavior). Flow after argument parsing, before the DB write:
 
@@ -848,16 +848,16 @@ console.log(`If they ever need to type it, the key is: ${code}`);
 
 (Keep a `legacyInviteUrl` wrapper producing the old `/alpha#invite=` shape for `--skip-card` so nothing regresses.)
 
-- [ ] **Step 6: Run the unit tests**
+- [x] **Step 6: Run the unit tests**
 
 Run: `npm run alpha:test`
 Expected: PASS.
 
-- [ ] **Step 7: Update CLAUDE.md and AGENTS.md**
+- [x] **Step 7: Update CLAUDE.md and AGENTS.md**
 
 In both files, update the `alpha:invite` line to: `npm run alpha:invite # tsx scripts/alpha-invite.ts (mint a personalized invitation card via OpenRouter, approve it, create the invite; prints the /i/ link and word code; --skip-card for the legacy flow)`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add scripts/alpha-mint-card.ts scripts/alpha-invite.ts scripts/alpha-common.ts scripts/alpha-operator.test.ts CLAUDE.md AGENTS.md
@@ -920,6 +920,7 @@ Close with a plain-English walkthrough for Samay (say-less + caveman register, p
 - Task 3: drizzle-kit numbered the migration 0014 (`0014_gorgeous_typhoid_mary.sql`); additive only. `packages/db/src/index.ts` needed no change: it already star-exports `./repositories/alpha`.
 - Task 5: the OG image is a relative URL resolved by the root layout's `metadataBase` (`webOrigin()` in `apps/web/src/lib/site-origin.ts`), the same convention as `/c/[slug]`, instead of the plan's interpolated `NEXT_PUBLIC_WEB_ORIGIN`; no `twitter:` block per the spec (iMessage reads plain OG only). The db handle is `createDb(webEnv().DATABASE_URL)`, matching the alpha routes.
 - Task 5: two strictness fixes surfaced by the web app's `noUncheckedIndexedAccess` typecheck: `randomIndex` in `packages/core/src/invite-codes.ts` guards the `buf[0]` read, and `pruneAlphaInviteAttempts` uses bare `.returning()` (the `ColdStartDb` union type rejects a selection argument, matching `deleteAlphaTesterData`).
+- Task 6: the existing operator test asserting the `/alpha#invite=` URL shape moved to `legacyInviteUrl`; `loadEnvFile` in `alpha-common.ts` went from private to exported so `alpha-invite.ts` can load `OPENROUTER_API_KEY` from `.env.local`; the `createAlphaInvite` input spreads the optional card fields conditionally rather than passing explicit `undefined`.
 - General: the web workspace is addressed as `-w @cold-start/web`, not the plan's `-w web`; the extension token-input test file is `apps/extension/tests/alpha-connect.test.ts` (`.ts`, not `.tsx`).
 
 ## Self-Review Notes

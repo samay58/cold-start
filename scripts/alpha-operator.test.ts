@@ -5,9 +5,12 @@ import {
   createInviteSecret,
   durationMs,
   inviteUrl,
+  legacyInviteUrl,
   parseCliArguments,
-  sha256
+  sha256,
+  slugify
 } from "./alpha-common";
+import { buildMintPrompt, imagesFromOpenRouterResponse } from "./alpha-mint-card";
 import {
   buildAlphaStatusReport,
   type AlphaStatusReportInputs
@@ -18,7 +21,7 @@ describe("alpha operator CLI primitives", () => {
   it("creates a 256-bit URL-safe invitation secret and keeps it in the fragment", () => {
     const secret = createInviteSecret();
     const decoded = Buffer.from(secret, "base64url");
-    const url = new URL(inviteUrl(secret, "https://alpha.example.test"));
+    const url = new URL(legacyInviteUrl(secret, "https://alpha.example.test"));
 
     assert.equal(decoded.byteLength, 32);
     assert.equal(url.pathname, "/alpha");
@@ -77,6 +80,38 @@ describe("alpha operator CLI primitives", () => {
       "the invitation will still be at its installation limit"
     );
     assert.equal(repairBlockedReason(base, 0, now), null);
+  });
+});
+
+describe("invite mint pipeline", () => {
+  it("buildMintPrompt carries name, number, and the copy law", () => {
+    const prompt = buildMintPrompt("Dad", 4);
+    assert.match(prompt, /Invitation, for Dad/);
+    assert.match(prompt, /No 04/);
+    assert.doesNotMatch(prompt, /friend alpha/i);
+    assert.doesNotMatch(prompt, /valid|expir/i);
+  });
+
+  it("imagesFromOpenRouterResponse extracts base64 payloads", () => {
+    const body = {
+      choices: [{ message: { images: [
+        { image_url: { url: "data:image/png;base64,aGVsbG8=" } }
+      ] } }]
+    };
+    assert.deepEqual(imagesFromOpenRouterResponse(body), ["aGVsbG8="]);
+    assert.deepEqual(imagesFromOpenRouterResponse({}), []);
+  });
+
+  it("slugify derives clean slugs", () => {
+    assert.equal(slugify("Dad"), "dad");
+    assert.equal(slugify("Priya S."), "priya-s");
+  });
+
+  it("inviteUrl builds the /i/ link with the code in the fragment", () => {
+    assert.equal(
+      inviteUrl("dad", "ember-quarto-lark", "https://cold-start.semitechie.vc"),
+      "https://cold-start.semitechie.vc/i/dad#ember-quarto-lark"
+    );
   });
 });
 
