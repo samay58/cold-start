@@ -106,7 +106,7 @@ describe("alpha invitation page", () => {
     expect(html).toContain("reads the current company domain only when you invoke it");
     expect(html).toContain("public sourced fact card");
     expect(html).toContain("never identify who requested them");
-    expect(html).toContain("named product interactions tied to this invitation");
+    expect(html).toContain("recorded against this invitation");
     expect(html).toContain("kept for up to 30 days");
     expect(html).toContain("12 fresh profiles and 6 Investor Lens runs");
     expect(html).toContain("I understand, continue");
