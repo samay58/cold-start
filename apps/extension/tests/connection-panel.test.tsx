@@ -156,7 +156,9 @@ describe("ConnectionPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
     const onConnected = render();
 
-    await submitInvite("not-an-invitation");
+    // Must be malformed under the unified token pattern: "not-an-invitation"
+    // reads as a legitimate three-word code since the word-code change.
+    await submitInvite("not an invitation");
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(onConnected).not.toHaveBeenCalled();
