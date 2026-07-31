@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E4DCC8; }
+  a { color: #6E5C9E; text-decoration: none; }
+  a:hover { color: #56488a; text-decoration: underline; }
+  @keyframes cs-seal { 0% { transform: rotate(-4deg) scale(.92); } 62% { transform: rotate(-4deg) scale(1.05); } 100% { transform: rotate(-4deg) scale(1); } }
+</style>
+</helmet>
+
+<div style="padding: 64px; display: flex; flex-direction: column; gap: 88px; font-family: 'IBM Plex Sans', sans-serif; color: #20201E; background: #E4DCC8">
+  <section style="display: flex; flex-direction: column; gap: 88px">
+
+    <div style="display: flex; align-items: flex-start; gap: 64px">
+      <div id="1a" style="display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span style="font: 500 11px 'IBM Plex Mono', monospace; letter-spacing: .04em; background: #20201E; color: #F4EDDC; padding: 4px 8px">1a</span>
+          <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">frame 01 · desktop 1440 · full scroll</span>
+        </div>
+
+        <div style="width: 1440px; background: #EFE7D3; outline: 1px solid #C3B79A">
+
+          <div style="height: 2px; background: #6E5C9E"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 72px; border-bottom: 1px solid #D8CEB6">
+            <div style="display: flex; align-items: baseline; gap: 14px">
+              <span style="font: 700 17px 'IBM Plex Sans'; letter-spacing: -.015em">Cold Start</span>
+              <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">sourced company profiles</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 30px">
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #786F62">Browse</span>
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #786F62">Verify</span>
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #786F62">Sources</span>
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #6E5C9E; border-bottom: 1px solid #6E5C9E; padding-bottom: 2px">Extension</span>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 500px; gap: 200px; padding: 84px 72px 68px; align-items: start">
+            <div style="display: flex; flex-direction: column; gap: 30px; padding-top: 2px">
+              <h1 style="margin: 0; font: 700 68px/1.0 'IBM Plex Sans'; letter-spacing: -.038em; text-wrap: balance">Deeply understand the companies you care about</h1>
+              <p style="margin: 0; max-width: 520px; font: 400 26px/1.4 'IBM Plex Sans'; color: #4A463D; text-wrap: pretty">Get up to speed like a serious investor would.</p>
+              <div style="display: flex; align-items: center; gap: 18px; margin-top: 6px">
+                <div style="display: flex; align-items: center; background: #F7F5EE; border: 1px solid #9C978A; border-radius: 4px; height: 46px; overflow: hidden">
+                  <span style="font: 400 13px 'IBM Plex Mono', monospace; color: #786F62; padding: 0 10px 0 14px">https://</span>
+                  <span style="font: 500 14px 'IBM Plex Sans'; padding-right: 24px">cartesia.ai</span>
+                  <span style="font: 500 13px 'IBM Plex Sans'; background: #20201E; color: #F4EDDC; padding: 0 20px; height: 46px; display: flex; align-items: center">Make the profile</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; background: #6E5C9E; border-radius: 4px; height: 46px; padding: 0 22px">
+                  <span style="font: 500 13px 'IBM Plex Sans'; color: #FFFDF8">Browse</span>
+                  <span style="font: 400 11px 'IBM Plex Mono', monospace; color: rgba(255,253,248,.72); font-variant-numeric: tabular-nums">4.2K profiles</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; justify-content: space-between; align-items: baseline">
+                <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">recorded build · cartesia.ai</span>
+                <span onClick="{{ replay }}" style="font: 400 11px 'IBM Plex Mono', monospace; color: #6E5C9E; cursor: pointer; border-bottom: 1px solid #6E5C9E">replay</span>
+              </div>
+
+              <div style="position: relative; background: #F4EDDC; background-image: repeating-linear-gradient(0deg, rgba(32,32,30,.016) 0 1px, transparent 1px 3px); border: 1px solid #C3B79A; border-radius: 6px; box-shadow: 6px 6px 0 -1px #EDE5D0, 6px 6px 0 0 #C3B79A">
+                <div style="position: absolute; left: -186px; top: 34px; width: 168px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 8px 10px; opacity: {{ c1o }}; transform: translateX({{ c1x }}) rotate(1.4deg); transition: all .42s cubic-bezier(.2,.9,.25,1); z-index: 3">
+                  <div style="font: 400 9px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">techcrunch · Mar 4, 2026</div>
+                  <div style="font: 400 12px/1.35 'IBM Plex Sans'; margin-top: 4px">“Cartesia raises $64M Series B led by Kleiner Perkins”</div>
+                </div>
+                <div style="position: absolute; left: -166px; top: 152px; width: 152px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 8px 10px; opacity: {{ c2o }}; transform: translateX({{ c2x }}) rotate(-1.8deg); transition: all .42s cubic-bezier(.2,.9,.25,1); z-index: 3">
+                  <div style="font: 400 9px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">sec edgar · Mar 1, 2026</div>
+                  <div style="font: 400 12px/1.35 'IBM Plex Sans'; margin-top: 4px">Form D, total offering amount</div>
+                </div>
+                <div style="position: absolute; left: -162px; top: 272px; width: 148px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 8px 10px; opacity: {{ c3o }}; transform: translateX({{ c3x }}) rotate(-1deg); transition: all .42s cubic-bezier(.2,.9,.25,1); z-index: 3">
+                  <div style="font: 400 9px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">linkedin · Jun 2026</div>
+                  <div style="font: 400 12px/1.35 'IBM Plex Sans'; margin-top: 4px">37 employees, 12 open roles</div>
+                </div>
+                <div style="position: absolute; left: -158px; top: 362px; width: 148px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 8px 10px; opacity: {{ c4o }}; transform: translateX({{ c4x }}) rotate(1.8deg); transition: all .42s cubic-bezier(.2,.9,.25,1); z-index: 3">
+                  <div style="font: 400 9px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">apollo · May 2026</div>
+                  <div style="font: 400 12px/1.35 'IBM Plex Sans'; margin-top: 4px">Headcount 52</div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid #D8CEB6">
+                  <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS · CARTESIA</span>
+                  <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">6 sources</span>
+                </div>
+
+                <div style="padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 20px">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+                    <div>
+                      <div style="font: 700 34px/1 'IBM Plex Sans'; letter-spacing: -.03em">Cartesia</div>
+                      <div style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62; margin-top: 7px; font-variant-numeric: tabular-nums">cartesia.ai · founded 2023 · San Francisco</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 14px; flex: none">
+                      <span style="padding: 4px 9px; border: 1.5px solid #6E5C9E; border-radius: 4px; color: #6E5C9E; font: 600 11px 'IBM Plex Sans'; letter-spacing: .12em; opacity: {{ filedOpacity }}; transform: rotate(-6deg); transition: all .3s ease; font-variant-numeric: tabular-nums">FILED JUL 27, 2026</span>
+                      <div style="width: 50px; height: 50px; border-radius: 50%; border: 1.5px solid #6E5C9E; background: rgba(110,92,158,{{ sealFill }}); display: flex; align-items: center; justify-content: center; opacity: {{ sealOpacity }}; transform: rotate(-4deg) scale({{ sealScale }}); transition: all .4s ease; flex: none">
+                        <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p style="margin: 0; font: 400 15px/1.55 'IBM Plex Sans'; opacity: {{ s1 }}; transition: opacity .35s ease">Builds real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents.&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></p>
+
+                  <div style="height: 1px; background: #D8CEB6"></div>
+
+                  <div style="display: flex; flex-direction: column; gap: 10px; opacity: {{ s2 }}; transition: opacity .35s ease">
+                    <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Money</div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="width: 10px; height: 10px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Raised $91M across disclosed rounds&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1][4]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="width: 10px; height: 10px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Series B, March 2026, led by Kleiner Perkins&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="width: 9px; height: 9px; border: 1.5px solid #68706A; border-radius: 50%; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'; color: #786F62">Revenue: not publicly disclosed</span>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 10px; opacity: {{ s3 }}; transition: opacity .35s ease">
+                    <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">People</div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="width: 10px; height: 10px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Karan Goel (CEO), Albert Gu (Chief Scientist)&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="position: relative; width: 10px; height: 10px; flex: none; margin-top: 6px"><span style="position: absolute; left: 4px; top: -2px; width: 2px; height: 14px; background: #B63A2A; transform: rotate(-45deg)"></span></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Headcount: 37&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span> and 52&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[8]</span>. Both stand.</span>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 10px; opacity: {{ s4 }}; transition: opacity .35s ease">
+                    <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Signals</div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 92px; margin-top: 4px; font-variant-numeric: tabular-nums">Mar 4, 2026</span>
+                      <span style="width: 10px; height: 10px; background: #0E6B5B; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Raised Series B&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 92px; margin-top: 4px; font-variant-numeric: tabular-nums">May 18, 2026</span>
+                      <span style="width: 10px; height: 10px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Shipped Sonic 3, a real-time model with cloned-voice support&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[5]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 92px; margin-top: 4px; font-variant-numeric: tabular-nums">Jun 2, 2026</span>
+                      <span style="width: 10px; height: 10px; border: 1.5px solid #9B6A1E; flex: none; margin-top: 6px; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">Announced deployment with a contact-center platform&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #9B6A1E; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[7]</span></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: flex-start">
+                      <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 92px; margin-top: 4px; font-variant-numeric: tabular-nums">Jun 20, 2026</span>
+                      <span style="width: 10px; height: 10px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span>
+                      <span style="font: 400 14px/1.5 'IBM Plex Sans'">12 open roles, weighted toward inference infrastructure&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span></span>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 10px; opacity: {{ s4 }}; transition: opacity .35s ease">
+                    <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Comps</div>
+                    <div style="font: 400 14px 'IBM Plex Sans'; color: #786F62; border-top: 1px solid #D8CEB6; border-bottom: 1px solid #D8CEB6; padding: 11px 0">No comparable set filed yet.</div>
+                  </div>
+
+                  <div style="display: flex; flex-direction: column; gap: 8px; opacity: {{ s5 }}; transition: opacity .35s ease">
+                    <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Sources</div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[1]</span><span style="width: 8px; height: 8px; background: #0E6B5B; flex: none"></span><span style="font: 400 13px 'IBM Plex Sans'">TechCrunch</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Mar 4, 2026</span></div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[2]</span><span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 13px 'IBM Plex Sans'">LinkedIn</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Jun 2026</span></div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[4]</span><span style="width: 8px; height: 8px; background: #0E6B5B; flex: none"></span><span style="font: 400 13px 'IBM Plex Sans'">SEC EDGAR filing</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Mar 1, 2026</span></div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[5]</span><span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 13px 'IBM Plex Sans'">Company changelog, press-covered</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">May 18, 2026</span></div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[7]</span><span style="width: 8px; height: 8px; border: 1.5px solid #9B6A1E; flex: none; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span><span style="font: 400 13px 'IBM Plex Sans'">cartesia.ai press page</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Jun 2, 2026</span></div>
+                    <div style="display: flex; gap: 10px; align-items: baseline"><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; width: 22px">[8]</span><span style="width: 8px; height: 8px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 13px 'IBM Plex Sans'">Apollo</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">May 2026</span></div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: baseline">
+                <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">{{ eventLine }}</span>
+                <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">{{ elapsed }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #FFFDF8; border-top: 1px solid #C3B79A; border-bottom: 1px solid #C3B79A; padding: 64px 72px">
+            <div style="display: flex; flex-direction: column; gap: 28px">
+              <div style="display: grid; grid-template-columns: 1fr 420px; gap: 72px; align-items: end">
+                <h2 style="margin: 0; font: 700 38px/1.06 'IBM Plex Sans'; letter-spacing: -.03em; color: #171A1F">Cold Start can replace PitchBook</h2>
+                <p style="margin: 0; font: 400 16px/1.55 'IBM Plex Sans'; color: #4A463D">PitchBook is generic, static and brittle. Cold Start builds the profile when you need it, cites every claim, finds and leverages the highest quality sources, interprets them with nuance, and keeps the profile current.</p>
+              </div>
+              <div style="display: flex; flex-direction: column">
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding-bottom: 12px">
+                  <span></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'; color: #6E5C9E">Cold Start</span>
+                  <span style="font: 600 15px 'IBM Plex Sans'; color: #786F62">PitchBook</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">A company founded in the last year</span>
+                  <span style="font: 500 16px/1.45 'IBM Plex Sans'">A full cited profile in about a minute</span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">Thin profile, or none at all</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">Depth</span>
+                  <span style="font: 500 16px/1.45 'IBM Plex Sans'">What it does, who pays, why it works, plus a bull case, a bear case, and the questions for a first call</span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">Generic tags and fields</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">After it is built</span>
+                  <span style="font: 500 16px/1.45 'IBM Plex Sans'">Keeps enriching, and stale sections rebuild the next time you open it</span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">Static until an analyst updates the row</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">Sources</span>
+                  <span style="font: 500 16px/1.45 'IBM Plex Sans'">Every fact links to a public source you can open</span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">Proprietary numbers you cannot trace</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">Cost</span>
+                  <span style="display: flex; flex-direction: column; gap: 5px"><span style="font: 500 16px/1.45 'IBM Plex Sans'">Under 10 cents per full profile</span><span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">one seat of PitchBook buys 250,000 profiles</span></span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">About $25k per seat per year, reported</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 240px 1fr 1fr; gap: 32px; align-items: baseline; padding: 16px 0; border-top: 1px solid #CCC7B8; border-bottom: 1px solid #D8CEB6">
+                  <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">Sharing</span>
+                  <span style="font: 500 16px/1.45 'IBM Plex Sans'">A public link, no login</span>
+                  <span style="font: 400 16px/1.45 'IBM Plex Sans'; color: #786F62">Seat licensed</span>
+                </div>
+              </div>
+              <p style="margin: 0; max-width: 640px; font: 400 15px/1.55 'IBM Plex Sans'; color: #786F62">Round ledgers, fund and LP data, and exit comps stay in PitchBook. The first ten minutes on a company you have not looked at yet is most of what a seat gets used for, and that is the part Cold Start takes.</p>
+            </div>
+          </div>
+
+          <div style="padding: 64px 72px; background: #EDE5D0; border-top: 1px solid #D8CEB6">
+            <div style="display: grid; grid-template-columns: 360px 1fr; gap: 72px; align-items: start">
+              <h2 style="margin: 0; font: 700 38px/1.06 'IBM Plex Sans'; letter-spacing: -.03em">Understand the sources</h2>
+              <div style="display: flex; flex-direction: column">
+                <div style="display: grid; grid-template-columns: 40px 130px 1fr; gap: 20px; align-items: baseline; padding: 18px 0; border-top: 1px solid #C3B79A">
+                  <span style="width: 13px; height: 13px; background: #0E6B5B"></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'">Verified</span>
+                  <span style="font: 400 15px/1.5 'IBM Plex Sans'">Two independent sources say it. Series B, March 2026, Kleiner Perkins&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1][4]</span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 40px 130px 1fr; gap: 20px; align-items: baseline; padding: 18px 0; border-top: 1px solid #C3B79A">
+                  <span style="width: 13px; height: 13px; border: 1.5px solid #315F9D"></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'">Reported</span>
+                  <span style="font: 400 15px/1.5 'IBM Plex Sans'">One outside source says it. Sonic 3, with cloned-voice support&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[5]</span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 40px 130px 1fr; gap: 20px; align-items: baseline; padding: 18px 0; border-top: 1px solid #C3B79A">
+                  <span style="width: 13px; height: 13px; border: 1.5px solid #9B6A1E; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'">Company</span>
+                  <span style="font: 400 15px/1.5 'IBM Plex Sans'">Only the company says it. Contact-center deployment&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #9B6A1E; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[7]</span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 40px 130px 1fr; gap: 20px; align-items: baseline; padding: 18px 0; border-top: 1px solid #C3B79A">
+                  <span style="position: relative; width: 13px; height: 13px"><span style="position: absolute; left: 5px; top: -1px; width: 2px; height: 16px; background: #B63A2A; transform: rotate(-45deg)"></span></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'">Conflict</span>
+                  <span style="font: 400 15px/1.5 'IBM Plex Sans'">The sources give different numbers. Headcount 37&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span> and 52&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[8]</span>. We keep both.</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 40px 130px 1fr; gap: 20px; align-items: baseline; padding: 18px 0; border-top: 1px solid #C3B79A; border-bottom: 1px solid #C3B79A">
+                  <span style="width: 11px; height: 11px; border: 1.5px solid #68706A; border-radius: 50%"></span>
+                  <span style="font: 600 15px 'IBM Plex Sans'">Unknown</span>
+                  <span style="font: 400 15px/1.5 'IBM Plex Sans'">No source has it. Revenue: not publicly disclosed.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #F7F5EE; border-top: 1px solid #C3B79A; padding: 68px 72px">
+            <div style="display: grid; grid-template-columns: 1fr 460px; gap: 72px; align-items: start">
+              <div style="display: flex; flex-direction: column; gap: 20px">
+                <span style="font: 600 15px 'IBM Plex Sans'; color: #6E5C9E">Chrome extension</span>
+                <h2 style="margin: 0; font: 700 40px/1.06 'IBM Plex Sans'; letter-spacing: -.03em">A companion for understanding a company, not just looking it up.</h2>
+                <p style="margin: 0; max-width: 440px; font: 400 17px/1.55 'IBM Plex Sans'; color: #4A463D">Open the extension on a company's site and it works through the five questions you would ask anyway: why care, what must be true, what could break, why now, what to learn next.</p>
+                <div style="display: flex; align-items: center; gap: 16px; margin-top: 8px">
+                  <div style="display: flex; align-items: center; background: #6E5C9E; border-radius: 4px; height: 46px; padding: 0 22px; flex: none; white-space: nowrap">
+                    <span style="font: 500 13px 'IBM Plex Sans'; color: #FFFDF8; white-space: nowrap">Add to Chrome</span>
+                  </div>
+                  <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62; white-space: nowrap">chrome web store</span>
+                </div>
+              </div>
+
+              <div style="background: #FFFDF8; border: 1px solid #C3B79A; border-radius: 6px">
+                <div style="height: 2px; background: #6E5C9E; border-radius: 6px 6px 0 0"></div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; border-bottom: 1px solid #CCC7B8">
+                  <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS · CARTESIA</span>
+                  <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #68706A; font-variant-numeric: tabular-nums">verifier 2 of 2</span>
+                </div>
+                <div style="padding: 20px 20px 22px; display: flex; flex-direction: column; gap: 16px">
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <span style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Why care</span>
+                    <span style="font: 400 14px/1.5 'IBM Plex Sans'; color: #171A1F">Voice agents are becoming a default interface, and latency is the felt quality bar. Cartesia's sub-100ms models are the current benchmark for it.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[1][5]</span></span>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 6px">
+                    <span style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">What must be true</span>
+                    <span style="font: 400 14px/1.5 'IBM Plex Sans'; color: #171A1F">The latency lead must survive frontier labs bundling voice into general models.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[5]</span></span>
+                  </div>
+                  <div style="height: 1px; background: #CCC7B8"></div>
+                  <div style="display: flex; flex-direction: column; gap: 11px">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 14px 'IBM Plex Sans'; color: #68706A">What could break</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">invited accounts</span></div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 14px 'IBM Plex Sans'; color: #68706A">Why now</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">invited accounts</span></div>
+                    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font: 600 14px 'IBM Plex Sans'; color: #68706A">What to learn next</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">invited accounts</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding: 64px 72px; border-top: 1px solid #C3B79A; display: grid; grid-template-columns: 1fr 420px; gap: 72px; align-items: start">
+            <div style="display: flex; flex-direction: column; gap: 16px">
+              <h2 style="margin: 0; font: 700 36px/1.08 'IBM Plex Sans'; letter-spacing: -.03em">Ask for access</h2>
+              <p style="margin: 0; max-width: 440px; font: 400 17px/1.55 'IBM Plex Sans'; color: #4A463D">Send us your name, email and one line about why this is interesting to you.</p>
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">41 in the queue, 9 days</span>
+            </div>
+            <div style="border: 1px solid #9C978A; border-radius: 6px; background: #F7F5EE; padding: 20px; display: flex; flex-direction: column; gap: 14px">
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 8px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">name</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 8px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">email</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 8px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">one line about why this is interesting to you</div>
+              <span style="font: 500 13px 'IBM Plex Sans'; background: #6E5C9E; color: #FFFDF8; padding: 12px 0; text-align: center; border-radius: 4px; margin-top: 4px">Send</span>
+            </div>
+          </div>
+
+          <div style="padding: 28px 72px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #D8CEB6">
+            <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">Cold Start · 4,180 profiles filed · last filing Jul 27, 2026, 9:12 AM PT</span>
+            <div style="display: flex; align-items: center; gap: 20px">
+              <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">Public facts, cited. Not investment advice.</span>
+              <span style="font: 600 10px 'IBM Plex Sans'; letter-spacing: .14em; color: #6E5C9E; border: 1.5px solid #6E5C9E; border-radius: 4px; padding: 3px 8px; transform: rotate(-6deg); font-variant-numeric: tabular-nums">VETTED 31/31</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="1b" style="display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span style="font: 500 11px 'IBM Plex Mono', monospace; background: #20201E; color: #F4EDDC; padding: 4px 8px">1b</span>
+          <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">frame 02 · mobile 390</span>
+        </div>
+        <div style="width: 390px; background: #EFE7D3; outline: 1px solid #C3B79A">
+          <div style="height: 2px; background: #6E5C9E"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #D8CEB6">
+            <span style="font: 700 15px 'IBM Plex Sans'; letter-spacing: -.015em">Cold Start</span>
+            <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">4,180 filed</span>
+          </div>
+          <div style="padding: 32px 20px 26px; display: flex; flex-direction: column; gap: 20px">
+            <h1 style="margin: 0; font: 700 38px/1.02 'IBM Plex Sans'; letter-spacing: -.035em">Deeply understand the companies you care about</h1>
+            <p style="margin: 0; font: 400 19px/1.4 'IBM Plex Sans'; color: #4A463D">Get up to speed like a serious investor would.</p>
+            <div style="display: flex; align-items: center; border: 1px solid #9C978A; border-radius: 4px; height: 48px; background: #F7F5EE; overflow: hidden">
+              <span style="font: 500 14px 'IBM Plex Sans'; padding: 0 14px; flex: 1">cartesia.ai</span>
+              <span style="font: 500 13px 'IBM Plex Sans'; background: #20201E; color: #F4EDDC; padding: 0 16px; height: 48px; display: flex; align-items: center">Make the profile</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px; background: #6E5C9E; border-radius: 4px; height: 48px">
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #FFFDF8">Browse</span>
+              <span style="font: 400 11px 'IBM Plex Mono', monospace; color: rgba(255,253,248,.72); font-variant-numeric: tabular-nums">4.2K profiles</span>
+            </div>
+          </div>
+
+          <div style="padding: 0 20px 30px">
+            <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-bottom: 8px">recorded build · cartesia.ai</div>
+            <div style="position: relative; background: #F4EDDC; background-image: repeating-linear-gradient(0deg, rgba(32,32,30,.016) 0 1px, transparent 1px 3px); border: 1px solid #C3B79A; border-radius: 6px; box-shadow: 5px 5px 0 -1px #EDE5D0, 5px 5px 0 0 #C3B79A">
+              <div style="display: flex; justify-content: space-between; padding: 9px 14px; border-bottom: 1px solid #D8CEB6">
+                <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS · CARTESIA</span>
+                <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">6 sources</span>
+              </div>
+              <div style="padding: 18px 16px 22px; display: flex; flex-direction: column; gap: 16px">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start">
+                  <div>
+                    <div style="font: 700 26px/1 'IBM Plex Sans'; letter-spacing: -.03em">Cartesia</div>
+                    <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-top: 6px; font-variant-numeric: tabular-nums">cartesia.ai · 2023 · San Francisco</div>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 10px; flex: none">
+                    <span style="padding: 3px 7px; border: 1.5px solid #6E5C9E; border-radius: 4px; color: #6E5C9E; font: 600 9px 'IBM Plex Sans'; letter-spacing: .1em; transform: rotate(-6deg); font-variant-numeric: tabular-nums">FILED JUL 27, 2026</span>
+                    <div style="width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid #6E5C9E; background: rgba(110,92,158,.16); display: flex; align-items: center; justify-content: center; transform: rotate(-4deg); flex: none">
+                      <span style="font: 500 9px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS</span>
+                    </div>
+                  </div>
+                </div>
+                <p style="margin: 0; font: 400 14px/1.5 'IBM Plex Sans'">Builds real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></p>
+                <div style="height: 1px; background: #D8CEB6"></div>
+                <div style="display: flex; flex-direction: column; gap: 9px">
+                  <div style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Money</div>
+                  <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Raised $91M across disclosed rounds&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1][4]</span></span></div>
+                  <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Series B, March 2026, led by Kleiner Perkins&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span></div>
+                  <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; border: 1.5px solid #68706A; border-radius: 50%; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #786F62">Revenue: not publicly disclosed</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 9px">
+                  <div style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">People</div>
+                  <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Karan Goel (CEO), Albert Gu (Chief Scientist)&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span></div>
+                  <div style="display: flex; gap: 9px; align-items: flex-start"><span style="position: relative; width: 9px; height: 9px; flex: none; margin-top: 6px"><span style="position: absolute; left: 4px; top: -2px; width: 2px; height: 13px; background: #B63A2A; transform: rotate(-45deg)"></span></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Headcount: 37&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span> and 52&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[8]</span>. Both stand.</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 9px">
+                  <div style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Signals</div>
+                  <div style="display: flex; gap: 8px; align-items: flex-start"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 88px; margin-top: 4px; font-variant-numeric: tabular-nums">Mar 4, 2026</span><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Raised Series B&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></span></div>
+                  <div style="display: flex; gap: 8px; align-items: flex-start"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 88px; margin-top: 4px; font-variant-numeric: tabular-nums">May 18, 2026</span><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Shipped Sonic 3, cloned-voice support&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[5]</span></span></div>
+                  <div style="display: flex; gap: 8px; align-items: flex-start"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 88px; margin-top: 4px; font-variant-numeric: tabular-nums">Jun 2, 2026</span><span style="width: 9px; height: 9px; border: 1.5px solid #9B6A1E; flex: none; margin-top: 6px; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Contact-center deployment announced&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #9B6A1E; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[7]</span></span></div>
+                  <div style="display: flex; gap: 8px; align-items: flex-start"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; flex: none; width: 88px; margin-top: 4px; font-variant-numeric: tabular-nums">Jun 20, 2026</span><span style="width: 9px; height: 9px; border: 1.5px solid #315F9D; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">12 open roles, inference infrastructure&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span></span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 9px">
+                  <div style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Comps</div>
+                  <div style="font: 400 13px 'IBM Plex Sans'; color: #786F62; border-top: 1px solid #D8CEB6; border-bottom: 1px solid #D8CEB6; padding: 10px 0">No comparable set filed yet.</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 7px">
+                  <div style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Sources</div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[1]</span><span style="width: 7px; height: 7px; background: #0E6B5B; flex: none"></span><span style="font: 400 12px 'IBM Plex Sans'">TechCrunch</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Mar 4, 2026</span></div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[2]</span><span style="width: 7px; height: 7px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 12px 'IBM Plex Sans'">LinkedIn</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Jun 2026</span></div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[4]</span><span style="width: 7px; height: 7px; background: #0E6B5B; flex: none"></span><span style="font: 400 12px 'IBM Plex Sans'">SEC EDGAR filing</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Mar 1, 2026</span></div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[5]</span><span style="width: 7px; height: 7px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 12px 'IBM Plex Sans'">Changelog, press-covered</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">May 18, 2026</span></div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[7]</span><span style="width: 7px; height: 7px; border: 1.5px solid #9B6A1E; flex: none; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span><span style="font: 400 12px 'IBM Plex Sans'">cartesia.ai press page</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">Jun 2, 2026</span></div>
+                  <div style="display: flex; gap: 8px; align-items: baseline"><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; width: 20px">[8]</span><span style="width: 7px; height: 7px; border: 1.5px solid #315F9D; flex: none"></span><span style="font: 400 12px 'IBM Plex Sans'">Apollo</span><span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; margin-left: auto; font-variant-numeric: tabular-nums">May 2026</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #FFFDF8; padding: 26px 20px 30px; border-top: 1px solid #C3B79A; border-bottom: 1px solid #C3B79A; display: flex; flex-direction: column; gap: 14px">
+            <h2 style="margin: 0; font: 700 26px/1.12 'IBM Plex Sans'; letter-spacing: -.028em; color: #171A1F">Cold Start can replace PitchBook</h2>
+            <p style="margin: 0; font: 400 15px/1.55 'IBM Plex Sans'; color: #4A463D">PitchBook is generic, static and brittle. Cold Start builds the profile when you need it, cites every claim, works from the highest quality sources, and keeps the profile current.</p>
+            <div style="display: flex; flex-direction: column">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #CCC7B8">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">a company founded in the last year</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: a full cited profile in about a minute</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: thin profile, or none at all</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #CCC7B8">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">depth</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: what it does, who pays, why it works, plus a bull case, a bear case, and first-call questions</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: generic tags and fields</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #CCC7B8">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">after it is built</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: keeps enriching, stale sections rebuild on the next open</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: static until an analyst updates the row</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #CCC7B8">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">sources</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: every fact links to a public source</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: proprietary numbers you cannot trace</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #CCC7B8">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">cost</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: under 10 cents per full profile, or 250,000 profiles for the price of one seat</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: about $25k per seat per year, reported</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 13px 0; border-top: 1px solid #D8CEB6; border-bottom: 1px solid #D8CEB6">
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62">sharing</span>
+              <span style="font: 500 15px/1.45 'IBM Plex Sans'">Cold Start: a public link, no login</span>
+              <span style="font: 400 15px/1.45 'IBM Plex Sans'; color: #786F62">PitchBook: seat licensed</span>
+            </div>
+            </div>
+            <p style="margin: 0; font: 400 14px/1.5 'IBM Plex Sans'; color: #786F62">Round ledgers, fund data, and exit comps stay in PitchBook. The first ten minutes on a new company is most of what a seat gets used for, and that is the part Cold Start takes.</p>
+          </div>
+
+          <div style="padding: 26px 20px 30px; background: #EDE5D0; border-top: 1px solid #D8CEB6; display: flex; flex-direction: column; gap: 16px">
+            <h2 style="margin: 0; font: 700 26px/1.12 'IBM Plex Sans'; letter-spacing: -.028em">Understand the sources</h2>
+            <div style="display: flex; flex-direction: column">
+              <div style="display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1px solid #C3B79A"><span style="width: 11px; height: 11px; background: #0E6B5B"></span><span style="font: 400 14px/1.45 'IBM Plex Sans'"><b style="font-weight: 600">Verified.</b> Two independent sources say it.</span></div>
+              <div style="display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1px solid #C3B79A"><span style="width: 11px; height: 11px; border: 1.5px solid #315F9D"></span><span style="font: 400 14px/1.45 'IBM Plex Sans'"><b style="font-weight: 600">Reported.</b> One outside source says it.</span></div>
+              <div style="display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1px solid #C3B79A"><span style="width: 11px; height: 11px; border: 1.5px solid #9B6A1E; display: flex"><span style="width: 50%; background: #9B6A1E"></span></span><span style="font: 400 14px/1.45 'IBM Plex Sans'"><b style="font-weight: 600">Company.</b> Only the company says it.</span></div>
+              <div style="display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1px solid #C3B79A"><span style="position: relative; width: 11px; height: 11px"><span style="position: absolute; left: 4px; top: -2px; width: 2px; height: 15px; background: #B63A2A; transform: rotate(-45deg)"></span></span><span style="font: 400 14px/1.45 'IBM Plex Sans'"><b style="font-weight: 600">Conflict.</b> The sources give different numbers. We keep both.</span></div>
+              <div style="display: grid; grid-template-columns: 24px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-top: 1px solid #C3B79A; border-bottom: 1px solid #C3B79A"><span style="width: 10px; height: 10px; border: 1.5px solid #68706A; border-radius: 50%"></span><span style="font: 400 14px/1.45 'IBM Plex Sans'"><b style="font-weight: 600">Unknown.</b> No source has it.</span></div>
+            </div>
+          </div>
+
+          <div style="background: #F7F5EE; border-top: 1px solid #C3B79A; padding: 28px 20px; display: flex; flex-direction: column; gap: 16px">
+            <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Chrome extension</span>
+            <h2 style="margin: 0; font: 700 24px/1.15 'IBM Plex Sans'; letter-spacing: -.028em">A companion for understanding a company, not just looking it up.</h2>
+            <p style="margin: 0; font: 400 15px/1.55 'IBM Plex Sans'; color: #4A463D">Open it on a company's site and it works through five questions: why care, what must be true, what could break, why now, what to learn next.</p>
+            <div style="display: flex; align-items: center; justify-content: center; background: #6E5C9E; border-radius: 4px; height: 48px">
+              <span style="font: 500 13px 'IBM Plex Sans'; color: #FFFDF8; white-space: nowrap">Add to Chrome</span>
+            </div>
+            <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62; text-align: center">chrome web store</span>
+          </div>
+
+          <div style="padding: 28px 20px; border-top: 1px solid #C3B79A; display: flex; flex-direction: column; gap: 14px">
+            <h2 style="margin: 0; font: 700 24px/1.15 'IBM Plex Sans'; letter-spacing: -.028em">Ask for access</h2>
+            <p style="margin: 0; font: 400 15px/1.55 'IBM Plex Sans'; color: #4A463D">Send us your name, email and one line about why this is interesting to you.</p>
+            <div style="border: 1px solid #9C978A; border-radius: 6px; background: #F7F5EE; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">name</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">email</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">why this is interesting to you</div>
+              <span style="font: 500 13px 'IBM Plex Sans'; background: #6E5C9E; color: #FFFDF8; padding: 12px 0; text-align: center; border-radius: 4px">Send</span>
+            </div>
+          </div>
+
+          <div style="padding: 18px 20px; border-top: 1px solid #D8CEB6; display: flex; flex-direction: column; gap: 5px">
+            <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">Cold Start · 4,180 profiles filed</span>
+            <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">Public facts, cited. Not investment advice.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 64px; align-items: flex-start">
+      <div id="1c" style="display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span style="font: 500 11px 'IBM Plex Mono', monospace; background: #20201E; color: #F4EDDC; padding: 4px 8px">1c</span>
+          <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">frame 03 · mid-build</span>
+        </div>
+        <div style="width: 960px; background: #EFE7D3; outline: 1px solid #C3B79A; padding: 44px; display: grid; grid-template-columns: 270px 1fr; gap: 44px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 18px">
+            <div style="font: 600 15px 'IBM Plex Sans'; color: #6E5C9E">Events</div>
+            <div style="display: flex; flex-direction: column; gap: 9px; font: 400 12px/1.45 'IBM Plex Mono', monospace; color: #4A463D; font-variant-numeric: tabular-nums">
+              <div style="display: flex; gap: 10px"><span style="color: #786F62">0.6s</span><span>Opened 14 documents</span></div>
+              <div style="display: flex; gap: 10px"><span style="color: #786F62">1.4s</span><span>Kept 6: TechCrunch, EDGAR, LinkedIn, changelog, press page, Apollo</span></div>
+              <div style="display: flex; gap: 10px"><span style="color: #786F62">2.1s</span><span>Cut 31 facts, each pinned to a document</span></div>
+              <div style="display: flex; gap: 10px"><span style="color: #B63A2A">2.9s</span><span style="color: #B63A2A">Headcount 37 [2] and 52 [8], kept both</span></div>
+              <div style="display: flex; gap: 10px"><span style="color: #786F62">3.3s</span><span>No revenue source, left the field empty</span></div>
+              <div style="display: flex; gap: 10px; align-items: center"><span style="color: #786F62">3.6s</span><span>Checking claims, 22 of 31<span style="display: inline-block; width: 7px; height: 12px; background: #20201E; margin-left: 6px; vertical-align: -2px"></span></span></div>
+            </div>
+            <div style="height: 1px; background: #D8CEB6"></div>
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <div style="font: 600 15px 'IBM Plex Sans'; color: #6E5C9E">Seal</div>
+              <div style="display: flex; align-items: center; gap: 16px">
+                <div style="width: 62px; height: 62px; border-radius: 50%; border: 1.5px solid #6E5C9E; background: rgba(110,92,158,.18); display: flex; align-items: center; justify-content: center; transform: rotate(-4deg); animation: cs-seal .8s cubic-bezier(.2,.9,.25,1)">
+                  <span style="font: 500 12px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px">
+                  <div style="display: flex; gap: 6px">
+                    <span style="width: 11px; height: 11px; background: #6E5C9E"></span>
+                    <span style="width: 11px; height: 11px; background: #6E5C9E"></span>
+                    <span style="width: 11px; height: 11px; background: #6E5C9E"></span>
+                    <span style="width: 11px; height: 11px; border: 1.5px solid #C3B79A"></span>
+                  </div>
+                  <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">3 of 4 stages done</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="position: relative">
+            <div style="position: absolute; right: -20px; top: 36px; width: 196px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 10px 12px; transform: rotate(1.4deg); z-index: 3">
+              <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">techcrunch · Mar 4, 2026</div>
+              <div style="font: 400 12px/1.4 'IBM Plex Sans'; margin-top: 4px">“Cartesia raises $64M Series B led by Kleiner Perkins”</div>
+              <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #6E5C9E; margin-top: 6px">to money, signals · [1]</div>
+            </div>
+            <div style="position: absolute; right: -18px; top: 320px; width: 180px; background: #F7F5EE; border: 1px solid #C3B79A; border-radius: 4px; padding: 10px 12px; transform: rotate(-1.6deg); z-index: 3">
+              <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">apollo · May 2026</div>
+              <div style="font: 400 12px/1.4 'IBM Plex Sans'; margin-top: 4px">Headcount 52</div>
+              <div style="font: 400 10px 'IBM Plex Mono', monospace; color: #B63A2A; margin-top: 6px">disagrees with [2] · [8]</div>
+            </div>
+
+            <div style="background: #F4EDDC; background-image: repeating-linear-gradient(0deg, rgba(32,32,30,.016) 0 1px, transparent 1px 3px); border: 1px solid #C3B79A; border-radius: 6px; box-shadow: 6px 6px 0 -1px #EDE5D0, 6px 6px 0 0 #C3B79A">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 11px 20px; border-bottom: 1px solid #D8CEB6">
+                <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">CS · CARTESIA</span>
+                <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #786F62">building</span>
+              </div>
+              <div style="padding: 22px 24px 26px; display: flex; flex-direction: column; gap: 18px">
+                <div>
+                  <div style="font: 700 32px/1 'IBM Plex Sans'; letter-spacing: -.03em">Cartesia</div>
+                  <div style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62; margin-top: 7px; font-variant-numeric: tabular-nums">cartesia.ai · founded 2023 · San Francisco</div>
+                </div>
+                <p style="margin: 0; font: 400 15px/1.55 'IBM Plex Sans'">Builds real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents.&nbsp;<span style="font: 400 11px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1]</span></p>
+                <div style="height: 1px; background: #D8CEB6"></div>
+                <div style="display: flex; flex-direction: column; gap: 10px">
+                  <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Money</div>
+                  <div style="display: flex; gap: 10px; align-items: flex-start"><span style="width: 10px; height: 10px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 14px/1.5 'IBM Plex Sans'">Raised $91M across disclosed rounds&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1][4]</span></span></div>
+                  <div style="display: flex; gap: 10px; align-items: flex-start"><span style="width: 9px; height: 9px; border: 1.5px solid #68706A; border-radius: 50%; flex: none; margin-top: 6px"></span><span style="font: 400 14px/1.5 'IBM Plex Sans'; color: #786F62">Revenue: not publicly disclosed</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; background: #EFE7D3; padding: 14px 16px; border-radius: 4px; border-left: 2px solid #B63A2A">
+                  <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">People</div>
+                  <div style="display: flex; gap: 10px; align-items: flex-start">
+                    <span style="position: relative; width: 10px; height: 10px; flex: none; margin-top: 6px"><span style="position: absolute; left: 4px; top: -2px; width: 2px; height: 14px; background: #B63A2A; transform: rotate(-45deg)"></span></span>
+                    <span style="font: 400 14px/1.5 'IBM Plex Sans'">Headcount: 37&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span> and 52&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[8]</span></span>
+                  </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; opacity: .45">
+                  <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Signals</div>
+                  <div style="height: 12px; width: 78%; border-bottom: 1px solid #C3B79A"></div>
+                  <div style="height: 12px; width: 64%; border-bottom: 1px solid #C3B79A"></div>
+                  <div style="height: 12px; width: 71%; border-bottom: 1px solid #C3B79A"></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; opacity: .45">
+                  <div style="font: 600 14px 'IBM Plex Sans'; color: #6E5C9E">Sources</div>
+                  <div style="height: 12px; width: 52%; border-bottom: 1px solid #C3B79A"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="1d" style="display: flex; flex-direction: column; gap: 14px">
+        <div style="display: flex; align-items: baseline; gap: 12px">
+          <span style="font: 500 11px 'IBM Plex Mono', monospace; background: #20201E; color: #F4EDDC; padding: 4px 8px">1d</span>
+          <span style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">frame 04 · side panel handoff</span>
+        </div>
+        <div style="width: 880px; background: #EFE7D3; outline: 1px solid #C3B79A; padding: 44px; display: flex; flex-direction: column; gap: 28px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline">
+            <h2 style="margin: 0; font: 700 32px/1.08 'IBM Plex Sans'; letter-spacing: -.03em; max-width: 460px">What the extension adds</h2>
+          </div>
+
+          <div style="display: flex; border: 1px solid #C3B79A; border-radius: 6px; overflow: hidden; background: #F4EDDC">
+            <div style="flex: 1; padding: 22px 24px; border-right: 1px solid #C3B79A; display: flex; flex-direction: column; gap: 14px">
+              <div style="font: 400 11px 'IBM Plex Mono', monospace; color: #786F62">public profile · anyone with the link</div>
+              <div style="font: 700 24px/1 'IBM Plex Sans'; letter-spacing: -.03em">Cartesia</div>
+              <div style="display: flex; flex-direction: column; gap: 9px">
+                <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; background: #0E6B5B; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Raised $91M across disclosed rounds&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[1][4]</span></span></div>
+                <div style="display: flex; gap: 9px; align-items: flex-start"><span style="position: relative; width: 9px; height: 9px; flex: none; margin-top: 6px"><span style="position: absolute; left: 4px; top: -2px; width: 2px; height: 13px; background: #B63A2A; transform: rotate(-45deg)"></span></span><span style="font: 400 13px/1.5 'IBM Plex Sans'">Headcount 37&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[2]</span> and 52&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(32,32,30,.3); white-space: nowrap">[8]</span></span></div>
+                <div style="display: flex; gap: 9px; align-items: flex-start"><span style="width: 9px; height: 9px; border: 1.5px solid #68706A; border-radius: 50%; flex: none; margin-top: 6px"></span><span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #786F62">Revenue: not publicly disclosed</span></div>
+              </div>
+            </div>
+
+            <div style="width: 372px; background: #FFFDF8; display: flex; flex-direction: column">
+              <div style="height: 2px; background: #6E5C9E"></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 18px; border-bottom: 1px solid #CCC7B8">
+                <span style="font: 500 10px 'IBM Plex Mono', monospace; color: #6E5C9E; letter-spacing: .06em">SIDE PANEL</span>
+                <span style="font: 400 10px 'IBM Plex Mono', monospace; color: #68706A; font-variant-numeric: tabular-nums">31 of 31 lines cited</span>
+              </div>
+              <div style="padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 14px">
+                <div style="display: flex; flex-direction: column; gap: 5px">
+                  <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Why care</span>
+                  <span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #171A1F">Voice agents are becoming a default interface, and latency is the felt quality bar. Cartesia's sub-100ms models are the current benchmark for it.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[1][5]</span></span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px">
+                  <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">What must be true</span>
+                  <span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #171A1F">The latency lead must survive frontier labs bundling voice into general models.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #315F9D; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[5]</span></span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px">
+                  <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">What could break</span>
+                  <span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #171A1F">The contact-center proof point is company-sourced only. No independent customer has confirmed production scale.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #9B6A1E; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[7]</span></span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px">
+                  <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Why now</span>
+                  <span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #171A1F">Series B closed four months ago. The team is hiring into inference infrastructure, which is where the margin story lives.&nbsp;<span style="font: 400 10px 'IBM Plex Mono', monospace; color: #0E6B5B; border-bottom: 1px solid rgba(23,26,31,.3); white-space: nowrap">[1][2]</span></span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px">
+                  <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">What to learn next</span>
+                  <span style="font: 400 13px/1.5 'IBM Plex Sans'; color: #171A1F">Ask for one referenceable production customer with call-volume numbers.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 290px; gap: 40px; align-items: start; border-top: 1px solid #C3B79A; padding-top: 26px">
+            <div style="display: flex; flex-direction: column; gap: 12px">
+              <span style="font: 600 18px 'IBM Plex Sans'">Ask for access</span>
+              <span style="font: 400 15px/1.55 'IBM Plex Sans'; color: #4A463D">Send us your name, email and one line about why this is interesting to you. A person reads it and answers either way.</span>
+              <span style="font: 400 12px 'IBM Plex Mono', monospace; color: #786F62; font-variant-numeric: tabular-nums">41 requests, 9 days</span>
+            </div>
+            <div style="border: 1px solid #9C978A; border-radius: 6px; padding: 16px; background: #F7F5EE; display: flex; flex-direction: column; gap: 12px">
+              <span style="font: 600 13px 'IBM Plex Sans'; color: #6E5C9E">Ask for access</span>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">name</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">email</div>
+              <div style="border-bottom: 1px solid #CCC7B8; padding-bottom: 7px; font: 400 12px 'IBM Plex Mono', monospace; color: #68706A">why this is interesting to you</div>
+              <span style="font: 500 13px 'IBM Plex Sans'; background: #6E5C9E; color: #FFFDF8; padding: 11px 0; text-align: center; border-radius: 4px">Send</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;buildSpeedMs&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:850,&quot;min&quot;:300,&quot;max&quot;:1800,&quot;step&quot;:50,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Build&quot;},&quot;autoReplay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Build&quot;}}">
+class Component extends DCLogic {
+  state = { stage: 0 };
+
+  componentDidMount() { this.run(); }
+  componentWillUnmount() { clearTimeout(this.t); }
+
+  run() {
+    clearTimeout(this.t);
+    const speed = this.props.buildSpeedMs ?? 850;
+    const step = () => {
+      this.setState(s => ({ stage: s.stage + 1 }));
+      if (this.state.stage < 6) this.t = setTimeout(step, speed);
+      else if (this.props.autoReplay ?? true) this.t = setTimeout(() => { this.setState({ stage: 0 }); this.t = setTimeout(step, 700); }, 4200);
+    };
+    this.t = setTimeout(step, 600);
+  }
+
+  renderVals() {
+    const st = this.state.stage;
+    const on = n => (st >= n ? 1 : 0);
+    const events = [
+      'waiting',
+      'Reading cartesia.ai',
+      'Opened 14 documents, kept 6',
+      'Cut 31 facts, each pinned to a document',
+      'Headcount 37 [2] and 52 [8], kept both',
+      'Checked 31 of 31 lines',
+      'Filed'
+    ];
+    return {
+      replay: () => { this.setState({ stage: 0 }); this.run(); },
+      c1o: on(1), c1x: st >= 1 ? '0px' : '-28px',
+      c2o: on(2), c2x: st >= 2 ? '0px' : '-28px',
+      c3o: on(3), c3x: st >= 3 ? '0px' : '-28px',
+      c4o: on(4), c4x: st >= 4 ? '0px' : '-28px',
+      s1: st >= 1 ? 1 : 0.12,
+      s2: st >= 2 ? 1 : 0.12,
+      s3: st >= 3 ? 1 : 0.12,
+      s4: st >= 4 ? 1 : 0.12,
+      s5: st >= 5 ? 1 : 0.12,
+      sealOpacity: st >= 1 ? 1 : 0.25,
+      sealFill: Math.min(st, 4) * 0.05,
+      sealScale: st >= 6 ? 1.04 : 1,
+      filedOpacity: st >= 6 ? 1 : 0,
+      eventLine: events[Math.min(st, 6)],
+      elapsed: st >= 6 ? '4.2s' : (st * 0.7).toFixed(1) + 's'
+    };
+  }
+}
+</script>
+</body>
+</html>

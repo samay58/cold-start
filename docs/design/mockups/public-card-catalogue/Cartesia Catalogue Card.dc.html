@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#CFC7B4; font-family:'IBM Plex Sans',sans-serif; color:#20201E; font-feature-settings:"tnum" 1; -webkit-font-smoothing:antialiased; }
+  a { color:#6E5C9E; text-decoration:none; border-bottom:1px solid rgba(110,92,158,.4); }
+  a:hover { color:#4E3F79; border-bottom-color:#4E3F79; }
+  @keyframes ack { 0% { background:#DCCFF0; } 100% { background:#EDE3CC; } }
+  @keyframes thread { 0% { opacity:0; } 100% { opacity:1; } }
+</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:56px;padding:56px 56px 120px">
+
+  <div style="max-width:900px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:13px;font-weight:600;color:#6E5C9E">Concept</div>
+    <div style="font-size:30px;font-weight:700;line-height:1.2;letter-spacing:-.015em">The Catalogue Card: each company is one kept index card, and every fact on it is either sourced or honestly blank.</div>
+    <div style="font-size:15px;line-height:1.55;color:#5C574B">Five frames: desktop 1440, pocket card 390, citation choreography, the headcount conflict, and a card with little public data.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;color:#F4EDDC;background:#6E5C9E;padding:2px 7px;border-radius:3px">1a</span><span style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.04em;color:#5C574B">Desktop 1440 / cold-start.example/c/cartesia</span></div>
+
+      <div style="width:1440px;background:#E4DCC8;padding:36px 60px 80px;border:1px solid #BDB49E;border-radius:6px;background-image:repeating-linear-gradient(90deg,rgba(0,0,0,.012) 0 1px,transparent 1px 3px)">
+
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:22px;font-family:'Courier Prime',monospace;font-size:12px;color:#6A6455">
+          <div style="display:flex;gap:8px;align-items:baseline"><span style="color:#6E5C9E;font-weight:700;letter-spacing:.1em">COLD START</span><span>/ catalogue / c/cartesia</span></div>
+          <div style="display:flex;gap:22px"><span>retrieved 2026-07-27 04:12 UTC</span><span>6 sources read</span></div>
+        </div>
+
+        <div style="position:relative">
+          <div style="position:absolute;left:9px;right:-9px;top:11px;bottom:-11px;background:#EEE4CE;border:1px solid #CBBFA2;border-radius:6px"></div>
+          <div style="position:absolute;left:5px;right:-5px;top:6px;bottom:-6px;background:#F1E8D5;border:1px solid #CDC1A4;border-radius:6px"></div>
+
+          <div style="position:relative;background:#F4EDDC;border:1px solid #CFC3A6;border-radius:6px;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 22px -14px rgba(40,34,20,.35);overflow:hidden">
+            <div style="height:4px;background:#6E5C9E"></div>
+
+            <sc-if value="{{ wear }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(160px 120px at 88% 92%,rgba(52,42,20,.075),transparent 70%),radial-gradient(120px 90px at 4% 62%,rgba(52,42,20,.05),transparent 72%),radial-gradient(60px 40px at 51% 100%,rgba(52,42,20,.05),transparent 70%)"></div>
+              <div style="position:absolute;inset:0;pointer-events:none;background-image:repeating-linear-gradient(112deg,rgba(90,70,30,.028) 0 2px,transparent 2px 7px);mix-blend-mode:multiply"></div>
+            </sc-if>
+
+            <sc-if value="{{ notFlipped }}" hint-placeholder-val="{{ true }}">
+            <div style="position:relative;padding:38px 46px 34px">
+
+              <div style="display:grid;grid-template-columns:1fr 300px;gap:40px;align-items:start">
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div style="font-size:64px;font-weight:700;line-height:.95;letter-spacing:-.028em">Cartesia</div>
+                  <div style="font-size:21px;line-height:1.4;max-width:620px;text-wrap:pretty">Builds real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents.</div>
+                  <div style="display:flex;gap:18px;align-items:center;font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B">
+                    <a href="#1a" style="color:#6E5C9E">cartesia.ai</a>
+                    <span>San Francisco</span>
+                    <span>founded 2023</span>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:20px;align-items:flex-end">
+                  <div style="text-align:right;font-family:'Courier Prime',monospace">
+                    <div style="font-size:11px;letter-spacing:.16em;color:#8A8271">CALL NO.</div>
+                    <div style="font-size:17px;font-weight:700;color:#6E5C9E;letter-spacing:.02em">CS·VOI·CARTESIA·26</div>
+                  </div>
+                  <sc-if value="{{ stamps }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:relative;width:186px;height:66px">
+                    <div style="position:absolute;left:1px;top:2px;width:170px;transform:rotate(-4.4deg);border:2px solid #6E5C9E;border-radius:2px;padding:7px 10px 6px;opacity:.22;font-family:'Courier Prime',monospace;color:#6E5C9E">
+                      <div style="font-size:22px;font-weight:700;letter-spacing:.2em;line-height:1">FILED</div>
+                      <div style="font-size:10px;letter-spacing:.12em;padding-top:3px">2026·07·27</div>
+                    </div>
+                    <div style="position:absolute;left:0;top:0;width:170px;transform:rotate(-4.9deg);border:2px solid #6E5C9E;border-radius:2px;padding:7px 10px 6px;font-family:'Courier Prime',monospace;color:#6E5C9E;opacity:.72;-webkit-mask-image:radial-gradient(140% 160% at 22% 14%,#000 32%,rgba(0,0,0,.62) 66%,rgba(0,0,0,.34) 100%);mask-image:radial-gradient(140% 160% at 22% 14%,#000 32%,rgba(0,0,0,.62) 66%,rgba(0,0,0,.34) 100%)">
+                      <div style="font-size:22px;font-weight:700;letter-spacing:.2em;line-height:1">FILED</div>
+                      <div style="font-size:10px;letter-spacing:.12em;padding-top:3px">2026·07·27</div>
+                    </div>
+                  </div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <div style="height:1px;background:#D6CBB0;margin:30px 0 22px"></div>
+
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:26px">
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:#6E5C9E">Stage</div>
+                  <div style="font-size:19px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:#0E6B5B;flex:none"></span>Series B</div>
+                  <div style="font-size:13px;color:#5C574B;font-family:'Courier Prime',monospace">Mar 2026 <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:#6E5C9E">Raised</div>
+                  <div style="font-size:19px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:#0E6B5B;flex:none"></span>$91M</div>
+                  <div style="font-size:13px;color:#5C574B;font-family:'Courier Prime',monospace">disclosed rounds <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span><span onMouseEnter="{{ cite.e4 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c4 }}" style="color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[4]</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:#B63A2A">Headcount</div>
+                  <div style="font-size:19px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span>37 / 52</div>
+                  <div style="font-size:13px;color:#5C574B;font-family:'Courier Prime',monospace">sources disagree <a href="#1d" style="color:#B63A2A;border-bottom-color:rgba(182,58,42,.4)">see below</a></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:#6E5C9E">Valuation</div>
+                  <div style="font-size:19px;font-weight:500;color:#8A8271;font-style:italic">not publicly disclosed</div>
+                  <div style="font-size:13px;color:#8A8271;font-family:'Courier Prime',monospace">no source in ledger</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  <div style="font-size:13px;font-weight:600;color:#6E5C9E">Open roles</div>
+                  <div style="font-size:19px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D"></span>12</div>
+                  <div style="font-size:13px;color:#5C574B;font-family:'Courier Prime',monospace">2026-06 <span onMouseEnter="{{ cite.e2 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c2 }}" style="color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[2]</span></div>
+                </div>
+              </div>
+
+              <div style="height:1px;background:#D6CBB0;margin:26px 0 0"></div>
+
+              <div style="display:grid;grid-template-columns:1fr 340px;gap:48px;padding-top:28px">
+
+                <div style="display:flex;flex-direction:column;gap:34px">
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Money</div>
+                    <div style="display:flex;flex-direction:column;gap:12px">
+                      <div style="display:flex;gap:10px;align-items:baseline;font-size:17px;line-height:1.5"><span style="width:9px;height:9px;background:#0E6B5B;flex:none;transform:translateY(-2px)"></span><span>Raised $91M across disclosed rounds. Series B closed March 2026, led by Kleiner Perkins. <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span></span></div>
+                      <div style="display:flex;gap:10px;align-items:baseline;font-size:17px;line-height:1.5"><span style="width:9px;height:9px;background:#0E6B5B;flex:none;transform:translateY(-2px)"></span><span>An SEC EDGAR filing dated 2026-03-01 precedes the announcement by three days. <span onMouseEnter="{{ cite.e4 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c4 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[4]</span></span></div>
+                      <div style="display:flex;gap:10px;align-items:baseline;font-size:16px;line-height:1.5;color:#8A8271"><span style="width:9px;height:9px;flex:none;border:1px dashed #B0A68C;transform:translateY(-2px)"></span><span>Round size for the Series B, post-money valuation, and the full investor list are <span style="font-style:italic">not publicly disclosed</span>.</span></div>
+                    </div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">People</div>
+                    <div style="display:flex;flex-direction:column;gap:16px">
+                      <div style="display:flex;gap:36px">
+                        <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:18px;font-weight:600">Karan Goel</div><div style="font-size:14px;color:#5C574B">Chief executive <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span></div></div>
+                        <div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:18px;font-weight:600">Albert Gu</div><div style="font-size:14px;color:#5C574B">Chief scientist <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span></div></div>
+                      </div>
+
+                      <div style="border:1px solid #D8B8AF;border-radius:6px;background:#F7EFE0;overflow:hidden">
+                        <div style="display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid #E4CCC4;font-size:13px;font-weight:600;color:#B63A2A">
+                          <span style="width:9px;height:9px;flex:none;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span>Headcount: sources disagree
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1px 1fr;align-items:stretch">
+                          <div style="padding:16px 18px;display:flex;flex-direction:column;gap:5px">
+                            <div style="font-size:34px;font-weight:700;line-height:1;letter-spacing:-.02em">37</div>
+                            <div style="display:flex;align-items:center;gap:7px;font-size:14px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D"></span>LinkedIn, 2026-06 <span onMouseEnter="{{ cite.e2 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c2 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[2]</span></div>
+                          </div>
+                          <div style="background:#E4CCC4"></div>
+                          <div style="padding:16px 18px;display:flex;flex-direction:column;gap:5px">
+                            <div style="font-size:34px;font-weight:700;line-height:1;letter-spacing:-.02em">52</div>
+                            <div style="display:flex;align-items:center;gap:7px;font-size:14px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D"></span>Apollo, 2026-05 <span onMouseEnter="{{ cite.e8 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c8 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[8]</span></div>
+                          </div>
+                        </div>
+                        <div style="padding:10px 14px;border-top:1px solid #E4CCC4;font-size:13px;color:#5C574B;font-family:'Courier Prime',monospace">Both values stand. Cold Start does not average sources.</div>
+                      </div>
+
+                      <div style="display:flex;gap:10px;align-items:baseline;font-size:17px;line-height:1.5"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span><span>Twelve open roles as of 2026-06-20, weighted toward inference infrastructure. <span onMouseEnter="{{ cite.e2 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c2 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[2]</span></span></div>
+                    </div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Signals</div>
+                    <div style="display:flex;flex-direction:column">
+                      <div style="display:grid;grid-template-columns:104px 84px 1fr auto;gap:18px;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD">
+                        <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#5C574B">2026-03-04</span>
+                        <span style="font-size:12px;font-weight:600;color:#6E5C9E">funding</span>
+                        <span style="font-size:17px;display:flex;gap:9px;align-items:baseline"><span style="width:9px;height:9px;background:#0E6B5B;flex:none;transform:translateY(-2px)"></span>Raised Series B, led by Kleiner Perkins.</span>
+                        <span onMouseEnter="{{ cite.e1 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c1 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[1]</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:104px 84px 1fr auto;gap:18px;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD">
+                        <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#5C574B">2026-05-18</span>
+                        <span style="font-size:12px;font-weight:600;color:#6E5C9E">launch</span>
+                        <span style="font-size:17px;display:flex;gap:9px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Shipped Sonic 3, a real-time model with cloned-voice support.</span>
+                        <span onMouseEnter="{{ cite.e5 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c5 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[5]</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:104px 84px 1fr auto;gap:18px;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD">
+                        <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#5C574B">2026-06-02</span>
+                        <span style="font-size:12px;font-weight:600;color:#6E5C9E">customer</span>
+                        <span style="font-size:17px;display:flex;gap:9px;align-items:baseline;color:#20201E"><span style="width:9px;height:9px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%);transform:translateY(-2px)"></span><span>Announced a deployment with a contact-center platform. <span style="color:#8A6A28;font-size:14px;font-family:'Courier Prime',monospace">company claim, not independently confirmed</span></span></span>
+                        <span onMouseEnter="{{ cite.e7 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c7 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[7]</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:104px 84px 1fr auto;gap:18px;align-items:baseline;padding:11px 0">
+                        <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#5C574B">2026-06-20</span>
+                        <span style="font-size:12px;font-weight:600;color:#6E5C9E">hiring</span>
+                        <span style="font-size:17px;display:flex;gap:9px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Twelve open roles, weighted toward inference infrastructure.</span>
+                        <span onMouseEnter="{{ cite.e2 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c2 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[2]</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Comps</div>
+                    <div style="display:flex;flex-direction:column;gap:8px;padding:14px 0 4px;border-top:1px dashed #CFC3A6;border-bottom:1px dashed #CFC3A6">
+                      <div style="font-size:17px;color:#8A8271">No comparable company is named by any source in this ledger.</div>
+                      <div style="font-size:14px;color:#8A8271;font-family:'Courier Prime',monospace">The section stays empty until one is.</div>
+                    </div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Risk</div>
+                    <div style="display:flex;gap:10px;align-items:baseline;font-size:17px;line-height:1.5"><span style="width:9px;height:9px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%);transform:translateY(-2px)"></span><span>The contact-center deployment is company-sourced only. No independent source in this ledger confirms production scale. <span onMouseEnter="{{ cite.e7 }}" onMouseLeave="{{ cite.lv }}" onClick="{{ cite.c7 }}" style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.35)" style-hover="background:#E4DBF3;border-bottom:1px solid #6E5C9E">[7]</span></span></div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Next question</div>
+                    <div style="display:flex;flex-direction:column;gap:12px">
+                      <div style="display:flex;gap:14px;align-items:flex-start">
+                        <span style="width:16px;height:16px;border:1.5px solid #6E5C9E;border-radius:2px;flex:none;margin-top:6px"></span>
+                        <div style="font-family:'Courier Prime',monospace;font-size:21px;line-height:1.45;padding-bottom:5px;border-bottom:1px solid #C9BCA0;flex:1">Ask for one referenceable production customer with call-volume numbers.</div>
+                      </div>
+                      <div style="font-size:14px;color:#8A8271;padding-left:30px">Not a recommendation. The first thing this ledger cannot answer.</div>
+                    </div>
+                  </div>
+
+                  <div style="height:1px;background:#E0D6BD"></div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Investor read</div>
+                    <div style="display:flex;flex-direction:column;gap:14px">
+                      <div style="display:flex;flex-direction:column;gap:11px">
+                        <div style="display:grid;grid-template-columns:168px 1fr;gap:16px;align-items:end"><span style="font-size:16px;color:#5C574B">Why care</span><span style="height:1px;background:repeating-linear-gradient(90deg,#C9BCA0 0 6px,transparent 6px 11px)"></span></div>
+                        <div style="display:grid;grid-template-columns:168px 1fr;gap:16px;align-items:end"><span style="font-size:16px;color:#5C574B">What must be true</span><span style="height:1px;background:repeating-linear-gradient(90deg,#C9BCA0 0 6px,transparent 6px 11px)"></span></div>
+                        <div style="display:grid;grid-template-columns:168px 1fr;gap:16px;align-items:end"><span style="font-size:16px;color:#5C574B">What could break</span><span style="height:1px;background:repeating-linear-gradient(90deg,#C9BCA0 0 6px,transparent 6px 11px)"></span></div>
+                        <div style="display:grid;grid-template-columns:168px 1fr;gap:16px;align-items:end"><span style="font-size:16px;color:#5C574B">Why now</span><span style="height:1px;background:repeating-linear-gradient(90deg,#C9BCA0 0 6px,transparent 6px 11px)"></span></div>
+                        <div style="display:grid;grid-template-columns:168px 1fr;gap:16px;align-items:end"><span style="font-size:16px;color:#5C574B">What to learn next</span><span style="height:1px;background:repeating-linear-gradient(90deg,#C9BCA0 0 6px,transparent 6px 11px)"></span></div>
+                      </div>
+                      <div style="font-size:14px;color:#8A8271;font-family:'Courier Prime',monospace">Filled in the side panel for invited readers. This card carries sourced facts only.</div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div style="border-left:1px solid #D6CBB0;padding-left:28px;display:flex;flex-direction:column;gap:16px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E">Sources</div>
+                    <div style="font-family:'Courier Prime',monospace;font-size:11px;color:#8A8271">tracings · 6</div>
+                  </div>
+
+                  <div style="display:flex;flex-direction:column">
+                    <div style="{{ led.s1 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[1]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">TechCrunch</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-03-04 · cartesia-series-b</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#0E6B5B"><span style="width:8px;height:8px;background:#0E6B5B;flex:none"></span>verified</div>
+                      </div>
+                    </div>
+                    <div style="{{ led.s2 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[2]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">LinkedIn</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-06 · linkedin.com/company/cartesia</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#315F9D"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div>
+                      </div>
+                    </div>
+                    <div style="{{ led.s4 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[4]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">SEC EDGAR filing</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-03-01</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#0E6B5B"><span style="width:8px;height:8px;background:#0E6B5B;flex:none"></span>verified</div>
+                      </div>
+                    </div>
+                    <div style="{{ led.s5 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[5]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">Company changelog, cross-covered by press</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-05-18</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#315F9D"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div>
+                      </div>
+                    </div>
+                    <div style="{{ led.s7 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[7]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">cartesia.ai press page</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-06-02</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#9B6A1E"><span style="width:8px;height:8px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%)"></span>company</div>
+                      </div>
+                    </div>
+                    <div style="{{ led.s8 }}">
+                      <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;font-weight:700">[8]</span>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        <div style="font-size:15px;font-weight:600">Apollo</div>
+                        <div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-05</div>
+                        <div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:.05em;color:#315F9D"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style="font-size:13px;line-height:1.5;color:#8A8271;padding-top:6px;border-top:1px solid #D6CBB0">Read and dropped: [3], [6]. Neither named Cartesia.</div>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:30px;margin-top:26px;border-top:1px solid #D6CBB0;font-family:'Courier Prime',monospace;font-size:12px;color:#8A8271">
+                <span>CS·VOI·CARTESIA·26 · filed 2026-07-27 · sourced facts only</span>
+                <div style="display:flex;align-items:center;gap:20px"><span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:#6E5C9E;border:1.5px solid #6E5C9E;border-radius:2px;padding:3px 7px;transform:rotate(-2.2deg);opacity:.68">VETTED · 3 OF 6</span><span onClick="{{ flip }}" style="color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.4)" style-hover="color:#4E3F79;border-bottom:1px solid #4E3F79">Turn card over</span></div>
+              </div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ flipped }}" hint-placeholder-val="{{ false }}">
+              <div style="position:relative;padding:38px 46px 34px;min-height:560px;background-image:repeating-linear-gradient(180deg,transparent 0 27px,#E5DAC0 27px 28px);background-position:0 60px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <div style="font-size:14px;font-weight:600;color:#6E5C9E">Tracings · verso</div>
+                  <span onClick="{{ flip }}" style="font-size:13px;font-weight:600;color:#6E5C9E;cursor:pointer;border-bottom:1px solid rgba(110,92,158,.4)" style-hover="color:#4E3F79">Turn card back</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 300px;gap:56px;padding-top:34px">
+                  <div style="display:flex;flex-direction:column;gap:5px;font-family:'Courier Prime',monospace;font-size:14px;line-height:28px;color:#3A3730">
+                    <div>04:12:03  read cartesia.ai/press          1 claim kept, marked company</div>
+                    <div>04:12:07  read techcrunch.com            2 claims kept, marked verified</div>
+                    <div>04:12:11  read sec.gov/edgar             1 claim kept, marked verified</div>
+                    <div>04:12:16  read linkedin.com/company      2 claims kept, marked reported</div>
+                    <div>04:12:19  read apollo.io                 1 claim kept, conflicts with 04:12:16</div>
+                    <div>04:12:24  refused 2 claims               no source found</div>
+                    <div>04:12:24  conflict left standing        headcount 37 / 52</div>
+                    <div style="color:#6E5C9E">04:12:25  filed                         CS·VOI·CARTESIA·26</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:12px">
+                    <div style="font-size:13px;font-weight:600;color:#8A8271">Refiled on</div>
+                    <div style="display:flex;flex-direction:column;gap:0;border:1px solid #CFC3A6;border-radius:6px;overflow:hidden;background:#F6EFE0">
+                      <div style="padding:8px 12px;border-bottom:1px solid #E0D6BD;font-family:'Courier Prime',monospace;font-size:14px">2026-03-05</div>
+                      <div style="padding:8px 12px;border-bottom:1px solid #E0D6BD;font-family:'Courier Prime',monospace;font-size:14px">2026-05-19</div>
+                      <div style="padding:8px 12px;border-bottom:1px solid #E0D6BD;font-family:'Courier Prime',monospace;font-size:14px">2026-06-21</div>
+                      <div style="padding:8px 12px;font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E">2026-07-27</div>
+                    </div>
+                    <div style="font-size:13px;line-height:1.5;color:#8A8271">A card is rebuilt when a source changes, not on a schedule.</div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;color:#F4EDDC;background:#6E5C9E;padding:2px 7px;border-radius:3px">1b</span><span style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.04em;color:#5C574B">Mobile 390 / pocket card, divider tabs</span></div>
+
+      <div style="width:390px;background:#E4DCC8;border:1px solid #BDB49E;border-radius:6px;padding:14px 12px 40px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;font-family:'Courier Prime',monospace;font-size:11px;color:#6A6455;padding:0 4px"><span style="color:#6E5C9E;font-weight:700;letter-spacing:.1em">COLD START</span><span>c/cartesia</span></div>
+
+        <div style="position:relative">
+          <div style="position:absolute;left:4px;right:-4px;top:5px;bottom:-5px;background:#EFE6D2;border:1px solid #CBBFA2;border-radius:6px"></div>
+          <div style="position:relative;background:#F4EDDC;border:1px solid #CFC3A6;border-radius:6px;overflow:hidden">
+            <div style="height:4px;background:#6E5C9E"></div>
+            <div style="position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(90px 70px at 92% 96%,rgba(52,42,20,.08),transparent 70%)"></div>
+
+            <div style="padding:16px 16px 10px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+                <div style="font-size:34px;font-weight:700;line-height:1;letter-spacing:-.025em">Cartesia</div>
+                <div style="text-align:right;font-family:'Courier Prime',monospace"><div style="font-size:9px;letter-spacing:.14em;color:#8A8271">CALL NO.</div><div style="font-size:11px;font-weight:700;color:#6E5C9E">CS·VOI<br>CARTESIA·26</div></div>
+              </div>
+              <div style="font-size:16px;line-height:1.4;text-wrap:pretty">Builds real-time voice AI models with sub-100ms latency, sold to product teams shipping voice agents.</div>
+              <div style="display:flex;gap:12px;font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B"><a href="#1b" style="color:#6E5C9E">cartesia.ai</a><span>San Francisco</span><span>2023</span></div>
+            </div>
+
+            <div style="display:flex;gap:0;padding:0 10px;border-bottom:1px solid #D6CBB0">
+              <span onClick="{{ m.t1 }}" style="{{ m.tab1 }}">Card</span>
+              <span onClick="{{ m.t2 }}" style="{{ m.tab2 }}">People</span>
+              <span onClick="{{ m.t3 }}" style="{{ m.tab3 }}">Signals</span>
+              <span onClick="{{ m.t4 }}" style="{{ m.tab4 }}">Sources</span>
+            </div>
+
+            <sc-if value="{{ m.isCard }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:14px 16px 18px;display:flex;flex-direction:column;gap:0">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-size:12px;font-weight:600;color:#6E5C9E">Stage</span><span style="font-size:17px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:#0E6B5B;flex:none"></span>Series B, Mar 2026 <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[1]</span></span></div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-size:12px;font-weight:600;color:#6E5C9E">Raised</span><span style="font-size:17px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;background:#0E6B5B;flex:none"></span>$91M <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[1][4]</span></span></div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-size:12px;font-weight:600;color:#B63A2A">Headcount</span><span style="font-size:17px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span>37 / 52</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-size:12px;font-weight:600;color:#6E5C9E">Valuation</span><span style="font-size:15px;color:#8A8271;font-style:italic">not publicly disclosed</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;padding:11px 0"><span style="font-size:12px;font-weight:600;color:#6E5C9E">Comps</span><span style="font-size:15px;color:#8A8271">none named by a source</span></div>
+
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid #D6CBB0;display:flex;flex-direction:column;gap:10px">
+                  <div style="font-size:13px;font-weight:600;color:#6E5C9E">Next question</div>
+                  <div style="display:flex;gap:11px;align-items:flex-start"><span style="width:15px;height:15px;border:1.5px solid #6E5C9E;border-radius:2px;flex:none;margin-top:4px"></span><div style="font-family:'Courier Prime',monospace;font-size:17px;line-height:1.4;border-bottom:1px solid #C9BCA0;padding-bottom:4px">Ask for one referenceable production customer with call-volume numbers.</div></div>
+                  <div style="font-size:13px;color:#8A8271">Not a recommendation. The first thing this ledger cannot answer.</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ m.isPeople }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:14px 16px 18px;display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:9px;border-bottom:1px solid #E0D6BD"><span style="font-size:17px;font-weight:600">Karan Goel</span><span style="font-size:13px;color:#5C574B">CEO <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E">[1]</span></span></div>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:9px;border-bottom:1px solid #E0D6BD"><span style="font-size:17px;font-weight:600">Albert Gu</span><span style="font-size:13px;color:#5C574B">Chief scientist <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E">[1]</span></span></div>
+                </div>
+                <div style="border:1px solid #D8B8AF;border-radius:6px;background:#F7EFE0;overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #E4CCC4;font-size:12px;font-weight:600;color:#B63A2A"><span style="width:8px;height:8px;flex:none;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span>Headcount: sources disagree</div>
+                  <div style="display:flex;flex-direction:column">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #E4CCC4"><span style="font-size:28px;font-weight:700;line-height:1">37</span><span style="font-size:13px;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>LinkedIn, 2026-06 <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E">[2]</span></span></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px"><span style="font-size:28px;font-weight:700;line-height:1">52</span><span style="font-size:13px;display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>Apollo, 2026-05 <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;color:#6E5C9E">[8]</span></span></div>
+                  </div>
+                  <div style="padding:9px 12px;border-top:1px solid #E4CCC4;font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">Both stand. No average is shown.</div>
+                </div>
+                <div style="font-size:16px;line-height:1.45;display:flex;gap:9px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Twelve open roles, weighted toward inference infrastructure. <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[2]</span></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ m.isSignals }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:14px 16px 18px;display:flex;flex-direction:column">
+                <div style="display:flex;flex-direction:column;gap:5px;padding:11px 0;border-bottom:1px solid #E0D6BD"><div style="display:flex;gap:10px;font-family:'Courier Prime',monospace;font-size:12px"><span style="color:#5C574B">2026-03-04</span><span style="color:#6E5C9E;font-weight:700">funding</span></div><div style="font-size:16px;line-height:1.4;display:flex;gap:8px;align-items:baseline"><span style="width:9px;height:9px;background:#0E6B5B;flex:none;transform:translateY(-2px)"></span>Raised Series B, led by Kleiner Perkins. <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[1]</span></div></div>
+                <div style="display:flex;flex-direction:column;gap:5px;padding:11px 0;border-bottom:1px solid #E0D6BD"><div style="display:flex;gap:10px;font-family:'Courier Prime',monospace;font-size:12px"><span style="color:#5C574B">2026-05-18</span><span style="color:#6E5C9E;font-weight:700">launch</span></div><div style="font-size:16px;line-height:1.4;display:flex;gap:8px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Shipped Sonic 3, a real-time model with cloned-voice support. <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[5]</span></div></div>
+                <div style="display:flex;flex-direction:column;gap:5px;padding:11px 0;border-bottom:1px solid #E0D6BD"><div style="display:flex;gap:10px;font-family:'Courier Prime',monospace;font-size:12px"><span style="color:#5C574B">2026-06-02</span><span style="color:#6E5C9E;font-weight:700">customer</span></div><div style="font-size:16px;line-height:1.4;display:flex;gap:8px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%);transform:translateY(-2px)"></span><span>Announced a deployment with a contact-center platform. <span style="font-family:'Courier Prime',monospace;font-size:12px;color:#8A6A28">company claim</span> <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[7]</span></span></div></div>
+                <div style="display:flex;flex-direction:column;gap:5px;padding:11px 0"><div style="display:flex;gap:10px;font-family:'Courier Prime',monospace;font-size:12px"><span style="color:#5C574B">2026-06-20</span><span style="color:#6E5C9E;font-weight:700">hiring</span></div><div style="font-size:16px;line-height:1.4;display:flex;gap:8px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Twelve open roles, weighted toward inference infrastructure. <span onClick="{{ m.t4 }}" style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E">[2]</span></div></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ m.isSources }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:14px 16px 18px;display:flex;flex-direction:column">
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[1]</span><div><div style="font-size:15px;font-weight:600">TechCrunch</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-03-04 · cartesia-series-b</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#0E6B5B;padding-top:3px"><span style="width:8px;height:8px;background:#0E6B5B;flex:none"></span>verified</div></div></div>
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[2]</span><div><div style="font-size:15px;font-weight:600">LinkedIn</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-06 · linkedin.com/company/cartesia</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#315F9D;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div></div></div>
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[4]</span><div><div style="font-size:15px;font-weight:600">SEC EDGAR filing</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-03-01</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#0E6B5B;padding-top:3px"><span style="width:8px;height:8px;background:#0E6B5B;flex:none"></span>verified</div></div></div>
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[5]</span><div><div style="font-size:15px;font-weight:600">Company changelog, cross-covered by press</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-05-18</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#315F9D;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div></div></div>
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[7]</span><div><div style="font-size:15px;font-weight:600">cartesia.ai press page</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-06-02</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#9B6A1E;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%)"></span>company</div></div></div>
+                <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[8]</span><div><div style="font-size:15px;font-weight:600">Apollo</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-05</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#315F9D;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div></div></div>
+              </div>
+            </sc-if>
+
+            <div style="padding:12px 16px;border-top:1px solid #D6CBB0;font-family:'Courier Prime',monospace;font-size:11px;color:#8A8271;display:flex;justify-content:space-between"><span>filed 2026-07-27</span><span>6 sources</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1c" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;color:#F4EDDC;background:#6E5C9E;padding:2px 7px;border-radius:3px">1c</span><span style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.04em;color:#5C574B">Detail / citation choreography, [4] held</span></div>
+
+      <div style="width:780px;background:#E4DCC8;border:1px solid #BDB49E;border-radius:6px;padding:26px">
+        <div style="background:#F4EDDC;border:1px solid #CFC3A6;border-radius:6px;padding:26px 28px;display:grid;grid-template-columns:1fr 250px;gap:26px;position:relative">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="font-size:14px;font-weight:600;color:#6E5C9E">Money</div>
+            <div style="font-size:17px;line-height:1.55;display:flex;gap:10px;align-items:baseline"><span style="width:9px;height:9px;background:#0E6B5B;flex:none;transform:translateY(-2px)"></span><span>An SEC EDGAR filing dated 2026-03-01 precedes the announcement by three days. <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#3C2F63;background:#DCCFF0;border-bottom:1.5px solid #6E5C9E;padding:0 2px">[4]</span></span></div>
+            <div style="position:relative;height:0"><div style="position:absolute;left:0;right:-27px;top:-14px;height:1px;background:linear-gradient(90deg,rgba(110,92,158,.55),rgba(110,92,158,.15))"></div></div>
+            <div style="font-family:'Courier Prime',monospace;font-size:13px;line-height:1.6;color:#5C574B;border:1px solid #C9BCA0;border-radius:6px;padding:10px 12px;background:#F8F2E4;max-width:430px">
+              <div style="color:#6E5C9E;font-weight:700;font-size:10px;padding-bottom:4px">Hover state</div>
+              SEC EDGAR filing · 2026-03-01<br>verified · corroborated by [1]<br>supports: raised $91M, Series B stage
+            </div>
+            <div style="font-size:14px;line-height:1.6;color:#8A8271;max-width:430px">Hover draws one hairline from the marker to its ledger row. Click holds the pair until the next click. The page does not scroll on its own.</div>
+          </div>
+
+          <div style="border-left:1px solid #D6CBB0;padding-left:20px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:14px;font-weight:600;color:#6E5C9E">Sources</div>
+            <div style="display:flex;flex-direction:column">
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:8px;padding:10px 8px;border-bottom:1px solid #E0D6BD;opacity:.5"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[1]</span><div><div style="font-size:14px;font-weight:600">TechCrunch</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:#5C574B">2026-03-04</div></div></div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:8px;padding:10px 8px;border-bottom:1px solid #E0D6BD;opacity:.5"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[2]</span><div><div style="font-size:14px;font-weight:600">LinkedIn</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:#5C574B">2026-06</div></div></div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:8px;padding:12px 8px;border-bottom:1px solid #E0D6BD;background:#EDE3CC;box-shadow:inset 2px 0 0 #6E5C9E;transform:translateX(3px)"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#3C2F63">[4]</span><div style="display:flex;flex-direction:column;gap:3px"><div style="font-size:15px;font-weight:600">SEC EDGAR filing</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:#3A3730">2026-03-01</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#0E6B5B"><span style="width:8px;height:8px;background:#0E6B5B;flex:none"></span>verified</div><div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#6E5C9E">arrived</div></div></div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:8px;padding:10px 8px;opacity:.5"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[5]</span><div><div style="font-size:14px;font-weight:600">Company changelog</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:#5C574B">2026-05-18</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1d" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;color:#F4EDDC;background:#6E5C9E;padding:2px 7px;border-radius:3px">1d</span><span style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.04em;color:#5C574B">Detail / the conflict row, expanded</span></div>
+
+      <div style="width:780px;background:#E4DCC8;border:1px solid #BDB49E;border-radius:6px;padding:26px">
+        <div style="background:#F4EDDC;border:1px solid #CFC3A6;border-radius:6px;padding:26px 28px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div style="font-size:14px;font-weight:600;color:#6E5C9E">People / headcount</div>
+            <div style="font-size:13px;font-weight:600;color:#B63A2A">Unresolved since 2026-05</div>
+          </div>
+
+          <div style="border:1px solid #D8B8AF;border-radius:6px;background:#F7EFE0;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:9px;padding:10px 16px;border-bottom:1px solid #E4CCC4;font-size:13px;font-weight:600;color:#B63A2A"><span style="width:9px;height:9px;flex:none;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span>Sources disagree</div>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr">
+              <div style="padding:22px 20px;display:flex;flex-direction:column;gap:9px">
+                <div style="font-size:56px;font-weight:700;line-height:.9;letter-spacing:-.03em">37</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D"></span>LinkedIn</div>
+                <div style="font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B;line-height:1.6">reported · 2026-06<br>counts profiles listing the company<br>lags departures, misses contractors</div>
+                <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;align-self:flex-start;border-bottom:1px solid rgba(110,92,158,.4)">[2]</span>
+              </div>
+              <div style="background:#E4CCC4;position:relative"><span style="position:absolute;left:-7px;top:calc(50% - 7px);width:13px;height:13px;background:#F7EFE0;border:1.5px solid #B63A2A;background-image:linear-gradient(45deg,transparent 42%,#B63A2A 42%,#B63A2A 58%,transparent 58%)"></span></div>
+              <div style="padding:22px 20px;display:flex;flex-direction:column;gap:9px">
+                <div style="font-size:56px;font-weight:700;line-height:.9;letter-spacing:-.03em">52</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D"></span>Apollo</div>
+                <div style="font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B;line-height:1.6">reported · 2026-05<br>aggregates third-party records<br>keeps stale rows, may double-count</div>
+                <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;align-self:flex-start;border-bottom:1px solid rgba(110,92,158,.4)">[8]</span>
+              </div>
+            </div>
+            <div style="padding:14px 16px;border-top:1px solid #E4CCC4;display:flex;flex-direction:column;gap:6px">
+              <div style="font-size:16px;line-height:1.5">Neither source has independent corroboration. Both values stand and no average is shown.</div>
+              <div style="font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B">A number here changes only when a verified source names one.</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px;align-items:flex-start;padding-top:4px">
+            <span style="width:16px;height:16px;border:1.5px solid #6E5C9E;border-radius:2px;flex:none;margin-top:5px"></span>
+            <div style="display:flex;flex-direction:column;gap:5px;flex:1">
+              <div style="font-family:'Courier Prime',monospace;font-size:19px;line-height:1.45;border-bottom:1px solid #C9BCA0;padding-bottom:5px">Ask the company for a current headcount and the date it was counted.</div>
+              <div style="font-size:14px;color:#8A8271">The gap is 15 people.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="1e" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:baseline;gap:10px"><span style="font-family:'Courier Prime',monospace;font-size:12px;font-weight:700;color:#F4EDDC;background:#6E5C9E;padding:2px 7px;border-radius:3px">1e</span><span style="font-family:'Courier Prime',monospace;font-size:12px;letter-spacing:.04em;color:#5C574B">Sparse data · one section still reading</span></div>
+
+      <div style="width:1100px;background:#E4DCC8;border:1px solid #BDB49E;border-radius:6px;padding:32px 40px 56px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:20px;font-family:'Courier Prime',monospace;font-size:12px;color:#6A6455">
+          <div style="display:flex;gap:8px"><span style="color:#6E5C9E;font-weight:700;letter-spacing:.1em">COLD START</span><span>/ catalogue / c/kyutai</span></div>
+          <div>retrieved 2026-07-27 04:19 UTC · 2 sources read</div>
+        </div>
+
+        <div style="position:relative">
+          <div style="position:absolute;left:6px;right:-6px;top:8px;bottom:-8px;background:#EFE6D2;border:1px solid #CBBFA2;border-radius:6px"></div>
+          <div style="position:relative;background:#F4EDDC;border:1px solid #CFC3A6;border-radius:6px;overflow:hidden">
+            <div style="height:4px;background:#6E5C9E"></div>
+            <div style="padding:34px 40px 30px;display:flex;flex-direction:column;gap:26px">
+
+              <div style="display:grid;grid-template-columns:1fr 260px;gap:36px;align-items:start">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="font-size:54px;font-weight:700;line-height:.98;letter-spacing:-.026em">Kyutai</div>
+                  <div style="font-size:19px;line-height:1.45;max-width:540px">A nonprofit voice AI research lab in Paris that publishes open speech models. <span style="font-family:'Courier Prime',monospace;font-size:13px;color:#6E5C9E;border-bottom:1px solid rgba(110,92,158,.35)">[1]</span></div>
+                  <div style="display:flex;gap:16px;font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B"><a href="#1e" style="color:#6E5C9E">kyutai.org</a><span>Paris</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:16px;align-items:flex-end">
+                  <div style="text-align:right;font-family:'Courier Prime',monospace"><div style="font-size:11px;letter-spacing:.16em;color:#8A8271">CALL NO.</div><div style="font-size:17px;font-weight:700;color:#6E5C9E">CS·VOI·KYUTAI·26</div></div>
+                  <div style="position:relative;width:196px;height:60px">
+                    <div style="position:absolute;left:1px;top:2px;width:184px;transform:rotate(-3.6deg);border:2px solid #8A8271;border-radius:2px;padding:6px 10px;opacity:.2;font-family:'Courier Prime',monospace;color:#6A6455"><div style="font-size:17px;font-weight:700;letter-spacing:.16em;line-height:1">THIN FILE</div><div style="font-size:10px;letter-spacing:.1em;padding-top:2px">2 sources on record</div></div>
+                    <div style="position:absolute;left:0;top:0;width:184px;transform:rotate(-4.1deg);border:2px solid #8A8271;border-radius:2px;padding:6px 10px;font-family:'Courier Prime',monospace;color:#6A6455;opacity:.62;-webkit-mask-image:radial-gradient(140% 160% at 20% 16%,#000 30%,rgba(0,0,0,.55) 68%,rgba(0,0,0,.3) 100%);mask-image:radial-gradient(140% 160% at 20% 16%,#000 30%,rgba(0,0,0,.55) 68%,rgba(0,0,0,.3) 100%)"><div style="font-size:17px;font-weight:700;letter-spacing:.16em;line-height:1">THIN FILE</div><div style="font-size:10px;letter-spacing:.1em;padding-top:2px">2 sources on record</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="height:1px;background:#D6CBB0"></div>
+
+              <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:22px">
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:13px;font-weight:600;color:#6E5C9E">Founded</div><div style="font-size:19px;font-weight:600;display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%)"></span>2023</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:#5C574B">own site <span style="color:#6E5C9E">[1]</span></div></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:13px;font-weight:600;color:#6E5C9E">Stage</div><div style="font-size:17px;color:#8A8271;font-style:italic">not publicly disclosed</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">nonprofit, no rounds found</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:13px;font-weight:600;color:#6E5C9E">Raised</div><div style="font-size:17px;color:#8A8271;font-style:italic">not publicly disclosed</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">no source in ledger</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:13px;font-weight:600;color:#6E5C9E">Headcount</div><div style="font-size:17px;color:#8A8271;font-style:italic">not publicly disclosed</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">no source in ledger</div></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="font-size:13px;font-weight:600;color:#6E5C9E">Leadership</div><div style="font-size:17px;color:#8A8271;font-style:italic">not publicly disclosed</div><div style="font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">no named source</div></div>
+              </div>
+
+              <div style="height:1px;background:#D6CBB0"></div>
+
+              <div style="display:grid;grid-template-columns:1fr 320px;gap:44px">
+                <div style="display:flex;flex-direction:column;gap:26px">
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Money</div>
+                    <div style="display:flex;flex-direction:column;gap:7px;padding:14px 0;border-top:1px dashed #CFC3A6;border-bottom:1px dashed #CFC3A6">
+                      <div style="font-size:17px;color:#8A8271">No filing, no announced round, no reported figure.</div>
+                      <div style="font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">No public funding found.</div>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Signals</div>
+                    <div style="display:flex;flex-direction:column">
+                      <div style="display:grid;grid-template-columns:104px 84px 1fr auto;gap:18px;align-items:baseline;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:14px;color:#5C574B">2026-04-09</span><span style="font-size:12px;font-weight:600;color:#6E5C9E">launch</span><span style="font-size:17px;display:flex;gap:9px;align-items:baseline"><span style="width:9px;height:9px;flex:none;border:1.5px solid #315F9D;transform:translateY(-2px)"></span>Released an open speech model under a permissive licence.</span><span style="font-family:'Courier Prime',monospace;font-size:14px;color:#6E5C9E;border-bottom:1px solid rgba(110,92,158,.35)">[2]</span></div>
+                      <div style="display:grid;grid-template-columns:104px 1fr;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid #E0D6BD">
+                        <span style="font-family:'Courier Prime',monospace;font-size:14px;color:#8A8271">in progress</span>
+                        <span style="font-size:16px;color:#8A8271;display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;flex:none;border:1px dashed #B0A68C"></span>Reading four more pages for hiring and customer signals. Nothing kept yet.</span>
+                      </div>
+                      <div style="padding:11px 0;font-family:'Courier Prime',monospace;font-size:13px;color:#8A8271">One signal on file. A signal needs a date and a source.</div>
+                    </div>
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:112px 1fr;gap:24px">
+                    <div style="font-size:14px;font-weight:600;color:#6E5C9E;padding-top:3px">Next question</div>
+                    <div style="display:flex;flex-direction:column;gap:11px">
+                      <div style="display:flex;gap:14px;align-items:flex-start"><span style="width:16px;height:16px;border:1.5px solid #6E5C9E;border-radius:2px;flex:none;margin-top:5px"></span><div style="font-family:'Courier Prime',monospace;font-size:20px;line-height:1.45;padding-bottom:5px;border-bottom:1px solid #C9BCA0;flex:1">Ask who funds the lab and on what terms the models stay open.</div></div>
+                      <div style="font-size:14px;color:#8A8271;padding-left:30px">Thin file, not a verdict.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="border-left:1px solid #D6CBB0;padding-left:26px;display:flex;flex-direction:column;gap:14px">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:600;color:#6E5C9E">Sources</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:#8A8271">tracings · 2</div></div>
+                  <div style="display:flex;flex-direction:column">
+                    <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[1]</span><div><div style="font-size:15px;font-weight:600">kyutai.org</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-07 · about page</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#9B6A1E;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #9B6A1E;background-image:linear-gradient(to right,#9B6A1E 50%,transparent 50%)"></span>company</div></div></div>
+                    <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:11px 0;border-bottom:1px solid #E0D6BD"><span style="font-family:'Courier Prime',monospace;font-size:13px;font-weight:700;color:#6E5C9E">[2]</span><div><div style="font-size:15px;font-weight:600">Model release notes, covered by press</div><div style="font-family:'Courier Prime',monospace;font-size:12px;color:#5C574B">2026-04-09</div><div style="display:flex;align-items:center;gap:6px;font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:.05em;color:#315F9D;padding-top:3px"><span style="width:8px;height:8px;flex:none;border:1.5px solid #315F9D"></span>reported</div></div></div>
+                    <div style="display:grid;grid-template-columns:30px 1fr;gap:10px;padding:13px 0"><span style="font-family:'Courier Prime',monospace;font-size:13px;color:#B0A68C">[ ]</span><div style="font-size:14px;color:#8A8271;line-height:1.5">Four pages still being read. Rows appear when a claim is kept.</div></div>
+                  </div>
+                  <div style="font-size:13px;line-height:1.5;color:#8A8271;padding-top:8px;border-top:1px solid #D6CBB0">No verified source on file.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;wear&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Card object&quot;},&quot;stamps&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Card object&quot;}}">
+class Component extends DCLogic {
+  state = { hover: null, active: null, flipped: false, tab: 'card' };
+
+  ledStyle(n) {
+    const on = this.state.hover === n || this.state.active === n;
+    const s = {
+      display: 'grid', gridTemplateColumns: '30px 1fr', gap: '10px',
+      padding: '11px 8px 11px 6px', borderBottom: '1px solid #E0D6BD',
+      transition: 'background 140ms ease, transform 140ms ease, box-shadow 140ms ease'
+    };
+    if (on) {
+      s.background = '#EDE3CC';
+      s.boxShadow = 'inset 2px 0 0 #6E5C9E';
+      s.transform = 'translateX(3px)';
+    }
+    if (this.state.active === n) s.animation = 'ack 900ms ease-out';
+    return s;
+  }
+
+  tabStyle(key, label) {
+    const on = this.state.tab === key;
+    return {
+      fontSize: '13px', fontWeight: 600, padding: '8px 13px 7px', cursor: 'pointer',
+      color: on ? '#3C2F63' : '#6A6455',
+      background: on ? '#EDE3CC' : 'transparent',
+      border: on ? '1px solid #D6CBB0' : '1px solid transparent',
+      borderBottom: 'none',
+      borderRadius: '4px 4px 0 0',
+      boxShadow: on ? 'inset 0 2px 0 #6E5C9E' : 'none'
+    };
+  }
+
+  renderVals() {
+    const cite = { lv: () => this.setState({ hover: null }) };
+    [1, 2, 4, 5, 7, 8].forEach(n => {
+      cite['e' + n] = () => this.setState({ hover: n });
+      cite['c' + n] = () => this.setState({ active: this.state.active === n ? null : n, hover: n });
+    });
+    const led = {};
+    [1, 2, 4, 5, 7, 8].forEach(n => { led['s' + n] = this.ledStyle(n); });
+
+    const t = this.state.tab;
+    const m = {
+      isCard: t === 'card', isPeople: t === 'people', isSignals: t === 'signals', isSources: t === 'sources',
+      t1: () => this.setState({ tab: 'card' }), t2: () => this.setState({ tab: 'people' }),
+      t3: () => this.setState({ tab: 'signals' }), t4: () => this.setState({ tab: 'sources' }),
+      tab1: this.tabStyle('card'), tab2: this.tabStyle('people'),
+      tab3: this.tabStyle('signals'), tab4: this.tabStyle('sources')
+    };
+
+    return {
+      cite, led, m,
+      flipped: this.state.flipped,
+      notFlipped: !this.state.flipped,
+      flip: () => this.setState({ flipped: !this.state.flipped }),
+      wear: this.props.wear ?? true,
+      stamps: this.props.stamps ?? true
+    };
+  }
+}
+</script>
+</body>
+</html>
