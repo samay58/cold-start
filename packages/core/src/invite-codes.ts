@@ -16,8 +16,9 @@ function randomIndex(bound: number): number {
   const buf = new Uint32Array(1);
   for (;;) {
     globalThis.crypto.getRandomValues(buf);
-    if (buf[0] < limit) {
-      return buf[0] % bound;
+    const sample = buf[0];
+    if (sample !== undefined && sample < limit) {
+      return sample % bound;
     }
   }
 }

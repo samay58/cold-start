@@ -16,7 +16,9 @@ describe("INVITE_WORDLIST", () => {
   it("is prefix-free: no word is a prefix of another", () => {
     const sorted = [...INVITE_WORDLIST].sort();
     for (let i = 1; i < sorted.length; i += 1) {
-      expect(sorted[i].startsWith(sorted[i - 1])).toBe(false);
+      const word = sorted[i] ?? "";
+      const previous = sorted[i - 1] ?? "";
+      expect(word.startsWith(previous)).toBe(false);
     }
   });
 });

@@ -209,7 +209,7 @@ export async function pruneAlphaInviteAttempts(db: ColdStartDb, before: Date): P
   const rows = await db
     .delete(alphaInviteAttempts)
     .where(sql`${alphaInviteAttempts.createdAt} < ${before}`)
-    .returning({ id: alphaInviteAttempts.id });
+    .returning();
   return rows.length;
 }
 

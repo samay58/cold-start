@@ -507,11 +507,11 @@ git commit -m "Guard invite inspect and redeem with a global failure breaker"
 - Consumes: `findAlphaInviteCardBySlug` (Task 3), `AlphaInviteClient` and `ALPHA_INVITE_SESSION_KEY` (existing), `INVITE_TOKEN_PATTERN` (Task 1).
 - Produces: public page `GET /i/{slug}` with OG metadata; public image `GET /i/{slug}/card.png`.
 
-- [ ] **Step 1: Extract the fragment-capture script**
+- [x] **Step 1: Extract the fragment-capture script**
 
 Move the `fragmentCaptureScript` template literal from `apps/web/src/app/alpha/page.tsx` into `apps/web/src/app/alpha/fragment-capture.ts` as `export function fragmentCaptureScript(): string` (with the Task 2 pattern interpolation inside). Import it from both `alpha/page.tsx` and the new `i/[slug]/page.tsx` so the two pages cannot drift.
 
-- [ ] **Step 2: Write the failing card-route test**
+- [x] **Step 2: Write the failing card-route test**
 
 ```typescript
 // apps/web/tests/invite-card-route.test.ts
@@ -534,12 +534,12 @@ describe("GET /i/[slug]/card.png", () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify failure**
+- [x] **Step 3: Run to verify failure**
 
 Run: `npm test -w web -- invite-card-route`
 Expected: FAIL (route module does not exist).
 
-- [ ] **Step 4: Implement the route**
+- [x] **Step 4: Implement the route**
 
 ```typescript
 // apps/web/src/app/i/[slug]/card.png/route.ts
@@ -570,7 +570,7 @@ export async function GET(
 
 (Check how the alpha routes construct their db handle and copy that exactly; the import path above is a stand-in for whatever `grep -rn "getDb\|createDb" apps/web/src/app/api/alpha/invite/inspect/route.ts` shows.)
 
-- [ ] **Step 5: Implement the page**
+- [x] **Step 5: Implement the page**
 
 ```tsx
 // apps/web/src/app/i/[slug]/page.tsx
@@ -624,12 +624,12 @@ export default async function InvitePage({ params }: PageProps) {
 
 Layout polish beyond this skeleton belongs to a later design pass; this task's bar is a working page whose preview card, title, and ceremony are correct. Match `AlphaInviteClient` prop usage exactly to `alpha/page.tsx`.
 
-- [ ] **Step 6: Run tests and typecheck**
+- [x] **Step 6: Run tests and typecheck**
 
 Run: `npm test -w web -- invite-card-route && npm run typecheck`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/app/i apps/web/src/app/alpha/page.tsx apps/web/src/app/alpha/fragment-capture.ts apps/web/tests/invite-card-route.test.ts
@@ -918,6 +918,8 @@ Close with a plain-English walkthrough for Samay (say-less + caveman register, p
 - Task 1: the `{4,8}` length filter yielded 943 words, under the 1024 floor; widened to `{4,9}` per this plan's own contingency, giving 1165 words. The wordlist test asserts `/^[a-z]{4,9}$/` accordingly.
 - Task 1: `packages/core/src/index.ts` uses `export * from "./invite-codes";` (the file's uniform star-export convention) instead of the plan's named-export line.
 - Task 3: drizzle-kit numbered the migration 0014 (`0014_gorgeous_typhoid_mary.sql`); additive only. `packages/db/src/index.ts` needed no change: it already star-exports `./repositories/alpha`.
+- Task 5: the OG image is a relative URL resolved by the root layout's `metadataBase` (`webOrigin()` in `apps/web/src/lib/site-origin.ts`), the same convention as `/c/[slug]`, instead of the plan's interpolated `NEXT_PUBLIC_WEB_ORIGIN`; no `twitter:` block per the spec (iMessage reads plain OG only). The db handle is `createDb(webEnv().DATABASE_URL)`, matching the alpha routes.
+- Task 5: two strictness fixes surfaced by the web app's `noUncheckedIndexedAccess` typecheck: `randomIndex` in `packages/core/src/invite-codes.ts` guards the `buf[0]` read, and `pruneAlphaInviteAttempts` uses bare `.returning()` (the `ColdStartDb` union type rejects a selection argument, matching `deleteAlphaTesterData`).
 - General: the web workspace is addressed as `-w @cold-start/web`, not the plan's `-w web`; the extension token-input test file is `apps/extension/tests/alpha-connect.test.ts` (`.ts`, not `.tsx`).
 
 ## Self-Review Notes
