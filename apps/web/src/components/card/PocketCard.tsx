@@ -17,7 +17,6 @@ import {
   type EvidenceState,
   type PublicCardData
 } from "../../lib/card-face/model";
-import { ChoreographyProvider } from "./choreography";
 import { ConflictPanel } from "./ConflictPanel";
 import { SourceRow } from "./SourceRow";
 import { Stamp } from "./Stamp";
@@ -255,11 +254,7 @@ function PeopleTab({ card, index, onJumpToSources }: { card: PublicCardData; ind
           </p>
         ))}
       </div>
-      {conflict ? (
-        <ChoreographyProvider>
-          <ConflictPanel compact conflict={conflict} index={index} />
-        </ChoreographyProvider>
-      ) : null}
+      {conflict ? <ConflictPanel compact conflict={conflict} index={index} onCiteClick={onJumpToSources} /> : null}
       {hiringSignal ? (
         <p className="cs-face-bullet">
           <Mark state={signalEvidenceState(card, hiringSignal)} />

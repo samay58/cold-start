@@ -10,15 +10,40 @@ export type ConflictPanelProps = {
   // 2026-07-30 as the degraded form (the two competing values are not recoverable to one true
   // figure), so both sizes exist permanently rather than one being a loading/transition state.
   compact?: boolean;
+  // Pocket-only: when provided, citation marks render as plain non-interactive receipt spans
+  // (the same cs-pocket-cite convention as PocketCite elsewhere in PocketCard) that call this
+  // instead of pairing with a sources rail that isn't on screen. Absent (the desktop path) keeps
+  // the interactive CiteMark and requires no ChoreographyProvider change here.
+  onCiteClick?: (id: string) => void;
 };
 
-function CiteMarks({ citationIds, index }: { citationIds: string[]; index: CitationIndex }) {
+function CiteMarks({
+  citationIds,
+  index,
+  onCiteClick
+}: {
+  citationIds: string[];
+  index: CitationIndex;
+  onCiteClick?: ((id: string) => void) | undefined;
+}) {
   const marks = citationIds
     .map((id) => ({ id, number: index.displayNumber(id) }))
     .filter((entry): entry is { id: string; number: number } => entry.number !== null);
 
   if (marks.length === 0) {
     return null;
+  }
+
+  if (onCiteClick) {
+    return (
+      <>
+        {marks.map(({ id, number }) => (
+          <span className="cs-pocket-cite" data-cite-id={id} key={id} onClick={() => onCiteClick(id)}>
+            [{number}]
+          </span>
+        ))}
+      </>
+    );
   }
 
   return (
@@ -33,7 +58,7 @@ function CiteMarks({ citationIds, index }: { citationIds: string[]; index: Citat
 // The degraded form for a conflicting fact: the stored value, every disagreeing source, and a
 // footer that refuses to average them. Anchored by id so the stat strip's headcount detail link
 // (Task 6) can jump straight here.
-export function ConflictPanel({ conflict, index, compact = false }: ConflictPanelProps) {
+export function ConflictPanel({ conflict, index, compact = false, onCiteClick }: ConflictPanelProps) {
   return (
     <div className="cs-face-conflict" data-compact={compact ? "true" : undefined} id="headcount-conflict">
       <div className="cs-face-conflict-header">
@@ -49,7 +74,7 @@ export function ConflictPanel({ conflict, index, compact = false }: ConflictPane
           <p className="cs-face-conflict-source" key={source.citationId}>
             {source.label}
             {source.date ? ` · ${source.date}` : ""}
-            <CiteMarks citationIds={[source.citationId]} index={index} />
+            <CiteMarks citationIds={[source.citationId]} index={index} onCiteClick={onCiteClick} />
           </p>
         ))}
       </div>

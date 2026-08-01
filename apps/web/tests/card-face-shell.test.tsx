@@ -131,6 +131,25 @@ describe("ConflictPanel", () => {
     expect(html).toContain("Both stand. No average is shown.");
     expect(html).not.toContain("Both values stand. Cold Start does not average sources.");
   });
+
+  it("renders plain receipt cite spans instead of the interactive CiteMark when onCiteClick is provided", () => {
+    const conflict = headcountConflict(richConflictCard);
+    if (!conflict) {
+      throw new Error("richConflictCard is expected to carry a headcount conflict");
+    }
+    const index = buildCitationIndex(richConflictCard);
+
+    // No ChoreographyProvider wrapper: the onCiteClick path never calls useChoreography, so it
+    // must render standalone. CiteMark would throw ("must render inside a ChoreographyProvider")
+    // if this path fell back to it.
+    const html = renderToStaticMarkup(<ConflictPanel compact conflict={conflict} index={index} onCiteClick={() => {}} />);
+
+    expect(html).toContain("data-cite-id");
+    expect(html).toContain("cs-pocket-cite");
+    expect(html).not.toContain("cs-face-cite");
+    expect(html).not.toContain('role="button"');
+    expect(html).not.toContain('tabindex="0"');
+  });
 });
 
 describe("PocketCard", () => {
