@@ -11,7 +11,7 @@ export type SourceRowProps = {
 // claim it supports. The rail states the latter: an independent/reporting-tier source is what
 // makes a fact read as "verified" or "reported" elsewhere on this card, so the row borrows those
 // same words rather than teaching the reader a second vocabulary.
-export const SOURCE_CLASS_LABEL: Record<CitationSourceClass, string> = {
+const SOURCE_CLASS_LABEL: Record<CitationSourceClass, string> = {
   independent: "verified",
   reporting: "reported",
   company: "company",
@@ -19,7 +19,7 @@ export const SOURCE_CLASS_LABEL: Record<CitationSourceClass, string> = {
   unknown: "unknown"
 };
 
-export function SourceMark({ sourceClass }: { sourceClass: CitationSourceClass }) {
+function SourceMark({ sourceClass }: { sourceClass: CitationSourceClass }) {
   return <span aria-hidden="true" className="cs-face-rail-mark" data-class={sourceClass} />;
 }
 
