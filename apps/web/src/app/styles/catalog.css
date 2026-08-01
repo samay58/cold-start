@@ -1,0 +1,176 @@
+/* ============================================================
+   /catalog: the public index of every filed profile (Task 12,
+   2026-07-30 redesign). Self-contained like card.css's cs-face-* rules:
+   sets its own min-height rather than depending on foundation.css, and
+   mirrors (never imports) card.css's Task 8 hover-acknowledgment values
+   for the row hover state.
+   ============================================================ */
+
+.cs-catalog-plate {
+  min-height: 100vh;
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 32px) 64px;
+  background: var(--cat-ground);
+}
+
+.cs-catalog-reading {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.cs-catalog-header {
+  padding-bottom: 8px;
+}
+
+.cs-catalog-title {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: clamp(44px, 6vw, 72px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 0.98;
+  overflow-wrap: anywhere;
+}
+
+.cs-catalog-count {
+  margin: 10px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
+.cs-catalog-panel {
+  margin-top: 28px;
+  overflow: hidden;
+  border: 1px solid var(--cat-paper-edge);
+  border-radius: 6px;
+  background: var(--cat-paper);
+}
+
+.cs-catalog-row {
+  display: block;
+  padding: 18px 22px;
+  color: var(--cat-ink);
+  text-decoration: none;
+  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.cs-catalog-row + .cs-catalog-row {
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-catalog-row:hover,
+.cs-catalog-row:focus-visible {
+  background: var(--cat-hold);
+  box-shadow: inset 2px 0 0 var(--color-seal);
+  transform: translateX(3px);
+}
+
+.cs-catalog-row:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: -2px;
+}
+
+.cs-catalog-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-catalog-row-name {
+  min-width: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.cs-catalog-row-thin {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--cat-muted-2);
+  border-radius: 3px;
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.cs-catalog-row-meta {
+  margin: 6px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cs-catalog-signature {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cs-catalog-signature-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-catalog-signature-mark {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid currentColor;
+}
+
+.cs-catalog-signature-mark[data-class="independent"] {
+  color: var(--color-verified);
+  background: currentColor;
+}
+
+.cs-catalog-signature-mark[data-class="reporting"] {
+  color: var(--color-reported);
+  background: transparent;
+}
+
+.cs-catalog-signature-mark[data-class="company"] {
+  color: var(--color-company);
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+
+.cs-catalog-signature-mark[data-class="vendor"],
+.cs-catalog-signature-mark[data-class="unknown"] {
+  color: var(--cat-muted);
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 50%;
+}
+
+/* Under reduced motion the hover state itself stays fully visible; only the animated path
+   (the translateX slide) is dropped, matching card.css's own reduced-motion treatment. */
+@media (prefers-reduced-motion: reduce) {
+  .cs-catalog-row {
+    transition: background 0ms, box-shadow 0ms;
+  }
+
+  .cs-catalog-row:hover,
+  .cs-catalog-row:focus-visible {
+    transform: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .cs-catalog-row-top {
+    flex-wrap: wrap;
+  }
+}

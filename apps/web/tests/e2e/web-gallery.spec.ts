@@ -19,6 +19,7 @@ const SCREENSHOT_ROOT = path.join(os.homedir(), "Downloads", "cold-start-qa", RU
 
 const GALLERY_PAGES: Array<{ name: string; path: string }> = [
   { name: "home", path: "/" },
+  { name: "catalog", path: "/catalog" },
   { name: "voxlathe", path: "/c/voxlathe-example" },
   { name: "hollowlabs", path: "/c/hollowlabs-example" },
   { name: "plainfield", path: "/c/plainfield-example" }
@@ -91,5 +92,30 @@ test.describe("web gallery", () => {
     await firstMoneyCite.click();
     await expect(firstMoneyCite).toHaveAttribute("data-on", "true");
     await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-held.png") });
+  });
+
+  // Task 12's /catalog row hover: the Task 8 acknowledgment language (cat-hold ground, inset
+  // seal bar, translateX(3px)) applied as a plain CSS :hover this time, no held/paired state to
+  // exercise. Desktop-only, matching the citation hover capture above. Unlike the citation mark
+  // (a JS-driven data-on attribute that survives any amount of scrolling), :hover tracks the
+  // real cursor position: a fullPage screenshot on this page (5000+px of rows against a 1200px
+  // viewport) scrolls well past the hovered row while stitching and silently drops the hover by
+  // the final frame. A plain viewport screenshot after scrolling the row to a known position
+  // avoids that trap entirely.
+  test("captures a hovered catalog row on desktop", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "the row hover capture is desktop-only");
+
+    const response = await page.goto("/catalog");
+    expect(response?.ok()).toBe(true);
+    await page.waitForTimeout(400);
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const voxlatheRow = page.locator('.cs-catalog-row[href="/c/voxlathe-example"]');
+    await voxlatheRow.scrollIntoViewIfNeeded();
+    await voxlatheRow.hover();
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(screenshotDir, "catalog-hover.png") });
   });
 });
