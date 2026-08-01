@@ -471,10 +471,13 @@
 /* The card's one interactive mark: shared by StatStrip, SectionRows, and ConflictPanel via
    choreography.tsx's CiteMark. data-on covers both hover and hold, since the pairing highlight
    with the matching sources-rail row looks identical for either. */
+/* Padding (not just the [n] glyph) sets the clickable box: 3px/4px brings the effective tap
+   target to ~24px on both axes, the exit checklist's floor for a citation mark, without making
+   the glyph itself read as a button. */
 .cs-face-cite {
   display: inline-block;
   margin-left: 4px;
-  padding: 0 1px;
+  padding: 3px 4px;
   color: var(--color-seal);
   font-family: var(--font-text);
   font-size: 14px;
@@ -1224,7 +1227,7 @@ a.cs-face-rail-source-title:hover {
 .cs-pocket-cite {
   display: inline-block;
   margin-left: 4px;
-  padding: 0 1px;
+  padding: 3px 4px;
   color: var(--color-seal);
   font-family: var(--font-text);
   font-size: 13px;
