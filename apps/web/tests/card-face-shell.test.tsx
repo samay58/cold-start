@@ -31,4 +31,17 @@ describe("CardFace", () => {
     expect(html).toContain("FILED");
     expect(html).not.toContain("THIN FILE");
   });
+
+  it("renders the five-slot stat strip with honest absences and the headcount conflict link", () => {
+    const html = renderFace(richConflictCard);
+
+    expect(html).toContain(">Stage<");
+    expect(html).toContain(">Raised<");
+    expect(html).toContain(">Headcount<");
+    expect(html).toContain(">Valuation<");
+    expect(html).toContain(">Open roles<");
+    expect(html).toContain("not publicly disclosed");
+    expect(html).toContain('href="#headcount-conflict"');
+    expect(html).toContain("$58M");
+  });
 });

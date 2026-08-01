@@ -2,8 +2,9 @@ import React from "react";
 import type { ReactNode } from "react";
 import type { ResearchSection } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
-import { buildCitationIndex, callNumber, isThinFile, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
+import { buildCitationIndex, callNumber, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
 import { Stamp } from "./Stamp";
+import { StatStrip } from "./StatStrip";
 
 export type CardFaceProps = {
   card: PublicCardData;
@@ -90,7 +91,8 @@ function CardHeader({ card }: { card: PublicCardData }) {
 // texture, and CSS wear overlays, then the two-column reading grid inside the face. Tasks 6-9
 // fill the marked slots without touching this shell.
 export function CardFace({ card, sections: _sections, texture }: CardFaceProps) {
-  const sourcesRead = buildCitationIndex(card).ordered.length;
+  const citationIndex = buildCitationIndex(card);
+  const sourcesRead = citationIndex.ordered.length;
 
   return (
     <div className="cs-face-plate">
@@ -107,7 +109,7 @@ export function CardFace({ card, sections: _sections, texture }: CardFaceProps) 
             <div className="cs-face-desktop">
               <div className="cs-face-main">
                 <CardHeader card={card} />
-                {/* stat strip: Task 6 */}
+                <StatStrip index={citationIndex} slots={statSlots(card)} />
                 {/* section rows: Task 7 */}
               </div>
               <div className="cs-face-rail">{/* sources rail: Task 8 */}</div>

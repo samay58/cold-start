@@ -309,6 +309,103 @@
   -webkit-mask-image: radial-gradient(140% 160% at 22% 14%, #000 32%, rgb(0 0 0 / 0.62) 66%, rgb(0 0 0 / 0.34) 100%);
 }
 
+/* --- Stat strip: five key-value columns between the header and the section rows --- */
+
+.cs-face-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 26px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--cat-rule);
+}
+
+.cs-face-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cs-face-stat-label {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-face-stat-label[data-conflict="true"] {
+  color: var(--color-conflict);
+}
+
+.cs-face-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.cs-face-stat-mark {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+}
+
+.cs-face-stat-mark[data-state="verified"] {
+  color: var(--color-verified);
+  background: currentColor;
+}
+
+.cs-face-stat-mark[data-state="reported"] {
+  color: var(--color-reported);
+  background: transparent;
+}
+
+.cs-face-stat-mark[data-state="company"] {
+  color: var(--color-company);
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+
+.cs-face-stat-mark[data-state="conflict"] {
+  color: var(--color-conflict);
+  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+}
+
+.cs-face-stat-absent {
+  color: var(--cat-muted-2);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.cs-face-stat-detail {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.cs-face-stat-cite {
+  margin-left: 3px;
+  font-weight: 600;
+}
+
+.cs-face-stat-conflict-link {
+  color: var(--color-conflict);
+  text-decoration: underline;
+  text-decoration-color: var(--cat-conflict-rule);
+  text-underline-offset: 2px;
+}
+
+.cs-face-stat-conflict-link:hover {
+  text-decoration-color: var(--color-conflict);
+}
+
 @media (max-width: 700px) {
   .cs-face-desktop {
     grid-template-columns: 1fr;
@@ -326,5 +423,10 @@
   .cs-face-name {
     font-size: 44px;
     letter-spacing: -0.01em;
+  }
+
+  .cs-face-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 20px;
   }
 }
