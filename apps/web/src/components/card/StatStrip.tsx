@@ -1,4 +1,5 @@
 import React from "react";
+import { CiteMark } from "./choreography";
 import type { CitationIndex, StatSlot } from "../../lib/card-face/model";
 
 export type StatStripProps = {
@@ -6,8 +7,6 @@ export type StatStripProps = {
   index: CitationIndex;
 };
 
-// Plain receipt marks for now: Task 8 swaps this span for the interactive citation choreography
-// without a relayout, per the data-cite-id hook it reads.
 function CitationMarks({ citationIds, index }: { citationIds: string[]; index: CitationIndex }) {
   const marks = citationIds
     .map((id) => ({ id, number: index.displayNumber(id) }))
@@ -20,9 +19,7 @@ function CitationMarks({ citationIds, index }: { citationIds: string[]; index: C
   return (
     <>
       {marks.map(({ id, number }) => (
-        <span className="cs-face-stat-cite" data-cite-id={id} key={id}>
-          [{number}]
-        </span>
+        <CiteMark id={id} key={id} number={number} />
       ))}
     </>
   );

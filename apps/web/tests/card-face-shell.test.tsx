@@ -2,8 +2,9 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CardFace } from "../src/components/card/CardFace";
+import { ChoreographyProvider } from "../src/components/card/choreography";
 import { ConflictPanel } from "../src/components/card/ConflictPanel";
-import { buildCitationIndex, headcountConflict } from "../src/lib/card-face/model";
+import { buildCitationIndex, headcountConflict, vettedCounts } from "../src/lib/card-face/model";
 import { emptySectionsCard, richConflictCard, thinFileCard } from "./fixtures/gallery-cards";
 
 function renderFace(card: Parameters<typeof CardFace>[0]["card"]) {
@@ -74,6 +75,40 @@ describe("CardFace", () => {
   });
 });
 
+// renderToStaticMarkup HTML-escapes text nodes (an apostrophe becomes &#x27;), so a raw
+// citation.title containment check must escape the same way the rendered markup does.
+function htmlEscaped(text: string): string {
+  return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("'", "&#x27;");
+}
+
+describe("SourcesRail", () => {
+  it("renders every citation on the rich card, including one never cited inline, with its own [n] and source title", () => {
+    const html = renderFace(richConflictCard);
+
+    for (let displayNumber = 1; displayNumber <= richConflictCard.citations.length; displayNumber += 1) {
+      expect(html).toContain(`[${displayNumber}]`);
+    }
+    expect(html).toContain("tracings · 6");
+    for (const citation of richConflictCard.citations) {
+      expect(html).toContain(htmlEscaped(citation.title));
+    }
+  });
+
+  it("renders the VETTED chip with vettedCounts's own verified and total counts", () => {
+    const html = renderFace(richConflictCard);
+    const counts = vettedCounts(richConflictCard);
+
+    expect(counts.total).toBeGreaterThan(0);
+    expect(html).toContain(`VETTED · ${counts.verified} OF ${counts.total}`);
+  });
+
+  it("still files the footer's call number and filed line on a thin file", () => {
+    const html = renderFace(thinFileCard);
+
+    expect(html).toContain("sourced facts only");
+  });
+});
+
 describe("ConflictPanel", () => {
   it("renders the compact footer, not the full footer, when compact is true", () => {
     const conflict = headcountConflict(richConflictCard);
@@ -82,7 +117,11 @@ describe("ConflictPanel", () => {
     }
     const index = buildCitationIndex(richConflictCard);
 
-    const html = renderToStaticMarkup(<ConflictPanel compact conflict={conflict} index={index} />);
+    const html = renderToStaticMarkup(
+      <ChoreographyProvider>
+        <ConflictPanel compact conflict={conflict} index={index} />
+      </ChoreographyProvider>
+    );
 
     expect(html).toContain("Both stand. No average is shown.");
     expect(html).not.toContain("Both values stand. Cold Start does not average sources.");

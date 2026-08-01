@@ -57,4 +57,28 @@ test.describe("web gallery", () => {
       await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${name}.png`) });
     });
   }
+
+  // The Task 8 citation choreography: hover an inline [n] mark and its sources-rail row lights
+  // up, click to hold the pairing. Money is always the card's first section row, so the first
+  // citation mark inside the first row is the first Money citation regardless of fixture.
+  test("captures voxlathe-newface hover and held citation states", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "new face gallery is desktop-only until Task 9's pocket card lands");
+
+    const response = await page.goto("/c/voxlathe-example?face=new");
+    expect(response?.ok()).toBe(true);
+    await page.waitForTimeout(400);
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const firstMoneyCite = page.locator(".cs-face-sections .cs-face-row").first().locator("[data-cite-id]").first();
+
+    await firstMoneyCite.hover();
+    await expect(firstMoneyCite).toHaveAttribute("data-on", "true");
+    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-newface-hover.png") });
+
+    await firstMoneyCite.click();
+    await expect(firstMoneyCite).toHaveAttribute("data-on", "true");
+    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-newface-held.png") });
+  });
 });

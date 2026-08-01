@@ -391,11 +391,6 @@
   line-height: 1.35;
 }
 
-.cs-face-stat-cite {
-  margin-left: 3px;
-  font-weight: 600;
-}
-
 .cs-face-stat-conflict-link {
   color: var(--color-conflict);
   text-decoration: underline;
@@ -473,14 +468,32 @@
   background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
 }
 
+/* The card's one interactive mark: shared by StatStrip, SectionRows, and ConflictPanel via
+   choreography.tsx's CiteMark. data-on covers both hover and hold, since the pairing highlight
+   with the matching sources-rail row looks identical for either. */
 .cs-face-cite {
+  display: inline-block;
   margin-left: 4px;
+  padding: 0 1px;
   color: var(--color-seal);
   font-family: var(--font-text);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   border-bottom: 1px solid rgb(110 92 158 / 0.35);
   white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+}
+
+.cs-face-cite[data-on="true"] {
+  color: var(--seal-deep);
+  background: var(--cat-hold-flash);
+  border-bottom: 1.5px solid var(--color-seal);
+}
+
+.cs-face-cite:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
 }
 
 /* Fact bullets: Money, Risk, and the incremental financing-section rows Money folds in. */
@@ -674,6 +687,203 @@
   font-size: 13px;
 }
 
+/* --- Sources rail: the right column's ledger, tracings for every citation on the card --- */
+
+.cs-face-rail-panel {
+  position: sticky;
+  top: 24px;
+  border-left: 1px solid var(--cat-rule-strong);
+  padding-left: 28px;
+}
+
+.cs-face-rail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.cs-face-rail-header-title {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cs-face-rail-header-meta {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cs-face-rail-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -10px;
+}
+
+/* LedgerRow's own element (choreography.tsx). data-on covers hover and hold alike; data-held is
+   the fresh-hold-only ack flash; data-dimmed is every other row while one is held. Attribute
+   toggles (rather than a class the row keeps across state) are what let @keyframes cs-ack replay
+   on each new hold: the row leaves the [data-held="true"] rule entirely between holds, so the
+   animation is genuinely reapplied rather than continuing a paused one. */
+.cs-face-rail-row {
+  padding: 10px;
+  border-radius: 4px;
+  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.cs-face-rail-row[data-on="true"] {
+  background: var(--cat-hold);
+  box-shadow: inset 2px 0 0 var(--color-seal);
+  transform: translateX(3px);
+}
+
+.cs-face-rail-row[data-held="true"] {
+  animation: cs-ack 900ms ease-out;
+}
+
+.cs-face-rail-row[data-dimmed="true"] {
+  opacity: 0.5;
+}
+
+@keyframes cs-ack {
+  from {
+    background: var(--cat-hold-flash);
+  }
+
+  to {
+    background: var(--cat-hold);
+  }
+}
+
+.cs-face-rail-row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.cs-face-rail-number {
+  flex: 0 0 auto;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.cs-face-rail-source-title {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+a.cs-face-rail-source-title:hover {
+  color: var(--color-seal);
+  text-decoration: underline;
+  text-decoration-color: var(--cat-rule-strong);
+  text-underline-offset: 2px;
+}
+
+.cs-face-rail-receipt {
+  margin: 4px 0 0;
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-face-rail-class {
+  display: flex;
+  align-items: center;
+  margin: 6px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.cs-face-rail-class[data-class="independent"] {
+  color: var(--color-verified);
+}
+
+.cs-face-rail-class[data-class="reporting"] {
+  color: var(--color-reported);
+}
+
+.cs-face-rail-class[data-class="company"] {
+  color: var(--color-company);
+}
+
+.cs-face-rail-mark {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 6px;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid currentColor;
+}
+
+.cs-face-rail-mark[data-class="independent"] {
+  color: var(--color-verified);
+  background: currentColor;
+}
+
+.cs-face-rail-mark[data-class="reporting"] {
+  color: var(--color-reported);
+  background: transparent;
+}
+
+.cs-face-rail-mark[data-class="company"] {
+  color: var(--color-company);
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+
+.cs-face-rail-mark[data-class="vendor"],
+.cs-face-rail-mark[data-class="unknown"] {
+  color: var(--cat-muted);
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  border-radius: 50%;
+}
+
+/* --- Card footer: call number, filed date, and the rotated VETTED stamp, below both columns --- */
+
+.cs-face-footer {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px clamp(28px, 4vw, 48px) clamp(22px, 4vw, 36px);
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-face-footer-receipt {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-face-vetted-chip {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border: 1.5px solid var(--color-seal);
+  border-radius: 2px;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  opacity: 0.68;
+  transform: rotate(-2.2deg);
+  white-space: nowrap;
+}
+
 /* --- Conflict panel: the degraded form for a fact sources disagree on --- */
 
 .cs-face-conflict {
@@ -790,5 +1000,45 @@
 
   .cs-face-signal-cite {
     padding-top: 0;
+  }
+
+  /* The sticky, bordered rail is a desktop-column affordance; stacked under the main column on
+     mobile it reads as a second card section instead, ahead of Task 9's real pocket-card
+     treatment. */
+  .cs-face-rail-panel {
+    position: static;
+    margin-top: 24px;
+    padding-left: 0;
+    padding-top: 20px;
+    border-top: 1px dashed var(--cat-paper-edge);
+    border-left: none;
+  }
+
+  .cs-face-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+/* The 140ms transitions and the ack flash are how a state change (paired, held) reads as a state
+   change rather than a color swap with no cause. Under reduced motion the states themselves must
+   still be fully visible; only the animated path there is dropped. Background and box-shadow
+   changes apply instantly (transition duration 0), never removed outright. */
+@media (prefers-reduced-motion: reduce) {
+  .cs-face-cite {
+    transition: color 0ms, background 0ms, border-color 0ms;
+  }
+
+  .cs-face-rail-row {
+    transition: background 0ms, box-shadow 0ms, opacity 0ms;
+  }
+
+  .cs-face-rail-row[data-on="true"] {
+    transform: none;
+  }
+
+  .cs-face-rail-row[data-held="true"] {
+    animation: none;
   }
 }

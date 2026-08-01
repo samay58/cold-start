@@ -16,6 +16,7 @@ import {
   type FactBullet,
   type PublicCardData
 } from "../../lib/card-face/model";
+import { CiteMark } from "./choreography";
 import { ConflictPanel } from "./ConflictPanel";
 
 export type SectionRowsProps = {
@@ -39,8 +40,9 @@ function Mark({ state }: { state: EvidenceState }) {
   return <span aria-hidden="true" className="cs-face-mark" data-state={state} />;
 }
 
-// Plain receipt spans for now, same pattern as StatStrip's CitationMarks: Task 8 swaps these
-// for the interactive hover-to-hold choreography without a relayout, per the data-cite-id hook.
+// Shared by every BulletRow-adjacent citation reference in this file: same pattern StatStrip's
+// CitationMarks uses, so a citation cited from both the stat strip and a section row still points
+// at the exact same CiteMark component (and therefore the same pairing highlight).
 function CiteMarks({ citationIds, index }: { citationIds: string[]; index: CitationIndex }) {
   const marks = citationIds
     .map((id) => ({ id, number: index.displayNumber(id) }))
@@ -53,9 +55,7 @@ function CiteMarks({ citationIds, index }: { citationIds: string[]; index: Citat
   return (
     <>
       {marks.map(({ id, number }) => (
-        <span className="cs-face-cite" data-cite-id={id} key={id}>
-          [{number}]
-        </span>
+        <CiteMark id={id} key={id} number={number} />
       ))}
     </>
   );

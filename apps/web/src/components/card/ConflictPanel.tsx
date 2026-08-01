@@ -1,5 +1,6 @@
 import React from "react";
 import { formatShortDate } from "@cold-start/ui";
+import { CiteMark } from "./choreography";
 import type { CitationIndex, HeadcountConflict } from "../../lib/card-face/model";
 
 export type ConflictPanelProps = {
@@ -23,9 +24,7 @@ function CiteMarks({ citationIds, index }: { citationIds: string[]; index: Citat
   return (
     <>
       {marks.map(({ id, number }) => (
-        <span className="cs-face-cite" data-cite-id={id} key={id}>
-          [{number}]
-        </span>
+        <CiteMark id={id} key={id} number={number} />
       ))}
     </>
   );

@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import type { ResearchSection } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
 import { buildCitationIndex, callNumber, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
+import { ChoreographyProvider } from "./choreography";
 import { SectionRows } from "./SectionRows";
+import { SourcesRail } from "./SourcesRail";
 import { Stamp } from "./Stamp";
 import { StatStrip } from "./StatStrip";
 
@@ -88,9 +90,35 @@ function CardHeader({ card }: { card: PublicCardData }) {
   );
 }
 
+function VettedChip({ card }: { card: PublicCardData }) {
+  const counts = vettedCounts(card);
+  if (counts.total === 0) {
+    return null;
+  }
+
+  return (
+    <span className="cs-face-vetted-chip">
+      VETTED · {counts.verified} OF {counts.total}
+    </span>
+  );
+}
+
+function CardFooter({ card }: { card: PublicCardData }) {
+  return (
+    <div className="cs-face-footer">
+      <span className="cs-face-footer-receipt">
+        {callNumber(card)} · filed {filedDateStamp(card.generatedAt)} · sourced facts only
+      </span>
+      <VettedChip card={card} />
+    </div>
+  );
+}
+
 // The card object: ghost stack behind, the parchment face on top with its seal bar, WebGL
-// texture, and CSS wear overlays, then the two-column reading grid inside the face. Tasks 6-9
-// fill the marked slots without touching this shell.
+// texture, and CSS wear overlays, then the two-column reading grid inside the face, and the
+// footer's call number / filed line / VETTED stamp below both columns. ChoreographyProvider
+// (Task 8) wraps only the two-column grid: it is the only part of the face carrying citation
+// marks and the sources rail those marks pair with.
 export function CardFace({ card, sections, texture }: CardFaceProps) {
   const citationIndex = buildCitationIndex(card);
   const sourcesRead = citationIndex.ordered.length;
@@ -108,13 +136,18 @@ export function CardFace({ card, sections, texture }: CardFaceProps) {
             <div aria-hidden="true" className="cs-face-wear cs-face-wear-stains" />
             <div aria-hidden="true" className="cs-face-wear cs-face-wear-fiber" />
             <div className="cs-face-desktop">
-              <div className="cs-face-main">
-                <CardHeader card={card} />
-                <StatStrip index={citationIndex} slots={statSlots(card)} />
-                <SectionRows card={card} index={citationIndex} sections={sections} />
-              </div>
-              <div className="cs-face-rail">{/* sources rail: Task 8 */}</div>
+              <ChoreographyProvider>
+                <div className="cs-face-main">
+                  <CardHeader card={card} />
+                  <StatStrip index={citationIndex} slots={statSlots(card)} />
+                  <SectionRows card={card} index={citationIndex} sections={sections} />
+                </div>
+                <div className="cs-face-rail">
+                  <SourcesRail index={citationIndex} />
+                </div>
+              </ChoreographyProvider>
             </div>
+            <CardFooter card={card} />
           </div>
         </div>
       </div>
