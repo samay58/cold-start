@@ -124,7 +124,6 @@ function PocketHeader({ card }: { card: PublicCardData }) {
   const description = card.identity.oneLiner.value;
   const websiteHref = safeExternalHref(card.identity.websiteUrl?.value ?? `https://${card.domain}`);
   const hqCity = card.identity.hq.value?.city ?? null;
-  const foundedYear = card.identity.foundedYear.value ?? null;
   const thin = isThinFile(card);
 
   return (
@@ -151,7 +150,6 @@ function PocketHeader({ card }: { card: PublicCardData }) {
           <span className="cs-pocket-domain-link">{card.domain}</span>
         )}
         {hqCity ? <span> · {hqCity}</span> : null}
-        {foundedYear ? <span> · {foundedYear}</span> : null}
       </p>
     </header>
   );

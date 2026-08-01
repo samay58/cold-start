@@ -207,7 +207,7 @@ export function vettedCounts(card: PublicCardData): { verified: number; total: n
 // --- Stat strip ---
 
 export interface StatSlot {
-  key: "stage" | "raised" | "headcount" | "valuation" | "openRoles";
+  key: "stage" | "raised" | "headcount" | "valuation" | "founded";
   label: string;
   value: string | null;
   detail: string;
@@ -220,6 +220,7 @@ export function statSlots(card: PublicCardData): StatSlot[] {
   const round = card.funding.lastRound;
   const totalRaised = card.funding.totalRaisedUsd;
   const headcount = card.team.headcount;
+  const foundedYear = card.identity.foundedYear;
 
   const stageDetail = ((): string => {
     if (!round.value) {
@@ -270,8 +271,8 @@ export function statSlots(card: PublicCardData): StatSlot[] {
       conflict: headcount.status === "mixed",
       citationIds: headcount.value ? headcount.citationIds : []
     },
-    // Valuation and Open roles have no schema field: they are permanently absent, not
-    // waiting for data. Rendering the honest absent state is the point, not a bug.
+    // Valuation has no schema field: it is permanently absent, not waiting for data.
+    // Rendering the honest absent state is the point, not a bug.
     {
       key: "valuation",
       label: "Valuation",
@@ -282,13 +283,17 @@ export function statSlots(card: PublicCardData): StatSlot[] {
       citationIds: []
     },
     {
-      key: "openRoles",
-      label: "Open roles",
-      value: null,
-      detail: NO_SOURCE_DETAIL,
-      state: null,
-      conflict: false,
-      citationIds: []
+      key: "founded",
+      label: "Founded",
+      value: foundedYear.value !== null ? String(foundedYear.value) : null,
+      // No secondary line for a bare year; a founded year genuinely can be missing (unlike
+      // Valuation, which never has a schema field at all), so the absence renders through the
+      // same italic "not publicly disclosed" / "no source in ledger" treatment as every other
+      // slot rather than a bespoke message.
+      detail: foundedYear.value !== null ? "" : NO_SOURCE_DETAIL,
+      state: foundedYear.value !== null ? evidenceStateForFact(card, foundedYear) : null,
+      conflict: foundedYear.status === "mixed",
+      citationIds: foundedYear.value !== null ? foundedYear.citationIds : []
     }
   ];
 }

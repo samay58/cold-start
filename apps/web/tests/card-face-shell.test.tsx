@@ -47,7 +47,7 @@ describe("CardFace", () => {
     expect(html).toContain(">Raised<");
     expect(html).toContain(">Headcount<");
     expect(html).toContain(">Valuation<");
-    expect(html).toContain(">Open roles<");
+    expect(html).toContain(">Founded<");
     expect(html).toContain("not publicly disclosed");
     expect(html).toContain('href="#headcount-conflict"');
     expect(html).toContain("$58M");

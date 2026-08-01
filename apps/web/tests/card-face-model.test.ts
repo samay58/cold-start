@@ -99,26 +99,34 @@ describe("vettedCounts", () => {
 });
 
 describe("statSlots", () => {
-  it("always returns 5 slots in order, with Valuation and Open roles permanently absent", () => {
+  it("always returns 5 slots in order, with Valuation permanently absent and Founded from foundedYear", () => {
     const slots = statSlots(richConflictCard);
 
-    expect(slots.map((slot) => slot.key)).toEqual(["stage", "raised", "headcount", "valuation", "openRoles"]);
+    expect(slots.map((slot) => slot.key)).toEqual(["stage", "raised", "headcount", "valuation", "founded"]);
 
     const valuation = slots.find((slot) => slot.key === "valuation")!;
     expect(valuation.value).toBeNull();
     expect(valuation.detail).toBe("no source in ledger");
     expect(valuation.state).toBeNull();
 
-    const openRoles = slots.find((slot) => slot.key === "openRoles")!;
-    expect(openRoles.value).toBeNull();
-    expect(openRoles.detail).toBe("no source in ledger");
-    expect(openRoles.state).toBeNull();
+    const founded = slots.find((slot) => slot.key === "founded")!;
+    expect(founded.value).toBe("2023");
+    expect(founded.detail).toBe("");
+    expect(founded.state).toBe("company");
+    expect(founded.citationIds).toEqual(["c5"]);
   });
 
-  it("shows Valuation and Open roles absent even on a card with no funding data at all", () => {
+  it("shows Valuation absent even on a card with no funding data at all", () => {
     const slots = statSlots(thinFileCard);
     expect(slots.find((slot) => slot.key === "valuation")!.value).toBeNull();
-    expect(slots.find((slot) => slot.key === "openRoles")!.value).toBeNull();
+  });
+
+  it("shows Founded absent, with the same honest-ledger detail as Valuation, on a card with no founded year on record", () => {
+    const founded = statSlots(thinFileCard).find((slot) => slot.key === "founded")!;
+    expect(founded.value).toBeNull();
+    expect(founded.detail).toBe("no source in ledger");
+    expect(founded.state).toBeNull();
+    expect(founded.citationIds).toEqual([]);
   });
 
   it("flags the headcount slot as a conflict, with the 'see below' detail, on the mixed fixture", () => {

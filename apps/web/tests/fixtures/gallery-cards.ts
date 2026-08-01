@@ -5,7 +5,9 @@
 // redesign has real states to screenshot against, not just one happy-path fixture:
 //   - richConflictCard: every section populated, including a headcount fact two reporting
 //     sources disagree on (status "mixed"), for the conflict panel.
-//   - thinFileCard: sits right at the hasUsablePublicProfile threshold.
+//   - thinFileCard: sits right at the hasUsablePublicProfile threshold; also the one fixture
+//     with no founded year on record, so the stat strip's Founded slot renders its honest
+//     absence somewhere in the gallery (the other two cards carry a founded year with citations).
 //   - emptySectionsCard: identity and headcount only, funding/comparables/signals all empty, for
 //     the empty-state design of those sections.
 import type { Citation, ColdStartCard, ResolvedFact } from "@cold-start/core";
@@ -215,8 +217,10 @@ const hollowLabsCitations: Citation[] = [
 ];
 
 // Sits exactly at the hasUsablePublicProfile threshold (4 structured facts, 2 visible facts):
-// websiteUrl, hq, foundedYear, and the one signal carry it; funding, team, and comparables are
-// all empty. This is the near-boundary fixture for the redesign's thin-profile treatment.
+// websiteUrl, hq, the one named founder, and the one signal carry it; funding, headcount, and
+// comparables are all empty, and foundedYear is deliberately unknown (the Founded stat slot's
+// absent state needs a real fixture to render against). This is the near-boundary fixture for
+// the redesign's thin-profile treatment.
 export const thinFileCard: ColdStartCard = {
   slug: "hollowlabs-example",
   domain: "hollowlabs.example",
@@ -239,7 +243,7 @@ export const thinFileCard: ColdStartCard = {
       ["c1"]
     ),
     hq: fact({ city: "Providence", country: "US" }, ["c2"]),
-    foundedYear: fact(2025, ["c2"]),
+    foundedYear: fact(null),
     status: "private"
   },
   funding: {
@@ -248,7 +252,7 @@ export const thinFileCard: ColdStartCard = {
     investors: fact(null)
   },
   team: {
-    founders: fact(null),
+    founders: fact([{ name: "Sana Okafor", role: "Founder", sourceUrl: "https://hollowlabs.example/about" }], ["c1"]),
     keyExecs: fact(null),
     headcount: fact(null)
   },
