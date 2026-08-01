@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { ResearchSection } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
 import { buildCitationIndex, callNumber, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
+import { SectionRows } from "./SectionRows";
 import { Stamp } from "./Stamp";
 import { StatStrip } from "./StatStrip";
 
@@ -90,7 +91,7 @@ function CardHeader({ card }: { card: PublicCardData }) {
 // The card object: ghost stack behind, the parchment face on top with its seal bar, WebGL
 // texture, and CSS wear overlays, then the two-column reading grid inside the face. Tasks 6-9
 // fill the marked slots without touching this shell.
-export function CardFace({ card, sections: _sections, texture }: CardFaceProps) {
+export function CardFace({ card, sections, texture }: CardFaceProps) {
   const citationIndex = buildCitationIndex(card);
   const sourcesRead = citationIndex.ordered.length;
 
@@ -110,7 +111,7 @@ export function CardFace({ card, sections: _sections, texture }: CardFaceProps) 
               <div className="cs-face-main">
                 <CardHeader card={card} />
                 <StatStrip index={citationIndex} slots={statSlots(card)} />
-                {/* section rows: Task 7 */}
+                <SectionRows card={card} index={citationIndex} sections={sections} />
               </div>
               <div className="cs-face-rail">{/* sources rail: Task 8 */}</div>
             </div>

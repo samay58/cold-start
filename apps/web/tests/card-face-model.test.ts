@@ -11,6 +11,7 @@ import {
   nextQuestionForCard,
   publicEvidenceText,
   riskCaveats,
+  signalEvidenceState,
   statSlots,
   vettedCounts,
   type PublicCardData
@@ -310,6 +311,26 @@ describe("evidenceStateForFact", () => {
   it("is unknown when every backing citation is vendor-class", () => {
     const fact = resolvedFact("x", ["c6"]);
     expect(evidenceStateForFact(richConflictCard, fact)).toBe("unknown");
+  });
+});
+
+describe("signalEvidenceState", () => {
+  it("is company when every backing citation resolves to the company class", () => {
+    // richConflictCard.signals[2] is cited solely by c5, the company-class citation.
+    expect(signalEvidenceState(richConflictCard, richConflictCard.signals[2]!)).toBe("company");
+  });
+
+  it("is verified when any backing citation is independent-class, even mixed with weaker sources", () => {
+    // richConflictCard.signals[1] is cited solely by c1 (independent).
+    expect(signalEvidenceState(richConflictCard, richConflictCard.signals[1]!)).toBe("verified");
+    // c5 (company) and c3 (reporting) alone would not clear "verified"; adding c1 does.
+    expect(signalEvidenceState(richConflictCard, { citationIds: ["c5", "c3", "c1"] })).toBe("verified");
+  });
+
+  it("falls back to reported for a non-company mix with no independent source, and to unknown with no citations", () => {
+    // richConflictCard.signals[0] is cited solely by c3 (reporting, not independent, not company).
+    expect(signalEvidenceState(richConflictCard, richConflictCard.signals[0]!)).toBe("reported");
+    expect(signalEvidenceState(richConflictCard, { citationIds: [] })).toBe("unknown");
   });
 });
 

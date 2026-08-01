@@ -390,6 +390,32 @@ export function headcountConflict(card: PublicCardData): HeadcountConflict | nul
   };
 }
 
+// --- Signals ---
+
+// Signals are raw events, not ResolvedFacts (no status/confidence to read), so they get their
+// own simpler evidence rule instead of routing through evidenceStateForFact: an all-company
+// signal is caveated as company-sourced, any independent citation clears the bar as verified
+// outright (even mixed with weaker sources), everything else with at least one citation reads
+// as reported, and a signal with no citation at all is unknown.
+export function signalEvidenceState(card: PublicCardData, signal: { citationIds: string[] }): EvidenceState {
+  if (signal.citationIds.length === 0) {
+    return "unknown";
+  }
+
+  const ledger = buildCitationLedger(card.citations);
+  const classes = signal.citationIds.map((id) => ledger.get(id)?.sourceClass ?? "unknown");
+
+  if (classes.every((sourceClass) => sourceClass === "company")) {
+    return "company";
+  }
+
+  if (classes.some((sourceClass) => sourceClass === "independent")) {
+    return "verified";
+  }
+
+  return "reported";
+}
+
 // --- Risk caveats ---
 
 function allCitationsResolveToCompanyClass(citationIds: string[], ledger: CitationLedger): boolean {

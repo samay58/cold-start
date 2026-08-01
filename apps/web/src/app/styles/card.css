@@ -407,6 +407,353 @@
   text-decoration-color: var(--color-conflict);
 }
 
+/* --- Section rows: Money, People, Signals, Comps, Risk, Next question, Investor read --- */
+
+.cs-face-sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-face-row {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 24px;
+  padding: 22px 0;
+}
+
+.cs-face-row + .cs-face-row {
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-face-row-label {
+  padding-top: 1px;
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cs-face-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* One 9px evidence square, an inline-block glyph rather than a flex sibling: text after it
+   (which can run long and wrap across lines, e.g. a comp's basis or a signal's headline) stays
+   in normal inline flow instead of becoming its own flex item and fighting the mark for width. */
+.cs-face-mark {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid currentColor;
+}
+
+.cs-face-mark[data-state="verified"] {
+  color: var(--color-verified);
+  background: currentColor;
+}
+
+.cs-face-mark[data-state="reported"] {
+  color: var(--color-reported);
+  background: transparent;
+}
+
+.cs-face-mark[data-state="company"] {
+  color: var(--color-company);
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+
+.cs-face-mark[data-state="conflict"] {
+  color: var(--color-conflict);
+  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+}
+
+.cs-face-cite {
+  margin-left: 4px;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid rgb(110 92 158 / 0.35);
+  white-space: nowrap;
+}
+
+/* Fact bullets: Money, Risk, and the incremental financing-section rows Money folds in. */
+
+.cs-face-bullet {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.cs-face-bullet-muted {
+  color: var(--cat-muted-2);
+}
+
+/* Empty-state block: a plain honest line over a short receipt line, framed by dashed rules so
+   an empty section reads as a deliberate absence rather than a rendering gap. */
+
+.cs-face-empty {
+  padding: 14px 0;
+  border-top: 1px dashed var(--cat-paper-edge);
+  border-bottom: 1px dashed var(--cat-paper-edge);
+}
+
+.cs-face-empty-line {
+  margin: 0;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.cs-face-receipt-note {
+  margin: 6px 0 0;
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
+.cs-face-empty > .cs-face-receipt-note:first-child {
+  margin-top: 0;
+}
+
+/* People */
+
+.cs-face-person {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+}
+
+.cs-face-person-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cs-face-person-role {
+  color: var(--cat-muted);
+  font-size: 14px;
+}
+
+/* Signals: date, category tag, statement with mark, citation. */
+
+.cs-face-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cs-face-signal {
+  display: grid;
+  grid-template-columns: 104px 84px 1fr auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.cs-face-signal-date {
+  padding-top: 2px;
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-face-signal-category {
+  padding-top: 2px;
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cs-face-signal-statement {
+  display: block;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.cs-face-signal-caveat {
+  color: var(--color-company);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-face-signal-cite {
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+/* Comps */
+
+.cs-face-comp {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cs-face-comp-name {
+  font-weight: 600;
+}
+
+.cs-face-comp-domain {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+/* Next question: the mockup's one sanctioned use of At Textual at reading size. */
+
+.cs-face-question-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--cat-rule-dotted);
+  color: var(--cat-ink);
+  font-family: var(--font-text);
+  font-size: 20px;
+}
+
+.cs-face-question-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--color-seal);
+  border-radius: 2px;
+}
+
+.cs-face-question-subline {
+  margin: 8px 0 0 26px;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* Investor read: a locked catalogue sheet, five blank ruled lines waiting on the side panel. */
+
+.cs-face-investor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cs-face-investor-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cs-face-investor-label {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cs-face-investor-rule {
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--cat-rule-dotted) 0 6px, transparent 6px 11px);
+}
+
+.cs-face-investor-locked {
+  margin: 4px 0 0;
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
+/* --- Conflict panel: the degraded form for a fact sources disagree on --- */
+
+.cs-face-conflict {
+  margin-top: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--cat-conflict-rule);
+  border-radius: 6px;
+  background: var(--cat-conflict-fill);
+}
+
+.cs-face-conflict-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-face-conflict-hatch {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  border: 1.5px solid var(--color-conflict);
+}
+
+.cs-face-conflict-title {
+  color: var(--color-conflict);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-face-conflict-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.cs-face-conflict-value {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 34px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cs-face-conflict[data-compact="true"] .cs-face-conflict-value {
+  font-size: 28px;
+}
+
+.cs-face-conflict-asof {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
+.cs-face-conflict-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.cs-face-conflict-source {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
+.cs-face-conflict-footer {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--cat-conflict-rule-soft);
+  color: var(--cat-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+}
+
 @media (max-width: 700px) {
   .cs-face-desktop {
     grid-template-columns: 1fr;
@@ -429,5 +776,19 @@
   .cs-face-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     row-gap: 20px;
+  }
+
+  .cs-face-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cs-face-signal {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .cs-face-signal-cite {
+    padding-top: 0;
   }
 }

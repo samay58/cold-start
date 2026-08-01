@@ -44,4 +44,30 @@ describe("CardFace", () => {
     expect(html).toContain('href="#headcount-conflict"');
     expect(html).toContain("$58M");
   });
+
+  it("renders the section rows and the conflict panel on the rich, fully-populated card", () => {
+    const html = renderFace(richConflictCard);
+
+    expect(html).toContain(">Money<");
+    expect(html).toContain("Both values stand. Cold Start does not average sources.");
+    expect(html).toContain('id="headcount-conflict"');
+    expect(html).toContain(">Signals<");
+    expect(html).toContain("company claim, not independently confirmed");
+    expect(html).toContain(
+      "Filled in the side panel for invited readers. This card carries sourced facts only."
+    );
+  });
+
+  it("shows the Money empty state and withholds Investor read on a thin file", () => {
+    const html = renderFace(thinFileCard);
+
+    expect(html).toContain("No public funding found.");
+    expect(html).not.toContain("Investor read");
+  });
+
+  it("shows the Comps empty state on a card with no comparables but a vetted citation", () => {
+    const html = renderFace(emptySectionsCard);
+
+    expect(html).toContain("No comparable company is named by any source in this ledger.");
+  });
 });
