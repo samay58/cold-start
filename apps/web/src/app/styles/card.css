@@ -964,60 +964,328 @@ a.cs-face-rail-source-title:hover {
   font-size: 13px;
 }
 
+/* --- Pocket card: mobile divider-tab treatment below 700px --- */
+
+.cs-face-pocket {
+  display: none;
+  position: relative;
+  z-index: 4;
+  padding: 22px 18px 26px;
+}
+
+.cs-pocket-header {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--cat-rule);
+}
+
+.cs-pocket-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cs-pocket-name {
+  margin: 0;
+  min-width: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.02;
+  overflow-wrap: anywhere;
+}
+
+.cs-pocket-callno {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+}
+
+.cs-pocket-callno-label {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.cs-pocket-callno-value {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* The Stamp component is sized for the desktop header; shrunk and right-anchored so it still
+   fits the pocket's tighter CALL NO. column instead of overflowing it. */
+.cs-pocket-callno .cs-face-stamp {
+  margin-top: 2px;
+  transform: scale(0.72);
+  transform-origin: top right;
+}
+
+.cs-pocket-description {
+  margin: 10px 0 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.cs-pocket-meta {
+  margin: 8px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-pocket-domain-link {
+  color: var(--cat-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--cat-rule-strong);
+  text-underline-offset: 2px;
+}
+
+/* --- Tabs: chips over a merged panel, browser-tab style (active chip paints over the row's
+   bottom rule with its own background so the panel below reads as one continuous object) --- */
+
+.cs-pocket-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 18px;
+  border-bottom: 1px solid var(--cat-rule-strong);
+}
+
+.cs-pocket-tab {
+  position: relative;
+  margin-bottom: -1px;
+  padding: 8px 13px 7px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cs-pocket-tab[data-active="true"] {
+  color: var(--seal-deep);
+  background: var(--cat-hold);
+  border-color: var(--cat-rule-strong);
+  border-bottom: 1px solid var(--cat-hold);
+  box-shadow: inset 0 2px 0 var(--color-seal);
+}
+
+.cs-pocket-panel {
+  padding: 18px 14px;
+  border: 1px solid var(--cat-rule-strong);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background: var(--cat-hold);
+}
+
+/* --- Card tab: compact stat rows, Comps, Next question --- */
+
+.cs-pocket-stats {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-pocket-stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+}
+
+.cs-pocket-stat-row + .cs-pocket-stat-row {
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-pocket-stat-label {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-pocket-stat-label[data-conflict="true"] {
+  color: var(--color-conflict);
+}
+
+.cs-pocket-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cs-pocket-question {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--cat-paper-edge);
+}
+
+.cs-pocket-question-text {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-text);
+  font-size: 17px;
+}
+
+.cs-pocket-question-subline {
+  margin: 6px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+/* --- People tab --- */
+
+.cs-pocket-people {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- Signals tab --- */
+
+.cs-pocket-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cs-pocket-signal + .cs-pocket-signal {
+  padding-top: 14px;
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-pocket-signal-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+}
+
+.cs-pocket-signal-date {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-pocket-signal-category {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cs-pocket-signal-statement {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* --- Sources tab: SourceRow's own anatomy, plainly listed (no sticky rail, no pairing state) --- */
+
+.cs-pocket-sources {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-pocket-source-row {
+  padding: 12px 0;
+}
+
+.cs-pocket-source-row + .cs-pocket-source-row {
+  border-top: 1px solid var(--cat-rule);
+}
+
+/* --- Citation marks: plain receipt spans, not the desktop's interactive CiteMark. A tap jumps
+   to the Sources tab instead of pairing with a rail row, since there's no rail on this screen. --- */
+
+.cs-pocket-cite {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 1px;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- Footer: repeated inside every tab panel, since only the active panel is in the DOM --- */
+
+.cs-pocket-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cat-rule);
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
 @media (max-width: 700px) {
-  .cs-face-desktop {
-    grid-template-columns: 1fr;
+  .cs-face-desktop,
+  .cs-face-footer {
+    display: none;
   }
 
-  .cs-face-header {
+  .cs-face-pocket {
+    display: block;
+  }
+
+  /* Single ghost layer at pocket scale: the desktop's second (back) layer drops out and the
+     remaining (front) layer's offset tightens from 5/6px to 4/5px. Fiber wear drops too, leaving
+     the stains-only wear the pocket card brief calls for; the shared ghost/card/texture elements
+     stay the same DOM nodes, so nothing is duplicated or re-instantiated for the hidden face. */
+  .cs-face-ghost-back {
+    display: none;
+  }
+
+  .cs-face-ghost-front {
+    transform: translate(4px, 5px);
+  }
+
+  .cs-face-wear-fiber {
+    display: none;
+  }
+
+  /* The meta strip sits above the card object on both faces. Its right-hand receipt line
+     ("retrieved ... UTC · N sources read") is long enough at 390px that forcing it onto the same
+     row as the brand/breadcrumb line (its desktop-width `justify-content: space-between` layout)
+     overflows the viewport: `white-space: nowrap` stops it shrinking below its own text width, so
+     the row grows past 390px instead of wrapping. Stacked and free to wrap, it fits. */
+  .cs-face-meta {
     flex-direction: column;
-  }
-
-  .cs-face-header-callno {
     align-items: flex-start;
-    text-align: left;
-  }
-
-  .cs-face-name {
-    font-size: 44px;
-    letter-spacing: -0.01em;
-  }
-
-  .cs-face-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    row-gap: 20px;
-  }
-
-  .cs-face-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .cs-face-signal {
-    grid-template-columns: 1fr;
     gap: 4px;
   }
 
-  .cs-face-signal-cite {
-    padding-top: 0;
-  }
-
-  /* The sticky, bordered rail is a desktop-column affordance; stacked under the main column on
-     mobile it reads as a second card section instead, ahead of Task 9's real pocket-card
-     treatment. */
-  .cs-face-rail-panel {
-    position: static;
-    margin-top: 24px;
-    padding-left: 0;
-    padding-top: 20px;
-    border-top: 1px dashed var(--cat-paper-edge);
-    border-left: none;
-  }
-
-  .cs-face-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+  .cs-face-meta-right {
+    white-space: normal;
   }
 }
 

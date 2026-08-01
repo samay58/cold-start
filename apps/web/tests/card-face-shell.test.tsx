@@ -4,11 +4,16 @@ import { describe, expect, it } from "vitest";
 import { CardFace } from "../src/components/card/CardFace";
 import { ChoreographyProvider } from "../src/components/card/choreography";
 import { ConflictPanel } from "../src/components/card/ConflictPanel";
+import { PocketCard, type PocketTab } from "../src/components/card/PocketCard";
 import { buildCitationIndex, headcountConflict, vettedCounts } from "../src/lib/card-face/model";
 import { emptySectionsCard, richConflictCard, thinFileCard } from "./fixtures/gallery-cards";
 
 function renderFace(card: Parameters<typeof CardFace>[0]["card"]) {
   return renderToStaticMarkup(<CardFace card={card} sections={[]} />);
+}
+
+function renderPocket(card: Parameters<typeof PocketCard>[0]["card"], initialTab?: PocketTab) {
+  return renderToStaticMarkup(<PocketCard card={card} initialTab={initialTab} sections={[]} />);
 }
 
 describe("CardFace", () => {
@@ -125,5 +130,34 @@ describe("ConflictPanel", () => {
 
     expect(html).toContain("Both stand. No average is shown.");
     expect(html).not.toContain("Both values stand. Cold Start does not average sources.");
+  });
+});
+
+describe("PocketCard", () => {
+  it("renders all four tab labels on the default Card tab", () => {
+    const html = renderPocket(richConflictCard);
+
+    expect(html).toContain(">Card<");
+    expect(html).toContain(">People<");
+    expect(html).toContain(">Signals<");
+    expect(html).toContain(">Sources<");
+  });
+
+  it("renders the compact conflict footer on the People tab", () => {
+    const html = renderPocket(richConflictCard, "people");
+
+    expect(html).toContain("Both stand. No average is shown.");
+  });
+
+  it("shows 'none named by a source' for empty comps on the Card tab", () => {
+    const html = renderPocket(emptySectionsCard);
+
+    expect(html).toContain("none named by a source");
+  });
+
+  it("renders the pocket footer's source count", () => {
+    const html = renderPocket(richConflictCard);
+
+    expect(html).toContain("6 sources");
   });
 });

@@ -22,9 +22,9 @@ const GALLERY_PAGES: Array<{ name: string; path: string }> = [
   { name: "plainfield", path: "/c/plainfield-example" }
 ];
 
-// The Task 5 card object shell, behind ?face=new. Desktop only for now: the pocket (mobile)
-// treatment is Task 9's, so a mobile capture here would just be the desktop grid squeezed down,
-// not the real design.
+// The Task 5 card object shell, behind ?face=new. voxlathe and hollowlabs now also capture on
+// mobile (Task 9's pocket card): the default screenshot below lands on the Card tab for both;
+// plainfield's mobile capture stays out of scope for this gallery pass.
 const NEW_FACE_PAGES: Array<{ name: string; path: string }> = [
   { name: "voxlathe-newface", path: "/c/voxlathe-example?face=new" },
   { name: "hollowlabs-newface", path: "/c/hollowlabs-example?face=new" },
@@ -46,7 +46,8 @@ test.describe("web gallery", () => {
 
   for (const { name, path: pagePath } of NEW_FACE_PAGES) {
     test(`captures ${name}`, async ({ page }, testInfo) => {
-      test.skip(testInfo.project.name !== "desktop", "new face gallery is desktop-only until Task 9's pocket card lands");
+      const isMobile = testInfo.project.name === "mobile";
+      test.skip(isMobile && name === "plainfield-newface", "plainfield's mobile pocket capture is out of scope for Task 9");
 
       const response = await page.goto(pagePath);
       expect(response?.ok()).toBe(true);
@@ -57,6 +58,32 @@ test.describe("web gallery", () => {
       await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${name}.png`) });
     });
   }
+
+  // The Task 9 pocket card's divider tabs, mobile only: voxlathe (the rich fixture) walks
+  // through People, Signals, and Sources on top of the Card-tab capture the loop above already
+  // takes, landing at 4 total mobile screenshots for this fixture.
+  test("captures voxlathe-newface pocket tabs on mobile", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "pocket tabs only exist on the mobile face");
+
+    const response = await page.goto("/c/voxlathe-example?face=new");
+    expect(response?.ok()).toBe(true);
+    await page.waitForTimeout(400);
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const pocketTabs: Array<{ label: string; name: string }> = [
+      { label: "People", name: "voxlathe-newface-pocket-people" },
+      { label: "Signals", name: "voxlathe-newface-pocket-signals" },
+      { label: "Sources", name: "voxlathe-newface-pocket-sources" }
+    ];
+
+    for (const { label, name } of pocketTabs) {
+      await page.getByRole("tab", { name: label }).click();
+      await page.waitForTimeout(200);
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${name}.png`) });
+    }
+  });
 
   // The Task 8 citation choreography: hover an inline [n] mark and its sources-rail row lights
   // up, click to hold the pairing. Money is always the card's first section row, so the first

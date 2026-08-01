@@ -4,6 +4,7 @@ import type { ResearchSection } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
 import { buildCitationIndex, callNumber, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
 import { ChoreographyProvider } from "./choreography";
+import { PocketCard } from "./PocketCard";
 import { SectionRows } from "./SectionRows";
 import { SourcesRail } from "./SourcesRail";
 import { Stamp } from "./Stamp";
@@ -118,7 +119,11 @@ function CardFooter({ card }: { card: PublicCardData }) {
 // texture, and CSS wear overlays, then the two-column reading grid inside the face, and the
 // footer's call number / filed line / VETTED stamp below both columns. ChoreographyProvider
 // (Task 8) wraps only the two-column grid: it is the only part of the face carrying citation
-// marks and the sources rail those marks pair with.
+// marks and the sources rail those marks pair with. `.cs-face-desktop` and `.cs-face-pocket`
+// (Task 9) are both rendered unconditionally and sit as siblings inside the same card shell; the
+// 700px media query in card.css picks one with `display: none` on the other, plus a single-ghost,
+// stains-only variant of the same ghost/wear elements above for the pocket breakpoint, so there is
+// no duplicate ghost stack or WebGL texture instantiated for the hidden face.
 export function CardFace({ card, sections, texture }: CardFaceProps) {
   const citationIndex = buildCitationIndex(card);
   const sourcesRead = citationIndex.ordered.length;
@@ -146,6 +151,9 @@ export function CardFace({ card, sections, texture }: CardFaceProps) {
                   <SourcesRail index={citationIndex} />
                 </div>
               </ChoreographyProvider>
+            </div>
+            <div className="cs-face-pocket">
+              <PocketCard card={card} sections={sections} />
             </div>
             <CardFooter card={card} />
           </div>
