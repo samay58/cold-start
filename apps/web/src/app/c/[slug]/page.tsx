@@ -1,4 +1,4 @@
-import { CardShell } from "@cold-start/ui";
+import React from "react";
 import { CardTexture } from "../../CardTexture";
 import { CardFace } from "../../../components/card/CardFace";
 import type { Metadata } from "next";
@@ -8,7 +8,6 @@ import { getPublicCachedCardProfile } from "../../../lib/cards";
 
 type CompanyCardPageProps = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const defaultDescription = "Sourced company context card.";
@@ -49,26 +48,17 @@ export async function generateMetadata({ params }: CompanyCardPageProps): Promis
   };
 }
 
-export default async function CompanyCardPage({ params, searchParams }: CompanyCardPageProps) {
+export default async function CompanyCardPage({ params }: CompanyCardPageProps) {
   const { slug } = await params;
-  const { face } = await searchParams;
   const profile = await getPublicCardForPage(slug);
 
   if (!profile) {
     notFound();
   }
 
-  if (face === "new") {
-    return (
-      <main className="cs-card-page" id="main-content">
-        <CardFace card={profile.card} sections={profile.sections} texture={<CardTexture />} />
-      </main>
-    );
-  }
-
   return (
     <main className="cs-card-page" id="main-content">
-      <CardShell card={profile.card} sections={profile.sections} surface="web" texture={<CardTexture />} />
+      <CardFace card={profile.card} sections={profile.sections} texture={<CardTexture />} />
     </main>
   );
 }

@@ -6,12 +6,12 @@
 }
 
 /* ============================================================
-   New card face (2026-07-30 redesign), behind /c/{slug}?face=new.
-   Every rule here uses a fresh cs-face-* prefix so it cannot collide
-   with the legacy .cs-card rules in packages/ui/src/tokens.css, which
-   this face replaces outright once Task 10 swaps the route over.
-   Self-contained: does not depend on .cs-card-page's ground background
-   surviving the legacy cleanup.
+   Card face (2026-07-30 redesign): the only face /c/{slug} renders since
+   Task 10 swapped the route over and retired CardShell. Every rule here
+   uses a cs-face-* prefix, kept distinct from the legacy .cs-card rules
+   that used to live in packages/ui/src/tokens.css. Self-contained: does
+   not depend on .cs-card-page for background, only for min-height (see
+   apps/web/src/app/styles/foundation.css).
    ============================================================ */
 
 .cs-face-plate {

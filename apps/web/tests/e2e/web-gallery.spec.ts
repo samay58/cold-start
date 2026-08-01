@@ -6,8 +6,10 @@ import { expect, test } from "@playwright/test";
 // One run of this spec writes every page's screenshot under the same timestamped directory, one
 // subfolder per viewport project, so a single `npm run qa:web:gallery` produces one comparable
 // set. This is the fixture gallery the rest of the landing/public-card redesign iterates and
-// screenshots against; the current run captures the pre-redesign (old) card face as the
-// baseline. Later tasks extend this spec with interaction states.
+// screenshots against. Task 10 swapped /c/{slug} over to the catalogue face and retired
+// CardShell, so the plain paths below now capture that face directly; there is no more
+// ?face=new variant to capture separately. home.png still captures the pre-redesign landing
+// page, which Task 17 replaces.
 //
 // The desktop and mobile projects each load this module in their own worker process, so the
 // timestamp is anchored once in playwright.config.ts (loaded once by the CLI, inherited by every
@@ -22,32 +24,14 @@ const GALLERY_PAGES: Array<{ name: string; path: string }> = [
   { name: "plainfield", path: "/c/plainfield-example" }
 ];
 
-// The Task 5 card object shell, behind ?face=new. voxlathe and hollowlabs now also capture on
-// mobile (Task 9's pocket card): the default screenshot below lands on the Card tab for both;
-// plainfield's mobile capture stays out of scope for this gallery pass.
-const NEW_FACE_PAGES: Array<{ name: string; path: string }> = [
-  { name: "voxlathe-newface", path: "/c/voxlathe-example?face=new" },
-  { name: "hollowlabs-newface", path: "/c/hollowlabs-example?face=new" },
-  { name: "plainfield-newface", path: "/c/plainfield-example?face=new" }
-];
-
 test.describe("web gallery", () => {
   for (const { name, path: pagePath } of GALLERY_PAGES) {
     test(`captures ${name}`, async ({ page }, testInfo) => {
-      const response = await page.goto(pagePath);
-      expect(response?.ok()).toBe(true);
-      await page.waitForTimeout(400);
-
-      const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
-      fs.mkdirSync(screenshotDir, { recursive: true });
-      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `${name}.png`) });
-    });
-  }
-
-  for (const { name, path: pagePath } of NEW_FACE_PAGES) {
-    test(`captures ${name}`, async ({ page }, testInfo) => {
+      // voxlathe and hollowlabs capture on mobile too (Task 9's pocket card): the default
+      // screenshot lands on the Card tab for both. plainfield's mobile capture stays out of
+      // scope for this gallery pass.
       const isMobile = testInfo.project.name === "mobile";
-      test.skip(isMobile && name === "plainfield-newface", "plainfield's mobile pocket capture is out of scope for Task 9");
+      test.skip(isMobile && name === "plainfield", "plainfield's mobile pocket capture is out of scope for Task 9");
 
       const response = await page.goto(pagePath);
       expect(response?.ok()).toBe(true);
@@ -62,10 +46,10 @@ test.describe("web gallery", () => {
   // The Task 9 pocket card's divider tabs, mobile only: voxlathe (the rich fixture) walks
   // through People, Signals, and Sources on top of the Card-tab capture the loop above already
   // takes, landing at 4 total mobile screenshots for this fixture.
-  test("captures voxlathe-newface pocket tabs on mobile", async ({ page }, testInfo) => {
+  test("captures voxlathe pocket tabs on mobile", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "mobile", "pocket tabs only exist on the mobile face");
 
-    const response = await page.goto("/c/voxlathe-example?face=new");
+    const response = await page.goto("/c/voxlathe-example");
     expect(response?.ok()).toBe(true);
     await page.waitForTimeout(400);
 
@@ -73,9 +57,9 @@ test.describe("web gallery", () => {
     fs.mkdirSync(screenshotDir, { recursive: true });
 
     const pocketTabs: Array<{ label: string; name: string }> = [
-      { label: "People", name: "voxlathe-newface-pocket-people" },
-      { label: "Signals", name: "voxlathe-newface-pocket-signals" },
-      { label: "Sources", name: "voxlathe-newface-pocket-sources" }
+      { label: "People", name: "voxlathe-pocket-people" },
+      { label: "Signals", name: "voxlathe-pocket-signals" },
+      { label: "Sources", name: "voxlathe-pocket-sources" }
     ];
 
     for (const { label, name } of pocketTabs) {
@@ -88,10 +72,10 @@ test.describe("web gallery", () => {
   // The Task 8 citation choreography: hover an inline [n] mark and its sources-rail row lights
   // up, click to hold the pairing. Money is always the card's first section row, so the first
   // citation mark inside the first row is the first Money citation regardless of fixture.
-  test("captures voxlathe-newface hover and held citation states", async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== "desktop", "new face gallery is desktop-only until Task 9's pocket card lands");
+  test("captures voxlathe hover and held citation states", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "the hover/held choreography capture is desktop-only");
 
-    const response = await page.goto("/c/voxlathe-example?face=new");
+    const response = await page.goto("/c/voxlathe-example");
     expect(response?.ok()).toBe(true);
     await page.waitForTimeout(400);
 
@@ -102,10 +86,10 @@ test.describe("web gallery", () => {
 
     await firstMoneyCite.hover();
     await expect(firstMoneyCite).toHaveAttribute("data-on", "true");
-    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-newface-hover.png") });
+    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-hover.png") });
 
     await firstMoneyCite.click();
     await expect(firstMoneyCite).toHaveAttribute("data-on", "true");
-    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-newface-held.png") });
+    await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "voxlathe-held.png") });
   });
 });
