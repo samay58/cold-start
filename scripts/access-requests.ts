@@ -22,6 +22,10 @@ Usage:
 Output:
   Lists open requests newest-first as flat lines.`;
 
+function sanitizeOutput(text: string): string {
+  return text.replace(/[\r\n]+/g, " ");
+}
+
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const args = parseCliArguments(argv);
   if (hasFlag(args, "--help")) {
@@ -30,9 +34,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   loadProductionEnv();
-  const handledId = valueFor(args, "--handled");
 
-  if (handledId) {
+  // Check if --handled flag is present (either in flags or values)
+  const hasHandledFlag = hasFlag(args, "--handled") || valueFor(args, "--handled") !== undefined;
+
+  if (hasHandledFlag) {
+    const handledId = requiredValue(args, "--handled");
     await withAlphaDb(async (db) => {
       const success = await markAccessRequestHandled(db, handledId);
       console.log(success ? `Marked ${handledId} as handled.` : `Request ${handledId} not found or already handled.`);
@@ -44,9 +51,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
       for (const request of sorted) {
         const timestamp = request.createdAt.toISOString();
-        console.log(`${timestamp} ${request.id} ${request.name} <${request.email}>: ${request.note}`);
+        const name = sanitizeOutput(request.name);
+        const email = sanitizeOutput(request.email);
+        const note = sanitizeOutput(request.note);
+        console.log(`${timestamp} ${request.id} ${name} <${email}>: ${note}`);
       }
-      console.log(`\n(${sorted.length} open request${sorted.length === 1 ? "" : "s"})`);
+      if (sorted.length > 0) {
+        console.log("");
+      }
+      console.log(`(${sorted.length} open request${sorted.length === 1 ? "" : "s"})`);
     });
   }
 }
