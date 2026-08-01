@@ -328,9 +328,10 @@
 
 .cs-face-stat-label {
   color: var(--color-seal);
-  font-family: var(--font-text);
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .cs-face-stat-label[data-conflict="true"] {
