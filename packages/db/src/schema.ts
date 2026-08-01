@@ -448,3 +448,23 @@ export const alphaEvents = pgTable(
     )
   ]
 );
+
+// Landing-page "ask for access" submissions. ipHash and email are rate-limit keys, not identity:
+// createAccessRequest counts recent rows by each before inserting.
+export const accessRequests = pgTable(
+  "access_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    note: text("note").notNull(),
+    ipHash: text("ip_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    handledAt: timestamp("handled_at", { withTimezone: true })
+  },
+  (table) => [
+    index("access_requests_ip_hash_created_idx").on(table.ipHash, table.createdAt),
+    index("access_requests_email_created_idx").on(table.email, table.createdAt),
+    index("access_requests_handled_at_idx").on(table.handledAt)
+  ]
+);
