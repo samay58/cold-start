@@ -39,6 +39,7 @@
     "alpha:prune": "tsx scripts/alpha-prune.ts",
     "alpha:status": "tsx scripts/alpha-status.ts",
     "alpha:test": "tsx --test scripts/alpha-operator.test.ts",
+    "access:requests": "tsx scripts/access-requests.ts",
     "trace:generation": "tsx scripts/trace-generation.ts",
     "measure:first-usable": "tsx scripts/measure-first-usable.ts",
     "measure:analysis-latency": "tsx scripts/measure-analysis-latency.ts",
