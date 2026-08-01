@@ -2,6 +2,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CardFace } from "../src/components/card/CardFace";
+import { ConflictPanel } from "../src/components/card/ConflictPanel";
+import { buildCitationIndex, headcountConflict } from "../src/lib/card-face/model";
 import { emptySectionsCard, richConflictCard, thinFileCard } from "./fixtures/gallery-cards";
 
 function renderFace(card: Parameters<typeof CardFace>[0]["card"]) {
@@ -69,5 +71,20 @@ describe("CardFace", () => {
     const html = renderFace(emptySectionsCard);
 
     expect(html).toContain("No comparable company is named by any source in this ledger.");
+  });
+});
+
+describe("ConflictPanel", () => {
+  it("renders the compact footer, not the full footer, when compact is true", () => {
+    const conflict = headcountConflict(richConflictCard);
+    if (!conflict) {
+      throw new Error("richConflictCard is expected to carry a headcount conflict");
+    }
+    const index = buildCitationIndex(richConflictCard);
+
+    const html = renderToStaticMarkup(<ConflictPanel compact conflict={conflict} index={index} />);
+
+    expect(html).toContain("Both stand. No average is shown.");
+    expect(html).not.toContain("Both values stand. Cold Start does not average sources.");
   });
 });

@@ -425,16 +425,32 @@ function allCitationsResolveToCompanyClass(citationIds: string[], ledger: Citati
   return citationIds.every((id) => ledger.get(id)?.sourceClass === "company");
 }
 
+// deriveLegacyResearchSectionsFromCard (packages/core) always emits a customer_proof section,
+// even when nothing was ever found for it: an empty placeholder with no items, no summary, and
+// no citations. That placeholder must not read as "the customer proof is authoritative and
+// company-only" (it says nothing at all), so a section only counts as authoritative here when it
+// actually carries content.
+function customerProofSectionHasContent(section: ResearchSection): boolean {
+  if (section.citationIds.length > 0) {
+    return true;
+  }
+  if (!section.content) {
+    return false;
+  }
+  return section.content.items.length > 0 || Boolean(section.content.summary);
+}
+
 // Shared by riskCaveats and nextQuestionForCard: prefer the customer_proof research section
-// when the caller passed one; only fall back to scanning signals when no such section exists
-// at all (not when it exists but fails to qualify).
+// when the caller passed one with real content; only fall back to scanning signals when no such
+// section exists, or the one that exists is an empty placeholder (not when it has content but
+// fails to qualify as company-only).
 function companyOnlyProofCitationIds(
   card: PublicCardData,
   sections: ResearchSection[],
   ledger: CitationLedger
 ): string[] | null {
   const customerProofSection = sections.find((section) => section.sectionId === "customer_proof");
-  if (customerProofSection) {
+  if (customerProofSection && customerProofSectionHasContent(customerProofSection)) {
     return allCitationsResolveToCompanyClass(customerProofSection.citationIds, ledger)
       ? customerProofSection.citationIds
       : null;

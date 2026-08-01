@@ -216,11 +216,49 @@ describe("riskCaveats", () => {
   it("is empty when neither rule fires", () => {
     expect(riskCaveats(emptySectionsCard, [])).toEqual([]);
   });
+
+  it("does not let an empty placeholder customer_proof section foreclose the signal fallback", () => {
+    // deriveLegacyResearchSectionsFromCard always emits a customer_proof section, even an empty
+    // one with no items, no summary, and no citations. That placeholder must not read as
+    // authoritative and block the signal fallback from finding richConflictCard's company-only
+    // signal (c5) the way a real, populated section would.
+    const emptyCustomerProofSection = emptyResearchSectionForCard(richConflictCard, "customer_proof");
+
+    expect(riskCaveats(richConflictCard, [emptyCustomerProofSection])).toEqual([
+      {
+        text: "The customer proof is company-sourced only. No independent source in this ledger confirms it.",
+        state: "company",
+        citationIds: ["c5"]
+      }
+    ]);
+  });
+
+  it("does not fall back to the signal check when a customer_proof section has content but isn't company-only", () => {
+    // c1 is an independent citation on richConflictCard, so this section fails to qualify as
+    // company-only on its own. Because the section has real content (a non-empty citationIds
+    // list), the rule must not fall through to the signal fallback, which would otherwise find
+    // richConflictCard's company-only signal (c5) and fire a caveat anyway.
+    const nonCompanyOnlySection = {
+      ...emptyResearchSectionForCard(richConflictCard, "customer_proof", "available"),
+      citationIds: ["c1"]
+    };
+
+    expect(riskCaveats(richConflictCard, [nonCompanyOnlySection])).toEqual([]);
+  });
 });
 
 describe("nextQuestionForCard", () => {
   it("prioritizes company-only proof over a simultaneous headcount conflict on richConflictCard", () => {
     expect(nextQuestionForCard(richConflictCard, [])).toEqual({
+      question: "Ask for one referenceable production customer.",
+      subline: "Not a recommendation. The first thing this ledger cannot answer."
+    });
+  });
+
+  it("still asks for a referenceable customer when the only passed customer_proof section is an empty placeholder", () => {
+    const emptyCustomerProofSection = emptyResearchSectionForCard(richConflictCard, "customer_proof");
+
+    expect(nextQuestionForCard(richConflictCard, [emptyCustomerProofSection])).toEqual({
       question: "Ask for one referenceable production customer.",
       subline: "Not a recommendation. The first thing this ledger cannot answer."
     });
