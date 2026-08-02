@@ -1,0 +1,984 @@
+/* ============================================================
+   Landing page (Task 17, 2026-07-30 redesign): the real / — hero, PitchBook
+   comparison, sources legend, extension companion, access form, footer.
+   The whole page reads as one filed object: a single bordered shell holds
+   every band, each band its own background tier from the existing token
+   set, separated by hairlines rather than by wrapping each section in its
+   own card. Colors are existing custom properties only; no new tokens.
+   ============================================================ */
+
+.cs-landing {
+  min-height: 100vh;
+  padding: clamp(16px, 3vw, 36px) clamp(12px, 3vw, 24px) 64px;
+  background: var(--cat-ground);
+}
+
+.cs-landing-shell {
+  overflow: hidden;
+  max-width: 1180px;
+  margin: 0 auto;
+  border: 1px solid var(--cat-rule-strong);
+  border-radius: 6px;
+  background: var(--cat-paper);
+}
+
+.cs-landing-hairline {
+  height: 2px;
+  background: var(--color-seal);
+}
+
+/* --- Seal pill: the one shared button used by the hero and the extension CTA --- */
+
+.cs-landing-seal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  height: 46px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-seal);
+  color: var(--color-plate);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.cs-landing-seal-pill:hover {
+  background: var(--seal-hover);
+}
+
+.cs-landing-seal-pill:active {
+  transform: scale(0.97);
+}
+
+.cs-landing-seal-pill:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+.cs-landing-seal-pill-label {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-landing-seal-pill-count {
+  color: color-mix(in srgb, var(--color-plate) 72%, transparent);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- Nav --- */
+
+.cs-landing-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 16px clamp(20px, 4vw, 44px);
+  border-bottom: 1px solid var(--cat-rule);
+}
+
+.cs-landing-nav-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cs-landing-nav-lockup {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.cs-landing-nav-descriptor {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.cs-landing-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.cs-landing-nav-link {
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.cs-landing-nav-link:hover,
+.cs-landing-nav-link:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-landing-nav-link:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 3px;
+}
+
+.cs-landing-nav-count {
+  display: none;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- Hero --- */
+
+.cs-landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+  gap: clamp(32px, 6vw, 80px);
+  align-items: start;
+  padding: clamp(40px, 6vw, 76px) clamp(20px, 4vw, 44px) clamp(48px, 6vw, 64px);
+}
+
+.cs-landing-hero-copy {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+
+.cs-landing-hero-copy h1 {
+  margin: 0;
+  max-width: 13ch;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: clamp(42px, 5.6vw, 68px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.cs-landing-hero-subhead {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: clamp(17px, 1.8vw, 21px);
+  line-height: 1.4;
+}
+
+.cs-landing-hero-actions {
+  margin-top: 6px;
+}
+
+/* --- Hero recorded-build card --- */
+
+.cs-landing-hero-card-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cs-landing-hero-card-caption {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+}
+
+.cs-landing-hero-card-object {
+  position: relative;
+  margin-right: 9px;
+  margin-bottom: 9px;
+}
+
+.cs-landing-hero-card-ghost {
+  position: absolute;
+  inset: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.cs-landing-hero-card-ghost-back {
+  z-index: 1;
+  background: var(--cat-ghost-1);
+  border-color: var(--cat-ghost-border-1);
+  transform: translate(9px, 9px);
+}
+
+.cs-landing-hero-card-ghost-front {
+  z-index: 2;
+  background: var(--cat-ghost-2);
+  border-color: var(--cat-ghost-border-2);
+  transform: translate(5px, 5px);
+}
+
+.cs-landing-hero-card {
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+  border: 1px solid var(--cat-paper-edge);
+  border-radius: 6px;
+  background: var(--cat-paper);
+  box-shadow: 0 10px 22px -14px rgb(40 34 20 / 0.35);
+}
+
+.cs-landing-hero-card-bar {
+  height: 3px;
+  background: var(--color-seal);
+}
+
+.cs-landing-hero-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--cat-rule);
+}
+
+.cs-landing-hero-card-callno {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cs-landing-hero-card-sourcecount {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-landing-hero-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 20px 24px;
+}
+
+.cs-landing-hero-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cs-landing-hero-card-name {
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.cs-landing-hero-card-meta {
+  margin-top: 6px;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-landing-hero-card-badges {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.cs-landing-hero-card-filed {
+  padding: 3px 8px;
+  border: 1.5px solid var(--color-seal);
+  border-radius: 4px;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  transform: rotate(-6deg);
+}
+
+.cs-landing-hero-card-seal {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid var(--color-seal);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-seal) 16%, transparent);
+  transform: rotate(-4deg);
+}
+
+.cs-landing-hero-card-seal span {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.cs-landing-hero-card-oneliner {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cs-landing-hero-card-rule {
+  height: 1px;
+  background: var(--cat-rule);
+}
+
+.cs-landing-hero-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cs-landing-hero-card-section-label {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cs-landing-hero-card-bullet {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cs-landing-hero-card-mark {
+  display: inline-block;
+  margin-right: 8px;
+  width: 8px;
+  height: 8px;
+  background: var(--color-verified);
+  vertical-align: middle;
+}
+
+.cs-landing-hero-card-sources {
+  margin: 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.cs-landing-hero-card-status {
+  margin: 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  text-align: right;
+}
+
+/* --- PitchBook comparison --- */
+
+.cs-landing-pitchbook {
+  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  border-top: 1px solid var(--cat-rule-strong);
+  background: var(--color-plate);
+}
+
+.cs-landing-pitchbook-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: end;
+  margin-bottom: 28px;
+}
+
+.cs-landing-pitchbook-head h2 {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(30px, 3.6vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.06;
+}
+
+.cs-landing-pitchbook-head p {
+  margin: 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.cs-landing-pitchbook-closing {
+  max-width: 68ch;
+  margin: 24px 0 0;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.cs-landing-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-landing-table-head {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  padding-bottom: 12px;
+}
+
+.cs-landing-table-head-coldstart {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cs-landing-table-head-pitchbook {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cs-landing-table-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: baseline;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-landing-table-row:last-child {
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-landing-table-label {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.cs-landing-table-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cs-landing-table-source {
+  display: none;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cs-landing-table-value {
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.cs-landing-table-value-muted {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.cs-landing-table-note {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Sources legend --- */
+
+.cs-landing-sources {
+  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  border-top: 1px solid var(--cat-rule-strong);
+  background: var(--cat-ground);
+}
+
+.cs-landing-sources h2 {
+  margin: 0 0 24px;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.4vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cs-landing-legend {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-landing-legend-row {
+  display: grid;
+  grid-template-columns: 20px 116px minmax(0, 1fr);
+  gap: 18px;
+  align-items: baseline;
+  padding: 16px 0;
+  border-top: 1px solid var(--cat-rule-strong);
+}
+
+.cs-landing-legend-row:last-child {
+  border-bottom: 1px solid var(--cat-rule-strong);
+}
+
+.cs-landing-mark {
+  align-self: center;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+}
+
+.cs-landing-mark[data-state="verified"] {
+  color: var(--color-verified);
+  background: currentColor;
+}
+
+.cs-landing-mark[data-state="reported"] {
+  color: var(--color-reported);
+  background: transparent;
+}
+
+.cs-landing-mark[data-state="company"] {
+  color: var(--color-company);
+  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+}
+
+.cs-landing-mark[data-state="conflict"] {
+  color: var(--color-conflict);
+  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+}
+
+.cs-landing-mark[data-state="unknown"] {
+  width: 11px;
+  height: 11px;
+  border-color: var(--cat-muted-2);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.cs-landing-legend-label {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cs-landing-legend-copy {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* --- Extension companion --- */
+
+.cs-landing-extension {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  border-top: 1px solid var(--cat-rule-strong);
+  background: var(--color-field);
+}
+
+.cs-landing-extension-copy {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-landing-extension-eyebrow {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cs-landing-extension-copy h2 {
+  margin: 0;
+  max-width: 20ch;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(28px, 3.6vw, 36px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.cs-landing-extension-copy p {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.cs-landing-extension-cta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.cs-landing-extension-cta-caption {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+}
+
+/* --- Extension panel replica --- */
+
+.cs-landing-panel {
+  overflow: hidden;
+  border: 1px solid var(--cat-rule-strong);
+  border-radius: 6px;
+  background: var(--color-plate);
+}
+
+.cs-landing-panel-bar {
+  height: 2px;
+  background: var(--color-seal);
+}
+
+.cs-landing-panel-head {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.cs-landing-panel-callno {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cs-landing-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 18px 20px;
+}
+
+.cs-landing-panel-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cs-landing-panel-label {
+  color: var(--color-seal);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-landing-panel-value {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cs-landing-panel-row-locked {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-landing-panel-label-locked {
+  color: var(--color-muted);
+}
+
+.cs-landing-panel-locked-value {
+  flex: none;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* --- Access form --- */
+
+.cs-landing-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  border-top: 1px solid var(--cat-rule-strong);
+  background: var(--cat-paper);
+}
+
+.cs-landing-access-copy {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cs-landing-access-copy h2 {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.2vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cs-landing-access-copy p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.cs-landing-access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-field);
+}
+
+.cs-landing-access-field {
+  display: block;
+}
+
+.cs-landing-access-field input,
+.cs-landing-access-field textarea {
+  width: 100%;
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  resize: none;
+}
+
+.cs-landing-access-field input::placeholder,
+.cs-landing-access-field textarea::placeholder {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+}
+
+.cs-landing-access-field input:focus-visible,
+.cs-landing-access-field textarea:focus-visible {
+  outline: none;
+  border-bottom-color: var(--color-seal);
+}
+
+.cs-landing-access-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cs-landing-access-submit {
+  margin-top: 4px;
+  padding: 12px 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--color-seal);
+  color: var(--color-plate);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, opacity 160ms ease;
+}
+
+.cs-landing-access-submit:hover {
+  background: var(--seal-hover);
+}
+
+.cs-landing-access-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cs-landing-access-submit:focus-visible {
+  outline: 2px solid var(--color-seal);
+  outline-offset: 2px;
+}
+
+.cs-landing-access-error {
+  margin: 0;
+  color: var(--color-conflict);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-landing-access-success {
+  margin: 0;
+  padding: 20px;
+  border: 1px solid var(--color-rule-strong);
+  border-radius: 6px;
+  background: var(--color-field);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* --- Footer --- */
+
+.cs-landing-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px clamp(20px, 4vw, 44px);
+  border-top: 1px solid var(--cat-rule);
+  background: var(--cat-paper);
+}
+
+.cs-landing-footer-receipt,
+.cs-landing-footer-disclaimer {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Responsive: two-column bands collapse first --- */
+
+@media (max-width: 860px) {
+  .cs-landing-hero,
+  .cs-landing-extension,
+  .cs-landing-access {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-landing-pitchbook-head {
+    grid-template-columns: 1fr;
+  }
+
+  .cs-landing-hero-card-column {
+    max-width: 460px;
+  }
+}
+
+/* --- Responsive: mobile, per the mockup's 390px frame --- */
+
+@media (max-width: 620px) {
+  .cs-landing {
+    padding: 10px 8px 48px;
+  }
+
+  .cs-landing-nav {
+    padding: 14px 18px;
+  }
+
+  .cs-landing-nav-links {
+    display: none;
+  }
+
+  .cs-landing-nav-count {
+    display: inline;
+  }
+
+  .cs-landing-hero,
+  .cs-landing-pitchbook,
+  .cs-landing-sources,
+  .cs-landing-extension,
+  .cs-landing-access {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .cs-landing-hero-copy h1 {
+    max-width: none;
+    font-size: 38px;
+  }
+
+  .cs-landing-hero-card-column {
+    max-width: none;
+  }
+
+  /* Comparison table: three-line rows (label, Cold Start value, PitchBook value), the shared
+     head row's column labels replaced by a per-row source label since there is no room left for
+     a fixed label column at this width. */
+  .cs-landing-table-head {
+    display: none;
+  }
+
+  .cs-landing-table-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .cs-landing-table-source {
+    display: block;
+  }
+
+  /* Sources legend: mark plus an inline bold label and sentence, wrapping together as one block
+     instead of a fixed label column. */
+  .cs-landing-legend-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+  }
+
+  .cs-landing-mark {
+    flex: 0 0 auto;
+  }
+
+  /* Extension panel replica drops on mobile; the copy and CTA stay. */
+  .cs-landing-panel {
+    display: none;
+  }
+
+  .cs-landing-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}

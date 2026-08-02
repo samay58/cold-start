@@ -28,7 +28,7 @@ export type OpenGraphModel = {
   titleFontSize: number;
 };
 
-const defaultDescription = "Sourced company context card.";
+const defaultDescription = "Company profile, cited.";
 
 function compactMoney(value: number | null | undefined) {
   if (value === null || value === undefined) {

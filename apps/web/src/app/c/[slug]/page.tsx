@@ -10,7 +10,7 @@ type CompanyCardPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-const defaultDescription = "Sourced company context card.";
+const defaultDescription = "Company profile, cited.";
 export const revalidate = 15;
 
 const getPublicCardForPage = cache((slug: string) => getPublicCachedCardProfile(slug));

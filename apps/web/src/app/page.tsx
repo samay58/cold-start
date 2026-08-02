@@ -1,82 +1,117 @@
-import type { PublicCardSummary } from "@cold-start/db";
 import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { connection } from "next/server";
 import React from "react";
+import { AccessForm } from "../components/landing/AccessForm";
+import { ComparisonTable } from "../components/landing/ComparisonTable";
+import { ExtensionPanel } from "../components/landing/ExtensionPanel";
+import { Hero } from "../components/landing/Hero";
+import { LandingFooter } from "../components/landing/LandingFooter";
+import { recordedBuild } from "../components/landing/recorded-build-data";
+import { SourcesLegend } from "../components/landing/SourcesLegend";
 import { getPublicProfileIndex } from "../lib/cards";
 
 export const revalidate = 30;
 
+// A distinct cache key from /catalog's own "public-profile-index-catalog": both wrap the same
+// getPublicProfileIndex() call with an identical revalidate window, kept separate so neither
+// route's cache entry couples to the other's key.
 const getCachedPublicProfileIndex = unstable_cache(
   async () => getPublicProfileIndex(),
-  ["public-profile-index"],
+  ["public-profile-index-landing"],
   { revalidate: 30 }
 );
 
-function checkedDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-    year: "numeric"
-  }).format(parsed).replace(",", "");
-}
-
-function PublicProfileRow({ summary }: { summary: PublicCardSummary }) {
+function Nav({ profileCount }: { profileCount: number }) {
   return (
-    <Link className="cs-home-profile" href={`/c/${summary.slug}`}>
-      <span>{summary.name}</span>
-      <small>{summary.domain}</small>
-      <small>{summary.sourceCount} sources · Checked {checkedDate(summary.generatedAt)}</small>
-    </Link>
+    <nav aria-label="Cold Start" className="cs-landing-nav">
+      <div className="cs-landing-nav-brand">
+        <span className="cs-landing-nav-lockup">Cold Start</span>
+        <span className="cs-landing-nav-descriptor">company profiles, cited</span>
+      </div>
+      <div className="cs-landing-nav-links">
+        <Link className="cs-landing-nav-link" href="/catalog">
+          Catalog
+        </Link>
+        <a className="cs-landing-nav-link" href="#extension">
+          Extension
+        </a>
+        <a className="cs-landing-nav-link" href="#access">
+          Ask for access
+        </a>
+      </div>
+      <span className="cs-landing-nav-count">{profileCount} filed</span>
+    </nav>
   );
 }
 
 export default async function HomePage() {
   await connection();
   const profiles = await getCachedPublicProfileIndex();
-  const latestProfile = profiles[0] ?? null;
+  const latest = profiles[0] ?? null;
 
   return (
-    <main className="cs-home" id="main-content">
-      <section className="cs-home-shell" aria-label="Cold Start">
-        <header className="cs-home-hero">
-          <div className="cs-brand-lockup">
-            <span aria-hidden="true" />
-            <strong>Cold Start</strong>
-          </div>
+    <main className="cs-landing" id="main-content">
+      <div className="cs-landing-shell">
+        <div aria-hidden="true" className="cs-landing-hairline" />
+        <Nav profileCount={profiles.length} />
 
-          <div className="cs-home-copy">
-            <p className="cs-home-eyebrow">Generated from the Chrome extension.</p>
-            <h1>Sourced company profiles</h1>
+        <Hero profileCount={profiles.length} />
+
+        <section className="cs-landing-pitchbook" id="pitchbook">
+          <div className="cs-landing-pitchbook-head">
+            <h2>Cold Start can replace PitchBook</h2>
             <p>
-              Public pages show facts and sources. Investor synthesis stays private.
+              PitchBook is generic, static and brittle. Cold Start builds the profile when you need
+              it, cites every claim, finds and leverages the highest quality sources, interprets
+              them with nuance, and keeps the profile current.
             </p>
+          </div>
+          <ComparisonTable />
+          <p className="cs-landing-pitchbook-closing">
+            Round ledgers, fund and LP data, and exit comps stay in PitchBook. The first ten
+            minutes on a company you have not looked at yet is most of what a seat gets used for,
+            and that is the part Cold Start takes.
+          </p>
+        </section>
 
-            <div className="cs-home-actions" aria-label="Primary actions">
-              {latestProfile ? (
-                <Link className="cs-home-primary" href={`/c/${latestProfile.slug}`}>Open latest profile</Link>
-              ) : null}
-              <a className="cs-home-secondary" href="mailto:semitechie.vc@gmail.com?cc=samay58@gmail.com&subject=Cold%20Start%20access">Request access</a>
+        <section className="cs-landing-sources" id="sources">
+          <h2>Understand the sources</h2>
+          <SourcesLegend />
+        </section>
+
+        <section className="cs-landing-extension" id="extension">
+          <div className="cs-landing-extension-copy">
+            <span className="cs-landing-extension-eyebrow">Chrome extension</span>
+            <h2>A companion for understanding a company, not just looking it up.</h2>
+            <p>
+              Open the extension on a company&apos;s site and it works through the five questions
+              you would ask anyway: why care, what must be true, what could break, why now, what
+              to learn next.
+            </p>
+            <div className="cs-landing-extension-cta">
+              <a className="cs-landing-seal-pill" href="#access">
+                <span className="cs-landing-seal-pill-label">Ask for access</span>
+              </a>
+              <span className="cs-landing-extension-cta-caption">invite-only alpha</span>
             </div>
           </div>
-        </header>
+          <ExtensionPanel companyName={recordedBuild.companyName} lens={recordedBuild.lens} />
+        </section>
 
-        {profiles.length > 0 ? (
-          <section className="cs-home-profiles" aria-label="Generated profiles">
-            <div className="cs-home-profile-list">
-              {profiles.map((summary) => (
-                <PublicProfileRow key={summary.slug} summary={summary} />
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </section>
+        <section className="cs-landing-access" id="access">
+          <div className="cs-landing-access-copy">
+            <h2>Ask for access</h2>
+            <p>
+              Send us your name, email and one line about why this is interesting to you. A person
+              reads it and answers either way.
+            </p>
+          </div>
+          <AccessForm />
+        </section>
+
+        <LandingFooter count={profiles.length} latestGeneratedAt={latest?.generatedAt ?? null} />
+      </div>
     </main>
   );
 }

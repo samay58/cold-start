@@ -125,7 +125,6 @@
     "ignore": [
       "apps/extension/public/theme-boot.js",
       "docs/design/mockups/**",
-      "apps/web/src/components/landing/recorded-build-data.ts",
       "scripts/export-recorded-build.ts"
     ]
   }

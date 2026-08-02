@@ -53,15 +53,8 @@ a {
   outline-offset: 2px;
 }
 
-.cs-home,
 .cs-card-page {
   min-height: 100vh;
-}
-
-.cs-home {
-  display: grid;
-  align-items: start;
-  padding: clamp(14px, 2.6vw, 32px);
 }
 
 .cs-loading-body h1 {
@@ -206,10 +199,6 @@ a {
 }
 
 @media (max-width: 620px) {
-  .cs-home {
-    padding: 10px;
-  }
-
   .cs-loading-body h1 {
     font-size: 44px;
     letter-spacing: -0.05em;

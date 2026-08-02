@@ -8,8 +8,8 @@ import { expect, test } from "@playwright/test";
 // set. This is the fixture gallery the rest of the landing/public-card redesign iterates and
 // screenshots against. Task 10 swapped /c/{slug} over to the catalogue face and retired
 // CardShell, so the plain paths below now capture that face directly; there is no more
-// ?face=new variant to capture separately. home.png still captures the pre-redesign landing
-// page, which Task 17 replaces.
+// ?face=new variant to capture separately. home.png now captures the real landing page (Task
+// 17): hero, PitchBook comparison, sources legend, extension panel, access form, footer.
 //
 // The desktop and mobile projects each load this module in their own worker process, so the
 // timestamp is anchored once in playwright.config.ts (loaded once by the CLI, inherited by every
@@ -117,5 +117,22 @@ test.describe("web gallery", () => {
     await voxlatheRow.hover();
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(screenshotDir, "catalog-hover.png") });
+  });
+
+  // Task 17's landing page: the honest access form, scrolled to and captured at rest (idle
+  // state, no submission). A mocked route response is out of scope here per the task brief; the
+  // success/error copy states are covered by the AccessForm unit coverage instead.
+  test("captures the landing access form at rest", async ({ page }, testInfo) => {
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+    await page.waitForTimeout(400);
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const form = page.locator(".cs-landing-access-form");
+    await form.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(200);
+    await page.screenshot({ path: path.join(screenshotDir, "landing-access-form.png") });
   });
 });

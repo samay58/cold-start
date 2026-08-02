@@ -25,7 +25,7 @@ const plexSans = IBM_Plex_Sans({
 export const metadata: Metadata = {
   metadataBase: new URL(webOrigin()),
   title: "Cold Start",
-  description: "Sourced company context cards.",
+  description: "Company profile, cited.",
   icons: {
     icon: [
       { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },

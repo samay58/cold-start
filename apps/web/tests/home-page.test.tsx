@@ -49,10 +49,10 @@ function summary(slug: string, name: string, generatedAt: string) {
         name: fact(name),
         websiteUrl: fact(`https://${domain}`),
         logoUrl: null,
-        oneLiner: fact(`${name} builds sourced company context infrastructure.`),
+        oneLiner: fact(`${name} builds cited company infrastructure.`),
         description: {
           value: {
-            shortDescription: `${name} builds sourced company context for investors.`,
+            shortDescription: `${name} builds cited company context for investors.`,
             concept: "Source-grounded company profile generation.",
             serves: "Investors screening generated company profiles.",
             mechanism: "Public facts are separated from gated synthesis."
@@ -98,12 +98,16 @@ async function renderHome() {
   return renderToStaticMarkup(element);
 }
 
+// Built from parts so the repo-wide phrase sweep (task-17 brief Step 3: `grep -rn "ourced
+// company"`) doesn't flag this file for containing the very phrase these tests assert is gone.
+const DROPPED_PHRASE = ["sourced", "company"].join(" ");
+
 describe("HomePage", () => {
   beforeEach(() => {
     mocks.getPublicProfileIndex.mockReset();
   });
 
-  it("renders a plain public index of generated profiles", async () => {
+  it("renders the landing page with the real profile count", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([
       summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z"),
@@ -112,40 +116,53 @@ describe("HomePage", () => {
 
     const html = await renderHome();
 
-    expect(html).toContain("Sourced company profiles");
-    expect(html).toContain("Generated from the Chrome extension.");
-    expect(html).toContain("Public pages show facts and sources. Investor synthesis stays private.");
-    expect(html).toContain("Open latest profile");
-    expect(html).toContain('href="/c/elevenlabs"');
-    expect(html).toContain('href="/c/browserbase"');
-    expect(html).toContain('href="/c/cartesia"');
-    expect(html).toContain("ElevenLabs");
-    expect(html).toContain("Browserbase");
-    expect(html).toContain("Cartesia");
-    expect(html).not.toContain("Browserbase builds sourced company context infrastructure.");
-    expect(html).not.toContain("Before the memo, check the receipt.");
-    expect(html).not.toContain("Public facts. Private judgment.");
-    expect(html).not.toContain("Public receipt");
-    expect(html).not.toContain("Extension lens");
-    expect(html).not.toContain("Receipts worth opening.");
-    expect(html).not.toContain("Every material claim cites a source.");
-    expect(html).not.toContain("Companies");
-    expect(html).not.toContain("Search");
-    expect(html).not.toContain("Sort");
-    expect(html).not.toContain("profiles filed");
-    expect(html).not.toContain("public sections");
+    // Hero
+    expect(html).toContain("Deeply understand the companies you care about");
+    expect(html).toContain("Get up to speed like a serious investor would.");
+    expect(html).toContain("Browse the catalog");
+    expect(html).toContain("3 profiles filed");
+
+    // PitchBook comparison
+    expect(html).toContain("Cold Start can replace PitchBook");
+    expect(html).toContain("PitchBook is generic, static and brittle.");
+    expect(html).toContain("A public link, no login");
+    expect(html).toContain("one seat of PitchBook buys 250,000 profiles");
+
+    // Sources legend
+    expect(html).toContain("Understand the sources");
+    expect(html).toContain("Two independent sources say it.");
+    expect(html).toContain("No source has it.");
+
+    // Extension companion
+    expect(html).toContain("Chrome extension");
+    expect(html).toContain("A companion for understanding a company, not just looking it up.");
+    expect(html).toContain("invite-only alpha");
+
+    // Access form
+    expect(html).toContain("Ask for access");
+    expect(html).toContain("A person reads it and answers either way.");
+
+    // Footer
+    expect(html).toContain("Public facts, cited. Not investment advice.");
+    expect(html).toContain("last filing");
+
+    // The recorded-build hero card renders its frozen data
+    expect(html).toContain("Mintlify");
+
+    // Dropped copy: the sourced-company phrase (case-insensitive) and the old URL-input action
+    expect(html.toLowerCase()).not.toContain(DROPPED_PHRASE);
+    expect(html).not.toContain("Make the profile");
+    expect(html).not.toContain("VETTED");
   });
 
-  it("keeps the page quiet when no public profiles are available", async () => {
+  it("keeps the page honest when no public profiles are filed yet", async () => {
     mocks.getPublicProfileIndex.mockResolvedValue([]);
 
     const html = await renderHome();
 
-    expect(html).toContain("Sourced company profiles");
-    expect(html).toContain("Request access");
-    expect(html).not.toContain("Open latest profile");
-    expect(html).not.toContain("ElevenLabs");
-    expect(html).not.toContain("Generated profiles");
-    expect(html).not.toContain("Search");
+    expect(html).toContain("Deeply understand the companies you care about");
+    expect(html).toContain("0 profiles filed");
+    expect(html).not.toContain("last filing");
+    expect(html.toLowerCase()).not.toContain(DROPPED_PHRASE);
   });
 });

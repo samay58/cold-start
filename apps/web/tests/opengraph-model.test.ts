@@ -75,7 +75,7 @@ describe("buildOpenGraphModel", () => {
     const model = buildOpenGraphModel(null, "hanover-park");
 
     expect(model.name).toBe("Hanover Park");
-    expect(model.description).toBe("Sourced company context card.");
+    expect(model.description).toBe("Company profile, cited.");
     expect(model.domainLabel).toBe("public company card");
     expect(model.facts).toEqual([
       { label: "Sources", value: "0" },
