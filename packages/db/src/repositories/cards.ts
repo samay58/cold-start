@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import {
   coldStartCardObjectSchema,
@@ -173,14 +173,16 @@ export async function findPublicCardBySlug(db: ColdStartDb, slug: string, option
 }
 
 export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCardSummary[]> {
-  const [cardRows, sectionRows] = await Promise.all([
-    db
-      .select({ cardJson: cards.cardJson, domain: cards.domain })
-      .from(cards)
-      .orderBy(desc(cards.generatedAt))
-      // Bounded read; revisit when the catalog approaches 500 filed cards.
-      .limit(500),
-    db
+  const cardRows = await db
+    .select({ slug: cards.slug, cardJson: cards.cardJson, domain: cards.domain })
+    .from(cards)
+    .orderBy(desc(cards.generatedAt))
+    // Bounded read; revisit when the catalog approaches 500 filed cards.
+    .limit(500);
+  const selectedSlugs = cardRows.map((row) => row.slug);
+  const sectionRows = selectedSlugs.length === 0
+    ? []
+    : await db
       .select({
         slug: researchSections.slug,
         domain: researchSections.domain,
@@ -198,8 +200,7 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
         updatedAt: researchSections.updatedAt
       })
       .from(researchSections)
-      .where(eq(researchSections.visibility, "public"))
-  ]);
+      .where(and(eq(researchSections.visibility, "public"), inArray(researchSections.slug, selectedSlugs)));
   const sectionsBySlug = new Map<string, ResearchSection[]>();
 
   for (const row of sectionRows) {

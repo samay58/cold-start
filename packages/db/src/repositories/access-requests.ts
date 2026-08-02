@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
 import { accessRequests } from "../schema";
@@ -70,16 +70,37 @@ export async function markAccessRequestHandled(db: ColdStartDb, id: string, now 
   return rows.length === 1;
 }
 
-// Handled requests are deleted 30 days after handling, the same privacy commitment as the
-// alpha-events prune (see the privacy page). Open requests (handledAt null) are never touched
-// here. Plain DELETE...WHERE: Neon HTTP has no interactive transactions, and this statement
-// needs none.
-export async function pruneHandledAccessRequests(db: ColdStartDb, cutoff: Date): Promise<number> {
-  const rows = await db
-    .delete(accessRequests)
-    .where(and(isNotNull(accessRequests.handledAt), lt(accessRequests.handledAt, cutoff)))
-    .returning();
-  return rows.length;
+// Open requests are never eligible. The CTE keeps each deletion bounded without relying on an
+// interactive transaction, which Neon HTTP does not provide.
+export async function pruneHandledAccessRequests(
+  db: ColdStartDb,
+  input: { before: Date; limit?: number }
+): Promise<number> {
+  const limit = input.limit ?? 1_000;
+  if (!Number.isInteger(limit) || limit <= 0) {
+    throw new Error("limit must be a positive integer");
+  }
+  const result = await db.execute<{ id: string }>(sql`
+    with doomed as (
+      select id
+      from access_requests
+      where handled_at is not null and handled_at < ${input.before}
+      order by handled_at
+      limit ${limit}
+    )
+    delete from access_requests requests
+    using doomed
+    where requests.id = doomed.id
+    returning requests.id
+  `);
+  if (Array.isArray(result)) {
+    return result.length;
+  }
+  if (result && typeof result === "object" && "rows" in result) {
+    const rows = (result as { rows?: unknown }).rows;
+    return Array.isArray(rows) ? rows.length : 0;
+  }
+  return 0;
 }
 
 async function countRecentRequests(db: ColdStartDb, matchColumn: SQL, since: Date): Promise<number> {

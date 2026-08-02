@@ -41,7 +41,17 @@ export async function GET(request: Request) {
     if (removed < BATCH_SIZE) break;
   }
 
-  const capped = deleted === MAX_DELETIONS;
+  let accessRequestsDeleted = 0;
+  while (deleted + accessRequestsDeleted < MAX_DELETIONS) {
+    const removed = await pruneHandledAccessRequests(db, {
+      before,
+      limit: Math.min(BATCH_SIZE, MAX_DELETIONS - deleted - accessRequestsDeleted)
+    });
+    accessRequestsDeleted += removed;
+    if (removed < BATCH_SIZE) break;
+  }
+
+  const capped = deleted + accessRequestsDeleted === MAX_DELETIONS;
   console.info("[alpha-retention]", {
     signal: "events_pruned",
     deleted,
@@ -49,10 +59,6 @@ export async function GET(request: Request) {
     before: before.toISOString()
   });
 
-  // Same 30-day commitment as the events above (see the privacy page), applied to answered
-  // access requests: handledAt is not null and older than the boundary. Open requests are never
-  // touched here.
-  const accessRequestsDeleted = await pruneHandledAccessRequests(db, before);
   console.info("[alpha-retention]", {
     signal: "access_requests_pruned",
     deleted: accessRequestsDeleted,

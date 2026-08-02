@@ -87,18 +87,24 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   });
 
   if (!apply) {
+    const eventsWouldDelete = Math.min(eligible, maximum);
+    const accessRequestsWouldDelete = Math.min(
+      accessRequestsEligible,
+      maximum - eventsWouldDelete
+    );
     console.log(
       JSON.stringify(
         {
           mode: "dry-run",
           before: before.toISOString(),
           eligible,
-          wouldDelete: Math.min(eligible, maximum),
-          cappedByMax: eligible > maximum,
+          wouldDelete: eventsWouldDelete,
+          cappedByMax: eligible + accessRequestsEligible > maximum,
           attemptsBefore: attemptsBefore.toISOString(),
           attemptsEligible,
           accessRequestsBefore: accessRequestsBefore.toISOString(),
-          accessRequestsEligible
+          accessRequestsEligible,
+          accessRequestsWouldDelete
         },
         null,
         2
@@ -118,7 +124,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       if (removed < batch) break;
     }
     const removedAttempts = await pruneAlphaInviteAttempts(db, attemptsBefore);
-    const removedAccessRequests = await pruneHandledAccessRequests(db, accessRequestsBefore);
+    let removedAccessRequests = 0;
+    while (countDeleted + removedAccessRequests < maximum) {
+      const removed = await pruneHandledAccessRequests(db, {
+        before: accessRequestsBefore,
+        limit: Math.min(batch, maximum - countDeleted - removedAccessRequests)
+      });
+      removedAccessRequests += removed;
+      if (removed < batch) break;
+    }
     return { deleted: countDeleted, attemptsDeleted: removedAttempts, accessRequestsDeleted: removedAccessRequests };
   });
 

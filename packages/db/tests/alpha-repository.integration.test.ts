@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { ColdStartDb } from "../src/client";
+import { pruneHandledAccessRequests } from "../src/repositories/access-requests";
 import {
   AlphaEventRateLimitError,
   countRecentAlphaInviteAttempts,
@@ -637,6 +638,29 @@ describeDatabase("alpha repositories against Postgres", () => {
     expect(count.rows[0]?.count).toBe(300);
     await deleteAlphaTesterData(db, fixture.inviteId);
   }, 30_000);
+
+  it("prunes handled access requests in bounded batches and leaves open requests", async () => {
+    const prefix = randomUUID();
+    const handledAt = new Date("2026-06-01T12:00:00.000Z");
+    await db.insert(schema.accessRequests).values([
+      { name: "One", email: `${prefix}-1@example.com`, note: "one", ipHash: `${prefix}-1`, handledAt },
+      { name: "Two", email: `${prefix}-2@example.com`, note: "two", ipHash: `${prefix}-2`, handledAt },
+      { name: "Three", email: `${prefix}-3@example.com`, note: "three", ipHash: `${prefix}-3`, handledAt },
+      { name: "Open", email: `${prefix}-open@example.com`, note: "open", ipHash: `${prefix}-open` }
+    ]);
+
+    await expect(pruneHandledAccessRequests(db, {
+      before: new Date("2026-07-01T12:00:00.000Z"),
+      limit: 2
+    })).resolves.toBe(2);
+
+    const remaining = await pool.query<{ handled_at: Date | null }>(
+      "select handled_at from access_requests where email like $1",
+      [`${prefix}%`]
+    );
+    expect(remaining.rows).toHaveLength(2);
+    expect(remaining.rows.filter((row) => row.handled_at === null)).toHaveLength(1);
+  });
 
   it("stores and finds the card by slug", async () => {
     const invite = await createAlphaInvite(db, {

@@ -89,16 +89,32 @@ describe("GET /api/alpha/retention", () => {
 
   it("prunes handled access requests past the same 30-day boundary and reports the count", async () => {
     mocks.pruneEvents.mockResolvedValue(0);
-    mocks.pruneAccessRequests.mockResolvedValue(42);
+    mocks.pruneAccessRequests
+      .mockResolvedValueOnce(1_000)
+      .mockResolvedValueOnce(42);
 
     const response = await GET(request());
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ accessRequestsDeleted: 42 });
-    expect(mocks.pruneAccessRequests).toHaveBeenCalledTimes(1);
-    const [dbArg, cutoffArg] = mocks.pruneAccessRequests.mock.calls[0];
+    expect(body).toMatchObject({ accessRequestsDeleted: 1_042, capped: false });
+    expect(mocks.pruneAccessRequests).toHaveBeenCalledTimes(2);
+    const [dbArg, inputArg] = mocks.pruneAccessRequests.mock.calls[0];
     expect(dbArg).toEqual({ kind: "db" });
-    expect(new Date(cutoffArg).getTime()).toBeLessThan(Date.now());
+    expect(inputArg.limit).toBe(1_000);
+    expect(new Date(inputArg.before).getTime()).toBeLessThan(Date.now());
+  });
+
+  it("shares the invocation cap across events and access requests", async () => {
+    mocks.pruneEvents.mockResolvedValue(1_000);
+
+    const response = await GET(request());
+
+    await expect(response.json()).resolves.toMatchObject({
+      deleted: 10_000,
+      accessRequestsDeleted: 0,
+      capped: true
+    });
+    expect(mocks.pruneAccessRequests).not.toHaveBeenCalled();
   });
 });

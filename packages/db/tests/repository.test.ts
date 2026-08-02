@@ -1073,9 +1073,10 @@ describe("findActiveGenerationRunBySlug", () => {
 describe("listPublicCardSummaries", () => {
   it("returns usable public cards newest first", async () => {
     const rows = [
-      { cardJson: { ...card, slug: "thin", domain: "thin.ai", citations: [] } },
-      { cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai", generatedAt: "2026-05-07T12:00:00.000Z" } }
+      { slug: "thin", cardJson: { ...card, slug: "thin", domain: "thin.ai", citations: [] } },
+      { slug: "cartesia", cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai", generatedAt: "2026-05-07T12:00:00.000Z" } }
     ];
+    let sectionWhere: unknown;
     let selectCount = 0;
     const db = {
       select: () => {
@@ -1090,7 +1091,10 @@ describe("listPublicCardSummaries", () => {
             }
           : {
               from: () => ({
-                where: async () => []
+                where: async (condition: unknown) => {
+                  sectionWhere = condition;
+                  return [];
+                }
               })
             };
       }
@@ -1107,11 +1111,13 @@ describe("listPublicCardSummaries", () => {
         headcount: 42
       }
     ]);
+    expect(sqlParamValues(sectionWhere)).toEqual(expect.arrayContaining(["public", "thin", "cartesia"]));
   });
 
-  it("bounds the card scan with a limit", async () => {
-    const rows = [{ cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai" } }];
+  it("bounds the card and section scans to the selected slugs", async () => {
+    const rows = [{ slug: "cartesia", cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai" } }];
     const limitCalls: number[] = [];
+    let sectionWhere: unknown;
     let selectCount = 0;
     const db = {
       select: () => {
@@ -1129,7 +1135,10 @@ describe("listPublicCardSummaries", () => {
             }
           : {
               from: () => ({
-                where: async () => []
+                where: async (condition: unknown) => {
+                  sectionWhere = condition;
+                  return [];
+                }
               })
             };
       }
@@ -1138,6 +1147,7 @@ describe("listPublicCardSummaries", () => {
     await listPublicCardSummaries(db);
 
     expect(limitCalls).toEqual([500]);
+    expect(sqlParamValues(sectionWhere)).toEqual(expect.arrayContaining(["public", "cartesia"]));
   });
 });
 
