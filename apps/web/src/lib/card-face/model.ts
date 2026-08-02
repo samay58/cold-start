@@ -118,6 +118,19 @@ export function evidenceStateForFact(card: PublicCardData, fact: ResolvedFactLik
   return publicEvidenceStatusForFact(fact, buildCitationLedger(card.citations));
 }
 
+// evidenceStateForFact falls back to a fact's stated status/confidence whenever none of its
+// citationIds resolve in the card's citation ledger (see publicEvidenceStatusForFact above). Some
+// card-face rows (the Money section's extra financing items, the Comps section) build a synthetic
+// fact with a hard-coded "verified" status because they have no ResolvedFact of their own, so that
+// fallback would render a filled-verified mark backed by zero real citations. Callers building a
+// synthetic fact should use this instead of evidenceStateForFact directly: it checks the citation
+// index first and reports "unknown" when nothing resolves, rather than trusting the hard-coded
+// status.
+export function resolvedEvidenceState(card: PublicCardData, index: CitationIndex, fact: ResolvedFactLike): EvidenceState {
+  const hasResolvedCitation = fact.citationIds.some((id) => index.displayNumber(id) !== null);
+  return hasResolvedCitation ? evidenceStateForFact(card, fact) : "unknown";
+}
+
 // Ported verbatim from packages/ui/src/CardShell.tsx (publicEvidenceText). Sentence-aware clip
 // to ~260 chars: prefers a clean sentence boundary, falls back to a word-boundary ellipsis.
 export function publicEvidenceText(text: string, limit = 260): string {

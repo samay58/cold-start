@@ -9,6 +9,7 @@ import {
   moneyBullets,
   nextQuestionForCard,
   publicEvidenceText,
+  resolvedEvidenceState,
   riskCaveats,
   signalEvidenceState,
   type CitationIndex,
@@ -124,7 +125,7 @@ function MoneySection({ card, sections, index }: { card: PublicCardData; section
         <BulletRow bullet={bullet} index={index} key={bullet.text} />
       ))}
       {extraItems.map((item) => {
-        const state = evidenceStateForFact(card, {
+        const state = resolvedEvidenceState(card, index, {
           value: item.text,
           status: "verified",
           confidence: "high",
@@ -199,7 +200,7 @@ function SignalsSection({ card, index }: { card: PublicCardData; index: Citation
                 <Mark state={state} />
                 {signal.title}
                 {state === "company" ? (
-                  <span className="cs-face-signal-caveat"> — company claim, not independently confirmed</span>
+                  <span className="cs-face-signal-caveat"> company claim, not independently confirmed</span>
                 ) : null}
               </span>
               <span className="cs-face-signal-cite">
@@ -234,7 +235,7 @@ function CompsSection({ card, index }: { card: PublicCardData; index: CitationIn
     <SectionRow label="Comps">
       {card.comparables.map((comparable) => {
         const citationIds = comparable.citationIds ?? [];
-        const state = evidenceStateForFact(card, {
+        const state = resolvedEvidenceState(card, index, {
           value: comparable.name,
           status: "verified",
           confidence: comparable.confidence ?? "high",
@@ -245,7 +246,7 @@ function CompsSection({ card, index }: { card: PublicCardData; index: CitationIn
             <Mark state={state} />
             <span className="cs-face-comp-name">{comparable.name}</span>
             <span className="cs-face-comp-domain"> · {comparable.domain}</span>
-            {" — "}
+            {" · "}
             {publicEvidenceText(comparable.basis ?? comparable.oneLiner)}
             <CiteMarks citationIds={citationIds} index={index} />
           </p>

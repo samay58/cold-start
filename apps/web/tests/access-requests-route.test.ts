@@ -178,4 +178,28 @@ describe("POST /api/access-requests", () => {
       })
     );
   });
+
+  it("lowercases the email before it reaches the repository, so the per-email rate limit can't be evaded by case", async () => {
+    mocks.createAccessRequest.mockResolvedValue("created");
+
+    const response = await POST(request(validBody({ email: "Bob@X.com" })));
+
+    expect(response.status).toBe(200);
+    expect(mocks.createAccessRequest).toHaveBeenCalledWith(
+      { kind: "db" },
+      expect.objectContaining({ email: "bob@x.com" })
+    );
+  });
+
+  it("never sets a Server-Timing header, on any response shape", async () => {
+    mocks.createAccessRequest.mockResolvedValue("created");
+
+    const honeypotResponse = await POST(request(validBody({ company: "acme corp" })));
+    const invalidResponse = await POST(request({ ...validBody(), name: undefined }));
+    const createdResponse = await POST(request(validBody()));
+
+    expect(honeypotResponse.headers.get("Server-Timing")).toBeNull();
+    expect(invalidResponse.headers.get("Server-Timing")).toBeNull();
+    expect(createdResponse.headers.get("Server-Timing")).toBeNull();
+  });
 });

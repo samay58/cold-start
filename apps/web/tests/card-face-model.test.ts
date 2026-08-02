@@ -10,6 +10,7 @@ import {
   moneyBullets,
   nextQuestionForCard,
   publicEvidenceText,
+  resolvedEvidenceState,
   riskCaveats,
   signalEvidenceState,
   statSlots,
@@ -357,6 +358,36 @@ describe("evidenceStateForFact", () => {
   it("is unknown when every backing citation is vendor-class", () => {
     const fact = resolvedFact("x", ["c6"]);
     expect(evidenceStateForFact(richConflictCard, fact)).toBe("unknown");
+  });
+});
+
+describe("resolvedEvidenceState", () => {
+  // The Money and Comps rows this guards build a synthetic fact with a hard-coded "verified"
+  // status because they have no ResolvedFact of their own. evidenceStateForFact's own fallback
+  // (publicEvidenceStatusForFact's `classes.length === 0` branch) would trust that hard-coded
+  // status even when zero citations resolve; this guard exists to catch exactly that case.
+  it("reports unknown when none of the fact's citationIds resolve in the citation index, despite a hard-coded verified status", () => {
+    const index = buildCitationIndex(richConflictCard);
+    const fact = resolvedFact("x", ["nonexistent"], { status: "verified", confidence: "high" });
+
+    expect(resolvedEvidenceState(richConflictCard, index, fact)).toBe("unknown");
+  });
+
+  it("reports unknown when the fact carries no citationIds at all", () => {
+    const index = buildCitationIndex(richConflictCard);
+    const fact = resolvedFact("x", [], { status: "verified", confidence: "high" });
+
+    expect(resolvedEvidenceState(richConflictCard, index, fact)).toBe("unknown");
+  });
+
+  it("defers to evidenceStateForFact once at least one citationId resolves", () => {
+    const index = buildCitationIndex(richConflictCard);
+    // c1 resolves (independent-class); the unresolved id alongside it must not suppress that.
+    const fact = resolvedFact("x", ["c1", "nonexistent"], { status: "verified", confidence: "high" });
+
+    expect(resolvedEvidenceState(richConflictCard, index, fact)).toBe(
+      evidenceStateForFact(richConflictCard, fact)
+    );
   });
 });
 

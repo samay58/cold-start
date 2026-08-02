@@ -22,8 +22,11 @@ Usage:
 Output:
   Lists open requests newest-first as flat lines.`;
 
+// Public form input is hostile by default: strip every Unicode control character (this covers
+// \r\n plus ESC and other C0/C1 codes a terminal would otherwise interpret) rather than just the
+// newline pair, so nothing can escape-sequence its way into the operator's terminal.
 function sanitizeOutput(text: string): string {
-  return text.replace(/[\r\n]+/g, " ");
+  return text.replace(/\p{Cc}+/gu, " ");
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {

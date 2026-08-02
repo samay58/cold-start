@@ -287,7 +287,7 @@ function SignalsTab({ card, index, onJumpToSources }: { card: PublicCardData; in
                 <p className="cs-pocket-signal-statement">
                   <Mark state={state} />
                   {signal.title}
-                  {state === "company" ? <span className="cs-face-signal-caveat"> — company claim</span> : null}
+                  {state === "company" ? <span className="cs-face-signal-caveat"> company claim</span> : null}
                   <PocketCite citationIds={signal.citationIds} index={index} onJumpToSources={onJumpToSources} />
                 </p>
               </div>

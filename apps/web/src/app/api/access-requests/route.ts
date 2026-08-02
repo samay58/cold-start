@@ -13,9 +13,13 @@ import { webEnv } from "../../../lib/web-env";
 const accessRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
+    // Lowercased before it reaches the repository so the per-email rate limit and any future
+    // uniqueness check compare on a normalized value; without this, "Bob@x.com" and "bob@x.com"
+    // read as different emails and each get their own 1-per-24h allowance.
     email: z
       .string()
       .trim()
+      .toLowerCase()
       .min(1)
       .max(320)
       .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
@@ -39,13 +43,11 @@ function hashFirstForwardedFor(headers: Headers): string {
 }
 
 export async function POST(request: Request) {
-  const startedAt = performance.now();
-  const respond = (body: unknown, init?: ResponseInit) =>
-    apiJsonWithTiming(
-      body,
-      [{ name: "total", durationMs: performance.now() - startedAt }],
-      init
-    );
+  // No Server-Timing metrics on this route (unlike other API routes): the honeypot path below
+  // returns before any DB call, so a real duration would leak a timing signal a bot could use to
+  // tell the honeypot short-circuit apart from the real, DB-backed path. Omitting the header on
+  // every response, not just the honeypot one, keeps the two paths indistinguishable.
+  const respond = (body: unknown, init?: ResponseInit) => apiJsonWithTiming(body, [], init);
 
   let unknownBody: unknown;
   try {
@@ -56,8 +58,7 @@ export async function POST(request: Request) {
 
   // Bots and scrapers fill every field they can find, including the hidden honeypot. A real
   // browser never populates it. Answer with the same success body a real submission gets, and
-  // never touch the database, so a scripted attacker learns nothing from timing or response
-  // shape.
+  // never touch the database, so a scripted attacker learns nothing from response shape.
   if (honeypotFilled(unknownBody)) {
     return respond({ ok: true });
   }

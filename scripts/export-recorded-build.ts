@@ -128,7 +128,7 @@ function requiredTraceCounts(trace: GenerationTrace, slug: string): RequiredTrac
   }
   if (missing.length > 0) {
     throw new Error(
-      `card ${slug} lacks ${missing.join("/")} in its trace — not a complete trace, choose another slug.`
+      `card ${slug} lacks ${missing.join("/")} in its trace: not a complete trace, choose another slug.`
     );
   }
 
@@ -137,7 +137,7 @@ function requiredTraceCounts(trace: GenerationTrace, slug: string): RequiredTrac
   const factsKept = extraction.citationCount ?? extraction.evidenceCount;
   if (factsKept === undefined || factsKept === null) {
     throw new Error(
-      `card ${slug} lacks extraction.citationCount/evidenceCount in its trace — not a complete trace, choose another slug.`
+      `card ${slug} lacks extraction.citationCount/evidenceCount in its trace: not a complete trace, choose another slug.`
     );
   }
 
