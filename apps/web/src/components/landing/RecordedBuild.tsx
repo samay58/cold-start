@@ -76,6 +76,25 @@ function filedDateStamp(filedDate: string): string {
   return `${year}·${month}·${day}`;
 }
 
+// The receipt event line must never read "Filed" before the FILED stamp itself lands (stage 6).
+// The canonical mockup pairs one event string per stage (7 entries: docs/design/mockups/landing-
+// page/Cold Start Landing.dc.html, lines 675-682), so its own `events[Math.min(stage, 6)]` always
+// lands "Filed" exactly on the stamp. The frozen recordedBuild export only carries 4 events
+// (Task 16's real trace produced fewer distinct lines than the mockup's placeholder array), so
+// that same formula overruns the array early and reads "Filed" three stages ahead of the stamp.
+// Stages 0..(events.length - 2) walk the array normally; every stage after that holds on the
+// second-to-last entry; only stage 6 reveals the last one.
+export function eventLineFor(build: RecordedBuildData, stage: number): string {
+  const events = build.events;
+  if (events.length === 0) {
+    return "";
+  }
+  if (stage >= STAGE_COUNT) {
+    return events[events.length - 1] ?? "";
+  }
+  return events[Math.max(0, Math.min(stage, events.length - 2))] ?? "";
+}
+
 export function RecordedBuild({ build }: { build: RecordedBuildData }) {
   const prefersReducedMotion = useReducedMotion();
   const isNarrowViewport = useIsNarrowViewport();
@@ -114,7 +133,7 @@ export function RecordedBuild({ build }: { build: RecordedBuildData }) {
   const filed = displayStage >= STAGE_COUNT;
   const sealAlpha = Math.min(displayStage, 4) * 0.05;
   const sealScale = filed ? 1.04 : 1;
-  const eventLine = build.events[Math.min(displayStage, build.events.length - 1)] ?? "";
+  const eventLine = eventLineFor(build, displayStage);
   const elapsed = `${(displayStage * 0.7).toFixed(1)}s`;
 
   const callNo = callNumberFor(build.domain, build.filedDate);
