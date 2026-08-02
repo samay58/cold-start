@@ -73,8 +73,7 @@ export const recordedBuild: RecordedBuild = {
       "Introducing the Mintlify Help Center Starter Kit",
       "Workflows, rebuilt",
       "Mintlify announces MCP support and AI-agent-native doc workflows alongside Series B",
-      "Mintlify raises $45M Series B led by a16z and Salesforce Ventures at $500M valuation",
-      "Ruairi Wiepking joins as Head of Sales (April 2026), signaling enterprise GTM build-out post-Series B"
+      "Mintlify raises $45M Series B led by a16z and Salesforce Ventures at $500M valuation"
     ],
     "sources": [
       "mintlify.com",
