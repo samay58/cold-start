@@ -2,8 +2,8 @@
 
 Cold Start has two public surfaces and two gated surface families:
 
-- Public web page: `/c/{slug}`
-- Public API: `/api/cards/{slug}`
+- Public web pages: `/c/{slug}`, `/catalog`, `/i/{slug}`
+- Public API: `/api/cards/{slug}`, `/api/access-requests`
 - Gated extension API: `/api/extension/cards/{slug}` and extension-authenticated `/api/generate`
 - Friend-alpha access API: `/api/alpha/invite/*` and `/api/alpha/events`
 
@@ -138,11 +138,16 @@ unauthenticated: a tester has no credential yet when they open the invitation
 link. Both routes validate the token shape, hash it, and consult the database
 before any state change; redemption takes a per-token advisory lock in
 Postgres so concurrent redemptions cannot double-spend an installation slot.
-Neither route is currently rate-limited or IP-throttled beyond the
-invitation's own active-installation limit. This is a known
-limitation for a public-internet endpoint: the invitation token itself (32
-bytes and stored hashed) is the only guard against a brute-force
-enumeration attempt today.
+
+The default invitation token is a three-word code drawn from a roughly
+1,165-word list, about 30 bits of entropy, matched against a 14-256
+character pattern shared by every entry point. A legacy 32-byte token
+remains available through the operator script's `--skip-card` path. Token
+length is not the real guard against brute-force guessing; a global failure
+breaker is. Any invalid-token attempt against invite/inspect, invite/redeem,
+the `/i/{slug}` invitation page, or its card image counts against one shared
+trailing-hour tally, and once ten misses land in that hour every one of
+those routes answers 429 until the window drains.
 
 ## Allowances
 

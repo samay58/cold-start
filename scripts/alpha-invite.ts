@@ -47,6 +47,18 @@ written to .cold-start/invites/, and opened for approval. Only an approved card 
 stored; the invite row is created after approval. The invitation URL contains the
 only copy of the raw code. It is printed once after the hashed invitation exists.`;
 
+// open and sips (used below the --skip-card branch) are macOS-only, with no Linux/Windows
+// equivalent shipped here. Check before the paid mint call, not after: failing on a missing
+// binary once the mint has already billed OpenRouter is a wasted spend, not just an ugly
+// error (lens3 F4).
+export function assertMacOsMintSupport(platform: NodeJS.Platform): void {
+  if (platform !== "darwin") {
+    throw new Error(
+      "alpha:invite's card mint requires macOS (uses open and sips). Run it from a Mac, or pass --skip-card for the legacy link-only flow."
+    );
+  }
+}
+
 async function promptOperator(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -109,6 +121,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   let slug: string | undefined;
 
   if (!hasFlag(args, "--skip-card")) {
+    assertMacOsMintSupport(process.platform);
     const outDir = resolve(process.cwd(), ".cold-start", "invites", `${slugBase}-${ordinal}`);
     const mintInput = {
       name,

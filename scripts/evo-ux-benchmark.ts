@@ -518,7 +518,13 @@ async function main() {
       measureRoute({
         browser,
         name: "extension-sidepanel",
-        readyText: /Research layer|Browserbase turns browser automation/i,
+        // "Why care" is the default-open Investor Lens category's label (InvestorReadCard.tsx),
+        // never hidden by CSS. The category's preview text (the previous readyText target) is
+        // the same string rendered twice: once as a hidden `display:none` preview span while
+        // the category is open by default, once as the visible lede body beneath it. getByText
+        // matches DOM order, not visibility, so it always locked onto the hidden copy first and
+        // raced its own waitFor. "Why care" has no such duplicate ahead of it.
+        readyText: /Why care/i,
         screenshotPath: artifactPath("extension-sidepanel"),
         setup: async (page) => {
           await installBenchmarkChromeShim(page);

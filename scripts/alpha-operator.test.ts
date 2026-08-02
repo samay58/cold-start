@@ -10,6 +10,7 @@ import {
   sha256,
   slugify
 } from "./alpha-common";
+import { assertMacOsMintSupport } from "./alpha-invite";
 import { buildMintPrompt, imagesFromOpenRouterResponse } from "./alpha-mint-card";
 import {
   buildAlphaStatusReport,
@@ -112,6 +113,12 @@ describe("invite mint pipeline", () => {
       inviteUrl("dad", "ember-quarto-lark", "https://cold-start.semitechie.vc"),
       "https://cold-start.semitechie.vc/i/dad#ember-quarto-lark"
     );
+  });
+
+  it("assertMacOsMintSupport allows darwin and rejects every other platform with a clear error", () => {
+    assert.doesNotThrow(() => assertMacOsMintSupport("darwin"));
+    assert.throws(() => assertMacOsMintSupport("linux"), /requires macOS/);
+    assert.throws(() => assertMacOsMintSupport("win32"), /--skip-card/);
   });
 });
 
@@ -249,6 +256,32 @@ describe("alpha status report", () => {
     assert.equal(report.gate.passed, false);
     assert.ok(report.gate.failures.some((failure) => failure.code === "stale_runs"));
     assert.equal(report.totals.allTraffic.staleOrSilentRunCount, 1);
+  });
+
+  it("reports the invite breaker closed below the threshold", () => {
+    const fixture = failingFixture();
+    fixture.recentInviteAttempts = 9;
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.deepEqual(report.breaker, {
+      windowMinutes: 60,
+      threshold: 10,
+      recentAttempts: 9,
+      open: false
+    });
+  });
+
+  it("reports the invite breaker open at the threshold, independent of the gate", () => {
+    const fixture = failingFixture();
+    fixture.recentInviteAttempts = 10;
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(report.breaker.open, true);
+    assert.equal(report.breaker.recentAttempts, 10);
+    // The breaker is reported, not gated: a busy breaker alone never fails npm run alpha:status --gate.
+    assert.ok(!report.gate.failures.some((failure) => failure.code.includes("breaker")));
   });
 });
 
@@ -437,6 +470,7 @@ function failingFixture(): AlphaStatusReportInputs {
       endpoint: "org_enrichment",
       failures: "2"
     }],
+    recentInviteAttempts: 0,
     walletBalanceUsd: 1,
     walletError: null,
     supportedVersions: ["0.1.0"],

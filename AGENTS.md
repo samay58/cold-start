@@ -49,6 +49,7 @@ npm run trace:generation                # tsx scripts/trace-generation.ts (singl
 npm run qa:generation                   # tsx scripts/qa-generation-suite.ts (multi-company QA)
 npm run seed:web-gallery                # tsx scripts/seed-web-gallery.ts (writes the three gallery fixture cards to local Postgres)
 npm run qa:web:gallery                  # Playwright capture of landing, /catalog, and /c/{slug} at desktop and mobile widths, into ~/Downloads/cold-start-qa/{timestamp}/web/
+npm run export:recorded-build           # tsx scripts/export-recorded-build.ts (freeze one hand-reviewed prod card and its trace into the landing page's recorded-build-data.ts; --slug required, read-only)
 npm run eval:golden                     # node eval/run-golden.mjs against the seed set
 npm run eval:providers:bundles          # tsx eval/provider-matrix/build-bundles.ts (freeze prod evidence fixtures, read-only DB)
 npm run eval:providers:matrix           # tsx eval/provider-matrix/run-matrix.ts (replay stages across LLM providers, score + report)

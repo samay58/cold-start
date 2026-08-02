@@ -24,6 +24,13 @@ const MAX_RUN_ROWS = 10_000;
 const ALPHA_RELEASE_WALLET_FLOOR_USD = 35;
 const PROFILE_RUN_FLOOR_COUNT = 10;
 const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
+// Mirrors BREAKER_WINDOW_MS/BREAKER_THRESHOLD in
+// apps/web/src/app/api/alpha/invite/invite-service.ts. That module reads through the Drizzle
+// ColdStartDb; this script queries alpha_invite_attempts directly through its own raw pg.Client
+// (lens3 F3: the operator had no visibility into the breaker, only a friend's "connection lost"
+// report). Keep this window/threshold pair in sync if the source ever changes.
+const BREAKER_WINDOW_MINUTES = 60;
+const BREAKER_THRESHOLD = 10;
 
 type JsonObject = Record<string, unknown>;
 
@@ -249,6 +256,12 @@ export type AlphaStatusReport = {
     remainingAllowanceExposureUsd: number;
   };
   evidenceGaps: string[];
+  breaker: {
+    windowMinutes: number;
+    threshold: number;
+    recentAttempts: number;
+    open: boolean;
+  };
   gate: {
     passed: boolean;
     failures: Array<{ code: string; message: string }>;
@@ -268,6 +281,7 @@ export type AlphaStatusReportInputs = {
   eventSummaryRows: EventSummaryRow[];
   clientErrorRows: ClientErrorRow[];
   providerFailureRows: ProviderFailureRow[];
+  recentInviteAttempts: number;
   walletBalanceUsd: number | null;
   walletError: string | null;
   supportedVersions: string[];
@@ -481,6 +495,12 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
     [sinceAt]
   );
 
+  const breakerAttempts = await client.query<{ count: string }>(
+    `select count(*)::text as count
+     from alpha_invite_attempts
+     where created_at >= now() - interval '${BREAKER_WINDOW_MINUTES} minutes'`
+  );
+
   const providerFailureRows = await client.query<ProviderFailureRow>(
     `select endpoint.value->>'name' as endpoint, count(distinct run.id)::text as failures
      from alpha_run_requests request
@@ -505,7 +525,8 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
     ledgerRows: ledgerRows.rows,
     eventSummaryRows: eventSummaryRows.rows,
     clientErrorRows: clientErrorRows.rows,
-    providerFailureRows: providerFailureRows.rows
+    providerFailureRows: providerFailureRows.rows,
+    recentInviteAttempts: integer(breakerAttempts.rows[0]?.count)
   };
 }
 
@@ -769,6 +790,12 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
       remainingAllowanceExposureUsd
     },
     evidenceGaps,
+    breaker: {
+      windowMinutes: BREAKER_WINDOW_MINUTES,
+      threshold: BREAKER_THRESHOLD,
+      recentAttempts: input.recentInviteAttempts,
+      open: input.recentInviteAttempts >= BREAKER_THRESHOLD
+    },
     gate: {
       passed: gateFailures.length === 0,
       failures: gateFailures
@@ -837,6 +864,10 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
       : `AgentCash Base: unavailable (${report.wallet.error ?? "unknown error"})`,
     `Release wallet floor: ${money(report.wallet.requiredFloorUsd)}`,
     `Remaining allowance provider exposure: ${money(report.wallet.remainingAllowanceExposureUsd)} (${report.wallet.costAnchorSource})`,
+    "",
+    "Invite breaker",
+    `${report.breaker.recentAttempts} invalid attempt(s) in the trailing ${report.breaker.windowMinutes} minutes (threshold ${report.breaker.threshold})`,
+    report.breaker.open ? "OPEN: invite/inspect, invite/redeem, and /i/{slug} are all answering 429/miss." : "closed",
     "",
     `Supported extension versions: ${report.compatibility.supportedVersions.join(", ")} (${report.compatibility.source})`,
     `Unsupported active installations: ${report.compatibility.unsupportedActiveInstallations.length}`,

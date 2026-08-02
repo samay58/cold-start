@@ -46,6 +46,9 @@ export async function mintInviteCandidates(input: {
   const reference = readFileSync(input.referencePath).toString("base64");
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
+    // No retry: this is a paid, billed-per-call mint. A hung image model previously left the
+    // operator with only Ctrl-C as a way out; a bounded timeout gives up cleanly instead.
+    signal: AbortSignal.timeout(120_000),
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
