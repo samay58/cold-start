@@ -36,6 +36,19 @@ async function investorRead(page: Page): Promise<Locator> {
   return read;
 }
 
+async function expectNoAccentRibbon(surface: Locator) {
+  await expect(surface).toHaveCSS("background-image", "none");
+  const { accent, shadow } = await surface.evaluate((element) => {
+    const swatch = document.createElement("span");
+    swatch.style.color = "var(--cs-accent-seal)";
+    document.body.append(swatch);
+    const accent = getComputedStyle(swatch).color;
+    swatch.remove();
+    return { accent, shadow: getComputedStyle(element).boxShadow };
+  });
+  expect(shadow).not.toContain(accent);
+}
+
 const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   blocked: {
     heading: "Loom Signal",
@@ -48,17 +61,34 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   },
   ready: {
     heading: "Loom Signal",
-    verify: async (page) => {
+    verify: async (page, screenshotDir) => {
       const control = page.getByRole("button", { name: "Run Investor Lens" });
       await expect(control).toBeEnabled();
       await expect(control).toContainText("See the case, pressure points, timing, and next question.");
       await expect(control).toContainText("Build read");
+      await expectNoAccentRibbon(control);
+      const researchLayer = page.getByRole("region", { name: "Research layer" });
+      await expect(researchLayer).toHaveCSS("border-top-width", "0px");
+      await expect(researchLayer).toHaveCSS("box-shadow", "none");
+
+      const mark = control.locator(".cs-investor-lens-control-mark");
+      const action = control.locator(".cs-investor-lens-control-action");
+      const restingMarkColor = await mark.evaluate((element) => getComputedStyle(element).color);
+      await control.hover();
+      await expect.poll(() => mark.evaluate((element) => getComputedStyle(element).color))
+        .not.toBe(restingMarkColor);
+      await expect(action).toHaveCSS("color", await mark.evaluate((element) => getComputedStyle(element).color));
+      await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "ready-hover.png") });
+      await page.mouse.move(5, 5);
+      await expect.poll(() => mark.evaluate((element) => getComputedStyle(element).color))
+        .toBe(restingMarkColor);
     }
   },
   "read-full": {
     heading: "Baseten",
     verify: async (page, screenshotDir) => {
       const read = await investorRead(page);
+      await expectNoAccentRibbon(read);
       const categories = read.locator(".cs-investor-read-category");
       await expect(categories).toHaveCount(5);
       await expect(categories.nth(0)).toHaveAttribute("data-category", "why-care");

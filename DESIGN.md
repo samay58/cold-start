@@ -71,9 +71,9 @@ The investor read (`apps/extension/src/research/InvestorReadCard.tsx`) is a comp
 | Meta | 12px / 1.4 / IBM Plex Sans 480 | Posture and "changes the read if" notes; closed previews use 11.75px |
 | Receipt | 10.5px / At Textual 500, tabular | Source domains, update date, and question categories |
 
-The packet contains five rows in a fixed order: Why care, What must be true, What could break, Why now, and What to learn next. The rows are not numbered because they are not a process and the number adds no meaning. One outer 6px mineral plate carries the header, rows, reading content, source posture, and update receipt. Internal hairlines provide structure; the rows never become separate filled cards. Why care opens when a live or cached Lens arrives. At most one row is open; selecting the open row collapses the packet fully. Every closed row keeps a readable one-line preview, so the entire read is scannable before the reader commits to the supporting prose. A long Why care lede shows four lines and keeps the rest behind a quiet Read full disclosure.
+The packet contains five rows in a fixed order: Why care, What must be true, What could break, Why now, and What to learn next. The rows are not numbered because they are not a process and the number adds no meaning. One outer 6px mineral plate carries the header, rows, reading content, source posture, and update receipt. The research-layer wrapper around it stays borderless and transparent; the Lens must never sit inside a second decorative card. Internal hairlines provide structure, and the rows never become separate filled cards. Why care opens when a live or cached Lens arrives. At most one row is open; selecting the open row collapses the packet fully. Every closed row keeps a readable one-line preview, so the entire read is scannable before the reader commits to the supporting prose. A long Why care lede shows four lines and keeps the rest behind a quiet Read full disclosure.
 
-Opposition reads through marks, not color washes: a supporting claim leads with a filled ink square, and a breaking claim leads with the conflict-class slashed square. Lens uses the standard mineral plate, a restrained two-pixel seal edge, and the Cold Start aperture mark. It does not use beige-on-beige paper, a circular faux seal, numbered indices, ribbons, left stripes, or a stacked-card pile. A slight directional tint may sit inside the trigger to make the action feel alive; it cannot become a large accent field. Hover strengthens the edge and advances the action cue by two pixels. Claim text takes the full open row width.
+Opposition reads through marks, not color washes: a supporting claim leads with a filled ink square, and a breaking claim leads with the conflict-class slashed square. Lens uses the standard mineral plate and the Cold Start aperture mark, both neutral at rest. It does not use beige-on-beige paper, a circular faux seal, numbered indices, ribbons, accent edges, directional tints, left stripes, or a stacked-card pile. The seal color appears only after intent: hover and keyboard focus on the trigger, and the open-row indicator inside the result. Hover strengthens the neutral edge, lifts the control one pixel, and advances the action cue by two pixels. Press returns it to the surface with a restrained scale response. Claim text takes the full open row width.
 
 Question categories sit on their own line above the question. Every additional question is a separate spaced block with its own category and conviction-changing answer; labels and prose must never concatenate inline. User-facing empty states describe the public record in investor language. They never mention models, schemas, claims surviving, verification, or evidence gates.
 
@@ -85,7 +85,7 @@ The palette is warm parchment with one chosen accent, evidence-coded. It should 
 
 | Token | Value | Role |
 |-------|-------|------|
-| `--color-seal` | `#6E5C9E` | The single accent. A dusty lilac used as a verb: top edge, call number, filed and vetted stamps, section labels, active state, links. |
+| `--color-seal` | `#6E5C9E` | The single accent. A dusty lilac used as a verb: call number, filed and vetted stamps, active state, links, and explicit interaction feedback. Never a decorative ribbon. |
 | `--cat-paper` | `#F4EDDC` | Card surface on the public card. Warm parchment, carrying the texture. |
 | `--cat-ground` | `#E4DCC8` | Manila ground the card sits on. |
 | `--cat-ink` | `#20201E` | Primary text on parchment. |
@@ -110,7 +110,7 @@ Extension dark mode: the side panel ships a warm paper dark mode anchored on the
 Prompt wording for color:
 
 ```text
-Warm parchment surface (paper #F4EDDC on ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for the top edge, call number, filed and vetted stamps, section labels, and active state. Encode evidence with small marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. No gradient accent fields, no dark mode on the public card, no hazard yellow, no glass, no large tinted status cards, and no SaaS blue-purple palette.
+Warm parchment surface (paper #F4EDDC on ground #E4DCC8) with mineral plate surfaces (field #F7F5EE, plate #FFFDF8, ink #171A1F, muted #68706A, rule #CCC7B8). One accent only: a dusty-lilac seal #6E5C9E used as a verb for call numbers, filed and vetted stamps, active state, links, and explicit interaction feedback. Encode evidence with small marks only: verified #0E6B5B, reported #315F9D, company #9B6A1E, conflict #B63A2A. No accent ribbons or edges, no gradient accent fields, no dark mode on the public card, no hazard yellow, no glass, no large tinted status cards, and no SaaS blue-purple palette.
 ```
 
 ## Shape, Texture, And Elevation

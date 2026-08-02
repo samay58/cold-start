@@ -162,8 +162,8 @@
   position: relative;
 }
 
-/* The ready state is one filing instrument. The whole plate is the action, so it does not
-   need a SaaS CTA nested inside it. The seal is the only accent on this surface. */
+/* The ready state is one filing instrument. It stays neutral at rest and spends the seal
+   color only in response to intent. Hierarchy comes from type, spacing, and tactile state. */
 .cs-investor-lens-control {
   position: relative;
   display: grid;
@@ -174,37 +174,52 @@
   width: 100%;
   min-height: 72px;
   padding: 13px 15px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
+  border: 1px solid var(--color-rule);
   border-radius: 6px;
-  background: linear-gradient(118deg, var(--color-plate) 0%, var(--color-plate) 70%, var(--cs-seal-tint-08) 100%);
-  box-shadow:
-    0 2px 0 var(--color-seal) inset,
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+  background: var(--color-plate);
+  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
   color: inherit;
   cursor: pointer;
   text-align: left;
+  touch-action: manipulation;
   transition:
     border-color var(--cs-motion-feedback) var(--cs-motion-ease-out),
     box-shadow var(--cs-motion-feedback) var(--cs-motion-ease-out),
     transform var(--cs-motion-feedback) var(--cs-motion-ease-out);
 }
 
-.cs-investor-lens-control:hover {
-  border-color: var(--color-rule-strong);
-  box-shadow:
-    0 2px 0 var(--color-seal) inset,
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset,
-    0 7px 20px rgb(var(--cs-c-23-26-31) / 0.07);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .cs-investor-lens-control:not(:disabled):hover {
+    border-color: var(--color-rule-strong);
+    box-shadow:
+      0 1px 0 var(--cs-edge-highlight) inset,
+      0 5px 16px rgb(var(--cs-c-23-26-31) / 0.07);
+    transform: translateY(-1px);
+  }
+
+  .cs-investor-lens-control:not(:disabled):hover .cs-investor-lens-control-mark,
+  .cs-investor-lens-control:not(:disabled):hover .cs-investor-lens-control-action {
+    color: var(--color-seal);
+  }
+
+  .cs-investor-lens-control:not(:disabled):hover .cs-investor-lens-control-action i {
+    transform: translateX(2px);
+  }
 }
 
-.cs-investor-lens-control:active {
-  transform: translateY(0);
+.cs-investor-lens-control:not(:disabled):active {
+  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
+  transform: translateY(0) scale(0.985);
 }
 
 .cs-investor-lens-control:focus-visible {
   outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.42);
   outline-offset: 2px;
+}
+
+.cs-investor-lens-control:focus-visible .cs-investor-lens-control-mark,
+.cs-investor-lens-control:focus-visible .cs-investor-lens-control-action {
+  color: var(--color-seal);
 }
 
 .cs-investor-lens-control:disabled {
@@ -218,7 +233,8 @@
   place-items: center;
   width: 38px;
   height: 38px;
-  color: var(--color-seal);
+  color: var(--color-ink);
+  transition: color var(--cs-motion-feedback) var(--cs-motion-ease-out);
 }
 
 .cs-investor-lens-control-mark .cs-brand-mark {
@@ -251,12 +267,13 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--color-seal);
+  color: var(--color-muted);
   font-family: var(--font-text);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.34px;
   white-space: nowrap;
+  transition: color var(--cs-motion-feedback) var(--cs-motion-ease-out);
 }
 
 .cs-investor-lens-control-action i {
@@ -278,10 +295,6 @@
   border-right: 1px solid currentColor;
   content: "";
   transform: rotate(45deg);
-}
-
-.cs-investor-lens-control:hover .cs-investor-lens-control-action i {
-  transform: translateX(2px);
 }
 
 .cs-investor-lens-control:disabled .cs-investor-lens-control-action {
@@ -562,7 +575,7 @@
 }
 
 /* The Lens is one continuous reading surface. Internal rules keep the five ideas scannable
-   without turning them into nested cards or a numbered process. */
+   without turning them into nested cards, a numbered process, or a branded top ribbon. */
 .cs-investor-read,
 .cs-investor-read * {
   min-width: 0;
@@ -571,12 +584,10 @@
 .cs-investor-read {
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--color-rule-strong);
+  border: 1px solid var(--color-rule);
   border-radius: 6px;
   background: var(--color-plate);
-  box-shadow:
-    0 2px 0 var(--color-seal) inset,
-    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.62) inset;
+  box-shadow: 0 1px 0 var(--cs-edge-highlight) inset;
 }
 
 .cs-investor-read-head {
@@ -591,7 +602,7 @@
 .cs-investor-read-mark {
   display: inline-grid;
   place-items: center;
-  color: var(--color-seal);
+  color: var(--color-ink);
 }
 
 .cs-investor-read-mark .cs-brand-mark {
@@ -740,6 +751,10 @@
 
 .cs-investor-read-category[data-open="true"] .cs-investor-read-category-mark::after {
   transform: rotate(0);
+}
+
+.cs-investor-read-category[data-open="true"] .cs-investor-read-category-mark {
+  color: var(--color-seal);
 }
 
 .cs-investor-read-category-frame {

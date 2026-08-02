@@ -230,6 +230,16 @@ body,
     0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.82) inset;
 }
 
+/* The Lens and its card tray already carry their own boundaries. A second gradient shell around
+   the whole research layer creates card-in-card chrome and weakens the primary action. */
+.cs-research-layer {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .cs-company-context::before {
   background:
     linear-gradient(180deg, rgb(var(--cs-c-255-255-255) / 0.28), transparent 50%),
