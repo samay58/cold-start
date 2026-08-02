@@ -91,8 +91,17 @@ describe("synthesisSystemPrompt", () => {
     expect(synthesisSystemPrompt).toContain("source incentives");
     expect(synthesisSystemPrompt).toContain("independent technical");
     expect(synthesisSystemPrompt).toContain("Empty bullCase or bearCase is allowed");
+    expect(synthesisSystemPrompt).toContain("one distinct upside condition and one distinct break point");
     expect(synthesisSystemPrompt).toContain("Only include bull or bear claims that change diligence");
     expect(synthesisSystemPrompt).toContain("do not cite evidence ledger IDs");
+    expect(synthesisSystemPrompt).toContain("Bull principle");
+    expect(synthesisSystemPrompt).toContain("one load-bearing point per field");
+    expect(synthesisSystemPrompt).toContain("length needed to make the judgment crystal clear");
+    expect(synthesisSystemPrompt).toContain("the thesis, not a summary");
+    expect(synthesisSystemPrompt).toContain("give each fact one job");
+    expect(synthesisSystemPrompt).toContain("actual decision hinge");
+    expect(synthesisSystemPrompt).toContain("move conviction in either direction");
+    expect(synthesisSystemPrompt).toContain("narrow side panel");
   });
 });
 

@@ -79,7 +79,7 @@ describe("investor lens display", () => {
     }));
 
     expect(display).toMatchObject({
-      receiptLine: "Filed Jun 23",
+      receiptLine: "Updated Jun 23",
       lede: {
         text: "Warp could matter if terminal work becomes the control plane for engineering agents."
       },
@@ -155,7 +155,7 @@ describe("investor lens display", () => {
       {
         id: "why-now",
         label: "Why now",
-        preview: "Not supported by current sources."
+        preview: "No clear timing signal yet."
       },
       {
         id: "learn-next",
@@ -249,7 +249,7 @@ describe("investor lens display", () => {
 
     expect(timingIsNotFound(noTimingCard)).toBe(true);
     expect(display?.timing).toBeNull();
-    expect(display?.receiptLine).toBe("Filed Jun 23");
+    expect(display?.receiptLine).toBe("Updated Jun 23");
     expect(display?.independentlyBacked).toBe(false);
   });
 

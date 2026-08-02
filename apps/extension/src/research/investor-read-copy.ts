@@ -7,9 +7,9 @@
 // synthesis-advisory-copy.ts sidesteps the same hazard by staying type-only on @cold-start/core;
 // this module has no imports at all.
 export const LENS_TENSION_EMPTY_COPY = {
-  both: "No bull or break claim survived verification.",
-  breaks: "No breaking claim survived verification.",
-  holds: "No supporting claim survived verification."
+  both: "The public evidence does not support a clear case yet.",
+  breaks: "The public record does not reveal a specific break point yet.",
+  holds: "The public record does not make a clear upside case yet."
 } as const;
 
 export const LENS_TENSION_LABEL = {

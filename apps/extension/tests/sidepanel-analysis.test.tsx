@@ -140,7 +140,7 @@ describe("SidePanel analysis and sections", () => {
     expect(container.querySelector(".cs-lens-withheld")).toBeTruthy();
 
     const retryButton = interactiveControls(container).find(
-      (button) => button.textContent?.includes("Check evidence and retry")
+      (button) => button.textContent?.includes("Check for new evidence")
     );
     expect(retryButton).toBeTruthy();
 
@@ -507,7 +507,7 @@ describe("SidePanel analysis and sections", () => {
     // The packet renders on synthesis alone, no card to activate; Why now keeps the honest
     // not-found state in its filed category.
     const investorRead = container.querySelector("[aria-label='Investor read']");
-    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("Not supported by current sources.");
+    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("No clear timing signal yet.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

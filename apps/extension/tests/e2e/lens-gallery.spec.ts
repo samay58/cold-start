@@ -43,7 +43,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const control = page.getByRole("button", { name: "Run Investor Lens" });
       await expect(control).toBeDisabled();
       await expect(control).toContainText("profile needs source-backed evidence before analysis");
-      await expect(control).toContainText("Sealed");
+      await expect(control).toContainText("Unavailable");
     }
   },
   ready: {
@@ -51,8 +51,8 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const control = page.getByRole("button", { name: "Run Investor Lens" });
       await expect(control).toBeEnabled();
-      await expect(control).toContainText("Read the case, timing, and open questions.");
-      await expect(control).toContainText("Run lens");
+      await expect(control).toContainText("See the case, pressure points, timing, and next question.");
+      await expect(control).toContainText("Build read");
     }
   },
   "read-full": {
@@ -82,6 +82,15 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
         await page.screenshot({ fullPage: true, path: path.join(screenshotDir, `read-full-${categoryId}.png`) });
       }
 
+      const learnNextDisclosure = read.locator('[data-category="learn-next"] .cs-investor-read-more');
+      if (await learnNextDisclosure.isVisible()) {
+        await learnNextDisclosure.click();
+        await expect(learnNextDisclosure).toHaveAttribute("aria-expanded", "true");
+        await expect(read.locator('[data-category="learn-next"] .cs-lens-question-item')).toHaveCount(3);
+        await page.waitForTimeout(220);
+        await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "read-full-learn-next-expanded.png") });
+      }
+
       const learnNext = read.locator('[data-category="learn-next"]');
       await learnNext.locator(".cs-investor-read-category-trigger").click();
       await expect(read.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(0);
@@ -108,7 +117,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page) => {
       const withheldCard = page.getByLabel("Lens withheld");
       await expect(withheldCard).toBeVisible();
-      await expect(withheldCard).toContainText("Not enough sources met the evidence bar.");
+      await expect(withheldCard).toContainText("There is not enough public evidence for a useful read yet.");
     }
   },
   "withheld-advisory": {

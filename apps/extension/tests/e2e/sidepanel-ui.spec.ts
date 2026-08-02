@@ -348,7 +348,7 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
 
   // Unsupported timing is a clean not-found row, never an unfinished-generation state.
-  await expect(investorRead.locator(".cs-lens-timing")).toContainText("Not supported by current sources.");
+  await expect(investorRead.locator(".cs-lens-timing")).toContainText("No clear timing signal yet.");
   await expect(investorRead).not.toContainText("has not been generated");
 
   // The ranked question carries its category and what answer would change the read.

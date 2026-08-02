@@ -45,8 +45,8 @@ export function LensWithheldCard({
       ) : null}
       <p className="cs-lens-withheld-next">
         {withheld.reasons.includes("no-claims-survived")
-          ? "New evidence can change what survives verification."
-          : "New evidence can clear the citation floor."}
+          ? "Check again when the public evidence changes."
+          : "More public evidence can unlock the read."}
       </p>
       {unavailableReason ? <p className="cs-lens-withheld-next">{unavailableReason}</p> : null}
       <button
@@ -61,7 +61,7 @@ export function LensWithheldCard({
         }}
         type="button"
       >
-        {retrying ? "Checking evidence" : unavailableReason ? "Retry unavailable" : "Check evidence and retry"}
+        {retrying ? "Checking for updates" : unavailableReason ? "Retry unavailable" : "Check for new evidence"}
       </button>
     </div>
   );

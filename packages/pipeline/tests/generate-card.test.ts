@@ -1644,6 +1644,67 @@ describe("split synthesize/verify units", () => {
       });
     });
 
+    it("passes only citation-relevant public card facts to verification", async () => {
+      const card = await assembledCard();
+      card.identity.name = {
+        value: "Cartesia",
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      };
+      card.team.founders = {
+        value: [
+          {
+            name: "Karan Goel",
+            role: "Co-founder",
+            sourceUrl: "https://cartesia.ai/",
+            email: "karan@example.com",
+            emailStatus: "observed",
+            emailBasis: "Public commit",
+            read: { text: "Private person read", citationIds: ["c1"] }
+          }
+        ],
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      };
+      card.funding.totalRaisedUsd = {
+        value: 10_000_000,
+        status: "verified",
+        confidence: "high",
+        citationIds: ["unrelated"]
+      };
+      const whyItMatters = { text: "Cartesia has a named founder. [c1]", citationIds: ["c1"] };
+      const verify = vi.fn(async (_claims: unknown, _sources: unknown, _evidenceFacts: unknown[]) => [
+        { ...whyItMatters, status: "supported" as const }
+      ]);
+
+      await verifyCardSynthesisDraft(
+        card,
+        {
+          synthesis: {
+            whyItMatters,
+            bullCase: [],
+            bearCase: [],
+            openQuestions: [{ question: "What has Karan Goel learned from production buyers?", category: "adoption_proof" }]
+          },
+          claimCountBeforeVerify: 1
+        },
+        { verify, synthesisRequired: true }
+      );
+
+      const evidenceFacts = verify.mock.calls[0]?.[2];
+      expect(evidenceFacts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "card.identity.name", citationIds: ["c1"], value: "Cartesia" }),
+          expect.objectContaining({ path: "card.team.founders", citationIds: ["c1"] })
+        ])
+      );
+      expect(JSON.stringify(evidenceFacts)).not.toContain("karan@example.com");
+      expect(JSON.stringify(evidenceFacts)).not.toContain("Private person read");
+      expect(JSON.stringify(evidenceFacts)).not.toContain("10000000");
+    });
+
     it("returns no synthesis when nothing survives verification, without throwing", async () => {
       const card = await assembledCard();
       const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };

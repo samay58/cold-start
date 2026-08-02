@@ -106,7 +106,7 @@ describe("Investor Lens withheld and failed states", () => {
     const withheld = container.querySelector("[aria-label='Lens withheld']");
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("Analysis ran");
-    expect(withheld?.textContent).toContain("Not enough sources met the evidence bar.");
+    expect(withheld?.textContent).toContain("There is not enough public evidence for a useful read yet.");
     expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
 
     await unmount();
@@ -126,7 +126,7 @@ describe("Investor Lens withheld and failed states", () => {
 
     const withheld = container.querySelector("[aria-label='Lens withheld']");
     expect(withheld).not.toBeNull();
-    expect(withheld?.textContent).toContain("Analysis ran; no claim survived verification against its sources.");
+    expect(withheld?.textContent).toContain("The public evidence did not support a clear investor read.");
     expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
 
     await unmount();
@@ -189,14 +189,14 @@ describe("Investor Lens withheld and failed states", () => {
 
     const retryButton = container.querySelector<HTMLButtonElement>("[aria-label='Lens withheld'] button");
     expect(retryButton?.disabled).toBe(false);
-    expect(retryButton?.textContent).toBe("Check evidence and retry");
+    expect(retryButton?.textContent).toBe("Check for new evidence");
 
     await act(async () => {
       retryButton?.click();
     });
 
     expect(retryButton?.disabled).toBe(true);
-    expect(retryButton?.textContent).toBe("Checking evidence");
+    expect(retryButton?.textContent).toBe("Checking for updates");
 
     await unmount();
   });
@@ -213,7 +213,7 @@ describe("Investor Lens withheld and failed states", () => {
     });
 
     expect(retryButton?.disabled).toBe(false);
-    expect(retryButton?.textContent).toBe("Check evidence and retry");
+    expect(retryButton?.textContent).toBe("Check for new evidence");
 
     await unmount();
   });

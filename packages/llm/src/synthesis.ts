@@ -3,6 +3,7 @@ import type { Message, Tool } from "@anthropic-ai/sdk/resources/messages";
 import { questionCategorySchema, synthesisSchema, type ColdStartCard, type SourcedText } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { investorTasteKernel } from "./investor-taste-kernel";
 import { withSchemaRetry } from "./llm-provider";
 import { parseToolUse, type ToolUseLike } from "./tool-use";
 
@@ -252,11 +253,13 @@ export const synthesisTool = {
 } satisfies Tool;
 
 export const synthesisSystemPrompt = [
+  investorTasteKernel,
   "You write gated investor synthesis from validated claim-store input only.",
   "whyItMatters and every bull and bear bullet must end with citation markers.",
   "Use only citation IDs present in card.citations; do not cite evidence ledger IDs such as [e1].",
   "Treat source incentives as part of the judgment: independent technical and independent analysis sources deserve more weight for market and product evaluation than press releases or company-authored claims.",
   "Only include bull or bear claims that change diligence. Empty bullCase or bearCase is allowed when no supported claim exists.",
+  "Before leaving bullCase or bearCase empty, test whether the validated facts support a disciplined conditional investor claim. Aim for at least one distinct upside condition and one distinct break point whenever that is honest; use an empty side only when the card truly offers no grounded basis for it.",
   "Do not use reportedly, rumored to, appears to be, is said to, or industry sources suggest.",
   "marketStructureAndTiming should be sparse. Use null when sources do not support a field.",
   "Timing must stay null unless a cited source supports a real mechanism such as buyer urgency, regulation, cost curve, platform shift, workflow trigger, or budget migration.",
@@ -268,6 +271,13 @@ export const synthesisSystemPrompt = [
   "Do not ask to request financials or verify ARR as a question. If economics matter, ask about retention, pricing power, margin, or customer concentration with a specific reason.",
   "Give each open question exactly one category from this fixed set, chosen by what the question tests: buyer_budget, adoption_proof, durability, unit_economics, technical_edge, market_timing, trust_regulation.",
   "Questions must be distinct. Do not ask the same thing twice in different words.",
+  "Lead with one load-bearing point per field. Do not turn any field into a data inventory.",
+  "Write in plain English for a sharp investor reading a narrow side panel. Prefer direct verbs, concrete nouns, and complete sentences.",
+  "Use the length needed to make the judgment crystal clear, and no more. Never sacrifice a necessary premise for brevity; remove filler, repetition, scene-setting, and facts that do not change the conclusion.",
+  "whyItMatters is the thesis, not a summary of the rest of the packet. Explain the wedge and why it matters, then give each fact one job; do not repeat the same proof in whyItMatters and a bull or bear claim.",
+  "A strong whyItMatters usually makes one conclusion and supports it with the few facts needed to understand why. Bull, bear, and timing claims should each carry one distinct idea rather than several loosely related observations.",
+  "Open questions must be tailored to this opportunity's actual decision hinge. Name the relevant buyer, workflow, product, competitor, metric, threshold, cohort, or time window whenever the card supports one.",
+  "wouldChangeReadIf must explain how plausible answers move conviction in either direction. Do not restate the question or ask for generic proof.",
   "Never use an em dash anywhere. Use a period or a semicolon instead."
 ].join(" ");
 

@@ -165,16 +165,21 @@
 /* The ready state is one filing instrument. The whole plate is the action, so it does not
    need a SaaS CTA nested inside it. The seal is the only accent on this surface. */
 .cs-investor-lens-control {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
+  overflow: hidden;
   width: 100%;
-  padding: 12px 14px;
+  min-height: 72px;
+  padding: 13px 15px;
   border: 1px solid rgb(var(--cs-c-204-199-184) / 0.88);
   border-radius: 6px;
-  background: var(--color-plate);
-  box-shadow: 0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
+  background: linear-gradient(118deg, var(--color-plate) 0%, var(--color-plate) 70%, var(--cs-seal-tint-08) 100%);
+  box-shadow:
+    0 2px 0 var(--color-seal) inset,
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset;
   color: inherit;
   cursor: pointer;
   text-align: left;
@@ -187,8 +192,9 @@
 .cs-investor-lens-control:hover {
   border-color: var(--color-rule-strong);
   box-shadow:
+    0 2px 0 var(--color-seal) inset,
     0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.74) inset,
-    0 6px 18px rgb(var(--cs-c-23-26-31) / 0.05);
+    0 7px 20px rgb(var(--cs-c-23-26-31) / 0.07);
   transform: translateY(-1px);
 }
 
@@ -207,17 +213,18 @@
   transform: none;
 }
 
-.cs-investor-lens-control-index {
+.cs-investor-lens-control-mark {
   display: inline-grid;
   place-items: center;
-  width: 24px;
-  height: 28px;
-  border-right: 1px solid var(--color-rule);
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.34px;
+  width: 38px;
+  height: 38px;
+  color: var(--color-seal);
+}
+
+.cs-investor-lens-control-mark .cs-brand-mark {
+  width: 31px;
+  height: 20px;
+  color: currentColor;
 }
 
 .cs-investor-lens-control-copy {
@@ -229,64 +236,60 @@
 .cs-investor-lens-control-copy strong {
   color: var(--color-ink);
   font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 620;
+  font-size: 15px;
+  font-weight: 650;
   letter-spacing: 0.01em;
 }
 
 .cs-investor-lens-control-copy > span {
   color: var(--color-muted);
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 .cs-investor-lens-control-action {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.34px;
-}
-
-.cs-investor-lens-control-seal {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--color-seal);
-  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.34px;
+  white-space: nowrap;
 }
 
-.cs-investor-lens-control-seal::before,
-.cs-investor-lens-control-seal::after,
-.cs-investor-lens-control-seal span {
-  position: absolute;
-  width: 9px;
+.cs-investor-lens-control-action i {
+  position: relative;
+  display: block;
+  width: 14px;
   height: 1px;
   background: currentColor;
+  transition: transform var(--cs-motion-feedback) var(--cs-motion-ease-out);
+}
+
+.cs-investor-lens-control-action i::after {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  width: 6px;
+  height: 6px;
+  border-top: 1px solid currentColor;
+  border-right: 1px solid currentColor;
   content: "";
-}
-
-.cs-investor-lens-control-seal::before {
-  transform: rotate(90deg);
-}
-
-.cs-investor-lens-control-seal::after {
   transform: rotate(45deg);
 }
 
-.cs-investor-lens-control-seal span {
-  transform: rotate(-45deg);
+.cs-investor-lens-control:hover .cs-investor-lens-control-action i {
+  transform: translateX(2px);
 }
 
-.cs-investor-lens-control:disabled .cs-investor-lens-control-seal {
-  border-color: var(--color-rule-strong);
-  color: var(--color-rule-strong);
+.cs-investor-lens-control:disabled .cs-investor-lens-control-action {
+  color: var(--color-muted);
+}
+
+.cs-investor-lens-control:disabled .cs-investor-lens-control-action i {
+  display: none;
 }
 
 /*
@@ -558,8 +561,8 @@
   color: var(--color-seal);
 }
 
-/* The filed Lens is one indexed catalogue sheet. The research stack already supplies the page's
-   card rhythm, so the Lens uses internal rules rather than introducing five more boxed surfaces. */
+/* The Lens is one continuous reading surface. Internal rules keep the five ideas scannable
+   without turning them into nested cards or a numbered process. */
 .cs-investor-read,
 .cs-investor-read * {
   min-width: 0;
@@ -570,75 +573,63 @@
   overflow: hidden;
   border: 1px solid var(--color-rule-strong);
   border-radius: 6px;
-  background: var(--cs-surface-lens);
+  background: var(--color-plate);
+  box-shadow:
+    0 2px 0 var(--color-seal) inset,
+    0 1px 0 rgb(var(--cs-c-255-255-255-sheen) / 0.62) inset;
 }
 
 .cs-investor-read-head {
   display: grid;
-  grid-template-areas:
-    "kicker seal"
-    "title seal";
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0 10px;
-  padding: 11px 12px 10px;
+  gap: 10px;
+  padding: 13px 14px 12px;
   border-bottom: 1px solid var(--color-rule);
 }
 
-.cs-investor-read-kicker {
-  grid-area: kicker;
-  margin: 0;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.34px;
-  line-height: 1.3;
-  text-transform: none;
+.cs-investor-read-mark {
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-seal);
 }
 
-.cs-investor-read-head > strong {
-  grid-area: title;
+.cs-investor-read-mark .cs-brand-mark {
+  width: 29px;
+  height: 19px;
+  color: currentColor;
+}
+
+.cs-investor-read-title {
+  display: grid;
+  gap: 2px;
+}
+
+.cs-investor-read-title strong {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: 14.5px;
-  font-weight: 620;
+  font-weight: 650;
   letter-spacing: 0;
   line-height: 1.1;
 }
 
-.cs-investor-read-seal {
-  grid-area: seal;
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--color-seal);
-  border-radius: 50%;
-  color: var(--color-seal);
+.cs-investor-read-title > span {
+  color: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 470;
+  line-height: 1.35;
 }
 
-.cs-investor-read-seal::before,
-.cs-investor-read-seal::after,
-.cs-investor-read-seal i {
-  position: absolute;
-  width: 10px;
-  height: 1px;
-  background: currentColor;
-  content: "";
-}
-
-.cs-investor-read-seal::before {
-  transform: rotate(90deg);
-}
-
-.cs-investor-read-seal::after {
-  transform: rotate(45deg);
-}
-
-.cs-investor-read-seal i {
-  transform: rotate(-45deg);
+.cs-investor-read-head > small {
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.24px;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .cs-investor-read-categories {
@@ -658,12 +649,12 @@
 
 .cs-investor-read-category-trigger {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  grid-template-columns: minmax(0, 1fr) 18px;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
-  min-height: 48px;
-  padding: 7px 11px 7px 0;
+  min-height: 52px;
+  padding: 9px 13px;
   border: 0;
   background: transparent;
   color: var(--color-ink);
@@ -683,7 +674,6 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .cs-investor-read-category-trigger:hover .cs-investor-read-category-index,
   .cs-investor-read-category-trigger:hover .cs-investor-read-category-mark {
     color: var(--color-ink);
   }
@@ -693,32 +683,18 @@
   }
 }
 
-.cs-investor-read-category-index {
-  display: inline-grid;
-  align-self: stretch;
-  place-items: center;
-  border-right: 1px solid var(--color-rule);
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 9.5px;
-  font-weight: 560;
-  letter-spacing: 0.05em;
-  font-variant-numeric: tabular-nums;
-  transition: color 120ms ease;
-}
-
 .cs-investor-read-category-copy {
   display: grid;
-  gap: 2px;
+  gap: 3px;
 }
 
 .cs-investor-read-category-copy strong {
   color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 14px;
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 650;
   letter-spacing: 0;
-  line-height: 1.1;
+  line-height: 1.2;
 }
 
 .cs-investor-read-category-preview {
@@ -726,9 +702,9 @@
   overflow: hidden;
   color: var(--color-muted);
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: 11.75px;
   font-weight: 450;
-  line-height: 1.25;
+  line-height: 1.35;
   transition: color 120ms ease;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
@@ -806,7 +782,7 @@
 
 .cs-investor-read-category-body {
   min-height: 0;
-  padding: 2px 13px 14px 43px;
+  padding: 1px 13px 16px;
   overflow: hidden;
 }
 
@@ -815,9 +791,9 @@
   margin: 0;
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 520;
-  line-height: 1.55;
+  font-size: 13.25px;
+  font-weight: 470;
+  line-height: 1.5;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
@@ -853,7 +829,7 @@
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 450;
-  line-height: 1.55;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
@@ -868,7 +844,7 @@
   margin: 4px 0 0;
   color: var(--color-muted);
   font-family: var(--font-body);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 480;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -885,9 +861,9 @@
   margin: 0;
   color: rgb(var(--cs-c-23-26-31-text) / 0.6);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 450;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
 /* Opposition marks: holds leads with a filled ink square, breaks leads with the conflict-class
@@ -939,14 +915,25 @@
 }
 
 .cs-lens-question-category {
-  margin-left: 7px;
+  display: block;
+  margin: 0 0 4px;
   color: var(--color-muted);
   font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.34px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.cs-lens-question-item {
+  display: grid;
+  gap: 0;
+}
+
+.cs-lens-question-list {
+  display: grid;
+  gap: 14px;
 }
 
 /* Inline progressive disclosure uses the same measured-height pattern as the research card
@@ -1036,16 +1023,18 @@
   padding-top: 6px;
 }
 
-.cs-investor-read-disclosure-body p {
+.cs-investor-read-disclosure-body > p,
+.cs-lens-question-item > p:not(.cs-investor-read-meta) {
   margin: 0 0 6px;
   color: var(--color-ink);
   font-family: var(--font-body);
   font-size: 13px;
   font-weight: 450;
-  line-height: 1.55;
+  line-height: 1.5;
 }
 
-.cs-investor-read-disclosure-body p:last-child {
+.cs-investor-read-disclosure-body > p:last-child,
+.cs-lens-question-item > p:last-child {
   margin-bottom: 0;
 }
 
@@ -1092,7 +1081,7 @@
   gap: 5px;
   color: var(--color-muted);
   font-family: var(--font-text);
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.34px;
   font-variant-numeric: tabular-nums;
@@ -1124,16 +1113,6 @@ a.cs-lens-source:focus-visible {
 .cs-lens-source-more:hover,
 .cs-lens-source-more:focus-visible {
   color: var(--color-seal);
-}
-
-.cs-lens-footer-filed {
-  margin-left: auto;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.58);
-  font-family: var(--font-text);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.34px;
-  font-variant-numeric: tabular-nums;
 }
 
 .cs-lens-footer-caveat {

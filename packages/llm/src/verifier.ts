@@ -14,6 +14,14 @@ export type VerificationResult = {
   status: VerificationStatus;
 };
 
+export type VerificationFact = {
+  path: string;
+  citationIds: string[];
+  value: unknown;
+  status?: string;
+  confidence?: string;
+};
+
 const verificationResultSchema = z.object({
   claimIndex: z.number().int().nonnegative().optional(),
   text: z.string().min(1),
@@ -102,6 +110,7 @@ export async function verifySynthesis(input: {
   model: string;
   claims: SourcedText[];
   sources: Array<{ id: string; url: string; title: string; snippet?: string }>;
+  evidenceFacts?: VerificationFact[];
   telemetry?: AnthropicTelemetrySink;
 }): Promise<VerificationResult[]> {
   return withSchemaRetry(input.model, async () => {
@@ -119,7 +128,14 @@ export async function verifySynthesis(input: {
         system: [
           {
             type: "text",
-            text: "Verify whether each claim is supported by the cited source snippets. Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported.",
+            text: [
+              "Verify each claim against evidence carrying the claim's cited IDs.",
+              "Both source snippets and structured card facts are valid evidence. Structured card facts were extracted and validated upstream; do not require their wording to appear verbatim in a short source snippet.",
+              "Mark a disciplined analytical inference as supported when every material factual premise is grounded in the cited evidence, the conclusion follows reasonably, and the wording does not overstate certainty.",
+              "Mark a claim unsupported when it introduces an ungrounded material fact, relies on a missing premise, or overstates the evidence. Mark contradicted only when cited evidence directly conflicts with it.",
+              "A compound claim is supported only when every material premise is grounded.",
+              "Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported."
+            ].join(" "),
             cache_control: anthropicSystemCacheControl()
           }
         ],
@@ -128,7 +144,8 @@ export async function verifySynthesis(input: {
             role: "user",
             content: JSON.stringify({
               claims: input.claims.map((claim, claimIndex) => ({ claimIndex, ...claim })),
-              sources: input.sources
+              sources: input.sources,
+              evidenceFacts: input.evidenceFacts ?? []
             })
           }
         ]

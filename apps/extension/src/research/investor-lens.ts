@@ -126,12 +126,12 @@ export function investorLensCategories(read: InvestorReadDisplay): InvestorLensC
       label: "Why now",
       preview: read.timing
         ? `${read.timing.field}. ${read.timing.text}`
-        : "Not supported by current sources."
+        : "No clear timing signal yet."
     },
     {
       id: "learn-next",
       label: "What to learn next",
-      preview: read.nextQuestion?.question ?? "No ranked question survived verification."
+      preview: read.nextQuestion?.question ?? "No sharp next question yet."
     }
   ];
 }
@@ -380,7 +380,7 @@ function lensSources(citations: Map<string, Citation>, claims: SourcedText[]): L
   return sources;
 }
 
-function filedOn(generatedAt: string): string | null {
+function updatedOn(generatedAt: string): string | null {
   const parsed = new Date(generatedAt);
   if (Number.isNaN(parsed.getTime())) {
     return null;
@@ -389,11 +389,9 @@ function filedOn(generatedAt: string): string | null {
   return new Intl.DateTimeFormat("en-US", { day: "numeric", month: "short", timeZone: "UTC" }).format(parsed);
 }
 
-// The filed date alone; the claims themselves are on the card, so a held-claims count
-// would be ink without information.
 function receiptLine(card: ColdStartCard) {
-  const date = filedOn(card.generatedAt);
-  return date ? `Filed ${date}` : "Filed";
+  const date = updatedOn(card.generatedAt);
+  return date ? `Updated ${date}` : "Updated";
 }
 
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {

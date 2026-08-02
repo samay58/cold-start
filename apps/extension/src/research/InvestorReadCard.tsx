@@ -19,6 +19,7 @@ import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 import { useAlphaEvent } from "../shared/alpha-event-context";
+import { BrandMark } from "../shared/BrandMark";
 
 const LENS_FOOTER_SOURCE_COUNT = 4;
 type LensDisclosureId = "lede" | "holds" | "breaks" | "timing" | "question" | "sources";
@@ -304,7 +305,7 @@ function LensCategoryBody({
             ) : null}
           </>
         ) : (
-          <p className="cs-lens-none">Not supported by current sources.</p>
+          <p className="cs-lens-none">No clear timing signal yet.</p>
         )}
       </section>
     );
@@ -319,17 +320,17 @@ function LensCategoryBody({
     <section className="cs-lens-question" aria-label="What to learn next">
       {read.nextQuestion ? (
         <>
-          <p className="cs-investor-read-claim">
-            {read.nextQuestion.question}
+          <div className="cs-lens-question-item">
             {read.nextQuestion.categoryLabel ? (
               <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
             ) : null}
-          </p>
-          {read.nextQuestion.changesReadIf ? (
-            <p className="cs-investor-read-meta">
-              <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
-            </p>
-          ) : null}
+            <p className="cs-investor-read-claim">{read.nextQuestion.question}</p>
+            {read.nextQuestion.changesReadIf ? (
+              <p className="cs-investor-read-meta">
+                <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+              </p>
+            ) : null}
+          </div>
           {read.nextQuestion.moreQuestions.length > 0 ? (
             <LensDisclosure
               count={read.nextQuestion.moreQuestions.length}
@@ -337,24 +338,24 @@ function LensCategoryBody({
               prefersReducedMotion={prefersReducedMotion}
               row="question"
             >
-              {read.nextQuestion.moreQuestions.map((entry) => (
-                <div key={entry.question}>
-                  <p>
+              <div className="cs-lens-question-list">
+                {read.nextQuestion.moreQuestions.map((entry) => (
+                  <div className="cs-lens-question-item" key={entry.question}>
                     {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
-                    {entry.question}
-                  </p>
-                  {entry.changesReadIf ? (
-                    <p className="cs-investor-read-meta">
-                      <em>Changes the read if</em> {entry.changesReadIf}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
+                    <p>{entry.question}</p>
+                    {entry.changesReadIf ? (
+                      <p className="cs-investor-read-meta">
+                        <em>Changes the read if</em> {entry.changesReadIf}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
             </LensDisclosure>
           ) : null}
         </>
       ) : (
-        <p className="cs-lens-none">No ranked question survived verification.</p>
+        <p className="cs-lens-none">No sharp next question yet.</p>
       )}
     </section>
   );
@@ -398,7 +399,6 @@ function LensCategoryCard({
         onClick={onToggle}
         type="button"
       >
-        <span className="cs-investor-read-category-index">{String(index + 1).padStart(2, "0")}</span>
         <span className="cs-investor-read-category-copy">
           <strong>{category.label}</strong>
           <span className="cs-investor-read-category-preview">{category.preview}</span>
@@ -458,9 +458,12 @@ export function InvestorReadCard({
         className="cs-investor-read-head"
         {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.header, prefersReducedMotion)}
       >
-        <span className="cs-investor-read-kicker">Filed analysis</span>
-        <strong>Investor Lens</strong>
-        <span aria-hidden="true" className="cs-investor-read-seal"><i /></span>
+        <span aria-hidden="true" className="cs-investor-read-mark"><BrandMark /></span>
+        <span className="cs-investor-read-title">
+          <strong>Investor Lens</strong>
+          <span>The case and what changes it</span>
+        </span>
+        <small>{read.receiptLine}</small>
       </motion.header>
       <div className="cs-investor-read-categories">
         {categories.map((category, index) => (
@@ -524,7 +527,6 @@ export function InvestorReadCard({
               </button>
             ) : null}
           </div>
-          <small className="cs-lens-footer-filed">{read.receiptLine}</small>
         </footer>
         {showPosture ? (
           <div aria-label="Evidence posture" className="cs-investor-read-posture">

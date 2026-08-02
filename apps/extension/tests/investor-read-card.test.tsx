@@ -181,7 +181,7 @@ describe("InvestorReadCard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("(a) files every Lens point into five indexed categories with Why care open by default", async () => {
+  it("(a) presents every Lens point in five categories with Why care open by default", async () => {
     const { container, unmount } = await renderCard(richCard());
     const lede = container.querySelector('[data-role="lede"]');
     const categories = Array.from(container.querySelectorAll(".cs-investor-read-category"));
@@ -209,6 +209,8 @@ describe("InvestorReadCard", () => {
       "false",
       "false"
     ]);
+    expect(container.querySelector(".cs-investor-read-category-index")).toBeNull();
+    expect(container.querySelector(".cs-investor-read-seal")).toBeNull();
 
     await unmount();
   });
@@ -347,6 +349,46 @@ describe("InvestorReadCard", () => {
 
     expect(container.querySelectorAll('.cs-investor-read-category[data-open="true"]')).toHaveLength(0);
     expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("false");
+
+    await unmount();
+  });
+
+  it("keeps question categories and question text in separate readable blocks", async () => {
+    const card = richCard();
+    if (!card.synthesis) {
+      throw new Error("fixture must carry synthesis");
+    }
+    card.synthesis.openQuestions = [
+      {
+        question: "Can the terminal become a team-wide control plane?",
+        category: "durability",
+        wouldChangeReadIf: "Platform teams standardize approvals and context inside Warp."
+      },
+      {
+        question: "Does usage expand after the first engineer adopts it?",
+        category: "adoption_proof",
+        wouldChangeReadIf: "Cohort data shows seat expansion inside existing accounts."
+      }
+    ];
+    const { container, unmount } = await renderCard(card);
+    const category = container.querySelector('[data-category="learn-next"]');
+    const categoryToggle = category?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+
+    await act(async () => {
+      categoryToggle?.click();
+    });
+
+    const disclosure = category?.querySelector<HTMLButtonElement>(".cs-investor-read-more");
+    await act(async () => {
+      disclosure?.click();
+    });
+
+    const items = Array.from(category?.querySelectorAll(".cs-lens-question-item") ?? []);
+    expect(items).toHaveLength(2);
+    expect(items[0]?.querySelector(":scope > .cs-lens-question-category")?.textContent).toBe("Durability");
+    expect(items[0]?.querySelector(":scope > p")?.textContent).toBe("Can the terminal become a team-wide control plane?");
+    expect(items[1]?.querySelector(":scope > .cs-lens-question-category")?.textContent).toBe("Adoption & proof");
+    expect(items[1]?.querySelector(":scope > p")?.textContent).toBe("Does usage expand after the first engineer adopts it?");
 
     await unmount();
   });

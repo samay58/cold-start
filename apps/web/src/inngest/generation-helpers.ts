@@ -148,7 +148,15 @@ export async function verifySynthesisStepBody(input: {
 }): Promise<VerifySynthesisStepResult> {
   try {
     const result = await verifyCardSynthesisDraft(input.card, input.draft, {
-      verify: (claims, sources) => verifySynthesis({ client: input.client, model: input.model, claims, sources, telemetry: input.telemetry }),
+      verify: (claims, sources, evidenceFacts) =>
+        verifySynthesis({
+          client: input.client,
+          model: input.model,
+          claims,
+          sources,
+          evidenceFacts,
+          telemetry: input.telemetry
+        }),
       synthesisRequired: input.synthesisRequired
     });
     return { ok: true, value: result };

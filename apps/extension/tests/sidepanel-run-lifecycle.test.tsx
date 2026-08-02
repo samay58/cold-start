@@ -422,7 +422,7 @@ describe("SidePanel run lifecycle", () => {
     // backgrounded analysis run must not refire generation behind it.
     expect(container.textContent).toContain("The company has a supported wedge.");
     const investorRead = container.querySelector("[aria-label='Investor read']");
-    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("Not supported by current sources.");
+    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("No clear timing signal yet.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

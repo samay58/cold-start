@@ -109,6 +109,52 @@ describe("applyVerifierResults", () => {
 });
 
 describe("verifySynthesis", () => {
+  it("sends validated structured facts alongside source snippets", async () => {
+    let request: Parameters<Anthropic["messages"]["create"]>[0] | undefined;
+    const client = {
+      messages: {
+        create: async (params: Parameters<Anthropic["messages"]["create"]>[0]) => {
+          request = params;
+          return {
+            content: [{ type: "text", text: '[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
+          };
+        }
+      }
+    } as unknown as Anthropic;
+
+    await verifySynthesis({
+      client,
+      model: "claude-test",
+      claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+      sources: [{ id: "c1", url: "https://example.com", title: "Example", snippet: "Short snippet" }],
+      evidenceFacts: [
+        {
+          path: "card.funding.totalRaised",
+          citationIds: ["c1"],
+          value: { amount: 100, currency: "USD" },
+          status: "verified",
+          confidence: "high"
+        }
+      ]
+    });
+
+    const userMessage = request?.messages[0];
+    expect(userMessage?.role).toBe("user");
+    expect(typeof userMessage?.content).toBe("string");
+    expect(JSON.parse(userMessage?.content as string)).toMatchObject({
+      evidenceFacts: [
+        {
+          path: "card.funding.totalRaised",
+          citationIds: ["c1"],
+          value: { amount: 100, currency: "USD" },
+          status: "verified",
+          confidence: "high"
+        }
+      ]
+    });
+    expect(JSON.stringify(request?.system)).toContain("disciplined analytical inference");
+  });
+
   it("accepts verifier JSON wrapped in a markdown code fence", async () => {
     const client = {
       messages: {

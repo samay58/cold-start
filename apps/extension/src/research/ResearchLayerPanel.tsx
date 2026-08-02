@@ -32,6 +32,7 @@ import type { TooltipPropsFor } from "../shared/SharedTooltip";
 import { usePrefersReducedMotion } from "../shared/usePrefersReducedMotion";
 import { useAlphaEvent } from "../shared/alpha-event-context";
 import type { ActiveSectionRunState, RunState } from "../shared/run-state";
+import { BrandMark } from "../shared/BrandMark";
 
 type ResearchLayerPanelProps = {
   analysisFailed?: boolean | undefined;
@@ -109,7 +110,7 @@ function investorLensControlState({
     return { disabled: true, reason: blockedReason };
   }
 
-  return { disabled: false, reason: "Read the case, timing, and open questions." };
+  return { disabled: false, reason: "See the case, pressure points, timing, and next question." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {
@@ -362,16 +363,14 @@ function InvestorLensControl({
       onClick={() => onRunAnalysis()}
       type="button"
     >
-      <span className="cs-investor-lens-control-index" aria-hidden="true">IL</span>
+      <span className="cs-investor-lens-control-mark" aria-hidden="true"><BrandMark /></span>
       <span className="cs-investor-lens-control-copy">
         <strong>Investor Lens</strong>
         <span>{state.reason}</span>
       </span>
       <span className="cs-investor-lens-control-action" aria-hidden="true">
-        <span className="cs-investor-lens-control-seal">
-          <span />
-        </span>
-        <span>{state.disabled ? "Sealed" : "Run lens"}</span>
+        <span>{state.disabled ? "Unavailable" : "Build read"}</span>
+        <i />
       </span>
     </button>
   );

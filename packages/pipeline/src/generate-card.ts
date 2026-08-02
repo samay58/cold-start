@@ -5,6 +5,7 @@ import {
   type ColdStartCard,
   coldStartCardSchema,
   type GenerationTrace,
+  publicCard,
   type ResolvedFact,
   type SourcedText,
   type SynthesisGateDecision,
@@ -18,6 +19,7 @@ import {
   applyVerifierResults,
   BLOCK_ENRICHMENT_IDS,
   type BlockEnrichmentId,
+  type VerificationFact,
   type VerificationResult
 } from "@cold-start/llm";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource } from "@cold-start/providers";
@@ -89,7 +91,11 @@ export type GenerateCardDeps = {
 };
 
 type SynthesizeCardFn = (card: ColdStartCard) => Promise<CardSynthesis>;
-type VerifySynthesisFn = (claims: SourcedText[], sources: VerificationSource[]) => Promise<VerificationResult[]>;
+type VerifySynthesisFn = (
+  claims: SourcedText[],
+  sources: VerificationSource[],
+  evidenceFacts: VerificationFact[]
+) => Promise<VerificationResult[]>;
 
 function analysisSynthesisMinCitations() {
   const value = Number.parseInt(process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS ?? "8", 10);
@@ -136,6 +142,50 @@ export function synthesisEvidenceFingerprint(card: ColdStartCard) {
   return createHash("sha256")
     .update(JSON.stringify(stableEvidenceValue(evidence)))
     .digest("hex");
+}
+
+export function verificationFactsForClaims(card: ColdStartCard, claims: SourcedText[]): VerificationFact[] {
+  const relevantCitationIds = new Set(claims.flatMap((claim) => claim.citationIds));
+  const facts: VerificationFact[] = [];
+
+  function visit(value: unknown, path: string) {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${index}]`));
+      return;
+    }
+    if (!value || typeof value !== "object") {
+      return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const citationIds = Array.isArray(record.citationIds)
+      ? record.citationIds.filter(
+          (citationId): citationId is string => typeof citationId === "string" && relevantCitationIds.has(citationId)
+        )
+      : [];
+
+    if (citationIds.length > 0) {
+      const { citationIds: _citationIds, status, confidence, ...rest } = record;
+      const factValue = Object.prototype.hasOwnProperty.call(record, "value") ? record.value : rest;
+      if (factValue !== null && factValue !== undefined) {
+        facts.push({
+          path,
+          citationIds,
+          value: stableEvidenceValue(factValue),
+          ...(typeof status === "string" ? { status } : {}),
+          ...(typeof confidence === "string" ? { confidence } : {})
+        });
+      }
+      return;
+    }
+
+    for (const [key, child] of Object.entries(record)) {
+      visit(child, path ? `${path}.${key}` : key);
+    }
+  }
+
+  visit(publicCard(card), "card");
+  return facts;
 }
 
 function synthesisWithheldFromGate(
@@ -806,7 +856,8 @@ export async function verifyCardSynthesisDraft(
     title: citation.title,
     ...(citation.snippet ? { snippet: citation.snippet } : {})
   }));
-  const results = await deps.verify(allSynthesisClaims(synthesis), citationSources);
+  const claims = allSynthesisClaims(synthesis);
+  const results = await deps.verify(claims, citationSources, verificationFactsForClaims(card, claims));
   const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
   const bullCaseOffset = 1;
   const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
