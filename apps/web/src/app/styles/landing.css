@@ -191,9 +191,26 @@
 }
 
 .cs-landing-hero-card-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   color: var(--cat-muted);
   font-family: var(--font-text);
   font-size: 11px;
+}
+
+/* Task 18: replays the recorded build from stage 0. Hidden under reduced motion and on narrow
+   viewports, where the component never runs the stage machine in the first place. */
+.cs-landing-hero-card-replay {
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--color-seal);
+  background: none;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 11px;
+  cursor: pointer;
 }
 
 .cs-landing-hero-card-object {
@@ -311,7 +328,9 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   white-space: nowrap;
-  transform: rotate(-6deg);
+  /* rotate is part of the Task 18 animate/initial pair (RecordedBuild.tsx): Framer Motion writes
+     its own inline transform, so the constant -6deg rotation has to travel with it rather than
+     live here, or the inline style would silently drop it. */
 }
 
 .cs-landing-hero-card-seal {
@@ -323,8 +342,8 @@
   height: 38px;
   border: 1.5px solid var(--color-seal);
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-seal) 16%, transparent);
-  transform: rotate(-4deg);
+  /* background and rotate are animated in RecordedBuild.tsx (the seal fill inks up stage by
+     stage, and a constant -4deg rotate rides along in the same inline transform). */
 }
 
 .cs-landing-hero-card-seal span {
@@ -387,11 +406,18 @@
 }
 
 .cs-landing-hero-card-status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
   color: var(--cat-muted);
   font-family: var(--font-text);
   font-size: 11px;
-  text-align: right;
+}
+
+.cs-landing-hero-card-elapsed {
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Hero clippings (fix round 1): four source cards docked to the left of the recorded-build
@@ -430,28 +456,28 @@
   line-height: 1.35;
 }
 
+/* Rotation lives in RecordedBuild.tsx's animate/initial pair alongside the slide-in x, not here:
+   Framer Motion writes its own inline transform (translateX + rotate) as the clipping arrives, so
+   a CSS transform on the same element would just be overwritten. */
+
 .cs-landing-hero-clipping-1 {
   top: 2%;
   left: -128px;
-  transform: rotate(1.4deg);
 }
 
 .cs-landing-hero-clipping-2 {
   top: 27%;
   left: -132px;
-  transform: rotate(-1.8deg);
 }
 
 .cs-landing-hero-clipping-3 {
   top: 52%;
   left: -118px;
-  transform: rotate(-1deg);
 }
 
 .cs-landing-hero-clipping-4 {
   top: 76%;
   left: -122px;
-  transform: rotate(1.8deg);
 }
 
 /* --- PitchBook comparison --- */

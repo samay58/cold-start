@@ -135,4 +135,36 @@ test.describe("web gallery", () => {
     await page.waitForTimeout(200);
     await page.screenshot({ path: path.join(screenshotDir, "landing-access-form.png") });
   });
+
+  // Task 18's recorded-build hero animation: three beats of the same run, timed off the real
+  // stage machine (RecordedBuild.tsx) rather than fixed guesses. Stage 0 holds until 600ms after
+  // the card scrolls into view (immediate on desktop: the hero sits in the first viewport), then
+  // one stage fires every 850ms up to stage 6: stage 3 lands at 600 + 2*850 = 2300ms, stage 6 at
+  // 600 + 5*850 = 4850ms. Captures land partway between stage marks so the spring settle for that
+  // stage has visibly finished. Desktop-only: below 700px the component renders the finished card
+  // statically with no clippings, so there is no build sequence to catch mid-flight, and the
+  // "home" capture above already shows that static mobile state at 400ms.
+  test("captures the recorded-build hero mid-animation", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "the animation beats are desktop-only; mobile renders statically");
+
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    // Initial: well before the 600ms start delay, every clipping and section still at rest.
+    await page.waitForTimeout(150);
+    await page.screenshot({ path: path.join(screenshotDir, "hero-build-initial.png") });
+
+    // Mid-build: stage 3 fired at 2300ms (three clippings and three sections filed, one of each
+    // still pending); wait the remaining time from "initial" plus a settle buffer.
+    await page.waitForTimeout(2500 - 150);
+    await page.screenshot({ path: path.join(screenshotDir, "hero-build-mid.png") });
+
+    // Finished: stage 6 fired at 4850ms (FILED stamp settled, seal maxed); wait the remaining
+    // time from "mid" plus a buffer for the stamp's spring to visibly stop moving.
+    await page.waitForTimeout(5400 - 2500);
+    await page.screenshot({ path: path.join(screenshotDir, "hero-build-finished.png") });
+  });
 });
