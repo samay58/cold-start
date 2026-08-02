@@ -138,24 +138,32 @@ Elevation otherwise:
 
 ### Public Card
 
-The public `/c/{slug}` page is a two-zone ledger.
+The public `/c/{slug}` page is one card object: a meta strip, a header, a five-slot stat strip, evidence-led sections, a source ledger, and a footer, sitting on a faint stacked-card shadow over the manila ground.
 
-Top zone: identity and decision facts.
+A meta strip above the card states `COLD START / catalog / c/{slug}` on the left and `retrieved {time} UTC · N sources read` on the right.
 
-- Company name, domain, generated time, cache state.
-- A one-sentence sourced description.
-- Four to six key values: founded, HQ, raised, last round, headcount, founders.
-- One visible "next question" when synthesis is absent: the best honest open thread based only on public facts.
+Header:
 
-Bottom zone: evidence-led sections.
+- Company name in the display face, a one-sentence sourced description, the domain link and HQ city.
+- A `CALL NO.` block with the `CS·SLUG·YY` call number and either the `FILED {date}` stamp or, for a thin file, the `THIN FILE` stamp with its source count.
 
-- `Money`
-- `People`
-- `Signals`
-- `Comps`
-- `Sources`
+Stat strip, five slots in a fixed order: `Stage`, `Raised`, `Headcount`, `Valuation`, `Founded`. Each slot is a value, a detail line, and a citation when cited, or the honest absent state ("not publicly disclosed" / "no source in ledger") when there is nothing to show. Valuation has no schema field anywhere on the card: it is permanently absent, not waiting for data, and that absence is the point. A conflicting fact (headcount sources disagreeing, for example) shows its value plus a link into the conflict panel below.
 
-On desktop, sources sit in a right-hand ledger rail when space allows. On mobile, the source ledger follows the content. The rail is not decoration; it lets a reader scan source quality while reading facts.
+Sections, in this order below the strip:
+
+- `Money`: funding bullets (raised, last round, investors) or the honest "No public funding found" empty state. Always renders.
+- `People`: founders and key execs, with the headcount conflict panel folded in when sources disagree. Renders only when there is a name or a conflict to show.
+- `Signals`: recent dated, sourced events, or the honest empty state. A company-only signal carries a plain caveat. Always renders.
+- `Comps`: named comparable companies with their basis. Shows an honest empty state on a full card; stays hidden entirely on a thin file until a source names one.
+- `Risk`: caveats the ledger can state plainly (company-only proof, a stale section). Renders only when there is something to say.
+- `Next question`: one honest open thread the ledger cannot answer, chosen by a fixed priority: company-only proof, then a headcount conflict, then missing funding, then, on a thin file, who funds the company.
+- `Investor read`: a locked teaser row naming the five Lens categories (Why care, What must be true, What could break, Why now, What to learn next) and pointing to the extension. Hidden entirely on a thin file.
+
+Conflict panel: appears wherever a fact's sources disagree (folded into People for headcount today). It states the disputed value, every disagreeing source with its date, and refuses to average them: "Both values stand. Cold Start does not average sources." A compact variant carries the same content at a smaller size in the mobile pocket.
+
+Footer: the call number, filed date, "sourced facts only", and a `VETTED · N OF M` stamp counting independently or reportedly sourced citations against the total, whenever the card carries any citation at all.
+
+On desktop, sources sit in a right-hand ledger rail: a numbered list of every citation with its title, publisher, date, and evidence class. Hovering or holding an inline `[n]` mark pairs it with its rail row; Escape always releases a held pairing. Below 700px the two-column grid becomes a single pocket card with tabs, `Card` / `People` (when there is something to show) / `Signals` / `Sources`, each reachable one-handed. Risk and the Investor read teaser never appear on the pocket, a deliberate mobile scope cut.
 
 The page width should feel deliberate:
 
@@ -163,6 +171,10 @@ The page width should feel deliberate:
 - Main claim column: `620px-720px`.
 - Source rail: `280px-340px`.
 - Gap: `32px-56px`.
+
+### Landing Page
+
+The marketing landing page at `/` speaks the same catalogue-card language as the public card: warm parchment, the one seal accent, sentence-case section labels, evidence marks, light only. A short nav (brand, Catalog, Extension, Ask for access) sits above a hero that plays a recorded build: a real filed profile assembling from source clippings into a finished card with its `FILED` stamp, replayable on demand. Below the hero: a comparison against PitchBook, the source-quality legend (verified/reported/company/conflict/unknown), a Chrome extension teaser showing a closed Investor Lens packet, and an "Ask for access" form (name, email, one line why). The footer states the real filed-profile count and the date of the most recent filing. No synthesis or Lens content ever renders on the public landing page; the extension panel is a locked preview only.
 
 ### Extension Panel
 
