@@ -72,7 +72,7 @@ export default function PrivacyPage() {
 
         <h2>Requesting access</h2>
         <p>
-          The access request form on this page collects your name, email, the note you write, and a hashed version
+          The access request form on the landing page collects your name, email, the note you write, and a hashed version
           of your IP address. Cold Start uses this to review your request and answer it. The hashed IP is used only
           to rate-limit submissions, not to identify you.
         </p>

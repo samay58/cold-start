@@ -7,9 +7,7 @@ type ErrorPageProps = {
   reset: () => void;
 };
 
-// Catches an uncaught render error under this segment (e.g. a cold-cache miss plus a DB
-// blip on the landing or catalog pages, see lens2-reliability.md F3) so a visitor gets this
-// card-language fallback instead of Next's bare default error page.
+// Keep uncaught route render failures inside the card language instead of Next's bare fallback.
 export default function ErrorBoundary({ error, reset }: ErrorPageProps) {
   useEffect(() => {
     console.error(error);

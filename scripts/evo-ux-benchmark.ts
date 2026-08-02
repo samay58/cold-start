@@ -12,6 +12,7 @@ import { performance } from "node:perf_hooks";
 import { chromium, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
 
 import { browserbaseCardWithSynthesis, mockExtensionApi } from "../apps/extension/tests/e2e/fixtures";
+import { runCli } from "./alpha-common";
 
 type RouteMetric = {
   name: string;
@@ -194,27 +195,24 @@ function navTiming(raw: unknown) {
   };
 }
 
-// Sanctioned overlap allowlist: elements proven (Wave A adversarial audit, 2026-08) to overflow
-// their own box by design rather than by bug. Each selector is exact, matched against the
-// flagged element itself, not a tolerance band, so a new overflow on any other element still
-// counts. Widening this list needs the same proof standard: walk every descendant's bounding
-// rect to confirm the overhang matches a named CSS rule to the pixel before adding it here.
-const SANCTIONED_OVERFLOW_SELECTORS = [
+// These elements intentionally overhang their boxes. Keep the measured pixel ceiling so a
+// larger future overflow still fails the gate instead of disappearing behind a selector skip.
+const SANCTIONED_OVERFLOW_LIMITS = [
   // Ghost-stack card decoration: `.cs-landing-hero-card-ghost-back` / `.cs-face-ghost-back` sit
   // behind the front card face at `transform: translate(9px, ...)` (CardFace.tsx's own
   // "receipt behind the card" layering), so these ancestors register a few px of scrollWidth
   // overhang that is not visual overflow.
-  ".cs-landing-hero-card-object",
-  ".cs-face-reading",
-  ".cs-face-object",
+  { selector: ".cs-landing-hero-card-object", maxOverflowPx: 9 },
+  { selector: ".cs-face-reading", maxOverflowPx: 9 },
+  { selector: ".cs-face-object", maxOverflowPx: 9 },
   // Rail hover/hold bleed: `.cs-face-rail-rows { margin: 0 -10px; }` lets each row's hover
   // background run edge-to-edge past the rail panel's padding gutter, by design.
-  ".cs-face-rail",
-  ".cs-face-rail-panel"
+  { selector: ".cs-face-rail", maxOverflowPx: 10 },
+  { selector: ".cs-face-rail-panel", maxOverflowPx: 10 }
 ];
 
-async function inspectPage(page: Page) {
-  return await page.evaluate((sanctionedSelectors) => {
+export async function inspectPage(page: Page) {
+  return await page.evaluate((sanctionedLimits) => {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const elements = Array.from(document.querySelectorAll("body *"));
@@ -238,8 +236,10 @@ async function inspectPage(page: Page) {
         continue;
       }
 
-      if (htmlElement.scrollWidth > htmlElement.clientWidth + 2) {
-        if (sanctionedSelectors.some((selector) => htmlElement.matches(selector))) {
+      const overflowPx = htmlElement.scrollWidth - htmlElement.clientWidth;
+      if (overflowPx > 2) {
+        const sanctioned = sanctionedLimits.find(({ selector }) => htmlElement.matches(selector));
+        if (sanctioned && overflowPx <= sanctioned.maxOverflowPx) {
           continue;
         }
         overflowCount += 1;
@@ -263,7 +263,7 @@ async function inspectPage(page: Page) {
       overflowSamples,
       timing: window.performance.getEntriesByType("navigation")[0]?.toJSON?.() ?? null
     };
-  }, SANCTIONED_OVERFLOW_SELECTORS);
+  }, SANCTIONED_OVERFLOW_LIMITS);
 }
 
 // The shim's whole reason to exist is standing in for the real chrome.* surface the sidepanel
@@ -522,7 +522,7 @@ function artifactPath(name: string) {
   return dir ? resolve(process.cwd(), dir, `${name}.png`) : undefined;
 }
 
-async function main() {
+export async function main() {
   loadEnv();
 
   const webPort = Number(argValue("--web-port")) || await freePort();
@@ -628,7 +628,4 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+runCli(import.meta.url, main);

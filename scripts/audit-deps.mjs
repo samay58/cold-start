@@ -56,8 +56,8 @@ const allowedAdvisorySources = new Set([
   1121245,
   1121250,
   1121255,
-  // @hono/node-server, reached through agentcash's MCP SDK dependency chain. Moderate,
-  // Windows-only path traversal in serve-static; never exposed to request data. Monitored.
+  // @hono/node-server, reached through AgentCash's MCP SDK chain. Windows-only serve-static
+  // traversal is unreachable here. Recheck by 2026-09-01; remove when that chain upgrades.
   1124006
 ]);
 

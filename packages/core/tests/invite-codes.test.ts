@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALPHA_INVITE_BREAKER_THRESHOLD,
+  ALPHA_INVITE_BREAKER_WINDOW_MS,
   INVITE_TOKEN_PATTERN,
   INVITE_WORDLIST,
   generateInviteCode
@@ -46,5 +48,12 @@ describe("INVITE_TOKEN_PATTERN", () => {
     expect("ember-quarto-lark").toMatch(INVITE_TOKEN_PATTERN);
     expect("too-short").not.toMatch(INVITE_TOKEN_PATTERN);
     expect("has spaces in it here").not.toMatch(INVITE_TOKEN_PATTERN);
+  });
+});
+
+describe("invite breaker contract", () => {
+  it("keeps one window and threshold for runtime and operator reporting", () => {
+    expect(ALPHA_INVITE_BREAKER_WINDOW_MS).toBe(60 * 60 * 1_000);
+    expect(ALPHA_INVITE_BREAKER_THRESHOLD).toBe(10);
   });
 });

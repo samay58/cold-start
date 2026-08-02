@@ -47,10 +47,7 @@ written to .cold-start/invites/, and opened for approval. Only an approved card 
 stored; the invite row is created after approval. The invitation URL contains the
 only copy of the raw code. It is printed once after the hashed invitation exists.`;
 
-// open and sips (used below the --skip-card branch) are macOS-only, with no Linux/Windows
-// equivalent shipped here. Check before the paid mint call, not after: failing on a missing
-// binary once the mint has already billed OpenRouter is a wasted spend, not just an ugly
-// error (lens3 F4).
+// Check the macOS-only open/sips dependency before the paid mint call, not after billing.
 export function assertMacOsMintSupport(platform: NodeJS.Platform): void {
   if (platform !== "darwin") {
     throw new Error(

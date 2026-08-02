@@ -5,7 +5,11 @@ import { resolve } from "node:path";
 
 import { Client } from "pg";
 
-import type { GenerationFailureCode } from "@cold-start/core";
+import {
+  ALPHA_INVITE_BREAKER_THRESHOLD,
+  ALPHA_INVITE_BREAKER_WINDOW_MS,
+  type GenerationFailureCode
+} from "@cold-start/core";
 import { generationRunDeadAfterMs } from "@cold-start/db";
 
 import {
@@ -26,8 +30,7 @@ const PROFILE_RUN_FLOOR_COUNT = 10;
 const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
 // This script queries alpha_invite_attempts through its raw pg.Client rather than the web route's
 // Drizzle connection so the operator can see when credential validation is being throttled.
-const BREAKER_WINDOW_MINUTES = 60;
-const BREAKER_THRESHOLD = 10;
+const BREAKER_WINDOW_MINUTES = ALPHA_INVITE_BREAKER_WINDOW_MS / 60_000;
 
 type JsonObject = Record<string, unknown>;
 
@@ -789,9 +792,9 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
     evidenceGaps,
     breaker: {
       windowMinutes: BREAKER_WINDOW_MINUTES,
-      threshold: BREAKER_THRESHOLD,
+      threshold: ALPHA_INVITE_BREAKER_THRESHOLD,
       recentAttempts: input.recentInviteAttempts,
-      open: input.recentInviteAttempts >= BREAKER_THRESHOLD
+      open: input.recentInviteAttempts >= ALPHA_INVITE_BREAKER_THRESHOLD
     },
     gate: {
       passed: gateFailures.length === 0,

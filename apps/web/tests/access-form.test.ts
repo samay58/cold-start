@@ -23,4 +23,8 @@ describe("accessFormFailureMessage", () => {
   it("maps a thrown fetch (reported as status 0) to the our-side-fault copy", () => {
     expect(accessFormFailureMessage(0)).toBe("Something went wrong on our side. Try again in a minute.");
   });
+
+  it("maps a malformed successful response to the our-side-fault copy", () => {
+    expect(accessFormFailureMessage(200)).toBe("Something went wrong on our side. Try again in a minute.");
+  });
 });
