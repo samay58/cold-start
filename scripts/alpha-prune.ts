@@ -1,12 +1,14 @@
 #!/usr/bin/env tsx
 
-import { count, lt } from "drizzle-orm";
+import { and, count, isNotNull, lt } from "drizzle-orm";
 
 import {
+  accessRequests,
   alphaEvents,
   alphaInviteAttempts,
   pruneAlphaEvents,
-  pruneAlphaInviteAttempts
+  pruneAlphaInviteAttempts,
+  pruneHandledAccessRequests
 } from "@cold-start/db";
 
 import {
@@ -59,7 +61,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   // is noise. Pruned on the same cadence as events, at a fixed 24h boundary.
   const attemptsBefore = dateBefore(new Date(), "24h", "--before");
 
-  const { eligible, attemptsEligible } = await withAlphaDb(async (db) => {
+  // Access-request retention is its own privacy commitment (see the privacy page): a handled
+  // request is deleted 30 days after handling, decoupled from --before like the attempts window
+  // above, so tuning the events cutoff never quietly changes this one.
+  const accessRequestsBefore = dateBefore(new Date(), "30d", "--before");
+
+  const { eligible, attemptsEligible, accessRequestsEligible } = await withAlphaDb(async (db) => {
     const rows = await db
       .select({ value: count() })
       .from(alphaEvents)
@@ -68,9 +75,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       .select({ value: count() })
       .from(alphaInviteAttempts)
       .where(lt(alphaInviteAttempts.createdAt, attemptsBefore));
+    const accessRequestRows = await db
+      .select({ value: count() })
+      .from(accessRequests)
+      .where(and(isNotNull(accessRequests.handledAt), lt(accessRequests.handledAt, accessRequestsBefore)));
     return {
       eligible: rows[0]?.value ?? 0,
-      attemptsEligible: attemptRows[0]?.value ?? 0
+      attemptsEligible: attemptRows[0]?.value ?? 0,
+      accessRequestsEligible: accessRequestRows[0]?.value ?? 0
     };
   });
 
@@ -84,7 +96,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           wouldDelete: Math.min(eligible, maximum),
           cappedByMax: eligible > maximum,
           attemptsBefore: attemptsBefore.toISOString(),
-          attemptsEligible
+          attemptsEligible,
+          accessRequestsBefore: accessRequestsBefore.toISOString(),
+          accessRequestsEligible
         },
         null,
         2
@@ -93,7 +107,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const { deleted, attemptsDeleted } = await withAlphaDb(async (db) => {
+  const { deleted, attemptsDeleted, accessRequestsDeleted } = await withAlphaDb(async (db) => {
     let countDeleted = 0;
     while (countDeleted < maximum) {
       const removed = await pruneAlphaEvents(db, {
@@ -104,7 +118,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       if (removed < batch) break;
     }
     const removedAttempts = await pruneAlphaInviteAttempts(db, attemptsBefore);
-    return { deleted: countDeleted, attemptsDeleted: removedAttempts };
+    const removedAccessRequests = await pruneHandledAccessRequests(db, accessRequestsBefore);
+    return { deleted: countDeleted, attemptsDeleted: removedAttempts, accessRequestsDeleted: removedAccessRequests };
   });
 
   console.log(
@@ -115,7 +130,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         deleted,
         stoppedAtMax: deleted === maximum,
         attemptsBefore: attemptsBefore.toISOString(),
-        attemptsDeleted
+        attemptsDeleted,
+        accessRequestsBefore: accessRequestsBefore.toISOString(),
+        accessRequestsDeleted
       },
       null,
       2

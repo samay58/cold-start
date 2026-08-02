@@ -70,6 +70,17 @@ export default function PrivacyPage() {
           investment recommendations.
         </p>
 
+        <h2>Requesting access</h2>
+        <p>
+          The access request form on this page collects your name, email, the note you write, and a hashed version
+          of your IP address. Cold Start uses this to review your request and answer it. The hashed IP is used only
+          to rate-limit submissions, not to identify you.
+        </p>
+        <p>
+          Once a request is marked handled, it is deleted within 30 days. Requests that have not yet been answered
+          are kept until they are.
+        </p>
+
         <h2>Questions</h2>
         <p>
           Cold Start is a small product run by its owner. Questions and deletion requests can be sent to{" "}

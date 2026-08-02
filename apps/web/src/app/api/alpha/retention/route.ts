@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { createDb, pruneAlphaEvents } from "@cold-start/db";
+import { createDb, pruneAlphaEvents, pruneHandledAccessRequests } from "@cold-start/db";
 
 import { webEnv } from "../../../../lib/web-env";
 
@@ -49,8 +49,18 @@ export async function GET(request: Request) {
     before: before.toISOString()
   });
 
+  // Same 30-day commitment as the events above (see the privacy page), applied to answered
+  // access requests: handledAt is not null and older than the boundary. Open requests are never
+  // touched here.
+  const accessRequestsDeleted = await pruneHandledAccessRequests(db, before);
+  console.info("[alpha-retention]", {
+    signal: "access_requests_pruned",
+    deleted: accessRequestsDeleted,
+    before: before.toISOString()
+  });
+
   return Response.json(
-    { deleted, capped, before: before.toISOString() },
+    { deleted, capped, before: before.toISOString(), accessRequestsDeleted },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

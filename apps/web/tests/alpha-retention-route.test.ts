@@ -2,12 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({ kind: "db" })),
-  pruneEvents: vi.fn()
+  pruneEvents: vi.fn(),
+  pruneAccessRequests: vi.fn()
 }));
 
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
-  pruneAlphaEvents: mocks.pruneEvents
+  pruneAlphaEvents: mocks.pruneEvents,
+  pruneHandledAccessRequests: mocks.pruneAccessRequests
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -27,6 +29,7 @@ describe("GET /api/alpha/retention", () => {
     process.env.CRON_SECRET = "retention-secret";
     mocks.createDb.mockClear();
     mocks.pruneEvents.mockReset().mockResolvedValue(0);
+    mocks.pruneAccessRequests.mockReset().mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -40,6 +43,7 @@ describe("GET /api/alpha/retention", () => {
 
     expect(response.status).toBe(503);
     expect(mocks.pruneEvents).not.toHaveBeenCalled();
+    expect(mocks.pruneAccessRequests).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid bearer secret before opening the database", async () => {
@@ -48,6 +52,7 @@ describe("GET /api/alpha/retention", () => {
     expect(response.status).toBe(401);
     expect(mocks.createDb).not.toHaveBeenCalled();
     expect(mocks.pruneEvents).not.toHaveBeenCalled();
+    expect(mocks.pruneAccessRequests).not.toHaveBeenCalled();
   });
 
   it("prunes 30-day-old events in bounded batches", async () => {
@@ -80,5 +85,20 @@ describe("GET /api/alpha/retention", () => {
       capped: true
     });
     expect(mocks.pruneEvents).toHaveBeenCalledTimes(10);
+  });
+
+  it("prunes handled access requests past the same 30-day boundary and reports the count", async () => {
+    mocks.pruneEvents.mockResolvedValue(0);
+    mocks.pruneAccessRequests.mockResolvedValue(42);
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ accessRequestsDeleted: 42 });
+    expect(mocks.pruneAccessRequests).toHaveBeenCalledTimes(1);
+    const [dbArg, cutoffArg] = mocks.pruneAccessRequests.mock.calls[0];
+    expect(dbArg).toEqual({ kind: "db" });
+    expect(new Date(cutoffArg).getTime()).toBeLessThan(Date.now());
   });
 });

@@ -8,10 +8,16 @@ type FormState = "idle" | "submitting" | "success" | "error";
 // Pure response-to-copy mapping, unit-tested directly (apps/web/tests/access-form.test.ts)
 // without mounting the component: @testing-library/react is not installed in this repo (checked
 // before writing this), so interactive fetch behavior is covered here instead of through a
-// jsdom-rendered component test. Copy is verbatim from the task-17 brief (Step 2).
+// jsdom-rendered component test. Copy is verbatim from the task-17 brief (Step 2), extended with
+// a third branch so a server fault (5xx, or a thrown fetch, reported as status 0 by the caller)
+// never blames the visitor's input.
 export function accessFormFailureMessage(status: number): string {
   if (status === 429) {
     return "Too many requests from here today. Try again tomorrow.";
+  }
+
+  if (status === 0 || status >= 500) {
+    return "Something went wrong on our side. Try again in a minute.";
   }
 
   return "That did not send. Check the fields and try again.";

@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 
 import type { ColdStartDb } from "../client";
 import { accessRequests } from "../schema";
@@ -68,6 +68,18 @@ export async function markAccessRequestHandled(db: ColdStartDb, id: string, now 
     .where(and(eq(accessRequests.id, id), isNull(accessRequests.handledAt)))
     .returning();
   return rows.length === 1;
+}
+
+// Handled requests are deleted 30 days after handling, the same privacy commitment as the
+// alpha-events prune (see the privacy page). Open requests (handledAt null) are never touched
+// here. Plain DELETE...WHERE: Neon HTTP has no interactive transactions, and this statement
+// needs none.
+export async function pruneHandledAccessRequests(db: ColdStartDb, cutoff: Date): Promise<number> {
+  const rows = await db
+    .delete(accessRequests)
+    .where(and(isNotNull(accessRequests.handledAt), lt(accessRequests.handledAt, cutoff)))
+    .returning();
+  return rows.length;
 }
 
 async function countRecentRequests(db: ColdStartDb, matchColumn: SQL, since: Date): Promise<number> {
