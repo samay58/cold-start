@@ -142,6 +142,13 @@ describe("HomePage", () => {
     expect(html).toContain("Ask for access");
     expect(html).toContain("A person reads it and answers either way.");
 
+    // PitchBook comparison: the per-row vendor label reaches the accessibility tree at every
+    // width (sr-only on desktop, visible on mobile per landing.css), independent of the shared
+    // head row above it, which is aria-hidden and decorative only. One pair per row, six rows.
+    const comparisonSourceLabels = html.match(/<span class="cs-landing-table-source">(Cold Start|PitchBook)<\/span>/g) ?? [];
+    expect(comparisonSourceLabels.filter((label) => label.includes("Cold Start")).length).toBe(6);
+    expect(comparisonSourceLabels.filter((label) => label.includes("PitchBook")).length).toBe(6);
+
     // Footer
     expect(html).toContain("Public facts, cited. Not investment advice.");
     expect(html).toContain("last filing");

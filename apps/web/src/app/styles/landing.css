@@ -1,5 +1,5 @@
 /* ============================================================
-   Landing page (Task 17, 2026-07-30 redesign): the real / — hero, PitchBook
+   Landing page (Task 17, 2026-07-30 redesign): the real /, hero, PitchBook
    comparison, sources legend, extension companion, access form, footer.
    The whole page reads as one filed object: a single bordered shell holds
    every band, each band its own background tier from the existing token
@@ -394,6 +394,66 @@
   text-align: right;
 }
 
+/* --- Hero clippings (fix round 1): four source cards docked to the left of the recorded-build
+   card, the settled composition from the mockup's build-animation end state. Positioned against
+   .cs-landing-hero-card-object (the same position:relative parent the ghost stack uses), so they
+   sit in the gap between the hero copy and the card rather than over either one. Desktop only:
+   below 860px the hero grid collapses to one column and there is no gap left to dock into, so
+   they are dropped there too, ahead of the mockup's own mobile-only rule, to avoid the shell
+   clipping them mid-card. */
+
+.cs-landing-hero-clipping {
+  position: absolute;
+  z-index: 0;
+  width: 144px;
+  padding: 8px 10px;
+  border: 1px solid var(--cat-rule-strong);
+  border-radius: 4px;
+  background: var(--color-field);
+  box-shadow: 0 4px 10px -6px rgb(40 34 20 / 0.3);
+}
+
+.cs-landing-hero-clipping-meta {
+  display: block;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-landing-hero-clipping-headline {
+  display: block;
+  margin-top: 4px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.cs-landing-hero-clipping-1 {
+  top: 2%;
+  left: -128px;
+  transform: rotate(1.4deg);
+}
+
+.cs-landing-hero-clipping-2 {
+  top: 27%;
+  left: -132px;
+  transform: rotate(-1.8deg);
+}
+
+.cs-landing-hero-clipping-3 {
+  top: 52%;
+  left: -118px;
+  transform: rotate(-1deg);
+}
+
+.cs-landing-hero-clipping-4 {
+  top: 76%;
+  left: -122px;
+  transform: rotate(1.8deg);
+}
+
 /* --- PitchBook comparison --- */
 
 .cs-landing-pitchbook {
@@ -490,8 +550,21 @@
   min-width: 0;
 }
 
+/* The shared head row above (.cs-landing-table-head) is aria-hidden and decorative only: it
+   cannot carry real table semantics since these rows are a CSS grid, not a <table>. This per-row
+   label is the one mechanism that reaches the accessibility tree at every width, so it stays
+   mounted (screen-reader-only) on desktop instead of display:none, and becomes visible again once
+   the head row itself is hidden below 620px. */
 .cs-landing-table-source {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
   color: var(--color-seal);
   font-family: var(--font-text);
   font-size: 11px;
@@ -903,6 +976,10 @@
   .cs-landing-hero-card-column {
     max-width: 460px;
   }
+
+  .cs-landing-hero-clipping {
+    display: none;
+  }
 }
 
 /* --- Responsive: mobile, per the mockup's 390px frame --- */
@@ -955,6 +1032,14 @@
   }
 
   .cs-landing-table-source {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
     display: block;
   }
 
