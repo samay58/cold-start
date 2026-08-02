@@ -24,11 +24,8 @@ const MAX_RUN_ROWS = 10_000;
 const ALPHA_RELEASE_WALLET_FLOOR_USD = 35;
 const PROFILE_RUN_FLOOR_COUNT = 10;
 const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
-// Mirrors BREAKER_WINDOW_MS/BREAKER_THRESHOLD in
-// apps/web/src/app/api/alpha/invite/invite-service.ts. That module reads through the Drizzle
-// ColdStartDb; this script queries alpha_invite_attempts directly through its own raw pg.Client
-// (lens3 F3: the operator had no visibility into the breaker, only a friend's "connection lost"
-// report). Keep this window/threshold pair in sync if the source ever changes.
+// This script queries alpha_invite_attempts through its raw pg.Client rather than the web route's
+// Drizzle connection so the operator can see when credential validation is being throttled.
 const BREAKER_WINDOW_MINUTES = 60;
 const BREAKER_THRESHOLD = 10;
 
@@ -867,7 +864,7 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
     "",
     "Invite breaker",
     `${report.breaker.recentAttempts} invalid attempt(s) in the trailing ${report.breaker.windowMinutes} minutes (threshold ${report.breaker.threshold})`,
-    report.breaker.open ? "OPEN: invite/inspect, invite/redeem, and /i/{slug} are all answering 429/miss." : "closed",
+    report.breaker.open ? "OPEN: invite/inspect and invite/redeem are answering 429." : "closed",
     "",
     `Supported extension versions: ${report.compatibility.supportedVersions.join(", ")} (${report.compatibility.source})`,
     `Unsupported active installations: ${report.compatibility.unsupportedActiveInstallations.length}`,

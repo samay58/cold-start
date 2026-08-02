@@ -4,9 +4,8 @@ import { webEnv } from "../../../../lib/web-env";
 import { lookupAlphaInviteCardForSlug } from "../invite-card-lookup";
 
 // Serves the approved invitation card exactly as stored on the invite row. The runtime
-// never renders anything. Cache-Control is private: the art is personalized (a real name and
-// ordinal letterpressed in), so a shared/CDN cache must never retain or re-serve it to a
-// second requester or after the invite is revoked (verify-scan-oracle.md Finding B).
+// never renders anything. Cache-Control is private because the art is personalized with a real
+// name and ordinal; a shared cache must never retain or re-serve it to another requester.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }

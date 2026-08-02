@@ -32,18 +32,22 @@ describe("lookupAlphaInviteCardForSlug", () => {
     expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
   });
 
-  it("records a miss into the same tally invite/inspect uses", async () => {
+  it("keeps a page miss out of the token breaker tally", async () => {
     mocks.findAlphaInviteCardBySlug.mockResolvedValue(null);
 
     await expect(lookupAlphaInviteCardForSlug(db, "nobody")).resolves.toBeNull();
-    expect(mocks.recordAlphaInviteAttempt).toHaveBeenCalledTimes(1);
+    expect(mocks.countRecentAlphaInviteAttempts).not.toHaveBeenCalled();
+    expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
   });
 
-  it("returns null without a lookup once the breaker is open", async () => {
+  it("still resolves a real page while the token breaker is open", async () => {
+    const card = { displayName: "Dad", ordinal: 4, cardPngBase64: "abc" };
     mocks.countRecentAlphaInviteAttempts.mockResolvedValue(10);
+    mocks.findAlphaInviteCardBySlug.mockResolvedValue(card);
 
-    await expect(lookupAlphaInviteCardForSlug(db, "dad")).resolves.toBeNull();
-    expect(mocks.findAlphaInviteCardBySlug).not.toHaveBeenCalled();
+    await expect(lookupAlphaInviteCardForSlug(db, "dad")).resolves.toEqual(card);
+    expect(mocks.findAlphaInviteCardBySlug).toHaveBeenCalledWith(db, "dad");
+    expect(mocks.countRecentAlphaInviteAttempts).not.toHaveBeenCalled();
     expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
   });
 });

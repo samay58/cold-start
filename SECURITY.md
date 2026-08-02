@@ -144,10 +144,11 @@ The default invitation token is a three-word code drawn from a roughly
 character pattern shared by every entry point. A legacy 32-byte token
 remains available through the operator script's `--skip-card` path. Token
 length is not the real guard against brute-force guessing; a global failure
-breaker is. Any invalid-token attempt against invite/inspect, invite/redeem,
-the `/i/{slug}` invitation page, or its card image counts against one shared
-trailing-hour tally, and once ten misses land in that hour every one of
-those routes answers 429 until the window drains.
+breaker is. Any invalid-token attempt against invite/inspect or invite/redeem
+counts against one shared trailing-hour tally, and once ten misses land in that
+hour both token routes answer 429 until the window drains. Public invitation-page
+and card-image misses do not touch this tally; crawlers must not be able to disable
+credential validation.
 
 ## Allowances
 

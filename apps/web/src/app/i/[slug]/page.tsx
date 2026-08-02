@@ -22,8 +22,7 @@ const getInviteCard = cache((slug: string) =>
 // (iMessage reads nothing else), the stored card as the image, a short title.
 // The page itself is the same install-and-connect ceremony /alpha runs, with the
 // card art above it. Layout polish belongs to a later design pass.
-// Never indexed: a hit discloses a real name (verify-scan-oracle.md Finding B), so both the
-// hit and miss branches opt the page out of search crawling.
+// A hit discloses a real name, so both the hit and miss branches opt out of search indexing.
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   if (!SLUG_PATTERN.test(slug)) {
