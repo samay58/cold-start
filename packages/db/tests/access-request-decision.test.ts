@@ -15,6 +15,10 @@ describe("accessRequestDecision", () => {
     expect(accessRequestDecision({ recentFromIp: 0, recentFromEmail: 0 })).toBe("created");
   });
 
+  it("allows creation when ip count is under the limit", () => {
+    expect(accessRequestDecision({ recentFromIp: 2, recentFromEmail: 0 })).toBe("created");
+  });
+
   it("checks the ip limit before the email limit", () => {
     expect(accessRequestDecision({ recentFromIp: 3, recentFromEmail: 1 })).toBe("rate_limited_ip");
   });

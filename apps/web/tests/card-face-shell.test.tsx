@@ -53,6 +53,12 @@ describe("CardFace", () => {
     expect(html).toContain("$58M");
   });
 
+  it("does not render 'founded YYYY' as a phrase in the header meta for a card with a foundedYear", () => {
+    const html = renderFace(richConflictCard);
+
+    expect(html).not.toMatch(/founded\s+\d{4}/i);
+  });
+
   it("renders the section rows and the conflict panel on the rich, fully-populated card", () => {
     const html = renderFace(richConflictCard);
 
@@ -178,5 +184,11 @@ describe("PocketCard", () => {
     const html = renderPocket(richConflictCard);
 
     expect(html).toContain("6 sources");
+  });
+
+  it("does not render 'founded YYYY' as a phrase in PocketCard's header meta for a card with a foundedYear", () => {
+    const html = renderPocket(richConflictCard);
+
+    expect(html).not.toMatch(/founded\s+\d{4}/i);
   });
 });

@@ -75,6 +75,23 @@ describe("POST /api/access-requests", () => {
     expect(mocks.createAccessRequest).not.toHaveBeenCalled();
   });
 
+  it("accepts a name that trims to exactly 120 characters and stores the trimmed value", async () => {
+    mocks.createAccessRequest.mockResolvedValue("created");
+
+    const response = await POST(
+      request(validBody({ name: "a".repeat(120) + " " }))
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(mocks.createAccessRequest).toHaveBeenCalledWith(
+      { kind: "db" },
+      expect.objectContaining({
+        name: "a".repeat(120)
+      })
+    );
+  });
+
   it("rejects a note over 500 characters", async () => {
     const response = await POST(request(validBody({ note: "a".repeat(501) })));
 
