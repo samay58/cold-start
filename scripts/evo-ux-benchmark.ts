@@ -194,8 +194,27 @@ function navTiming(raw: unknown) {
   };
 }
 
+// Sanctioned overlap allowlist: elements proven (Wave A adversarial audit, 2026-08) to overflow
+// their own box by design rather than by bug. Each selector is exact, matched against the
+// flagged element itself, not a tolerance band, so a new overflow on any other element still
+// counts. Widening this list needs the same proof standard: walk every descendant's bounding
+// rect to confirm the overhang matches a named CSS rule to the pixel before adding it here.
+const SANCTIONED_OVERFLOW_SELECTORS = [
+  // Ghost-stack card decoration: `.cs-landing-hero-card-ghost-back` / `.cs-face-ghost-back` sit
+  // behind the front card face at `transform: translate(9px, ...)` (CardFace.tsx's own
+  // "receipt behind the card" layering), so these ancestors register a few px of scrollWidth
+  // overhang that is not visual overflow.
+  ".cs-landing-hero-card-object",
+  ".cs-face-reading",
+  ".cs-face-object",
+  // Rail hover/hold bleed: `.cs-face-rail-rows { margin: 0 -10px; }` lets each row's hover
+  // background run edge-to-edge past the rail panel's padding gutter, by design.
+  ".cs-face-rail",
+  ".cs-face-rail-panel"
+];
+
 async function inspectPage(page: Page) {
-  return await page.evaluate(() => {
+  return await page.evaluate((sanctionedSelectors) => {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const elements = Array.from(document.querySelectorAll("body *"));
@@ -220,6 +239,9 @@ async function inspectPage(page: Page) {
       }
 
       if (htmlElement.scrollWidth > htmlElement.clientWidth + 2) {
+        if (sanctionedSelectors.some((selector) => htmlElement.matches(selector))) {
+          continue;
+        }
         overflowCount += 1;
         if (overflowSamples.length < 8) {
           const className = typeof htmlElement.className === "string" ? htmlElement.className : "";
@@ -241,7 +263,7 @@ async function inspectPage(page: Page) {
       overflowSamples,
       timing: window.performance.getEntriesByType("navigation")[0]?.toJSON?.() ?? null
     };
-  });
+  }, SANCTIONED_OVERFLOW_SELECTORS);
 }
 
 // The shim's whole reason to exist is standing in for the real chrome.* surface the sidepanel
