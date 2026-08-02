@@ -6,6 +6,12 @@ import { z } from "zod";
 import { apiJsonWithTiming } from "../../../lib/api-response";
 import { webEnv } from "../../../lib/web-env";
 
+// Same two-step guard as invite-service.ts's readBoundedJson: a content-length pre-check,
+// then a decoded-byte-length re-check (defends against a missing or lying header) before
+// JSON.parse ever runs. This is the only unauthenticated route of the three, so it gets the
+// same cap as the smallest sibling body shape (a single JSON object, not an event batch).
+const MAX_REQUEST_BYTES = 2_048;
+
 // Landing-page "ask for access" form. Public and unauthenticated by design (there is no
 // credential to gate on before someone has access), so every input is treated as hostile:
 // the honeypot short-circuits before any DB call, and validation failures never say which
@@ -49,9 +55,19 @@ export async function POST(request: Request) {
   // every response, not just the honeypot one, keeps the two paths indistinguishable.
   const respond = (body: unknown, init?: ResponseInit) => apiJsonWithTiming(body, [], init);
 
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return respond({ ok: false, error: "invalid" }, { status: 400 });
+  }
+
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+    return respond({ ok: false, error: "invalid" }, { status: 400 });
+  }
+
   let unknownBody: unknown;
   try {
-    unknownBody = JSON.parse(await request.text());
+    unknownBody = JSON.parse(rawBody);
   } catch {
     return respond({ ok: false, error: "invalid" }, { status: 400 });
   }

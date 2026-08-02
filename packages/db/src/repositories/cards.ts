@@ -177,7 +177,9 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
     db
       .select({ cardJson: cards.cardJson, domain: cards.domain })
       .from(cards)
-      .orderBy(desc(cards.generatedAt)),
+      .orderBy(desc(cards.generatedAt))
+      // Bounded read; revisit when the catalog approaches 500 filed cards.
+      .limit(500),
     db
       .select({
         slug: researchSections.slug,

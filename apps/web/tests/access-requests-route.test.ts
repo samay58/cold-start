@@ -91,6 +91,14 @@ describe("POST /api/access-requests", () => {
     expect(mocks.createAccessRequest).not.toHaveBeenCalled();
   });
 
+  it("rejects a body over the byte cap without parsing it", async () => {
+    const response = await POST(request(validBody({ note: "x".repeat(3_000) })));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ ok: false, error: "invalid" });
+    expect(mocks.createAccessRequest).not.toHaveBeenCalled();
+  });
+
   it("rejects a malformed JSON body", async () => {
     const response = await POST(
       new Request("http://localhost/api/access-requests", {

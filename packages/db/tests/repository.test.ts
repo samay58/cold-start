@@ -1083,7 +1083,9 @@ describe("listPublicCardSummaries", () => {
         return selectCount === 1
           ? {
               from: () => ({
-                orderBy: async () => rows
+                orderBy: () => ({
+                  limit: async () => rows
+                })
               })
             }
           : {
@@ -1105,6 +1107,37 @@ describe("listPublicCardSummaries", () => {
         headcount: 42
       }
     ]);
+  });
+
+  it("bounds the card scan with a limit", async () => {
+    const rows = [{ cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai" } }];
+    const limitCalls: number[] = [];
+    let selectCount = 0;
+    const db = {
+      select: () => {
+        selectCount += 1;
+        return selectCount === 1
+          ? {
+              from: () => ({
+                orderBy: () => ({
+                  limit: async (n: number) => {
+                    limitCalls.push(n);
+                    return rows;
+                  }
+                })
+              })
+            }
+          : {
+              from: () => ({
+                where: async () => []
+              })
+            };
+      }
+    } as unknown as ColdStartDb;
+
+    await listPublicCardSummaries(db);
+
+    expect(limitCalls).toEqual([500]);
   });
 });
 
