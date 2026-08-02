@@ -3,6 +3,7 @@ import {
   COLD_START_API_CONTRACT_VERSION,
   COLD_START_CLIENT_CONTRACT_HEADER,
   companySlugFromDomain,
+  INVITE_TOKEN_PATTERN,
   type ColdStartCard,
   type ResearchSection
 } from "@cold-start/core";
@@ -11,7 +12,6 @@ const PRODUCTION_API_ORIGIN = "https://cold-start-samay58s-projects.vercel.app";
 const PRODUCTION_ALPHA_INVITE_ORIGIN = "https://cold-start.semitechie.vc";
 const LOCAL_API_ORIGIN = "http://localhost:3000";
 const LEGACY_PRODUCTION_API_ORIGINS = new Set(["https://coldstart.semitechie.vc"]);
-const ALPHA_INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{22,256}$/;
 const ALPHA_INSTALLATION_SUFFIX_PATTERN = /^[A-Za-z0-9_-]{6}$/;
 
 export const ALPHA_INSTALLATION_SUFFIX_STORAGE_KEY = "coldStartAlphaInstallationSuffix";
@@ -240,7 +240,7 @@ export function parseAlphaInviteExternalMessage(value: unknown): AlphaInviteExte
     typeof candidate.reducedMotion === "boolean" &&
     (candidate.theme === "light" || candidate.theme === "dark") &&
     typeof candidate.inviteToken === "string" &&
-    ALPHA_INVITE_TOKEN_PATTERN.test(candidate.inviteToken) &&
+    INVITE_TOKEN_PATTERN.test(candidate.inviteToken) &&
     Object.keys(candidate).length === 7
   ) {
     return {

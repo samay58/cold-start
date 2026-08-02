@@ -66,6 +66,32 @@ describe("alpha invitation bridge", () => {
     expect(parseAlphaInviteExternalMessage({
       type: "cold-start.alpha.connect",
       version: 1,
+      inviteToken: "acid-ajar-also",
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    })).toEqual({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "acid-ajar-also",
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    });
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
+      inviteToken: "a".repeat(13),
+      consent: true,
+      storeVisited: true,
+      reducedMotion: false,
+      theme: "light"
+    })).toBeNull();
+    expect(parseAlphaInviteExternalMessage({
+      type: "cold-start.alpha.connect",
+      version: 1,
       inviteToken: "a".repeat(32),
       consent: false,
       storeVisited: true,
