@@ -244,7 +244,28 @@ async function inspectPage(page: Page) {
   });
 }
 
+// The shim's whole reason to exist is standing in for the real chrome.* surface the sidepanel
+// runs against in production, so the manifest version tracks the actual extension build rather
+// than a fixed sentinel that could drift stale. Falls back to a numeric sentinel (never "unknown"
+// or a suffixed string; alpha-analytics.ts's extensionVersionSchema only accepts "unknown" or a
+// bare \d+(.\d+){0,3} string) if the package.json read or parse ever fails, so a benchmark run
+// never dies on this rather than the thing it's supposed to measure.
+function benchmarkExtensionVersion(): string {
+  try {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), "apps/extension/package.json"), "utf8")
+    ) as { version?: unknown };
+    if (typeof packageJson.version === "string" && /^\d+(?:\.\d+){0,3}$/.test(packageJson.version)) {
+      return packageJson.version;
+    }
+  } catch {
+    // fall through to the sentinel below
+  }
+  return "0.0.0";
+}
+
 async function installBenchmarkChromeShim(page: Page) {
+  const extensionVersion = benchmarkExtensionVersion();
   await page.addInitScript({
     content: `
       (() => {
@@ -293,7 +314,14 @@ async function installBenchmarkChromeShim(page: Page) {
         }
 
         window.chrome = {
-          runtime: { id: "extension-test-id" },
+          runtime: {
+            id: "extension-test-id",
+            // Only .version is read (apps/extension/src/shared/alpha-analytics.ts's
+            // extensionVersion()); everything else that touches getManifest() (the sidepanel
+            // footer, alpha-connect.ts) reads the same field, so this alone is a real manifest
+            // as far as any current caller can tell.
+            getManifest: () => ({ version: ${JSON.stringify(extensionVersion)} })
+          },
           storage: {
             local: storageArea("local"),
             session: storageArea("session"),
