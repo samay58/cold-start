@@ -1,10 +1,12 @@
-import { createDb, findAlphaInviteCardBySlug } from "@cold-start/db";
+import { createDb } from "@cold-start/db";
 
 import { webEnv } from "../../../../lib/web-env";
+import { lookupAlphaInviteCardForSlug } from "../invite-card-lookup";
 
-// Serves the approved invitation card exactly as stored on the invite row. The
-// runtime never renders anything; regeneration mints a fresh slug, so the bytes
-// behind one slug are immutable and can cache forever.
+// Serves the approved invitation card exactly as stored on the invite row. The runtime
+// never renders anything. Cache-Control is private: the art is personalized (a real name and
+// ordinal letterpressed in), so a shared/CDN cache must never retain or re-serve it to a
+// second requester or after the invite is revoked (verify-scan-oracle.md Finding B).
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
@@ -14,7 +16,7 @@ export async function GET(
     return new Response("not found", { status: 404 });
   }
   const db = createDb(webEnv().DATABASE_URL);
-  const card = await findAlphaInviteCardBySlug(db, slug);
+  const card = await lookupAlphaInviteCardForSlug(db, slug);
   if (!card?.cardPngBase64) {
     return new Response("not found", { status: 404 });
   }
@@ -25,7 +27,7 @@ export async function GET(
   return new Response(bytes, {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable"
+      "Cache-Control": "private, max-age=3600"
     }
   });
 }

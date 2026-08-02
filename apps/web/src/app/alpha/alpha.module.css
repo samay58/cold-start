@@ -100,7 +100,6 @@
   transform: rotate(-7deg);
 }
 
-.eyebrow,
 .stateLabel {
   margin: 0;
   color: var(--alpha-muted);
@@ -109,7 +108,6 @@
   letter-spacing: 0.04em;
 }
 
-.eyebrow::before,
 .stateLabel::before {
   display: inline-block;
   width: 7px;

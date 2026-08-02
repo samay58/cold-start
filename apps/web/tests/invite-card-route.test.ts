@@ -1,15 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  countRecentAlphaInviteAttempts: vi.fn(),
   createDb: vi.fn(),
-  findAlphaInviteCardBySlug: vi.fn()
+  findAlphaInviteCardBySlug: vi.fn(),
+  recordAlphaInviteAttempt: vi.fn()
 }));
 
 mocks.createDb.mockReturnValue({});
 
 vi.mock("@cold-start/db", () => ({
+  countRecentAlphaInviteAttempts: mocks.countRecentAlphaInviteAttempts,
   createDb: mocks.createDb,
-  findAlphaInviteCardBySlug: mocks.findAlphaInviteCardBySlug
+  findAlphaInviteCardBySlug: mocks.findAlphaInviteCardBySlug,
+  recordAlphaInviteAttempt: mocks.recordAlphaInviteAttempt
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -23,7 +27,14 @@ function request(path: string) {
 }
 
 describe("GET /i/[slug]/card.png", () => {
-  it("serves stored bytes as an immutable png", async () => {
+  beforeEach(() => {
+    mocks.countRecentAlphaInviteAttempts.mockReset();
+    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
+    mocks.recordAlphaInviteAttempt.mockReset();
+    mocks.findAlphaInviteCardBySlug.mockReset();
+  });
+
+  it("serves stored bytes as a privately-cached png", async () => {
     const pngBase64 = Buffer.from("png-bytes").toString("base64");
     mocks.findAlphaInviteCardBySlug.mockResolvedValue({
       displayName: "Dad",
@@ -37,7 +48,7 @@ describe("GET /i/[slug]/card.png", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/png");
-    expect(response.headers.get("cache-control")).toContain("immutable");
+    expect(response.headers.get("cache-control")).toBe("private, max-age=3600");
     expect(Buffer.from(await response.arrayBuffer()).toString("utf8")).toBe("png-bytes");
   });
 
@@ -57,7 +68,7 @@ describe("GET /i/[slug]/card.png", () => {
     expect(response.headers.get("content-type")).toBe("image/jpeg");
   });
 
-  it("404s an unknown slug", async () => {
+  it("404s an unknown slug and records a miss against the shared breaker", async () => {
     mocks.findAlphaInviteCardBySlug.mockResolvedValue(null);
 
     const response = await cardRoute.GET(request("/i/none/card.png"), {
@@ -65,16 +76,33 @@ describe("GET /i/[slug]/card.png", () => {
     });
 
     expect(response.status).toBe(404);
+    expect(mocks.recordAlphaInviteAttempt).toHaveBeenCalledTimes(1);
   });
 
   it("404s a malformed slug without touching the database", async () => {
-    mocks.findAlphaInviteCardBySlug.mockClear();
-
     const response = await cardRoute.GET(request("/i/BAD%20slug/card.png"), {
       params: Promise.resolve({ slug: "BAD slug" })
     });
 
     expect(response.status).toBe(404);
     expect(mocks.findAlphaInviteCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.countRecentAlphaInviteAttempts).not.toHaveBeenCalled();
+  });
+
+  it("serves the same neutral miss for a real slug while the breaker is open, without a lookup", async () => {
+    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(10);
+    mocks.findAlphaInviteCardBySlug.mockResolvedValue({
+      displayName: "Dad",
+      ordinal: 4,
+      cardPngBase64: Buffer.from("png-bytes").toString("base64")
+    });
+
+    const response = await cardRoute.GET(request("/i/dad/card.png"), {
+      params: Promise.resolve({ slug: "dad" })
+    });
+
+    expect(response.status).toBe(404);
+    expect(mocks.findAlphaInviteCardBySlug).not.toHaveBeenCalled();
+    expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
   });
 });

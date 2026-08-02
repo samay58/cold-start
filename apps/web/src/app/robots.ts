@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: ["/", "/c/", "/c/*/opengraph-image"],
-      disallow: ["/api/extension/"]
+      disallow: ["/api/extension/", "/i/"]
     },
     sitemap: `${siteUrl}/sitemap.xml`
   };
