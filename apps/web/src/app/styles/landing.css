@@ -585,13 +585,17 @@
   align-items: stretch;
 }
 
+/* Right-aligned so the label's own edge, not the fixed 220px column, sets the gap to the Cold
+   Start card: the extra right padding on top of the row's 24px grid gap lands the visible space
+   at ~44px, close enough to read as the cards' index rather than text floating in cream. */
 .cs-landing-table-label {
   align-self: center;
-  padding: 16px 0;
+  padding: 16px 20px 16px 0;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.4;
+  text-align: right;
 }
 
 .cs-landing-table-cell {
@@ -617,7 +621,10 @@
 .cs-landing-table-row:last-child .cs-landing-table-cell:first-of-type {
   border-bottom: 1px solid var(--cat-paper-edge);
   border-radius: 0 0 6px 6px;
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  /* One notch past the hero card's own shadow value: this lift only ever shows along the bottom
+     cell (the surface is built from per-row backgrounds, not one continuous box), so it needs a
+     stronger shadow than the hero card just to read as comparable at arm's length. */
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 12px 26px -12px rgb(40 34 20 / 0.42);
 }
 
 .cs-landing-table-row .cs-landing-table-cell:last-of-type {
@@ -683,7 +690,7 @@
 /* --- Sources legend --- */
 
 .cs-landing-sources {
-  padding: clamp(56px, 6vw, 72px) clamp(20px, 4vw, 44px);
+  padding: clamp(45px, 5vw, 58px) clamp(20px, 4vw, 44px);
   border-top: 1px solid var(--cat-rule-strong);
   background: var(--cat-ground);
 }
@@ -704,7 +711,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 800px;
+  max-width: 840px;
   padding: 6px 24px;
   border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
@@ -790,9 +797,9 @@
 
 .cs-landing-extension {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
   gap: clamp(28px, 5vw, 64px);
-  align-items: start;
+  align-items: center;
   padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
   border-top: 1px solid var(--cat-rule-strong);
   background: var(--color-field);
@@ -851,6 +858,7 @@
   border: 1px solid var(--cat-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
+  box-shadow: 0 10px 22px -14px rgb(40 34 20 / 0.35);
 }
 
 .cs-landing-panel-bar {
@@ -913,11 +921,23 @@
 }
 
 .cs-landing-panel-locked-value {
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: 6px;
   color: var(--color-muted);
   font-family: var(--font-text);
   font-size: 10px;
   white-space: nowrap;
+}
+
+/* The unknown-mark language (a bordered specimen, no fill) shrunk to a receipt-scale square: a
+   locked row reads as a classification state rather than missing data. */
+.cs-landing-panel-lock-mark {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--cat-muted-2);
+  flex: none;
 }
 
 /* --- Access form --- */
@@ -926,8 +946,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
   gap: clamp(28px, 5vw, 64px);
-  align-items: start;
-  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  align-items: center;
+  padding: clamp(30px, 4.5vw, 50px) clamp(20px, 4vw, 44px);
   border-top: 1px solid var(--cat-rule-strong);
   background: var(--cat-paper);
 }
@@ -959,11 +979,12 @@
 .cs-landing-access-form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px;
-  border: 1px solid var(--color-rule-strong);
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
-  background: var(--color-field);
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
 }
 
 .cs-landing-access-field {
@@ -975,9 +996,9 @@
   width: 100%;
   padding: 0 0 8px;
   border: none;
-  border-bottom: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--cat-rule);
   background: transparent;
-  color: var(--color-ink);
+  color: var(--cat-ink);
   font-family: var(--font-body);
   font-size: 14px;
   resize: none;
@@ -985,7 +1006,7 @@
 
 .cs-landing-access-field input::placeholder,
 .cs-landing-access-field textarea::placeholder {
-  color: var(--color-muted);
+  color: var(--cat-muted);
   font-family: var(--font-text);
 }
 
@@ -1004,32 +1025,18 @@
   pointer-events: none;
 }
 
+/* Restyled onto the shared seal pill (same class the hero and extension CTA use): this override
+   only repositions it on the slip. Height, radius, background, and type treatment all come from
+   .cs-landing-seal-pill; a flex column child stretches full width by default, so align-self here
+   is what shrinks the button to its content and pins it to the right edge, like a receipt total. */
 .cs-landing-access-submit {
+  align-self: flex-end;
   margin-top: 4px;
-  padding: 12px 0;
-  border: none;
-  border-radius: 4px;
-  background: var(--color-seal);
-  color: var(--color-plate);
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 160ms ease, opacity 160ms ease;
-}
-
-.cs-landing-access-submit:hover {
-  background: var(--seal-hover);
 }
 
 .cs-landing-access-submit:disabled {
   opacity: 0.6;
   cursor: default;
-}
-
-.cs-landing-access-submit:focus-visible {
-  outline: 2px solid var(--color-seal);
-  outline-offset: 2px;
 }
 
 .cs-landing-access-error {
@@ -1042,10 +1049,11 @@
 .cs-landing-access-success {
   margin: 0;
   padding: 20px;
-  border: 1px solid var(--color-rule-strong);
+  border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
-  background: var(--color-field);
-  color: var(--color-ink);
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  color: var(--cat-ink);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
@@ -1058,7 +1066,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px clamp(20px, 4vw, 44px);
+  padding: 30px clamp(20px, 4vw, 44px);
   border-top: 1px solid var(--cat-rule);
   background: var(--cat-paper);
 }
@@ -1140,6 +1148,14 @@
     gap: 6px;
     padding: 14px 0;
     border-top: 1px solid var(--color-rule);
+  }
+
+  /* The desktop spine's right-align and extra right padding only make sense against the fixed
+     220px label column feeding a card to its right; stacked at this width the label is its own
+     line above the two values, so it reads left like every other line here. */
+  .cs-landing-table-label {
+    padding: 0;
+    text-align: left;
   }
 
   .cs-landing-table-row:last-child {

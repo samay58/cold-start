@@ -105,8 +105,8 @@ export function AccessForm() {
         type="text"
       />
 
-      <button className="cs-landing-access-submit" disabled={state === "submitting"} type="submit">
-        Send
+      <button className="cs-landing-seal-pill cs-landing-access-submit" disabled={state === "submitting"} type="submit">
+        <span className="cs-landing-seal-pill-label">Send</span>
       </button>
 
       {state === "error" && errorMessage ? (

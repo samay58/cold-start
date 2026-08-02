@@ -40,7 +40,10 @@ export function ExtensionPanel({ companyName, lens }: ExtensionPanelProps) {
           return (
             <div className="cs-landing-panel-row cs-landing-panel-row-locked" key={label}>
               <span className="cs-landing-panel-label cs-landing-panel-label-locked">{label}</span>
-              <span className="cs-landing-panel-locked-value">invited accounts</span>
+              <span className="cs-landing-panel-locked-value">
+                <span aria-hidden="true" className="cs-landing-panel-lock-mark" />
+                invited accounts
+              </span>
             </div>
           );
         })}
