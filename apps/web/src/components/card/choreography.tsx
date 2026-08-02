@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 // The card face's one interactive system: hover an inline [n] mark and its sources-rail row
 // lights up; click to hold the pairing (so it survives the mouse moving on to read the row);
 // Escape is the global breaker that always releases a hold, no matter what has focus. This is
-// the only client module the card face needs — CardFace itself stays a server component and
+// the only client module the card face needs; CardFace itself stays a server component and
 // wraps its two-column contents in ChoreographyProvider, passing server-rendered children
 // through the provider's children prop.
 

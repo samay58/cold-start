@@ -45,7 +45,7 @@ function monthYear(value: string | null): string | null {
   return monthYearFormatter.format(parsed);
 }
 
-// "A and B" / "A, B, and C" — the join style the design doc's example trailer uses verbatim.
+// "A and B" / "A, B, and C": the join style the design doc's example trailer uses verbatim.
 function listOf(items: string[]): string {
   if (items.length === 0) {
     return "";
