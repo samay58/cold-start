@@ -1,29 +1,11 @@
 import React from "react";
-import { CiteMark } from "./choreography";
-import type { CitationIndex, StatSlot } from "../../lib/card-face/model";
+import { CiteMarks } from "./choreography";
+import { citationMarks, type CitationIndex, type StatSlot } from "../../lib/card-face/model";
 
 export type StatStripProps = {
   slots: StatSlot[];
   index: CitationIndex;
 };
-
-function CitationMarks({ citationIds, index }: { citationIds: string[]; index: CitationIndex }) {
-  const marks = citationIds
-    .map((id) => ({ id, number: index.displayNumber(id) }))
-    .filter((entry): entry is { id: string; number: number } => entry.number !== null);
-
-  if (marks.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {marks.map(({ id, number }) => (
-        <CiteMark id={id} key={id} number={number} />
-      ))}
-    </>
-  );
-}
 
 // One square evidence mark per DESIGN.md's evidence-mark language: filled for verified,
 // outlined for reported, outlined with a half-width inner fill for company-sourced, and a
@@ -57,7 +39,7 @@ function StatSlotCell({ slot, index }: { slot: StatSlot; index: CitationIndex })
         ) : (
           slot.detail
         )}
-        <CitationMarks citationIds={slot.citationIds} index={index} />
+        <CiteMarks marks={citationMarks(slot.citationIds, index)} />
       </span>
     </div>
   );

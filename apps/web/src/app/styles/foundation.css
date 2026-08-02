@@ -1,5 +1,13 @@
 :root {
   --font-display: var(--font-gt-america-next, "GT America"), var(--font-plex-sans-next, "IBM Plex Sans"), sans-serif;
+
+  /* Evidence-mark fill language (DESIGN.md's Source Quality Encoding), tokenized 2026-08-02:
+     collapses five duplicate half-fill declarations, four duplicate conflict-hatch declarations,
+     and two duplicate vendor/unknown declarations across card.css, catalog.css, and landing.css
+     down to one definition each. */
+  --mark-fill-half: linear-gradient(to right, currentColor 50%, transparent 50%);
+  --mark-fill-hatch: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  --mark-fill-muted: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 html,
@@ -148,7 +156,7 @@ a {
       90deg,
       var(--color-ink) 0%,
       var(--color-ink) 42%,
-      rgb(110 92 158 / 0.55) 50%,
+      rgb(var(--color-seal-rgb) / 0.55) 50%,
       var(--color-ink) 58%,
       var(--color-ink) 100%
     );

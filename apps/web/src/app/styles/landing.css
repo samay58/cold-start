@@ -248,7 +248,7 @@
   border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
   background: var(--cat-paper);
-  box-shadow: 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  box-shadow: 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
 .cs-landing-hero-card-bar {
@@ -436,7 +436,7 @@
   border: 1px solid var(--cat-rule-strong);
   border-radius: 4px;
   background: var(--color-field);
-  box-shadow: 0 4px 10px -6px rgb(40 34 20 / 0.3);
+  box-shadow: 0 4px 10px -6px rgb(var(--color-ink-shadow-rgb) / 0.3);
 }
 
 .cs-landing-hero-clipping-meta {
@@ -624,7 +624,7 @@
   /* One notch past the hero card's own shadow value: this lift only ever shows along the bottom
      cell (the surface is built from per-row backgrounds, not one continuous box), so it needs a
      stronger shadow than the hero card just to read as comparable at arm's length. */
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 12px 26px -12px rgb(40 34 20 / 0.42);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 12px 26px -12px rgb(var(--color-ink-shadow-rgb) / 0.42);
 }
 
 .cs-landing-table-row .cs-landing-table-cell:last-of-type {
@@ -716,7 +716,7 @@
   border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
   background: var(--cat-paper);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
 .cs-landing-legend-row {
@@ -763,12 +763,12 @@
 
 .cs-landing-mark[data-state="company"] {
   color: var(--color-company);
-  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background: var(--mark-fill-half);
 }
 
 .cs-landing-mark[data-state="conflict"] {
   color: var(--color-conflict);
-  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  background: var(--mark-fill-hatch);
 }
 
 .cs-landing-mark[data-state="unknown"] {
@@ -858,7 +858,7 @@
   border: 1px solid var(--cat-rule-strong);
   border-radius: 6px;
   background: var(--color-plate);
-  box-shadow: 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  box-shadow: 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
 .cs-landing-panel-bar {
@@ -984,7 +984,7 @@
   border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
   background: var(--cat-paper);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
 .cs-landing-access-field {
@@ -1052,7 +1052,7 @@
   border: 1px solid var(--cat-paper-edge);
   border-radius: 6px;
   background: var(--cat-paper);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
   color: var(--cat-ink);
   font-family: var(--font-body);
   font-size: 15px;

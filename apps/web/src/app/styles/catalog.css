@@ -146,13 +146,13 @@
 
 .cs-catalog-signature-mark[data-class="company"] {
   color: var(--color-company);
-  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background: var(--mark-fill-half);
 }
 
 .cs-catalog-signature-mark[data-class="vendor"],
 .cs-catalog-signature-mark[data-class="unknown"] {
   color: var(--cat-muted);
-  background: color-mix(in srgb, currentColor 20%, transparent);
+  background: var(--mark-fill-muted);
   border-radius: 50%;
 }
 

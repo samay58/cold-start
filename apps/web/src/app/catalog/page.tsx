@@ -5,7 +5,7 @@ import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { connection } from "next/server";
 import React from "react";
-import { callNumber, isThinFile } from "../../lib/card-face/model";
+import { callNumber, filedDateStamp, isThinFile } from "../../lib/card-face/model";
 import { getPublicProfileIndex } from "../../lib/cards";
 
 export const revalidate = 30;
@@ -32,19 +32,6 @@ const EVIDENCE_CLASS_LABEL: Record<CitationSourceClass, string> = {
   vendor: "Vendor",
   unknown: "Unclassified"
 };
-
-// Mirrors CardFace.tsx's local filedDateStamp: the receipt-register "2026·05·15" form every
-// other filed date on the card face and footer uses, kept in step across surfaces.
-function filedDateStamp(generatedAt: string): string {
-  const parsed = new Date(generatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return generatedAt;
-  }
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${year}·${month}·${day}`;
-}
 
 function evidenceSignature(citations: Citation[]): { sourceClass: CitationSourceClass; count: number }[] {
   const counts = new Map<CitationSourceClass, number>();

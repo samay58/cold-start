@@ -1,6 +1,5 @@
 import React from "react";
-
-type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
+import type { EvidenceState } from "../../lib/card-face/model";
 
 type LegendRow = {
   state: EvidenceState;

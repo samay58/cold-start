@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from "react";
+import type { CitationMark } from "../../lib/card-face/model";
 
 // The card face's one interactive system: hover an inline [n] mark and its sources-rail row
 // lights up; click to hold the pairing (so it survives the mouse moving on to read the row);
@@ -84,11 +85,11 @@ export function ChoreographyProvider({ children }: { children: React.ReactNode }
   return <ChoreographyContext.Provider value={value}>{children}</ChoreographyContext.Provider>;
 }
 
-// Renders "[n]". Shared by StatStrip, SectionRows, and ConflictPanel: every inline citation
-// reference on the card face is this one component, so the pairing highlight is consistent
-// wherever a citation is cited more than once. data-cite-id stays on the rendered element
-// deliberately: the gallery spec and prior tests target citation marks by that hook.
-export function CiteMark({ id, number }: { id: string; number: number }) {
+// Renders "[n]". Used only through CiteMarks below (which every card-face surface renders
+// through), so the pairing highlight is consistent wherever a citation is cited more than once.
+// data-cite-id stays on the rendered element deliberately: the gallery spec and prior tests
+// target citation marks by that hook.
+function CiteMark({ id, number }: { id: string; number: number }) {
   const { hover, held, setHover, toggleHeld } = useChoreography();
   const on = hover === id || held === id;
 
@@ -111,6 +112,51 @@ export function CiteMark({ id, number }: { id: string; number: number }) {
     >
       [{number}]
     </span>
+  );
+}
+
+// Shared by StatStrip, SectionRows, ConflictPanel, and PocketCard: every citation-mark list on
+// the card face renders through this, and renders nothing for an empty result. Citation marks on
+// the desktop face are interactive (hover/hold pairing with the sources rail, via CiteMark
+// above); the pocket has no rail to pair with on the same screen, so passing onCiteClick renders
+// plain non-interactive receipt spans that call it instead (a tap jumps straight to the pocket's
+// Sources tab). That branch never touches useChoreography, so it renders standalone with no
+// ChoreographyProvider required.
+//
+// Takes already-resolved marks, not citationIds + a CitationIndex: StatStrip, SectionRows, and
+// ConflictPanel are server components, and this module is "use client". A CitationIndex carries
+// a closure (displayNumber), which the RSC boundary cannot serialize, so the id-to-number resolve
+// step has to happen before a server component reaches this component. model.ts's citationMarks()
+// is that resolve step; every caller runs it first and passes the plain result here.
+export function CiteMarks({
+  marks,
+  onCiteClick
+}: {
+  marks: CitationMark[];
+  onCiteClick?: ((id: string) => void) | undefined;
+}) {
+  if (marks.length === 0) {
+    return null;
+  }
+
+  if (onCiteClick) {
+    return (
+      <>
+        {marks.map(({ id, number }) => (
+          <span className="cs-pocket-cite" data-cite-id={id} key={id} onClick={() => onCiteClick(id)}>
+            [{number}]
+          </span>
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {marks.map(({ id, number }) => (
+        <CiteMark id={id} key={id} number={number} />
+      ))}
+    </>
   );
 }
 

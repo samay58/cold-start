@@ -2,7 +2,7 @@ import React from "react";
 import type { ReactNode } from "react";
 import type { ResearchSection } from "@cold-start/core";
 import { safeExternalHref } from "@cold-start/ui";
-import { buildCitationIndex, callNumber, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
+import { buildCitationIndex, callNumber, filedDateStamp, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
 import { ChoreographyProvider } from "./choreography";
 import { PocketCard } from "./PocketCard";
 import { SectionRows } from "./SectionRows";
@@ -15,21 +15,6 @@ export type CardFaceProps = {
   sections: ResearchSection[];
   texture?: ReactNode;
 };
-
-// The Stamp's FILED date reads like the rest of the receipt register (callNumber's
-// "CS·VOXLATHE·26" uses the same middle-dot separator): "2026·05·15", not the "Mon YYYY"
-// shorthand @cold-start/ui's formatShortDate produces for prose. UTC, matching every other
-// date derived from generatedAt on this face.
-function filedDateStamp(generatedAt: string): string {
-  const parsed = new Date(generatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return generatedAt;
-  }
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${year}·${month}·${day}`;
-}
 
 // "retrieved {ISO minute} UTC" in the meta strip: truncate to minute precision, no seconds.
 function isoMinute(generatedAt: string): string {

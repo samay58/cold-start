@@ -61,6 +61,19 @@
   --cat-printout: #ECEAE4;
   --cat-printout-edge: #D6D3CA;
   --cat-printout-rule: #DDDAD1;
+
+  /* RGB channel triplets (2026-08-02, simplify consolidation): every consumer needs a different
+     alpha inline via rgb(var(--x-rgb) / a), so these hold channels, not a full color, next to
+     the hex tokens they mirror. Additive only.
+     --color-seal-rgb: --color-seal's channels, triplicated raw across card.css/foundation.css
+     before this pass. --color-wear-gold-rgb / --color-wear-umber-rgb: the card face's wear-stain
+     gradient, previously two untokenized ad hoc literals with no name anywhere in the repo.
+     --color-ink-shadow-rgb: the ink-black box-shadow base every card/panel drop shadow shares;
+     each site keeps its own alpha and offsets, only the color channels are now one definition. */
+  --color-seal-rgb: 110 92 158;
+  --color-wear-gold-rgb: 174 140 71;
+  --color-wear-umber-rgb: 120 100 70;
+  --color-ink-shadow-rgb: 40 34 20;
 }
 
 /* Retained from the legacy CardShell CSS deleted 2026-08-01 (Task 10 swapped /c/{slug} to the

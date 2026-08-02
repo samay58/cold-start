@@ -1,7 +1,7 @@
 import React from "react";
 import { formatShortDate } from "@cold-start/ui";
-import { CiteMark } from "./choreography";
-import type { CitationIndex, HeadcountConflict } from "../../lib/card-face/model";
+import { CiteMarks } from "./choreography";
+import { citationMarks, type CitationIndex, type HeadcountConflict } from "../../lib/card-face/model";
 
 export type ConflictPanelProps = {
   conflict: HeadcountConflict;
@@ -11,49 +11,11 @@ export type ConflictPanelProps = {
   // figure), so both sizes exist permanently rather than one being a loading/transition state.
   compact?: boolean;
   // Pocket-only: when provided, citation marks render as plain non-interactive receipt spans
-  // (the same cs-pocket-cite convention as PocketCite elsewhere in PocketCard) that call this
-  // instead of pairing with a sources rail that isn't on screen. Absent (the desktop path) keeps
-  // the interactive CiteMark and requires no ChoreographyProvider change here.
+  // (choreography.tsx's CiteMarks own cs-pocket-cite convention) that call this instead of
+  // pairing with a sources rail that isn't on screen. Absent (the desktop path) keeps the
+  // interactive CiteMark and requires no ChoreographyProvider change here.
   onCiteClick?: (id: string) => void;
 };
-
-function CiteMarks({
-  citationIds,
-  index,
-  onCiteClick
-}: {
-  citationIds: string[];
-  index: CitationIndex;
-  onCiteClick?: ((id: string) => void) | undefined;
-}) {
-  const marks = citationIds
-    .map((id) => ({ id, number: index.displayNumber(id) }))
-    .filter((entry): entry is { id: string; number: number } => entry.number !== null);
-
-  if (marks.length === 0) {
-    return null;
-  }
-
-  if (onCiteClick) {
-    return (
-      <>
-        {marks.map(({ id, number }) => (
-          <span className="cs-pocket-cite" data-cite-id={id} key={id} onClick={() => onCiteClick(id)}>
-            [{number}]
-          </span>
-        ))}
-      </>
-    );
-  }
-
-  return (
-    <>
-      {marks.map(({ id, number }) => (
-        <CiteMark id={id} key={id} number={number} />
-      ))}
-    </>
-  );
-}
 
 // The degraded form for a conflicting fact: the stored value, every disagreeing source, and a
 // footer that refuses to average them. Anchored by id so the stat strip's headcount detail link
@@ -74,7 +36,7 @@ export function ConflictPanel({ conflict, index, compact = false, onCiteClick }:
           <p className="cs-face-conflict-source" key={source.citationId}>
             {source.label}
             {source.date ? ` · ${source.date}` : ""}
-            <CiteMarks citationIds={[source.citationId]} index={index} onCiteClick={onCiteClick} />
+            <CiteMarks marks={citationMarks([source.citationId], index)} onCiteClick={onCiteClick} />
           </p>
         ))}
       </div>

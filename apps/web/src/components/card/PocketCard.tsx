@@ -7,6 +7,9 @@ import { formatMediumDate, safeExternalHref } from "@cold-start/ui";
 import {
   buildCitationIndex,
   callNumber,
+  citationMarks,
+  filedDateStamp,
+  hasPeopleContent,
   headcountConflict,
   isThinFile,
   nextQuestionForCard,
@@ -17,6 +20,7 @@ import {
   type EvidenceState,
   type PublicCardData
 } from "../../lib/card-face/model";
+import { CiteMarks } from "./choreography";
 import { ConflictPanel } from "./ConflictPanel";
 import { SourceRow } from "./SourceRow";
 import { Stamp } from "./Stamp";
@@ -41,28 +45,9 @@ export type PocketCardProps = {
 
 const TAB_LABELS: Record<PocketTab, string> = { card: "Card", people: "People", signals: "Signals", sources: "Sources" };
 
-// Mirrors CardFace's own filedDateStamp verbatim (kept local rather than imported to avoid a
-// circular import between CardFace.tsx and this module, which CardFace itself renders).
-function filedDateStamp(generatedAt: string): string {
-  const parsed = new Date(generatedAt);
-  if (Number.isNaN(parsed.getTime())) {
-    return generatedAt;
-  }
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${year}·${month}·${day}`;
-}
-
-function showPeopleTab(card: PublicCardData): boolean {
-  const founders = card.team.founders.value ?? [];
-  const execs = card.team.keyExecs.value ?? [];
-  return founders.length > 0 || execs.length > 0 || headcountConflict(card) !== null;
-}
-
 function visibleTabs(card: PublicCardData): PocketTab[] {
   const tabs: PocketTab[] = ["card"];
-  if (showPeopleTab(card)) {
+  if (hasPeopleContent(card, headcountConflict(card))) {
     tabs.push("people");
   }
   tabs.push("signals", "sources");
@@ -77,29 +62,6 @@ function Mark({ state }: { state: EvidenceState | null }) {
     return null;
   }
   return <span aria-hidden="true" className="cs-face-mark" data-state={state} />;
-}
-
-// Citation marks on the desktop face are interactive (hover/hold pairing with the sources rail).
-// The pocket has no rail to pair with on the same screen, so its citation marks are plain: a tap
-// jumps straight to the Sources tab instead. data-cite-id stays, matching the desktop convention.
-function PocketCite({ citationIds, index, onJumpToSources }: { citationIds: string[]; index: CitationIndex; onJumpToSources: () => void }) {
-  const marks = citationIds
-    .map((id) => ({ id, number: index.displayNumber(id) }))
-    .filter((entry): entry is { id: string; number: number } => entry.number !== null);
-
-  if (marks.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {marks.map(({ id, number }) => (
-        <span className="cs-pocket-cite" data-cite-id={id} key={id} onClick={onJumpToSources}>
-          [{number}]
-        </span>
-      ))}
-    </>
-  );
 }
 
 function PocketFooter({ card, sourcesRead }: { card: PublicCardData; sourcesRead: number }) {
@@ -257,7 +219,7 @@ function PeopleTab({ card, index, onJumpToSources }: { card: PublicCardData; ind
         <p className="cs-face-bullet">
           <Mark state={signalEvidenceState(card, hiringSignal)} />
           {hiringSignal.title}
-          <PocketCite citationIds={hiringSignal.citationIds} index={index} onJumpToSources={onJumpToSources} />
+          <CiteMarks marks={citationMarks(hiringSignal.citationIds, index)} onCiteClick={onJumpToSources} />
         </p>
       ) : null}
       <PocketFooter card={card} sourcesRead={index.ordered.length} />
@@ -288,7 +250,7 @@ function SignalsTab({ card, index, onJumpToSources }: { card: PublicCardData; in
                   <Mark state={state} />
                   {signal.title}
                   {state === "company" ? <span className="cs-face-signal-caveat"> company claim</span> : null}
-                  <PocketCite citationIds={signal.citationIds} index={index} onJumpToSources={onJumpToSources} />
+                  <CiteMarks marks={citationMarks(signal.citationIds, index)} onCiteClick={onJumpToSources} />
                 </p>
               </div>
             );

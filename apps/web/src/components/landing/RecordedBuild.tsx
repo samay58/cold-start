@@ -3,6 +3,7 @@
 import { formatMediumDate } from "@cold-start/ui";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
+import { callNumberFor, filedDateStamp } from "../../lib/card-face/model";
 import type { RecordedBuild as RecordedBuildData } from "./recorded-build-data";
 
 // The hero's recorded build: a real profile (frozen production data, Task 16) assembling itself
@@ -51,29 +52,6 @@ function useIsNarrowViewport(): boolean {
   }, []);
 
   return isNarrow;
-}
-
-// Mirrors packages callNumber()'s "CS·{DOMAIN LABEL}·{YY}" convention (apps/web/src/lib/card-face/
-// model.ts) without importing it: that helper takes a full PublicCardData, and recordedBuild is a
-// frozen plain-data module deliberately kept import-free (see recorded-build-data.ts's own header
-// comment), so the same formula is restated here against the build's own domain/filedDate.
-function callNumberFor(domain: string, filedDate: string): string {
-  const label = (domain.split(".")[0] || domain).toUpperCase();
-  const year = new Date(filedDate).getUTCFullYear();
-  const yy = String(year % 100).padStart(2, "0");
-  return `CS·${label}·${yy}`;
-}
-
-// Mirrors CardFace.tsx's local filedDateStamp: the receipt-register "2026·05·15" form.
-function filedDateStamp(filedDate: string): string {
-  const parsed = new Date(filedDate);
-  if (Number.isNaN(parsed.getTime())) {
-    return filedDate;
-  }
-  const year = parsed.getUTCFullYear();
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(parsed.getUTCDate()).padStart(2, "0");
-  return `${year}·${month}·${day}`;
 }
 
 // The receipt event line must never read "Filed" before the FILED stamp itself lands (stage 6).

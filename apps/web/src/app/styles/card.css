@@ -81,7 +81,7 @@
   background: var(--cat-paper);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.5) inset,
-    0 10px 22px -14px rgb(40 34 20 / 0.35);
+    0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
 .cs-face-seal-bar {
@@ -114,9 +114,9 @@
 
 .cs-face-wear-stains {
   background:
-    radial-gradient(circle at 18% 14%, rgb(110 92 158 / 0.1), transparent 26%),
-    radial-gradient(circle at 80% 18%, rgb(174 140 71 / 0.1), transparent 30%),
-    radial-gradient(circle at 14% 84%, rgb(120 100 70 / 0.08), transparent 30%);
+    radial-gradient(circle at 18% 14%, rgb(var(--color-seal-rgb) / 0.1), transparent 26%),
+    radial-gradient(circle at 80% 18%, rgb(var(--color-wear-gold-rgb) / 0.1), transparent 30%),
+    radial-gradient(circle at 14% 84%, rgb(var(--color-wear-umber-rgb) / 0.08), transparent 30%);
 }
 
 .cs-face-wear-fiber {
@@ -370,12 +370,12 @@
 
 .cs-face-stat-mark[data-state="company"] {
   color: var(--color-company);
-  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background: var(--mark-fill-half);
 }
 
 .cs-face-stat-mark[data-state="conflict"] {
   color: var(--color-conflict);
-  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  background: var(--mark-fill-hatch);
 }
 
 .cs-face-stat-absent {
@@ -460,12 +460,12 @@
 
 .cs-face-mark[data-state="company"] {
   color: var(--color-company);
-  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background: var(--mark-fill-half);
 }
 
 .cs-face-mark[data-state="conflict"] {
   color: var(--color-conflict);
-  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  background: var(--mark-fill-hatch);
 }
 
 /* The card's one interactive mark: shared by StatStrip, SectionRows, and ConflictPanel via
@@ -482,7 +482,7 @@
   font-family: var(--font-text);
   font-size: 14px;
   font-weight: 600;
-  border-bottom: 1px solid rgb(110 92 158 / 0.35);
+  border-bottom: 1px solid rgb(var(--color-seal-rgb) / 0.35);
   white-space: nowrap;
   cursor: pointer;
   transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
@@ -843,13 +843,13 @@ a.cs-face-rail-source-title:hover {
 
 .cs-face-rail-mark[data-class="company"] {
   color: var(--color-company);
-  background: linear-gradient(to right, currentColor 50%, transparent 50%);
+  background: var(--mark-fill-half);
 }
 
 .cs-face-rail-mark[data-class="vendor"],
 .cs-face-rail-mark[data-class="unknown"] {
   color: var(--cat-muted);
-  background: color-mix(in srgb, currentColor 20%, transparent);
+  background: var(--mark-fill-muted);
   border-radius: 50%;
 }
 
@@ -907,7 +907,7 @@ a.cs-face-rail-source-title:hover {
   flex: 0 0 auto;
   width: 10px;
   height: 10px;
-  background: linear-gradient(45deg, transparent 42%, var(--color-conflict) 42%, var(--color-conflict) 58%, transparent 58%);
+  background: var(--mark-fill-hatch);
   border: 1.5px solid var(--color-conflict);
 }
 

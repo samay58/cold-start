@@ -1,21 +1,17 @@
 import React from "react";
+import { INVESTOR_READ_LABELS } from "../../lib/card-face/model";
 
 export type ExtensionPanelProps = {
   companyName: string;
   lens?: { whyCare: string; whatMustBeTrue: string } | undefined;
 };
 
-// Same five-row order as the real card face's locked "Investor read" teaser
-// (apps/web/src/components/card/SectionRows.tsx's INVESTOR_READ_LABELS) and the extension's own
-// investor lens packet.
-const LABELS = ["Why care", "What must be true", "What could break", "Why now", "What to learn next"] as const;
-
 // Renders recordedBuild.lens when present: the first two rows (Why care, What must be true)
 // answered with the frozen lens prose verbatim, the remaining three locked with the receipt value
 // "invited accounts". With no lens, all five rows render locked. The lens strings are quoted
 // production synthesis output (Task 16); they are not rewritten, trimmed, or re-punctuated here.
 export function ExtensionPanel({ companyName, lens }: ExtensionPanelProps) {
-  const answered: Partial<Record<(typeof LABELS)[number], string>> = lens
+  const answered: Partial<Record<(typeof INVESTOR_READ_LABELS)[number], string>> = lens
     ? { "Why care": lens.whyCare, "What must be true": lens.whatMustBeTrue }
     : {};
 
@@ -26,7 +22,7 @@ export function ExtensionPanel({ companyName, lens }: ExtensionPanelProps) {
         <span className="cs-landing-panel-callno">CS · {companyName.toUpperCase()}</span>
       </div>
       <div className="cs-landing-panel-body">
-        {LABELS.map((label) => {
+        {INVESTOR_READ_LABELS.map((label) => {
           const value = answered[label];
           if (value) {
             return (

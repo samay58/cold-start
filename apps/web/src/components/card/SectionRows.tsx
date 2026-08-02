@@ -3,8 +3,11 @@ import type { ReactNode } from "react";
 import type { ResearchSection, ResearchSectionContent } from "@cold-start/core";
 import { formatMediumDate } from "@cold-start/ui";
 import {
+  citationMarks,
   evidenceStateForFact,
+  hasPeopleContent,
   headcountConflict,
+  INVESTOR_READ_LABELS,
   isThinFile,
   moneyBullets,
   nextQuestionForCard,
@@ -17,7 +20,7 @@ import {
   type FactBullet,
   type PublicCardData
 } from "../../lib/card-face/model";
-import { CiteMark } from "./choreography";
+import { CiteMarks } from "./choreography";
 import { ConflictPanel } from "./ConflictPanel";
 
 export type SectionRowsProps = {
@@ -25,8 +28,6 @@ export type SectionRowsProps = {
   sections: ResearchSection[];
   index: CitationIndex;
 };
-
-const INVESTOR_READ_LABELS = ["Why care", "What must be true", "What could break", "Why now", "What to learn next"];
 
 // --- Shared row primitives ---
 
@@ -41,33 +42,12 @@ function Mark({ state }: { state: EvidenceState }) {
   return <span aria-hidden="true" className="cs-face-mark" data-state={state} />;
 }
 
-// Shared by every BulletRow-adjacent citation reference in this file: same pattern StatStrip's
-// CitationMarks uses, so a citation cited from both the stat strip and a section row still points
-// at the exact same CiteMark component (and therefore the same pairing highlight).
-function CiteMarks({ citationIds, index }: { citationIds: string[]; index: CitationIndex }) {
-  const marks = citationIds
-    .map((id) => ({ id, number: index.displayNumber(id) }))
-    .filter((entry): entry is { id: string; number: number } => entry.number !== null);
-
-  if (marks.length === 0) {
-    return null;
-  }
-
-  return (
-    <>
-      {marks.map(({ id, number }) => (
-        <CiteMark id={id} key={id} number={number} />
-      ))}
-    </>
-  );
-}
-
 function BulletRow({ bullet, index }: { bullet: FactBullet; index: CitationIndex }) {
   return (
     <p className={bullet.muted ? "cs-face-bullet cs-face-bullet-muted" : "cs-face-bullet"}>
       <Mark state={bullet.state} />
       {bullet.text}
-      <CiteMarks citationIds={bullet.citationIds} index={index} />
+      <CiteMarks marks={citationMarks(bullet.citationIds, index)} />
     </p>
   );
 }
@@ -158,7 +138,7 @@ function PeopleSection({ card, conflict, index }: { card: PublicCardData; confli
           <Mark state={foundersState} />
           <span className="cs-face-person-name">{person.name}</span>
           {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
-          <CiteMarks citationIds={card.team.founders.citationIds} index={index} />
+          <CiteMarks marks={citationMarks(card.team.founders.citationIds, index)} />
         </p>
       ))}
       {execs.map((person) => (
@@ -166,7 +146,7 @@ function PeopleSection({ card, conflict, index }: { card: PublicCardData; confli
           <Mark state={execsState} />
           <span className="cs-face-person-name">{person.name}</span>
           {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
-          <CiteMarks citationIds={card.team.keyExecs.citationIds} index={index} />
+          <CiteMarks marks={citationMarks(card.team.keyExecs.citationIds, index)} />
         </p>
       ))}
       {conflict ? <ConflictPanel conflict={conflict} index={index} /> : null}
@@ -204,7 +184,7 @@ function SignalsSection({ card, index }: { card: PublicCardData; index: Citation
                 ) : null}
               </span>
               <span className="cs-face-signal-cite">
-                <CiteMarks citationIds={signal.citationIds} index={index} />
+                <CiteMarks marks={citationMarks(signal.citationIds, index)} />
               </span>
             </div>
           );
@@ -248,7 +228,7 @@ function CompsSection({ card, index }: { card: PublicCardData; index: CitationIn
             <span className="cs-face-comp-domain"> · {comparable.domain}</span>
             {" · "}
             {publicEvidenceText(comparable.basis ?? comparable.oneLiner)}
-            <CiteMarks citationIds={citationIds} index={index} />
+            <CiteMarks marks={citationMarks(citationIds, index)} />
           </p>
         );
       })}
@@ -310,9 +290,7 @@ function InvestorReadSection() {
 export function SectionRows({ card, sections, index }: SectionRowsProps) {
   const thin = isThinFile(card);
   const conflict = headcountConflict(card);
-  const founders = card.team.founders.value ?? [];
-  const execs = card.team.keyExecs.value ?? [];
-  const showPeople = founders.length > 0 || execs.length > 0 || conflict !== null;
+  const showPeople = hasPeopleContent(card, conflict);
   const showComps = thin ? card.comparables.length > 0 : true;
   const risks = riskCaveats(card, sections);
   const nextQuestion = nextQuestionForCard(card, sections);

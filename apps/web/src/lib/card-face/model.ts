@@ -25,6 +25,17 @@ export type ResolvedFactLike = {
 
 export type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
 
+// The locked "Investor read" teaser's five row labels: SectionRows.tsx renders them on the card
+// face itself, ExtensionPanel.tsx renders the same five rows on the landing page's mocked
+// extension panel (two answered with frozen demo prose, three still locked). One canonical order.
+export const INVESTOR_READ_LABELS = [
+  "Why care",
+  "What must be true",
+  "What could break",
+  "Why now",
+  "What to learn next"
+] as const;
+
 const NO_SOURCE_DETAIL = "no source in ledger";
 const STANDARD_NEXT_QUESTION_SUBLINE = "Not a recommendation. The first thing this ledger cannot answer.";
 const THIN_FILE_NEXT_QUESTION_SUBLINE = "Thin file, not a verdict.";
@@ -186,11 +197,53 @@ export function buildCitationIndex(card: PublicCardData): CitationIndex {
   };
 }
 
-export function callNumber(card: PublicCardData): string {
-  const label = (card.domain.split(".")[0] || card.domain).toUpperCase();
-  const year = new Date(card.generatedAt).getUTCFullYear();
+function callNumberFromParts(domain: string, generatedAt: string): string {
+  const label = (domain.split(".")[0] || domain).toUpperCase();
+  const year = new Date(generatedAt).getUTCFullYear();
   const yy = String(year % 100).padStart(2, "0");
   return `CS·${label}·${yy}`;
+}
+
+export type CitationMark = { id: string; number: number };
+
+// Resolves citationIds through the index into plain, serializable {id, number} pairs, dropping
+// any id the index can't place. Deliberately kept here rather than inside choreography.tsx's
+// client component: StatStrip, SectionRows, and ConflictPanel are server components, and
+// CitationIndex.displayNumber is a closure. If the resolve step lived in the "use client" module
+// instead, a server component rendering it would have to serialize the whole index (including
+// that function) across the RSC boundary, the exact crash CardFace.tsx's own comment documents
+// for PocketCard ("Functions cannot be passed directly to Client Components"). Calling this here
+// first and passing only the resolved marks into the client component keeps every card-face
+// surface, server or client, on the same safe side of that boundary.
+export function citationMarks(citationIds: string[], index: CitationIndex): CitationMark[] {
+  return citationIds
+    .map((id) => ({ id, number: index.displayNumber(id) }))
+    .filter((entry): entry is CitationMark => entry.number !== null);
+}
+
+export function callNumber(card: PublicCardData): string {
+  return callNumberFromParts(card.domain, card.generatedAt);
+}
+
+// For recorded-build-data.ts's consumers: that data module is deliberately import-free (its own
+// header explains why), so it can't shape into a full PublicCardData. This takes the same two
+// primitives (domain, a date string) directly instead.
+export function callNumberFor(domain: string, generatedAt: string): string {
+  return callNumberFromParts(domain, generatedAt);
+}
+
+// The receipt-register "2026·05·15" form every filed date on the card face, footer, catalog row,
+// and landing hero card uses: parse to Date, guard NaN, format YYYY·MM·DD in UTC. Distinct from
+// @cold-start/ui's formatShortDate, which produces "Mon YYYY" prose shorthand instead.
+export function filedDateStamp(generatedAt: string): string {
+  const parsed = new Date(generatedAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return generatedAt;
+  }
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}·${month}·${day}`;
 }
 
 export function isThinFile(card: PublicCardData): boolean {
@@ -406,6 +459,14 @@ export function headcountConflict(card: PublicCardData): HeadcountConflict | nul
     asOf: headcount.value.asOf,
     sources
   };
+}
+
+// Shared by SectionRows (the desktop People section row) and PocketCard (the pocket's People
+// tab): the same three-way OR decides whether either surface has anything to show.
+export function hasPeopleContent(card: PublicCardData, conflict: HeadcountConflict | null): boolean {
+  const founders = card.team.founders.value ?? [];
+  const execs = card.team.keyExecs.value ?? [];
+  return founders.length > 0 || execs.length > 0 || conflict !== null;
 }
 
 // --- Signals ---
