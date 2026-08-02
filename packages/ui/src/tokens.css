@@ -54,6 +54,13 @@
   --seal-hover: #4E3F79;
   --cat-rule-dotted: #C9BCA0;
   --cat-muted-2: #8A8271;
+
+  /* Landing comparison "printout" surface (2026-08-02 recast): a deliberately dull, cool-neutral
+     gray for the PitchBook column, kept warm enough to sit against --cat-paper without going
+     cold blue. Additive only. */
+  --cat-printout: #ECEAE4;
+  --cat-printout-edge: #D6D3CA;
+  --cat-printout-rule: #DDDAD1;
 }
 
 /* Retained from the legacy CardShell CSS deleted 2026-08-01 (Task 10 swapped /c/{slug} to the

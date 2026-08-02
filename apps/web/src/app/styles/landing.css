@@ -489,15 +489,12 @@
 }
 
 .cs-landing-pitchbook-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
-  gap: clamp(28px, 5vw, 64px);
-  align-items: end;
   margin-bottom: 28px;
 }
 
 .cs-landing-pitchbook-head h2 {
-  margin: 0;
+  margin: 0 0 14px;
+  max-width: 60ch;
   color: var(--color-ink);
   font-family: var(--font-display);
   font-size: clamp(30px, 3.6vw, 42px);
@@ -508,6 +505,7 @@
 
 .cs-landing-pitchbook-head p {
   margin: 0;
+  max-width: 60ch;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 16px;
@@ -515,14 +513,24 @@
 }
 
 .cs-landing-pitchbook-closing {
-  max-width: 68ch;
-  margin: 24px 0 0;
+  max-width: 70ch;
+  margin: 32px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--cat-rule-strong);
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.55;
 }
 
+/* The comparison becomes two physical objects side by side: a parchment card (Cold Start) and a
+   flat gray printout (PitchBook), both continuous surfaces built from per-cell backgrounds since
+   the DOM stays row-based (accessibility + the home-page test depend on it). The header band
+   above (.cs-landing-table-head, aria-hidden) supplies each surface's top edge and rounded top
+   corners; each row's own cell supplies the surface's sides; the last row's cell supplies the
+   rounded bottom corners. Both cell divs share the .cs-landing-table-cell class, so the two
+   surfaces are told apart with :first-of-type / :last-of-type among the row's div children (the
+   row-label column is a <span>, not a <div>, so this never picks it up). */
 .cs-landing-table {
   display: flex;
   flex-direction: column;
@@ -531,38 +539,55 @@
 .cs-landing-table-head {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
-  padding-bottom: 12px;
+  gap: 24px;
 }
 
 .cs-landing-table-head-coldstart {
-  color: var(--color-seal);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  border: 1px solid var(--cat-paper-edge);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset;
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cs-landing-table-head-coldstart::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  background: var(--color-seal);
 }
 
 .cs-landing-table-head-pitchbook {
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 14px 20px;
+  border: 1px solid var(--cat-printout-edge);
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+  background: var(--cat-printout);
+  color: var(--cat-muted);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .cs-landing-table-row {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
-  align-items: baseline;
-  padding: 16px 0;
-  border-top: 1px solid var(--color-rule);
-}
-
-.cs-landing-table-row:last-child {
-  border-bottom: 1px solid var(--color-rule);
+  gap: 24px;
+  align-items: stretch;
 }
 
 .cs-landing-table-label {
+  align-self: center;
+  padding: 16px 0;
   color: var(--color-muted);
   font-family: var(--font-body);
   font-size: 14px;
@@ -572,8 +597,42 @@
 .cs-landing-table-cell {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 5px;
   min-width: 0;
+  padding: 16px 20px;
+}
+
+.cs-landing-table-row .cs-landing-table-cell:first-of-type {
+  border-right: 1px solid var(--cat-paper-edge);
+  border-left: 1px solid var(--cat-paper-edge);
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset;
+}
+
+.cs-landing-table-row:not(:first-child) .cs-landing-table-cell:first-of-type {
+  border-top: 1px solid var(--cat-rule);
+}
+
+.cs-landing-table-row:last-child .cs-landing-table-cell:first-of-type {
+  border-bottom: 1px solid var(--cat-paper-edge);
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
+}
+
+.cs-landing-table-row .cs-landing-table-cell:last-of-type {
+  border-right: 1px solid var(--cat-printout-edge);
+  border-left: 1px solid var(--cat-printout-edge);
+  background: var(--cat-printout);
+}
+
+.cs-landing-table-row:not(:first-child) .cs-landing-table-cell:last-of-type {
+  border-top: 1px solid var(--cat-printout-rule);
+}
+
+.cs-landing-table-row:last-child .cs-landing-table-cell:last-of-type {
+  border-bottom: 1px solid var(--cat-printout-edge);
+  border-radius: 0 0 2px 2px;
 }
 
 /* The shared head row above (.cs-landing-table-head) is aria-hidden and decorative only: it
@@ -597,6 +656,10 @@
   font-weight: 600;
 }
 
+.cs-landing-table-row .cs-landing-table-cell:last-of-type .cs-landing-table-source {
+  color: var(--cat-muted);
+}
+
 .cs-landing-table-value {
   color: var(--color-ink);
   font-family: var(--font-body);
@@ -606,7 +669,7 @@
 }
 
 .cs-landing-table-value-muted {
-  color: var(--color-muted);
+  color: var(--cat-muted);
   font-weight: 400;
 }
 
@@ -620,7 +683,7 @@
 /* --- Sources legend --- */
 
 .cs-landing-sources {
-  padding: clamp(36px, 5vw, 60px) clamp(20px, 4vw, 44px);
+  padding: clamp(56px, 6vw, 72px) clamp(20px, 4vw, 44px);
   border-top: 1px solid var(--cat-rule-strong);
   background: var(--cat-ground);
 }
@@ -634,29 +697,51 @@
   letter-spacing: -0.02em;
 }
 
+/* The five evidence marks move onto one parchment card, like a legend pinned inside a catalogue
+   drawer: the same paper/edge/radius/shadow language as the public card face (.cs-face-card in
+   card.css), left-aligned under the H2 rather than centered on the section. */
 .cs-landing-legend {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 800px;
+  padding: 6px 24px;
+  border: 1px solid var(--cat-paper-edge);
+  border-radius: 6px;
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset, 0 10px 22px -14px rgb(40 34 20 / 0.35);
 }
 
 .cs-landing-legend-row {
   display: grid;
-  grid-template-columns: 20px 116px minmax(0, 1fr);
+  grid-template-columns: 26px 116px minmax(0, 1fr);
   gap: 18px;
-  align-items: baseline;
-  padding: 16px 0;
-  border-top: 1px solid var(--cat-rule-strong);
+  align-items: center;
+  padding: 15px 0;
+  border-top: 1px solid var(--cat-rule);
 }
 
-.cs-landing-legend-row:last-child {
-  border-bottom: 1px solid var(--cat-rule-strong);
+.cs-landing-legend-row:first-child {
+  border-top: none;
+}
+
+/* A faint inset well at specimen scale, the mark's own tier->shape encoding (shared with
+   .cs-face-rail-mark in card.css) drawn larger inside it rather than a new shape. */
+.cs-landing-mark-well {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--cat-rule);
+  border-radius: 3px;
+  background: var(--cat-ground);
 }
 
 .cs-landing-mark {
-  align-self: center;
-  width: 13px;
-  height: 13px;
-  border: 1.5px solid currentColor;
+  width: 17px;
+  height: 17px;
+  border: 2px solid currentColor;
 }
 
 .cs-landing-mark[data-state="verified"] {
@@ -680,8 +765,8 @@
 }
 
 .cs-landing-mark[data-state="unknown"] {
-  width: 11px;
-  height: 11px;
+  width: 14px;
+  height: 14px;
   border-color: var(--cat-muted-2);
   border-radius: 50%;
   background: transparent;
@@ -995,10 +1080,6 @@
     grid-template-columns: 1fr;
   }
 
-  .cs-landing-pitchbook-head {
-    grid-template-columns: 1fr;
-  }
-
   .cs-landing-hero-card-column {
     max-width: 460px;
   }
@@ -1047,7 +1128,9 @@
 
   /* Comparison table: three-line rows (label, Cold Start value, PitchBook value), the shared
      head row's column labels replaced by a per-row source label since there is no room left for
-     a fixed label column at this width. */
+     a fixed label column at this width. The two continuous card surfaces are desktop-only object
+     language; at this width the contrast compresses to a left inset bar per line, seal for Cold
+     Start and gray for PitchBook, so every desktop surface rule gets reset here. */
   .cs-landing-table-head {
     display: none;
   }
@@ -1055,6 +1138,45 @@
   .cs-landing-table-row {
     grid-template-columns: 1fr;
     gap: 6px;
+    padding: 14px 0;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .cs-landing-table-row:last-child {
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  /* Desktop's :not(:first-child) and :last-child cell rules carry higher selector specificity
+     than a flat reset here, so those same compound selectors are repeated to actually win the
+     cascade (border-top/border-bottom/border-radius/box-shadow all leaked through on mobile
+     before this matched them one for one). */
+  .cs-landing-table-row .cs-landing-table-cell:first-of-type,
+  .cs-landing-table-row .cs-landing-table-cell:last-of-type {
+    padding: 0 0 0 10px;
+    border-right: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .cs-landing-table-row:not(:first-child) .cs-landing-table-cell:first-of-type,
+  .cs-landing-table-row:not(:first-child) .cs-landing-table-cell:last-of-type {
+    border-top: none;
+  }
+
+  .cs-landing-table-row:last-child .cs-landing-table-cell:first-of-type,
+  .cs-landing-table-row:last-child .cs-landing-table-cell:last-of-type {
+    border-bottom: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .cs-landing-table-row .cs-landing-table-cell:first-of-type {
+    border-left: 2px solid var(--color-seal);
+  }
+
+  .cs-landing-table-row .cs-landing-table-cell:last-of-type {
+    border-left: 2px solid var(--cat-muted-2);
   }
 
   .cs-landing-table-source {
@@ -1070,7 +1192,12 @@
   }
 
   /* Sources legend: mark plus an inline bold label and sentence, wrapping together as one block
-     instead of a fixed label column. */
+     instead of a fixed label column. The card keeps its paper surface at this width; it just
+     gives back some of its own horizontal padding since the section gutter already tightened. */
+  .cs-landing-legend {
+    padding: 4px 16px;
+  }
+
   .cs-landing-legend-row {
     display: flex;
     flex-wrap: wrap;
@@ -1078,7 +1205,7 @@
     gap: 4px 8px;
   }
 
-  .cs-landing-mark {
+  .cs-landing-mark-well {
     flex: 0 0 auto;
   }
 

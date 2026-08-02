@@ -25,7 +25,9 @@ export function SourcesLegend() {
     <div className="cs-landing-legend">
       {ROWS.map((row) => (
         <div className="cs-landing-legend-row" key={row.state}>
-          <span aria-hidden="true" className="cs-landing-mark" data-state={row.state} />
+          <span aria-hidden="true" className="cs-landing-mark-well">
+            <span className="cs-landing-mark" data-state={row.state} />
+          </span>
           <span className="cs-landing-legend-label">{row.label}.</span>
           <span className="cs-landing-legend-copy">{row.copy}</span>
         </div>
