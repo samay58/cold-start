@@ -30,6 +30,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run install:browser -w @cold-start/web
       - run: npm run lint -- --max-warnings=0
       - run: npm run typecheck
       - run: npm run test

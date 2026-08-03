@@ -24,7 +24,7 @@ const STAGE_ORDER: Array<{ id: AnalysisWaitStageId; label: string }> = [
   { id: "queue", label: "Queue" },
   { id: "gather", label: "Gather" },
   { id: "read", label: "Read" },
-  { id: "verify", label: "Verify" },
+  { id: "verify", label: "Check" },
   { id: "file", label: "File" }
 ];
 
@@ -97,11 +97,10 @@ function readProofLine(events: ExtensionResearchRunEvent[]) {
 
 function verifyProofLine(events: ExtensionResearchRunEvent[]) {
   const complete = latestEventOfType(events, "verify.complete");
-  if (complete && complete.message.trim().length > 0) {
-    return complete.message;
+  if (complete) {
+    return "Source check complete";
   }
-  const started = latestEventOfType(events, "verify.started");
-  return started && started.message.trim().length > 0 ? started.message : "Checking claims against sources";
+  return "Checking the draft against its sources";
 }
 
 function fileProofLine(events: ExtensionResearchRunEvent[]) {
@@ -176,7 +175,7 @@ function VerifyStamps({
   const overflow = count - visibleCount;
 
   return (
-    <ul className="cs-wait-stamps" aria-label={`${plural(count, "claim")} survived`}>
+    <ul className="cs-wait-stamps" aria-label={`${plural(count, "point")} backed by sources`}>
       {Array.from({ length: visibleCount }, (_, index) => (
         <motion.li
           animate={{ opacity: 1, scale: 1 }}

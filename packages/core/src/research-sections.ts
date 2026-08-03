@@ -187,7 +187,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     title: "Why It Matters",
     visibility: "gated",
     staleAfterMs: DAY_MS,
-    emptyState: "No supported investment rationale survived verification.",
+    emptyState: "The public record does not yet show a clear reason to care.",
     generationPrompt: prompt("Write Why It Matters. This is not a company summary. This is the reason an investor might spend the next 30 minutes. Find the strongest supported reason: painful workflow, timing shift, unusual adoption signal, strong wedge, strategic relevance, distribution advantage, technical advantage, or cost advantage. Do not say it matters because the market is large. Return 2 to 4 sentences and one would-matter-more-if line.")
   },
   {
@@ -196,7 +196,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     title: "Market Structure & Timing",
     visibility: "gated",
     staleAfterMs: DAY_MS,
-    emptyState: "No market-structure claims survived verification.",
+    emptyState: "The public record does not yet explain why this market is ready now.",
     generationPrompt: prompt("Write Market Structure & Timing. Answer whether this is a real, reachable, timely market. Use bottom-up thinking first, then cross-check top-down data if available. Find buyer type, addressable buyer count, likely annual spend per buyer, current spend being replaced or expanded, adoption trigger, budget owner, pricing clue, market structure, capital intensity, and timing risk. Do not start with TAM. Do not invent numbers. If a number is estimated, label it and show the math. Return buyerBudget, painSeverity, adoptionTrigger, marketStructure, profitPool, expansionPath, timingRisk, napkinMath, and topDownCrossCheck. Better 2 strong fields than 8 weak ones.")
   },
   {
@@ -217,7 +217,7 @@ export const RESEARCH_SECTION_DEFINITIONS: ResearchSectionDefinition[] = [
     title: "The Case",
     visibility: "gated",
     staleAfterMs: DAY_MS,
-    emptyState: "No supported bull or bear case survived verification.",
+    emptyState: "The public record does not yet support a clear bull or bear case.",
     generationPrompt: prompt("Write The Case. State the bull case and the bear case side by side using only verified synthesis claims. Each line ends with citation ids. Do not invent claims. Do not pad to a fixed count.")
   }
 ];

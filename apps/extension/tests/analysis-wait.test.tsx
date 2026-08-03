@@ -195,14 +195,14 @@ describe("analysisWaitStagePlan (pure)", () => {
     expect(plan.find((stage) => stage.id === "gather")?.proofLine).toBe("Reusing filed evidence");
   });
 
-  it("reads Verify's proof line from the real verify.started/verify.complete message copy", () => {
+  it("translates verifier events into plain reader-facing progress copy", () => {
     const started = analysisWaitStagePlan([
       event({ type: "generation.started" }),
       event({ type: "source.found" }),
       event({ type: "synthesis.started" }),
       event({ type: "verify.started", message: "Verifying 6 claims against sources", metadata: { claimCount: 6 } })
     ]);
-    expect(started.find((stage) => stage.id === "verify")?.proofLine).toBe("Verifying 6 claims against sources");
+    expect(started.find((stage) => stage.id === "verify")?.proofLine).toBe("Checking the draft against its sources");
 
     const complete = analysisWaitStagePlan([
       event({ type: "generation.started" }),
@@ -211,7 +211,7 @@ describe("analysisWaitStagePlan (pure)", () => {
       event({ type: "verify.started", message: "Verifying 6 claims against sources", metadata: { claimCount: 6 } }),
       event({ type: "verify.complete", message: "5 claims survived", metadata: { claimCount: 5 } })
     ]);
-    expect(complete.find((stage) => stage.id === "verify")?.proofLine).toBe("5 claims survived");
+    expect(complete.find((stage) => stage.id === "verify")?.proofLine).toBe("Source check complete");
   });
 
   it("scopes to the latest run's events, so a retried run's fresh events are not shadowed by a stale prior run's terminal state", () => {
@@ -277,7 +277,7 @@ describe("AnalysisWaitInstrument", () => {
 
     const stamps = container.querySelectorAll(".cs-wait-stamp");
     expect(stamps).toHaveLength(5);
-    expect(container.querySelector(".cs-wait-stamps")?.getAttribute("aria-label")).toBe("5 claims survived");
+    expect(container.querySelector(".cs-wait-stamps")?.getAttribute("aria-label")).toBe("5 points backed by sources");
     await unmount();
   });
 

@@ -74,10 +74,17 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const mark = control.locator(".cs-investor-lens-control-mark");
       const action = control.locator(".cs-investor-lens-control-action");
       const restingMarkColor = await mark.evaluate((element) => getComputedStyle(element).color);
+      const sealColor = await control.evaluate(() => {
+        const swatch = document.createElement("span");
+        swatch.style.color = "var(--color-seal)";
+        document.body.append(swatch);
+        const color = getComputedStyle(swatch).color;
+        swatch.remove();
+        return color;
+      });
       await control.hover();
-      await expect.poll(() => mark.evaluate((element) => getComputedStyle(element).color))
-        .not.toBe(restingMarkColor);
-      await expect(action).toHaveCSS("color", await mark.evaluate((element) => getComputedStyle(element).color));
+      await expect(mark).toHaveCSS("color", sealColor);
+      await expect(action).toHaveCSS("color", sealColor);
       await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "ready-hover.png") });
       await page.mouse.move(5, 5);
       await expect.poll(() => mark.evaluate((element) => getComputedStyle(element).color))
@@ -169,9 +176,9 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const running = page.getByLabel("Investor Lens running");
       await expect(running).toBeVisible();
       // The running phase deliberately stops after verify.complete. File remains pending until
-      // card.saved, while the verifier's five survivor marks are already visible.
+      // card.saved, while the five source-backed marks are already visible.
       await expect(running.locator(".cs-wait-stage[data-status='done']")).toHaveCount(3);
-      await expect(running.locator(".cs-wait-stage[data-status='current'] .cs-wait-stage-copy strong")).toHaveText("Verify");
+      await expect(running.locator(".cs-wait-stage[data-status='current'] .cs-wait-stage-copy strong")).toHaveText("Check");
       await expect(running.locator(".cs-wait-stage[data-status='pending'] .cs-wait-stage-copy strong")).toHaveText("File");
       await expect(running.locator(".cs-wait-stamp")).toHaveCount(5);
     }

@@ -307,7 +307,7 @@
 
 /*
  * The watchable wait (AnalysisWaitInstrument.tsx): a small fixed stage vocabulary (Queue,
- * Gather, Read, Verify, File), driven only by real generation events, never a percentage or
+ * Gather, Read, Check, File), driven only by real generation events, never a percentage or
  * elapsed time (gold-standard-references.md, waiting UX track). Carries the same plate/border/
  * sheen language every other lens-slot state uses. One signature loop at a time: only the
  * current stage's mark animates (cs-wait-mark[data-status="current"] below); the ambient mesh

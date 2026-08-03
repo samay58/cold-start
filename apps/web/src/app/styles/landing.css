@@ -22,11 +22,6 @@
   background: var(--cat-paper);
 }
 
-.cs-landing-hairline {
-  height: 2px;
-  background: var(--color-seal);
-}
-
 /* --- Seal pill: the one shared button used by the hero and the extension CTA --- */
 
 .cs-landing-seal-pill {
@@ -249,11 +244,6 @@
   border-radius: 6px;
   background: var(--cat-paper);
   box-shadow: 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
-}
-
-.cs-landing-hero-card-bar {
-  height: 3px;
-  background: var(--color-seal);
 }
 
 .cs-landing-hero-card-top {
@@ -859,11 +849,6 @@
   border-radius: 6px;
   background: var(--color-plate);
   box-shadow: 0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
-}
-
-.cs-landing-panel-bar {
-  height: 2px;
-  background: var(--color-seal);
 }
 
 .cs-landing-panel-head {

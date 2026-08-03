@@ -10,6 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
+    "install:browser": "playwright install --with-deps chromium",
     "qa:web:gallery": "playwright test tests/e2e/web-gallery.spec.ts"
   },
   "dependencies": {

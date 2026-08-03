@@ -124,9 +124,12 @@ describe("HomePage", () => {
 
     // PitchBook comparison
     expect(html).toContain("Cold Start can replace PitchBook");
-    expect(html).toContain("PitchBook is generic, static and brittle.");
+    expect(html).toContain("PitchBook is static and often thin for young companies.");
+    expect(html).toContain("refreshes old sections when you return");
     expect(html).toContain("A public link, no login");
     expect(html).toContain("one seat of PitchBook buys 250,000 profiles");
+    expect(html).not.toContain("cs-landing-hairline");
+    expect(html).not.toContain("cs-landing-panel-bar");
 
     // Sources legend
     expect(html).toContain("Understand the sources");

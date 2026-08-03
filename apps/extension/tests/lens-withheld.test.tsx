@@ -107,6 +107,8 @@ describe("Investor Lens withheld and failed states", () => {
     expect(withheld).not.toBeNull();
     expect(withheld?.textContent).toContain("Analysis ran");
     expect(withheld?.textContent).toContain("There is not enough public evidence for a useful read yet.");
+    expect(withheld?.textContent).toContain("A stronger public record may support a useful read.");
+    expect(withheld?.textContent).not.toContain("unlock");
     expect(container.querySelector("[aria-label='Lens run failed']")).toBeNull();
 
     await unmount();

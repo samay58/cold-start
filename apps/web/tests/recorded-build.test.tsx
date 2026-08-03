@@ -26,6 +26,15 @@ describe("RecordedBuild", () => {
     expect(html).toContain("9 sources");
     expect(html).toContain("CS·MINTLIFY·26");
     expect(html).toContain("FILED 2026·05·15");
+    expect(html).not.toContain("cs-landing-hero-card-bar");
+  });
+
+  it("keeps the public Lens example specific and free of stock investor prose", () => {
+    expect(recordedBuild.lens?.whyCare).toContain("product documentation");
+    expect(recordedBuild.lens?.whatMustBeTrue).toContain("durable paid usage");
+    expect(`${recordedBuild.lens?.whyCare} ${recordedBuild.lens?.whatMustBeTrue}`).not.toMatch(
+      /compounding shifts|toll-road|remarkable scale|strong product-market fit|—/i
+    );
   });
 
   it("starts every clipping and section hidden, the seal dry, and the stamp down", () => {

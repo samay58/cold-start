@@ -23,6 +23,7 @@ describe("CardFace", () => {
     expect(html).toContain("CS·VOXLATHE·26");
     expect(html).toContain("FILED");
     expect(html).toContain("voxlathe.example");
+    expect(html).not.toContain("cs-face-seal-bar");
   });
 
   it("renders the THIN FILE stamp with a real source count for a sparse card", () => {

@@ -36,7 +36,7 @@ The extension can show:
 - funding, investors, and team
 - competitive context
 - why the company might matter
-- bull and bear claims that survived verification
+- bull and bear cases grounded in cited evidence
 - open questions for a first call or diligence screen
 
 Cold Start also creates a public web card at `/c/{slug}` and a public API response at `/api/cards/{slug}`. That public card contains sourced facts only:

@@ -84,16 +84,6 @@
     0 10px 22px -14px rgb(var(--color-ink-shadow-rgb) / 0.35);
 }
 
-.cs-face-seal-bar {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--color-seal);
-}
-
 /* CardTexture's own wrapper span: positioned to fill the face, clipped by its
    overflow: hidden parent. The shader paints on top of it when WebGL is on;
    the flat CSS fallback stays quiet since the wear overlays below carry the

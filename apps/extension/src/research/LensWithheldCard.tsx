@@ -46,7 +46,7 @@ export function LensWithheldCard({
       <p className="cs-lens-withheld-next">
         {withheld.reasons.includes("no-claims-survived")
           ? "Check again when the public evidence changes."
-          : "More public evidence can unlock the read."}
+          : "A stronger public record may support a useful read."}
       </p>
       {unavailableReason ? <p className="cs-lens-withheld-next">{unavailableReason}</p> : null}
       <button

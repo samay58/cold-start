@@ -356,9 +356,9 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead.locator(".cs-lens-question")).toContainText("active physician seats");
   await expect(investorRead.locator(".cs-lens-question")).toContainText("Changes the read if");
 
-  // Evidence closes the card in one footer: classed source links and the filed date.
+  // Sources close the card; the update receipt stays visible in the header while rows expand.
   await expect(investorRead.locator(".cs-lens-source").first()).toBeVisible();
-  await expect(investorRead.locator(".cs-lens-footer-filed")).toContainText("Filed");
+  await expect(investorRead.locator(".cs-investor-read-head small")).toContainText("Updated");
 
   const hasNoHorizontalOverflow = await investorRead.evaluate((element) =>
     element.scrollWidth <= element.clientWidth + 1

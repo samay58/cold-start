@@ -7,8 +7,6 @@ type ComparisonRow = {
   pitchbook: string;
 };
 
-// Copy is verbatim from the task-17 brief (Step 2): every label and value below is quoted
-// exactly, in the order given. Do not rewrite, trim, or re-punctuate any of it.
 const ROWS: ComparisonRow[] = [
   {
     label: "A company founded in the last year",
@@ -23,7 +21,7 @@ const ROWS: ComparisonRow[] = [
   },
   {
     label: "After it is built",
-    coldStart: "Keeps enriching, and stale sections rebuild the next time you open it",
+    coldStart: "Keeps researching, and refreshes old sections when you return",
     pitchbook: "Static until an analyst updates the row"
   },
   {

@@ -166,7 +166,6 @@ export function RecordedBuild({ build }: { build: RecordedBuildData }) {
         })}
 
         <div className="cs-landing-hero-card">
-          <div aria-hidden="true" className="cs-landing-hero-card-bar" />
           <div className="cs-landing-hero-card-top">
             <span className="cs-landing-hero-card-callno">{callNo}</span>
             <span className="cs-landing-hero-card-sourcecount">{build.sections.sources.length} sources</span>

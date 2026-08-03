@@ -7,9 +7,8 @@ export type ExtensionPanelProps = {
 };
 
 // Renders recordedBuild.lens when present: the first two rows (Why care, What must be true)
-// answered with the frozen lens prose verbatim, the remaining three locked with the receipt value
-// "invited accounts". With no lens, all five rows render locked. The lens strings are quoted
-// production synthesis output (Task 16); they are not rewritten, trimmed, or re-punctuated here.
+// answered with frozen, hand-reviewed prose, the remaining three locked with the receipt value
+// "invited accounts". With no lens, all five rows render locked.
 export function ExtensionPanel({ companyName, lens }: ExtensionPanelProps) {
   const answered: Partial<Record<(typeof INVESTOR_READ_LABELS)[number], string>> = lens
     ? { "Why care": lens.whyCare, "What must be true": lens.whatMustBeTrue }
@@ -17,7 +16,6 @@ export function ExtensionPanel({ companyName, lens }: ExtensionPanelProps) {
 
   return (
     <div className="cs-landing-panel">
-      <div aria-hidden="true" className="cs-landing-panel-bar" />
       <div className="cs-landing-panel-head">
         <span className="cs-landing-panel-callno">CS · {companyName.toUpperCase()}</span>
       </div>

@@ -81,6 +81,12 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
 }
 
 describe("research section registry", () => {
+  it("keeps reader-facing empty states in plain language", () => {
+    for (const definition of RESEARCH_SECTION_DEFINITIONS) {
+      expect(definition.emptyState).not.toMatch(/claims?|surviv|verification|model|schema/i);
+    }
+  });
+
   it("defines the visible research sections", () => {
     expect(RESEARCH_SECTION_DEFINITIONS.map((section) => section.id)).toEqual([
       "buyer",

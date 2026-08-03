@@ -53,7 +53,6 @@ export default async function HomePage() {
   return (
     <main className="cs-landing" id="main-content">
       <div className="cs-landing-shell">
-        <div aria-hidden="true" className="cs-landing-hairline" />
         <Nav profileCount={profiles.length} />
 
         <Hero profileCount={profiles.length} />
@@ -62,9 +61,9 @@ export default async function HomePage() {
           <div className="cs-landing-pitchbook-head">
             <h2>Cold Start can replace PitchBook</h2>
             <p>
-              PitchBook is generic, static and brittle. Cold Start builds the profile when you need
-              it, cites every claim, finds and leverages the highest quality sources, interprets
-              them with nuance, and keeps the profile current.
+              PitchBook is static and often thin for young companies. Cold Start builds the profile
+              when you need it, shows where every claim came from, and refreshes old sections when
+              you return.
             </p>
           </div>
           <ComparisonTable />

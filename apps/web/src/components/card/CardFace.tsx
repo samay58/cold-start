@@ -98,7 +98,7 @@ function CardFooter({ card }: { card: PublicCardData }) {
   );
 }
 
-// The card object: ghost stack behind, the parchment face on top with its seal bar, WebGL
+// The card object: ghost stack behind, the parchment face on top with its WebGL
 // texture, and CSS wear overlays, then the two-column reading grid inside the face, and the
 // footer's call number / filed line / VETTED stamp below both columns. ChoreographyProvider
 // (Task 8) wraps only the two-column grid: it is the only part of the face carrying citation
@@ -119,7 +119,6 @@ export function CardFace({ card, sections, texture }: CardFaceProps) {
           <div aria-hidden="true" className="cs-face-ghost cs-face-ghost-back" />
           <div aria-hidden="true" className="cs-face-ghost cs-face-ghost-front" />
           <div className="cs-face-card">
-            <div aria-hidden="true" className="cs-face-seal-bar" />
             {texture}
             <div aria-hidden="true" className="cs-face-wear cs-face-wear-stains" />
             <div aria-hidden="true" className="cs-face-wear cs-face-wear-fiber" />

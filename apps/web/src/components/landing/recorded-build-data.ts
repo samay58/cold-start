@@ -88,7 +88,7 @@ export const recordedBuild: RecordedBuild = {
     ]
   },
   "lens": {
-    "whyCare": "Mintlify sits at the intersection of two compounding shifts—AI agents increasingly consuming documentation programmatically and software teams needing infrastructure that serves both human and machine readers—making its platform a potential toll-road for how products are understood and used by AI systems at scale.",
-    "whatMustBeTrue": "Remarkable scale and velocity for a 2022 founding: 20,000+ companies, 100M+ annual users, and a $500M Series B valuation roughly 18 months after an $18M Series A—suggesting strong product-market fit and efficient top-of-funnel growth."
+    "whyCare": "Mintlify is turning product documentation into infrastructure for both developers and software agents. If agents increasingly rely on documentation to choose and use tools, Mintlify can sit between software companies and the people or agents trying to understand their products.",
+    "whatMustBeTrue": "The reported 20,000-plus companies and 100 million annual users need to translate into durable paid usage, not mostly free traffic. The case gets stronger if customers standardize on Mintlify for agent-facing documentation as well as their public docs."
   }
 };
