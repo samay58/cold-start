@@ -122,7 +122,7 @@ function firstPayoff(
   };
 }
 
-// The early read and its filed stamp render in the CompanyArc shell above the research layer,
+// The early read and its source note render in the CompanyArc shell above the research layer,
 // so these tests mount the arc in its profile phase.
 async function renderPanel(input: {
   complete?: boolean;
@@ -263,10 +263,9 @@ describe("ResearchLayerPanel first read", () => {
     const { container, unmount } = await renderPanel({ complete: true });
 
     expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    const filed = container.querySelector("[aria-label='Sources checked']");
-    expect(filed).not.toBeNull();
-    expect(filed?.textContent).toContain("Sources checked");
-    expect(filed?.textContent).toContain("12 sources");
+    const sourceNote = container.querySelector(".cs-profile-source-note");
+    expect(sourceNote).not.toBeNull();
+    expect(sourceNote?.textContent).toBe("12 sources reviewed");
     await unmount();
   });
 
@@ -275,7 +274,7 @@ describe("ResearchLayerPanel first read", () => {
 
     // The live-generation success state can drop terminal events; a "hit" card must still file.
     expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    expect(container.querySelector("[aria-label='Sources checked']")).not.toBeNull();
+    expect(container.querySelector(".cs-profile-source-note")?.textContent).toBe("3 sources reviewed");
     await unmount();
   });
 
@@ -321,7 +320,7 @@ describe("ResearchLayerPanel first read", () => {
     });
 
     expect(container.querySelector("[aria-label='Early read']")).not.toBeNull();
-    expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
+    expect(container.querySelector(".cs-profile-source-note")).toBeNull();
     await unmount();
   });
 });

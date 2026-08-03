@@ -11,7 +11,7 @@ import {
   FactRibbon,
   PeopleLine,
   ProfileSummary,
-  SourcesCheckedStamp,
+  ProfileSourceNote,
   managementConfidence,
   managementPeople,
   managementSourceCount,
@@ -462,8 +462,8 @@ export function CompanyArc({
                   summary={profileSummary.summary}
                   tooltipProps={triggerProps}
                 />
-                {profileRead?.showSourcesChecked ? (
-                  <SourcesCheckedStamp
+                {profileRead?.showSourceNote ? (
+                  <ProfileSourceNote
                     prefersReducedMotion={prefersReducedMotion}
                     sourceCount={filedSourceCount(profile.events ?? [], profile.sources ?? [])}
                   />

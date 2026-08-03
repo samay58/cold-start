@@ -352,7 +352,7 @@ describe("SidePanel run lifecycle", () => {
     const earlyRead = container.querySelector("[aria-label='Early read']");
     expect(earlyRead).not.toBeNull();
     expect(earlyRead?.textContent).toContain("Voice teams shipping real-time agents on constrained devices.");
-    expect(container.querySelector("[aria-label='Sources checked']")).toBeNull();
+    expect(container.querySelector(".cs-profile-source-note")).toBeNull();
     await unmount();
   });
 

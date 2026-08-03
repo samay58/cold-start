@@ -119,28 +119,27 @@ export function ProfileSummary({
   );
 }
 
-export function SourcesCheckedStamp({
+export function ProfileSourceNote({
   prefersReducedMotion,
   sourceCount
 }: {
   prefersReducedMotion: boolean;
   sourceCount: number;
 }) {
-  const meta = sourceCount > 0 ? sourceLabel(sourceCount) : "Filed with sources";
+  const label = sourceCount > 0 ? `${sourceLabel(sourceCount)} reviewed` : "Sources reviewed";
 
   return (
-    <motion.div
-      aria-label="Sources checked"
+    <motion.p
       animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
-      className="cs-early-read-filed"
-      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 8 }}
+      className="cs-profile-source-note"
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 4 }}
       layout
-      layoutId="sources-checked"
-      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.52, ease: [0.21, 1, 0.35, 1] }}
+      layoutId="profile-source-note"
+      transition={prefersReducedMotion ? { duration: 0.12, ease: "easeOut" } : { duration: 0.36, ease: [0.21, 1, 0.35, 1] }}
     >
-      <span className="cs-early-read-filed-stamp">Sources checked</span>
-      <span className="cs-early-read-filed-meta">{meta}</span>
-    </motion.div>
+      <span aria-hidden="true" className="cs-profile-source-dot" />
+      <span>{label}</span>
+    </motion.p>
   );
 }
 
@@ -481,7 +480,7 @@ export function PeopleLine({
   ) => void;
   onDossierIntent?: (person: CardPerson, trigger: "focus" | "hover") => void;
   onDossierPinIntent?: (person: CardPerson, trigger: "keyboard" | "pointer") => void;
-  // The filed stamp owns the source count now; PeopleLine no longer prints it, but the
+  // The profile source note owns the source count now; PeopleLine no longer prints it, but the
   // caller still supplies it so the prop stays on the contract.
   sourceCount: number;
   tooltipProps: TooltipPropsFor;

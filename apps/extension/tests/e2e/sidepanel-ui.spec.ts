@@ -1486,12 +1486,12 @@ test("card.partial keeps the research stack usable while basics finalizes", asyn
   await openReadyProfileWithActiveBasics(page);
 
   await expect(page.getByRole("heading", { name: "Browserbase" })).toBeVisible();
-  // The profile-phase progress banner is dissolved; the filed stamp and per-module status
+  // The profile-phase progress banner is dissolved; the quiet source note and per-module status
   // carry this state instead.
   await expect(page.locator(".cs-research-progress")).toHaveCount(0);
-  const stamp = page.getByLabel("Sources checked");
-  await expect(stamp).toBeVisible();
-  await expect(stamp).toContainText("source");
+  const sourceNote = page.locator(".cs-profile-source-note");
+  await expect(sourceNote).toBeVisible();
+  await expect(sourceNote).toHaveText("1 source reviewed");
   await expect(page.getByText("Filling in contacts and details")).toHaveCount(0);
   await expect(page.locator(".cs-active-enrichment[data-state='running']")).toHaveCount(0);
   await expect(page.getByText("Getting the profile ready")).toHaveCount(0);

@@ -16,7 +16,7 @@ export function formatSavedDate(value: string) {
 }
 
 // The filing decision for the early read, shared by the shell (which renders the read and the
-// stamp) and the panel (which gates the partial-profile state on the same facts). Filing is
+// source note) and the panel (which gates the partial-profile state on the same facts). Filing is
 // event-driven; a "hit" card only files the read when no live artifact is present at all.
 export function earlyReadState(card: ColdStartCard | null, events: ExtensionResearchRunEvent[]) {
   const firstPayoff = firstPayoffForEvents(events);
@@ -25,13 +25,13 @@ export function earlyReadState(card: ColdStartCard | null, events: ExtensionRese
     firstPayoff,
     filed,
     showRead: Boolean(firstPayoff?.status === "substantive_first_read" && !filed),
-    showSourcesChecked: filed
+    showSourceNote: filed
   };
 }
 
 export function showPartialProfileGate(card: ColdStartCard, events: ExtensionResearchRunEvent[]) {
   const read = earlyReadState(card, events);
-  return !hasUsablePublicProfile(card) && !read.showRead && !read.showSourcesChecked;
+  return !hasUsablePublicProfile(card) && !read.showRead && !read.showSourceNote;
 }
 
 export function websiteLabel(card: ColdStartCard) {
