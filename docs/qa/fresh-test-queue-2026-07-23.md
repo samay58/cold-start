@@ -1,5 +1,7 @@
 # Fresh test queue: five never-tested companies (2026-07-23)
 
+> Historical queue. Superseded by [the 2026-08-02 biology-as-design queue](./fresh-test-queue-2026-08-02.md). Watershed and Mews were run in production after this list was written; the other three remain historical candidates, not the active next-run plan.
+
 Five companies verified absent from every tested surface in this repo as of 2026-07-23: the 50-company golden seed, the 12 provider-matrix fixtures, all eval runs, and the test suites. Samay tests these in a fresh session.
 
 | Company | What it is | Why it earns a test slot |

@@ -2,6 +2,8 @@
 
 A dated log of notable production and shadow analysis runs, and the attack list they feed. One entry per observation, newest first within each section. Add entries whenever run monitoring surfaces something worth acting on; move an item to Resolved when it ships. The two-week latency measurement (started 2026-07-22, review around 2026-08-05, bar p50 60s / p90 90s via `npm run measure:analysis-latency`) reads this file.
 
+The active fresh-company queue is [biology as a creative medium](./fresh-test-queue-2026-08-02.md). Close each run here with both system evidence and company insight: what the filed profile made clear, what it missed or overstated, and whether the result changed the product or the candidate ranking. A successful request is not an observation by itself.
+
 ## Attack list
 
 Ordered by expected impact.
