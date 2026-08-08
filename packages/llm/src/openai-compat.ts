@@ -162,10 +162,52 @@ export function usageFromOpenAiCompatResponse(usage: OpenAiCompatResponse["usage
   };
 }
 
+// Extract one complete object when a provider appends prose after otherwise valid tool arguments.
+// Incomplete or internally invalid JSON still reaches JSON.parse and fails normally.
+function parseToolArguments(argumentsText: string | undefined): unknown {
+  const raw = argumentsText ?? "{}";
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch (error) {
+    const source = raw.trimStart();
+    if (!source.startsWith("{")) {
+      throw error;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = 0; index < source.length; index += 1) {
+      const character = source[index];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+        continue;
+      }
+
+      if (character === '"') {
+        inString = true;
+      } else if (character === "{") {
+        depth += 1;
+      } else if (character === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          return JSON.parse(source.slice(0, index + 1)) as unknown;
+        }
+      }
+    }
+
+    throw error;
+  }
+}
+
 // Maps the OpenAI-compat choice back to the Anthropic Message content shape the stage parsers
-// read: tool_calls become tool_use blocks (arguments JSON.parse here, so a malformed-arguments
-// failure surfaces as a SyntaxError in the caller, same place a zod failure would), plain
-// content becomes a single text block.
+// read: tool_calls become tool_use blocks, while plain content becomes a single text block.
 export function messageFromOpenAiCompatResponse(payload: OpenAiCompatResponse, model: string): Message {
   const choice = payload.choices?.[0];
   const toolCalls = choice?.message?.tool_calls ?? [];
@@ -176,7 +218,7 @@ export function messageFromOpenAiCompatResponse(payload: OpenAiCompatResponse, m
           type: "tool_use" as const,
           id: call.id ?? `tool-call-${index}`,
           name: call.function?.name ?? "",
-          input: JSON.parse(call.function?.arguments ?? "{}") as unknown,
+          input: parseToolArguments(call.function?.arguments),
         }))
       : [{ type: "text" as const, text: choice?.message?.content ?? "" }];
 

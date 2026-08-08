@@ -147,6 +147,34 @@ describe("messageFromOpenAiCompatResponse", () => {
     expect(message.stop_reason).toBe("tool_use");
   });
 
+  it("keeps a complete tool object when the provider appends trailing content", () => {
+    const message = messageFromOpenAiCompatResponse(
+      {
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  function: {
+                    name: "emit_block_claims",
+                    arguments: '{"blockId":"funding","citations":["c1"]}\nextra provider content',
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      "deepseek-v4-flash"
+    );
+
+    expect(message.content[0]).toMatchObject({
+      type: "tool_use",
+      name: "emit_block_claims",
+      input: { blockId: "funding", citations: ["c1"] },
+    });
+  });
+
   it("maps plain content to a text block", () => {
     const message = messageFromOpenAiCompatResponse(
       { choices: [{ message: { content: '[{"claimIndex":0}]' } }] },
