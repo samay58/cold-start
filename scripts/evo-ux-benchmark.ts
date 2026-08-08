@@ -550,22 +550,24 @@ export async function main() {
     ]);
 
     browser = await chromium.launch();
-    const routes = await Promise.all([
-      measureRoute({
+    // Measure routes one at a time. Parallel dev-server compilation measures
+    // harness contention rather than a first user's page load.
+    const routes = [
+      await measureRoute({
         browser,
         name: "web-home",
         readyText: /Cold Start|Companies|No sourced profiles yet/i,
         screenshotPath: artifactPath("web-home"),
         url: `${webOrigin}/`
       }),
-      measureRoute({
+      await measureRoute({
         browser,
         name: "web-public-card",
         readyText: /Cold Start|Sourced company context|Cartesia|Browserbase|not found/i,
         screenshotPath: artifactPath("web-public-card"),
         url: `${webOrigin}/c/${cardSlug}`
       }),
-      measureRoute({
+      await measureRoute({
         browser,
         name: "extension-sidepanel",
         // "Why care" is the default-open Investor Lens category's label (InvestorReadCard.tsx),
@@ -582,7 +584,7 @@ export async function main() {
         },
         url: `${extensionOrigin}/sidepanel.html`
       })
-    ]);
+    ];
     const extensionBundle = await extensionBundleMetric();
     const summary: BenchmarkSummary = {
       webOrigin,
