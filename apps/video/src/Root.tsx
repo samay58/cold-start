@@ -11,7 +11,7 @@ export const RemotionRoot: React.FC = () => {
     <Composition
       component={FirstCompanyGuideVideo}
       defaultProps={{}}
-      durationInFrames={456}
+      durationInFrames={336}
       fps={24}
       height={1080}
       id="ColdStartFirstCompany"
