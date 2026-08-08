@@ -1,0 +1,22 @@
+{
+  "name": "@cold-start/video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts --no-open",
+    "build": "remotion bundle src/index.ts",
+    "render:first-company": "mkdir -p out && remotion render src/index.ts ColdStartFirstCompany out/first-company-guide.mp4 --codec=h264 --crf=18",
+    "still:first-company": "mkdir -p out && remotion still src/index.ts ColdStartFirstCompany out/first-company-guide.png --frame=420",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.507",
+    "@remotion/google-fonts": "4.0.507",
+    "remotion": "4.0.507",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "typescript": "^5.9.0"
+  }
+}

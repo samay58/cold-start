@@ -10,6 +10,8 @@ export default tseslint.config(
       "**/dist/**",
       "**/dist-dev/**",
       "**/dist-firefox/**",
+      "apps/video/build/**",
+      "apps/video/out/**",
       "**/.next/**",
       "**/.evo/**",
       "**/.vercel/**",

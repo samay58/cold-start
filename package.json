@@ -129,6 +129,7 @@
     ],
     "ignore": [
       "apps/extension/public/theme-boot.js",
+      "apps/video/remotion.config.ts",
       "docs/design/mockups/**"
     ]
   }
