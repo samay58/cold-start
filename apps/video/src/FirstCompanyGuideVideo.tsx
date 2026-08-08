@@ -130,37 +130,153 @@ function ProductShot({ end, height, scrollEnd = 0, scrollStart = 0, src, start }
   );
 }
 
-function Cursor() {
+function BrowserToolbar() {
   const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [42, 52, 84, 92], [0, 1, 1, 0], {
+
+  return (
+    <div
+      style={{
+        alignItems: "center",
+        background: "#F7F5EE",
+        border: "1px solid #9C978A",
+        borderRadius: 8,
+        boxShadow: "0 18px 48px rgb(32 32 30 / 0.12)",
+        display: "flex",
+        gap: 12,
+        height: 74,
+        opacity: interpolate(frame, [0, 10, 54, 68], [0, 1, 1, 0], {
+          easing: ease,
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp"
+        }),
+        padding: "10px 12px",
+        position: "absolute",
+        right: 108,
+        top: 58,
+        width: 504
+      }}
+    >
+      <div
+        style={{
+          background: "#FFFDF8",
+          border: "1px solid #CCC7B8",
+          borderRadius: 6,
+          color: "#68706A",
+          flex: 1,
+          fontFamily: "IBM Plex Sans",
+          fontSize: 18,
+          fontWeight: 500,
+          padding: "13px 16px"
+        }}
+      >
+        baseten.co
+      </div>
+      <div
+        style={{
+          alignItems: "center",
+          background: "#FFFDF8",
+          border: "1px solid #CCC7B8",
+          borderRadius: 6,
+          display: "flex",
+          height: 52,
+          justifyContent: "center",
+          width: 52
+        }}
+      >
+        <CanvasImage
+          src={staticFile("product/chrome-extension-icon.png")}
+          style={{ height: 38, width: 38 }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function IconCursor() {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [18, 28, 52, 62], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp"
   });
-  const press = interpolate(frame, [72, 76, 82], [1, 0.82, 1], {
+  const press = interpolate(frame, [42, 46, 52], [1, 0.82, 1], {
     easing: ease,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp"
   });
 
   return (
+    <Pointer
+      left={1746}
+      opacity={opacity}
+      press={press}
+      top={83}
+      translateX={interpolate(frame, [18, 40], [60, 0], {
+        easing: ease,
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp"
+      })}
+      translateY={interpolate(frame, [18, 40], [42, 0], {
+        easing: ease,
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp"
+      })}
+    />
+  );
+}
+
+function ButtonCursor() {
+  const frame = useCurrentFrame();
+  const opacity = interpolate(frame, [92, 102, 132, 140], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp"
+  });
+  const press = interpolate(frame, [116, 120, 126], [1, 0.82, 1], {
+    easing: ease,
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp"
+  });
+
+  return (
+    <Pointer
+      left={420}
+      opacity={opacity}
+      press={press}
+      top={410}
+      translateX={interpolate(frame, [92, 114], [38, 0], {
+        easing: ease,
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp"
+      })}
+      translateY={interpolate(frame, [92, 114], [28, 0], {
+        easing: ease,
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp"
+      })}
+    />
+  );
+}
+
+type PointerProps = {
+  left: number;
+  opacity: number;
+  press: number;
+  top: number;
+  translateX: number;
+  translateY: number;
+};
+
+function Pointer({ left, opacity, press, top, translateX, translateY }: PointerProps) {
+  return (
     <div
       style={{
         filter: "drop-shadow(0 3px 5px rgb(23 26 31 / 0.24))",
         height: 58,
-        left: 420,
+        left,
         opacity,
         position: "absolute",
         scale: press,
-        top: 410,
-        translate: `${interpolate(frame, [42, 68], [38, 0], {
-          easing: ease,
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp"
-        })}px ${interpolate(frame, [42, 68], [28, 0], {
-          easing: ease,
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp"
-        })}px`,
+        top,
+        translate: `${translateX}px ${translateY}px`,
         width: 58
       }}
     >
@@ -179,7 +295,7 @@ function Cursor() {
 
 function StepRail() {
   const frame = useCurrentFrame();
-  const active = frame < 84 ? 0 : frame < 168 ? 1 : frame < 228 ? 2 : 3;
+  const active = frame < 84 ? 0 : frame < 156 ? 1 : frame < 228 ? 2 : 3;
 
   return (
     <div style={{ bottom: 112, display: "flex", gap: 12, left: 150, position: "absolute" }}>
@@ -230,11 +346,14 @@ export function FirstCompanyGuideVideo() {
         Cold Start
       </div>
 
-      <CopyBeat detail="On a company website." end={84} index="01" start={0} text="Open Cold Start." />
-      <CopyBeat end={168} index="02" start={72} text="Begin research." />
-      <CopyBeat end={228} index="03" start={156} text="Sources appear." />
+      <CopyBeat detail="When you need context on a company." end={84} index="01" start={0} text="Open Cold Start." />
+      <CopyBeat end={156} index="02" start={72} text="Begin research." />
+      <CopyBeat end={228} index="03" start={144} text="Sources appear." />
       <CopyBeat end={336} index="04" start={216} text="Read the profile." />
       <StepRail />
+
+      <BrowserToolbar />
+      <IconCursor />
 
       <div
         style={{
@@ -247,14 +366,19 @@ export function FirstCompanyGuideVideo() {
           position: "absolute",
           right: 108,
           top: 58,
+          translate: `${interpolate(frame, [48, 70], [620, 0], {
+            easing: ease,
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp"
+          })}px 0`,
           width: 504
         }}
       >
-        <ProductShot end={100} height={1080} src="product/intake.png" start={0} />
-        <ProductShot end={184} height={1082.4} src="product/sources.png" start={84} />
-        <ProductShot end={244} height={1080} src="product/early-read.png" start={168} />
-        <ProductShot end={336} height={1999.2} scrollEnd={-700} src="product/profile.png" start={228} />
-        <Cursor />
+        <ProductShot end={164} height={1080} src="product/intake.png" start={0} />
+        <ProductShot end={216} height={1082.4} src="product/sources.png" start={144} />
+        <ProductShot end={252} height={1080} src="product/early-read.png" start={204} />
+        <ProductShot end={336} height={1999.2} scrollEnd={-700} src="product/profile.png" start={240} />
+        <ButtonCursor />
       </div>
 
       <div
