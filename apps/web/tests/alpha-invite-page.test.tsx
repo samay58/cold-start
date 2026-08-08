@@ -115,6 +115,22 @@ describe("alpha invitation page", () => {
     expect(html).not.toContain("extension ID");
   });
 
+  it("turns a connected invitation into a first-company guide", () => {
+    const html = renderJourney({
+      code: "ready",
+      allowance: {
+        profile: { limit: 12, remaining: 12 },
+        lens: { limit: 6, remaining: 6 }
+      }
+    });
+
+    expect(html).toContain("Follow the browser.");
+    expect(html).toContain("Open a company site");
+    expect(html).toContain("Open Cold Start");
+    expect(html).toContain("Begin research");
+    expect(html).toContain("Open Linear");
+  });
+
   it.each([
     "access_disabled",
     "connection_lost",

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 
+import { FirstCompanyGuide } from "./FirstCompanyGuide";
 import styles from "./alpha.module.css";
 import {
   ALPHA_CONSENT_SESSION_KEY,
@@ -464,14 +465,7 @@ export function JourneyPanel({
   }
 
   if (view.code === "ready") {
-    return (
-      <StatePanel
-        label="Filed"
-        title="Cold Start is ready"
-        copy={allowanceCopy(view.allowance)}
-        action={<a className={styles.primaryAction} href="https://linear.app" target="_blank" rel="noreferrer">Try Linear</a>}
-      />
-    );
+    return <FirstCompanyGuide lensRemaining={view.allowance?.lens.remaining} profileRemaining={view.allowance?.profile.remaining} />;
   }
 
   const state = stateCopy(view.code, storeUrl);
@@ -510,12 +504,6 @@ function StatePanel({
       {action}
     </section>
   );
-}
-
-function allowanceCopy(allowance: Allowance | undefined) {
-  return allowance
-    ? `${allowance.profile.remaining} fresh profiles and ${allowance.lens.remaining} Lens runs remain. Open Linear, click Cold Start, and begin there.`
-    : "Open Linear, click Cold Start in Chrome, and begin with a sourced profile.";
 }
 
 function stateCopy(code: ViewCode, storeUrl: string) {
