@@ -39,10 +39,12 @@ const stageEnvChain: Record<LlmCallStage, string[]> = {
   expanded_description: ["LLM_EXPANDED_DESCRIPTION_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
 };
 
-const stageFallbackEnv: Record<LlmCallStage, string> = {
-  research_plan: "LLM_RESEARCH_PLAN_FALLBACK_MODEL",
-  extract_full: "LLM_EXTRACT_FALLBACK_MODEL",
-  extract_block: "LLM_BLOCK_FALLBACK_MODEL",
+export type LlmFallbackStage = Extract<
+  LlmCallStage,
+  "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description"
+>;
+
+const stageFallbackEnv: Record<LlmFallbackStage, string> = {
   synthesis: "LLM_SYNTHESIS_FALLBACK_MODEL",
   verify: "LLM_VERIFIER_FALLBACK_MODEL",
   research_section: "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
@@ -65,7 +67,7 @@ export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHRO
   return fallback;
 }
 
-export function fallbackModelForStage(stage: LlmCallStage, primaryModel: string): string | null {
+export function fallbackModelForStage(stage: LlmFallbackStage, primaryModel: string): string | null {
   const fallback = process.env[stageFallbackEnv[stage]]?.trim() || process.env.LLM_FALLBACK_MODEL?.trim();
   if (!fallback || parseModelString(fallback).provider === parseModelString(primaryModel).provider) {
     return null;
@@ -74,7 +76,7 @@ export function fallbackModelForStage(stage: LlmCallStage, primaryModel: string)
 }
 
 export async function withProviderFallback<T>(
-  stage: LlmCallStage,
+  stage: LlmFallbackStage,
   primaryModel: string,
   run: (model: string) => Promise<T>,
 ): Promise<T> {

@@ -46,7 +46,7 @@ Every one funnels through the chokepoint. All use forced tool choice for structu
 | 7 | `synthesizePersonReads` | `person-read.ts:154` | `person_read` | `synthesize-person-reads` | 220/person, floor-and-cap guarded | 0 | `emit_person_reads` | live |
 | 8 | `synthesizeExpandedDescription` | `expanded-description.ts` | `expanded_description` | `synthesize-expanded-description` | 1200 | 0 | `emit_expanded_description` | live |
 
-Functions 2 through 8 wrap their call-and-parse in `withSchemaRetry`, so a non-Anthropic model gets one re-ask on unparseable output; on Anthropic models the wrapper is a no-op. Synthesis, research sections, person reads, and expanded descriptions also use `withProviderFallback`. Their primary model remains unchanged. A fallback runs once on the configured alternate provider only after a provider-availability failure.
+Functions 2 through 8 wrap their call-and-parse in `withSchemaRetry`, so a non-Anthropic model gets one re-ask on unparseable output; on Anthropic models the wrapper is a no-op. Synthesis, verification, research sections, person reads, and expanded descriptions also use `withProviderFallback`. Their primary model remains unchanged. A fallback runs once on the configured alternate provider only after a provider-availability failure.
 
 Purposes:
 
@@ -111,7 +111,7 @@ Per-stage provider routing (the `LLM_*_MODEL` env chains) is the only non-Anthro
 | `ANTHROPIC_API_KEY` | required for any Anthropic call |
 | `ANTHROPIC_MODEL` | default model for every stage (`claude-sonnet-4-6` currently) |
 | `LLM_EXTRACT_MODEL`, `LLM_BLOCK_MODEL`, `LLM_VERIFIER_MODEL`, `LLM_SYNTHESIS_MODEL`, `LLM_RESEARCH_SECTION_MODEL`, `LLM_PERSON_READ_MODEL`, `LLM_EXPANDED_DESCRIPTION_MODEL`, `LLM_RESEARCH_PLAN_MODEL` | per-stage provider routing; accept `provider/model` strings; checked before the ANTHROPIC_* equivalents |
-| `LLM_FALLBACK_MODEL`, `LLM_SYNTHESIS_FALLBACK_MODEL`, `LLM_RESEARCH_SECTION_FALLBACK_MODEL`, `LLM_PERSON_READ_FALLBACK_MODEL`, `LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL` | alternate-provider continuity for judgment stages; stage-specific values win; used only for provider unavailability and ignored when they resolve to the primary provider |
+| `LLM_FALLBACK_MODEL`, `LLM_SYNTHESIS_FALLBACK_MODEL`, `LLM_VERIFIER_FALLBACK_MODEL`, `LLM_RESEARCH_SECTION_FALLBACK_MODEL`, `LLM_PERSON_READ_FALLBACK_MODEL`, `LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL` | alternate-provider continuity for judgment stages; stage-specific values win; used only for provider unavailability and ignored when they resolve to the primary provider |
 | `ANTHROPIC_EXTRACT_MODEL`, `ANTHROPIC_BLOCK_MODEL`, `ANTHROPIC_SYNTHESIS_MODEL`, `ANTHROPIC_VERIFIER_MODEL`, `ANTHROPIC_RESEARCH_PLAN_MODEL` | legacy per-stage overrides, second in the chain |
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL` | DeepSeek credentials (base defaults to `https://api.deepseek.com`) |
 | `FIREWORKS_API_KEY`, `TOGETHER_API_KEY`, `OPENROUTER_API_KEY`, `LLM_PROVIDER_<NAME>_API_KEY/BASE_URL` | other OpenAI-compatible hosts |

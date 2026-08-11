@@ -105,16 +105,17 @@ describe("GET /api/alpha/retention", () => {
     expect(new Date(inputArg.before).getTime()).toBeLessThan(Date.now());
   });
 
-  it("shares the invocation cap across events and access requests", async () => {
+  it("gives access requests an independent cap when the event backlog is full", async () => {
     mocks.pruneEvents.mockResolvedValue(1_000);
+    mocks.pruneAccessRequests.mockResolvedValueOnce(42);
 
     const response = await GET(request());
 
     await expect(response.json()).resolves.toMatchObject({
       deleted: 10_000,
-      accessRequestsDeleted: 0,
+      accessRequestsDeleted: 42,
       capped: true
     });
-    expect(mocks.pruneAccessRequests).not.toHaveBeenCalled();
+    expect(mocks.pruneAccessRequests).toHaveBeenCalledOnce();
   });
 });

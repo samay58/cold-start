@@ -108,6 +108,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/i/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+        ],
+      },
+      {
         // Signed Firefox builds self-hosted under public/firefox/. Firefox's
         // click-to-install path wants the XPI served as x-xpinstall; the update
         // checker itself is content-type agnostic.

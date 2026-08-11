@@ -8,24 +8,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   authenticateExtensionRequest: vi.fn(),
-  countRecentAlphaInviteAttempts: vi.fn(),
+  consumeAlphaInviteAttempt: vi.fn(),
   createDb: vi.fn(),
   execute: vi.fn(),
   getAlphaAllowanceSnapshot: vi.fn(),
+  inspectAlphaInvite: vi.fn(),
   insertAlphaEvents: vi.fn(),
-  recordAlphaInviteAttempt: vi.fn(),
   redeemAlphaInvite: vi.fn()
 }));
 
 mocks.createDb.mockReturnValue({ execute: mocks.execute });
-mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
+mocks.consumeAlphaInviteAttempt.mockResolvedValue(true);
 
 vi.mock("@cold-start/db", () => ({
-  countRecentAlphaInviteAttempts: mocks.countRecentAlphaInviteAttempts,
+  consumeAlphaInviteAttempt: mocks.consumeAlphaInviteAttempt,
   createDb: mocks.createDb,
   getAlphaAllowanceSnapshot: mocks.getAlphaAllowanceSnapshot,
+  inspectAlphaInvite: mocks.inspectAlphaInvite,
   insertAlphaEvents: mocks.insertAlphaEvents,
-  recordAlphaInviteAttempt: mocks.recordAlphaInviteAttempt,
   redeemAlphaInvite: mocks.redeemAlphaInvite
 }));
 
@@ -52,15 +52,16 @@ describe("alpha invitation routes", () => {
     mocks.createDb.mockClear();
     mocks.createDb.mockReturnValue({ execute: mocks.execute });
     mocks.execute.mockReset();
-    mocks.countRecentAlphaInviteAttempts.mockReset();
-    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
-    mocks.recordAlphaInviteAttempt.mockReset();
+    mocks.consumeAlphaInviteAttempt.mockReset();
+    mocks.consumeAlphaInviteAttempt.mockResolvedValue(true);
     mocks.insertAlphaEvents.mockReset();
     mocks.insertAlphaEvents.mockResolvedValue([]);
     mocks.redeemAlphaInvite.mockReset();
     mocks.authenticateExtensionRequest.mockReset();
     mocks.getAlphaAllowanceSnapshot.mockReset();
     mocks.getAlphaAllowanceSnapshot.mockResolvedValue(null);
+    mocks.inspectAlphaInvite.mockReset();
+    mocks.inspectAlphaInvite.mockResolvedValue({ state: "ready", profileLimit: 12, lensLimit: 6 });
   });
 
   afterEach(() => {
@@ -73,10 +74,6 @@ describe("alpha invitation routes", () => {
   // them, which would quietly misstate any invitation issued with different limits. Trimming them
   // needs the panel's copy moved to post-redeem data first.
   it("inspects a pending invitation without redeeming it", async () => {
-    mocks.execute.mockResolvedValue({
-      rows: [inviteRow({ status: "pending", claimed_installations: 0 })]
-    });
-
     const response = await inspectRoute.POST(jsonRequest(
       "http://localhost/api/alpha/invite/inspect",
       { inviteToken }
@@ -92,18 +89,12 @@ describe("alpha invitation routes", () => {
   });
 
   it.each([
-    ["expired", inviteRow({ expires_at: "2020-01-01T00:00:00.000Z" }), 410],
-    ["revoked", inviteRow({ status: "revoked" }), 410],
-    // A single-seat invitation that has spent its seat keeps answering "used". Only a multi-seat
-    // invitation reaches "installation_limit".
-    ["used", inviteRow({ status: "active", claimed_installations: 1 }), 409],
-    [
-      "installation_limit",
-      inviteRow({ status: "active", max_installations: 2, claimed_installations: 2 }),
-      409
-    ]
-  ])("reports a %s invitation without collapsing it to a generic error", async (code, row, status) => {
-    mocks.execute.mockResolvedValue({ rows: [row] });
+    ["expired", 410],
+    ["revoked", 410],
+    ["used", 409],
+    ["installation_limit", 409]
+  ])("reports a %s invitation without collapsing it to a generic error", async (code, status) => {
+    mocks.inspectAlphaInvite.mockResolvedValue({ state: code });
 
     const response = await inspectRoute.POST(jsonRequest(
       "http://localhost/api/alpha/invite/inspect",
@@ -115,10 +106,6 @@ describe("alpha invitation routes", () => {
   });
 
   it("still reads ready while a multi-seat invitation has a free seat", async () => {
-    mocks.execute.mockResolvedValue({
-      rows: [inviteRow({ status: "active", max_installations: 2, claimed_installations: 1 })]
-    });
-
     const response = await inspectRoute.POST(jsonRequest(
       "http://localhost/api/alpha/invite/inspect",
       { inviteToken }
@@ -414,18 +401,6 @@ function jsonRequest(url: string, body: unknown, headers: Record<string, string>
   });
 }
 
-function inviteRow(overrides: Record<string, unknown> = {}) {
-  return {
-    status: "pending",
-    expires_at: "2099-01-01T00:00:00.000Z",
-    profile_limit: 12,
-    lens_limit: 6,
-    max_installations: 1,
-    claimed_installations: 0,
-    ...overrides
-  };
-}
-
 describe("alphaInviteRequestSchema token shapes", () => {
   it("accepts a three-word invite code in the redeem schema", () => {
     const parsed = inviteService.alphaInviteRequestSchema.safeParse({ inviteToken: "ember-quarto-lark" });
@@ -440,52 +415,87 @@ describe("alphaInviteRequestSchema token shapes", () => {
   });
 });
 
-describe("alpha invite failure breaker", () => {
+describe("alpha invite source quota", () => {
   beforeEach(() => {
     delete process.env.ALPHA_ACCESS_ENABLED;
     mocks.createDb.mockClear();
     mocks.createDb.mockReturnValue({ execute: mocks.execute });
     mocks.execute.mockReset();
-    mocks.countRecentAlphaInviteAttempts.mockReset();
-    mocks.recordAlphaInviteAttempt.mockReset();
+    mocks.consumeAlphaInviteAttempt.mockReset();
+    mocks.consumeAlphaInviteAttempt.mockResolvedValue(true);
+    mocks.inspectAlphaInvite.mockReset();
+    mocks.inspectAlphaInvite.mockResolvedValue({ state: "ready", profileLimit: 12, lensLimit: 6 });
   });
 
-  it("opens the breaker after 10 invalid attempts in the window", async () => {
-    let attempts = 0;
-    mocks.recordAlphaInviteAttempt.mockImplementation(async () => { attempts += 1; });
-    mocks.countRecentAlphaInviteAttempts.mockImplementation(async () => attempts);
-    const db = mocks.createDb();
-    for (let i = 0; i < 10; i += 1) {
-      await inviteService.recordInvalidInviteAttempt(db);
-    }
-    expect(await inviteService.alphaInviteBreakerOpen(db)).toBe(true);
-  });
-
-  it("keeps the breaker closed for a quiet window", async () => {
-    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
-    expect(await inviteService.alphaInviteBreakerOpen(mocks.createDb())).toBe(false);
-  });
-
-  it("records invalid attempts on inspect and answers 429 once the window fills", async () => {
-    let attempts = 0;
-    mocks.recordAlphaInviteAttempt.mockImplementation(async () => { attempts += 1; });
-    mocks.countRecentAlphaInviteAttempts.mockImplementation(async () => attempts);
-    mocks.execute.mockResolvedValue({ rows: [] });
-
-    for (let i = 0; i < 10; i += 1) {
-      const response = await inspectRoute.POST(jsonRequest(
-        "http://localhost/api/alpha/invite/inspect",
-        { inviteToken }
-      ));
-      expect(response.status).toBe(404);
-    }
-    expect(attempts).toBe(10);
-
+  it("blocks a saturated source before inspecting an invite", async () => {
+    mocks.consumeAlphaInviteAttempt.mockResolvedValue(false);
     const blocked = await inspectRoute.POST(jsonRequest(
       "http://localhost/api/alpha/invite/inspect",
-      { inviteToken }
+      { inviteToken },
+      { "x-forwarded-for": "203.0.113.8" }
     ));
     expect(blocked.status).toBe(429);
     await expect(blocked.json()).resolves.toMatchObject({ error: "too_many_attempts" });
+    expect(mocks.inspectAlphaInvite).not.toHaveBeenCalled();
+  });
+
+  it("uses the same source-scoped quota for inspect and redeem", async () => {
+    mocks.redeemAlphaInvite.mockResolvedValue(null);
+
+    await inspectRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/inspect",
+      { inviteToken },
+      { "x-forwarded-for": "203.0.113.8" }
+    ));
+    await redeemRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/redeem",
+      redeemBody(),
+      { "x-forwarded-for": "203.0.113.8" }
+    ));
+
+    expect(mocks.consumeAlphaInviteAttempt).toHaveBeenCalledTimes(2);
+    const firstInput = mocks.consumeAlphaInviteAttempt.mock.calls[0]?.[1];
+    const secondInput = mocks.consumeAlphaInviteAttempt.mock.calls[1]?.[1];
+    expect(firstInput).toMatchObject({
+      sourceHash: secondInput.sourceHash,
+      limit: secondInput.limit,
+      windowSeconds: secondInput.windowSeconds
+    });
+  });
+
+  it("does not let one saturated source block another valid invite holder", async () => {
+    const blockedSource = createHash("sha256")
+      .update("cold-start-client-v1:203.0.113.8")
+      .digest("hex");
+    mocks.consumeAlphaInviteAttempt.mockImplementation(async (_db, input) =>
+      input.sourceHash !== blockedSource
+    );
+    const blocked = await inspectRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/inspect",
+      { inviteToken },
+      { "x-forwarded-for": "203.0.113.8" }
+    ));
+    const allowed = await inspectRoute.POST(jsonRequest(
+      "http://localhost/api/alpha/invite/inspect",
+      { inviteToken },
+      { "x-forwarded-for": "198.51.100.9" }
+    ));
+
+    expect(blocked.status).toBe(429);
+    expect(allowed.status).toBe(200);
   });
 });
+
+function redeemBody() {
+  return {
+    inviteToken,
+    browser: "chrome",
+    channel: "unlisted",
+    extensionVersion: "0.1.0",
+    clientContract: COLD_START_API_CONTRACT_VERSION,
+    consent: true,
+    storeVisited: false,
+    reducedMotion: false,
+    theme: "light"
+  };
+}

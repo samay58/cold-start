@@ -778,6 +778,21 @@ describe("parseExtractionToolUse", () => {
     expect(payload.competitionFraming).toEqual(unknownFact);
   });
 
+  it("drops a private-network company logo without rejecting the card", () => {
+    const payload = parseExtractionToolUse({
+      content: [{
+        type: "tool_use",
+        name: "emit_company_claims",
+        input: {
+          ...validExtractionPayload,
+          identity: { ...validExtractionPayload.identity, logoUrl: "https://127.0.0.1/logo.png" }
+        }
+      }]
+    });
+
+    expect(payload.identity.logoUrl).toBeNull();
+  });
+
   it("rejects missing extraction tool use", () => {
     expect(() =>
       parseExtractionToolUse({
@@ -810,6 +825,48 @@ describe("parseExtractionToolUse", () => {
 });
 
 describe("parseBlockEnrichmentToolUse", () => {
+  it("drops unsafe person channel URLs during LLM parsing", () => {
+    const payload = parseBlockEnrichmentToolUse({
+      content: [{
+        type: "tool_use",
+        name: "emit_block_claims",
+        input: {
+          blockId: "team",
+          team: {
+            founders: {
+              value: [{
+                name: "Raymond Luo",
+                role: "Founder and CEO",
+                sourceUrl: "javascript:alert(1)",
+                email: null,
+                githubUrl: "https://github.com/raymond",
+                xUrl: "data:text/html,unsafe",
+                personalUrl: "https://user:pass@example.com/private"
+              }],
+              status: "verified",
+              confidence: "medium",
+              citationIds: ["c1"]
+            }
+          },
+          citations: [{
+            id: "c1",
+            url: "https://zo.computer/team",
+            title: "Zo Computer team",
+            fetchedAt: "2026-05-14T16:00:00.000Z",
+            sourceType: "company_site"
+          }]
+        }
+      }]
+    });
+
+    expect(payload.team?.founders?.value?.[0]).toMatchObject({
+      sourceUrl: null,
+      githubUrl: "https://github.com/raymond",
+      xUrl: null,
+      personalUrl: null
+    });
+  });
+
   it("extracts a cited management block without requiring unrelated sections", () => {
     const payload = parseBlockEnrichmentToolUse({
       content: [

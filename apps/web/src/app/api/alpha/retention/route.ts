@@ -42,16 +42,16 @@ export async function GET(request: Request) {
   }
 
   let accessRequestsDeleted = 0;
-  while (deleted + accessRequestsDeleted < MAX_DELETIONS) {
+  while (accessRequestsDeleted < MAX_DELETIONS) {
     const removed = await pruneHandledAccessRequests(db, {
       before,
-      limit: Math.min(BATCH_SIZE, MAX_DELETIONS - deleted - accessRequestsDeleted)
+      limit: Math.min(BATCH_SIZE, MAX_DELETIONS - accessRequestsDeleted)
     });
     accessRequestsDeleted += removed;
     if (removed < BATCH_SIZE) break;
   }
 
-  const capped = deleted + accessRequestsDeleted === MAX_DELETIONS;
+  const capped = deleted === MAX_DELETIONS || accessRequestsDeleted === MAX_DELETIONS;
   console.info("[alpha-retention]", {
     signal: "events_pruned",
     deleted,

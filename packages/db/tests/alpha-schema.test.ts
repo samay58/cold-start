@@ -16,6 +16,10 @@ const migrationPath = fileURLToPath(
   new URL("../drizzle/0009_reflective_meteorite.sql", import.meta.url)
 );
 const migration = readFileSync(migrationPath, "utf8");
+const securityMigration = readFileSync(
+  fileURLToPath(new URL("../drizzle/0016_pink_husk.sql", import.meta.url)),
+  "utf8"
+);
 
 describe("alpha database schema", () => {
   it("exports the focused alpha tables", () => {
@@ -63,5 +67,19 @@ describe("alpha database schema", () => {
   it("joins only the same active job inside atomic reservation", () => {
     expect(migration).toContain("v_run_job_kind <> p_job_kind");
     expect(migration).toContain("'generation_busy'");
+  });
+
+  it("keeps the security migration compatible with the pre-deploy invite writer", () => {
+    expect(securityMigration).toContain('ADD COLUMN "source_hash" text;');
+    expect(securityMigration).not.toContain('ADD COLUMN "source_hash" text NOT NULL');
+    expect(securityMigration).not.toContain('TRUNCATE TABLE "alpha_invite_attempts"');
+  });
+
+  it("defines source-scoped invite and deterministic access-request locks", () => {
+    expect(securityMigration).toContain('CREATE FUNCTION "consume_alpha_invite_attempt"');
+    expect(securityMigration).toContain("pg_advisory_xact_lock(hashtextextended(p_source_hash, 811))");
+    expect(securityMigration).toContain('CREATE FUNCTION "create_access_request"');
+    expect(securityMigration).toContain("pg_advisory_xact_lock(least(v_ip_lock, v_email_lock))");
+    expect(securityMigration).toContain("pg_advisory_xact_lock(greatest(v_ip_lock, v_email_lock))");
   });
 });

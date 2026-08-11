@@ -1,6 +1,7 @@
 import {
   isTrustedSourceGateHost,
   normalizeAuthorityHost,
+  safePublicImageUrl,
   sourceTargetAliasesForDomain,
   sourceTargetContextTermsForDomain,
   type GenerationSourceRejection,
@@ -34,7 +35,8 @@ export function filterSourcesForDomain(input: {
     if (reason) {
       rejected.push({ source, reason });
     } else {
-      accepted.push(source);
+      const imageUrl = safePublicImageUrl(source.imageUrl);
+      accepted.push(imageUrl === source.imageUrl ? source : { ...source, imageUrl });
     }
   }
 

@@ -1,3 +1,4 @@
+import { safeWebUrl } from "@cold-start/core";
 import { useEffect, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent, MouseEvent, PointerEvent } from "react";
 
@@ -421,6 +422,10 @@ function DossierBody({ dossier, pinned }: { dossier: TooltipDossier; pinned: boo
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const role = dossier.role?.trim() || "Role not verified";
   const email = dossier.email;
+  const channels = dossier.channels.flatMap((channel) => {
+    const url = safeWebUrl(channel.url);
+    return url ? [{ ...channel, url }] : [];
+  });
 
   useEffect(() => {
     return () => {
@@ -471,9 +476,9 @@ function DossierBody({ dossier, pinned }: { dossier: TooltipDossier; pinned: boo
           {email.status === "inferred" && email.basis ? <small className="cs-dossier-email-basis">{email.basis}</small> : null}
         </div>
       ) : null}
-      {dossier.channels.length > 0 ? (
+      {channels.length > 0 ? (
         <p className="cs-dossier-channels">
-          {dossier.channels.map((channel) => (
+          {channels.map((channel) => (
             <a
               className="cs-dossier-channel"
               href={channel.url}

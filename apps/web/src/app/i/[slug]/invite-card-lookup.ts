@@ -1,13 +1,17 @@
-import { findAlphaInviteCardBySlug, type ColdStartDb } from "@cold-start/db";
+import { createHash } from "node:crypto";
 
-type AlphaInviteCard = Awaited<ReturnType<typeof findAlphaInviteCardBySlug>>;
+import { findActiveAlphaInviteCardByPresentationTokenHash, type ColdStartDb } from "@cold-start/db";
 
-// Slugs select personalized preview art, but they are not invitation credentials. Keep page
-// traffic out of the low-entropy token breaker's global tally so crawlers cannot disable
-// inspect and redeem for legitimate testers.
-export async function lookupAlphaInviteCardForSlug(
+type AlphaInviteCard = Awaited<ReturnType<typeof findActiveAlphaInviteCardByPresentationTokenHash>>;
+
+const PRESENTATION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+export async function lookupAlphaInviteCardForPresentation(
   db: ColdStartDb,
-  slug: string
+  presentationToken: string,
+  now = new Date()
 ): Promise<AlphaInviteCard> {
-  return findAlphaInviteCardBySlug(db, slug);
+  if (!PRESENTATION_TOKEN_PATTERN.test(presentationToken)) return null;
+  const tokenHash = createHash("sha256").update(presentationToken).digest("hex");
+  return findActiveAlphaInviteCardByPresentationTokenHash(db, tokenHash, now);
 }

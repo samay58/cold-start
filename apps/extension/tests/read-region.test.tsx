@@ -100,6 +100,18 @@ describe("ReadRegion", () => {
     await unmount();
   });
 
+  it("renders an unsafe legacy source without a link", async () => {
+    const { container, unmount } = await renderRegion(
+      firstPayoff({ evidenceSoFar: [evidence({ url: "data:text/html,unsafe" })] }),
+      "building"
+    );
+
+    const sources = container.querySelector("[aria-label='Sources']");
+    expect(sources?.textContent).toContain("exa.ai");
+    expect(sources?.querySelector("a")).toBeNull();
+    await unmount();
+  });
+
   it("upgrades to the cited claim when the read is substantive", async () => {
     const { container, unmount } = await renderRegion(substantive(), "building");
     const region = container.querySelector("[aria-label='Early read']");

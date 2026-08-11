@@ -220,6 +220,26 @@ describe("dossier hovercard bridge", () => {
     expect(x?.textContent).toBe("X");
   });
 
+  it("drops unsafe legacy channel URLs at the rendering sink", async () => {
+    vi.useFakeTimers();
+    const unsafeDossier: TooltipDossier = {
+      ...dossier,
+      channels: [
+        { label: "GitHub", url: "javascript:alert(1)" },
+        { label: "X", url: "https://x.com/ada" },
+        { label: "Site", url: "https://user:pass@example.com/private" }
+      ]
+    };
+    const { container, handleRef, trigger } = await mount(unsafeDossier);
+    await act(async () => {
+      handleRef.current!.props.onFocus(focusEvent(trigger));
+    });
+
+    const links = container.querySelectorAll<HTMLAnchorElement>(".cs-dossier-channel");
+    expect(links).toHaveLength(1);
+    expect(links[0]?.href).toBe("https://x.com/ada");
+  });
+
   it("dismisses the dossier through the visible close control", async () => {
     vi.useFakeTimers();
     const { container, handleRef, trigger } = await mount(dossier);

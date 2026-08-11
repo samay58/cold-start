@@ -1,15 +1,13 @@
-import { createHash } from "node:crypto";
-
 import { createAccessRequest, createDb } from "@cold-start/db";
 import { z } from "zod";
 
 import { apiJsonWithTiming } from "../../../lib/api-response";
+import { readBoundedJson } from "../../../lib/bounded-json";
+import { trustedClientHash } from "../../../lib/client-identity";
 import { webEnv } from "../../../lib/web-env";
 
-// Same two-step guard as invite-service.ts's readBoundedJson: a content-length pre-check,
-// then a decoded-byte-length re-check (defends against a missing or lying header) before
-// JSON.parse ever runs. This is the only unauthenticated route of the three, so it gets the
-// same cap as the smallest sibling body shape (a single JSON object, not an event batch).
+// The shared reader checks both declared and decoded length before parsing. This route gets
+// the same cap as the other small unauthenticated JSON objects, not the larger event batch.
 const MAX_REQUEST_BYTES = 2_048;
 
 // Landing-page "ask for access" form. Public and unauthenticated by design (there is no
@@ -42,12 +40,6 @@ function honeypotFilled(body: unknown): boolean {
   return typeof company === "string" && company.trim().length > 0;
 }
 
-function hashFirstForwardedFor(headers: Headers): string {
-  const forwardedFor = headers.get("x-forwarded-for");
-  const firstHop = forwardedFor?.split(",")[0]?.trim() || "unknown";
-  return createHash("sha256").update(firstHop).digest("hex");
-}
-
 export async function POST(request: Request) {
   // No Server-Timing metrics on this route (unlike other API routes): the honeypot path below
   // returns before any DB call, so a real duration would leak a timing signal a bot could use to
@@ -55,22 +47,11 @@ export async function POST(request: Request) {
   // every response, not just the honeypot one, keeps the two paths indistinguishable.
   const respond = (body: unknown, init?: ResponseInit) => apiJsonWithTiming(body, [], init);
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+  const body = await readBoundedJson(request, MAX_REQUEST_BYTES);
+  if (!body.ok) {
     return respond({ ok: false, error: "invalid" }, { status: 400 });
   }
-
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
-    return respond({ ok: false, error: "invalid" }, { status: 400 });
-  }
-
-  let unknownBody: unknown;
-  try {
-    unknownBody = JSON.parse(rawBody);
-  } catch {
-    return respond({ ok: false, error: "invalid" }, { status: 400 });
-  }
+  const unknownBody = body.value;
 
   // Bots and scrapers fill every field they can find, including the hidden honeypot. A real
   // browser never populates it. Answer with the same success body a real submission gets, and
@@ -84,7 +65,10 @@ export async function POST(request: Request) {
     return respond({ ok: false, error: "invalid" }, { status: 400 });
   }
 
-  const ipHash = hashFirstForwardedFor(request.headers);
+  const ipHash = trustedClientHash(request.headers);
+  if (!ipHash) {
+    return respond({ ok: false, error: "unavailable" }, { status: 503 });
+  }
   const db = createDb(webEnv().DATABASE_URL);
   const outcome = await createAccessRequest(db, {
     name: parsed.data.name,

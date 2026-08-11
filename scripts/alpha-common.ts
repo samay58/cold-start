@@ -117,12 +117,11 @@ export function createInviteSecret(): string {
   return randomBytes(32).toString("base64url");
 }
 
-// The current invitation link: public per-person slug in the path (so the server
-// can render that person's card for the preview), speakable secret in the fragment
-// (which never reaches a server).
-export function inviteUrl(slug: string, code: string, origin = process.env.ALPHA_INVITE_ORIGIN): string {
+// The presentation capability selects private preview art. The independent redemption
+// code remains in the fragment and never reaches the server during preview fetches.
+export function inviteUrl(presentationToken: string, code: string, origin = process.env.ALPHA_INVITE_ORIGIN): string {
   const normalizedOrigin = (origin?.trim() || DEFAULT_INVITE_ORIGIN).replace(/\/+$/, "");
-  const url = new URL(`/i/${slug}`, normalizedOrigin);
+  const url = new URL(`/i/${presentationToken}`, normalizedOrigin);
   url.hash = code;
   return url.toString();
 }

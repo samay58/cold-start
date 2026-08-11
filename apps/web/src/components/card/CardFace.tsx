@@ -1,7 +1,6 @@
 import React from "react";
 import type { ReactNode } from "react";
-import type { ResearchSection } from "@cold-start/core";
-import { safeExternalHref } from "@cold-start/ui";
+import { safeWebUrl, type ResearchSection } from "@cold-start/core";
 import { buildCitationIndex, callNumber, filedDateStamp, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
 import { ChoreographyProvider } from "./choreography";
 import { PocketCard } from "./PocketCard";
@@ -41,7 +40,7 @@ function MetaStrip({ card, sourcesRead }: { card: PublicCardData; sourcesRead: n
 function CardHeader({ card }: { card: PublicCardData }) {
   const title = card.identity.name.value ?? card.domain;
   const oneLiner = card.identity.oneLiner.value;
-  const websiteHref = safeExternalHref(card.identity.websiteUrl?.value ?? `https://${card.domain}`);
+  const websiteHref = safeWebUrl(card.identity.websiteUrl?.value ?? `https://${card.domain}`);
   const hqCity = card.identity.hq.value?.city ?? null;
   const thin = isThinFile(card);
 

@@ -75,6 +75,17 @@ export function createDb(databaseUrl = process.env.DATABASE_URL) {
 
 export type ColdStartDb = ReturnType<typeof createDb>;
 
+export function rowsFromExecuteResult<T>(result: unknown): T[] {
+  if (Array.isArray(result)) {
+    return result as T[];
+  }
+  if (result && typeof result === "object" && "rows" in result) {
+    const rows = (result as { rows?: unknown }).rows;
+    return Array.isArray(rows) ? rows as T[] : [];
+  }
+  return [];
+}
+
 function isLocalPostgresUrl(databaseUrl: string) {
   try {
     const url = new URL(databaseUrl);

@@ -1,7 +1,7 @@
 # Friend Alpha Production Readiness
 
 Captured July 24, 2026.
-Last updated July 29, 2026.
+Last updated August 11, 2026.
 
 This is the strict ship gate for five invited friends. The product remains
 free, invitation-gated, server-metered, and distributed through an Unlisted
@@ -16,6 +16,43 @@ recovery proof, kill-switch proof, and wallet funding are complete. Spend-contro
 and alert proof, paid canary, store review, owner rehearsal, and soak remain
 open. Do not distribute the operator token. Do not use unpacked installation as
 the friend path.
+
+## Security Remediation Handoff
+
+The August 11 standard scan remediation is implemented locally but not applied
+to production. Migration `0016_pink_husk.sql` adds presentation-capability
+hashes, source-scoped invite quota consumption, and atomic access-request
+creation. Its new `source_hash` column stays nullable for migration-first deploy
+compatibility with the currently deployed writer; the new function accepts only
+validated non-null hashes. Legacy rows age out through the existing prune path.
+The read-only Vercel environment listing confirms encrypted
+`INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` entries and no `INNGEST_DEV`
+override. Secret values were not read.
+
+Production sequence:
+
+1. Read the Vercel production environment and confirm `NODE_ENV=production`,
+   `INNGEST_DEV` is absent, and the Inngest signing and event key names are
+   present. Do not print values.
+2. Run `npm run db:migrate:production`. Expected change: migrations 0015 and
+   0016 apply in order if 0015 is not already present; two security functions
+   and the presentation hash column become available.
+3. Deploy the matching application revision. Verify a request without
+   `x-vercel-forwarded-for` fails closed, a valid invite inspect succeeds, and
+   public `/api/cards/{slug}` still omits synthesis.
+4. Run `npm run alpha:reissue-link` without `--apply`. Review the exact active
+   legacy invitation list.
+5. For each approved tester, run
+   `npm run alpha:reissue-link -- --invite <uuid> --confirm <uuid> --apply`,
+   send the printed replacement link once, and verify its personalized preview,
+   generic legacy fallback, inspect, and redemption behavior.
+
+Migration `0016` is expand-compatible, so an emergency application rollback can
+leave it in place. Rolling back the application re-enables the old global
+breaker and name-slug preview, so it is an emergency availability action, not a
+security rollback. Existing installation credentials survive link reissue. An
+unredeemed tester's old fragment code stops working only after that tester's
+explicit reissue step.
 
 ## Production Evidence
 

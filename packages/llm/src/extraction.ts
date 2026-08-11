@@ -11,6 +11,8 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
+  safePublicImageUrl,
+  safeWebUrl,
   signalCategorySchema,
   signalSchema as coreSignalSchema,
 } from "@cold-start/core";
@@ -556,7 +558,7 @@ function normalizeIdentity(input: unknown) {
     name: normalizeFact(record.name),
     ...("websiteUrl" in record ? { websiteUrl: normalizeFact(record.websiteUrl) } : {}),
     ...("linkedinUrl" in record ? { linkedinUrl: normalizeFact(record.linkedinUrl) } : {}),
-    logoUrl: typeof record.logoUrl === "string" ? record.logoUrl : null,
+    logoUrl: safePublicImageUrl(record.logoUrl),
     oneLiner: oneLiner.value === null && descriptionValue
       ? { ...description, value: descriptionValue.shortDescription }
       : oneLiner,
@@ -751,7 +753,7 @@ function normalizePersonArray(value: unknown) {
       return {
         name: record.name.trim(),
         role: typeof record.role === "string" && record.role.trim().length > 0 ? record.role.trim() : null,
-        sourceUrl: typeof record.sourceUrl === "string" && record.sourceUrl.trim().length > 0 ? record.sourceUrl.trim() : null,
+        sourceUrl: urlValue(record.sourceUrl),
         email: emailValue(record.email),
         githubUrl: urlValue(record.githubUrl),
         xUrl: urlValue(record.xUrl),
@@ -793,20 +795,7 @@ function emailValue(value: unknown) {
 }
 
 function urlValue(value: unknown) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  try {
-    return new URL(trimmed).toString();
-  } catch {
-    return null;
-  }
+  return safeWebUrl(value);
 }
 
 function filterArray<T>(value: unknown, schema: z.ZodType<T>) {

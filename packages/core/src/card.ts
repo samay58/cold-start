@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { companyDescriptionSchema } from "./intelligence";
+import { safePublicImageUrl, safeWebUrl } from "./external-url";
+
+const webUrlSchema = z.string().max(2_048).refine((value) => safeWebUrl(value) !== null, {
+  message: "Expected a safe HTTP(S) URL"
+});
+const publicImageUrlSchema = z.preprocess(
+  (value) => safePublicImageUrl(value),
+  z.string().url().nullable()
+);
 
 export const citationSchema = z.object({
   id: z.string().min(1),
@@ -50,7 +59,7 @@ export const investorSchema = z.object({
 export const personSchema = z.object({
   name: z.string().min(1),
   role: z.string().min(1).nullable(),
-  sourceUrl: z.string().url().nullable(),
+  sourceUrl: webUrlSchema.nullable(),
   email: z.string().email().nullable().optional(),
   // Provenance for `email`: "observed" = the exact address appeared in a public
   // source (e.g. a GitHub commit); "inferred" = constructed from the domain email
@@ -60,9 +69,9 @@ export const personSchema = z.object({
   // and number of observed anchors. Meaningless without email, so publicCard strips it too.
   emailBasis: z.string().min(1).nullable().optional(),
   // Public professional presence. Public-safe (unlike email), so it survives publicCard().
-  githubUrl: z.string().url().nullable().optional(),
-  xUrl: z.string().url().nullable().optional(),
-  personalUrl: z.string().url().nullable().optional(),
+  githubUrl: webUrlSchema.nullable().optional(),
+  xUrl: webUrlSchema.nullable().optional(),
+  personalUrl: webUrlSchema.nullable().optional(),
   // Extension-tier person insight (investor-taste-kernel voice), not a public sourced
   // fact. Nested so the field is literally named `citationIds`: validateCitationRefs
   // below only validates arrays with that exact property name. Stripped from the
@@ -211,7 +220,7 @@ export const coldStartCardObjectSchema = z.object({
     name: resolvedFactSchema(z.string().min(1)),
     websiteUrl: resolvedFactSchema(z.string().url()).optional(),
     linkedinUrl: resolvedFactSchema(z.string().url()).optional(),
-    logoUrl: z.string().url().nullable(),
+    logoUrl: publicImageUrlSchema,
     oneLiner: resolvedFactSchema(z.string().min(1)),
     description: resolvedFactSchema(companyDescriptionSchema).optional(),
     hq: resolvedFactSchema(z.object({ city: z.string().min(1), country: z.string().min(1) })),

@@ -1,5 +1,7 @@
 # Friend-Alpha Invite Elegance
 
+Status note: `SECURITY.md` and migration 0016 supersede this document's preview-authorization and abuse-control design.
+
 Date: 2026-07-30. Status: approved; direction, model, and card copy settled by live tests the same day. Scope: the invite artifact only. The install-and-connect ceremony stays as shipped.
 
 ## The problem

@@ -6,24 +6,25 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { ColdStartDb } from "../src/client";
-import { pruneHandledAccessRequests } from "../src/repositories/access-requests";
+import { createAccessRequest, pruneHandledAccessRequests } from "../src/repositories/access-requests";
 import {
   AlphaEventRateLimitError,
-  countRecentAlphaInviteAttempts,
+  consumeAlphaInviteAttempt,
   createAlphaInvite,
   deleteAlphaTesterData,
   findActiveAlphaInstallationByTokenHash,
   findAlphaInviteById,
-  findAlphaInviteCardBySlug,
+  findActiveAlphaInviteCardByPresentationTokenHash,
   getAlphaAllowanceSnapshot,
+  inspectAlphaInvite,
   insertAlphaEvents,
   nextAlphaInviteOrdinal,
   pruneAlphaEvents,
   pruneAlphaInviteAttempts,
-  recordAlphaInviteAttempt,
   recordAlphaRunDisposition,
   redeemAlphaInvite,
   reserveAlphaRunRequest,
+  rotateAlphaInviteLinkSecrets,
   revokeAlphaInstallation,
   revokeAlphaInvite,
   settleAlphaRunRequest
@@ -60,6 +61,12 @@ describeDatabase("alpha repositories against Postgres", () => {
       now
     });
 
+    await expect(inspectAlphaInvite(db, hashChar("a"), now)).resolves.toMatchObject({
+      state: "ready",
+      profileLimit: 12,
+      lensLimit: 6
+    });
+
     const auth = await redeemAlphaInvite(db, {
       tokenHash: hashChar("a"),
       accessTokenHash: hashChar("b"),
@@ -70,6 +77,7 @@ describeDatabase("alpha repositories against Postgres", () => {
     });
     expect(auth?.invite.id).toBe(invite.id);
     expect(auth?.invite.scopes).toEqual(["cards:read", "generation:write"]);
+    await expect(inspectAlphaInvite(db, hashChar("a"), now)).resolves.toEqual({ state: "used" });
 
     const replay = await redeemAlphaInvite(db, {
       tokenHash: hashChar("a"),
@@ -662,10 +670,13 @@ describeDatabase("alpha repositories against Postgres", () => {
     expect(remaining.rows.filter((row) => row.handled_at === null)).toHaveLength(1);
   });
 
-  it("stores and finds the card by slug", async () => {
+  it("finds personalized preview data only through an active presentation capability", async () => {
+    const now = new Date("2026-08-11T12:00:00.000Z");
+    const presentationTokenHash = hashSeed(`presentation-${randomUUID()}`);
     const invite = await createAlphaInvite(db, {
       label: "Dad",
       tokenHash: hashSeed("ember-quarto-lark"),
+      presentationTokenHash,
       scopes: ["cards:read"],
       expiresAt: new Date("2026-08-31T12:00:00.000Z"),
       slug: "dad",
@@ -674,9 +685,58 @@ describeDatabase("alpha repositories against Postgres", () => {
       cardPngBase64: "aGVsbG8="
     });
     expect(invite.slug).toBe("dad");
-    const card = await findAlphaInviteCardBySlug(db, "dad");
+    const card = await findActiveAlphaInviteCardByPresentationTokenHash(db, presentationTokenHash, now);
     expect(card).toEqual({ displayName: "Dad", ordinal: 4, cardPngBase64: "aGVsbG8=" });
-    expect(await findAlphaInviteCardBySlug(db, "nobody")).toBeNull();
+    expect(await findActiveAlphaInviteCardByPresentationTokenHash(
+      db,
+      hashSeed("unknown-presentation"),
+      now
+    )).toBeNull();
+    expect(await findActiveAlphaInviteCardByPresentationTokenHash(
+      db,
+      presentationTokenHash,
+      new Date("2026-09-01T12:00:00.000Z")
+    )).toBeNull();
+  });
+
+  it("rotates invitation link secrets without invalidating an active installation", async () => {
+    const now = new Date("2026-08-11T12:00:00.000Z");
+    const tokenHash = hashSeed(`token-${randomUUID()}`);
+    const accessTokenHash = hashSeed(`access-${randomUUID()}`);
+    const invite = await createAlphaInvite(db, {
+      label: `reissue-${randomUUID()}`,
+      tokenHash,
+      scopes: ["cards:read"],
+      expiresAt: new Date("2026-08-31T12:00:00.000Z"),
+      displayName: "Tester",
+      ordinal: 5,
+      cardPngBase64: "aGVsbG8=",
+      now
+    });
+    const redemption = await redeemAlphaInvite(db, {
+      tokenHash,
+      accessTokenHash,
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.3",
+      now
+    });
+    expect(redemption).not.toBeNull();
+
+    const presentationTokenHash = hashSeed(`presentation-${randomUUID()}`);
+    const rotated = await rotateAlphaInviteLinkSecrets(db, {
+      inviteId: invite.id,
+      tokenHash: hashSeed(`replacement-${randomUUID()}`),
+      presentationTokenHash,
+      now: new Date("2026-08-11T12:01:00.000Z")
+    });
+
+    expect(rotated?.presentationTokenHash).toBe(presentationTokenHash);
+    await expect(findActiveAlphaInstallationByTokenHash(
+      db,
+      accessTokenHash,
+      new Date("2026-08-11T12:02:00.000Z")
+    )).resolves.toMatchObject({ installation: { id: redemption?.installation.id } });
   });
 
   it("hands out the next ordinal", async () => {
@@ -691,13 +751,89 @@ describeDatabase("alpha repositories against Postgres", () => {
     expect(await nextAlphaInviteOrdinal(db)).toBe(before + 1);
   });
 
-  it("counts and prunes invite attempts", async () => {
-    await recordAlphaInviteAttempt(db);
-    await recordAlphaInviteAttempt(db);
-    const hourAgo = new Date(Date.now() - 3_600_000);
-    expect(await countRecentAlphaInviteAttempts(db, hourAgo)).toBeGreaterThanOrEqual(2);
+  it("atomically caps invite attempts by source without blocking another source", async () => {
+    const now = new Date();
+    const sourceHash = hashSeed(`source-${randomUUID()}`);
+    const attempts = await Promise.all(Array.from({ length: 24 }, () =>
+      consumeAlphaInviteAttempt(db, { sourceHash, limit: 10, windowSeconds: 3_600, now })
+    ));
+    expect(attempts.filter(Boolean)).toHaveLength(10);
+
+    const count = await pool.query<{ count: number }>(
+      "select count(*)::int as count from alpha_invite_attempts where source_hash = $1",
+      [sourceHash]
+    );
+    expect(count.rows[0]?.count).toBe(10);
+
+    const otherSourceHash = hashSeed(`source-${randomUUID()}`);
+    await expect(consumeAlphaInviteAttempt(db, {
+      sourceHash: otherSourceHash,
+      limit: 10,
+      windowSeconds: 3_600,
+      now
+    })).resolves.toBe(true);
+
+    const inviteTokenHash = hashSeed(`invite-${randomUUID()}`);
+    const invite = await createAlphaInvite(db, {
+      label: `unrelated-${randomUUID()}`,
+      tokenHash: inviteTokenHash,
+      scopes: ["cards:read"],
+      expiresAt: new Date(now.getTime() + 86_400_000),
+      now
+    });
+    const redemption = await redeemAlphaInvite(db, {
+      tokenHash: inviteTokenHash,
+      accessTokenHash: hashSeed(`access-${randomUUID()}`),
+      browser: "chrome",
+      channel: "unlisted",
+      extensionVersion: "0.2.0",
+      now
+    });
+    expect(redemption?.invite.id).toBe(invite.id);
+
     const removed = await pruneAlphaInviteAttempts(db, new Date(Date.now() + 1000));
-    expect(removed).toBeGreaterThanOrEqual(2);
+    expect(removed).toBeGreaterThanOrEqual(11);
+  }, 30_000);
+
+  it("atomically enforces the access-request IP quota under a burst", async () => {
+    const seed = randomUUID();
+    const outcomes = await Promise.all(Array.from({ length: 16 }, (_, index) =>
+      createAccessRequest(db, {
+        name: `IP Burst ${index}`,
+        email: `${seed}-${index}@example.com`,
+        note: "",
+        ipHash: hashSeed(`shared-ip-${seed}`)
+      })
+    ));
+    expect(outcomes.filter((outcome) => outcome === "created")).toHaveLength(3);
+    expect(outcomes.filter((outcome) => outcome === "rate_limited_ip")).toHaveLength(13);
+
+    const count = await pool.query<{ count: number }>(
+      "select count(*)::int as count from access_requests where email like $1",
+      [`${seed}-%`]
+    );
+    expect(count.rows[0]?.count).toBe(3);
+  }, 30_000);
+
+  it("atomically enforces the access-request email quota under a burst", async () => {
+    const seed = randomUUID();
+    const email = `${seed}@example.com`;
+    const outcomes = await Promise.all(Array.from({ length: 16 }, (_, index) =>
+      createAccessRequest(db, {
+        name: `Email Burst ${index}`,
+        email,
+        note: "",
+        ipHash: hashSeed(`ip-${seed}-${index}`)
+      })
+    ));
+    expect(outcomes.filter((outcome) => outcome === "created")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome === "rate_limited_email")).toHaveLength(15);
+
+    const count = await pool.query<{ count: number }>(
+      "select count(*)::int as count from access_requests where email = $1",
+      [email]
+    );
+    expect(count.rows[0]?.count).toBe(1);
   });
 });
 

@@ -17,7 +17,6 @@ export interface RecordedBuild {
   events: string[]; // ordered stage lines derived from the real trace
   counts: { documentsOpened: number; documentsKept: number; factsKept: number };
   sections: { money: string[]; people: string[]; signals: string[]; sources: string[] };
-  lens?: { whyCare: string; whatMustBeTrue: string }; // present only when the card carries synthesis
 }
 
 export const recordedBuild: RecordedBuild = {
@@ -86,9 +85,5 @@ export const recordedBuild: RecordedBuild = {
       "vctavern.com",
       "landing.mintlify.com"
     ]
-  },
-  "lens": {
-    "whyCare": "Mintlify is turning product documentation into infrastructure for both developers and software agents. If agents increasingly rely on documentation to choose and use tools, Mintlify can sit between software companies and the people or agents trying to understand their products.",
-    "whatMustBeTrue": "The reported 20,000-plus companies and 100 million annual users need to translate into durable paid usage, not mostly free traffic. The case gets stronger if customers standardize on Mintlify for agent-facing documentation as well as their public docs."
   }
 };

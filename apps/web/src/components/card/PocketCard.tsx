@@ -2,8 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import type { ResearchSection } from "@cold-start/core";
-import { formatMediumDate, safeExternalHref } from "@cold-start/ui";
+import { safeWebUrl, type ResearchSection } from "@cold-start/core";
+import { formatMediumDate } from "@cold-start/ui";
 import {
   buildCitationIndex,
   callNumber,
@@ -84,7 +84,7 @@ function PocketPanel({ children }: { children: ReactNode }) {
 function PocketHeader({ card }: { card: PublicCardData }) {
   const title = card.identity.name.value ?? card.domain;
   const description = card.identity.oneLiner.value;
-  const websiteHref = safeExternalHref(card.identity.websiteUrl?.value ?? `https://${card.domain}`);
+  const websiteHref = safeWebUrl(card.identity.websiteUrl?.value ?? `https://${card.domain}`);
   const hqCity = card.identity.hq.value?.city ?? null;
   const thin = isThinFile(card);
 

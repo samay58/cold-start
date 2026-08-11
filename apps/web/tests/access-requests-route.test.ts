@@ -44,6 +44,7 @@ function request(body: unknown, headers: Record<string, string> = {}) {
 
 describe("POST /api/access-requests", () => {
   beforeEach(() => {
+    process.env.NODE_ENV = "test";
     mocks.createDb.mockClear();
     mocks.createAccessRequest.mockReset();
   });
@@ -163,12 +164,12 @@ describe("POST /api/access-requests", () => {
         name: "Ada Lovelace",
         email: "ada@example.com",
         note: "Would love to try this out.",
-        ipHash: sha256("203.0.113.5")
+        ipHash: sha256("cold-start-client-v1:203.0.113.5")
       }
     );
   });
 
-  it("hashes the literal 'unknown' when x-forwarded-for is missing", async () => {
+  it("uses a stable loopback identity when local forwarding headers are missing", async () => {
     mocks.createAccessRequest.mockResolvedValue("created");
 
     const response = await POST(request(validBody()));
@@ -176,8 +177,21 @@ describe("POST /api/access-requests", () => {
     expect(response.status).toBe(200);
     expect(mocks.createAccessRequest).toHaveBeenCalledWith(
       { kind: "db" },
-      expect.objectContaining({ ipHash: sha256("unknown") })
+      expect.objectContaining({ ipHash: sha256("cold-start-client-v1:127.0.0.1") })
     );
+  });
+
+  it("fails closed when the trusted Vercel identity header is missing in production", async () => {
+    process.env.NODE_ENV = "production";
+
+    const response = await POST(request(
+      validBody(),
+      { "x-forwarded-for": "198.51.100.2" }
+    ));
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({ ok: false, error: "unavailable" });
+    expect(mocks.createDb).not.toHaveBeenCalled();
   });
 
   it("trims whitespace from name, email, and note before storing", async () => {

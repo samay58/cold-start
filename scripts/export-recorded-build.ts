@@ -19,7 +19,6 @@
 // - clippings: the four most recent signals (hostname, date, title), excluding hiring
 //   signals (see featurableSignals below).
 // - sections.money/people/signals/sources: constructed from the real card, never invented.
-// - lens: only emitted when the card carries synthesis.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,7 +30,6 @@ import {
   formatCompactUsd,
   formatMonthYear,
   generationTraceSchema,
-  stripCitationMarkers,
   type ColdStartCard,
   type GenerationTrace
 } from "@cold-start/core";
@@ -66,7 +64,6 @@ export interface RecordedBuild {
   events: string[]; // ordered stage lines derived from the real trace
   counts: { documentsOpened: number; documentsKept: number; factsKept: number };
   sections: { money: string[]; people: string[]; signals: string[]; sources: string[] };
-  lens?: { whyCare: string; whatMustBeTrue: string }; // present only when the card carries synthesis
 }
 
 const RECORDED_BUILD_INTERFACE_MARKER = "export interface RecordedBuild {";
@@ -221,13 +218,6 @@ function buildRecordedBuild(card: ColdStartCard, counts: RequiredTraceCounts): R
     },
     sections: { money, people, signals: signalTitles, sources }
   };
-
-  if (card.synthesis && card.synthesis.bullCase.length > 0) {
-    recordedBuild.lens = {
-      whyCare: stripCitationMarkers(card.synthesis.whyItMatters.text),
-      whatMustBeTrue: stripCitationMarkers(card.synthesis.bullCase[0]!.text)
-    };
-  }
 
   return recordedBuild;
 }

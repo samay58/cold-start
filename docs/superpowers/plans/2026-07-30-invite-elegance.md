@@ -1,5 +1,7 @@
 # Invite Elegance Implementation Plan
 
+Status note: `SECURITY.md` and migration 0016 supersede this plan's preview-authorization and abuse-control steps.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the 90-character invite link with a short word-code link whose iMessage preview is a per-friend generated letterpress invitation card.

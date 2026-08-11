@@ -3,7 +3,7 @@ import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { SourcedText } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
-import { withSchemaRetry } from "./llm-provider";
+import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 
 export type VerificationStatus = "supported" | "contradicted" | "unsupported";
 
@@ -113,15 +113,15 @@ export async function verifySynthesis(input: {
   evidenceFacts?: VerificationFact[];
   telemetry?: AnthropicTelemetrySink;
 }): Promise<VerificationResult[]> {
-  return withSchemaRetry(input.model, async () => {
+  return withProviderFallback("verify", input.model, (model) => withSchemaRetry(model, async () => {
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
       label: "verify-synthesis",
-      model: input.model,
+      model,
       stage: "verify",
       telemetry: input.telemetry,
       params: {
-        model: input.model,
+        model,
         // Plain-JSON response must never truncate mid-claim; raised from 2000 after observed truncations under verbose routing, a cap, not a spend.
         max_tokens: 8192,
         temperature: 0,
@@ -158,5 +158,5 @@ export async function verifySynthesis(input: {
     }
 
     return parseVerifierResults(text.text);
-  });
+  }));
 }

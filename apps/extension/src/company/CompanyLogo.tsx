@@ -1,3 +1,4 @@
+import { safePublicImageUrl } from "@cold-start/core";
 import { useEffect, useMemo, useState } from "react";
 
 function cleanDomain(input: string) {
@@ -14,19 +15,6 @@ function cleanDomain(input: string) {
   }
 }
 
-function safeLogoUrl(input: string | null | undefined) {
-  if (!input) {
-    return null;
-  }
-
-  try {
-    const url = new URL(input);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 const LOGO_CACHE_PREFIX = "coldStartLogo:";
 
 function logoCacheKey(domain: string) {
@@ -35,15 +23,12 @@ function logoCacheKey(domain: string) {
 
 function logoCandidates(domain: string, logoUrl?: string | null, cachedLogoUrl?: string | null) {
   const host = cleanDomain(domain);
-  const savedLogo = safeLogoUrl(logoUrl);
-  const cachedLogo = safeLogoUrl(cachedLogoUrl);
-  const candidates = [savedLogo, cachedLogo].filter((candidate): candidate is string => Boolean(candidate));
-
-  if (host) {
-    candidates.push(`https://icons.duckduckgo.com/ip3/${host}.ico`);
-    candidates.push(`https://${host}/favicon.ico`);
-  }
-
+  const candidates = [
+    logoUrl,
+    cachedLogoUrl,
+    host ? `https://icons.duckduckgo.com/ip3/${host}.ico` : null,
+    host ? `https://${host}/favicon.ico` : null
+  ].flatMap((candidate) => safePublicImageUrl(candidate) ?? []);
   return Array.from(new Set(candidates));
 }
 
@@ -99,6 +84,7 @@ export function CompanyLogo({
               chrome.storage.session.set({ [logoCacheKey(domain)]: src });
             }
           }}
+          referrerPolicy="no-referrer"
           src={src}
         />
       ) : null}

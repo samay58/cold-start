@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  ALPHA_INVITE_BREAKER_THRESHOLD,
-  ALPHA_INVITE_BREAKER_WINDOW_MS,
+  ALPHA_INVITE_ATTEMPT_LIMIT,
+  ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS,
   INVITE_TOKEN_PATTERN,
   INVITE_WORDLIST,
   generateInviteCode
@@ -51,9 +51,9 @@ describe("INVITE_TOKEN_PATTERN", () => {
   });
 });
 
-describe("invite breaker contract", () => {
-  it("keeps one window and threshold for runtime and operator reporting", () => {
-    expect(ALPHA_INVITE_BREAKER_WINDOW_MS).toBe(60 * 60 * 1_000);
-    expect(ALPHA_INVITE_BREAKER_THRESHOLD).toBe(10);
+describe("invite attempt quota contract", () => {
+  it("keeps one window and limit for runtime and operator reporting", () => {
+    expect(ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS).toBe(60 * 60);
+    expect(ALPHA_INVITE_ATTEMPT_LIMIT).toBe(10);
   });
 });

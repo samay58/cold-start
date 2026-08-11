@@ -95,7 +95,7 @@ export default async function HomePage() {
               <span className="cs-landing-extension-cta-caption">invite-only alpha</span>
             </div>
           </div>
-          <ExtensionPanel companyName={recordedBuild.companyName} lens={recordedBuild.lens} />
+          <ExtensionPanel companyName={recordedBuild.companyName} />
         </section>
 
         <section className="cs-landing-access" id="access">

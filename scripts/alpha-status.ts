@@ -6,8 +6,8 @@ import { resolve } from "node:path";
 import { Client } from "pg";
 
 import {
-  ALPHA_INVITE_BREAKER_THRESHOLD,
-  ALPHA_INVITE_BREAKER_WINDOW_MS,
+  ALPHA_INVITE_ATTEMPT_LIMIT,
+  ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS,
   type GenerationFailureCode
 } from "@cold-start/core";
 import { generationRunDeadAfterMs } from "@cold-start/db";
@@ -30,7 +30,7 @@ const PROFILE_RUN_FLOOR_COUNT = 10;
 const SOFTWARE_FAILURE_CODES = new Set<GenerationFailureCode>(["model_contract", "concurrent_write", "unknown"]);
 // This script queries alpha_invite_attempts through its raw pg.Client rather than the web route's
 // Drizzle connection so the operator can see when credential validation is being throttled.
-const BREAKER_WINDOW_MINUTES = ALPHA_INVITE_BREAKER_WINDOW_MS / 60_000;
+const INVITE_QUOTA_WINDOW_MINUTES = ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS / 60;
 
 type JsonObject = Record<string, unknown>;
 
@@ -256,11 +256,11 @@ export type AlphaStatusReport = {
     remainingAllowanceExposureUsd: number;
   };
   evidenceGaps: string[];
-  breaker: {
+  inviteQuota: {
     windowMinutes: number;
     threshold: number;
-    recentAttempts: number;
-    open: boolean;
+    busiestSourceAttempts: number;
+    saturated: boolean;
   };
   gate: {
     passed: boolean;
@@ -281,7 +281,7 @@ export type AlphaStatusReportInputs = {
   eventSummaryRows: EventSummaryRow[];
   clientErrorRows: ClientErrorRow[];
   providerFailureRows: ProviderFailureRow[];
-  recentInviteAttempts: number;
+  busiestInviteSourceAttempts: number;
   walletBalanceUsd: number | null;
   walletError: string | null;
   supportedVersions: string[];
@@ -495,10 +495,15 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
     [sinceAt]
   );
 
-  const breakerAttempts = await client.query<{ count: string }>(
-    `select count(*)::text as count
-     from alpha_invite_attempts
-     where created_at >= now() - interval '${BREAKER_WINDOW_MINUTES} minutes'`
+  const inviteQuota = await client.query<{ count: string }>(
+    `select coalesce(max(source_attempts), 0)::text as count
+     from (
+       select count(*) as source_attempts
+       from alpha_invite_attempts
+       where created_at >= now() - interval '${INVITE_QUOTA_WINDOW_MINUTES} minutes'
+         and source_hash is not null
+       group by source_hash
+     ) attempts`
   );
 
   const providerFailureRows = await client.query<ProviderFailureRow>(
@@ -526,7 +531,7 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
     eventSummaryRows: eventSummaryRows.rows,
     clientErrorRows: clientErrorRows.rows,
     providerFailureRows: providerFailureRows.rows,
-    recentInviteAttempts: integer(breakerAttempts.rows[0]?.count)
+    busiestInviteSourceAttempts: integer(inviteQuota.rows[0]?.count)
   };
 }
 
@@ -790,11 +795,11 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
       remainingAllowanceExposureUsd
     },
     evidenceGaps,
-    breaker: {
-      windowMinutes: BREAKER_WINDOW_MINUTES,
-      threshold: ALPHA_INVITE_BREAKER_THRESHOLD,
-      recentAttempts: input.recentInviteAttempts,
-      open: input.recentInviteAttempts >= ALPHA_INVITE_BREAKER_THRESHOLD
+    inviteQuota: {
+      windowMinutes: INVITE_QUOTA_WINDOW_MINUTES,
+      threshold: ALPHA_INVITE_ATTEMPT_LIMIT,
+      busiestSourceAttempts: input.busiestInviteSourceAttempts,
+      saturated: input.busiestInviteSourceAttempts >= ALPHA_INVITE_ATTEMPT_LIMIT
     },
     gate: {
       passed: gateFailures.length === 0,
@@ -865,9 +870,9 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
     `Release wallet floor: ${money(report.wallet.requiredFloorUsd)}`,
     `Remaining allowance provider exposure: ${money(report.wallet.remainingAllowanceExposureUsd)} (${report.wallet.costAnchorSource})`,
     "",
-    "Invite breaker",
-    `${report.breaker.recentAttempts} invalid attempt(s) in the trailing ${report.breaker.windowMinutes} minutes (threshold ${report.breaker.threshold})`,
-    report.breaker.open ? "OPEN: invite/inspect and invite/redeem are answering 429." : "closed",
+    "Invite source quota",
+    `${report.inviteQuota.busiestSourceAttempts} attempt(s) from the busiest source in the trailing ${report.inviteQuota.windowMinutes} minutes (limit ${report.inviteQuota.threshold})`,
+    report.inviteQuota.saturated ? "At least one source is throttled." : "No source is throttled.",
     "",
     `Supported extension versions: ${report.compatibility.supportedVersions.join(", ")} (${report.compatibility.source})`,
     `Unsupported active installations: ${report.compatibility.unsupportedActiveInstallations.length}`,

@@ -28,6 +28,28 @@ function providerFact(input: {
 }
 
 describe("applyProviderFactCandidates", () => {
+  it("does not apply a private-network provider logo", () => {
+    const skeleton = buildSkeletonCard("cartesia.ai");
+    const result = applyProviderFactCandidates(
+      {
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: skeleton.signals,
+        comparables: skeleton.comparables,
+        citations: skeleton.citations
+      },
+      [providerFact({
+        path: "identity.logoUrl",
+        value: "https://10.0.0.8/logo.png",
+        endpoint: "org_enrichment"
+      })]
+    );
+
+    expect(result.sections.identity.logoUrl).toBeNull();
+    expect(result.trace.appliedCount).toBe(0);
+  });
+
   it("tracks applied provider facts by endpoint", () => {
     const skeleton = buildSkeletonCard("cartesia.ai");
     const sections = {

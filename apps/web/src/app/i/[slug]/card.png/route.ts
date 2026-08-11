@@ -1,7 +1,7 @@
 import { createDb } from "@cold-start/db";
 
 import { webEnv } from "../../../../lib/web-env";
-import { lookupAlphaInviteCardForSlug } from "../invite-card-lookup";
+import { lookupAlphaInviteCardForPresentation } from "../invite-card-lookup";
 
 // Serves the approved invitation card exactly as stored on the invite row. The runtime
 // never renders anything. Cache-Control is private because the art is personalized with a real
@@ -10,12 +10,9 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const { slug } = await params;
-  if (!/^[a-z0-9-]{1,64}$/.test(slug)) {
-    return new Response("not found", { status: 404 });
-  }
+  const { slug: locator } = await params;
   const db = createDb(webEnv().DATABASE_URL);
-  const card = await lookupAlphaInviteCardForSlug(db, slug);
+  const card = await lookupAlphaInviteCardForPresentation(db, locator);
   if (!card?.cardPngBase64) {
     return new Response("not found", { status: 404 });
   }
@@ -26,7 +23,9 @@ export async function GET(
   return new Response(bytes, {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "private, max-age=3600"
+      "Cache-Control": "private, no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Robots-Tag": "noindex, nofollow, noarchive"
     }
   });
 }

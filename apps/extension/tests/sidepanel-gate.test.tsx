@@ -272,6 +272,17 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("does not render a private-network saved logo", async () => {
+    const card = cardForDomain("figma.com");
+    card.identity.logoUrl = "https://127.0.0.1/figma-logo.svg";
+    const fetchMock = vi.fn(async () => jsonResponse(card));
+    const { container, unmount } = await renderSidePanel({ domain: "figma.com", fetchMock });
+
+    const source = container.querySelector(".cs-company-logo img")?.getAttribute("src");
+    expect(source).not.toContain("127.0.0.1");
+    await unmount();
+  });
+
   it("shows the focused Firefox invitation screen without operator setup", async () => {
     const fetchMock = vi.fn();
     const { container, unmount } = await renderSidePanel({

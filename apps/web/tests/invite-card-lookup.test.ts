@@ -1,53 +1,40 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  countRecentAlphaInviteAttempts: vi.fn(),
-  findAlphaInviteCardBySlug: vi.fn(),
-  recordAlphaInviteAttempt: vi.fn()
+  findActiveAlphaInviteCardByPresentationTokenHash: vi.fn()
 }));
 
 vi.mock("@cold-start/db", () => ({
-  countRecentAlphaInviteAttempts: mocks.countRecentAlphaInviteAttempts,
-  findAlphaInviteCardBySlug: mocks.findAlphaInviteCardBySlug,
-  recordAlphaInviteAttempt: mocks.recordAlphaInviteAttempt
+  findActiveAlphaInviteCardByPresentationTokenHash: mocks.findActiveAlphaInviteCardByPresentationTokenHash
 }));
 
-const { lookupAlphaInviteCardForSlug } = await import("../src/app/i/[slug]/invite-card-lookup");
+const { lookupAlphaInviteCardForPresentation } = await import("../src/app/i/[slug]/invite-card-lookup");
 
 const db = {} as never;
+const token = "p".repeat(43);
 
-describe("lookupAlphaInviteCardForSlug", () => {
+describe("lookupAlphaInviteCardForPresentation", () => {
   beforeEach(() => {
-    mocks.countRecentAlphaInviteAttempts.mockReset();
-    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(0);
-    mocks.findAlphaInviteCardBySlug.mockReset();
-    mocks.recordAlphaInviteAttempt.mockReset();
+    mocks.findActiveAlphaInviteCardByPresentationTokenHash.mockReset();
   });
 
-  it("returns the card on a hit and never touches the breaker tally", async () => {
+  it("hashes the opaque capability before the protected lookup", async () => {
     const card = { displayName: "Dad", ordinal: 4, cardPngBase64: "abc" };
-    mocks.findAlphaInviteCardBySlug.mockResolvedValue(card);
+    const now = new Date("2026-08-11T12:00:00.000Z");
+    mocks.findActiveAlphaInviteCardByPresentationTokenHash.mockResolvedValue(card);
 
-    await expect(lookupAlphaInviteCardForSlug(db, "dad")).resolves.toEqual(card);
-    expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
+    await expect(lookupAlphaInviteCardForPresentation(db, token, now)).resolves.toEqual(card);
+    expect(mocks.findActiveAlphaInviteCardByPresentationTokenHash).toHaveBeenCalledWith(
+      db,
+      createHash("sha256").update(token).digest("hex"),
+      now
+    );
   });
 
-  it("keeps a page miss out of the token breaker tally", async () => {
-    mocks.findAlphaInviteCardBySlug.mockResolvedValue(null);
-
-    await expect(lookupAlphaInviteCardForSlug(db, "nobody")).resolves.toBeNull();
-    expect(mocks.countRecentAlphaInviteAttempts).not.toHaveBeenCalled();
-    expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
-  });
-
-  it("still resolves a real page while the token breaker is open", async () => {
-    const card = { displayName: "Dad", ordinal: 4, cardPngBase64: "abc" };
-    mocks.countRecentAlphaInviteAttempts.mockResolvedValue(10);
-    mocks.findAlphaInviteCardBySlug.mockResolvedValue(card);
-
-    await expect(lookupAlphaInviteCardForSlug(db, "dad")).resolves.toEqual(card);
-    expect(mocks.findAlphaInviteCardBySlug).toHaveBeenCalledWith(db, "dad");
-    expect(mocks.countRecentAlphaInviteAttempts).not.toHaveBeenCalled();
-    expect(mocks.recordAlphaInviteAttempt).not.toHaveBeenCalled();
+  it("does not look up legacy name slugs", async () => {
+    await expect(lookupAlphaInviteCardForPresentation(db, "dad")).resolves.toBeNull();
+    expect(mocks.findActiveAlphaInviteCardByPresentationTokenHash).not.toHaveBeenCalled();
   });
 });

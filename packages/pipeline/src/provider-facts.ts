@@ -5,6 +5,7 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
+  safePublicImageUrl,
   type ColdStartCard,
   type ResolvedFact
 } from "@cold-start/core";
@@ -286,7 +287,9 @@ export function applyProviderFactCandidates(
         break;
       case "identity.logoUrl":
         if (!next.identity.logoUrl && typeof candidate.value === "string") {
-          next.identity.logoUrl = candidate.value;
+          const logoUrl = safePublicImageUrl(candidate.value);
+          if (!logoUrl) break;
+          next.identity.logoUrl = logoUrl;
           markApplied(candidate);
         }
         break;

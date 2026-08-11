@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
-import type { ColdStartDb } from "../client";
+import { rowsFromExecuteResult, type ColdStartDb } from "../client";
 import {
   alphaAllowanceLedger,
   alphaAllowances,
@@ -11,6 +11,7 @@ import {
 } from "../schema";
 
 export type AlphaInviteStatus = "pending" | "active" | "revoked";
+export type AlphaInviteState = "ready" | "expired" | "installation_limit" | "invalid_invite" | "revoked" | "used";
 export type AlphaBrowser = "chrome" | "firefox";
 export type AlphaInstallChannel = "unlisted" | "unpacked" | "unknown";
 export type AlphaAllowanceKind = "profile" | "lens";
@@ -22,6 +23,7 @@ export type AlphaInvite = {
   id: string;
   label: string;
   tokenHash: string;
+  presentationTokenHash: string | null;
   status: AlphaInviteStatus;
   scopes: string[];
   profileLimit: number;
@@ -36,6 +38,21 @@ export type AlphaInvite = {
   revokedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type AlphaInviteInspection = {
+  state: AlphaInviteState;
+  profileLimit?: number;
+  lensLimit?: number;
+};
+
+type InviteInspectionRow = {
+  status: AlphaInviteStatus;
+  expires_at: Date | string;
+  profile_limit: number;
+  lens_limit: number;
+  max_installations: number;
+  claimed_installations: number | string;
 };
 
 export type AlphaInstallationAuth = {
@@ -123,6 +140,7 @@ export async function createAlphaInvite(
   input: {
     label: string;
     tokenHash: string;
+    presentationTokenHash?: string;
     scopes: readonly string[];
     expiresAt: Date;
     profileLimit?: number;
@@ -136,6 +154,9 @@ export async function createAlphaInvite(
   }
 ): Promise<AlphaInvite> {
   assertSha256Hash(input.tokenHash, "tokenHash");
+  if (input.presentationTokenHash !== undefined) {
+    assertSha256Hash(input.presentationTokenHash, "presentationTokenHash");
+  }
   const now = input.now ?? new Date();
   const profileLimit = input.profileLimit ?? 12;
   const lensLimit = input.lensLimit ?? 6;
@@ -149,6 +170,7 @@ export async function createAlphaInvite(
     .values({
       label: input.label.trim(),
       tokenHash: input.tokenHash,
+      presentationTokenHash: input.presentationTokenHash ?? null,
       scopes: [...new Set(input.scopes)],
       profileLimit,
       lensLimit,
@@ -171,10 +193,60 @@ export async function findAlphaInviteById(db: ColdStartDb, inviteId: string): Pr
   return rows[0] ? alphaInviteFromRow(rows[0]) : null;
 }
 
-export async function findAlphaInviteCardBySlug(
+export async function listAlphaInvitePresentationMigrationCandidates(
   db: ColdStartDb,
-  slug: string
+  now = new Date()
+): Promise<Array<Pick<AlphaInvite, "id" | "label" | "status" | "slug" | "expiresAt">>> {
+  return db
+    .select({
+      id: alphaInvites.id,
+      label: alphaInvites.label,
+      status: alphaInvites.status,
+      slug: alphaInvites.slug,
+      expiresAt: alphaInvites.expiresAt
+    })
+    .from(alphaInvites)
+    .where(and(
+      isNull(alphaInvites.presentationTokenHash),
+      isNull(alphaInvites.revokedAt),
+      sql`${alphaInvites.status} in ('pending', 'active')`,
+      sql`${alphaInvites.expiresAt} > ${now}`,
+      sql`${alphaInvites.cardPngBase64} is not null`
+    ))
+    .orderBy(alphaInvites.createdAt);
+}
+
+export async function rotateAlphaInviteLinkSecrets(
+  db: ColdStartDb,
+  input: { inviteId: string; tokenHash: string; presentationTokenHash: string; now?: Date }
+): Promise<AlphaInvite | null> {
+  assertSha256Hash(input.tokenHash, "tokenHash");
+  assertSha256Hash(input.presentationTokenHash, "presentationTokenHash");
+  const now = input.now ?? new Date();
+  const rows = await db
+    .update(alphaInvites)
+    .set({
+      tokenHash: input.tokenHash,
+      presentationTokenHash: input.presentationTokenHash,
+      updatedAt: now
+    })
+    .where(and(
+      eq(alphaInvites.id, input.inviteId),
+      isNull(alphaInvites.revokedAt),
+      sql`${alphaInvites.status} in ('pending', 'active')`,
+      sql`${alphaInvites.expiresAt} > ${now}`,
+      sql`${alphaInvites.cardPngBase64} is not null`
+    ))
+    .returning();
+  return rows[0] ? alphaInviteFromRow(rows[0]) : null;
+}
+
+export async function findActiveAlphaInviteCardByPresentationTokenHash(
+  db: ColdStartDb,
+  presentationTokenHash: string,
+  now = new Date()
 ): Promise<{ displayName: string | null; ordinal: number | null; cardPngBase64: string | null } | null> {
+  assertSha256Hash(presentationTokenHash, "presentationTokenHash");
   const rows = await db
     .select({
       displayName: alphaInvites.displayName,
@@ -182,7 +254,12 @@ export async function findAlphaInviteCardBySlug(
       cardPngBase64: alphaInvites.cardPngBase64
     })
     .from(alphaInvites)
-    .where(eq(alphaInvites.slug, slug))
+    .where(and(
+      eq(alphaInvites.presentationTokenHash, presentationTokenHash),
+      sql`${alphaInvites.status} in ('pending', 'active')`,
+      isNull(alphaInvites.revokedAt),
+      sql`${alphaInvites.expiresAt} > ${now}`
+    ))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -191,18 +268,64 @@ export async function nextAlphaInviteOrdinal(db: ColdStartDb): Promise<number> {
   const result = await db.execute<{ next: number | string | null }>(
     sql`select coalesce(max(ordinal), 0) + 1 as next from alpha_invites`
   );
-  return Number(executeRows<{ next: number | string | null }>(result)[0]?.next ?? 1);
+  return Number(rowsFromExecuteResult<{ next: number | string | null }>(result)[0]?.next ?? 1);
 }
 
-export async function recordAlphaInviteAttempt(db: ColdStartDb, now = new Date()): Promise<void> {
-  await db.insert(alphaInviteAttempts).values({ createdAt: now });
+export async function consumeAlphaInviteAttempt(
+  db: ColdStartDb,
+  input: { sourceHash: string; limit: number; windowSeconds: number; now?: Date }
+): Promise<boolean> {
+  assertSha256Hash(input.sourceHash, "sourceHash");
+  assertPositiveInteger(input.limit, "limit");
+  assertPositiveInteger(input.windowSeconds, "windowSeconds");
+  const result = await db.execute<{ result: boolean }>(sql`
+    select consume_alpha_invite_attempt(
+      ${input.sourceHash},
+      ${input.now ?? new Date()},
+      ${input.limit},
+      ${input.windowSeconds}
+    ) as result
+  `);
+  const value = rowsFromExecuteResult<{ result: unknown }>(result)[0]?.result;
+  if (typeof value !== "boolean") {
+    throw new TypeError("consume_alpha_invite_attempt returned an invalid result");
+  }
+  return value;
 }
 
-export async function countRecentAlphaInviteAttempts(db: ColdStartDb, since: Date): Promise<number> {
-  const result = await db.execute<{ count: number | string }>(
-    sql`select count(*) as count from alpha_invite_attempts where created_at > ${since}`
-  );
-  return Number(executeRows<{ count: number | string }>(result)[0]?.count ?? 0);
+export async function inspectAlphaInvite(
+  db: ColdStartDb,
+  tokenHash: string,
+  now = new Date()
+): Promise<AlphaInviteInspection> {
+  const result = await db.execute<InviteInspectionRow>(sql`
+    select
+      invite.status,
+      invite.expires_at,
+      invite.profile_limit,
+      invite.lens_limit,
+      invite.max_installations,
+      count(installation.id) as claimed_installations
+    from alpha_invites invite
+    left join alpha_installations installation
+      on installation.invite_id = invite.id
+      and installation.revoked_at is null
+    where invite.token_hash = ${tokenHash}
+    group by invite.id
+    limit 1
+  `);
+  const row = rowsFromExecuteResult<InviteInspectionRow>(result)[0];
+  if (!row) return { state: "invalid_invite" };
+  if (row.status === "revoked") return { state: "revoked" };
+  if (new Date(row.expires_at).getTime() <= now.getTime()) return { state: "expired" };
+  if (Number(row.claimed_installations) >= row.max_installations) {
+    return { state: row.max_installations === 1 ? "used" : "installation_limit" };
+  }
+  return {
+    state: "ready",
+    profileLimit: row.profile_limit,
+    lensLimit: row.lens_limit
+  };
 }
 
 export async function pruneAlphaInviteAttempts(db: ColdStartDb, before: Date): Promise<number> {
@@ -248,7 +371,7 @@ export async function redeemAlphaInvite(
     ) as result
   `);
 
-  const row = executeRows<{ result: AlphaAuthSqlRow | null }>(result)[0]?.result;
+  const row = rowsFromExecuteResult<{ result: AlphaAuthSqlRow | null }>(result)[0]?.result;
   return row ? alphaAuthFromSqlRow(row) : null;
 }
 
@@ -329,7 +452,7 @@ export async function revokeAlphaInvite(
   const result = await db.execute<{ result: boolean }>(sql`
     select revoke_alpha_invite(${inviteId}::uuid, ${now}) as result
   `);
-  return executeRows<{ result: boolean }>(result)[0]?.result === true;
+  return rowsFromExecuteResult<{ result: boolean }>(result)[0]?.result === true;
 }
 
 export async function getAlphaAllowanceSnapshot(
@@ -412,7 +535,7 @@ export async function reserveAlphaRunRequest(
       ${now}
     ) as result
   `);
-  const row = executeRows<{ result: AlphaReservationSqlRow | null }>(result)[0]?.result;
+  const row = rowsFromExecuteResult<{ result: AlphaReservationSqlRow | null }>(result)[0]?.result;
   if (!row) throw new AlphaInteractionConflictError();
   return {
     ...alphaRunRequestFromSqlRow(row),
@@ -443,7 +566,7 @@ export async function settleAlphaRunRequest(
       ${settledAt}
     ) as result
   `);
-  const row = executeRows<{ result: AlphaSettlementSqlRow | null }>(result)[0]?.result;
+  const row = rowsFromExecuteResult<{ result: AlphaSettlementSqlRow | null }>(result)[0]?.result;
   if (!row) return null;
 
   return {
@@ -548,7 +671,7 @@ export async function insertAlphaEvents(
       300
     ) as result
   `);
-  const batch = executeRows<{ result: AlphaEventBatchSqlResult }>(result)[0]?.result;
+  const batch = rowsFromExecuteResult<{ result: AlphaEventBatchSqlResult }>(result)[0]?.result;
   if (!batch || batch.status === "inactive") {
     return [];
   }
@@ -631,7 +754,7 @@ export async function pruneAlphaEvents(
     where events.event_id = doomed.event_id
     returning events.event_id
   `);
-  return executeRows(result).length;
+  return rowsFromExecuteResult(result).length;
 }
 
 export async function deleteAlphaTesterData(db: ColdStartDb, inviteId: string): Promise<boolean> {
@@ -825,12 +948,4 @@ function dateFromSql(value: Date | string | undefined): Date {
 
 function booleanFromSql(value: boolean | string): boolean {
   return value === true || value === "true" || value === "t";
-}
-
-function executeRows<T extends Record<string, unknown>>(result: unknown): T[] {
-  if (Array.isArray(result)) return result as T[];
-  if (result && typeof result === "object" && "rows" in result) {
-    return (result as { rows: T[] }).rows;
-  }
-  return [];
 }

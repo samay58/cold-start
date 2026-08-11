@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { safePublicImageUrl, safeWebUrl } from "@cold-start/core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clippingHasUsefulTitle,
@@ -78,8 +79,10 @@ function ClippingRow({
   const emitAlphaEvent = useAlphaEvent();
   const [thumbFailed, setThumbFailed] = useState(false);
   const [faviconFailed, setFaviconFailed] = useState(false);
-  const showThumb = thumbEligible && !thumbFailed && Boolean(clipping.imageUrl);
-  const favicon = showThumb ? null : faviconUrl(clipping.url);
+  const sourceUrl = safeWebUrl(clipping.url);
+  const imageUrl = safePublicImageUrl(clipping.imageUrl);
+  const showThumb = thumbEligible && !thumbFailed && Boolean(imageUrl);
+  const favicon = showThumb || !sourceUrl ? null : faviconUrl(sourceUrl);
   const showFavicon = Boolean(favicon) && !faviconFailed;
   const active = variant === "carousel" && focused;
   const lead = variant === "carousel" && position === 0;
@@ -91,6 +94,37 @@ function ClippingRow({
         x: 0,
         y: 0
       };
+  const content = (
+    <>
+      {showThumb && imageUrl ? (
+        <img
+          alt=""
+          className="cs-clipping-thumb"
+          loading="lazy"
+          onError={() => setThumbFailed(true)}
+          referrerPolicy="no-referrer"
+          src={imageUrl}
+        />
+      ) : showFavicon && favicon ? (
+        <img
+          alt=""
+          className="cs-clipping-favicon"
+          height={16}
+          onError={() => setFaviconFailed(true)}
+          src={favicon}
+          width={16}
+        />
+      ) : null}
+      <span className="cs-clipping-copy">
+        <span className="cs-clipping-meta">
+          <span className="cs-clipping-dot" data-source-class={clipping.sourceClass} aria-hidden="true" />
+          <span className="cs-clipping-domain">{clipping.domain}</span>
+          {KIND_LABEL[clipping.sourceClass] ? <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span> : null}
+        </span>
+        {clipping.note ? <span className="cs-clipping-note">{clipping.note}</span> : null}
+      </span>
+    </>
+  );
 
   return (
     <motion.li
@@ -123,51 +157,33 @@ function ClippingRow({
           ? { ...snapSpring, opacity: { duration: 0.26, ease: "easeOut", delay: lead ? 0.06 : 0 } }
           : { ...commitSpring, delay: index * 0.05 }}
     >
-      <a
-        className="cs-clipping-link"
-        data-lead={showThumb ? "thumb" : showFavicon ? "favicon" : "none"}
-        href={clipping.url}
-        onClick={() => {
-          emitAlphaEvent("source.opened", {
-            domain: companyDomain,
-            sourceClass: analyticsSourceClass(clipping.sourceClass),
-            ordinal
-          });
-        }}
-        rel="noreferrer"
-        target="_blank"
-        title={clipping.title || clipping.domain}
-      >
-        {/* No image, no well: an empty plate box is dead weight in the most common state, so an
-            imageless clipping leads with its classification dot in the meta row instead. */}
-        {showThumb && clipping.imageUrl ? (
-          <img
-            alt=""
-            className="cs-clipping-thumb"
-            loading="lazy"
-            onError={() => setThumbFailed(true)}
-            referrerPolicy="no-referrer"
-            src={clipping.imageUrl}
-          />
-        ) : showFavicon && favicon ? (
-          <img
-            alt=""
-            className="cs-clipping-favicon"
-            height={16}
-            onError={() => setFaviconFailed(true)}
-            src={favicon}
-            width={16}
-          />
-        ) : null}
-        <span className="cs-clipping-copy">
-          <span className="cs-clipping-meta">
-            <span className="cs-clipping-dot" data-source-class={clipping.sourceClass} aria-hidden="true" />
-            <span className="cs-clipping-domain">{clipping.domain}</span>
-            {KIND_LABEL[clipping.sourceClass] ? <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span> : null}
-          </span>
-          {clipping.note ? <span className="cs-clipping-note">{clipping.note}</span> : null}
-        </span>
-      </a>
+      {sourceUrl ? (
+        <a
+          className="cs-clipping-link"
+          data-lead={showThumb ? "thumb" : showFavicon ? "favicon" : "none"}
+          href={sourceUrl}
+          onClick={() => {
+            emitAlphaEvent("source.opened", {
+              domain: companyDomain,
+              sourceClass: analyticsSourceClass(clipping.sourceClass),
+              ordinal
+            });
+          }}
+          rel="noreferrer"
+          target="_blank"
+          title={clipping.title || clipping.domain}
+        >
+          {content}
+        </a>
+      ) : (
+        <div
+          className="cs-clipping-link"
+          data-lead={showThumb ? "thumb" : "none"}
+          title={clipping.title || clipping.domain}
+        >
+          {content}
+        </div>
+      )}
     </motion.li>
   );
 }

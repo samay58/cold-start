@@ -1,6 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { neonFetchWithConnectionRetry } from "../src/client";
+import { neonFetchWithConnectionRetry, rowsFromExecuteResult } from "../src/client";
+
+describe("rowsFromExecuteResult", () => {
+  it("normalizes Neon and node-postgres execute results", () => {
+    expect(rowsFromExecuteResult<{ id: number }>([{ id: 1 }])).toEqual([{ id: 1 }]);
+    expect(rowsFromExecuteResult<{ id: number }>({ rows: [{ id: 2 }] })).toEqual([{ id: 2 }]);
+  });
+
+  it("returns no rows for malformed driver results", () => {
+    expect(rowsFromExecuteResult(null)).toEqual([]);
+    expect(rowsFromExecuteResult({ rows: "not-an-array" })).toEqual([]);
+  });
+});
 
 function connectTimeoutError() {
   const cause = Object.assign(new Error("connect timeout"), { code: "UND_ERR_CONNECT_TIMEOUT" });

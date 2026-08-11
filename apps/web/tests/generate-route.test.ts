@@ -328,6 +328,88 @@ describe("POST /api/generate", () => {
     mocks.send.mockReset();
   });
 
+  it("accepts a valid bounded request without Content-Length", async () => {
+    mocks.findPublicCardBySlug.mockResolvedValue(usablePublicCard());
+    const request = rawGenerateRequest(JSON.stringify({
+      domain: "cartesia.ai",
+      confirmStart: true
+    }));
+
+    const response = await POST(request);
+
+    expect(request.headers.has("content-length")).toBe(false);
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects a declared oversize request", async () => {
+    const response = await POST(rawGenerateRequest(
+      JSON.stringify({ domain: "cartesia.ai", confirmStart: true }),
+      { "content-length": "2049" }
+    ));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid json body" });
+    expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
+  it("rejects an understated Content-Length after reading the actual bytes", async () => {
+    const response = await POST(rawGenerateRequest(
+      JSON.stringify({ domain: "a".repeat(2_100), confirmStart: true }),
+      { "content-length": "32" }
+    ));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid json body" });
+  });
+
+  it("rejects an oversize chunked request", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("{"));
+        controller.enqueue(new Uint8Array(2_048));
+        controller.close();
+      }
+    });
+
+    const response = await POST(rawGenerateRequest(stream));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid json body" });
+  });
+
+  it.each([
+    ["malformed JSON", "{"],
+    ["unknown keys", JSON.stringify({ domain: "cartesia.ai", confirmStart: true, admin: true })],
+    ["wrong value types", JSON.stringify({ domain: "cartesia.ai", confirmStart: "yes" })]
+  ])("rejects %s", async (_label, body) => {
+    const response = await POST(rawGenerateRequest(body));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid json body" });
+    expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
+  it("rejects a header-only unauthorized production request before reading its body", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.ALLOWED_EXTENSION_ORIGINS = "chrome-extension://extension-test-id";
+    let bodyRead = false;
+    const request = {
+      headers: new Headers({ "Content-Type": "application/json" }),
+      body: {
+        getReader() {
+          bodyRead = true;
+          throw new Error("body should not be read");
+        }
+      }
+    } as unknown as Request;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+    expect(bodyRead).toBe(false);
+    expect(mocks.createDb).not.toHaveBeenCalled();
+  });
+
   it("returns cached without queueing when a public card already exists", async () => {
     mocks.findPublicCardBySlug.mockResolvedValue(usablePublicCard());
 
@@ -1813,6 +1895,15 @@ describe("POST /api/generate", () => {
     expect(mocks.markGenerationRun).not.toHaveBeenCalled();
   });
 });
+
+function rawGenerateRequest(body: BodyInit, headers: Record<string, string> = {}) {
+  return new Request("http://localhost/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body,
+    duplex: "half"
+  } as RequestInit & { duplex: "half" });
+}
 
 describe("GET /api/generate", () => {
   beforeEach(() => {

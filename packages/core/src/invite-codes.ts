@@ -5,8 +5,8 @@ export { INVITE_WORDLIST };
 // One pattern for both shapes: legacy 22+ char base64url secrets and new
 // three-word codes (minimum 4+4+4 letters plus two hyphens = 14).
 export const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{14,256}$/;
-export const ALPHA_INVITE_BREAKER_WINDOW_MS = 60 * 60 * 1_000;
-export const ALPHA_INVITE_BREAKER_THRESHOLD = 10;
+export const ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS = 60 * 60;
+export const ALPHA_INVITE_ATTEMPT_LIMIT = 10;
 
 // Clean words can still combine badly (the what3words lesson). Screen the
 // joined code, not the list.

@@ -90,7 +90,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const eventsWouldDelete = Math.min(eligible, maximum);
     const accessRequestsWouldDelete = Math.min(
       accessRequestsEligible,
-      maximum - eventsWouldDelete
+      maximum
     );
     console.log(
       JSON.stringify(
@@ -99,7 +99,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           before: before.toISOString(),
           eligible,
           wouldDelete: eventsWouldDelete,
-          cappedByMax: eligible + accessRequestsEligible > maximum,
+          cappedByMax: eligible > maximum || accessRequestsEligible > maximum,
           attemptsBefore: attemptsBefore.toISOString(),
           attemptsEligible,
           accessRequestsBefore: accessRequestsBefore.toISOString(),
@@ -125,10 +125,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
     const removedAttempts = await pruneAlphaInviteAttempts(db, attemptsBefore);
     let removedAccessRequests = 0;
-    while (countDeleted + removedAccessRequests < maximum) {
+    while (removedAccessRequests < maximum) {
       const removed = await pruneHandledAccessRequests(db, {
         before: accessRequestsBefore,
-        limit: Math.min(batch, maximum - countDeleted - removedAccessRequests)
+        limit: Math.min(batch, maximum - removedAccessRequests)
       });
       removedAccessRequests += removed;
       if (removed < batch) break;
@@ -146,7 +146,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         attemptsBefore: attemptsBefore.toISOString(),
         attemptsDeleted,
         accessRequestsBefore: accessRequestsBefore.toISOString(),
-        accessRequestsDeleted
+        accessRequestsDeleted,
+        accessRequestsStoppedAtMax: accessRequestsDeleted === maximum
       },
       null,
       2

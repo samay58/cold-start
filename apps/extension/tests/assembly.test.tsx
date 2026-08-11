@@ -245,7 +245,7 @@ describe("Clippings", () => {
     const container = await render(
       <Clippings
         clippings={[
-          clipping({ domain: "news.com", sourceClass: "funding", imageUrl: "https://img/a.png", note: "Raised a round" }),
+          clipping({ domain: "news.com", sourceClass: "funding", imageUrl: "https://cdn.example.com/a.png", note: "Raised a round" }),
           clipping({ domain: "a.com", note: "Company positioning" })
         ]}
         prefersReducedMotion={true}
@@ -272,9 +272,9 @@ describe("Clippings", () => {
 
   it("renders at most two thumbnails and marks them safe and lazy", async () => {
     const clippings = [
-      clipping({ domain: "a.com", sourceClass: "funding", imageUrl: "https://img/a.png" }),
-      clipping({ domain: "b.com", sourceClass: "news", imageUrl: "https://img/b.png" }),
-      clipping({ domain: "c.com", sourceClass: "news", imageUrl: "https://img/c.png" })
+      clipping({ domain: "a.com", sourceClass: "funding", imageUrl: "https://cdn.example.com/a.png" }),
+      clipping({ domain: "b.com", sourceClass: "news", imageUrl: "https://cdn.example.com/b.png" }),
+      clipping({ domain: "c.com", sourceClass: "news", imageUrl: "https://cdn.example.com/c.png" })
     ];
     const container = await render(<Clippings clippings={clippings} prefersReducedMotion={false} />);
 
@@ -284,10 +284,37 @@ describe("Clippings", () => {
     expect(thumbs[0]?.getAttribute("loading")).toBe("lazy");
   });
 
+  it("does not render an unsafe legacy thumbnail URL", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[clipping({
+          domain: "a.com",
+          sourceClass: "funding",
+          imageUrl: "https://192.168.1.2/private.png"
+        })]}
+        prefersReducedMotion={false}
+      />
+    );
+
+    expect(container.querySelector(".cs-clipping-thumb")).toBeNull();
+  });
+
+  it("renders an unsafe legacy source without a link", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[clipping({ domain: "a.com", url: "javascript:alert(1)" })]}
+        prefersReducedMotion={false}
+      />
+    );
+
+    expect(container.querySelector(".cs-clipping-link")?.tagName).toBe("DIV");
+    expect(container.querySelector("a[href^='javascript:']")).toBeNull();
+  });
+
   it("hides a broken thumbnail back to the favicon form on error", async () => {
     const clippings = [
-      clipping({ domain: "a.com", sourceClass: "funding", imageUrl: "https://img/a.png" }),
-      clipping({ domain: "b.com", sourceClass: "news", imageUrl: "https://img/b.png" })
+      clipping({ domain: "a.com", sourceClass: "funding", imageUrl: "https://cdn.example.com/a.png" }),
+      clipping({ domain: "b.com", sourceClass: "news", imageUrl: "https://cdn.example.com/b.png" })
     ];
     const container = await render(<Clippings clippings={clippings} prefersReducedMotion={false} />);
 
@@ -301,10 +328,10 @@ describe("Clippings", () => {
 
   it("only thumbnails news, funding, and customer_proof clippings, even when other classes carry an imageUrl", async () => {
     const clippings = [
-      clipping({ domain: "a.com", sourceClass: "company_site", imageUrl: "https://img/a.png" }),
-      clipping({ domain: "b.com", sourceClass: "funding", imageUrl: "https://img/b.png" }),
-      clipping({ domain: "c.com", sourceClass: "customer_proof", imageUrl: "https://img/c.png" }),
-      clipping({ domain: "d.com", sourceClass: "news", imageUrl: "https://img/d.png" })
+      clipping({ domain: "a.com", sourceClass: "company_site", imageUrl: "https://cdn.example.com/a.png" }),
+      clipping({ domain: "b.com", sourceClass: "funding", imageUrl: "https://cdn.example.com/b.png" }),
+      clipping({ domain: "c.com", sourceClass: "customer_proof", imageUrl: "https://cdn.example.com/c.png" }),
+      clipping({ domain: "d.com", sourceClass: "news", imageUrl: "https://cdn.example.com/d.png" })
     ];
     const container = await render(<Clippings clippings={clippings} prefersReducedMotion={false} />);
 

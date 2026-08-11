@@ -781,7 +781,7 @@ describe("SidePanel run lifecycle", () => {
               sourceType: "news",
               fetchedAt: new Date().toISOString(),
               snippet: "The company raised a round.",
-              imageUrl: "https://img/tc.png"
+              imageUrl: "https://cdn.example.com/tc.png"
             }
           ],
           events: [

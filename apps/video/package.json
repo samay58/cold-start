@@ -5,7 +5,7 @@
   "scripts": {
     "capture:product": "playwright test --config=playwright.capture.config.ts",
     "dev": "remotion studio src/index.ts --no-open",
-    "build": "remotion bundle src/index.ts",
+    "bundle": "remotion bundle src/index.ts",
     "render:first-company": "mkdir -p out && remotion render src/index.ts ColdStartFirstCompany out/first-company-guide.mp4 --codec=h264 --crf=18",
     "still:first-company": "mkdir -p out && remotion still src/index.ts ColdStartFirstCompany out/first-company-guide.png --frame=300",
     "typecheck": "tsc --noEmit"

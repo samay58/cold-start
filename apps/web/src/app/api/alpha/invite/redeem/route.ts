@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   createDb,
   getAlphaAllowanceSnapshot,
+  inspectAlphaInvite,
   insertAlphaEvents,
   redeemAlphaInvite
 } from "@cold-start/db";
@@ -13,15 +14,15 @@ import {
   alphaGenerationEnabled
 } from "../../../../../lib/alpha-config";
 import { webEnv } from "../../../../../lib/web-env";
+import { readBoundedJson } from "../../../../../lib/bounded-json";
+import { trustedClientHash } from "../../../../../lib/client-identity";
 import {
+  ALPHA_INVITE_REQUEST_MAX_BYTES,
   alphaClientCompatibility,
-  alphaInviteBreakerOpen,
   alphaInviteErrorStatus,
   alphaInviteRedeemRequestSchema,
-  hashAlphaSecret,
-  inspectAlphaInvite,
-  readBoundedJson,
-  recordInvalidInviteAttempt
+  consumeAlphaInviteQuota,
+  hashAlphaSecret
 } from "../invite-service";
 
 export async function POST(request: Request) {
@@ -39,7 +40,8 @@ export async function POST(request: Request) {
     return respond({ ok: false, code: "access_disabled" }, { status: 503 });
   }
 
-  const parsed = alphaInviteRedeemRequestSchema.safeParse(await readBoundedJson(request));
+  const body = await readBoundedJson(request, ALPHA_INVITE_REQUEST_MAX_BYTES);
+  const parsed = alphaInviteRedeemRequestSchema.safeParse(body.ok ? body.value : null);
   if (!parsed.success) {
     return respond({ ok: false, code: "invalid_invite" }, { status: 400 });
   }
@@ -51,8 +53,12 @@ export async function POST(request: Request) {
 
   const accessToken = randomBytes(32).toString("base64url");
   const inviteTokenHash = hashAlphaSecret(parsed.data.inviteToken);
+  const sourceHash = trustedClientHash(request.headers);
+  if (!sourceHash) {
+    return respond({ ok: false, code: "access_unavailable" }, { status: 503 });
+  }
   const db = createDb(webEnv().DATABASE_URL);
-  if (await alphaInviteBreakerOpen(db)) {
+  if (!await consumeAlphaInviteQuota(db, sourceHash)) {
     return respond({ error: "too_many_attempts" }, { status: 429 });
   }
 
@@ -67,11 +73,6 @@ export async function POST(request: Request) {
   if (!auth) {
     const inspection = await inspectAlphaInvite(db, inviteTokenHash);
     const state = inspection.state === "ready" ? "used" : inspection.state;
-    // Only a token that matches no row counts toward the breaker: expired, used,
-    // and revoked are legitimate friends holding real links, not guesses.
-    if (state === "invalid_invite") {
-      await recordInvalidInviteAttempt(db);
-    }
     return respond(
       { ok: false, code: state },
       { status: alphaInviteErrorStatus(state) }

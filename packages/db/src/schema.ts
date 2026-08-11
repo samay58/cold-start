@@ -210,6 +210,7 @@ export const alphaInvites = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     label: text("label").notNull(),
     tokenHash: text("token_hash").notNull(),
+    presentationTokenHash: text("presentation_token_hash"),
     status: alphaInviteStatusEnum("status").default("pending").notNull(),
     scopes: text("scopes").array().notNull(),
     profileLimit: integer("profile_limit").notNull(),
@@ -227,10 +228,15 @@ export const alphaInvites = pgTable(
   },
   (table) => [
     uniqueIndex("alpha_invites_token_hash_idx").on(table.tokenHash),
+    uniqueIndex("alpha_invites_presentation_token_hash_idx").on(table.presentationTokenHash),
     uniqueIndex("alpha_invites_slug_idx").on(table.slug),
     index("alpha_invites_status_expires_idx").on(table.status, table.expiresAt),
     check("alpha_invites_label_length_check", sql`char_length(${table.label}) between 1 and 120`),
     check("alpha_invites_token_hash_check", sql`${table.tokenHash} ~ '^[0-9a-f]{64}$'`),
+    check(
+      "alpha_invites_presentation_token_hash_check",
+      sql`${table.presentationTokenHash} is null or ${table.presentationTokenHash} ~ '^[0-9a-f]{64}$'`
+    ),
     check("alpha_invites_profile_limit_check", sql`${table.profileLimit} >= 0`),
     check("alpha_invites_lens_limit_check", sql`${table.lensLimit} >= 0`),
     check("alpha_invites_max_installations_check", sql`${table.maxInstallations} > 0`),
@@ -392,15 +398,21 @@ export const alphaAllowanceLedger = pgTable(
   ]
 );
 
-// Anonymous tally of invalid-token attempts on inspect/redeem, feeding the global
-// failure breaker. No invite reference on purpose: a wrong guess matches no row.
+// Source-scoped quota ledger for unauthenticated invite inspect and redeem attempts.
 export const alphaInviteAttempts = pgTable(
   "alpha_invite_attempts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    sourceHash: text("source_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
   },
-  (table) => [index("alpha_invite_attempts_created_idx").on(table.createdAt)]
+  (table) => [
+    index("alpha_invite_attempts_source_created_idx").on(table.sourceHash, table.createdAt),
+    check(
+      "alpha_invite_attempts_source_hash_check",
+      sql`${table.sourceHash} is null or ${table.sourceHash} ~ '^[0-9a-f]{64}$'`
+    )
+  ]
 );
 
 export const alphaEvents = pgTable(
@@ -449,8 +461,7 @@ export const alphaEvents = pgTable(
   ]
 );
 
-// Landing-page "ask for access" submissions. ipHash and email are rate-limit keys, not identity:
-// createAccessRequest counts recent rows by each before inserting.
+// Landing-page "ask for access" submissions. ipHash and email are quota keys, not identity.
 export const accessRequests = pgTable(
   "access_requests",
   {

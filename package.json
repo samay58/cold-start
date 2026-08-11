@@ -35,6 +35,7 @@
     "qa:web:gallery": "npm run qa:web:gallery -w @cold-start/web",
     "export:recorded-build": "tsx scripts/export-recorded-build.ts",
     "alpha:invite": "tsx scripts/alpha-invite.ts",
+    "alpha:reissue-link": "tsx scripts/alpha-reissue-link.ts",
     "alpha:revoke": "tsx scripts/alpha-revoke.ts",
     "alpha:delete-tester": "tsx scripts/alpha-delete-tester.ts",
     "alpha:prune": "tsx scripts/alpha-prune.ts",

@@ -12,6 +12,7 @@ import {
   type ResearchSectionId
 } from "@cold-start/core";
 import { synthesisEvidenceFingerprint } from "@cold-start/pipeline";
+import { z } from "zod";
 import {
   createDb,
   findActiveGenerationRunStatusBySlug,
@@ -43,6 +44,7 @@ import { retireAndSettleStaleGenerationRuns, retireDeadGenerationRun } from "../
 import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/web-env";
 import { apiJsonWithTiming, type ServerTimingMetric } from "../../../lib/api-response";
+import { readBoundedJson } from "../../../lib/bounded-json";
 import {
   assertExtensionRequest,
   authenticateExtensionRequest,
@@ -54,6 +56,16 @@ import {
 // inline-dispatch.ts): basics runs ~45-90s, analysis ~85s, so 300s covers both with margin.
 // A run that outlives the instance anyway is retired by the dead-run watchdog below.
 export const maxDuration = 300;
+const GENERATE_REQUEST_MAX_BYTES = 2_048;
+
+const generateRequestSchema = z.object({
+  domain: z.string().min(1).max(253),
+  confirmStart: z.boolean().optional(),
+  forceRefresh: z.boolean().optional(),
+  interactionId: z.string().max(128).optional(),
+  mode: z.string().max(20).nullable().optional(),
+  sectionId: z.string().max(80).nullable().optional()
+}).strict();
 
 type GenerationMode = "basics" | "analysis";
 type QueuedGenerationRun = NonNullable<Awaited<ReturnType<typeof markGenerationRun>>>;
@@ -349,20 +361,18 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   const timedJson = (body: unknown, init?: ResponseInit, extraMetrics: ServerTimingMetric[] = []) =>
     apiJsonWithTiming(body, [...extraMetrics, { name: "total", durationMs: elapsedMs(startedAt) }], init);
-  let body: {
-    domain?: unknown;
-    confirmStart?: unknown;
-    forceRefresh?: unknown;
-    interactionId?: unknown;
-    mode?: unknown;
-    sectionId?: unknown;
-  };
+  const operatorAuth = assertExtensionRequest(request.headers);
+  const hasCredential = operatorAuth.ok || hasBearerCredential(request.headers);
+  if (!hasCredential && !publicGenerationEnabled()) {
+    return timedJson({ error: "extension identity required" }, { status: 403 });
+  }
 
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
+  const decoded = await readBoundedJson(request, GENERATE_REQUEST_MAX_BYTES);
+  const parsedBody = generateRequestSchema.safeParse(decoded.ok ? decoded.value : null);
+  if (!parsedBody.success) {
     return timedJson({ error: "invalid json body" }, { status: 400 });
   }
+  const body = parsedBody.data;
 
   let sectionId: ResearchSectionId | null;
   let requestedMode: GenerationMode;
@@ -377,8 +387,6 @@ export async function POST(request: Request) {
   if (sectionId && hasExplicitGenerationMode(body.mode) && requestedMode !== mode) {
     return timedJson({ error: "section mode does not match requested mode" }, { status: 400 });
   }
-  const operatorAuth = assertExtensionRequest(request.headers);
-  const hasCredential = operatorAuth.ok || hasBearerCredential(request.headers);
   const confirmed = body.confirmStart === true;
   const forceRefresh = body.forceRefresh === true;
   const acceptsUnconfirmedExtensionBasics = !sectionId && mode === "basics" && hasCredential;

@@ -10,6 +10,7 @@ import { createAlphaInvite, nextAlphaInviteOrdinal, type AlphaInvite } from "@co
 
 import {
   boundedInteger,
+  createInviteSecret,
   dateAfter,
   hasFlag,
   inviteUrl,
@@ -115,7 +116,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const ordinal = await withAlphaDb((db) => nextAlphaInviteOrdinal(db));
 
   let cardPngBase64: string | undefined;
-  let slug: string | undefined;
+  let presentationToken: string | undefined;
 
   if (!hasFlag(args, "--skip-card")) {
     assertMacOsMintSupport(process.platform);
@@ -154,45 +155,34 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         `sips -s format png --resampleWidth 2400 ${JSON.stringify(approved)} --out ${JSON.stringify(approvedPng)}`
       );
       cardPngBase64 = readFileSync(approvedPng).toString("base64");
-      slug = slugBase;
+      presentationToken = createInviteSecret();
       break;
     }
   }
 
-  const createInput = (inviteSlug: string | undefined) => ({
+  const createInput = {
     label,
     tokenHash: sha256(code),
+    ...(presentationToken ? { presentationTokenHash: sha256(presentationToken) } : {}),
     scopes,
     expiresAt,
     profileLimit,
     lensLimit,
     maxInstallations,
-    ...(inviteSlug ? { slug: inviteSlug } : {}),
     displayName: name,
     ordinal,
     ...(cardPngBase64 ? { cardPngBase64 } : {}),
     now
-  });
+  };
 
-  let invite: AlphaInvite;
-  try {
-    invite = await withAlphaDb((db) => createAlphaInvite(db, createInput(slug)));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (slug && /alpha_invites_slug_idx|duplicate key/i.test(message)) {
-      slug = `${slugBase}-${ordinal}`;
-      invite = await withAlphaDb((db) => createAlphaInvite(db, createInput(slug)));
-    } else {
-      throw error;
-    }
-  }
+  const invite: AlphaInvite = await withAlphaDb((db) => createAlphaInvite(db, createInput));
 
   console.log(`Invitation ${invite.id} created for ${invite.label}. No ${String(ordinal).padStart(2, "0")}.`);
   console.log(`Expires: ${invite.expiresAt.toISOString()}`);
   console.log(`Allowances: ${invite.profileLimit} profiles, ${invite.lensLimit} Lens runs`);
   console.log("");
   console.log("Send this as its own iMessage bubble (the card preview replaces the URL):");
-  console.log(slug ? inviteUrl(slug, code) : legacyInviteUrl(code));
+  console.log(presentationToken ? inviteUrl(presentationToken, code) : legacyInviteUrl(code));
   console.log("");
   console.log(`If they ever need to type it, the key is: ${code}`);
 }

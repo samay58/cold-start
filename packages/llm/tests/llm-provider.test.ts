@@ -21,6 +21,7 @@ const stageEnvNames = [
   "LLM_EXPANDED_DESCRIPTION_MODEL",
   "LLM_FALLBACK_MODEL",
   "LLM_SYNTHESIS_FALLBACK_MODEL",
+  "LLM_VERIFIER_FALLBACK_MODEL",
   "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
   "LLM_PERSON_READ_FALLBACK_MODEL",
   "LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL",
@@ -234,6 +235,13 @@ describe("provider fallback", () => {
 
     expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-pro");
     expect(fallbackModelForStage("person_read", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-flash");
+  });
+
+  it("supports a verifier-specific fallback", () => {
+    process.env.LLM_FALLBACK_MODEL = "deepseek/deepseek-v4-flash";
+    process.env.LLM_VERIFIER_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+
+    expect(fallbackModelForStage("verify", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-pro");
   });
 
   it("returns null when no distinct fallback is configured", () => {

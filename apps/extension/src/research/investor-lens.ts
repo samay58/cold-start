@@ -1,6 +1,7 @@
 import {
   sourceQualityForSource,
   sourceQualityRank,
+  safeWebUrl,
   stripCitationMarkers,
   type Citation,
   type ColdStartCard,
@@ -8,7 +9,6 @@ import {
   type QuestionCategory,
   type SourcedText
 } from "@cold-start/core";
-import { safeExternalHref } from "@cold-start/ui";
 import { LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 
 export type SourcePosture = "company-authored" | "independent" | "reporting" | "enrichment" | "unknown";
@@ -351,7 +351,7 @@ function lensSources(citations: Map<string, Citation>, claims: SourcedText[]): L
 
   for (const id of orderedIds) {
     const citation = citations.get(id);
-    const href = citation ? safeExternalHref(citation.url) : null;
+    const href = citation ? safeWebUrl(citation.url) : null;
     if (!citation || !href) {
       continue;
     }

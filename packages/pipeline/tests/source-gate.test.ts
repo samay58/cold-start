@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { filterSourcesForDomain, sourceGateTrace } from "../src/index";
 
 describe("filterSourcesForDomain", () => {
+  it("removes unsafe image resources while preserving an accepted source", () => {
+    const [source] = filterSourcesForDomain({
+      domain: "cartesia.ai",
+      sources: [{
+        url: "https://cartesia.ai/news",
+        title: "Cartesia news",
+        sourceType: "company_site",
+        fetchedAt: "2026-08-11T00:00:00.000Z",
+        rawText: "Cartesia product news",
+        imageUrl: "https://10.0.0.8/metadata"
+      }]
+    }).accepted;
+
+    expect(source?.url).toBe("https://cartesia.ai/news");
+    expect(source?.imageUrl).toBeNull();
+  });
+
   it("rejects same-name domain collisions before extraction", () => {
     const result = filterSourcesForDomain({
       domain: "minimax.io",

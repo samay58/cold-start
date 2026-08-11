@@ -1,6 +1,6 @@
 import React from "react";
-import type { Citation } from "@cold-start/core";
-import { citationHostname, formatShortDate, safeExternalHref, sourceClassForCitation, type CitationSourceClass } from "@cold-start/ui";
+import { safeWebUrl, type Citation } from "@cold-start/core";
+import { citationHostname, formatShortDate, sourceClassForCitation, type CitationSourceClass } from "@cold-start/ui";
 
 export type SourceRowProps = {
   citation: Citation;
@@ -29,7 +29,7 @@ function SourceMark({ sourceClass }: { sourceClass: CitationSourceClass }) {
 // identically without duplicating the markup.
 export function SourceRow({ citation, number }: SourceRowProps) {
   const sourceClass = sourceClassForCitation(citation);
-  const href = safeExternalHref(citation.url);
+  const href = safeWebUrl(citation.url);
   const hostname = citationHostname(citation.url);
   const date = formatShortDate(citation.fetchedAt);
 

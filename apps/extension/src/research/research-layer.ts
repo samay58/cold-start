@@ -5,6 +5,7 @@ import {
   fundingEvidenceFromCitations,
   sectionIdForLayer as coreSectionIdForLayer,
   signalCategorySchema,
+  safeWebUrl,
   sourceQualityForSource,
   sourceQualityRank,
   stripCitationMarkers,
@@ -13,7 +14,7 @@ import {
   type ResearchLayerId,
   type ResearchSection
 } from "@cold-start/core";
-import { formatCompactCurrency, formatMediumDate, formatShortDate, safeExternalHref } from "@cold-start/ui";
+import { formatCompactCurrency, formatMediumDate, formatShortDate } from "@cold-start/ui";
 
 export type { ResearchLayerId } from "@cold-start/core";
 
@@ -129,7 +130,7 @@ function citationSources(card: ColdStartCard, citationIds: readonly string[] = [
     }
 
     const citation = citations.get(id);
-    const href = citation ? safeExternalHref(citation.url) : null;
+    const href = citation ? safeWebUrl(citation.url) : null;
     if (!citation || !href) {
       continue;
     }

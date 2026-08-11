@@ -1,16 +1,16 @@
-import { createDb } from "@cold-start/db";
+import { createDb, inspectAlphaInvite } from "@cold-start/db";
 
 import { apiJsonWithTiming } from "../../../../../lib/api-response";
 import { alphaAccessEnabled } from "../../../../../lib/alpha-config";
+import { readBoundedJson } from "../../../../../lib/bounded-json";
+import { trustedClientHash } from "../../../../../lib/client-identity";
 import { webEnv } from "../../../../../lib/web-env";
 import {
-  alphaInviteBreakerOpen,
+  ALPHA_INVITE_REQUEST_MAX_BYTES,
   alphaInviteErrorStatus,
   alphaInviteRequestSchema,
-  hashAlphaSecret,
-  inspectAlphaInvite,
-  readBoundedJson,
-  recordInvalidInviteAttempt
+  consumeAlphaInviteQuota,
+  hashAlphaSecret
 } from "../invite-service";
 
 export async function POST(request: Request) {
@@ -28,23 +28,23 @@ export async function POST(request: Request) {
     return respond({ ok: false, code: "access_disabled" }, { status: 503 });
   }
 
-  const parsed = alphaInviteRequestSchema.safeParse(await readBoundedJson(request));
+  const body = await readBoundedJson(request, ALPHA_INVITE_REQUEST_MAX_BYTES);
+  const parsed = alphaInviteRequestSchema.safeParse(body.ok ? body.value : null);
   if (!parsed.success) {
     return respond({ ok: false, code: "invalid_invite" }, { status: 400 });
   }
 
+  const sourceHash = trustedClientHash(request.headers);
+  if (!sourceHash) {
+    return respond({ ok: false, code: "access_unavailable" }, { status: 503 });
+  }
   const db = createDb(webEnv().DATABASE_URL);
-  if (await alphaInviteBreakerOpen(db)) {
+  if (!await consumeAlphaInviteQuota(db, sourceHash)) {
     return respond({ error: "too_many_attempts" }, { status: 429 });
   }
 
   const inspection = await inspectAlphaInvite(db, hashAlphaSecret(parsed.data.inviteToken));
   if (inspection.state !== "ready") {
-    // Only a token that matches no row counts toward the breaker: expired, used,
-    // and revoked are legitimate friends holding real links, not guesses.
-    if (inspection.state === "invalid_invite") {
-      await recordInvalidInviteAttempt(db);
-    }
     return respond(
       { ok: false, code: inspection.state },
       { status: alphaInviteErrorStatus(inspection.state) }

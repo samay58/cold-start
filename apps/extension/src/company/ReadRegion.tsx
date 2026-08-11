@@ -1,4 +1,4 @@
-import type { FirstPayoff } from "@cold-start/core";
+import { safeWebUrl, type FirstPayoff } from "@cold-start/core";
 import { motion, useReducedMotion, type Transition } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { markPerformance } from "../sidepanel-network";
@@ -109,28 +109,35 @@ function SourceRows({
 
   return (
     <ul aria-label="Sources" className="cs-early-read-sources">
-      {visibleSources.map((item, index) => (
-        <li key={item.domain}>
-          <i aria-hidden="true" className="cs-early-read-dot" data-class={markClass(item.quality)} />
-          <a
-            href={item.url}
-            onClick={() => {
-              if (domain) {
-                emitAlphaEvent("source.opened", {
-                  domain,
-                  sourceClass: item.quality === "reported" ? "reporting" : item.quality,
-                  ordinal: index + 1
-                });
-              }
-            }}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {item.domain}
-          </a>
-          <span className="cs-early-read-class">{item.label}</span>
-        </li>
-      ))}
+      {visibleSources.map((item, index) => {
+        const sourceUrl = safeWebUrl(item.url);
+        return (
+          <li key={item.domain}>
+            <i aria-hidden="true" className="cs-early-read-dot" data-class={markClass(item.quality)} />
+            {sourceUrl ? (
+              <a
+                href={sourceUrl}
+                onClick={() => {
+                  if (domain) {
+                    emitAlphaEvent("source.opened", {
+                      domain,
+                      sourceClass: item.quality === "reported" ? "reporting" : item.quality,
+                      ordinal: index + 1
+                    });
+                  }
+                }}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {item.domain}
+              </a>
+            ) : (
+              <span>{item.domain}</span>
+            )}
+            <span className="cs-early-read-class">{item.label}</span>
+          </li>
+        );
+      })}
       {hiddenSources > 0 ? <li className="cs-early-read-more">{`+${hiddenSources}`}</li> : null}
     </ul>
   );

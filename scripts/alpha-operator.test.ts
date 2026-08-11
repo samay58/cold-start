@@ -110,8 +110,8 @@ describe("invite mint pipeline", () => {
 
   it("inviteUrl builds the /i/ link with the code in the fragment", () => {
     assert.equal(
-      inviteUrl("dad", "ember-quarto-lark", "https://cold-start.semitechie.vc"),
-      "https://cold-start.semitechie.vc/i/dad#ember-quarto-lark"
+      inviteUrl("p".repeat(43), "ember-quarto-lark", "https://cold-start.semitechie.vc"),
+      `https://cold-start.semitechie.vc/i/${"p".repeat(43)}#ember-quarto-lark`
     );
   });
 
@@ -258,30 +258,29 @@ describe("alpha status report", () => {
     assert.equal(report.totals.allTraffic.staleOrSilentRunCount, 1);
   });
 
-  it("reports the invite breaker closed below the threshold", () => {
+  it("reports the busiest invite source below its quota", () => {
     const fixture = failingFixture();
-    fixture.recentInviteAttempts = 9;
+    fixture.busiestInviteSourceAttempts = 9;
 
     const report = buildAlphaStatusReport(fixture);
 
-    assert.deepEqual(report.breaker, {
+    assert.deepEqual(report.inviteQuota, {
       windowMinutes: 60,
       threshold: 10,
-      recentAttempts: 9,
-      open: false
+      busiestSourceAttempts: 9,
+      saturated: false
     });
   });
 
-  it("reports the invite breaker open at the threshold, independent of the gate", () => {
+  it("reports a saturated invite source independently of the gate", () => {
     const fixture = failingFixture();
-    fixture.recentInviteAttempts = 10;
+    fixture.busiestInviteSourceAttempts = 10;
 
     const report = buildAlphaStatusReport(fixture);
 
-    assert.equal(report.breaker.open, true);
-    assert.equal(report.breaker.recentAttempts, 10);
-    // The breaker is reported, not gated: a busy breaker alone never fails npm run alpha:status --gate.
-    assert.ok(!report.gate.failures.some((failure) => failure.code.includes("breaker")));
+    assert.equal(report.inviteQuota.saturated, true);
+    assert.equal(report.inviteQuota.busiestSourceAttempts, 10);
+    assert.ok(!report.gate.failures.some((failure) => failure.code.includes("invite_quota")));
   });
 });
 
@@ -470,7 +469,7 @@ function failingFixture(): AlphaStatusReportInputs {
       endpoint: "org_enrichment",
       failures: "2"
     }],
-    recentInviteAttempts: 0,
+    busiestInviteSourceAttempts: 0,
     walletBalanceUsd: 1,
     walletError: null,
     supportedVersions: ["0.1.0"],
