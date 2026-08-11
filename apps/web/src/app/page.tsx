@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import Link from "next/link";
 import { connection } from "next/server";
 import React from "react";
@@ -9,18 +8,9 @@ import { Hero } from "../components/landing/Hero";
 import { LandingFooter } from "../components/landing/LandingFooter";
 import { recordedBuild } from "../components/landing/recorded-build-data";
 import { SourcesLegend } from "../components/landing/SourcesLegend";
-import { getPublicProfileIndex } from "../lib/cards";
+import { getCachedPublicProfileIndex } from "../lib/cards";
 
 export const revalidate = 30;
-
-// A distinct cache key from /catalog's own "public-profile-index-catalog": both wrap the same
-// getPublicProfileIndex() call with an identical revalidate window, kept separate so neither
-// route's cache entry couples to the other's key.
-const getCachedPublicProfileIndex = unstable_cache(
-  async () => getPublicProfileIndex(),
-  ["public-profile-index-landing"],
-  { revalidate: 30 }
-);
 
 function Nav({ profileCount }: { profileCount: number }) {
   return (

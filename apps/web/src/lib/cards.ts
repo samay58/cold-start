@@ -9,6 +9,7 @@ import {
   type ProviderFailureSummary,
   type PublicCardSummary
 } from "@cold-start/db";
+import { unstable_cache } from "next/cache";
 
 import { webEnv } from "./web-env";
 
@@ -53,24 +54,13 @@ export async function getLatestProviderFailureSummary(slug: string): Promise<Pro
   return latestProviderFailureSummary(db, slug);
 }
 
-export async function getPublicProfileIndex(): Promise<PublicCardSummary[]> {
+async function getPublicProfileIndex(): Promise<PublicCardSummary[]> {
   const db = createDb(webEnv().DATABASE_URL);
-  const summaries = await listPublicCardSummaries(db);
-
-  return summaries.map((summary) => {
-    const card = materializeFundingFromCitations(summary.card);
-
-    return {
-      ...summary,
-      totalRaisedUsd: card.funding.totalRaisedUsd.value,
-      lastRoundName: card.funding.lastRound.value?.name ?? null,
-      headcount: card.team.headcount.value?.value ?? null,
-      card,
-      sections: mergeStoredResearchSectionsWithLegacy({
-        card,
-        storedSections: summary.sections,
-        includeGated: false
-      })
-    };
-  });
+  return listPublicCardSummaries(db);
 }
+
+export const getCachedPublicProfileIndex = unstable_cache(
+  getPublicProfileIndex,
+  ["public-profile-index"],
+  { revalidate: 30 }
+);

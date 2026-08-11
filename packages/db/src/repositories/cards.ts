@@ -1,18 +1,18 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import {
   coldStartCardObjectSchema,
   coldStartCardSchema,
   hasUsablePublicProfile,
   publicCard,
+  sourceQualityForSource,
   type ColdStartCard,
-  type ResearchSection
+  type SourceQualityTier
 } from "@cold-start/core";
 
 import type { ColdStartDb } from "../client";
-import { cards, researchSections } from "../schema";
+import { cards } from "../schema";
 import type { GenerationMode } from "./generation-runs";
-import { researchSectionFromRow } from "./shared";
 
 type PublicCard = Omit<ColdStartCard, "synthesis" | "synthesisWithheld">;
 
@@ -22,11 +22,7 @@ export type PublicCardSummary = {
   name: string;
   generatedAt: string;
   sourceCount: number;
-  totalRaisedUsd: number | null;
-  lastRoundName: string | null;
-  headcount: number | null;
-  card: PublicCard;
-  sections: ResearchSection[];
+  sourceQualityCounts: Record<SourceQualityTier, number>;
 };
 
 const identityTtlMs = 7 * 24 * 60 * 60 * 1000;
@@ -179,37 +175,6 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
     .orderBy(desc(cards.generatedAt))
     // Bounded read; revisit when the catalog approaches 500 filed cards.
     .limit(500);
-  const selectedSlugs = cardRows.map((row) => row.slug);
-  const sectionRows = selectedSlugs.length === 0
-    ? []
-    : await db
-      .select({
-        slug: researchSections.slug,
-        domain: researchSections.domain,
-        sectionId: researchSections.sectionId,
-        visibility: researchSections.visibility,
-        status: researchSections.status,
-        contentJson: researchSections.contentJson,
-        citationIds: researchSections.citationIds,
-        sourceIds: researchSections.sourceIds,
-        runId: researchSections.runId,
-        error: researchSections.error,
-        generatedAt: researchSections.generatedAt,
-        staleAt: researchSections.staleAt,
-        createdAt: researchSections.createdAt,
-        updatedAt: researchSections.updatedAt
-      })
-      .from(researchSections)
-      .where(and(eq(researchSections.visibility, "public"), inArray(researchSections.slug, selectedSlugs)));
-  const sectionsBySlug = new Map<string, ResearchSection[]>();
-
-  for (const row of sectionRows) {
-    const section = researchSectionFromRow(row);
-    if (!section) {
-      continue;
-    }
-    sectionsBySlug.set(section.slug, [...(sectionsBySlug.get(section.slug) ?? []), section]);
-  }
 
   return cardRows.flatMap((row) => {
     const parsed = coldStartCardSchema.safeParse(row.cardJson);
@@ -224,17 +189,28 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
       return [];
     }
 
+    const citations = [...new Map(card.citations.map((citation) => [citation.id, citation])).values()];
+    const sourceQualityCounts: Record<SourceQualityTier, number> = {
+      independent_technical: 0,
+      independent_analysis: 0,
+      independent_report: 0,
+      primary_company: 0,
+      press_release: 0,
+      enrichment: 0,
+      unknown: 0
+    };
+    for (const citation of citations) {
+      const tier = (citation.sourceQuality ?? sourceQualityForSource(citation)).tier;
+      sourceQualityCounts[tier] += 1;
+    }
+
     return [{
       slug: card.slug,
       domain: card.domain,
       name: card.identity.name.value ?? card.domain,
       generatedAt: card.generatedAt,
-      sourceCount: card.citations.length,
-      totalRaisedUsd: card.funding.totalRaisedUsd.value,
-      lastRoundName: card.funding.lastRound.value?.name ?? null,
-      headcount: card.team.headcount.value?.value ?? null,
-      card,
-      sections: sectionsBySlug.get(card.slug) ?? []
+      sourceCount: citations.length,
+      sourceQualityCounts
     }];
   });
 }

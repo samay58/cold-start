@@ -1,24 +1,13 @@
-import type { Citation } from "@cold-start/core";
+import type { SourceQualityTier } from "@cold-start/core";
 import type { PublicCardSummary } from "@cold-start/db";
-import { sourceClassForCitation, type CitationSourceClass } from "@cold-start/ui";
-import { unstable_cache } from "next/cache";
+import { sourceClassForQualityTier, type CitationSourceClass } from "@cold-start/ui";
 import Link from "next/link";
 import { connection } from "next/server";
 import React from "react";
-import { callNumber, filedDateStamp, isThinFile } from "../../lib/card-face/model";
-import { getPublicProfileIndex } from "../../lib/cards";
+import { callNumberFor, filedDateStamp, isThinFileFromSourceQualityCounts } from "../../lib/card-face/model";
+import { getCachedPublicProfileIndex } from "../../lib/cards";
 
 export const revalidate = 30;
-
-// A distinct cache key from the home page's "public-profile-index": both wrap the same
-// getPublicProfileIndex() call with an identical revalidate window, but keeping the keys
-// separate avoids coupling this route's cache entry to whatever the home page (soon to be
-// replaced by Task 17's landing page) does with its own.
-const getCachedPublicProfileIndex = unstable_cache(
-  async () => getPublicProfileIndex(),
-  ["public-profile-index-catalog"],
-  { revalidate: 30 }
-);
 
 // Reader-facing order, highest evidence quality first: the same priority the sources rail and
 // evidence marks already use elsewhere on the card face (independent > reporting > company >
@@ -33,11 +22,13 @@ const EVIDENCE_CLASS_LABEL: Record<CitationSourceClass, string> = {
   unknown: "Unclassified"
 };
 
-function evidenceSignature(citations: Citation[]): { sourceClass: CitationSourceClass; count: number }[] {
+function evidenceSignature(
+  sourceQualityCounts: Record<SourceQualityTier, number>
+): { sourceClass: CitationSourceClass; count: number }[] {
   const counts = new Map<CitationSourceClass, number>();
-  for (const citation of citations) {
-    const sourceClass = sourceClassForCitation(citation);
-    counts.set(sourceClass, (counts.get(sourceClass) ?? 0) + 1);
+  for (const [tier, count] of Object.entries(sourceQualityCounts)) {
+    const sourceClass = sourceClassForQualityTier(tier as SourceQualityTier);
+    counts.set(sourceClass, (counts.get(sourceClass) ?? 0) + count);
   }
 
   return EVIDENCE_CLASS_ORDER.flatMap((sourceClass) => {
@@ -46,8 +37,8 @@ function evidenceSignature(citations: Citation[]): { sourceClass: CitationSource
   });
 }
 
-function EvidenceSignature({ citations }: { citations: Citation[] }) {
-  const marks = evidenceSignature(citations);
+function EvidenceSignature({ sourceQualityCounts }: Pick<PublicCardSummary, "sourceQualityCounts">) {
+  const marks = evidenceSignature(sourceQualityCounts);
   if (marks.length === 0) {
     return null;
   }
@@ -66,7 +57,7 @@ function EvidenceSignature({ citations }: { citations: Citation[] }) {
 }
 
 function CatalogRow({ row }: { row: PublicCardSummary }) {
-  const thin = isThinFile(row.card);
+  const thin = isThinFileFromSourceQualityCounts(row.sourceQualityCounts);
 
   return (
     <Link className="cs-catalog-row" href={`/c/${row.slug}`}>
@@ -75,10 +66,10 @@ function CatalogRow({ row }: { row: PublicCardSummary }) {
         {thin ? <span className="cs-catalog-row-thin">THIN FILE</span> : null}
       </div>
       <p className="cs-catalog-row-meta">
-        {row.domain} · {callNumber(row.card)} · filed {filedDateStamp(row.generatedAt)} · {row.sourceCount} source
+        {row.domain} · {callNumberFor(row.domain, row.generatedAt)} · filed {filedDateStamp(row.generatedAt)} · {row.sourceCount} source
         {row.sourceCount === 1 ? "" : "s"}
       </p>
-      <EvidenceSignature citations={row.card.citations} />
+      <EvidenceSignature sourceQualityCounts={row.sourceQualityCounts} />
     </Link>
   );
 }

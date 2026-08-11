@@ -2,7 +2,7 @@
 // card (and, where noted, research sections) and returns data the face components render
 // as-is. Card-face components (Tasks 5-9) import from here instead of recomputing evidence
 // state, citation numbering, or the honesty-doctrine copy themselves.
-import type { Citation, ColdStartCard, ResearchSection, ResolvedFact } from "@cold-start/core";
+import type { Citation, ColdStartCard, ResearchSection, ResolvedFact, SourceQualityTier } from "@cold-start/core";
 import { splitIntoSentences, stripCitationMarkers } from "@cold-start/core";
 import type { CitationLedger } from "@cold-start/ui";
 import {
@@ -11,7 +11,8 @@ import {
   formatCompactCurrency,
   formatShortDate,
   sortedUniqueCitations,
-  sourceClassForCitation
+  sourceClassForCitation,
+  sourceClassForQualityTier
 } from "@cold-start/ui";
 
 export type PublicCardData = Omit<ColdStartCard, "synthesis" | "synthesisWithheld">;
@@ -25,9 +26,8 @@ export type ResolvedFactLike = {
 
 export type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
 
-// The locked "Investor read" teaser's five row labels: SectionRows.tsx renders them on the card
-// face itself, ExtensionPanel.tsx renders the same five rows on the landing page's mocked
-// extension panel (two answered with frozen demo prose, three still locked). One canonical order.
+// The locked "Investor read" teaser's five row labels are shared by the public card and landing
+// page preview so the gated categories cannot drift.
 export const INVESTOR_READ_LABELS = [
   "Why care",
   "What must be true",
@@ -246,8 +246,8 @@ export function filedDateStamp(generatedAt: string): string {
   return `${year}·${month}·${day}`;
 }
 
-export function isThinFile(card: PublicCardData): boolean {
-  const citations = sortedUniqueCitations(card.citations);
+function isThinFileFromCitations(input: Citation[]): boolean {
+  const citations = sortedUniqueCitations(input);
   if (citations.length < 3) {
     return true;
   }
@@ -258,6 +258,25 @@ export function isThinFile(card: PublicCardData): boolean {
   });
 
   return !hasVettedCitation;
+}
+
+export function isThinFileFromSourceQualityCounts(
+  counts: Record<SourceQualityTier, number>
+): boolean {
+  const sourceCount = Object.values(counts).reduce((total, count) => total + count, 0);
+  if (sourceCount < 3) {
+    return true;
+  }
+
+  return !Object.entries(counts).some(
+    ([tier, count]) => count > 0 && ["independent", "reporting"].includes(
+      sourceClassForQualityTier(tier as SourceQualityTier)
+    )
+  );
+}
+
+export function isThinFile(card: PublicCardData): boolean {
+  return isThinFileFromCitations(card.citations);
 }
 
 export function vettedCounts(card: PublicCardData): { verified: number; total: number } {

@@ -1076,78 +1076,53 @@ describe("listPublicCardSummaries", () => {
       { slug: "thin", cardJson: { ...card, slug: "thin", domain: "thin.ai", citations: [] } },
       { slug: "cartesia", cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai", generatedAt: "2026-05-07T12:00:00.000Z" } }
     ];
-    let sectionWhere: unknown;
-    let selectCount = 0;
     const db = {
-      select: () => {
-        selectCount += 1;
-        return selectCount === 1
-          ? {
-              from: () => ({
-                orderBy: () => ({
-                  limit: async () => rows
-                })
-              })
-            }
-          : {
-              from: () => ({
-                where: async (condition: unknown) => {
-                  sectionWhere = condition;
-                  return [];
-                }
-              })
-            };
-      }
+      select: () => ({
+        from: () => ({
+          orderBy: () => ({
+            limit: async () => rows
+          })
+        })
+      })
     } as unknown as ColdStartDb;
 
-    await expect(listPublicCardSummaries(db)).resolves.toMatchObject([
+    const summaries = await listPublicCardSummaries(db);
+    expect(summaries).toMatchObject([
       {
         slug: "cartesia",
         domain: "cartesia.ai",
         name: "Cartesia",
         sourceCount: 3,
-        totalRaisedUsd: 91_000_000,
-        lastRoundName: "Series B",
-        headcount: 42
+        sourceQualityCounts: {
+          independent_report: 1,
+          primary_company: 1,
+          enrichment: 1
+        }
       }
     ]);
-    expect(sqlParamValues(sectionWhere)).toEqual(expect.arrayContaining(["public", "thin", "cartesia"]));
+    expect(summaries[0]).not.toHaveProperty("card");
+    expect(summaries[0]).not.toHaveProperty("sections");
   });
 
-  it("bounds the card and section scans to the selected slugs", async () => {
+  it("bounds the card scan", async () => {
     const rows = [{ slug: "cartesia", cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai" } }];
     const limitCalls: number[] = [];
-    let sectionWhere: unknown;
-    let selectCount = 0;
     const db = {
-      select: () => {
-        selectCount += 1;
-        return selectCount === 1
-          ? {
-              from: () => ({
-                orderBy: () => ({
-                  limit: async (n: number) => {
-                    limitCalls.push(n);
-                    return rows;
-                  }
-                })
-              })
+      select: () => ({
+        from: () => ({
+          orderBy: () => ({
+            limit: async (n: number) => {
+              limitCalls.push(n);
+              return rows;
             }
-          : {
-              from: () => ({
-                where: async (condition: unknown) => {
-                  sectionWhere = condition;
-                  return [];
-                }
-              })
-            };
-      }
+          })
+        })
+      })
     } as unknown as ColdStartDb;
 
     await listPublicCardSummaries(db);
 
     expect(limitCalls).toEqual([500]);
-    expect(sqlParamValues(sectionWhere)).toEqual(expect.arrayContaining(["public", "cartesia"]));
   });
 });
 

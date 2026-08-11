@@ -1,18 +1,15 @@
+import { sourceQualityForSource, type SourceQualityTier } from "@cold-start/core";
 import type { PublicCardSummary } from "@cold-start/db";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { emptySectionsCard, richConflictCard, thinFileCard } from "./fixtures/gallery-cards";
 
 const mocks = vi.hoisted(() => ({
-  getPublicProfileIndex: vi.fn()
+  getCachedPublicProfileIndex: vi.fn()
 }));
 
 vi.mock("../src/lib/cards", () => ({
-  getPublicProfileIndex: mocks.getPublicProfileIndex
-}));
-
-vi.mock("next/cache", () => ({
-  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn
+  getCachedPublicProfileIndex: mocks.getCachedPublicProfileIndex
 }));
 
 vi.mock("next/server", () => ({
@@ -21,21 +18,27 @@ vi.mock("next/server", () => ({
 
 const { default: CatalogPage } = await import("../src/app/catalog/page");
 
-// Card fixtures carry no synthesis field, so they already satisfy the public PublicCardSummary's
-// `card` shape (Omit<ColdStartCard, "synthesis" | "synthesisWithheld">) with no cast needed, the
-// same pattern card-page.test.tsx uses.
 function summaryFrom(card: typeof richConflictCard): PublicCardSummary {
+  const sourceQualityCounts: Record<SourceQualityTier, number> = {
+    independent_technical: 0,
+    independent_analysis: 0,
+    independent_report: 0,
+    primary_company: 0,
+    press_release: 0,
+    enrichment: 0,
+    unknown: 0
+  };
+  for (const citation of card.citations) {
+    sourceQualityCounts[(citation.sourceQuality ?? sourceQualityForSource(citation)).tier] += 1;
+  }
+
   return {
     slug: card.slug,
     domain: card.domain,
     name: card.identity.name.value ?? card.domain,
     generatedAt: card.generatedAt,
     sourceCount: card.citations.length,
-    totalRaisedUsd: card.funding.totalRaisedUsd.value,
-    lastRoundName: card.funding.lastRound.value?.name ?? null,
-    headcount: card.team.headcount.value?.value ?? null,
-    card,
-    sections: []
+    sourceQualityCounts
   };
 }
 
@@ -54,11 +57,11 @@ async function renderCatalogPage() {
 
 describe("CatalogPage", () => {
   beforeEach(() => {
-    mocks.getPublicProfileIndex.mockReset();
+    mocks.getCachedPublicProfileIndex.mockReset();
   });
 
   it("renders the header, real count, each row's identity, and the thin row's stamp", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue(threeSummaries);
+    mocks.getCachedPublicProfileIndex.mockResolvedValue(threeSummaries);
 
     const html = await renderCatalogPage();
 
@@ -85,7 +88,7 @@ describe("CatalogPage", () => {
   });
 
   it("never renders THIN FILE against the two non-thin rows", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([summaryFrom(richConflictCard), summaryFrom(emptySectionsCard)]);
+    mocks.getCachedPublicProfileIndex.mockResolvedValue([summaryFrom(richConflictCard), summaryFrom(emptySectionsCard)]);
 
     const html = await renderCatalogPage();
 
@@ -93,7 +96,7 @@ describe("CatalogPage", () => {
   });
 
   it("renders the empty state when no profiles are filed", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([]);
+    mocks.getCachedPublicProfileIndex.mockResolvedValue([]);
 
     const html = await renderCatalogPage();
 

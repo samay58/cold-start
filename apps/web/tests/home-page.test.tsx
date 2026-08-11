@@ -2,15 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  getPublicProfileIndex: vi.fn()
+  getCachedPublicProfileIndex: vi.fn()
 }));
 
 vi.mock("../src/lib/cards", () => ({
-  getPublicProfileIndex: mocks.getPublicProfileIndex
-}));
-
-vi.mock("next/cache", () => ({
-  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn
+  getCachedPublicProfileIndex: mocks.getCachedPublicProfileIndex
 }));
 
 vi.mock("next/server", () => ({
@@ -18,15 +14,6 @@ vi.mock("next/server", () => ({
 }));
 
 const { default: HomePage } = await import("../src/app/page");
-
-function fact<T>(value: T | null, citationIds = value === null ? [] : ["c1"]) {
-  return {
-    value,
-    status: value === null ? "unknown" as const : "verified" as const,
-    confidence: value === null ? "low" as const : "high" as const,
-    citationIds
-  };
-}
 
 function summary(slug: string, name: string, generatedAt: string) {
   const domain = `${slug}.ai`;
@@ -36,60 +23,15 @@ function summary(slug: string, name: string, generatedAt: string) {
     name,
     generatedAt,
     sourceCount: slug === "browserbase" ? 21 : 8,
-    totalRaisedUsd: slug === "browserbase" ? 67_500_000 : 191_000_000,
-    lastRoundName: slug === "browserbase" ? "Series B" : "Venture Round",
-    headcount: slug === "browserbase" ? 50 : 75,
-    card: {
-      slug,
-      domain,
-      generatedAt,
-      cacheStatus: "hit",
-      generationCostUsd: 0.12,
-      identity: {
-        name: fact(name),
-        websiteUrl: fact(`https://${domain}`),
-        logoUrl: null,
-        oneLiner: fact(`${name} builds cited company infrastructure.`),
-        description: {
-          value: {
-            shortDescription: `${name} builds cited company context for investors.`,
-            concept: "Source-grounded company profile generation.",
-            serves: "Investors screening generated company profiles.",
-            mechanism: "Public facts are separated from gated synthesis."
-          },
-          status: "verified" as const,
-          confidence: "high" as const,
-          citationIds: ["c1"]
-        },
-        hq: fact({ city: "San Francisco", country: "US" }),
-        foundedYear: fact(2024),
-        status: "private" as const
-      },
-      funding: {
-        totalRaisedUsd: fact(slug === "browserbase" ? 67_500_000 : 191_000_000, ["c2"]),
-        lastRound: {
-          value: slug === "browserbase"
-            ? { name: "Series B", amountUsd: 40_000_000, announcedAt: "2025-06-17", leadInvestors: ["Notable Capital"] }
-            : { name: "Venture Round", amountUsd: 100_000_000, announcedAt: "2025-11", leadInvestors: [] },
-          status: "verified" as const,
-          confidence: "high" as const,
-          citationIds: ["c2"]
-        },
-        investors: fact([])
-      },
-      team: {
-        founders: fact([]),
-        keyExecs: fact([]),
-        headcount: fact({ value: slug === "browserbase" ? 50 : 75, asOf: "2026-05-06" }, ["c3"])
-      },
-      signals: [],
-      comparables: [],
-      citations: [
-        { id: "c1", url: "https://example.com/one", title: `${name} site`, fetchedAt: generatedAt, sourceType: "company_site" as const },
-        { id: "c2", url: "https://example.com/two", title: `${name} funding`, fetchedAt: generatedAt, sourceType: "news" as const }
-      ]
-    },
-    sections: []
+    sourceQualityCounts: {
+      independent_technical: 0,
+      independent_analysis: 0,
+      independent_report: 0,
+      primary_company: 0,
+      press_release: 0,
+      enrichment: 0,
+      unknown: 0
+    }
   };
 }
 
@@ -104,11 +46,11 @@ const DROPPED_PHRASE = ["sourced", "company"].join(" ");
 
 describe("HomePage", () => {
   beforeEach(() => {
-    mocks.getPublicProfileIndex.mockReset();
+    mocks.getCachedPublicProfileIndex.mockReset();
   });
 
   it("renders the landing page with the real profile count", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([
+    mocks.getCachedPublicProfileIndex.mockResolvedValue([
       summary("elevenlabs", "ElevenLabs", "2026-05-07T12:00:00.000Z"),
       summary("cartesia", "Cartesia", "2026-05-06T12:00:00.000Z"),
       summary("browserbase", "Browserbase", "2026-05-22T12:00:00.000Z")
@@ -166,7 +108,7 @@ describe("HomePage", () => {
   });
 
   it("keeps the page honest when no public profiles are filed yet", async () => {
-    mocks.getPublicProfileIndex.mockResolvedValue([]);
+    mocks.getCachedPublicProfileIndex.mockResolvedValue([]);
 
     const html = await renderHome();
 
