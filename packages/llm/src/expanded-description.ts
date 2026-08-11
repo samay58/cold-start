@@ -3,6 +3,7 @@ import type { Tool } from "@anthropic-ai/sdk/resources/messages";
 import type { ExpandedDescription } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
+import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const EXPANDED_DESCRIPTION_TOOL_NAME = "emit_expanded_description";
@@ -163,59 +164,63 @@ export async function synthesizeExpandedDescription(input: {
   model: string;
   telemetry?: AnthropicTelemetrySink;
 }): Promise<ExpandedDescriptionResult> {
-  const evidenceMessage = {
-    role: "user" as const,
-    content: [
-      `Company: ${input.evidence.companyName} (${input.evidence.domain})`,
-      "Card facts JSON:",
-      JSON.stringify(input.evidence.cardFacts, null, 2),
-      "Source evidence JSON:",
-      JSON.stringify(input.evidence.sources, null, 2)
-    ].join("\n\n")
-  };
+  return withProviderFallback("expanded_description", input.model, (model) =>
+    withSchemaRetry(model, async () => {
+      const evidenceMessage = {
+        role: "user" as const,
+        content: [
+          `Company: ${input.evidence.companyName} (${input.evidence.domain})`,
+          "Card facts JSON:",
+          JSON.stringify(input.evidence.cardFacts, null, 2),
+          "Source evidence JSON:",
+          JSON.stringify(input.evidence.sources, null, 2)
+        ].join("\n\n")
+      };
 
-  const draftCall = (label: string, extraMessages: Array<{ role: "assistant" | "user"; content: string }>) =>
-    createTracedAnthropicMessage({
-      client: input.client,
-      label,
-      model: input.model,
-      stage: "expanded_description",
-      telemetry: input.telemetry,
-      params: {
-        model: input.model,
-        max_tokens: MAX_TOKENS,
-        temperature: 0,
-        system: [{ type: "text", text: expandedDescriptionSystemPrompt, cache_control: anthropicSystemCacheControl() }],
-        tool_choice: { type: "tool", name: EXPANDED_DESCRIPTION_TOOL_NAME },
-        tools: [expandedDescriptionTool],
-        messages: [evidenceMessage, ...extraMessages]
+      const draftCall = (label: string, extraMessages: Array<{ role: "assistant" | "user"; content: string }>) =>
+        createTracedAnthropicMessage({
+          client: input.client,
+          label,
+          model,
+          stage: "expanded_description",
+          telemetry: input.telemetry,
+          params: {
+            model,
+            max_tokens: MAX_TOKENS,
+            temperature: 0,
+            system: [{ type: "text", text: expandedDescriptionSystemPrompt, cache_control: anthropicSystemCacheControl() }],
+            tool_choice: { type: "tool", name: EXPANDED_DESCRIPTION_TOOL_NAME },
+            tools: [expandedDescriptionTool],
+            messages: [evidenceMessage, ...extraMessages]
+          }
+        });
+
+      const validCitationIds = new Set(input.evidence.sources.map((source) => source.citationId));
+
+      const response = await draftCall("synthesize-expanded-description", []);
+      let usage = (response as { usage?: unknown }).usage;
+      const parsed = parseExpandedDescriptionToolUse(response);
+      const validated = validateExpandedDescriptionDraft(parsed.description, validCitationIds);
+
+      // Style violations get exactly one corrective re-ask naming the problem; suppressing the
+      // whole paid draft over one brochure word (hospitality copy leans on "solutions"
+      // constantly) would silently starve the surface. Evidence-shaped failures are not
+      // repairable by re-asking and suppress immediately.
+      const repairable = validated.suppressionReason === "banned_phrase" || validated.suppressionReason === "word_bounds";
+      if (!repairable || !parsed.description) {
+        return { ...validated, usage };
       }
-    });
 
-  const validCitationIds = new Set(input.evidence.sources.map((source) => source.citationId));
+      const correction = expandedDescriptionCorrection(parsed.description, validated.suppressionReason as "banned_phrase" | "word_bounds");
+      const retryResponse = await draftCall("synthesize-expanded-description-retry", [
+        { role: "assistant", content: JSON.stringify({ description: parsed.description }) },
+        { role: "user", content: correction }
+      ]);
+      usage = (retryResponse as { usage?: unknown }).usage ?? usage;
+      const retryParsed = parseExpandedDescriptionToolUse(retryResponse);
+      const retryValidated = validateExpandedDescriptionDraft(retryParsed.description, validCitationIds);
 
-  const response = await draftCall("synthesize-expanded-description", []);
-  let usage = (response as { usage?: unknown }).usage;
-  const parsed = parseExpandedDescriptionToolUse(response);
-  const validated = validateExpandedDescriptionDraft(parsed.description, validCitationIds);
-
-  // Style violations get exactly one corrective re-ask naming the problem; suppressing the
-  // whole paid draft over one brochure word (hospitality copy leans on "solutions"
-  // constantly) would silently starve the surface. Evidence-shaped failures are not
-  // repairable by re-asking and suppress immediately.
-  const repairable = validated.suppressionReason === "banned_phrase" || validated.suppressionReason === "word_bounds";
-  if (!repairable || !parsed.description) {
-    return { ...validated, usage };
-  }
-
-  const correction = expandedDescriptionCorrection(parsed.description, validated.suppressionReason as "banned_phrase" | "word_bounds");
-  const retryResponse = await draftCall("synthesize-expanded-description-retry", [
-    { role: "assistant", content: JSON.stringify({ description: parsed.description }) },
-    { role: "user", content: correction }
-  ]);
-  usage = (retryResponse as { usage?: unknown }).usage ?? usage;
-  const retryParsed = parseExpandedDescriptionToolUse(retryResponse);
-  const retryValidated = validateExpandedDescriptionDraft(retryParsed.description, validCitationIds);
-
-  return { ...retryValidated, usage };
+      return { ...retryValidated, usage };
+    })
+  );
 }

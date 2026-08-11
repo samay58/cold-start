@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ZodError } from "zod";
-import { modelForStage, parseModelString, providerConfigFor, quirksForModel, withSchemaRetry } from "../src/index";
+import {
+  fallbackModelForStage,
+  modelForStage,
+  parseModelString,
+  providerConfigFor,
+  quirksForModel,
+  withProviderFallback,
+  withSchemaRetry,
+} from "../src/index";
 
 const stageEnvNames = [
   "LLM_EXTRACT_MODEL",
@@ -10,6 +18,12 @@ const stageEnvNames = [
   "LLM_RESEARCH_SECTION_MODEL",
   "LLM_RESEARCH_PLAN_MODEL",
   "LLM_PERSON_READ_MODEL",
+  "LLM_EXPANDED_DESCRIPTION_MODEL",
+  "LLM_FALLBACK_MODEL",
+  "LLM_SYNTHESIS_FALLBACK_MODEL",
+  "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
+  "LLM_PERSON_READ_FALLBACK_MODEL",
+  "LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL",
   "ANTHROPIC_EXTRACT_MODEL",
   "ANTHROPIC_BLOCK_MODEL",
   "ANTHROPIC_VERIFIER_MODEL",
@@ -209,6 +223,49 @@ describe("withSchemaRetry", () => {
   it("never retries anthropic models", async () => {
     const run = vi.fn<() => Promise<string>>().mockRejectedValue(new ZodError([]));
     await expect(withSchemaRetry("claude-sonnet-4-6", run)).rejects.toBeInstanceOf(ZodError);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("provider fallback", () => {
+  it("prefers the stage fallback over the shared fallback", () => {
+    process.env.LLM_FALLBACK_MODEL = "deepseek/deepseek-v4-flash";
+    process.env.LLM_SYNTHESIS_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+
+    expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-pro");
+    expect(fallbackModelForStage("person_read", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-flash");
+  });
+
+  it("returns null when no distinct fallback is configured", () => {
+    expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBeNull();
+    process.env.LLM_FALLBACK_MODEL = "claude-sonnet-4-6";
+    expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBeNull();
+  });
+
+  it("uses the fallback once when the primary provider has no credit", async () => {
+    process.env.LLM_SYNTHESIS_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+    const run = vi.fn(async (model: string) => {
+      if (model === "claude-sonnet-4-6") {
+        throw new Error("Your credit balance is too low to access the Anthropic API.");
+      }
+      return model;
+    });
+
+    await expect(withProviderFallback("synthesis", "claude-sonnet-4-6", run)).resolves.toBe(
+      "deepseek/deepseek-v4-pro",
+    );
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fallback on a model-contract failure", async () => {
+    process.env.LLM_SYNTHESIS_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+    const run = vi.fn(async () => {
+      throw new Error("No synthesis tool use returned");
+    });
+
+    await expect(withProviderFallback("synthesis", "claude-sonnet-4-6", run)).rejects.toThrow(
+      /No synthesis tool use/,
+    );
     expect(run).toHaveBeenCalledTimes(1);
   });
 });

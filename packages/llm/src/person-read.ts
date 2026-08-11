@@ -4,6 +4,7 @@ import { sentenceCount } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
+import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const PERSON_READ_TOOL_NAME = "emit_person_reads";
@@ -171,34 +172,37 @@ export async function synthesizePersonReads(input: {
   let usage: unknown;
 
   if (eligible.length > 0) {
-    const response = await createTracedAnthropicMessage({
-      client: input.client,
-      label: "synthesize-person-reads",
-      model: input.model,
-      stage: "person_read",
-      telemetry: input.telemetry,
-      params: {
-        model: input.model,
-        max_tokens: maxTokensForPersonReadBatch(eligible.length),
-        temperature: 0,
-        system: [{ type: "text", text: personReadSystemPrompt, cache_control: anthropicSystemCacheControl() }],
-        tool_choice: { type: "tool", name: PERSON_READ_TOOL_NAME },
-        tools: [personReadTool],
-        messages: [
-          {
-            role: "user",
-            content: [
-              `Company: ${input.companyName} (${input.domain})`,
-              "People evidence JSON:",
-              JSON.stringify(evidencePromptPayload(eligible), null, 2)
-            ].join("\n\n")
+    const { response, parsed } = await withProviderFallback("person_read", input.model, (model) =>
+      withSchemaRetry(model, async () => {
+        const response = await createTracedAnthropicMessage({
+          client: input.client,
+          label: "synthesize-person-reads",
+          model,
+          stage: "person_read",
+          telemetry: input.telemetry,
+          params: {
+            model,
+            max_tokens: maxTokensForPersonReadBatch(eligible.length),
+            temperature: 0,
+            system: [{ type: "text", text: personReadSystemPrompt, cache_control: anthropicSystemCacheControl() }],
+            tool_choice: { type: "tool", name: PERSON_READ_TOOL_NAME },
+            tools: [personReadTool],
+            messages: [
+              {
+                role: "user",
+                content: [
+                  `Company: ${input.companyName} (${input.domain})`,
+                  "People evidence JSON:",
+                  JSON.stringify(evidencePromptPayload(eligible), null, 2)
+                ].join("\n\n")
+              }
+            ]
           }
-        ]
-      }
-    });
-
+        });
+        return { response, parsed: parsePersonReadToolUse(response) };
+      })
+    );
     usage = (response as { usage?: unknown }).usage;
-    const parsed = parsePersonReadToolUse(response);
     const evidenceByName = new Map(eligible.map((person) => [person.name, person]));
 
     for (const item of parsed.reads) {

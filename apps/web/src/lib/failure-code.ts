@@ -12,7 +12,10 @@ const classifiers: Array<[GenerationFailureCode, RegExp]> = [
   ["concurrent_write", /\b(concurrent write|concurrent card|optimistic conflict|after concurrent writes)\b/i],
   ["timeout", /\b(timeout|timed out|went silent|watchdog)\b/i],
   ["model_contract", /\b(zod|schema|tool use|model contract|synthesis claim|citationids|validation)\b/i],
-  ["provider_unavailable", /\b(provider unavailable|no accepted provider|wallet exhausted|insufficient_balance|upstream 404)\b/i],
+  [
+    "provider_unavailable",
+    /\b(provider unavailable|no accepted provider|wallet exhausted|insufficient[_ ](?:balance|quota|credits?)|credit balance is too low|billing quota (?:has been )?exceeded|upstream 404)\b/i
+  ],
   ["evidence_insufficiency", /\b(insufficient evidence|evidence floor|underfilled|structured facts)\b/i]
 ];
 

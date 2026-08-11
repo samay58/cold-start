@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { isTransientLlmError } from "../src/index";
+import { isProviderUnavailableLlmError, isTransientLlmError } from "../src/index";
 
 describe("isTransientLlmError", () => {
   describe("Anthropic SDK errors", () => {
@@ -79,5 +79,35 @@ describe("isTransientLlmError", () => {
     it("treats a non-Error thrown value as semantic (not transient)", () => {
       expect(isTransientLlmError("not an error")).toBe(false);
     });
+  });
+});
+
+describe("isProviderUnavailableLlmError", () => {
+  it("treats an exhausted Anthropic credit balance as provider unavailability", () => {
+    const error = new Anthropic.BadRequestError(
+      400,
+      { type: "error", message: "Your credit balance is too low to access the Anthropic API." },
+      "Your credit balance is too low to access the Anthropic API.",
+      new Headers(),
+    );
+
+    expect(isProviderUnavailableLlmError(error)).toBe(true);
+  });
+
+  it("treats transient transport failures as provider unavailability", () => {
+    expect(isProviderUnavailableLlmError(new Anthropic.APIConnectionTimeoutError())).toBe(true);
+    expect(isProviderUnavailableLlmError(new Error("openai-compat request failed with 529: overloaded"))).toBe(true);
+  });
+
+  it("does not hide authentication or model-contract failures behind a fallback", () => {
+    const auth = new Anthropic.AuthenticationError(
+      401,
+      { type: "error", message: "invalid x-api-key" },
+      "invalid x-api-key",
+      new Headers(),
+    );
+
+    expect(isProviderUnavailableLlmError(auth)).toBe(false);
+    expect(isProviderUnavailableLlmError(new Error("No synthesis tool use returned"))).toBe(false);
   });
 });

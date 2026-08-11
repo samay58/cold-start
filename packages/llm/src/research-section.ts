@@ -16,6 +16,7 @@ import {
   evidenceBudgetCharsFromEnv
 } from "./evidence-budget";
 import { investorTasteKernel } from "./investor-taste-kernel";
+import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 
 const TOOL_NAME = "emit_research_section";
 const maxEvidenceItems = 18;
@@ -172,35 +173,39 @@ export async function synthesizeResearchSection(input: ResearchSectionSynthesisI
     "Prefer fewer strong points over complete-looking filler."
   ].join("\n");
 
-  const message = await createTracedAnthropicMessage({
-    client: input.client,
-    label: `research-section:${input.definition.id}`,
-    model: input.model,
-    stage: "research_section",
-    telemetry: input.telemetry,
-    params: {
-      model: input.model,
-      max_tokens: 1800,
-      temperature: 0,
-      system: [{ type: "text", text: system, cache_control: anthropicSystemCacheControl() }],
-      tool_choice: { type: "tool", name: TOOL_NAME },
-      tools: [sectionTool],
-      messages: [
-        {
-          role: "user",
-          content: [
-            `Company: ${input.company.name} (${input.company.domain})`,
-            `Section: ${input.definition.title}`,
-            input.definition.generationPrompt,
-            "Evidence JSON:",
-            JSON.stringify(evidenceForResearchSectionPrompt(input.evidence), null, 2)
-          ].join("\n\n")
+  return withProviderFallback("research_section", input.model, (model) =>
+    withSchemaRetry(model, async () => {
+      const message = await createTracedAnthropicMessage({
+        client: input.client,
+        label: `research-section:${input.definition.id}`,
+        model,
+        stage: "research_section",
+        telemetry: input.telemetry,
+        params: {
+          model,
+          max_tokens: 1800,
+          temperature: 0,
+          system: [{ type: "text", text: system, cache_control: anthropicSystemCacheControl() }],
+          tool_choice: { type: "tool", name: TOOL_NAME },
+          tools: [sectionTool],
+          messages: [
+            {
+              role: "user",
+              content: [
+                `Company: ${input.company.name} (${input.company.domain})`,
+                `Section: ${input.definition.title}`,
+                input.definition.generationPrompt,
+                "Evidence JSON:",
+                JSON.stringify(evidenceForResearchSectionPrompt(input.evidence), null, 2)
+              ].join("\n\n")
+            }
+          ]
         }
-      ]
-    }
-  });
+      });
 
-  return parseToolInput(message);
+      return parseToolInput(message);
+    })
+  );
 }
 
 export type ResearchSectionEvidenceSource = EvidenceSource;

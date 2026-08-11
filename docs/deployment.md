@@ -83,6 +83,10 @@ The app package depends on workspace packages through `file:` links, so installi
 Use the pooled Neon connection for runtime `DATABASE_URL`. Use a distinct direct
 connection for `DATABASE_DIRECT_URL`.
 
+Runtime Neon HTTP connections use a three-second connection-establishment timeout and one
+retry only for errors that prove the request never connected. Do not broaden that retry to
+ambiguous resets or request timeouts; a write may already have reached Neon.
+
 Run migrations against production before the first generation. Use a local file that only exists for this purpose and is never committed:
 
 ```bash
@@ -197,6 +201,16 @@ LLM_VERIFIER_MODEL
 LLM_SYNTHESIS_MODEL
 LLM_RESEARCH_SECTION_MODEL
 LLM_RESEARCH_PLAN_MODEL
+
+# Alternate-provider continuity for judgment stages. The stage value wins over the shared
+# value. Fallback runs only when the primary provider is unavailable, including an exhausted
+# provider balance, rate limit, 5xx, or network failure. It does not hide authentication,
+# schema, citation, or other model-contract failures. Keep the fallback on a different provider.
+LLM_FALLBACK_MODEL
+LLM_SYNTHESIS_FALLBACK_MODEL
+LLM_RESEARCH_SECTION_FALLBACK_MODEL
+LLM_PERSON_READ_FALLBACK_MODEL
+LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL
 
 # Credentials and tuning for non-Anthropic providers. DEEPSEEK_BASE_URL defaults to
 # https://api.deepseek.com; the adapter disables DeepSeek thinking mode automatically.

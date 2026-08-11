@@ -11,6 +11,8 @@ import Anthropic from "@anthropic-ai/sdk";
 // rejection) forever; under-classifying only costs one avoidable permanent failure during a real
 // outage, which is the status quo this item is fixing.
 const OPENAI_COMPAT_STATUS_PATTERN = /^openai-compat request failed with (\d+):/;
+const PROVIDER_BALANCE_PATTERN =
+  /\b(?:credit balance is too low|insufficient[_ ](?:balance|quota|credits?)|billing quota (?:has been )?exceeded)\b/i;
 
 function isRetryableHttpStatus(status: number) {
   return status === 429 || (status >= 500 && status < 600);
@@ -48,4 +50,13 @@ export function isTransientLlmError(error: unknown): boolean {
   }
 
   return false;
+}
+
+export function isProviderUnavailableLlmError(error: unknown): boolean {
+  if (isTransientLlmError(error)) {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return PROVIDER_BALANCE_PATTERN.test(message);
 }

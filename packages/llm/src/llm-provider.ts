@@ -1,4 +1,5 @@
 import type { GenerationLlmCallTrace } from "@cold-start/core";
+import { isProviderUnavailableLlmError } from "./transient-error";
 
 export type LlmCallStage = GenerationLlmCallTrace["stage"];
 
@@ -38,6 +39,17 @@ const stageEnvChain: Record<LlmCallStage, string[]> = {
   expanded_description: ["LLM_EXPANDED_DESCRIPTION_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
 };
 
+const stageFallbackEnv: Record<LlmCallStage, string> = {
+  research_plan: "LLM_RESEARCH_PLAN_FALLBACK_MODEL",
+  extract_full: "LLM_EXTRACT_FALLBACK_MODEL",
+  extract_block: "LLM_BLOCK_FALLBACK_MODEL",
+  synthesis: "LLM_SYNTHESIS_FALLBACK_MODEL",
+  verify: "LLM_VERIFIER_FALLBACK_MODEL",
+  research_section: "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
+  person_read: "LLM_PERSON_READ_FALLBACK_MODEL",
+  expanded_description: "LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL",
+};
+
 export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHROPIC_MODEL): string {
   for (const envName of stageEnvChain[stage]) {
     const value = process.env[envName]?.trim();
@@ -51,6 +63,30 @@ export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHRO
   }
 
   return fallback;
+}
+
+export function fallbackModelForStage(stage: LlmCallStage, primaryModel: string): string | null {
+  const fallback = process.env[stageFallbackEnv[stage]]?.trim() || process.env.LLM_FALLBACK_MODEL?.trim();
+  if (!fallback || parseModelString(fallback).provider === parseModelString(primaryModel).provider) {
+    return null;
+  }
+  return fallback;
+}
+
+export async function withProviderFallback<T>(
+  stage: LlmCallStage,
+  primaryModel: string,
+  run: (model: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(primaryModel);
+  } catch (error) {
+    const fallback = fallbackModelForStage(stage, primaryModel);
+    if (!fallback || !isProviderUnavailableLlmError(error)) {
+      throw error;
+    }
+    return run(fallback);
+  }
 }
 
 export type OpenAiCompatProviderConfig = {

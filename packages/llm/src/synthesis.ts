@@ -4,7 +4,7 @@ import { questionCategorySchema, synthesisSchema, type ColdStartCard, type Sourc
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
-import { withSchemaRetry } from "./llm-provider";
+import { withProviderFallback, withSchemaRetry } from "./llm-provider";
 import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
@@ -328,15 +328,15 @@ export async function synthesizeCard(input: {
   // Re-ask once when a non-Anthropic synthesis model returns output the strict synthesis parser
   // rejects (the 3/3/3 + marker-multiset shape). Anthropic stays bit-for-bit identical, matching
   // the extraction and verifier stages, which already wrap their calls the same way.
-  return withSchemaRetry(input.model, async () => {
+  return withProviderFallback("synthesis", input.model, (model) => withSchemaRetry(model, async () => {
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
       label: "synthesize-card",
-      model: input.model,
+      model,
       stage: "synthesis",
       telemetry: input.telemetry,
       params: {
-        model: input.model,
+        model,
         max_tokens: 2500,
         temperature: 0.2,
         system: [
@@ -355,5 +355,5 @@ export async function synthesizeCard(input: {
     const synthesis = parseSynthesisToolUse(response);
     assertSynthesisCitationsExistOnCard(synthesis, input.card);
     return synthesis;
-  });
+  }));
 }

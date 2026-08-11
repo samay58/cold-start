@@ -5,6 +5,8 @@ describe("generationFailureCode", () => {
   it.each([
     ["profile failed the evidence floor", "evidence_insufficiency"],
     ["no accepted provider sources returned", "provider_unavailable"],
+    ["Your credit balance is too low to access the Anthropic API", "provider_unavailable"],
+    ["insufficient_quota from the configured model provider", "provider_unavailable"],
     ["Zod schema validation failed for synthesis", "model_contract"],
     ["Failed to update card after concurrent writes", "concurrent_write"],
     ["generation run went silent; retired by watchdog", "timeout"],
