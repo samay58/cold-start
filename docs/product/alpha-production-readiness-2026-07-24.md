@@ -11,48 +11,44 @@ Chrome Web Store item.
 
 Cold Start is not ready for friend-alpha invitations.
 
-The repository implementation, production migration, compatible deployment,
-recovery proof, kill-switch proof, and wallet funding are complete. Spend-control
-and alert proof, paid canary, store review, owner rehearsal, and soak remain
-open. Do not distribute the operator token. Do not use unpacked installation as
-the friend path.
+The repository implementation, production migrations through `0016`, compatible
+deployment, recovery proof, and kill-switch proof are complete. The live release
+gate still fails on historical software failures in its seven-day window and a
+wallet balance below the configured floor. Paid canary, store review, owner
+rehearsal, and soak also remain open. Do not distribute the operator token. Do
+not use unpacked installation as the friend path.
 
-## Security Remediation Handoff
+## August 11 Security Deployment
 
-The August 11 standard scan remediation is implemented locally but not applied
-to production. Migration `0016_pink_husk.sql` adds presentation-capability
-hashes, source-scoped invite quota consumption, and atomic access-request
-creation. Its new `source_hash` column stays nullable for migration-first deploy
-compatibility with the currently deployed writer; the new function accepts only
-validated non-null hashes. Legacy rows age out through the existing prune path.
-The read-only Vercel environment listing confirms encrypted
-`INNGEST_SIGNING_KEY` and `INNGEST_EVENT_KEY` entries and no `INNGEST_DEV`
-override. Secret values were not read.
+The scan remediation shipped in `0b8c8a7`. Migration
+`0016_pink_husk.sql` is applied in production and its presentation-capability
+column, source-scoped invite quota function, and atomic access-request function
+were read back from Postgres. One active personalized invitation was explicitly
+reissued; the final dry run found no legacy personalized invitations. Existing
+installation credentials stayed active.
 
-Production sequence:
+The public and extension card routes were checked after deployment: public
+responses omit synthesis and authenticated extension responses retain it. Commit
+`387afca` then replaced the full-card public index with compact identity and
+source-quality counts. The 344-profile cache payload fell to 97,403 bytes, and
+fresh production requests no longer emit the Next.js 2 MB cache warning. CI run
+`31512859530` passed for that revision, which is Ready on the custom domain.
 
-1. Read the Vercel production environment and confirm `NODE_ENV=production`,
-   `INNGEST_DEV` is absent, and the Inngest signing and event key names are
-   present. Do not print values.
-2. Run `npm run db:migrate:production`. Expected change: migrations 0015 and
-   0016 apply in order if 0015 is not already present; two security functions
-   and the presentation hash column become available.
-3. Deploy the matching application revision. Verify a request without
-   `x-vercel-forwarded-for` fails closed, a valid invite inspect succeeds, and
-   public `/api/cards/{slug}` still omits synthesis.
-4. Run `npm run alpha:reissue-link` without `--apply`. Review the exact active
-   legacy invitation list.
-5. For each approved tester, run
-   `npm run alpha:reissue-link -- --invite <uuid> --confirm <uuid> --apply`,
-   send the printed replacement link once, and verify its personalized preview,
-   generic legacy fallback, inspect, and redemption behavior.
+The Vercel environment listing confirmed encrypted `INNGEST_SIGNING_KEY` and
+`INNGEST_EVENT_KEY` entries and no `INNGEST_DEV` override. Secret values were not
+read. Provider private-network and DNS-rebinding behavior remains an upstream
+contract rather than a locally proven egress control.
 
 Migration `0016` is expand-compatible, so an emergency application rollback can
-leave it in place. Rolling back the application re-enables the old global
+leave it in place. Rolling back before `0b8c8a7` would re-enable the old global
 breaker and name-slug preview, so it is an emergency availability action, not a
-security rollback. Existing installation credentials survive link reissue. An
-unredeemed tester's old fragment code stops working only after that tester's
-explicit reissue step.
+security rollback. An unredeemed tester's old fragment code stops working only
+after that tester's explicit reissue step.
+
+The August 11 `alpha:status --gate` readback found no alpha-scoped failures,
+stale runs, client errors, or source throttling. The release gate remains red:
+14 historical software failures are still inside the all-traffic seven-day
+window, and AgentCash Base is $31.0202 against the $35 floor.
 
 ## Production Evidence
 

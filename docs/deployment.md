@@ -21,9 +21,10 @@ Generation is private by default. Public pages at `/c/{slug}` can be shared, but
 
 ## Friend-Alpha Readiness
 
-Repository implementation is complete as of July 24, 2026. Vercel Pro, Neon
-Launch, migration, restore, retention scheduling, and the provider-wallet floor
-are proven. Current evidence and blockers live in
+Repository implementation and production migrations through `0016` are
+complete. Vercel Pro, Neon Launch, restore, and retention scheduling are proven.
+The live release gate still fails on its seven-day software-failure window and
+the provider-wallet floor. Current evidence and blockers live in
 `docs/product/alpha-production-readiness-2026-07-24.md`.
 
 Do not create friend invitations before the paid canary and store review are
@@ -123,6 +124,13 @@ Restore drill completed July 24, 2026:
 - Recovery point `2026-07-24T20:02:40Z` was restored to `alpha-restore-drill-20260724` in about one second.
 - The restored branch contained 297 cards and 892 generation runs. It did not contain the alpha schema, which proves the recovery point preceded migration.
 - The temporary restore branch was deleted after validation.
+
+Security migration receipt, August 11, 2026:
+
+- Migration `0016_pink_husk.sql` was applied through the guarded direct connection.
+- The presentation-capability column and both atomic quota functions were read back from production.
+- The matching application revision shipped before the active personalized invitation was reissued.
+- The final reissue dry run returned no legacy personalized invitations.
 
 ## Inngest
 

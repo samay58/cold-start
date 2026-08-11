@@ -9,18 +9,18 @@ Run from the repo root unless noted. Source env first for anything touching the 
 
 ## Full local gate
 
-`npm run check`. `CLAUDE.md`: "`npm run check` is the full local gate and already chains lint, typecheck, test, build, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs those same steps individually on Node 24, so a green local `check` should mean green CI."
+`npm run check`. `CLAUDE.md`: "`npm run check` is the full local gate and already chains lint, typecheck, test, the real-Postgres `test:alpha-db` and `test:cards-db` suites (local docker postgres must be up), build, the Firefox build plus `web-ext lint`, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs the same steps individually on Node 24, with three deviations: it currently skips `test:cards-db` (so green CI does not prove the real-Postgres card write path; local `check` does run it), it adds an `install:browser` step, and a separate `firefox-reproducibility` job double-builds the Firefox zip and diffs the hashes."
 
 ## Individual gates, for a scoped change where the full gate is overkill
 
 - `npm run typecheck`, tsc --noEmit across workspaces (`CLAUDE.md` Common Commands).
-- `npm run test`, vitest across workspaces, then `node --test` over `eval/*.test.mjs` and `eval/**/*.test.mjs` (`CLAUDE.md` Common Commands).
+- `npm run test`, vitest across workspaces, then `node --test` over `eval/*.test.mjs` and `eval/**/*.test.mjs`, then `tsx --test` over `scripts/*.test.ts` (`CLAUDE.md` Common Commands).
 - `npm run lint`, ESLint flat-config check (`CLAUDE.md` Common Commands).
 - `npm run build`, build all workspaces (`CLAUDE.md` Common Commands).
 
 ## Scoped test runs
 
-`npm test -w @cold-start/pipeline -- generate-card` or `npm test -w @cold-start/pipeline -- -t "verifier drops"` (`CLAUDE.md` "Single test examples").
+`npm test -w @cold-start/pipeline -- generate-card` or `npm test -w @cold-start/pipeline -- -t "verifier-dropped"` (`CLAUDE.md` "Single test examples").
 
 ## Extension changes
 

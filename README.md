@@ -90,7 +90,8 @@ This is an npm workspaces monorepo.
 
 - `apps/web`: Next.js App Router app, public card pages, APIs, extension auth, generation queueing, and Inngest serving.
 - `apps/extension`: Chrome MV3 side panel for active-tab capture, profile generation, card reading, settings, polling, and research-layer UI.
-- `packages/core`: card schema, citation rules, trust helpers, public redaction, slug helpers, research-section taxonomy, and API contract.
+- `apps/video`: Remotion workspace for the product walkthrough and Playwright product captures.
+- `packages/core`: card schema, citation rules, trust helpers, public redaction, slug and external-URL policy, research-section taxonomy, and API contract.
 - `packages/db`: Drizzle schema, repository reads and writes, card cache TTLs, generation runs, evidence rows, sources, citations, claims, and research sections.
 - `packages/providers`: Direct Exa, StableEnrich, AgentCash, Websets, SEC EDGAR helpers, provider budgets, and source adapters.
 - `packages/llm`: Anthropic client, OpenAI-compatible provider routing, extraction, synthesis, verifier, research-plan, and research-section prompts.
