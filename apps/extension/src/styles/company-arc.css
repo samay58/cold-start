@@ -1063,9 +1063,12 @@
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping[data-active="true"] .cs-clipping-link {
-  border-color: rgb(var(--cs-c-110-92-158) / 0.38);
-  border-top-color: var(--color-seal);
+  border-color: rgb(var(--cs-c-110-92-158) / 0.3);
   background: var(--color-plate);
+  box-shadow:
+    0 0 0 1px rgb(var(--cs-c-110-92-158) / 0.14),
+    0 2px 6px rgb(var(--cs-c-110-92-158) / 0.1),
+    0 8px 22px rgb(var(--cs-c-110-92-158) / 0.13);
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
