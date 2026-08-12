@@ -79,6 +79,7 @@ import {
   generationModeForRun,
   generationRunAnthropicCostUsd,
   isRefileProfileStore,
+  mergeBaseCardForStore,
   parseEventSectionId,
   progressSourceCategories,
   rawDomainForRun,
@@ -612,16 +613,23 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       if (firstPayoff) {
         trace.firstPayoff = firstPayoff;
       }
-      const seedStore = await storeCardSnapshot({
-        cardToStore: seedCardToStore,
-        sources: acceptedSources,
-        steps: { upsert: "upsert-seed-card", evidence: "record-seed-card-evidence", sections: "record-seed-research-sections", sources: "record-seed-sources" },
-        event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card", metadata: { firstPayoff } },
-        skipNoteId: "skip-underfilled-seed-card",
-        // Contact enrichment is dispatched once the enrichment path is decided below (or by the async
-        // enrichment worker), so it reads the most complete card and is never double-dispatched.
-        contactTrigger: null
-      });
+      // A re-file never writes the seed card: the spec promise is that a re-file failing anywhere
+      // leaves the filed profile exactly as it was, and the seed store is a partial, synthesis-
+      // stripped hybrid that would otherwise clobber the live row mid-run, before the fresh
+      // generated card is even ready. The old card stands live untouched until the generated
+      // store below succeeds.
+      const seedStore = isRefileProfileStore({ jobKind, forceRefresh })
+        ? null
+        : await storeCardSnapshot({
+            cardToStore: seedCardToStore,
+            sources: acceptedSources,
+            steps: { upsert: "upsert-seed-card", evidence: "record-seed-card-evidence", sections: "record-seed-research-sections", sources: "record-seed-sources" },
+            event: { stepId: "seed-card-saved", type: "card.partial", message: "Saved first usable company card", metadata: { firstPayoff } },
+            skipNoteId: "skip-underfilled-seed-card",
+            // Contact enrichment is dispatched once the enrichment path is decided below (or by the async
+            // enrichment worker), so it reads the most complete card and is never double-dispatched.
+            contactTrigger: null
+          });
       if (seedStore) {
         firstUsableStored = true;
         writeGenerationMilestoneValue(trace, "seedCardMs", seedStore.milestoneMs);
@@ -876,7 +884,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       generatedCard = cardWithTraceCost(generatedCard, trace);
     }
 
-    let cardToStore = prepareCardSnapshotForStorage(mode, existingCard, generatedCard);
+    // A re-file store's fresh card stands alone: excluding the run-start card from the merge base
+    // is what makes old synthesis, old expandedDescription, old citations, old signals, old
+    // comparables, and old person data drop instead of surviving through preserveExistingBasics.
+    let cardToStore = prepareCardSnapshotForStorage(mode, mergeBaseCardForStore(existingCard, { jobKind, forceRefresh }), generatedCard);
     let analysisReadyMs: number | null = null;
     // Only the preserve branch below ever clears this. Every other path writes on today's terms.
     let extendSynthesisTtl = true;
@@ -1094,7 +1105,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         }
         applyStableenrichEndpointYield(trace, enrichedValue.providerFactMerge.trace.appliedByEndpoint);
 
-        cardToStore = prepareCardForStorage(mode, existingCard, generatedCard);
+        // Same exclusion as the generated-card merge above: a re-file's fresh card stands alone.
+        cardToStore = prepareCardForStorage(mode, mergeBaseCardForStore(existingCard, { jobKind, forceRefresh }), generatedCard);
         assertTerminalCardQuality(mode, cardToStore);
         // Same reasoning as the complete-blocks branch: when the description is missing, the
         // block worker files it and owns the contact dispatch, so it is not triggered here.

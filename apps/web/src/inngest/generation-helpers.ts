@@ -300,6 +300,18 @@ export function isRefileProfileStore(input: { jobKind: string; forceRefresh: boo
   return input.forceRefresh && input.jobKind === "basics";
 }
 
+// A re-file store must not carry the run-start card's stale facts, description, citations,
+// signals, comparables, or person data forward through prepareCardSnapshotForStorage /
+// prepareCardForStorage's merge (preserveExistingBasics returns its `next` argument unchanged
+// when `existing` is null). Every other store keeps merging against the run-start card as before,
+// which is how a normal basics refresh and every analysis run behave today.
+export function mergeBaseCardForStore<T>(
+  existingCard: T | null,
+  input: { jobKind: string; forceRefresh: boolean }
+): T | null {
+  return isRefileProfileStore(input) ? null : existingCard;
+}
+
 export function parseEventSectionId(input: unknown): ResearchSectionId | null {
   if (input === undefined || input === null || input === "") {
     return null;
