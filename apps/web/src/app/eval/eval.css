@@ -1,0 +1,18 @@
+.eval-rig {
+  min-height: 100vh;
+  background: #faf8f4;
+  color: #23201b;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.eval-rig-header {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #6e5c9e;
+  border-bottom: 1px solid #e4ded2;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
