@@ -875,8 +875,10 @@
   min-height: clamp(410px, calc(100vh - 250px), 620px);
 }
 
+/* The tree reads as one column with the clippings above it; open space falls below the
+   content instead of gaping between the carousel and a bottom-pinned footer. */
 .cs-building-flow > .cs-assembly-details {
-  margin-top: auto;
+  margin-top: 18px;
 }
 
 .cs-clippings {
