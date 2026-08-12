@@ -24,6 +24,7 @@ Start here before adding or editing docs.
 - `product/extension-motion-playbook.md`: motion rules for the extension.
 - `product/provider-cost-assumptions.md`: cost model behind provider budgets.
 - `product/positioning-vs-pitchbook.md`: investor-facing differentiation and the side-by-side demo shape; re-run the evo benchmark before quoting its cost figures.
+- `product/strategy/resonance-audience-and-10x.md`: resonance verdict, core audience, tagline, and ranked 10x opportunities (2026-08-11 research pass); iterate or challenge it there.
 - `qa/extension-closed-loop-testing-playbook.md`: manual extension QA loop.
 - `qa/extension-interaction-contract.md`: interaction contract the side panel must honor.
 - `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
