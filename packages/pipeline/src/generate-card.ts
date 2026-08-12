@@ -568,7 +568,19 @@ function mergeComparables(
   const next = [...existing];
   for (const comparable of candidates) {
     const citationIds = remapCitationIds(comparable.citationIds ?? [], idMap);
-    if (citationIds.length === 0 || next.some((current) => sameComparable(current, comparable))) {
+    if (citationIds.length === 0) {
+      continue;
+    }
+
+    // A cited candidate for a domain we already hold replaces the held entry only when that
+    // entry is uncited (pre-citation legacy comps): blockNeedsEnrichment keeps flagging those
+    // cards, and skipping the same-domain candidate here left them unrepairable forever.
+    const existingIndex = next.findIndex((current) => sameComparable(current, comparable));
+    const held = existingIndex >= 0 ? next[existingIndex] : undefined;
+    if (held) {
+      if (!held.citationIds?.length) {
+        next[existingIndex] = { ...comparable, citationIds };
+      }
       continue;
     }
 

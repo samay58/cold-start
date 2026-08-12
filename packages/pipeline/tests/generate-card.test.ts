@@ -3,6 +3,7 @@ import {
   buildSeedProfileCard,
   buildSkeletonCard,
   cardWithExtractedSections,
+  enrichExtractedSectionsForDomain,
   evaluateSynthesisGate,
   type ExtractedCardSections,
   fallbackSectionsFromEvidence,
@@ -1862,5 +1863,104 @@ describe("split synthesize/verify units", () => {
       expect(synthesisEvidenceFingerprint(reordered)).toBe(synthesisEvidenceFingerprint(card));
       expect(synthesisEvidenceFingerprint(changed)).not.toBe(synthesisEvidenceFingerprint(card));
     });
+  });
+});
+
+describe("enrichExtractedSectionsForDomain comparables merge", () => {
+  const source = {
+    url: "https://example.com/turbopuffer-analysis",
+    title: "Vector database landscape",
+    fetchedAt: "2026-08-11T12:00:00.000Z",
+    sourceType: "news" as const,
+    intent: "comparables" as const,
+    rawText: "Turbopuffer competes with Pinecone."
+  };
+
+  function sectionsWithComparables(comparables: ExtractedCardSections["comparables"]): ExtractedCardSections {
+    const skeleton = buildSkeletonCard("turbopuffer.com");
+    return {
+      identity: skeleton.identity,
+      funding: skeleton.funding,
+      team: skeleton.team,
+      signals: [],
+      comparables,
+      citations: []
+    };
+  }
+
+  const citedCandidatePatch = {
+    comparables: [
+      {
+        name: "Pinecone",
+        domain: "pinecone.io",
+        oneLiner: "Managed vector database for AI applications.",
+        basis: "Same buyer and workload; different storage economics.",
+        confidence: "medium" as const,
+        citationIds: ["bc1"]
+      }
+    ],
+    citations: [
+      {
+        id: "bc1",
+        url: "https://example.com/turbopuffer-analysis",
+        title: "Vector database landscape",
+        fetchedAt: "2026-08-11T12:00:00.000Z",
+        sourceType: "news" as const
+      }
+    ]
+  };
+
+  it("upgrades an uncited legacy comparable when a cited candidate arrives for the same domain", async () => {
+    // Pre-citation cards hold comparables without citationIds. blockNeedsEnrichment flags them
+    // on every refresh, but the merge used to skip the same-domain cited candidate as a
+    // duplicate, so those cards could never be repaired (turbopuffer, seen 2026-08-11).
+    const legacy = sectionsWithComparables([
+      { name: "Pinecone", domain: "pinecone.io", oneLiner: "Managed vector database." }
+    ]);
+
+    const result = await enrichExtractedSectionsForDomain({
+      domain: "turbopuffer.com",
+      sections: legacy,
+      sources: [source],
+      enrichSections: async ({ block }) => (block === "comparables" ? citedCandidatePatch : null)
+    });
+
+    const merged = result.sections.comparables;
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.name).toBe("Pinecone");
+    expect(merged[0]?.citationIds).toHaveLength(1);
+    expect(merged[0]?.basis).toBe("Same buyer and workload; different storage economics.");
+  });
+
+  it("keeps an already-cited comparable instead of churning it on a same-domain candidate", async () => {
+    const cited = sectionsWithComparables([
+      {
+        name: "Pinecone",
+        domain: "pinecone.io",
+        oneLiner: "Held entry with its own citation.",
+        citationIds: ["held1"]
+      },
+      { name: "Weaviate", domain: "weaviate.io", oneLiner: "Second entry so the block still needs enrichment." }
+    ]);
+    cited.citations = [
+      {
+        id: "held1",
+        url: "https://example.com/held",
+        title: "Held source",
+        fetchedAt: "2026-08-10T12:00:00.000Z",
+        sourceType: "news" as const
+      }
+    ];
+
+    const result = await enrichExtractedSectionsForDomain({
+      domain: "turbopuffer.com",
+      sections: cited,
+      sources: [source],
+      enrichSections: async ({ block }) => (block === "comparables" ? citedCandidatePatch : null)
+    });
+
+    const pinecone = result.sections.comparables.find((comparable) => comparable.domain === "pinecone.io");
+    expect(pinecone?.oneLiner).toBe("Held entry with its own citation.");
+    expect(pinecone?.citationIds).toEqual(["held1"]);
   });
 });
