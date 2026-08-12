@@ -29,9 +29,31 @@ function marketHasEvidence(card) {
   return Boolean(market && Object.values(market).some(Boolean));
 }
 
+function emphasisTexts(card) {
+  const emphasis = card?.synthesis?.emphasisRead;
+  if (!emphasis || emphasis.status !== "read") {
+    return [];
+  }
+  return [text(emphasis.loud?.text), text(emphasis.read?.text)].filter(Boolean);
+}
+
 export function genericPhraseCount(card) {
-  const haystack = synthesisClaims(card).map((claim) => text(claim.text).toLowerCase()).join("\n");
+  const haystack = [
+    ...synthesisClaims(card).map((claim) => text(claim.text)),
+    ...emphasisTexts(card)
+  ].map((claim) => claim.toLowerCase()).join("\n");
   return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
+}
+
+export function emphasisIsSpecificOrEmpty(card) {
+  const emphasis = card?.synthesis?.emphasisRead;
+  if (!emphasis || emphasis.status !== "read") {
+    return true;
+  }
+  const readText = text(emphasis.read?.text);
+  const companyName = text(card?.identity?.name?.value).toLowerCase();
+  return /[\d$%]/.test(readText) ||
+    (Boolean(companyName) && readText.toLowerCase().includes(companyName));
 }
 
 export function hasConcreteTension(card) {
@@ -63,7 +85,8 @@ export function scoreInvestorLens({ extensionCard, publicCard }) {
     caseHasTension,
     firstQuestionIsTestable,
     timingSupportedOrAbsent,
-    genericPhraseCountLow: genericCount <= 1
+    genericPhraseCountLow: genericCount <= 1,
+    emphasisSpecificOrEmpty: emphasisIsSpecificOrEmpty(extensionCard)
   };
 
   return {
