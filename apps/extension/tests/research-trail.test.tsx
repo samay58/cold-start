@@ -2,7 +2,7 @@
 
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ResearchTrail } from "../src/research/ResearchTrail";
 import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 
@@ -55,53 +55,39 @@ const sourceFound = event({
 });
 
 describe("ResearchTrail", () => {
-  it("renders the four verb stages with drawn marks and one running pulse, no Stages heading", async () => {
+  it("renders the full build tree from the first frame, no ledger, no toggle", async () => {
     const container = await render(
-      <ResearchTrail companyDomain="exa.ai" events={[sourceFound]} generationStatus="running" />
+      <ResearchTrail events={[]} generationStatus="running" />
     );
 
-    const labels = Array.from(container.querySelectorAll(".cs-progress-ledger-label")).map(
+    expect(container.querySelector(".cs-build-tree")).not.toBeNull();
+    expect(container.querySelector(".cs-progress-ledger")).toBeNull();
+    expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
+
+    const labels = Array.from(container.querySelectorAll(".cs-build-stage-copy strong")).map(
       (node) => node.textContent
     );
     expect(labels).toEqual(["Find", "Read", "Build", "File"]);
-    expect(container.textContent).not.toContain("Stages");
 
-    // Done stages carry a drawn check; exactly one stage runs, and its mark is the live pulse.
-    expect(container.querySelector('.cs-progress-ledger-mark[data-status="done"] svg')).not.toBeNull();
-    const runningMarks = container.querySelectorAll('.cs-progress-ledger-mark[data-status="running"]');
-    expect(runningMarks).toHaveLength(1);
-    expect(runningMarks[0]?.querySelector("svg")).toBeNull();
-
-    // Only the active stage speaks a proof line; waiting stages stay quiet rows.
-    expect(container.querySelectorAll(".cs-progress-ledger-note")).toHaveLength(1);
+    // The active stage carries the constant quiet loader from the first frame.
+    expect(
+      container.querySelector('.cs-build-stage[data-active="true"] .cs-drizzle-loader')
+    ).not.toBeNull();
   });
 
-  it("replaces the ledger with the event tree while Details is open, never showing both", async () => {
+  it("advances the tree on source events", async () => {
     const container = await render(
-      <ResearchTrail companyDomain="exa.ai" events={[sourceFound]} generationStatus="running" />
+      <ResearchTrail events={[sourceFound]} generationStatus="running" />
     );
 
-    expect(container.querySelector(".cs-progress-ledger")).not.toBeNull();
-
-    const toggle = container.querySelector<HTMLButtonElement>(".cs-assembly-details-toggle");
-    expect(toggle?.textContent).toBe("Details");
-    await act(async () => {
-      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(container.querySelector(".cs-progress-ledger")).toBeNull();
-    expect(toggle?.textContent).toBe("Hide details");
-
-    await act(async () => {
-      toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-    expect(container.querySelector(".cs-progress-ledger")).not.toBeNull();
+    const active = container.querySelector('.cs-build-stage[data-active="true"]');
+    expect(active?.querySelector("strong")?.textContent).toBe("Read");
+    expect(container.textContent).toContain("3 sources found");
   });
 
   it("keeps the failure mark on the stage where the run died", async () => {
     const container = await render(
       <ResearchTrail
-        companyDomain="exa.ai"
         events={[
           sourceFound,
           event({ id: "failed", type: "generation.failed", message: "Generation failed: provider error" })
@@ -110,13 +96,8 @@ describe("ResearchTrail", () => {
       />
     );
 
-    // Attention auto-opens the tree in place of the ledger; the toggle disappears with it.
-    expect(container.querySelector(".cs-progress-ledger")).toBeNull();
-    expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
-    // The tree chunk is lazy; wait for the dynamic import to settle.
-    await act(async () => {
-      await vi.dynamicImportSettled();
-    });
-    expect(container.querySelector(".cs-build-tree")).not.toBeNull();
+    expect(
+      container.querySelector('.cs-build-stage[data-status="failed"]')
+    ).not.toBeNull();
   });
 });

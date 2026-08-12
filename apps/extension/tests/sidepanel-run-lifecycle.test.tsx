@@ -89,8 +89,9 @@ describe("SidePanel run lifecycle", () => {
     expect(container.querySelector(".cs-research-progress")).toBeNull();
     expect(container.querySelector(".cs-research-source-strip")).toBeNull();
     expect(container.querySelector(".cs-company-run-time")).toBeNull();
-    // The details tree stays behind one quiet toggle.
-    expect(container.querySelector(".cs-assembly-details-toggle")).not.toBeNull();
+    // The details tree is open from the first frame, no toggle.
+    expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
+    expect(container.querySelector(".cs-build-tree")).not.toBeNull();
     // The persistent header carries the identity; there is no separate hero.
     expect(container.querySelector(".cs-company-context[data-phase='building']")).not.toBeNull();
     expect(container.querySelector(".cs-generation-hero")).toBeNull();
@@ -153,13 +154,8 @@ describe("SidePanel run lifecycle", () => {
     expect(container.querySelector(".cs-assembly-whisper")?.textContent).toContain("8 sources, building profile");
     expect(container.querySelector(".cs-seal-inst")?.getAttribute("data-level")).toBe("2");
     expect(container.querySelector(".cs-trail-segment")).toBeNull();
-    // The details tree opens on demand and carries the source count.
-    const detailsButton = container.querySelector<HTMLButtonElement>(".cs-assembly-details-toggle");
-    expect(detailsButton).not.toBeNull();
-    await act(async () => {
-      detailsButton?.click();
-    });
-    await flushPromises();
+    // The details tree is open from the first frame and carries the source count.
+    expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("8 sources found");
     // The details tree keeps its stage labels, ordinal markers, and status marks, but drops the
     // caption and the head counter chip; the whisper above already states progress.
@@ -171,7 +167,7 @@ describe("SidePanel run lifecycle", () => {
     await unmount();
   });
 
-  it("flips the whisper to its attention voice and auto-opens the details tree on a generation.failed event", async () => {
+  it("flips the whisper to its attention voice and keeps the failure visible in the build tree", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (url: string) => {
       if (String(url).includes("/api/generate?")) {
@@ -220,9 +216,8 @@ describe("SidePanel run lifecycle", () => {
     const whisper = container.querySelector(".cs-assembly-whisper");
     expect(whisper?.getAttribute("data-attention")).toBe("true");
     expect(whisper?.textContent).toContain("Needs a closer look");
-    // Attention auto-opens the tree; the quiet toggle does not render alongside it.
+    // The tree is always open, no toggle, and the failure lands on the stage where it happened.
     expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
-    expect(container.querySelector(".cs-assembly-details")?.getAttribute("data-attention")).toBe("true");
     expect(container.querySelector(".cs-build-tree")?.textContent).toContain("Provider request timed out");
     await unmount();
   });

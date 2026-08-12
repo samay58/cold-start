@@ -510,7 +510,6 @@ export function CompanyArc({
               variant="carousel"
             />
             <ResearchTrail
-              companyDomain={domain}
               events={building.events}
               generationStatus={building.generationStatus}
             />

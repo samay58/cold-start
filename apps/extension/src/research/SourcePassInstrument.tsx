@@ -17,8 +17,7 @@ type SourcePassInstrumentProps = {
   sources?: ExtensionSourceSummary[];
   stageNote: string;
   stages: SourcePassStage[];
-  // Only ever mounted at "compact" (behind ResearchTrail's Details toggle); kept as a named
-  // prop so that caller keeps its explicit variant="compact" attribute.
+  // Only ever mounted at compact by ResearchTrail, which keeps the panel-width layout.
   variant?: "compact";
 };
 

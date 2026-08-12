@@ -231,8 +231,7 @@ body {
   min-width: 0;
 }
 
-/* Ink by default; the seal is reserved for the running stage, matching the verb ledger this
-   tree replaces (.cs-progress-ledger-label in research-trail.css). */
+/* Ink by default; the seal is reserved for the running stage. */
 .cs-build-stage-copy strong {
   color: var(--color-ink);
   font-family: var(--font-display);
