@@ -22,14 +22,23 @@ export function isFounderVoiceCitationId(id: string): boolean {
   return FOUNDER_VOICE_CITATION_ID_PATTERN.test(id);
 }
 
-// Drops any fv-prefixed citation from a working card's citations before this run's fresh set is
-// appended. A repeat analysis run can already carry fv citations from a prior run (extraction
-// reuse spreads the existing card's citations wholesale), and founderVoiceCitations always
-// numbers a fresh batch from 1: without this strip, the working card would carry two citations
-// with the same id (stale content plus fresh content), and emphasisSourceDigests would feed the
-// emphasis LLM two digests under one ambiguous label.
+// Drops every fv-prefixed citation from a citation list. Never applied to the working card mid-run
+// (that card must stay additive: see emphasisDigestCitations and the module comment above the
+// prune helpers below); used to build a narrower view for the emphasis prompt, and again after
+// verify to compute what survives to storage.
 export function citationsWithoutFounderVoice(citations: Citation[]): Citation[] {
   return citations.filter((citation) => !isFounderVoiceCitationId(citation.id));
+}
+
+// The citation view fed to emphasisSourceDigests: every non-fv citation, plus only this run's
+// fresh founder-voice batch, stale fv citations from a prior run excluded. The real working card
+// (generatedCard in functions.ts) stays additive with every fv citation ever fetched for this
+// slug across every run, so a synthesis draft claim that legitimately cited a stale fv id (built
+// from the working card before this narrower view existed) still resolves against it at verify
+// time; this narrower view exists only so the emphasis prompt itself never sees a stale
+// near-duplicate digest under an fv label some prior run already used.
+export function emphasisDigestCitations(citations: Citation[], freshFounderVoiceCitations: Citation[]): Citation[] {
+  return [...citationsWithoutFounderVoice(citations), ...freshFounderVoiceCitations];
 }
 
 // The lowest fv index this run's fresh citations can safely use without colliding with any
@@ -145,14 +154,20 @@ export type EmphasisReadStepResult = { ok: true; value: EmphasisRead } | { ok: f
 // a citation that never made it onto the card) is memoized as { ok: false } so a later retry
 // never re-pays for the call. Callers degrade a semantic failure to nothing_notable rather than
 // failing the run: the emphasis read is a bonus category, never a reason to fail analysis.
+//
+// input.card is the real, additive working card (used as-is for company name/domain and for the
+// citation-existence check inside synthesizeEmphasisRead); freshFounderVoiceCitations narrows only
+// the digests the model actually reads, via emphasisDigestCitations, to this run's fresh batch.
 export async function emphasisReadStepBody(input: {
   card: ColdStartCard;
   client: ReturnType<typeof createAnthropicClient>;
   model: string;
   telemetry: AnthropicTelemetrySink;
+  freshFounderVoiceCitations: Citation[];
 }): Promise<EmphasisReadStepResult> {
   try {
-    const digests = emphasisSourceDigests(input.card);
+    const digestCitations = emphasisDigestCitations(input.card.citations, input.freshFounderVoiceCitations);
+    const digests = emphasisSourceDigests({ ...input.card, citations: digestCitations });
     const value = await synthesizeEmphasisRead({
       client: input.client,
       model: input.model,
@@ -167,4 +182,55 @@ export async function emphasisReadStepBody(input: {
     }
     return { ok: false, error: boundedErrorMessage(error) };
   }
+}
+
+// Post-verify pruning: caps cross-run accumulation of unreferenced fv citations on the working
+// card. Deliberately runs only after both LLM calls and after verify (functions.ts calls this once
+// the verified.synthesis / preserveFiledSynthesis / no-survivors branch has resolved and
+// generatedCard.synthesis reflects the final outcome), so nothing visible earlier in the run (to
+// the synthesis draft or to the verifier) ever vanishes mid-run; the working card stays additive
+// throughout the run itself. A preserved old read (the preserveFiledSynthesis or no-survivors
+// branches, where generatedCard carries no fresh synthesis at all) prunes every fv citation off the
+// working card, since nothing in it references any of them; the old read's own citation refs live
+// on the separately loaded existingCard and keep resolving through storage's citation merge
+// (packages/db's mergeByKey, last-wins by id, pulls them back in from the fallback side of the
+// union), untouched by this prune.
+
+// Recursively collects every string found in any `citationIds` array anywhere inside value.
+// Schema-agnostic on purpose: walks whatever shape synthesis/emphasisRead actually has (including
+// nested claims such as marketStructureAndTiming's fields) rather than re-deriving the field list
+// from packages/pipeline's internal (unexported) claim collectors, so it can never silently drift
+// out of sync with a future synthesis field that carries its own citationIds.
+export function citationIdsReferencedIn(value: unknown): Set<string> {
+  const ids = new Set<string>();
+  collectCitationIds(value, ids);
+  return ids;
+}
+
+function collectCitationIds(value: unknown, out: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectCitationIds(item, out);
+    }
+    return;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (key === "citationIds" && Array.isArray(nested)) {
+        for (const id of nested) {
+          if (typeof id === "string") {
+            out.add(id);
+          }
+        }
+      } else {
+        collectCitationIds(nested, out);
+      }
+    }
+  }
+}
+
+// Drops any fv-prefixed citation whose id is absent from referencedIds; every non-fv citation is
+// kept untouched, in order.
+export function citationsPrunedToReferencedFounderVoice(citations: Citation[], referencedIds: Set<string>): Citation[] {
+  return citations.filter((citation) => !isFounderVoiceCitationId(citation.id) || referencedIds.has(citation.id));
 }

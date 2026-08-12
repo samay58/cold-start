@@ -5,7 +5,10 @@ import type { Citation } from "@cold-start/core";
 import type { FounderVoiceItem } from "@cold-start/providers";
 
 import {
+  citationIdsReferencedIn,
+  citationsPrunedToReferencedFounderVoice,
   citationsWithoutFounderVoice,
+  emphasisDigestCitations,
   emphasisReadStepBody,
   founderVoiceCitations,
   founderVoiceTargetsFromCard,
@@ -67,6 +70,12 @@ describe("founderVoiceCitations", () => {
     expect(citation?.snippet).toHaveLength(240);
     expect(citation?.snippet).toBe(longText.slice(0, 240));
   });
+
+  it("numbers from a custom startIndex so a repeat run's fresh batch never collides", () => {
+    const citations = founderVoiceCitations([founderItem(), founderItem()], 5);
+
+    expect(citations.map((citation) => citation.id)).toEqual(["fv5", "fv6"]);
+  });
 });
 
 function citation(overrides: Partial<Citation> = {}): Citation {
@@ -93,6 +102,33 @@ describe("citationsWithoutFounderVoice", () => {
   });
 });
 
+// Round-2 coordinator finding: the working card must stay additive during a run (a synthesis
+// draft claim can legitimately cite a stale fv id, and stripping it before verify would silently
+// orphan that claim). emphasisDigestCitations narrows only the view fed to emphasisSourceDigests,
+// never the real working card.
+describe("emphasisDigestCitations", () => {
+  it("excludes stale fv citations but includes the fresh batch, non-fv citations untouched", () => {
+    const staleFv = citation({ id: "fv1", url: "https://old.example/founder-post", title: "Stale founder post" });
+    const workingCardCitations = [citation({ id: "c1" }), staleFv];
+    const freshCitations = founderVoiceCitations(
+      [founderItem({ url: "https://news.ycombinator.com/item?id=99", text: "Fresh founder post from this run." })],
+      2
+    );
+
+    const digestCitations = emphasisDigestCitations(workingCardCitations, freshCitations);
+
+    const ids = digestCitations.map((entry) => entry.id);
+    expect(ids).toEqual(["c1", "fv2"]);
+    expect(ids).not.toContain("fv1");
+  });
+
+  it("returns the working card's non-fv citations unchanged when this run found nothing fresh", () => {
+    const workingCardCitations = [citation({ id: "c1" }), citation({ id: "fv1" })];
+
+    expect(emphasisDigestCitations(workingCardCitations, [])).toEqual([citation({ id: "c1" })]);
+  });
+});
+
 describe("nextFounderVoiceIndex", () => {
   it("defaults to 1 when no fv citation exists anywhere", () => {
     expect(nextFounderVoiceIndex([citation({ id: "c1" })], [])).toBe(1);
@@ -110,40 +146,58 @@ describe("nextFounderVoiceIndex", () => {
   });
 });
 
-// The coordinator's IMPORTANT-1 finding: on a repeat analysis run, generatedCard.citations can
-// already carry fv ids from a prior run (extraction reuse spreads the existing card's citations
-// wholesale), and founderVoiceCitations always numbers a fresh batch from 1. Simulates that
-// second-run shape end to end through the two fixes together (strip, then renumber) and asserts
-// the resulting citation set the emphasis step would consume has no duplicate ids and no stale
-// entry, so emphasisSourceDigests can never build two digests under one ambiguous fv label.
-describe("repeat-run founder-voice citation wiring (strip + renumber)", () => {
-  it("produces a citation set with no duplicate ids and no stale fv content", () => {
-    const staleFvCitation = citation({
-      id: "fv1",
-      url: "https://old.example/founder-post-from-last-run",
-      title: "Old founder post",
-      snippet: "Stale content from a prior run.",
-      sourceQuality: { tier: "founder_authored", label: "Founder-authored", rationale: "r", incentive: "i" }
-    });
-    const workingCardCitations = [citation({ id: "c1" }), staleFvCitation];
-    const existingCardCitations = [citation({ id: "c1" }), staleFvCitation];
+describe("citationIdsReferencedIn", () => {
+  it("collects citationIds from a nested synthesis shape, including emphasisRead's loud/read claims", () => {
+    const synthesis = {
+      whyItMatters: { text: "Thesis [c1].", citationIds: ["c1"] },
+      bullCase: [{ text: "Bull [c1] [fv2].", citationIds: ["c1", "fv2"] }],
+      bearCase: [{ text: "Bear [c3].", citationIds: ["c3"] }],
+      openQuestions: [{ question: "What next?", category: null }],
+      marketStructureAndTiming: {
+        buyerBudget: { text: "Budget [fv5].", citationIds: ["fv5"] },
+        painSeverity: null
+      },
+      emphasisRead: {
+        status: "read" as const,
+        loud: { text: "Loud [fv2].", citationIds: ["fv2"] },
+        quiet: "Nothing filed shows a named paying customer.",
+        read: { text: "Read [fv2].", citationIds: ["fv2"] },
+        wouldChangeIf: "A named customer would break this."
+      }
+    };
 
-    const startIndex = nextFounderVoiceIndex(workingCardCitations, existingCardCitations);
-    const freshItems: FounderVoiceItem[] = [
-      founderItem({ url: "https://news.ycombinator.com/item?id=99", text: "Fresh founder post from this run." })
+    const ids = citationIdsReferencedIn(synthesis);
+
+    expect(ids).toEqual(new Set(["c1", "fv2", "c3", "fv5"]));
+  });
+
+  it("returns an empty set for undefined (no synthesis attached)", () => {
+    expect(citationIdsReferencedIn(undefined)).toEqual(new Set());
+  });
+
+  it("returns an empty set for a thin_file or nothing_notable emphasisRead (no citationIds field)", () => {
+    expect(citationIdsReferencedIn({ status: "thin_file" as const })).toEqual(new Set());
+  });
+});
+
+describe("citationsPrunedToReferencedFounderVoice", () => {
+  it("drops unreferenced fv citations, keeps referenced fv citations and every non-fv citation", () => {
+    const citations = [
+      citation({ id: "c1" }),
+      citation({ id: "fv1", url: "https://referenced.example" }),
+      citation({ id: "fv2", url: "https://unreferenced.example" }),
+      citation({ id: "c2" })
     ];
-    const freshCitations = founderVoiceCitations(freshItems, startIndex);
 
-    const merged = [...citationsWithoutFounderVoice(workingCardCitations), ...freshCitations];
+    const pruned = citationsPrunedToReferencedFounderVoice(citations, new Set(["fv1"]));
 
-    const ids = merged.map((entry) => entry.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).not.toContain("fv1");
-    expect(merged.find((entry) => entry.id === "fv2")?.snippet).toBe("Fresh founder post from this run.");
-    // digests derive one-to-one from citations by id (emphasisSourceDigests), so a unique id set
-    // on the card the emphasis step consumes is what makes the fed digests unambiguous.
-    const digestLabels = merged.map((entry) => entry.id);
-    expect(new Set(digestLabels).size).toBe(digestLabels.length);
+    expect(pruned.map((entry) => entry.id)).toEqual(["c1", "fv1", "c2"]);
+  });
+
+  it("drops every fv citation when nothing references any of them", () => {
+    const citations = [citation({ id: "c1" }), citation({ id: "fv1" }), citation({ id: "fv2" })];
+
+    expect(citationsPrunedToReferencedFounderVoice(citations, new Set())).toEqual([citation({ id: "c1" })]);
   });
 });
 
@@ -197,7 +251,8 @@ describe("emphasisReadStepBody", () => {
     card,
     client: {} as never,
     model: "claude-test",
-    telemetry: () => {}
+    telemetry: () => {},
+    freshFounderVoiceCitations: [] as Citation[]
   };
 
   beforeEach(() => {
@@ -230,5 +285,43 @@ describe("emphasisReadStepBody", () => {
     const result = await emphasisReadStepBody(input);
 
     expect(result).toEqual({ ok: true, value });
+  });
+
+  it("feeds digests built from non-fv plus fresh-fv citations only, stale fv excluded", async () => {
+    const cardWithStaleFv = {
+      ...card,
+      citations: [
+        {
+          id: "c1",
+          url: "https://cognition.ai/blog",
+          title: "Cognition blog",
+          fetchedAt: "2026-08-11T00:00:00.000Z",
+          sourceType: "company_site" as const,
+          snippet: "Company blog snippet."
+        },
+        citation({ id: "fv1", url: "https://old.example/stale", title: "Stale founder post" })
+      ]
+    };
+    const freshCitations = founderVoiceCitations(
+      [founderItem({ url: "https://news.ycombinator.com/item?id=99", text: "Fresh founder post from this run." })],
+      2
+    );
+    mocks.synthesizeEmphasisRead.mockResolvedValue({ status: "nothing_notable" as const });
+
+    await emphasisReadStepBody({ ...input, card: cardWithStaleFv, freshFounderVoiceCitations: freshCitations });
+
+    expect(mocks.synthesizeEmphasisRead).toHaveBeenCalledTimes(1);
+    const digestsArg = mocks.synthesizeEmphasisRead.mock.calls[0]?.[0]?.digests as Array<{ citationId: string }>;
+    const digestCitationIds = digestsArg.map((digest) => digest.citationId);
+
+    expect(digestCitationIds).toContain("c1");
+    expect(digestCitationIds).toContain("fv2");
+    expect(digestCitationIds).not.toContain("fv1");
+
+    // The real (additive) card is still what is passed through for company name/domain and for
+    // synthesizeEmphasisRead's own citation-existence check, so the stale fv1 citation the digest
+    // excluded is still present there.
+    const cardArg = mocks.synthesizeEmphasisRead.mock.calls[0]?.[0]?.card;
+    expect(cardArg.citations.map((c: Citation) => c.id)).toContain("fv1");
   });
 });

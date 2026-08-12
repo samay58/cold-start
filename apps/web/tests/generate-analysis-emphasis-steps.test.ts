@@ -462,14 +462,24 @@ describe("generate-card analysis emphasis-read steps", () => {
     expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
   });
 
-  // Coordinator review IMPORTANT-1: on a repeat analysis run over a slug whose stored card
-  // already carries fv-prefixed citations from a prior run, generatedCard.citations can already
-  // carry those same fv ids (extraction reuse spreads the existing card's citations wholesale).
-  // Before the fix, founderVoiceCitations always numbered a fresh batch from 1 and the wiring
-  // appended unconditionally, so the working card ended up with two "fv1" entries (stale content
-  // plus fresh content) and emphasisSourceDigests fed the emphasis LLM two digests under one
-  // ambiguous label.
-  it("dedupes fv citations and renumbers past the existing card's range on a second analysis run", async () => {
+  // Coordinator review IMPORTANT-1 (round 1): on a repeat analysis run over a slug whose stored
+  // card already carries fv-prefixed citations from a prior run, generatedCard.citations can
+  // already carry those same fv ids (extraction reuse spreads the existing card's citations
+  // wholesale). Before the round-1 fix, founderVoiceCitations always numbered a fresh batch from
+  // 1 and the wiring appended unconditionally, producing two "fv1" entries (stale content plus
+  // fresh content) and feeding the emphasis LLM two digests under one ambiguous label.
+  //
+  // Coordinator review IMPORTANT (round 2): the round-1 fix stripped the stale fv citation from
+  // the working card between synthesize-card's draft capture and verify-synthesis's citation-
+  // source build. A repeat run's synthesis draft legitimately sees stale fv citations on the card
+  // (the synthesis prompt has no fv exclusion) and can cite one; stripping it out from under the
+  // verifier silently orphaned that claim (marked unsupported, dropped) even though nothing was
+  // ever wrong with it. This test proves the round-2 design instead: the working card stays
+  // additive all the way through verify (nothing visible at draft time vanishes), only the
+  // emphasis prompt's own digest view excludes the stale fv content, and pruning happens once,
+  // after verify, capped to whatever the final stored synthesis (any claim, not just
+  // emphasisRead) actually references.
+  it("keeps a stale fv citation resolvable through verify when the draft cites it, while the emphasis digests stay unambiguous", async () => {
     const staleFvCitation = {
       id: "fv1",
       url: "https://old.example/founder-post-from-last-run",
@@ -502,26 +512,145 @@ describe("generate-card analysis emphasis-read steps", () => {
     });
     mocks.findCardBySlug.mockResolvedValue(cardWithStaleFv);
 
+    // The regular synthesis draft legitimately sees fv1 on the card at draft time and cites it
+    // alongside a real citation; nothing about the synthesis prompt excludes fv-prefixed ids.
+    const bullCaseCitingStaleFv = {
+      text: "Modal's founder posted about the launch directly. [c1] [fv1]",
+      citationIds: ["c1", "fv1"]
+    };
+    // This run's fresh founder-voice item is numbered fv2 (past the existing card's fv1), so the
+    // fresh emphasis read cites fv2, not the shared top-level emphasisReadFixture's fv1: that
+    // fixture is a fixed object and citing the wrong id here would make the fv2-survives
+    // assertion below meaningless (pruning would then correctly drop fv2 as unreferenced).
+    const emphasisReadCitingFreshFv = {
+      status: "read" as const,
+      loud: { text: "They lead every post with GitHub stars [fv2].", citationIds: ["fv2"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "The loudest proof sits at product, not customers [fv2].", citationIds: ["fv2"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [bullCaseCitingStaleFv],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    mocks.synthesizeEmphasisRead.mockResolvedValue(emphasisReadCitingFreshFv);
+    mocks.verifySynthesis.mockResolvedValue([
+      { ...whyItMatters, status: "supported" },
+      { ...bullCaseCitingStaleFv, status: "supported" },
+      { ...emphasisReadCitingFreshFv.loud, status: "supported" },
+      { ...emphasisReadCitingFreshFv.read, status: "supported" }
+    ]);
+
     await runAnalysisGeneration();
 
-    expect(mocks.synthesizeEmphasisRead).toHaveBeenCalledTimes(1);
-    const cardArg = mocks.synthesizeEmphasisRead.mock.calls[0]?.[0]?.card as ColdStartCard;
-    const ids = cardArg.citations.map((citation) => citation.id);
+    // The verifier's own citation source list (built from the working card at verify time) still
+    // includes the stale fv1 citation the draft cited: the working card never had it stripped out
+    // from under the verifier mid-run.
+    const verifyCallArgs = mocks.verifySynthesis.mock.calls[0]?.[0] as { sources: Array<{ id: string }> };
+    expect(verifyCallArgs.sources.map((source) => source.id)).toContain("fv1");
 
-    // No duplicate ids on the card the emphasis step (and its digests, one per citation id) read.
-    expect(new Set(ids).size).toBe(ids.length);
-    // The stale fv1 is stripped from the working card; the fresh item is renumbered past it.
-    expect(ids).not.toContain("fv1");
-    expect(ids).toContain("fv2");
-    expect(cardArg.citations.find((citation) => citation.id === "fv2")?.url).toBe(founderVoiceItem.url);
+    // The emphasis prompt itself never saw fv1 as a digest, only this run's fresh batch (fv2,
+    // numbered past the existing card's fv1), so the digests stay unambiguous.
+    const emphasisCallArgs = mocks.synthesizeEmphasisRead.mock.calls[0]?.[0] as { digests: Array<{ citationId: string }> };
+    const digestIds = emphasisCallArgs.digests.map((digest) => digest.citationId);
+    expect(digestIds).not.toContain("fv1");
+    expect(digestIds).toContain("fv2");
 
-    // fv1 still resolves on the stored card (mergeByKey pulls it back in from existingCard, the
-    // fallback side of the union) with its original content untouched, since the fresh item
-    // landed at fv2 instead of colliding with it.
+    // The claim citing fv1 was not orphaned: it survived verification and is on the stored card,
+    // and both fv1 (referenced by the regular claim) and fv2 (referenced by the fresh
+    // emphasisRead) still resolve there, with no duplicate ids.
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
-    const storedIds = storedCard.citations.map((citation) => citation.id);
-    expect(new Set(storedIds).size).toBe(storedIds.length);
+    expect(storedCard.synthesis?.bullCase).toContainEqual(bullCaseCitingStaleFv);
     expect(storedCard.citations.find((citation) => citation.id === "fv1")?.url).toBe(staleFvCitation.url);
     expect(storedCard.citations.find((citation) => citation.id === "fv2")?.url).toBe(founderVoiceItem.url);
+    const storedIds = storedCard.citations.map((citation) => citation.id);
+    expect(new Set(storedIds).size).toBe(storedIds.length);
+  });
+
+  it("prunes unreferenced fv citations from the stored card while keeping the fresh read's own refs resolvable", async () => {
+    await runAnalysisGeneration();
+
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    // The fresh emphasis read cites fv1 (emphasisReadFixture, the only fv citation this run
+    // produced); nothing else on the stored synthesis references any fv id, so pruning leaves
+    // exactly that one fv citation and drops none of the non-fv ones.
+    const storedIds = storedCard.citations.map((citation) => citation.id);
+    expect(storedIds.filter((id) => id.startsWith("fv"))).toEqual(["fv1"]);
+    expect(storedIds).toEqual(expect.arrayContaining(["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"]));
+  });
+
+  // Coordinator review IMPORTANT (round 2), the preservation-path half of the invariant: when the
+  // fresh run's own claims are all dropped (verify keeps nothing), the old synthesis (and its
+  // emphasisRead) is preserved wholesale by storage, not by anything this run's own pruning
+  // touches. generatedCard carries no fresh synthesis in this branch, so every fv citation this
+  // run fetched gets pruned off it; the old read's own citation refs live on the separately loaded
+  // existingCard row and keep resolving through storage's citation merge (mergeByKey, last-wins by
+  // id, packages/db) regardless.
+  it("keeps an old emphasisRead's citation refs resolvable on the stored card when this run's claims are all dropped", async () => {
+    const oldFvCitation = {
+      id: "fv1",
+      url: "https://old.example/founder-post-preserved",
+      title: "Old founder post",
+      fetchedAt: "2026-07-01T00:00:00.000Z",
+      sourceType: "other" as const,
+      snippet: "The founder's original post.",
+      sourceQuality: {
+        tier: "founder_authored" as const,
+        label: "Founder-authored",
+        rationale: "The founder's own public voice.",
+        incentive: "Personal and company promotion."
+      }
+    };
+    const oldEmphasisRead = {
+      status: "read" as const,
+      loud: { text: "Old loud claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "Old read claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    const existingBaseCitations = cardWithCitations(8, { includeCompanySite: true }).citations;
+    const existingCardWithOldRead: ColdStartCard = {
+      ...cardWithCitations(8, { includeCompanySite: true }),
+      citations: [...existingBaseCitations, oldFvCitation],
+      synthesis: {
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }],
+        emphasisRead: oldEmphasisRead
+      }
+    };
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithOldRead);
+    // This run's own fresh extraction carries no stale fv (unlike the sibling test above); only
+    // the stored existingCard row does.
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: cardWithCitations(8, { includeCompanySite: true }),
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 8, fallbackUsed: false }
+      }
+    });
+    // Every claim this run produces is dropped: the regular synthesis has nothing beyond
+    // whyItMatters, which the verifier contradicts, so verified.synthesis ends up undefined; the
+    // fresh emphasis draft's loud/read are not marked supported either, so it degrades to
+    // nothing_notable too. Both fall back to what is already filed.
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    mocks.verifySynthesis.mockResolvedValue([{ ...whyItMatters, status: "contradicted" }]);
+
+    await runAnalysisGeneration();
+
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis?.emphasisRead).toEqual(oldEmphasisRead);
+    expect(storedCard.citations.find((citation) => citation.id === "fv1")).toMatchObject({ url: oldFvCitation.url });
+    const storedIds = storedCard.citations.map((citation) => citation.id);
+    expect(new Set(storedIds).size).toBe(storedIds.length);
   });
 });

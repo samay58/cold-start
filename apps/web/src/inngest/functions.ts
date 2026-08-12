@@ -91,7 +91,13 @@ import {
   type GenerationMode
 } from "./generation-helpers";
 import { runResearchSectionJobStep } from "./research-section-generation";
-import { citationsWithoutFounderVoice, emphasisReadStepBody, fetchFounderVoiceStepBody, nextFounderVoiceIndex } from "./emphasis-read";
+import {
+  citationIdsReferencedIn,
+  citationsPrunedToReferencedFounderVoice,
+  emphasisReadStepBody,
+  fetchFounderVoiceStepBody,
+  nextFounderVoiceIndex
+} from "./emphasis-read";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -799,11 +805,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             // on the stored existingCard row that storage will later merge this card against
             // (mergeByKey, last-wins by id). founderVoiceCitations always numbers a fresh batch
             // from 1, so a fresh id can collide with either source. Number this run's fresh set
-            // past every fv index already in play, then strip generatedCard's own stale fv
-            // citations before appending: the working card carries exactly one citation per fv id
-            // (fresh, authoritative) for the emphasis prompt and the verifier to read, and a stale
-            // id that only exists on existingCard still resolves at storage (mergeByKey pulls it
-            // back in) without its content being silently overwritten by this run's unrelated item.
+            // past every fv index already in play so stale and fresh coexist without collision.
             const founderVoiceStartIndex = nextFounderVoiceIndex(generatedCard.citations, existingCard?.citations);
             const founderVoice = await step.run("fetch-founder-voice", async () => {
               const result = await timed(() =>
@@ -827,9 +829,17 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
                 estimatedLaneCostUsd: founderVoice.value.estimatedCostUsd
               }
             });
+            // Additive, never stripped mid-run: the synthesize-card step above already ran against
+            // generatedCard's citations as they stood before this fetch, so its draft may
+            // legitimately cite a stale fv id from a prior run. Removing that citation here would
+            // make it vanish out from under the verifier, silently dropping an otherwise-supported
+            // claim. emphasisReadStepBody below narrows only the digests it reads (this run's fresh
+            // batch, stale excluded); the pruning that caps cross-run fv accumulation happens once,
+            // after verify, once it is safe to know what actually survived (see the prune call
+            // below verify-synthesis).
             generatedCard = {
               ...generatedCard,
-              citations: [...citationsWithoutFounderVoice(generatedCard.citations), ...founderVoice.value.citations]
+              citations: [...generatedCard.citations, ...founderVoice.value.citations]
             };
             if (founderVoice.value.sources.length > 0) {
               sourcesToRecord = [...sourcesToRecord, ...founderVoice.value.sources];
@@ -839,7 +849,13 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             const emphasisResult = await step.run("emphasis-read", async () => {
               const llmTelemetry = createStepLlmTelemetryCollector();
               const result = await timed(() =>
-                emphasisReadStepBody({ card: generatedCard, client: anthropic, model: emphasisModel, telemetry: llmTelemetry.telemetry })
+                emphasisReadStepBody({
+                  card: generatedCard,
+                  client: anthropic,
+                  model: emphasisModel,
+                  telemetry: llmTelemetry.telemetry,
+                  freshFounderVoiceCitations: founderVoice.value.citations
+                })
               );
               const llmTracePatch = llmTelemetry.tracePatch();
               return {
@@ -968,6 +984,21 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           // answer a re-click for free once the evidence stops moving.
           generatedCard = withheldCardForNoSurvivors(generatedCard);
         }
+
+        // Prune after verify, before storage: caps cross-run accumulation of unreferenced fv
+        // citations now that it is safe to know what survived. generatedCard.citations stayed
+        // additive through the whole run above, so nothing visible to the draft or the verifier
+        // vanished mid-run; this only drops an fv citation nothing in generatedCard's own final
+        // synthesis (any claim, not just emphasisRead) actually cites. On the preserve/no-survivors
+        // branches generatedCard carries no fresh synthesis at all, so every fv citation on it is
+        // dropped here; the old preserved read's own citation refs live on existingCard and keep
+        // resolving through storage's citation merge regardless (packages/db's mergeByKey,
+        // last-wins by id, pulls them back in from the fallback side of the union).
+        const referencedFounderVoiceIds = citationIdsReferencedIn(generatedCard.synthesis);
+        generatedCard = {
+          ...generatedCard,
+          citations: citationsPrunedToReferencedFounderVoice(generatedCard.citations, referencedFounderVoiceIds)
+        };
       }
 
       generatedCard = cardWithTraceCost(generatedCard, trace);
