@@ -47,7 +47,7 @@ export async function readLedger(): Promise<LedgerEvent[]> {
   const events: LedgerEvent[] = [];
   const lines = raw.split("\n");
   for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i].trim();
+    const line = lines[i]?.trim();
     if (!line) continue;
     try {
       events.push(JSON.parse(line) as LedgerEvent);

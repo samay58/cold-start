@@ -23,14 +23,16 @@ export default async function EvalPage() {
     );
   }
 
-  const files = await Promise.all(round.slugs.map((slug) => readCardFile(slug)));
-  const views = files.map((file, i) =>
-    buildCondensedView(
-      round.slugs[i],
-      file.card as ColdStartCard,
-      file.sections as ResearchSection[],
-      file.index
-    )
+  const views = await Promise.all(
+    round.slugs.map(async (slug) => {
+      const file = await readCardFile(slug);
+      return buildCondensedView(
+        slug,
+        file.card as ColdStartCard,
+        file.sections as ResearchSection[],
+        file.index
+      );
+    })
   );
 
   return (

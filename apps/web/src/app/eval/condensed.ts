@@ -27,7 +27,7 @@ export function buildCondensedView(
 
   const competition = sections.find((section) => section.sectionId === "competition");
   const comps = (competition?.content?.items ?? []).slice(0, 3).map((item) => {
-    const firstClause = item.text.split(/[.;]/)[0].trim();
+    const firstClause = (item.text.split(/[.;]/)[0] ?? item.text).trim();
     return publicEvidenceText(`${item.label}: ${firstClause}`, 120);
   });
 

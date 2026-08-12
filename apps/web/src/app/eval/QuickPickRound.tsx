@@ -72,9 +72,10 @@ export function QuickPickRound({ roundIndex, views }: { roundIndex: number; view
       const digit = digitMatch ? Number(digitMatch[1]) : NaN;
       // The note autofocuses after a winner is picked, so shift+digit must keep
       // working from inside it or the runner-up shortcut is unreachable.
-      if (digit >= 1 && digit <= views.length && (!inNote || event.shiftKey)) {
-        if (event.shiftKey) toggleRunnerUp(group[digit - 1]);
-        else pickWinner(group[digit - 1]);
+      const slugAtDigit = digit >= 1 && digit <= views.length ? group[digit - 1] : undefined;
+      if (slugAtDigit && (!inNote || event.shiftKey)) {
+        if (event.shiftKey) toggleRunnerUp(slugAtDigit);
+        else pickWinner(slugAtDigit);
         event.preventDefault();
         return;
       }
