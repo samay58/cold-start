@@ -91,8 +91,8 @@ type LensSource = {
 // and "not_read" covers a legacy card generated before this field existed. The category is
 // always present in investorLensCategories regardless of state; only its preview text and
 // this state value change.
-export type EmphasisDisplayState = "read" | "thin_file" | "nothing_notable" | "not_read";
-export type EmphasisDisplay = {
+type EmphasisDisplayState = "read" | "thin_file" | "nothing_notable" | "not_read";
+type EmphasisDisplay = {
   state: EmphasisDisplayState;
   loud: string | null;
   quiet: string | null;
@@ -445,7 +445,7 @@ function receiptLine(card: ColdStartCard) {
 // null-content shape; only a filed "read" status carries text. Loud and Read cite like any
 // other synthesis claim so they need stripCitationMarkers; Quiet and Would-change-if are
 // plain file-scoped strings (emphasisReadFiledSchema) and carry no markers to strip.
-export function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
+function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
   const emphasis = card.synthesis?.emphasisRead;
   if (!emphasis) {
     return { state: "not_read", loud: null, quiet: null, read: null, wouldChangeIf: null };
