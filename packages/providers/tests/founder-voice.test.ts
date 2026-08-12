@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchBlueskyLane } from "../src/founder-voice/bluesky";
+import { fetchExaWebLane } from "../src/founder-voice/exa-web";
 import { fetchGithubLane } from "../src/founder-voice/github";
 import { fetchHnLane } from "../src/founder-voice/hn";
-import type { FounderVoiceTargets } from "../src/founder-voice/types";
+import { fetchFounderVoiceEvidence } from "../src/founder-voice/index";
+import { fetchXaiXSearchLane } from "../src/founder-voice/xai-x-search";
+import type { FounderVoiceLaneResult, FounderVoiceTargets } from "../src/founder-voice/types";
 
 const TARGETS: FounderVoiceTargets = {
   companyName: "Acme",
@@ -492,5 +495,364 @@ describe("fetchBlueskyLane", () => {
     expect(result.failure).toBeTruthy();
     expect(result.failure).toContain("Down Founder");
     expect(result.failure).toContain("bluesky search down");
+  });
+});
+
+// Wire shape verified live against https://api.x.ai/v1/responses on 2026-08-12 (see
+// xai-x-search.ts's header comment for the full probe record). The tool only works on
+// the Responses API, not /v1/chat/completions, and the model ignores allowed_x_handles
+// unless the handle is also spelled out in the prompt text, so these fixtures mirror the
+// real {output: [...]} shape rather than a chat-completions choices[].message.content shape.
+describe("fetchXaiXSearchLane", () => {
+  const xaiTargets: FounderVoiceTargets = {
+    companyName: "Acme",
+    domain: "acme.com",
+    founders: [{ name: "Jane Founder", xUrl: "https://x.com/acmefounder", githubUrl: null }],
+  };
+
+  function stubXaiResponse(text: string, status = 200): typeof fetch {
+    return (async () =>
+      new Response(
+        JSON.stringify({
+          output: [
+            { type: "custom_tool_call", name: "x_keyword_search" },
+            { type: "message", role: "assistant", content: [{ type: "output_text", text }] },
+          ],
+        }),
+        { status, headers: { "content-type": "application/json" } },
+      )) as typeof fetch;
+  }
+
+  it("restricts the tool block to derivable handles and parses the JSON post array", async () => {
+    let sawRequest: { url: string; body: Record<string, unknown> } | null = null;
+
+    const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      sawRequest = { url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown> };
+      return new Response(
+        JSON.stringify({
+          output: [
+            {
+              type: "message",
+              role: "assistant",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify([
+                    { handle: "acmefounder", date: "2026-07-01", url: "https://x.com/acmefounder/status/1", text: "Shipping Acme today." },
+                    { handle: "acmefounder", date: "2026-06-01", url: "https://x.com/acmefounder/status/2", text: "Acme raised a round." },
+                  ]),
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
+
+    expect(sawRequest).not.toBeNull();
+    const body = sawRequest!.body as { tools: Array<{ type: string; allowed_x_handles: string[] }> };
+    expect(body.tools[0]?.type).toBe("x_search");
+    expect(body.tools[0]?.allowed_x_handles).toEqual(["acmefounder"]);
+
+    expect(result.lane).toBe("xai_x_search");
+    expect(result.failure).toBeUndefined();
+    expect(result.items).toHaveLength(2);
+    expect(result.items.every((item) => item.authorship === "founder")).toBe(true);
+    expect(result.estimatedCostUsd).toBe(0.05);
+  });
+
+  it("is a silent empty, not a failure, without a key or any handle", async () => {
+    const result = await fetchXaiXSearchLane({
+      targets: { companyName: "Acme", domain: "acme.com", founders: [{ name: "No X", xUrl: null, githubUrl: null }] },
+      timeoutMs: 30_000,
+    });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+    expect(result.estimatedCostUsd).toBe(0);
+  });
+
+  it("is a silent empty, not a failure, when there are handles but no API key", async () => {
+    const fetchFn = (async () => {
+      throw new Error("fetchFn should not be called without an API key");
+    }) as typeof fetch;
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, timeoutMs: 30_000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+  });
+
+  it("recovers the JSON array from a chatty completion, slicing first [ to last ]", async () => {
+    const fetchFn = stubXaiResponse(
+      'Here are the posts:\n[{"handle":"acmefounder","date":"2026-07-01","url":"https://x.com/acmefounder/status/1","text":"Shipping Acme."}]\nHope that helps.',
+    );
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
+
+    expect(result.failure).toBeUndefined();
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.text).toBe("Shipping Acme.");
+  });
+
+  it("records a failure instead of throwing when the content has no JSON array", async () => {
+    const fetchFn = stubXaiResponse("no data available");
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeTruthy();
+    expect(result.estimatedCostUsd).toBe(0);
+  });
+
+  it("records a failure instead of throwing on a non-ok response", async () => {
+    const fetchFn = (async () => new Response("bad request", { status: 400 })) as typeof fetch;
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toContain("400");
+  });
+
+  it("caps allowed_x_handles at 20 and attributes items back to the matching founder", async () => {
+    const manyFounders = Array.from({ length: 25 }, (_, index) => ({
+      name: `Founder ${index}`,
+      xUrl: `https://x.com/founder${index}`,
+      githubUrl: null,
+    }));
+
+    let sawHandles: string[] = [];
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { tools: Array<{ allowed_x_handles: string[] }> };
+      sawHandles = body.tools[0]?.allowed_x_handles ?? [];
+      return new Response(
+        JSON.stringify({
+          output: [
+            {
+              type: "message",
+              role: "assistant",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify([{ handle: "founder3", date: "2026-07-01", url: "https://x.com/founder3/status/1", text: "Shipping." }]),
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const result = await fetchXaiXSearchLane({
+      targets: { companyName: "Acme", domain: "acme.com", founders: manyFounders },
+      xaiApiKey: "xai-key",
+      timeoutMs: 30_000,
+      fetchFn,
+    });
+
+    expect(sawHandles).toHaveLength(20);
+    expect(result.items[0]?.authorName).toBe("Founder 3");
+  });
+});
+
+describe("fetchExaWebLane", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const exaTargets: FounderVoiceTargets = {
+    companyName: "Acme",
+    domain: "acme.com",
+    founders: [{ name: "Jane Founder", xUrl: null, githubUrl: null }],
+  };
+
+  it("builds a company query and a founder-plus-company query, classifying authorship by hostname", async () => {
+    const seenQueries: string[] = [];
+    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      seenQueries.push(body.query);
+      const isCompanyQuery = body.query.includes("founder interview");
+      return new Response(
+        JSON.stringify({
+          results: [
+            {
+              url: isCompanyQuery ? "https://acme.com/blog/founder-story" : "https://techcrunch.com/acme-profile",
+              title: isCompanyQuery ? "Acme founder story" : "Acme profile",
+              text: isCompanyQuery ? "The Acme founder talks about building the company." : "A profile of the Acme founder.",
+              publishedDate: "2026-05-01",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000 });
+
+    expect(seenQueries).toHaveLength(2);
+    expect(seenQueries.some((query) => query.includes("founder interview"))).toBe(true);
+    expect(seenQueries.some((query) => query.includes("Jane Founder") && query.includes("Acme"))).toBe(true);
+
+    expect(result.lane).toBe("exa_founder_web");
+    expect(result.failure).toBeUndefined();
+    expect(result.items).toHaveLength(2);
+    expect(result.items.find((item) => item.url.includes("acme.com"))?.authorship).toBe("company");
+    expect(result.items.find((item) => item.url.includes("techcrunch"))?.authorship).toBe("third_party");
+    expect(result.estimatedCostUsd).toBeCloseTo(2 * 0.007, 6);
+  });
+
+  it("is a silent empty, not a failure, when DIRECT_EXA_API_KEY is missing", async () => {
+    const fetchSpy = vi.fn(async () => {
+      throw new Error("should not fetch without a key");
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: {}, timeoutMs: 18_000 });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+    expect(result.estimatedCostUsd).toBe(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("skips the founder-plus-company query when there are no founders", async () => {
+    const seenQueries: string[] = [];
+    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      seenQueries.push(body.query);
+      return new Response(JSON.stringify({ results: [] }), { status: 200, headers: { "content-type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchExaWebLane({
+      targets: { companyName: "Acme", domain: "acme.com", founders: [] },
+      directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" },
+      timeoutMs: 18_000,
+    });
+
+    expect(seenQueries).toHaveLength(1);
+    expect(result.estimatedCostUsd).toBeCloseTo(0.007, 6);
+  });
+
+  it("keeps items from the successful request and records a failure when the other request fails, never throwing", async () => {
+    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      if (body.query.includes("founder interview")) {
+        return new Response("bad request", { status: 400 });
+      }
+      return new Response(
+        JSON.stringify({ results: [{ url: "https://techcrunch.com/acme-profile", title: "Acme profile", text: "profile text" }] }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000 });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.failure).toBeTruthy();
+  });
+});
+
+describe("fetchFounderVoiceEvidence", () => {
+  const orchestratorTargets: FounderVoiceTargets = {
+    companyName: "Acme",
+    domain: "acme.com",
+    founders: [{ name: "Jane Founder", xUrl: null, githubUrl: null }],
+  };
+
+  function laneWithItems(lane: FounderVoiceLaneResult["lane"], count: number, estimatedCostUsd = 0): FounderVoiceLaneResult {
+    return {
+      lane,
+      items: Array.from({ length: count }, (_, index) => ({
+        lane,
+        url: `https://example.com/${lane}/${index}`,
+        title: `${lane} item ${index}`,
+        text: `${lane} text ${index}`,
+        authorship: "founder" as const,
+      })),
+      estimatedCostUsd,
+    };
+  }
+
+  it("runs every lane, tolerates one lane rejecting, concatenates items, and sums cost", async () => {
+    const result = await fetchFounderVoiceEvidence({
+      targets: orchestratorTargets,
+      env: { xaiApiKey: "xai-key", githubToken: "gh-token", directExa: { DIRECT_EXA_API_KEY: "exa-key" } },
+      lanes: {
+        hn: async () => laneWithItems("hn_search", 2),
+        github: async () => laneWithItems("github_author_activity", 3),
+        bluesky: async () => laneWithItems("bluesky_author_feed", 1),
+        xai: async () => {
+          throw new Error("xai timed out");
+        },
+        exaWeb: async () => laneWithItems("exa_founder_web", 2, 0.014),
+      },
+    });
+
+    expect(result.laneResults).toHaveLength(5);
+    const xaiResult = result.laneResults.find((lane) => lane.lane === "xai_x_search");
+    expect(xaiResult?.failure).toContain("xai timed out");
+    expect(xaiResult?.items).toEqual([]);
+
+    expect(result.items).toHaveLength(2 + 3 + 1 + 0 + 2);
+    expect(result.estimatedCostUsd).toBeCloseTo(0.014, 6);
+  });
+
+  it("caps items at 40 total, dropping overflow from the largest lane first", async () => {
+    const result = await fetchFounderVoiceEvidence({
+      targets: orchestratorTargets,
+      env: { directExa: {} },
+      lanes: {
+        hn: async () => laneWithItems("hn_search", 5),
+        github: async () => laneWithItems("github_author_activity", 30),
+        bluesky: async () => laneWithItems("bluesky_author_feed", 5),
+        xai: async () => laneWithItems("xai_x_search", 5),
+        exaWeb: async () => laneWithItems("exa_founder_web", 5),
+      },
+    });
+
+    expect(result.items).toHaveLength(40);
+    // github contributed the most items (30 of 50), so the 10-item overflow trims from it first.
+    expect(result.items.filter((item) => item.lane === "github_author_activity")).toHaveLength(20);
+  });
+
+  it("uses each lane's timeoutMs from providerBudgetRegistry.founderVoice by default", async () => {
+    const seenTimeouts: number[] = [];
+    const result = await fetchFounderVoiceEvidence({
+      targets: orchestratorTargets,
+      env: { directExa: {} },
+      lanes: {
+        hn: async ({ timeoutMs }) => {
+          seenTimeouts.push(timeoutMs);
+          return laneWithItems("hn_search", 0);
+        },
+        github: async ({ timeoutMs }) => {
+          seenTimeouts.push(timeoutMs);
+          return laneWithItems("github_author_activity", 0);
+        },
+        bluesky: async ({ timeoutMs }) => {
+          seenTimeouts.push(timeoutMs);
+          return laneWithItems("bluesky_author_feed", 0);
+        },
+        xai: async ({ timeoutMs }) => {
+          seenTimeouts.push(timeoutMs);
+          return laneWithItems("xai_x_search", 0);
+        },
+        exaWeb: async ({ timeoutMs }) => {
+          seenTimeouts.push(timeoutMs);
+          return laneWithItems("exa_founder_web", 0);
+        },
+      },
+    });
+
+    expect(seenTimeouts).toEqual([10_000, 15_000, 10_000, 30_000, 18_000]);
+    expect(result.items).toEqual([]);
+    expect(result.estimatedCostUsd).toBe(0);
   });
 });

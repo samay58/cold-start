@@ -51,3 +51,33 @@ describe("providerBudgetRegistry", () => {
     });
   });
 });
+
+describe("providerBudgetRegistry.founderVoice", () => {
+  it("prices the paid xai_x_search lane at the fixed per-call estimate", () => {
+    expect(providerBudgetRegistry.founderVoice.xai_x_search).toMatchObject({
+      endpoint: "xai_x_search",
+      estimatedCostUsd: 0.05,
+      maxCallsPerRun: 1
+    });
+  });
+
+  it("prices the paid exa_founder_web lane at two Direct Exa searches", () => {
+    expect(providerBudgetRegistry.founderVoice.exa_founder_web).toMatchObject({
+      endpoint: "exa_founder_web",
+      estimatedCostUsd: 0.014,
+      maxCallsPerRun: 1
+    });
+  });
+
+  it("declares a positive timeout for every founderVoice lane", () => {
+    for (const laneName of Object.keys(providerBudgetRegistry.founderVoice) as Array<keyof typeof providerBudgetRegistry.founderVoice>) {
+      expect(providerBudgetRegistry.founderVoice[laneName].timeoutMs).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the free lanes (hn, github, bluesky) at zero estimated cost", () => {
+    for (const laneName of ["hn_search", "github_author_activity", "bluesky_author_feed"] as const) {
+      expect(providerBudgetRegistry.founderVoice[laneName].estimatedCostUsd).toBe(0);
+    }
+  });
+});

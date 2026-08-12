@@ -1,9 +1,10 @@
+import type { FounderVoiceLaneName } from "./founder-voice/types";
 import type { ProviderFactPath, StableenrichProbeName } from "./types";
 
 export type ProviderBudgetMode = "search" | "scrape" | "enrichment" | "email";
 
-export type ProviderEndpointBudget = {
-  endpoint: StableenrichProbeName;
+export type ProviderEndpointBudget<TEndpoint extends string = StableenrichProbeName> = {
+  endpoint: TEndpoint;
   mode: ProviderBudgetMode;
   expectedFacts: ProviderFactPath[];
   timeoutMs: number;
@@ -14,6 +15,7 @@ export type ProviderEndpointBudget = {
 
 export type ProviderBudgetRegistry = {
   stableenrich: Record<StableenrichProbeName, ProviderEndpointBudget>;
+  founderVoice: Record<FounderVoiceLaneName, ProviderEndpointBudget<FounderVoiceLaneName>>;
 };
 
 const exaSearchFanoutTimeoutMs = 18_000;
@@ -215,6 +217,57 @@ export const providerBudgetRegistry = {
       estimatedCostUsd: 0.01,
       maxCallsPerRun: 1,
       stopCondition: "stop after leader discovery sources are accepted"
+    }
+  },
+  // Emphasis-read founder-voice evidence lanes. hn/github/bluesky are free, no-auth public
+  // APIs; xai_x_search and exa_founder_web are paid and carry real per-call estimates.
+  // None of these lanes yield structured card facts, so expectedFacts stays empty across
+  // the family; the payoff is cited founder-voice evidence for the Lens, not card fields.
+  founderVoice: {
+    hn_search: {
+      endpoint: "hn_search",
+      mode: "search",
+      expectedFacts: [],
+      timeoutMs: 10_000,
+      estimatedCostUsd: 0,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after the company's HN footprint is read"
+    },
+    github_author_activity: {
+      endpoint: "github_author_activity",
+      mode: "search",
+      expectedFacts: [],
+      timeoutMs: 15_000,
+      estimatedCostUsd: 0,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after founder repos and recent public activity"
+    },
+    bluesky_author_feed: {
+      endpoint: "bluesky_author_feed",
+      mode: "search",
+      expectedFacts: [],
+      timeoutMs: 10_000,
+      estimatedCostUsd: 0,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after matched founder feeds or confirmed no match"
+    },
+    xai_x_search: {
+      endpoint: "xai_x_search",
+      mode: "search",
+      expectedFacts: [],
+      timeoutMs: 30_000,
+      estimatedCostUsd: 0.05,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after one restricted x_search pass over derivable handles"
+    },
+    exa_founder_web: {
+      endpoint: "exa_founder_web",
+      mode: "search",
+      expectedFacts: [],
+      timeoutMs: 18_000,
+      estimatedCostUsd: 0.014,
+      maxCallsPerRun: 1,
+      stopCondition: "stop after founder interview and blog coverage"
     }
   }
 } satisfies ProviderBudgetRegistry;

@@ -20,7 +20,8 @@ export type DirectExaProbeName =
   | "exa_direct_people"
   | "exa_direct_funding"
   | "exa_direct_news"
-  | "exa_direct_contact_email";
+  | "exa_direct_contact_email"
+  | "exa_direct_founder_web";
 
 export type DirectExaRequest = {
   name: DirectExaProbeName;
@@ -168,19 +169,27 @@ export function buildDirectExaContactRequests(
   ];
 }
 
-export async function fetchDirectExaFundamentalsSources(input: {
+// Shared runner: given already-built requests, fetch each (with retry) and map the
+// results into the common DirectExaSourcesResult shape. fetchDirectExaFundamentalsSources
+// and the founder-voice exa-web lane both call this instead of each re-implementing the
+// Promise.allSettled fetch loop and failure accumulation. fetchDirectExaContactSources
+// keeps its own loop: it also needs the raw per-request payload (to mine contact-email
+// facts out of it), which this runner does not expose alongside the mapped sources.
+// `domain` is required (unlike the fundamentals/contact callers' own request-building
+// step) because providerSourcesFromDirectExa needs it to classify a result's hostname as
+// company_site vs news vs other; `timeoutMs` is an optional per-call override so a caller
+// with its own budget (e.g. the founder-voice orchestrator's registry timeout) is not
+// stuck with directExaJson's fixed 20s default.
+export async function fetchDirectExaRequests(input: {
   env: DirectExaEnv;
   domain: string;
+  requests: DirectExaRequest[];
   fetchJson?: FetchJson;
+  timeoutMs?: number;
 }): Promise<DirectExaSourcesResult> {
-  if (missingDirectExaConfig(input.env).length > 0) {
-    return { sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
-  }
-
-  const fetchJson = input.fetchJson ?? directExaJson;
-  const requests = buildDirectExaFundamentalsRequests(input.env, input.domain);
+  const fetchJson = input.fetchJson ?? ((request: DirectExaRequest) => directExaJson(request, input.timeoutMs));
   const settled = await Promise.allSettled(
-    requests.map(async (request) => ({
+    input.requests.map(async (request) => ({
       request,
       payload: await fetchJson(request),
     }))
@@ -203,7 +212,7 @@ export async function fetchDirectExaFundamentalsSources(input: {
         return [];
       }
 
-      const request = requests[index];
+      const request = input.requests[index];
       if (!request) {
         return [];
       }
@@ -217,6 +226,24 @@ export async function fetchDirectExaFundamentalsSources(input: {
       ];
     }),
   };
+}
+
+export async function fetchDirectExaFundamentalsSources(input: {
+  env: DirectExaEnv;
+  domain: string;
+  fetchJson?: FetchJson;
+}): Promise<DirectExaSourcesResult> {
+  if (missingDirectExaConfig(input.env).length > 0) {
+    return { sources: [], failures: [], skipped: true, requestCount: 0, estimatedCostUsd: 0 };
+  }
+
+  const requests = buildDirectExaFundamentalsRequests(input.env, input.domain);
+  return fetchDirectExaRequests({
+    env: input.env,
+    domain: input.domain,
+    requests,
+    ...(input.fetchJson ? { fetchJson: input.fetchJson } : {}),
+  });
 }
 
 export async function fetchDirectExaContactSources(input: {
@@ -305,7 +332,7 @@ function retryAfterMs(response: Response, fallbackMs: number) {
   return fallbackMs;
 }
 
-async function directExaJson(request: DirectExaRequest): Promise<unknown> {
+async function directExaJson(request: DirectExaRequest, timeoutMs: number = DIRECT_EXA_TIMEOUT_MS): Promise<unknown> {
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < DIRECT_EXA_MAX_ATTEMPTS; attempt += 1) {
@@ -315,7 +342,7 @@ async function directExaJson(request: DirectExaRequest): Promise<unknown> {
         method: "POST",
         headers: request.headers,
         body: JSON.stringify(request.body),
-        signal: AbortSignal.timeout(DIRECT_EXA_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
       // Network-level failure (DNS, connection reset, timeout abort). Retryable.
@@ -423,6 +450,13 @@ function intentForProbe(name: DirectExaProbeName): RetrievalIntent {
       return "recent_signals";
     case "exa_direct_contact_email":
       return "email_verification";
+    case "exa_direct_founder_web":
+      // No dedicated RetrievalIntent exists for third-party founder coverage (interviews,
+      // profiles, blog mentions), and RetrievalIntent is shared with evidence-ledger.ts
+      // outside this task's scope. management_team is the closest existing fit: this
+      // probe is about the founders too. The founder-voice exa-web lane only reads
+      // url/title/rawText/sourceType off the returned source, never this intent value.
+      return "management_team";
   }
 }
 
