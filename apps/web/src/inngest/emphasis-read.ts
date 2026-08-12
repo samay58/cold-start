@@ -18,7 +18,7 @@ function sourceTypeForFounderVoiceItem(item: FounderVoiceItem): Citation["source
   return item.lane === "github_author_activity" ? "github" : "other";
 }
 
-export function isFounderVoiceCitationId(id: string): boolean {
+function isFounderVoiceCitationId(id: string): boolean {
   return FOUNDER_VOICE_CITATION_ID_PATTERN.test(id);
 }
 
@@ -98,7 +98,7 @@ export function founderVoiceCitations(items: FounderVoiceItem[], startIndex = 1)
   }));
 }
 
-export function founderVoiceProviderSources(items: FounderVoiceItem[]): ProviderSource[] {
+function founderVoiceProviderSources(items: FounderVoiceItem[]): ProviderSource[] {
   const fetchedAt = new Date().toISOString();
   return items.map((item) => ({
     url: item.url,
