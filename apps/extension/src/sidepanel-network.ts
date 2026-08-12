@@ -425,7 +425,8 @@ export async function pollGenerationUntilCard(
   waitForRunCompletion = false,
   onInterimCard?: (result: GenerationPollResult) => void,
   latestSections: ResearchSection[] = [],
-  expectedRunId?: string
+  expectedRunId?: string,
+  supersedesGeneratedAt?: string
 ): Promise<GenerationPollResult> {
   const deadline = Date.now() + GENERATION_TIMEOUT_MS;
   const pollStartedAt = Date.now();
@@ -458,6 +459,15 @@ export async function pollGenerationUntilCard(
     }
   }
 
+  // A re-file run deliberately leaves the old card row live until the replacement stores, so
+  // every basics settle point below must refuse a card filed at or before the profile being
+  // replaced; otherwise the first fetch returns the old filing one tick in and the building
+  // arc collapses while the real run continues server-side. Same-format ISO strings compare
+  // correctly as strings, and the equal case is exactly the superseded filing itself.
+  function isSupersededCard(card: ColdStartCard) {
+    return Boolean(supersedesGeneratedAt && card.generatedAt <= supersedesGeneratedAt);
+  }
+
   while (Date.now() < deadline) {
     if (pollCount > 0) {
       await waitForNextPoll(signal, generationPollDelay(pollStartedAt));
@@ -474,7 +484,7 @@ export async function pollGenerationUntilCard(
       } catch (caught) {
         if (isMissingGenerationStatusRoute(caught)) {
           const card = await fetchAvailableCard();
-          if (card && hasUsablePublicProfile(card)) {
+          if (card && hasUsablePublicProfile(card) && !isSupersededCard(card)) {
             const sections = updateCurrentCard(card);
             return { card, sections };
           }
@@ -495,6 +505,9 @@ export async function pollGenerationUntilCard(
             if (cardFetch.readyEventKey) {
               lastFetchedCardReadyEventKey = cardFetch.readyEventKey;
             }
+            if (isSupersededCard(card)) {
+              continue;
+            }
             const sections = updateCurrentCard(card);
             if (requireRunCompletion) {
               onInterimCard?.({ card, sections });
@@ -510,21 +523,26 @@ export async function pollGenerationUntilCard(
 
       if (runStatus?.status === "failed") {
         const card = await fetchAvailableCard();
-        if (card && hasUsablePublicProfile(card)) {
+        if (card && hasUsablePublicProfile(card) && !isSupersededCard(card)) {
           return { card, sections: updateCurrentCard(card) };
         }
 
+        // For a re-file this throw is load-bearing: the superseded card is not this run's
+        // output, and throwing is what routes the panel to its restore-with-notice path.
         throw new ApiError(runStatus.error ?? "Generation failed before a card was produced.", 500);
       }
 
       if (runStatus?.status === "complete") {
         const card = await fetchCard(domain, settings, signal);
         assertUsableBasicsCard(mode, card);
+        if (isSupersededCard(card)) {
+          continue;
+        }
         return { card, sections: updateCurrentCard(card) };
       }
 
       const card = await fetchAvailableCard();
-      if (card && hasUsablePublicProfile(card)) {
+      if (card && hasUsablePublicProfile(card) && !isSupersededCard(card)) {
         return { card, sections: updateCurrentCard(card) };
       }
 
@@ -623,7 +641,8 @@ export async function startBasicsGenerationAndPoll(
   confirmStart: boolean,
   onGenerationStatus: GenerationStatusListener,
   interactionId?: string,
-  forceRefresh = false
+  forceRefresh = false,
+  supersedesGeneratedAt?: string
 ): Promise<GenerationPollResult> {
   const generation = await requestGeneration(
     domain,
@@ -648,7 +667,13 @@ export async function startBasicsGenerationAndPoll(
     settings,
     signal,
     "basics",
-    onGenerationStatus
+    onGenerationStatus,
+    null,
+    false,
+    undefined,
+    [],
+    undefined,
+    supersedesGeneratedAt
   );
 }
 

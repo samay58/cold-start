@@ -572,6 +572,114 @@ describe("startBasicsGenerationAndPoll forceRefresh threading", () => {
   });
 });
 
+describe("re-file polling against the still-live superseded card", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const supersededAt = "2026-05-07T12:00:00.000Z";
+  const freshAt = "2026-06-07T12:00:00.000Z";
+
+  it("keeps polling past the superseded card and settles only on the fresh filing", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const oldCard = { ...cardForDomain(domain), generatedAt: supersededAt };
+    const newCard = { ...cardForDomain(domain), generatedAt: freshAt };
+    let statusPolls = 0;
+    let runComplete = false;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        statusPolls += 1;
+        if (statusPolls >= 4) {
+          runComplete = true;
+          return jsonResponse({ slug: "linear", domain, status: "complete", mode: "basics", events: [] });
+        }
+
+        return jsonResponse({
+          slug: "linear",
+          domain,
+          status: "running",
+          mode: "basics",
+          events: [eventFor(domain, "card.partial", "2026-06-07T12:00:01.000Z")]
+        });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(runComplete ? newCard : oldCard);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "basics",
+      vi.fn(),
+      null,
+      false,
+      undefined,
+      [],
+      undefined,
+      supersededAt
+    );
+    const settled = vi.fn();
+    void resultPromise.then(settled);
+
+    // The card.partial event triggers a fetch that serves the pre-refile card; the poll must
+    // treat it as not-yet-replaced and keep going instead of settling one tick in.
+    await vi.advanceTimersByTimeAsync(700);
+    expect(settled).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(2000);
+    await expect(resultPromise).resolves.toMatchObject({ card: { generatedAt: freshAt } });
+  });
+
+  it("throws on a failed re-file run instead of returning the superseded card as success", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const oldCard = { ...cardForDomain(domain), generatedAt: supersededAt };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "linear", domain, status: "failed", mode: "basics", error: "run failed", events: [] });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(oldCard);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resultPromise = pollGenerationUntilCard(
+      domain,
+      settings,
+      new AbortController().signal,
+      "basics",
+      vi.fn(),
+      null,
+      false,
+      undefined,
+      [],
+      undefined,
+      supersededAt
+    );
+    const outcome = resultPromise.then(
+      () => "resolved",
+      () => "rejected"
+    );
+
+    await vi.advanceTimersByTimeAsync(2000);
+    await expect(outcome).resolves.toBe("rejected");
+  });
+});
+
 describe("startAnalysisGenerationAndPoll forceRefresh threading", () => {
   afterEach(() => {
     vi.useRealTimers();

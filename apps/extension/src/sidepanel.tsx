@@ -947,7 +947,10 @@ export function SidePanel() {
         }
       },
       interactionId,
-      forceRefresh
+      forceRefresh,
+      // A re-file poll must never settle on the filing it is replacing: the old card stays
+      // live in the store until the fresh one lands, and restoreOnFailure IS that old filing.
+      restoreOnFailure?.card.generatedAt
     )
       .then((result) => {
         if (!controller.signal.aborted) {
