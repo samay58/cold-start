@@ -108,6 +108,9 @@ const validProperties = {
   },
   "diagnostics.copied": { scope: "connection" },
   "support.requested": { channel: "email" },
+  "refile.hold_started": { domain: "acme.example" },
+  "refile.fired": { domain: "acme.example" },
+  "refile.hold_abandoned": { domain: "acme.example" },
   "client.error_presented": {
     code: "contract_mismatch",
     route: "generation",
@@ -212,5 +215,22 @@ describe("alpha analytics contract", () => {
         ...extra
       }
     }).success).toBe(false);
+  });
+
+  it.each([
+    "refile.hold_started",
+    "refile.fired",
+    "refile.hold_abandoned"
+  ] as const)("accepts %s with a domain payload", (eventName) => {
+    const result = alphaEventSchema.safeParse(event(eventName, { domain: "acme.example" }));
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects refile.fired with an extra property", () => {
+    const result = alphaEventSchema.safeParse({
+      ...event("refile.fired", validProperties["refile.fired"]),
+      properties: { domain: "acme.example", extra: "nope" }
+    });
+    expect(result.success).toBe(false);
   });
 });
