@@ -1345,10 +1345,10 @@ button {
   align-items: center;
   gap: 5px;
   padding: 2px 7px 2px 5px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.9);
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.45);
   border-radius: 3px;
   background: var(--cs-surface-1);
-  color: var(--color-muted);
+  color: var(--color-seal);
   cursor: pointer;
   touch-action: none;
   user-select: none;
@@ -1356,8 +1356,8 @@ button {
 
 .cs-refile:hover:not(:disabled),
 .cs-refile:focus-visible {
-  border-color: var(--color-rule-strong);
-  color: var(--color-company);
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-08);
 }
 
 .cs-refile:disabled {
@@ -1385,7 +1385,7 @@ button {
 .cs-refile-ring-frame {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--color-rule-strong);
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.55);
   border-radius: 3px;
   background: var(--cs-surface-1);
 }
@@ -1402,7 +1402,7 @@ button {
 
 .cs-refile[data-full="true"] {
   border-color: var(--color-seal);
-  color: var(--color-company);
+  background: var(--cs-seal-tint-08);
 }
 
 .cs-refile[data-full="true"] .cs-refile-ring-frame {
