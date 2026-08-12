@@ -91,7 +91,7 @@ import {
   type GenerationMode
 } from "./generation-helpers";
 import { runResearchSectionJobStep } from "./research-section-generation";
-import { emphasisReadStepBody, fetchFounderVoiceStepBody } from "./emphasis-read";
+import { citationsWithoutFounderVoice, emphasisReadStepBody, fetchFounderVoiceStepBody, nextFounderVoiceIndex } from "./emphasis-read";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -794,9 +794,24 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           } else {
             await recordEvent("emphasis-started", "emphasis.started", "Reading what they are loud about", {}, null);
             currentStage = "fetch-founder-voice";
+            // A repeat analysis run can already carry fv-prefixed citations on generatedCard
+            // (extraction reuse spreads the existing card's citations wholesale) and, separately,
+            // on the stored existingCard row that storage will later merge this card against
+            // (mergeByKey, last-wins by id). founderVoiceCitations always numbers a fresh batch
+            // from 1, so a fresh id can collide with either source. Number this run's fresh set
+            // past every fv index already in play, then strip generatedCard's own stale fv
+            // citations before appending: the working card carries exactly one citation per fv id
+            // (fresh, authoritative) for the emphasis prompt and the verifier to read, and a stale
+            // id that only exists on existingCard still resolves at storage (mergeByKey pulls it
+            // back in) without its content being silently overwritten by this run's unrelated item.
+            const founderVoiceStartIndex = nextFounderVoiceIndex(generatedCard.citations, existingCard?.citations);
             const founderVoice = await step.run("fetch-founder-voice", async () => {
               const result = await timed(() =>
-                fetchFounderVoiceStepBody({ card: generatedCard, env: founderVoiceEnvFromProcess() })
+                fetchFounderVoiceStepBody({
+                  card: generatedCard,
+                  env: founderVoiceEnvFromProcess(),
+                  startIndex: founderVoiceStartIndex
+                })
               );
               return {
                 value: result.value,
@@ -812,8 +827,11 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
                 estimatedLaneCostUsd: founderVoice.value.estimatedCostUsd
               }
             });
-            if (founderVoice.value.citations.length > 0) {
-              generatedCard = { ...generatedCard, citations: [...generatedCard.citations, ...founderVoice.value.citations] };
+            generatedCard = {
+              ...generatedCard,
+              citations: [...citationsWithoutFounderVoice(generatedCard.citations), ...founderVoice.value.citations]
+            };
+            if (founderVoice.value.sources.length > 0) {
               sourcesToRecord = [...sourcesToRecord, ...founderVoice.value.sources];
             }
 

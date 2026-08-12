@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildSkeletonCard } from "@cold-start/pipeline";
+import type { Citation } from "@cold-start/core";
 import type { FounderVoiceItem } from "@cold-start/providers";
 
 import {
+  citationsWithoutFounderVoice,
   emphasisReadStepBody,
   founderVoiceCitations,
-  founderVoiceTargetsFromCard
+  founderVoiceTargetsFromCard,
+  nextFounderVoiceIndex
 } from "../src/inngest/emphasis-read";
 
 const mocks = vi.hoisted(() => ({
@@ -63,6 +66,84 @@ describe("founderVoiceCitations", () => {
 
     expect(citation?.snippet).toHaveLength(240);
     expect(citation?.snippet).toBe(longText.slice(0, 240));
+  });
+});
+
+function citation(overrides: Partial<Citation> = {}): Citation {
+  return {
+    id: "c1",
+    url: "https://example.com/c1",
+    title: "Some source",
+    fetchedAt: "2026-08-11T00:00:00.000Z",
+    sourceType: "news",
+    ...overrides
+  };
+}
+
+describe("citationsWithoutFounderVoice", () => {
+  it("strips fv-prefixed citations and leaves everything else untouched, in order", () => {
+    const citations = [
+      citation({ id: "c1" }),
+      citation({ id: "fv1", url: "https://old.example/founder-post" }),
+      citation({ id: "c2" }),
+      citation({ id: "fv2", url: "https://old.example/founder-post-2" })
+    ];
+
+    expect(citationsWithoutFounderVoice(citations)).toEqual([citation({ id: "c1" }), citation({ id: "c2" })]);
+  });
+});
+
+describe("nextFounderVoiceIndex", () => {
+  it("defaults to 1 when no fv citation exists anywhere", () => {
+    expect(nextFounderVoiceIndex([citation({ id: "c1" })], [])).toBe(1);
+  });
+
+  it("numbers past the highest fv index across every list passed in", () => {
+    const workingCardCitations = [citation({ id: "c1" }), citation({ id: "fv1" })];
+    const existingCardCitations = [citation({ id: "c1" }), citation({ id: "fv1" }), citation({ id: "fv3" })];
+
+    expect(nextFounderVoiceIndex(workingCardCitations, existingCardCitations)).toBe(4);
+  });
+
+  it("tolerates an undefined list (no existing card on a first run)", () => {
+    expect(nextFounderVoiceIndex([citation({ id: "fv2" })], undefined)).toBe(3);
+  });
+});
+
+// The coordinator's IMPORTANT-1 finding: on a repeat analysis run, generatedCard.citations can
+// already carry fv ids from a prior run (extraction reuse spreads the existing card's citations
+// wholesale), and founderVoiceCitations always numbers a fresh batch from 1. Simulates that
+// second-run shape end to end through the two fixes together (strip, then renumber) and asserts
+// the resulting citation set the emphasis step would consume has no duplicate ids and no stale
+// entry, so emphasisSourceDigests can never build two digests under one ambiguous fv label.
+describe("repeat-run founder-voice citation wiring (strip + renumber)", () => {
+  it("produces a citation set with no duplicate ids and no stale fv content", () => {
+    const staleFvCitation = citation({
+      id: "fv1",
+      url: "https://old.example/founder-post-from-last-run",
+      title: "Old founder post",
+      snippet: "Stale content from a prior run.",
+      sourceQuality: { tier: "founder_authored", label: "Founder-authored", rationale: "r", incentive: "i" }
+    });
+    const workingCardCitations = [citation({ id: "c1" }), staleFvCitation];
+    const existingCardCitations = [citation({ id: "c1" }), staleFvCitation];
+
+    const startIndex = nextFounderVoiceIndex(workingCardCitations, existingCardCitations);
+    const freshItems: FounderVoiceItem[] = [
+      founderItem({ url: "https://news.ycombinator.com/item?id=99", text: "Fresh founder post from this run." })
+    ];
+    const freshCitations = founderVoiceCitations(freshItems, startIndex);
+
+    const merged = [...citationsWithoutFounderVoice(workingCardCitations), ...freshCitations];
+
+    const ids = merged.map((entry) => entry.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).not.toContain("fv1");
+    expect(merged.find((entry) => entry.id === "fv2")?.snippet).toBe("Fresh founder post from this run.");
+    // digests derive one-to-one from citations by id (emphasisSourceDigests), so a unique id set
+    // on the card the emphasis step consumes is what makes the fed digests unambiguous.
+    const digestLabels = merged.map((entry) => entry.id);
+    expect(new Set(digestLabels).size).toBe(digestLabels.length);
   });
 });
 
