@@ -910,6 +910,92 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(page.locator('.cs-clipping[data-active="true"] .cs-clipping-domain')).toHaveText("techcrunch.com");
   await expect(page.locator(".cs-clipping").nth(1).locator(".cs-clipping-domain")).toHaveText("docs.cartesia.ai");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings-next.png" });
+});
+
+test("building demotes junk bubbles to domain and type, and the whisper carries the entity check", async ({ page }) => {
+  await installChromeShim(page, { activeDomain: "legora.com" });
+  const startedAt = new Date(Date.now() - 20_000).toISOString();
+  const junkSnippet = '{"url":"https://legora.com/","title":"Legora","content":"Product\\n\\n+\\n\\nSolutions\\n\\n+\\n\\n[Security](https://legora.com/security)\\n\\n[Customers](https://legora.com/customers)';
+  const withheldPayoff = {
+    status: "withheld",
+    slug: "legora",
+    domain: "legora.com",
+    generatedAt: "2026-08-11T00:00:03.000Z",
+    generatedAtMs: Date.parse("2026-08-11T00:00:03.000Z"),
+    entityConfidence: "needs_check",
+    entityConfidenceReason: "Accepted sources do not clearly match the current company.",
+    evidenceSoFar: [],
+    stillChecking: { text: "Confirming this is the right company.", missingEvidenceClass: "entity" },
+    suppressionReasons: ["entity_needs_check"]
+  };
+  const events = [
+    {
+      id: "e1",
+      runId: "r1",
+      slug: "legora",
+      domain: "legora.com",
+      sectionId: null,
+      type: "source.found",
+      message: "Found 3 accepted sources",
+      metadata: {
+        acceptedCount: 3,
+        sources: [
+          { url: "https://legora.com/", domain: "legora.com", title: "Legora", sourceType: "company_site", snippet: junkSnippet, imageUrl: null },
+          { url: "https://docs.legora.com/", domain: "docs.legora.com", title: "Working in tabs across drafting and review", sourceType: "company_site", imageUrl: null },
+          { url: "https://news.example.com/legora", domain: "news.example.com", title: "Legora raises $550 million Series D to fuel US growth", sourceType: "news", imageUrl: null }
+        ]
+      },
+      createdAt: "2026-08-11T00:00:02.000Z"
+    },
+    {
+      id: "e2",
+      runId: "r1",
+      slug: "legora",
+      domain: "legora.com",
+      sectionId: null,
+      type: "first_payoff.withheld",
+      message: "Early read withheld",
+      metadata: { firstPayoff: withheldPayoff },
+      createdAt: "2026-08-11T00:00:03.000Z"
+    }
+  ];
+  await page.route("**/api/extension/bootstrap?**", async (route) => {
+    await fulfillJson(route, {
+      domain: "legora.com",
+      slug: "legora",
+      card: null,
+      events,
+      runs: {
+        basics: { slug: "legora", domain: "legora.com", status: "running", mode: "basics", startedAt, events },
+        analysis: { slug: "legora", domain: "legora.com", status: "idle", mode: "analysis" }
+      }
+    });
+  });
+  await page.route("**/api/extension/cards/**", async (route) => {
+    await fulfillJson(route, { error: "card not found" }, 404);
+  });
+  await page.route("**/api/generate?**", async (route) => {
+    await fulfillJson(route, { slug: "legora", domain: "legora.com", status: "running", mode: "basics", startedAt, events });
+  });
+
+  await openSidePanel(page);
+
+  // The whisper carries the honesty line instead of a generic building line.
+  await expect(page.locator(".cs-assembly-whisper")).toContainText("Confirming this is the right company");
+
+  // The junk-snippet bubble is demoted: favicon-or-dot, domain, and kind only, never featured,
+  // and no fragment of the provider payload reaches the screen.
+  const junkBubble = page.locator(".cs-clipping").filter({ has: page.getByText("legora.com", { exact: true }) });
+  await expect(junkBubble).toBeVisible();
+  await expect(junkBubble).toHaveAttribute("data-active", "false");
+  await expect(junkBubble.locator(".cs-clipping-note")).toHaveCount(0);
+  await expect(page.locator(".cs-building-flow")).not.toContainText("requestId");
+  await expect(page.locator(".cs-building-flow")).not.toContainText("Security](");
+
+  // The featured slot goes to a bubble whose text earned it.
+  await expect(page.locator('.cs-clipping[data-active="true"]')).toContainText("Legora raises $550 million Series D");
+
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-demoted-bubble.png" });
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
