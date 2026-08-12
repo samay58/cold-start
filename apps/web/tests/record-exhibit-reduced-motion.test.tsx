@@ -17,13 +17,17 @@ const { RecordExhibit } = await import("../src/components/landing/RecordExhibit"
 const { exhibitTickCount, recordExhibit } = await import("../src/components/landing/record-exhibit-data");
 
 describe("RecordExhibit under prefers-reduced-motion", () => {
-  it("shows every tick settled at full opacity with no draw pending", () => {
+  it("shows every tally stroke settled at full opacity with no draw pending", () => {
     const html = renderToStaticMarkup(<RecordExhibit />);
 
-    const tickCount = (html.match(/cs-exhibit-tick/g) ?? []).length;
-    expect(tickCount).toBe(exhibitTickCount(recordExhibit));
-    // initial={false} + drawn: the tick renders at its settled animate values, never scaleY(0).
-    expect(html).not.toContain("transform:scaleY(0)");
-    expect(html).not.toContain('class="cs-exhibit-tick" style="opacity:0');
+    const strokes = html.match(/<span[^>]*class="cs-exhibit-tick"[^>]*>/g) ?? [];
+    expect(strokes.length).toBe(exhibitTickCount(recordExhibit));
+    // initial={false} + drawn: each stroke renders at its settled animate values, never
+    // collapsed or transparent, while keeping its hand slant.
+    for (const stroke of strokes) {
+      expect(stroke).not.toContain("scaleY(0)");
+      expect(stroke).not.toContain("opacity:0;");
+      expect(stroke).toContain("rotate(");
+    }
   });
 });

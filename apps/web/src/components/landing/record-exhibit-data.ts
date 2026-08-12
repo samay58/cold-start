@@ -1,16 +1,23 @@
 // Frozen data for the landing page's record exhibit (docs/superpowers/plans/
-// 2026-08-11-landing-exhibit-and-video-bookend.md): real PitchBook output next to real
-// Cold Start output for the same companies.
+// 2026-08-11-landing-exhibit-and-video-bookend.md, "Visual direction, decided 2026-08-12"):
+// real PitchBook output as a continuous-feed printout next to real Cold Start output as a
+// miniature filed catalogue card, same companies. Reference mockup:
+// docs/product/design/2026-08-12-record-exhibit-direction/d1.html.
 //
 // PitchBook strings were transcribed from Samay's PitchBook access on 2026-08-11 and are
 // quoted as editorial content with attribution; re-verify against PitchBook before ship.
 // Cold Start excerpt lines are contiguous spans clipped from the live production cards
 // (/api/cards/mintlify, /api/cards/turbopuffer, /api/cards/clickhouse; frozen 2026-08-11,
-// re-verified against the live cards 2026-08-12 after turbopuffer's description refreshed).
+// re-verified against the live cards 2026-08-12 during the printout-and-card rebuild).
 // Only the leading capital and terminal punctuation are normalized; no interior word is
 // altered, dropped, or reordered. Evidence states were derived through the real card-face
 // rules (publicEvidenceStatusForFact in apps/web/src/lib/card-face/model.ts) against each
 // fact's citations at freeze time.
+//
+// Logo URLs are frozen, hand-checked candidates in fallback order; the component vets each
+// through safePublicImageUrl at render and falls back to an initial letter. Mintlify's own
+// card logoUrl is a 1120x630 OG banner, wrong shape for a small square mark, so its favicon
+// leads instead. The two LinkedIn URLs come from the live cards' identity.logoUrl.
 //
 // Copy slots marked [SAMAY] carry working placeholders only. Samay writes every line that
 // ships; nothing here goes to production until he replaces them.
@@ -22,8 +29,6 @@ type ExhibitEvidenceState = "verified" | "reported" | "company" | "conflict";
 interface ExhibitRecordField {
   label: string;
   value: string;
-  // [SAMAY] margin-note slot, rendered in the receipt face beside the field.
-  note?: string;
 }
 
 interface ExhibitRecordColumn {
@@ -34,7 +39,7 @@ interface ExhibitRecordColumn {
 interface ExhibitCardLine {
   text: string;
   state: ExhibitEvidenceState;
-  // true = no field on the left-side record holds this line; draws a tick.
+  // true = no field on their record holds this line; draws a hand tally stroke.
   tick: boolean;
 }
 
@@ -53,11 +58,16 @@ export interface ExhibitPair {
   company: string;
   // [SAMAY]
   question: string;
+  // Frozen, hand-checked logo candidates in fallback order; vetted at render.
+  logoUrls: string[];
   record: {
     description?: string;
     fields?: ExhibitRecordField[];
     columns?: ExhibitRecordColumn[];
   };
+  // [SAMAY] the one number the two documents disagree on, rendered as a paper slip
+  // tucked under the record's bottom edge. Wording is his to finalize.
+  noteSlip?: string;
   excerpt: {
     lines: ExhibitCardLine[];
     comps?: ExhibitComp[];
@@ -66,16 +76,15 @@ export interface ExhibitPair {
 
 export interface RecordExhibitData {
   accessDate: string;
-  // [SAMAY]
+  // Samay's wording, 2026-08-12 review.
   kicker: string;
+  // Printed header on the printout itself, naming the source so the strip can never be
+  // mistaken for our card (binding decision, 2026-08-12). The access date renders beside it.
+  printoutTitle: string;
   stack: Array<{ company: string; text: string }>;
-  // [SAMAY]
-  stackCaption: string;
   // [SAMAY]
   recordCaption: string;
   pairs: ExhibitPair[];
-  // [SAMAY]
-  tally: string;
   // [SAMAY]
   linkLabel: string;
 }
@@ -83,8 +92,10 @@ export interface RecordExhibitData {
 export const recordExhibit: RecordExhibitData = {
   accessDate: "2026-08-11",
 
-  // [SAMAY] working placeholder
-  kicker: "The same companies, in both tools.",
+  // Samay's line, approved 2026-08-12.
+  kicker: "The tools we use to understand these companies barely scratch the surface.",
+
+  printoutTitle: "PitchBook · Company descriptions",
 
   stack: [
     {
@@ -114,9 +125,6 @@ export const recordExhibit: RecordExhibitData = {
   ],
 
   // [SAMAY] working placeholder
-  stackCaption: "PitchBook company descriptions, accessed August 11, 2026.",
-
-  // [SAMAY] working placeholder
   recordCaption: "PitchBook, accessed August 11, 2026.",
 
   pairs: [
@@ -125,16 +133,15 @@ export const recordExhibit: RecordExhibitData = {
       company: "Mintlify",
       // [SAMAY] working placeholder
       question: "What do they actually sell?",
+      logoUrls: [
+        "https://icons.duckduckgo.com/ip3/mintlify.com.ico",
+        "https://mintlify.com/favicon.ico"
+      ],
       record: {
         description:
           "Developer of an intelligent knowledge platform designed to organize, analyze, and surface enterprise knowledge for improved decision-making.",
         fields: [
-          {
-            label: "Employees",
-            value: "62",
-            // [SAMAY] working placeholder for the one number the two documents disagree on.
-            note: "They file 62. Our sources file 85 as of May 2026. Both values stand."
-          },
+          { label: "Employees", value: "62" },
           { label: "Contacts", value: "2" },
           { label: "Deals", value: "5" },
           { label: "Investors", value: "11" },
@@ -142,6 +149,8 @@ export const recordExhibit: RecordExhibitData = {
           { label: "Primary industry", value: "Business/Productivity Software" }
         ]
       },
+      // [SAMAY] working wording from the 2026-08-12 review.
+      noteSlip: "They file 62. Our sources file 85 as of May 2026.",
       excerpt: {
         lines: [
           {
@@ -167,6 +176,10 @@ export const recordExhibit: RecordExhibitData = {
       company: "turbopuffer",
       // [SAMAY] working placeholder
       question: "Who pays them?",
+      logoUrls: [
+        "https://media.licdn.com/dms/image/v2/D560BAQG2ZzVa7V9EZw/company-logo_200_200/B56ZgjGvVeHkAI-/0/1752935626434/turbopuffer_logo?e=2147483647&v=beta&t=Vud8jiQiZ7qqdgd8FtR2Z501YJjz9Oe_oDWGvAIwsH8",
+        "https://icons.duckduckgo.com/ip3/turbopuffer.com.ico"
+      ],
       record: {
         fields: [
           { label: "Employees", value: "22 (as of 2025)" },
@@ -200,6 +213,10 @@ export const recordExhibit: RecordExhibitData = {
       company: "ClickHouse",
       // [SAMAY] working placeholder
       question: "Who do they compete with?",
+      logoUrls: [
+        "https://media.licdn.com/dms/image/v2/D4E0BAQEr8RfI76yHEQ/company-logo_200_200/company-logo_200_200/0/1688976507947/clickhouseinc_logo?e=2147483647&v=beta&t=nS2YJwmtRThueeFyvz2lylLEQ-r1eX5Wf1PC8a7JKi0",
+        "https://icons.duckduckgo.com/ip3/clickhouse.com.ico"
+      ],
       record: {
         columns: [
           {
@@ -262,13 +279,12 @@ export const recordExhibit: RecordExhibitData = {
     }
   ],
 
-  // [SAMAY] working placeholder; the count matches the ticks the fixture actually draws.
-  tally: "Nine lines. No field on the left for any of them.",
-
   // [SAMAY] working placeholder
   linkLabel: "Open the full card"
 };
 
+// Test helper: the count of hand tally strokes the fixture draws. The tally beat itself
+// was cut on 2026-08-12; the strokes in the card margins are the only count on the page.
 export function exhibitTickCount(data: RecordExhibitData): number {
   return data.pairs.reduce((count, pair) => {
     const lineTicks = pair.excerpt.lines.filter((line) => line.tick).length;

@@ -513,99 +513,265 @@
   line-height: 1.55;
 }
 
-/* --- Record exhibit: real PitchBook output next to real card output, between the section
-   intro and the comparison table (docs/superpowers/plans/2026-08-11-landing-exhibit-and-
-   video-bookend.md). A typographic exhibit on the page ground: hairline rules and
-   whitespace do the separating, no filled panels. Ticks in seal lilac are the only accent. --- */
+/* --- Record exhibit: the printout and the card (docs/superpowers/plans/2026-08-11-landing-
+   exhibit-and-video-bookend.md, "Visual direction, decided 2026-08-12"; geometry ported from
+   docs/product/design/2026-08-12-record-exhibit-direction/d1.html). PitchBook's record is a
+   cold continuous-feed printout; Cold Start's excerpt is a miniature filed catalogue card
+   lapping onto the printout's sprocket strip, never onto their data. The band is the desk:
+   full-bleed catalogue ground inside the plate section, so the sprocket holes punch through
+   to the surface actually behind them. Seal lilac appears only on the card's own marks. --- */
 
 .cs-exhibit {
-  max-width: 860px;
-  margin: 10px 0 56px;
-  display: flex;
-  flex-direction: column;
-  gap: 52px;
+  margin: 10px calc(-1 * clamp(20px, 4vw, 44px)) 56px;
+  padding: clamp(44px, 5vw, 64px) clamp(20px, 4vw, 44px) clamp(56px, 6vw, 80px);
+  border-top: 1px solid var(--cat-rule-strong);
+  border-bottom: 1px solid var(--cat-rule-strong);
+  background: var(--cat-ground);
 }
 
 .cs-exhibit-kicker {
-  margin: 0;
-  color: var(--color-ink);
+  margin: 0 0 40px;
+  max-width: 620px;
+  color: var(--cat-ink);
   font-family: var(--font-body);
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 520;
+  line-height: 1.45;
 }
 
-/* The stack: six one-liners, one ruled list. The repetition is the content. */
-.cs-exhibit-stack {
-  max-width: 720px;
-  margin-top: -28px;
+/* --- The continuous-feed printout: tractor strips both edges, perforation top and bottom,
+   a printed header row naming its own source. Hole fill matches the band ground. --- */
+
+.cs-exhibit-printout {
+  position: relative;
+  width: min(800px, 100%);
+  background: var(--cold-paper);
+  box-shadow:
+    0 0 0 1px rgb(var(--color-ink-shadow-rgb) / 0.05),
+    0 1px 2px rgb(var(--color-ink-shadow-rgb) / 0.08),
+    0 16px 36px -14px rgb(var(--color-ink-shadow-rgb) / 0.14);
+  transform: rotate(-0.25deg);
 }
 
-.cs-exhibit-stack-row {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 20px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--cat-rule);
+.cs-exhibit-printout::before,
+.cs-exhibit-printout::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  background-image: radial-gradient(
+    circle 4.5px at 50% 13px,
+    var(--cat-ground) 3.8px,
+    var(--cold-hole-ring) 4.4px,
+    transparent 5.4px
+  );
+  background-size: 30px 26px;
+  background-repeat: repeat-y;
+  z-index: 2;
 }
 
-.cs-exhibit-stack-row:first-of-type {
-  border-top: 1px solid var(--cat-rule);
+.cs-exhibit-printout::before {
+  left: 0;
+  border-right: 1px dashed var(--cold-edge);
 }
 
-.cs-exhibit-stack-company {
-  padding-top: 1px;
-  color: var(--color-muted);
-  font-family: var(--font-body);
-  font-size: 13px;
+.cs-exhibit-printout::after {
+  right: 0;
+  border-left: 1px dashed var(--cold-edge);
 }
 
-.cs-exhibit-stack-text {
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.55;
+.cs-exhibit-perf {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  border-top: 1px dashed var(--cold-perf);
+  z-index: 2;
 }
 
-.cs-exhibit-stack-caption {
-  margin: 12px 0 0;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 12px;
+.cs-exhibit-perf[data-edge="top"] {
+  top: 5px;
+}
+
+.cs-exhibit-perf[data-edge="bottom"] {
+  bottom: 5px;
+}
+
+.cs-exhibit-printout-body {
+  margin: 0 31px;
+  padding: 12px 0;
+}
+
+.cs-exhibit-printout-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 26px 11px;
+  border-bottom: 1px solid var(--cold-rule);
+  color: var(--cold-label);
+  font-family: var(--font-printout);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.cs-exhibit-printout-row {
+  display: flex;
+  gap: 22px;
+  padding: 15px 26px;
+  align-items: baseline;
+}
+
+.cs-exhibit-printout-row + .cs-exhibit-printout-row {
+  border-top: 1px solid var(--cold-rule);
+}
+
+.cs-exhibit-printout-co {
+  flex: 0 0 96px;
+  color: var(--cold-label);
+  font-family: var(--font-printout);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.cs-exhibit-printout-text {
+  color: var(--cold-ink);
+  font-family: var(--font-printout);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* --- Pairs: each sits differently on the desk (widths, offsets, and lap depths from the
+   approved mockup, sub-half-degree rotations). The card laps only the sprocket strip. --- */
+
+.cs-exhibit-pair {
+  margin-top: 92px;
 }
 
 .cs-exhibit-question {
-  margin: 0 0 22px;
-  color: var(--color-ink);
+  margin: 0 0 34px;
+  color: var(--cat-ink);
   font-family: var(--font-display);
-  font-size: clamp(20px, 2.2vw, 24px);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: clamp(23px, 2.4vw, 27px);
+  font-weight: 760;
+  letter-spacing: -0.015em;
   line-height: 1.15;
 }
 
 .cs-exhibit-desk {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
-  gap: 56px;
-  align-items: start;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
 }
 
-/* One rule under each column head is the only frame either side gets. */
-.cs-exhibit-side-head {
-  margin: 0 0 14px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--cat-rule-strong);
-  color: var(--color-muted);
-  font-family: var(--font-text);
+.cs-exhibit-record-obj {
+  flex: 0 0 46%;
+  position: relative;
+  z-index: 1;
+  margin-top: 26px;
+  transform: rotate(-0.35deg);
+}
+
+.cs-exhibit-pair-2 .cs-exhibit-record-obj {
+  flex-basis: 38%;
+  margin-top: 42px;
+}
+
+.cs-exhibit-pair-2 .cs-exhibit-card-obj {
+  margin-left: -14px;
+}
+
+.cs-exhibit-pair-3 .cs-exhibit-record-obj {
+  flex-basis: 42%;
+  margin-top: 14px;
+}
+
+.cs-exhibit-card-obj {
+  flex: 1;
+  position: relative;
+  z-index: 2;
+  margin-left: -18px;
+  transform: rotate(0.3deg);
+}
+
+.cs-exhibit-record-paper {
+  position: relative;
+  background: var(--cold-paper);
+  box-shadow:
+    0 0 0 1px rgb(var(--color-ink-shadow-rgb) / 0.05),
+    0 1px 2px rgb(var(--color-ink-shadow-rgb) / 0.08),
+    0 12px 26px -12px rgb(var(--color-ink-shadow-rgb) / 0.13);
+}
+
+.cs-exhibit-record-paper::before,
+.cs-exhibit-record-paper::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background-image: radial-gradient(
+    circle 4px at 50% 12px,
+    var(--cat-ground) 3.4px,
+    var(--cold-hole-ring) 4px,
+    transparent 5px
+  );
+  background-size: 24px 24px;
+  background-repeat: repeat-y;
+  z-index: 2;
+}
+
+.cs-exhibit-record-paper::before {
+  left: 0;
+  border-right: 1px dashed var(--cold-edge);
+}
+
+.cs-exhibit-record-paper::after {
+  right: 0;
+  border-left: 1px dashed var(--cold-edge);
+}
+
+.cs-exhibit-record-inner {
+  margin: 0 25px;
+  padding: 20px 20px 16px;
+}
+
+.cs-exhibit-record-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--cold-rule);
+  color: var(--cold-ink);
+  font-family: var(--font-printout);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-exhibit-record-head .cs-exhibit-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+}
+
+.cs-exhibit-record-src {
+  margin-left: auto;
+  color: var(--cold-label);
+  font-size: 9.5px;
+  font-weight: 400;
+}
+
+.cs-exhibit-record-desc {
+  margin: 0;
+  padding-bottom: 14px;
+  color: var(--cold-ink);
+  font-family: var(--font-printout);
   font-size: 12px;
-}
-
-.cs-exhibit-record-description {
-  margin: 0 0 12px;
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.65;
 }
 
 .cs-exhibit-record-fields {
@@ -613,163 +779,358 @@
 }
 
 .cs-exhibit-record-field {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--cat-rule);
+  padding: 9px 0;
+  border-top: 1px solid var(--cold-rule);
 }
 
-.cs-exhibit-record-field dt {
-  color: var(--color-muted);
-  font-family: var(--font-body);
+/* A record that opens straight onto fields (no description) keeps its head rule single. */
+.cs-exhibit-record-head + .cs-exhibit-record-fields > .cs-exhibit-record-field:first-child {
+  border-top: 0;
+}
+
+.cs-exhibit-record-field dt,
+.cs-exhibit-record-field-label {
+  color: var(--cold-label);
+  font-family: var(--font-printout);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-exhibit-record-field dd,
+.cs-exhibit-record-field-value {
+  margin: 0;
+  color: var(--cold-ink);
+  font-family: var(--font-printout);
   font-size: 13px;
 }
 
-.cs-exhibit-record-field dd {
-  margin: 0;
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.45;
+/* Their empty fields render their dashes at reading size: the dashes are the show. */
+.cs-exhibit-record-field dd[data-dash="true"] {
+  font-size: 15px;
 }
 
-/* The one margin note the exhibit carries (the employee disagreement): receipt face,
-   hung under the value column so it annotates the number instead of reading as a row. */
-.cs-exhibit-note {
-  margin: -2px 0 8px;
-  padding-left: 148px;
-  color: var(--color-muted);
-  font-family: var(--font-text);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.cs-exhibit-record-columns {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.cs-exhibit-record-column-name {
-  display: block;
-  margin: 0 0 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--cat-rule);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 14px;
+.cs-exhibit-record-colhead {
+  padding: 12px 0 2px;
+  border-top: 1px solid var(--cold-rule);
+  color: var(--cold-ink);
+  font-family: var(--font-printout);
+  font-size: 11.5px;
   font-weight: 600;
 }
 
-.cs-exhibit-record-column-field {
-  margin: 0 0 5px;
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 13px;
-  line-height: 1.45;
+.cs-exhibit-record-head + .cs-exhibit-record-colhead {
+  padding-top: 4px;
+  border-top: 0;
 }
 
-.cs-exhibit-record-column-field span {
-  color: var(--color-muted);
-  margin-right: 4px;
+.cs-exhibit-record-colhead + .cs-exhibit-record-field {
+  border-top: 0;
+}
+
+/* The disagreement slip: tucked under the record's bottom edge, never over their data. */
+.cs-exhibit-note-slip {
+  position: relative;
+  z-index: 3;
+  width: 244px;
+  margin: -14px 0 0 20px;
+  padding: 12px 14px;
+  background: var(--cat-paper);
+  box-shadow: 0 2px 6px rgb(var(--color-ink-shadow-rgb) / 0.16);
+  color: var(--cat-ink);
+  font-family: var(--font-text);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.55;
+  transform: rotate(-1.1deg);
+}
+
+.cs-exhibit-record-caption {
+  margin: 12px 0 0 25px;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 10.5px;
+  /* Mockup-tight line box: on mobile the card laps this caption, and a looser inherited
+     line-height leaves a cut-text sliver peeking above the card's top edge. */
+  line-height: 1.2;
+}
+
+/* --- The miniature catalogue card: seal top hairline, call number, FILED stamp, stacked
+   under-card, evidence marks, and the hand tally strokes in its own left margin. --- */
+
+.cs-exhibit-mini-card {
+  position: relative;
+  padding: 20px 26px 18px 48px;
+  border-top: 2px solid var(--color-seal);
+  border-radius: 0 0 6px 6px;
+  background: var(--cat-paper);
+  box-shadow:
+    0 0 0 1px rgb(var(--color-ink-shadow-rgb) / 0.05),
+    0 1px 2px rgb(var(--color-ink-shadow-rgb) / 0.08),
+    0 18px 40px -16px rgb(var(--color-ink-shadow-rgb) / 0.16),
+    -8px 4px 16px rgb(var(--color-ink-shadow-rgb) / 0.07);
+}
+
+/* Stacked under-card depth. The parent card-obj's transform makes z-index -1 safe here. */
+.cs-exhibit-mini-card::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: -7px;
+  top: 8px;
+  bottom: -8px;
+  background: var(--cat-ghost-1);
+  border-radius: 6px;
+  z-index: -1;
+}
+
+/* Paper-grain noise on the warm paper objects; the cold printout stays machine flat. */
+.cs-exhibit-mini-card::after,
+.cs-exhibit-note-slip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.055 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+.cs-exhibit-mini-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.cs-exhibit-call {
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+.cs-exhibit-filed {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 8px 3px;
+  border: 1.5px solid var(--color-seal);
+  border-radius: 2px;
+  color: var(--color-seal);
+  font-family: var(--font-text);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  opacity: 0.82;
+  transform: rotate(-3deg);
+}
+
+.cs-exhibit-filed small {
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+
+.cs-exhibit-co-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cs-exhibit-co-name {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 21px;
+  font-weight: 740;
+  letter-spacing: -0.01em;
+}
+
+.cs-exhibit-logo {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.cs-exhibit-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cs-exhibit-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--cold-edge);
+  border-radius: inherit;
+  font-family: var(--font-text);
+  font-size: 10px;
+}
+
+.cs-exhibit-lines {
+  padding-top: 6px;
+  border-top: 1px solid var(--cat-rule);
 }
 
 .cs-exhibit-line {
-  display: flex;
-  gap: 10px;
-  padding: 6px 0;
-}
-
-/* Fixed narrow gutter so marked and unmarked lines stay aligned. */
-.cs-exhibit-gutter {
-  flex: 0 0 5px;
-  padding-top: 5px;
-}
-
-/* A short editor's tick beside the marked line, never a full-height ribbon. */
-.cs-exhibit-tick {
-  display: block;
-  width: 3px;
-  height: 15px;
-  background: var(--color-seal);
-  transform-origin: top center;
-}
-
-.cs-exhibit-line-text {
-  margin: 0;
-  color: var(--color-ink);
+  position: relative;
+  padding: 8px 0 8px 20px;
+  color: var(--cat-ink);
   font-family: var(--font-body);
   font-size: 14.5px;
+  font-weight: 450;
   line-height: 1.5;
 }
 
-.cs-exhibit-comp-name {
-  font-weight: 600;
+.cs-exhibit-line + .cs-exhibit-line {
+  border-top: 1px solid var(--cat-rule);
 }
 
-.cs-exhibit-comp-sources {
-  color: var(--cat-muted-2);
+/* The card face's evidence mark at mini-card scale, hung in the line's label margin. */
+.cs-exhibit-line .cs-face-mark {
+  position: absolute;
+  left: 0;
+  top: 15px;
+  margin: 0;
+  width: 8px;
+  height: 8px;
+}
+
+/* A hand tally stroke, not a ribbon. Height and rotation ride the component's inline style
+   so the draw animation composes with the slant. */
+.cs-exhibit-tick {
+  position: absolute;
+  left: -30px;
+  top: 9px;
+  display: block;
+  width: 2.5px;
+  background: var(--color-seal);
+  border-radius: 1.2px;
+}
+
+.cs-exhibit-comp-name {
+  font-size: 15px;
+  font-weight: 640;
+}
+
+.cs-exhibit-comp-domain {
+  margin-left: 8px;
+  color: var(--cat-muted);
   font-family: var(--font-text);
-  font-size: 11.5px;
-  white-space: nowrap;
+  font-size: 10.5px;
+}
+
+.cs-exhibit-comp-basis {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.5;
+}
+
+.cs-exhibit-comp-hosts {
+  margin-top: 3px;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 10.5px;
 }
 
 .cs-exhibit-link {
   display: inline-block;
-  margin: 14px 0 0 15px;
-  color: var(--color-ink);
+  margin-top: 14px;
+  color: var(--cat-ink);
   font-family: var(--font-body);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.cs-exhibit-tally {
-  max-width: 60ch;
-  margin: -8px 0 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--cat-rule-strong);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.5;
-}
+/* --- Mobile: their material first, the card lapping upward over its bottom edge. --- */
 
 @media (max-width: 700px) {
   .cs-exhibit {
-    gap: 40px;
+    padding: 56px 18px 72px;
+  }
+
+  .cs-exhibit-printout-body {
+    margin: 0 26px;
+  }
+
+  .cs-exhibit-printout::before,
+  .cs-exhibit-printout::after {
+    width: 26px;
+  }
+
+  .cs-exhibit-printout-row {
+    flex-direction: column;
+    gap: 3px;
+    padding: 12px 16px;
+  }
+
+  .cs-exhibit-printout-co {
+    flex: 0 0 auto;
+  }
+
+  .cs-exhibit-pair {
+    margin-top: 64px;
+  }
+
+  .cs-exhibit-question {
+    margin-bottom: 22px;
+    font-size: 22px;
   }
 
   .cs-exhibit-desk {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
+    display: block;
   }
 
-  .cs-exhibit-stack-row {
-    grid-template-columns: 88px minmax(0, 1fr);
-    gap: 12px;
+  .cs-exhibit-record-obj,
+  .cs-exhibit-pair-2 .cs-exhibit-record-obj,
+  .cs-exhibit-pair-3 .cs-exhibit-record-obj {
+    margin-top: 0;
   }
 
-  .cs-exhibit-record-columns {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+  .cs-exhibit-card-obj,
+  .cs-exhibit-pair-2 .cs-exhibit-card-obj {
+    margin: -12px 0 0 10px;
   }
 
-  .cs-exhibit-record-field {
-    grid-template-columns: 112px minmax(0, 1fr);
+  .cs-exhibit-mini-card {
+    padding-left: 40px;
   }
 
-  .cs-exhibit-note {
-    padding-left: 0;
+  .cs-exhibit-tick {
+    left: -26px;
   }
 
-  .cs-exhibit-gutter {
-    flex-basis: 4px;
+  .cs-exhibit-note-slip {
+    margin-left: 12px;
   }
 }
 
+/* Below 620px the section switches to fixed 18px side padding (landing media rules); the
+   desk band's full bleed must follow it. */
+@media (max-width: 620px) {
+  .cs-exhibit {
+    margin-left: -18px;
+    margin-right: -18px;
+  }
+}
 /* The comparison becomes two physical objects side by side: a parchment card (Cold Start) and a
    flat gray printout (PitchBook), both continuous surfaces built from per-cell backgrounds since
    the DOM stays row-based (accessibility + the home-page test depend on it). The header band

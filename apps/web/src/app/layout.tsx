@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import localFont from "next/font/local";
 import type { ReactNode } from "react";
 import { webOrigin } from "../lib/site-origin";
@@ -22,6 +22,15 @@ const plexSans = IBM_Plex_Sans({
   display: "swap"
 });
 
+// The record exhibit's printout material (--font-printout in tokens.css). Two weights only:
+// the report body and its column heads.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-plex-mono-next",
+  display: "swap"
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(webOrigin()),
   title: "Cold Start",
@@ -41,7 +50,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en" className={`${plexSans.variable} ${textual.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable} ${textual.variable}`} suppressHydrationWarning>
       <body>
         <a className="cs-skip-link" href="#main-content">Skip to content</a>
         {children}

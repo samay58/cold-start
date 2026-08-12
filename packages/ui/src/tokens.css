@@ -62,6 +62,22 @@
   --cat-printout-edge: #D6D3CA;
   --cat-printout-rule: #DDDAD1;
 
+  /* Cold continuous-feed printout (landing record exhibit, direction decided 2026-08-12):
+     unlike --cat-printout's warm gray, this family is deliberately cold so the PitchBook
+     object reads as machine output against the warm desk. --cold-hole-ring shades the
+     sprocket-hole punch edge; the hole fill itself is the ground behind the paper.
+     --font-printout pins the report face to IBM Plex Mono (loaded as a webfont by
+     apps/web/src/app/layout.tsx), never the Berkeley-first --font-mono stack, so visitors
+     and local renders see the same material. Additive only. */
+  --cold-paper: #FCFCFD;
+  --cold-ink: #1B1D22;
+  --cold-label: #6B6E76;
+  --cold-rule: #E4E5E9;
+  --cold-edge: #D4D5DA;
+  --cold-perf: #D8D9DE;
+  --cold-hole-ring: rgb(27 29 34 / 0.2);
+  --font-printout: var(--font-plex-mono-next, "IBM Plex Mono"), ui-monospace, monospace;
+
   /* RGB channel triplets (2026-08-02, simplify consolidation): every consumer needs a different
      alpha inline via rgb(var(--x-rgb) / a), so these hold channels, not a full color, next to
      the hex tokens they mirror. Additive only.
