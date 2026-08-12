@@ -19,8 +19,8 @@
 // card logoUrl is a 1120x630 OG banner, wrong shape for a small square mark, so its favicon
 // leads instead. The two LinkedIn URLs come from the live cards' identity.logoUrl.
 //
-// Copy slots marked [SAMAY] carry working placeholders only. Samay writes every line that
-// ships; nothing here goes to production until he replaces them.
+// All rendered copy below is Samay's, approved 2026-08-12: the kicker and note slip are his
+// wording, the questions, captions, and link label were reviewed and kept.
 //
 // Plain data, no imports: this feeds a client component and must stay inert.
 
@@ -63,7 +63,7 @@ interface ExhibitNoteSlip {
 export interface ExhibitPair {
   slug: string;
   company: string;
-  // [SAMAY]
+  // Approved 2026-08-12.
   question: string;
   // Frozen, hand-checked logo candidates in fallback order; vetted at render.
   logoUrls: string[];
@@ -89,10 +89,10 @@ export interface RecordExhibitData {
   // mistaken for our card (binding decision, 2026-08-12). The access date renders beside it.
   printoutTitle: string;
   stack: Array<{ company: string; text: string }>;
-  // [SAMAY]
+  // Approved 2026-08-12.
   recordCaption: string;
   pairs: ExhibitPair[];
-  // [SAMAY]
+  // Samay's wording, 2026-08-12.
   linkLabel: string;
 }
 
@@ -131,14 +131,14 @@ export const recordExhibit: RecordExhibitData = {
     }
   ],
 
-  // [SAMAY] working placeholder
+  // Approved 2026-08-12.
   recordCaption: "PitchBook, accessed August 11, 2026.",
 
   pairs: [
     {
       slug: "mintlify",
       company: "Mintlify",
-      // [SAMAY] working placeholder
+      // Approved 2026-08-12.
       question: "What do they actually sell?",
       logoUrls: [
         "https://icons.duckduckgo.com/ip3/mintlify.com.ico",
@@ -187,7 +187,7 @@ export const recordExhibit: RecordExhibitData = {
     {
       slug: "turbopuffer",
       company: "turbopuffer",
-      // [SAMAY] working placeholder
+      // Approved 2026-08-12.
       question: "Who pays them?",
       logoUrls: [
         "https://media.licdn.com/dms/image/v2/D560BAQG2ZzVa7V9EZw/company-logo_200_200/B56ZgjGvVeHkAI-/0/1752935626434/turbopuffer_logo?e=2147483647&v=beta&t=Vud8jiQiZ7qqdgd8FtR2Z501YJjz9Oe_oDWGvAIwsH8",
@@ -224,7 +224,7 @@ export const recordExhibit: RecordExhibitData = {
     {
       slug: "clickhouse",
       company: "ClickHouse",
-      // [SAMAY] working placeholder
+      // Approved 2026-08-12.
       question: "Who do they compete with?",
       logoUrls: [
         "https://media.licdn.com/dms/image/v2/D4E0BAQEr8RfI76yHEQ/company-logo_200_200/company-logo_200_200/0/1688976507947/clickhouseinc_logo?e=2147483647&v=beta&t=nS2YJwmtRThueeFyvz2lylLEQ-r1eX5Wf1PC8a7JKi0",
