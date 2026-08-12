@@ -279,8 +279,8 @@ export const recordExhibit: RecordExhibitData = {
     }
   ],
 
-  // [SAMAY] working placeholder
-  linkLabel: "Open the full card"
+  // Samay's wording, 2026-08-12.
+  linkLabel: "Open the profile"
 };
 
 // Test helper: the count of hand tally strokes the fixture draws. The tally beat itself
