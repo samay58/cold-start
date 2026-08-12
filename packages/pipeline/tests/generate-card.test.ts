@@ -1837,6 +1837,103 @@ describe("split synthesize/verify units", () => {
         expect(result.emphasisDropReason).toBe("loud-dropped");
       });
 
+      it("kills the read when read is dropped even though loud survives", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
+        const verify = vi.fn(async () => [
+          { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+          { claimIndex: 1, ...bullCase, status: "supported" as const },
+          { claimIndex: 2, ...bearCase, status: "supported" as const },
+          { claimIndex: 3, ...loud, status: "supported" as const },
+          { claimIndex: 4, ...read, status: "unsupported" as const },
+          { claimIndex: 5, text: quiet, citationIds: [], status: "unsupported" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(result.emphasisRead).toEqual({ status: "nothing_notable" });
+        expect(result.emphasisDropReason).toBe("read-dropped");
+      });
+
+      it("shifts emphasis claim indexes past a non-zero market-structure claim count", async () => {
+        const card = await assembledCard();
+        const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+        const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
+        const bearCase = { text: "Durable differentiation is not fully proven. [c1]", citationIds: ["c1"] };
+        const buyerBudget = { text: "The likely buyer budget is contact-center automation. [c1]", citationIds: ["c1"] };
+        const loud = { text: "The founders talk up enterprise pilots constantly. [c1]", citationIds: ["c1"] };
+        const read = { text: "No pilot has converted to a named paying customer. [c1]", citationIds: ["c1"] };
+        const quiet = "Nothing filed shows a named enterprise customer.";
+        const filedEmphasisRead = {
+          status: "read" as const,
+          loud,
+          quiet,
+          read,
+          wouldChangeIf: "A named enterprise customer appears in a filed source."
+        };
+        // whyItMatters(0), bull(1), bear(2) = 3 synthesis claims, then exactly 1 market claim(3),
+        // so emphasisOffset must be 4 (marketOffset 3 + 1 market claim), not 3. buyerBudget is
+        // deliberately verified "unsupported" (unlike loud/read/quiet below) so a regression that
+        // drops the "+ marketStructureClaims(synthesis).length" term from emphasisOffset reads
+        // buyerBudget's unsupported verdict as loud's verdict (applyVerifierResults matches by
+        // index only once any result carries claimIndex, ignoring claim text): loudKept would
+        // wrongly become false and the test's "kept" assertions below would fail.
+        const draft = {
+          synthesis: {
+            whyItMatters,
+            bullCase: [bullCase],
+            bearCase: [bearCase],
+            openQuestions: [{ question: "Which buyer owns the budget?", category: "buyer_budget" as const }],
+            marketStructureAndTiming: {
+              buyerBudget,
+              painSeverity: null,
+              adoptionTrigger: null,
+              marketStructure: null,
+              profitPool: null,
+              expansionPath: null,
+              timingRisk: null
+            }
+          },
+          claimCountBeforeVerify: 4
+        };
+        const verify = vi.fn(async (claims: unknown[]) => {
+          expect(claims).toHaveLength(7);
+          expect(claims[3]).toEqual(buyerBudget);
+          expect(claims[4]).toEqual(loud);
+          expect(claims[5]).toEqual(read);
+          expect(claims[6]).toEqual({ text: quiet, citationIds: [] });
+          return [
+            { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+            { claimIndex: 1, ...bullCase, status: "supported" as const },
+            { claimIndex: 2, ...bearCase, status: "supported" as const },
+            { claimIndex: 3, ...buyerBudget, status: "unsupported" as const },
+            { claimIndex: 4, ...loud, status: "supported" as const },
+            { claimIndex: 5, ...read, status: "supported" as const },
+            { claimIndex: 6, text: quiet, citationIds: [], status: "unsupported" as const }
+          ];
+        });
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(verify).toHaveBeenCalledTimes(1);
+        // buyerBudget was verified unsupported and is the only market-structure field, so it
+        // drops out and the whole container collapses to undefined; the point of this assertion
+        // is that it does NOT leak into loud's verdict (which is the regression this test pins).
+        expect(result.synthesis?.marketStructureAndTiming).toBeUndefined();
+        expect(result.emphasisRead).toEqual(filedEmphasisRead);
+        expect(result.emphasisDropReason).toBeUndefined();
+      });
+
       it("without extras the verify call payload is unchanged", async () => {
         const card = await assembledCard();
         const { whyItMatters, bullCase, bearCase, draft } = emphasisFixtures();
