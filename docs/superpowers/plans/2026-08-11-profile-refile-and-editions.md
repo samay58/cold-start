@@ -524,6 +524,18 @@ git commit -m "feat: seed re-file runs with prior sources behind a flag"
 
 If this task's fetch path turns out to need new provider work, STOP, leave the flag off, note the finding in the plan file, and continue to Task 9 — the release does not block on seeding.
 
+> **Finding (2026-08-12, execution): Task 8 needs new provider work; dropped per this clause.**
+> The pipeline has no generic fetch-a-known-URL path. The only per-URL fetch today is the
+> StableEnrich `firecrawl/scrape` probe, hardwired to three fixed URLs (`firecrawl_homepage`,
+> `firecrawl_about`, `firecrawl_team`), each with its own entry in the provider-budget registry
+> and in the allowed probe-name set (`packages/providers/src/stableenrich/core.ts`). Seeding up
+> to 12 arbitrary prior-citation URLs would need a new probe name, a new provider-budget
+> registration, a new facade orchestrator in `stableenrich.ts`, and 12 extra paid AgentCash
+> calls per re-file — a cost decision, not a droppable flag. `REFILE_SEED_SOURCES` was not
+> added (a flag with no path behind it would be dead code). If seeding is wanted later, start
+> at the provider layer: register a `firecrawl_seed` endpoint, then thread `seedUrls` through
+> `fetchInitialSourcesForGeneration` merging AFTER discovery per the rules above.
+
 ---
 
 ### Task 9: Docs sync and the full gate

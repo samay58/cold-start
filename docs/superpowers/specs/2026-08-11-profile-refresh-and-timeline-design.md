@@ -96,3 +96,18 @@ The filed date becomes the entry point: "3rd filing · Aug 11". Opening it shows
 
 - Exact aged-tone token chosen at build time within the palette.
 - Retention policy for revisions, deliberately deferred.
+
+## Shipped (2026-08-12)
+
+Tasks 1 through 7 and 9 of the implementation plan are on the `refile-editions` branch. Deviations from the plan text, found during the build:
+
+- The branch was rebased onto the loading-screen refinement before Task 5. No conflicts; ReadRegion and the Details toggle stayed deleted.
+- Task 5's failure-restore UI test lives in the Task 6 commit. The test needs the real hold control to drive re-file, and that control does not exist until Task 6. Task 5's own commit carries the network-layer forceRefresh tests instead.
+- `handleRefile` also clears the section queue, matching its siblings, and strips `contactRun` and any old `refileNotice` from the restore snapshot. The contact watcher dies with the abort, so restoring its marker would show a spinner that never resolves.
+- A 202 still-running timeout wins over the restore path. A re-file that is still running server-side is not a failure, so the pending state shows instead of "Re-file failed."
+- The refile slot's no-run-active gate includes `contactRun`. That field is how a basics run finishing behind a visible profile is represented in panel state.
+- RefileControl decides fire-or-drain on elapsed hold time, not animation progress. Test environments skip animations, and time is the honest source anyway; the ink stays a 700ms linear fill.
+- All three gallery fixtures carried frozen months-old dates, so every card would have captured as aged. `plainfield-example` now files itself two days ago dynamically, keeping a not-aged contrast in every gallery run; the catalog order test follows.
+- Task 8 (seeded re-reads) was dropped under its own escape clause: the only per-URL fetch path is the StableEnrich firecrawl/scrape probe, hardwired to three fixed URLs with per-probe budget registration, so seeding is new provider work plus a per-re-file cost decision. The finding and the restart point are recorded in the plan file. No `REFILE_SEED_SOURCES` flag exists.
+
+Not in this release, unchanged from the plan: the timeline UI, any revisions read API, TTL-freeze widening, retention, and the production migration (Samay-approved `db:migrate:production`, then deploy).
