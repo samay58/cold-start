@@ -134,6 +134,7 @@ export async function verifySynthesis(input: {
               "Mark a disciplined analytical inference as supported when every material factual premise is grounded in the cited evidence, the conclusion follows reasonably, and the wording does not overstate certainty.",
               "Mark a claim unsupported when it introduces an ungrounded material fact, relies on a missing premise, or overstates the evidence. Mark contradicted only when cited evidence directly conflicts with it.",
               "A compound claim is supported only when every material premise is grounded.",
+              "A claim with an empty citationIds array whose text begins with Nothing filed shows describes an absence in this record: mark it contradicted only when a supplied source or fact contains the thing it says is missing; otherwise mark it supported.",
               "Return only a JSON array. Each result must include claimIndex, the exact claim text, exact citationIds array from the claim, and status supported, contradicted, or unsupported."
             ].join(" "),
             cache_control: anthropicSystemCacheControl()

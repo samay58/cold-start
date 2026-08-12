@@ -1732,6 +1732,130 @@ describe("split synthesize/verify units", () => {
         claimCountAfterVerify: 0
       });
     });
+
+    describe("emphasis read verification", () => {
+      function emphasisFixtures() {
+        const whyItMatters = { text: "Cartesia is building voice AI infrastructure. [c1]", citationIds: ["c1"] };
+        const bullCase = { text: "Cartesia has public product evidence. [c1]", citationIds: ["c1"] };
+        const bearCase = { text: "Durable differentiation is not fully proven. [c1]", citationIds: ["c1"] };
+        const loud = { text: "The founders talk up enterprise pilots constantly. [c1]", citationIds: ["c1"] };
+        const read = { text: "No pilot has converted to a named paying customer. [c1]", citationIds: ["c1"] };
+        const quiet = "Nothing filed shows a named enterprise customer.";
+        const filedEmphasisRead = {
+          status: "read" as const,
+          loud,
+          quiet,
+          read,
+          wouldChangeIf: "A named enterprise customer appears in a filed source."
+        };
+        const draft = {
+          synthesis: {
+            whyItMatters,
+            bullCase: [bullCase],
+            bearCase: [bearCase],
+            openQuestions: [{ question: "What is retention?", category: "adoption_proof" as const }]
+          },
+          claimCountBeforeVerify: 3
+        };
+        return { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft };
+      }
+
+      it("appends emphasis claims after market claims and keeps a fully supported read", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
+        const verify = vi.fn(async (claims: unknown[]) => {
+          expect(claims).toHaveLength(6);
+          expect(claims[3]).toEqual(loud);
+          expect(claims[4]).toEqual(read);
+          expect(claims[5]).toEqual({ text: quiet, citationIds: [] });
+          return [
+            { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+            { claimIndex: 1, ...bullCase, status: "supported" as const },
+            { claimIndex: 2, ...bearCase, status: "supported" as const },
+            { claimIndex: 3, ...loud, status: "supported" as const },
+            { claimIndex: 4, ...read, status: "supported" as const },
+            { claimIndex: 5, text: quiet, citationIds: [], status: "unsupported" as const }
+          ];
+        });
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(verify).toHaveBeenCalledTimes(1);
+        expect(result.synthesis?.whyItMatters).toEqual(whyItMatters);
+        expect(result.emphasisRead).toEqual(filedEmphasisRead);
+        expect(result.emphasisDropReason).toBeUndefined();
+      });
+
+      it("kills the whole read when quiet is contradicted", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
+        const verify = vi.fn(async () => [
+          { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+          { claimIndex: 1, ...bullCase, status: "supported" as const },
+          { claimIndex: 2, ...bearCase, status: "supported" as const },
+          { claimIndex: 3, ...loud, status: "supported" as const },
+          { claimIndex: 4, ...read, status: "supported" as const },
+          { claimIndex: 5, text: quiet, citationIds: [], status: "contradicted" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(result.emphasisRead).toEqual({ status: "nothing_notable" });
+        expect(result.emphasisDropReason).toBe("quiet-contradicted");
+      });
+
+      it("kills the read when loud is dropped", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
+        const verify = vi.fn(async () => [
+          { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+          { claimIndex: 1, ...bullCase, status: "supported" as const },
+          { claimIndex: 2, ...bearCase, status: "supported" as const },
+          { claimIndex: 3, ...loud, status: "unsupported" as const },
+          { claimIndex: 4, ...read, status: "supported" as const },
+          { claimIndex: 5, text: quiet, citationIds: [], status: "unsupported" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(result.emphasisRead).toEqual({ status: "nothing_notable" });
+        expect(result.emphasisDropReason).toBe("loud-dropped");
+      });
+
+      it("without extras the verify call payload is unchanged", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, draft } = emphasisFixtures();
+        const verify = vi.fn(async (claims: unknown[]) => {
+          expect(claims).toHaveLength(3);
+          return [
+            { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+            { claimIndex: 1, ...bullCase, status: "supported" as const },
+            { claimIndex: 2, ...bearCase, status: "supported" as const }
+          ];
+        });
+
+        const result = await verifyCardSynthesisDraft(card, draft, { verify, synthesisRequired: true });
+
+        expect(verify).toHaveBeenCalledTimes(1);
+        expect(result).not.toHaveProperty("emphasisRead");
+        expect(result).not.toHaveProperty("emphasisDropReason");
+      });
+    });
   });
 
   describe("evaluateSynthesisGate", () => {

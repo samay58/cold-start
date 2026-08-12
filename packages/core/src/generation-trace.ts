@@ -239,6 +239,15 @@ export type GenerationTrace = {
       hasNamedTeamMember: boolean;
     };
   };
+  emphasis?: {
+    enabled: boolean;
+    status?: "read" | "thin_file" | "nothing_notable";
+    thinFileReason?: string;
+    dropReason?: string;
+    laneCounts?: Record<string, number>;
+    laneFailures?: string[];
+    estimatedLaneCostUsd?: number;
+  };
   // Per-section provenance and cost for the section model. A derived section is
   // recorded as "derived", never as "deep".
   sections?: GenerationSectionTrace[];

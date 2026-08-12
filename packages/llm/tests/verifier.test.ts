@@ -155,6 +155,31 @@ describe("verifySynthesis", () => {
     expect(JSON.stringify(request?.system)).toContain("disciplined analytical inference");
   });
 
+  it("tells the verifier an absence claim is contradicted only when a source contains the missing thing", async () => {
+    let request: Parameters<Anthropic["messages"]["create"]>[0] | undefined;
+    const client = {
+      messages: {
+        create: async (params: Parameters<Anthropic["messages"]["create"]>[0]) => {
+          request = params;
+          return {
+            content: [{ type: "text", text: '[{"claimIndex":0,"text":"Claim [c1].","citationIds":["c1"],"status":"supported"}]' }]
+          };
+        }
+      }
+    } as unknown as Anthropic;
+
+    await verifySynthesis({
+      client,
+      model: "claude-test",
+      claims: [{ text: "Claim [c1].", citationIds: ["c1"] }],
+      sources: [{ id: "c1", url: "https://example.com", title: "Example" }]
+    });
+
+    expect(JSON.stringify(request?.system)).toContain(
+      "A claim with an empty citationIds array whose text begins with Nothing filed shows describes an absence in this record"
+    );
+  });
+
   it("accepts verifier JSON wrapped in a markdown code fence", async () => {
     const client = {
       messages: {

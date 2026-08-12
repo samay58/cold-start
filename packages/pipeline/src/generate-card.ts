@@ -4,6 +4,8 @@ import {
   clusterSignals,
   type ColdStartCard,
   coldStartCardSchema,
+  type EmphasisRead,
+  type EmphasisReadFiled,
   type GenerationTrace,
   publicCard,
   type ResolvedFact,
@@ -837,6 +839,40 @@ function verifiedMarketStructureAndTiming(
   return Object.values(filtered).some(Boolean) ? filtered : undefined;
 }
 
+function verifiedEmphasisRead(
+  filed: EmphasisReadFiled,
+  results: VerificationResult[],
+  offset: number
+): { emphasisRead: EmphasisRead; dropReason?: "loud-dropped" | "read-dropped" | "quiet-contradicted" } {
+  const loudKept = applyVerifierResults([filed.loud], results, offset).length === 1;
+  const readKept = applyVerifierResults([filed.read], results, offset + 1).length === 1;
+  // Quiet is contradiction-only: the verifier cannot confirm absence, so supported and
+  // unsupported both let the read stand; only a source containing the missing thing kills it.
+  const quietContradicted = results.some(
+    (result) => result.claimIndex === offset + 2 && result.status === "contradicted"
+  );
+  if (loudKept && readKept && !quietContradicted) {
+    return { emphasisRead: filed };
+  }
+  return {
+    emphasisRead: { status: "nothing_notable" },
+    dropReason: quietContradicted ? "quiet-contradicted" : loudKept ? "read-dropped" : "loud-dropped"
+  };
+}
+
+// Shared by both verifyCardSynthesisDraft return paths: emphasisRead and emphasisDropReason are
+// present only when the caller supplied extras.emphasisRead, so the no-extras path stays byte-
+// identical to the pre-emphasis result shape.
+function emphasisResultFields(outcome?: ReturnType<typeof verifiedEmphasisRead>) {
+  if (!outcome) {
+    return {};
+  }
+  return {
+    emphasisRead: outcome.emphasisRead,
+    ...(outcome.dropReason ? { emphasisDropReason: outcome.dropReason } : {})
+  };
+}
+
 export type SynthesisDraft = {
   synthesis: CardSynthesis;
   claimCountBeforeVerify: number;
@@ -859,8 +895,14 @@ export async function synthesizeCardDraft(
 export async function verifyCardSynthesisDraft(
   card: ColdStartCard,
   draft: SynthesisDraft,
-  deps: { verify: VerifySynthesisFn; synthesisRequired?: boolean }
-): Promise<{ synthesis?: CardSynthesis; tracePatch: GenerateCardTracePatch }> {
+  deps: { verify: VerifySynthesisFn; synthesisRequired?: boolean },
+  extras?: { emphasisRead?: EmphasisReadFiled }
+): Promise<{
+  synthesis?: CardSynthesis;
+  emphasisRead?: EmphasisRead;
+  emphasisDropReason?: "loud-dropped" | "read-dropped" | "quiet-contradicted";
+  tracePatch: GenerateCardTracePatch;
+}> {
   const { synthesis, claimCountBeforeVerify } = draft;
   const citationSources = card.citations.map((citation) => ({
     id: citation.id,
@@ -868,15 +910,21 @@ export async function verifyCardSynthesisDraft(
     title: citation.title,
     ...(citation.snippet ? { snippet: citation.snippet } : {})
   }));
-  const claims = allSynthesisClaims(synthesis);
+  const emphasis = extras?.emphasisRead;
+  const emphasisClaims: SourcedText[] = emphasis
+    ? [emphasis.loud, emphasis.read, { text: emphasis.quiet, citationIds: [] }]
+    : [];
+  const claims = [...allSynthesisClaims(synthesis), ...emphasisClaims];
   const results = await deps.verify(claims, citationSources, verificationFactsForClaims(card, claims));
   const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
   const bullCaseOffset = 1;
   const bearCaseOffset = bullCaseOffset + synthesis.bullCase.length;
   const marketOffset = bearCaseOffset + synthesis.bearCase.length;
+  const emphasisOffset = marketOffset + marketStructureClaims(synthesis).length;
   let bullCase = applyVerifierResults(synthesis.bullCase, results, bullCaseOffset);
   let bearCase = applyVerifierResults(synthesis.bearCase, results, bearCaseOffset);
   const marketStructureAndTiming = verifiedMarketStructureAndTiming(synthesis, results, marketOffset);
+  const emphasisOutcome = emphasis ? verifiedEmphasisRead(emphasis, results, emphasisOffset) : undefined;
   let whyItMatters = verifiedWhyItMatters[0];
 
   if (!whyItMatters) {
@@ -897,7 +945,7 @@ export async function verifyCardSynthesisDraft(
   };
 
   if (!whyItMatters) {
-    return { tracePatch };
+    return { tracePatch, ...emphasisResultFields(emphasisOutcome) };
   }
 
   const gated = applySynthesisUsefulnessGate({
@@ -912,7 +960,7 @@ export async function verifyCardSynthesisDraft(
       marketStructureClaims(gated.synthesis).length;
     tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
   }
-  return { tracePatch, synthesis: gated.synthesis };
+  return { tracePatch, synthesis: gated.synthesis, ...emphasisResultFields(emphasisOutcome) };
 }
 
 export async function generateCardForDomainWithTrace(
