@@ -9,9 +9,15 @@ import {
   type QuestionCategory,
   type SourcedText
 } from "@cold-start/core";
-import { LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 
-export type SourcePosture = "company-authored" | "independent" | "reporting" | "enrichment" | "unknown";
+export type SourcePosture =
+  | "company-authored"
+  | "founder-authored"
+  | "independent"
+  | "reporting"
+  | "enrichment"
+  | "unknown";
 
 const QUESTION_CATEGORY_LABELS: Record<QuestionCategory, string> = {
   buyer_budget: "Buyer & budget",
@@ -80,6 +86,20 @@ type LensSource = {
   sourceClass: "independent" | "reporting" | "company";
 };
 
+// The sixth Lens category's display state: "read" when the model filed a loud/quiet
+// asymmetry, "thin_file"/"nothing_notable" mirror emphasisReadSchema's other two statuses,
+// and "not_read" covers a legacy card generated before this field existed. The category is
+// always present in investorLensCategories regardless of state; only its preview text and
+// this state value change.
+export type EmphasisDisplayState = "read" | "thin_file" | "nothing_notable" | "not_read";
+export type EmphasisDisplay = {
+  state: EmphasisDisplayState;
+  loud: string | null;
+  quiet: string | null;
+  read: string | null;
+  wouldChangeIf: string | null;
+};
+
 export type InvestorReadDisplay = {
   receiptLine: string;
   lede: LensClaim;
@@ -89,6 +109,7 @@ export type InvestorReadDisplay = {
   nextQuestion: LensQuestion | null;
   sources: LensSource[];
   independentlyBacked: boolean;
+  emphasis: EmphasisDisplay;
 };
 
 export type InvestorLensCategoryId =
@@ -96,7 +117,8 @@ export type InvestorLensCategoryId =
   | "must-be-true"
   | "could-break"
   | "why-now"
-  | "learn-next";
+  | "learn-next"
+  | "pay-attention";
 
 export type InvestorLensCategory = {
   id: InvestorLensCategoryId;
@@ -132,11 +154,28 @@ export function investorLensCategories(read: InvestorReadDisplay): InvestorLensC
       id: "learn-next",
       label: "What to learn next",
       preview: read.nextQuestion?.question ?? "No sharp next question yet."
+    },
+    {
+      id: "pay-attention",
+      label: "Pay attention to",
+      preview: read.emphasis.read
+        ?? (read.emphasis.state === "thin_file"
+          ? EMPHASIS_EMPTY_COPY.thinFile
+          : read.emphasis.state === "nothing_notable"
+            ? EMPHASIS_EMPTY_COPY.nothingNotable
+            : EMPHASIS_EMPTY_COPY.notRead)
     }
   ];
 }
 
-const POSTURE_ORDER: SourcePosture[] = ["independent", "reporting", "company-authored", "enrichment", "unknown"];
+const POSTURE_ORDER: SourcePosture[] = [
+  "independent",
+  "reporting",
+  "founder-authored",
+  "company-authored",
+  "enrichment",
+  "unknown"
+];
 
 // The memo shows the single sharpest supported timing field. Trigger and risk carry the
 // most "why now" weight; structural fields follow.
@@ -169,6 +208,10 @@ export function sourcePostureForCitation(citation: Citation | undefined): Source
 
   if (tier === "independent_report" || citation.sourceType === "news" || citation.sourceType === "filing") {
     return "reporting";
+  }
+
+  if (tier === "founder_authored") {
+    return "founder-authored";
   }
 
   if (citation.sourceType === "company_site" || tier === "primary_company" || tier === "press_release") {
@@ -369,6 +412,9 @@ function lensSources(citations: Map<string, Citation>, claims: SourcedText[]): L
       href,
       title: citation.title,
       qualityLabel: citation.sourceQuality?.label ?? sourceQualityForSource(citation).label,
+      // founder_authored falls into the same "company" chip as company-authored sources: a
+      // dedicated fourth chip class is not in v1, matching the founder-authored posture's
+      // ranking right alongside company-authored for this footer's coarser three-class view.
       sourceClass: tier === "independent_technical" || tier === "independent_analysis"
         ? "independent"
         : tier === "independent_report"
@@ -394,6 +440,29 @@ function receiptLine(card: ColdStartCard) {
   return date ? `Updated ${date}` : "Updated";
 }
 
+// The sixth Lens category's display model. Absent (legacy card, no field at all) and
+// thin_file/nothing_notable (the model ran but has nothing to file) collapse to the same
+// null-content shape; only a filed "read" status carries text. Loud and Read cite like any
+// other synthesis claim so they need stripCitationMarkers; Quiet and Would-change-if are
+// plain file-scoped strings (emphasisReadFiledSchema) and carry no markers to strip.
+export function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
+  const emphasis = card.synthesis?.emphasisRead;
+  if (!emphasis) {
+    return { state: "not_read", loud: null, quiet: null, read: null, wouldChangeIf: null };
+  }
+  if (emphasis.status !== "read") {
+    return { state: emphasis.status, loud: null, quiet: null, read: null, wouldChangeIf: null };
+  }
+
+  return {
+    state: "read",
+    loud: stripCitationMarkers(emphasis.loud.text),
+    quiet: emphasis.quiet,
+    read: stripCitationMarkers(emphasis.read.text),
+    wouldChangeIf: emphasis.wouldChangeIf
+  };
+}
+
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {
   if (!card.synthesis) {
     return null;
@@ -414,6 +483,7 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
     independentlyBacked: claims.some((claim) => {
       const posture = strongestPosture(citations, claim.citationIds);
       return posture === "independent" || posture === "reporting";
-    })
+    }),
+    emphasis: emphasisDisplayForCard(card)
   };
 }

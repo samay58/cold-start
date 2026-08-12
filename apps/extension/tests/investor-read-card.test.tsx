@@ -181,7 +181,7 @@ describe("InvestorReadCard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("(a) presents every Lens point in five categories with Why care open by default", async () => {
+  it("(a) presents every Lens point in six categories with Why care open by default", async () => {
     const { container, unmount } = await renderCard(richCard());
     const lede = container.querySelector('[data-role="lede"]');
     const categories = Array.from(container.querySelectorAll(".cs-investor-read-category"));
@@ -193,17 +193,20 @@ describe("InvestorReadCard", () => {
       "must-be-true",
       "could-break",
       "why-now",
-      "learn-next"
+      "learn-next",
+      "pay-attention"
     ]);
     expect(categories.map((category) => category.querySelector("strong")?.textContent)).toEqual([
       "Why care",
       "What must be true",
       "What could break",
       "Why now",
-      "What to learn next"
+      "What to learn next",
+      "Pay attention to"
     ]);
     expect(categories.map((category) => category.getAttribute("data-open"))).toEqual([
       "true",
+      "false",
       "false",
       "false",
       "false",

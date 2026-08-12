@@ -1,12 +1,45 @@
 import { describe, expect, it } from "vitest";
-import type { ColdStartCard } from "@cold-start/core";
+import type { Citation, ColdStartCard, EmphasisReadFiled, SourceQualityTier } from "@cold-start/core";
 import {
   investorLensCategories,
   investorReadForCard,
   sourcePostureForCitation,
   timingIsNotFound
 } from "../src/research/investor-lens";
+import { EMPHASIS_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { minimalWarpCard } from "./lens-card-fixtures";
+
+// A minimal filed emphasis read fixture: loud/read carry a citation marker so the
+// display-model stripping tests have something real to strip.
+const emphasisReadFiled: EmphasisReadFiled = {
+  status: "read",
+  loud: {
+    text: "The team talks constantly about developer love and daily active usage [c2].",
+    citationIds: ["c2"]
+  },
+  quiet: "Nothing filed shows a pricing page or a paying-customer count.",
+  read: {
+    text: "The company is selling adoption momentum, not revenue durability, and the read should weight usage growth over monetization proof [c2].",
+    citationIds: ["c2"]
+  },
+  wouldChangeIf: "A public pricing page or a named paying customer appears in the filed record."
+};
+
+function citationWithTier(tier: SourceQualityTier): Citation {
+  return {
+    id: "c-founder",
+    url: "https://x.com/founder/status/123",
+    title: "Founder thread on pricing",
+    fetchedAt: "2026-06-23T12:00:00.000Z",
+    sourceType: "other",
+    sourceQuality: {
+      tier,
+      label: "Founder voice",
+      rationale: "Direct statement from a named founder.",
+      incentive: "Founder has an incentive to promote the company."
+    }
+  };
+}
 
 // minimalWarpCard (lens-card-fixtures.ts) carries the same warp.dev body; this adds back the
 // identity.description block this suite's synthesis-display assertions rely on.
@@ -161,6 +194,11 @@ describe("investor lens display", () => {
         id: "learn-next",
         label: "What to learn next",
         preview: "Can this reach team budgets?"
+      },
+      {
+        id: "pay-attention",
+        label: "Pay attention to",
+        preview: EMPHASIS_EMPTY_COPY.notRead
       }
     ]);
   });
@@ -265,5 +303,106 @@ describe("investor lens display", () => {
       sourceType: "enrichment"
     })).toBe("enrichment");
     expect(sourcePostureForCitation(undefined)).toBe("unknown");
+  });
+
+  it("classifies a founder_authored citation as founder-authored posture", () => {
+    expect(sourcePostureForCitation(citationWithTier("founder_authored"))).toBe("founder-authored");
+  });
+
+  it("returns six categories with Pay attention to last", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        emphasisRead: emphasisReadFiled
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    const categories = investorLensCategories(display);
+    expect(categories).toHaveLength(6);
+    expect(categories[5]).toMatchObject({ id: "pay-attention", label: "Pay attention to" });
+  });
+
+  it("previews the read text when the emphasis read is filed", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        emphasisRead: emphasisReadFiled
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    expect(display.emphasis).toMatchObject({
+      state: "read",
+      loud: "The team talks constantly about developer love and daily active usage.",
+      quiet: emphasisReadFiled.quiet,
+      read: "The company is selling adoption momentum, not revenue durability, and the read should weight usage growth over monetization proof.",
+      wouldChangeIf: emphasisReadFiled.wouldChangeIf
+    });
+    expect(investorLensCategories(display)[5]?.preview).toBe(display.emphasis.read);
+  });
+
+  it("previews flat empty copy for thin_file, nothing_notable, and a legacy card", () => {
+    const baseSynthesis = {
+      whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+    };
+
+    const thinFileDisplay = investorReadForCard(card({
+      synthesis: { ...baseSynthesis, emphasisRead: { status: "thin_file" } }
+    }));
+    const nothingNotableDisplay = investorReadForCard(card({
+      synthesis: { ...baseSynthesis, emphasisRead: { status: "nothing_notable" } }
+    }));
+    const legacyDisplay = investorReadForCard(card({ synthesis: baseSynthesis }));
+
+    if (!thinFileDisplay || !nothingNotableDisplay || !legacyDisplay) {
+      throw new Error("fixtures must produce filed reads");
+    }
+
+    expect(thinFileDisplay.emphasis.state).toBe("thin_file");
+    expect(investorLensCategories(thinFileDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.thinFile);
+
+    expect(nothingNotableDisplay.emphasis.state).toBe("nothing_notable");
+    expect(investorLensCategories(nothingNotableDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.nothingNotable);
+
+    expect(legacyDisplay.emphasis.state).toBe("not_read");
+    expect(investorLensCategories(legacyDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.notRead);
+  });
+
+  it("strips citation markers from loud and read in the display model", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        emphasisRead: {
+          status: "read",
+          loud: { text: "Warp leans hard on developer love in every post [c1][c2].", citationIds: ["c1", "c2"] },
+          quiet: "Nothing filed shows a pricing page.",
+          read: { text: "The company sells growth, not monetization proof [c2].", citationIds: ["c2"] },
+          wouldChangeIf: "A pricing page appears."
+        }
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    expect(display.emphasis.loud).toBe("Warp leans hard on developer love in every post.");
+    expect(display.emphasis.read).toBe("The company sells growth, not monetization proof.");
   });
 });
