@@ -43,7 +43,7 @@ describe("artifact-led research progress", () => {
 
     expect(plan.map((stage) => stage.label)).toEqual(["Find", "Read", "Build", "File"]);
     expect(plan.map((stage) => stage.proofLine)).toEqual([
-      "Checking company, product, funding, and proof sources",
+      "Planning which sources to check",
       "Waiting for sources",
       "Waiting for evidence",
       "Waiting for profile"
@@ -236,7 +236,46 @@ describe("artifact-led research progress", () => {
 
     const text = plan.flatMap((stage) => [stage.label, stage.proofLine, ...stage.substeps.map((substep) => substep.message)]).join(" ");
 
-    expect(text).not.toMatch(/search plan|query plan|worker|pipeline|accepted sources|Looking for useful places|Pulling in what matters|Turning evidence|Saving the final profile/i);
+    // \b guards "search plan": "Research plan ready" is approved copy (Task 6) and must not
+    // trip on the "search" substring inside "research".
+    expect(text).not.toMatch(/\bsearch plan\b|\bquery plan\b|worker|pipeline|accepted sources|Looking for useful places|Pulling in what matters|Turning evidence|Saving the final profile/i);
+  });
+
+  it("shows plan.ready as a done substep so the pre-source hold has a visible movement", () => {
+    const plan = buildResearchProgressPlan({
+      activeIndex: 0,
+      events: [
+        event({ id: "started", type: "generation.started" }),
+        event({ id: "plan", type: "plan.ready" })
+      ],
+      stageNote: "Checking company, product, funding, and proof sources",
+      stages: RESEARCH_PROGRESS_STAGES
+    });
+
+    const findSubsteps = plan[0]?.substeps.map((substep) => substep.message);
+    expect(findSubsteps).toContain("Research plan ready");
+    expect(plan[0]?.substeps.find((substep) => substep.message === "Research plan ready")?.status).toBe("done");
+  });
+
+  it("advances the Find proof line from planning to checking on plan.ready", () => {
+    const before = buildResearchProgressPlan({
+      activeIndex: 0,
+      events: [event({ id: "started", type: "generation.started" })],
+      stageNote: "",
+      stages: RESEARCH_PROGRESS_STAGES
+    });
+    expect(before[0]?.proofLine).toBe("Planning which sources to check");
+
+    const after = buildResearchProgressPlan({
+      activeIndex: 0,
+      events: [
+        event({ id: "started", type: "generation.started" }),
+        event({ id: "plan", type: "plan.ready" })
+      ],
+      stageNote: "",
+      stages: RESEARCH_PROGRESS_STAGES
+    });
+    expect(after[0]?.proofLine).toBe("Checking company, product, funding, and proof sources");
   });
 });
 

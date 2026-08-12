@@ -310,9 +310,12 @@ function proofLineForStage({
     if (sourceArtifact) {
       return sourceArtifact;
     }
-    return events.some((event) => event.type === "generation.queued")
-      ? "Company queued"
-      : "Checking company, product, funding, and proof sources";
+    if (events.some((event) => event.type === "generation.queued")) {
+      return "Company queued";
+    }
+    return events.some((event) => event.type === "plan.ready")
+      ? "Checking company, product, funding, and proof sources"
+      : "Planning which sources to check";
   }
 
   if (index === 1) {
@@ -355,7 +358,7 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
     return null;
   }
   if (event.type === "plan.ready") {
-    return null;
+    return "Research plan ready";
   }
   if (event.type === "source.found") {
     const count = metadataNumber(event, ["acceptedCount", "sourceCount"]);
