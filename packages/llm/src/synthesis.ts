@@ -5,12 +5,16 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { investorTasteKernel } from "./investor-taste-kernel";
 import { withProviderFallback, withSchemaRetry } from "./llm-provider";
+import {
+  citationMarkerRegex,
+  nonEmptyStringSchema,
+  sameCitationMultiset,
+  sourcedTextToolSchema,
+  visibleCitationMarkers
+} from "./tool-schema-fragments";
 import { parseToolUse, type ToolUseLike } from "./tool-use";
 
 const SYNTHESIS_TOOL_NAME = "emit_investor_synthesis";
-const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
-const citationMarkerRegex = /\[([A-Za-z0-9_-]+)\]/g;
-const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
 const questionCategoryValues = questionCategorySchema.options;
 const openQuestionToolSchema = {
   type: "object",
@@ -25,22 +29,8 @@ const openQuestionToolSchema = {
   required: ["question", "category", "testsBelief", "evidenceBasis", "wouldChangeReadIf"]
 } as const;
 
-const sourcedTextSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    text: {
-      type: "string",
-      pattern: citationMarkerPattern,
-      description: "Claim text with visible citation markers such as [c1]."
-    },
-    citationIds: { type: "array", minItems: 1, items: nonEmptyStringSchema }
-  },
-  required: ["text", "citationIds"]
-} as const;
-
 const nullableSourcedTextSchema = {
-  anyOf: [sourcedTextSchema, { type: "null" }]
+  anyOf: [sourcedTextToolSchema, { type: "null" }]
 } as const;
 
 const marketStructureAndTimingToolSchema = {
@@ -66,24 +56,8 @@ const marketStructureAndTimingToolSchema = {
   ]
 } as const;
 
-function visibleCitationMarkers(text: string): string[] {
-  return Array.from(text.matchAll(citationMarkerRegex), (match) => match[1]).filter(
-    (citationId): citationId is string => citationId !== undefined
-  );
-}
-
-function sortedCitationIds(citationIds: string[]): string[] {
-  return [...citationIds].sort();
-}
-
 function uniqueCitationIds(citationIds: string[]): string[] {
   return Array.from(new Set(citationIds.filter((citationId) => citationId.trim().length > 0)));
-}
-
-function sameCitationMultiset(left: string[], right: string[]) {
-  const sortedLeft = sortedCitationIds(left);
-  const sortedRight = sortedCitationIds(right);
-  return sortedLeft.length === sortedRight.length && sortedLeft.every((citationId, index) => citationId === sortedRight[index]);
 }
 
 const citedSynthesisSchema = synthesisSchema.superRefine((synthesis, ctx) => {
@@ -242,9 +216,9 @@ export const synthesisTool = {
     type: "object",
     additionalProperties: false,
     properties: {
-      whyItMatters: sourcedTextSchema,
-      bullCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextSchema },
-      bearCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextSchema },
+      whyItMatters: sourcedTextToolSchema,
+      bullCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextToolSchema },
+      bearCase: { type: "array", minItems: 0, maxItems: 2, items: sourcedTextToolSchema },
       marketStructureAndTiming: marketStructureAndTimingToolSchema,
       openQuestions: { type: "array", minItems: 1, maxItems: 3, items: openQuestionToolSchema }
     },

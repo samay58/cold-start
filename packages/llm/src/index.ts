@@ -1,4 +1,5 @@
 export * from "./anthropic";
+export * from "./emphasis-read";
 export * from "./extraction";
 export * from "./llm-provider";
 export * from "./openai-compat";
