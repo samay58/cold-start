@@ -3,8 +3,8 @@ import { z } from "zod";
 export const POSITIVE_CHIPS = ["sharper-thesis", "better-comps", "more-honest", "deeper-evidence", "tighter", "better-voice"] as const;
 export const INVERSE_CHIPS = ["slop", "generic", "padded", "template-question"] as const;
 
-export const eraBucketSchema = z.enum(["may-pre-gate", "june", "july-overhaul", "august-current"]);
-export const richnessBandSchema = z.enum(["thin", "medium", "rich"]);
+const eraBucketSchema = z.enum(["may-pre-gate", "june", "july-overhaul", "august-current"]);
+const richnessBandSchema = z.enum(["thin", "medium", "rich"]);
 
 export const poolEntrySchema = z.object({
   slug: z.string().min(1),
@@ -12,8 +12,6 @@ export const poolEntrySchema = z.object({
   eraBucket: eraBucketSchema,
   control: z.boolean()
 });
-
-export type PoolEntry = z.infer<typeof poolEntrySchema>;
 
 export const sessionPlanSchema = z.object({
   seed: z.string().min(1),
@@ -52,20 +50,18 @@ export const corpusIndexRowSchema = z.object({
 
 export type CorpusIndexRow = z.infer<typeof corpusIndexRowSchema>;
 
-export const condensedViewSchema = z.object({
-  slug: z.string().min(1),
-  name: z.string().min(1),
-  callNumber: z.string(),
-  stats: z.array(z.object({ label: z.string(), value: z.string() })),
-  thesis: z.string().nullable(),
-  bullLead: z.string().nullable(),
-  bearLead: z.string().nullable(),
-  comps: z.array(z.string()),
-  nextQuestion: z.string().nullable(),
-  sourceLine: z.string()
-});
-
-export type CondensedView = z.infer<typeof condensedViewSchema>;
+export type CondensedView = {
+  slug: string;
+  name: string;
+  callNumber: string;
+  stats: { label: string; value: string }[];
+  thesis: string | null;
+  bullLead: string | null;
+  bearLead: string | null;
+  comps: string[];
+  nextQuestion: string | null;
+  sourceLine: string;
+};
 
 const quickPick = z.object({
   kind: z.literal("quick-pick"),
@@ -112,5 +108,5 @@ export const ledgerEventInputSchema = z
     }
   });
 
-export type LedgerEventInput = z.infer<typeof ledgerEventInputSchema>;
+type LedgerEventInput = z.infer<typeof ledgerEventInputSchema>;
 export type LedgerEvent = LedgerEventInput & { ts: string };
