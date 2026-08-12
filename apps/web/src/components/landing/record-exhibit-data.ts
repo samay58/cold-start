@@ -149,7 +149,9 @@ export const recordExhibit: RecordExhibitData = {
           { label: "Primary industry", value: "Business/Productivity Software" }
         ]
       },
-      // [SAMAY] working wording from the 2026-08-12 review.
+      // Samay's wording, approved 2026-08-12. LinkedIn showed 82 associated members that
+      // day, so 62 is stale and 85 (Apollo, May 2026) is in range; the slip quotes only
+      // what the card itself files.
       noteSlip: "They file 62. Our sources file 85 as of May 2026.",
       excerpt: {
         lines: [
