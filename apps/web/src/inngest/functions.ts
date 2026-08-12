@@ -1,7 +1,9 @@
 import {
   companySlugFromDomain,
   buildFirstPayoff,
+  emphasisThinFileReason,
   type ColdStartCard,
+  type EmphasisRead,
   type FirstPayoff,
   type GenerationTrace,
   deriveLegacyResearchSectionsFromCard,
@@ -89,6 +91,7 @@ import {
   type GenerationMode
 } from "./generation-helpers";
 import { runResearchSectionJobStep } from "./research-section-generation";
+import { emphasisReadStepBody, fetchFounderVoiceStepBody } from "./emphasis-read";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -102,7 +105,9 @@ import {
   analysisSourceRefreshModeFromProcess,
   contactEnrichmentEnabled,
   directExaEnvFromProcess,
+  emphasisReadEnabled,
   expandedDescriptionEnabled,
+  founderVoiceEnvFromProcess,
   stableenrichEnvFromProcess
 } from "./worker-env";
 import {
@@ -377,6 +382,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     const synthesisModel = modelForStage("synthesis", defaultModel);
     const verifierModel = modelForStage("verify", defaultModel);
     const sectionModel = modelForStage("research_section", defaultModel);
+    const emphasisModel = modelForStage("emphasis_read", defaultModel);
 
     if (requestedSectionId) {
       currentStage = "generate-section";
@@ -727,7 +733,9 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         trace.steps = {
           ...trace.steps,
           "synthesize-card": skippedStep("synthesis gate blocked: insufficient evidence"),
-          "verify-synthesis": skippedStep("synthesis gate blocked: insufficient evidence")
+          "verify-synthesis": skippedStep("synthesis gate blocked: insufficient evidence"),
+          "fetch-founder-voice": skippedStep("synthesis gate blocked: insufficient evidence"),
+          "emphasis-read": skippedStep("synthesis gate blocked: insufficient evidence")
         };
         if (existingCardHasSynthesis) {
           skipCardStore = true;
@@ -767,6 +775,79 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         }
         const draft = synthesizeResult.value.value;
 
+        // The sixth Lens category: what the company and its founders are loud about, what
+        // never appears in the filed record, and the smallest cited inference that asymmetry
+        // supports. Runs between synthesize and verify so its claims ride the existing verify
+        // call (packages/pipeline/src/generate-card.ts's verifyCardSynthesisDraft extras) rather
+        // than paying for a second verifier round trip.
+        let emphasisDraft: EmphasisRead | null = null;
+        if (emphasisReadEnabled()) {
+          const thinFileReason = emphasisThinFileReason(generatedCard);
+          if (thinFileReason) {
+            emphasisDraft = { status: "thin_file" };
+            mergeTracePatch(trace, { emphasis: { enabled: true, status: "thin_file", thinFileReason } });
+            trace.steps = {
+              ...trace.steps,
+              "fetch-founder-voice": skippedStep(`thin file: ${thinFileReason}`),
+              "emphasis-read": skippedStep(`thin file: ${thinFileReason}`)
+            };
+          } else {
+            await recordEvent("emphasis-started", "emphasis.started", "Reading what they are loud about", {}, null);
+            currentStage = "fetch-founder-voice";
+            const founderVoice = await step.run("fetch-founder-voice", async () => {
+              const result = await timed(() =>
+                fetchFounderVoiceStepBody({ card: generatedCard, env: founderVoiceEnvFromProcess() })
+              );
+              return {
+                value: result.value,
+                tracePatch: { steps: { "fetch-founder-voice": completedStep(result.durationMs) } }
+              };
+            });
+            mergeTracePatch(trace, founderVoice.tracePatch);
+            mergeTracePatch(trace, {
+              emphasis: {
+                enabled: true,
+                laneCounts: founderVoice.value.laneCounts,
+                laneFailures: founderVoice.value.laneFailures,
+                estimatedLaneCostUsd: founderVoice.value.estimatedCostUsd
+              }
+            });
+            if (founderVoice.value.citations.length > 0) {
+              generatedCard = { ...generatedCard, citations: [...generatedCard.citations, ...founderVoice.value.citations] };
+              sourcesToRecord = [...sourcesToRecord, ...founderVoice.value.sources];
+            }
+
+            currentStage = "emphasis-read";
+            const emphasisResult = await step.run("emphasis-read", async () => {
+              const llmTelemetry = createStepLlmTelemetryCollector();
+              const result = await timed(() =>
+                emphasisReadStepBody({ card: generatedCard, client: anthropic, model: emphasisModel, telemetry: llmTelemetry.telemetry })
+              );
+              const llmTracePatch = llmTelemetry.tracePatch();
+              return {
+                value: result.value,
+                tracePatch: {
+                  ...llmTracePatch,
+                  steps: {
+                    "emphasis-read": result.value.ok
+                      ? completedStep(result.durationMs)
+                      : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
+                  }
+                }
+              };
+            });
+            mergeTracePatch(trace, emphasisResult.tracePatch);
+            // A semantic emphasis failure degrades to nothing_notable; it never fails the run.
+            emphasisDraft = emphasisResult.value.ok ? emphasisResult.value.value : { status: "nothing_notable" };
+          }
+        } else {
+          trace.steps = {
+            ...trace.steps,
+            "fetch-founder-voice": skippedStep("EMPHASIS_READ_ENABLED=false"),
+            "emphasis-read": skippedStep("EMPHASIS_READ_ENABLED=false")
+          };
+        }
+
         await recordEvent(
           "verify-started",
           "verify.started",
@@ -782,6 +863,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             verifySynthesisStepBody({
               card: generatedCard,
               draft,
+              ...(emphasisDraft?.status === "read" ? { emphasisRead: emphasisDraft } : {}),
               client: anthropic,
               model: verifierModel,
               telemetry: llmTelemetry.telemetry,
@@ -824,9 +906,37 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           null
         );
 
+        // verified.emphasisRead is independent of verified.synthesis: the verifier evaluates the
+        // emphasis claims in the same call regardless of whether every synthesis claim survived,
+        // so this reads it unconditionally rather than gating on verified.synthesis.
+        const finalEmphasis: EmphasisRead | undefined = emphasisDraft
+          ? emphasisDraft.status === "read"
+            ? verified.emphasisRead ?? { status: "nothing_notable" }
+            : emphasisDraft
+          : undefined;
+        if (finalEmphasis) {
+          mergeTracePatch(trace, {
+            emphasis: {
+              enabled: true,
+              status: finalEmphasis.status,
+              ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {})
+            }
+          });
+          await recordEvent(
+            "emphasis-complete",
+            "emphasis.complete",
+            finalEmphasis.status === "read" ? "Emphasis read filed" : "No emphasis read",
+            { status: finalEmphasis.status, ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {}) },
+            null
+          );
+        }
+
         if (verified.synthesis) {
           const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = generatedCard;
-          generatedCard = { ...cardWithoutWithheld, synthesis: verified.synthesis };
+          generatedCard = {
+            ...cardWithoutWithheld,
+            synthesis: { ...verified.synthesis, ...(finalEmphasis ? { emphasisRead: finalEmphasis } : {}) }
+          };
         } else if (existingCardHasSynthesis) {
           // All claims dropped, but the slug already has a filed read: preserve it (issue #10)
           // instead of storing an empty result over it. The store decision is made below, once

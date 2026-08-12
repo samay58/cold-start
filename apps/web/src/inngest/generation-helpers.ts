@@ -3,6 +3,7 @@ import {
   isSynthesisOnlySectionId,
   researchSectionIdSchema,
   type ColdStartCard,
+  type EmphasisReadFiled,
   type GenerationLlmCallTrace,
   type GenerationTrace,
   type ResearchSectionId
@@ -145,20 +146,26 @@ export async function verifySynthesisStepBody(input: {
   model: string;
   telemetry: AnthropicTelemetrySink;
   synthesisRequired: boolean;
+  emphasisRead?: EmphasisReadFiled;
 }): Promise<VerifySynthesisStepResult> {
   try {
-    const result = await verifyCardSynthesisDraft(input.card, input.draft, {
-      verify: (claims, sources, evidenceFacts) =>
-        verifySynthesis({
-          client: input.client,
-          model: input.model,
-          claims,
-          sources,
-          evidenceFacts,
-          telemetry: input.telemetry
-        }),
-      synthesisRequired: input.synthesisRequired
-    });
+    const result = await verifyCardSynthesisDraft(
+      input.card,
+      input.draft,
+      {
+        verify: (claims, sources, evidenceFacts) =>
+          verifySynthesis({
+            client: input.client,
+            model: input.model,
+            claims,
+            sources,
+            evidenceFacts,
+            telemetry: input.telemetry
+          }),
+        synthesisRequired: input.synthesisRequired
+      },
+      input.emphasisRead ? { emphasisRead: input.emphasisRead } : undefined
+    );
     return { ok: true, value: result };
   } catch (error) {
     if (isTransientLlmError(error)) {

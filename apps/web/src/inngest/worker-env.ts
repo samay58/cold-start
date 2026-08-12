@@ -89,6 +89,25 @@ export function personReadsEnabled() {
   return process.env.PERSON_READS_ENABLED !== "false";
 }
 
+export function emphasisReadEnabled() {
+  return process.env.EMPHASIS_READ_ENABLED !== "false";
+}
+
+export type FounderVoiceEnv = { xaiApiKey?: string; githubToken?: string; directExa: DirectExaEnv };
+
+// The xAI and GitHub credentials for the founder-voice paid/free lanes. Both are optional: a
+// missing xaiApiKey skips the xai_x_search lane and a missing githubToken degrades the GitHub
+// lane to the unauthenticated rate limit, same as the existing GitHub commit-email harvester.
+export function founderVoiceEnvFromProcess(): FounderVoiceEnv {
+  const xaiApiKey = process.env.XAI_API_KEY?.trim();
+  const githubToken = githubTokenFromProcess();
+  return {
+    ...(xaiApiKey ? { xaiApiKey } : {}),
+    ...(githubToken ? { githubToken } : {}),
+    directExa: directExaEnvFromProcess()
+  };
+}
+
 export function expandedDescriptionEnabled() {
   return process.env.EXPANDED_DESCRIPTION_ENABLED !== "false";
 }

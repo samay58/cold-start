@@ -1,7 +1,12 @@
 import { buildSkeletonCard } from "@cold-start/pipeline";
 import { describe, expect, it } from "vitest";
 import { hasUsablePublicProfile } from "@cold-start/core";
-import { prepareCardForStorage, preserveExistingBasics, underfilledBasicsErrorMessage } from "../src/inngest/card-storage";
+import {
+  prepareCardForStorage,
+  prepareCardSnapshotForStorage,
+  preserveExistingBasics,
+  underfilledBasicsErrorMessage
+} from "../src/inngest/card-storage";
 
 describe("preserveExistingBasics", () => {
   it("drops existing synthesis when a basics refresh rewrites public facts", () => {
@@ -163,6 +168,36 @@ describe("preserveExistingBasics", () => {
     expect(merged.signals).toHaveLength(6);
     expect(merged.signals[0]?.url).toBe("https://incoming.example/newest");
     expect(merged.signals.some((signal) => signal.url.endsWith("/6"))).toBe(false);
+  });
+
+  // synthesis is preserved as a unit (the `synthesis` field is carried over wholesale, never
+  // merged field-by-field), so an emphasisRead filed inside it rides along for free. functions.ts
+  // passes preserveAnalysis: true on a basics run whenever the stored row's analysis state moved
+  // since the run started (e.g. a concurrent analysis run landed synthesis mid this basics run);
+  // this pins that exact mode="basics" + preserveAnalysis:true combination.
+  it("carries synthesis.emphasisRead across a basics refresh that preserves analysis", () => {
+    const emphasisRead = {
+      status: "read" as const,
+      loud: { text: "They lead every post with GitHub stars [c1].", citationIds: ["c1"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "The loudest proof sits at product, not customers [c1].", citationIds: ["c1"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    const existing = {
+      ...buildSkeletonCard("cognition.ai"),
+      synthesis: {
+        whyItMatters: { text: "Cited thesis [c1].", citationIds: ["c1"] },
+        bullCase: [{ text: "Bull case [c1].", citationIds: ["c1"] }],
+        bearCase: [],
+        openQuestions: [{ question: "What must be checked next?", category: "buyer_budget" }],
+        emphasisRead
+      }
+    };
+    const fresh = buildSkeletonCard("cognition.ai");
+
+    const merged = prepareCardSnapshotForStorage("basics", existing, fresh, { preserveAnalysis: true });
+
+    expect(merged.synthesis?.emphasisRead).toEqual(emphasisRead);
   });
 
   it("collapses two outlets covering one announcement into a single corroborated signal", () => {

@@ -274,6 +274,12 @@ async function runAnalysisGeneration(harness: ReturnType<typeof stepHarness> = s
   process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
   process.env.CONTACT_ENRICHMENT_ENABLED = "false";
   delete process.env.ANALYSIS_SYNTHESIS_MIN_CITATIONS;
+  // This suite exercises the synthesize/verify step wiring, not the emphasis read (Task 7):
+  // its @cold-start/providers and @cold-start/llm mocks below do not stub the founder-voice
+  // fetch or synthesizeEmphasisRead, so leaving emphasis on would call through to the real
+  // (unmocked) provider orchestrator. Coverage for the emphasis wiring itself lives in
+  // emphasis-read.test.ts.
+  process.env.EMPHASIS_READ_ENABLED = "false";
 
   const { generateCardHandler } = await import("../src/inngest/functions");
   await generateCardHandler({

@@ -244,6 +244,14 @@ export function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTraceP
     trace.synthesis = patch.synthesis;
   }
 
+  // Shallow-merged, not replaced: the emphasis wiring calls mergeTracePatch multiple times
+  // across the run (thin-file decision, founder-voice fetch, verify outcome), each carrying a
+  // different subset of fields. A wholesale replace like synthesis/sourceGate/extraction above
+  // would let the last call wipe out laneCounts/laneFailures written by an earlier one.
+  if ("emphasis" in patch && patch.emphasis) {
+    trace.emphasis = { ...trace.emphasis, ...patch.emphasis };
+  }
+
   if ("failure" in patch && patch.failure) {
     trace.failure = patch.failure;
   }
