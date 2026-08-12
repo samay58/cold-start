@@ -264,3 +264,103 @@ body:has(.eval-rig) {
 .eval-done-links {
   font-size: 14px;
 }
+
+.eval-dossier {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.eval-lens,
+.eval-section {
+  border: 1px solid #e4ded2;
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 16px 18px;
+}
+
+.eval-lens h2,
+.eval-section h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+
+.eval-lens h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e5c9e;
+  margin: 12px 0 4px;
+}
+
+.eval-lens-why {
+  font-size: 15px;
+  margin: 0;
+}
+
+.eval-lens-block ul,
+.eval-section ul {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+.eval-lens-block li,
+.eval-section li {
+  margin-bottom: 4px;
+}
+
+.eval-lens-tag {
+  display: inline-block;
+  font-size: 11px;
+  color: #6e5c9e;
+  border: 1px solid #d6cfe6;
+  border-radius: 6px;
+  padding: 0 6px;
+  margin-left: 6px;
+}
+
+.eval-lens-empty,
+.eval-section-summary {
+  font-size: 14px;
+  color: #3d3931;
+  margin: 0 0 4px;
+}
+
+.eval-section-citations {
+  font-size: 11px;
+  color: #7a7466;
+  margin-left: 8px;
+}
+
+.eval-verdict-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eval-verdict-label {
+  font-size: 12px;
+  color: #7a7466;
+  min-width: 110px;
+}
+
+.eval-missing-comps {
+  padding: 8px 10px;
+  border: 1px solid #c9c2b2;
+  border-radius: 8px;
+  background: #fffdf9;
+  font: inherit;
+  font-size: 13px;
+}
+
+.eval-pair-arm {
+  margin-bottom: 24px;
+}
+
+.eval-pair-label {
+  font-size: 22px;
+  color: #6e5c9e;
+  margin: 0 0 8px;
+}
