@@ -109,7 +109,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
         .toBe(restingBackground);
       await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "read-full-hover.png") });
 
-      for (const categoryId of ["must-be-true", "could-break", "why-now", "learn-next"] as const) {
+      for (const categoryId of ["must-be-true", "could-break", "why-now", "pay-attention", "learn-next"] as const) {
         const category = read.locator(`[data-category="${categoryId}"]`);
         const trigger = category.locator(".cs-investor-read-category-trigger");
         await trigger.click();
