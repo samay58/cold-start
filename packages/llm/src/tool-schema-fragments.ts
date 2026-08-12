@@ -6,7 +6,7 @@
  */
 export const nonEmptyStringSchema = { type: "string", minLength: 1 } as const;
 
-export const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
+const citationMarkerPattern = "\\[[A-Za-z0-9_-]+\\]";
 export const citationMarkerRegex = /\[([A-Za-z0-9_-]+)\]/g;
 
 export const sourcedTextToolSchema = {
