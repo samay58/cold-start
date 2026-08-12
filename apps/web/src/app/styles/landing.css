@@ -513,6 +513,331 @@
   line-height: 1.55;
 }
 
+/* --- Record exhibit: real PitchBook output next to real card output, between the section
+   intro and the comparison table (docs/superpowers/plans/2026-08-11-landing-exhibit-and-
+   video-bookend.md). Two papers on the desk per pair: their record on printout material,
+   our excerpt on the card's own parchment, offset a few pixels so it never reads as a
+   rigid 50/50 grid. Ticks in seal lilac are the exhibit's only accent. --- */
+
+.cs-exhibit {
+  margin: 4px 0 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.cs-exhibit-kicker {
+  margin: 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* The stack: six one-liners on one printout. The repetition is the content, so the rows sit
+   flush with thin rules and identical type; nothing is dimmed or editorialized. */
+.cs-exhibit-stack {
+  max-width: 760px;
+  padding: 6px 20px 14px;
+  border: 1px solid var(--cat-printout-edge);
+  border-radius: 2px;
+  background: var(--cat-printout);
+}
+
+.cs-exhibit-stack-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cat-printout-edge);
+}
+
+.cs-exhibit-stack-row:last-of-type {
+  border-bottom: none;
+}
+
+.cs-exhibit-stack-company {
+  padding-top: 2px;
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-exhibit-stack-text {
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.cs-exhibit-receipt {
+  margin: 10px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-exhibit-stack-caption {
+  padding-top: 10px;
+  border-top: 1px solid var(--cat-printout-edge);
+}
+
+.cs-exhibit-question {
+  margin: 0 0 16px;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: clamp(21px, 2.4vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.cs-exhibit-desk {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 28px;
+  align-items: start;
+}
+
+/* Their paper: flat, slightly cold against the warm page, thin rules, grey small-caps
+   labels, values full-contrast and verbatim. */
+.cs-exhibit-record {
+  padding: 18px 20px 14px;
+  border: 1px solid var(--cat-printout-edge);
+  border-radius: 2px;
+  background: var(--cat-printout);
+}
+
+.cs-exhibit-record-description {
+  margin: 0 0 14px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.cs-exhibit-record-fields {
+  margin: 0;
+}
+
+.cs-exhibit-record-field {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--cat-printout-edge);
+}
+
+.cs-exhibit-record-field dt {
+  color: var(--cat-muted);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding-top: 2px;
+}
+
+.cs-exhibit-record-field dd {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+
+/* The one margin note the exhibit carries (the employee disagreement): receipt face,
+   full-width under its field row. */
+.cs-exhibit-note {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cs-exhibit-record-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cs-exhibit-record-column {
+  padding-top: 4px;
+  border-top: 1px solid var(--cat-printout-edge);
+}
+
+.cs-exhibit-record-column-name {
+  display: block;
+  margin: 6px 0 8px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.cs-exhibit-record-column-field {
+  margin: 0 0 6px;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.cs-exhibit-record-column-field span {
+  color: var(--cat-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+
+/* Our paper: the card's own parchment and classes, offset a few pixels below the record.
+   The fade at the bottom trails off mid-content; the link below opens the live card. */
+.cs-exhibit-card {
+  position: relative;
+  overflow: hidden;
+  margin-top: 10px;
+  padding: 18px 20px 30px;
+  border: 1px solid var(--cat-paper-edge);
+  border-radius: 6px;
+  background: var(--cat-paper);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.5) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cs-exhibit-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--cat-rule-strong);
+}
+
+.cs-exhibit-card-name {
+  color: var(--cat-ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.cs-exhibit-card-meta {
+  color: var(--cat-muted);
+  font-family: var(--font-text);
+  font-size: 12px;
+}
+
+.cs-exhibit-line {
+  display: flex;
+  gap: 10px;
+}
+
+/* The tick gutter: a fixed narrow column so marked and unmarked lines stay aligned. */
+.cs-exhibit-gutter {
+  flex: 0 0 5px;
+  padding-top: 5px;
+}
+
+/* A short editor's tick beside the marked passage, never a full-height ribbon. The only
+   lilac on the exhibit. */
+.cs-exhibit-tick {
+  display: block;
+  width: 3px;
+  height: 18px;
+  background: var(--color-seal);
+  transform-origin: top center;
+}
+
+.cs-exhibit-oneliner {
+  margin: 0;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.cs-exhibit-card .cs-face-bullet {
+  font-size: 15px;
+}
+
+.cs-exhibit-card .cs-face-comp {
+  font-size: 14.5px;
+}
+
+.cs-exhibit-comp-sources {
+  color: var(--cat-muted-2);
+  font-family: var(--font-text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cs-exhibit-card-fade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--cat-paper));
+  pointer-events: none;
+}
+
+.cs-exhibit-card-link {
+  display: inline-block;
+  margin-top: 12px;
+  justify-self: start;
+  color: var(--cat-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cs-exhibit-tally {
+  max-width: 70ch;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--cat-rule-strong);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+@media (max-width: 700px) {
+  .cs-exhibit-desk {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .cs-exhibit-card {
+    margin-top: 0;
+  }
+
+  .cs-exhibit-stack-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .cs-exhibit-record-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-exhibit-record-field {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+
+  .cs-exhibit-gutter {
+    flex-basis: 4px;
+  }
+}
+
 /* The comparison becomes two physical objects side by side: a parchment card (Cold Start) and a
    flat gray printout (PitchBook), both continuous surfaces built from per-cell backgrounds since
    the DOM stays row-based (accessibility + the home-page test depend on it). The header band
