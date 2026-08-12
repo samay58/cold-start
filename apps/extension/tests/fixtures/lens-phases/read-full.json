@@ -639,6 +639,20 @@
         "incentive": "Company positioning.",
         "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
       }
+    },
+    {
+      "id": "fv1",
+      "url": "https://x.com/tuhinsriv/status/1938420011223344556",
+      "title": "Tuhin Srivastava on X: Series F thread",
+      "snippet": "Revenue up 20x, inference volume up 40x this year. Grateful to keep scaling Baseten's inference stack with our investors.",
+      "fetchedAt": "2026-07-20T15:22:14.463Z",
+      "sourceType": "other",
+      "sourceQuality": {
+        "tier": "founder_authored",
+        "label": "Founder-authored",
+        "rationale": "The founder's own public voice.",
+        "incentive": "Personal and company promotion."
+      }
     }
   ],
   "synthesis": {
@@ -716,6 +730,19 @@
         ]
       },
       "marketStructure": null
+    },
+    "emphasisRead": {
+      "status": "read",
+      "loud": {
+        "text": "Srivastava leads every funding announcement with the same volume-and-revenue-growth multiples, repeating the 20x revenue and 40x inference-volume figures across his own posts and the Series F coverage [fv1] [e5].",
+        "citationIds": ["fv1", "e5"]
+      },
+      "quiet": "Nothing filed shows a public pricing page or a disclosed gross margin on inference revenue.",
+      "read": {
+        "text": "Baseten's loudest proof is valuation and volume-growth momentum, not unit economics: gross margin and per-token pricing stay undisclosed even as round size and valuation keep compounding [fv1].",
+        "citationIds": ["fv1"]
+      },
+      "wouldChangeIf": "A public pricing page or a disclosed gross margin figure would break this read."
     }
   },
   "cacheStatus": "hit",

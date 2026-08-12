@@ -265,6 +265,18 @@ function tensionClaim(claims: SourcedText[]): LensTensionClaim | null {
   };
 }
 
+// Loud and Read are cited SourcedText claims like any other; Quiet and Would-change-if are
+// plain file-scoped strings with no citations. Only feeds lensSources (the footer source chips):
+// independentlyBacked stays scoped to supportedClaims alone, per the emphasis read's own rule
+// that it must never move the tension/timing posture judgment.
+function emphasisSourcedClaims(card: ColdStartCard): SourcedText[] {
+  const emphasis = card.synthesis?.emphasisRead;
+  if (!emphasis || emphasis.status !== "read") {
+    return [];
+  }
+  return [emphasis.loud, emphasis.read];
+}
+
 function supportedClaims(card: ColdStartCard): SourcedText[] {
   if (!card.synthesis) {
     return [];
@@ -479,7 +491,10 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
     breaks: tensionClaim(card.synthesis.bearCase),
     timing,
     nextQuestion: nextQuestionDisplay(card),
-    sources: lensSources(citations, claims),
+    // The sixth card's own citations (fv or otherwise) need to appear as source chips too, so
+    // the footer sees the emphasis read's claims; independentlyBacked below stays scoped to the
+    // original claims only, unaffected by this addition.
+    sources: lensSources(citations, [...claims, ...emphasisSourcedClaims(card)]),
     independentlyBacked: claims.some((claim) => {
       const posture = strongestPosture(citations, claim.citationIds);
       return posture === "independent" || posture === "reporting";

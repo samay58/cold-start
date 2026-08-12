@@ -28,12 +28,17 @@ export type EvidenceState = "verified" | "reported" | "company" | "conflict" | "
 
 // The locked "Investor read" teaser's five row labels are shared by the public card and landing
 // page preview so the gated categories cannot drift.
+// Mirrors the extension's six-category Investor Lens memo (investorLensCategories,
+// apps/extension/src/research/investor-lens.ts): the public teaser must list every locked
+// category, including the sixth, "Pay attention to" (the emphasis read), or the count silently
+// drifts out of sync between the public tease and the gated panel it teases.
 export const INVESTOR_READ_LABELS = [
   "Why care",
   "What must be true",
   "What could break",
   "Why now",
-  "What to learn next"
+  "What to learn next",
+  "Pay attention to"
 ] as const;
 
 const NO_SOURCE_DETAIL = "no source in ledger";

@@ -6,6 +6,7 @@ import {
   callNumber,
   evidenceStateForFact,
   headcountConflict,
+  INVESTOR_READ_LABELS,
   isThinFile,
   moneyBullets,
   nextQuestionForCard,
@@ -40,6 +41,13 @@ function resolvedFact<T>(
     citationIds
   };
 }
+
+describe("INVESTOR_READ_LABELS", () => {
+  it("lists all six locked categories, ending with Pay attention to", () => {
+    expect(INVESTOR_READ_LABELS).toHaveLength(6);
+    expect(INVESTOR_READ_LABELS[5]).toBe("Pay attention to");
+  });
+});
 
 describe("buildCitationIndex", () => {
   it("renumbers in card order, not ledger quality order, and dedups repeats", () => {

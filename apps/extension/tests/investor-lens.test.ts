@@ -405,4 +405,47 @@ describe("investor lens display", () => {
     expect(display.emphasis.loud).toBe("Warp leans hard on developer love in every post.");
     expect(display.emphasis.read).toBe("The company sells growth, not monetization proof.");
   });
+
+  // Fix wave (2026-08-12): supportedClaims (fed to lensSources) never included the emphasis
+  // read's own loud/read claims, so the sixth card's citations never surfaced as footer source
+  // chips even when the read was entirely backed by founder-voice evidence.
+  it("surfaces founder-authored source chips for a filed read whose only citations are fv-prefixed", () => {
+    const founderCitation: Citation = {
+      id: "fv1",
+      url: "https://x.com/founder/status/123",
+      title: "Founder thread on adoption",
+      fetchedAt: "2026-06-23T12:00:00.000Z",
+      sourceType: "other",
+      sourceQuality: {
+        tier: "founder_authored",
+        label: "Founder-authored",
+        rationale: "Direct statement from a named founder.",
+        incentive: "Founder has an incentive to promote the company."
+      }
+    };
+    const display = investorReadForCard(card({
+      citations: [...minimalWarpCard().citations, founderCitation],
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        emphasisRead: {
+          status: "read",
+          loud: { text: "The founder posts constantly about daily active usage [fv1].", citationIds: ["fv1"] },
+          quiet: "Nothing filed shows a pricing page.",
+          read: { text: "The loudest proof is usage growth, not monetization [fv1].", citationIds: ["fv1"] },
+          wouldChangeIf: "A pricing page appears."
+        }
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    expect(display.sources.map((source) => source.id)).toContain("fv1");
+    // independentlyBacked stays scoped to the original synthesis claims only, unaffected by the
+    // fv-only emphasis read (whyItMatters here cites c1, not an independent/reporting source).
+    expect(display.independentlyBacked).toBe(false);
+  });
 });
