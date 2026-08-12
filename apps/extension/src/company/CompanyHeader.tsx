@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { readableCompanyName, sourceLabel, websiteLabel } from "./company-display";
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
-import { fundingEvidenceFromCitations } from "@cold-start/core";
+import { fundingEvidenceFromCitations, isAgedProfile } from "@cold-start/core";
 import type { TooltipDossier, TooltipPropsFor } from "../shared/SharedTooltip";
 import { useAlphaEvent } from "../shared/alpha-event-context";
 
@@ -24,6 +24,8 @@ type CompanyHeaderProps = {
   // Content inside the copy column, under the domain: summary, filed stamp.
   identityChildren?: ReactNode;
   phase: CompanyHeaderPhase;
+  // The hold-to-refile control, rendered beside the freshness mark on a stale profile.
+  refileSlot?: ReactNode;
   // Right-aligned slot: "No profile" chip at intake, the assembly whisper while building.
   statusSlot?: ReactNode;
 };
@@ -38,6 +40,7 @@ export function CompanyHeader({
   freshnessLabel,
   identityChildren,
   phase,
+  refileSlot,
   statusSlot
 }: CompanyHeaderProps) {
   const companyName = card ? readableCompanyName(card) : readableCompanyNameFallback(domain);
@@ -57,7 +60,15 @@ export function CompanyHeader({
           <a className="cs-company-domain" href={`https://${domain}`} rel="noreferrer" target="_blank">
             {website}
           </a>
-          {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
+          {freshnessLabel ? (
+            <span
+              className="cs-freshness-mark"
+              data-aged={card && isAgedProfile(card.generatedAt) ? "true" : undefined}
+            >
+              {freshnessLabel}
+            </span>
+          ) : null}
+          {refileSlot}
           {identityChildren}
         </div>
         {statusSlot ? <div className="cs-company-status-slot">{statusSlot}</div> : null}

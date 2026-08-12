@@ -10,6 +10,7 @@ coverage/
 eval/runs/
 eval/provider-matrix/fixtures/
 eval/provider-matrix/runs/
+eval/curation/corpus/
 .env
 .env.local
 .env.*.local

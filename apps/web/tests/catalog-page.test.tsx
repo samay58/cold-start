@@ -77,14 +77,15 @@ describe("CatalogPage", () => {
 
     expect(html).toContain("THIN FILE");
 
-    // Filed-date desc: Voxlathe (2026-05-15) before Plainfield (2026-04-18) before Hollow Labs
-    // (2026-04-02), regardless of the mocked array's own order above.
+    // Filed-date desc: Plainfield (dynamically two days old, the gallery's not-aged contrast)
+    // before Voxlathe (2026-05-15) before Hollow Labs (2026-04-02), regardless of the mocked
+    // array's own order above.
     const voxlatheIndex = html.indexOf("Voxlathe");
     const plainfieldIndex = html.indexOf("Plainfield");
     const hollowLabsIndex = html.indexOf("Hollow Labs");
-    expect(voxlatheIndex).toBeGreaterThan(-1);
-    expect(plainfieldIndex).toBeGreaterThan(voxlatheIndex);
-    expect(hollowLabsIndex).toBeGreaterThan(plainfieldIndex);
+    expect(plainfieldIndex).toBeGreaterThan(-1);
+    expect(voxlatheIndex).toBeGreaterThan(plainfieldIndex);
+    expect(hollowLabsIndex).toBeGreaterThan(voxlatheIndex);
   });
 
   it("never renders THIN FILE against the two non-thin rows", async () => {

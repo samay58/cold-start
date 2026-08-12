@@ -317,6 +317,7 @@ Security notes:
 - Never commit, screenshot, or paste the production token into docs, issues, PRs, or chat logs meant to be durable.
 - Rotate `EXTENSION_API_TOKEN` immediately if it is exposed. Deleting a commit is not enough after a push.
 - Keep `PUBLIC_GENERATION_ENABLED=false` unless public generation is intentionally being opened.
+- Never set `EVAL_RIG_ENABLED` in any Vercel environment. The eval taste rig renders synthesis in a browser and is local-only.
 
 ## Extension Build
 

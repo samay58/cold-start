@@ -39,7 +39,10 @@ export const alphaEventNameSchema = z.enum([
   "theme.changed",
   "diagnostics.copied",
   "support.requested",
-  "client.error_presented"
+  "client.error_presented",
+  "refile.hold_started",
+  "refile.fired",
+  "refile.hold_abandoned"
 ]);
 
 export const alphaSurfaceSchema = z.enum([
@@ -287,6 +290,9 @@ const supportRequestedEventSchema = alphaEventSchemaFor(
   "support.requested",
   z.object({ channel: z.literal("email") }).strict()
 );
+const refileHoldStartedEventSchema = alphaEventSchemaFor("refile.hold_started", domainPropertiesSchema);
+const refileFiredEventSchema = alphaEventSchemaFor("refile.fired", domainPropertiesSchema);
+const refileHoldAbandonedEventSchema = alphaEventSchemaFor("refile.hold_abandoned", domainPropertiesSchema);
 const clientErrorPresentedEventSchema = alphaEventSchemaFor(
   "client.error_presented",
   z.object({
@@ -353,7 +359,10 @@ export const alphaEventSchema = z.discriminatedUnion("eventName", [
   themeChangedEventSchema,
   diagnosticsCopiedEventSchema,
   supportRequestedEventSchema,
-  clientErrorPresentedEventSchema
+  clientErrorPresentedEventSchema,
+  refileHoldStartedEventSchema,
+  refileFiredEventSchema,
+  refileHoldAbandonedEventSchema
 ]);
 
 export const alphaEventBatchSchema = z.object({

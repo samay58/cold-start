@@ -3,7 +3,7 @@
 // as-is. Card-face components (Tasks 5-9) import from here instead of recomputing evidence
 // state, citation numbering, or the honesty-doctrine copy themselves.
 import type { Citation, ColdStartCard, ResearchSection, ResolvedFact, SourceQualityTier } from "@cold-start/core";
-import { splitIntoSentences, stripCitationMarkers } from "@cold-start/core";
+import { isAgedProfile, splitIntoSentences, stripCitationMarkers } from "@cold-start/core";
 import type { CitationLedger } from "@cold-start/ui";
 import {
   buildCitationLedger,
@@ -249,6 +249,12 @@ export function filedDateStamp(generatedAt: string): string {
   const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
   const day = String(parsed.getUTCDate()).padStart(2, "0");
   return `${year}·${month}·${day}`;
+}
+
+// Whether the filed date has aged past the human-attention threshold (14 days, in core's
+// card-age module). The face renders it as one weight step plus a dot, never an alert.
+export function isAgedCard(card: PublicCardData, now?: Date): boolean {
+  return now ? isAgedProfile(card.generatedAt, now) : isAgedProfile(card.generatedAt);
 }
 
 function isThinFileFromCitations(input: Citation[]): boolean {

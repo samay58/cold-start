@@ -156,6 +156,7 @@ These keys exist for different parts of the system. Keep real values in local ig
 | `EXTENSION_API_TOKEN`                                                      | Bearer token for the gated extension API. The bearer token is the extension secret. The local value `local-extension-token` is only a development sentinel.                                                                               |
 | `CHROME_EXTENSION_ID` and `ALLOWED_EXTENSION_ORIGINS`                      | Extension identity allowlist. Production must use a real extension ID and a non-wildcard Chrome extension origin.                                                                                                                         |
 | `INNGEST_EVENT_KEY` and `INNGEST_SIGNING_KEY`                              | Hosted Inngest credentials for deployed background generation. Local development uses the dev server path.                                                                                                                                |
+| `EVAL_RIG_ENABLED` and `EVAL_RIG_DATA_DIR`                                 | Local-dev only. Enable the `/eval` taste rig and point it at a frozen corpus data dir. Never set on Vercel; the rig renders synthesis.                                                                                                    |
 
 AgentCash does not use a normal API key here. Local runs use the wallet state managed by the AgentCash CLI; deployed runs use `X402_PRIVATE_KEY`.
 

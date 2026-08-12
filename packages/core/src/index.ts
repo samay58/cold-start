@@ -1,6 +1,7 @@
 export * from "./api-contract";
 export * from "./alpha-analytics";
 export * from "./card";
+export * from "./card-age";
 export * from "./card-quality";
 export * from "./citation-text";
 export * from "./description-normalization";

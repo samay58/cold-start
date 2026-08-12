@@ -1,6 +1,7 @@
 export * from "./client";
 export * from "./repositories/access-requests";
 export * from "./repositories/alpha";
+export * from "./repositories/card-revisions";
 export * from "./repositories/cards";
 export * from "./repositories/evidence";
 export * from "./repositories/generation-runs";
