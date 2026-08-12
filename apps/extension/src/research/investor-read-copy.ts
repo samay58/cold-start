@@ -28,8 +28,8 @@ export const EMPHASIS_EMPTY_COPY = {
 } as const;
 
 export const EMPHASIS_LABELS = {
-  loud: "Loud",
-  quiet: "Quiet",
+  loud: "Leads with",
+  quiet: "Unsaid",
   read: "The read",
   wouldChangeIf: "Would change if"
 } as const;

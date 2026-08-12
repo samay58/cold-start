@@ -224,17 +224,17 @@ describe("analysisWaitStagePlan (pure)", () => {
       event({ type: "generation.started" }),
       event({ type: "source.found" }),
       event({ type: "synthesis.started" }),
-      event({ type: "emphasis.started", message: "Reading what they are loud about" })
+      event({ type: "emphasis.started", message: "Reading what they lead with" })
     ]);
     expect(started.find((stage) => stage.id === "read")?.status).toBe("current");
-    expect(started.find((stage) => stage.id === "read")?.proofLine).toBe("Reading what they are loud about");
+    expect(started.find((stage) => stage.id === "read")?.proofLine).toBe("Reading what they lead with");
     expect(started.find((stage) => stage.id === "verify")?.status).toBe("pending");
 
     const complete = analysisWaitStagePlan([
       event({ type: "generation.started" }),
       event({ type: "source.found" }),
       event({ type: "synthesis.started" }),
-      event({ type: "emphasis.started", message: "Reading what they are loud about" }),
+      event({ type: "emphasis.started", message: "Reading what they lead with" }),
       event({ type: "emphasis.complete", message: "No emphasis read", metadata: { status: "nothing_notable" } })
     ]);
     expect(complete.find((stage) => stage.id === "read")?.status).toBe("current");

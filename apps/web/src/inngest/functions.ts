@@ -796,7 +796,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
               "emphasis-read": skippedStep(`thin file: ${thinFileReason}`)
             };
           } else {
-            await recordEvent("emphasis-started", "emphasis.started", "Reading what they are loud about", {}, null);
+            await recordEvent("emphasis-started", "emphasis.started", "Reading what they lead with", {}, null);
             currentStage = "fetch-founder-voice";
             // A repeat analysis run can already carry fv-prefixed citations on generatedCard
             // (extraction reuse spreads the existing card's citations wholesale) and, separately,

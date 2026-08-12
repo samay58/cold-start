@@ -100,7 +100,7 @@ function gatherProofLine(events: ExtensionResearchRunEvent[]) {
 // after synthesis.started, then emphasis.complete once its founder-voice fetch and LLM call
 // finish, 20-40s later): without this, Read sat on synthesis.started's copy for that whole
 // window, looking stalled. Both event messages are already flat, real-event-driven copy in the
-// same register as this stage's other lines (functions.ts: "Reading what they are loud about",
+// same register as this stage's other lines (functions.ts: "Reading what they lead with",
 // "Emphasis read filed" / "No emphasis read"), so they are used verbatim, newest first.
 function readProofLine(events: ExtensionResearchRunEvent[]) {
   const emphasisComplete = latestEventOfType(events, "emphasis.complete");
