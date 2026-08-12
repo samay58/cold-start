@@ -1,5 +1,6 @@
 import {
   firstSentence,
+  isReadableProse,
   textLooksLikeCustomerProof,
   textLooksLikeDocs,
   textLooksLikeFunding,
@@ -82,20 +83,37 @@ function clippingNote(
   snippet?: string
 ) {
   const cleanTitle = title.replace(/\s+/g, " ").trim();
-  if (clippingHasUsefulTitle({ title: cleanTitle, domain, sourceClass })) {
-    return cleanTitle;
+  const proseTitle = isReadableProse(cleanTitle) ? cleanTitle : null;
+  if (proseTitle && clippingHasUsefulTitle({ title: proseTitle, domain, sourceClass })) {
+    return proseTitle;
   }
-  const cleanSnippet = firstSentence(snippet?.replace(/\s+/g, " ").trim() ?? "");
-  if (cleanSnippet && cleanSnippet.toLowerCase() !== domain.toLowerCase()) {
+  // Gate the string that would render: the first sentence of the snippet.
+  // Most snippets are raw provider JSON (a slice of sources.raw_text), so
+  // rejection is the common case, and the bubble falls back to domain+type.
+  const rawSnippet = snippet?.replace(/\s+/g, " ").trim() ?? "";
+  const cleanSnippet = firstSentence(rawSnippet);
+  if (
+    cleanSnippet &&
+    isReadableProse(cleanSnippet) &&
+    cleanSnippet.toLowerCase() !== domain.toLowerCase()
+  ) {
     return cleanSnippet.length > 180 ? `${cleanSnippet.slice(0, 177).trimEnd()}...` : cleanSnippet;
   }
-  return cleanTitle && cleanTitle.toLowerCase() !== domain.toLowerCase() ? cleanTitle : null;
+  // A snippet was attempted and gated out: a boilerplate title on its own adds nothing
+  // beyond the domain, so stay at domain+type rather than resurrecting it. With no
+  // snippet at all, a bare prose title (a short product name) is still worth showing.
+  return proseTitle && !rawSnippet && proseTitle.toLowerCase() !== domain.toLowerCase()
+    ? proseTitle
+    : null;
 }
 
 export function clippingHasUsefulTitle(
   clipping: Pick<Clipping, "domain" | "sourceClass" | "title"> & Partial<Pick<Clipping, "note">>
 ): boolean {
   const focusText = clipping.note ?? clipping.title;
+  if (!isReadableProse(focusText)) {
+    return false;
+  }
   const words = focusText.toLowerCase().match(/[a-z0-9]+/g) ?? [];
   const domainWords = new Set(clipping.domain.toLowerCase().match(/[a-z0-9]+/g) ?? []);
   const usefulWords = words.filter((word) =>

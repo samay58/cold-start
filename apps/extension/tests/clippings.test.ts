@@ -196,6 +196,47 @@ describe("clippingsFromEvents", () => {
     expect(clippings[0]?.sourceClass).toBe("docs");
     expect(clippings[0]?.domain).toBe("ok.com");
   });
+
+  it("refuses a JSON snippet as a note instead of rendering provider payloads", () => {
+    const [clipping] = clippingsFromEvents([
+      event({
+        id: "sources",
+        type: "source.found",
+        metadata: {
+          sources: [{
+            url: "https://cartesia.ai/sonic",
+            domain: "cartesia.ai",
+            title: "Cartesia",
+            sourceType: "company_site",
+            snippet: '{"requestId":"2f3fbeb69bc7c6b81d1bd35367afafc2","results":[{"id":"https://cartesia.ai/sonic?gad_campaignid=23084431172","title":"Real-time TTS API with AI laughter and emotion | Cartesia Sonic-3"'
+          }]
+        }
+      })
+    ]);
+
+    // Junk snippet, generic title: the bubble keeps domain and type only.
+    expect(clipping?.note).toBeNull();
+  });
+
+  it("refuses a junk title outright, even as the last fallback", () => {
+    const [clipping] = clippingsFromEvents([
+      event({
+        id: "sources",
+        type: "source.found",
+        metadata: {
+          sources: [{
+            url: "https://api.example.com/record",
+            domain: "example.com",
+            title: '{"organization":{"id":"6578dc4066927303d3b5b396","name":"Cartesia"',
+            sourceType: "enrichment",
+            snippet: ""
+          }]
+        }
+      })
+    ]);
+
+    expect(clipping?.note).toBeNull();
+  });
 });
 
 describe("clippingsFromSources", () => {
@@ -221,6 +262,19 @@ describe("clippingHasUsefulTitle", () => {
     expect(clippingHasUsefulTitle({ ...base, title: "Real-time multimodal intelligence | Cartesia" })).toBe(true);
     expect(clippingHasUsefulTitle({ ...base, sourceClass: "funding", title: "Cartesia raises a Series B" })).toBe(true);
     expect(clippingHasUsefulTitle({ ...base, sourceClass: "database", title: "Jessica N." })).toBe(false);
+  });
+
+  it("never lets gate-failing text take the featured slot", () => {
+    const base = { domain: "cartesia.ai", sourceClass: "company_site" as const };
+    expect(clippingHasUsefulTitle({
+      ...base,
+      title: '{"requestId":"abc","results":[{"title":"Real-time TTS API with AI laughter"}]}'
+    })).toBe(false);
+    expect(clippingHasUsefulTitle({
+      ...base,
+      title: "Cartesia",
+      note: '[![](https://framerusercontent.com/images/J0k8tAFEkkDowBZmjeWMoRC5ZfI.png?width=200&height=200)'
+    })).toBe(false);
   });
 });
 
