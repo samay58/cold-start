@@ -214,6 +214,33 @@ describe("analysisWaitStagePlan (pure)", () => {
     expect(complete.find((stage) => stage.id === "verify")?.proofLine).toBe("Source check complete");
   });
 
+  // The emphasis read (founder-voice fetch plus the emphasis_read LLM stage) runs between
+  // synthesis and verify, 20-40s on its own; before this, Read held synthesis.started's copy
+  // motionless through that whole window. Its two events drive Read's proof line instead, in the
+  // same flat, real-event-driven register as every other stage, still under "Read" (index 2)
+  // rather than a new stage: verify.started has not fired yet either way.
+  it("updates Read's proof line through the emphasis read window without moving the stage", () => {
+    const started = analysisWaitStagePlan([
+      event({ type: "generation.started" }),
+      event({ type: "source.found" }),
+      event({ type: "synthesis.started" }),
+      event({ type: "emphasis.started", message: "Reading what they are loud about" })
+    ]);
+    expect(started.find((stage) => stage.id === "read")?.status).toBe("current");
+    expect(started.find((stage) => stage.id === "read")?.proofLine).toBe("Reading what they are loud about");
+    expect(started.find((stage) => stage.id === "verify")?.status).toBe("pending");
+
+    const complete = analysisWaitStagePlan([
+      event({ type: "generation.started" }),
+      event({ type: "source.found" }),
+      event({ type: "synthesis.started" }),
+      event({ type: "emphasis.started", message: "Reading what they are loud about" }),
+      event({ type: "emphasis.complete", message: "No emphasis read", metadata: { status: "nothing_notable" } })
+    ]);
+    expect(complete.find((stage) => stage.id === "read")?.status).toBe("current");
+    expect(complete.find((stage) => stage.id === "read")?.proofLine).toBe("No emphasis read");
+  });
+
   it("scopes to the latest run's events, so a retried run's fresh events are not shadowed by a stale prior run's terminal state", () => {
     const staleRun = [
       event({ runId: "run-old", type: "generation.queued" }),

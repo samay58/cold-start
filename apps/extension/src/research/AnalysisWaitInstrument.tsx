@@ -39,6 +39,12 @@ const STAGE_INDEX_BY_EVENT_TYPE: Record<string, number> = {
   "source.found": 1,
   "source.enrichment": 1,
   "synthesis.started": 2,
+  // The emphasis read (founder-voice fetch plus the emphasis_read LLM stage) runs between
+  // synthesis and verify, taking 20-40s on its own; mapped alongside synthesis.started so it
+  // never moves the stage index (Read is already current by the time either fires) but still
+  // documents the real event stream for anyone reading this table.
+  "emphasis.started": 2,
+  "emphasis.complete": 2,
   "verify.started": 3,
   "verify.complete": 3,
   "card.saved": 4,
@@ -90,7 +96,21 @@ function gatherProofLine(events: ExtensionResearchRunEvent[]) {
   return count !== null ? `${plural(count, "source")} found` : "Sources found";
 }
 
+// Read's sublabel through the emphasis read window (functions.ts fires emphasis.started right
+// after synthesis.started, then emphasis.complete once its founder-voice fetch and LLM call
+// finish, 20-40s later): without this, Read sat on synthesis.started's copy for that whole
+// window, looking stalled. Both event messages are already flat, real-event-driven copy in the
+// same register as this stage's other lines (functions.ts: "Reading what they are loud about",
+// "Emphasis read filed" / "No emphasis read"), so they are used verbatim, newest first.
 function readProofLine(events: ExtensionResearchRunEvent[]) {
+  const emphasisComplete = latestEventOfType(events, "emphasis.complete");
+  if (emphasisComplete && emphasisComplete.message.trim().length > 0) {
+    return emphasisComplete.message;
+  }
+  const emphasisStarted = latestEventOfType(events, "emphasis.started");
+  if (emphasisStarted && emphasisStarted.message.trim().length > 0) {
+    return emphasisStarted.message;
+  }
   const started = latestEventOfType(events, "synthesis.started");
   return started && started.message.trim().length > 0 ? started.message : "Reading the filed evidence";
 }

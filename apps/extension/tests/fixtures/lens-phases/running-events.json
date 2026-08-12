@@ -75,6 +75,28 @@
     "createdAt": "2026-07-20T19:04:00.000Z"
   },
   {
+    "id": "e5a",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "emphasis.started",
+    "message": "Reading what they are loud about",
+    "metadata": {},
+    "createdAt": "2026-07-20T19:04:05.000Z"
+  },
+  {
+    "id": "e5b",
+    "runId": "run-deepinfra-analysis-2026-07-20",
+    "slug": "deepinfra",
+    "domain": "deepinfra.com",
+    "sectionId": null,
+    "type": "emphasis.complete",
+    "message": "No emphasis read",
+    "metadata": { "status": "nothing_notable" },
+    "createdAt": "2026-07-20T19:04:20.000Z"
+  },
+  {
     "id": "e6",
     "runId": "run-deepinfra-analysis-2026-07-20",
     "slug": "deepinfra",
