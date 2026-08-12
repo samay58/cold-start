@@ -58,7 +58,10 @@ function stripJsonFence(text: string) {
   return trimmed.slice(firstBracket, lastBracket + 1).trim();
 }
 
-function verificationKey(input: { text: string; citationIds: string[] }) {
+// Exported so callers that need to match a single claim by its own text+citationIds identity
+// (the same fallback key applyVerifierResults falls back to below) can mirror it exactly, rather
+// than re-deriving an equivalent-but-possibly-drifting key shape of their own.
+export function verificationKey(input: { text: string; citationIds: string[] }) {
   return JSON.stringify([input.text, [...input.citationIds].sort()]);
 }
 

@@ -20,6 +20,7 @@ import {
 import {
   applyVerifierResults,
   BLOCK_ENRICHMENT_IDS,
+  verificationKey,
   type BlockEnrichmentId,
   type VerificationFact,
   type VerificationResult
@@ -848,9 +849,17 @@ function verifiedEmphasisRead(
   const readKept = applyVerifierResults([filed.read], results, offset + 1).length === 1;
   // Quiet is contradiction-only: the verifier cannot confirm absence, so supported and
   // unsupported both let the read stand; only a source containing the missing thing kills it.
-  const quietContradicted = results.some(
-    (result) => result.claimIndex === offset + 2 && result.status === "contradicted"
-  );
+  // Mirrors applyVerifierResults' own two-path split (packages/llm/src/verifier.ts): when the
+  // verifier response carries claim indices, match by index; when it falls back to matching by
+  // each claim's own {text, citationIds} key (no result carries an index at all), match the
+  // quiet claim by that same key instead. Checking claimIndex alone fails open on the fallback
+  // path: every claimIndex is undefined there, so a genuinely contradicted quiet claim would
+  // never match and would ship anyway.
+  const quiet: SourcedText = { text: filed.quiet, citationIds: [] };
+  const hasIndexedResults = results.some((result) => result.claimIndex !== undefined);
+  const quietContradicted = hasIndexedResults
+    ? results.some((result) => result.claimIndex === offset + 2 && result.status === "contradicted")
+    : results.some((result) => verificationKey(result) === verificationKey(quiet) && result.status === "contradicted");
   if (loudKept && readKept && !quietContradicted) {
     return { emphasisRead: filed };
   }

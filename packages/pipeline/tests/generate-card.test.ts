@@ -1814,6 +1814,34 @@ describe("split synthesize/verify units", () => {
         expect(result.emphasisDropReason).toBe("quiet-contradicted");
       });
 
+      // Pins the fails-open bug: applyVerifierResults falls back to matching by each claim's own
+      // {text, citationIds} key whenever the verifier response carries no claimIndex on ANY
+      // result at all (packages/llm/src/verifier.ts). Before the fix, quietContradicted checked
+      // claimIndex only, so a genuinely contradicted quiet claim on this fallback path never
+      // matched and the whole read shipped with a contradicted "nothing filed shows" claim intact.
+      it("kills the whole read when quiet is contradicted on the verifier's text-key fallback path (no claimIndex on any result)", async () => {
+        const card = await assembledCard();
+        const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
+        const verify = vi.fn(async () => [
+          { ...whyItMatters, status: "supported" as const },
+          { ...bullCase, status: "supported" as const },
+          { ...bearCase, status: "supported" as const },
+          { ...loud, status: "supported" as const },
+          { ...read, status: "supported" as const },
+          { text: quiet, citationIds: [], status: "contradicted" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { emphasisRead: filedEmphasisRead }
+        );
+
+        expect(result.emphasisRead).toEqual({ status: "nothing_notable" });
+        expect(result.emphasisDropReason).toBe("quiet-contradicted");
+      });
+
       it("kills the read when loud is dropped", async () => {
         const card = await assembledCard();
         const { whyItMatters, bullCase, bearCase, loud, read, quiet, filedEmphasisRead, draft } = emphasisFixtures();
