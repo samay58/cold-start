@@ -4,7 +4,7 @@ import { fetchExaWebLane } from "../src/founder-voice/exa-web";
 import { fetchGithubLane } from "../src/founder-voice/github";
 import { fetchHnLane } from "../src/founder-voice/hn";
 import { fetchFounderVoiceEvidence } from "../src/founder-voice/index";
-import { fetchXaiXSearchLane } from "../src/founder-voice/xai-x-search";
+import { fetchXaiXSearchLane, XAI_XSEARCH_EST_COST_USD } from "../src/founder-voice/xai-x-search";
 import type { FounderVoiceLaneResult, FounderVoiceTargets } from "../src/founder-voice/types";
 
 const TARGETS: FounderVoiceTargets = {
@@ -598,23 +598,42 @@ describe("fetchXaiXSearchLane", () => {
     expect(result.items[0]?.text).toBe("Shipping Acme.");
   });
 
-  it("records a failure instead of throwing when the content has no JSON array", async () => {
+  // The response arrived (a completed round trip to xAI), so the request is likely billed even
+  // though its body was unusable: report the estimate, not 0.
+  it("reports the billed estimate, not 0, when the response arrives but the content has no JSON array", async () => {
     const fetchFn = stubXaiResponse("no data available");
 
     const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
 
     expect(result.items).toEqual([]);
     expect(result.failure).toBeTruthy();
-    expect(result.estimatedCostUsd).toBe(0);
+    expect(result.estimatedCostUsd).toBe(XAI_XSEARCH_EST_COST_USD);
   });
 
-  it("records a failure instead of throwing on a non-ok response", async () => {
+  // Same billed-response reasoning as above, for a non-ok HTTP status specifically.
+  it("reports the billed estimate, not 0, on a non-ok response", async () => {
     const fetchFn = (async () => new Response("bad request", { status: 400 })) as typeof fetch;
 
     const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
 
     expect(result.items).toEqual([]);
     expect(result.failure).toContain("400");
+    expect(result.estimatedCostUsd).toBe(XAI_XSEARCH_EST_COST_USD);
+  });
+
+  // The opposite case: fetchFn itself rejects (DNS, connection refused, or the AbortSignal
+  // timeout firing before any response arrives), so the call never reached xAI at all and
+  // genuinely cost nothing, unlike the two billed-response cases above.
+  it("reports 0, not the billed estimate, when the request never reaches xAI at all", async () => {
+    const fetchFn = (async () => {
+      throw new Error("fetch failed: getaddrinfo ENOTFOUND api.x.ai");
+    }) as typeof fetch;
+
+    const result = await fetchXaiXSearchLane({ targets: xaiTargets, xaiApiKey: "xai-key", timeoutMs: 30_000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toContain("ENOTFOUND");
+    expect(result.estimatedCostUsd).toBe(0);
   });
 
   it("caps allowed_x_handles at 20 and attributes items back to the matching founder", async () => {

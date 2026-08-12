@@ -71,14 +71,23 @@ export async function fetchXaiXSearchLane(input: {
 }): Promise<FounderVoiceLaneResult> {
   const fetchFn = input.fetchFn ?? fetch;
 
-  try {
-    const handleEntries = handlesFromFounders(input.targets.founders);
-    if (!input.xaiApiKey || handleEntries.length === 0) {
-      return { lane: LANE, items: [], estimatedCostUsd: 0 };
-    }
+  const handleEntries = handlesFromFounders(input.targets.founders);
+  if (!input.xaiApiKey || handleEntries.length === 0) {
+    return { lane: LANE, items: [], estimatedCostUsd: 0 };
+  }
 
-    const cappedHandles = handleEntries.slice(0, XAI_MAX_HANDLES);
-    const response = await fetchFn(XAI_RESPONSES_URL, {
+  const cappedHandles = handleEntries.slice(0, XAI_MAX_HANDLES);
+
+  // Two failure classes, two different cost truths. Once fetchFn resolves with a Response, the
+  // request reached xAI and (per its per-call pricing) is likely billed regardless of what
+  // happens next: a non-ok status, a malformed body, or a JSON-parse failure all happen only
+  // after xAI received the call. Only a network-level failure -- DNS, connection refused, or the
+  // AbortSignal timeout firing before any response arrives -- means the call never reached the
+  // API and genuinely cost nothing. The split below tracks that boundary explicitly instead of
+  // collapsing every failure into a blind $0 estimate.
+  let response: Response;
+  try {
+    response = await fetchFn(XAI_RESPONSES_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${input.xaiApiKey}`,
@@ -98,7 +107,12 @@ export async function fetchXaiXSearchLane(input: {
       }),
       signal: AbortSignal.timeout(input.timeoutMs),
     });
+  } catch (error) {
+    // Never reached the API: no request was billed.
+    return { lane: LANE, items: [], estimatedCostUsd: 0, failure: error instanceof Error ? error.message : String(error) };
+  }
 
+  try {
     if (!response.ok) {
       throw new Error(`xAI x_search request failed with ${response.status}`);
     }
@@ -112,7 +126,14 @@ export async function fetchXaiXSearchLane(input: {
 
     return { lane: LANE, items, estimatedCostUsd: XAI_XSEARCH_EST_COST_USD };
   } catch (error) {
-    return { lane: LANE, items: [], estimatedCostUsd: 0, failure: error instanceof Error ? error.message : String(error) };
+    // The response arrived (likely billed); only its status or body was unusable, so report the
+    // estimate instead of 0.
+    return {
+      lane: LANE,
+      items: [],
+      estimatedCostUsd: XAI_XSEARCH_EST_COST_USD,
+      failure: error instanceof Error ? error.message : String(error)
+    };
   }
 }
 
