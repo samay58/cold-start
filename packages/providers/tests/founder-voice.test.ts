@@ -660,10 +660,6 @@ describe("fetchXaiXSearchLane", () => {
 });
 
 describe("fetchExaWebLane", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   const exaTargets: FounderVoiceTargets = {
     companyName: "Acme",
     domain: "acme.com",
@@ -672,7 +668,7 @@ describe("fetchExaWebLane", () => {
 
   it("builds a company query and a founder-plus-company query, classifying authorship by hostname", async () => {
     const seenQueries: string[] = [];
-    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { query: string };
       seenQueries.push(body.query);
       const isCompanyQuery = body.query.includes("founder interview");
@@ -689,10 +685,9 @@ describe("fetchExaWebLane", () => {
         }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
-    });
-    vi.stubGlobal("fetch", fetchSpy);
+    }) as typeof fetch;
 
-    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000 });
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000, fetchFn });
 
     expect(seenQueries).toHaveLength(2);
     expect(seenQueries.some((query) => query.includes("founder interview"))).toBe(true);
@@ -707,40 +702,55 @@ describe("fetchExaWebLane", () => {
   });
 
   it("is a silent empty, not a failure, when DIRECT_EXA_API_KEY is missing", async () => {
-    const fetchSpy = vi.fn(async () => {
+    const fetchFn = (async () => {
       throw new Error("should not fetch without a key");
-    });
-    vi.stubGlobal("fetch", fetchSpy);
+    }) as typeof fetch;
 
-    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: {}, timeoutMs: 18_000 });
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: {}, timeoutMs: 18_000, fetchFn });
 
     expect(result.items).toEqual([]);
     expect(result.failure).toBeUndefined();
     expect(result.estimatedCostUsd).toBe(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("skips the founder-plus-company query when there are no founders", async () => {
     const seenQueries: string[] = [];
-    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { query: string };
       seenQueries.push(body.query);
       return new Response(JSON.stringify({ results: [] }), { status: 200, headers: { "content-type": "application/json" } });
-    });
-    vi.stubGlobal("fetch", fetchSpy);
+    }) as typeof fetch;
 
     const result = await fetchExaWebLane({
       targets: { companyName: "Acme", domain: "acme.com", founders: [] },
       directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" },
       timeoutMs: 18_000,
+      fetchFn,
     });
 
     expect(seenQueries).toHaveLength(1);
     expect(result.estimatedCostUsd).toBeCloseTo(0.007, 6);
+    // Both queries returned zero hits: the shared runner maps that to a placeholder
+    // ProviderSource (url "direct-exa:<probe-name>"), which must never surface as an item.
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+  });
+
+  it("drops the zero-hit placeholder source instead of fabricating a non-dereferenceable item", async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ results: [] }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000, fetchFn });
+
+    // Both the company query and the founder-plus-company query return zero hits here
+    // (unlike the "no founders" test above, which only ever sends one request).
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+    expect(result.estimatedCostUsd).toBeCloseTo(2 * 0.007, 6);
   });
 
   it("keeps items from the successful request and records a failure when the other request fails, never throwing", async () => {
-    const fetchSpy = vi.fn(async (_url: string, init?: RequestInit) => {
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { query: string };
       if (body.query.includes("founder interview")) {
         return new Response("bad request", { status: 400 });
@@ -749,10 +759,9 @@ describe("fetchExaWebLane", () => {
         JSON.stringify({ results: [{ url: "https://techcrunch.com/acme-profile", title: "Acme profile", text: "profile text" }] }),
         { status: 200, headers: { "content-type": "application/json" } },
       );
-    });
-    vi.stubGlobal("fetch", fetchSpy);
+    }) as typeof fetch;
 
-    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000 });
+    const result = await fetchExaWebLane({ targets: exaTargets, directExaEnv: { DIRECT_EXA_API_KEY: "exa-key" }, timeoutMs: 18_000, fetchFn });
 
     expect(result.items).toHaveLength(1);
     expect(result.failure).toBeTruthy();
@@ -760,6 +769,10 @@ describe("fetchExaWebLane", () => {
 });
 
 describe("fetchFounderVoiceEvidence", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const orchestratorTargets: FounderVoiceTargets = {
     companyName: "Acme",
     domain: "acme.com",
@@ -854,5 +867,44 @@ describe("fetchFounderVoiceEvidence", () => {
     expect(seenTimeouts).toEqual([10_000, 15_000, 10_000, 30_000, 18_000]);
     expect(result.items).toEqual([]);
     expect(result.estimatedCostUsd).toBe(0);
+  });
+
+  it("invokes the real default lane functions when no lanes override is given", async () => {
+    // No lanes override: fetchFounderVoiceEvidence must fall back to defaultLaneFns
+    // rather than that wiring being dead code every other test bypasses. With no
+    // xaiApiKey and no DIRECT_EXA_API_KEY, the xai and exaWeb lanes silently no-op
+    // without any network call; github has no founder githubUrl here, so it also makes
+    // no call. Only the real hn and bluesky lane functions hit the (stubbed) network,
+    // which is enough to prove the default map is actually wired up and callable.
+    let hnCalled = false;
+    let blueskyCalled = false;
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("hn.algolia.com")) {
+        hnCalled = true;
+        return new Response(JSON.stringify({ hits: [] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.includes("bsky.app")) {
+        blueskyCalled = true;
+        return new Response(JSON.stringify({ actors: [], feed: [] }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error(`unexpected url in default-lane-wiring test: ${url}`);
+    }) as typeof fetch;
+    vi.stubGlobal("fetch", fetchFn);
+
+    const result = await fetchFounderVoiceEvidence({ targets: orchestratorTargets, env: { directExa: {} } });
+
+    expect(hnCalled).toBe(true);
+    expect(blueskyCalled).toBe(true);
+    expect(result.laneResults).toHaveLength(5);
+    expect(result.laneResults.map((lane) => lane.lane)).toEqual([
+      "hn_search",
+      "github_author_activity",
+      "bluesky_author_feed",
+      "xai_x_search",
+      "exa_founder_web",
+    ]);
+    // Every lane resolved cleanly (no thrown/unexpected-url failures leaked through).
+    expect(result.laneResults.every((lane) => lane.failure === undefined)).toBe(true);
   });
 });

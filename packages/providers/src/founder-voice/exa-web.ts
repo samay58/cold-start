@@ -1,6 +1,6 @@
 import { fetchDirectExaRequests } from "../direct-exa";
 import type { DirectExaRequest } from "../direct-exa";
-import type { DirectExaEnv } from "../types";
+import type { DirectExaEnv, ProviderSource } from "../types";
 import { capText } from "./types";
 import type { FounderVoiceItem, FounderVoiceLaneResult, FounderVoiceTargets } from "./types";
 
@@ -18,6 +18,7 @@ export async function fetchExaWebLane(input: {
   targets: FounderVoiceTargets;
   directExaEnv: DirectExaEnv;
   timeoutMs: number;
+  fetchFn?: typeof fetch;
 }): Promise<FounderVoiceLaneResult> {
   try {
     const apiKey = input.directExaEnv.DIRECT_EXA_API_KEY?.trim();
@@ -31,9 +32,17 @@ export async function fetchExaWebLane(input: {
       domain: input.targets.domain,
       requests,
       timeoutMs: input.timeoutMs,
+      ...(input.fetchFn ? { fetchJson: fetchJsonFromFetchFn(input.fetchFn) } : {}),
     });
 
-    const items: FounderVoiceItem[] = result.sources.map((source) => {
+    // A zero-hit Exa search (or a result missing a real URL) maps to a placeholder
+    // ProviderSource with url "direct-exa:<probe-name>" (providerSourcesFromDirectExa's
+    // zero-records fallback) so downstream generation still knows the probe ran. That
+    // placeholder is not a citable, dereferenceable evidence item, so it must never
+    // become a FounderVoiceItem: Task 5's synthesis consumes item.url as a real citation.
+    const dereferenceableSources = result.sources.filter((source: ProviderSource) => source.url.startsWith("http"));
+
+    const items: FounderVoiceItem[] = dereferenceableSources.map((source) => {
       const text = capText(textFromRawRecord(source.rawText) || source.title);
       return {
         lane: LANE,
@@ -96,6 +105,25 @@ function founderWebRequests(env: DirectExaEnv, apiKey: string, targets: FounderV
   }
 
   return requests;
+}
+
+// Test-injection adapter: fetchDirectExaRequests takes a FetchJson override
+// ((request) => Promise<unknown>), not a raw typeof fetch, so a caller-supplied fetchFn
+// (matching every sibling lane's own test-injection param) is wrapped into that shape.
+// This bypasses directExaJson's retry-with-backoff loop, same as every other founder-voice
+// lane's fetchFn already does: it exists for deterministic test stubbing, not production.
+function fetchJsonFromFetchFn(fetchFn: typeof fetch): (request: DirectExaRequest) => Promise<unknown> {
+  return async (request: DirectExaRequest) => {
+    const response = await fetchFn(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+    });
+    if (!response.ok) {
+      throw new Error(`Direct Exa request failed with ${response.status}`);
+    }
+    return response.json();
+  };
 }
 
 // source.rawText is JSON.stringify(record) of the original Exa result (see
