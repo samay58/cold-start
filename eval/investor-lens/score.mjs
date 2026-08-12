@@ -45,15 +45,32 @@ export function genericPhraseCount(card) {
   return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
 }
 
+// Citation markers are bracketed id lists like [c1], [fv3], or [c1, c2]: the same shape
+// packages/core/src/citation-text.ts strips for display. A stored, filed read's text ALWAYS
+// carries these, and their digits (e.g. "fv3") would otherwise satisfy the /[\d$%]/ specificity
+// probe below on their own, letting a fully generic sentence pass just because it cites
+// something. Strip markers before testing so the probe only sees the claim's own prose.
+const citationMarkerPattern = /\s*\[[\w.-]+(?:,\s*[\w.-]+)*\]/g;
+
+function withoutCitationMarkers(value) {
+  return value.replace(citationMarkerPattern, "");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function emphasisIsSpecificOrEmpty(card) {
   const emphasis = card?.synthesis?.emphasisRead;
   if (!emphasis || emphasis.status !== "read") {
     return true;
   }
-  const readText = text(emphasis.read?.text);
+  const readText = withoutCitationMarkers(text(emphasis.read?.text));
   const companyName = text(card?.identity?.name?.value).toLowerCase();
-  return /[\d$%]/.test(readText) ||
-    (Boolean(companyName) && readText.toLowerCase().includes(companyName));
+  // Word-boundary match: a short company name (e.g. "Exa") would otherwise false-pass on any
+  // substring hit ("expand", "exact") that has nothing to do with the company itself.
+  const nameHit = Boolean(companyName) && new RegExp(`\\b${escapeRegExp(companyName)}\\b`, "i").test(readText);
+  return /[\d$%]/.test(readText) || nameHit;
 }
 
 export function hasConcreteTension(card) {
