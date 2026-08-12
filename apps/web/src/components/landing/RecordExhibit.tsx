@@ -57,10 +57,9 @@ function ExhibitLogo({ label, urls }: { label: string; urls: string[] }) {
     <span aria-hidden="true" className="cs-exhibit-logo">
       {src ? (
         // Tiny frozen favicons: the Vercel image optimizer would add remote-host config and
-        // per-image cost for nothing (same call as the invite card page).
+        // per-image cost for nothing (same call as the invite card page). Eager on purpose:
+        // six sub-2KB marks; lazy loading left blank logo slots on a fast scroll.
         // eslint-disable-next-line @next/next/no-img-element
-        // Eager on purpose: six sub-2KB marks; lazy loading left blank logo slots when a
-        // reader scrolled fast to a lower pair.
         <img alt="" decoding="async" onError={() => setCandidateIndex((index) => index + 1)} src={src} />
       ) : (
         <span className="cs-exhibit-logo-fallback">{label.trim().charAt(0).toUpperCase() || "·"}</span>
