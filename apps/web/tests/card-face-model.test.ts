@@ -6,6 +6,7 @@ import {
   callNumber,
   evidenceStateForFact,
   headcountConflict,
+  isAgedCard,
   isThinFile,
   moneyBullets,
   nextQuestionForCard,
@@ -421,5 +422,15 @@ describe("publicEvidenceText", () => {
     const clipped = publicEvidenceText(long, 80);
     expect(clipped.length).toBeLessThanOrEqual(83);
     expect(clipped.endsWith("...") || long.startsWith(clipped)).toBe(true);
+  });
+});
+
+describe("isAgedCard", () => {
+  it("flags a card filed past the fourteen-day threshold, not a fresh one", () => {
+    const now = new Date("2026-08-11T00:00:00Z");
+    const aged: PublicCardData = { ...richConflictCard, generatedAt: "2026-07-20T00:00:00.000Z" };
+    const fresh: PublicCardData = { ...richConflictCard, generatedAt: "2026-08-05T00:00:00.000Z" };
+    expect(isAgedCard(aged, now)).toBe(true);
+    expect(isAgedCard(fresh, now)).toBe(false);
   });
 });

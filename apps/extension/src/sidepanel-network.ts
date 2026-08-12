@@ -622,7 +622,8 @@ export async function startBasicsGenerationAndPoll(
   signal: AbortSignal,
   confirmStart: boolean,
   onGenerationStatus: GenerationStatusListener,
-  interactionId?: string
+  interactionId?: string,
+  forceRefresh = false
 ): Promise<GenerationPollResult> {
   const generation = await requestGeneration(
     domain,
@@ -630,7 +631,7 @@ export async function startBasicsGenerationAndPoll(
     signal,
     "basics",
     confirmStart,
-    false,
+    forceRefresh,
     undefined,
     interactionId
   );

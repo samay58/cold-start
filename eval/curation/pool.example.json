@@ -1,0 +1,12 @@
+{
+  "entries": [
+    { "slug": "legora", "richnessBand": "rich", "eraBucket": "may-pre-gate", "control": false },
+    { "slug": "plaud", "richnessBand": "rich", "eraBucket": "june", "control": false },
+    { "slug": "ironcladapp", "richnessBand": "rich", "eraBucket": "july-overhaul", "control": false },
+    { "slug": "superlist", "richnessBand": "rich", "eraBucket": "july-overhaul", "control": false },
+    { "slug": "staymarquis", "richnessBand": "medium", "eraBucket": "august-current", "control": false },
+    { "slug": "voxlathe-example", "richnessBand": "medium", "eraBucket": "august-current", "control": false },
+    { "slug": "hollowlabs-example", "richnessBand": "medium", "eraBucket": "may-pre-gate", "control": true },
+    { "slug": "plainfield-example", "richnessBand": "medium", "eraBucket": "june", "control": false }
+  ]
+}

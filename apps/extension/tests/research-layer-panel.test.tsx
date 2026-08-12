@@ -165,6 +165,7 @@ async function renderPanel(input: {
         domain="exa.ai"
         onEditSettings={() => undefined}
         onRegenerate={() => undefined}
+        onRefile={() => false}
         onRunAnalysis={() => true}
         onRunSection={() => undefined}
         onStart={() => undefined}
@@ -292,6 +293,7 @@ describe("ResearchLayerPanel surface diet", () => {
           domain="exa.ai"
           onEditSettings={() => undefined}
           onRegenerate={() => undefined}
+          onRefile={() => false}
           onRunAnalysis={() => true}
           onRunSection={() => undefined}
           onStart={() => undefined}

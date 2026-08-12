@@ -862,6 +862,25 @@ a.cs-face-rail-source-title:hover {
   font-size: 12px;
 }
 
+/* Aged filed date: past core's 14-day human-attention threshold the date gains a warm
+   classification dot and one weight step. A quiet signal, never an alert; the stamp and
+   the rest of the receipt line stay untouched. Covers the desktop footer and the pocket
+   footer, which share the cs-filed-date span. */
+.cs-filed-date[data-aged="true"] {
+  font-weight: 500;
+}
+
+.cs-filed-date[data-aged="true"]::before {
+  content: "";
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-company);
+}
+
 .cs-face-vetted-chip {
   flex: 0 0 auto;
   padding: 4px 10px;

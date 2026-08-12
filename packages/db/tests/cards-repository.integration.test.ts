@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ColdStartCard } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
-import { mutateCard, upsertCard } from "../src/index";
+import { countCardRevisions, freezeCurrentEditionForRefile, listCardRevisionSummaries, mutateCard, upsertCard } from "../src/index";
 import * as schema from "../src/schema";
 
 const databaseUrl = process.env.CARDS_DB_TEST_URL;
@@ -87,6 +87,112 @@ describeDatabase("card writes against Postgres", () => {
     expect(stored.rows[0].card_json.generationCostUsd).toBeCloseTo(card.generationCostUsd + 8, 8);
   });
 });
+
+describeDatabase("card revisions repository", () => {
+  beforeAll(async () => {
+    assertSafeTestDatabase(databaseUrl);
+    pool = new Pool({ connectionString: databaseUrl });
+    const testDb = drizzle(pool, { schema });
+    db = testDb as ColdStartDb;
+    await migrate(testDb, {
+      migrationsFolder: new URL("../drizzle", import.meta.url).pathname
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await pool?.end();
+  });
+
+  it("archives edition 1 with the live card's JSON, filedAt from generatedAt, and hadSynthesis false for a basics card", async () => {
+    const card = cardFixture();
+    await upsertCard(db, card);
+    const supersededByRunId = randomUUID();
+
+    const outcome = await freezeCurrentEditionForRefile(db, card.slug, {
+      supersededByRunId,
+      appSchemaNote: "pre-refile"
+    });
+
+    expect(outcome).toEqual({ frozen: true });
+    const rows = await revisionRows(card.slug);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].edition).toBe(1);
+    expect(rows[0].card_json.slug).toBe(card.slug);
+    expect(rows[0].card_json.generatedAt).toBe(card.generatedAt);
+    expect(new Date(rows[0].filed_at).toISOString()).toBe(new Date(card.generatedAt).toISOString());
+    expect(rows[0].had_synthesis).toBe(false);
+    expect(rows[0].superseded_by_run_id).toBe(supersededByRunId);
+    expect(rows[0].app_schema_note).toBe("pre-refile");
+  });
+
+  it("archives a second edition with a different generatedAt after the card is replaced", async () => {
+    const card = cardFixture();
+    await upsertCard(db, card);
+    await freezeCurrentEditionForRefile(db, card.slug);
+
+    const replacement = { ...card, generatedAt: "2026-06-01T09:00:00.000Z" };
+    await upsertCard(db, replacement);
+    const outcome = await freezeCurrentEditionForRefile(db, card.slug);
+
+    expect(outcome).toEqual({ frozen: true });
+    const rows = await revisionRows(card.slug);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.edition)).toEqual([1, 2]);
+    expect(rows[0].card_json.generatedAt).toBe(card.generatedAt);
+    expect(rows[1].card_json.generatedAt).toBe(replacement.generatedAt);
+    expect(rows[0].card_json.generatedAt).not.toBe(rows[1].card_json.generatedAt);
+  });
+
+  it("is idempotent: a second freeze without a card change writes nothing new", async () => {
+    const card = cardFixture();
+    await upsertCard(db, card);
+
+    const first = await freezeCurrentEditionForRefile(db, card.slug);
+    const second = await freezeCurrentEditionForRefile(db, card.slug);
+
+    expect(first).toEqual({ frozen: true });
+    expect(second).toEqual({ frozen: false });
+    expect(await countCardRevisions(db, card.slug)).toBe(1);
+  });
+
+  it("freezes nothing for a slug with no card row", async () => {
+    const slug = `missing-${randomUUID().slice(0, 8)}`;
+
+    const outcome = await freezeCurrentEditionForRefile(db, slug);
+
+    expect(outcome).toEqual({ frozen: false });
+    expect(await countCardRevisions(db, slug)).toBe(0);
+  });
+
+  it("lists and counts revisions in ascending edition order", async () => {
+    const card = cardFixture();
+    await upsertCard(db, card);
+    await freezeCurrentEditionForRefile(db, card.slug);
+
+    const second = { ...card, generatedAt: "2026-06-01T09:00:00.000Z" };
+    await upsertCard(db, second);
+    await freezeCurrentEditionForRefile(db, card.slug);
+
+    const third = { ...card, generatedAt: "2026-07-01T09:00:00.000Z" };
+    await upsertCard(db, third);
+    await freezeCurrentEditionForRefile(db, card.slug);
+
+    const summaries = await listCardRevisionSummaries(db, card.slug);
+    expect(summaries.map((summary) => summary.edition)).toEqual([1, 2, 3]);
+    expect(summaries.every((summary) => summary.filedAt instanceof Date)).toBe(true);
+    expect(summaries.every((summary) => summary.frozenAt instanceof Date)).toBe(true);
+    expect(summaries.every((summary) => summary.hadSynthesis === false)).toBe(true);
+    expect(await countCardRevisions(db, card.slug)).toBe(3);
+  });
+});
+
+async function revisionRows(slug: string) {
+  const result = await pool.query(
+    "SELECT edition, card_json, filed_at, frozen_at, had_synthesis, superseded_by_run_id, app_schema_note FROM card_revisions WHERE slug = $1 ORDER BY edition ASC",
+    [slug]
+  );
+  return result.rows;
+}
 
 async function storedVersion(slug: string): Promise<number> {
   const result = await pool.query("SELECT version FROM cards WHERE slug = $1", [slug]);

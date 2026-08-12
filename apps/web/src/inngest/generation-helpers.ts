@@ -292,6 +292,26 @@ export function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   return input.trim().slice(0, 120);
 }
 
+// An edition is frozen only when an explicit re-file replaces the basics profile.
+// Analysis (including lens retries with forceRefresh) deepens the same filing; section and
+// enrichment writes never freeze. Spec: 2026-08-11 profile refresh design, "editions are cut
+// only by re-files".
+export function isRefileProfileStore(input: { jobKind: string; forceRefresh: boolean }): boolean {
+  return input.forceRefresh && input.jobKind === "basics";
+}
+
+// A re-file store must not carry the run-start card's stale facts, description, citations,
+// signals, comparables, or person data forward through prepareCardSnapshotForStorage /
+// prepareCardForStorage's merge (preserveExistingBasics returns its `next` argument unchanged
+// when `existing` is null). Every other store keeps merging against the run-start card as before,
+// which is how a normal basics refresh and every analysis run behave today.
+export function mergeBaseCardForStore<T>(
+  existingCard: T | null,
+  input: { jobKind: string; forceRefresh: boolean }
+): T | null {
+  return isRefileProfileStore(input) ? null : existingCard;
+}
+
 export function parseEventSectionId(input: unknown): ResearchSectionId | null {
   if (input === undefined || input === null || input === "") {
     return null;

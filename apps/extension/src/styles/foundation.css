@@ -1326,6 +1326,115 @@ button {
   }
 }
 
+/*
+ * Hold-to-refile control: the seal ring vocabulary applied to a held intent. The ink scales
+ * with --refile-progress, set by the press (700ms linear to full); the release decision
+ * lives in RefileControl.tsx. The fill animates under reduced motion too, as essential
+ * progress feedback; only the abandon drain softens to a fade there.
+ */
+.cs-refile-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.cs-refile {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px 2px 5px;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.45);
+  border-radius: 3px;
+  background: var(--cs-surface-1);
+  color: var(--color-seal);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.cs-refile:hover:not(:disabled),
+.cs-refile:focus-visible {
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-08);
+}
+
+.cs-refile:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cs-refile-word {
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cs-refile-ring {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+}
+
+.cs-refile-ring-frame {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.55);
+  border-radius: 3px;
+  background: var(--cs-surface-1);
+}
+
+.cs-refile-ring-fill {
+  position: absolute;
+  inset: 2px;
+  border-radius: 2px;
+  background: var(--color-seal);
+  opacity: calc(0.25 + 0.75 * var(--refile-progress, 0));
+  transform: scaleY(var(--refile-progress, 0));
+  transform-origin: bottom;
+}
+
+.cs-refile[data-full="true"] {
+  border-color: var(--color-seal);
+  background: var(--cs-seal-tint-08);
+}
+
+.cs-refile[data-full="true"] .cs-refile-ring-frame {
+  border-color: var(--color-seal);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-refile[data-full="true"] .cs-refile-ring {
+    animation: cs-refile-settle 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes cs-refile-settle {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.18);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.cs-refile-reason {
+  color: var(--color-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
 .cs-company-logo {
   width: 62px;
   height: 62px;

@@ -125,6 +125,7 @@ const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({})),
   findCardBySlug: vi.fn(),
   findSourcesBySlug: vi.fn(),
+  freezeCurrentEditionForRefile: vi.fn(),
   isCardSignalsFresh: vi.fn(),
   markGenerationRun: vi.fn(),
   markResearchSectionFailed: vi.fn(),
@@ -160,6 +161,7 @@ vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   findCardBySlug: mocks.findCardBySlug,
   findSourcesBySlug: mocks.findSourcesBySlug,
+  freezeCurrentEditionForRefile: mocks.freezeCurrentEditionForRefile,
   isCardSignalsFresh: mocks.isCardSignalsFresh,
   markGenerationRun: mocks.markGenerationRun,
   markResearchSectionFailed: mocks.markResearchSectionFailed,
@@ -331,6 +333,7 @@ describe("generate-card contact dispatch", () => {
     mocks.recordSource.mockResolvedValue(undefined);
     mocks.upsertResearchSections.mockResolvedValue(undefined);
     mocks.upsertCard.mockResolvedValue({ id: "card-row-id" });
+    mocks.freezeCurrentEditionForRefile.mockResolvedValue({ frozen: true });
     mocks.findCardBySlug.mockResolvedValue(null);
     mocks.agentcashWalletSnapshot.mockResolvedValue({ totalBalanceUsd: 10, accounts: [] });
     mocks.providerBudgetForEndpoint.mockReturnValue({
@@ -433,6 +436,44 @@ describe("generate-card contact dispatch", () => {
     );
     expect(names).not.toContain("fetch-contact-sources");
     expect(mocks.fetchStableenrichPeopleEmailSources).not.toHaveBeenCalled();
+  }, 10_000);
+
+  it("re-files a stale profile without merging the run-start card, and freezes it as a superseded edition", async () => {
+    // A rich existing card carries fields a normal (non-re-file) merge would carry forward:
+    // an expanded description and a comparable the fresh run's own sections do not produce
+    // (the shared `card`/`sections` fixtures have empty comparables).
+    const staleExisting: ColdStartCard = {
+      ...card,
+      expandedDescription: {
+        paragraphs: ["Stale prior-edition description that a normal refresh would carry forward."],
+        citationIds: ["c1"]
+      },
+      comparables: [comparable("Stale Comparable", "stale.example")]
+    };
+    mocks.findCardBySlug.mockResolvedValue(staleExisting);
+
+    const { names } = await runGeneration("true", {}, { domain: "modal.com", mode: "basics", forceRefresh: true });
+
+    // The seed card is still built (for the early-read progress event), but a re-file never
+    // writes it: the live row stays untouched until the fresh generated card replaces it.
+    expect(names).toContain("seed-profile-card");
+    expect(names).not.toContain("upsert-seed-card");
+
+    // The freeze fires exactly once, keyed to this run, before the wholesale write.
+    expect(mocks.freezeCurrentEditionForRefile).toHaveBeenCalledTimes(1);
+    expect(mocks.freezeCurrentEditionForRefile).toHaveBeenCalledWith(
+      expect.anything(),
+      "modal",
+      expect.objectContaining({ supersededByRunId: "generation-run-id" })
+    );
+
+    // The store goes through upsertCard wholesale, never the mutateCard merge branch, and the
+    // stored card carries none of the stale existing card's fields forward.
+    expect(mocks.mutateCard).not.toHaveBeenCalled();
+    expect(mocks.upsertCard).toHaveBeenCalledTimes(1);
+    const storedCard = mocks.upsertCard.mock.calls[0]?.[1] as ColdStartCard;
+    expect(storedCard.expandedDescription).toBeUndefined();
+    expect(storedCard.comparables).toEqual([]);
   }, 10_000);
 
   it("carries source images through the source.found event and into stored sources", async () => {

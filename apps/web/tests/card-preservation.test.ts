@@ -312,4 +312,83 @@ describe("preserveExistingBasics", () => {
     });
   });
 
+  // A re-file store (isRefileProfileStore) excludes the run-start card from the merge base by
+  // passing null through mergeBaseCardForStore before calling prepareCardForStorage. This proves
+  // the primitive that exclusion relies on: with a real existing card, prior-edition state
+  // (description, comparables, signals, citations, person emails/reads) survives a merge as
+  // usual; with existing=null, none of it does, and the fresh card stands alone.
+  it("drops every prior-edition field when the merge base is excluded, matching re-file semantics", () => {
+    const staleExisting = buildSkeletonCard("cognition.ai");
+    staleExisting.expandedDescription = {
+      paragraphs: ["Stale prior-edition description that a normal refresh would carry forward."],
+      citationIds: ["c1"],
+    };
+    staleExisting.team.founders.value = [{
+      name: "Scott Wu",
+      role: "CEO",
+      sourceUrl: "https://cognition.ai",
+      email: "scott@cognition.ai",
+      emailStatus: "observed",
+      read: { text: "Stale prior-edition founder read.", citationIds: ["c1"] },
+    }];
+    staleExisting.team.founders.citationIds = ["c1"];
+    staleExisting.comparables = [{
+      name: "Stale comparable",
+      domain: "stale.example",
+      oneLiner: "A stale prior-edition comparison.",
+      citationIds: ["c1"],
+    }];
+    staleExisting.signals = [{
+      title: "Cognition ships a prior-edition feature",
+      date: "2026-06-01",
+      url: "https://stale.example/old-signal",
+      source: "Stale source",
+      type: "news",
+      citationIds: ["c1"],
+    }];
+    staleExisting.citations = [{
+      id: "c1",
+      url: "https://stale.example",
+      title: "Stale source",
+      fetchedAt: "2026-06-01T00:00:00.000Z",
+      sourceType: "news",
+    }];
+
+    const fresh = buildSkeletonCard("linear.app");
+    fresh.identity.name = { value: "Linear", status: "verified", confidence: "high", citationIds: ["f1"] };
+    fresh.identity.websiteUrl = { value: "https://linear.app", status: "verified", confidence: "high", citationIds: ["f1"] };
+    fresh.identity.oneLiner = {
+      value: "Linear builds issue tracking and product planning software for engineering teams.",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["f1"],
+    };
+    fresh.identity.hq = { value: { city: "San Francisco", country: "United States" }, status: "verified", confidence: "high", citationIds: ["f1"] };
+    fresh.identity.foundedYear = { value: 2019, status: "verified", confidence: "high", citationIds: ["f1"] };
+    fresh.team.headcount = { value: { value: 131, asOf: "2026-05-15" }, status: "verified", confidence: "medium", citationIds: ["f1"] };
+    fresh.citations = [{
+      id: "f1",
+      url: "https://linear.app",
+      title: "Linear",
+      fetchedAt: "2026-08-10T00:00:00.000Z",
+      sourceType: "company_site",
+    }];
+
+    // Contrast: a normal (non-re-file) basics store merges against the real existing card, so
+    // stale prior-edition state survives.
+    const merged = prepareCardForStorage("basics", staleExisting, fresh);
+    expect(merged.expandedDescription).toEqual(staleExisting.expandedDescription);
+    expect(merged.comparables).toEqual(staleExisting.comparables);
+    expect(merged.team.founders.value?.[0]?.email).toBe("scott@cognition.ai");
+
+    // A re-file passes null (mergeBaseCardForStore's excluded branch): none of it survives.
+    const refiled = prepareCardForStorage("basics", null, fresh);
+    expect(refiled.expandedDescription).toBeUndefined();
+    expect(refiled.comparables).toEqual([]);
+    expect(refiled.signals).toEqual([]);
+    expect(refiled.citations).toEqual(fresh.citations);
+    expect(refiled.team.founders.value ?? []).toHaveLength(0);
+    expect(refiled.identity.name).toEqual(fresh.identity.name);
+  });
+
 });

@@ -1,7 +1,7 @@
 import React from "react";
 import type { ReactNode } from "react";
 import { safeWebUrl, type ResearchSection } from "@cold-start/core";
-import { buildCitationIndex, callNumber, filedDateStamp, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
+import { buildCitationIndex, callNumber, filedDateStamp, isAgedCard, isThinFile, statSlots, vettedCounts, type PublicCardData } from "../../lib/card-face/model";
 import { ChoreographyProvider } from "./choreography";
 import { PocketCard } from "./PocketCard";
 import { SectionRows } from "./SectionRows";
@@ -90,7 +90,11 @@ function CardFooter({ card }: { card: PublicCardData }) {
   return (
     <div className="cs-face-footer">
       <span className="cs-face-footer-receipt">
-        {callNumber(card)} · filed {filedDateStamp(card.generatedAt)} · sourced facts only
+        {callNumber(card)} ·{" "}
+        <span className="cs-filed-date" data-aged={isAgedCard(card) ? "true" : undefined}>
+          filed {filedDateStamp(card.generatedAt)}
+        </span>{" "}
+        · sourced facts only
       </span>
       <VettedChip card={card} />
     </div>

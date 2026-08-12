@@ -875,7 +875,14 @@ export async function POST(request: Request) {
       if (!queuedRun?.id) {
         throw new Error("queued generation run is missing its id");
       }
-      startInlineGeneration({ domain, generationRunId: queuedRun.id, slug, mode, requestedAtMs });
+      startInlineGeneration({
+        domain,
+        generationRunId: queuedRun.id,
+        slug,
+        mode,
+        requestedAtMs,
+        ...(forceRefresh ? { forceRefresh: true } : {})
+      });
     } else {
       await inngest.send({
         name: "card/generate.requested",
@@ -886,7 +893,8 @@ export async function POST(request: Request) {
           slug,
           mode,
           requestedAtMs,
-          ...(sectionId ? { sectionId } : {})
+          ...(sectionId ? { sectionId } : {}),
+          ...(forceRefresh ? { forceRefresh: true } : {})
         },
       });
     }

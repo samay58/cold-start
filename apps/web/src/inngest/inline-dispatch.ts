@@ -99,6 +99,7 @@ export function startInlineGeneration(input: {
   slug: string;
   mode: "basics" | "analysis";
   requestedAtMs: number;
+  forceRefresh?: boolean;
 }) {
   // The synthetic runId lands in generation_runs.inngest_run_id, so rows record which dispatch
   // path served them. No event id exists inline, so none is stamped.
@@ -110,7 +111,8 @@ export function startInlineGeneration(input: {
         generationRunId: input.generationRunId,
         slug: input.slug,
         mode: input.mode,
-        requestedAtMs: input.requestedAtMs
+        requestedAtMs: input.requestedAtMs,
+        ...(input.forceRefresh ? { forceRefresh: true } : {})
       }
     },
     runId: `inline:${crypto.randomUUID()}`,
