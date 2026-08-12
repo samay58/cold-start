@@ -65,6 +65,7 @@ async function renderArc(input: {
         domain="exa.ai"
         onEditSettings={() => undefined}
         onRegenerate={() => undefined}
+        onRefile={() => false}
         onRunAnalysis={input.onRunAnalysis ?? (() => true)}
         onRunSection={() => undefined}
         onStart={() => undefined}

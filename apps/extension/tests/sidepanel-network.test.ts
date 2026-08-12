@@ -2,7 +2,7 @@
 
 import { type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { pollGenerationUntilCard, startAnalysisGenerationAndPoll, startSectionGenerationAndPoll } from "../src/sidepanel-network";
+import { pollGenerationUntilCard, startAnalysisGenerationAndPoll, startBasicsGenerationAndPoll, startSectionGenerationAndPoll } from "../src/sidepanel-network";
 import type { ExtensionResearchRunEvent, Settings } from "../src/shared/extension-config";
 import { cardForDomain, jsonResponse } from "./sidepanel-harness";
 
@@ -496,6 +496,79 @@ describe("analysis polling event-gated card fetch", () => {
       card: { synthesisWithheld: { reasons: ["citation-floor"] } }
     });
     expect(cardCallCount).toBe(2);
+  });
+});
+
+describe("startBasicsGenerationAndPoll forceRefresh threading", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function capturePostBody(fetchMock: ReturnType<typeof vi.fn>) {
+    const call = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/api/generate") && (init as RequestInit | undefined)?.method === "POST");
+    const body = (call?.[1] as RequestInit | undefined)?.body;
+    return body ? JSON.parse(String(body)) : null;
+  }
+
+  it("sends forceRefresh: true and confirmStart on the generate POST body for a re-file run", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const card = cardForDomain(domain);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "cached", mode: "basics" });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(card);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startBasicsGenerationAndPoll(
+      domain,
+      settings,
+      new AbortController().signal,
+      true,
+      vi.fn(),
+      undefined,
+      true
+    );
+
+    expect(capturePostBody(fetchMock)).toMatchObject({ domain, mode: "basics", confirmStart: true, forceRefresh: true });
+  });
+
+  it("omits forceRefresh from the generate POST body on a plain basics request", async () => {
+    vi.stubGlobal("chrome", { runtime: { id: "extension-test-id" } });
+    const domain = "linear.app";
+    const card = cardForDomain(domain);
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ slug: "linear", domain, status: "cached", mode: "basics" });
+      }
+
+      if (String(url).includes("/api/extension/cards/")) {
+        return jsonResponse(card);
+      }
+
+      throw new Error(`unexpected request: ${String(url)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await startBasicsGenerationAndPoll(
+      domain,
+      settings,
+      new AbortController().signal,
+      true,
+      vi.fn()
+    );
+
+    const body = capturePostBody(fetchMock);
+    expect(body).not.toBeNull();
+    expect(body).not.toHaveProperty("forceRefresh");
   });
 });
 

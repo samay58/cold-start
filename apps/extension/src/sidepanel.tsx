@@ -79,6 +79,7 @@ type RequestState =
       sections: ResearchSection[];
       analysisFailed?: boolean;
       analysisNotice?: string;
+      refileNotice?: string;
       analysisRun?: RunState;
       contactRun?: RunState;
       profileRun?: RunState;
@@ -918,7 +919,9 @@ export function SidePanel() {
     generationDomain: string,
     generationSettings: Settings,
     confirmStart: boolean,
-    interactionId?: string
+    interactionId?: string,
+    forceRefresh = false,
+    restoreOnFailure?: Extract<RequestState, { status: "success" }>
   ) => {
     const mode = "basics" as const;
     const startedAt = Date.now();
@@ -943,7 +946,8 @@ export function SidePanel() {
           });
         }
       },
-      interactionId
+      interactionId,
+      forceRefresh
     )
       .then((result) => {
         if (!controller.signal.aborted) {
@@ -970,6 +974,13 @@ export function SidePanel() {
         const pending = stillGeneratingState(caught, generationDomain);
         if (pending) {
           setRequestState(pending);
+          return;
+        }
+
+        // A failed re-file never costs the filed profile: the prior success state returns
+        // with a quiet notice instead of the error panel.
+        if (restoreOnFailure) {
+          setRequestState({ ...restoreOnFailure, refileNotice: "Re-file failed. The filed profile stands." });
           return;
         }
 
@@ -1043,7 +1054,7 @@ export function SidePanel() {
               return { status: "success", card: result.card, sections: result.sections };
             }
 
-            const { activeSectionRun: _activeSectionRun, analysisNotice: _analysisNotice, ...nextState } = current;
+            const { activeSectionRun: _activeSectionRun, analysisNotice: _analysisNotice, refileNotice: _refileNotice, ...nextState } = current;
             return {
               ...nextState,
               card: result.card,
@@ -1206,6 +1217,7 @@ export function SidePanel() {
               analysisRun: _analysisRun,
               analysisFailed: _analysisFailed,
               analysisNotice: _analysisNotice,
+              refileNotice: _refileNotice,
               ...nextState
             } = current;
             return {
@@ -1623,6 +1635,7 @@ export function SidePanel() {
       activeSectionRun: _activeSectionRun,
       analysisFailed: _analysisFailed,
       analysisNotice: _analysisNotice,
+      refileNotice: _refileNotice,
       ...analysisState
     } = requestState;
     runAnalysisGenerationWithController(
@@ -1633,6 +1646,38 @@ export function SidePanel() {
       forceRefresh,
       interactionId
     );
+    return true;
+  }
+
+  function handleRefile(): boolean {
+    if (
+      !domain ||
+      !settings?.apiToken ||
+      requestState.status !== "success" ||
+      requestState.profileRun ||
+      requestState.analysisRun ||
+      requestState.activeSectionRun ||
+      alphaAccess?.generationEnabled === false ||
+      alphaAccess?.profile?.remaining === 0
+    ) {
+      return false;
+    }
+
+    const interactionId = crypto.randomUUID();
+    void enqueueAlphaEvent(settings, "refile.fired", { domain }, "side_panel", interactionId);
+    // The prior success state is the safety net: a failed re-file restores it wholesale. The
+    // contact-run marker is stripped because its watcher dies with abortAllRequests below, and
+    // a stale notice never carries across a fresh hold.
+    const {
+      contactRun: _contactRun,
+      refileNotice: _refileNotice,
+      ...previousState
+    } = requestState;
+    setSectionQueue([]);
+    const controller = new AbortController();
+    abortAllRequests();
+    activeRequest.current = controller;
+    runBasicsGenerationWithController(controller, domain, settings, true, interactionId, true, previousState);
     return true;
   }
 
@@ -1790,6 +1835,7 @@ export function SidePanel() {
           arc={arc}
           domain={domain}
           onEditSettings={openSettings}
+          onRefile={handleRefile}
           onRegenerate={() => handleStartGeneration(true, "retry", "unknown")}
           onRunAnalysis={handleRunAnalysis}
           onRunSection={handleRunSection}

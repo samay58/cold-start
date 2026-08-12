@@ -57,6 +57,7 @@ export type CompanyArcState =
       sections: ResearchSection[];
       analysisFailed?: boolean | undefined;
       analysisNotice?: string | undefined;
+      refileNotice?: string | undefined;
       analysisRun?: RunState | undefined;
       contactRun?: RunState | undefined;
       profileRun?: RunState | undefined;
@@ -71,6 +72,7 @@ type CompanyArcProps = {
   arc: CompanyArcState;
   domain: string;
   onEditSettings: () => void;
+  onRefile: () => boolean;
   onRegenerate: () => void;
   onRunAnalysis: (forceRefresh?: boolean) => boolean;
   onRunSection: (layerId: ResearchLayerId) => void;
@@ -498,6 +500,12 @@ export function CompanyArc({
             </>
           ) : null}
         </CompanyHeader>
+
+        {profile?.refileNotice ? (
+          <div className="cs-research-notice" role="status">
+            <p>{profile.refileNotice}</p>
+          </div>
+        ) : null}
 
         {alphaAccess && arc.phase !== "building" ? <AlphaPosture access={alphaAccess} /> : null}
 
