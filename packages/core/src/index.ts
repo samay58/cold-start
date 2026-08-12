@@ -15,6 +15,7 @@ export * from "./headline";
 export * from "./intelligence";
 export * from "./invite-codes";
 export * from "./money-format";
+export * from "./prose";
 export * from "./research-sections";
 export * from "./sentences";
 export * from "./signal-clusters.mjs";
