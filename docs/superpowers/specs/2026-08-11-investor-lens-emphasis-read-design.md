@@ -24,7 +24,7 @@ Empty-state copy is a few flat words each, in the direction of "Not enough filed
 
 ## Label
 
-The slot name on the card. Samay picks. Candidates on the table: "Loud and quiet" (recommended; the body literally opens with a Loud line and a Quiet line), "Pay attention to", "Between the lines". The code name is `emphasisRead` regardless of the label.
+The slot reads "Pay attention to" (Samay's pick, 2026-08-11). Backups he also likes if it wears badly in the real UI: "What's gone unsaid" and "Keep an eye on". The code name is `emphasisRead` regardless of the label.
 
 ## Where it runs
 
