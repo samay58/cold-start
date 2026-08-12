@@ -148,6 +148,7 @@ function summarize(row: Row, includeQuality: boolean) {
     (sum, endpoint) => sum + (endpoint.estimatedCostUsd ?? 0),
     0
   );
+  const emphasisCost = trace?.emphasis?.estimatedLaneCostUsd;
   return {
     when: row.started_at.toISOString().replace("T", " ").slice(0, 19),
     company: row.domain,
@@ -167,6 +168,7 @@ function summarize(row: Row, includeQuality: boolean) {
     llm: llmCalls !== undefined ? String(llmCalls) : "-",
     agentcash: agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
     anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : "-",
+    emphasis: emphasisCost !== undefined ? `$${emphasisCost.toFixed(4)}` : "-",
     runCost: row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
     budget: stableenrichBudget !== undefined ? `$${stableenrichBudget.toFixed(4)}` : "-",
     ...(includeQuality ? { quality: formatGenerationQualityFlags(flagsFor(row)) } : {}),
@@ -189,6 +191,7 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "llm",
     "agentcash",
     "anthropic",
+    "emphasis",
     "runCost",
     "budget",
     ...(includeQuality ? ["quality"] : []),

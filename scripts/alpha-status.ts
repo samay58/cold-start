@@ -984,11 +984,15 @@ function spendSummary(runs: RunRow[]): AlphaStatusReport["spend"] {
 }
 
 function runCost(run: RunRow): number | null {
+  // generation_cost_usd and the traced Anthropic fallback both cover LLM spend only; the
+  // emphasis read's founder-voice lanes (mostly xAI) are a separate, non-Anthropic stream that
+  // neither one carries, so it is added on top of whichever branch below actually returns a cost.
+  const emphasisCost = finiteNumber(objectAt(run.trace_json, "emphasis")?.estimatedLaneCostUsd) ?? 0;
   const stored = run.generation_cost_usd === null ? null : Number(run.generation_cost_usd);
-  if (stored !== null && Number.isFinite(stored)) return stored;
+  if (stored !== null && Number.isFinite(stored)) return stored + emphasisCost;
   const traced = finiteNumber(run.trace_json?.costUsdAnthropic)
     ?? finiteNumber(objectAt(run.trace_json, "llm")?.totalEstimatedCostUsd);
-  return traced;
+  return traced === null ? null : traced + emphasisCost;
 }
 
 // request_failure_code and the traced failure.code are both app-written from

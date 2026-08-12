@@ -42,6 +42,9 @@ type RunCostRow = {
         endpoints?: Array<{ name: string; status: string }>;
       };
     };
+    emphasis?: {
+      estimatedLaneCostUsd?: number;
+    };
   } | null;
   status: string;
   started_at: Date;
@@ -91,6 +94,11 @@ function summarizeRuns(rows: RunCostRow[]) {
   let failedAnthropicCost = 0;
   let successfulCostCount = 0;
   let failedCostCount = 0;
+  // The emphasis read's founder-voice lane spend (mostly xAI) is not Anthropic spend and is
+  // tallied separately: folding it into successful/failedAnthropicCost would mislabel this
+  // report's one Anthropic-scoped metric (see this file's own header comment).
+  let emphasisLaneCost = 0;
+  let emphasisLaneCostCount = 0;
   const providerFailures = new Map<string, number>();
   const statusCounts = new Map<string, number>();
 
@@ -110,6 +118,12 @@ function summarizeRuns(rows: RunCostRow[]) {
     } else if (cost !== null) {
       successfulAnthropicCost += cost;
       successfulCostCount += 1;
+    }
+
+    const laneCost = row.trace_json?.emphasis?.estimatedLaneCostUsd;
+    if (typeof laneCost === "number" && Number.isFinite(laneCost) && laneCost > 0) {
+      emphasisLaneCost += laneCost;
+      emphasisLaneCostCount += 1;
     }
 
     const endpoints = row.trace_json?.providers?.stableenrich?.endpoints ?? [];
@@ -132,6 +146,8 @@ function summarizeRuns(rows: RunCostRow[]) {
       successfulCostCount + failedCostCount > 0
         ? (successfulAnthropicCost + failedAnthropicCost) / (successfulCostCount + failedCostCount)
         : 0,
+    emphasisLaneCost,
+    emphasisLaneCostCount,
     providerFailures,
   };
 }
@@ -206,6 +222,11 @@ async function main() {
   );
   if (summary.avgAnthropicCost > 0) {
     console.log(`  Avg Anthropic / run: ${formatUsd(summary.avgAnthropicCost)}`);
+  }
+  if (summary.emphasisLaneCostCount > 0) {
+    console.log(
+      `  Emphasis lane spend (xAI/Exa): ${formatUsd(summary.emphasisLaneCost)} across ${summary.emphasisLaneCostCount} runs`
+    );
   }
 
   console.log(`\nTop stableenrich failures (last 24h)`);

@@ -153,6 +153,29 @@ describe("alpha status report", () => {
     );
   });
 
+  // Fix wave (2026-08-12): runCost only ever read costUsdAnthropic/llm.totalEstimatedCostUsd, so
+  // the emphasis read's founder-voice lane spend (mostly xAI, up to ~$0.10/run) never showed up
+  // in the alpha spend report at all. It must add on top of whatever the run's other cost stream
+  // already contributed, for both the stored-cost and the traced-fallback branch.
+  it("adds the emphasis read's founder-voice lane spend on top of a run's other cost stream", () => {
+    const fixture = failingFixture();
+    const completeRun = fixture.runRows.find((run) => run.generation_run_id === "run-complete");
+    if (!completeRun || !completeRun.trace_json) {
+      throw new Error("fixture must carry a run-complete row with trace_json");
+    }
+    completeRun.trace_json = {
+      ...completeRun.trace_json,
+      emphasis: { enabled: true, status: "read", estimatedLaneCostUsd: 0.05 }
+    };
+
+    const report = buildAlphaStatusReport(fixture);
+
+    // run-complete's generation_cost_usd is null (per failingFixture), so runCost falls to the
+    // traced costUsdAnthropic (0.12) plus the new emphasis lane cost (0.05) = 0.17, modulo
+    // float noise (spendSummary accumulates raw floats without rounding).
+    assert.equal(Number(report.spend.successfulUsd.toFixed(2)), 0.17);
+  });
+
   it("passes when wallet, reliability, and compatibility evidence are clean", () => {
     const fixture = failingFixture();
     fixture.runRows = fixture.runRows.filter((run) => run.generation_run_id === "run-complete");

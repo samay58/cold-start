@@ -130,8 +130,11 @@ function runCostUsd(run: RunRow) {
   const anthropicCost = run.trace_json?.costUsdAnthropic ?? run.trace_json?.llm?.totalEstimatedCostUsd;
   // Direct Exa bills the Exa account directly; traces older than the field report 0.
   const directExaCost = run.trace_json?.providers?.directExa?.estimatedCostUsd ?? 0;
+  // The emphasis read's founder-voice lanes (mostly xAI); 0 when disabled, thin-filed, or every
+  // lane failed. Traces older than the field report 0, same as directExaCost above.
+  const emphasisCost = run.trace_json?.emphasis?.estimatedLaneCostUsd ?? 0;
   if (typeof agentcashCost === "number" && Number.isFinite(agentcashCost)) {
-    return Number((agentcashCost + (anthropicCost ?? 0) + directExaCost).toFixed(6));
+    return Number((agentcashCost + (anthropicCost ?? 0) + directExaCost + emphasisCost).toFixed(6));
   }
 
   if (run.cost_usd !== null) {
