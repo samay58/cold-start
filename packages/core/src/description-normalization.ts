@@ -50,6 +50,11 @@ export function cleanDescriptionText(value: string): string {
     .replace(/\.{3,}|…/gu, ".")
     .replace(/\s+([.,;:!?])/g, "$1")
     .replace(/\.{2,}/g, ".")
+    // A lowercase bare-TLD "sentence" ("...for AI agents. com. The company...") is a model
+    // artifact from a split domain, never prose; the exa card shipped one on 2026-06-18 and
+    // no rule here caught it. Only the standalone fragment matches: a real sentence ending in
+    // "ai." keeps its own preceding words, so it never fits the sentence-end + bare-TLD shape.
+    .replace(/([.!?]) (?:com|net|org|io|co|ai|dev|app)\.(?= [A-Z]|$)/g, "$1")
     .trim()
     .replace(/\s*[,;:-]+\s*$/u, "")
     .trim();
