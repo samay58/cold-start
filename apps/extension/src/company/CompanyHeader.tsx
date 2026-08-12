@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from "react";
 import { CompanyLogo } from "./CompanyLogo";
 import { readableCompanyName, sourceLabel, websiteLabel } from "./company-display";
 import { formatElapsed, formatOptionalCurrency, formatOptionalNumber } from "../shared/extension-format";
-import { fundingEvidenceFromCitations } from "@cold-start/core";
+import { fundingEvidenceFromCitations, isAgedProfile } from "@cold-start/core";
 import type { TooltipDossier, TooltipPropsFor } from "../shared/SharedTooltip";
 import { useAlphaEvent } from "../shared/alpha-event-context";
 
@@ -60,7 +60,14 @@ export function CompanyHeader({
           <a className="cs-company-domain" href={`https://${domain}`} rel="noreferrer" target="_blank">
             {website}
           </a>
-          {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
+          {freshnessLabel ? (
+            <span
+              className="cs-freshness-mark"
+              data-aged={card && isAgedProfile(card.generatedAt) ? "true" : undefined}
+            >
+              {freshnessLabel}
+            </span>
+          ) : null}
           {refileSlot}
           {identityChildren}
         </div>

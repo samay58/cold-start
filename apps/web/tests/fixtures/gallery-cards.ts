@@ -308,7 +308,10 @@ const plainfieldCitations: Citation[] = [
 export const emptySectionsCard: ColdStartCard = {
   slug: "plainfield-example",
   domain: "plainfield.example",
-  generatedAt: "2026-04-18T09:00:00.000Z",
+  // Deliberately dynamic: the other two fixtures carry frozen months-old dates, so under the
+  // real clock they capture the aged filed-date state (core's 14-day threshold). This one stays
+  // two days old forever, keeping a not-aged contrast in every gallery run.
+  generatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
   generationCostUsd: 0.05,
   cacheStatus: "hit",
   identity: {

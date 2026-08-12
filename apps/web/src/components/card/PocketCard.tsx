@@ -11,6 +11,7 @@ import {
   filedDateStamp,
   hasPeopleContent,
   headcountConflict,
+  isAgedCard,
   isThinFile,
   nextQuestionForCard,
   signalEvidenceState,
@@ -67,7 +68,9 @@ function Mark({ state }: { state: EvidenceState | null }) {
 function PocketFooter({ card, sourcesRead }: { card: PublicCardData; sourcesRead: number }) {
   return (
     <div className="cs-pocket-footer">
-      <span>filed {filedDateStamp(card.generatedAt)}</span>
+      <span className="cs-filed-date" data-aged={isAgedCard(card) ? "true" : undefined}>
+        filed {filedDateStamp(card.generatedAt)}
+      </span>
       <span>
         {sourcesRead} source{sourcesRead === 1 ? "" : "s"}
       </span>
