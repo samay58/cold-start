@@ -31,8 +31,10 @@ const ROWS: ComparisonRow[] = [
   },
   {
     label: "Cost",
-    coldStart: "Under 10 cents per full profile",
-    coldStartNote: "one seat of PitchBook buys 250,000 profiles",
+    // Measured 2026-08-12 on 30 days of real prod traffic: median basics+analysis pair for
+    // the same domain, all four cost streams, $0.178 over 61 domains (p90 $0.242).
+    coldStart: "18 cents per full profile",
+    coldStartNote: "one seat of PitchBook buys 140,000 profiles",
     pitchbook: "About $25k per seat per year, reported"
   },
   {

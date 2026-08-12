@@ -6,6 +6,7 @@ import { ComparisonTable } from "../components/landing/ComparisonTable";
 import { ExtensionPanel } from "../components/landing/ExtensionPanel";
 import { Hero } from "../components/landing/Hero";
 import { LandingFooter } from "../components/landing/LandingFooter";
+import { RecordExhibit } from "../components/landing/RecordExhibit";
 import { recordedBuild } from "../components/landing/recorded-build-data";
 import { SourcesLegend } from "../components/landing/SourcesLegend";
 import { getCachedPublicProfileIndex } from "../lib/cards";
@@ -56,6 +57,7 @@ export default async function HomePage() {
               you return.
             </p>
           </div>
+          <RecordExhibit />
           <ComparisonTable />
           <p className="cs-landing-pitchbook-closing">
             Round ledgers, fund and LP data, and exit comps stay in PitchBook. The first ten

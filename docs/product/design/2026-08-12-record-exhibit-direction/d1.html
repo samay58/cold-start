@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>D1 — The printout and the card</title>
+<style>
+@font-face {
+  font-family: "At Textual";
+  src: url("../../../../apps/web/public/fonts/AtTextualVAR.woff2") format("woff2");
+  font-weight: 100 900;
+}
+:root {
+  --seal: #6E5C9E;
+  --paper: #F4EDDC;
+  --paper-under: #EDE4CE;
+  --ground: #E4DCC8;
+  --ink: #20201E;
+  --muted: #786F62;
+  --rule: #D8CEB6;
+  --rule-strong: #C3B79A;
+  --verified: #0E6B5B;
+  --reported: #315F9D;
+  --company: #9B6A1E;
+  --cold-paper: #FCFCFD;
+  --cold-ink: #1B1D22;
+  --cold-label: #6B6E76;
+  --cold-rule: #E4E5E9;
+  --receipt: "At Textual", monospace;
+  --body: "IBM Plex Sans", sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--ground);
+  font-family: var(--body);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.12 0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0.055 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.exhibit { max-width: 1120px; margin: 0 auto; padding: 88px 40px 96px; }
+.kicker { font-size: 16px; font-weight: 520; color: var(--ink); margin-bottom: 40px; max-width: 620px; line-height: 1.45; }
+
+/* printed report header: the strip names its own source, no ambiguity on any screen */
+.p-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 26px 11px;
+  border-bottom: 1px solid var(--cold-rule);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cold-label);
+}
+
+/* record fragment head: logo, company, source tag */
+.r-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--cold-rule);
+  margin-bottom: 6px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cold-ink);
+}
+.r-head img { width: 16px; height: 16px; display: block; }
+.r-head .src {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 9.5px;
+  color: var(--cold-label);
+}
+.co-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.co-row img { width: 22px; height: 22px; border-radius: 4px; display: block; }
+
+/* ---------- the continuous-feed printout ---------- */
+.printout {
+  position: relative;
+  width: 800px;
+  margin: 0;
+  background: var(--cold-paper);
+  box-shadow: 0 0 0 1px rgba(32, 30, 20, 0.05), 0 1px 2px rgba(32, 30, 20, 0.08), 0 16px 36px -14px rgba(32, 30, 20, 0.14);
+  transform: rotate(-0.25deg);
+}
+.printout::before, .printout::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 30px;
+  background-image: radial-gradient(circle 4.5px at 50% 13px, var(--ground) 3.8px, rgba(27, 29, 34, 0.20) 4.4px, transparent 5.4px);
+  background-size: 30px 26px;
+  background-repeat: repeat-y;
+  z-index: 2;
+}
+.printout::before { left: 0; border-right: 1px dashed #D4D5DA; }
+.printout::after { right: 0; border-left: 1px dashed #D4D5DA; }
+.perf { position: absolute; left: 30px; right: 30px; border-top: 1px dashed #D8D9DE; z-index: 2; }
+.perf.top { top: 5px; }
+.perf.bottom { bottom: 5px; }
+.printout-body { margin: 0 31px; padding: 12px 0; }
+.p-row {
+  display: flex;
+  gap: 22px;
+  padding: 15px 26px;
+  align-items: baseline;
+}
+.p-row + .p-row { border-top: 1px solid var(--cold-rule); }
+.p-co {
+  flex: 0 0 96px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--cold-label);
+}
+.p-text {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--cold-ink);
+}
+.stack-caption {
+  font-family: var(--receipt);
+  font-size: 11px;
+  color: var(--muted);
+  width: 800px;
+  margin: 14px 0 0;
+  padding-left: 31px;
+}
+
+/* ---------- pairs ---------- */
+.pair { margin-top: 92px; }
+.q {
+  font-size: 27px;
+  font-weight: 760;
+  letter-spacing: -0.015em;
+  margin-bottom: 34px;
+}
+.pair-desk { position: relative; display: flex; gap: 0; align-items: flex-start; }
+
+.record-obj { flex: 0 0 46%; margin-top: 26px; transform: rotate(-0.35deg); position: relative; z-index: 1; }
+/* deliberate unevenness: each pair sits differently on the desk */
+.pair-2 .record-obj { flex-basis: 38%; margin-top: 42px; }
+.pair-2 .card-obj { margin-left: -14px; }
+.pair-3 .record-obj { flex-basis: 42%; margin-top: 14px; }
+.record-paper {
+  position: relative;
+  background: var(--cold-paper);
+  box-shadow: 0 0 0 1px rgba(32, 30, 20, 0.05), 0 1px 2px rgba(32, 30, 20, 0.08), 0 12px 26px -12px rgba(32, 30, 20, 0.13);
+}
+.record-paper::before, .record-paper::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 24px;
+  background-image: radial-gradient(circle 4px at 50% 12px, var(--ground) 3.4px, rgba(27, 29, 34, 0.20) 4px, transparent 5px);
+  background-size: 24px 24px;
+  background-repeat: repeat-y;
+  z-index: 2;
+}
+.record-paper::before { left: 0; border-right: 1px dashed #D4D5DA; }
+.record-paper::after { right: 0; border-left: 1px dashed #D4D5DA; }
+.record-inner { margin: 0 25px; padding: 20px 20px 16px; }
+.r-desc {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--cold-ink);
+  padding-bottom: 14px;
+}
+.r-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-top: 1px solid var(--cold-rule);
+  align-items: baseline;
+}
+.r-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cold-label);
+}
+.r-value {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13px;
+  color: var(--cold-ink);
+}
+.r-value.dash { font-size: 15px; }
+.r-colhead {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--cold-ink);
+  padding: 12px 0 2px;
+  border-top: 1px solid var(--cold-rule);
+}
+.r-colhead:first-child { border-top: 0; padding-top: 0; }
+.record-caption {
+  font-family: var(--receipt);
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 12px 0 0 25px;
+}
+
+/* the disagreement slip: tucked under the record's bottom edge, never over its data */
+.note-slip {
+  position: relative;
+  width: 244px;
+  margin: -14px 0 0 20px;
+  background: var(--paper);
+  padding: 12px 14px;
+  font-family: var(--receipt);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.55;
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(32, 30, 20, 0.16);
+  transform: rotate(-1.1deg);
+  z-index: 3;
+}
+
+/* ---------- the mini catalogue card ---------- */
+.card-obj { flex: 1; transform: rotate(0.3deg); position: relative; z-index: 2; margin-left: -18px; }
+.mini-card {
+  position: relative;
+  background: var(--paper);
+  border-top: 2px solid var(--seal);
+  border-radius: 0 0 6px 6px;
+  padding: 20px 26px 18px 48px;
+  box-shadow: 0 0 0 1px rgba(32, 30, 20, 0.05), 0 1px 2px rgba(32, 30, 20, 0.08), 0 18px 40px -16px rgba(32, 30, 20, 0.16), -8px 4px 16px rgba(32, 30, 20, 0.07);
+}
+.mini-card::before {
+  content: "";
+  position: absolute;
+  left: 7px; right: -7px; top: 8px; bottom: -8px;
+  background: var(--paper-under);
+  border-radius: 6px;
+  z-index: -1;
+}
+.mini-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.call {
+  font-family: var(--receipt);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--seal);
+  font-weight: 500;
+}
+.filed {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font-family: var(--receipt);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--seal);
+  border: 1.5px solid var(--seal);
+  border-radius: 2px;
+  padding: 4px 8px 3px;
+  transform: rotate(-3deg);
+  opacity: 0.82;
+}
+.filed small {
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+}
+.co-name { font-size: 21px; font-weight: 740; letter-spacing: -0.01em; }
+.lines { border-top: 1px solid var(--rule); padding-top: 6px; }
+.line {
+  position: relative;
+  padding: 8px 0 8px 20px;
+  font-size: 14.5px;
+  font-weight: 450;
+  line-height: 1.5;
+}
+.line + .line { border-top: 1px solid var(--rule); }
+.dot {
+  position: absolute;
+  left: 0;
+  top: 15px;
+  width: 8px;
+  height: 8px;
+}
+.dot.verified { background: var(--verified); }
+.dot.reported { border: 1.5px solid var(--reported); }
+.dot.company { background: linear-gradient(90deg, var(--company) 50%, transparent 50%); border: 1.5px solid var(--company); }
+/* a hand tally stroke, not a ribbon: slanted, uneven, one per line their record cannot hold */
+.tick {
+  position: absolute;
+  left: -30px;
+  top: 9px;
+  width: 2.5px;
+  height: 19px;
+  background: var(--seal);
+  border-radius: 1.2px;
+  transform: rotate(9deg);
+}
+.line:nth-child(odd) .tick { transform: rotate(7deg); height: 18px; }
+.comp-name { font-size: 15px; font-weight: 640; }
+.comp-domain { font-family: var(--receipt); font-size: 10.5px; color: var(--muted); margin-left: 8px; }
+.comp-basis { font-size: 13px; font-weight: 450; line-height: 1.5; margin-top: 2px; }
+.comp-hosts { font-family: var(--receipt); font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+.card-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- tally: the nine margin strokes, collected and counted by hand ---------- */
+.tally-row { margin-top: 96px; display: flex; align-items: center; gap: 20px; }
+.handtally { display: flex; gap: 16px; align-items: center; height: 24px; }
+.tg { position: relative; display: flex; gap: 5.5px; }
+.tg i {
+  display: block;
+  width: 2.5px;
+  height: 19px;
+  background: var(--seal);
+  border-radius: 1.2px;
+  transform: rotate(8deg);
+}
+.tg i:nth-child(2) { transform: rotate(10deg); height: 20px; }
+.tg i:nth-child(3) { transform: rotate(6deg); }
+.tg i:nth-child(4) { transform: rotate(9deg); height: 18px; }
+.tg b {
+  position: absolute;
+  left: -5px;
+  top: 8px;
+  width: 38px;
+  height: 2.5px;
+  background: var(--seal);
+  border-radius: 1.2px;
+  transform: rotate(-22deg);
+}
+.tally { font-size: 16px; font-weight: 560; }
+
+/* ---------- mobile: their material first, vertical lap ---------- */
+@media (max-width: 700px) {
+  .exhibit { padding: 56px 18px 72px; }
+  .printout { width: 100%; }
+  .printout-body { margin: 0 26px; }
+  .printout::before, .printout::after { width: 26px; }
+  .p-row { flex-direction: column; gap: 3px; padding: 12px 16px; }
+  .p-co { flex: 0 0 auto; }
+  .stack-caption { width: 100%; padding-left: 26px; }
+  .pair { margin-top: 64px; }
+  .q { font-size: 22px; margin-bottom: 22px; }
+  .pair-desk { display: block; }
+  .record-obj, .pair-2 .record-obj, .pair-3 .record-obj { margin-top: 0; }
+  .card-obj, .pair-2 .card-obj { margin: -12px 0 0 10px; }
+  .mini-card { padding-left: 40px; }
+  .tick { left: -26px; }
+  .note-slip { margin-left: 12px; }
+  .tally-row { margin-top: 64px; }
+}
+</style>
+</head>
+<body>
+<div class="exhibit">
+  <!-- [SAMAY] kicker, his wording from the 2026-08-12 review -->
+  <p class="kicker">The tools we use to understand these companies barely scratch the surface.</p>
+
+  <!-- Beat 1: the printout -->
+  <div class="printout noise">
+    <span class="perf top"></span><span class="perf bottom"></span>
+    <div class="printout-body">
+      <div class="p-head"><span>PitchBook · Company descriptions</span><span>accessed 2026-08-11</span></div>
+      <div class="p-row"><span class="p-co">Exa</span><span class="p-text">Developer of an artificial intelligence-powered search engine designed to perform web searches at a large scale.</span></div>
+      <div class="p-row"><span class="p-co">Turbopuffer</span><span class="p-text">Developer of a serverless vector database designed for the technology and data storage industries.</span></div>
+      <div class="p-row"><span class="p-co">ClickHouse</span><span class="p-text">Developer of an online analytical processing database management system designed to generate analytical reports using SQL queries.</span></div>
+      <div class="p-row"><span class="p-co">Cursor</span><span class="p-text">Developer of an artificial intelligence-powered coding platform designed to enhance the productivity and capabilities of programmers and software engineers.</span></div>
+      <div class="p-row"><span class="p-co">Ramp</span><span class="p-text">Developer of a spend-management platform designed to streamline business, improve efficiency, and build healthier enterprises.</span></div>
+      <div class="p-row"><span class="p-co">Mintlify</span><span class="p-text">Developer of an intelligent knowledge platform designed to organize, analyze, and surface enterprise knowledge for improved decision-making.</span></div>
+    </div>
+  </div>
+
+  <!-- Pair 1: Mintlify -->
+  <div class="pair">
+    <h3 class="q">What do they actually sell?</h3>
+    <div class="pair-desk">
+      <div class="record-obj">
+        <div class="record-paper noise">
+          <div class="record-inner">
+            <div class="r-head"><img src="mintlify.png" alt=""><span>Mintlify</span><span class="src">PitchBook</span></div>
+            <p class="r-desc">Developer of an intelligent knowledge platform designed to organize, analyze, and surface enterprise knowledge for improved decision-making.</p>
+            <div class="r-field"><span class="r-label">Employees</span><span class="r-value">62</span></div>
+            <div class="r-field"><span class="r-label">Contacts</span><span class="r-value">2</span></div>
+            <div class="r-field"><span class="r-label">Deals</span><span class="r-value">5</span></div>
+            <div class="r-field"><span class="r-label">Investors</span><span class="r-value">11</span></div>
+            <div class="r-field"><span class="r-label">Year founded</span><span class="r-value">2021</span></div>
+            <div class="r-field"><span class="r-label">Primary industry</span><span class="r-value">Business/Productivity Software</span></div>
+          </div>
+        </div>
+        <div class="note-slip noise">They file 62. Our sources file 85 as of May 2026.</div>
+        <p class="record-caption">PitchBook, accessed August 11, 2026.</p>
+      </div>
+      <div class="card-obj">
+        <div class="mini-card noise">
+          <div class="mini-head"><span class="call">CS · MINTLIFY · 26</span><span class="filed">FILED<small>2026·08·11</small></span></div>
+          <div class="co-row"><img src="mintlify.png" alt=""><span class="co-name">Mintlify</span></div>
+          <div class="lines">
+            <div class="line"><span class="dot verified"></span>Sells documentation and knowledge infrastructure to software companies.</div>
+            <div class="line"><span class="tick"></span><span class="dot verified"></span>Large enterprises including Anthropic, Perplexity, Vercel, Fidelity, and Replit.</div>
+            <div class="line"><span class="tick"></span><span class="dot verified"></span>Nearly half of traffic across Mintlify-hosted docs now comes from AI agents rather than human browsers.</div>
+          </div>
+          <a class="card-link" href="#">Open the full card</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pair 2: turbopuffer -->
+  <div class="pair pair-2">
+    <h3 class="q">Who pays them?</h3>
+    <div class="pair-desk">
+      <div class="record-obj">
+        <div class="record-paper noise">
+          <div class="record-inner">
+            <div class="r-head"><img src="turbopuffer.png" alt=""><span>turbopuffer</span><span class="src">PitchBook</span></div>
+            <div class="r-field" style="border-top:0"><span class="r-label">Employees</span><span class="r-value">22 (as of 2025)</span></div>
+            <div class="r-field"><span class="r-label">Total raised</span><span class="r-value dash">—</span></div>
+            <div class="r-field"><span class="r-label">Post valuation</span><span class="r-value dash">—</span></div>
+            <div class="r-field"><span class="r-label">Revenue</span><span class="r-value dash">—</span></div>
+          </div>
+        </div>
+        <p class="record-caption">PitchBook, accessed August 11, 2026.</p>
+      </div>
+      <div class="card-obj">
+        <div class="mini-card noise">
+          <div class="mini-head"><span class="call">CS · TURBOPUFFER · 26</span><span class="filed">FILED<small>2026·08·11</small></span></div>
+          <div class="co-row"><img src="turbopuffer.png" alt=""><span class="co-name">turbopuffer</span></div>
+          <div class="lines">
+            <div class="line"><span class="tick"></span><span class="dot verified"></span>Anthropic, Cursor, Notion, Atlassian.</div>
+            <div class="line"><span class="tick"></span><span class="dot verified"></span>Vector and full-text search on cheap object storage instead of expensive in-memory systems.</div>
+            <div class="line"><span class="tick"></span><span class="dot verified"></span>Warm, cached queries return in about 20ms (p50).</div>
+          </div>
+          <a class="card-link" href="#">Open the full card</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pair 3: ClickHouse -->
+  <div class="pair pair-3">
+    <h3 class="q">Who do they compete with?</h3>
+    <div class="pair-desk">
+      <div class="record-obj">
+        <div class="record-paper noise">
+          <div class="record-inner">
+            <div class="r-head"><img src="clickhouse.png" alt=""><span>ClickHouse</span><span class="src">PitchBook</span></div>
+            <div class="r-colhead" style="border-top:0;padding-top:4px">Databricks</div>
+            <div class="r-field" style="border-top:0"><span class="r-label">Employees</span><span class="r-value">9,000</span></div>
+            <div class="r-field"><span class="r-label">Total raised</span><span class="r-value">$29.52B</span></div>
+            <div class="r-colhead">Anthropic</div>
+            <div class="r-field" style="border-top:0"><span class="r-label">Employees</span><span class="r-value">5,000</span></div>
+            <div class="r-field"><span class="r-label">Total raised</span><span class="r-value">$161.25B</span></div>
+            <div class="r-colhead">Grafana Labs</div>
+            <div class="r-field" style="border-top:0"><span class="r-label">Employees</span><span class="r-value">1,600</span></div>
+          </div>
+        </div>
+        <p class="record-caption">PitchBook, accessed August 11, 2026.</p>
+      </div>
+      <div class="card-obj">
+        <div class="mini-card noise">
+          <div class="mini-head"><span class="call">CS · CLICKHOUSE · 26</span><span class="filed">FILED<small>2026·08·11</small></span></div>
+          <div class="co-row"><img src="clickhouse.png" alt=""><span class="co-name">ClickHouse</span></div>
+          <div class="lines">
+            <div class="line"><span class="tick"></span><span class="dot verified"></span><span class="comp-name">Snowflake</span><span class="comp-domain">snowflake.com</span>
+              <div class="comp-basis">Named directly as a competitor by Bloomberg and TechCrunch.</div>
+              <div class="comp-hosts">bloomberg.com · techcrunch.com</div>
+            </div>
+            <div class="line"><span class="tick"></span><span class="dot verified"></span><span class="comp-name">Databricks</span><span class="comp-domain">databricks.com</span>
+              <div class="comp-basis">Same buyer evaluating a data platform for analytics and AI workloads.</div>
+              <div class="comp-hosts">bloomberg.com · techcrunch.com</div>
+            </div>
+            <div class="line"><span class="tick"></span><span class="dot company"></span><span class="comp-name">Elastic</span><span class="comp-domain">elastic.co</span>
+              <div class="comp-basis">ClickHouse positions against Elasticsearch for log analytics.</div>
+              <div class="comp-hosts">clickhouse.com</div>
+            </div>
+            <div class="line"><span class="tick"></span><span class="dot reported"></span><span class="comp-name">LangSmith</span><span class="comp-domain">smith.langchain.com</span>
+              <div class="comp-basis">Langfuse, acquired by ClickHouse, competes directly with LangSmith.</div>
+              <div class="comp-hosts">techcrunch.com</div>
+            </div>
+          </div>
+          <a class="card-link" href="#">Open the full card</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

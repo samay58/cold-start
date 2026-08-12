@@ -69,7 +69,8 @@ describe("HomePage", () => {
     expect(html).toContain("PitchBook is static and often thin for young companies.");
     expect(html).toContain("refreshes old sections when you return");
     expect(html).toContain("A public link, no login");
-    expect(html).toContain("one seat of PitchBook buys 250,000 profiles");
+    expect(html).toContain("18 cents per full profile");
+    expect(html).toContain("one seat of PitchBook buys 140,000 profiles");
     expect(html).not.toContain("cs-landing-hairline");
     expect(html).not.toContain("cs-landing-panel-bar");
 

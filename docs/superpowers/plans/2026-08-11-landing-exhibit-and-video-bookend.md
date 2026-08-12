@@ -67,6 +67,22 @@ Each pair: question as title `[SAMAY]`, their material on the left, our card exc
 
 One flat line under the pairs carrying the tick count. `[SAMAY]`. Working placeholder: "Nine lines. No field on the left for any of them."
 
+## Visual direction, decided 2026-08-12 (supersedes the visual spec below where they differ)
+
+Samay rejected the shipped typographic-columns design ("elementary, not high craft") and picked a direction from a three-way mockup exploration (printout-and-card, pasted-into-the-ledger, mounted-exhibit; three-plus critique rounds each). The chosen direction and its reference mockup live at `docs/product/design/2026-08-12-record-exhibit-direction/` (`d1.html` renders with the repo's real fonts; screenshot it with Playwright to see the target; `critiques.md` records every round and the reasoning).
+
+**The concept: the printout and the card.** PitchBook's record renders as a cold continuous-feed printout (tractor-feed sprocket strips both edges, dashed perforation at top and bottom, IBM Plex Mono as the earned material accent, cold white `#FCFCFD` against the warm desk). Cold Start's excerpt renders as a true miniature of the filed catalogue card: parchment, seal top hairline, `CS · SLUG · 26` call number, two-line FILED stamp, company logo beside the name, stacked under-card depth. The card physically laps onto the printout's sprocket strip (never onto their data), a few pixels of vertical offset and sub-half-degree rotations per object; each pair sits differently on the desk (varied record widths, offsets, lap depths). Ticks are slanted hand tally strokes in seal lilac inside the card's own left margin, never straight bars (straight left ribbons are a named slop tell). Shadows are a 1px low-alpha ring plus one deep soft falloff.
+
+Decisions from Samay's 2026-08-12 review, all binding:
+
+- Kicker is his line: "The tools we use to understand these companies barely scratch the surface." (His slot, his wording.)
+- Beat 1's printout carries its own printed header row, "PitchBook · Company descriptions / accessed 2026-08-11", so the section can never be mistaken for our card on any screen; the separate stack caption is gone.
+- Both sides of every pair carry identity: record fragments get a head with company logo, name, and a small "PitchBook" source tag; our cards get the logo beside the name. Logos route through `safePublicImageUrl`-vetted URLs frozen in the fixture, following the extension `CompanyLogo` vetting pattern.
+- The margin note drops "Both values stand.": it now reads "They say 62. Our sources say 85 as of May 2026." (Samay, 2026-08-12: "file" as a verb is banned in page copy; plain English.) Short editorial takeaway lines are cut as a class.
+- Beat 5 (the tally line and tick cluster) is CUT entirely. The section ends on the third pair. `exhibitTickCount` may stay as a test helper only.
+- Mobile under 700px: their record first, our card lapping upward over its bottom edge; printout rows stack label-over-text.
+- Motion unchanged: strokes draw in once on scroll, roughly 60ms stagger, full opacity without the draw under reduced motion.
+
 ## Visual spec
 
 - Two papers on the desk: the pair panels sit on the parchment ground with a few pixels of vertical offset, not a rigid 50/50 grid.
@@ -88,11 +104,11 @@ One flat line under the pairs carrying the tick count. `[SAMAY]`. Working placeh
 
 ## Fix list, before anything is showcased
 
-1. Turbopuffer comps section shows "0 sources" while making four claims. Real bug on a provenance product. Find why the comps section lost its citation attribution and fix it.
-2. Exa card contains "AI agents. com." mid-sentence in its stored description (legacy-format expanded description nested inside `identity.description.value`). Regenerate or repair the card; also worth a root-cause look at how the string survived.
-3. Artifact-scan and hand-read the Turbopuffer and ClickHouse cards the way Mintlify was checked (Mintlify scanned clean 2026-08-11).
-4. Verify the citation behind our Mintlify employee count (85) before the margin note ships.
-5. The table below the exhibit still claims "Under 10 cents per full profile." Measured median full-profile cost was $0.435 to $0.481 in June. The exhibit magnifies every uncited claim near it. Re-measure or reword before ship.
+1. Turbopuffer comps section shows "0 sources" while making four claims. Real bug on a provenance product. Find why the comps section lost its citation attribution and fix it. RESOLVED: root cause fixed in `2077dee` on main (mergeComparables skipped same-domain cited candidates as duplicates, so uncited legacy comps could never heal). Verified in prod storage 2026-08-12: turbopuffer now carries 5 comps, 3 cited (Pinecone, Weaviate, AWS); Elastic and Qdrant remain uncited legacy entries a cited candidate can now replace on a future refresh.
+2. Exa card contains "AI agents. com." mid-sentence in its stored description (legacy-format expanded description nested inside `identity.description.value`). Regenerate or repair the card; also worth a root-cause look at how the string survived. RESOLVED: root cause and regression test in `abaecc1` on main (extraction split a domain; cleanDescriptionText had no bare-TLD-sentence rule). Verified 2026-08-12: the stored prod card no longer contains the fragment. The legacy nested description format itself persists on exa and turbopuffer.
+3. Artifact-scan and hand-read the Turbopuffer and ClickHouse cards the way Mintlify was checked (Mintlify scanned clean 2026-08-11). DONE 2026-08-12. ClickHouse scans clean. Turbopuffer: claimed execs (Benesch, VanBenschoten, Gagnon) verified against turbopuffer.com/about; three pipeline-level blemishes found and filed rather than hot-patched: (a) an aggregator page title stored as a signal ("Turbopuffer revenue, funding & news | Sacra"), (b) uncited name-collision ledger rows (a Timothy Puffer LinkedIn, TurbineOne/Turbine funding stories) render on the public sources rail because buildCitationIndex orders the whole ledger, (c) content-farm mirrors (universal.net, jobflocks.com) carry citations as independent corroboration (universal.net is cited by expandedDescription). All three need product calls, not fixture edits.
+4. Verify the citation behind our Mintlify employee count (85) before the margin note ships. DONE 2026-08-12: the 85 is Apollo org enrichment ("estimated_num_employees: 85", fetched 2026-05-15), stored as status mixed, confidence low, asOf 2026-05. The co-cited founder LinkedIn does not support the number. The note's claim "our sources file 85 as of May 2026" is accurate but rests on one vendor estimate; Samay writes the shipping wording with that in view.
+5. The table below the exhibit still claims "Under 10 cents per full profile." Measured median full-profile cost was $0.435 to $0.481 in June. The exhibit magnifies every uncited claim near it. Re-measure or reword before ship. RESOLVED 2026-08-12: re-measured on 30 days of real prod traffic (read-only, generation_runs), median basics+analysis pair per domain across all four cost streams = $0.178 over 61 domains, p90 $0.242. Table now says "18 cents per full profile" / "one seat of PitchBook buys 140,000 profiles" ($25k / $0.178).
 
 ## Video bookend (later task, plan frozen here)
 

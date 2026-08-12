@@ -136,6 +136,64 @@ test.describe("web gallery", () => {
     await page.screenshot({ path: path.join(screenshotDir, "landing-access-form.png") });
   });
 
+  // The record exhibit's tally strokes draw once when a pair scrolls into view, so the fullPage
+  // "home" capture (which never scrolls the pairs in) shows them undrawn. This capture scrolls
+  // each pair into view, lets the staggered draw settle, then screenshots each pair plus the
+  // printout, desktop and mobile (the mobile frames are the stacked their-record-first layout).
+  test("captures the record exhibit with ticks settled", async ({ page }, testInfo) => {
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
+    await page.waitForTimeout(400);
+    // Capture hygiene only: the focus-revealed skip link and the Next dev-tools badge are
+    // both real page furniture, but neither belongs in a design-review artifact.
+    await page.addStyleTag({ content: ".cs-skip-link, nextjs-portal { display: none !important; }" });
+
+    const screenshotDir = path.join(SCREENSHOT_ROOT, testInfo.project.name);
+    fs.mkdirSync(screenshotDir, { recursive: true });
+
+    const printout = page.locator(".cs-exhibit-printout");
+    await printout.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(screenshotDir, "exhibit-printout.png") });
+
+    const pairs = page.locator(".cs-exhibit-pair");
+    const pairCount = await pairs.count();
+    for (let index = 0; index < pairCount; index += 1) {
+      const pair = pairs.nth(index);
+      await pair.scrollIntoViewIfNeeded();
+      // Draw starts when the desk passes the -80px inView margin; the last stroke's stagger
+      // delay tops out under 500ms, plus the spring settle.
+      await page.waitForTimeout(900);
+      // Element screenshots crop at the border box, which decapitates the mini card's
+      // stacked under-card and drop shadows. Clip an expanded rect in page coordinates
+      // instead so the pair is captured with its physical margins intact.
+      const box = await pair.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          x: rect.x + window.scrollX,
+          y: rect.y + window.scrollY,
+          width: rect.width,
+          height: rect.height,
+          pageWidth: document.documentElement.scrollWidth,
+          pageHeight: document.documentElement.scrollHeight
+        };
+      });
+      const pad = 28;
+      const x = Math.max(0, box.x - pad);
+      const y = Math.max(0, box.y - pad);
+      await page.screenshot({
+        path: path.join(screenshotDir, `exhibit-pair-${index + 1}.png`),
+        fullPage: true,
+        clip: {
+          x,
+          y,
+          width: Math.min(box.pageWidth - x, box.width + pad * 2),
+          height: Math.min(box.pageHeight - y, box.height + pad * 2)
+        }
+      });
+    }
+  });
+
   // Task 18's recorded-build hero animation: three beats of the same run, timed off the real
   // stage machine (RecordedBuild.tsx) rather than fixed guesses. Stage 0 holds until 600ms after
   // the card scrolls into view (immediate on desktop: the hero sits in the first viewport), then
