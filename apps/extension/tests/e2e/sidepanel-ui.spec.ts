@@ -891,33 +891,25 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(clippings.nth(1)).toHaveAttribute("data-active", "false");
   await expect(clippings.nth(2)).toHaveAttribute("data-active", "false");
   await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveCSS("background-image", "none");
-  await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveCSS("box-shadow", "none");
+  // The featured bubble reads as lit: a seal ring plus a low wide shadow, no solid edge.
+  await expect(clippings.nth(0).locator(".cs-clipping-link")).not.toHaveCSS("box-shadow", "none");
+  await expect(clippings.nth(1).locator(".cs-clipping-link")).toHaveCSS("box-shadow", "none");
 
-  const stageLedger = page.locator(".cs-progress-ledger");
-  await expect(stageLedger).toBeVisible();
-  await expect(stageLedger.locator('[data-active="true"]')).toContainText("Read");
-  // The ledger speaks verbs anchored to real events, never the old pipeline nouns or a heading.
+  // The build tree is open from the first frame: verbs anchored to real events, no ledger,
+  // no toggle, never the old pipeline nouns or a heading.
+  const tree = page.locator(".cs-build-tree");
+  await expect(tree).toBeVisible();
+  await expect(page.locator(".cs-progress-ledger")).toHaveCount(0);
+  await expect(page.locator(".cs-assembly-details-toggle")).toHaveCount(0);
+  await expect(tree.locator('.cs-build-stage[data-active="true"]')).toContainText("Read");
   await expect(page.getByText("Stages", { exact: true })).toHaveCount(0);
-  // The running verb's mark is the ledger's one live signal.
-  const runningMark = stageLedger.locator('.cs-progress-ledger-mark[data-status="running"]');
-  await expect(runningMark).toHaveCount(1);
-  await expect.poll(() =>
-    runningMark.evaluate((element) => getComputedStyle(element, "::before").animationName)
-  ).toBe("cs-dot-pulse");
+  await expect(tree).toContainText("3 sources found");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
 
   await page.waitForTimeout(3600);
   await expect(page.locator('.cs-clipping[data-active="true"] .cs-clipping-domain')).toHaveText("techcrunch.com");
   await expect(page.locator(".cs-clipping").nth(1).locator(".cs-clipping-domain")).toHaveText("docs.cartesia.ai");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings-next.png" });
-
-  // The full tree waits behind Details, and replaces the ledger in place when opened: both
-  // surfaces speak the same four stages, so they never render stacked.
-  await page.locator(".cs-assembly-details-toggle").click();
-  const tree = page.locator(".cs-build-tree");
-  await expect(tree).toBeVisible();
-  await expect(stageLedger).toHaveCount(0);
-  await expect(tree).toContainText("3 sources found");
   // Prove the Drizzle loader is actually changing over time, not just declared.
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   await expect(drizzlePixel).toHaveCSS("animation-name", "cs-drizzle-step");
@@ -931,7 +923,7 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   expect(new Set(samples).size, `Drizzle opacity should change over time, got ${JSON.stringify(samples)}`).toBeGreaterThan(1);
 });
 
-test("Dia-width building state keeps identity clear and the stage ledger quiet", async ({ page }) => {
+test("Dia-width building state keeps identity clear", async ({ page }) => {
   await page.setViewportSize({ width: 437, height: 844 });
   await installChromeShim(page, { activeDomain: "symphonyai.com" });
   const startedAt = new Date(Date.now() - 30_000).toISOString();
@@ -1080,8 +1072,7 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(page.locator(".cs-seal-inst")).toHaveAttribute("data-level", "3");
   // ...clippings file what research found, ahead of any card fact...
   await expect(page.locator(".cs-clipping")).toHaveCount(2);
-  // ...and the tree behind Details carries the substeps.
-  await page.locator(".cs-assembly-details-toggle").click();
+  // ...and the always-open tree carries the substeps.
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible({ timeout: 10_000 });
   await expect(tree).not.toContainText("Picked a research plan");
@@ -1212,13 +1203,9 @@ test("reduced motion keeps progress readable without sweeping motion", async ({ 
   await expect(seal).toHaveAttribute("data-level", "0");
   await expect(seal).toHaveAttribute("data-filed", "false");
   await expect(page.locator(".cs-assembly-whisper")).toContainText("Queued");
-  // The ledger's running mark breathes in place instead of pulsing spatially.
-  const reducedRunningMark = page.locator('.cs-progress-ledger-mark[data-status="running"]');
-  await expect.poll(() =>
-    reducedRunningMark.evaluate((element) => getComputedStyle(element, "::before").animationName)
-  ).toBe("cs-reduced-breathe");
-  await page.locator(".cs-assembly-details-toggle").click();
+  // The tree is open from the first frame; no ledger or toggle exists to reveal it.
   await expect(page.locator(".cs-build-tree")).toBeVisible();
+  await expect(page.locator(".cs-assembly-details-toggle")).toHaveCount(0);
   const drizzlePixel = page.locator(".cs-drizzle-loader span").first();
   // Reduced motion is a reduction, not a freeze: the loader breathes in place
   // instead of stepping spatially.

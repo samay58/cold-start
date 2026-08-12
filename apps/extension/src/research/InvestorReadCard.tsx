@@ -559,7 +559,7 @@ const LENS_SLOT_REDUCED_TRANSITION: Transition = { duration: 0.1, ease: "easeOut
 // starts, so it stops sizing the grid and the entering card superimposes on it in place instead
 // of stacking below it -- re-measured after this fix, the same swap holds at ~1080px throughout.
 // It still overlaps rather than waiting (this codebase's convention everywhere else --
-// ResearchLayerPanel's own AnimatePresence blocks, CompanyArc's phase and ReadRegion swaps -- is
+// ResearchLayerPanel's own AnimatePresence blocks, CompanyArc's phase swaps -- is
 // the sync default; popLayout keeps that overlap, it only changes how the exiting node is laid
 // out during it). .cs-lens-slot carries position: relative (research-trail.css) so the popped
 // node's injected absolute offsets resolve against the slot's own box, not an ancestor further
