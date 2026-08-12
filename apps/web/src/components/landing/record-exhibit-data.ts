@@ -5,7 +5,8 @@
 // PitchBook strings were transcribed from Samay's PitchBook access on 2026-08-11 and are
 // quoted as editorial content with attribution; re-verify against PitchBook before ship.
 // Cold Start excerpt lines are contiguous spans clipped from the live production cards
-// (/api/cards/mintlify, /api/cards/turbopuffer, /api/cards/clickhouse, frozen 2026-08-11).
+// (/api/cards/mintlify, /api/cards/turbopuffer, /api/cards/clickhouse; frozen 2026-08-11,
+// re-verified against the live cards 2026-08-12 after turbopuffer's description refreshed).
 // Only the leading capital and terminal punctuation are normalized; no interior word is
 // altered, dropped, or reordered. Evidence states were derived through the real card-face
 // rules (publicEvidenceStatusForFact in apps/web/src/lib/card-face/model.ts) against each
@@ -182,12 +183,12 @@ export const recordExhibit: RecordExhibitData = {
             tick: true
           },
           {
-            text: "Vector and full-text search over massive corpora.",
+            text: "Vector and full-text search on cheap object storage instead of expensive in-memory systems.",
             state: "verified",
             tick: true
           },
           {
-            text: "In-memory latency on warm queries (20ms p50).",
+            text: "Warm, cached queries return in about 20ms (p50).",
             state: "verified",
             tick: true
           }
