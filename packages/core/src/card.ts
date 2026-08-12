@@ -24,6 +24,7 @@ export const citationSchema = z.object({
       "independent_report",
       "primary_company",
       "press_release",
+      "founder_authored",
       "enrichment",
       "unknown"
     ]),
@@ -111,6 +112,27 @@ export const sourcedTextSchema = z.object({
   citationIds: z.array(z.string().min(1))
 });
 
+// The sixth Lens category: what the company and its founders are loud about, what never
+// appears in the filed record, and the smallest inference that asymmetry supports. Quiet is
+// a plain string scoped to the file ("Nothing filed shows..."), so it carries no citations;
+// Loud and Read cite like any synthesis claim. thin_file is decided in code before any model
+// call; nothing_notable is model-decided and also the fallback when the verifier kills a read.
+export const emphasisReadFiledSchema = z.object({
+  status: z.literal("read"),
+  loud: sourcedTextSchema,
+  quiet: z.string().min(1),
+  read: sourcedTextSchema,
+  wouldChangeIf: z.string().min(1)
+});
+
+export const emphasisReadSchema = z.discriminatedUnion("status", [
+  emphasisReadFiledSchema,
+  z.object({ status: z.literal("thin_file") }),
+  z.object({ status: z.literal("nothing_notable") })
+]);
+export type EmphasisRead = z.infer<typeof emphasisReadSchema>;
+export type EmphasisReadFiled = z.infer<typeof emphasisReadFiledSchema>;
+
 // The synthesis prompt's "use null when sources do not support a field" license reaches one
 // level deeper than the claim: models sometimes null the text inside the claim object
 // ({text: null}) instead of the claim itself. That shape means the same honest absence, so it
@@ -169,6 +191,7 @@ export const synthesisSchema = z.object({
   bullCase: z.array(sourcedTextSchema),
   bearCase: z.array(sourcedTextSchema),
   openQuestions: z.array(openQuestionEntrySchema),
+  emphasisRead: emphasisReadSchema.optional(),
   // The synthesis prompt tells the model "use null when sources do not support a field" for the
   // fields inside this container; models sometimes null the whole container instead of its seven
   // fields. Coerce that null to undefined before validating so it means the same thing as an

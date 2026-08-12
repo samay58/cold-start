@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceQualityForSource, sourceQualityRank } from "../src/index";
+import { founderAuthoredQuality, sourceQualityForSource, sourceQualityRank, sourceQualityTierRank } from "../src/index";
 
 describe("sourceQualityForSource", () => {
   it("ranks independent technical writing above company press releases", () => {
@@ -216,4 +216,13 @@ describe("sourceQualityForSource", () => {
       label: "Investor-authored",
     });
   });
+});
+
+it("ranks founder_authored between press_release and primary_company", () => {
+  expect(sourceQualityTierRank("founder_authored")).toBe(3);
+});
+
+it("founderAuthoredQuality stamps the founder tier", () => {
+  expect(founderAuthoredQuality().tier).toBe("founder_authored");
+  expect(founderAuthoredQuality().label).toBe("Founder-authored");
 });

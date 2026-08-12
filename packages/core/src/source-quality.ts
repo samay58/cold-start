@@ -8,6 +8,7 @@ export type SourceQualityTier =
   | "independent_report"
   | "primary_company"
   | "press_release"
+  | "founder_authored"
   | "enrichment"
   | "unknown";
 
@@ -29,6 +30,7 @@ export function sourceQualityTierRank(tier: SourceQualityTier): number {
     independent_analysis: 6,
     independent_report: 5,
     primary_company: 4,
+    founder_authored: 3,
     press_release: 2,
     enrichment: 1,
     unknown: 0,
@@ -184,12 +186,23 @@ export function sourceQualityForSource(source: SourceQualityInput, options: Sour
   };
 }
 
-function companyAuthoredQuality(): SourceQuality {
+export function companyAuthoredQuality(): SourceQuality {
   return {
     tier: "primary_company",
     label: "Company-authored",
     rationale: "Best for product mechanics and official facts, weaker for claims about importance.",
     incentive: "Company positioning.",
+  };
+}
+
+// Stamped by the founder-voice fetcher, never derived from a URL: knowing a page is
+// founder-authored requires knowing the founder's handle, which only the fetcher has.
+export function founderAuthoredQuality(): SourceQuality {
+  return {
+    tier: "founder_authored",
+    label: "Founder-authored",
+    rationale: "The founder's own public voice. Strong for what they choose to emphasize, weak for neutral evaluation.",
+    incentive: "Personal and company promotion.",
   };
 }
 

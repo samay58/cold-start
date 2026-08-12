@@ -196,6 +196,7 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
       independent_report: 0,
       primary_company: 0,
       press_release: 0,
+      founder_authored: 0,
       enrichment: 0,
       unknown: 0
     };
