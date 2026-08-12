@@ -97,11 +97,13 @@ describe("RecordExhibit", () => {
     }
   });
 
-  it("renders the kicker, the disagreement slip, and no tally line", () => {
+  it("renders the kicker, the disagreement slip with its source link, and no tally line", () => {
     expect(html).toContain(escapeText(recordExhibit.kicker));
     const noteSlip = recordExhibit.pairs[0]?.noteSlip;
     expect(noteSlip).toBeTruthy();
-    expect(html).toContain(escapeText(noteSlip!));
+    expect(html).toContain(escapeText(noteSlip!.text));
+    expect(html).toContain(escapeText(noteSlip!.linkText));
+    expect(html).toContain(`href="${noteSlip!.linkHref}"`);
     // The tally beat was cut 2026-08-12: the section ends on the third pair.
     expect(html).not.toContain("cs-exhibit-tally");
     expect(html).not.toContain("Nine lines");

@@ -53,6 +53,13 @@ interface ExhibitComp {
   tick: boolean;
 }
 
+interface ExhibitNoteSlip {
+  text: string;
+  linkText: string;
+  // Vetted through safeWebUrl at render.
+  linkHref: string;
+}
+
 export interface ExhibitPair {
   slug: string;
   company: string;
@@ -65,9 +72,9 @@ export interface ExhibitPair {
     fields?: ExhibitRecordField[];
     columns?: ExhibitRecordColumn[];
   };
-  // [SAMAY] the one number the two documents disagree on, rendered as a paper slip
-  // tucked under the record's bottom edge. Wording is his to finalize.
-  noteSlip?: string;
+  // The one number the two documents disagree on, rendered as a paper slip tucked under
+  // the record's bottom edge, with a live link to the checkable source.
+  noteSlip?: ExhibitNoteSlip;
   excerpt: {
     lines: ExhibitCardLine[];
     comps?: ExhibitComp[];
@@ -149,10 +156,14 @@ export const recordExhibit: RecordExhibitData = {
           { label: "Primary industry", value: "Business/Productivity Software" }
         ]
       },
-      // Samay's wording, approved 2026-08-12. LinkedIn showed 82 associated members that
-      // day, so 62 is stale and 85 (Apollo, May 2026) is in range; the slip quotes only
-      // what the card itself files.
-      noteSlip: "They file 62. Our sources file 85 as of May 2026.",
+      // Samay's direction, 2026-08-12: plain verbs (no "file"), keep it simple, link
+      // LinkedIn. LinkedIn showed 82 associated members that day, which backs 85 over
+      // their 62; the link lets the reader check live.
+      noteSlip: {
+        text: "They say 62. Our sources say 85.",
+        linkText: "LinkedIn agrees.",
+        linkHref: "https://www.linkedin.com/company/mintlify/"
+      },
       excerpt: {
         lines: [
           {

@@ -1,6 +1,6 @@
 "use client";
 
-import { safePublicImageUrl } from "@cold-start/core";
+import { safePublicImageUrl, safeWebUrl } from "@cold-start/core";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import React, { useMemo, useRef, useState } from "react";
@@ -69,6 +69,24 @@ function ExhibitLogo({ label, urls }: { label: string; urls: string[] }) {
 
 function EvidenceMark({ state }: { state: string }) {
   return <span aria-hidden="true" className="cs-face-mark" data-state={state} />;
+}
+
+// The disagreement slip: the one number the two documents disagree on, with a live link to
+// the checkable source.
+function NoteSlip({ note }: { note: NonNullable<ExhibitPair["noteSlip"]> }) {
+  const href = safeWebUrl(note.linkHref);
+  return (
+    <div className="cs-exhibit-note-slip">
+      {note.text}{" "}
+      {href ? (
+        <a className="cs-exhibit-note-link" href={href} rel="noreferrer" target="_blank">
+          {note.linkText}
+        </a>
+      ) : (
+        note.linkText
+      )}
+    </div>
+  );
 }
 
 // Their record fragment: cold printout paper with sprocket strips (CSS pseudo-elements),
@@ -207,7 +225,7 @@ function PairBlock({
       <div className="cs-exhibit-desk" ref={deskRef}>
         <div className="cs-exhibit-record-obj">
           <RecordFragment pair={pair} />
-          {pair.noteSlip ? <div className="cs-exhibit-note-slip">{pair.noteSlip}</div> : null}
+          {pair.noteSlip ? <NoteSlip note={pair.noteSlip} /> : null}
           <p className="cs-exhibit-record-caption">{recordCaption}</p>
         </div>
         <div className="cs-exhibit-card-obj">

@@ -849,6 +849,12 @@
   transform: rotate(-1.1deg);
 }
 
+.cs-exhibit-note-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .cs-exhibit-record-caption {
   margin: 12px 0 0 25px;
   color: var(--cat-muted);

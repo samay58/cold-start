@@ -78,7 +78,7 @@ Decisions from Samay's 2026-08-12 review, all binding:
 - Kicker is his line: "The tools we use to understand these companies barely scratch the surface." (His slot, his wording.)
 - Beat 1's printout carries its own printed header row, "PitchBook · Company descriptions / accessed 2026-08-11", so the section can never be mistaken for our card on any screen; the separate stack caption is gone.
 - Both sides of every pair carry identity: record fragments get a head with company logo, name, and a small "PitchBook" source tag; our cards get the logo beside the name. Logos route through `safePublicImageUrl`-vetted URLs frozen in the fixture, following the extension `CompanyLogo` vetting pattern.
-- The margin note drops "Both values stand.": it now reads "They file 62. Our sources file 85 as of May 2026." Short editorial takeaway lines are cut as a class.
+- The margin note drops "Both values stand.": it now reads "They say 62. Our sources say 85 as of May 2026." (Samay, 2026-08-12: "file" as a verb is banned in page copy; plain English.) Short editorial takeaway lines are cut as a class.
 - Beat 5 (the tally line and tick cluster) is CUT entirely. The section ends on the third pair. `exhibitTickCount` may stay as a test helper only.
 - Mobile under 700px: their record first, our card lapping upward over its bottom edge; printout rows stack label-over-text.
 - Motion unchanged: strokes draw in once on scroll, roughly 60ms stagger, full opacity without the draw under reduced motion.
