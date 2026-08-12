@@ -1091,7 +1091,7 @@ test("progress tree surfaces real research events as substeps", async ({ page })
   await expect(page.locator(".cs-build-substeps li").filter({ hasText: "First profile ready" })).toHaveCount(0);
 });
 
-test("building phase files the early read inline under the header", async ({ page }) => {
+test("building keeps the build tree open between header and footer", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "cartesia.ai" });
   const startedAt = new Date(Date.now() - 18_000).toISOString();
   const firstPayoff = {
@@ -1160,21 +1160,15 @@ test("building phase files the early read inline under the header", async ({ pag
 
   await openSidePanel(page);
 
-  // The read is inline and always open: claim, kicker, and source dots with no reveal step,
-  // sitting between the persistent header and the details toggle.
-  const read = page.getByLabel("Early read");
-  await expect(read).toBeVisible();
-  await expect(read).toContainText("What it does");
-  await expect(read).toContainText("Cartesia builds real-time voice models for on-device agents.");
-  await expect(read.getByLabel("Sources")).toContainText("techcrunch.com");
-  await expect(read.locator("button")).toHaveCount(0);
+  // The build tree is open from the first frame, no toggle, sitting between the persistent
+  // header and the footer.
+  await expect(page.locator(".cs-build-tree")).toBeVisible();
+  await expect(page.locator(".cs-assembly-details-toggle")).toHaveCount(0);
   const headerBox = await page.locator(".cs-company-context").boundingBox();
-  const readBox = await read.boundingBox();
   const detailsBox = await page.locator(".cs-assembly-details").boundingBox();
-  expect(headerBox?.y).toBeLessThan(readBox?.y ?? 0);
-  expect(readBox?.y).toBeLessThan(detailsBox?.y ?? 0);
+  expect(headerBox?.y).toBeLessThan(detailsBox?.y ?? 0);
   await page.waitForTimeout(300);
-  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-early-read.png" });
+  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-tree.png" });
 });
 
 test("reduced motion keeps progress readable without sweeping motion", async ({ page }) => {
@@ -2107,7 +2101,7 @@ test("collapsed overflow person rows are unreachable by keyboard and open no dos
   await expect(tooltip).toContainText("Mary Jackson");
 });
 
-test("early read survives the basics generating-to-success handoff", async ({ page }) => {
+test("the build tree gives way to the research layer on the basics generating-to-success handoff", async ({ page }) => {
   await installChromeShim(page, { activeDomain: "browserbase.com" });
   const startedAt = new Date(Date.now() - 6_000).toISOString();
   const claim = "Browserbase runs managed browser sessions for AI agents.";
@@ -2179,16 +2173,12 @@ test("early read survives the basics generating-to-success handoff", async ({ pa
 
   await openSidePanel(page);
 
-  const read = page.getByLabel("Early read");
-  await expect(read).toBeVisible();
-  await expect(read).toContainText(claim);
+  await expect(page.locator(".cs-build-tree")).toBeVisible();
 
   basicsFinished = true;
 
-  // The profile phase mounts the research layer; the same read must ride across the remount.
+  // The profile phase mounts the research layer once basics succeeds.
   await expect(page.getByLabel("Research layer")).toBeVisible({ timeout: 10_000 });
-  await expect(read).toBeVisible();
-  await expect(read).toContainText(claim);
 });
 
 test("timing files the remaining supported fields behind an inline disclosure", async ({ page }) => {

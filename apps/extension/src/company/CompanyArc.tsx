@@ -29,7 +29,6 @@ import type {
 import { profileSummaryCopy } from "../shared/extension-format";
 import { filedSourceCount } from "./first-payoff-events";
 import { ProgressBackground } from "../shared/ProgressBackground";
-import { ReadRegion } from "./ReadRegion";
 import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "../research/research-layer";
 import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "../research/research-progress";
 import { ResearchTrail } from "../research/ResearchTrail";
@@ -502,16 +501,6 @@ export function CompanyArc({
 
         {alphaAccess && arc.phase !== "building" ? <AlphaPosture access={alphaAccess} /> : null}
 
-        <AnimatePresence initial={false}>
-          {profile && profileRead?.showRead && profileRead.firstPayoff ? (
-            <ReadRegion
-              context="profile"
-              domain={domain}
-              firstPayoff={profileRead.firstPayoff}
-            />
-          ) : null}
-        </AnimatePresence>
-
         {building ? (
           <section className="cs-building-flow" aria-label="Research in progress">
             <Clippings
@@ -520,15 +509,6 @@ export function CompanyArc({
               prefersReducedMotion={prefersReducedMotion}
               variant="carousel"
             />
-            <AnimatePresence initial={false}>
-              {buildingPayoff?.firstPayoff ? (
-                <ReadRegion
-                  context="building"
-                  domain={domain}
-                  firstPayoff={buildingPayoff.firstPayoff}
-                />
-              ) : null}
-            </AnimatePresence>
             <ResearchTrail
               companyDomain={domain}
               events={building.events}

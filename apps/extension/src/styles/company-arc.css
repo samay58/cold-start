@@ -1,51 +1,3 @@
-/* The inline early read region: the filed slip, always open. The lilac lives only in the head
-   band; the body below stays parchment. Text is ink for contrast, never lilac-on-lilac. */
-.cs-read-region {
-  position: relative;
-  margin: 0 12px 12px;
-  overflow: hidden;
-  border: 1px solid rgb(var(--cs-c-216-208-191) / 0.82);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-255-253-248) / 0.9), rgb(var(--cs-c-250-247-239) / 0.74)),
-    var(--color-plate);
-  box-shadow: 0 5px 14px rgb(var(--cs-c-44-36-19) / 0.05);
-}
-
-.cs-read-region-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-bottom: 1px solid rgb(var(--cs-c-110-92-158) / 0.24);
-  background:
-    linear-gradient(180deg, rgb(var(--cs-c-110-92-158) / 0.34), rgb(var(--cs-c-110-92-158) / 0.24)),
-    var(--color-plate);
-}
-
-.cs-early-read-tab-label {
-  flex: 0 0 auto;
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 12.5px;
-  font-weight: 660;
-  letter-spacing: 0.01em;
-}
-
-.cs-read-region-body {
-  display: grid;
-  gap: 9px;
-  padding: 10px 12px 11px;
-}
-
-.cs-read-region-need {
-  display: block;
-  margin-top: 3px;
-  color: var(--color-muted);
-  font-size: 11.5px;
-  font-weight: 540;
-}
-
 /* The company arc: one shell for intake, building, and profile. The mesh field grounds the
    building phase only; every other child sits above it on its own plate. The shared tooltip
    is a fixed overlay child of the same shell and must escape this rule, or its higher
@@ -487,84 +439,6 @@
   }
 }
 
-.cs-early-read-claim {
-  margin: 0;
-  color: var(--color-ink);
-  font-size: 12.75px;
-  font-weight: 500;
-  line-height: 1.42;
-}
-
-.cs-early-read-kicker {
-  display: block;
-  margin-bottom: 2px;
-  color: var(--color-seal);
-  font-family: var(--font-display);
-  font-size: 10.5px;
-  font-weight: 620;
-  letter-spacing: 0.01em;
-}
-
-.cs-early-read-sources {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 8px 0 0;
-  border-top: 1px solid rgb(var(--cs-c-204-199-184) / 0.5);
-  list-style: none;
-}
-
-.cs-early-read-sources li {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.cs-early-read-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 1px;
-  background: var(--color-reported);
-}
-
-.cs-early-read-dot[data-class="independent"] {
-  background: var(--color-verified);
-}
-
-.cs-early-read-dot[data-class="company"] {
-  background: var(--color-company);
-}
-
-.cs-early-read-sources a {
-  overflow: hidden;
-  color: var(--color-ink);
-  font-size: 11.75px;
-  font-weight: 550;
-  text-decoration: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cs-early-read-sources a:hover {
-  text-decoration: underline;
-}
-
-.cs-early-read-class {
-  flex: 0 0 auto;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.46);
-  font: 540 10px/1 var(--font-body);
-  letter-spacing: 0.01em;
-}
-
-.cs-early-read-more {
-  grid-column: 2 / -1;
-  color: rgb(var(--cs-c-23-26-31-text) / 0.45);
-  font-size: 10.5px;
-  font-weight: 540;
-}
-
 .cs-profile-source-note {
   display: flex;
   align-items: center;
@@ -999,10 +873,6 @@
   flex: 1 1 auto;
   flex-direction: column;
   min-height: clamp(410px, calc(100vh - 250px), 620px);
-}
-
-.cs-building-flow > .cs-read-region {
-  margin-top: 12px;
 }
 
 .cs-building-flow > .cs-assembly-details {

@@ -122,8 +122,8 @@ function firstPayoff(
   };
 }
 
-// The early read and its source note render in the CompanyArc shell above the research layer,
-// so these tests mount the arc in its profile phase.
+// The profile source note renders in the CompanyArc shell above the research layer, so these
+// tests mount the arc in its profile phase.
 async function renderPanel(input: {
   complete?: boolean;
   duplicateEvidence?: boolean;
@@ -181,7 +181,7 @@ async function renderPanel(input: {
   };
 }
 
-describe("ResearchLayerPanel first read", () => {
+describe("ResearchLayerPanel profile source note", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     document.body.innerHTML = "";
@@ -193,133 +193,29 @@ describe("ResearchLayerPanel first read", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not render stale client-derived First Read without a firstPayoff artifact", async () => {
-    const { container, unmount } = await renderPanel();
-
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    expect(container.querySelector(".cs-early-read")).toBeNull();
-    await unmount();
-  });
-
-  it("pins an incremental firstPayoff read above the research stack while basics continue", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const firstRead = container.querySelector("[aria-label='Early read']");
-    const researchLayer = container.querySelector("[aria-label='Research layer']");
-
-    expect(firstRead).not.toBeNull();
-    expect(researchLayer).not.toBeNull();
-    expect(firstRead?.textContent).toContain("Early read");
-    // Incremental content the overview does not show: the buyer read, named sources, and weight marks.
-    expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(firstRead?.textContent).toContain("Who it's for");
-    expect(firstRead?.textContent).toContain("techcrunch.com");
-    // The generic "still checking" line is dropped from the read; it is not useful chrome here.
-    expect(firstRead?.textContent).not.toContain("Needs checking");
-    expect(firstRead?.textContent).not.toContain("Independent customer proof");
-    // Never restates the company summary sentence shown in the header above it.
-    expect(firstRead?.textContent).not.toContain("Exa builds search and research infrastructure for AI products.");
-    expect(firstRead?.compareDocumentPosition(researchLayer!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    await unmount();
-  });
-
-  it("prefers proof headlines over generic audience copy when both are available", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", includeProofHeadline: true });
-    const firstRead = container.querySelector("[aria-label='Early read']");
-
-    expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("Latest proof");
-    expect(firstRead?.textContent).toContain("Exa raises funding for search infrastructure.");
-    expect(firstRead?.textContent).not.toContain("Who it's for");
-    await unmount();
-  });
-
-  it("renders the early read inline and always open, with no reveal interaction required", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const region = container.querySelector<HTMLElement>("[aria-label='Early read']");
-
-    expect(region).not.toBeNull();
-    // The read is a region, not a disclosure: no tab, no chevron, nothing to hover or pin.
-    expect(region?.querySelector("button")).toBeNull();
-    expect(region?.getAttribute("data-open")).toBeNull();
-    // The claim and its sources are readable without any interaction.
-    expect(region?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(region?.querySelector("[aria-label='Sources']")).not.toBeNull();
-    expect(region?.querySelector("a[href='https://techcrunch.com/exa']")).not.toBeNull();
-    await unmount();
-  });
-
-  it("keeps the early read legible and reachable under reduced motion", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read", reducedMotion: true });
-    const firstRead = container.querySelector("[aria-label='Early read']");
-
-    expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("Early read");
-    expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(firstRead?.querySelector("[aria-label='Sources']")).not.toBeNull();
-    await unmount();
-  });
-
-  it("files the first read into the company context after the full profile is ready", async () => {
+  it("shows the profile source note once the full profile is ready", async () => {
     const { container, unmount } = await renderPanel({ complete: true });
 
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
     const sourceNote = container.querySelector(".cs-profile-source-note");
     expect(sourceNote).not.toBeNull();
     expect(sourceNote?.textContent).toBe("12 sources reviewed");
     await unmount();
   });
 
-  it("files the first read off the terminal card even when the saved event never arrives", async () => {
+  it("shows the profile source note off the terminal card even when the saved event never arrives", async () => {
     const { container, unmount } = await renderPanel({ filedViaCacheStatus: true });
 
     // The live-generation success state can drop terminal events; a "hit" card must still file.
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
     expect(container.querySelector(".cs-profile-source-note")?.textContent).toBe("3 sources reviewed");
     await unmount();
   });
 
-  it("does not render a source-only firstPayoff artifact as a separate card", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "receipt" });
-
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    expect(container.querySelector(".cs-early-read")).toBeNull();
-    await unmount();
-  });
-
-  it("keeps source-only firstPayoff evidence out of the main stack even when domains repeat", async () => {
-    const { container, unmount } = await renderPanel({ duplicateEvidence: true, firstPayoffStatus: "receipt" });
-
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    expect(container.querySelector(".cs-early-read")).toBeNull();
-    await unmount();
-  });
-
-  it("renders the early read only for substantive_first_read artifacts", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "substantive_first_read" });
-    const firstRead = container.querySelector("[aria-label='Early read']");
-
-    expect(firstRead).not.toBeNull();
-    expect(firstRead?.textContent).toContain("Early read");
-    expect(firstRead?.textContent).toContain("AI product teams and developers building search-heavy workflows.");
-    expect(firstRead?.textContent).toContain("techcrunch.com");
-    await unmount();
-  });
-
-  it("does not render withheld firstPayoff artifacts as user-facing cards", async () => {
-    const { container, unmount } = await renderPanel({ firstPayoffStatus: "withheld" });
-
-    expect(container.querySelector("[aria-label='Early read']")).toBeNull();
-    expect(container.querySelector(".cs-early-read")).toBeNull();
-    await unmount();
-  });
-
-  it("does not file firstPayoff just because a card.partial fetch returned cacheStatus hit", async () => {
+  it("does not show the profile source note just because a card.partial fetch returned cacheStatus hit", async () => {
     const { container, unmount } = await renderPanel({
       filedViaCacheStatus: true,
       firstPayoffStatus: "substantive_first_read"
     });
 
-    expect(container.querySelector("[aria-label='Early read']")).not.toBeNull();
     expect(container.querySelector(".cs-profile-source-note")).toBeNull();
     await unmount();
   });

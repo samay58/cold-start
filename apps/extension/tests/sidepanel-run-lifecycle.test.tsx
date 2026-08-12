@@ -227,7 +227,7 @@ describe("SidePanel run lifecycle", () => {
     await unmount();
   });
 
-  it("carries generation events into the success state so the early read survives the handoff", async () => {
+  it("carries generation events into the success state instead of filing prematurely on a cacheStatus hit card", async () => {
     vi.useFakeTimers();
     const domain = "cartesia.ai";
     const startedAtIso = new Date(Date.now() - 20_000).toISOString();
@@ -346,12 +346,9 @@ describe("SidePanel run lifecycle", () => {
     });
     await flushPromises();
 
-    // The fetched card reports cacheStatus "hit", so without the carried events the read
-    // would file itself the moment the profile view mounted.
+    // The fetched card reports cacheStatus "hit", so without the carried events the profile
+    // source note would file itself the moment the profile view mounted.
     expect(container.textContent).toContain("Research");
-    const earlyRead = container.querySelector("[aria-label='Early read']");
-    expect(earlyRead).not.toBeNull();
-    expect(earlyRead?.textContent).toContain("Voice teams shipping real-time agents on constrained devices.");
     expect(container.querySelector(".cs-profile-source-note")).toBeNull();
     await unmount();
   });
