@@ -789,7 +789,8 @@
 
 .cs-lens-tension,
 .cs-lens-timing,
-.cs-lens-question {
+.cs-lens-question,
+.cs-lens-emphasis {
   display: grid;
   gap: 6px;
 }

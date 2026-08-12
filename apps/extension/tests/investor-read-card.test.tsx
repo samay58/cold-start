@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import type { ColdStartCard } from "@cold-start/core";
+import type { ColdStartCard, EmphasisRead } from "@cold-start/core";
 import { act, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
-import { LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier, TooltipMemo } from "../src/shared/SharedTooltip";
 import { AlphaAnalyticsProvider } from "../src/shared/alpha-event-context";
@@ -20,9 +20,27 @@ vi.mock("../src/shared/alpha-analytics", () => analytics);
 type Captured = { body: string | TooltipDossier | TooltipMemo; id: string; title: string };
 const analyticsSettings = { apiOrigin: "https://example.com", apiToken: "token" };
 
+// The sixth Lens category's filed fixture: loud/read cite like any other synthesis claim
+// (so stripCitationMarkers has a real marker to strip), quiet and wouldChangeIf are plain
+// file-scoped strings per emphasisReadFiledSchema.
+const emphasisReadFiled: EmphasisRead = {
+  status: "read",
+  loud: {
+    text: "Every post leans on developer love and daily active usage [c1].",
+    citationIds: ["c1"]
+  },
+  quiet: "Nothing filed names a paying customer or shows a pricing page.",
+  read: {
+    text: "The company is selling adoption momentum, not monetization proof [c1].",
+    citationIds: ["c1"]
+  },
+  wouldChangeIf: "A named paying customer or a public price appears in the filed record."
+};
+
 // (b)/(e): rich synthesis with multiple bull/bear claims and multiple timing fields, so the
-// overflow disclosure has something to expand.
-function richCard(): ColdStartCard {
+// overflow disclosure has something to expand. emphasisRead defaults to absent (the legacy
+// not_read state); pass a status to exercise the other three sixth-category states.
+function richCard(emphasisRead?: EmphasisRead): ColdStartCard {
   return baseCard({
     funding: {
       totalRaisedUsd: { value: 5_000_000, status: "verified", confidence: "high", citationIds: ["c2"] },
@@ -53,7 +71,8 @@ function richCard(): ColdStartCard {
         profitPool: null,
         expansionPath: null,
         timingRisk: null
-      }
+      },
+      ...(emphasisRead ? { emphasisRead } : {})
     }
   });
 }
@@ -394,6 +413,82 @@ describe("InvestorReadCard", () => {
     expect(items[1]?.querySelector(":scope > p")?.textContent).toBe("Does usage expand after the first engineer adopts it?");
 
     await unmount();
+  });
+
+  async function openPayAttention(card: ColdStartCard) {
+    const { container, unmount } = await renderCard(card);
+    const category = container.querySelector('[data-category="pay-attention"]');
+    const trigger = category?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+    await act(async () => {
+      trigger?.click();
+    });
+    return { category, container, unmount };
+  }
+
+  it("renders the filed emphasis read with all four labeled lines", async () => {
+    const { category, unmount } = await openPayAttention(richCard(emphasisReadFiled));
+    const section = category?.querySelector<HTMLElement>(".cs-lens-emphasis");
+
+    expect(section?.getAttribute("data-state")).toBe("read");
+
+    const claims = Array.from(section?.querySelectorAll(".cs-investor-read-claim") ?? []);
+    expect(claims).toHaveLength(3);
+    expect(claims[0]?.querySelector("em")?.textContent).toBe(`${EMPHASIS_LABELS.loud}.`);
+    expect(claims[0]?.textContent).toContain("Every post leans on developer love and daily active usage.");
+    expect(claims[1]?.querySelector("em")?.textContent).toBe(`${EMPHASIS_LABELS.quiet}.`);
+    expect(claims[1]?.textContent).toContain(emphasisReadFiled.status === "read" ? emphasisReadFiled.quiet : "");
+    expect(claims[2]?.querySelector("em")?.textContent).toBe(`${EMPHASIS_LABELS.read}.`);
+    expect(claims[2]?.textContent).toContain("The company is selling adoption momentum, not monetization proof.");
+
+    const meta = section?.querySelector(".cs-investor-read-meta");
+    expect(meta?.querySelector("em")?.textContent).toBe(EMPHASIS_LABELS.wouldChangeIf);
+    expect(meta?.textContent).toContain(
+      emphasisReadFiled.status === "read" ? emphasisReadFiled.wouldChangeIf : ""
+    );
+
+    await unmount();
+  });
+
+  it("renders flat copy for thin_file", async () => {
+    const { category, unmount } = await openPayAttention(richCard({ status: "thin_file" }));
+    const section = category?.querySelector<HTMLElement>(".cs-lens-emphasis");
+
+    expect(section?.getAttribute("data-state")).toBe("thin_file");
+    expect(section?.textContent).toBe(EMPHASIS_EMPTY_COPY.thinFile);
+    expect(section?.querySelectorAll(".cs-investor-read-claim")).toHaveLength(0);
+    expect(section?.querySelectorAll(".cs-investor-read-meta")).toHaveLength(0);
+    expect(section?.querySelector(".cs-lens-none")?.textContent).toBe(EMPHASIS_EMPTY_COPY.thinFile);
+
+    await unmount();
+  });
+
+  it("renders flat copy for nothing_notable and for a legacy not_read card", async () => {
+    const nothingNotable = await openPayAttention(richCard({ status: "nothing_notable" }));
+    const nothingNotableSection = nothingNotable.category?.querySelector<HTMLElement>(".cs-lens-emphasis");
+    expect(nothingNotableSection?.getAttribute("data-state")).toBe("nothing_notable");
+    expect(nothingNotableSection?.textContent).toBe(EMPHASIS_EMPTY_COPY.nothingNotable);
+    await nothingNotable.unmount();
+
+    const legacy = await openPayAttention(richCard());
+    const legacySection = legacy.category?.querySelector<HTMLElement>(".cs-lens-emphasis");
+    expect(legacySection?.getAttribute("data-state")).toBe("not_read");
+    expect(legacySection?.textContent).toBe(EMPHASIS_EMPTY_COPY.notRead);
+    await legacy.unmount();
+  });
+
+  it("always renders six category cards", async () => {
+    const emphasisStates: Array<EmphasisRead | undefined> = [
+      undefined,
+      emphasisReadFiled,
+      { status: "thin_file" },
+      { status: "nothing_notable" }
+    ];
+
+    for (const emphasisRead of emphasisStates) {
+      const { container, unmount } = await renderCard(richCard(emphasisRead));
+      expect(container.querySelectorAll(".cs-investor-read-category-trigger")).toHaveLength(6);
+      await unmount();
+    }
   });
 });
 

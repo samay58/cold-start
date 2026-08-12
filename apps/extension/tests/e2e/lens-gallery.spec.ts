@@ -97,7 +97,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const read = await investorRead(page);
       await expectNoAccentRibbon(read);
       const categories = read.locator(".cs-investor-read-category");
-      await expect(categories).toHaveCount(5);
+      await expect(categories).toHaveCount(6);
       await expect(categories.nth(0)).toHaveAttribute("data-category", "why-care");
       await expect(categories.nth(0).locator(".cs-investor-read-category-trigger")).toHaveAttribute("aria-expanded", "true");
       await expect(read.locator(".cs-investor-read-lede")).toContainText("inference layer");
@@ -142,7 +142,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     heading: "Harbor Compute",
     verify: async (page) => {
       const read = await investorRead(page);
-      await expect(read.locator(".cs-investor-read-category")).toHaveCount(5);
+      await expect(read.locator(".cs-investor-read-category")).toHaveCount(6);
       await expect(read).toContainText(LENS_TENSION_LABEL.holds);
       // The 0-bear side gets its own honest, specific empty state, not the generic
       // "None survived verification." every empty row used to share.

@@ -122,7 +122,8 @@ const lensCategorySchema = z.enum([
   "must-be-true",
   "could-break",
   "why-now",
-  "learn-next"
+  "learn-next",
+  "pay-attention"
 ]);
 
 const lensDisclosureSchema = z.enum([

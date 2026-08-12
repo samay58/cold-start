@@ -13,7 +13,7 @@ import {
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
-import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "./investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "./investor-read-copy";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
@@ -311,54 +311,78 @@ function LensCategoryBody({
     );
   }
 
-  if (categoryId !== "learn-next") {
-    const exhaustiveCategory: never = categoryId;
-    return exhaustiveCategory;
+  if (categoryId === "learn-next") {
+    return (
+      <section className="cs-lens-question" aria-label="What to learn next">
+        {read.nextQuestion ? (
+          <>
+            <div className="cs-lens-question-item">
+              {read.nextQuestion.categoryLabel ? (
+                <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
+              ) : null}
+              <p className="cs-investor-read-claim">{read.nextQuestion.question}</p>
+              {read.nextQuestion.changesReadIf ? (
+                <p className="cs-investor-read-meta">
+                  <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
+                </p>
+              ) : null}
+            </div>
+            {read.nextQuestion.moreQuestions.length > 0 ? (
+              <LensDisclosure
+                count={read.nextQuestion.moreQuestions.length}
+                onToggle={onDisclosureToggle}
+                prefersReducedMotion={prefersReducedMotion}
+                row="question"
+              >
+                <div className="cs-lens-question-list">
+                  {read.nextQuestion.moreQuestions.map((entry) => (
+                    <div className="cs-lens-question-item" key={entry.question}>
+                      {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
+                      <p>{entry.question}</p>
+                      {entry.changesReadIf ? (
+                        <p className="cs-investor-read-meta">
+                          <em>Changes the read if</em> {entry.changesReadIf}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </LensDisclosure>
+            ) : null}
+          </>
+        ) : (
+          <p className="cs-lens-none">No sharp next question yet.</p>
+        )}
+      </section>
+    );
   }
 
-  return (
-    <section className="cs-lens-question" aria-label="What to learn next">
-      {read.nextQuestion ? (
-        <>
-          <div className="cs-lens-question-item">
-            {read.nextQuestion.categoryLabel ? (
-              <span className="cs-lens-question-category">{read.nextQuestion.categoryLabel}</span>
-            ) : null}
-            <p className="cs-investor-read-claim">{read.nextQuestion.question}</p>
-            {read.nextQuestion.changesReadIf ? (
-              <p className="cs-investor-read-meta">
-                <em>Changes the read if</em> {read.nextQuestion.changesReadIf}
-              </p>
-            ) : null}
-          </div>
-          {read.nextQuestion.moreQuestions.length > 0 ? (
-            <LensDisclosure
-              count={read.nextQuestion.moreQuestions.length}
-              onToggle={onDisclosureToggle}
-              prefersReducedMotion={prefersReducedMotion}
-              row="question"
-            >
-              <div className="cs-lens-question-list">
-                {read.nextQuestion.moreQuestions.map((entry) => (
-                  <div className="cs-lens-question-item" key={entry.question}>
-                    {entry.categoryLabel ? <span className="cs-lens-question-category">{entry.categoryLabel}</span> : null}
-                    <p>{entry.question}</p>
-                    {entry.changesReadIf ? (
-                      <p className="cs-investor-read-meta">
-                        <em>Changes the read if</em> {entry.changesReadIf}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </LensDisclosure>
-          ) : null}
-        </>
-      ) : (
-        <p className="cs-lens-none">No sharp next question yet.</p>
-      )}
-    </section>
-  );
+  if (categoryId === "pay-attention") {
+    const emphasis = read.emphasis;
+    return (
+      <section aria-label="Pay attention to" className="cs-lens-emphasis" data-state={emphasis.state}>
+        {emphasis.state === "read" ? (
+          <>
+            <p className="cs-investor-read-claim"><em>{EMPHASIS_LABELS.loud}.</em> {emphasis.loud}</p>
+            <p className="cs-investor-read-claim"><em>{EMPHASIS_LABELS.quiet}.</em> {emphasis.quiet}</p>
+            <p className="cs-investor-read-claim"><em>{EMPHASIS_LABELS.read}.</em> {emphasis.read}</p>
+            <p className="cs-investor-read-meta"><em>{EMPHASIS_LABELS.wouldChangeIf}</em> {emphasis.wouldChangeIf}</p>
+          </>
+        ) : (
+          <p className="cs-lens-none">
+            {emphasis.state === "thin_file"
+              ? EMPHASIS_EMPTY_COPY.thinFile
+              : emphasis.state === "nothing_notable"
+                ? EMPHASIS_EMPTY_COPY.nothingNotable
+                : EMPHASIS_EMPTY_COPY.notRead}
+          </p>
+        )}
+      </section>
+    );
+  }
+
+  const exhaustiveCategory: never = categoryId;
+  return exhaustiveCategory;
 }
 
 function LensCategoryCard({

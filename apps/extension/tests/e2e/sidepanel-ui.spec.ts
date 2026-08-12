@@ -221,7 +221,7 @@ for (const reducedMotion of [false, true]) {
     await openSidePanel(page);
 
     const packet = page.getByRole("article", { name: "Investor read" });
-    await expect(packet.locator(".cs-investor-read-category")).toHaveCount(5);
+    await expect(packet.locator(".cs-investor-read-category")).toHaveCount(6);
     await expect(packet.locator('[data-category="must-be-true"]')).toContainText(LENS_TENSION_EMPTY_COPY.holds);
     await expect(packet.locator('[data-category="could-break"]')).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
     await expect(packet.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(1);
