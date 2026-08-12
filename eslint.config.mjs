@@ -23,6 +23,7 @@ export default tseslint.config(
       "docs/motion-references/**",
       "docs/design/mockups/**",
       ".worktrees/**",
+      ".claude/worktrees/**",
       "**/*.tsbuildinfo",
       "apps/web/next-env.d.ts",
       "apps/extension/playwright-report/**",
