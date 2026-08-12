@@ -1,0 +1,454 @@
+{
+  "entries": [
+    {
+      "slug": "aaru",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "acmeweather",
+      "richnessBand": "thin",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "anthropic",
+      "richnessBand": "medium",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "arcaea",
+      "richnessBand": "medium",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "august",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "avid",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "baseten",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "beehiiv",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "bland",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "boomsupersonic",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "braintrust",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": true
+    },
+    {
+      "slug": "browserbase",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "butter",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "casaphq",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "chainguard",
+      "richnessBand": "medium",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "cheffy",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "cognition",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "colorifix",
+      "richnessBand": "thin",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "conductor",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "consensus",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "corti",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "datologyai",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "deepgram",
+      "richnessBand": "thin",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "deepinfra",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "docsend",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "economist",
+      "richnessBand": "thin",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "elgato",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "firecrawl",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "fireflies",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "foratravel",
+      "richnessBand": "medium",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "framer",
+      "richnessBand": "medium",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "friend",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "gamma",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "gc",
+      "richnessBand": "medium",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "github",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "hadrian",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "huckberry",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "humandelta",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": true
+    },
+    {
+      "slug": "hydrahost",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "infinity",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "inngest",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "ironcladapp",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "kalshi",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "krea",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "listenlabs",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "mcp",
+      "richnessBand": "thin",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "micro1",
+      "richnessBand": "thin",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "midjourney",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "minimax",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "modretro",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "notablehealth",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "odyssey",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "orkut",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "ouraring",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "parallel",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "patina",
+      "richnessBand": "thin",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "plaud",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": false
+    },
+    {
+      "slug": "poly",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "polymarket",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "profluent",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "raylu",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "remotion",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "retool",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "saatva",
+      "richnessBand": "medium",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "skyfire",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "socket",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "sparxell",
+      "richnessBand": "thin",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "strawberrybrowser",
+      "richnessBand": "medium",
+      "eraBucket": "june",
+      "control": true
+    },
+    {
+      "slug": "superlist",
+      "richnessBand": "rich",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "theinformation",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "twelvelabs",
+      "richnessBand": "thin",
+      "eraBucket": "may-pre-gate",
+      "control": true
+    },
+    {
+      "slug": "ufc",
+      "richnessBand": "medium",
+      "eraBucket": "august-current",
+      "control": false
+    },
+    {
+      "slug": "usb",
+      "richnessBand": "thin",
+      "eraBucket": "july-overhaul",
+      "control": false
+    },
+    {
+      "slug": "vercel",
+      "richnessBand": "rich",
+      "eraBucket": "may-pre-gate",
+      "control": false
+    },
+    {
+      "slug": "youtube",
+      "richnessBand": "rich",
+      "eraBucket": "june",
+      "control": true
+    }
+  ]
+}

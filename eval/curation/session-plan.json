@@ -1,0 +1,195 @@
+{
+  "seed": "letterpress",
+  "groupSize": 4,
+  "rounds": [
+    {
+      "index": 0,
+      "slugs": [
+        "fireflies",
+        "github",
+        "braintrust",
+        "superlist"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 1,
+      "slugs": [
+        "cognition",
+        "youtube",
+        "baseten",
+        "kalshi"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 2,
+      "slugs": [
+        "plaud",
+        "profluent",
+        "polymarket",
+        "datologyai"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 3,
+      "slugs": [
+        "ironcladapp",
+        "raylu",
+        "bland",
+        "modretro"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 4,
+      "slugs": [
+        "retool",
+        "consensus",
+        "hadrian",
+        "vercel"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 5,
+      "slugs": [
+        "deepinfra",
+        "firecrawl",
+        "august",
+        "huckberry"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 6,
+      "slugs": [
+        "gc",
+        "infinity",
+        "framer",
+        "ouraring"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 7,
+      "slugs": [
+        "chainguard",
+        "humandelta",
+        "anthropic",
+        "hydrahost"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 8,
+      "slugs": [
+        "arcaea",
+        "friend",
+        "strawberrybrowser",
+        "saatva"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 9,
+      "slugs": [
+        "avid",
+        "boomsupersonic",
+        "foratravel",
+        "ufc"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 10,
+      "slugs": [
+        "odyssey",
+        "elgato",
+        "notablehealth",
+        "remotion"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 11,
+      "slugs": [
+        "aaru",
+        "deepgram",
+        "mcp",
+        "socket"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 12,
+      "slugs": [
+        "micro1",
+        "patina",
+        "browserbase",
+        "usb"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 13,
+      "slugs": [
+        "sparxell",
+        "skyfire",
+        "economist",
+        "colorifix"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 14,
+      "slugs": [
+        "conductor",
+        "acmeweather",
+        "gamma",
+        "parallel"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 15,
+      "slugs": [
+        "casaphq",
+        "orkut",
+        "listenlabs",
+        "inngest"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 16,
+      "slugs": [
+        "poly",
+        "krea",
+        "docsend",
+        "twelvelabs"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 17,
+      "slugs": [
+        "midjourney",
+        "minimax",
+        "corti",
+        "theinformation"
+      ],
+      "mixedBand": false
+    },
+    {
+      "index": 18,
+      "slugs": [
+        "beehiiv",
+        "cheffy",
+        "butter"
+      ],
+      "mixedBand": true
+    }
+  ]
+}
