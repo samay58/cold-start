@@ -241,7 +241,10 @@ export type GenerationTrace = {
   };
   emphasis?: {
     enabled: boolean;
-    status?: "read" | "thin_file" | "nothing_notable";
+    // "discarded" is not a status the card's own emphasisReadSchema knows: it is trace/event-only,
+    // for a freshly verified "read" that never lands on the stored card because the synthesis it
+    // rides on was itself dropped (the preserve-old-read or no-survivors branch in functions.ts).
+    status?: "read" | "thin_file" | "nothing_notable" | "discarded";
     thinFileReason?: string;
     dropReason?: string;
     laneCounts?: Record<string, number>;

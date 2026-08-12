@@ -92,8 +92,6 @@ import {
 } from "./generation-helpers";
 import { runResearchSectionJobStep } from "./research-section-generation";
 import {
-  citationIdsReferencedIn,
-  citationsPrunedToReferencedFounderVoice,
   emphasisReadStepBody,
   fetchFounderVoiceStepBody,
   nextFounderVoiceIndex
@@ -942,28 +940,13 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
         // verified.emphasisRead is independent of verified.synthesis: the verifier evaluates the
         // emphasis claims in the same call regardless of whether every synthesis claim survived,
-        // so this reads it unconditionally rather than gating on verified.synthesis.
+        // so this is computed unconditionally, before deciding whether the fresh synthesis (and
+        // therefore the fresh emphasis read riding on it, attached below) actually lands anywhere.
         const finalEmphasis: EmphasisRead | undefined = emphasisDraft
           ? emphasisDraft.status === "read"
             ? verified.emphasisRead ?? { status: "nothing_notable" }
             : emphasisDraft
           : undefined;
-        if (finalEmphasis) {
-          mergeTracePatch(trace, {
-            emphasis: {
-              enabled: true,
-              status: finalEmphasis.status,
-              ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {})
-            }
-          });
-          await recordEvent(
-            "emphasis-complete",
-            "emphasis.complete",
-            finalEmphasis.status === "read" ? "Emphasis read filed" : "No emphasis read",
-            { status: finalEmphasis.status, ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {}) },
-            null
-          );
-        }
 
         if (verified.synthesis) {
           const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = generatedCard;
@@ -974,31 +957,53 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         } else if (existingCardHasSynthesis) {
           // All claims dropped, but the slug already has a filed read: preserve it (issue #10)
           // instead of storing an empty result over it. The store decision is made below, once
-          // the merged card exists and its evidence can be compared against the stored one.
+          // the merged card exists and its evidence can be compared against the stored one. A
+          // fresh finalEmphasis computed above rides on this dropped synthesis and never attaches
+          // anywhere; the event below reports that honestly instead of "Emphasis read filed".
           preserveFiledSynthesis = true;
         } else {
           // All claims dropped and there is no existing read to fall back on: converge honestly
           // instead of throwing and forcing every re-click to re-pay for synthesis and fail the
           // same way. Stamps a synthesisWithheld record with the new "no-claims-survived" reason
           // so the extension renders it as a withheld read and the route's free pre-check can
-          // answer a re-click for free once the evidence stops moving.
+          // answer a re-click for free once the evidence stops moving. A fresh finalEmphasis
+          // computed above never attaches here either, same as the preserve branch above.
           generatedCard = withheldCardForNoSurvivors(generatedCard);
         }
 
-        // Prune after verify, before storage: caps cross-run accumulation of unreferenced fv
-        // citations now that it is safe to know what survived. generatedCard.citations stayed
-        // additive through the whole run above, so nothing visible to the draft or the verifier
-        // vanished mid-run; this only drops an fv citation nothing in generatedCard's own final
-        // synthesis (any claim, not just emphasisRead) actually cites. On the preserve/no-survivors
-        // branches generatedCard carries no fresh synthesis at all, so every fv citation on it is
-        // dropped here; the old preserved read's own citation refs live on existingCard and keep
-        // resolving through storage's citation merge regardless (packages/db's mergeByKey,
-        // last-wins by id, pulls them back in from the fallback side of the union).
-        const referencedFounderVoiceIds = citationIdsReferencedIn(generatedCard.synthesis);
-        generatedCard = {
-          ...generatedCard,
-          citations: citationsPrunedToReferencedFounderVoice(generatedCard.citations, referencedFounderVoiceIds)
-        };
+        // A freshly filed "read" only actually lands on the stored card on the verified.synthesis
+        // branch above (the one place that attaches finalEmphasis to generatedCard.synthesis); the
+        // preserve-old-read and no-survivors branches both discard the fresh synthesis it rides on
+        // wholesale, so a "read" there never lands anywhere. Report it as discarded, not filed, so
+        // the event/trace trail matches what the stored card actually ends up carrying.
+        const emphasisDiscarded = finalEmphasis?.status === "read" && !verified.synthesis;
+        if (finalEmphasis) {
+          const reportedStatus = emphasisDiscarded ? "discarded" : finalEmphasis.status;
+          mergeTracePatch(trace, {
+            emphasis: {
+              enabled: true,
+              status: reportedStatus,
+              ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {})
+            }
+          });
+          await recordEvent(
+            "emphasis-complete",
+            "emphasis.complete",
+            emphasisDiscarded
+              ? "Emphasis read computed but not kept"
+              : finalEmphasis.status === "read" ? "Emphasis read filed" : "No emphasis read",
+            { status: reportedStatus, ...(verified.emphasisDropReason ? { dropReason: verified.emphasisDropReason } : {}) },
+            null
+          );
+        }
+
+        // generatedCard.citations stays additive through the whole run above (nothing visible to
+        // the draft or the verifier vanishes mid-run): the fv-citation prune that caps cross-run
+        // accumulation runs once, downstream, inside prepareCardSnapshotForStorage
+        // (apps/web/src/inngest/card-storage.ts), keyed to the MERGED card's own synthesis rather
+        // than to this pre-merge working card. Pruning here instead would only be undone by that
+        // merge's own citations union (its mergeByKey fallback re-adds anything missing from the
+        // preferred side), which is exactly the bug that motivated moving the prune downstream.
       }
 
       generatedCard = cardWithTraceCost(generatedCard, trace);

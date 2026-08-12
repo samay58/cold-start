@@ -42,17 +42,25 @@ export function emphasisSourceClass(citation: Citation, targetDomain: string): E
 }
 
 // The spec's triggers, verbatim: almost no sources, or zero company-authored ones. Runs on
-// the card alone, before founder voice is fetched, so founder_authored never influences it.
+// the card alone, before founder voice is fetched for THIS run, so a fresh fetch never
+// influences it. But a repeat analysis run's working card keeps every founder_authored ("fv"-
+// prefixed) citation a PRIOR run fetched, additive across runs (apps/web/src/inngest/
+// emphasis-read.ts), so this gate excludes founder-authored citations explicitly rather than
+// trusting card.citations to be prior-run-clean. Without the exclusion, a card whose only
+// non-enrichment evidence is a prior run's founder-voice fetch would clear the gate on evidence
+// this run never independently earned.
 export function emphasisThinFileReason(card: ColdStartCard): EmphasisThinFileReason | null {
-  const substantive = card.citations.filter((citation) => !isEnrichmentLike(citation));
+  const substantive = card.citations.filter((citation) => {
+    if (isEnrichmentLike(citation)) return false;
+    return emphasisSourceClass(citation, card.domain) !== "founder-authored";
+  });
   if (substantive.length < EMPHASIS_MIN_NON_ENRICHMENT_CITATIONS) {
     return "too-few-sources";
   }
 
-  const companyAuthored = substantive.filter((citation) => {
-    const sourceClass = emphasisSourceClass(citation, card.domain);
-    return sourceClass === "company-authored" || sourceClass === "founder-authored";
-  });
+  const companyAuthored = substantive.filter(
+    (citation) => emphasisSourceClass(citation, card.domain) === "company-authored"
+  );
   return companyAuthored.length === 0 ? "no-company-authored" : null;
 }
 

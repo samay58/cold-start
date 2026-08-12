@@ -62,6 +62,33 @@ describe("emphasisThinFileReason", () => {
     ]);
     expect(emphasisThinFileReason(card)).toBeNull();
   });
+
+  // A repeat analysis run's working card keeps every founder_authored ("fv"-prefixed) citation a
+  // PRIOR run's founder-voice fetch produced (apps/web/src/inngest/emphasis-read.ts's additive
+  // design), so this gate must never treat one as company-authored presence: doing so would let
+  // stale founder-voice evidence silently clear a gate this run's own evidence never earned.
+  it("returns no-company-authored when the only would-be company voice is a founder_authored citation", () => {
+    const card = cardWith([
+      citation("c1"), citation("c2"), citation("c3"), citation("c4"),
+      citation("fv1", {
+        sourceQuality: { tier: "founder_authored", label: "Founder-authored", rationale: "r", incentive: "i" }
+      })
+    ]);
+    expect(emphasisThinFileReason(card)).toBe("no-company-authored");
+  });
+
+  // The same exclusion applies to the non-enrichment count itself: a card that clears four
+  // citations only because a prior run's fv citation is in the mix must still read as too thin,
+  // not as merely missing company-authored evidence.
+  it("excludes founder_authored citations from the non-enrichment count too", () => {
+    const card = cardWith([
+      citation("c1"), citation("c2"), citation("c3"),
+      citation("fv1", {
+        sourceQuality: { tier: "founder_authored", label: "Founder-authored", rationale: "r", incentive: "i" }
+      })
+    ]);
+    expect(emphasisThinFileReason(card)).toBe("too-few-sources");
+  });
 });
 
 describe("emphasisSourceDigests", () => {

@@ -7,6 +7,7 @@ import {
   type ResolvedFact
 } from "@cold-start/core";
 import { mutateCard, type CardWriteOptions, type ColdStartDb } from "@cold-start/db";
+import { citationIdsReferencedIn, citationsPrunedToReferencedFounderVoice } from "./emphasis-read";
 
 type GenerationMode = "basics" | "analysis";
 type CardPerson = NonNullable<ColdStartCard["team"]["founders"]["value"]>[number];
@@ -174,8 +175,20 @@ export function prepareCardSnapshotForStorage(
     ...(options.preferExisting !== undefined ? { preferExisting: options.preferExisting } : {}),
     preserveAnalysis: options.preserveAnalysis ?? mode === "analysis"
   });
+  // Prune founder-voice ("fv"-prefixed) citations the MERGED card's own synthesis no longer
+  // references. mergeByKey above (preserveExistingBasics's citations union) fills any id missing
+  // from the preferred side using the fallback side, so a prior run's now-orphaned fv citation
+  // resurfaces from existing.citations even after the caller pruned its own pre-merge working
+  // card. Keying the prune to this MERGED synthesis, on every call site (including the real
+  // optimistic-concurrency write inside mutateCardWithRetry, which re-runs this same function
+  // against the freshest DB row), is what makes an orphan actually stay dropped instead of
+  // resurrecting on the very next write. A citation still referenced by the merged synthesis
+  // (the preserve-branch case: an old emphasisRead carried over wholesale) is untouched.
+  const referencedFounderVoiceIds = citationIdsReferencedIn(merged.synthesis);
+  const citations = citationsPrunedToReferencedFounderVoice(merged.citations, referencedFounderVoiceIds);
   return {
     ...merged,
+    citations,
     cacheStatus: mode === "analysis" || hasUsablePublicProfile(merged) ? "hit" : "partial",
   };
 }

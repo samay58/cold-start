@@ -1104,6 +1104,53 @@ describe("listPublicCardSummaries", () => {
     expect(summaries[0]).not.toHaveProperty("sections");
   });
 
+  it("never counts founder_authored citations in the public sourceQualityCounts", async () => {
+    const cardWithFounderVoice: ColdStartCard = {
+      ...card,
+      citations: [
+        ...card.citations,
+        {
+          id: "fv1",
+          url: "https://x.com/founder/status/1",
+          title: "Founder post",
+          fetchedAt: generatedAt,
+          sourceType: "other",
+          sourceQuality: {
+            tier: "founder_authored",
+            label: "Founder-authored",
+            rationale: "The founder's own public voice.",
+            incentive: "Personal and company promotion."
+          }
+        }
+      ],
+      synthesis: {
+        ...card.synthesis!,
+        emphasisRead: {
+          status: "read",
+          loud: { text: "The founder posts constantly about momentum [fv1].", citationIds: ["fv1"] },
+          quiet: "Nothing filed shows a pricing page.",
+          read: { text: "The loudest proof is momentum, not pricing [fv1].", citationIds: ["fv1"] },
+          wouldChangeIf: "A pricing page appears."
+        }
+      }
+    };
+    const rows = [{ slug: "cartesia", cardJson: cardWithFounderVoice }];
+    const db = {
+      select: () => ({
+        from: () => ({
+          orderBy: () => ({
+            limit: async () => rows
+          })
+        })
+      })
+    } as unknown as ColdStartDb;
+
+    const summaries = await listPublicCardSummaries(db);
+
+    expect(summaries[0]?.sourceQualityCounts.founder_authored).toBe(0);
+    expect(summaries[0]?.sourceCount).toBe(3);
+  });
+
   it("bounds the card scan", async () => {
     const rows = [{ slug: "cartesia", cardJson: { ...card, slug: "cartesia", domain: "cartesia.ai" } }];
     const limitCalls: number[] = [];

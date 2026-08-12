@@ -235,6 +235,43 @@ describe("publicCard", () => {
     expect(publicCard(cardWithWithheld)).not.toHaveProperty("synthesisWithheld");
   });
 
+  it("strips founder_authored citations, keeping the full card's copy intact", () => {
+    const founderCitation = {
+      id: "fv1",
+      url: "https://x.com/founder/status/1",
+      title: "Founder post",
+      fetchedAt: "2026-08-11T00:00:00.000Z",
+      sourceType: "other" as const,
+      sourceQuality: {
+        tier: "founder_authored" as const,
+        label: "Founder-authored",
+        rationale: "The founder's own public voice.",
+        incentive: "Personal and company promotion."
+      }
+    };
+    const cardWithFounderVoice: ColdStartCard = {
+      ...baseCard,
+      citations: [...baseCard.citations, founderCitation],
+      synthesis: {
+        ...baseSynthesis,
+        emphasisRead: {
+          status: "read",
+          loud: { text: "The founder posts constantly about momentum [fv1].", citationIds: ["fv1"] },
+          quiet: "Nothing filed shows a pricing page.",
+          read: { text: "The loudest proof is momentum, not pricing [fv1].", citationIds: ["fv1"] },
+          wouldChangeIf: "A pricing page appears."
+        }
+      }
+    };
+
+    const stripped = publicCard(cardWithFounderVoice);
+
+    expect(stripped.citations.some((citation) => citation.id === "fv1")).toBe(false);
+    expect(stripped.citations.some((citation) => citation.sourceQuality?.tier === "founder_authored")).toBe(false);
+    // The gated extension read is the full, un-stripped card: its citations still carry fv1.
+    expect(cardWithFounderVoice.citations.some((citation) => citation.id === "fv1")).toBe(true);
+  });
+
   it("strips people emails from the public tier", () => {
     const privateCard: ColdStartCard = {
       ...baseCard,

@@ -195,12 +195,22 @@ export function stripUnsupportedSynthesis(card: ColdStartCard): ColdStartCard {
   return { ...card, synthesis };
 }
 
+// founder_authored citations (the emphasis read's "fv"-prefixed evidence) back only gated
+// synthesis (synthesis.emphasisRead), which is already stripped above. They must never render in
+// the public SourcesRail or count in the public sourceQualityCounts derived from this card's
+// citations (packages/db/src/repositories/cards.ts's listPublicCardSummaries reads card.citations
+// after publicCard, so filtering here is the single choke point for both surfaces).
+function isFounderAuthoredCitation(citation: Citation): boolean {
+  return citation.sourceQuality?.tier === "founder_authored";
+}
+
 export function publicCard(card: ColdStartCard): Omit<ColdStartCard, "synthesis" | "synthesisWithheld"> {
   const { synthesis: _synthesis, synthesisWithheld: _synthesisWithheld, ...publicOnly } = stripUnsupportedSynthesis(
     sanitizeCardTrust(card)
   );
   return {
     ...publicOnly,
+    citations: publicOnly.citations.filter((citation) => !isFounderAuthoredCitation(citation)),
     team: {
       founders: stripPersonEmails(publicOnly.team.founders),
       keyExecs: stripPersonEmails(publicOnly.team.keyExecs),

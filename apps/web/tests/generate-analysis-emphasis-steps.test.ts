@@ -653,4 +653,165 @@ describe("generate-card analysis emphasis-read steps", () => {
     const storedIds = storedCard.citations.map((citation) => citation.id);
     expect(new Set(storedIds).size).toBe(storedIds.length);
   });
+
+  // Fix wave (2026-08-12): before this fix, emphasis.complete fired with status "read" and the
+  // message "Emphasis read filed" as soon as verify produced a genuine "read" verdict, regardless
+  // of whether that fresh read actually landed anywhere. On the preserve-old-read branch it never
+  // does: verified.synthesis is undefined, so the fresh read (and the synthesis it rides on) is
+  // discarded wholesale in favor of the old preserved one. The event and trace must say so.
+  it("reports a freshly verified read as discarded, not filed, when its own synthesis is dropped and an old read is preserved instead", async () => {
+    const oldFvCitation = {
+      id: "fv1",
+      url: "https://old.example/founder-post-preserved",
+      title: "Old founder post",
+      fetchedAt: "2026-07-01T00:00:00.000Z",
+      sourceType: "other" as const,
+      snippet: "The founder's original post.",
+      sourceQuality: {
+        tier: "founder_authored" as const,
+        label: "Founder-authored",
+        rationale: "The founder's own public voice.",
+        incentive: "Personal and company promotion."
+      }
+    };
+    const oldEmphasisRead = {
+      status: "read" as const,
+      loud: { text: "Old loud claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "Old read claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    const existingBaseCitations = cardWithCitations(8, { includeCompanySite: true }).citations;
+    const existingCardWithOldRead: ColdStartCard = {
+      ...cardWithCitations(8, { includeCompanySite: true }),
+      citations: [...existingBaseCitations, oldFvCitation],
+      synthesis: {
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }],
+        emphasisRead: oldEmphasisRead
+      }
+    };
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithOldRead);
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: cardWithCitations(8, { includeCompanySite: true }),
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 8, fallbackUsed: false }
+      }
+    });
+    mocks.synthesizeCard.mockResolvedValue({
+      whyItMatters,
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }]
+    });
+    // whyItMatters is contradicted and bullCase/bearCase are empty, so verified.synthesis ends up
+    // undefined; the emphasis loud/read claims (this run's fresh fv2 read, via the default
+    // emphasisReadFixture mock) verify supported and quiet is not contradicted, so verified.
+    // emphasisRead is a genuine fresh "read" with nothing to attach it to.
+    mocks.verifySynthesis.mockResolvedValue([
+      { ...whyItMatters, status: "contradicted" as const },
+      { ...emphasisReadFixture.loud, status: "supported" as const },
+      { ...emphasisReadFixture.read, status: "supported" as const }
+    ]);
+
+    await runAnalysisGeneration();
+
+    const completeEvent = eventOfType("emphasis.complete");
+    expect(completeEvent?.message).toBe("Emphasis read computed but not kept");
+    expect(completeEvent?.metadata).toMatchObject({ status: "discarded" });
+
+    const trace = persistedTrace();
+    expect(trace.emphasis?.status).toBe("discarded");
+
+    // The stored card still carries the OLD preserved read, not the fresh discarded one.
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis?.emphasisRead).toEqual(oldEmphasisRead);
+  });
+
+  // Fix wave (2026-08-12): the review's exact repro for the cross-run fv-citation accumulation
+  // bug. Before the fix, the pre-merge prune in functions.ts ran on generatedCard alone; storage's
+  // own citations merge (preserveExistingBasics's mergeByKey) then re-added the existing card's
+  // unreferenced fv1 from its fallback side, because generatedCard's own (pruned) citations no
+  // longer had an "fv1" entry to win the union. Pruning now runs on the MERGED result inside
+  // prepareCardSnapshotForStorage instead, so the orphan actually stays dropped.
+  it("drops a prior run's now-orphaned fv citation once a fresh read fully replaces the old one", async () => {
+    const oldFvCitation = {
+      id: "fv1",
+      url: "https://old.example/founder-post-now-orphaned",
+      title: "Old founder post",
+      fetchedAt: "2026-07-01T00:00:00.000Z",
+      sourceType: "other" as const,
+      snippet: "Stale founder content from a prior, now fully superseded run.",
+      sourceQuality: {
+        tier: "founder_authored" as const,
+        label: "Founder-authored",
+        rationale: "The founder's own public voice.",
+        incentive: "Personal and company promotion."
+      }
+    };
+    const oldEmphasisRead = {
+      status: "read" as const,
+      loud: { text: "Old loud claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "Old read claim about the founder's post. [fv1]", citationIds: ["fv1"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    const existingBaseCitations = cardWithCitations(8, { includeCompanySite: true }).citations;
+    const existingCardWithOldRead: ColdStartCard = {
+      ...cardWithCitations(8, { includeCompanySite: true }),
+      citations: [...existingBaseCitations, oldFvCitation],
+      synthesis: {
+        whyItMatters,
+        bullCase: [bullCase],
+        bearCase: [],
+        openQuestions: [{ question: "What buyer owns the renewal decision?", category: "buyer_budget" }],
+        emphasisRead: oldEmphasisRead
+      }
+    };
+    mocks.findCardBySlug.mockResolvedValue(existingCardWithOldRead);
+    // This run's own fresh extraction carries no stale fv; only the stored existingCard row does.
+    mocks.generateCardForDomainWithTrace.mockResolvedValue({
+      card: cardWithCitations(8, { includeCompanySite: true }),
+      sections,
+      sources: [providerSource],
+      tracePatch: {
+        extraction: { sourceCount: 1, evidenceCount: 1, citationCount: 8, fallbackUsed: false }
+      }
+    });
+    // This run's fresh founder-voice item is numbered fv2 (nextFounderVoiceIndex scans past the
+    // existing card's fv1), so the fresh emphasis read must cite fv2, not the shared top-level
+    // emphasisReadFixture's fv1: citing fv1 here would make this test pass for the wrong reason
+    // (fv1 "surviving" because the fresh read happens to reuse its id, not because pruning
+    // correctly dropped an orphan), the same pitfall the sibling stale-fv test above calls out.
+    const emphasisReadCitingFreshFv = {
+      status: "read" as const,
+      loud: { text: "They lead every post with GitHub stars [fv2].", citationIds: ["fv2"] },
+      quiet: "Nothing filed shows a named paying customer.",
+      read: { text: "The loudest proof sits at product, not customers [fv2].", citationIds: ["fv2"] },
+      wouldChangeIf: "A named customer with a dollar figure would break this read."
+    };
+    mocks.synthesizeEmphasisRead.mockResolvedValue(emphasisReadCitingFreshFv);
+    // Every claim this run produces verifies clean, so the fresh synthesis (referencing only fv2)
+    // fully replaces the old one.
+    mocks.verifySynthesis.mockResolvedValue([
+      { ...whyItMatters, status: "supported" as const },
+      { ...bullCase, status: "supported" as const },
+      { ...emphasisReadCitingFreshFv.loud, status: "supported" as const },
+      { ...emphasisReadCitingFreshFv.read, status: "supported" as const }
+    ]);
+
+    await runAnalysisGeneration();
+
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    const storedIds = storedCard.citations.map((citation) => citation.id);
+    // fv1 (the prior run's founder-voice citation, referenced only by the now fully-replaced old
+    // read) must not survive; fv2 (this run's own fresh, referenced founder-voice citation) must.
+    expect(storedIds).not.toContain("fv1");
+    expect(storedIds).toContain("fv2");
+    expect(storedCard.synthesis?.emphasisRead?.status).toBe("read");
+  });
 });

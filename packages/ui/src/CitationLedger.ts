@@ -12,7 +12,10 @@ export function sourceClassForQualityTier(tier: SourceQualityTier): CitationSour
     return "reporting";
   }
 
-  if (tier === "primary_company" || tier === "press_release") {
+  // founder_authored falls into the same "company" class as company-authored sources: a
+  // dedicated fourth class is not in v1 (mirrors the same choice in the extension's
+  // apps/extension/src/research/investor-lens.ts lensSources footer chips).
+  if (tier === "primary_company" || tier === "press_release" || tier === "founder_authored") {
     return "company";
   }
 

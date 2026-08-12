@@ -200,6 +200,49 @@ describe("preserveExistingBasics", () => {
     expect(merged.synthesis?.emphasisRead).toEqual(emphasisRead);
   });
 
+  // Fix wave (2026-08-12): the pre-merge prune in functions.ts only ever pruned generatedCard's
+  // own citations; this merge's own mergeByKey fallback then re-added an existing card's
+  // now-orphaned fv citation from its fallback side, since the pruned preferred side no longer
+  // had an entry to win the union. Pruning now happens inside this function, keyed to the MERGED
+  // synthesis, so a genuinely unreferenced prior-run fv citation stays dropped.
+  it("drops a prior run's fv citation that the merged synthesis no longer references", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.citations = [{
+      id: "fv1",
+      url: "https://old.example/founder-post",
+      title: "Old founder post",
+      fetchedAt: "2026-07-01T00:00:00.000Z",
+      sourceType: "other"
+    }];
+    existing.synthesis = {
+      whyItMatters: { text: "Old cited thesis [fv1].", citationIds: ["fv1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Old question?", category: "buyer_budget" }]
+    };
+
+    const fresh = buildSkeletonCard("cognition.ai");
+    fresh.citations = [{
+      id: "fv2",
+      url: "https://new.example/founder-post",
+      title: "Fresh founder post",
+      fetchedAt: "2026-08-12T00:00:00.000Z",
+      sourceType: "other"
+    }];
+    fresh.synthesis = {
+      whyItMatters: { text: "Fresh cited thesis [fv2].", citationIds: ["fv2"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Fresh question?", category: "buyer_budget" }]
+    };
+
+    const merged = prepareCardSnapshotForStorage("analysis", existing, fresh);
+
+    const citationIds = merged.citations.map((citation) => citation.id);
+    expect(citationIds).not.toContain("fv1");
+    expect(citationIds).toContain("fv2");
+  });
+
   it("collapses two outlets covering one announcement into a single corroborated signal", () => {
     const existing = buildSkeletonCard("cognition.ai");
     existing.signals = [{
