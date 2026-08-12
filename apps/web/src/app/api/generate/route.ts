@@ -39,7 +39,7 @@ import { startInlineGeneration } from "../../../inngest/inline-dispatch";
 import { generationDispatchModeFromProcess } from "../../../inngest/worker-env";
 import { alphaGenerationEnabled } from "../../../lib/alpha-config";
 import { boundedErrorMessage } from "../../../lib/errors";
-import { generationFailureCode } from "../../../lib/failure-code";
+import { generationFailureCode } from "@cold-start/core";
 import { retireAndSettleStaleGenerationRuns, retireDeadGenerationRun } from "../../../lib/generation-run-watchdog";
 import { canonicalCompanyDomain } from "../../../lib/domain";
 import { webEnv } from "../../../lib/web-env";

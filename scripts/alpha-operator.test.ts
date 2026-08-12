@@ -190,6 +190,7 @@ describe("alpha status report", () => {
         job_kind: "analysis",
         status: "failed",
         failure_code: "concurrent_write",
+        failure_message: null,
         started_at: new Date("2026-07-24T12:00:00.000Z"),
         completed_at: new Date("2026-07-24T12:01:00.000Z"),
         last_event_at: new Date("2026-07-24T12:01:00.000Z")
@@ -201,6 +202,7 @@ describe("alpha status report", () => {
         job_kind: "analysis",
         status: "failed",
         failure_code: "model_contract",
+        failure_message: null,
         started_at: new Date("2026-07-24T13:00:00.000Z"),
         completed_at: new Date("2026-07-24T13:01:00.000Z"),
         last_event_at: new Date("2026-07-24T13:01:00.000Z")
@@ -212,6 +214,7 @@ describe("alpha status report", () => {
         job_kind: "basics",
         status: "complete",
         failure_code: null,
+        failure_message: null,
         started_at: new Date("2026-07-24T14:00:00.000Z"),
         completed_at: new Date("2026-07-24T14:01:00.000Z"),
         last_event_at: new Date("2026-07-24T14:01:00.000Z")
@@ -226,6 +229,42 @@ describe("alpha status report", () => {
     assert.equal(report.totals.allTraffic.failed, 2);
     assert.equal(report.totals.allTraffic.softwareFailureCount, 2);
     assert.deepEqual(report.totals.allTraffic.failureCodes, { concurrent_write: 1, model_contract: 1 });
+  });
+
+  // The 2026-08-09 through 08-11 credit-exhaustion runs: trace rows written before the classifier
+  // learned "credit balance is too low" carry a frozen "unknown" code forever. The report must
+  // re-derive from the stored failure message so those runs read provider_unavailable and stop
+  // counting as software failures.
+  it("re-derives frozen unknown failure codes from the stored failure message", () => {
+    const fixture = failingFixture();
+    fixture.inviteRows = [];
+    fixture.runRows = [];
+    fixture.ledgerRows = [];
+    fixture.eventSummaryRows = [];
+    fixture.clientErrorRows = [];
+    fixture.providerFailureRows = [];
+    fixture.walletBalanceUsd = 40;
+    fixture.allTrafficRunRows = [
+      {
+        id: "operator-run-credit",
+        slug: "stake",
+        mode: "analysis",
+        job_kind: "analysis",
+        status: "failed",
+        failure_code: "unknown",
+        failure_message:
+          '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}',
+        started_at: new Date("2026-08-09T14:41:00.000Z"),
+        completed_at: new Date("2026-08-09T14:42:00.000Z"),
+        last_event_at: new Date("2026-08-09T14:42:00.000Z")
+      }
+    ];
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.deepEqual(report.totals.allTraffic.failureCodes, { provider_unavailable: 1 });
+    assert.equal(report.totals.allTraffic.softwareFailureCount, 0);
+    assert.ok(!report.gate.failures.some((failure) => failure.code === "software_failures"));
   });
 
   it("fails the gate on a silent operator-token run stuck past the dead threshold", () => {
@@ -245,6 +284,7 @@ describe("alpha status report", () => {
         job_kind: "analysis",
         status: "running",
         failure_code: null,
+        failure_message: null,
         started_at: new Date("2026-07-24T16:10:00.000Z"),
         completed_at: null,
         last_event_at: new Date("2026-07-24T16:12:00.000Z")
@@ -394,6 +434,7 @@ function failingFixture(): AlphaStatusReportInputs {
         job_kind: "basics",
         status: "complete",
         failure_code: null,
+        failure_message: null,
         started_at: new Date("2026-07-24T14:00:00.000Z"),
         completed_at: new Date("2026-07-24T14:01:00.000Z"),
         last_event_at: new Date("2026-07-24T14:01:00.000Z")
@@ -405,6 +446,7 @@ function failingFixture(): AlphaStatusReportInputs {
         job_kind: "analysis",
         status: "failed",
         failure_code: "model_contract",
+        failure_message: null,
         started_at: new Date("2026-07-24T15:00:00.000Z"),
         completed_at: new Date("2026-07-24T15:01:00.000Z"),
         last_event_at: new Date("2026-07-24T15:01:00.000Z")
@@ -416,6 +458,7 @@ function failingFixture(): AlphaStatusReportInputs {
         job_kind: "basics",
         status: "running",
         failure_code: null,
+        failure_message: null,
         started_at: new Date("2026-07-24T16:18:00.000Z"),
         completed_at: null,
         last_event_at: new Date("2026-07-24T16:20:00.000Z")

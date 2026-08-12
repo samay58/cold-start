@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generationFailureCode } from "../src/lib/failure-code";
+import { generationFailureCode } from "../src/failure-code";
 
 describe("generationFailureCode", () => {
   it.each([
@@ -7,7 +7,11 @@ describe("generationFailureCode", () => {
     ["no accepted provider sources returned", "provider_unavailable"],
     ["Your credit balance is too low to access the Anthropic API", "provider_unavailable"],
     ["insufficient_quota from the configured model provider", "provider_unavailable"],
+    ['Failed query: insert into "sources" (id, card_id, url) values (default, $1, $2)', "storage_unavailable"],
+    ["connection terminated unexpectedly", "storage_unavailable"],
     ["Zod schema validation failed for synthesis", "model_contract"],
+    ["Unexpected non-whitespace character after JSON at position 2615", "model_contract"],
+    ["Unexpected end of JSON input", "model_contract"],
     ["Failed to update card after concurrent writes", "concurrent_write"],
     ["generation run went silent; retired by watchdog", "timeout"],
     ["extension token invalid", "authentication"],

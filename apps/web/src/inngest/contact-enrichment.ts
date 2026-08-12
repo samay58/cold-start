@@ -34,7 +34,7 @@ import {
   sourceGateTrace,
   type ExtractedCardSections
 } from "@cold-start/pipeline";
-import { generationFailureCode } from "../lib/failure-code";
+import { generationFailureCode } from "@cold-start/core";
 import {
   createPeopleEmailWebset,
   fetchDirectExaContactSources,

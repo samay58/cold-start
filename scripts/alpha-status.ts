@@ -8,6 +8,7 @@ import { Client } from "pg";
 import {
   ALPHA_INVITE_ATTEMPT_LIMIT,
   ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS,
+  generationFailureCode,
   type GenerationFailureCode
 } from "@cold-start/core";
 import { generationRunDeadAfterMs } from "@cold-start/db";
@@ -119,6 +120,7 @@ type AllTrafficRunRow = {
   job_kind: string;
   status: string;
   failure_code: string | null;
+  failure_message: string | null;
   started_at: Date;
   completed_at: Date | null;
   last_event_at: Date | null;
@@ -438,6 +440,7 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
        run.job_kind,
        run.status,
        run.trace_json #>> '{failure,code}' as failure_code,
+       run.trace_json #>> '{failure,message}' as failure_message,
        run.started_at,
        run.completed_at,
        event_bounds.last_event_at
@@ -676,9 +679,9 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   // it. Alpha-linked runs are a subset; alpha request rows that never opened a generation run
   // are counted separately below so nothing is double-counted or missed.
   const allTrafficFailed = input.allTrafficRunRows.filter((run) => run.status === "failed");
-  const allTrafficFailureCodes = countBy(allTrafficFailed, (run) => run.failure_code ?? "unknown");
+  const allTrafficFailureCodes = countBy(allTrafficFailed, allTrafficFailureCode);
   const allTrafficSoftwareFailureCount = allTrafficFailed.filter((run) =>
-    SOFTWARE_FAILURE_CODES.has((run.failure_code ?? "unknown") as GenerationFailureCode)
+    SOFTWARE_FAILURE_CODES.has(allTrafficFailureCode(run))
   ).length;
   const allTrafficStaleOrSilentRunCount = input.allTrafficRunRows.filter((run) => {
     if (!["queued", "running"].includes(run.status)) return false;
@@ -990,9 +993,22 @@ function runCost(run: RunRow): number | null {
 
 // request_failure_code and the traced failure.code are both app-written from
 // generationFailureCode(), so this cast reflects an existing invariant rather than adding one.
+// Codes stored in trace_json are frozen at failure time by whatever classifier version was
+// deployed then; the 2026-08-09 through 08-11 credit-exhaustion runs all read "unknown" forever
+// under the stored code. Both helpers therefore re-derive from the stored failure message with
+// the current classifier and fall back to the stored code only when the message yields nothing.
 function failureCode(run: RunRow): GenerationFailureCode | null {
-  return (run.request_failure_code
-    ?? stringValue(objectAt(run.trace_json, "failure")?.code)) as GenerationFailureCode | null;
+  const failure = objectAt(run.trace_json, "failure");
+  const message = stringValue(failure?.message);
+  const derived = message === null ? "unknown" : generationFailureCode(message);
+  if (derived !== "unknown") return derived;
+  return (run.request_failure_code ?? stringValue(failure?.code)) as GenerationFailureCode | null;
+}
+
+function allTrafficFailureCode(run: AllTrafficRunRow): GenerationFailureCode {
+  const derived = run.failure_message === null ? "unknown" : generationFailureCode(run.failure_message);
+  if (derived !== "unknown") return derived;
+  return (run.failure_code ?? "unknown") as GenerationFailureCode;
 }
 
 function latenciesForRuns(runs: RunRow[]): TesterReport["latencyMs"] {

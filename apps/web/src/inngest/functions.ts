@@ -56,7 +56,7 @@ import {
 import { canonicalCompanyDomain } from "../lib/domain";
 import { webEnv } from "../lib/web-env";
 import { boundedErrorMessage, rawErrorDetail } from "../lib/errors";
-import { generationFailureCode } from "../lib/failure-code";
+import { generationFailureCode } from "@cold-start/core";
 import { pipelineBlockPatch } from "./block-enrichment-patch";
 import { buildBlockEnrichmentRequestedEvent } from "./card-enrichment";
 import { buildContactEnrichmentRequestedEvent, cardHasContactTargets } from "./contact-enrichment";
