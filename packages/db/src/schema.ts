@@ -80,6 +80,32 @@ export const cards = pgTable(
   ]
 );
 
+// One row per superseded edition of a card. Frozen only when a re-file run successfully stores
+// its replacement (never by enrichment writes), so an edition exists because someone re-filed.
+// card_json is the complete card as it stood, self-contained (citations live inside it).
+export const cardRevisions = pgTable(
+  "card_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id")
+      .references(() => cards.id, { onDelete: "cascade" })
+      .notNull(),
+    slug: text("slug").notNull(),
+    edition: integer("edition").notNull(),
+    cardJson: jsonb("card_json").notNull(),
+    supersededByRunId: uuid("superseded_by_run_id"),
+    filedAt: timestamp("filed_at", { withTimezone: true }).notNull(),
+    frozenAt: timestamp("frozen_at", { withTimezone: true }).defaultNow().notNull(),
+    hadSynthesis: boolean("had_synthesis").notNull(),
+    appSchemaNote: text("app_schema_note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("card_revisions_slug_edition_idx").on(table.slug, table.edition),
+    index("card_revisions_slug_idx").on(table.slug)
+  ]
+);
+
 export const sources = pgTable(
   "sources",
   {
