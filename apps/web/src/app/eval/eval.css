@@ -359,6 +359,85 @@ body:has(.eval-rig) {
   margin-bottom: 24px;
 }
 
+.eval-standings section {
+  margin-bottom: 24px;
+}
+
+.eval-standings h2 {
+  font-size: 15px;
+  margin: 0 0 8px;
+}
+
+.eval-alarm {
+  border: 1px solid #9e3c2e;
+  border-radius: 8px;
+  background: #fbeeea;
+  color: #9e3c2e;
+  padding: 12px 16px;
+}
+
+.eval-alarm h2 {
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+
+.eval-alarm p {
+  font-size: 13px;
+  margin: 0;
+}
+
+.eval-table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.eval-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7a7466;
+}
+
+.eval-table th,
+.eval-table td {
+  padding: 4px 18px 4px 0;
+  border-bottom: 1px solid #e4ded2;
+}
+
+.eval-table-slug {
+  font-size: 11px;
+  color: #7a7466;
+}
+
+.eval-chip-histogram {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.eval-tier-row {
+  font-size: 13px;
+  margin: 0 0 4px;
+}
+
+.eval-tier-label {
+  display: inline-block;
+  min-width: 24px;
+  font-weight: 700;
+  color: #6e5c9e;
+}
+
+.eval-event-counts {
+  font-size: 12px;
+  background: #fffdf9;
+  border: 1px solid #e4ded2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0;
+  max-width: 320px;
+}
+
 .eval-pair-label {
   font-size: 22px;
   color: #6e5c9e;
