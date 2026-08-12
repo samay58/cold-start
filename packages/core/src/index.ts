@@ -5,6 +5,7 @@ export * from "./card-quality";
 export * from "./citation-text";
 export * from "./description-normalization";
 export * from "./email-pattern";
+export * from "./emphasis-read";
 export * from "./external-url";
 export * from "./funding-evidence";
 export * from "./first-payoff";
