@@ -287,6 +287,69 @@ describe("whisperCopyFromEvents", () => {
     ).toBe("1 source, building profile");
     expect(whisperCopyFromEvents([event({ id: "saved", type: "card.saved" })], "exa.ai")).toBe("Filed");
   });
+
+  const receiptPayoff = {
+    status: "receipt",
+    slug: "exa",
+    domain: "exa.ai",
+    generatedAt: "2026-06-21T00:00:00.000Z",
+    generatedAtMs: Date.parse("2026-06-21T00:00:00.000Z"),
+    entityConfidence: "high",
+    entityConfidenceReason: "Current domain and source text match Exa.",
+    evidenceSoFar: [],
+    stillChecking: { text: "Named customer proof.", missingEvidenceClass: "customer_proof" },
+    suppressionReasons: []
+  };
+
+  it("says it is confirming the company while the entity match is unchecked", () => {
+    const events = [
+      event({ id: "sources", type: "source.found", metadata: { acceptedCount: 3 } }),
+      event({
+        id: "receipt",
+        type: "first_payoff.withheld",
+        metadata: {
+          firstPayoff: {
+            ...receiptPayoff,
+            status: "withheld",
+            entityConfidence: "needs_check",
+            suppressionReasons: ["entity_needs_check"]
+          }
+        }
+      })
+    ];
+    expect(whisperCopyFromEvents(events, "exa.ai")).toBe("Confirming this is the right company");
+  });
+
+  it("says no solid sources honestly instead of a generic building line", () => {
+    const events = [
+      event({ id: "plan", type: "plan.ready" }),
+      event({ id: "receipt", type: "first_payoff.receipt", metadata: { firstPayoff: receiptPayoff } })
+    ];
+    expect(whisperCopyFromEvents(events, "exa.ai")).toBe("No solid sources yet, still looking");
+  });
+
+  it("returns to the standard voice once the read is substantive or filed", () => {
+    const substantive = {
+      ...receiptPayoff,
+      status: "substantive_first_read",
+      whatItDoes: {
+        text: "Exa builds search infrastructure for AI applications.",
+        supportingText: "Exa builds search infrastructure for AI applications.",
+        sourceIds: ["company_site-exa.ai"],
+        citationIds: [],
+        sourceClass: "company_site",
+        claimKind: "what_it_does"
+      }
+    };
+    const events = [
+      event({ id: "sources", type: "source.found", metadata: { acceptedCount: 8 } }),
+      event({ id: "ready", type: "first_payoff.ready", metadata: { firstPayoff: substantive } })
+    ];
+    expect(whisperCopyFromEvents(events, "exa.ai")).toBe("8 sources, building profile");
+    expect(
+      whisperCopyFromEvents([...events, event({ id: "saved", type: "card.saved" })], "exa.ai")
+    ).toBe("Filed");
+  });
 });
 
 describe("hasResearchProgressAttention", () => {

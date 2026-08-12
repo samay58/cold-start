@@ -453,6 +453,16 @@ export function sealLevelFromEvents(events: ExtensionResearchRunEvent[]): 0 | 1 
   return level;
 }
 
+function latestFirstPayoffFromEvents(scoped: ExtensionResearchRunEvent[]): FirstPayoff | null {
+  for (const event of [...scoped].reverse()) {
+    const parsed = parseFirstPayoff(event.metadata.firstPayoff);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
 // The single progress voice in the header: it states where the run is, never how long it has
 // taken. Queued -> reading the site -> building from N sources -> filed.
 export function whisperCopyFromEvents(events: ExtensionResearchRunEvent[], domain: string): string {
@@ -462,6 +472,17 @@ export function whisperCopyFromEvents(events: ExtensionResearchRunEvent[], domai
   }
   if (level <= 0) {
     return "Queued";
+  }
+  // Two honesty states outrank the generic progress voice while building:
+  // the entity match is unconfirmed, or nothing solid has been accepted.
+  const firstPayoff = latestFirstPayoffFromEvents(currentProfileProgressEvents(events));
+  if (firstPayoff && firstPayoff.status !== "substantive_first_read") {
+    if (firstPayoff.entityConfidence === "needs_check") {
+      return "Confirming this is the right company";
+    }
+    if (firstPayoff.evidenceSoFar.length === 0) {
+      return "No solid sources yet, still looking";
+    }
   }
   if (level === 1) {
     return `Reading ${domain}`;
