@@ -213,14 +213,9 @@ describe("fetchGithubLane", () => {
     expect(result.items).toHaveLength(2);
   });
 
-  it("skips founders with no githubUrl and omits the Authorization header when no token is given", async () => {
-    let sawAuthHeader = false;
-    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const headers = new Headers(init?.headers);
-      if (headers.get("Authorization")) {
-        sawAuthHeader = true;
-      }
-      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+  it("skips founders with no githubUrl without making any request", async () => {
+    const fetchFn = (async () => {
+      throw new Error("fetchFn should not be called for a founder with no githubUrl");
     }) as typeof fetch;
 
     const result = await fetchGithubLane({
@@ -231,7 +226,68 @@ describe("fetchGithubLane", () => {
 
     expect(result.items).toEqual([]);
     expect(result.failure).toBeUndefined();
+  });
+
+  it("omits the Authorization header when a founder has a githubUrl but no token is given", async () => {
+    let sawAuthHeader = false;
+    let fetchCalls = 0;
+    const fetchFn = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls += 1;
+      const headers = new Headers(init?.headers);
+      if (headers.get("Authorization")) {
+        sawAuthHeader = true;
+      }
+      expect(headers.get("X-GitHub-Api-Version")).toBe("2022-11-28");
+      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof fetch;
+
+    const result = await fetchGithubLane({ targets: founderTargets, timeoutMs: 5000, fetchFn });
+
+    // Proves the header assertions above actually ran against a real request, not a
+    // vacuously-passing test where fetchFn was never invoked.
+    expect(fetchCalls).toBeGreaterThan(0);
     expect(sawAuthHeader).toBe(false);
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeUndefined();
+  });
+
+  it("caps event-derived items at 10 per founder even when more qualifying events come back", async () => {
+    const events = Array.from({ length: 15 }, (_, index) => ({
+      type: "PushEvent",
+      created_at: `2026-07-${String((index % 27) + 1).padStart(2, "0")}T00:00:00Z`,
+      repo: { name: "octofounder/acme-core" },
+      payload: { commits: [{ sha: `sha${index}`, message: `Commit number ${index}` }] },
+    }));
+
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/repos")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.includes("/events/public")) {
+        return new Response(JSON.stringify(events), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error(`unexpected url: ${url}`);
+    }) as typeof fetch;
+
+    const result = await fetchGithubLane({ targets: founderTargets, timeoutMs: 5000, fetchFn });
+
+    expect(result.failure).toBeUndefined();
+    expect(result.items).toHaveLength(10);
+  });
+
+  it("records a failure entry, never throwing, when a request returns a non-ok status", async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ message: "Not Found" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+
+    const result = await fetchGithubLane({ targets: founderTargets, timeoutMs: 5000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeTruthy();
+    expect(result.failure).toContain("404");
   });
 
   it("resolves to a failure result instead of throwing when a request rejects", async () => {
@@ -243,6 +299,50 @@ describe("fetchGithubLane", () => {
 
     expect(result.items).toEqual([]);
     expect(result.failure).toContain("github is down");
+  });
+
+  it("keeps a successful founder's items and records a per-founder failure when a sibling founder's account is gone", async () => {
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("deletedaccount")) {
+        return new Response(JSON.stringify({ message: "Not Found" }), {
+          status: 404,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (url.includes("/repos")) {
+        return new Response(
+          JSON.stringify([
+            { name: "acme-core", description: "The core Acme voice engine.", html_url: "https://github.com/octofounder/acme-core" },
+          ]),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("/events/public")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      throw new Error(`unexpected url: ${url}`);
+    }) as typeof fetch;
+
+    const result = await fetchGithubLane({
+      targets: {
+        companyName: "Acme",
+        domain: "acme.com",
+        founders: [
+          { name: "Deleted Founder", xUrl: null, githubUrl: "https://github.com/deletedaccount" },
+          { name: "Jane Founder", xUrl: null, githubUrl: "https://github.com/octofounder" },
+        ],
+      },
+      timeoutMs: 5000,
+      fetchFn,
+    });
+
+    // The first founder's failure must not discard the second founder's already-fetched items,
+    // and the second founder must still be attempted even though the first one failed.
+    expect(result.items).toEqual([expect.objectContaining({ authorName: "Jane Founder", title: "acme-core" })]);
+    expect(result.failure).toBeTruthy();
+    expect(result.failure).toContain("Deleted Founder");
+    expect(result.failure).toContain("404");
   });
 });
 
@@ -318,5 +418,79 @@ describe("fetchBlueskyLane", () => {
 
     expect(result.items).toEqual([]);
     expect(result.failure).toContain("bluesky is down");
+  });
+
+  it("records a failure entry, never throwing, when the actor search returns a non-ok status", async () => {
+    const fetchFn = (async () =>
+      new Response(JSON.stringify({ error: "server error" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+
+    const result = await fetchBlueskyLane({ targets: TARGETS, timeoutMs: 5000, fetchFn });
+
+    expect(result.items).toEqual([]);
+    expect(result.failure).toBeTruthy();
+    expect(result.failure).toContain("500");
+  });
+
+  it("keeps a successful founder's items and records a per-founder failure when a sibling founder's fetch fails", async () => {
+    const fetchFn = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("searchActors") && url.includes(encodeURIComponent("Down Founder"))) {
+        throw new Error("bluesky search down");
+      }
+      if (url.includes("searchActors") && url.includes(encodeURIComponent("Up Founder"))) {
+        return new Response(
+          JSON.stringify({
+            actors: [
+              { did: "did:plc:up", handle: "upfounder.bsky.social", displayName: "Up Founder", description: "Building Acme." },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("getAuthorFeed")) {
+        return new Response(
+          JSON.stringify({
+            feed: [
+              {
+                post: {
+                  uri: "at://did:plc:up/app.bsky.feed.post/xyz789",
+                  record: { text: "Shipping Acme updates today.", createdAt: "2026-07-06T00:00:00Z" },
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(`unexpected url: ${url}`);
+    }) as typeof fetch;
+
+    const result = await fetchBlueskyLane({
+      targets: {
+        companyName: "Acme",
+        domain: "acme.com",
+        founders: [
+          { name: "Down Founder", xUrl: null, githubUrl: null },
+          { name: "Up Founder", xUrl: null, githubUrl: null },
+        ],
+      },
+      timeoutMs: 5000,
+      fetchFn,
+    });
+
+    // The first founder's failure must not discard the second founder's already-fetched items,
+    // and the second founder must still be attempted even though the first one failed.
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        authorName: "Up Founder",
+        url: "https://bsky.app/profile/upfounder.bsky.social/post/xyz789",
+      }),
+    ]);
+    expect(result.failure).toBeTruthy();
+    expect(result.failure).toContain("Down Founder");
+    expect(result.failure).toContain("bluesky search down");
   });
 });

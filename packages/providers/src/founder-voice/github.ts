@@ -46,17 +46,30 @@ export async function fetchGithubLane(input: {
     }
 
     const items: FounderVoiceItem[] = [];
+    const failures: string[] = [];
 
+    // Each founder is fetched and caught independently: one founder's account being gone
+    // (404) or rate-limited must not discard items already collected for a sibling founder,
+    // and must not skip founders that come after it in the list.
     for (const founder of input.targets.founders) {
       const username = githubUsernameFromUrl(founder.githubUrl);
       if (!username) {
         continue;
       }
 
-      items.push(...(await founderGithubItems(fetchFn, headers, username, founder.name, input.timeoutMs)));
+      try {
+        items.push(...(await founderGithubItems(fetchFn, headers, username, founder.name, input.timeoutMs)));
+      } catch (error) {
+        failures.push(`${founder.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
-    return { lane: LANE, items, estimatedCostUsd: 0 };
+    return {
+      lane: LANE,
+      items,
+      estimatedCostUsd: 0,
+      ...(failures.length > 0 ? { failure: failures.join("; ") } : {}),
+    };
   } catch (error) {
     return { lane: LANE, items: [], estimatedCostUsd: 0, failure: error instanceof Error ? error.message : String(error) };
   }
