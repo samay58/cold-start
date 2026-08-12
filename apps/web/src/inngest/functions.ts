@@ -14,6 +14,7 @@ import {
   createDb,
   findCardBySlug,
   findSourcesBySlug,
+  freezeCurrentEditionForRefile,
   isCardSignalsFresh,
   markGenerationRun,
   markResearchSectionFailed,
@@ -77,6 +78,7 @@ import {
   generateErrorTracePatch,
   generationModeForRun,
   generationRunAnthropicCostUsd,
+  isRefileProfileStore,
   parseEventSectionId,
   progressSourceCategories,
   rawDomainForRun,
@@ -149,6 +151,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     typeof event.data.generationRunId === "string" && event.data.generationRunId.trim()
       ? event.data.generationRunId.trim()
       : null;
+  // Threaded from the route's forceRefresh flag (Task 3, profile-refile-and-editions). Only
+  // isRefileProfileStore's basics+forceRefresh combination ever acts on it; every other jobKind
+  // ignores it.
+  const forceRefresh = event.data.forceRefresh === true;
   // The inline executor swallows a terminal enrichment-dispatch failure so a completed profile is
   // not reported to the user as a failure. Stamping the failure onto the step it belongs to stops
   // the trace from claiming a dispatch that never happened. Inngest's executor fails the step
@@ -265,6 +271,14 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
   let contactEnrichmentRequested = false;
   let analysisStateAtRunStart: string | undefined;
+  // A re-file run can store more than one snapshot in sequence (seed, then generated, then a
+  // synchronous enriched pass) while isRefileProfileStore stays true throughout, since jobKind
+  // and forceRefresh do not change mid-run. Only the first of those snapshots is the actual
+  // supersession moment; freezing again on the second would archive this run's own seed card as
+  // a phantom edition instead of the filing that was actually replaced. This flag bounds the
+  // freeze to once per run in the common (non-crash) path; freezeCurrentEditionForRefile's own
+  // generatedAt guard is what keeps a genuine step retry of the same store safe.
+  let refileEditionFrozen = false;
   const requestContactEnrichmentForStoredCard = async (card: ColdStartCard, trigger: string) => {
     if (contactEnrichmentRequested) {
       return;
@@ -331,6 +345,23 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
       ? [{ extendSynthesisTtl: false }]
       : [];
     const stored = await step.run(input.steps.upsert, async () => {
+      // Re-file store semantics (spec: nothing stale survives): a re-file freezes the row it is
+      // about to replace, then stores the fresh card wholesale, skipping the merge branch below
+      // so old synthesis and old enrichment are discarded rather than carried forward.
+      if (isRefileProfileStore({ jobKind, forceRefresh })) {
+        if (!refileEditionFrozen) {
+          await freezeCurrentEditionForRefile(db, input.cardToStore.slug, {
+            supersededByRunId: generationRunDbId ?? null,
+            appSchemaNote: `store@${new Date().toISOString().slice(0, 10)}`
+          });
+          refileEditionFrozen = true;
+        }
+        return {
+          card: input.cardToStore,
+          row: await upsertCard(db, input.cardToStore, ...writeArgs),
+          milestoneMs: generationMilestoneElapsedMs(requestedAtMs)
+        };
+      }
       const mutated = await mutateCardWithRetry(
         db,
         input.cardToStore.slug,

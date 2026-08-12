@@ -292,6 +292,14 @@ export function rawSlugForRun(input: unknown, domainInput?: unknown): string {
   return input.trim().slice(0, 120);
 }
 
+// An edition is frozen only when an explicit re-file replaces the basics profile.
+// Analysis (including lens retries with forceRefresh) deepens the same filing; section and
+// enrichment writes never freeze. Spec: 2026-08-11 profile refresh design, "editions are cut
+// only by re-files".
+export function isRefileProfileStore(input: { jobKind: string; forceRefresh: boolean }): boolean {
+  return input.forceRefresh && input.jobKind === "basics";
+}
+
 export function parseEventSectionId(input: unknown): ResearchSectionId | null {
   if (input === undefined || input === null || input === "") {
     return null;
