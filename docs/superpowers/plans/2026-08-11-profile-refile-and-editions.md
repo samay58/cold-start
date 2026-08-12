@@ -27,7 +27,7 @@
 
 **Files:**
 - Modify: `packages/db/src/schema.ts` (after the `cards` table definition, near line 82)
-- Create: `packages/db/drizzle/0017_*.sql` (via `npm run db:generate`; number must come out 0017 — 0016 is the latest committed migration)
+- Create: `packages/db/drizzle/0017_*.sql` (via `npm run db:generate`; number must come out 0017; 0016 is the latest committed migration)
 
 **Interfaces:**
 - Produces: `cardRevisions` pgTable export used by Task 2's repository.
@@ -93,7 +93,7 @@ git commit -m "feat: add card_revisions table for filing editions"
 **Files:**
 - Create: `packages/db/src/repositories/card-revisions.ts`
 - Modify: `packages/db/src/index.ts` (re-export the new module, matching how other repositories are exported)
-- Test: `packages/db/tests/` — mirror the existing real-Postgres cards suite. Find it with `grep -rl "test:cards-db" package.json packages/db/package.json` and read the referenced test file first; new tests join that suite so they run against real Postgres in `npm run check`.
+- Test: `packages/db/tests/`. Mirror the existing real-Postgres cards suite. Find it with `grep -rl "test:cards-db" package.json packages/db/package.json` and read the referenced test file first; new tests join that suite so they run against real Postgres in `npm run check`.
 
 **Interfaces:**
 - Consumes: `cards`, `cardRevisions` from `../schema`; `ColdStartDb` from `../client`.
@@ -281,7 +281,7 @@ git commit -m "feat: add refile hold analytics events"
 
 ---
 
-### Task 5: Extension threading — a re-file run that protects the old profile
+### Task 5: Extension threading, a re-file run that protects the old profile
 
 **Files:**
 - Modify: `apps/extension/src/sidepanel-network.ts` (`startBasicsGenerationAndPoll`, line ~619: add trailing `forceRefresh = false` param, pass into `requestGeneration` in place of the literal `false`)
@@ -291,7 +291,7 @@ git commit -m "feat: add refile hold analytics events"
 
 **Interfaces:**
 - Consumes: `requestGeneration`'s existing `forceRefresh` parameter; `enqueueAlphaEvent` (as used at line ~1560); Task 4's event names.
-- Produces: `handleRefile(): boolean` passed to `CompanyArc` as `onRefile`; success-state field `refileNotice?: string` (mirror the existing `analysisNotice` pattern exactly — type, set, clear).
+- Produces: `handleRefile(): boolean` passed to `CompanyArc` as `onRefile`; success-state field `refileNotice?: string` (mirror the existing `analysisNotice` pattern exactly: type, set, clear).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -385,7 +385,7 @@ Behavior contract (spec, decision 5):
 - Key repeat guard: ignore `keydown` while a press is live.
 - Reduced motion: the fill still animates (it is essential progress feedback, per the repo's motion doctrine); only the drain/settle springs become fades.
 
-Implementation sketch — track progress in a Framer Motion motion value driving a CSS var so the styles stay in CSS:
+Implementation sketch: track progress in a Framer Motion motion value driving a CSS var so the styles stay in CSS:
 
 ```tsx
 const progress = useMotionValue(0);
@@ -416,7 +416,7 @@ function endHold() {
 
 Render a `<button type="button" className="cs-refile" aria-label="Re-file this profile. Hold to confirm.">` containing the word `Re-file` and a small seal ring whose fill scales with `--refile-progress` (bind via `useMotionValueEvent(progress, "change", ...)` setting the CSS var on the element). Reuse the seal's visual vocabulary: same ring/fill class structure as `cs-seal-inst-ring`/`cs-seal-inst-fill`, sized to text height. All colors via existing theme tokens (the seal accent token family); `npm run audit:css -w @cold-start/extension` is the gate.
 
-Wire in `CompanyArc.tsx`: `refileSlot` renders only when `arc.phase === "profile"` and the profile came from the archive (the condition already computed as `profileIsStale` at line ~234 — reuse it, do not re-derive) and no run is active. Disabled cases reuse the existing reason strings already computed in `CompanyArc` (`profileStartDisabled` / `profileStartReason` pattern at line ~242): allowance exhausted or generation paused. Hold events map to `enqueueAlphaEvent` calls with `refile.hold_started` / `refile.hold_abandoned` (`refile.fired` is emitted by `handleRefile` itself, Task 5 — exactly one emitter per event).
+Wire in `CompanyArc.tsx`: `refileSlot` renders only when `arc.phase === "profile"` and the profile came from the archive (the condition already computed as `profileIsStale` at line ~234; reuse it, do not re-derive) and no run is active. Disabled cases reuse the existing reason strings already computed in `CompanyArc` (`profileStartDisabled` / `profileStartReason` pattern at line ~242): allowance exhausted or generation paused. Hold events map to `enqueueAlphaEvent` calls with `refile.hold_started` / `refile.hold_abandoned` (`refile.fired` is emitted by `handleRefile` itself, Task 5; exactly one emitter per event).
 
 - [ ] **Step 3: Run tests to green**
 
@@ -476,7 +476,7 @@ export function isAgedProfile(generatedAt: string, now: Date = new Date()): bool
 }
 ```
 
-Web: `model.ts` derives `aged: isAgedProfile(card.generatedAt)` (keep the model pure — accept `now` as an optional argument defaulting inside, matching the file's existing conventions; extend its test). `CardFace`/`PocketCard` render `data-aged="true"` on the filed-date span. CSS in `card.css`: the aged state adds a small dot before the date (an existing classification-dot pattern; pick a warm token already in `foundation.css` — no new colors) and one weight step on the date. Nothing else changes; the stamp is untouched.
+Web: `model.ts` derives `aged: isAgedProfile(card.generatedAt)` (keep the model pure: accept `now` as an optional argument defaulting inside, matching the file's existing conventions, and extend its test). `CardFace`/`PocketCard` render `data-aged="true"` on the filed-date span. CSS in `card.css`: the aged state adds a small dot before the date (an existing classification-dot pattern; pick a warm token already in `foundation.css`, no new colors) and one weight step on the date. Nothing else changes; the stamp is untouched.
 
 Extension: `CompanyHeader` computes `isAgedProfile(card.generatedAt)` when a card is present and stamps `data-aged` on `cs-freshness-mark`; mirror the same dot-plus-weight treatment with extension tokens.
 
@@ -508,12 +508,12 @@ git commit -m "feat: age the filed date past fourteen days on both surfaces"
 
 Rules from the spec (decision 3), non-negotiable in implementation:
 
-1. Fresh discovery ALWAYS runs in full. Seeds are extra fetch candidates re-read through the existing per-URL fetch path (Firecrawl scrape or the direct fetch the pipeline already uses for known URLs — read `fetchInitialSourcesForGeneration` and reuse whatever fetches a known URL today; if no such path exists, fetch seeds through the same client the clippings/source path uses).
+1. Fresh discovery ALWAYS runs in full. Seeds are extra fetch candidates re-read through the existing per-URL fetch path (Firecrawl scrape or the direct fetch the pipeline already uses for known URLs; read `fetchInitialSourcesForGeneration` and reuse whatever fetches a known URL today, and if no such path exists, fetch seeds through the same client the clippings/source path uses).
 2. Seeds merge AFTER discovery via `mergeSources(discovered, seeded)` so discovered sources win URL collisions.
 3. If fresh discovery itself fails (provider outage), the run fails exactly as it does today. Seeds must not mask that failure; assert in a test that a discovery-throw still propagates when seeds are present.
 4. Cap seeds at 12 URLs, citation order, and record `{ offered, fetched }` in the trace so seeded and discovered sources are distinguishable forever.
 
-- [ ] **Step 1: Write failing tests** — seed merge keeps discovered winner on URL collision; discovery failure propagates despite seeds; flag off means no seed fetches.
+- [ ] **Step 1: Write failing tests**: seed merge keeps discovered winner on URL collision; discovery failure propagates despite seeds; flag off means no seed fetches.
 - [ ] **Step 2: Implement to green.**
 - [ ] **Step 3: Commit**
 
@@ -522,7 +522,7 @@ git add apps/web/src apps/web/tests
 git commit -m "feat: seed re-file runs with prior sources behind a flag"
 ```
 
-If this task's fetch path turns out to need new provider work, STOP, leave the flag off, note the finding in the plan file, and continue to Task 9 — the release does not block on seeding.
+If this task's fetch path turns out to need new provider work, STOP, leave the flag off, note the finding in the plan file, and continue to Task 9; the release does not block on seeding.
 
 > **Finding (2026-08-12, execution): Task 8 needs new provider work; dropped per this clause.**
 > The pipeline has no generic fetch-a-known-URL path. The only per-URL fetch today is the
@@ -531,7 +531,7 @@ If this task's fetch path turns out to need new provider work, STOP, leave the f
 > and in the allowed probe-name set (`packages/providers/src/stableenrich/core.ts`). Seeding up
 > to 12 arbitrary prior-citation URLs would need a new probe name, a new provider-budget
 > registration, a new facade orchestrator in `stableenrich.ts`, and 12 extra paid AgentCash
-> calls per re-file — a cost decision, not a droppable flag. `REFILE_SEED_SOURCES` was not
+> calls per re-file: a cost decision, not a droppable flag. `REFILE_SEED_SOURCES` was not
 > added (a flag with no path behind it would be dead code). If seeding is wanted later, start
 > at the provider layer: register a `firecrawl_seed` endpoint, then thread `seedUrls` through
 > `fetchInitialSourcesForGeneration` merging AFTER discovery per the rules above.
@@ -541,7 +541,7 @@ If this task's fetch path turns out to need new provider work, STOP, leave the f
 ### Task 9: Docs sync and the full gate
 
 **Files:**
-- Modify: `CLAUDE.md` and `AGENTS.md` (data-flow section: one or two sentences on `card_revisions` and the re-file freeze; keep the two files in sync — this is a stated repo rule)
+- Modify: `CLAUDE.md` and `AGENTS.md` (data-flow section: one or two sentences on `card_revisions` and the re-file freeze; keep the two files in sync; this is a stated repo rule)
 - Modify: `README.md` (env-var reference: `REFILE_SEED_SOURCES`, only if Task 8 landed)
 - Modify: `docs/superpowers/specs/2026-08-11-profile-refresh-and-timeline-design.md` (append a short "Shipped" note listing any deviations discovered during implementation)
 
@@ -549,7 +549,7 @@ If this task's fetch path turns out to need new provider work, STOP, leave the f
 - [ ] **Step 2: Run the full gate**
 
 Run: `docker-compose up -d postgres && npm run check`
-Expected: green end to end (lint, typecheck, all tests including `test:cards-db` and `test:alpha-db`, builds, Firefox build + web-ext lint, eval dry-run, knip, secrets, audit). Do not pipe through `tail` (it eats the exit code — recorded repo gotcha).
+Expected: green end to end (lint, typecheck, all tests including `test:cards-db` and `test:alpha-db`, builds, Firefox build + web-ext lint, eval dry-run, knip, secrets, audit). Do not pipe through `tail` (it eats the exit code, a recorded repo gotcha).
 
 - [ ] **Step 3: Commit**
 
