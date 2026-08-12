@@ -92,7 +92,7 @@ One flat line under the pairs carrying the tick count. `[SAMAY]`. Working placeh
 2. Exa card contains "AI agents. com." mid-sentence in its stored description (legacy-format expanded description nested inside `identity.description.value`). Regenerate or repair the card; also worth a root-cause look at how the string survived.
 3. Artifact-scan and hand-read the Turbopuffer and ClickHouse cards the way Mintlify was checked (Mintlify scanned clean 2026-08-11).
 4. Verify the citation behind our Mintlify employee count (85) before the margin note ships.
-5. The table below the exhibit still claims "Under 10 cents per full profile." Measured median full-profile cost was $0.435 to $0.481 in June. The exhibit magnifies every uncited claim near it. Re-measure or reword before ship.
+5. The table below the exhibit still claims "Under 10 cents per full profile." Measured median full-profile cost was $0.435 to $0.481 in June. The exhibit magnifies every uncited claim near it. Re-measure or reword before ship. RESOLVED 2026-08-12: re-measured on 30 days of real prod traffic (read-only, generation_runs), median basics+analysis pair per domain across all four cost streams = $0.178 over 61 domains, p90 $0.242. Table now says "18 cents per full profile" / "one seat of PitchBook buys 140,000 profiles" ($25k / $0.178).
 
 ## Video bookend (later task, plan frozen here)
 

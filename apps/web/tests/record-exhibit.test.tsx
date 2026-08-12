@@ -50,7 +50,7 @@ describe("RecordExhibit", () => {
   it("draws exactly one tick per line the left side has no field for, hidden before scroll", () => {
     const tickCount = (html.match(/cs-exhibit-tick/g) ?? []).length;
     expect(tickCount).toBe(exhibitTickCount(recordExhibit));
-    expect(exhibitTickCount(recordExhibit)).toBe(8);
+    expect(exhibitTickCount(recordExhibit)).toBe(9);
     // Pre-animation initial state: scaleY(0), transparent, waiting for the in-view draw.
     expect(html).toContain('class="cs-exhibit-tick" style="opacity:0;transform:scaleY(0)"');
   });

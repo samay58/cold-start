@@ -6,14 +6,15 @@ import React, { useRef } from "react";
 import type { ExhibitPair } from "./record-exhibit-data";
 import { recordExhibit } from "./record-exhibit-data";
 
-// Same spring family as the hero's recorded build (DESIGN.md motion doctrine: stiff,
-// well-damped, no cartoon bounce). Ticks draw once when a pair scrolls into view, one
-// tick every ~60ms; everything else on the exhibit is still. This block reads as print.
+// A typographic exhibit, not a pair of boxes: everything sits on the page ground with
+// hairline rules and whitespace doing the separating. Same spring family as the hero's
+// recorded build (DESIGN.md motion doctrine: stiff, well-damped). Ticks draw once when a
+// pair scrolls into view, one every ~60ms; everything else is still. This reads as print.
 const TICK_SPRING = { type: "spring", stiffness: 420, damping: 34 } as const;
 const TICK_STAGGER_S = 0.06;
 
-// One lilac tick in the card's left gutter: the only accent in the exhibit. Decorative
-// (aria-hidden); the tally line below the pairs carries the count as real text.
+// One lilac tick beside a line the left record has no field for: the only accent here.
+// Decorative (aria-hidden); the tally line carries the count as real text.
 function Tick({ order, drawn, isStatic }: { order: number; drawn: boolean; isStatic: boolean }) {
   return (
     <motion.span
@@ -29,20 +30,23 @@ function EvidenceMark({ state }: { state: string }) {
   return <span aria-hidden="true" className="cs-face-mark" data-state={state} />;
 }
 
-// The left paper: their record, flat printout material, values full-contrast and verbatim.
-function RecordPanel({ pair, caption }: { pair: ExhibitPair; caption: string }) {
+// Their column: the record as they publish it, verbatim values, hairline rows.
+function RecordColumn({ pair, caption }: { pair: ExhibitPair; caption: string }) {
   const { record } = pair;
   return (
-    <div className="cs-exhibit-record">
+    <div className="cs-exhibit-side">
+      <p className="cs-exhibit-side-head">{caption}</p>
       {record.description ? <p className="cs-exhibit-record-description">{record.description}</p> : null}
       {record.fields ? (
         <dl className="cs-exhibit-record-fields">
           {record.fields.map((field) => (
-            <div className="cs-exhibit-record-field" key={field.label}>
-              <dt>{field.label}</dt>
-              <dd>{field.value}</dd>
-              {field.note ? <p className="cs-exhibit-note">{field.note}</p> : null}
-            </div>
+            <React.Fragment key={field.label}>
+              <div className="cs-exhibit-record-field">
+                <dt>{field.label}</dt>
+                <dd>{field.value}</dd>
+              </div>
+              {field.note ? <div className="cs-exhibit-note">{field.note}</div> : null}
+            </React.Fragment>
           ))}
         </dl>
       ) : null}
@@ -60,25 +64,30 @@ function RecordPanel({ pair, caption }: { pair: ExhibitPair; caption: string }) 
           ))}
         </div>
       ) : null}
-      <p className="cs-exhibit-receipt">{caption}</p>
     </div>
   );
 }
 
-// The right paper: our card excerpt on the same parchment and classes /c/{slug} renders
-// with, from frozen fixture data. The first line is the card's own summary line; the rest
-// are evidence rows. Fades out mid-content; the link below opens the live card.
-function ExcerptPanel({ pair, drawn, isStatic }: { pair: ExhibitPair; drawn: boolean; isStatic: boolean }) {
+// Our column: short lines clipped from the live card, each with its evidence mark, a tick
+// beside every line their record has no field for, and the link to the full profile.
+function ExcerptColumn({
+  pair,
+  drawn,
+  isStatic,
+  linkLabel
+}: {
+  pair: ExhibitPair;
+  drawn: boolean;
+  isStatic: boolean;
+  linkLabel: string;
+}) {
   let tickOrder = -1;
 
   return (
-    <div className="cs-exhibit-card">
-      <div className="cs-exhibit-card-head">
-        <span className="cs-exhibit-card-name">{pair.company}</span>
-        <span className="cs-exhibit-card-meta">c/{pair.slug}</span>
-      </div>
+    <div className="cs-exhibit-side">
+      <p className="cs-exhibit-side-head">Cold Start · c/{pair.slug}</p>
 
-      {pair.excerpt.lines.map((line, index) => {
+      {pair.excerpt.lines.map((line) => {
         if (line.tick) {
           tickOrder += 1;
         }
@@ -88,14 +97,10 @@ function ExcerptPanel({ pair, drawn, isStatic }: { pair: ExhibitPair; drawn: boo
             <span aria-hidden="true" className="cs-exhibit-gutter">
               {line.tick ? <Tick drawn={drawn} isStatic={isStatic} order={order} /> : null}
             </span>
-            {index === 0 ? (
-              <p className="cs-exhibit-oneliner">{line.text}</p>
-            ) : (
-              <p className="cs-face-bullet">
-                <EvidenceMark state={line.state} />
-                {line.text}
-              </p>
-            )}
+            <p className="cs-exhibit-line-text">
+              <EvidenceMark state={line.state} />
+              {line.text}
+            </p>
           </div>
         );
       })}
@@ -110,19 +115,18 @@ function ExcerptPanel({ pair, drawn, isStatic }: { pair: ExhibitPair; drawn: boo
             <span aria-hidden="true" className="cs-exhibit-gutter">
               {comp.tick ? <Tick drawn={drawn} isStatic={isStatic} order={order} /> : null}
             </span>
-            <p className="cs-face-comp">
+            <p className="cs-exhibit-line-text">
               <EvidenceMark state={comp.state} />
-              <span className="cs-face-comp-name">{comp.name}</span>
-              <span className="cs-face-comp-domain"> · {comp.domain}</span>
-              {" · "}
-              {comp.basis}
+              <span className="cs-exhibit-comp-name">{comp.name}</span> {comp.basis}
               <span className="cs-exhibit-comp-sources"> {comp.sourceHosts.join(" · ")}</span>
             </p>
           </div>
         );
       })}
 
-      <div aria-hidden="true" className="cs-exhibit-card-fade" />
+      <Link className="cs-exhibit-link" href={`/c/${pair.slug}`}>
+        {linkLabel}
+      </Link>
     </div>
   );
 }
@@ -138,12 +142,9 @@ function PairBlock({ pair, linkLabel, recordCaption }: { pair: ExhibitPair; link
     <div className="cs-exhibit-pair">
       <h3 className="cs-exhibit-question">{pair.question}</h3>
       <div className="cs-exhibit-desk" ref={deskRef}>
-        <RecordPanel caption={recordCaption} pair={pair} />
-        <ExcerptPanel drawn={drawn} isStatic={isStatic} pair={pair} />
+        <RecordColumn caption={recordCaption} pair={pair} />
+        <ExcerptColumn drawn={drawn} isStatic={isStatic} linkLabel={linkLabel} pair={pair} />
       </div>
-      <Link className="cs-exhibit-card-link" href={`/c/${pair.slug}`}>
-        {linkLabel}
-      </Link>
     </div>
   );
 }
@@ -162,7 +163,7 @@ export function RecordExhibit() {
             <span className="cs-exhibit-stack-text">{entry.text}</span>
           </div>
         ))}
-        <p className="cs-exhibit-receipt cs-exhibit-stack-caption">{data.stackCaption}</p>
+        <p className="cs-exhibit-stack-caption">{data.stackCaption}</p>
       </div>
 
       {data.pairs.map((pair) => (

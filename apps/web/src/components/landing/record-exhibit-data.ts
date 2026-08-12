@@ -1,14 +1,15 @@
 // Frozen data for the landing page's record exhibit (docs/superpowers/plans/
 // 2026-08-11-landing-exhibit-and-video-bookend.md): real PitchBook output next to real
-// Cold Start output for the same companies, verbatim on both sides.
+// Cold Start output for the same companies.
 //
 // PitchBook strings were transcribed from Samay's PitchBook access on 2026-08-11 and are
 // quoted as editorial content with attribution; re-verify against PitchBook before ship.
-// Cold Start excerpts were frozen from the live production cards on 2026-08-11
-// (/api/cards/mintlify, /api/cards/turbopuffer, /api/cards/clickhouse), copied from the
-// card JSON, never retyped. Punctuation inside excerpt strings is the stored card's own.
-// Evidence states were derived through the real card-face rules (publicEvidenceStatusForFact
-// in apps/web/src/lib/card-face/model.ts) against each fact's citations at freeze time.
+// Cold Start excerpt lines are contiguous spans clipped from the live production cards
+// (/api/cards/mintlify, /api/cards/turbopuffer, /api/cards/clickhouse, frozen 2026-08-11).
+// Only the leading capital and terminal punctuation are normalized; no interior word is
+// altered, dropped, or reordered. Evidence states were derived through the real card-face
+// rules (publicEvidenceStatusForFact in apps/web/src/lib/card-face/model.ts) against each
+// fact's citations at freeze time.
 //
 // Copy slots marked [SAMAY] carry working placeholders only. Samay writes every line that
 // ships; nothing here goes to production until he replaces them.
@@ -143,17 +144,17 @@ export const recordExhibit: RecordExhibitData = {
       excerpt: {
         lines: [
           {
-            text: "Mintlify sells documentation and knowledge infrastructure to software companies, letting developers publish and maintain structured docs that serve both human readers and AI agents consuming product knowledge.",
+            text: "Sells documentation and knowledge infrastructure to software companies.",
             state: "verified",
             tick: false
           },
           {
-            text: "Engineering and developer-experience teams at software companies ranging from early-stage startups (>20% of the YC W22 cohort) to large enterprises including Anthropic, Perplexity, Vercel, Fidelity, and Replit; budget most naturally sits with dev tooling or engineering leadership.",
+            text: "Large enterprises including Anthropic, Perplexity, Vercel, Fidelity, and Replit.",
             state: "verified",
             tick: true
           },
           {
-            text: "Documentation has shifted from human-readable content to machine-readable infrastructure: nearly half of traffic across Mintlify-hosted docs now comes from AI agents rather than human browsers, which the company frames as the core reason structured, continuously updated knowledge becomes a competitive moat rather than maintenance overhead.",
+            text: "Nearly half of traffic across Mintlify-hosted docs now comes from AI agents rather than human browsers.",
             state: "verified",
             tick: true
           }
@@ -176,12 +177,17 @@ export const recordExhibit: RecordExhibitData = {
       excerpt: {
         lines: [
           {
-            text: "turbopuffer sells a serverless search database to AI-native companies—Anthropic, Cursor, Notion, Atlassian—that need to run vector and full-text search over massive corpora without the cost and operational burden of traditional in-memory search systems.",
+            text: "Anthropic, Cursor, Notion, Atlassian.",
             state: "verified",
             tick: true
           },
           {
-            text: "The non-obvious bet is that object storage (S3-class) is cheap enough and fast enough to serve as the primary state layer for search, with NVMe SSD and memory used only as a cache for hot data—yielding in-memory latency on warm queries (20ms p50) and dramatically lower cost than replicated-disk incumbents like Pinecone or Elasticsearch, while still hitting 500ms p90 cold on 1M vectors.",
+            text: "Vector and full-text search over massive corpora.",
+            state: "verified",
+            tick: true
+          },
+          {
+            text: "In-memory latency on warm queries (20ms p50).",
             state: "verified",
             tick: true
           }
@@ -221,8 +227,7 @@ export const recordExhibit: RecordExhibitData = {
           {
             name: "Snowflake",
             domain: "snowflake.com",
-            basis:
-              "Named directly as a competitor by Bloomberg and TechCrunch; same buyer evaluating a cloud data platform for analytics and AI workloads.",
+            basis: "Named directly as a competitor by Bloomberg and TechCrunch.",
             state: "verified",
             sourceHosts: ["bloomberg.com", "techcrunch.com"],
             tick: true
@@ -230,8 +235,7 @@ export const recordExhibit: RecordExhibitData = {
           {
             name: "Databricks",
             domain: "databricks.com",
-            basis:
-              "Named directly as a competitor by Bloomberg and TechCrunch; same buyer evaluating a data platform for analytics and AI workloads.",
+            basis: "Same buyer evaluating a data platform for analytics and AI workloads.",
             state: "verified",
             sourceHosts: ["bloomberg.com", "techcrunch.com"],
             tick: true
@@ -239,8 +243,7 @@ export const recordExhibit: RecordExhibitData = {
           {
             name: "Elastic",
             domain: "elastic.co",
-            basis:
-              "ClickHouse positions against Elasticsearch for log analytics, running benchmarks showing faster cold queries and lower storage footprint; same observability buyer.",
+            basis: "ClickHouse positions against Elasticsearch for log analytics.",
             state: "company",
             sourceHosts: ["clickhouse.com"],
             tick: true
@@ -248,8 +251,7 @@ export const recordExhibit: RecordExhibitData = {
           {
             name: "LangSmith",
             domain: "smith.langchain.com",
-            basis:
-              "Langfuse, acquired by ClickHouse, competes directly with LangSmith for LLM observability; same developer buyer evaluating agent tracing and evaluation tools.",
+            basis: "Langfuse, acquired by ClickHouse, competes directly with LangSmith.",
             state: "reported",
             sourceHosts: ["techcrunch.com"],
             tick: true
@@ -260,7 +262,7 @@ export const recordExhibit: RecordExhibitData = {
   ],
 
   // [SAMAY] working placeholder; the count matches the ticks the fixture actually draws.
-  tally: "Eight lines. No field on the left for any of them.",
+  tally: "Nine lines. No field on the left for any of them.",
 
   // [SAMAY] working placeholder
   linkLabel: "Open the full card"
