@@ -24,6 +24,8 @@ type CompanyHeaderProps = {
   // Content inside the copy column, under the domain: summary, filed stamp.
   identityChildren?: ReactNode;
   phase: CompanyHeaderPhase;
+  // The hold-to-refile control, rendered beside the freshness mark on a stale profile.
+  refileSlot?: ReactNode;
   // Right-aligned slot: "No profile" chip at intake, the assembly whisper while building.
   statusSlot?: ReactNode;
 };
@@ -38,6 +40,7 @@ export function CompanyHeader({
   freshnessLabel,
   identityChildren,
   phase,
+  refileSlot,
   statusSlot
 }: CompanyHeaderProps) {
   const companyName = card ? readableCompanyName(card) : readableCompanyNameFallback(domain);
@@ -58,6 +61,7 @@ export function CompanyHeader({
             {website}
           </a>
           {freshnessLabel ? <span className="cs-freshness-mark">{freshnessLabel}</span> : null}
+          {refileSlot}
           {identityChildren}
         </div>
         {statusSlot ? <div className="cs-company-status-slot">{statusSlot}</div> : null}

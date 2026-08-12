@@ -31,6 +31,7 @@ import { filedSourceCount } from "./first-payoff-events";
 import { ProgressBackground } from "../shared/ProgressBackground";
 import { RESEARCH_LAYER_CARDS, type ResearchLayerId } from "../research/research-layer";
 import { hasResearchProgressAttention, sealLevelFromEvents, whisperCopyFromEvents } from "../research/research-progress";
+import { RefileControl } from "./RefileControl";
 import { ResearchTrail } from "../research/ResearchTrail";
 import { SealInstrument } from "./SealInstrument";
 import { SharedTooltip, useSharedTooltip, type TooltipDossier } from "../shared/SharedTooltip";
@@ -179,6 +180,7 @@ export function CompanyArc({
   arc,
   domain,
   onEditSettings,
+  onRefile,
   onRegenerate,
   onRunAnalysis,
   onRunSection,
@@ -250,6 +252,11 @@ export function CompanyArc({
       ? "This invitation has used its fresh profile runs."
       : null;
   const profileStartLabel = profileStartDisabled ? "Research unavailable" : "Begin research";
+  // The re-file control shows only on a stale filed profile with no run in flight. contactRun
+  // counts: it is how a basics run finishing behind a visible profile is represented.
+  const profileRunIdle = Boolean(
+    profile && !profile.profileRun && !profile.analysisRun && !profile.activeSectionRun && !profile.contactRun
+  );
   const lensUnavailableReason = alphaAccess?.generationEnabled === false
     ? "New research is temporarily paused. Filed Lens results still open."
     : alphaAccess?.lens?.remaining === 0
@@ -442,6 +449,18 @@ export function CompanyArc({
           domain={domain}
           freshnessLabel={freshnessLabel}
           phase={arc.phase}
+          refileSlot={
+            profile && profileIsStale && profileRunIdle ? (
+              <RefileControl
+                disabled={profileStartDisabled}
+                disabledReason={profileStartReason}
+                onHoldAbandoned={() => emitAlphaEvent("refile.hold_abandoned", { domain })}
+                onHoldStarted={() => emitAlphaEvent("refile.hold_started", { domain })}
+                onRefile={onRefile}
+                prefersReducedMotion={prefersReducedMotion}
+              />
+            ) : null
+          }
           statusSlot={
             arc.phase === "intake" ? null : building ? (
               <div

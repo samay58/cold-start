@@ -954,6 +954,102 @@ describe("SidePanel run lifecycle", () => {
     await unmount();
   });
 
+  it("re-files a stale profile through the hold control and restores it when the run fails", async () => {
+    vi.useFakeTimers();
+    const domain = "cartesia.ai";
+    const staleCard: ColdStartCard = { ...cardForDomain(domain), cacheStatus: "stale" };
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/api/generate") && init?.method === "POST") {
+        return jsonResponse({ error: "generation backend unavailable" }, { status: 500 });
+      }
+
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "cartesia",
+          card: staleCard,
+          runs: {
+            basics: { slug: "cartesia", domain, mode: "basics", status: "idle" },
+            analysis: { slug: "cartesia", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "cartesia", domain, mode: "basics", status: "idle" });
+      }
+
+      return jsonResponse(staleCard);
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    const refileButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Re-file this profile. Hold to confirm."]'
+    );
+    expect(refileButton).toBeTruthy();
+
+    await act(async () => {
+      refileButton?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750);
+    });
+    await act(async () => {
+      refileButton?.dispatchEvent(new MouseEvent("pointerup", { bubbles: true }));
+    });
+    await flushPromises();
+
+    expect(generateCalls(fetchMock)).toHaveLength(1);
+    expect(JSON.parse(String(generateCalls(fetchMock)[0]?.[1]?.body))).toMatchObject({
+      domain,
+      mode: "basics",
+      confirmStart: true,
+      forceRefresh: true
+    });
+
+    // The failed re-file restores the filed profile with the quiet notice, never the error panel.
+    expect(container.textContent).toContain("Re-file failed. The filed profile stands.");
+    expect(container.textContent).toContain("Research");
+    expect(container.textContent).not.toContain("Card unavailable");
+    await unmount();
+  });
+
+  it("holds the re-file control back while a profile run is active", async () => {
+    const domain = "cartesia.ai";
+    const staleCard: ColdStartCard = { ...cardForDomain(domain), cacheStatus: "stale" };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/api/extension/bootstrap")) {
+        return jsonResponse({
+          domain,
+          slug: "cartesia",
+          card: staleCard,
+          runs: {
+            basics: {
+              slug: "cartesia",
+              domain,
+              mode: "basics",
+              status: "running",
+              startedAt: new Date(Date.now() - 14_000).toISOString()
+            },
+            analysis: { slug: "cartesia", domain, mode: "analysis", status: "idle" }
+          }
+        });
+      }
+
+      if (String(url).includes("/api/generate?")) {
+        return jsonResponse({ slug: "cartesia", domain, mode: "basics", status: "running" });
+      }
+
+      return jsonResponse(staleCard);
+    });
+    const { container, unmount } = await renderSidePanel({ domain, fetchMock });
+
+    expect(
+      container.querySelector('button[aria-label="Re-file this profile. Hold to confirm."]')
+    ).toBeNull();
+    await unmount();
+  });
+
   it("aborts the basics completion watcher when leaving the profile", async () => {
     const domain = "amazon.com";
     const firstWatcher: { signal: AbortSignal | null } = { signal: null };
