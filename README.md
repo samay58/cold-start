@@ -139,7 +139,7 @@ These keys exist for different parts of the system. Keep real values in local ig
 
 | Credential                                                                 | Purpose                                                                                                                                                                                                                                   |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                             | Postgres storage for cards, runs, sources, citations, claims, traces, and research sections. Local development uses Docker Postgres on port `55432`; production uses Neon.                                                                |
+| `DATABASE_URL`                                                             | Postgres storage for cards, runs, sources, citations, claims, traces, and research sections. Local development uses native PostgreSQL 17 on port `55432`; production uses Neon.                                                           |
 | `ANTHROPIC_API_KEY`                                                        | Required for Anthropic extraction, synthesis, verification, research planning, and research-section writing.                                                                                                                              |
 | `ANTHROPIC_MODEL` and `ANTHROPIC_*_MODEL`                                  | Default and per-stage Anthropic model routing. Stage-specific values fall back to `ANTHROPIC_MODEL`.                                                                                                                                      |
 | `LLM_*_FALLBACK_MODEL` and `LLM_FALLBACK_MODEL`                            | Optional alternate-provider continuity for synthesis, research sections, person reads, and expanded descriptions. Used only when the primary provider is unavailable; authentication and model-contract failures remain visible.             |
@@ -187,8 +187,7 @@ Restart `dev:full` after changing startup env vars.
 Start Postgres:
 
 ```bash
-docker info >/dev/null
-docker-compose up -d postgres
+npm run db:local
 ```
 
 Start the app and worker:
@@ -372,5 +371,5 @@ Never paste production tokens into docs, commits, screenshots, issues, PRs, or c
 Stop local services:
 
 ```bash
-docker-compose down
+npm run db:local:stop
 ```

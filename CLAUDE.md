@@ -92,8 +92,8 @@ node --test eval/some-file.test.mjs           # node:test files under eval/ run 
 Local Postgres (host port `55432`, not `5432`):
 
 ```bash
-docker-compose up -d postgres                 # bring up local DB
-docker-compose down                           # stop it
+npm run db:local         # bring up native PostgreSQL 17
+npm run db:local:stop    # stop it
 ```
 
 Provider smoke, paid path:
@@ -120,7 +120,7 @@ npm run release:firefox -- <signed.xpi> # publish a signed XPI to apps/web/publi
 Local stack:
 
 ```bash
-docker-compose up -d postgres
+npm run db:local
 npm run dev:full
 ```
 
