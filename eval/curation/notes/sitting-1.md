@@ -1,4 +1,4 @@
-# Sitting 1 notes, enriched (rounds 1-6, 2026-08-12)
+# Sitting 1 notes, enriched (rounds 1-9, 2026-08-12)
 
 Samay's dictated notes from the quick-pick ledger, wording verbatim including dictation typos. Added here: company attribution, tags, and a running tally of cross-round patterns. This file is pattern-extraction fuel; the raw record stays in `ledger/picks.jsonl`.
 
@@ -115,6 +115,68 @@ Tag vocabulary: nuance, voice, comps, evidence, thesis, structure, template-slop
 
 - **datologyai**: team-competence read as an exemplar for early-stage cards generally. [team-signal]
 
+## Round 7: gc, infinity, framer, ouraring. Winner: ouraring, runner-up: infinity
+
+> "God, I am allergic to \"not this, but this\" style writing that shows up in the second option. EVen if its valid quite frankly lol."
+
+- **infinity** (position 2 in the group): the antithesis construction ("not X, but Y") is an allergen even when the content is valid. [voice]
+
+> "Infinity is way too lengthy, saying a lot of words to express insights but could be much tighter. But I do like how we explain complex concepts honestly. So that's good in Infinity. It does feel very sales-y though if I'm being honest, but that's not terrible."
+
+- **infinity**: honest complex-concept explanation praised; too long, sales-y register. [voice] [nuance] [intro-clarity]
+
+> "GC is solid overall but very matter of fact, tight-ish but nothing really that interesting."
+
+- **gc**: tight but flat; matter-of-fact alone doesn't win, insight does. [nuance]
+
+> "I really like that we call out what differentiates Framer, but i'm not sure that's the way we should start you know? But I also like the nuance of the bull vs bear case etc."
+
+- **framer**: differentiation callout praised, placement questioned (not as the opener); bull/bear nuance liked. [structure] [thesis]
+
+> "I think Oura and Framer are solid, but Infinity is the runner up pick I'll pick it just needs to be tightend and de-sloppified. Written more a la Oura honestly, with the nuance of Framer."
+
+- **ouraring** as the register exemplar; the target voice is Oura's writing with Framer's bull/bear nuance. [voice]
+
+> "OH - actually this is super important, as it applies \"glboally\" so to speak -- We can't have a brear case be \"there's no figure available\". That could just be to our process, and also that's not a bear case of the investment. That's literally just a lack of data. That cannot, and should not be the \"bear case\". This applies globally. Does that make sense?"
+
+> "In a similar vein, I noticed that we always put like net retention or revenue retention as the first next question. No shit we don't have revenue retention, most companies that are private don't dicslose that lol. that said, once again this applies globally - we can't have a lack of metrics be the analysis we present. This profile is being made on publicly available data, that's just a limitation of the tool / modality we're working with and we shouldn't let it leak into our analysis."
+
+> "Do you see what I'm saying? Like investors will choose to pick this opportunity, spend more time with it, and sign the NDA and then get access to the stuff they need. This tool is supposed to help them build that understanding with nuance and not generic crap the way existing tools too, really quickly and really efficiently. Its a limitation that's completely OKAY that this data isn't available, but it shouldn't leak into the content of our analysis ever."
+
+- GLOBAL, his most emphatic note of the sitting: absence of data is never analysis. A bear case built on "no figure available" and a first question of "what is NRR" both convert a modality limitation into content. The product's job is pre-NDA understanding; missing private metrics are expected, not a finding. [bear-case] [template-slop] [thesis]
+
+## Round 8: chainguard, humandelta, anthropic, hydrahost. Winner: anthropic, runner-up: chainguard (chips: better-comps, deeper-evidence, tighter)
+
+> "Anthropic's comps section really stands out because we included insights associatd with the comps. That's genuinely valuable if we can get it even somewhat right."
+
+- **anthropic**: the winning comps pattern named; comps carrying insights, not just names with overlap. [comps]
+
+> "I wouldn't read too much into a company's participation unless we have details behind the participation. E.g. I have insider info ;) on Hydra Host that we barely participated you know. Its avalid signal but it shouldn't drive the entire Bull or Bear case you know. And Hydra Hosts comps section is repetitive. But the upfront slice is pretty decent, written decently well."
+
+- **hydrahost**: investor-participation signals need detail behind them before they can carry a case (he has firsthand knowledge the participation was small); comps repetitive; opening decent. [evidence] [comps] [nuance]
+
+> "I do like Chainguard as well but I think it should have more nuance and thoughtfulness behind it."
+
+- **chainguard**: good, wants more depth. [nuance]
+
+## Round 9: arcaea, friend, strawberrybrowser, saatva. Winner: friend, runner-up: saatva
+
+> "Why is the Friend profile so negative? I'm honestly curious only because its the first example I've seen that does that you know? No issues with it at all, I wonder if that's just driven by the corpus of data we use to create the profile."
+
+- **friend**: notably negative tone, the first he's seen; open question whether source corpus drives profile tone. [voice] [evidence]
+
+> "Otherwise I love the nuanced comps picked, but I do thin kthe comps of Friend are quite repetitively written."
+
+- **friend**: comps selection loved, comps prose repetitive. [comps] [voice]
+
+> "Arcaea is clearly the weakest written IMO. Not sure why that's the case."
+
+- **arcaea**: weakest writing of the group. [voice]
+
+> "I think Saatva is the runner up for how its written, but Strawberry strong as well."
+
+- **saatva**: runner-up on writing. **strawberrybrowser**: rated strong. [voice]
+
 ## Cross-round tally (what repeats)
 
 1. **"Ask for one referenceable production customer" as a template question: 3 rounds (2, 4, 5), escalating.** His fix: make it actionable (who to reach out to, why them) or drop it. Matches blind-read gap 1 (open-question monotony); this is the corpus-wide instance.
@@ -127,3 +189,10 @@ Tag vocabulary: nuance, voice, comps, evidence, thesis, structure, template-slop
 8. **Team-competence read for early-stage: rounds 3, 6.** Valid dimension, wants signals beyond resumes.
 9. **New concept to incorporate: round 5.** "Durable compounding advantage" as an explicit analytical dimension per company.
 10. **Evidence appetite: round 2.** Wants high-quality secondary signals (credible ARR rumors) included, labeled as such.
+11. **Absence of data is never analysis: round 7, his most emphatic global note.** No bear case built on "no figure available"; no NRR as the reflexive first question. Missing private metrics are a modality limitation, expected pre-NDA, and must not leak into content. Hardens blind-read gap 2 into a product rule.
+12. **Antithesis allergy: round 7.** "Not this, but this" construction flagged as an allergen even when valid. Confirms the existing two-beat kill-list pattern from his own product reading.
+13. **The winning comps pattern, named: round 8.** Comps that carry insights beat comps that carry typed overlap. The concrete target for the comps-engine overhaul.
+14. **Signal weighting needs substance: round 8.** An investor's participation is a valid signal only with detail behind it; never the whole bull or bear case.
+15. **Profile tone provenance: round 9.** One notably negative profile raised the question of whether source-corpus sentiment drives card tone; check in pattern extraction.
+16. **Repetitive comps prose: rounds 8, 9.** Distinct from shallow comps selection; the writing itself repeats sentence shapes.
+17. **The target voice, named: round 7.** One card's register held up as the exemplar, another's bull/bear nuance as the depth bar; "tightened and de-sloppified" is the editing instruction.
