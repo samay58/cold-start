@@ -2116,7 +2116,7 @@ describe("updateGenerationRunTrace", () => {
 
   it("patches the trace without an interactive transaction so the Neon HTTP driver can run it", async () => {
     const stored = { id: "run-1", slug: "cartesia", traceJson: baseTrace as unknown };
-    let written: { traceJson?: GenerationTrace } | undefined;
+    let written: { traceJson?: GenerationTrace; costUsd?: string } | undefined;
 
     const db = {
       select: () => ({
@@ -2127,7 +2127,7 @@ describe("updateGenerationRunTrace", () => {
         })
       }),
       update: () => ({
-        set: (values: { traceJson?: GenerationTrace }) => {
+        set: (values: { traceJson?: GenerationTrace; costUsd?: string }) => {
           written = values;
           return {
             where: () => ({
@@ -2144,12 +2144,19 @@ describe("updateGenerationRunTrace", () => {
       }
     } as unknown as ColdStartDb;
 
-    const row = await updateGenerationRunTrace(db, { id: "run-1", patch: addStep("mark-complete") });
+    const row = await updateGenerationRunTrace(db, {
+      id: "run-1",
+      patch: (trace) => ({
+        ...addStep("mark-complete")(trace),
+        llm: { calls: [], totalEstimatedCostUsd: 0.123456 }
+      })
+    });
 
     expect(row).not.toBeNull();
     // Base milestones survive and the patch is applied: a read-modify-write, not a blind overwrite.
     expect(written?.traceJson?.steps).toHaveProperty("fetch-sources");
     expect(written?.traceJson?.steps).toHaveProperty("mark-complete");
+    expect(written?.costUsd).toBe("0.1235");
   });
 
   it("re-reads and re-applies when a concurrent patch lands between read and guarded write", async () => {

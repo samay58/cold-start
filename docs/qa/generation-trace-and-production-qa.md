@@ -21,11 +21,11 @@ Useful filters:
 - `--quality`
 - `--detail`
 
-The trace command prints job kind, run status, duration, accepted and rejected sources, applied provider facts, citation count, synthesis verification count, LLM call count, real AgentCash delta, estimated Anthropic cost, provider budget, Inngest IDs, failure reason, and deterministic QA flags when present.
+The trace command prints job kind, run status, duration, accepted and rejected sources, applied provider facts, citation count, synthesis verification count, LLM call count and cost, exact AgentCash receipts, the wallet-delta cross-check, provider budget, Inngest IDs, failure reason, and deterministic QA flags when present.
 
 ## Read The Trace
 
-Use `--quality` for the compact table and `--detail` when diagnosing a run. `agentcash` is the real wallet delta from `trace.costUsdAgentcash` or `providers.stableenrich.walletDeltaUsd`; `budget` is the expected StableEnrich spend from endpoint metadata. If the wallet snapshot failed, trust the budget only as a ceiling estimate. `anthropic` is `trace.costUsdAnthropic` or the summed LLM estimate.
+Use `--quality` for the compact table and `--detail` when diagnosing a run. `agentcash` uses exact settlement receipts when accounting is complete. The detailed view keeps the wallet delta separate because other services can spend from the same wallet. `budget` is the expected StableEnrich spend from endpoint metadata. `llmCost` is the complete traced LLM total across configured providers; the stored run column is only a fallback for older traces.
 
 Milestones live under `trace.milestones`. `firstUsableCardMs` is the sidebar-visible basics point, `contactsReadyMs` is deferred people enrichment, and `analysisReadyMs` is extension-gated synthesis. Inngest replay can run some steps more than once, so the milestone value is anchored to the original event timestamp and should stay monotonic.
 

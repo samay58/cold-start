@@ -526,9 +526,13 @@ export async function updateGenerationRunTrace(
     }
 
     const traceJson = input.patch(safeParseTraceJson(existing.traceJson, existing.slug));
+    const llmCostUsd = traceJson.llm?.totalEstimatedCostUsd ?? traceJson.costUsdAnthropic;
     const [row] = await db
       .update(generationRuns)
-      .set({ traceJson })
+      .set({
+        traceJson,
+        ...(llmCostUsd !== undefined ? { costUsd: String(Number(llmCostUsd.toFixed(4))) } : {})
+      })
       .where(and(eq(generationRuns.id, input.id), traceJsonUnchanged(existing.traceJson)))
       .returning();
 

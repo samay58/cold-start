@@ -162,7 +162,15 @@ export function generationQualityFlags(input: GenerationQualityInput): Generatio
     });
   }
 
-  if (stableenrich && stableenrich.sourceCount > 0 && stableenrich.factCount !== undefined && stableenrich.factCount === 0) {
+  const endpointFactCount = stableenrich?.endpoints?.reduce((sum, endpoint) => sum + endpoint.factCount, 0) ?? 0;
+  const extractedProviderFactCount = trace.extraction?.providerFactCandidateCount ?? 0;
+  if (
+    stableenrich &&
+    stableenrich.sourceCount > 0 &&
+    stableenrich.factCount === 0 &&
+    endpointFactCount === 0 &&
+    extractedProviderFactCount === 0
+  ) {
     add(flags, {
       code: "stableenrich_no_fact_candidates",
       severity: "warn",

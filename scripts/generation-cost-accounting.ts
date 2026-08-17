@@ -30,9 +30,9 @@ export function generationCostBreakdown(
   const parsedStoredLlmCost = storedLlmCostUsd === null || storedLlmCostUsd === undefined
     ? null
     : Number(storedLlmCostUsd);
-  const llmUsd = Number.isFinite(parsedStoredLlmCost)
-    ? parsedStoredLlmCost
-    : finiteNumber(trace?.costUsdAnthropic) ?? finiteNumber(trace?.llm?.totalEstimatedCostUsd);
+  const llmUsd = finiteNumber(trace?.llm?.totalEstimatedCostUsd)
+    ?? finiteNumber(trace?.costUsdAnthropic)
+    ?? (Number.isFinite(parsedStoredLlmCost) ? parsedStoredLlmCost : null);
   const directExaEstimatedUsd = finiteNumber(trace?.providers?.directExa?.estimatedCostUsd);
   const founderVoiceEstimatedUsd = finiteNumber(trace?.emphasis?.estimatedLaneCostUsd);
   const websetsEstimatedUsd = finiteNumber(trace?.providers?.websets?.estimatedCostUsd);

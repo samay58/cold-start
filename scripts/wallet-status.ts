@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-// One-shot wallet observability. Prints per-network AgentCash balance, last-24h Anthropic spend,
+// One-shot wallet observability. Prints per-network AgentCash balance, last-24h LLM spend,
 // last-24h provider failure counts, and a "runs remaining at current burn rate" estimate. Read-only.
 //
 // Usage: npm run wallet:status (uses .env.production.migrate.local for DATABASE_URL)
@@ -106,11 +106,11 @@ function summarizeRuns(rows: RunCostRow[]) {
     statusCounts.set(row.status, (statusCounts.get(row.status) ?? 0) + 1);
 
     const storedCost = row.cost_usd === null ? null : Number(row.cost_usd);
-    const tracedCost = row.trace_json?.costUsdAnthropic ?? row.trace_json?.llm?.totalEstimatedCostUsd;
-    const cost = storedCost !== null && Number.isFinite(storedCost)
-      ? storedCost
-      : typeof tracedCost === "number" && Number.isFinite(tracedCost)
-        ? tracedCost
+    const tracedCost = row.trace_json?.llm?.totalEstimatedCostUsd ?? row.trace_json?.costUsdAnthropic;
+    const cost = typeof tracedCost === "number" && Number.isFinite(tracedCost)
+      ? tracedCost
+      : storedCost !== null && Number.isFinite(storedCost)
+        ? storedCost
         : null;
     if (cost !== null && row.status === "failed") {
       failedAnthropicCost += cost;
@@ -215,13 +215,13 @@ async function main() {
     console.log(`    ${status}: ${count}`);
   }
   console.log(
-    `  Successful Anthropic spend: ${formatUsd(summary.successfulAnthropicCost)} across ${summary.successfulCostCount} runs`
+    `  Successful LLM spend: ${formatUsd(summary.successfulAnthropicCost)} across ${summary.successfulCostCount} runs`
   );
   console.log(
-    `  Failed Anthropic spend: ${formatUsd(summary.failedAnthropicCost)} across ${summary.failedCostCount} runs`
+    `  Failed LLM spend: ${formatUsd(summary.failedAnthropicCost)} across ${summary.failedCostCount} runs`
   );
   if (summary.avgAnthropicCost > 0) {
-    console.log(`  Avg Anthropic / run: ${formatUsd(summary.avgAnthropicCost)}`);
+    console.log(`  Avg LLM / run: ${formatUsd(summary.avgAnthropicCost)}`);
   }
   if (summary.emphasisLaneCostCount > 0) {
     console.log(

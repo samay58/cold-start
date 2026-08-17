@@ -200,6 +200,35 @@ describe("alpha status report", () => {
     assert.equal(Number(report.spend.successfulUsd.toFixed(2)), 0.15);
   });
 
+  it("uses the complete trace and keeps every non-overlapping cost stream", () => {
+    const fixture = failingFixture();
+    const completeRun = fixture.runRows.find((run) => run.generation_run_id === "run-complete");
+    if (!completeRun) {
+      throw new Error("fixture must carry a complete run");
+    }
+    completeRun.generation_cost_usd = "0.0100";
+    completeRun.trace_json = {
+      costUsdAnthropic: 0.04,
+      costUsdAgentcash: 0.03,
+      llm: { calls: [], totalEstimatedCostUsd: 0.06 },
+      providers: {
+        stableenrich: {
+          accountingStatus: "receipts_complete",
+          receiptCostUsd: 0.03,
+          receiptCount: 1,
+          unreceiptedCallCount: 0
+        },
+        directExa: { estimatedCostUsd: 0.007 },
+        websets: { estimatedCostUsd: 0.02 }
+      },
+      emphasis: { estimatedLaneCostUsd: 0.014 }
+    };
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(Number(report.spend.successfulUsd.toFixed(3)), 0.131);
+  });
+
   it("passes when wallet, reliability, and compatibility evidence are clean", () => {
     const fixture = failingFixture();
     fixture.runRows = fixture.runRows.filter((run) => run.generation_run_id === "run-complete");

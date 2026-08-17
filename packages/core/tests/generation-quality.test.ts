@@ -126,6 +126,41 @@ describe("generationQualityFlags", () => {
     ]);
   });
 
+  it("does not report missing StableEnrich facts when endpoint facts were recovered", () => {
+    const trace = baseTrace();
+    trace.providers!.stableenrich = {
+      sourceCount: 2,
+      factCount: 0,
+      failureCount: 0,
+      endpoints: [{
+        name: "org_enrichment",
+        endpointUrl: "https://stableenrich.dev/api/companyenrich/org-enrich",
+        status: "ok",
+        sourceCount: 1,
+        factCount: 8
+      }]
+    };
+    trace.extraction = {
+      ...trace.extraction!,
+      providerFactCandidateCount: 8,
+      providerFactAppliedCount: 7
+    };
+
+    expect(generationQualityFlags({ status: "complete", mode: "basics", traceJson: trace }).map((flag) => flag.code)).not.toContain(
+      "stableenrich_no_fact_candidates"
+    );
+  });
+
+  it("reports missing StableEnrich facts when every fact count is zero", () => {
+    const trace = baseTrace();
+    trace.providers!.stableenrich = { sourceCount: 2, factCount: 0, failureCount: 0, endpoints: [] };
+    trace.extraction = { ...trace.extraction!, providerFactCandidateCount: 0 };
+
+    expect(generationQualityFlags({ status: "complete", mode: "basics", traceJson: trace }).map((flag) => flag.code)).toContain(
+      "stableenrich_no_fact_candidates"
+    );
+  });
+
   it("flags analysis that completed without visible synthesis", () => {
     const visibleCard = { ...card(), synthesis: undefined };
 

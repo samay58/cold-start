@@ -142,7 +142,7 @@ function flagsFor(row: Row) {
 function summarize(row: Row, includeQuality: boolean) {
   const trace = row.trace_json;
   const llmCalls = trace?.llm?.calls.length;
-  const llmCost = trace?.costUsdAnthropic ?? trace?.llm?.totalEstimatedCostUsd;
+  const llmCost = trace?.llm?.totalEstimatedCostUsd ?? trace?.costUsdAnthropic;
   const stableenrichAccounting = trace?.providers?.stableenrich;
   const agentcashAccountingPartial = stableenrichAccounting?.accountingStatus === "receipts_partial";
   const agentcashCost = agentcashAccountingPartial
@@ -173,7 +173,7 @@ function summarize(row: Row, includeQuality: boolean) {
     agentcash: agentcashAccountingPartial
       ? `incomplete ($${(stableenrichAccounting.receiptCostUsd ?? 0).toFixed(4)} receipted)`
       : agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
-    anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : "-",
+    llmCost: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : "-",
     emphasis: emphasisCost !== undefined ? `$${emphasisCost.toFixed(4)}` : "-",
     runCost: row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
     budget: stableenrichBudget !== undefined ? `$${stableenrichBudget.toFixed(4)}` : "-",
@@ -196,7 +196,7 @@ function printTable(rows: Row[], includeQuality: boolean) {
     "synthesis",
     "llm",
     "agentcash",
-    "anthropic",
+    "llmCost",
     "emphasis",
     "runCost",
     "budget",

@@ -170,6 +170,46 @@ describe("generation milestone telemetry", () => {
     expect(trace.costUsdAnthropic).toBe(0.019134);
   });
 
+  it("keeps the full LLM total when a background trace carries only its local subtotal", () => {
+    const parent: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      llm: {
+        calls: [{
+          stage: "extract_full",
+          label: "extract",
+          model: "deepseek-test",
+          status: "ok",
+          durationMs: 100,
+          estimatedCostUsd: 0.01
+        }],
+        totalEstimatedCostUsd: 0.01
+      },
+      costUsdAnthropic: 0.01
+    };
+    const background: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      llm: {
+        calls: [{
+          stage: "expanded_description",
+          label: "description",
+          model: "claude-test",
+          status: "ok",
+          durationMs: 100,
+          estimatedCostUsd: 0.04
+        }],
+        totalEstimatedCostUsd: 0.04
+      },
+      costUsdAnthropic: 0.04
+    };
+
+    const merged = mergeGenerationTrace(parent, background);
+
+    expect(merged.llm?.totalEstimatedCostUsd).toBe(0.05);
+    expect(merged.costUsdAnthropic).toBe(0.05);
+  });
+
   it("adds contact provider spend and endpoints to the parent trace", () => {
     const parent: GenerationTrace = {
       jobKind: "basics",

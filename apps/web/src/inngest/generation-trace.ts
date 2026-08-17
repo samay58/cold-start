@@ -122,7 +122,9 @@ export function mergeGenerationTrace(
     next.costUsdAgentcash = patch.costUsdAgentcash;
   }
 
-  if ("costUsdAnthropic" in patch && patch.costUsdAnthropic !== undefined) {
+  if (next.llm?.totalEstimatedCostUsd !== undefined) {
+    next.costUsdAnthropic = next.llm.totalEstimatedCostUsd;
+  } else if ("costUsdAnthropic" in patch && patch.costUsdAnthropic !== undefined) {
     next.costUsdAnthropic = patch.costUsdAnthropic;
   }
 

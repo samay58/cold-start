@@ -9,7 +9,8 @@ import {
   ALPHA_INVITE_ATTEMPT_LIMIT,
   ALPHA_INVITE_ATTEMPT_WINDOW_SECONDS,
   generationFailureCode,
-  type GenerationFailureCode
+  type GenerationFailureCode,
+  type GenerationTrace
 } from "@cold-start/core";
 import { generationRunDeadAfterMs } from "@cold-start/db";
 
@@ -24,6 +25,7 @@ import {
   safeError,
   valueFor
 } from "./alpha-common";
+import { generationCostBreakdown } from "./generation-cost-accounting";
 
 const MAX_RUN_ROWS = 10_000;
 const ALPHA_RELEASE_WALLET_FLOOR_USD = 35;
@@ -998,24 +1000,10 @@ function spendSummary(runs: RunRow[]): AlphaStatusReport["spend"] {
 }
 
 function runCost(run: RunRow): number | null {
-  // generation_cost_usd and the traced Anthropic fallback both cover LLM spend only; the
-  // emphasis read's founder-voice lanes (mostly xAI) are a separate, non-Anthropic stream that
-  // neither one carries, so it is added on top of whichever branch below actually returns a cost.
-  const emphasisCost = finiteNumber(objectAt(run.trace_json, "emphasis")?.estimatedLaneCostUsd) ?? 0;
-  const providers = objectAt(run.trace_json, "providers");
-  const stableenrich = objectAt(providers, "stableenrich");
-  if (stableenrich?.accountingStatus === "receipts_partial") return null;
-  const agentcashCost = stableenrich
-    ? finiteNumber(run.trace_json?.costUsdAgentcash)
-      ?? finiteNumber(stableenrich.receiptCostUsd)
-      ?? finiteNumber(stableenrich.walletDeltaUsd)
-    : finiteNumber(run.trace_json?.costUsdAgentcash) ?? 0;
-  if (agentcashCost === null) return null;
-  const stored = run.generation_cost_usd === null ? null : Number(run.generation_cost_usd);
-  if (stored !== null && Number.isFinite(stored)) return stored + emphasisCost + agentcashCost;
-  const traced = finiteNumber(run.trace_json?.costUsdAnthropic)
-    ?? finiteNumber(objectAt(run.trace_json, "llm")?.totalEstimatedCostUsd);
-  return traced === null ? null : traced + emphasisCost + agentcashCost;
+  return generationCostBreakdown(
+    run.trace_json as GenerationTrace | null,
+    run.generation_cost_usd
+  ).totalUsd;
 }
 
 // request_failure_code and the traced failure.code are both app-written from

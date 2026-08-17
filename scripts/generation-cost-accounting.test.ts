@@ -61,4 +61,18 @@ describe("generation cost accounting", () => {
     assert.equal(result.walletDeltaCrossCheckUsd, 0.03);
     assert.equal(result.totalUsd, null);
   });
+
+  it("prefers the complete traced LLM total over stale summary fields", () => {
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAnthropic: 0.04,
+      llm: { calls: [], totalEstimatedCostUsd: 0.05 }
+    };
+
+    const result = generationCostBreakdown(trace, 0.01);
+
+    assert.equal(result.llmUsd, 0.05);
+    assert.equal(result.totalUsd, 0.05);
+  });
 });
