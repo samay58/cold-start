@@ -176,8 +176,8 @@ export async function verifySynthesisStepBody(input: {
 }
 
 export function generationRunAnthropicCostUsd(trace: GenerationTrace, fallback = 0) {
-  // generation_runs.cost_usd is the estimated Anthropic generation cost. Observed AgentCash spend
-  // stays in trace.costUsdAgentcash / trace.providers.stableenrich.walletDeltaUsd.
+  // generation_runs.cost_usd is the estimated Anthropic generation cost. Exact AgentCash spend
+  // stays in trace.costUsdAgentcash and the per-endpoint payment receipts.
   return anthropicGenerationCostUsdFromTrace(trace) ?? fallback;
 }
 

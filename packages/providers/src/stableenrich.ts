@@ -1,7 +1,7 @@
 import { agentcashJson } from "./agentcash";
 import type { PeopleEmailHint, ProviderResearchPlan, ProviderSource, StableenrichEnv, StableenrichProbe } from "./types";
 import { deriveEmailPattern } from "@cold-start/core";
-import { type AgentcashFetch, type StableenrichEmailPatternResult, type StableenrichProbeFailure, type StableenrichProbeResult, type StableenrichSourcesResult, createAgentcashBudgetState, requireStableenrichConfig, runStableenrichProbe, stableenrichEndpointUrl, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./stableenrich/core";
+import { type AgentcashFetch, type StableenrichEmailPatternResult, type StableenrichProbeFailure, type StableenrichProbeResult, type StableenrichSourcesResult, createAgentcashBudgetState, requireStableenrichConfig, runAgentcashProbeCall, runStableenrichProbe, stableenrichEndpointUrl, stableenrichProbeFailure, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./stableenrich/core";
 import { MAX_LEADERS_FOR_ENRICHMENT, namedLeadersWithSourceUrl, runApolloPeopleDiscovery, runExaEmailDiscovery, runPeopleFollowupRequests, runSecEdgarDiscovery, runStableenrichPeopleFollowups } from "./stableenrich/discovery";
 import { collectStableenrichSources } from "./stableenrich/facts";
 import { extractPeopleFromExaEmailResults, peopleHintsFromProviderSources, peopleRecordsFromEmailHints, rankPeople, summarizeEmailDiscovery } from "./stableenrich/people";
@@ -178,8 +178,10 @@ export async function fetchStableenrichEmailPatternSources(input: {
   let settled: PromiseSettledResult<StableenrichProbeResult>;
   const startedAt = Date.now();
   try {
-    const result = await agentcashFetch({
-      url: endpointUrl,
+    const value = await runAgentcashProbeCall({
+      agentcashFetch,
+      name: "exa_email_search",
+      endpointUrl,
       body: {
         query: `"@${input.domain}" founder OR CEO OR CTO OR CFO OR cofounder OR contact email`,
         numResults: 8,
@@ -188,22 +190,18 @@ export async function fetchStableenrichEmailPatternSources(input: {
           highlights: { highlightsPerUrl: 3, numSentences: 3 }
         }
       },
-      timeoutMs: stableenrichProbeTimeoutMs("exa_email_search")
+      timeoutMs: stableenrichProbeTimeoutMs("exa_email_search"),
+      metadata: { domain: input.domain }
     });
     settled = {
       status: "fulfilled",
-      value: {
-        name: "exa_email_search",
-        endpointUrl,
-        result,
-        durationMs: Date.now() - startedAt,
-        metadata: { domain: input.domain }
-      }
+      value: { ...value, durationMs: Date.now() - startedAt }
     };
   } catch (error) {
+    const tracedFailure = stableenrichProbeFailure(error)[0];
     settled = {
       status: "rejected",
-      reason: {
+      reason: tracedFailure ?? {
         name: "exa_email_search",
         endpointUrl,
         error: error instanceof Error ? error.message : String(error)

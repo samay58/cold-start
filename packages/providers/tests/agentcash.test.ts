@@ -142,6 +142,105 @@ describe("agentcashJson", () => {
       "json",
     ]);
   });
+
+  it("reports the exact payment receipt returned by AgentCash", async () => {
+    const payments: Array<{
+      protocol: string;
+      network: string;
+      priceUsd: number;
+      transactionHash: string | null;
+    }> = [];
+
+    const result = await agentcashJson<{ ok: true }>({
+      url: "https://stableenrich.dev/api/companyenrich/org-enrich",
+      body: { domain: "cartesia.ai" },
+      onPayment: (payment) => payments.push(payment),
+      runAgentcash: async () => JSON.stringify({
+        success: true,
+        data: { ok: true },
+        metadata: {
+          protocol: "x402",
+          network: "base",
+          price: "$0.0126",
+          payment: {
+            success: true,
+            transactionHash: "0xabc"
+          }
+        }
+      })
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(payments).toEqual([{
+      protocol: "x402",
+      network: "base",
+      priceUsd: 0.0126,
+      transactionHash: "0xabc"
+    }]);
+  });
+
+  it("reports a successful call with no payment as a free settlement", async () => {
+    const settlements: Array<unknown> = [];
+
+    await agentcashJson<{ ok: true }>({
+      url: "https://example.com/free",
+      body: {},
+      onSettlement: (payment) => settlements.push(payment),
+      runAgentcash: async () => '{"success":true,"data":{"ok":true}}'
+    });
+
+    expect(settlements).toEqual([null]);
+  });
+
+  it("reports malformed payment metadata as unknown instead of free", async () => {
+    const statuses: string[] = [];
+
+    await agentcashJson<{ ok: true }>({
+      url: "https://example.com/paid",
+      body: {},
+      onSettlementStatus: (status) => statuses.push(status),
+      runAgentcash: async () => JSON.stringify({
+        success: true,
+        data: { ok: true },
+        metadata: {
+          protocol: "x402",
+          network: "base",
+          price: "up to $0.06",
+          payment: null
+        }
+      })
+    });
+
+    expect(statuses).toEqual(["unknown"]);
+  });
+
+  it("does not report a rejected payment as paid", async () => {
+    const statuses: string[] = [];
+    const payments: unknown[] = [];
+
+    await agentcashJson<{ ok: true }>({
+      url: "https://example.com/paid",
+      body: {},
+      onPayment: (payment) => payments.push(payment),
+      onSettlementStatus: (status) => statuses.push(status),
+      runAgentcash: async () => JSON.stringify({
+        success: true,
+        data: { ok: true },
+        metadata: {
+          protocol: "x402",
+          network: "base",
+          price: "$0.06",
+          payment: {
+            success: false,
+            transactionHash: null
+          }
+        }
+      })
+    });
+
+    expect(statuses).toEqual(["unknown"]);
+    expect(payments).toEqual([]);
+  });
 });
 
 describe("buildAgentcashAccountsArgs", () => {

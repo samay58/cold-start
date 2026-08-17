@@ -36,6 +36,7 @@ export type GenerationSourceTrace = {
 };
 
 export type GenerationProviderEndpointTrace = {
+  callId?: string;
   name: string;
   endpointUrl: string;
   status: "ok" | "failed" | "skipped";
@@ -44,6 +45,11 @@ export type GenerationProviderEndpointTrace = {
   factsAppliedCount?: number;
   durationMs?: number;
   estimatedCostUsd?: number;
+  actualCostUsd?: number;
+  paymentProtocol?: string;
+  paymentNetwork?: string;
+  paymentTransactionHash?: string | null;
+  paymentStatus?: "paid" | "free" | "unknown";
   expectedFacts?: string[];
   stopCondition?: string;
   error?: string;
@@ -157,6 +163,10 @@ export type GenerationTrace = {
       walletSnapshotAfterUsd?: number;
       walletDeltaUsd?: number;
       walletSnapshotError?: string;
+      receiptCostUsd?: number;
+      receiptCount?: number;
+      unreceiptedCallCount?: number;
+      accountingStatus?: "receipts_complete" | "receipts_partial" | "legacy_wallet_delta";
       budgetCeilingHit?: boolean;
       emailPatternFallback?: {
         fired: boolean;

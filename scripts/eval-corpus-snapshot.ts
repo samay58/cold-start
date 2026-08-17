@@ -3,12 +3,14 @@
 // statement may ever enter this script's path.
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { Client } from "pg";
 
 import { generationTraceSchema, sourceQualityForSource } from "@cold-start/core";
 
 import { databaseUrl, loadProductionEnv } from "./alpha-common";
 import { bandFor, eraBucket, richnessBands, richnessScore } from "./eval-curation-lib";
+import { generationCostBreakdown } from "./generation-cost-accounting";
 
 type CardRow = {
   id: string;
@@ -71,22 +73,6 @@ function routingFromTrace(trace: Record<string, unknown>): Record<string, string
     }
   }
   return Object.keys(routing).length > 0 ? routing : null;
-}
-
-function totalCostFromTrace(trace: Record<string, unknown>): number | null {
-  const providers = trace.providers as
-    | { directExa?: { estimatedCostUsd?: unknown }; websets?: { estimatedCostUsd?: unknown } }
-    | undefined;
-  const streams = [
-    trace.costUsdAnthropic,
-    trace.costUsdAgentcash,
-    providers?.directExa?.estimatedCostUsd,
-    providers?.websets?.estimatedCostUsd
-  ].filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  if (streams.length === 0) {
-    return null;
-  }
-  return Number(streams.reduce((total, value) => total + value, 0).toFixed(4));
 }
 
 function sectionJson(row: SectionRow) {
@@ -167,6 +153,7 @@ async function main() {
       const sections = (sectionsBySlug.get(card.slug) ?? []).map(sectionJson);
       const rawTrace = latestAnalysisTraceByDomain.get(card.domain);
       const trace = rawTrace ? generationTraceSchema.safeParse(rawTrace) : null;
+      const cost = trace?.success ? generationCostBreakdown(trace.data) : null;
       const identity = card.card_json?.identity as { name?: { value?: unknown } } | undefined;
       const name = typeof identity?.name?.value === "string" ? identity.name.value : card.slug;
       const synthesis = (card.card_json?.synthesis ?? null) as {
@@ -193,7 +180,8 @@ async function main() {
           richnessScore: richnessScore(tiers),
           richnessBand: "thin" as ReturnType<typeof bandFor>,
           routing: trace?.success ? routingFromTrace(trace.data) : null,
-          costUsd: trace?.success ? totalCostFromTrace(trace.data) : null
+          costUsd: cost?.totalUsd ?? null,
+          costBreakdown: cost
         },
         card: card.card_json,
         sections
@@ -227,7 +215,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

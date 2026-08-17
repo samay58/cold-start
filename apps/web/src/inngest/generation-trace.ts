@@ -114,7 +114,11 @@ export function mergeGenerationTrace(
 
   mergeTracePatch(next, patch);
 
-  if ("costUsdAgentcash" in patch && patch.costUsdAgentcash !== undefined) {
+  if (next.providers?.stableenrich?.accountingStatus === "receipts_complete") {
+    next.costUsdAgentcash = next.providers.stableenrich.receiptCostUsd ?? 0;
+  } else if (next.providers?.stableenrich?.accountingStatus === "receipts_partial") {
+    delete next.costUsdAgentcash;
+  } else if ("costUsdAgentcash" in patch && patch.costUsdAgentcash !== undefined) {
     next.costUsdAgentcash = patch.costUsdAgentcash;
   }
 
@@ -128,6 +132,63 @@ export function mergeGenerationTrace(
 function sumOptional(left: number | undefined, right: number | undefined) {
   if (left === undefined && right === undefined) return undefined;
   return Number(((left ?? 0) + (right ?? 0)).toFixed(6));
+}
+
+function endpointTraceKey(endpoint: NonNullable<StableenrichTrace["endpoints"]>[number]) {
+  if (endpoint.paymentTransactionHash) {
+    return `tx:${endpoint.paymentNetwork ?? "unknown"}:${endpoint.paymentTransactionHash}`;
+  }
+  if (endpoint.callId) {
+    return `call:${endpoint.callId}`;
+  }
+  return `legacy:${JSON.stringify(endpoint)}`;
+}
+
+function mergeStableenrichEndpoints(
+  left: StableenrichTrace["endpoints"],
+  right: StableenrichTrace["endpoints"]
+) {
+  const merged = new Map<string, NonNullable<StableenrichTrace["endpoints"]>[number]>();
+  for (const endpoint of [...(left ?? []), ...(right ?? [])]) {
+    merged.set(endpointTraceKey(endpoint), endpoint);
+  }
+  return Array.from(merged.values());
+}
+
+function withReceiptAccounting(stableenrich: StableenrichTrace): StableenrichTrace {
+  const endpoints = stableenrich.endpoints ?? [];
+  const modernCalls = endpoints.filter((endpoint) => Boolean(endpoint.callId));
+  if (modernCalls.length === 0) {
+    return {
+      ...stableenrich,
+      ...(stableenrich.walletDeltaUsd !== undefined ? { accountingStatus: "legacy_wallet_delta" as const } : {})
+    };
+  }
+
+  const receiptedCalls = modernCalls.filter((endpoint) => endpoint.actualCostUsd !== undefined);
+  const receiptCostUsd = Number(receiptedCalls.reduce((sum, endpoint) => sum + (endpoint.actualCostUsd ?? 0), 0).toFixed(6));
+  const unreceiptedCallCount = modernCalls.length - receiptedCalls.length;
+  return {
+    ...stableenrich,
+    receiptCostUsd,
+    receiptCount: receiptedCalls.length,
+    unreceiptedCallCount,
+    accountingStatus: unreceiptedCallCount === 0 ? "receipts_complete" : "receipts_partial"
+  };
+}
+
+function applyReceiptAccounting(trace: GenerationTrace) {
+  const stableenrich = trace.providers?.stableenrich;
+  if (!stableenrich) {
+    return;
+  }
+  const accounted = withReceiptAccounting(stableenrich);
+  trace.providers = { ...trace.providers, stableenrich: accounted };
+  if (accounted.accountingStatus === "receipts_complete") {
+    trace.costUsdAgentcash = accounted.receiptCostUsd ?? 0;
+  } else if (accounted.accountingStatus === "receipts_partial") {
+    delete trace.costUsdAgentcash;
+  }
 }
 
 export function mergeContactEnrichmentTrace(
@@ -152,7 +213,7 @@ export function mergeContactEnrichmentTrace(
         sourceCount: (parentStable?.sourceCount ?? 0) + contactStable.sourceCount,
         failureCount: (parentStable?.failureCount ?? 0) + contactStable.failureCount,
         ...(factCount !== undefined ? { factCount } : {}),
-        endpoints: [...(parentStable?.endpoints ?? []), ...(contactStable.endpoints ?? [])],
+        endpoints: mergeStableenrichEndpoints(parentStable?.endpoints, contactStable.endpoints),
         skippedProbeNames: Array.from(new Set([
           ...(parentStable?.skippedProbeNames ?? []),
           ...(contactStable.skippedProbeNames ?? [])
@@ -170,8 +231,13 @@ export function mergeContactEnrichmentTrace(
     };
   }
 
+  applyReceiptAccounting(merged);
   const agentcashCost = sumOptional(parent?.costUsdAgentcash, contact.costUsdAgentcash);
-  if (agentcashCost !== undefined) {
+  if (
+    merged.providers?.stableenrich?.accountingStatus !== "receipts_complete"
+    && merged.providers?.stableenrich?.accountingStatus !== "receipts_partial"
+    && agentcashCost !== undefined
+  ) {
     merged.costUsdAgentcash = agentcashCost;
   }
   if (merged.llm?.totalEstimatedCostUsd !== undefined) {
@@ -204,15 +270,18 @@ export function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTraceP
     };
 
     if (patch.providers.stableenrich) {
-      providers.stableenrich = {
-        ...stableenrichTraceWithWallet(trace.providers?.stableenrich, null),
-        ...patch.providers.stableenrich
-      };
+      const previousStable = trace.providers?.stableenrich;
+      providers.stableenrich = withReceiptAccounting({
+        ...stableenrichTraceWithWallet(previousStable, null),
+        ...patch.providers.stableenrich,
+        endpoints: mergeStableenrichEndpoints(previousStable?.endpoints, patch.providers.stableenrich.endpoints)
+      });
     } else if (trace.providers?.stableenrich) {
       providers.stableenrich = trace.providers.stableenrich;
     }
 
     trace.providers = providers;
+    applyReceiptAccounting(trace);
   }
 
   if ("llm" in patch && patch.llm) {
@@ -306,8 +375,11 @@ export function applyStableenrichWalletTrace(
   };
 
   if (stableenrich.walletDeltaUsd !== undefined) {
-    trace.costUsdAgentcash = stableenrich.walletDeltaUsd;
+    if (stableenrich.accountingStatus !== "receipts_complete" && stableenrich.accountingStatus !== "receipts_partial") {
+      trace.costUsdAgentcash = stableenrich.walletDeltaUsd;
+    }
   }
+  applyReceiptAccounting(trace);
   if (trace.llm?.totalEstimatedCostUsd !== undefined) {
     trace.costUsdAnthropic = trace.llm.totalEstimatedCostUsd;
   }

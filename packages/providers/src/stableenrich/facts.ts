@@ -32,23 +32,29 @@ export function collectStableenrichSources(
   const endpoints = results.map((result) => {
     if (result.status === "fulfilled") {
       return {
+        callId: result.value.callId,
         name: result.value.name,
         endpointUrl: result.value.endpointUrl,
         status: "ok" as const,
         sourceCount: providerSourcesFromProbeResult(result.value).length,
         factCount: providerFactsFromProbeResult(result.value).length,
+        paymentStatus: result.value.paymentStatus,
         ...(result.value.durationMs !== undefined ? { durationMs: result.value.durationMs } : {}),
+        ...(result.value.payment ? { payment: result.value.payment } : {})
       };
     }
 
     const failure = stableenrichProbeFailure(result.reason)[0];
     return {
+      ...(failure?.callId ? { callId: failure.callId } : {}),
       name: failure?.name ?? "exa_funding_history",
       endpointUrl: failure?.endpointUrl ?? "stableenrich",
       status: "failed" as const,
       sourceCount: 0,
       factCount: 0,
+      ...(failure?.paymentStatus ? { paymentStatus: failure.paymentStatus } : {}),
       ...(failure?.error ? { error: failure.error } : {}),
+      ...(failure?.payment ? { payment: failure.payment } : {})
     };
   });
 
@@ -233,16 +239,19 @@ function exaResultSources(
 function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandidate[] {
   const fetchedAt = new Date().toISOString();
   const root = objectRecord(result.result);
-  const organization = root ? objectRecord(root.organization) : null;
+  const legacyOrganization = root ? objectRecord(root.organization) : null;
+  const organization = legacyOrganization ?? root;
   if (!organization) {
     return [];
   }
 
   const domain = stringValue(organization.domain) ?? domainFromUrl(stringValue(organization.website_url));
   const citationUrl = stableenrichCitationUrl(result.endpointUrl, domain);
-  const citationTitle = domain ? `Apollo org enrichment for ${domain}` : "Apollo org enrichment";
+  const citationTitle = domain ? `Company enrichment for ${domain}` : "Company enrichment";
   const rawText = JSON.stringify(root);
   const facts: ProviderFactCandidate[] = [];
+  const socials = objectRecord(organization.socials);
+  const financial = objectRecord(organization.financial);
 
   addStringFact(facts, "identity.name", stringValue(organization.name), result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "high" });
   addUrlFact(facts, "identity.websiteUrl", stringValue(organization.website_url) ?? urlFromDomain(domain), result, {
@@ -252,7 +261,7 @@ function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandid
     rawText,
     confidence: "high",
   });
-  addUrlFact(facts, "identity.linkedinUrl", stringValue(organization.linkedin_url), result, {
+  addUrlFact(facts, "identity.linkedinUrl", stringValue(organization.linkedin_url) ?? stringValue(socials?.linkedin_url), result, {
     citationUrl,
     citationTitle,
     fetchedAt,
@@ -279,8 +288,9 @@ function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandid
   }
 
   const seoDescription = stringValue(organization.seo_description);
-  const shortDescription = stringValue(organization.short_description) ?? seoDescription;
-  const expandedDescription = stringValue(organization.description) ?? (seoDescription && seoDescription !== shortDescription ? seoDescription : null);
+  const currentDescription = stringValue(organization.description);
+  const shortDescription = stringValue(organization.short_description) ?? seoDescription ?? currentDescription;
+  const expandedDescription = currentDescription ?? (seoDescription && seoDescription !== shortDescription ? seoDescription : null);
   if (shortDescription) {
     facts.push(
       providerFact(
@@ -298,22 +308,38 @@ function orgEnrichmentFacts(result: StableenrichProbeResult): ProviderFactCandid
     );
   }
 
-  const totalFunding = integerValue(organization.total_funding);
+  const totalFunding = integerValue(organization.total_funding) ?? integerValue(financial?.total_funding);
   if (totalFunding !== null && totalFunding > 0) {
     facts.push(providerFact("funding.totalRaisedUsd", totalFunding, result, { citationUrl, citationTitle, fetchedAt, rawText, confidence: "low" }));
   }
 
-  const latestStage = stringValue(organization.latest_funding_stage);
-  const latestDate = stringValue(organization.latest_funding_round_date);
-  if (latestStage || latestDate) {
+  const currentFundingRounds = Array.isArray(financial?.funding)
+    ? financial.funding.flatMap((value) => {
+        const round = objectRecord(value);
+        return round ? [round] : [];
+      })
+    : [];
+  const latestCurrentRound = currentFundingRounds
+    .slice()
+    .sort((left, right) => String(right.date ?? "").localeCompare(String(left.date ?? "")))[0];
+  const latestStage = stringValue(organization.latest_funding_stage) ?? stringValue(latestCurrentRound?.round);
+  const latestDate = stringValue(organization.latest_funding_round_date) ?? stringValue(latestCurrentRound?.date);
+  const latestAmount = integerValue(latestCurrentRound?.amount);
+  const latestInvestors = Array.isArray(latestCurrentRound?.investors)
+    ? latestCurrentRound.investors.flatMap((value) => {
+        const investor = stringValue(value);
+        return investor ? [investor] : [];
+      })
+    : [];
+  if (latestStage || latestDate || latestAmount !== null) {
     facts.push(
       providerFact(
         "funding.lastRound",
         {
           name: latestStage ?? "Latest round",
-          amountUsd: null,
+          amountUsd: latestAmount,
           announcedAt: latestDate,
-          leadInvestors: [],
+          leadInvestors: latestInvestors,
         },
         result,
         { citationUrl, citationTitle, fetchedAt, rawText, confidence: "low" },

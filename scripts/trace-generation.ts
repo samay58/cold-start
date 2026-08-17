@@ -143,7 +143,11 @@ function summarize(row: Row, includeQuality: boolean) {
   const trace = row.trace_json;
   const llmCalls = trace?.llm?.calls.length;
   const llmCost = trace?.costUsdAnthropic ?? trace?.llm?.totalEstimatedCostUsd;
-  const agentcashCost = trace?.costUsdAgentcash ?? trace?.providers?.stableenrich?.walletDeltaUsd;
+  const stableenrichAccounting = trace?.providers?.stableenrich;
+  const agentcashAccountingPartial = stableenrichAccounting?.accountingStatus === "receipts_partial";
+  const agentcashCost = agentcashAccountingPartial
+    ? undefined
+    : trace?.costUsdAgentcash ?? stableenrichAccounting?.walletDeltaUsd;
   const stableenrichBudget = trace?.providers?.stableenrich?.endpoints?.reduce(
     (sum, endpoint) => sum + (endpoint.estimatedCostUsd ?? 0),
     0
@@ -166,7 +170,9 @@ function summarize(row: Row, includeQuality: boolean) {
       ? `${trace.synthesis.claimCountAfterVerify}/${trace.synthesis.claimCountBeforeVerify}`
       : "-",
     llm: llmCalls !== undefined ? String(llmCalls) : "-",
-    agentcash: agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
+    agentcash: agentcashAccountingPartial
+      ? `incomplete ($${(stableenrichAccounting.receiptCostUsd ?? 0).toFixed(4)} receipted)`
+      : agentcashCost !== undefined ? `$${agentcashCost.toFixed(4)}` : "-",
     anthropic: llmCost !== undefined ? `$${llmCost.toFixed(4)}` : "-",
     emphasis: emphasisCost !== undefined ? `$${emphasisCost.toFixed(4)}` : "-",
     runCost: row.cost_usd ? `$${Number(row.cost_usd).toFixed(4)}` : "-",
@@ -285,6 +291,11 @@ function printDetail(row: Row) {
       console.log(`- wallet before: ${before === undefined ? "-" : `$${before.toFixed(4)}`}`);
       console.log(`- wallet after: ${after === undefined ? "-" : `$${after.toFixed(4)}`}`);
       console.log(`- wallet delta: ${delta === undefined ? "-" : `$${delta.toFixed(4)}`}`);
+      console.log(`- accounting: ${stableenrich.accountingStatus ?? "legacy"}`);
+      console.log(`- receipted: ${stableenrich.receiptCount ?? 0} calls / $${(stableenrich.receiptCostUsd ?? 0).toFixed(4)}`);
+      if (stableenrich.unreceiptedCallCount) {
+        console.log(`- unreceipted calls: ${stableenrich.unreceiptedCallCount}`);
+      }
       if (stableenrich.walletSnapshotError) {
         console.log(`- wallet snapshot error: ${stableenrich.walletSnapshotError}`);
       }

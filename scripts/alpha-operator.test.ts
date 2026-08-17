@@ -176,6 +176,30 @@ describe("alpha status report", () => {
     assert.equal(Number(report.spend.successfulUsd.toFixed(2)), 0.17);
   });
 
+  it("adds exact AgentCash receipt spend to the run total", () => {
+    const fixture = failingFixture();
+    const completeRun = fixture.runRows.find((run) => run.generation_run_id === "run-complete");
+    if (!completeRun?.trace_json) {
+      throw new Error("fixture must carry a run-complete trace");
+    }
+    completeRun.trace_json = {
+      ...completeRun.trace_json,
+      costUsdAgentcash: 0.03,
+      providers: {
+        stableenrich: {
+          accountingStatus: "receipts_complete",
+          receiptCostUsd: 0.03,
+          receiptCount: 2,
+          unreceiptedCallCount: 0
+        }
+      }
+    };
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(Number(report.spend.successfulUsd.toFixed(2)), 0.15);
+  });
+
   it("passes when wallet, reliability, and compatibility evidence are clean", () => {
     const fixture = failingFixture();
     fixture.runRows = fixture.runRows.filter((run) => run.generation_run_id === "run-complete");
@@ -191,6 +215,33 @@ describe("alpha status report", () => {
     assert.equal(report.totals.staleOrSilentRuns.length, 0);
     assert.deepEqual(report.totals.failureCodes, {});
     assert.equal(report.wallet.requiredFloorUsd, 35);
+  });
+
+  it("fails closed when a run has AgentCash calls without settlement receipts", () => {
+    const fixture = failingFixture();
+    const completeRun = fixture.runRows.find((run) => run.generation_run_id === "run-complete");
+    const allTrafficRun = fixture.allTrafficRunRows.find((run) => run.id === "run-complete");
+    if (!completeRun?.trace_json || !allTrafficRun) {
+      throw new Error("fixture must carry the complete run");
+    }
+    completeRun.trace_json = {
+      ...completeRun.trace_json,
+      providers: {
+        stableenrich: {
+          accountingStatus: "receipts_partial",
+          receiptCostUsd: 0.01,
+          receiptCount: 1,
+          unreceiptedCallCount: 1
+        }
+      }
+    };
+    allTrafficRun.agentcash_accounting_status = "receipts_partial";
+
+    const report = buildAlphaStatusReport(fixture);
+
+    assert.equal(report.spend.successfulRunsMissingCost, 1);
+    assert.equal(report.totals.allTraffic.incompleteAgentcashAccountingCount, 1);
+    assert.ok(report.gate.failures.some((failure) => failure.code === "agentcash_accounting_incomplete"));
   });
 
   // The 2026-07-24 through 2026-07-27 outage: seventeen software failures across three days of

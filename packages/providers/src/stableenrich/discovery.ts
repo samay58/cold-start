@@ -2,8 +2,16 @@ import { providerBudgetForEndpoint } from "../provider-budget";
 import { type SecFormDOfficer, fetchSecFormD, isSecFormDResult } from "../sec-edgar";
 import { allSettledLimited, extractUrlRecords, stringRecordValue, supportedUrl, workEmailValue } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderSource, StableenrichEnv } from "../types";
-import { APOLLO_LEADER_SENIORITIES, APOLLO_LEADER_TITLES, type AgentcashBudgetState, type AgentcashFetch, type StableenrichProbeFailure, type StableenrichProbeResult, fullName, providerSourceFromText, stableenrichEndpointUrl, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./core";
+import { APOLLO_LEADER_SENIORITIES, APOLLO_LEADER_TITLES, type AgentcashBudgetState, type AgentcashFetch, type StableenrichProbeFailure, type StableenrichProbeResult, fullName, providerSourceFromText, runAgentcashProbeCall, stableenrichEndpointUrl, stableenrichProbeFailure, stableenrichProbeTimeoutMs, takeAgentcashBudget } from "./core";
 import { type PersonRecord, apolloOrganizationIdForDomain, dedupeByName, dedupePeopleInOrder, emailCandidatesForPerson, extractPeopleFromExaEmailResults, extractPeopleRecords, isLikelyPersonName, minervaRecordForPerson, peopleEnrichBody, peopleHintsFromSearchResults, personMetadata, personNameKey, personPath, rankPeople } from "./people";
+
+function probeFailure(error: unknown, name: StableenrichProbeFailure["name"], endpointUrl: string): StableenrichProbeFailure {
+  return stableenrichProbeFailure(error)[0] ?? {
+    name,
+    endpointUrl,
+    error: error instanceof Error ? error.message : String(error)
+  };
+}
 
 export async function runExaEmailDiscovery(input: {
   env: StableenrichEnv;
@@ -31,10 +39,11 @@ export async function runExaEmailDiscovery(input: {
 
   const settled = await Promise.all(
     probes.filter(({ name }) => takeAgentcashBudget(input.budgetState, name)).map(async ({ name, query }): Promise<PromiseSettledResult<StableenrichProbeResult>> => {
-      const startedAt = Date.now();
       try {
-        const result = await input.agentcashFetch({
-          url: exaUrl,
+        const value = await runAgentcashProbeCall({
+          agentcashFetch: input.agentcashFetch,
+          name,
+          endpointUrl: exaUrl,
           body: {
             query,
             numResults: 8,
@@ -44,25 +53,16 @@ export async function runExaEmailDiscovery(input: {
             },
           },
           timeoutMs: stableenrichProbeTimeoutMs(name),
+          metadata: { domain: input.domain }
         });
         return {
           status: "fulfilled",
-          value: {
-            name,
-            endpointUrl: exaUrl,
-            result,
-            durationMs: Date.now() - startedAt,
-            metadata: { domain: input.domain },
-          },
+          value,
         };
       } catch (error) {
         return {
           status: "rejected",
-          reason: {
-            name,
-            endpointUrl: exaUrl,
-            error: error instanceof Error ? error.message : String(error),
-          } satisfies StableenrichProbeFailure,
+          reason: probeFailure(error, name, exaUrl),
         };
       }
     }),
@@ -224,35 +224,27 @@ export async function runApolloPeopleDiscovery(input: {
 
   if (takeAgentcashBudget(input.budgetState, "apollo_org_search")) {
     try {
-      const startedAt = Date.now();
-      const result = await input.agentcashFetch({
-        url: orgSearchUrl,
+      const value = await runAgentcashProbeCall({
+        agentcashFetch: input.agentcashFetch,
+        name: "apollo_org_search",
+        endpointUrl: orgSearchUrl,
         body: {
           q_keywords: input.domain,
           per_page: 5,
           page: 1,
         },
         timeoutMs: stableenrichProbeTimeoutMs("apollo_org_search"),
+        metadata: { domain: input.domain }
       });
       results.push({
         status: "fulfilled",
-        value: {
-          name: "apollo_org_search",
-          endpointUrl: orgSearchUrl,
-          result,
-          durationMs: Date.now() - startedAt,
-          metadata: { domain: input.domain },
-        },
+        value,
       });
-      organizationId = apolloOrganizationIdForDomain(result, input.domain);
+      organizationId = apolloOrganizationIdForDomain(value.result, input.domain);
     } catch (error) {
       results.push({
         status: "rejected",
-        reason: {
-          name: "apollo_org_search",
-          endpointUrl: orgSearchUrl,
-          error: error instanceof Error ? error.message : String(error),
-        } satisfies StableenrichProbeFailure,
+        reason: probeFailure(error, "apollo_org_search", orgSearchUrl),
       });
     }
   }
@@ -260,9 +252,10 @@ export async function runApolloPeopleDiscovery(input: {
   const peopleSearchUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_APOLLO_PEOPLE_SEARCH_URL");
   if (takeAgentcashBudget(input.budgetState, "apollo_people_search")) {
     try {
-      const startedAt = Date.now();
-      const result = await input.agentcashFetch({
-        url: peopleSearchUrl,
+      const value = await runAgentcashProbeCall({
+        agentcashFetch: input.agentcashFetch,
+        name: "apollo_people_search",
+        endpointUrl: peopleSearchUrl,
         body: {
           ...(organizationId ? { organization_ids: [organizationId] } : { q_organization_domains: [input.domain] }),
           person_seniorities: APOLLO_LEADER_SENIORITIES,
@@ -271,24 +264,14 @@ export async function runApolloPeopleDiscovery(input: {
           page: 1,
         },
         timeoutMs: stableenrichProbeTimeoutMs("apollo_people_search"),
+        metadata: { domain: input.domain }
       });
-      const value: StableenrichProbeResult = {
-        name: "apollo_people_search",
-        endpointUrl: peopleSearchUrl,
-        result,
-        durationMs: Date.now() - startedAt,
-        metadata: { domain: input.domain },
-      };
       results.push({ status: "fulfilled", value });
-      return { people: extractPeopleRecords(result), results };
+      return { people: extractPeopleRecords(value.result), results };
     } catch (error) {
       results.push({
         status: "rejected",
-        reason: {
-          name: "apollo_people_search",
-          endpointUrl: peopleSearchUrl,
-          error: error instanceof Error ? error.message : String(error),
-        } satisfies StableenrichProbeFailure,
+        reason: probeFailure(error, "apollo_people_search", peopleSearchUrl),
       });
     }
   }
@@ -353,24 +336,16 @@ export async function runPeopleFollowupRequests(input: {
     leadersForApolloEnrich,
     async (person) => {
       try {
-        const startedAt = Date.now();
-        return {
-          name: "apollo_people_enrich" as const,
+        return await runAgentcashProbeCall({
+          agentcashFetch: input.agentcashFetch,
+          name: "apollo_people_enrich",
           endpointUrl: peopleEnrichUrl,
-          result: await input.agentcashFetch({
-            url: peopleEnrichUrl,
-            body: peopleEnrichBody(person, input.domain),
-            timeoutMs: stableenrichProbeTimeoutMs("apollo_people_enrich")
-          }),
-          durationMs: Date.now() - startedAt,
-          metadata: { ...personMetadata(person), domain: input.domain },
-        };
+          body: peopleEnrichBody(person, input.domain),
+          timeoutMs: stableenrichProbeTimeoutMs("apollo_people_enrich"),
+          metadata: { ...personMetadata(person), domain: input.domain }
+        });
       } catch (error) {
-        throw {
-          name: "apollo_people_enrich" as const,
-          endpointUrl: peopleEnrichUrl,
-          error: error instanceof Error ? error.message : String(error),
-        } satisfies StableenrichProbeFailure;
+        throw probeFailure(error, "apollo_people_enrich", peopleEnrichUrl);
       }
     },
   );
@@ -428,28 +403,20 @@ export async function runPeopleFollowupRequests(input: {
     candidates,
     async ({ person, email }) => {
       try {
-        const startedAt = Date.now();
-        return {
-          name: "hunter_email_verifier" as const,
+        return await runAgentcashProbeCall({
+          agentcashFetch: input.agentcashFetch,
+          name: "hunter_email_verifier",
           endpointUrl: hunterUrl,
-          result: await input.agentcashFetch({
-            url: hunterUrl,
-            body: { email },
-            timeoutMs: stableenrichProbeTimeoutMs("hunter_email_verifier")
-          }),
-          durationMs: Date.now() - startedAt,
+          body: { email },
+          timeoutMs: stableenrichProbeTimeoutMs("hunter_email_verifier"),
           metadata: {
             ...personMetadata(person),
             domain: input.domain,
             email,
-          },
-        };
+          }
+        });
       } catch (error) {
-        throw {
-          name: "hunter_email_verifier" as const,
-          endpointUrl: hunterUrl,
-          error: error instanceof Error ? error.message : String(error),
-        } satisfies StableenrichProbeFailure;
+        throw probeFailure(error, "hunter_email_verifier", hunterUrl);
       }
     },
   );
@@ -474,28 +441,20 @@ async function runMinervaEmailFallbackRequests(input: {
   const minervaUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_MINERVA_ENRICH_URL");
   return allSettledLimited(leaders, async (person) => {
     try {
-      const startedAt = Date.now();
-      return {
-        name: "minerva_enrich" as const,
+      return await runAgentcashProbeCall({
+        agentcashFetch: input.agentcashFetch,
+        name: "minerva_enrich",
         endpointUrl: minervaUrl,
-        result: await input.agentcashFetch({
-          url: minervaUrl,
-          body: {
-            records: [minervaRecordForPerson(person)],
-            match_condition_fields: ["professional_email"],
-            return_fields: ["full_name", "linkedin_url", "linkedin_title", "professional_emails"],
-          },
-          timeoutMs: stableenrichProbeTimeoutMs("minerva_enrich"),
-        }),
-        durationMs: Date.now() - startedAt,
-        metadata: { ...personMetadata(person), domain: input.domain },
-      };
+        body: {
+          records: [minervaRecordForPerson(person)],
+          match_condition_fields: ["professional_email"],
+          return_fields: ["full_name", "linkedin_url", "linkedin_title", "professional_emails"],
+        },
+        timeoutMs: stableenrichProbeTimeoutMs("minerva_enrich"),
+        metadata: { ...personMetadata(person), domain: input.domain }
+      });
     } catch (error) {
-      throw {
-        name: "minerva_enrich" as const,
-        endpointUrl: minervaUrl,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies StableenrichProbeFailure;
+      throw probeFailure(error, "minerva_enrich", minervaUrl);
     }
   });
 }
@@ -517,27 +476,19 @@ async function runCladoEmailFallbackRequests(input: {
   const cladoUrl = stableenrichEndpointUrl(input.env, "STABLEENRICH_CLADO_CONTACTS_ENRICH_URL");
   return allSettledLimited(leaders, async (person) => {
     try {
-      const startedAt = Date.now();
-      return {
-        name: "clado_contacts_enrich" as const,
+      return await runAgentcashProbeCall({
+        agentcashFetch: input.agentcashFetch,
+        name: "clado_contacts_enrich",
         endpointUrl: cladoUrl,
-        result: await input.agentcashFetch({
-          url: cladoUrl,
-          body: {
-            linkedin_url: person.linkedinUrl,
-            email_enrichment: true,
-          },
-          timeoutMs: stableenrichProbeTimeoutMs("clado_contacts_enrich"),
-        }),
-        durationMs: Date.now() - startedAt,
-        metadata: { ...personMetadata(person), domain: input.domain },
-      };
+        body: {
+          linkedin_url: person.linkedinUrl,
+          email_enrichment: true,
+        },
+        timeoutMs: stableenrichProbeTimeoutMs("clado_contacts_enrich"),
+        metadata: { ...personMetadata(person), domain: input.domain }
+      });
     } catch (error) {
-      throw {
-        name: "clado_contacts_enrich" as const,
-        endpointUrl: cladoUrl,
-        error: error instanceof Error ? error.message : String(error),
-      } satisfies StableenrichProbeFailure;
+      throw probeFailure(error, "clado_contacts_enrich", cladoUrl);
     }
   });
 }

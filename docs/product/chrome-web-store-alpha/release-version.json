@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "lastAcceptedVersion": "0.0.0",
-  "lastAcceptedCommit": null,
+  "lastAcceptedVersion": "0.2.5",
+  "lastAcceptedCommit": "a948268",
   "policy": "Advance only after Chrome Web Store accepts the uploaded version."
 }

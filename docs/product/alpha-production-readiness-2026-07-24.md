@@ -1,7 +1,7 @@
 # Friend Alpha Production Readiness
 
 Captured July 24, 2026.
-Last updated August 11, 2026.
+Last updated August 17, 2026.
 
 This is the strict ship gate for five invited friends. The product remains
 free, invitation-gated, server-metered, and distributed through an Unlisted
@@ -12,11 +12,21 @@ Chrome Web Store item.
 Cold Start is not ready for friend-alpha invitations.
 
 The repository implementation, production migrations through `0016`, compatible
-deployment, recovery proof, and kill-switch proof are complete. The live release
-gate still fails on historical software failures in its seven-day window and a
-wallet balance below the configured floor. Paid canary, store review, owner
+deployment, recovery proof, and kill-switch proof are complete. The AgentCash
+wallet floor is cleared. The live release gate still fails on historical
+software failures in its seven-day window. Paid canary, owner
 rehearsal, and soak also remain open. Do not distribute the operator token. Do
 not use unpacked installation as the friend path.
+
+## August 17 Wallet Funding
+
+The trusted CLI and `alpha:status --json` both read AgentCash Base at
+`$38.795409`, clearing the `$35` release floor by `$3.795409`. The previous
+verified balance was `$29.180024`, so the observed wallet credit was
+`$9.615385`. This is funded balance, not product spend. The repository cannot
+see checkout charges or funding fees, so no out-of-pocket cost is inferred.
+The next paid canary must reconcile exact AgentCash settlement receipts, the
+wallet delta, and LLM cost before its cost is reported.
 
 ## August 11 Security Deployment
 

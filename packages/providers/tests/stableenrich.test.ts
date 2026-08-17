@@ -166,6 +166,17 @@ describe("buildStableenrichRequests", () => {
     expect(requests.map((request) => request.name)).not.toContain("apollo_people_search");
   });
 
+  it("replaces the retired StableEnrich org route with the current route", () => {
+    const requests = buildStableenrichRequests(
+      { STABLEENRICH_ORG_ENRICH_URL: "https://stableenrich.dev/api/apollo/org-enrich" },
+      "geckorobotics.com",
+    );
+
+    expect(requests.find((request) => request.name === "org_enrichment")?.url).toBe(
+      "https://stableenrich.dev/api/companyenrich/org-enrich",
+    );
+  });
+
   it("uses research-plan search queries when present", () => {
     const requests = buildStableenrichRequests({}, "harvey.ai", {
       searchQueries: {
@@ -268,6 +279,57 @@ describe("runStableenrichProbe", () => {
       name: "exa_funding_history",
       endpointUrl: "https://stable.example/exa/search",
       error: "payment failed",
+    });
+  });
+
+  it("attaches an AgentCash payment receipt to the exact provider call", async () => {
+    const results = await runStableenrichProbe({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      maxBudgetUsd: 0.01,
+      agentcashFetch: async ({ onPayment }) => {
+        onPayment?.({
+          protocol: "x402",
+          network: "base",
+          priceUsd: 0.01,
+          transactionHash: "0xpaid"
+        });
+        return { text: "ok" };
+      },
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      status: "fulfilled",
+      value: {
+        callId: expect.any(String),
+        payment: {
+          protocol: "x402",
+          network: "base",
+          priceUsd: 0.01,
+          transactionHash: "0xpaid"
+        }
+      }
+    });
+  });
+
+  it("keeps a successful call unknown when settlement metadata cannot be parsed", async () => {
+    const results = await runStableenrichProbe({
+      env: stableenrichEnv(),
+      domain: "cartesia.ai",
+      maxBudgetUsd: 0.01,
+      agentcashFetch: async ({ onSettlementStatus }) => {
+        onSettlementStatus?.("unknown");
+        return { text: "ok" };
+      },
+    });
+
+    expect(results[0]).toMatchObject({
+      status: "fulfilled",
+      value: {
+        callId: expect.any(String),
+        paymentStatus: "unknown"
+      }
     });
   });
 });
@@ -461,19 +523,25 @@ describe("fetchStableenrichSources", () => {
     expect(result.sources).toHaveLength(12);
     expect(result.failures).toEqual([
       {
+        callId: expect.any(String),
         name: "firecrawl_homepage",
         endpointUrl: "https://stable.example/firecrawl",
         error: "upstream failed",
+        paymentStatus: "unknown",
       },
       {
+        callId: expect.any(String),
         name: "firecrawl_about",
         endpointUrl: "https://stable.example/firecrawl",
         error: "upstream failed",
+        paymentStatus: "unknown",
       },
       {
+        callId: expect.any(String),
         name: "firecrawl_team",
         endpointUrl: "https://stable.example/firecrawl",
         error: "upstream failed",
+        paymentStatus: "unknown",
       },
     ]);
     expect(result.endpoints).toContainEqual(
@@ -530,6 +598,54 @@ describe("fetchStableenrichSources", () => {
         status: "ok",
         factCount: expect.any(Number),
       }),
+    );
+  });
+
+  it("extracts the current CompanyEnrich response as structured facts", async () => {
+    const result = await fetchStableenrichSources({
+      env: stableenrichEnv(),
+      domain: "geckorobotics.com",
+      agentcashFetch: async ({ url }) => {
+        if (url === "https://stable.example/org") {
+          return {
+            domain: "geckorobotics.com",
+            name: "Gecko Robotics",
+            description: "Gecko Robotics builds robots and software for industrial inspections.",
+            employees: "201-500",
+            founded_year: 2013,
+            socials: {
+              linkedin_url: "https://www.linkedin.com/company/gecko-robotics",
+            },
+            financial: {
+              total_funding: 123000000,
+              funding: [
+                {
+                  round: "Series C",
+                  amount: 73000000,
+                  date: "2022-03-03",
+                  investors: ["XN"],
+                },
+              ],
+            },
+          };
+        }
+
+        return { text: "ok" };
+      },
+    });
+
+    expect(result.facts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "identity.name", value: "Gecko Robotics" }),
+        expect.objectContaining({ path: "identity.websiteUrl", value: "https://geckorobotics.com" }),
+        expect.objectContaining({ path: "identity.linkedinUrl", value: "https://www.linkedin.com/company/gecko-robotics" }),
+        expect.objectContaining({ path: "identity.foundedYear", value: 2013 }),
+        expect.objectContaining({ path: "funding.totalRaisedUsd", value: 123000000 }),
+        expect.objectContaining({
+          path: "funding.lastRound",
+          value: expect.objectContaining({ name: "Series C", amountUsd: 73000000 }),
+        }),
+      ]),
     );
   });
 

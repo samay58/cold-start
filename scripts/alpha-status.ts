@@ -121,6 +121,7 @@ type AllTrafficRunRow = {
   status: string;
   failure_code: string | null;
   failure_message: string | null;
+  agentcash_accounting_status?: string | null;
   started_at: Date;
   completed_at: Date | null;
   last_event_at: Date | null;
@@ -233,6 +234,7 @@ export type AlphaStatusReport = {
       failureCodes: Record<string, number>;
       softwareFailureCount: number;
       staleOrSilentRunCount: number;
+      incompleteAgentcashAccountingCount: number;
     };
     clientErrors: Record<string, number>;
     queueDrops: number;
@@ -303,8 +305,8 @@ Usage:
 Options:
   --since <duration>  Reporting window, default 7d
   --json              Emit stable machine-readable JSON
-  --gate              Exit 2 unless software failures, stale runs, wallet floor,
-                      and extension compatibility checks pass
+  --gate              Exit 2 unless software failures, stale runs, AgentCash accounting,
+                      wallet floor, and extension compatibility checks pass
   --help              Show this help
 
 Environment:
@@ -441,6 +443,7 @@ async function readDatabaseEvidence(client: Client, sinceAt: Date) {
        run.status,
        run.trace_json #>> '{failure,code}' as failure_code,
        run.trace_json #>> '{failure,message}' as failure_message,
+       run.trace_json #>> '{providers,stableenrich,accountingStatus}' as agentcash_accounting_status,
        run.started_at,
        run.completed_at,
        event_bounds.last_event_at
@@ -689,6 +692,9 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
     const silentMs = input.now.getTime() - (run.last_event_at ?? run.started_at).getTime();
     return ageMs > generationRunDeadAfterMs && silentMs > generationRunDeadAfterMs;
   }).length;
+  const incompleteAgentcashAccountingCount = input.allTrafficRunRows.filter(
+    (run) => run.agentcash_accounting_status === "receipts_partial"
+  ).length;
   const requestOnlySoftwareFailureCount = input.runRows
     .filter((run) => run.generation_run_id === null)
     .map((run) => failureCode(run))
@@ -707,6 +713,12 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
     gateFailures.push({
       code: "stale_runs",
       message: `${allTrafficStaleOrSilentRunCount} run(s) exceeded the five-minute silence policy.`
+    });
+  }
+  if (incompleteAgentcashAccountingCount > 0) {
+    gateFailures.push({
+      code: "agentcash_accounting_incomplete",
+      message: `${incompleteAgentcashAccountingCount} run(s) have AgentCash calls without exact settlement receipts.`
     });
   }
   if (input.walletBalanceUsd === null) {
@@ -737,7 +749,7 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
   const totalsClientErrors = mergeCounts([...clientErrors.values()]);
   const evidenceGaps = [
     "Rejected event batches and authentication failures are not persisted by the alpha event table, so this report cannot count them.",
-    "AgentCash exposure uses configured cost anchors or the existing $0.30 wallet-status estimate. It is not provider billing reconciliation.",
+    "Remaining AgentCash exposure uses configured cost anchors or the existing $0.30 wallet-status estimate; completed run spend uses exact receipts when available.",
     "Latency is available only when the linked generation trace or run-event timestamps contain the relevant milestone."
   ];
 
@@ -780,7 +792,8 @@ export function buildAlphaStatusReport(input: AlphaStatusReportInputs): AlphaSta
         failed: allTrafficFailed.length,
         failureCodes: allTrafficFailureCodes,
         softwareFailureCount: allTrafficSoftwareFailureCount,
-        staleOrSilentRunCount: allTrafficStaleOrSilentRunCount
+        staleOrSilentRunCount: allTrafficStaleOrSilentRunCount,
+        incompleteAgentcashAccountingCount
       },
       clientErrors: totalsClientErrors,
       queueDrops: totalsClientErrors.analytics_queue_dropped ?? 0
@@ -863,6 +876,7 @@ export function formatAlphaStatusReport(report: AlphaStatusReport): string {
     `Failure codes: ${formatCounts(report.totals.allTraffic.failureCodes)}`,
     `Software failures: ${report.totals.allTraffic.softwareFailureCount}`,
     `Stale or silent runs: ${report.totals.allTraffic.staleOrSilentRunCount}`,
+    `Incomplete AgentCash accounting: ${report.totals.allTraffic.incompleteAgentcashAccountingCount}`,
     "",
     "Spend and exposure",
     `Successful spend: ${money(report.spend.successfulUsd)} across ${report.spend.successfulRunsWithCost} costed runs; ${report.spend.successfulRunsMissingCost} missing cost`,
@@ -988,11 +1002,20 @@ function runCost(run: RunRow): number | null {
   // emphasis read's founder-voice lanes (mostly xAI) are a separate, non-Anthropic stream that
   // neither one carries, so it is added on top of whichever branch below actually returns a cost.
   const emphasisCost = finiteNumber(objectAt(run.trace_json, "emphasis")?.estimatedLaneCostUsd) ?? 0;
+  const providers = objectAt(run.trace_json, "providers");
+  const stableenrich = objectAt(providers, "stableenrich");
+  if (stableenrich?.accountingStatus === "receipts_partial") return null;
+  const agentcashCost = stableenrich
+    ? finiteNumber(run.trace_json?.costUsdAgentcash)
+      ?? finiteNumber(stableenrich.receiptCostUsd)
+      ?? finiteNumber(stableenrich.walletDeltaUsd)
+    : finiteNumber(run.trace_json?.costUsdAgentcash) ?? 0;
+  if (agentcashCost === null) return null;
   const stored = run.generation_cost_usd === null ? null : Number(run.generation_cost_usd);
-  if (stored !== null && Number.isFinite(stored)) return stored + emphasisCost;
+  if (stored !== null && Number.isFinite(stored)) return stored + emphasisCost + agentcashCost;
   const traced = finiteNumber(run.trace_json?.costUsdAnthropic)
     ?? finiteNumber(objectAt(run.trace_json, "llm")?.totalEstimatedCostUsd);
-  return traced === null ? null : traced + emphasisCost;
+  return traced === null ? null : traced + emphasisCost + agentcashCost;
 }
 
 // request_failure_code and the traced failure.code are both app-written from

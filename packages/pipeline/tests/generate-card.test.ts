@@ -254,6 +254,177 @@ describe("generateCardForDomain", () => {
     expect(allRefs).not.toContain("e19");
   });
 
+  it("recovers extracted facts that cite evidence-ledger ids", async () => {
+    const skeleton = buildSkeletonCard("geckorobotics.com");
+    const homepage = "https://www.geckorobotics.com/";
+    const funding = "https://www.businesswire.com/gecko-series-c";
+    const team = "https://www.geckorobotics.com/about";
+
+    const result = await generateCardForDomainWithTrace("geckorobotics.com", {
+      fetchSources: async () => [
+        {
+          url: homepage,
+          title: "Gecko Robotics",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "homepage",
+          rawText: "Gecko Robotics builds robots and software for industrial inspections.",
+        },
+        {
+          url: funding,
+          title: "Gecko Robotics raises Series C",
+          sourceType: "news",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "funding",
+          rawText: "Gecko Robotics raised $73 million in a Series C.",
+        },
+        {
+          url: team,
+          title: "Gecko Robotics leadership",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "management_team",
+          rawText: "Jake Loosararian founded Gecko Robotics.",
+        },
+      ],
+      extractSections: async ({ evidenceLedger }) => {
+        const idFor = (url: string) => evidenceLedger.find((entry) => entry.url === url)?.id ?? "missing";
+        return {
+          identity: {
+            ...skeleton.identity,
+            name: { value: "Gecko Robotics", status: "verified", confidence: "high", citationIds: [idFor(homepage)] },
+            websiteUrl: { value: homepage, status: "verified", confidence: "high", citationIds: [idFor(homepage)] },
+            oneLiner: {
+              value: "Robots and software for industrial inspections.",
+              status: "verified",
+              confidence: "high",
+              citationIds: [idFor(homepage)],
+            },
+          },
+          funding: {
+            ...skeleton.funding,
+            totalRaisedUsd: { value: 73000000, status: "verified", confidence: "high", citationIds: [idFor(funding)] },
+          },
+          team: {
+            ...skeleton.team,
+            founders: {
+              value: [{ name: "Jake Loosararian", role: "Founder", sourceUrl: team }],
+              status: "verified",
+              confidence: "high",
+              citationIds: [idFor(team)],
+            },
+          },
+          signals: [],
+          comparables: [],
+          citations: [
+            {
+              id: "c1",
+              url: homepage,
+              title: "Gecko Robotics",
+              fetchedAt: "2026-08-17T00:00:00.000Z",
+              sourceType: "company_site",
+            },
+          ],
+        };
+      },
+    } as GenerateCardDeps);
+
+    expect(result.card.identity.name.value).toBe("Gecko Robotics");
+    expect(result.card.funding.totalRaisedUsd.value).toBe(73000000);
+    expect(result.card.team.founders.value?.[0]?.name).toBe("Jake Loosararian");
+    expect(result.card.citations).toHaveLength(3);
+  });
+
+  it("recovers block facts that cite the block evidence ledger", async () => {
+    const skeleton = buildSkeletonCard("geckorobotics.com");
+    const teamUrl = "https://www.geckorobotics.com/about";
+
+    const result = await generateCardForDomainWithTrace("geckorobotics.com", {
+      fetchSources: async () => [
+        {
+          url: teamUrl,
+          title: "Gecko Robotics leadership",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "management_team",
+          rawText: "Jake Loosararian founded Gecko Robotics.",
+        },
+      ],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation],
+      }),
+      enrichSections: async ({ block, evidenceLedger }) => {
+        if (block !== "team") {
+          return null;
+        }
+
+        return {
+          team: {
+            founders: {
+              value: [{ name: "Jake Loosararian", role: "Founder", sourceUrl: teamUrl }],
+              status: "verified",
+              confidence: "high",
+              citationIds: [evidenceLedger[0]?.id ?? "missing"],
+            },
+          },
+          citations: [],
+        };
+      },
+    } as GenerateCardDeps);
+
+    expect(result.card.team.founders.value?.[0]?.name).toBe("Jake Loosararian");
+    expect(result.tracePatch.extraction?.blockEnrichment?.produced).toContain("team");
+  });
+
+  it("does not claim a block produced facts when its citation refs cannot resolve", async () => {
+    const skeleton = buildSkeletonCard("geckorobotics.com");
+    const result = await generateCardForDomainWithTrace("geckorobotics.com", {
+      fetchSources: async () => [
+        {
+          url: "https://www.geckorobotics.com/about",
+          title: "Gecko Robotics leadership",
+          sourceType: "company_site",
+          fetchedAt: "2026-08-17T00:00:00.000Z",
+          intent: "management_team",
+          rawText: "Jake Loosararian founded Gecko Robotics.",
+        },
+      ],
+      extractSections: async () => ({
+        identity: skeleton.identity,
+        funding: skeleton.funding,
+        team: skeleton.team,
+        signals: [],
+        comparables: [],
+        citations: [citation],
+      }),
+      enrichSections: async ({ block }) => block === "team"
+        ? {
+            team: {
+              founders: {
+                value: [{
+                  name: "Jake Loosararian",
+                  role: "Founder",
+                  sourceUrl: "https://www.geckorobotics.com/about",
+                }],
+                status: "verified",
+                confidence: "high",
+                citationIds: ["not-in-citations-or-evidence"],
+              },
+            },
+            citations: [],
+          }
+        : null,
+    } as GenerateCardDeps);
+
+    expect(result.card.team.founders.value).toBeNull();
+    expect(result.tracePatch.extraction?.blockEnrichment?.produced).not.toContain("team");
+  });
+
   it("includes cost lines recorded during extraction into the assembled card", async () => {
     // The old version of this test threaded a shared costLines array through a combined
     // synthesize+verify call inside generateCardForDomain; that combined path is gone (see the

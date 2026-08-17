@@ -14,6 +14,9 @@ type AgentCashJsonInput = {
   packageName?: string;
   timeoutMs?: number;
   runAgentcash?: AgentcashRun;
+  onPayment?: (payment: AgentcashPaymentReceipt) => void;
+  onSettlement?: (payment: AgentcashPaymentReceipt | null) => void;
+  onSettlementStatus?: (status: AgentcashPaymentStatus) => void;
 };
 
 type AgentCashAccountsInput = {
@@ -35,12 +38,27 @@ export type AgentcashWalletSnapshot = {
   accounts: AgentcashWalletAccount[];
 };
 
+export type AgentcashPaymentReceipt = {
+  protocol: string;
+  network: string;
+  priceUsd: number;
+  transactionHash: string | null;
+};
+
+export type AgentcashPaymentStatus = "paid" | "free" | "unknown";
+
 export async function agentcashJson<T>(input: AgentCashJsonInput): Promise<T> {
   const { command, args } = buildAgentcashFetchCommand(input);
   const timeoutMs = input.timeoutMs ?? 120_000;
   const stdout = await (input.runAgentcash ?? runAgentcashCommand)(command, args, { timeoutMs });
 
-  return parseAgentcashOutput<T>(stdout);
+  const parsed = parseAgentcashResponse<T>(stdout);
+  input.onSettlement?.(parsed.payment);
+  input.onSettlementStatus?.(parsed.paymentStatus);
+  if (parsed.payment) {
+    input.onPayment?.(parsed.payment);
+  }
+  return parsed.data;
 }
 
 export async function agentcashWalletSnapshot(input: AgentCashAccountsInput = {}): Promise<AgentcashWalletSnapshot> {
@@ -108,10 +126,23 @@ export function buildAgentcashAccountsArgs(input: Pick<AgentCashAccountsInput, "
 }
 
 export function parseAgentcashOutput<T>(stdout: string): T {
+  return parseAgentcashResponse<T>(stdout).data;
+}
+
+export function parseAgentcashResponse<T>(stdout: string): {
+  data: T;
+  payment: AgentcashPaymentReceipt | null;
+  paymentStatus: AgentcashPaymentStatus;
+} {
   const parsed = JSON.parse(stdout) as unknown;
 
   if (parsed && typeof parsed === "object" && "success" in parsed) {
-    const envelope = parsed as { success: boolean; data?: T; error?: { message?: string } | string };
+    const envelope = parsed as {
+      success: boolean;
+      data?: T;
+      error?: { message?: string } | string;
+      metadata?: unknown;
+    };
 
     if (!envelope.success) {
       const message =
@@ -121,10 +152,56 @@ export function parseAgentcashOutput<T>(stdout: string): T {
       throw new Error(message);
     }
 
-    return envelope.data as T;
+    const settlement = agentcashPaymentSettlement(envelope.metadata);
+    return { data: envelope.data as T, ...settlement };
   }
 
-  return parsed as T;
+  return { data: parsed as T, payment: null, paymentStatus: "unknown" };
+}
+
+function agentcashPaymentSettlement(metadata: unknown): {
+  payment: AgentcashPaymentReceipt | null;
+  paymentStatus: AgentcashPaymentStatus;
+} {
+  if (metadata === undefined || metadata === null) {
+    return { payment: null, paymentStatus: "free" };
+  }
+  if (typeof metadata !== "object") {
+    return { payment: null, paymentStatus: "unknown" };
+  }
+
+  const value = metadata as {
+    protocol?: unknown;
+    network?: unknown;
+    price?: unknown;
+    payment?: { success?: unknown; transactionHash?: unknown } | null;
+  };
+  if (typeof value.protocol !== "string" || typeof value.network !== "string" || typeof value.price !== "string") {
+    return { payment: null, paymentStatus: "unknown" };
+  }
+
+  const priceMatch = value.price.trim().match(/^\$([0-9]+(?:\.[0-9]+)?)$/);
+  const priceUsd = priceMatch ? Number(priceMatch[1]) : Number.NaN;
+  if (!Number.isFinite(priceUsd) || priceUsd < 0) {
+    return { payment: null, paymentStatus: "unknown" };
+  }
+
+  if (!value.payment || value.payment.success !== true) {
+    return { payment: null, paymentStatus: "unknown" };
+  }
+
+  const transactionHash = typeof value.payment.transactionHash === "string"
+    ? value.payment.transactionHash
+    : null;
+  return {
+    payment: {
+      protocol: value.protocol,
+      network: value.network,
+      priceUsd,
+      transactionHash
+    },
+    paymentStatus: "paid"
+  };
 }
 
 export function parseAgentcashAccountsOutput(stdout: string): AgentcashWalletSnapshot {

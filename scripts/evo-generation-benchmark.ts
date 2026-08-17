@@ -8,6 +8,7 @@ import { Client } from "pg";
 
 import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
 import { providerBudgetRegistry } from "../packages/providers/src/provider-budget";
+import { generationCostBreakdown } from "./generation-cost-accounting";
 
 type GoldenCompany = {
   name: string;
@@ -50,6 +51,7 @@ type BenchmarkSummary = {
   contactsP90Ms: number | null;
   avgRunCostUsd: number | null;
   maxRunCostUsd: number | null;
+  incompleteAgentcashAccountingCount: number;
   medianCitations: number | null;
   missingCoreFieldCount: number;
   providerFailureCount: number;
@@ -126,26 +128,7 @@ function milestone(run: RunRow, name: keyof NonNullable<GenerationTrace["milesto
 }
 
 function runCostUsd(run: RunRow) {
-  const agentcashCost = run.trace_json?.costUsdAgentcash ?? run.trace_json?.providers?.stableenrich?.walletDeltaUsd;
-  const anthropicCost = run.trace_json?.costUsdAnthropic ?? run.trace_json?.llm?.totalEstimatedCostUsd;
-  // Direct Exa bills the Exa account directly; traces older than the field report 0.
-  const directExaCost = run.trace_json?.providers?.directExa?.estimatedCostUsd ?? 0;
-  // The emphasis read's founder-voice lanes (mostly xAI); 0 when disabled, thin-filed, or every
-  // lane failed. Traces older than the field report 0, same as directExaCost above.
-  const emphasisCost = run.trace_json?.emphasis?.estimatedLaneCostUsd ?? 0;
-  if (typeof agentcashCost === "number" && Number.isFinite(agentcashCost)) {
-    return Number((agentcashCost + (anthropicCost ?? 0) + directExaCost + emphasisCost).toFixed(6));
-  }
-
-  if (run.cost_usd !== null) {
-    const parsed = Number(run.cost_usd);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  const llmCost = run.trace_json?.llm?.totalEstimatedCostUsd;
-  return typeof llmCost === "number" && Number.isFinite(llmCost) ? llmCost : null;
+  return generationCostBreakdown(run.trace_json, run.cost_usd).totalUsd;
 }
 
 function people(card: ColdStartCard | null) {
@@ -261,6 +244,9 @@ function summarize(input: { domains: string[]; runs: RunRow[]; cards: Map<string
     const cost = runCostUsd(run);
     return cost === null ? [] : [cost];
   });
+  const incompleteAgentcashAccountingCount = input.runs.filter(
+    (run) => generationCostBreakdown(run.trace_json, run.cost_usd).incompleteAgentcashAccounting
+  ).length;
   // First-usable latency must measure only runs that actually reached a usable card. A run with no
   // firstUsableCardMs milestone (failed, reused, or stranded when trace persistence failed) has no
   // first-usable latency; folding its full duration in conflates failures with slow first usable and
@@ -292,6 +278,7 @@ function summarize(input: { domains: string[]; runs: RunRow[]; cards: Map<string
     contactsP90Ms: percentile(contactsReady, 90),
     avgRunCostUsd: costs.length > 0 ? costs.reduce((sum, cost) => sum + cost, 0) / costs.length : null,
     maxRunCostUsd: costs.length > 0 ? Math.max(...costs) : null,
+    incompleteAgentcashAccountingCount,
     medianCitations: percentile(citations, 50),
     missingCoreFieldCount,
     providerFailureCount,
@@ -376,6 +363,9 @@ async function main() {
     }
 
     const minScore = Number(argValue("--min-score") ?? DEFAULT_MIN_SCORE);
+    if (hasArg("--gate") && summary.incompleteAgentcashAccountingCount > 0) {
+      throw new Error(`${summary.incompleteAgentcashAccountingCount} run(s) have incomplete AgentCash accounting`);
+    }
     if (hasArg("--gate") && (!Number.isFinite(minScore) || benchmarkScore < minScore)) {
       throw new Error(`generation benchmark score ${benchmarkScore} is below gate ${minScore}`);
     }

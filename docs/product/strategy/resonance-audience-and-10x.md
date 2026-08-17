@@ -189,9 +189,9 @@ An MCP endpoint serving cited cards into Claude and ChatGPT. SPEC lists it as a 
 
 ## 5. Low-hanging fruit (fix before invites)
 
-1. Reliability burn-down: done 2026-08-11, every failure named (credit exhaustion, one Postgres outage, one malformed-JSON bug). Remaining: fund the Anthropic account and require a green alpha:status before invites.
+1. Reliability: the Gecko repair is green locally. Deployment, one paid canary, and a clean post-deploy readback remain before invites; the seven-day gate still carries the two Gecko failures.
 2. Landing cost claim: "Under 10 cents per full profile" is unproven at best. Re-measure or rewrite. (Integrity.)
-3. Wallet: $31.02, below the $35 release floor. Top up.
+3. Wallet: done 2026-08-17. CLI-verified AgentCash Base is $38.795409, which is $3.795409 above the $35 release floor.
 4. CI gap: check.yml never runs test:cards-db, the suite that reproduces the July write-outage class. One line to add.
 5. Queue-hold fix: the attack list's own #1 item.
 6. AMO credentials: the only blocker on the launch-required Firefox lane.

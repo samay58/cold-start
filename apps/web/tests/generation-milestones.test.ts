@@ -7,8 +7,34 @@ import {
   requestedAtMsFromGenerationEvent,
   writeGenerationMilestone
 } from "../src/inngest/generation-trace";
+import { withStableenrichEndpointBudgets } from "../src/inngest/provider-trace";
 
 describe("generation milestone telemetry", () => {
+  it("turns provider payment metadata into an exact endpoint receipt", () => {
+    expect(withStableenrichEndpointBudgets([{
+      callId: "call-1",
+      name: "org_enrichment",
+      endpointUrl: "https://stableenrich.dev/api/companyenrich/org-enrich",
+      status: "ok",
+      sourceCount: 1,
+      factCount: 1,
+      paymentStatus: "paid",
+      payment: {
+        protocol: "x402",
+        network: "base",
+        priceUsd: 0.0126,
+        transactionHash: "0xreceipt"
+      }
+    }])).toEqual([expect.objectContaining({
+      callId: "call-1",
+      actualCostUsd: 0.0126,
+      paymentProtocol: "x402",
+      paymentNetwork: "base",
+      paymentTransactionHash: "0xreceipt",
+      paymentStatus: "paid"
+    })]);
+  });
+
   it("uses the durable Inngest event timestamp instead of replay-local function start time", () => {
     const requestedAtMs = Date.parse("2026-05-27T20:08:33.000Z");
     const firstReplayStartMs = requestedAtMs + 18_000;
@@ -216,5 +242,92 @@ describe("generation milestone telemetry", () => {
       "org_enrichment",
       "exa_email_search"
     ]);
+  });
+
+  it("keeps exact AgentCash receipts across background patches without double counting", () => {
+    const parent: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAgentcash: 0.02,
+      providers: {
+        stableenrich: {
+          sourceCount: 1,
+          failureCount: 0,
+          walletDeltaUsd: 0.02,
+          endpoints: [{
+            callId: "call-main",
+            name: "org_enrichment",
+            endpointUrl: "https://stableenrich.dev/api/companyenrich/org-enrich",
+            status: "ok",
+            sourceCount: 1,
+            factCount: 1,
+            actualCostUsd: 0.02,
+            paymentProtocol: "x402",
+            paymentNetwork: "base",
+            paymentTransactionHash: "0xmain"
+          }]
+        }
+      }
+    };
+    const background: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAgentcash: 0.67,
+      providers: {
+        stableenrich: {
+          sourceCount: 2,
+          failureCount: 0,
+          walletDeltaUsd: 0.67,
+          endpoints: [{
+            callId: "call-background",
+            name: "hunter_email_verifier",
+            endpointUrl: "https://stableenrich.dev/api/hunter/email-verifier",
+            status: "ok",
+            sourceCount: 0,
+            factCount: 1,
+            actualCostUsd: 0.03,
+            paymentProtocol: "x402",
+            paymentNetwork: "base",
+            paymentTransactionHash: "0xbackground"
+          }]
+        }
+      }
+    };
+
+    const merged = mergeGenerationTrace(parent, background);
+    const replayed = mergeGenerationTrace(merged, background);
+
+    expect(replayed.providers?.stableenrich?.endpoints).toHaveLength(2);
+    expect(replayed.costUsdAgentcash).toBe(0.05);
+    expect(replayed.providers?.stableenrich?.receiptCostUsd).toBe(0.05);
+    expect(replayed.providers?.stableenrich?.receiptCount).toBe(2);
+  });
+
+  it("refuses to publish an exact AgentCash total when any modern call lacks a receipt", () => {
+    const trace = mergeGenerationTrace(null, {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAgentcash: 0.67,
+      providers: {
+        stableenrich: {
+          sourceCount: 1,
+          failureCount: 0,
+          walletDeltaUsd: 0.67,
+          endpoints: [{
+            callId: "call-unknown",
+            name: "org_enrichment",
+            endpointUrl: "https://stableenrich.dev/api/companyenrich/org-enrich",
+            status: "ok",
+            sourceCount: 1,
+            factCount: 1,
+            paymentStatus: "unknown"
+          }]
+        }
+      }
+    });
+
+    expect(trace.costUsdAgentcash).toBeUndefined();
+    expect(trace.providers?.stableenrich?.accountingStatus).toBe("receipts_partial");
+    expect(trace.providers?.stableenrich?.unreceiptedCallCount).toBe(1);
   });
 });

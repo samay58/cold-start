@@ -564,8 +564,8 @@ export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEn
         });
         applyStableenrichWalletTrace(trace, fallbackStep.walletBefore, fallbackStep.walletAfter);
         const fallbackTrace = trace.providers?.stableenrich?.emailPatternFallback;
-        if (fallbackTrace && trace.providers?.stableenrich?.walletDeltaUsd !== undefined) {
-          fallbackTrace.spendUsd = trace.providers.stableenrich.walletDeltaUsd;
+        if (fallbackTrace && trace.costUsdAgentcash !== undefined) {
+          fallbackTrace.spendUsd = trace.costUsdAgentcash;
         }
         await recordEvent(
           "email-pattern-fallback",
@@ -576,7 +576,7 @@ export const contactEnrichmentHandler = async ({ event, runId, step }: ContactEn
             observedCount: fallbackStep.observedCount,
             inferredCount: fallbackStep.facts.length - fallbackStep.observedCount,
             failureCount: fallbackStep.result.failures.length,
-            spendUsd: trace.providers?.stableenrich?.walletDeltaUsd ?? null
+            spendUsd: trace.costUsdAgentcash ?? null
           }
         );
       } else {

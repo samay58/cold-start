@@ -4,7 +4,16 @@ import { providerBudgetForEndpoint, type StableenrichProbeName } from "@cold-sta
 import { boundedErrorMessage } from "../lib/errors";
 
 type GenerationMode = "basics" | "analysis";
-type StableenrichEndpointTraceInput = NonNullable<NonNullable<NonNullable<GenerationTrace["providers"]>["stableenrich"]>["endpoints"]>[number];
+type StoredStableenrichEndpointTrace = NonNullable<NonNullable<NonNullable<GenerationTrace["providers"]>["stableenrich"]>["endpoints"]>[number];
+type StableenrichEndpointTraceInput = StoredStableenrichEndpointTrace & {
+  payment?: {
+    protocol: string;
+    network: string;
+    priceUsd: number;
+    transactionHash: string | null;
+  };
+  paymentStatus?: "paid" | "free" | "unknown";
+};
 
 export function failedStableenrichEndpoint(reason: unknown) {
   return {
@@ -31,12 +40,24 @@ export function mergeEndpointFactCounts(
 export function withStableenrichEndpointBudgets(
   endpoints: StableenrichEndpointTraceInput[],
   appliedByEndpoint: Record<string, number> = {}
-): StableenrichEndpointTraceInput[] {
+): StoredStableenrichEndpointTrace[] {
   return endpoints.map((endpoint) => {
+    const { payment, ...storedEndpoint } = endpoint;
+    const paymentTrace = payment
+      ? {
+          actualCostUsd: payment.priceUsd,
+          paymentProtocol: payment.protocol,
+          paymentNetwork: payment.network,
+          paymentTransactionHash: payment.transactionHash
+        }
+      : endpoint.paymentStatus === "free"
+        ? { actualCostUsd: 0 }
+        : {};
     try {
       const budget = providerBudgetForEndpoint("stableenrich", endpoint.name as StableenrichProbeName);
       return {
-        ...endpoint,
+        ...storedEndpoint,
+        ...paymentTrace,
         factsAppliedCount: appliedByEndpoint[endpoint.name] ?? endpoint.factsAppliedCount ?? 0,
         estimatedCostUsd: budget.estimatedCostUsd,
         expectedFacts: budget.expectedFacts,
@@ -44,7 +65,8 @@ export function withStableenrichEndpointBudgets(
       };
     } catch {
       return {
-        ...endpoint,
+        ...storedEndpoint,
+        ...paymentTrace,
         factsAppliedCount: appliedByEndpoint[endpoint.name] ?? endpoint.factsAppliedCount ?? 0
       };
     }

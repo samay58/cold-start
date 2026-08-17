@@ -340,6 +340,96 @@ function remapCitationIds(citationIds: string[] | undefined, idMap: Map<string, 
   return Array.from(new Set(ids.map((id) => idMap.get(id) ?? id).filter(Boolean)));
 }
 
+function collectCitationRefs(value: unknown, refs = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectCitationRefs(item, refs);
+    }
+    return refs;
+  }
+
+  if (!value || typeof value !== "object") {
+    return refs;
+  }
+
+  for (const [key, item] of Object.entries(value)) {
+    if (key === "citationIds" && Array.isArray(item)) {
+      for (const id of item) {
+        if (typeof id === "string") {
+          refs.add(id);
+        }
+      }
+      continue;
+    }
+    collectCitationRefs(item, refs);
+  }
+
+  return refs;
+}
+
+function remapNestedCitationRefs<T>(value: T, idMap: Map<string, string>): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => remapNestedCitationRefs(item, idMap)) as T;
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      key === "citationIds" && Array.isArray(item)
+        ? remapCitationIds(item.filter((id): id is string => typeof id === "string"), idMap)
+        : remapNestedCitationRefs(item, idMap),
+    ]),
+  ) as T;
+}
+
+function recoverEvidenceCitationRefs<T extends { citations: ColdStartCard["citations"] }>(
+  value: T,
+  evidenceLedger: EvidenceLedgerEntry[],
+): T {
+  const citations = [...value.citations];
+  const citationIds = new Set(citations.map((citation) => citation.id));
+  const citationIdsByUrl = new Map(citations.map((citation) => [citationDedupeKey(citation.url), citation.id]));
+  const evidenceById = new Map(evidenceLedger.map((entry) => [entry.id, entry]));
+  const idMap = new Map<string, string>();
+
+  for (const referencedId of collectCitationRefs(value)) {
+    if (citationIds.has(referencedId)) {
+      continue;
+    }
+
+    const evidence = evidenceById.get(referencedId);
+    if (!evidence) {
+      continue;
+    }
+
+    const existingId = citationIdsByUrl.get(citationDedupeKey(evidence.url));
+    if (existingId) {
+      idMap.set(referencedId, existingId);
+      continue;
+    }
+
+    citations.push({
+      id: referencedId,
+      url: evidence.url,
+      title: evidence.title,
+      fetchedAt: evidence.fetchedAt,
+      sourceType: evidence.sourceType,
+      ...(evidence.supportingSnippets[0] ? { snippet: evidence.supportingSnippets[0] } : {}),
+    });
+    citationIds.add(referencedId);
+    citationIdsByUrl.set(citationDedupeKey(evidence.url), referencedId);
+  }
+
+  return {
+    ...remapNestedCitationRefs(value, idMap),
+    citations,
+  };
+}
+
 function remapFact<T>(fact: ResolvedFact<T> | undefined, idMap: Map<string, string>): ResolvedFact<T> | undefined {
   if (!fact) {
     return undefined;
@@ -597,19 +687,23 @@ function mergeComparables(
 }
 
 function blockPatchHasContent(patch: BlockEnrichmentPatch) {
+  const citationIds = new Set(patch.citations.map((citation) => citation.id));
+  const factHasCitedValue = (fact: ResolvedFact<unknown> | undefined) =>
+    fact?.value !== null && fact?.value !== undefined && fact.citationIds.some((id) => citationIds.has(id));
+
   return Boolean(
-    patch.identity?.description?.value ||
-      patch.identity?.oneLiner?.value ||
-      patch.funding?.totalRaisedUsd?.value ||
-      patch.funding?.lastRound?.value ||
-      patch.funding?.rounds?.value?.length ||
-      patch.funding?.investors?.value?.length ||
-      patch.team?.founders?.value?.length ||
-      patch.team?.keyExecs?.value?.length ||
-      patch.team?.headcount?.value ||
-      patch.signals?.length ||
-      patch.comparables?.length ||
-      patch.competitionFraming?.value
+    factHasCitedValue(patch.identity?.description) ||
+      factHasCitedValue(patch.identity?.oneLiner) ||
+      factHasCitedValue(patch.funding?.totalRaisedUsd) ||
+      factHasCitedValue(patch.funding?.lastRound) ||
+      factHasCitedValue(patch.funding?.rounds) ||
+      factHasCitedValue(patch.funding?.investors) ||
+      factHasCitedValue(patch.team?.founders) ||
+      factHasCitedValue(patch.team?.keyExecs) ||
+      factHasCitedValue(patch.team?.headcount) ||
+      patch.signals?.some((signal) => signal.citationIds.some((id) => citationIds.has(id))) ||
+      patch.comparables?.some((comparable) => comparable.citationIds?.some((id) => citationIds.has(id))) ||
+      factHasCitedValue(patch.competitionFraming)
   );
 }
 
@@ -752,7 +846,10 @@ async function runBlockEnrichments(
         errors[block] = (error instanceof Error ? error.message : String(error)).slice(0, 200);
       }
 
-      return { block, patch };
+      return {
+        block,
+        patch: patch ? recoverEvidenceCitationRefs(patch, evidenceLedger) : patch,
+      };
     })
   );
 
@@ -988,7 +1085,7 @@ export async function generateCardForDomainWithTrace(
     evidenceLedger
   };
   let sections = extractedCardSectionsSchema.parse(
-    await deps.extractSections(extractionInput)
+    recoverEvidenceCitationRefs(await deps.extractSections(extractionInput), evidenceLedger)
   );
   const providerFactMerge = applyProviderFactCandidates(sections, deps.providerFacts ?? []);
   sections = extractedCardSectionsSchema.parse(providerFactMerge.sections);

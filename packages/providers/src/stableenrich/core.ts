@@ -1,4 +1,5 @@
-import { agentcashJson } from "../agentcash";
+import { randomUUID } from "node:crypto";
+import { agentcashJson, type AgentcashPaymentReceipt, type AgentcashPaymentStatus } from "../agentcash";
 import { providerBudgetForEndpoint } from "../provider-budget";
 import { allSettledLimited, supportedUrl } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
@@ -43,15 +44,29 @@ const stableenrichPaths = {
   STABLEENRICH_MINERVA_ENRICH_URL: "/api/minerva/enrich",
 } as const;
 
+const retiredStableenrichPaths: Partial<Record<keyof typeof stableenrichPaths, string[]>> = {
+  STABLEENRICH_ORG_ENRICH_URL: ["/api/apollo/org-enrich"],
+};
+
 type StableenrichEndpointKey = keyof typeof stableenrichPaths;
 
-export type AgentcashFetch = (input: { url: string; body: Record<string, unknown>; timeoutMs?: number }) => Promise<unknown>;
+export type AgentcashFetch = (input: {
+  url: string;
+  body: Record<string, unknown>;
+  timeoutMs?: number;
+  onPayment?: (payment: AgentcashPaymentReceipt) => void;
+  onSettlement?: (payment: AgentcashPaymentReceipt | null) => void;
+  onSettlementStatus?: (status: AgentcashPaymentStatus) => void;
+}) => Promise<unknown>;
 
 export type StableenrichProbeResult = {
+  callId: string;
   name: StableenrichProbe["name"];
   endpointUrl: string;
   result: unknown;
   durationMs?: number;
+  payment?: AgentcashPaymentReceipt;
+  paymentStatus: "paid" | "free" | "unknown";
   metadata?: {
     domain?: string;
     personName?: string;
@@ -130,9 +145,12 @@ function selectStableenrichRequests(input: {
 }
 
 export type StableenrichProbeFailure = {
+  callId?: string;
   name: StableenrichProbe["name"];
   endpointUrl: string;
   error: string;
+  payment?: AgentcashPaymentReceipt;
+  paymentStatus?: "paid" | "free" | "unknown";
 };
 
 export type StableenrichSourcesResult = {
@@ -140,6 +158,7 @@ export type StableenrichSourcesResult = {
   facts: ProviderFactCandidate[];
   failures: StableenrichProbeFailure[];
   endpoints: Array<{
+    callId?: string;
     name: StableenrichProbe["name"];
     endpointUrl: string;
     status: "ok" | "failed";
@@ -147,6 +166,8 @@ export type StableenrichSourcesResult = {
     factCount: number;
     durationMs?: number;
     error?: string;
+    payment?: AgentcashPaymentReceipt;
+    paymentStatus?: "paid" | "free" | "unknown";
   }>;
   emailDiscovery?: StableenrichEmailDiscovery[];
   budgetCeilingHit?: boolean;
@@ -323,16 +344,19 @@ export async function runStableenrichProbe(input: {
 
   return allSettledLimited(requests, async (request) => {
     try {
-      const startedAt = Date.now();
-      const result = await agentcashFetch({ url: request.url, body: request.body, timeoutMs: stableenrichProbeTimeoutMs(request.name) });
-      return {
+      return await runAgentcashProbeCall({
+        agentcashFetch,
         name: request.name,
         endpointUrl: request.url,
-        metadata: { domain: input.domain },
-        result,
-        durationMs: Date.now() - startedAt,
-      };
+        body: request.body,
+        timeoutMs: stableenrichProbeTimeoutMs(request.name),
+        metadata: { domain: input.domain }
+      });
     } catch (error) {
+      const tracedFailure = stableenrichProbeFailure(error)[0];
+      if (tracedFailure) {
+        throw tracedFailure;
+      }
       throw {
         name: request.name,
         endpointUrl: request.url,
@@ -340,6 +364,58 @@ export async function runStableenrichProbe(input: {
       } satisfies StableenrichProbeFailure;
     }
   });
+}
+
+export async function runAgentcashProbeCall(input: {
+  agentcashFetch: AgentcashFetch;
+  name: StableenrichProbe["name"];
+  endpointUrl: string;
+  body: Record<string, unknown>;
+  timeoutMs: number;
+  metadata?: StableenrichProbeResult["metadata"];
+}): Promise<StableenrichProbeResult> {
+  const callId = randomUUID();
+  const startedAt = Date.now();
+  let payment: AgentcashPaymentReceipt | undefined;
+  let paymentStatus: AgentcashPaymentStatus = "unknown";
+
+  try {
+    const result = await input.agentcashFetch({
+      url: input.endpointUrl,
+      body: input.body,
+      timeoutMs: input.timeoutMs,
+      onPayment: (receipt) => {
+        payment = receipt;
+        paymentStatus = "paid";
+      },
+      onSettlement: (receipt) => {
+        payment = receipt ?? undefined;
+        paymentStatus = receipt ? "paid" : "free";
+      },
+      onSettlementStatus: (status) => {
+        paymentStatus = status;
+      }
+    });
+    return {
+      callId,
+      name: input.name,
+      endpointUrl: input.endpointUrl,
+      result,
+      durationMs: Date.now() - startedAt,
+      paymentStatus,
+      ...(input.metadata ? { metadata: input.metadata } : {}),
+      ...(payment ? { payment } : {})
+    };
+  } catch (error) {
+    throw {
+      callId,
+      name: input.name,
+      endpointUrl: input.endpointUrl,
+      error: error instanceof Error ? error.message : String(error),
+      paymentStatus,
+      ...(payment ? { payment } : {})
+    } satisfies StableenrichProbeFailure;
+  }
 }
 
 export function stableenrichProbeTimeoutMs(name: StableenrichProbe["name"]) {
@@ -468,6 +544,18 @@ export function requireStableenrichConfig(env: StableenrichEnv) {
 export function stableenrichEndpointUrl(env: StableenrichEnv, key: StableenrichEndpointKey) {
   const override = env[key]?.trim();
   if (override) {
+    const retiredPaths = retiredStableenrichPaths[key] ?? [];
+    try {
+      const parsed = new URL(override);
+      if (parsed.origin === stableenrichBaseUrl && retiredPaths.includes(parsed.pathname.replace(/\/+$/, ""))) {
+        return `${stableenrichBaseUrl}${stableenrichPaths[key]}`;
+      }
+    } catch {
+      if (retiredPaths.includes(override.replace(/\/+$/, ""))) {
+        return `${stableenrichBaseUrl}${stableenrichPaths[key]}`;
+      }
+    }
+
     return override;
   }
 
@@ -484,9 +572,12 @@ export function stableenrichProbeFailure(reason: unknown): StableenrichProbeFail
   if (candidate.name && candidate.endpointUrl && candidate.error) {
     return [
       {
+        ...(candidate.callId ? { callId: candidate.callId } : {}),
         name: candidate.name,
         endpointUrl: candidate.endpointUrl,
         error: candidate.error,
+        ...(candidate.paymentStatus ? { paymentStatus: candidate.paymentStatus } : {}),
+        ...(candidate.payment ? { payment: candidate.payment } : {})
       },
     ];
   }

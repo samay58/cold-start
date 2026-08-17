@@ -9,7 +9,7 @@ describe("providerBudgetRegistry", () => {
       mode: "enrichment",
       expectedFacts: ["identity.name", "identity.websiteUrl", "identity.linkedinUrl", "identity.logoUrl", "identity.hq", "identity.foundedYear", "identity.description"],
       timeoutMs: 30_000,
-      estimatedCostUsd: 0.02,
+      estimatedCostUsd: 0.06,
       maxCallsPerRun: 1,
       stopCondition: "stop after one accepted firmographic profile"
     });
