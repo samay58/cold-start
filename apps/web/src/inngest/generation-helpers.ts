@@ -26,7 +26,7 @@ import {
 import { type ProviderSource, agentcashWalletSnapshot } from "@cold-start/providers";
 import { canonicalCompanyDomain } from "../lib/domain";
 import { boundedErrorMessage } from "../lib/errors";
-import { anthropicGenerationCostUsdFromTrace, llmTracePatchFromCalls } from "./generation-trace";
+import { generationLlmCostUsdFromTrace, llmTracePatchFromCalls } from "./generation-trace";
 
 export type GenerationMode = "basics" | "analysis";
 type TimedResult<T> = { durationMs: number; value: T };
@@ -175,14 +175,13 @@ export async function verifySynthesisStepBody(input: {
   }
 }
 
-export function generationRunAnthropicCostUsd(trace: GenerationTrace, fallback = 0) {
-  // generation_runs.cost_usd is the estimated Anthropic generation cost. Exact AgentCash spend
-  // stays in trace.costUsdAgentcash and the per-endpoint payment receipts.
-  return anthropicGenerationCostUsdFromTrace(trace) ?? fallback;
+export function generationRunLlmCostUsd(trace: GenerationTrace, fallback = 0) {
+  // generation_runs.cost_usd is the estimated LLM cost. Exact AgentCash spend stays in receipts.
+  return generationLlmCostUsdFromTrace(trace) ?? fallback;
 }
 
 export function cardWithTraceCost(card: ColdStartCard, trace: GenerationTrace) {
-  const costUsd = anthropicGenerationCostUsdFromTrace(trace);
+  const costUsd = generationLlmCostUsdFromTrace(trace);
   return costUsd === undefined ? card : { ...card, generationCostUsd: costUsd };
 }
 

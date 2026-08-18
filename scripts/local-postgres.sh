@@ -11,12 +11,11 @@ database_name="coldstart"
 
 initdb_bin="$postgres_bin_dir/initdb"
 pg_ctl_bin="$postgres_bin_dir/pg_ctl"
-pg_isready_bin="$postgres_bin_dir/pg_isready"
 psql_bin="$postgres_bin_dir/psql"
 createuser_bin="$postgres_bin_dir/createuser"
 createdb_bin="$postgres_bin_dir/createdb"
 
-for binary in "$initdb_bin" "$pg_ctl_bin" "$pg_isready_bin" "$psql_bin" "$createuser_bin" "$createdb_bin"; do
+for binary in "$initdb_bin" "$pg_ctl_bin" "$psql_bin" "$createuser_bin" "$createdb_bin"; do
   if [[ ! -x "$binary" ]]; then
     echo "PostgreSQL 17 is required at $postgres_bin_dir. Set COLD_START_POSTGRES_BIN_DIR to override it." >&2
     exit 1
@@ -24,7 +23,7 @@ for binary in "$initdb_bin" "$pg_ctl_bin" "$pg_isready_bin" "$psql_bin" "$create
 done
 
 is_ready() {
-  "$pg_isready_bin" -h "$host" -p "$port" -U "$database_user" -d "$database_name" >/dev/null 2>&1
+  "$psql_bin" -h "$host" -p "$port" -U "$database_user" -d "$database_name" -Atqc "select 1" 2>/dev/null | grep -qx 1
 }
 
 initialize() {
@@ -35,8 +34,11 @@ initialize() {
 
 ensure_role_and_database() {
   if ! "$psql_bin" -h "$host" -p "$port" -d postgres -Atqc "select 1 from pg_roles where rolname = '$database_user'" | grep -qx 1; then
-    "$createuser_bin" -h "$host" -p "$port" -s "$database_user"
+    "$createuser_bin" -h "$host" -p "$port" --createdb "$database_user"
   fi
+
+  "$psql_bin" -h "$host" -p "$port" -d postgres -v ON_ERROR_STOP=1 \
+    -c "alter role $database_user nosuperuser createdb" >/dev/null
 
   if ! "$psql_bin" -h "$host" -p "$port" -d postgres -Atqc "select 1 from pg_database where datname = '$database_name'" | grep -qx 1; then
     "$createdb_bin" -h "$host" -p "$port" -O "$database_user" "$database_name"

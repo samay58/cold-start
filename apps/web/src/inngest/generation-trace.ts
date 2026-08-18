@@ -39,11 +39,11 @@ export function llmTracePatchFromCalls(calls: GenerationLlmCallTrace[]): Generat
   };
 }
 
-export function anthropicGenerationCostUsdFromTrace(trace: GenerationTrace) {
+export function generationLlmCostUsdFromTrace(trace: GenerationTrace) {
   const costUsd =
-    trace.costUsdAnthropic
-    ?? trace.llm?.totalEstimatedCostUsd
-    ?? (trace.llm ? totalEstimatedLlmCostUsd(trace.llm.calls) : undefined);
+    trace.llm?.totalEstimatedCostUsd
+    ?? (trace.llm ? totalEstimatedLlmCostUsd(trace.llm.calls) : undefined)
+    ?? trace.costUsdAnthropic;
 
   return costUsd === undefined ? undefined : Number(costUsd.toFixed(4));
 }

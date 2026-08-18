@@ -1,6 +1,7 @@
 import type { GenerationTrace } from "@cold-start/core";
 import { describe, expect, it } from "vitest";
 import {
+  generationLlmCostUsdFromTrace,
   mergeContactEnrichmentTrace,
   mergeTracePatch,
   mergeGenerationTrace,
@@ -10,6 +11,40 @@ import {
 import { withStableenrichEndpointBudgets } from "../src/inngest/provider-trace";
 
 describe("generation milestone telemetry", () => {
+  it("prefers the complete LLM total over the legacy subtotal", () => {
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAnthropic: 0.04,
+      llm: {
+        calls: [],
+        totalEstimatedCostUsd: 0.05
+      }
+    };
+
+    expect(generationLlmCostUsdFromTrace(trace)).toBe(0.05);
+  });
+
+  it("rebuilds the LLM total from calls before using the legacy subtotal", () => {
+    const trace: GenerationTrace = {
+      jobKind: "basics",
+      mode: "basics",
+      costUsdAnthropic: 0.04,
+      llm: {
+        calls: [{
+          stage: "expanded_description",
+          label: "description",
+          model: "claude-test",
+          status: "ok",
+          durationMs: 100,
+          estimatedCostUsd: 0.05
+        }]
+      }
+    };
+
+    expect(generationLlmCostUsdFromTrace(trace)).toBe(0.05);
+  });
+
   it("turns provider payment metadata into an exact endpoint receipt", () => {
     expect(withStableenrichEndpointBudgets([{
       callId: "call-1",

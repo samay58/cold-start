@@ -27,7 +27,7 @@ import { boundedErrorMessage } from "../lib/errors";
 import type { GenerationStepTools } from "./client";
 import {
   createStepLlmTelemetryCollector,
-  generationRunAnthropicCostUsd,
+  generationRunLlmCostUsd,
   timed,
   type GenerationMode
 } from "./generation-helpers";
@@ -256,7 +256,7 @@ export async function runResearchSectionJobStep(input: {
     sectionId: sectionId,
     provenance: sectionLlmRan ? "deep" : "derived",
     status: sectionTraceStatus,
-    estimatedCostUsd: generationRunAnthropicCostUsd(trace)
+    estimatedCostUsd: generationRunLlmCostUsd(trace)
   }];
   if (sectionLlmRan) {
     for (const call of trace.llm?.calls ?? []) {
@@ -286,7 +286,7 @@ export async function runResearchSectionJobStep(input: {
           id: generationRunDbId,
           from: ["queued", "running"],
           status: "complete",
-          costUsd: generationRunAnthropicCostUsd(trace),
+          costUsd: generationRunLlmCostUsd(trace),
           traceJson: trace,
           ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
           ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
@@ -297,7 +297,7 @@ export async function runResearchSectionJobStep(input: {
           mode,
           jobKind,
           status: "complete",
-          costUsd: generationRunAnthropicCostUsd(trace),
+          costUsd: generationRunLlmCostUsd(trace),
           traceJson: trace,
           ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
           ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})

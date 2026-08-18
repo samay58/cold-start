@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { agentcashJson, type AgentcashPaymentReceipt, type AgentcashPaymentStatus } from "../agentcash";
+import { agentcashJson, type AgentcashPaymentReceipt, type AgentcashPaymentStatus, type AgentcashSettlement } from "../agentcash";
 import { providerBudgetForEndpoint } from "../provider-budget";
 import { allSettledLimited, supportedUrl } from "../stableenrich-utils";
 import type { ProviderFactCandidate, ProviderResearchPlan, ProviderSource, RetrievalIntent, StableenrichEnv, StableenrichProbe } from "../types";
@@ -54,9 +54,7 @@ export type AgentcashFetch = (input: {
   url: string;
   body: Record<string, unknown>;
   timeoutMs?: number;
-  onPayment?: (payment: AgentcashPaymentReceipt) => void;
-  onSettlement?: (payment: AgentcashPaymentReceipt | null) => void;
-  onSettlementStatus?: (status: AgentcashPaymentStatus) => void;
+  onSettlement?: (settlement: AgentcashSettlement) => void;
 }) => Promise<unknown>;
 
 export type StableenrichProbeResult = {
@@ -384,16 +382,9 @@ export async function runAgentcashProbeCall(input: {
       url: input.endpointUrl,
       body: input.body,
       timeoutMs: input.timeoutMs,
-      onPayment: (receipt) => {
-        payment = receipt;
-        paymentStatus = "paid";
-      },
-      onSettlement: (receipt) => {
-        payment = receipt ?? undefined;
-        paymentStatus = receipt ? "paid" : "free";
-      },
-      onSettlementStatus: (status) => {
-        paymentStatus = status;
+      onSettlement: (settlement) => {
+        payment = settlement.payment ?? undefined;
+        paymentStatus = settlement.status;
       }
     });
     return {

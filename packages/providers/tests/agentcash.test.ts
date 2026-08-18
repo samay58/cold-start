@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type AgentcashSettlement,
   agentcashChildEnv,
   agentcashJson,
   agentcashWalletSnapshot,
@@ -144,17 +145,12 @@ describe("agentcashJson", () => {
   });
 
   it("reports the exact payment receipt returned by AgentCash", async () => {
-    const payments: Array<{
-      protocol: string;
-      network: string;
-      priceUsd: number;
-      transactionHash: string | null;
-    }> = [];
+    const settlements: AgentcashSettlement[] = [];
 
     const result = await agentcashJson<{ ok: true }>({
       url: "https://stableenrich.dev/api/companyenrich/org-enrich",
       body: { domain: "cartesia.ai" },
-      onPayment: (payment) => payments.push(payment),
+      onSettlement: (settlement) => settlements.push(settlement),
       runAgentcash: async () => JSON.stringify({
         success: true,
         data: { ok: true },
@@ -171,11 +167,14 @@ describe("agentcashJson", () => {
     });
 
     expect(result).toEqual({ ok: true });
-    expect(payments).toEqual([{
-      protocol: "x402",
-      network: "base",
-      priceUsd: 0.0126,
-      transactionHash: "0xabc"
+    expect(settlements).toEqual([{
+      status: "paid",
+      payment: {
+        protocol: "x402",
+        network: "base",
+        priceUsd: 0.0126,
+        transactionHash: "0xabc"
+      }
     }]);
   });
 
@@ -185,20 +184,20 @@ describe("agentcashJson", () => {
     await agentcashJson<{ ok: true }>({
       url: "https://example.com/free",
       body: {},
-      onSettlement: (payment) => settlements.push(payment),
+      onSettlement: (settlement) => settlements.push(settlement),
       runAgentcash: async () => '{"success":true,"data":{"ok":true}}'
     });
 
-    expect(settlements).toEqual([null]);
+    expect(settlements).toEqual([{ payment: null, status: "free" }]);
   });
 
   it("reports malformed payment metadata as unknown instead of free", async () => {
-    const statuses: string[] = [];
+    const settlements: Array<unknown> = [];
 
     await agentcashJson<{ ok: true }>({
       url: "https://example.com/paid",
       body: {},
-      onSettlementStatus: (status) => statuses.push(status),
+      onSettlement: (settlement) => settlements.push(settlement),
       runAgentcash: async () => JSON.stringify({
         success: true,
         data: { ok: true },
@@ -211,18 +210,16 @@ describe("agentcashJson", () => {
       })
     });
 
-    expect(statuses).toEqual(["unknown"]);
+    expect(settlements).toEqual([{ payment: null, status: "unknown" }]);
   });
 
   it("does not report a rejected payment as paid", async () => {
-    const statuses: string[] = [];
-    const payments: unknown[] = [];
+    const settlements: Array<unknown> = [];
 
     await agentcashJson<{ ok: true }>({
       url: "https://example.com/paid",
       body: {},
-      onPayment: (payment) => payments.push(payment),
-      onSettlementStatus: (status) => statuses.push(status),
+      onSettlement: (settlement) => settlements.push(settlement),
       runAgentcash: async () => JSON.stringify({
         success: true,
         data: { ok: true },
@@ -238,8 +235,7 @@ describe("agentcashJson", () => {
       })
     });
 
-    expect(statuses).toEqual(["unknown"]);
-    expect(payments).toEqual([]);
+    expect(settlements).toEqual([{ payment: null, status: "unknown" }]);
   });
 });
 

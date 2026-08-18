@@ -14,9 +14,7 @@ type AgentCashJsonInput = {
   packageName?: string;
   timeoutMs?: number;
   runAgentcash?: AgentcashRun;
-  onPayment?: (payment: AgentcashPaymentReceipt) => void;
-  onSettlement?: (payment: AgentcashPaymentReceipt | null) => void;
-  onSettlementStatus?: (status: AgentcashPaymentStatus) => void;
+  onSettlement?: (settlement: AgentcashSettlement) => void;
 };
 
 type AgentCashAccountsInput = {
@@ -47,17 +45,18 @@ export type AgentcashPaymentReceipt = {
 
 export type AgentcashPaymentStatus = "paid" | "free" | "unknown";
 
+export type AgentcashSettlement = {
+  payment: AgentcashPaymentReceipt | null;
+  status: AgentcashPaymentStatus;
+};
+
 export async function agentcashJson<T>(input: AgentCashJsonInput): Promise<T> {
   const { command, args } = buildAgentcashFetchCommand(input);
   const timeoutMs = input.timeoutMs ?? 120_000;
   const stdout = await (input.runAgentcash ?? runAgentcashCommand)(command, args, { timeoutMs });
 
   const parsed = parseAgentcashResponse<T>(stdout);
-  input.onSettlement?.(parsed.payment);
-  input.onSettlementStatus?.(parsed.paymentStatus);
-  if (parsed.payment) {
-    input.onPayment?.(parsed.payment);
-  }
+  input.onSettlement?.(parsed.settlement);
   return parsed.data;
 }
 
@@ -131,8 +130,7 @@ export function parseAgentcashOutput<T>(stdout: string): T {
 
 export function parseAgentcashResponse<T>(stdout: string): {
   data: T;
-  payment: AgentcashPaymentReceipt | null;
-  paymentStatus: AgentcashPaymentStatus;
+  settlement: AgentcashSettlement;
 } {
   const parsed = JSON.parse(stdout) as unknown;
 
@@ -153,21 +151,21 @@ export function parseAgentcashResponse<T>(stdout: string): {
     }
 
     const settlement = agentcashPaymentSettlement(envelope.metadata);
-    return { data: envelope.data as T, ...settlement };
+    return { data: envelope.data as T, settlement };
   }
 
-  return { data: parsed as T, payment: null, paymentStatus: "unknown" };
+  return {
+    data: parsed as T,
+    settlement: { payment: null, status: "unknown" }
+  };
 }
 
-function agentcashPaymentSettlement(metadata: unknown): {
-  payment: AgentcashPaymentReceipt | null;
-  paymentStatus: AgentcashPaymentStatus;
-} {
+function agentcashPaymentSettlement(metadata: unknown): AgentcashSettlement {
   if (metadata === undefined || metadata === null) {
-    return { payment: null, paymentStatus: "free" };
+    return { payment: null, status: "free" };
   }
   if (typeof metadata !== "object") {
-    return { payment: null, paymentStatus: "unknown" };
+    return { payment: null, status: "unknown" };
   }
 
   const value = metadata as {
@@ -177,17 +175,17 @@ function agentcashPaymentSettlement(metadata: unknown): {
     payment?: { success?: unknown; transactionHash?: unknown } | null;
   };
   if (typeof value.protocol !== "string" || typeof value.network !== "string" || typeof value.price !== "string") {
-    return { payment: null, paymentStatus: "unknown" };
+    return { payment: null, status: "unknown" };
   }
 
   const priceMatch = value.price.trim().match(/^\$([0-9]+(?:\.[0-9]+)?)$/);
   const priceUsd = priceMatch ? Number(priceMatch[1]) : Number.NaN;
   if (!Number.isFinite(priceUsd) || priceUsd < 0) {
-    return { payment: null, paymentStatus: "unknown" };
+    return { payment: null, status: "unknown" };
   }
 
   if (!value.payment || value.payment.success !== true) {
-    return { payment: null, paymentStatus: "unknown" };
+    return { payment: null, status: "unknown" };
   }
 
   const transactionHash = typeof value.payment.transactionHash === "string"
@@ -200,7 +198,7 @@ function agentcashPaymentSettlement(metadata: unknown): {
       priceUsd,
       transactionHash
     },
-    paymentStatus: "paid"
+    status: "paid"
   };
 }
 

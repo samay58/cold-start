@@ -79,7 +79,7 @@ import {
   createStepLlmTelemetryCollector,
   generateErrorTracePatch,
   generationModeForRun,
-  generationRunAnthropicCostUsd,
+  generationRunLlmCostUsd,
   isRefileProfileStore,
   mergeBaseCardForStore,
   parseEventSectionId,
@@ -1323,7 +1323,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         })
       );
     }
-    const finalGenerationCostUsd = generationRunAnthropicCostUsd(trace, cardToStore.generationCostUsd);
+    const finalGenerationCostUsd = generationRunLlmCostUsd(trace, cardToStore.generationCostUsd);
     await step.run("mark-generation-complete", async () => {
       if (generationRunDbId) {
         const alphaSettlement = await settleAlphaRunRequest(db, {
@@ -1398,7 +1398,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           generationRunId: generationRunDbId,
           outcome: "failed",
           failureCode: trace.failure?.code ?? "unknown",
-          costUsd: String(generationRunAnthropicCostUsd(trace)),
+          costUsd: String(generationRunLlmCostUsd(trace)),
           error: boundedErrorMessage(error)
         });
         // Same reasoning as the success path: an unapplied settlement is not ownership, and the
@@ -1411,7 +1411,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             from: ["queued", "running"],
             status: "failed",
             error: boundedErrorMessage(error),
-            costUsd: generationRunAnthropicCostUsd(trace),
+            costUsd: generationRunLlmCostUsd(trace),
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})
           });
@@ -1423,7 +1423,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             jobKind,
             status: "failed",
             error: boundedErrorMessage(error),
-            costUsd: generationRunAnthropicCostUsd(trace),
+            costUsd: generationRunLlmCostUsd(trace),
             traceJson: trace,
             ...(trace.inngest?.eventId ? { inngestEventId: trace.inngest.eventId } : {}),
             ...(trace.inngest?.runId ? { inngestRunId: trace.inngest.runId } : {})

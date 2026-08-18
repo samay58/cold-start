@@ -287,12 +287,15 @@ describe("runStableenrichProbe", () => {
       env: stableenrichEnv(),
       domain: "cartesia.ai",
       maxBudgetUsd: 0.01,
-      agentcashFetch: async ({ onPayment }) => {
-        onPayment?.({
-          protocol: "x402",
-          network: "base",
-          priceUsd: 0.01,
-          transactionHash: "0xpaid"
+      agentcashFetch: async ({ onSettlement }) => {
+        onSettlement?.({
+          status: "paid",
+          payment: {
+            protocol: "x402",
+            network: "base",
+            priceUsd: 0.01,
+            transactionHash: "0xpaid"
+          }
         });
         return { text: "ok" };
       },
@@ -318,8 +321,8 @@ describe("runStableenrichProbe", () => {
       env: stableenrichEnv(),
       domain: "cartesia.ai",
       maxBudgetUsd: 0.01,
-      agentcashFetch: async ({ onSettlementStatus }) => {
-        onSettlementStatus?.("unknown");
+      agentcashFetch: async ({ onSettlement }) => {
+        onSettlement?.({ status: "unknown", payment: null });
         return { text: "ok" };
       },
     });

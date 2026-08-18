@@ -231,6 +231,12 @@ August 17 final proof:
 - `alpha:status --json` found 59 runs, 13 failures, two software failures, no stale runs, and no incomplete AgentCash accounting.
 - The two software failures are the older Gecko runs. The fresh repair canary completed cleanly.
 
+August 18 clean slate:
+
+- Deleted all five expired QA and owner invites with the exact-ID operator command.
+- Production readback shows zero testers, invitations, sessions, companies, or allowance activity.
+- No replacement invite was created.
+
 ## Production Gates
 
 Complete:

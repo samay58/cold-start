@@ -426,13 +426,6 @@ describe("generateCardForDomain", () => {
   });
 
   it("includes cost lines recorded during extraction into the assembled card", async () => {
-    // The old version of this test threaded a shared costLines array through a combined
-    // synthesize+verify call inside generateCardForDomain; that combined path is gone (see the
-    // "no synthesis awareness" test above). Cost accumulation across the synthesize-card and
-    // verify-synthesis Inngest steps now happens at the orchestration level in
-    // apps/web/src/inngest/functions.ts via cardWithTraceCost/generationRunAnthropicCostUsd
-    // (functions.ts:623,740,943); that arithmetic has no dedicated unit test today, a real
-    // pre-existing gap this migration surfaces rather than introduces.
     const skeleton = buildSkeletonCard("cartesia.ai");
     const costLines = [{ label: "provider", usd: 0.01 }];
 
