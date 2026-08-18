@@ -12,21 +12,28 @@ Chrome Web Store item.
 Cold Start is not ready for friend-alpha invitations.
 
 The repository implementation, production migrations through `0016`, compatible
-deployment, recovery proof, and kill-switch proof are complete. The AgentCash
-wallet floor is cleared. The live release gate still fails on historical
-software failures in its seven-day window. Paid canary, owner
-rehearsal, and soak also remain open. Do not distribute the operator token. Do
-not use unpacked installation as the friend path.
+deployment, recovery proof, kill-switch proof, Chrome Web Store release, wallet
+floor, and Gecko repair canary are complete. The live release gate still fails
+on two older Gecko failures in its seven-day window. The owner rehearsal,
+current-version canary set, production alert proof, spend-control readback, and
+owner soak remain open. No real friend invitation has been sent. Do not
+distribute the operator token or use unpacked installation as the friend path.
 
-## August 17 Wallet Funding
+## August 17 Wallet And Repair Canary
 
-The trusted CLI and `alpha:status --json` both read AgentCash Base at
-`$38.795409`, clearing the `$35` release floor by `$3.795409`. The previous
-verified balance was `$29.180024`, so the observed wallet credit was
-`$9.615385`. This is funded balance, not product spend. The repository cannot
-see checkout charges or funding fees, so no out-of-pocket cost is inferred.
-The next paid canary must reconcile exact AgentCash settlement receipts, the
-wallet delta, and LLM cost before its cost is reported.
+The final trusted CLI read AgentCash Base at `$38.567209`, clearing the `$35`
+release floor by `$3.567209`. The observed funding credit was `$9.615385` from
+the prior `$29.180024` balance. This is funded balance, not product spend. The
+repository cannot see checkout charges or funding fees, so no out-of-pocket
+cost is inferred.
+
+Gecko Robotics run `e3d4ee85-1a63-452f-87b2-17e7991870bb` completed on the
+repaired production path. It accepted 20 sources, filed 12 traced citations,
+and grew to 16 after background enrichment. The current CompanyEnrich route
+returned 8 facts and applied 7. Exact non-overlapping cost was `$0.172649`:
+`$0.100000` from five settled AgentCash calls and `$0.072649` from LLMs. Direct
+Exa, Websets, and founder voice cost `$0`. The wallet delta remains a
+cross-check because other services can use the same wallet.
 
 ## August 11 Security Deployment
 
@@ -93,8 +100,9 @@ Read-only production checks on July 24 showed:
 - Known-dead Apollo-family probes repeatedly returned 404.
 
 These observations triggered the build. The code now covers each software
-failure. A paid production canary is still required before that claim becomes
-production evidence.
+failure. The August 17 Gecko repair canary is the production proof for the
+retired provider route, current response shape, citation recovery, and exact
+AgentCash settlement path.
 
 ## Implementation Receipt
 
@@ -212,56 +220,64 @@ and the dependency audit.
 - The latest `main` CI run passed the same gate.
 - The deterministic 0.2.0 ZIP built twice from commit `f108f26` with identical bytes. The artifact is `dist/chrome-web-store/cold-start-chrome-0.2.0-f108f261acc8.zip`; SHA256 is `74c8de20d7460f5d3edbef861efd3bd9e862da8ba2358b77fa8bdf72d8d0e524`.
 
+August 17 final proof:
+
+- Final code commit `eb80d70` is on `main` and `origin/main`.
+- Production deployment `dpl_7QxYakgUk8iBfVbPFqB17NT7d1U6` is Ready and serves `cold-start.semitechie.vc`.
+- `npm run check` exited `0` from a stopped local Postgres start. Firefox retained its six known warnings.
+- The guarded dependency audit passed. Its known temporary advisories remain disclosed.
+- `/`, `/catalog`, `/c/geckorobotics`, and `/api/cards/geckorobotics` returned `200`.
+- Public Gecko JSON contained no synthesis, email, email-status, or private-read fields.
+- `alpha:status --json` found 59 runs, 13 failures, two software failures, no stale runs, and no incomplete AgentCash accounting.
+- The two software failures are the older Gecko runs. The fresh repair canary completed cleanly.
+
 ## Production Gates
 
-Code-ready requires every item below:
+Complete:
 
-- Vercel Pro is active.
-- Production spend controls are configured.
-- Neon Launch is active.
-- Restore history is seven days.
-- A dedicated direct migration URL is proven.
-- Migration `0009_reflective_meteorite.sql` is applied.
-- Migration `0010_redeem_alpha_invite.sql` is applied.
-- A point-in-time restore into a temporary branch is timed and validated.
-- The compatible server deployment is live.
-- AgentCash Base holds at least $35.
-- Both kill switches are exercised against production.
-- The five-company paid canary passes with a $5 cap.
-- `alpha:status --gate` passes on canary evidence.
-- The deterministic Web Store ZIP is built from the checked commit.
-- The Unlisted store submission is complete with deferred publishing.
+- Vercel Pro, Neon Launch, seven-day restore history, direct migrations through `0016`, and the restore drill are proven.
+- The compatible server deployment and both production kill switches are proven.
+- AgentCash Base is above `$35`.
+- Chrome Web Store `0.2.5` is accepted and published as Unlisted.
+- The Gecko repair canary completed with exact cost accounting.
+- The full local repository gate passed on the deployed commits.
 
-Invite-ready requires:
+Open:
 
-- Chrome review approval.
-- One owner invitation completes the full fresh-profile journey without oral setup.
-- The owner rehearsal covers close and reopen, public card, Lens, source, dossier, diagnostics, support, revocation, and reconnect.
-- A 24-hour owner-only soak has no unresolved software failure.
-- Five individual invitations are prepared but not sent.
+- Read back the production spend controls.
+- Prove alert handling for repeated authentication failures and event throttling.
+- Complete five distinct current-version company journeys. Count the owner rehearsal if it uses a fresh company; do not run more paid canaries without approval.
+- Let the seven-day window clear the two older Gecko failures, then require `alpha:status --gate` to pass without an override.
+- Complete the owner rehearsal and a 24-hour owner-only soak.
+- Prepare the first real invitation but do not send it without approval.
 
 ## Open Blockers
 
-As of this update:
+As of August 17:
 
-- Vercel production spend controls are not yet observed.
-- The paid canary has not run.
-- Production alert evidence for repeated auth failures and event throttling is not proven.
-- The owner rehearsal and 24-hour soak have not run.
+- The actual store-installed invitation journey has not been rehearsed end to end by the owner.
+- The strict five-company current-version proof is incomplete. One Gecko repair canary is recorded.
+- Production spend controls and alert handling have not been read back as proof.
+- The seven-day gate still includes two older Gecko failures.
+- The 24-hour owner-only soak has not run.
 
-These are hard blockers for sending invitations. The store submission itself is in.
+These are hard blockers for sending the first real invitation. The code, wallet,
+deployment, and Chrome package are not blockers.
 
 ## Store Review Status
 
-Submitted for Chrome Web Store review on 2026-07-24 (Unlisted). Trader verification proceeds in parallel; until it completes the public listing carries a non-trader label, which does not block review. Confirm in the dashboard Package tab which artifact went to review (`5ec36e6d33af` or the support-email rebuild `5160def7cd3f`); if it is the older one, upload the rebuilt ZIP with the next revision. Listing images can be revised after review without resubmitting the package.
+Version `0.2.5` is accepted and published as Unlisted. The dashboard showed
+`0.2.5` in both Draft and Published on August 17. The served CRX matched commit
+`a948268`'s packaged artifact apart from Google-added metadata. The accepted
+version and checksum are recorded in `chrome-web-store-alpha/release-version.json`
+and `chrome-web-store-alpha/release-compatibility-matrix.md`.
 
 ## Next Action
 
-While the review clock runs:
+Stack-ranked by consequence:
 
-1. Configure and observe Vercel spend controls.
-2. Run the paid canary and alpha gate.
-3. Prove production alert handling.
-4. Rehearse with the owner.
-5. Soak for 24 hours.
-7. Prepare five invitations. Do not send them from the build session.
+1. Run the owner rehearsal through the published `0.2.5` store path with a fresh company. It passes only if install, connection, first profile, close and reopen, public card, Lens, sources, dossier, diagnostics, revocation, and reconnect work without oral setup. This is the largest unknown because no nontechnical end-to-end journey has been observed.
+2. Read back Vercel spend controls and prove alerts for repeated authentication failures and event throttling. It passes when each limit has a production readback and each alert produces a visible operator signal. These controls limit financial and security damage if a tester or provider misbehaves.
+3. Complete five distinct fresh current-version company journeys. Use the owner rehearsal as one and request approval before any extra paid canary. Each run must complete, pass the public-card privacy check, and settle every paid call.
+4. Run the 24-hour owner-only soak while the two older Gecko failures age out. It passes with no new software failure, no stale run, no incomplete AgentCash accounting, wallet above `$35`, and a clean `alpha:status --gate` result.
+5. Prepare one real friend invitation, inspect it, and send only after explicit approval. Expand one tester at a time.
