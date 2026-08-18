@@ -9,7 +9,7 @@ Run from the repo root unless noted. Source env first for anything touching the 
 
 ## Full local gate
 
-`npm run check`. `CLAUDE.md`: "`npm run check` is the full local gate and already chains lint, typecheck, test, the real-Postgres `test:alpha-db` and `test:cards-db` suites (local docker postgres must be up), build, the Firefox build plus `web-ext lint`, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs the same steps individually on Node 24, with three deviations: it currently skips `test:cards-db` (so green CI does not prove the real-Postgres card write path; local `check` does run it), it adds an `install:browser` step, and a separate `firefox-reproducibility` job double-builds the Firefox zip and diffs the hashes."
+`npm run check`. `AGENTS.md`: "`npm run check` is the full local gate and already chains lint, typecheck, test, the real-Postgres `test:alpha-db` and `test:cards-db` suites (local Postgres must be up), build, the Firefox build plus `web-ext lint`, a `eval:golden --dry-run --limit 12` pass, knip, secrets:check, and audit:deps. CI (`.github/workflows/check.yml`) runs the same steps individually on Node 24, including both real-Postgres suites. It cancels superseded runs and caps each job at 20 minutes. The separate `firefox-reproducibility` job double-builds the Firefox zip and diffs the hashes."
 
 ## Individual gates, for a scoped change where the full gate is overkill
 

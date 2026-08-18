@@ -6,9 +6,14 @@ on:
     branches:
       - main
 
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16-alpine
@@ -30,11 +35,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run install:browser -w @cold-start/web
       - run: npm run lint -- --max-warnings=0
       - run: npm run typecheck
       - run: npm run test
       - run: npm run test:alpha-db
+      - run: npm run test:cards-db
       - run: npm run build
       - run: npm run build:firefox -w @cold-start/extension
       - run: npx --yes web-ext@10.5.0 lint --source-dir apps/extension/dist-firefox --self-hosted
@@ -51,6 +56,7 @@ jobs:
   # Node is pinned to the documented reviewer default, not a floating major.
   firefox-reproducibility:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       VITE_COLD_START_API_ORIGIN: https://cold-start-samay58s-projects.vercel.app
       VITE_COLD_START_ALLOW_LOCAL_API_ORIGIN: "false"

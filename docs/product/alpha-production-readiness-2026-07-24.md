@@ -236,6 +236,7 @@ August 18 clean slate:
 - Deleted all five expired QA and owner invites with the exact-ID operator command.
 - Production readback shows zero testers, invitations, sessions, companies, or allowance activity.
 - No replacement invite was created.
+- CI now runs both real database suites, skips the unused browser download, cancels superseded runs, and caps jobs at 20 minutes.
 
 ## Production Gates
 
