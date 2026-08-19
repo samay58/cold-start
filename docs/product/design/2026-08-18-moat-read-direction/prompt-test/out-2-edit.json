@@ -1,0 +1,37 @@
+{
+  "status": "read",
+  "sentence": "Its live attack-defense tests get cited by name in OpenAI and Anthropic's own model safety docs.",
+  "building_along": [
+    {
+      "strategy": "Hybrid",
+      "meaning": "Winning by combining two skill sets that are not usually housed together, so the combination itself is hard to assemble.",
+      "note": "Irregular pairs offensive cybersecurity red-teaming with frontier AI capability evaluation, building live network environments with no scripted vulnerabilities and having a model attack and defend inside them, rather than testing it against fixed question sets the way most AI safety evaluators do [e1][e2][e3][e7]. This is a specific claim about method, checkable through the named benchmarks (Atomic Tasks, CyScenarioBench, FrontierCyber), which test whether a model can complete tasks like antivirus evasion on live infrastructure rather than answer questions about how it works. The hybrid method is observable in the product itself. Whether the founders personally bring deep prior expertise in both domains is not settled by the evidence: neither Dan Lahav's nor Omer Nevo's public history documents specific technical work in either offensive security or AI research [e12][e13]."
+    },
+    {
+      "strategy": "Chokepoint",
+      "meaning": "Winning by controlling a passage that competitors or customers must pass through, so switching away carries a visible cost.",
+      "note": "Irregular's scoring framework and benchmark names are reportedly cited in OpenAI's system cards for o3 and o4-mini and used by Anthropic to assess cyber risk in Claude 3.7 Sonnet [e1][e2][e3][s3]. If accurate, two competing labs are referencing the same external framework by name in the formal documentation attached to a model release, which means switching evaluators for the next model would create a visible break in that record. This is inferred stickiness, not proven lock-in: the evidence shows adoption by two labs, not that either lab is structurally unable to switch, only that switching would carry some cost that cannot be measured from what is here."
+    },
+    {
+      "strategy": "Prestige",
+      "meaning": "Winning by being endorsed, through association, by sources whose credibility is hard to fake.",
+      "note": "The funding round was led by Sequoia and Redpoint, with personal money from Wiz CEO Assaf Rappaport and Eon CEO Ofir Ehrlich, both cybersecurity company builders whose personal investment is a harder-to-fake signal than an ordinary VC check [e1][e2][e3]. The customer list naming OpenAI and Anthropic is independently reported by TechCrunch and Calcalist, not only claimed by Irregular itself, which is unusual for a 2023-founded, 37-person firm [e1][e2][p1]. Because these labs are known to be selective about which outside parties get access to pre-release models, a confirmed contract functions as third-party endorsement even without disclosed terms."
+    }
+  ],
+  "pair": {
+    "strategies": ["Hybrid", "Chokepoint"],
+    "note": "Hybrid is the combination of offensive red-team skill and AI-evaluation skill in one method; Chokepoint is the citation of that method's specific benchmarks inside two rival labs' formal safety documentation. They hold together because the chokepoint only exists on top of the hybrid method: it is the specific benchmark names, built through live-environment red-teaming, that got written into the system cards, not a generic evaluation service. A competitor cannot copy this by building a better benchmark alone. It would need both OpenAI and Anthropic to adopt its framework in place of one already sitting in their prior system cards, and that switch would create a visible discontinuity in each lab's own safety record that neither has an obvious reason to create. The evidence for this is two data points, adoption by OpenAI and Anthropic [e1][e2][e3][s3], so the durability of the pairing beyond these two customers is inferred, not confirmed."
+    ,
+    "changes_if": "If either lab could swap in an alternative evaluator at low cost and without any visible break in its safety documentation, this pairing collapses to ordinary vendor status."
+  },
+  "open_to": [
+    {
+      "strategy": "Standardization",
+      "note": "Irregular's own press release is titled 'set the security standards for frontier AI' [e3], but the evidence only shows adoption by two labs, not independent convergence by Google DeepMind, Meta, or a standards body. This would require one of those parties, currently described only as labs whose models Irregular tests, to become a paying customer using the same framework as OpenAI and Anthropic."
+    },
+    {
+      "strategy": "Monopoly",
+      "note": "Irregular already works with government bodies including the UK government [e2], but nothing in the evidence shows a regulator has designated it as a required or approved evaluator rather than a vendor one government chose to hire. This would require an explicit accreditation or legal mandate naming Irregular or its methodology, which the evidence here does not show."
+    }
+  ]
+}
