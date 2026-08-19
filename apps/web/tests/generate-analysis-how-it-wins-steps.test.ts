@@ -488,6 +488,33 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(storedCard.synthesis?.howItWins).toBeUndefined();
   });
 
+  // A semantic failure of the stage (an unparseable draft, a citation that is not on the card)
+  // must never fail the analysis run: the step body memoizes it as { ok: false } and the wiring
+  // degrades to nothing_stands_out, while the trace still records the step as failed so the
+  // failure is not invisible.
+  it("degrades to nothing_stands_out when the stage fails semantically, without failing the run", async () => {
+    mocks.synthesizeHowItWins.mockRejectedValue(new Error("how-it-wins draft did not parse"));
+
+    await runAnalysisGeneration();
+
+    const trace = persistedTrace();
+    expect(trace.steps?.["how-it-wins"]).toMatchObject({
+      status: "failed",
+      message: "how-it-wins draft did not parse"
+    });
+    expect(trace.howItWins).toMatchObject({ enabled: true, status: "nothing_stands_out" });
+    expect(trace.failure).toBeUndefined();
+
+    const completeEvent = eventOfType("how-it-wins.complete");
+    expect(completeEvent?.message).toBe("No how-it-wins read");
+    expect(completeEvent?.metadata).toMatchObject({ status: "nothing_stands_out" });
+
+    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
+    expect(storedCard.synthesis?.howItWins).toEqual({ status: "nothing_stands_out" });
+    // The rest of the run is untouched: the synthesis and the emphasis read still land.
+    expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
+  });
+
   // Same gate as the emphasis read (howItWinsThinFileReason is emphasisThinFileReason), so a card
   // with no company-authored citation thin-files both. The gate runs in code before any model
   // call: no lane fetch, no four passes, no started event.

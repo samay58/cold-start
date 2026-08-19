@@ -836,10 +836,17 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         // on the founder-voice citations the emphasis closure fetches. Both closures are awaited
         // together and joined once both settle, so a rejection from either always has a handler.
         // Neither writes the other's fields: emphasis owns generatedCard.citations,
-        // sourcesToRecord, and trace.emphasis; how-it-wins owns only trace.howItWins. currentStage
-        // is the one genuinely shared write, and it is failure-reporting only: under concurrency
-        // the last writer wins, which names one of the two steps actually in flight.
+        // sourcesToRecord, and trace.emphasis; how-it-wins owns only trace.howItWins.
+        //
+        // currentStage is the one genuinely shared write. Last-writer-wins is fine for the happy
+        // path, but it is wrong for failure attribution: how-it-wins sets it and then awaits for
+        // minutes while the emphasis closure overwrites it, so a how-it-wins failure would be
+        // filed under "emphasis-read". Each closure therefore records its own stage as it moves,
+        // and the join below stamps the FAILING closure's stage onto currentStage right before it
+        // rethrows, so trace.failure.stage names the step that actually failed.
         const cardForHowItWins = generatedCard;
+        let emphasisStage = "fetch-founder-voice";
+        const howItWinsStage = "how-it-wins";
 
         const runEmphasisPipeline = async (): Promise<EmphasisRead | null> => {
           let emphasisDraft: EmphasisRead | null = null;
@@ -855,7 +862,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
               };
             } else {
               await recordEvent("emphasis-started", "emphasis.started", "Reading what they lead with", {}, null);
-              currentStage = "fetch-founder-voice";
+              currentStage = emphasisStage = "fetch-founder-voice";
               // A repeat analysis run can already carry fv-prefixed citations on generatedCard
               // (extraction reuse spreads the existing card's citations wholesale) and, separately,
               // on the stored existingCard row that storage will later merge this card against
@@ -901,7 +908,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
                 sourcesToRecord = [...sourcesToRecord, ...founderVoice.value.sources];
               }
 
-              currentStage = "emphasis-read";
+              currentStage = emphasisStage = "emphasis-read";
               const emphasisResult = await step.run("emphasis-read", async () => {
                 const llmTelemetry = createStepLlmTelemetryCollector();
                 const result = await timed(() =>
@@ -959,7 +966,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           }
 
           await recordEvent("how-it-wins-started", "how-it-wins.started", "Reading how it wins", {}, null);
-          currentStage = "how-it-wins";
+          currentStage = howItWinsStage;
           const howItWinsResult = await step.run("how-it-wins", async () => {
             const llmTelemetry = createStepLlmTelemetryCollector();
             const result = await timed(() =>
@@ -1009,9 +1016,20 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           runHowItWinsPipeline()
         ]);
         if (emphasisSettled.status === "rejected") {
+          // Only one reason can be thrown. When both closures failed, the discarded one would
+          // otherwise vanish from every surface, so it is logged before the emphasis error wins.
+          if (howItWinsSettled.status === "rejected") {
+            console.warn("[generation] how-it-wins also failed; rethrowing the emphasis failure instead", {
+              slug,
+              stage: howItWinsStage,
+              error: boundedErrorMessage(howItWinsSettled.reason)
+            });
+          }
+          currentStage = emphasisStage;
           throw emphasisSettled.reason;
         }
         if (howItWinsSettled.status === "rejected") {
+          currentStage = howItWinsStage;
           throw howItWinsSettled.reason;
         }
         const emphasisDraft = emphasisSettled.value;
