@@ -7,16 +7,16 @@ import { HOW_IT_WINS_GROUPS, HOW_IT_WINS_STRATEGIES } from "@cold-start/core";
 import type { HowItWinsDisplay } from "./investor-lens";
 import { HOW_IT_WINS_COPY } from "./investor-read-copy";
 
-export const EDGE_GROUP_GAP_PX = 5;
+const EDGE_GROUP_GAP_PX = 5;
 export const EDGE_HEIGHT_PX = 22;
 export const EDGE_TOP_PX = 3;
 export const EDGE_MARK_WIDTH_PX = 4;
 export const EDGE_MARK_DEPTH_PX = 8;
 export const EDGE_HOLLOW_DEPTH_PX = 7;
 export const EDGE_TARGET_REACH_PX = 6;
-export const EDGE_SIGMA_PX = 11;
+const EDGE_SIGMA_PX = 11;
 export const EDGE_MAGNIFICATION = 1.6;
-export const EDGE_SPRING = { stiffness: 420, damping: 38 } as const;
+const EDGE_SPRING = { stiffness: 420, damping: 38 } as const;
 export const EDGE_FALLBACK_WIDTH_PX = 320; // when the svg has no layout yet (jsdom, first paint)
 
 const EDGE_INDEX_BY_ID = new Map<string, number>(HOW_IT_WINS_STRATEGIES.map((strategy, index) => [strategy.id, index]));

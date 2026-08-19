@@ -97,7 +97,7 @@ type EmphasisDisplay = {
 // How it wins is not a category row: it is the crown on the packet's edge, so it carries its
 // own display shape rather than a preview string. "not_read" covers a legacy card generated
 // before the field existed; the other three mirror howItWinsSchema's own statuses.
-export type HowItWinsDisplayState = "read" | "thin_file" | "nothing_stands_out" | "not_read";
+type HowItWinsDisplayState = "read" | "thin_file" | "nothing_stands_out" | "not_read";
 export type HowItWinsDisplay = {
   state: HowItWinsDisplayState;
   // read: the model's sentence. nothing_stands_out: the model's own sentence when it named

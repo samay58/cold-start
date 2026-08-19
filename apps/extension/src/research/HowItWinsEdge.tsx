@@ -124,7 +124,7 @@ export function HowItWinsEdge({
 }: {
   display: HowItWinsDisplay;
   prefersReducedMotion: boolean | null;
-  onPin?: (target: EdgeTarget | null) => void;
+  onPin?: ((target: EdgeTarget | null) => void) | undefined;
 }) {
   if (display.state === "not_read") {
     return null;
@@ -139,7 +139,7 @@ function HowItWinsCrown({
 }: {
   display: HowItWinsDisplay;
   prefersReducedMotion: boolean | null;
-  onPin?: (target: EdgeTarget | null) => void;
+  onPin?: ((target: EdgeTarget | null) => void) | undefined;
 }) {
   const uid = useId().replace(/:/g, "");
   const reduced = prefersReducedMotion === true;
@@ -156,7 +156,7 @@ function HowItWinsCrown({
   const [pinned, setPinned] = useState(false);
   const [targetKey, setTargetKey] = useState<string | null>(null);
   const [noteKey, setNoteKey] = useState<string | null>(null);
-  const [arrived, setArrived] = useState(() => arrivedReads.has(readKey(display)));
+  const [arrived, setArrived] = useState(() => arrivedReads.has(arrivalKey));
 
   const hoverXRef = useRef<number | null>(null);
   const cursorRef = useRef<number | null>(null);
@@ -173,8 +173,20 @@ function HowItWinsCrown({
   const rafRef = useRef<number | null>(null);
   const frameRef = useRef<(now: number) => void>(() => undefined);
   const arriveStartRef = useRef<number | null>(null);
-  const arriveElapsedRef = useRef<number | null>(arrivedReads.has(readKey(display)) || reduced ? null : 0);
+  const arriveElapsedRef = useRef<number | null>(arrivedReads.has(arrivalKey) || reduced ? null : 0);
+  const arrivalKeyRef = useRef(arrivalKey);
   const pointerTypeRef = useRef<string>("mouse");
+
+  // A re-file swaps the read under a live crown. Reset the arrival clock here, in render, not in
+  // the effect below: the effect's 300ms timer would otherwise let the new marks paint at full
+  // depth first and snap to zero when it fired.
+  if (arrivalKeyRef.current !== arrivalKey) {
+    arrivalKeyRef.current = arrivalKey;
+    const replays = !arrivedReads.has(arrivalKey);
+    arriveStartRef.current = null;
+    arriveElapsedRef.current = replays && !reduced ? 0 : null;
+    setArrived(!replays);
+  }
 
   const xs = useMemo(() => edgePositions(width), [width]);
   const targets = useMemo(() => edgeTargets(display, xs), [display, xs]);
@@ -314,7 +326,7 @@ function HowItWinsCrown({
     rafRef.current = requestAnimationFrame((now) => frameRef.current(now));
   }, [reduced]);
 
-  frameRef.current = (now: number) => {
+  const runFrame = useCallback((now: number) => {
     rafRef.current = null;
     if (!mountedRef.current) return;
     const last = lastFrameRef.current;
@@ -369,7 +381,14 @@ function HowItWinsCrown({
     draw();
     syncState();
     if (busy) schedule();
-  };
+  }, [draw, retarget, schedule, syncState]);
+
+  // The loop calls the frame body through a ref so a re-render can swap it without cancelling an
+  // in-flight frame. Layout effect rather than render or a passive effect: it has to be current
+  // before the next animation frame runs.
+  useLayoutEffect(() => {
+    frameRef.current = runFrame;
+  }, [runFrame]);
 
   const release = useCallback(() => {
     const wasPinned = pinnedRef.current;
@@ -518,8 +537,25 @@ function HowItWinsCrown({
     if (target) pinTo(target);
   }
 
+  // The hidden buttons render in `ordered` order, so a key pressed on one of them names its own
+  // target: a screen-reader user is on a button, not on a cursor.
+  const focusedTargetIndex = useCallback((node: EventTarget | null) => {
+    const list = listRef.current;
+    if (!list || !(node instanceof Element)) return null;
+    const button = node.closest("button");
+    if (!button || !list.contains(button)) return null;
+    const index = [...list.querySelectorAll("button")].indexOf(button);
+    return index < 0 ? null : index;
+  }, []);
+
+  const focusTargetButton = useCallback((index: number) => {
+    const buttons = listRef.current?.querySelectorAll("button");
+    buttons?.[index]?.focus();
+  }, []);
+
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (ordered.length === 0) return;
+    const fromButton = focusedTargetIndex(event.target);
 
     if (event.key === "Escape") {
       if (!pinnedRef.current && targetRef.current === null) return;
@@ -530,23 +566,28 @@ function HowItWinsCrown({
 
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
-      const current = ordered.findIndex((target) => target.key === targetRef.current?.key);
+      const current = fromButton ?? ordered.findIndex((target) => target.key === targetRef.current?.key);
       const next = event.key === "ArrowRight"
         ? Math.min(ordered.length - 1, current + 1)
         : Math.max(0, current - 1);
       const target = ordered[next];
-      if (target) pinTo(target);
+      if (!target) return;
+      pinTo(target);
+      // Focus follows the walk, so the name the reader hears is the strategy now pinned.
+      if (fromButton !== null) focusTargetButton(next);
       return;
     }
 
     if (event.key === "Enter" || event.key === " ") {
+      // preventDefault also cancels the button's native activation, so the pin toggles once.
       event.preventDefault();
-      if (pinnedRef.current) {
+      const target = fromButton === null ? targetRef.current ?? ordered[0] : ordered[fromButton];
+      if (!target) return;
+      if (pinnedRef.current && (fromButton === null || targetRef.current?.key === target.key)) {
         release();
         return;
       }
-      const target = targetRef.current ?? ordered[0];
-      if (target) pinTo(target);
+      pinTo(target);
     }
   }
 

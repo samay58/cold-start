@@ -313,6 +313,37 @@ describe("HowItWinsEdge", () => {
     await crown.unmount();
   });
 
+  // (h) a screen-reader user sits on a button, not on a cursor: a key pressed there names that
+  // button's own strategy, and the arrows carry focus with them.
+  it("pins the focused target button on Enter and moves focus as the arrows step", async () => {
+    const crown = await renderCrown(filedDisplay);
+    const buttons = [...crown.container.querySelectorAll<HTMLButtonElement>(".cs-how-it-wins-targets button")];
+    const press = async (button: HTMLButtonElement | undefined, key: string) => {
+      button?.focus();
+      await act(async () => {
+        button?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
+      });
+    };
+
+    expect(buttons.map((button) => button.textContent)).toEqual(KEYBOARD_ORDER);
+
+    await press(buttons[2], "Enter");
+    expect(crown.crown?.getAttribute("data-pinned")).toBe("true");
+    expect(crown.readout()).toBe(KEYBOARD_ORDER[2]);
+    expect(crown.container.querySelector('.cs-how-it-wins-note[data-open="true"]')?.getAttribute("aria-label"))
+      .toBe(KEYBOARD_ORDER[2]);
+
+    await press(buttons[2], "ArrowRight");
+    expect(document.activeElement).toBe(buttons[3]);
+    expect(crown.readout()).toBe(KEYBOARD_ORDER[3]);
+
+    await press(buttons[3], "Enter");
+    expect(crown.crown?.getAttribute("data-pinned")).toBe("false");
+    expect(crown.readout()).toBe("3 of 80 strategies");
+
+    await crown.unmount();
+  });
+
   // (g)
   it("paints in ink only: no seal token anywhere in the crown", async () => {
     const crown = await renderCrown(filedDisplay);

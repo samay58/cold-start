@@ -163,11 +163,13 @@
     visibility 0s;
 }
 
+/* The caret points at its mark, clamped at both ends so the first and the eightieth position
+   keep it inside the note body instead of hanging off a rounded corner. */
 .cs-how-it-wins-note::before {
   content: "";
   position: absolute;
   top: -5px;
-  left: calc(var(--cs-hiw-anchor, 50%) - 17.5px);
+  left: clamp(10px, calc(var(--cs-hiw-anchor, 50%) - 17.5px), calc(100% - 19px));
   width: 9px;
   height: 9px;
   background: var(--color-plate);
