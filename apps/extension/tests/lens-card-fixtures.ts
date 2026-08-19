@@ -1,4 +1,54 @@
-import type { ColdStartCard } from "@cold-start/core";
+import type { ColdStartCard, HowItWins } from "@cold-start/core";
+
+// One filed How it wins read, shared by the crown's jsdom suite and the Playwright specs so the
+// same six targets (three running, the hybrid/chokepoint bracket, two queued) are on screen
+// everywhere. Notes carry citation markers like every other synthesis string; the display model
+// strips them before the crown renders.
+export function filedHowItWins(): HowItWins {
+  return {
+    status: "read",
+    sentence: "It wins by combining two rare skills, and by sitting where two labs must pass through it.",
+    running: [
+      {
+        strategy: "hybrid",
+        meaning: "Wins by pairing two skills rarely combined.",
+        note: "It builds live network environments and has models attack and defend inside them [c1].",
+        citationIds: ["c1"]
+      },
+      {
+        strategy: "chokepoint",
+        meaning: "Controls a required passage.",
+        note: "Two labs name its benchmarks before releasing a model [c1].",
+        citationIds: ["c1"]
+      },
+      {
+        strategy: "prestige",
+        meaning: "Endorsed by credible outside sources.",
+        note: "Two named investors put in personal money alongside the round [c2].",
+        citationIds: ["c2"]
+      }
+    ],
+    pair: {
+      strategies: ["hybrid", "chokepoint"],
+      note: "The method produced the passage: the same testing approach is what both labs now name in their own documents [c1].",
+      wrongIf: "a lab could swap evaluators without a visible change in its own documentation.",
+      citationIds: ["c1"]
+    },
+    next: [
+      {
+        strategy: "monopoly",
+        note: "Would need a regulator naming it directly, not just a government contract [c2].",
+        citationIds: ["c2"]
+      },
+      {
+        strategy: "standardization",
+        note: "Would need a third lab to adopt the same benchmarks independently [c1].",
+        citationIds: ["c1"]
+      }
+    ],
+    wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
+  };
+}
 
 // Shared minimal ColdStartCard fixtures for the lens/research-layer test suites. Two distinct
 // company bodies existed across these suites before consolidation, each hand-rolled per file:

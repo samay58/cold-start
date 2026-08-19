@@ -14,6 +14,7 @@ import {
   type LensTensionClaim
 } from "./investor-lens";
 import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
+import { HowItWinsEdge } from "./HowItWinsEdge";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
@@ -449,6 +450,9 @@ export function InvestorReadCard({
 
   return (
     <article className="cs-investor-read" aria-label="Investor read">
+      {read.howItWins.state === "not_read" ? null : (
+        <HowItWinsEdge display={read.howItWins} prefersReducedMotion={prefersReducedMotion} />
+      )}
       <motion.header
         className="cs-investor-read-head"
         {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.header, prefersReducedMotion)}

@@ -49,6 +49,65 @@ async function expectNoAccentRibbon(surface: Locator) {
   expect(shadow).not.toContain(accent);
 }
 
+// Where the crown's cut marks are right now, in viewport coordinates, read off the drawn svg
+// rather than recomputed here: the geometry module owns where they land. Re-read before every
+// pointer action, since an element screenshot scrolls the panel and moves them.
+async function crownGeometry(crown: Locator): Promise<{ centres: number[]; y: number }> {
+  const box = await crown.locator(".cs-how-it-wins-edge svg").boundingBox();
+  const centres = await crown.locator(".cs-hiw-cut-wall").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const mark = node.getBoundingClientRect();
+      return mark.x + mark.width / 2;
+    })
+  );
+  return { centres, y: (box?.y ?? 0) + 6 };
+}
+
+// The four crown states worth a picture: at rest, scrubbing an unmarked tick, one running mark
+// pinned, and the bracket pinned. Each shot is the whole plate, so a note that ever covered the
+// sentence or changed the plate's height would show up in the file.
+async function captureCrown(page: Page, read: Locator, screenshotDir: string) {
+  const crown = read.locator(".cs-how-it-wins");
+  await expect(crown).toBeVisible();
+  await expect(crown).toHaveAttribute("data-state", "read");
+  // 300ms before the marks start dropping, 520ms to land.
+  await page.waitForTimeout(900);
+  await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-rest.png") });
+
+  // Between the first two marks: the scale of 80 is up, one tick has ink, no note opens.
+  const scrub = await crownGeometry(crown);
+  expect(scrub.centres.length).toBe(3);
+  const between = ((scrub.centres[0] ?? 0) + (scrub.centres[1] ?? 0)) / 2;
+  await page.mouse.move(between, scrub.y);
+  await expect(crown.locator('.cs-hiw-tick[data-hot="true"]')).toHaveCount(1);
+  await expect(crown.locator('.cs-how-it-wins-note[data-open="true"]')).toHaveCount(0);
+  await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-hover-tick.png") });
+
+  const mark = await crownGeometry(crown);
+  await page.mouse.click(mark.centres[0] ?? 0, mark.y);
+  await expect(crown).toHaveAttribute("data-pinned", "true");
+  await expect(crown.locator('.cs-how-it-wins-note[data-open="true"]')).toHaveCount(1);
+  await expect(crown.locator(".cs-how-it-wins-kicker small")).toHaveText("pinned");
+  await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-pinned-mark.png") });
+
+  const release = await crownGeometry(crown);
+  await page.mouse.click(release.centres[0] ?? 0, release.y);
+  await expect(crown).toHaveAttribute("data-pinned", "false");
+
+  // The bracket claims the span between its two legs, so its midpoint pins the pair.
+  const pair = await crownGeometry(crown);
+  const bracket = ((pair.centres[1] ?? 0) + (pair.centres[2] ?? 0)) / 2;
+  await page.mouse.click(bracket, pair.y);
+  await expect(crown).toHaveAttribute("data-pinned", "true");
+  await expect(crown.locator(".cs-how-it-wins-note")).toHaveAttribute("aria-label", /and/);
+  await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-pinned-pair.png") });
+
+  const done = await crownGeometry(crown);
+  await page.mouse.click(bracket, done.y);
+  await expect(crown).toHaveAttribute("data-pinned", "false");
+  await page.mouse.move(5, 5);
+}
+
 const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
   blocked: {
     heading: "Loom Signal",
@@ -102,6 +161,8 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       // compared against the same fixture at the same panel width.
       const plateHeight = (await read.boundingBox())?.height;
       console.log(`[lens-gallery] read-full .cs-investor-read height: ${plateHeight}px`);
+      await captureCrown(page, read, screenshotDir);
+
       await expect(categories.nth(0)).toHaveAttribute("data-category", "why-care");
       await expect(categories.nth(0).locator(".cs-investor-read-category-trigger")).toHaveAttribute("aria-expanded", "true");
       await expect(read.locator(".cs-investor-read-lede")).toContainText("inference layer");

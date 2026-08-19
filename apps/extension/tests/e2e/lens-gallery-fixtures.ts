@@ -40,8 +40,64 @@ function readFixtureCard(name: string): ColdStartCard {
 // read-full.json: a real prod card (baseten.co, pulled read-only 2026-07-20) with rich
 // synthesis, mirrored verbatim. Public-tier plus gated synthesis, same as every other card the
 // extension already renders; nothing here reaches the public site.
+//
+// The How it wins read on top of it is hand-written fixture copy, not prod output: the model
+// stage that produces one does not exist yet, and the crown needs three marks, a bracket, and
+// two queued marks spread along the edge to be worth screenshotting. Its claims are shaped like
+// the real thing (a strategy, what it means here, and a note tied to citations the card
+// actually carries) and belong to nothing outside this gallery.
 export function readFullCard(): ColdStartCard {
-  return readFixtureCard("read-full");
+  const card = readFixtureCard("read-full");
+  if (card.synthesis) {
+    card.synthesis = { ...card.synthesis, howItWins: galleryHowItWins() };
+  }
+  return card;
+}
+
+function galleryHowItWins(): NonNullable<NonNullable<ColdStartCard["synthesis"]>["howItWins"]> {
+  return {
+    status: "read",
+    sentence: "It wins on cost per token and on fitting inside a stack a team already runs, not on owning the model.",
+    running: [
+      {
+        strategy: "reliability",
+        meaning: "Wins by being the piece that does not fall over.",
+        note: "Teams name uptime on production inference as the reason they moved [e1].",
+        citationIds: ["e1"]
+      },
+      {
+        strategy: "efficiency",
+        meaning: "Wins by getting more out of the same hardware.",
+        note: "Its public benchmarks lead on cost per token rather than on raw speed [e2].",
+        citationIds: ["e2"]
+      },
+      {
+        strategy: "composability",
+        meaning: "Wins by fitting what a team already runs.",
+        note: "Models, images, and autoscaling are pieces a team can adopt one at a time [e5].",
+        citationIds: ["e5"]
+      }
+    ],
+    pair: {
+      strategies: ["efficiency", "composability"],
+      note: "Cheap inference only matters if a team can put it inside its own stack, and the two together are what a single-model API cannot answer [e2].",
+      wrongIf: "a hyperscaler ships the same per-model autoscaling inside its own runtime.",
+      citationIds: ["e2", "e5"]
+    },
+    next: [
+      {
+        strategy: "aggregation",
+        note: "Would need many models from many vendors served under one contract, which nothing filed shows [e1].",
+        citationIds: ["e1"]
+      },
+      {
+        strategy: "standardization",
+        note: "Would need other teams adopting the same packaging format with Baseten out of the room [e3].",
+        citationIds: ["e3"]
+      }
+    ],
+    wrongIf: "a hyperscaler ships the same per-model autoscaling inside its own runtime."
+  };
 }
 
 // read-sparse.json: synthesis with 1 surviving bull claim, 0 bear claims (verifier-dropped),

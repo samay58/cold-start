@@ -12,6 +12,7 @@ import {
   researchPanelPolishCard
 } from "./fixtures";
 import { dragWithSamples, expectFocusedElementVisible, expectPointerAttached } from "./interaction-probes";
+import { filedHowItWins } from "../lens-card-fixtures";
 import { LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "../../src/research/investor-read-copy";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
@@ -2486,4 +2487,63 @@ test("the lens footer's own '+N also cited' chip is a hover tooltip, not inline 
   await expect(tooltip).toHaveAttribute("data-variant", "text");
   await expect(tooltip).toHaveAttribute("data-mode", "popover");
   await expect(tooltip).toContainText("Also cited");
+});
+
+// The crown's one structural promise: whatever it does under the pointer, the Lens plate keeps
+// its height and the note stays below the sentence. Hover magnification, a pinned mark, and a
+// pinned bracket all measure the same plate.
+test("the How it wins crown never moves the plate or covers the sentence", async ({ page }) => {
+  const card = browserbaseCardWithSynthesis();
+  if (card.synthesis) {
+    card.synthesis = { ...card.synthesis, howItWins: filedHowItWins() };
+  }
+  await installChromeShim(page);
+  await mockExtensionApi(page, card);
+  await openSidePanel(page);
+
+  const plate = page.getByRole("article", { name: "Investor read" });
+  const crown = plate.locator(".cs-how-it-wins");
+  const sentence = crown.locator(".cs-how-it-wins-sentence");
+  await expect(crown).toBeVisible();
+  await page.waitForTimeout(900); // 300ms before the marks drop, 520ms to land
+
+  const restHeight = (await plate.boundingBox())?.height;
+  expect(restHeight).toBeGreaterThan(0);
+
+  const edgeBox = await crown.locator(".cs-how-it-wins-edge svg").boundingBox();
+  expect(edgeBox).not.toBeNull();
+  const y = (edgeBox?.y ?? 0) + 6;
+  const left = edgeBox?.x ?? 0;
+  const width = edgeBox?.width ?? 0;
+
+  const heights: number[] = [];
+  for (const fraction of [0.2, 0.5, 0.8]) {
+    await page.mouse.move(left + width * fraction, y);
+    await page.waitForTimeout(200);
+    heights.push((await plate.boundingBox())?.height ?? 0);
+  }
+
+  const marks = await crown.locator(".cs-hiw-cut-wall").evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return box.x + box.width / 2;
+    })
+  );
+  expect(marks.length).toBe(3);
+
+  await page.mouse.click(marks[0] ?? left, y);
+  await expect(crown).toHaveAttribute("data-pinned", "true");
+  const note = crown.locator('.cs-how-it-wins-note[data-open="true"]');
+  await expect(note).toHaveCount(1);
+  await page.waitForTimeout(200);
+  heights.push((await plate.boundingBox())?.height ?? 0);
+
+  const noteBox = await note.boundingBox();
+  const sentenceBox = await sentence.boundingBox();
+  console.log(`[crown] plate heights rest=${restHeight} hover/pinned=${heights.join(", ")}`);
+  console.log(`[crown] sentence bottom=${(sentenceBox?.y ?? 0) + (sentenceBox?.height ?? 0)} note top=${noteBox?.y}`);
+  expect(noteBox?.y ?? 0).toBeGreaterThanOrEqual((sentenceBox?.y ?? 0) + (sentenceBox?.height ?? 0));
+  for (const height of heights) {
+    expect(height).toBe(restHeight);
+  }
 });
