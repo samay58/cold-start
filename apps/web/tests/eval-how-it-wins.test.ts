@@ -2,7 +2,13 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { renderToStaticMarkup } from "react-dom/server";
 import { POST } from "../src/app/eval/api/ledger/route";
+import HowItWinsPage from "../src/app/eval/how-it-wins/page";
+
+// The verdict form is a client component; rendering the page for real needs a router to exist.
+// Mocking the router rather than the form keeps the form's own markup inside the assertion.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => undefined }) }));
 import { nextHowItWinsSlug, readHowItWinsReads } from "../src/app/eval/rig-data";
 import type { LedgerEvent } from "../src/app/eval/types";
 
@@ -67,6 +73,25 @@ const armFile = (slug: string) => ({
   key: { A: "claude-sonnet-5", B: "claude-sonnet-4-6" }
 });
 
+// The failure text names the writer's provider in real runs, so it is the thing that must not
+// reach the arm column. Both the parser test and the blindness tests file the same card.
+const FAILURE_TEXT = "how-it-wins draft invalid: running strategies must be distinct";
+
+async function writeHalfFailedAlpha() {
+  const halfFailed = armFile("alpha");
+  halfFailed.arms.B = {
+    writer: "claude-sonnet-4-6",
+    preVerify: { status: "nothing_stands_out" },
+    read: { status: "nothing_stands_out" },
+    failure: FAILURE_TEXT,
+    editorSkipped: false,
+    fitRetried: false,
+    styleIssues: [],
+    usage: { inputTokens: 90, outputTokens: 10, estimatedCostUsd: 0.02, durationMs: 800 }
+  } as (typeof halfFailed)["arms"]["B"];
+  await writeFile(path.join(dir, "how-it-wins", "alpha.json"), JSON.stringify(halfFailed));
+}
+
 let dir: string;
 
 beforeEach(async () => {
@@ -118,18 +143,7 @@ describe("how-it-wins rig data", () => {
   });
 
   it("accepts an arm that failed, carrying its message and its spent tokens", async () => {
-    const halfFailed = armFile("alpha");
-    halfFailed.arms.B = {
-      writer: "claude-sonnet-4-6",
-      preVerify: { status: "nothing_stands_out" },
-      read: { status: "nothing_stands_out" },
-      failure: "how-it-wins draft invalid: running strategies must be distinct",
-      editorSkipped: false,
-      fitRetried: false,
-      styleIssues: [],
-      usage: { inputTokens: 90, outputTokens: 10, estimatedCostUsd: 0.02, durationMs: 800 }
-    } as (typeof halfFailed)["arms"]["B"];
-    await writeFile(path.join(dir, "how-it-wins", "alpha.json"), JSON.stringify(halfFailed));
+    await writeHalfFailedAlpha();
 
     const reads = await readHowItWinsReads();
     expect(reads[0].arms.B.failure).toContain("must be distinct");
@@ -193,5 +207,31 @@ describe("ledger route, how-it-wins verdicts", () => {
     const response = await post({ ...verdict, slug: "beta", pick: "neither" });
     expect(response.status).toBe(200);
     expect((await response.json()).key).toEqual({ A: "claude-sonnet-5", B: "claude-sonnet-4-6" });
+  });
+});
+
+describe("a failed arm stays blind until the verdict", () => {
+  it("keeps the failure text out of the pre-verdict page", async () => {
+    await writeHalfFailedAlpha();
+    const html = renderToStaticMarkup(await HowItWinsPage());
+
+    expect(html).toContain("This read did not come back.");
+    expect(html).not.toContain(FAILURE_TEXT);
+    expect(html).not.toContain("claude-sonnet-4-6");
+    expect(html).not.toContain("claude-sonnet-5");
+  });
+
+  it("returns the failure text with the key once the verdict is logged", async () => {
+    await writeHalfFailedAlpha();
+    const payload = await (await post(verdict)).json();
+
+    expect(payload.key).toEqual({ A: "claude-sonnet-5", B: "claude-sonnet-4-6" });
+    expect(payload.failures).toEqual({ B: FAILURE_TEXT });
+  });
+
+  it("omits failures entirely when both arms filed", async () => {
+    const payload = await (await post(verdict)).json();
+    expect(payload.key).toBeTruthy();
+    expect(payload.failures).toBeUndefined();
   });
 });

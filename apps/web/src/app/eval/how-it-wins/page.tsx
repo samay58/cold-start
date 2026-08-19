@@ -111,11 +111,10 @@ export default async function HowItWinsPage() {
           return (
             <section key={label} className="eval-hiw-arm">
               <p className="eval-pair-label">{label}</p>
+              {/* The error text itself stays behind the verdict: provider error bodies can
+                  echo the model id, which would unblind the column. */}
               {arm.failure ? (
-                <div>
-                  <p className="eval-hiw-empty">This read did not come back.</p>
-                  <p className="eval-hiw-failure">{arm.failure}</p>
-                </div>
+                <p className="eval-hiw-empty">This read did not come back.</p>
               ) : (
                 <HowItWinsView read={arm.read} />
               )}

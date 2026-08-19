@@ -28,9 +28,10 @@ export async function POST(request: Request): Promise<Response> {
   // A how-it-wins verdict names one of the frozen arm files. A slug with no filed read is a
   // typo or a stale page, so it is refused rather than written into an append-only ledger.
   const judgedSlug = parsed.data.kind === "how-it-wins" ? parsed.data.slug : null;
-  const key = judgedSlug
-    ? (await readHowItWinsReads()).find((entry) => entry.slug === judgedSlug)?.key
+  const filed = judgedSlug
+    ? (await readHowItWinsReads()).find((entry) => entry.slug === judgedSlug)
     : undefined;
+  const key = filed?.key;
   if (judgedSlug && !key) {
     return Response.json({ error: `no filed how-it-wins read for ${judgedSlug}` }, { status: 400 });
   }
@@ -44,6 +45,16 @@ export async function POST(request: Request): Promise<Response> {
   const slugs = new Set(involvedSlugs(parsed.data));
   const index = await readCorpusIndex();
   const reveal = index.filter((row) => slugs.has(row.slug));
-  // The blind read only learns which writer wrote which arm once the verdict is on disk.
-  return Response.json({ ok: true, reveal, ...(key ? { key } : {}) });
+  // The blind read only learns which writer wrote which arm once the verdict is on disk, and a
+  // failed arm's error text rides along because provider error bodies can name the model.
+  const failures = {
+    ...(filed?.arms.A.failure ? { A: filed.arms.A.failure } : {}),
+    ...(filed?.arms.B.failure ? { B: filed.arms.B.failure } : {})
+  };
+  return Response.json({
+    ok: true,
+    reveal,
+    ...(key ? { key } : {}),
+    ...(Object.keys(failures).length > 0 ? { failures } : {})
+  });
 }

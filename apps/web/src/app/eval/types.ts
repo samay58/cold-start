@@ -163,6 +163,14 @@ export const howItWinsIndexRowSchema = z.object({
 });
 
 export type HowItWinsFile = z.infer<typeof howItWinsFileSchema>;
+
+// What the ledger route hands back once a how-it-wins verdict is on disk. Both fields stay off
+// the pre-verdict page: a provider error body can echo the model id, so a failure message is as
+// identifying as the key itself.
+export type HowItWinsReveal = {
+  key?: { A: string; B: string };
+  failures?: { A?: string; B?: string };
+};
 export type HowItWinsRating = (typeof HOW_IT_WINS_RATINGS)[number];
 export const HOW_IT_WINS_RATING_LABEL: Record<HowItWinsRating, string> = {
   ship: "Ship",

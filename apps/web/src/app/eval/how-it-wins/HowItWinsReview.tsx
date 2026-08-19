@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { HOW_IT_WINS_RATING_LABEL, HOW_IT_WINS_RATINGS, type HowItWinsRating } from "../types";
+import {
+  HOW_IT_WINS_RATING_LABEL,
+  HOW_IT_WINS_RATINGS,
+  type HowItWinsRating,
+  type HowItWinsReveal
+} from "../types";
 
 const PICKS = [
   { value: "A", label: "Pick A" },
@@ -22,7 +27,7 @@ export function HowItWinsReview({ slug }: { slug: string }) {
   const [note, setNote] = useState("");
   const [phase, setPhase] = useState<Phase>("judging");
   const [error, setError] = useState<string | null>(null);
-  const [key, setKey] = useState<{ A: string; B: string } | null>(null);
+  const [reveal, setReveal] = useState<HowItWinsReveal | null>(null);
 
   const ready = pick !== null && ratings.A !== null && ratings.B !== null;
 
@@ -37,8 +42,8 @@ export function HowItWinsReview({ slug }: { slug: string }) {
         body: JSON.stringify({ kind: "how-it-wins", slug, pick, ratings, note })
       });
       if (!response.ok) throw new Error(`status ${response.status}`);
-      const payload = (await response.json()) as { key?: { A: string; B: string } };
-      setKey(payload.key ?? null);
+      const payload = (await response.json()) as HowItWinsReveal;
+      setReveal(payload);
       setPhase("revealed");
     } catch {
       // Never auto-advance on failure; a lost judgment is the one unacceptable failure.
@@ -48,6 +53,13 @@ export function HowItWinsReview({ slug }: { slug: string }) {
   }, [ready, phase, slug, pick, ratings, note]);
 
   if (phase === "revealed") {
+    const key = reveal?.key;
+    // Failure text lands here rather than in the arm column: a provider error body can name the
+    // model, so it stays behind the verdict along with the key.
+    const failures = (["A", "B"] as const)
+      .map((arm) => ({ arm, text: reveal?.failures?.[arm] }))
+      .filter((entry): entry is { arm: "A" | "B"; text: string } => Boolean(entry.text));
+
     return (
       <section className="eval-reveal">
         <h2>Who wrote which</h2>
@@ -58,6 +70,11 @@ export function HowItWinsReview({ slug }: { slug: string }) {
         ) : (
           <p>no key on file</p>
         )}
+        {failures.map((entry) => (
+          <p key={entry.arm} className="eval-hiw-failure">
+            {entry.arm} did not come back: {entry.text}
+          </p>
+        ))}
         <button type="button" onClick={() => router.refresh()}>
           Next
         </button>
