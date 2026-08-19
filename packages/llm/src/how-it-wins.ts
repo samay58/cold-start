@@ -52,6 +52,7 @@ const EMPTY_TEXT_RETRY_MAX_TOKENS = 24000;
 const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
 const CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/;
+const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
 
 export class HowItWinsEmptyTextError extends Error {
   constructor(message = "the how-it-wins model returned no text block") {
@@ -114,11 +115,22 @@ function parseDraftJson(text: string): unknown {
   return undefined;
 }
 
+// Models write [e1, e2] often enough that a strict one-id-per-bracket reader loses the whole
+// note's evidence. Expanded only for the marker derivation; the stored note keeps its own text.
+function expandedMarkerLists(note: string): string {
+  return note.replace(COMMA_MARKER_LIST_PATTERN, (_match, ids: string) =>
+    ids
+      .split(",")
+      .map((id) => `[${id.trim()}]`)
+      .join("")
+  );
+}
+
 function citationIdsFromNote(note: unknown): string[] {
   if (typeof note !== "string") {
     return [];
   }
-  return Array.from(new Set(visibleCitationMarkers(note)));
+  return Array.from(new Set(visibleCitationMarkers(expandedMarkerLists(note))));
 }
 
 function strategyIdFor(name: unknown, path: string, issues: string[]): HowItWinsStrategyId | null {
@@ -312,7 +324,6 @@ async function callOnce(call: PassCall, maxTokens: number): Promise<string> {
     params: {
       model: call.model,
       max_tokens: maxTokens,
-      temperature: 0.2,
       system: [{ type: "text", text: call.system, cache_control: anthropicSystemCacheControl() }],
       messages: [{ role: "user", content: call.user }]
     }
@@ -392,6 +403,7 @@ export async function synthesizeHowItWins(input: {
   let fitRetried = false;
 
   if ("issues" in parsed || styleIssues.length > 0) {
+    const firstRead = "read" in parsed ? parsed.read : null;
     const issues = "issues" in parsed ? parsed.issues : styleIssues;
     const retry = await askWriter(
       "fit",
@@ -400,8 +412,18 @@ export async function synthesizeHowItWins(input: {
       FIT_MAX_TOKENS
     );
     fitRetried = true;
-    parsed = parseHowItWinsDraft(retry, card);
-    styleIssues = "read" in parsed ? styleIssuesForRead(parsed.read) : [];
+    const retried = parseHowItWinsDraft(retry, card);
+
+    if ("read" in retried) {
+      parsed = retried;
+      styleIssues = styleIssuesForRead(retried.read);
+    } else if (firstRead) {
+      // A first fit that parsed and only tripped style checks beats a re-ask that parses into
+      // nothing. Keep it, with the style issues it still carries.
+      parsed = { read: firstRead };
+    } else {
+      parsed = retried;
+    }
   }
 
   if ("issues" in parsed) {

@@ -155,7 +155,7 @@ export const HOW_IT_WINS_TASK_INTRO = `You are writing one read for Cold Start, 
 - which one pair among them is unusual for a company in its category, and what specifically makes that pair hard for a competitor to copy;
 - zero to two ways it could take but has not, each with the condition that would have to hold;
 - what would change the read.
-If the evidence shows nothing unusual, say that instead of inventing a pattern. Only claim what the cited evidence supports, and say which statements are inference rather than observation. Cite with the ids from the card, in square brackets, exactly as they appear on the card's citations (for example [c3]).
+If the evidence shows nothing unusual, say that instead of inventing a pattern. Only claim what the cited evidence supports, and say which statements are inference rather than observation. Cite with the ids from the card, in square brackets, exactly as they appear on the card's citations (for example [c3]). Put one id in each pair of brackets; write [c3][c7], never [c3, c7].
 If a sentence could describe ten companies, it fails. Never use an em dash anywhere; use a period or a semicolon instead.`;
 
 export const HOW_IT_WINS_PASS_1 = `PASS 1: ESTABLISH THE REASONING

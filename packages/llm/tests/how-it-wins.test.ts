@@ -142,6 +142,25 @@ describe("parseHowItWinsDraft", () => {
     expect("read" in parsed).toBe(true);
   });
 
+  it("derives every id from a comma list inside one bracket", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.running = draft.running.map((entry, index) =>
+          index === 0
+            ? { ...entry, note: "It ships research and harness together [e1, e2]. Observed in the coverage." }
+            : entry
+        );
+      }),
+      card
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(parsed.read.running[0]?.citationIds).toEqual(["e1", "e2"]);
+    expect(parsed.read.running[0]?.note).toContain("[e1, e2]");
+  });
+
   it("returns a nothing_stands_out read with its sentence", () => {
     const parsed = parseHowItWinsDraft(
       JSON.stringify({ status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do." }),
@@ -341,5 +360,47 @@ describe("synthesizeHowItWins", () => {
     expect(retry?.label).toBe("how-it-wins-fit");
     expect(retry?.params.messages[0]?.content).toContain("running[0].meaning");
     expect(retry?.params.messages[0]?.content).toContain("fix them and return only the JSON");
+  });
+
+  it("sends no temperature on any pass", async () => {
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()));
+
+    await runDriver();
+
+    expect(tracedMessage).toHaveBeenCalledTimes(4);
+    for (const call of callsMade()) {
+      expect(call.params).not.toHaveProperty("temperature");
+    }
+  });
+
+  it("keeps the first parsed read when the corrective re-ask parses into nothing", async () => {
+    const styledDraft = draftJson((draft) => {
+      draft.running = draft.running.map((entry, index) =>
+        index === 0 ? { ...entry, meaning: "Two competences at once" } : entry
+      );
+    });
+
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(styledDraft))
+      .mockResolvedValueOnce(textMessage("I cannot write this read."));
+
+    const result = await runDriver();
+
+    expect(result.fitRetried).toBe(true);
+    expect(result.read.status).toBe("read");
+    if (result.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(result.read.running[0]?.meaning).toBe("Two competences at once");
+    expect(result.styleIssues.join(" ")).toContain("running[0].meaning");
   });
 });
