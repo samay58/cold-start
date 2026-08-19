@@ -87,6 +87,10 @@ Ledger event shapes (illustrative):
 
 Positive chips: sharper thesis, better comps, more honest, deeper evidence, tighter, better voice. Inverse flags (deep singles): slop, generic, padded, template question. Context chip: "I know this space", so pattern mining can weight domain-familiar judgments differently. Chips map onto the dimension taxonomy: explanation quality, nuance and honesty, evidence depth, opportunity framing, category population, competitive landscape, voice and register.
 
+### How it wins reads
+
+`/eval/how-it-wins` is a second lane over the same corpus and the same ledger. `npm run eval:how-it-wins` writes two "How it wins" reads per card into `eval/curation/how-it-wins/` (gitignored, like the corpus, because these files hold synthesis): one per writer model, same editor and same verifier, with the A and B slots assigned by a seeded per-card coin flip. The route shows the next card no one has judged yet, side by side and unlabelled. The reader picks A, B, or neither, rates each read ship, weak, or slop, and can leave a note. That verdict posts as a `how-it-wins` ledger event, `{"kind":"how-it-wins","slug":"a","pick":"A","ratings":{"A":"ship","B":"weak"},"note":"","ts":"..."}`, and only then does the page say which model wrote which arm. When every card is judged the route shows picks and ratings per model. This lane decides the production writer model; it does not rank cards.
+
 ### Blindness
 
 Company identity shows; era, routing, cost, and generation date stay hidden until the pick is logged, then a reveal panel shows everything. Same reveal-on-request discipline as the blind reads.

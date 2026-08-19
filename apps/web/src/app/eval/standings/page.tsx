@@ -53,6 +53,7 @@ function standingsFrom(events: LedgerEvent[], index: Map<string, CorpusIndexRow>
 function chipHistogram(events: LedgerEvent[]): { chip: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const event of events) {
+    if (event.kind === "how-it-wins") continue;
     for (const chip of event.chips ?? []) {
       counts.set(chip, (counts.get(chip) ?? 0) + 1);
     }

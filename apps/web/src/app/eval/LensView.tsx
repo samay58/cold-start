@@ -1,4 +1,5 @@
 import type { ColdStartCard } from "@cold-start/core";
+import { HowItWinsView } from "./HowItWinsView";
 
 type Synthesis = NonNullable<ColdStartCard["synthesis"]>;
 
@@ -20,6 +21,12 @@ export function LensView({ synthesis }: { synthesis: Synthesis | null }) {
     <section className="eval-lens">
       <h2>Investor read</h2>
       <p className="eval-lens-why">{synthesis.whyItMatters.text}</p>
+      {synthesis.howItWins ? (
+        <div className="eval-lens-block">
+          <h3>How it wins</h3>
+          <HowItWinsView read={synthesis.howItWins} />
+        </div>
+      ) : null}
       {synthesis.bullCase.length > 0 ? (
         <div className="eval-lens-block">
           <h3>Bull case</h3>

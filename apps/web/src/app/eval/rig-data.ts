@@ -3,8 +3,11 @@ import path from "node:path";
 import { dataDir } from "./gate";
 import {
   corpusIndexRowSchema,
+  howItWinsFileSchema,
+  howItWinsIndexRowSchema,
   sessionPlanSchema,
   type CorpusIndexRow,
+  type HowItWinsFile,
   type LedgerEvent,
   type SessionPlan
 } from "./types";
@@ -86,4 +89,32 @@ export function nextDeepSlug(finalists: string[], events: LedgerEvent[]): string
     events.filter((event) => event.kind === "deep-single").map((event) => event.slug)
   );
   return finalists.find((slug) => !judged.has(slug)) ?? null;
+}
+
+export async function readHowItWinsReads(dir = dataDir()): Promise<HowItWinsFile[]> {
+  const root = path.join(dir, "how-it-wins");
+  let rawIndex: string;
+  try {
+    rawIndex = await readFile(path.join(root, "index.json"), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  const rows = howItWinsIndexRowSchema.array().parse(JSON.parse(rawIndex));
+  const files: HowItWinsFile[] = [];
+  for (const row of rows) {
+    // Same jail as readCardFile: the slug comes off disk, so it never builds a path segment
+    // until it has been checked.
+    if (!SLUG_PATTERN.test(row.slug)) throw new Error(`invalid slug: ${row.slug}`);
+    const raw = await readFile(path.join(root, `${row.slug}.json`), "utf8");
+    files.push(howItWinsFileSchema.parse(JSON.parse(raw)));
+  }
+  return files;
+}
+
+export function nextHowItWinsSlug(reads: { slug: string }[], events: LedgerEvent[]): string | null {
+  const judged = new Set(
+    events.filter((event) => event.kind === "how-it-wins").map((event) => event.slug)
+  );
+  return reads.find((entry) => !judged.has(entry.slug))?.slug ?? null;
 }

@@ -1,3 +1,4 @@
+import { howItWinsSchema } from "@cold-start/core";
 import { z } from "zod";
 
 export const POSITIVE_CHIPS = ["sharper-thesis", "better-comps", "more-honest", "deeper-evidence", "tighter", "better-voice"] as const;
@@ -85,6 +86,18 @@ const deepSingle = z.object({
   knowsSpace: z.boolean().default(false)
 });
 
+export const HOW_IT_WINS_RATINGS = ["ship", "weak", "slop"] as const;
+
+const howItWinsRatingSchema = z.enum(HOW_IT_WINS_RATINGS);
+
+const howItWins = z.object({
+  kind: z.literal("how-it-wins"),
+  slug: z.string(),
+  pick: z.enum(["A", "B", "neither"]),
+  ratings: z.object({ A: howItWinsRatingSchema, B: howItWinsRatingSchema }),
+  note: z.string().default("")
+});
+
 const pair = z.object({
   kind: z.literal("pair"),
   pairId: z.string(),
@@ -97,7 +110,7 @@ const pair = z.object({
 // zod v3 rejects refined objects inside discriminatedUnion, so the quick-pick
 // group invariants live on the union instead of the member.
 export const ledgerEventInputSchema = z
-  .discriminatedUnion("kind", [quickPick, deepSingle, pair])
+  .discriminatedUnion("kind", [quickPick, deepSingle, pair, howItWins])
   .superRefine((event, ctx) => {
     if (event.kind !== "quick-pick") return;
     if (!event.group.includes(event.winner)) {
@@ -110,3 +123,47 @@ export const ledgerEventInputSchema = z
 
 type LedgerEventInput = z.infer<typeof ledgerEventInputSchema>;
 export type LedgerEvent = LedgerEventInput & { ts: string };
+
+// The two writer arms of one card, frozen by scripts/how-it-wins-corpus.ts. The rig parses each
+// read with the shipped schema, so a malformed file fails here rather than inside a component.
+const howItWinsUsageSchema = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  estimatedCostUsd: z.number(),
+  durationMs: z.number()
+});
+
+const howItWinsArmSchema = z.object({
+  writer: z.string().min(1),
+  preVerify: howItWinsSchema,
+  read: howItWinsSchema,
+  dropReason: z.enum(["running-dropped", "pair-dropped"]).optional(),
+  editorSkipped: z.boolean(),
+  fitRetried: z.boolean(),
+  styleIssues: z.array(z.string()),
+  usage: howItWinsUsageSchema
+});
+
+export const howItWinsFileSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  domain: z.string().min(1),
+  editor: z.string().min(1),
+  arms: z.object({ A: howItWinsArmSchema, B: howItWinsArmSchema }),
+  key: z.object({ A: z.string().min(1), B: z.string().min(1) })
+});
+
+export const howItWinsIndexRowSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  domain: z.string().min(1),
+  createdAt: z.string()
+});
+
+export type HowItWinsFile = z.infer<typeof howItWinsFileSchema>;
+export type HowItWinsRating = (typeof HOW_IT_WINS_RATINGS)[number];
+export const HOW_IT_WINS_RATING_LABEL: Record<HowItWinsRating, string> = {
+  ship: "Ship",
+  weak: "Weak",
+  slop: "Slop"
+};

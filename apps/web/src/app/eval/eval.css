@@ -443,3 +443,64 @@ body:has(.eval-rig) {
   color: #6e5c9e;
   margin: 0 0 8px;
 }
+
+.eval-hiw-arm {
+  border: 1px solid #e4ded2;
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 16px 18px;
+}
+
+.eval-hiw-lede {
+  font-size: 17px;
+  line-height: 1.4;
+  margin: 0 0 14px;
+}
+
+.eval-hiw-running,
+.eval-hiw-next {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+.eval-hiw-running li,
+.eval-hiw-next li {
+  margin-bottom: 12px;
+}
+
+.eval-hiw-name {
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+
+.eval-hiw-meaning {
+  color: #7a7466;
+  margin: 0 0 4px;
+}
+
+.eval-hiw-note {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.eval-hiw-pair {
+  border-top: 1px solid #e4ded2;
+  padding-top: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.eval-hiw-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6e5c9e;
+}
+
+.eval-hiw-empty {
+  font-size: 14px;
+  color: #3d3931;
+  margin: 0;
+}

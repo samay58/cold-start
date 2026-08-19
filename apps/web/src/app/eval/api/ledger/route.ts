@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "../../gate";
-import { readCorpusIndex } from "../../rig-data";
+import { readCorpusIndex, readHowItWinsReads } from "../../rig-data";
 import { ledgerEventInputSchema } from "../../types";
 
 function involvedSlugs(event: { kind: string; group?: string[]; slug?: string }): string[] {
@@ -34,5 +34,10 @@ export async function POST(request: Request): Promise<Response> {
   const slugs = new Set(involvedSlugs(parsed.data));
   const index = await readCorpusIndex();
   const reveal = index.filter((row) => slugs.has(row.slug));
-  return Response.json({ ok: true, reveal });
+  // The blind read only learns which writer wrote which arm once the verdict is on disk.
+  const judgedSlug = parsed.data.kind === "how-it-wins" ? parsed.data.slug : null;
+  const key = judgedSlug
+    ? (await readHowItWinsReads()).find((entry) => entry.slug === judgedSlug)?.key
+    : undefined;
+  return Response.json({ ok: true, reveal, ...(key ? { key } : {}) });
 }
