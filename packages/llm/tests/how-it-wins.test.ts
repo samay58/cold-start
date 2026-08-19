@@ -168,7 +168,8 @@ describe("parseHowItWinsDraft", () => {
     );
 
     expect(parsed).toEqual({
-      read: { status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do." }
+      read: { status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do." },
+      normalizations: []
     });
   });
 
@@ -186,7 +187,8 @@ describe("parseHowItWinsDraft", () => {
     if (!("issues" in parsed)) {
       throw new Error("expected issues");
     }
-    expect(parsed.issues.join(" ")).toContain("z9");
+    expect(parsed.issues.join(" ")).toContain("[z9]");
+    expect(parsed.issues.join(" ")).toContain("cite only ids that appear in the card's citations");
   });
 
   it("reports a strategy name outside the vocabulary", () => {
@@ -201,7 +203,7 @@ describe("parseHowItWinsDraft", () => {
     if (!("issues" in parsed)) {
       throw new Error("expected issues");
     }
-    expect(parsed.issues.join(" ")).toContain("Moat");
+    expect(parsed.issues).toContain('"Moat" is not one of the 80 ways; use a name from the list exactly as written');
   });
 
   it("reports a running note with no citation marker", () => {
@@ -218,13 +220,111 @@ describe("parseHowItWinsDraft", () => {
     if (!("issues" in parsed)) {
       throw new Error("expected issues");
     }
-    expect(parsed.issues.join(" ")).toContain("running");
+    expect(parsed.issues).toContain(
+      'running item 3 ("Prestige") has no citation ids in square brackets in its note; cite at least one id from the card, like [e3]'
+    );
   });
 
-  it("reports text that is not JSON", () => {
-    expect(parseHowItWinsDraft("I could not write this read.", card)).toEqual({
-      issues: expect.arrayContaining([expect.any(String)])
-    });
+  it("quotes the parser error when the response is not JSON", () => {
+    const parsed = parseHowItWinsDraft("I could not write this read.", card);
+
+    if (!("issues" in parsed)) {
+      throw new Error("expected issues");
+    }
+    expect(parsed.issues[0]).toMatch(/^the JSON could not be parsed: /);
+  });
+
+  it("reports a status outside the two the slots allow", () => {
+    const parsed = parseHowItWinsDraft(JSON.stringify({ ...JSON.parse(draftJson()), status: "nothing_unusual" }), card);
+
+    expect(parsed).toEqual({ issues: ['status must be "read" or "nothing_stands_out"'] });
+  });
+
+  it("reports a pair leg that is not one of the running ways", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.pair = { ...draft.pair, strategies: ["Hybrid", "Curation"] };
+      }),
+      card
+    );
+
+    expect(parsed).toEqual({ issues: ["the pair must name two of the running strategies, or be null"] });
+  });
+
+  it("records no normalizations for a clean draft", () => {
+    const parsed = parseHowItWinsDraft(draftJson(), card);
+
+    if (!("read" in parsed)) {
+      throw new Error("expected a read");
+    }
+    expect(parsed.normalizations).toEqual([]);
+  });
+
+  it("drops a next way that is already running instead of failing", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.next = [{ strategy: "Prestige", note: "It could lean harder on the endorsements [e5]." }];
+      }),
+      card
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(parsed.read.next).toEqual([]);
+    expect(parsed.normalizations).toEqual(['dropped the next way "Prestige"; it is already running']);
+  });
+
+  it("drops a next way whose name is not one of the 80 instead of failing", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.next = [{ strategy: "Expansion", note: "It could open a second market [e5]." }];
+      }),
+      card
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(parsed.read.next).toEqual([]);
+    expect(parsed.normalizations).toEqual(['dropped the next way "Expansion"; it is not one of the 80 ways']);
+  });
+
+  it("keeps the first mention when a running way is repeated", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.running = [
+          ...draft.running,
+          {
+            strategy: "Chokepoint",
+            meaning: "The company sits on a step buyers cannot route around.",
+            note: "Said a second time, with the same evidence [e2]."
+          }
+        ];
+      }),
+      card
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(parsed.read.running.map((entry) => entry.strategy)).toEqual(["hybrid", "chokepoint", "prestige"]);
+    expect(parsed.read.running[1]?.citationIds).toEqual(["e2", "e4"]);
+    expect(parsed.normalizations).toEqual(['dropped a repeated running way: "Chokepoint"']);
+  });
+
+  it("resolves pair legs written in another case or punctuation", () => {
+    const parsed = parseHowItWinsDraft(
+      draftJson((draft) => {
+        draft.pair = { ...draft.pair, strategies: ["hybrid", "choke-point"] };
+      }),
+      card
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") {
+      throw new Error("expected a read");
+    }
+    expect(parsed.read.pair?.strategies).toEqual(["hybrid", "chokepoint"]);
   });
 });
 
@@ -360,6 +460,24 @@ describe("synthesizeHowItWins", () => {
     expect(retry?.label).toBe("how-it-wins-fit");
     expect(retry?.params.messages[0]?.content).toContain("running[0].meaning");
     expect(retry?.params.messages[0]?.content).toContain("fix them and return only the JSON");
+  });
+
+  it("carries the parse normalizations out on the result", async () => {
+    const withNormalizations = draftJson((draft) => {
+      draft.next = [{ strategy: "Expansion", note: "It could open a second market [e5]." }];
+    });
+
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(withNormalizations));
+
+    const result = await runDriver();
+
+    expect(result.normalizations).toEqual(['dropped the next way "Expansion"; it is not one of the 80 ways']);
+    expect(result.fitRetried).toBe(false);
   });
 
   it("sends no temperature on any pass", async () => {

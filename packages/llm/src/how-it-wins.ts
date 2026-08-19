@@ -29,6 +29,7 @@ import {
 } from "./how-it-wins-prompts";
 import { visibleCitationMarkers } from "./tool-schema-fragments";
 import { isTransientLlmError } from "./transient-error";
+import type { z } from "zod";
 
 export const HOW_IT_WINS_DEFAULT_EDITOR_MODEL = "deepseek/deepseek-v4-pro";
 
@@ -39,6 +40,9 @@ export type HowItWinsResult = {
   editorSkipped: boolean;
   fitRetried: boolean;
   styleIssues: string[];
+  // Slips the parser corrected instead of failing on: a repeated running way, a next way that is
+  // already running or outside the vocabulary, a pair leg spelled as a running way. Not failures.
+  normalizations: string[];
 };
 
 const REASON_MAX_TOKENS = 16000;
@@ -93,26 +97,33 @@ function wordCount(value: string): number {
 }
 
 // The model is asked for JSON and only JSON, but a fence or a sentence of preamble is the common
-// slip. Try the whole response, then a fenced block, then the outermost braces.
-function parseDraftJson(text: string): unknown {
+// slip. Try the whole response, then a fenced block, then the outermost braces. The first parser
+// error is kept so the re-ask can quote it back.
+function parseDraftJson(text: string): { value: unknown } | { error: string } {
   const trimmed = text.trim();
   const fenced = CODE_FENCE_PATTERN.exec(trimmed)?.[1]?.trim();
   const firstBrace = trimmed.indexOf("{");
   const lastBrace = trimmed.lastIndexOf("}");
   const braced = firstBrace >= 0 && lastBrace > firstBrace ? trimmed.slice(firstBrace, lastBrace + 1) : undefined;
 
+  let firstError = "the response held no JSON object";
+  let sawCandidate = false;
+
   for (const candidate of [trimmed, fenced, braced]) {
     if (!candidate) {
       continue;
     }
     try {
-      return JSON.parse(candidate);
-    } catch {
-      continue;
+      return { value: JSON.parse(candidate) };
+    } catch (error) {
+      if (!sawCandidate) {
+        firstError = error instanceof Error ? error.message : String(error);
+        sawCandidate = true;
+      }
     }
   }
 
-  return undefined;
+  return { error: firstError };
 }
 
 // Models write [e1, e2] often enough that a strict one-id-per-bracket reader loses the whole
@@ -133,17 +144,8 @@ function citationIdsFromNote(note: unknown): string[] {
   return Array.from(new Set(visibleCitationMarkers(expandedMarkerLists(note))));
 }
 
-function strategyIdFor(name: unknown, path: string, issues: string[]): HowItWinsStrategyId | null {
-  if (typeof name !== "string") {
-    issues.push(`${path} has no strategy name`);
-    return null;
-  }
-
-  const id = howItWinsStrategyIdForName(name);
-  if (!id) {
-    issues.push(`${path} is not one of the 80 ways: "${name}"`);
-  }
-  return id;
+function strategyNameOf(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function citationIdsOf(read: HowItWins): string[] {
@@ -158,73 +160,176 @@ function citationIdsOf(read: HowItWins): string[] {
   ];
 }
 
-export function parseHowItWinsDraft(text: string, card: ColdStartCard): { read: HowItWins } | { issues: string[] } {
-  const raw = parseDraftJson(text);
+// The model never sees the derived schema, so a zod path means nothing to it. Every failure is
+// restated in the slot names and the vocabulary the prompt actually gave it.
+function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
+  const [head, second, third] = issue.path;
+
+  if (head === "sentence") {
+    return "the sentence slot needs one plain sentence saying how this company wins today";
+  }
+  if (head === "wrongIf") {
+    return "wrong_if needs one sentence naming what would make the whole read wrong";
+  }
+  if (head === "running") {
+    if (typeof second !== "number") {
+      return "the read needs two to four running ways, each with a strategy name, a meaning, and a note";
+    }
+    const label = `running item ${second + 1} ("${runningNames[second] ?? "unnamed"}")`;
+    if (third === "citationIds") {
+      return `${label} has no citation ids in square brackets in its note; cite at least one id from the card, like [e3]`;
+    }
+    if (third === "meaning") {
+      return `${label} needs a meaning line: one complete plain sentence saying what that way of winning means`;
+    }
+    if (third === "note") {
+      return `${label} needs a note in plain prose, with the citation ids it rests on`;
+    }
+    return `${label} does not name one of the 80 ways; use a name from the list exactly as written`;
+  }
+  if (head === "pair") {
+    if (second === "note") {
+      return "the pair needs a note in plain prose, with the citation ids it rests on";
+    }
+    if (second === "wrongIf") {
+      return "the pair needs a wrong_if sentence naming what would make the pair read wrong";
+    }
+    if (second === "citationIds") {
+      return "the pair note has no citation ids in square brackets; cite at least one id from the card, like [e3]";
+    }
+    return "the pair must name two of the running strategies, or be null";
+  }
+  if (head === "next") {
+    return "each next item needs a strategy name from the list and a note, and there may be at most two";
+  }
+
+  return 'the JSON must hold the keys status, sentence, running, pair, next, and wrong_if';
+}
+
+export type HowItWinsParse = { read: HowItWins; normalizations: string[] } | { issues: string[] };
+
+export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWinsParse {
+  const draft = parseDraftJson(text);
+  if ("error" in draft) {
+    return { issues: [`the JSON could not be parsed: ${draft.error.slice(0, 120)}`] };
+  }
+  const raw = draft.value;
   if (!isRecord(raw)) {
-    return { issues: ["the draft was not JSON"] };
+    return { issues: ["the JSON could not be parsed: the draft was not a JSON object"] };
   }
 
   if (raw.status === "nothing_stands_out") {
     const sentence = typeof raw.sentence === "string" && raw.sentence.trim().length > 0 ? raw.sentence : undefined;
-    return { read: sentence ? { status: "nothing_stands_out", sentence } : { status: "nothing_stands_out" } };
+    return {
+      read: sentence ? { status: "nothing_stands_out", sentence } : { status: "nothing_stands_out" },
+      normalizations: []
+    };
+  }
+  if (raw.status !== "read") {
+    return { issues: ['status must be "read" or "nothing_stands_out"'] };
   }
 
   const issues: string[] = [];
-  const running = asArray(raw.running).map((entry, index) => {
+  const normalizations: string[] = [];
+
+  const drafted = asArray(raw.running).map((entry, index) => {
     const item = isRecord(entry) ? entry : {};
-    return {
-      strategy: strategyIdFor(item.strategy, `running[${index}].strategy`, issues),
-      meaning: item.meaning,
-      note: item.note,
-      citationIds: citationIdsFromNote(item.note)
-    };
+    const name = strategyNameOf(item.strategy);
+    const id = name ? howItWinsStrategyIdForName(name) : null;
+    if (!name) {
+      issues.push(`running item ${index + 1} has no strategy name; use a name from the list exactly as written`);
+    } else if (!id) {
+      issues.push(`"${name}" is not one of the 80 ways; use a name from the list exactly as written`);
+    }
+    return { id, name, meaning: item.meaning, note: item.note, citationIds: citationIdsFromNote(item.note) };
   });
+
+  // A repeated way is a drafting slip, not a broken read; the first mention keeps its note.
+  const running: typeof drafted = [];
+  for (const entry of drafted) {
+    if (entry.id && running.some((kept) => kept.id === entry.id)) {
+      normalizations.push(`dropped a repeated running way: "${entry.name}"`);
+      continue;
+    }
+    running.push(entry);
+  }
+
+  const runningIds = new Set(running.map((entry) => entry.id).filter((id): id is HowItWinsStrategyId => id !== null));
 
   const pairRaw = isRecord(raw.pair) ? raw.pair : null;
   const pair = pairRaw
     ? {
-        strategies: asArray(pairRaw.strategies).map((name, index) =>
-          strategyIdFor(name, `pair.strategies[${index}]`, issues)
-        ),
+        strategies: asArray(pairRaw.strategies).map((value) => {
+          const name = strategyNameOf(value);
+          const mapped = name ? howItWinsStrategyIdForName(name) : null;
+          if (mapped && runningIds.has(mapped)) {
+            return mapped;
+          }
+          // The pair names a running way by a spelling the vocabulary map missed.
+          const sameName = running.find((entry) => entry.id && entry.name.toLowerCase() === name.toLowerCase());
+          if (sameName?.id) {
+            normalizations.push(`read the pair leg "${name}" as the running way "${sameName.name}"`);
+            return sameName.id;
+          }
+          return mapped;
+        }),
         note: pairRaw.note,
         wrongIf: pairRaw.wrong_if ?? pairRaw.wrongIf,
         citationIds: citationIdsFromNote(pairRaw.note)
       }
     : null;
 
-  const next = asArray(raw.next).map((entry, index) => {
+  // next is inference about what the company could still take. A name outside the vocabulary, or
+  // one it is already running, costs that single item rather than the whole read.
+  const next = asArray(raw.next).flatMap((entry) => {
     const item = isRecord(entry) ? entry : {};
-    return {
-      strategy: strategyIdFor(item.strategy, `next[${index}].strategy`, issues),
-      note: item.note,
-      citationIds: citationIdsFromNote(item.note)
-    };
+    const name = strategyNameOf(item.strategy);
+    const id = name ? howItWinsStrategyIdForName(name) : null;
+    if (!id) {
+      normalizations.push(`dropped the next way "${name || "unnamed"}"; it is not one of the 80 ways`);
+      return [];
+    }
+    if (runningIds.has(id)) {
+      normalizations.push(`dropped the next way "${name}"; it is already running`);
+      return [];
+    }
+    return [{ strategy: id, note: item.note, citationIds: citationIdsFromNote(item.note) }];
   });
 
   if (issues.length > 0) {
-    return { issues };
+    return { issues: Array.from(new Set(issues)) };
   }
 
   const parsed = howItWinsSchema.safeParse({
     status: "read",
     sentence: raw.sentence,
-    running,
+    running: running.map((entry) => ({
+      strategy: entry.id,
+      meaning: entry.meaning,
+      note: entry.note,
+      citationIds: entry.citationIds
+    })),
     pair,
     next,
     wrongIf: raw.wrong_if ?? raw.wrongIf
   });
 
   if (!parsed.success) {
-    return { issues: parsed.error.issues.map((issue) => `${issue.path.join(".") || "read"}: ${issue.message}`) };
+    const names = running.map((entry) => entry.name);
+    return { issues: Array.from(new Set(parsed.error.issues.map((issue) => issueSentence(issue, names)))) };
   }
 
   const onCard = new Set(card.citations.map((citation) => citation.id));
   const missing = Array.from(new Set(citationIdsOf(parsed.data).filter((id) => !onCard.has(id))));
   if (missing.length > 0) {
-    return { issues: [`cited ids that are not on the card: ${missing.join(", ")}`] };
+    return {
+      issues: [
+        `these cited ids are not on the card: ${missing.map((id) => `[${id}]`).join(" ")}; cite only ids that appear in the card's citations`
+      ]
+    };
   }
 
-  return { read: parsed.data };
+  return { read: parsed.data, normalizations };
 }
 
 export function styleIssuesForRead(read: HowItWins): string[] {
@@ -403,7 +508,7 @@ export async function synthesizeHowItWins(input: {
   let fitRetried = false;
 
   if ("issues" in parsed || styleIssues.length > 0) {
-    const firstRead = "read" in parsed ? parsed.read : null;
+    const firstParse = "read" in parsed ? parsed : null;
     const issues = "issues" in parsed ? parsed.issues : styleIssues;
     const retry = await askWriter(
       "fit",
@@ -417,10 +522,10 @@ export async function synthesizeHowItWins(input: {
     if ("read" in retried) {
       parsed = retried;
       styleIssues = styleIssuesForRead(retried.read);
-    } else if (firstRead) {
+    } else if (firstParse) {
       // A first fit that parsed and only tripped style checks beats a re-ask that parses into
       // nothing. Keep it, with the style issues it still carries.
-      parsed = { read: firstRead };
+      parsed = firstParse;
     } else {
       parsed = retried;
     }
@@ -430,5 +535,11 @@ export async function synthesizeHowItWins(input: {
     throw new Error(`how-it-wins draft invalid: ${parsed.issues.join("; ")}`);
   }
 
-  return { read: stripEmDashes(parsed.read), editorSkipped, fitRetried, styleIssues };
+  return {
+    read: stripEmDashes(parsed.read),
+    editorSkipped,
+    fitRetried,
+    styleIssues,
+    normalizations: parsed.normalizations
+  };
 }
