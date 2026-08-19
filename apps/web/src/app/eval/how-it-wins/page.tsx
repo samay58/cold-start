@@ -106,12 +106,22 @@ export default async function HowItWinsPage() {
         {file.name} <span className="eval-table-slug">{file.domain}</span>
       </h1>
       <div className="eval-grid">
-        {(["A", "B"] as const).map((label) => (
-          <section key={label} className="eval-hiw-arm">
-            <p className="eval-pair-label">{label}</p>
-            <HowItWinsView read={file.arms[label].read} />
-          </section>
-        ))}
+        {(["A", "B"] as const).map((label) => {
+          const arm = file.arms[label];
+          return (
+            <section key={label} className="eval-hiw-arm">
+              <p className="eval-pair-label">{label}</p>
+              {arm.failure ? (
+                <div>
+                  <p className="eval-hiw-empty">This read did not come back.</p>
+                  <p className="eval-hiw-failure">{arm.failure}</p>
+                </div>
+              ) : (
+                <HowItWinsView read={arm.read} />
+              )}
+            </section>
+          );
+        })}
       </div>
       {/* Keyed by slug: a stale verdict must never survive into the next card. */}
       <HowItWinsReview key={slug} slug={slug} />

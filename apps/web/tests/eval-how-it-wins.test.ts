@@ -117,6 +117,26 @@ describe("how-it-wins rig data", () => {
     expect(reads[0].key.B).toBe("claude-sonnet-4-6");
   });
 
+  it("accepts an arm that failed, carrying its message and its spent tokens", async () => {
+    const halfFailed = armFile("alpha");
+    halfFailed.arms.B = {
+      writer: "claude-sonnet-4-6",
+      preVerify: { status: "nothing_stands_out" },
+      read: { status: "nothing_stands_out" },
+      failure: "how-it-wins draft invalid: running strategies must be distinct",
+      editorSkipped: false,
+      fitRetried: false,
+      styleIssues: [],
+      usage: { inputTokens: 90, outputTokens: 10, estimatedCostUsd: 0.02, durationMs: 800 }
+    } as (typeof halfFailed)["arms"]["B"];
+    await writeFile(path.join(dir, "how-it-wins", "alpha.json"), JSON.stringify(halfFailed));
+
+    const reads = await readHowItWinsReads();
+    expect(reads[0].arms.B.failure).toContain("must be distinct");
+    expect(reads[0].arms.B.usage.estimatedCostUsd).toBe(0.02);
+    expect(reads[0].arms.A.failure).toBeUndefined();
+  });
+
   it("returns the first slug with no how-it-wins event", () => {
     const reads = [
       { slug: "alpha", name: "ALPHA", domain: "alpha.com" },

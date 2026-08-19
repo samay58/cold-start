@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { armAssignment, parseFlags, selectHowItWinsSlugs, type HowItWinsCandidate } from "./how-it-wins-corpus";
+import type { GenerationLlmCallTrace } from "@cold-start/core";
+import { armAssignment, failedArmResult, parseFlags, selectHowItWinsSlugs, type HowItWinsCandidate } from "./how-it-wins-corpus";
 
 function candidate(slug: string, over: Partial<HowItWinsCandidate> = {}): HowItWinsCandidate {
   return { slug, richnessBand: "rich", hasSynthesis: true, thinFileReason: null, ...over };
@@ -79,4 +80,29 @@ test("writer flags take exactly two models", () => {
   assert.deepEqual(parseFlags(["--writers", "one,two"]).writers, ["one", "two"]);
   assert.throws(() => parseFlags(["--writers", "one"]), /exactly two/);
   assert.throws(() => parseFlags(["--writers", "one,two,three"]), /exactly two/);
+});
+
+test("a failed arm keeps its writer, its spent tokens, and a bounded message", () => {
+  const calls: GenerationLlmCallTrace[] = [
+    { stage: "how_it_wins", label: "how-it-wins-reason", model: "m", provider: "anthropic",
+      status: "ok", durationMs: 900, inputTokens: 120, outputTokens: 40, estimatedCostUsd: 0.01 },
+    { stage: "how_it_wins", label: "how-it-wins-edit", model: "m", provider: "anthropic",
+      status: "failed", durationMs: 100, inputTokens: 30, outputTokens: 0 }
+  ];
+  const arm = failedArmResult("claude-sonnet-5", new Error("how-it-wins draft invalid: no running"), calls);
+
+  assert.equal(arm.writer, "claude-sonnet-5");
+  assert.equal(arm.read.status, "nothing_stands_out");
+  assert.equal(arm.preVerify.status, "nothing_stands_out");
+  assert.equal(arm.failure, "how-it-wins draft invalid: no running");
+  assert.equal(arm.editorSkipped, false);
+  assert.equal(arm.fitRetried, false);
+  assert.deepEqual(arm.styleIssues, []);
+  assert.deepEqual(arm.usage, { inputTokens: 150, outputTokens: 40, estimatedCostUsd: 0.01, durationMs: 1000 });
+});
+
+test("a failed arm bounds a runaway message and survives a non-Error throw", () => {
+  const long = failedArmResult("w", new Error("x".repeat(500)), []);
+  assert.equal(long.failure?.length, 300);
+  assert.equal(failedArmResult("w", "plain string blew up", []).failure, "plain string blew up");
 });

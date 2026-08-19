@@ -138,6 +138,8 @@ const howItWinsArmSchema = z.object({
   preVerify: howItWinsSchema,
   read: howItWinsSchema,
   dropReason: z.enum(["running-dropped", "pair-dropped"]).optional(),
+  // Present only on an arm that threw. Its twin still filed, so the card is still worth showing.
+  failure: z.string().optional(),
   editorSkipped: z.boolean(),
   fitRetried: z.boolean(),
   styleIssues: z.array(z.string()),

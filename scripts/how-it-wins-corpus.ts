@@ -25,6 +25,7 @@ import {
 } from "@cold-start/core";
 import {
   createAnthropicClient,
+  isTransientLlmError,
   modelForStage,
   synthesizeHowItWins,
   verifySynthesis,
@@ -52,11 +53,14 @@ export type HowItWinsCandidate = {
 
 type ArmLabel = "A" | "B";
 
-type ArmResult = {
+export type ArmResult = {
   writer: string;
   preVerify: HowItWins;
   read: HowItWins;
   dropReason?: "running-dropped" | "pair-dropped";
+  // Set only when this arm threw. The card still files with both arms, because the other arm's
+  // result is already paid for and a one-sided comparison is better than no comparison.
+  failure?: string;
   editorSkipped: boolean;
   fitRetried: boolean;
   styleIssues: string[];
@@ -226,6 +230,26 @@ async function verifyRead(input: {
   return verifiedHowItWins(input.read, results, 0);
 }
 
+// One arm that could not produce a read. The tokens it already spent stay on the record, so a
+// half-failed card still accounts for what it cost. Bound matches buildLlmCallTrace's 300 chars.
+export function failedArmResult(
+  writer: string,
+  error: unknown,
+  calls: GenerationLlmCallTrace[]
+): ArmResult {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    writer,
+    preVerify: { status: "nothing_stands_out" },
+    read: { status: "nothing_stands_out" },
+    failure: message.slice(0, 300),
+    editorSkipped: false,
+    fitRetried: false,
+    styleIssues: [],
+    usage: usageFromCalls(calls)
+  };
+}
+
 async function runArm(input: {
   client: Anthropic;
   card: ColdStartCard;
@@ -236,37 +260,46 @@ async function runArm(input: {
 }): Promise<ArmResult> {
   const calls: GenerationLlmCallTrace[] = [];
   const telemetry = (call: GenerationLlmCallTrace) => calls.push(call);
-  const result = await synthesizeHowItWins({
-    client: input.client,
-    models: { writer: input.writer, editor: input.editor },
-    card: input.card,
-    telemetry
-  });
-
-  let read = result.read;
-  let dropReason: ArmResult["dropReason"];
-  if (input.verify && result.read.status === "read") {
-    const verified = await verifyRead({
+  try {
+    const result = await synthesizeHowItWins({
       client: input.client,
-      model: input.verifyModel,
+      models: { writer: input.writer, editor: input.editor },
       card: input.card,
-      read: result.read,
       telemetry
     });
-    read = verified.howItWins;
-    dropReason = verified.dropReason;
-  }
 
-  return {
-    writer: input.writer,
-    preVerify: result.read,
-    read,
-    ...(dropReason ? { dropReason } : {}),
-    editorSkipped: result.editorSkipped,
-    fitRetried: result.fitRetried,
-    styleIssues: result.styleIssues,
-    usage: usageFromCalls(calls)
-  };
+    let read = result.read;
+    let dropReason: ArmResult["dropReason"];
+    if (input.verify && result.read.status === "read") {
+      const verified = await verifyRead({
+        client: input.client,
+        model: input.verifyModel,
+        card: input.card,
+        read: result.read,
+        telemetry
+      });
+      read = verified.howItWins;
+      dropReason = verified.dropReason;
+    }
+
+    return {
+      writer: input.writer,
+      preVerify: result.read,
+      read,
+      ...(dropReason ? { dropReason } : {}),
+      editorSkipped: result.editorSkipped,
+      fitRetried: result.fitRetried,
+      styleIssues: result.styleIssues,
+      usage: usageFromCalls(calls)
+    };
+  } catch (error) {
+    // A transient failure is worth retrying the whole card, so it still throws and skips it.
+    // Anything else is this arm's outcome and must not cost the other arm its paid result.
+    if (isTransientLlmError(error)) {
+      throw error;
+    }
+    return failedArmResult(input.writer, error, calls);
+  }
 }
 
 // slopcheck exits non-zero only on kill-list hits, and prints its report on stdout either way.
@@ -284,9 +317,10 @@ async function slopcheck(slug: string, file: string) {
   }
 }
 
-function statusLabel(read: HowItWins): string {
-  if (read.status !== "read") return read.status;
-  return `read/${read.running.length}`;
+function statusLabel(arm: ArmResult): string {
+  if (arm.failure) return "failed";
+  if (arm.read.status !== "read") return arm.read.status;
+  return `read/${arm.read.running.length}`;
 }
 
 async function writeIndex(outDir: string, row: IndexRow) {
@@ -361,7 +395,7 @@ async function main() {
       await writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`);
       await writeIndex(outDir, { ...entry.row, createdAt: new Date().toISOString() });
       console.log(
-        `${slug}  A ${statusLabel(armA.read)}  B ${statusLabel(armB.read)}  $${cost.toFixed(4)}  ${Math.round((Date.now() - startedAt) / 1000)}s`
+        `${slug}  A ${statusLabel(armA)}  B ${statusLabel(armB)}  $${cost.toFixed(4)}  ${Math.round((Date.now() - startedAt) / 1000)}s`
       );
       await slopcheck(slug, filePath);
     } catch (error) {

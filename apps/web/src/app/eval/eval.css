@@ -504,3 +504,9 @@ body:has(.eval-rig) {
   color: #3d3931;
   margin: 0;
 }
+
+.eval-hiw-failure {
+  font-size: 12px;
+  color: #7a7466;
+  margin: 6px 0 0;
+}
