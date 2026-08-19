@@ -26,7 +26,7 @@ export const HOW_IT_WINS_COPY = {
   notYet: "not yet",
   wrongIf: "Wrong if",
   pinned: "pinned",
-  thinFile: "Not enough filed",
+  thinFile: "Not enough filed.",
   nothingStandsOut: "Nothing stands out yet."
 } as const;
 

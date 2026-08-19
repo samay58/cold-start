@@ -64,7 +64,7 @@ The edge-notched card. Card catalogues sorted cards by notches cut along the edg
 
 Notes open below the sentence in the SharedTooltip memo variant, never over it. A note leads with the strategy name and its one-sentence meaning, then the cited note, then "Wrong if" for the pair.
 
-Empty states: `nothing_stands_out` shows an uncut edge, count "0 of 80 strategies", and its plain sentence. `thin_file` shows the same uncut edge with "Not enough filed" as the sentence.
+Empty states: `nothing_stands_out` shows an uncut edge, count "0 of 80 strategies", and its plain sentence. `thin_file` shows the same uncut edge with "Not enough filed." as the sentence.
 
 ## Motion
 

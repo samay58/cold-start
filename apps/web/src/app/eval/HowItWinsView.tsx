@@ -5,7 +5,7 @@ import { howItWinsStrategyById, type HowItWins } from "@cold-start/core";
 export function HowItWinsView({ read }: { read: HowItWins }) {
   if (read.status !== "read") {
     const sentence = read.status === "nothing_stands_out" ? read.sentence : undefined;
-    return <p className="eval-hiw-empty">{sentence ?? "Not enough filed"}</p>;
+    return <p className="eval-hiw-empty">{sentence ?? "Not enough filed."}</p>;
   }
 
   const pairNames = read.pair
