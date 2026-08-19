@@ -339,14 +339,18 @@ describe("styleIssuesForRead", () => {
       index === 0 ? { ...entry, meaning: "Two competences at once" } : entry
     );
 
-    expect(styleIssuesForRead(read).join(" ")).toContain("running[0].meaning");
+    expect(styleIssuesForRead(read)).toContain(
+      'running item 1 ("Hybrid"): the meaning line is a fragment; write one complete sentence'
+    );
   });
 
   it("flags a meaning line under five words", () => {
     const read = readFromValidDraft();
     read.running = read.running.map((entry, index) => (index === 1 ? { ...entry, meaning: "It sits between." } : entry));
 
-    expect(styleIssuesForRead(read).join(" ")).toContain("running[1].meaning");
+    expect(styleIssuesForRead(read)).toContain(
+      'running item 2 ("Chokepoint"): the meaning line is a fragment; write one complete sentence'
+    );
   });
 
   it("flags a note that states certainty three times", () => {
@@ -357,21 +361,23 @@ describe("styleIssuesForRead", () => {
         : entry
     );
 
-    expect(styleIssuesForRead(read).join(" ")).toContain("running[0].note");
+    expect(styleIssuesForRead(read)).toContain(
+      'running item 1 ("Hybrid"): the note states certainty more than once; say it once, at the end'
+    );
   });
 
   it("flags an em dash anywhere in the read", () => {
     const read = readFromValidDraft();
     read.wrongIf = "A second vendor \u2014 any credible one \u2014 would change the read.";
 
-    expect(styleIssuesForRead(read).join(" ")).toContain("em dash");
+    expect(styleIssuesForRead(read)).toContain("an em dash appears in wrong_if; use a period or a semicolon");
   });
 
   it("flags a sentence that is not a complete sentence", () => {
     const read = readFromValidDraft();
     read.sentence = "It wins";
 
-    expect(styleIssuesForRead(read).join(" ")).toContain("sentence");
+    expect(styleIssuesForRead(read)).toContain("the sentence is too short or has no terminal period");
   });
 });
 
@@ -458,7 +464,9 @@ describe("synthesizeHowItWins", () => {
 
     const retry = callsMade()[4];
     expect(retry?.label).toBe("how-it-wins-fit");
-    expect(retry?.params.messages[0]?.content).toContain("running[0].meaning");
+    expect(retry?.params.messages[0]?.content).toContain(
+      'running item 1 ("Hybrid"): the meaning line is a fragment'
+    );
     expect(retry?.params.messages[0]?.content).toContain("fix them and return only the JSON");
   });
 
@@ -519,6 +527,8 @@ describe("synthesizeHowItWins", () => {
       throw new Error("expected a read");
     }
     expect(result.read.running[0]?.meaning).toBe("Two competences at once");
-    expect(result.styleIssues.join(" ")).toContain("running[0].meaning");
+    expect(result.styleIssues).toContain(
+      'running item 1 ("Hybrid"): the meaning line is a fragment; write one complete sentence'
+    );
   });
 });

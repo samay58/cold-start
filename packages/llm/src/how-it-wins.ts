@@ -10,6 +10,7 @@ import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import {
   HOW_IT_WINS_GROUPS,
   howItWinsSchema,
+  howItWinsStrategyById,
   howItWinsStrategyIdForName,
   type ColdStartCard,
   type HowItWins,
@@ -332,52 +333,74 @@ export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWin
   return { read: parsed.data, normalizations };
 }
 
+// Same voice as the parse issues: the model is told which running item, by the name it wrote, and
+// what to do about it. It never saw a zod path or a zero-based index.
+function runningLabel(strategy: HowItWinsStrategyId, index: number): string {
+  return `running item ${index + 1} ("${howItWinsStrategyById(strategy).name}")`;
+}
+
 export function styleIssuesForRead(read: HowItWins): string[] {
   const issues: string[] = [];
 
-  const checkEmDash = (value: string, path: string) => {
+  const checkEmDash = (value: string, where: string) => {
     if (value.includes(EM_DASH)) {
-      issues.push(`${path} contains an em dash; use a period or a semicolon`);
+      issues.push(`an em dash appears in ${where}; use a period or a semicolon`);
     }
   };
-  const checkSentence = (value: string, path: string) => {
+  const checkSentence = (value: string) => {
     if (wordCount(value) < 6 || !value.trimEnd().endsWith(".")) {
-      issues.push(`${path} is not one complete plain sentence: "${value}"`);
+      issues.push("the sentence is too short or has no terminal period");
     }
   };
-  const checkNote = (value: string, path: string) => {
-    checkEmDash(value, path);
+  const checkNote = (value: string, where: string, certaintyIssue: string) => {
+    checkEmDash(value, where);
     if ((value.match(CERTAINTY_PATTERN) ?? []).length >= 3) {
-      issues.push(`${path} states certainty more than once; state it once, at the end`);
+      issues.push(certaintyIssue);
     }
   };
 
   if (read.status !== "read") {
     if (read.status === "nothing_stands_out" && read.sentence) {
-      checkEmDash(read.sentence, "sentence");
-      checkSentence(read.sentence, "sentence");
+      checkEmDash(read.sentence, "the sentence");
+      checkSentence(read.sentence);
     }
     return issues;
   }
 
-  checkEmDash(read.sentence, "sentence");
-  checkSentence(read.sentence, "sentence");
-  checkEmDash(read.wrongIf, "wrongIf");
+  checkEmDash(read.sentence, "the sentence");
+  checkSentence(read.sentence);
+  checkEmDash(read.wrongIf, "wrong_if");
 
   read.running.forEach((entry, index) => {
-    checkEmDash(entry.meaning, `running[${index}].meaning`);
+    const label = runningLabel(entry.strategy, index);
+    checkEmDash(entry.meaning, `${label}, in the meaning line`);
     if (!/^[A-Z].*[.]$/.test(entry.meaning.trim()) || wordCount(entry.meaning) < 5) {
-      issues.push(`running[${index}].meaning is a fragment: "${entry.meaning}"`);
+      issues.push(`${label}: the meaning line is a fragment; write one complete sentence`);
     }
-    checkNote(entry.note, `running[${index}].note`);
+    checkNote(
+      entry.note,
+      `${label}, in the note`,
+      `${label}: the note states certainty more than once; say it once, at the end`
+    );
   });
 
   if (read.pair) {
-    checkNote(read.pair.note, "pair.note");
-    checkEmDash(read.pair.wrongIf, "pair.wrongIf");
+    checkNote(
+      read.pair.note,
+      "the pair note",
+      "the pair note states certainty more than once; say it once, at the end"
+    );
+    checkEmDash(read.pair.wrongIf, "the pair wrong_if");
   }
 
-  read.next.forEach((entry, index) => checkNote(entry.note, `next[${index}].note`));
+  read.next.forEach((entry, index) => {
+    const label = `next item ${index + 1} ("${howItWinsStrategyById(entry.strategy).name}")`;
+    checkNote(
+      entry.note,
+      `${label}, in the note`,
+      `${label}: the note states certainty more than once; say it once, at the end`
+    );
+  });
 
   return issues;
 }
