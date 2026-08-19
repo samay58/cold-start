@@ -118,3 +118,12 @@ The whole crown is one target. Nothing depends on hitting a 4px mark. The senten
 - Production keeps `HOW_IT_WINS_ENABLED=false` until the blind read clears.
 - Motion tuned 2026-08-19: the starting values held after frame capture at 16ms and 25ms steps. Spring 420/38, zeta 0.93, crosses the whole edge in about 75ms. Sigma 11, magnification 1.6. Scale 0.55. Note 120/90/100ms. Arrival 300ms delay, 40ms stagger, 220ms drop, bracket 180ms.
 - Plate heights at the gallery fixture: 575px before the change, 490px after the fold, 542px with the crown added. Ceiling 580px.
+
+## Next steps (recorded 2026-08-19, Samay's queue)
+
+1. Blind-read the twenty cards at `/eval/how-it-wins` on the production-build rig. Two arms per card; pick the better one; rate each Ship, Weak, or Slop.
+2. Writer pick: Sonnet 5, unless the reads say otherwise. Samay is open to a stronger writer for this read specifically (DeepSeek v4-pro, which is already the hostile editor, or another frontier model); a third arm runs through `npm run eval:how-it-wins -- --writers <a>,<b>` on the same cards once the first sitting is logged, a few dollars per arm.
+3. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
+4. In Vercel production: set `LLM_HOW_IT_WINS_MODEL` to the winner, then `HOW_IT_WINS_ENABLED=true`. Watch one analysis run's wall time against the route's 300s cap; if the writer pushes runs near it, move the step to a background function.
+5. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
+6. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
