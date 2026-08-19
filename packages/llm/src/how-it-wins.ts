@@ -17,7 +17,7 @@ import {
   type HowItWinsStrategyId
 } from "@cold-start/core";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
-import { withProviderFallback } from "./llm-provider";
+import { parseModelString, withProviderFallback } from "./llm-provider";
 import {
   HOW_IT_WINS_HOSTILE_EDITOR,
   HOW_IT_WINS_PASS_1,
@@ -51,8 +51,12 @@ const EDIT_MAX_TOKENS = 16000;
 const EDITOR_MAX_TOKENS = 8000;
 const FIT_MAX_TOKENS = 16000;
 // A response with no text block is almost always reasoning that ran out of budget before the
-// answer started, so the one retry buys room rather than changing the ask.
-const EMPTY_TEXT_RETRY_MAX_TOKENS = 24000;
+// answer started, so the second attempt buys room rather than changing the ask. It cannot buy much:
+// the SDK refuses a non-streaming call whose max_tokens implies over ten minutes at 128k tokens per
+// hour (calculateNonstreamingTimeout in @anthropic-ai/sdk/client.js), which caps us at 21333.
+const EMPTY_TEXT_RETRY_MAX_TOKENS = 21000;
+// Third attempt: room did not help, so stop paying for reasoning and ask for the answer itself.
+const THINKING_DISABLED_MAX_TOKENS = 16000;
 
 const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
@@ -442,7 +446,7 @@ type PassCall = {
   user: string;
 };
 
-async function callOnce(call: PassCall, maxTokens: number): Promise<string> {
+async function callOnce(call: PassCall, maxTokens: number, thinkingDisabled = false): Promise<string> {
   const message = await createTracedAnthropicMessage({
     client: call.client,
     label: call.label,
@@ -452,6 +456,7 @@ async function callOnce(call: PassCall, maxTokens: number): Promise<string> {
     params: {
       model: call.model,
       max_tokens: maxTokens,
+      ...(thinkingDisabled ? { thinking: { type: "disabled" as const } } : {}),
       system: [{ type: "text", text: call.system, cache_control: anthropicSystemCacheControl() }],
       messages: [{ role: "user", content: call.user }]
     }
@@ -460,15 +465,35 @@ async function callOnce(call: PassCall, maxTokens: number): Promise<string> {
   return textFromMessage(message);
 }
 
-async function callWithEmptyTextRetry(call: PassCall): Promise<string> {
+async function emptyTextOnly(run: () => Promise<string>): Promise<string | null> {
   try {
-    return await callOnce(call, call.maxTokens);
+    return await run();
   } catch (error) {
     if (!(error instanceof HowItWinsEmptyTextError)) {
       throw error;
     }
-    return callOnce(call, EMPTY_TEXT_RETRY_MAX_TOKENS);
+    return null;
   }
+}
+
+async function callWithEmptyTextRetry(call: PassCall): Promise<string> {
+  const first = await emptyTextOnly(() => callOnce(call, call.maxTokens));
+  if (first !== null) {
+    return first;
+  }
+
+  const second = await emptyTextOnly(() => callOnce(call, EMPTY_TEXT_RETRY_MAX_TOKENS));
+  if (second !== null) {
+    return second;
+  }
+
+  // Only the Anthropic path takes a thinking config. The openai-compat adapter would ignore the
+  // key, and a provider that reasons by default has its own switch in providerDefaults.
+  if (parseModelString(call.model).provider !== "anthropic") {
+    throw new HowItWinsEmptyTextError();
+  }
+
+  return callOnce(call, THINKING_DISABLED_MAX_TOKENS, true);
 }
 
 function vocabularyForPrompt(): string {

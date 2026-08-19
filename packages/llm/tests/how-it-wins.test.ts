@@ -34,7 +34,12 @@ type TracedCall = {
   label: string;
   model: string;
   stage: string;
-  params: { max_tokens: number; system: Array<{ text: string }>; messages: Array<{ content: string }> };
+  params: {
+    max_tokens: number;
+    system: Array<{ text: string }>;
+    messages: Array<{ content: string }>;
+    thinking?: { type: string };
+  };
 };
 
 function callsMade(): TracedCall[] {
@@ -434,8 +439,57 @@ describe("synthesizeHowItWins", () => {
     expect(result.editorSkipped).toBe(false);
     const calls = callsMade();
     expect(calls[0]?.params.max_tokens).toBe(16000);
-    expect(calls[1]?.params.max_tokens).toBe(24000);
+    expect(calls[1]?.params.max_tokens).toBe(21000);
+    expect(calls[1]?.params.thinking).toBeUndefined();
     expect(calls[1]?.label).toBe("how-it-wins-reason");
+  });
+
+  it("turns thinking off for a third attempt when both budgets came back empty", async () => {
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()));
+
+    const result = await runDriver();
+
+    expect(result.read.status).toBe("read");
+    const calls = callsMade();
+    expect(calls[2]?.params.thinking?.type).toBe("disabled");
+    expect(calls[2]?.params.max_tokens).toBe(16000);
+    expect(calls[2]?.label).toBe("how-it-wins-reason");
+    expect(calls[3]?.params.thinking).toBeUndefined();
+  });
+
+  it("gives up after three empty responses", async () => {
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(thinkingOnlyMessage());
+
+    await expect(runDriver()).rejects.toThrow(HowItWinsEmptyTextError);
+    expect(tracedMessage).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not offer a thinking config to a non-Anthropic model", async () => {
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(thinkingOnlyMessage())
+      .mockResolvedValueOnce(textMessage(draftJson()));
+
+    const result = await runDriver();
+
+    // The editor is deepseek: two empty responses end the pass instead of a third attempt.
+    expect(result.editorSkipped).toBe(true);
+    expect(tracedMessage).toHaveBeenCalledTimes(5);
+    expect(callsMade().every((call) => call.params.thinking === undefined)).toBe(true);
   });
 
   it("re-asks the fit pass once with the style issues and reports the retry", async () => {
