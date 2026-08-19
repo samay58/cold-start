@@ -614,6 +614,35 @@ describe("investor lens display", () => {
     expect(display.independentlyBacked).toBe(false);
   });
 
+  it("files a next note's citations as footer sources too", () => {
+    const nextCitation = {
+      id: "c3",
+      url: "https://example.com/platform-shell",
+      title: "Platform teams and the default shell",
+      fetchedAt: "2026-06-23T12:00:00.000Z",
+      sourceType: "news" as const
+    };
+    const display = investorReadForCard(card({
+      citations: [...minimalWarpCard().citations, nextCitation],
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        howItWins: {
+          ...howItWinsFiled,
+          next: [{ strategy: "standardization", note: "No platform team has made it the default shell yet [c3].", citationIds: ["c3"] }]
+        }
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    // c3 is cited only by the next note.
+    expect(display.sources.map((source) => source.id)).toContain("c3");
+  });
+
   it("keeps the how-it-wins display honest for thin_file, nothing_stands_out, and a legacy card", () => {
     const baseSynthesis = {
       whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },

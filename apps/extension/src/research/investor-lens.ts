@@ -517,9 +517,10 @@ function howItWinsSourcedClaims(card: ColdStartCard): SourcedText[] {
   }
 
   const running = howItWins.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
+  const next = howItWins.next.map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
   return howItWins.pair
-    ? [...running, { text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }]
-    : running;
+    ? [...running, { text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }, ...next]
+    : [...running, ...next];
 }
 
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {
