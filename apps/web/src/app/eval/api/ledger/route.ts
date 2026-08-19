@@ -25,6 +25,16 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: parsed.error.message }, { status: 400 });
   }
 
+  // A how-it-wins verdict names one of the frozen arm files. A slug with no filed read is a
+  // typo or a stale page, so it is refused rather than written into an append-only ledger.
+  const judgedSlug = parsed.data.kind === "how-it-wins" ? parsed.data.slug : null;
+  const key = judgedSlug
+    ? (await readHowItWinsReads()).find((entry) => entry.slug === judgedSlug)?.key
+    : undefined;
+  if (judgedSlug && !key) {
+    return Response.json({ error: `no filed how-it-wins read for ${judgedSlug}` }, { status: 400 });
+  }
+
   const event = { ...parsed.data, ts: new Date().toISOString() };
   const ledgerDir = path.join(dataDir(), "ledger");
   await mkdir(ledgerDir, { recursive: true });
@@ -35,9 +45,5 @@ export async function POST(request: Request): Promise<Response> {
   const index = await readCorpusIndex();
   const reveal = index.filter((row) => slugs.has(row.slug));
   // The blind read only learns which writer wrote which arm once the verdict is on disk.
-  const judgedSlug = parsed.data.kind === "how-it-wins" ? parsed.data.slug : null;
-  const key = judgedSlug
-    ? (await readHowItWinsReads()).find((entry) => entry.slug === judgedSlug)?.key
-    : undefined;
   return Response.json({ ok: true, reveal, ...(key ? { key } : {}) });
 }

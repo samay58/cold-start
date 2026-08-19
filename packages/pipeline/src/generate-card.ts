@@ -983,11 +983,13 @@ function emphasisResultFields(outcome?: ReturnType<typeof verifiedEmphasisRead>)
 }
 
 // One verdict per running strategy, then one for the pair note, in the order
-// howItWinsClaims below appends them. The degrade rules themselves (a pair dies with either leg,
-// the read degrades below two survivors) live in packages/core/src/how-it-wins.ts so the schema
-// and the rules cannot drift apart; this function only turns verifier results into the keep flags
-// they take.
-function verifiedHowItWins(
+// howItWinsClaims below appends them. Exported because the eval lane
+// (scripts/how-it-wins-corpus.ts) verifies its own reads and must use this claim order rather
+// than a second copy of it. The degrade rules themselves (a pair dies with either leg, the read
+// degrades below two survivors) live in packages/core/src/how-it-wins.ts so the schema and the
+// rules cannot drift apart; this function only turns verifier results into the keep flags they
+// take.
+export function verifiedHowItWins(
   filed: HowItWinsRead,
   results: VerificationResult[],
   offset: number

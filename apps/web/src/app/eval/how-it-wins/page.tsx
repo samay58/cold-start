@@ -90,7 +90,12 @@ export default async function HowItWinsPage() {
 
   const file = reads.find((entry) => entry.slug === slug);
   if (!file) throw new Error(`no filed read for ${slug}`);
-  const judged = events.filter((event) => event.kind === "how-it-wins").length;
+  // Count filed reads that carry a verdict, not raw events: a changed mind is a second event
+  // for the same slug, and a verdict for a slug this run did not produce is not progress.
+  const judgedSlugs = new Set(
+    events.filter((event) => event.kind === "how-it-wins").map((event) => event.slug)
+  );
+  const judged = reads.filter((entry) => judgedSlugs.has(entry.slug)).length;
 
   return (
     <main>

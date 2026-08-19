@@ -15,7 +15,6 @@ import { promisify } from "node:util";
 
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  applyHowItWinsVerification,
   coldStartCardSchema,
   howItWinsThinFileReason,
   type ColdStartCard,
@@ -25,16 +24,15 @@ import {
   type SourcedText
 } from "@cold-start/core";
 import {
-  applyVerifierResults,
   createAnthropicClient,
   modelForStage,
   synthesizeHowItWins,
   verifySynthesis,
   HOW_IT_WINS_DEFAULT_EDITOR_MODEL
 } from "@cold-start/llm";
-import { verificationFactsForClaims } from "@cold-start/pipeline";
+import { verificationFactsForClaims, verifiedHowItWins } from "@cold-start/pipeline";
 
-import { createSeededRng, type RichnessBand } from "./eval-curation-lib";
+import { createSeededRng, shuffled, type RichnessBand } from "./eval-curation-lib";
 
 const execFileAsync = promisify(execFile);
 
@@ -70,17 +68,6 @@ type IndexRow = { slug: string; name: string; domain: string; createdAt: string 
 // Bands in preference order. Thin still runs when rich and medium cannot fill the limit; the
 // thin-file gate, not the richness band, is what keeps an unreadable card out.
 const BAND_ORDER: RichnessBand[] = ["rich", "medium", "thin"];
-
-function shuffled<T>(items: T[], rng: () => number): T[] {
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
-    const held = copy[i]!;
-    copy[i] = copy[j]!;
-    copy[j] = held;
-  }
-  return copy;
-}
 
 export function selectHowItWinsSlugs(
   candidates: HowItWinsCandidate[],
@@ -118,7 +105,7 @@ function loadRootEnv() {
   }
 }
 
-type Flags = {
+export type Flags = {
   limit: number;
   slugs: string[] | null;
   seed: string;
@@ -128,7 +115,7 @@ type Flags = {
   verify: boolean;
 };
 
-function parseFlags(argv: string[]): Flags {
+export function parseFlags(argv: string[]): Flags {
   const flags: Flags = {
     limit: DEFAULT_LIMIT,
     slugs: null,
@@ -146,6 +133,7 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--seed") flags.seed = value();
     else if (arg === "--editor") flags.editor = value();
     else if (arg === "--out") flags.out = value();
+    else if (arg === "--verify") flags.verify = true;
     else if (arg === "--no-verify") flags.verify = false;
     else if (arg === "--writers") {
       const [first, second, ...rest] = value().split(",").map((s) => s.trim()).filter(Boolean);
@@ -203,8 +191,8 @@ function usageFromCalls(calls: GenerationLlmCallTrace[]) {
   );
 }
 
-// The same claim order verifyCardSynthesisDraft uses for this read: one claim per running
-// strategy, then the pair note. Offsets here start at zero because these are the only claims.
+// The same claim order verifiedHowItWins reads its verdicts back in: one claim per running
+// strategy, then the pair note.
 function howItWinsClaims(read: HowItWinsRead): SourcedText[] {
   return [
     ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
@@ -234,18 +222,8 @@ async function verifyRead(input: {
     evidenceFacts: verificationFactsForClaims(input.card, claims),
     telemetry: input.telemetry
   });
-  const running = input.read.running.map(
-    (entry, index) =>
-      applyVerifierResults([{ text: entry.note, citationIds: entry.citationIds }], results, index).length === 1
-  );
-  const pair = input.read.pair
-    ? applyVerifierResults(
-        [{ text: input.read.pair.note, citationIds: input.read.pair.citationIds }],
-        results,
-        input.read.running.length
-      ).length === 1
-    : false;
-  return applyHowItWinsVerification(input.read, { running, pair });
+  // Offset zero: these are the only claims in the call, so the read starts the array.
+  return verifiedHowItWins(input.read, results, 0);
 }
 
 async function runArm(input: {

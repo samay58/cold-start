@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { armAssignment, selectHowItWinsSlugs, type HowItWinsCandidate } from "./how-it-wins-corpus";
+import { armAssignment, parseFlags, selectHowItWinsSlugs, type HowItWinsCandidate } from "./how-it-wins-corpus";
 
 function candidate(slug: string, over: Partial<HowItWinsCandidate> = {}): HowItWinsCandidate {
   return { slug, richnessBand: "rich", hasSynthesis: true, thinFileReason: null, ...over };
@@ -65,4 +65,18 @@ test("arm assignment is a seeded per-card flip that keeps both writers", () => {
   const slugs = Array.from({ length: 20 }, (_, i) => `card-${i}`);
   const assignments = slugs.map((slug) => armAssignment("how-it-wins-1", slug, writers).A);
   assert.ok(new Set(assignments).size === 2, "both writers should land in slot A across cards");
+});
+
+test("the verifier is on by default and both --verify and --no-verify are accepted", () => {
+  assert.equal(parseFlags([]).verify, true);
+  assert.equal(parseFlags(["--verify"]).verify, true);
+  assert.equal(parseFlags(["--no-verify"]).verify, false);
+  assert.equal(parseFlags(["--no-verify", "--verify"]).verify, true);
+  assert.throws(() => parseFlags(["--verifyy"]), /unknown flag/);
+});
+
+test("writer flags take exactly two models", () => {
+  assert.deepEqual(parseFlags(["--writers", "one,two"]).writers, ["one", "two"]);
+  assert.throws(() => parseFlags(["--writers", "one"]), /exactly two/);
+  assert.throws(() => parseFlags(["--writers", "one,two,three"]), /exactly two/);
 });

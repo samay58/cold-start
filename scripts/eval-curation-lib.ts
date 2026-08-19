@@ -58,7 +58,7 @@ export type SessionPlan = {
   rounds: { index: number; slugs: string[]; mixedBand: boolean }[];
 };
 
-function shuffled<T>(items: T[], rng: () => number): T[] {
+export function shuffled<T>(items: T[], rng: () => number): T[] {
   const copy = [...items];
   for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(rng() * (i + 1));

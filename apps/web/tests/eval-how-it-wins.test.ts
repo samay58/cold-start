@@ -163,9 +163,15 @@ describe("ledger route, how-it-wins verdicts", () => {
     expect((await post({ ...verdict, ratings: { A: "great", B: "weak" } })).status).toBe(400);
   });
 
-  it("omits the key when the slug has no filed read", async () => {
+  it("rejects a verdict for a slug with no filed read, and writes nothing", async () => {
     const response = await post({ ...verdict, slug: "gamma" });
+    expect(response.status).toBe(400);
+    await expect(readFile(path.join(dir, "ledger", "picks.jsonl"), "utf8")).rejects.toThrow();
+  });
+
+  it("still accepts a verdict for the second filed read", async () => {
+    const response = await post({ ...verdict, slug: "beta", pick: "neither" });
     expect(response.status).toBe(200);
-    expect((await response.json()).key).toBeUndefined();
+    expect((await response.json()).key).toEqual({ A: "claude-sonnet-5", B: "claude-sonnet-4-6" });
   });
 });
