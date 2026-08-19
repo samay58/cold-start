@@ -5,7 +5,12 @@ import { act, type ComponentProps } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InvestorReadCard, LensSlot, type LensSlotState } from "../src/research/InvestorReadCard";
-import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
+import {
+  EMPHASIS_EMPTY_COPY,
+  EMPHASIS_LABELS,
+  LENS_CASE_LABEL,
+  LENS_TENSION_EMPTY_COPY
+} from "../src/research/investor-read-copy";
 import { investorReadForCard } from "../src/research/investor-lens";
 import type { TooltipDossier, TooltipMemo } from "../src/shared/SharedTooltip";
 import { AlphaAnalyticsProvider } from "../src/shared/alpha-event-context";
@@ -165,7 +170,7 @@ describe("InvestorReadCard", () => {
     const { container, unmount } = await renderCard(richCard(), true);
     const categoryButton = Array.from(container.querySelectorAll<HTMLButtonElement>(
       ".cs-investor-read-category-trigger"
-    )).find((button) => button.textContent?.includes("What must be true"));
+    )).find((button) => button.textContent?.includes("The case"));
 
     await act(async () => {
       categoryButton?.click();
@@ -181,7 +186,7 @@ describe("InvestorReadCard", () => {
     expect(analytics.enqueueAlphaEvent).toHaveBeenCalledWith(
       analyticsSettings,
       "lens.category_toggled",
-      { domain: "warp.dev", category: "must-be-true", expanded: true }
+      { domain: "warp.dev", category: "the-case", expanded: true }
     );
     expect(analytics.enqueueAlphaEvent).toHaveBeenCalledWith(
       analyticsSettings,
@@ -200,7 +205,7 @@ describe("InvestorReadCard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("(a) presents every Lens point in six categories with Why care open by default", async () => {
+  it("(a) presents every Lens point in four categories with Why care open by default", async () => {
     const { container, unmount } = await renderCard(richCard());
     const lede = container.querySelector('[data-role="lede"]');
     const categories = Array.from(container.querySelectorAll(".cs-investor-read-category"));
@@ -209,24 +214,18 @@ describe("InvestorReadCard", () => {
     expect(lede?.textContent).toContain("Warp could matter if terminal work becomes the control plane");
     expect(categories.map((category) => category.getAttribute("data-category"))).toEqual([
       "why-care",
-      "must-be-true",
-      "could-break",
-      "why-now",
+      "the-case",
       "learn-next",
       "pay-attention"
     ]);
     expect(categories.map((category) => category.querySelector("strong")?.textContent)).toEqual([
       "Why care",
-      "What must be true",
-      "What could break",
-      "Why now",
+      "The case",
       "What to learn next",
       "Pay attention to"
     ]);
     expect(categories.map((category) => category.getAttribute("data-open"))).toEqual([
       "true",
-      "false",
-      "false",
       "false",
       "false",
       "false"
@@ -264,13 +263,20 @@ describe("InvestorReadCard", () => {
     await unmount();
   });
 
-  it("(c) carries data-side on the holds/breaks rows and gives each a distinct mark", async () => {
+  it("(c) puts Bull and Bear in one The case body, each with its own mark", async () => {
     const { container, unmount } = await renderCard(richCard());
-    const holds = container.querySelector('[data-side="holds"]');
-    const breaks = container.querySelector('[data-side="breaks"]');
+    const body = container.querySelector('[data-category="the-case"] [aria-label="The case"]');
+    const holds = body?.querySelector('[data-side="holds"]');
+    const breaks = body?.querySelector('[data-side="breaks"]');
 
+    expect(body).not.toBeNull();
     expect(holds).not.toBeNull();
     expect(breaks).not.toBeNull();
+    // Bull leads, Bear follows, in that order inside the one body.
+    expect(Array.from(body?.querySelectorAll(".cs-lens-tension-side") ?? []).map((side) => side.getAttribute("data-side")))
+      .toEqual(["holds", "breaks"]);
+    expect(holds?.querySelector("em")?.textContent).toBe(`${LENS_CASE_LABEL.holds}.`);
+    expect(breaks?.querySelector("em")?.textContent).toBe(`${LENS_CASE_LABEL.breaks}.`);
 
     const holdsMark = holds?.querySelector(".cs-lens-mark")?.getAttribute("data-mark");
     const breaksMark = breaks?.querySelector(".cs-lens-mark")?.getAttribute("data-mark");
@@ -282,10 +288,11 @@ describe("InvestorReadCard", () => {
     await unmount();
   });
 
-  it("(d) renders the 0-bear side with its own honest, distinct empty copy", async () => {
+  it("(d) renders the 0-bear side with its own honest, distinct empty copy inside The case", async () => {
     const { container, unmount } = await renderCard(sparseCard());
-    const breaks = container.querySelector('[data-side="breaks"]');
-    const holds = container.querySelector('[data-side="holds"]');
+    const body = container.querySelector('[data-category="the-case"] [aria-label="The case"]');
+    const breaks = body?.querySelector('[data-side="breaks"]');
+    const holds = body?.querySelector('[data-side="holds"]');
 
     expect(breaks?.textContent).toContain(LENS_TENSION_EMPTY_COPY.breaks);
     // The holds side has a real claim, so it must not carry the empty copy at all, and the two
@@ -314,7 +321,7 @@ describe("InvestorReadCard", () => {
 
   it("(f) expands moreClaims inline without invoking a tooltip", async () => {
     const { container, tooltipCalls, unmount } = await renderCard(richCard());
-    const holdsCategory = container.querySelector('[data-category="must-be-true"]');
+    const holdsCategory = container.querySelector('[data-category="the-case"]');
     const categoryToggle = holdsCategory?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
 
     await act(async () => {
@@ -349,28 +356,28 @@ describe("InvestorReadCard", () => {
   it("(g) keeps one category open at a time and lets the open category collapse fully", async () => {
     const { container, unmount } = await renderCard(richCard());
     const whyCare = container.querySelector('[data-category="why-care"]');
-    const whyNow = container.querySelector('[data-category="why-now"]');
+    const learnNext = container.querySelector('[data-category="learn-next"]');
     const whyCareToggle = whyCare?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
-    const whyNowToggle = whyNow?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
+    const learnNextToggle = learnNext?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
 
     expect(whyCareToggle?.getAttribute("aria-expanded")).toBe("true");
-    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(learnNextToggle?.getAttribute("aria-expanded")).toBe("false");
 
     await act(async () => {
-      whyNowToggle?.click();
+      learnNextToggle?.click();
     });
 
     expect(whyCareToggle?.getAttribute("aria-expanded")).toBe("false");
     expect(whyCare?.querySelector(".cs-investor-read-category-frame")?.getAttribute("aria-hidden")).toBe("true");
-    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(learnNextToggle?.getAttribute("aria-expanded")).toBe("true");
     expect(container.querySelectorAll('.cs-investor-read-category[data-open="true"]')).toHaveLength(1);
 
     await act(async () => {
-      whyNowToggle?.click();
+      learnNextToggle?.click();
     });
 
     expect(container.querySelectorAll('.cs-investor-read-category[data-open="true"]')).toHaveLength(0);
-    expect(whyNowToggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(learnNextToggle?.getAttribute("aria-expanded")).toBe("false");
 
     await unmount();
   });
@@ -476,7 +483,7 @@ describe("InvestorReadCard", () => {
     await legacy.unmount();
   });
 
-  it("always renders six category cards", async () => {
+  it("always renders four category cards", async () => {
     const emphasisStates: Array<EmphasisRead | undefined> = [
       undefined,
       emphasisReadFiled,
@@ -486,7 +493,7 @@ describe("InvestorReadCard", () => {
 
     for (const emphasisRead of emphasisStates) {
       const { container, unmount } = await renderCard(richCard(emphasisRead));
-      expect(container.querySelectorAll(".cs-investor-read-category-trigger")).toHaveLength(6);
+      expect(container.querySelectorAll(".cs-investor-read-category-trigger")).toHaveLength(4);
       await unmount();
     }
   });
@@ -559,7 +566,7 @@ describe("LensSlot", () => {
 
     // The staged entrance must not gate interactivity: the disclosure toggle is clickable the
     // instant the result card mounts, not after its stagger settles.
-    const holdsCategory = container.querySelector('[data-category="must-be-true"]');
+    const holdsCategory = container.querySelector('[data-category="the-case"]');
     const categoryToggle = holdsCategory?.querySelector<HTMLButtonElement>(".cs-investor-read-category-trigger");
     await act(async () => {
       categoryToggle?.click();

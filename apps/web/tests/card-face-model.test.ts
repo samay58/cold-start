@@ -44,9 +44,14 @@ function resolvedFact<T>(
 }
 
 describe("INVESTOR_READ_LABELS", () => {
-  it("lists all six locked categories, ending with Pay attention to", () => {
-    expect(INVESTOR_READ_LABELS).toHaveLength(6);
-    expect(INVESTOR_READ_LABELS[5]).toBe("Pay attention to");
+  it("lists all five locked categories, ending with How it wins", () => {
+    expect(INVESTOR_READ_LABELS).toEqual([
+      "Why care",
+      "The case",
+      "What to learn next",
+      "Pay attention to",
+      "How it wins"
+    ]);
   });
 });
 

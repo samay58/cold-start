@@ -1,10 +1,12 @@
 import {
+  howItWinsStrategyById,
   sourceQualityForSource,
   sourceQualityRank,
   safeWebUrl,
   stripCitationMarkers,
   type Citation,
   type ColdStartCard,
+  type HowItWinsStrategyId,
   type OpenQuestion,
   type QuestionCategory,
   type SourcedText
@@ -50,19 +52,11 @@ type LensClaim = {
   text: string;
 };
 
-// A tension side (If true / It breaks if) keeps its lead claim in the card and files any
-// remaining verified claims on that side behind a "+N more" affordance, mirroring how the
-// timing row and the sources footer already handle overflow.
+// A side of The case (Bull / Bear) keeps its lead claim in the card and files any remaining
+// verified claims on that side behind a "+N more" affordance, mirroring how the next question
+// and the sources footer already handle overflow.
 export type LensTensionClaim = LensClaim & {
   moreClaims: Array<{ text: string }>;
-};
-
-type LensTiming = {
-  field: string;
-  text: string;
-  // The other supported timing fields, in memo order, so the card can file them
-  // behind a "+N more" affordance instead of a bare count.
-  moreFields: Array<{ field: string; text: string }>;
 };
 
 type LensQuestion = {
@@ -86,7 +80,7 @@ type LensSource = {
   sourceClass: "independent" | "reporting" | "company";
 };
 
-// The sixth Lens category's display state: "read" when the model filed a loud/quiet
+// The Pay attention to category's display state: "read" when the model filed a loud/quiet
 // asymmetry, "thin_file"/"nothing_notable" mirror emphasisReadSchema's other two statuses,
 // and "not_read" covers a legacy card generated before this field existed. The category is
 // always present in investorLensCategories regardless of state; only its preview text and
@@ -100,23 +94,42 @@ type EmphasisDisplay = {
   wouldChangeIf: string | null;
 };
 
+// How it wins is not a category row: it is the crown on the packet's edge, so it carries its
+// own display shape rather than a preview string. "not_read" covers a legacy card generated
+// before the field existed; the other three mirror howItWinsSchema's own statuses.
+export type HowItWinsDisplayState = "read" | "thin_file" | "nothing_stands_out" | "not_read";
+export type HowItWinsDisplay = {
+  state: HowItWinsDisplayState;
+  // read: the model's sentence. nothing_stands_out: the model's own sentence when it named
+  // one, null when the verifier degraded a read in code and the crown falls back to its copy.
+  sentence: string | null;
+  running: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
+  pair: {
+    strategies: [HowItWinsStrategyId, HowItWinsStrategyId];
+    names: [string, string];
+    note: string;
+    wrongIf: string;
+  } | null;
+  next: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
+  wrongIf: string | null;
+  count: number;
+};
+
 export type InvestorReadDisplay = {
   receiptLine: string;
   lede: LensClaim;
   holds: LensTensionClaim | null;
   breaks: LensTensionClaim | null;
-  timing: LensTiming | null;
   nextQuestion: LensQuestion | null;
   sources: LensSource[];
   independentlyBacked: boolean;
   emphasis: EmphasisDisplay;
+  howItWins: HowItWinsDisplay;
 };
 
 export type InvestorLensCategoryId =
   | "why-care"
-  | "must-be-true"
-  | "could-break"
-  | "why-now"
+  | "the-case"
   | "learn-next"
   | "pay-attention";
 
@@ -134,21 +147,11 @@ export function investorLensCategories(read: InvestorReadDisplay): InvestorLensC
       preview: read.lede.text
     },
     {
-      id: "must-be-true",
-      label: "What must be true",
-      preview: read.holds?.text ?? LENS_TENSION_EMPTY_COPY.holds
-    },
-    {
-      id: "could-break",
-      label: "What could break",
-      preview: read.breaks?.text ?? LENS_TENSION_EMPTY_COPY.breaks
-    },
-    {
-      id: "why-now",
-      label: "Why now",
-      preview: read.timing
-        ? `${read.timing.field}. ${read.timing.text}`
-        : "No clear timing signal yet."
+      id: "the-case",
+      // The closed preview shows one line for a two-sided row, so it leads with the Bull claim
+      // and falls back to the Bear claim only when no bull survived verification.
+      label: "The case",
+      preview: read.holds?.text ?? read.breaks?.text ?? LENS_TENSION_EMPTY_COPY.holds
     },
     {
       id: "learn-next",
@@ -175,21 +178,6 @@ const POSTURE_ORDER: SourcePosture[] = [
   "company-authored",
   "enrichment",
   "unknown"
-];
-
-// The memo shows the single sharpest supported timing field. Trigger and risk carry the
-// most "why now" weight; structural fields follow.
-const TIMING_FIELD_ORDER: Array<{
-  field: keyof NonNullable<NonNullable<ColdStartCard["synthesis"]>["marketStructureAndTiming"]>;
-  label: string;
-}> = [
-  { field: "adoptionTrigger", label: "Adoption trigger" },
-  { field: "timingRisk", label: "Timing risk" },
-  { field: "buyerBudget", label: "Buyer budget" },
-  { field: "painSeverity", label: "Pain severity" },
-  { field: "marketStructure", label: "Market structure" },
-  { field: "profitPool", label: "Profit pool" },
-  { field: "expansionPath", label: "Expansion path" }
 ];
 
 export function sourcePostureForCitation(citation: Citation | undefined): SourcePosture {
@@ -219,15 +207,6 @@ export function sourcePostureForCitation(citation: Citation | undefined): Source
   }
 
   return "unknown";
-}
-
-export function timingIsNotFound(card: ColdStartCard) {
-  const market = card.synthesis?.marketStructureAndTiming;
-  if (!market) {
-    return true;
-  }
-
-  return Object.values(market).every((claim) => claim === null);
 }
 
 function citationLookup(card: ColdStartCard) {
@@ -268,7 +247,7 @@ function tensionClaim(claims: SourcedText[]): LensTensionClaim | null {
 // Loud and Read are cited SourcedText claims like any other; Quiet and Would-change-if are
 // plain file-scoped strings with no citations. Only feeds lensSources (the footer source chips):
 // independentlyBacked stays scoped to supportedClaims alone, per the emphasis read's own rule
-// that it must never move the tension/timing posture judgment.
+// that it must never move the case's posture judgment.
 function emphasisSourcedClaims(card: ColdStartCard): SourcedText[] {
   const emphasis = card.synthesis?.emphasisRead;
   if (!emphasis || emphasis.status !== "read") {
@@ -295,29 +274,30 @@ function supportedClaims(card: ColdStartCard): SourcedText[] {
   ];
 }
 
-function timingDisplay(card: ColdStartCard): LensTiming | null {
+function displaySentence(text: string): string {
+  const stripped = stripCitationMarkers(text).replace(/\s+/g, " ").trim();
+  if (!stripped) {
+    return "";
+  }
+  return /[.!?]$/.test(stripped) ? stripped : `${stripped}.`;
+}
+
+// Timing has no row of its own: it closes the Why care thesis when the model supported it.
+// Only the two fields that carry real timing weight qualify, trigger before risk. The five
+// structural fields (buyer budget, pain severity, market structure, profit pool, expansion
+// path) stay in the card's synthesis and off this surface.
+function timingBeat(card: ColdStartCard): string | null {
   const market = card.synthesis?.marketStructureAndTiming;
   if (!market) {
     return null;
   }
 
-  const supported = TIMING_FIELD_ORDER.flatMap((entry) => {
-    const claim = market[entry.field];
-    return claim ? [{ label: entry.label, claim }] : [];
-  });
-  const first = supported[0];
-  if (!first) {
-    return null;
-  }
+  const beat = [market.adoptionTrigger, market.timingRisk]
+    .flatMap((claim) => (claim ? [displaySentence(claim.text)] : []))
+    .filter(Boolean)
+    .join(" ");
 
-  return {
-    field: first.label,
-    text: stripCitationMarkers(first.claim.text),
-    moreFields: supported.slice(1).map((entry) => ({
-      field: entry.label,
-      text: stripCitationMarkers(entry.claim.text)
-    }))
-  };
+  return beat || null;
 }
 
 function isGenericRevenueQuestion(question: string) {
@@ -452,7 +432,7 @@ function receiptLine(card: ColdStartCard) {
   return date ? `Updated ${date}` : "Updated";
 }
 
-// The sixth Lens category's display model. Absent (legacy card, no field at all) and
+// The Pay attention to category's display model. Absent (legacy card, no field at all) and
 // thin_file/nothing_notable (the model ran but has nothing to file) collapse to the same
 // null-content shape; only a filed "read" status carries text. Loud and Read cite like any
 // other synthesis claim so they need stripCitationMarkers; Quiet and Would-change-if are
@@ -475,6 +455,75 @@ function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
   };
 }
 
+// Every non-read state carries the same empty content. A function rather than a shared
+// constant so each display gets its own arrays and no two reads can alias one another.
+function noHowItWinsContent() {
+  return { running: [], pair: null, next: [], wrongIf: null, count: 0 };
+}
+
+// The crown's display model. Names come from the shared vocabulary rather than the model's
+// output, so a filed read can never show a strategy name Cold Start does not recognize; the
+// meaning line is the model's own sentence about this company, not the vocabulary gloss.
+function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
+  const howItWins = card.synthesis?.howItWins;
+  if (!howItWins) {
+    return { state: "not_read", sentence: null, ...noHowItWinsContent() };
+  }
+  if (howItWins.status === "thin_file") {
+    return { state: "thin_file", sentence: null, ...noHowItWinsContent() };
+  }
+  if (howItWins.status === "nothing_stands_out") {
+    return {
+      state: "nothing_stands_out",
+      sentence: howItWins.sentence ? stripCitationMarkers(howItWins.sentence) : null,
+      ...noHowItWinsContent()
+    };
+  }
+
+  const [pairLeft, pairRight] = howItWins.pair?.strategies ?? [];
+
+  return {
+    state: "read",
+    sentence: stripCitationMarkers(howItWins.sentence),
+    running: howItWins.running.map((entry) => ({
+      id: entry.strategy,
+      name: howItWinsStrategyById(entry.strategy).name,
+      meaning: stripCitationMarkers(entry.meaning),
+      note: stripCitationMarkers(entry.note)
+    })),
+    pair: howItWins.pair && pairLeft && pairRight
+      ? {
+        strategies: [pairLeft, pairRight],
+        names: [howItWinsStrategyById(pairLeft).name, howItWinsStrategyById(pairRight).name],
+        note: stripCitationMarkers(howItWins.pair.note),
+        wrongIf: howItWins.pair.wrongIf
+      }
+      : null,
+    next: howItWins.next.map((entry) => ({
+      id: entry.strategy,
+      name: howItWinsStrategyById(entry.strategy).name,
+      note: stripCitationMarkers(entry.note)
+    })),
+    wrongIf: howItWins.wrongIf,
+    count: howItWins.running.length
+  };
+}
+
+// The crown's cited notes belong in the footer's source chips for the same reason the emphasis
+// read's do: a reader who follows the claim needs the source behind it. independentlyBacked
+// stays scoped to supportedClaims alone, so neither read can move the posture judgment.
+function howItWinsSourcedClaims(card: ColdStartCard): SourcedText[] {
+  const howItWins = card.synthesis?.howItWins;
+  if (!howItWins || howItWins.status !== "read") {
+    return [];
+  }
+
+  const running = howItWins.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
+  return howItWins.pair
+    ? [...running, { text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }]
+    : running;
+}
+
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {
   if (!card.synthesis) {
     return null;
@@ -482,23 +531,28 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
 
   const citations = citationLookup(card);
   const claims = supportedClaims(card);
-  const timing = timingDisplay(card);
+  const beat = timingBeat(card);
+  const lede = lensClaim(card.synthesis.whyItMatters);
 
   return {
     receiptLine: receiptLine(card),
-    lede: lensClaim(card.synthesis.whyItMatters),
+    lede: { text: [lede.text, beat].filter(Boolean).join(" ") },
     holds: tensionClaim(card.synthesis.bullCase),
     breaks: tensionClaim(card.synthesis.bearCase),
-    timing,
     nextQuestion: nextQuestionDisplay(card),
-    // The sixth card's own citations (fv or otherwise) need to appear as source chips too, so
-    // the footer sees the emphasis read's claims; independentlyBacked below stays scoped to the
-    // original claims only, unaffected by this addition.
-    sources: lensSources(citations, [...claims, ...emphasisSourcedClaims(card)]),
+    // The emphasis read's and the crown's own citations (fv or otherwise) need to appear as
+    // source chips too, so the footer sees their claims; independentlyBacked below stays scoped
+    // to the original claims only, unaffected by these additions.
+    sources: lensSources(citations, [
+      ...claims,
+      ...emphasisSourcedClaims(card),
+      ...howItWinsSourcedClaims(card)
+    ]),
     independentlyBacked: claims.some((claim) => {
       const posture = strongestPosture(citations, claim.citationIds);
       return posture === "independent" || posture === "reporting";
     }),
-    emphasis: emphasisDisplayForCard(card)
+    emphasis: emphasisDisplayForCard(card),
+    howItWins: howItWinsDisplayForCard(card)
   };
 }

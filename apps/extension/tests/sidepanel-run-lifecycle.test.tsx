@@ -409,12 +409,13 @@ describe("SidePanel run lifecycle", () => {
     });
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    // The stored synthesis already renders in the memo (Timing honestly reads not-found,
-    // since cardWithSynthesis carries no marketStructureAndTiming), and resuming the
+    // The stored synthesis already renders in the memo (the Why care lede carries no timing
+    // beat, since cardWithSynthesis has no marketStructureAndTiming), and resuming the
     // backgrounded analysis run must not refire generation behind it.
     expect(container.textContent).toContain("The company has a supported wedge.");
     const investorRead = container.querySelector("[aria-label='Investor read']");
-    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("No clear timing signal yet.");
+    expect(investorRead?.querySelector("[data-role='lede']")?.textContent)
+      .toBe("The company has a supported wedge.");
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

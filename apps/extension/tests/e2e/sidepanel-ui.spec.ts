@@ -12,7 +12,7 @@ import {
   researchPanelPolishCard
 } from "./fixtures";
 import { dragWithSamples, expectFocusedElementVisible, expectPointerAttached } from "./interaction-probes";
-import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "../../src/research/investor-read-copy";
+import { LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "../../src/research/investor-read-copy";
 
 async function openSidePanel(page: Parameters<typeof installChromeShim>[0]) {
   await page.goto("/sidepanel.html");
@@ -221,9 +221,9 @@ for (const reducedMotion of [false, true]) {
     await openSidePanel(page);
 
     const packet = page.getByRole("article", { name: "Investor read" });
-    await expect(packet.locator(".cs-investor-read-category")).toHaveCount(6);
-    await expect(packet.locator('[data-category="must-be-true"]')).toContainText(LENS_TENSION_EMPTY_COPY.holds);
-    await expect(packet.locator('[data-category="could-break"]')).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
+    await expect(packet.locator(".cs-investor-read-category")).toHaveCount(4);
+    await expect(packet.locator('[data-category="the-case"]')).toContainText(LENS_TENSION_EMPTY_COPY.holds);
+    await expect(packet.locator('[data-category="the-case"]')).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
     await expect(packet.locator('.cs-investor-read-category[data-open="true"]')).toHaveCount(1);
 
     const comps = page.locator(".cs-dormant-card", { hasText: "Comps" });
@@ -341,14 +341,16 @@ test("investor read stays bounded and honest with long partial synthesis", async
   await expect(investorRead).toBeVisible();
   await expect(investorRead).toContainText("Physician burnout from documentation");
 
-  // The tension pair keeps the surviving bull claim and states the missing bear side honestly.
-  await expect(investorRead).toContainText(LENS_TENSION_LABEL.holds);
+  // The case keeps the surviving bull claim and states the missing bear side honestly.
+  await expect(investorRead).toContainText(LENS_CASE_LABEL.holds);
   await expect(investorRead).toContainText("Rush University Medical Center");
-  await expect(investorRead).toContainText(LENS_TENSION_LABEL.breaks);
+  await expect(investorRead).toContainText(LENS_CASE_LABEL.breaks);
   await expect(investorRead).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
 
-  // Unsupported timing is a clean not-found row, never an unfinished-generation state.
-  await expect(investorRead.locator(".cs-lens-timing")).toContainText("No clear timing signal yet.");
+  // With no supported trigger or risk, the Why care lede ends on the thesis and nothing else,
+  // and an unsupported read is never an unfinished-generation state.
+  await expect(investorRead.locator("[data-role='lede']"))
+    .toHaveText(/does not ask doctors to change the clinical visit\.$/);
   await expect(investorRead).not.toContainText("has not been generated");
 
   // The ranked question carries its category and what answer would change the read.
@@ -2254,62 +2256,9 @@ test("the build tree gives way to the research layer on the basics generating-to
   await expect(page.getByLabel("Research layer")).toBeVisible({ timeout: 10_000 });
 });
 
-test("timing files the remaining supported fields behind an inline disclosure", async ({ page }) => {
-  const card = browserbaseCardWithSynthesis();
-  card.synthesis = {
-    whyItMatters: {
-      text: "Browserbase turns browser automation into agent infrastructure [c1].",
-      citationIds: ["c1", "c2"]
-    },
-    bullCase: [{ text: "Developers need reliable browser sessions for AI workflows [c3].", citationIds: ["c3"] }],
-    bearCase: [],
-    openQuestions: [{ question: "Can Browserbase defend against cloud providers bundling browser runtimes?", category: "durability" }],
-    marketStructureAndTiming: {
-      buyerBudget: { text: "Platform teams own the browser-infrastructure budget [c2].", citationIds: ["c2"] },
-      painSeverity: null,
-      adoptionTrigger: { text: "Agent rollouts are forcing teams to standardize browser infrastructure [c2].", citationIds: ["c2"] },
-      marketStructure: null,
-      profitPool: null,
-      expansionPath: null,
-      timingRisk: null
-    }
-  };
-  await installChromeShim(page);
-  await mockExtensionApi(page, card);
-  await openSidePanel(page);
-
-  const read = page.getByRole("article", { name: "Investor read" });
-  const timingCategory = read.locator('[data-category="why-now"]');
-  await timingCategory.getByRole("button").click();
-  const timing = timingCategory.locator(".cs-lens-timing");
-  await expect(timing).toContainText("Adoption trigger");
-  await expect(timing).toContainText("Agent rollouts are forcing teams to standardize browser infrastructure.");
-
-  // The overflow count is an inline disclosure, not a tooltip: clicking expands it in place.
-  // The overflow content is always in the DOM (reduced motion must never hide content, only
-  // change how the reveal animates), so the closed/open distinction is the frame's own
-  // data-expanded flag, not text presence: a toContainText assertion on this text would pass
-  // even pre-click since the content is always mounted. The frame carries visibility:hidden
-  // while collapsed (research-trail.css), so toBeVisible() is what actually discriminates.
-  const more = timing.locator(".cs-investor-read-more");
-  const frame = timing.locator(".cs-investor-read-disclosure-frame");
-  const buyerBudget = frame.getByText("Buyer budget. Platform teams own the browser-infrastructure budget.");
-  await expect(more).toHaveText("+1 more");
-  await expect(more).toHaveAttribute("aria-expanded", "false");
-  await expect(frame).toHaveAttribute("data-expanded", "false");
-  await expect(buyerBudget).not.toBeVisible();
-
-  await more.click();
-
-  await expect(more).toHaveAttribute("aria-expanded", "true");
-  await expect(frame).toHaveAttribute("data-expanded", "true");
-  await expect(buyerBudget).toBeVisible();
-  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-lens-timing-more.png" });
-});
-
 // Task 4.3 call-site sweep, retired site 1 of 3: the case's holds/breaks tension used to
 // carry a "+N" tooltip per side (Phase 2). It now files extra verified claims behind the
-// same measured-height inline disclosure the timing row already uses.
+// same measured-height inline disclosure, both sides inside the one The case body.
 test("the case files extra holds and breaks claims behind inline disclosure, not a tooltip", async ({ page }) => {
   const card = browserbaseCardWithSynthesis();
   card.synthesis = {
@@ -2332,22 +2281,22 @@ test("the case files extra holds and breaks claims behind inline disclosure, not
   await openSidePanel(page);
 
   const investorRead = page.getByRole("article", { name: "Investor read" });
-  const categorySides = [
+  const theCase = investorRead.locator('[data-category="the-case"]');
+  // One row now holds both sides, so it opens once and both disclosures answer inside it.
+  await theCase.locator(".cs-investor-read-category-trigger").click();
+  const sides = [
     {
-      category: investorRead.locator('[data-category="must-be-true"]'),
       sideSelector: '.cs-lens-tension-side[data-side="holds"]',
       overflowClaim: "Enterprise pilots have converted to paid multi-team contracts."
     },
     {
-      category: investorRead.locator('[data-category="could-break"]'),
       sideSelector: '.cs-lens-tension-side[data-side="breaks"]',
       overflowClaim: "Open-source automation frameworks lower the switching cost to self-host."
     }
   ];
 
-  for (const { category, sideSelector, overflowClaim } of categorySides) {
-    await category.getByRole("button").click();
-    const side = category.locator(sideSelector);
+  for (const { sideSelector, overflowClaim } of sides) {
+    const side = theCase.locator(sideSelector);
     const more = side.locator(".cs-investor-read-more");
     const frame = side.locator(".cs-investor-read-disclosure-frame");
     await expect(more).toHaveText("+1 more");
@@ -2439,11 +2388,11 @@ test("the filed Lens packet supports keyboard travel through categories and nest
 
   const read = page.getByRole("article", { name: "Investor read" });
   const whyCare = read.locator('[data-category="why-care"]');
-  const mustBeTrue = read.locator('[data-category="must-be-true"]');
-  const couldBreak = read.locator('[data-category="could-break"]');
+  const theCase = read.locator('[data-category="the-case"]');
+  const learnNext = read.locator('[data-category="learn-next"]');
   const whyCareButton = whyCare.locator(".cs-investor-read-category-trigger");
-  const mustBeTrueButton = mustBeTrue.locator(".cs-investor-read-category-trigger");
-  const couldBreakButton = couldBreak.locator(".cs-investor-read-category-trigger");
+  const theCaseButton = theCase.locator(".cs-investor-read-category-trigger");
+  const learnNextButton = learnNext.locator(".cs-investor-read-category-trigger");
 
   await whyCareButton.focus();
   await expect(whyCareButton).toBeFocused();
@@ -2454,22 +2403,23 @@ test("the filed Lens packet supports keyboard travel through categories and nest
   await expect(readFull).toHaveAttribute("aria-expanded", "true");
 
   await page.keyboard.press("Tab");
-  await expect(mustBeTrueButton).toBeFocused();
+  await expect(theCaseButton).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(mustBeTrueButton).toHaveAttribute("aria-expanded", "true");
+  await expect(theCaseButton).toHaveAttribute("aria-expanded", "true");
   await expect(whyCareButton).toHaveAttribute("aria-expanded", "false");
 
+  // Both sides live in the one open body, so the Bull side's own disclosure is the next stop.
   await page.keyboard.press("Tab");
-  const moreClaims = mustBeTrue.locator(".cs-investor-read-more");
+  const moreClaims = theCase.locator('[data-side="holds"] .cs-investor-read-more');
   await expect(moreClaims).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(moreClaims).toHaveAttribute("aria-expanded", "true");
 
   await page.keyboard.press("Tab");
-  await expect(couldBreakButton).toBeFocused();
+  await expect(learnNextButton).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(couldBreakButton).toHaveAttribute("aria-expanded", "true");
-  await expect(mustBeTrueButton).toHaveAttribute("aria-expanded", "false");
+  await expect(learnNextButton).toHaveAttribute("aria-expanded", "true");
+  await expect(theCaseButton).toHaveAttribute("aria-expanded", "false");
 });
 
 // Task 4.3 call-site sweep, site 5 of 5 (SharedTooltip's own consumer, not a retired site):

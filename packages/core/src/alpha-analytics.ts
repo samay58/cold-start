@@ -120,22 +120,27 @@ const retryReasonSchema = z.enum([
   "unknown"
 ]);
 
+// The live category ids are why-care, the-case, learn-next, and pay-attention. The three
+// retired ids stay listed so events from an installed client that predates the fold still
+// validate rather than 400 on ingest.
 const lensCategorySchema = z.enum([
   "why-care",
+  "the-case",
+  "learn-next",
+  "pay-attention",
   "must-be-true",
   "could-break",
-  "why-now",
-  "learn-next",
-  "pay-attention"
+  "why-now"
 ]);
 
+// "timing" is retired with the Why now row and kept for the same legacy-client reason.
 const lensDisclosureSchema = z.enum([
   "lede",
   "holds",
   "breaks",
-  "timing",
   "question",
-  "sources"
+  "sources",
+  "timing"
 ]);
 
 const sourceClassSchema = z.enum(["independent", "reporting", "company"]);

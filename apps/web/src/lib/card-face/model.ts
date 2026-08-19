@@ -26,19 +26,19 @@ export type ResolvedFactLike = {
 
 export type EvidenceState = "verified" | "reported" | "company" | "conflict" | "unknown";
 
-// The locked "Investor read" teaser's five row labels are shared by the public card and landing
+// The locked "Investor read" teaser's row labels are shared by the public card and landing
 // page preview so the gated categories cannot drift.
-// Mirrors the extension's six-category Investor Lens memo (investorLensCategories,
-// apps/extension/src/research/investor-lens.ts): the public teaser must list every locked
-// category, including the sixth, "Pay attention to" (the emphasis read), or the count silently
-// drifts out of sync between the public tease and the gated panel it teases.
+// Mirrors the extension's Investor Lens memo (investorLensCategories,
+// apps/extension/src/research/investor-lens.ts) plus the How it wins crown that sits on the
+// packet's edge rather than in the category list: the public teaser must list every locked
+// thing the panel shows, or the count silently drifts out of sync between the public tease
+// and the gated panel it teases.
 export const INVESTOR_READ_LABELS = [
   "Why care",
-  "What must be true",
-  "What could break",
-  "Why now",
+  "The case",
   "What to learn next",
-  "Pay attention to"
+  "Pay attention to",
+  "How it wins"
 ] as const;
 
 const NO_SOURCE_DETAIL = "no source in ledger";

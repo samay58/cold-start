@@ -13,7 +13,7 @@ import {
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
-import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "./investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
 import { commitSpring, motionTokens } from "../shared/motion-primitives";
 import type { TooltipPropsFor } from "../shared/SharedTooltip";
@@ -22,17 +22,17 @@ import { useAlphaEvent } from "../shared/alpha-event-context";
 import { BrandMark } from "../shared/BrandMark";
 
 const LENS_FOOTER_SOURCE_COUNT = 4;
-type LensDisclosureId = "lede" | "holds" | "breaks" | "timing" | "question" | "sources";
+type LensDisclosureId = "lede" | "holds" | "breaks" | "question" | "sources";
 type LensDisclosureToggle = (disclosure: LensDisclosureId, expanded: boolean) => void;
 
 // The category packet uses DESIGN.md's five Lens type roles. A new state must reuse those
 // roles rather than minting another size or face.
 
-// Staged spring entrance for a freshly filed read. Four stages -- lede, the case, timing plus
-// next question, footer plus posture -- fire in sequence, each on commitSpring (stiffness 470,
-// damping 31, mass 0.62, zeta ~0.91: DESIGN.md's stiff well-damped band, settle fast with a
-// breath of follow-through, no cartoon bounce). 140ms between stage starts puts the last stage
-// firing at 420ms; the sequence reads as visibly settled roughly 540-590ms after it starts.
+// Staged spring entrance for a freshly filed read. Four stages -- lede, the case, next
+// question plus what to pay attention to, footer plus posture -- fire in sequence, each on
+// commitSpring (stiffness 470, damping 31, mass 0.62, zeta ~0.91: DESIGN.md's stiff
+// well-damped band, settle fast with a breath of follow-through, no cartoon bounce). 140ms
+// between stage starts puts the last stage firing at 420ms; the sequence reads as visibly settled roughly 540-590ms after it starts.
 // Framer-motion's own rest threshold (restDelta 0.01) against the 10px y displacement stretches
 // the technical completion tail out to nearer 700ms, well past where the eye can tell the motion
 // is done -- that gap is expected, not a bug, and not the number to design the perceived timing
@@ -89,11 +89,10 @@ function evidencePostureLines(card: ColdStartCard): string[] {
 
 // The measured-height expansion pattern already used for research-layer card bodies
 // (.cs-active-enrichment-body-frame in research-trail.css: grid-template-rows 0fr -> 1fr,
-// transform/opacity, no JS height measurement), applied here so the three retiring lens
-// tooltips (holds/breaks moreClaims, timing moreFields, next-question moreQuestions) become
-// inline disclosure instead. Reduced motion collapses the transition to instant, never a freeze
-// or missing content: the DOM always carries the overflow content, only the visual reveal
-// changes.
+// transform/opacity, no JS height measurement), applied here so the retiring lens tooltips
+// (holds/breaks moreClaims, next-question moreQuestions) become inline disclosure instead.
+// Reduced motion collapses the transition to instant, never a freeze or missing content: the
+// DOM always carries the overflow content, only the visual reveal changes.
 function LensDisclosure({
   children,
   count,
@@ -105,7 +104,7 @@ function LensDisclosure({
   count: number;
   onToggle?: LensDisclosureToggle | undefined;
   prefersReducedMotion: boolean | null;
-  row: "holds" | "breaks" | "timing" | "question";
+  row: "holds" | "breaks" | "question";
 }) {
   const [expanded, setExpanded] = useState(false);
   const bodyId = `cs-investor-read-more-${row}`;
@@ -251,63 +250,28 @@ function LensCategoryBody({
     );
   }
 
-  if (categoryId === "must-be-true") {
+  if (categoryId === "the-case") {
+    // Both sides read as one argument, so they share one body: Bull first, Bear under it, each
+    // keeping its own mark, its own empty copy, and its own overflow disclosure.
     return (
-      <div aria-label="What must be true" className="cs-lens-tension">
+      <div aria-label="The case" className="cs-lens-tension">
         <LensTensionSide
           claim={read.holds}
           emptyCopy={LENS_TENSION_EMPTY_COPY.holds}
-          label={LENS_TENSION_LABEL.holds}
+          label={LENS_CASE_LABEL.holds}
           onDisclosureToggle={onDisclosureToggle}
           prefersReducedMotion={prefersReducedMotion}
           side="holds"
         />
-      </div>
-    );
-  }
-
-  if (categoryId === "could-break") {
-    return (
-      <div aria-label="What could break" className="cs-lens-tension">
         <LensTensionSide
           claim={read.breaks}
           emptyCopy={LENS_TENSION_EMPTY_COPY.breaks}
-          label={LENS_TENSION_LABEL.breaks}
+          label={LENS_CASE_LABEL.breaks}
           onDisclosureToggle={onDisclosureToggle}
           prefersReducedMotion={prefersReducedMotion}
           side="breaks"
         />
       </div>
-    );
-  }
-
-  if (categoryId === "why-now") {
-    return (
-      <section className="cs-lens-timing" data-supported={read.timing ? "true" : "false"} aria-label="Why now">
-        {read.timing ? (
-          <>
-            <p className="cs-investor-read-claim">
-              <em>{read.timing.field}.</em> {read.timing.text}
-            </p>
-            {read.timing.moreFields.length > 0 ? (
-              <LensDisclosure
-                count={read.timing.moreFields.length}
-                onToggle={onDisclosureToggle}
-                prefersReducedMotion={prefersReducedMotion}
-                row="timing"
-              >
-                {read.timing.moreFields.map((entry) => (
-                  <p key={entry.field}>
-                    <em>{entry.field}.</em> {entry.text}
-                  </p>
-                ))}
-              </LensDisclosure>
-            ) : null}
-          </>
-        ) : (
-          <p className="cs-lens-none">No clear timing signal yet.</p>
-        )}
-      </section>
     );
   }
 

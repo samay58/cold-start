@@ -499,15 +499,17 @@ describe("SidePanel analysis and sections", () => {
     await unmount();
   });
 
-  it("keeps Why now honest when synthesis has no supported market timing", async () => {
+  it("keeps the Why care lede bare when synthesis has no supported market timing", async () => {
     const staleCard = cardWithSynthesis("linear.app");
     const fetchMock = vi.fn(async () => jsonResponse(staleCard));
     const { container, unmount } = await renderSidePanel({ domain: "linear.app", fetchMock });
 
-    // The packet renders on synthesis alone, no card to activate; Why now keeps the honest
-    // not-found state in its filed category.
+    // The packet renders on synthesis alone, no card to activate. Timing folded into Why care,
+    // so an unsupported trigger and risk simply add nothing: the lede is the thesis, full stop.
     const investorRead = container.querySelector("[aria-label='Investor read']");
-    expect(investorRead?.querySelector(".cs-lens-timing")?.textContent).toContain("No clear timing signal yet.");
+    expect(investorRead?.querySelector("[data-role='lede']")?.textContent)
+      .toBe("The company has a supported wedge.");
+    expect(investorRead?.querySelector(".cs-lens-timing")).toBeNull();
     expect(generateCalls(fetchMock)).toHaveLength(0);
     await unmount();
   });

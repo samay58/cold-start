@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { installLensGalleryPhase, LENS_GALLERY_PHASE_IDS, type LensGalleryPhaseId } from "./lens-gallery-fixtures";
-import { LENS_TENSION_EMPTY_COPY, LENS_TENSION_LABEL } from "../../src/research/investor-read-copy";
+import { LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "../../src/research/investor-read-copy";
 
 // One run of this spec writes every phase's screenshot under the same timestamped directory,
 // so a single `npm run qa:extension:gallery` produces one comparable set. This is the fixture
@@ -97,7 +97,11 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
       const read = await investorRead(page);
       await expectNoAccentRibbon(read);
       const categories = read.locator(".cs-investor-read-category");
-      await expect(categories).toHaveCount(6);
+      await expect(categories).toHaveCount(4);
+      // The plate's own height, logged so the fold and the crown that follows it can be
+      // compared against the same fixture at the same panel width.
+      const plateHeight = (await read.boundingBox())?.height;
+      console.log(`[lens-gallery] read-full .cs-investor-read height: ${plateHeight}px`);
       await expect(categories.nth(0)).toHaveAttribute("data-category", "why-care");
       await expect(categories.nth(0).locator(".cs-investor-read-category-trigger")).toHaveAttribute("aria-expanded", "true");
       await expect(read.locator(".cs-investor-read-lede")).toContainText("inference layer");
@@ -109,7 +113,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
         .toBe(restingBackground);
       await page.screenshot({ fullPage: true, path: path.join(screenshotDir, "read-full-hover.png") });
 
-      for (const categoryId of ["must-be-true", "could-break", "why-now", "pay-attention", "learn-next"] as const) {
+      for (const categoryId of ["the-case", "pay-attention", "learn-next"] as const) {
         const category = read.locator(`[data-category="${categoryId}"]`);
         const trigger = category.locator(".cs-investor-read-category-trigger");
         await trigger.click();
@@ -142,8 +146,8 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     heading: "Harbor Compute",
     verify: async (page) => {
       const read = await investorRead(page);
-      await expect(read.locator(".cs-investor-read-category")).toHaveCount(6);
-      await expect(read).toContainText(LENS_TENSION_LABEL.holds);
+      await expect(read.locator(".cs-investor-read-category")).toHaveCount(4);
+      await expect(read).toContainText(LENS_CASE_LABEL.holds);
       // The 0-bear side gets its own honest, specific empty state, not the generic
       // "None survived verification." every empty row used to share.
       await expect(read).toContainText(LENS_TENSION_EMPTY_COPY.breaks);
@@ -161,8 +165,8 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     heading: "Fathom Metrics",
     verify: async (page) => {
       const read = await investorRead(page);
-      await expect(read).toContainText(LENS_TENSION_LABEL.holds);
-      await expect(read).toContainText(LENS_TENSION_LABEL.breaks);
+      await expect(read).toContainText(LENS_CASE_LABEL.holds);
+      await expect(read).toContainText(LENS_CASE_LABEL.breaks);
       // This card has synthesis and no synthesisWithheld record, so the posture line reads
       // synthesisEvidenceSignals live: every non-enrichment citation is sourceType "news".
       const posture = page.getByLabel("Evidence posture");

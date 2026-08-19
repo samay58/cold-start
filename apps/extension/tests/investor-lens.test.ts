@@ -1,13 +1,59 @@
 import { describe, expect, it } from "vitest";
-import type { Citation, ColdStartCard, EmphasisReadFiled, SourceQualityTier } from "@cold-start/core";
+import type {
+  Citation,
+  ColdStartCard,
+  EmphasisReadFiled,
+  HowItWinsRead,
+  SourceQualityTier
+} from "@cold-start/core";
 import {
   investorLensCategories,
   investorReadForCard,
-  sourcePostureForCitation,
-  timingIsNotFound
+  sourcePostureForCitation
 } from "../src/research/investor-lens";
-import { EMPHASIS_EMPTY_COPY } from "../src/research/investor-read-copy";
+import { EMPHASIS_EMPTY_COPY, LENS_TENSION_EMPTY_COPY } from "../src/research/investor-read-copy";
 import { minimalWarpCard } from "./lens-card-fixtures";
+
+// A filed how-it-wins read: three running strategies, a pair drawn from two of them, one next,
+// each note carrying a citation marker so the display model has something real to strip.
+const howItWinsFiled: HowItWinsRead = {
+  status: "read",
+  sentence: "Warp wins by pairing a narrow terminal competence with the shell every engineer already opens [c1].",
+  running: [
+    {
+      strategy: "specialization",
+      meaning: "It goes deep on one surface instead of spreading across the whole toolchain [c1].",
+      note: "Every shipped feature lands in the terminal itself [c1].",
+      citationIds: ["c1"]
+    },
+    {
+      strategy: "omnipresence",
+      meaning: "It sits in the one window engineers keep open all day [c2].",
+      note: "The shell is already open on every machine it runs on [c2].",
+      citationIds: ["c2"]
+    },
+    {
+      strategy: "usership",
+      meaning: "Each new team makes the shared workflow worth more [c1].",
+      note: "Teams adopt it after one engineer brings it in [c1].",
+      citationIds: ["c1"]
+    }
+  ],
+  pair: {
+    strategies: ["specialization", "omnipresence"] as const,
+    note: "Depth in one surface only pays because that surface is always open [c1][c2].",
+    wrongIf: "Engineers move their daily work into an editor agent instead.",
+    citationIds: ["c1", "c2"]
+  },
+  next: [
+    {
+      strategy: "standardization",
+      note: "No platform team has made it the default shell yet.",
+      citationIds: []
+    }
+  ],
+  wrongIf: "Editors bundle a comparable terminal agent before team budgets move."
+};
 
 // A minimal filed emphasis read fixture: loud/read carry a citation marker so the
 // display-model stripping tests have something real to strip.
@@ -70,7 +116,7 @@ describe("investor lens display", () => {
     expect(investorReadForCard(card())).toBeNull();
   });
 
-  it("derives a filed investor read with tension, timing, question, and posture", () => {
+  it("derives a filed investor read with tension, question, and posture", () => {
     const display = investorReadForCard(card({
       synthesis: {
         whyItMatters: {
@@ -122,11 +168,6 @@ describe("investor lens display", () => {
       breaks: {
         text: "It breaks if IDE agents absorb terminal workflows before Warp owns team budgets."
       },
-      timing: {
-        field: "Buyer budget",
-        text: "The budget appears to sit with engineering productivity owners.",
-        moreFields: []
-      },
       nextQuestion: {
         question: "Who owns the budget if Warp moves from individual developers into team workflows?",
         categoryLabel: "Buyer & budget",
@@ -176,19 +217,9 @@ describe("investor lens display", () => {
         preview: "Warp has a developer workflow wedge."
       },
       {
-        id: "must-be-true",
-        label: "What must be true",
+        id: "the-case",
+        label: "The case",
         preview: "Developers already show daily usage."
-      },
-      {
-        id: "could-break",
-        label: "What could break",
-        preview: "IDEs could bundle a comparable terminal agent."
-      },
-      {
-        id: "why-now",
-        label: "Why now",
-        preview: "No clear timing signal yet."
       },
       {
         id: "learn-next",
@@ -201,6 +232,31 @@ describe("investor lens display", () => {
         preview: EMPHASIS_EMPTY_COPY.notRead
       }
     ]);
+  });
+
+  it("previews the case with the bear line when no bull claim survived, and the empty copy when neither did", () => {
+    const bearOnly = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [{ text: "Switching cost is low for a CLI tool [c1].", citationIds: ["c1"] }],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }]
+      }
+    }));
+    const neither = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }]
+      }
+    }));
+    if (!bearOnly || !neither) {
+      throw new Error("fixtures must produce filed reads");
+    }
+
+    expect(investorLensCategories(bearOnly)[1]?.preview).toBe("Switching cost is low for a CLI tool.");
+    expect(investorLensCategories(neither)[1]?.preview).toBe(LENS_TENSION_EMPTY_COPY.holds);
   });
 
   it("leaves the tension sides empty instead of restating the lede", () => {
@@ -248,7 +304,7 @@ describe("investor lens display", () => {
     ]);
   });
 
-  it("prefers trigger and risk over structural fields for the timing row", () => {
+  it("closes the Why care lede with the adoption trigger and the timing risk, in that order", () => {
     const display = investorReadForCard(card({
       synthesis: {
         whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
@@ -256,25 +312,27 @@ describe("investor lens display", () => {
         bearCase: [],
         openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
         marketStructureAndTiming: {
+          // A structural field carries no timing weight, so it must not reach the lede.
           buyerBudget: { text: "Budget sits with platform teams [c1].", citationIds: ["c1"] },
           painSeverity: null,
-          adoptionTrigger: { text: "Agent rollouts are forcing terminal standardization [c2].", citationIds: ["c2"] },
+          // No terminal period: the beat has to supply one before the next sentence joins on.
+          adoptionTrigger: { text: "Agent rollouts are forcing terminal standardization [c2]", citationIds: ["c2"] },
           marketStructure: null,
           profitPool: null,
           expansionPath: null,
-          timingRisk: null
+          timingRisk: { text: "The window closes if editors ship the same agent first [c2].", citationIds: ["c2"] }
         }
       }
     }));
 
-    expect(display?.timing).toMatchObject({
-      field: "Adoption trigger",
-      text: "Agent rollouts are forcing terminal standardization.",
-      moreFields: [{ field: "Buyer budget", text: "Budget sits with platform teams." }]
-    });
+    expect(display?.lede.text).toBe(
+      "Warp has a developer workflow wedge. Agent rollouts are forcing terminal standardization. The window closes if editors ship the same agent first."
+    );
+    expect(display?.lede.text).not.toContain("Budget sits with platform teams");
+    expect(investorLensCategories(display!)[0]?.preview).toBe(display?.lede.text);
   });
 
-  it("marks timing as not found when market timing is absent", () => {
+  it("keeps the lede bare when neither timing beat is supported", () => {
     const noTimingCard = card({
       synthesis: {
         whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
@@ -285,10 +343,33 @@ describe("investor lens display", () => {
     });
     const display = investorReadForCard(noTimingCard);
 
-    expect(timingIsNotFound(noTimingCard)).toBe(true);
-    expect(display?.timing).toBeNull();
+    expect(display?.lede.text).toBe("Warp has a developer workflow wedge.");
     expect(display?.receiptLine).toBe("Updated Jun 23");
     expect(display?.independentlyBacked).toBe(false);
+  });
+
+  it("adds the timing risk alone when no adoption trigger is filed", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        marketStructureAndTiming: {
+          buyerBudget: null,
+          painSeverity: null,
+          adoptionTrigger: null,
+          marketStructure: null,
+          profitPool: null,
+          expansionPath: null,
+          timingRisk: { text: "The window closes if editors ship the same agent first [c2].", citationIds: ["c2"] }
+        }
+      }
+    }));
+
+    expect(display?.lede.text).toBe(
+      "Warp has a developer workflow wedge. The window closes if editors ship the same agent first."
+    );
   });
 
   it("classifies source posture from citation metadata", () => {
@@ -309,7 +390,7 @@ describe("investor lens display", () => {
     expect(sourcePostureForCitation(citationWithTier("founder_authored"))).toBe("founder-authored");
   });
 
-  it("returns six categories with Pay attention to last", () => {
+  it("returns four categories with Pay attention to last", () => {
     const display = investorReadForCard(card({
       synthesis: {
         whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
@@ -324,8 +405,14 @@ describe("investor lens display", () => {
     }
 
     const categories = investorLensCategories(display);
-    expect(categories).toHaveLength(6);
-    expect(categories[5]).toMatchObject({ id: "pay-attention", label: "Pay attention to" });
+    expect(categories).toHaveLength(4);
+    expect(categories.map((category) => category.id)).toEqual([
+      "why-care",
+      "the-case",
+      "learn-next",
+      "pay-attention"
+    ]);
+    expect(categories[3]).toMatchObject({ id: "pay-attention", label: "Pay attention to" });
   });
 
   it("previews the read text when the emphasis read is filed", () => {
@@ -349,7 +436,7 @@ describe("investor lens display", () => {
       read: "The company is selling adoption momentum, not revenue durability, and the read should weight usage growth over monetization proof.",
       wouldChangeIf: emphasisReadFiled.wouldChangeIf
     });
-    expect(investorLensCategories(display)[5]?.preview).toBe(display.emphasis.read);
+    expect(investorLensCategories(display)[3]?.preview).toBe(display.emphasis.read);
   });
 
   it("previews flat empty copy for thin_file, nothing_notable, and a legacy card", () => {
@@ -373,13 +460,13 @@ describe("investor lens display", () => {
     }
 
     expect(thinFileDisplay.emphasis.state).toBe("thin_file");
-    expect(investorLensCategories(thinFileDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.thinFile);
+    expect(investorLensCategories(thinFileDisplay)[3]?.preview).toBe(EMPHASIS_EMPTY_COPY.thinFile);
 
     expect(nothingNotableDisplay.emphasis.state).toBe("nothing_notable");
-    expect(investorLensCategories(nothingNotableDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.nothingNotable);
+    expect(investorLensCategories(nothingNotableDisplay)[3]?.preview).toBe(EMPHASIS_EMPTY_COPY.nothingNotable);
 
     expect(legacyDisplay.emphasis.state).toBe("not_read");
-    expect(investorLensCategories(legacyDisplay)[5]?.preview).toBe(EMPHASIS_EMPTY_COPY.notRead);
+    expect(investorLensCategories(legacyDisplay)[3]?.preview).toBe(EMPHASIS_EMPTY_COPY.notRead);
   });
 
   it("strips citation markers from loud and read in the display model", () => {
@@ -447,5 +534,114 @@ describe("investor lens display", () => {
     // independentlyBacked stays scoped to the original synthesis claims only, unaffected by the
     // fv-only emphasis read (whyItMatters here cites c1, not an independent/reporting source).
     expect(display.independentlyBacked).toBe(false);
+  });
+
+  it("resolves strategy names and strips markers for a filed how-it-wins read", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        howItWins: howItWinsFiled
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    expect(display.howItWins).toEqual({
+      state: "read",
+      sentence: "Warp wins by pairing a narrow terminal competence with the shell every engineer already opens.",
+      running: [
+        {
+          id: "specialization",
+          name: "Specialization",
+          meaning: "It goes deep on one surface instead of spreading across the whole toolchain.",
+          note: "Every shipped feature lands in the terminal itself."
+        },
+        {
+          id: "omnipresence",
+          name: "Omnipresence",
+          meaning: "It sits in the one window engineers keep open all day.",
+          note: "The shell is already open on every machine it runs on."
+        },
+        {
+          id: "usership",
+          name: "Usership",
+          meaning: "Each new team makes the shared workflow worth more.",
+          note: "Teams adopt it after one engineer brings it in."
+        }
+      ],
+      pair: {
+        strategies: ["specialization", "omnipresence"],
+        names: ["Specialization", "Omnipresence"],
+        note: "Depth in one surface only pays because that surface is always open.",
+        wrongIf: "Engineers move their daily work into an editor agent instead."
+      },
+      next: [
+        {
+          id: "standardization",
+          name: "Standardization",
+          note: "No platform team has made it the default shell yet."
+        }
+      ],
+      wrongIf: "Editors bundle a comparable terminal agent before team budgets move.",
+      count: 3
+    });
+  });
+
+  it("files the how-it-wins read's own cited notes as footer sources without moving the posture", () => {
+    const display = investorReadForCard(card({
+      synthesis: {
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        bullCase: [],
+        bearCase: [],
+        openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
+        howItWins: howItWinsFiled
+      }
+    }));
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    // c2 reaches the footer only through the how-it-wins notes: whyItMatters cites c1 alone.
+    expect(display.sources.map((source) => source.id)).toContain("c2");
+    expect(display.independentlyBacked).toBe(false);
+  });
+
+  it("keeps the how-it-wins display honest for thin_file, nothing_stands_out, and a legacy card", () => {
+    const baseSynthesis = {
+      whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+    };
+    const thinFile = investorReadForCard(card({
+      synthesis: { ...baseSynthesis, howItWins: { status: "thin_file" } }
+    }));
+    const nothingWithSentence = investorReadForCard(card({
+      synthesis: {
+        ...baseSynthesis,
+        howItWins: { status: "nothing_stands_out", sentence: "It competes the way most developer tools do [c1]." }
+      }
+    }));
+    const nothingBare = investorReadForCard(card({
+      synthesis: { ...baseSynthesis, howItWins: { status: "nothing_stands_out" } }
+    }));
+    const legacy = investorReadForCard(card({ synthesis: baseSynthesis }));
+    if (!thinFile || !nothingWithSentence || !nothingBare || !legacy) {
+      throw new Error("fixtures must produce filed reads");
+    }
+
+    const empty = { running: [], pair: null, next: [], wrongIf: null, count: 0 };
+    expect(thinFile.howItWins).toEqual({ state: "thin_file", sentence: null, ...empty });
+    expect(nothingWithSentence.howItWins).toEqual({
+      state: "nothing_stands_out",
+      sentence: "It competes the way most developer tools do.",
+      ...empty
+    });
+    expect(nothingBare.howItWins).toEqual({ state: "nothing_stands_out", sentence: null, ...empty });
+    expect(legacy.howItWins).toEqual({ state: "not_read", sentence: null, ...empty });
   });
 });

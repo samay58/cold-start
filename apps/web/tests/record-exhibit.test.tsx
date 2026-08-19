@@ -113,7 +113,7 @@ describe("RecordExhibit", () => {
   it("carries no synthesis onto the landing page", () => {
     // The exhibit is public card content only. None of the gated Investor Lens vocabulary
     // may appear in its markup.
-    for (const gated of ["Why care", "What must be true", "What could break", "bull case", "bear case"]) {
+    for (const gated of ["Why care", "The case", "How it wins", "bull case", "bear case"]) {
       expect(html).not.toContain(gated);
     }
   });
