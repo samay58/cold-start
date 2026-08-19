@@ -102,3 +102,19 @@ The whole crown is one target. Nothing depends on hitting a 4px mark. The senten
 - The exposure read (which Offense strategy an incumbent would run against them). Bear-case cousin; would duplicate What could break.
 - Extending the writing standard to the other Lens rows. After twenty blind-read cards.
 - The signature-only fallback (sentence plus names, no edge). Kept as the fallback if the live prototype's motion does not land.
+
+## Shipped 2026-08-19 (deviations and tuned values)
+
+- The case label shipped as "The case". Samay can still override to "Thesis".
+- The sentence at rest is unverified prose. The running and pair notes underneath it are the verified claims.
+- `nothing_stands_out`'s sentence is optional. It is absent when the verifier degraded a read in code rather than the model choosing the status; the crown then shows "Nothing stands out yet."
+- The alpha analytics schema keeps the old category ids, `must-be-true`, `could-break`, and `why-now`, as legacy values. Nothing writes them anymore.
+- The note is a crown-owned popover styled as the `SharedTooltip` memo variant, not the shared tooltip state machine. The crown's spring cursor, retargeting, and pin are its own interaction and needed their own controller.
+- The writer defaults to the synthesis model chain. `claude-sonnet-5` is set through `LLM_HOW_IT_WINS_MODEL` for the blind read and is one of the two arms it compares, against `claude-sonnet-4-6`.
+- No call in the four-pass driver sends `temperature`. Sonnet 5 rejects it.
+- The empty-text retry ladder: 16000 tokens, then 21000 under the SDK's non-streaming ceiling, then thinking disabled. Sonnet 5 thinks by default and an under-sized budget comes back empty.
+- The `how-it-wins` step runs concurrently with the emphasis-read pair. Measured latency on Irregular's card: the Sonnet 5 writer took 207 seconds and $0.39 per read; the Sonnet 4.6 writer took 110 seconds and $0.15.
+- The twenty-card blind read runs two arms per card through `/eval/how-it-wins`.
+- Production keeps `HOW_IT_WINS_ENABLED=false` until the blind read clears.
+- Motion tuned 2026-08-19: the starting values held after frame capture at 16ms and 25ms steps. Spring 420/38, zeta 0.93, crosses the whole edge in about 75ms. Sigma 11, magnification 1.6. Scale 0.55. Note 120/90/100ms. Arrival 300ms delay, 40ms stagger, 220ms drop, bracket 180ms.
+- Plate heights at the gallery fixture: 575px before the change, 490px after the fold, 542px with the crown added. Ceiling 580px.
