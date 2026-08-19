@@ -114,7 +114,7 @@ The whole crown is one target. Nothing depends on hitting a 4px mark. The senten
 - No call in the four-pass driver sends `temperature`. Sonnet 5 rejects it.
 - The empty-text retry ladder: 16000 tokens, then 21000 under the SDK's non-streaming ceiling, then thinking disabled. Sonnet 5 thinks by default and an under-sized budget comes back empty.
 - The `how-it-wins` step runs concurrently with the emphasis-read pair. Measured latency on Irregular's card: the Sonnet 5 writer took 207 seconds and $0.39 per read; the Sonnet 4.6 writer took 110 seconds and $0.15.
-- The twenty-card blind read runs two arms per card through `/eval/how-it-wins`.
+- The twenty-card blind read runs two arms per card through `/eval/how-it-wins`. Run the sitting on a production build (`npm run build -w @cold-start/web`, then `EVAL_RIG_ENABLED=true EVAL_RIG_DATA_DIR=$PWD/eval/curation npm run start -w @cold-start/web`): `next dev` writes React's I/O debug info into the page, which includes every frozen file's raw text, writers and answer key included. Nothing shows on screen, but the key is one View Source away.
 - Production keeps `HOW_IT_WINS_ENABLED=false` until the blind read clears.
 - Motion tuned 2026-08-19: the starting values held after frame capture at 16ms and 25ms steps. Spring 420/38, zeta 0.93, crosses the whole edge in about 75ms. Sigma 11, magnification 1.6. Scale 0.55. Note 120/90/100ms. Arrival 300ms delay, 40ms stagger, 220ms drop, bracket 180ms.
 - Plate heights at the gallery fixture: 575px before the change, 490px after the fold, 542px with the crown added. Ceiling 580px.
