@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { companyDescriptionSchema } from "./intelligence";
 import { safePublicImageUrl, safeWebUrl } from "./external-url";
+import { howItWinsSchema } from "./how-it-wins";
 
 const webUrlSchema = z.string().max(2_048).refine((value) => safeWebUrl(value) !== null, {
   message: "Expected a safe HTTP(S) URL"
@@ -192,6 +193,7 @@ export const synthesisSchema = z.object({
   bearCase: z.array(sourcedTextSchema),
   openQuestions: z.array(openQuestionEntrySchema),
   emphasisRead: emphasisReadSchema.optional(),
+  howItWins: howItWinsSchema.optional(),
   // The synthesis prompt tells the model "use null when sources do not support a field" for the
   // fields inside this container; models sometimes null the whole container instead of its seven
   // fields. Coerce that null to undefined before validating so it means the same thing as an

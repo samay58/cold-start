@@ -52,7 +52,17 @@ describe("GET /api/cards/[slug]", () => {
           }]
         }
       },
-      synthesis: { whyItMatters: { text: "Hidden [c1].", citationIds: ["c1"] } }
+      synthesis: {
+        whyItMatters: { text: "Hidden [c1].", citationIds: ["c1"] },
+        howItWins: {
+          status: "read",
+          sentence: "Hidden how-it-wins sentence.",
+          running: [],
+          pair: null,
+          next: [],
+          wrongIf: "Hidden wrongIf."
+        }
+      }
     });
 
     const response = await GET(new Request("http://localhost/api/cards/cartesia"), params());
@@ -66,6 +76,9 @@ describe("GET /api/cards/[slug]", () => {
     // The person read is extension-tier judgment, stripped from the public wire response
     // exactly like email.
     expect(JSON.stringify(body)).not.toContain("Second robotics company");
+    // synthesis.howItWins is extension-tier judgment too, stripped alongside the rest of
+    // synthesis; this is the only assertion this task adds.
+    expect(JSON.stringify(body)).not.toContain("howItWins");
     expect(mocks.getPublicCachedCard).toHaveBeenCalledWith("cartesia");
     expect(mocks.getFullCachedCard).not.toHaveBeenCalled();
   });
