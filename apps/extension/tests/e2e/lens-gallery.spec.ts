@@ -64,7 +64,7 @@ const PHASE_CHECKS: Record<LensGalleryPhaseId, PhaseCheck> = {
     verify: async (page, screenshotDir) => {
       const control = page.getByRole("button", { name: "Run Investor Lens" });
       await expect(control).toBeEnabled();
-      await expect(control).toContainText("See the case, pressure points, timing, and next question.");
+      await expect(control).toContainText("See why it matters, the case, how it wins, and what to learn next.");
       await expect(control).toContainText("Build read");
       await expectNoAccentRibbon(control);
       const researchLayer = page.getByRole("region", { name: "Research layer" });

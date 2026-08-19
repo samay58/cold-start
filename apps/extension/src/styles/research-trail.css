@@ -704,8 +704,8 @@
   transition: max-height 120ms var(--cs-motion-ease-out);
 }
 
-/* Claim role: 13px/1.55 IBM Plex Sans 450. Bull/bear claims, the timing claim, and the question
-   body all read at this size; an inline <em> lead-in ("If true.", "Adoption trigger.") carries
+/* Claim role: 13px/1.55 IBM Plex Sans 450. Bull/bear claims, the emphasis lines, and the
+   question body all read at this size; an inline <em> lead-in ("Bull.", "Bear.") carries
    contrast through weight alone, the same device Carbon uses to split same-size roles
    (gold-standard-references.md, memo typography track). */
 .cs-investor-read-claim {

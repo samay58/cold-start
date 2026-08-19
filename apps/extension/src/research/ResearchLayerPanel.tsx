@@ -110,7 +110,7 @@ function investorLensControlState({
     return { disabled: true, reason: blockedReason };
   }
 
-  return { disabled: false, reason: "See the case, pressure points, timing, and next question." };
+  return { disabled: false, reason: "See why it matters, the case, how it wins, and what to learn next." };
 }
 
 function pinnedLayerRecordValue(value: unknown): Record<string, ResearchLayerId[]> {

@@ -159,7 +159,7 @@ Sections, in this order below the strip:
 - `Comps`: named comparable companies with their basis. Shows an honest empty state on a full card; stays hidden entirely on a thin file until a source names one.
 - `Risk`: caveats the ledger can state plainly (company-only proof, a stale section). Renders only when there is something to say.
 - `Next question`: one honest open thread the ledger cannot answer, chosen by a fixed priority: company-only proof, then a headcount conflict, then missing funding, then, on a thin file, who funds the company.
-- `Investor read`: a locked teaser row naming the five Lens categories (Why care, What must be true, What could break, Why now, What to learn next) and pointing to the extension. Hidden entirely on a thin file.
+- `Investor read`: a locked teaser row naming everything the Lens shows (Why care, The case, What to learn next, Pay attention to, How it wins) and pointing to the extension. Hidden entirely on a thin file.
 
 Conflict panel: appears wherever a fact's sources disagree (folded into People for headcount today). It states the disputed value, every disagreeing source with its date, and refuses to average them: "Both values stand. Cold Start does not average sources." A compact variant carries the same content at a smaller size in the mobile pocket.
 

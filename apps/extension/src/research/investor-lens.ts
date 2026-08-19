@@ -533,10 +533,14 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
   const claims = supportedClaims(card);
   const beat = timingBeat(card);
   const lede = lensClaim(card.synthesis.whyItMatters);
+  // A thesis that ends without punctuation would run straight into the beat, so it goes
+  // through the same normalizer the beat's own sentences do. With no beat the thesis is left
+  // exactly as the model wrote it.
+  const ledeText = beat ? `${displaySentence(lede.text)} ${beat}` : lede.text;
 
   return {
     receiptLine: receiptLine(card),
-    lede: { text: [lede.text, beat].filter(Boolean).join(" ") },
+    lede: { text: ledeText },
     holds: tensionClaim(card.synthesis.bullCase),
     breaks: tensionClaim(card.synthesis.bearCase),
     nextQuestion: nextQuestionDisplay(card),

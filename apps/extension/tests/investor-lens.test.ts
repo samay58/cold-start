@@ -307,7 +307,8 @@ describe("investor lens display", () => {
   it("closes the Why care lede with the adoption trigger and the timing risk, in that order", () => {
     const display = investorReadForCard(card({
       synthesis: {
-        whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+        // No terminal period on the thesis either: it must not run into the beat.
+        whyItMatters: { text: "Warp has a developer workflow wedge [c1]", citationIds: ["c1"] },
         bullCase: [],
         bearCase: [],
         openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" }],
@@ -329,7 +330,10 @@ describe("investor lens display", () => {
       "Warp has a developer workflow wedge. Agent rollouts are forcing terminal standardization. The window closes if editors ship the same agent first."
     );
     expect(display?.lede.text).not.toContain("Budget sits with platform teams");
-    expect(investorLensCategories(display!)[0]?.preview).toBe(display?.lede.text);
+    if (!display) {
+      throw new Error("fixture must produce a filed read");
+    }
+    expect(investorLensCategories(display)[0]?.preview).toBe(display.lede.text);
   });
 
   it("keeps the lede bare when neither timing beat is supported", () => {

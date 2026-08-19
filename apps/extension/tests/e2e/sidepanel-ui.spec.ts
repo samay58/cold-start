@@ -2299,14 +2299,21 @@ test("the case files extra holds and breaks claims behind inline disclosure, not
     const side = theCase.locator(sideSelector);
     const more = side.locator(".cs-investor-read-more");
     const frame = side.locator(".cs-investor-read-disclosure-frame");
+    // The overflow claim is always in the DOM (reduced motion must never hide content, only
+    // change how the reveal animates), so a toContainText assertion would pass even while the
+    // row is shut. The frame carries visibility: hidden until it opens, so toBeVisible is the
+    // only assertion that actually discriminates collapsed from expanded.
+    const overflow = frame.getByText(overflowClaim);
     await expect(more).toHaveText("+1 more");
     await expect(more).toHaveAttribute("aria-expanded", "false");
     await expect(frame).toHaveAttribute("data-expanded", "false");
+    await expect(overflow).not.toBeVisible();
 
     await more.click();
 
     await expect(more).toHaveAttribute("aria-expanded", "true");
     await expect(frame).toHaveAttribute("data-expanded", "true");
+    await expect(overflow).toBeVisible();
     // The retired tooltip never mounts: expanding is purely inline, same document flow.
     await expect(page.locator(".cs-shared-tooltip")).toHaveCount(0);
     await expect(side).toContainText(overflowClaim);

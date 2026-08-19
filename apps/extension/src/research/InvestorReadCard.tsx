@@ -28,15 +28,19 @@ type LensDisclosureToggle = (disclosure: LensDisclosureId, expanded: boolean) =>
 // The category packet uses DESIGN.md's five Lens type roles. A new state must reuse those
 // roles rather than minting another size or face.
 
-// Staged spring entrance for a freshly filed read. Four stages -- lede, the case, next
-// question plus what to pay attention to, footer plus posture -- fire in sequence, each on
-// commitSpring (stiffness 470, damping 31, mass 0.62, zeta ~0.91: DESIGN.md's stiff
-// well-damped band, settle fast with a breath of follow-through, no cartoon bounce). 140ms
-// between stage starts puts the last stage firing at 420ms; the sequence reads as visibly settled roughly 540-590ms after it starts.
-// Framer-motion's own rest threshold (restDelta 0.01) against the 10px y displacement stretches
-// the technical completion tail out to nearer 700ms, well past where the eye can tell the motion
-// is done -- that gap is expected, not a bug, and not the number to design the perceived timing
-// against. Transform (y) and opacity only, never scale.
+// Staged spring entrance for a freshly filed read: the header, then one stage per category
+// row, then the footer plus posture, each on commitSpring (stiffness 470, damping 31, mass
+// 0.62, zeta ~0.91: DESIGN.md's stiff well-damped band, settle fast with a breath of
+// follow-through, no cartoon bounce). 45ms between stage starts, so with today's four rows the
+// last category fires at 180ms and the footer follows one beat later at 225ms; the sequence
+// reads as visibly settled roughly 350-400ms after it starts. Framer-motion's own rest
+// threshold (restDelta 0.01) against the 6px y displacement stretches the technical completion
+// tail out past that, well beyond where the eye can tell the motion is done -- that gap is
+// expected, not a bug, and not the number to design the perceived timing against. Transform (y)
+// and opacity only, never scale.
+//
+// The footer delay is derived from the row count rather than pinned, so folding or adding a
+// row cannot silently leave a dead beat between the last row and the footer.
 //
 // This only plays on a live trigger/running/withheld -> result handoff. AnimatePresence's own
 // initial={false} in ResearchLayerPanel's LensSlot blocks the mount animation for every nested
@@ -46,9 +50,12 @@ type LensDisclosureToggle = (disclosure: LensDisclosureId, expanded: boolean) =>
 // replayed just because the profile was reloaded.
 const LENS_ENTRANCE_STAGE_DELAYS = {
   header: 0,
-  category: 0.045,
-  footer: 0.28
+  category: 0.045
 } as const;
+
+function footerEntranceDelay(categoryCount: number) {
+  return LENS_ENTRANCE_STAGE_DELAYS.category * (categoryCount + 1);
+}
 
 // Reduced motion collapses every stage into one 150ms opacity fade fired at once (DESIGN.md:
 // prefers-reduced-motion is a reduction, never a freeze, so the entrance still animates). The y
@@ -476,7 +483,7 @@ export function InvestorReadCard({
           />
         ))}
       </div>
-      <motion.div {...stageEntranceProps(LENS_ENTRANCE_STAGE_DELAYS.footer, prefersReducedMotion)}>
+      <motion.div {...stageEntranceProps(footerEntranceDelay(categories.length), prefersReducedMotion)}>
         <footer className="cs-lens-footer" aria-label="Cited sources">
           <div className="cs-lens-footer-sources">
             {visibleSources.map((source, index) => (
