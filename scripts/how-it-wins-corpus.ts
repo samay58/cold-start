@@ -7,7 +7,7 @@
  */
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -34,6 +34,9 @@ import {
 import { verificationFactsForClaims, verifiedHowItWins } from "@cold-start/pipeline";
 
 import { createSeededRng, shuffled, type RichnessBand } from "./eval-curation-lib";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore score.mjs is plain JS shared with the node:test suite
+import { strategyFrequency, strategyFrequencyGate } from "../eval/investor-lens/score.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -323,6 +326,49 @@ function statusLabel(arm: ArmResult): string {
   return `read/${arm.read.running.length}`;
 }
 
+// The written arm file, read back loosely: a sitting can span versions of this script, and a
+// field the gate does not need must never cost the whole summary.
+export type HowItWinsArmFile = { arms?: Record<string, { writer?: string; read?: HowItWins } | undefined> };
+
+// The frequency gate is the only check that needs the whole sitting rather than one card, so it
+// runs once at the end over every arm file on disk. Pure, so the test feeds it arm files directly.
+export function strategyGateLines(files: HowItWinsArmFile[]): string[] {
+  const byWriter = new Map<string, Array<{ synthesis: { howItWins: HowItWinsRead } }>>();
+  for (const file of files) {
+    for (const arm of Object.values(file.arms ?? {})) {
+      if (!arm?.writer) continue;
+      const cards = byWriter.get(arm.writer) ?? [];
+      byWriter.set(arm.writer, cards);
+      if (arm.read?.status === "read") cards.push({ synthesis: { howItWins: arm.read } });
+    }
+  }
+
+  return [...byWriter.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([writer, cards]) => {
+      const gate = strategyFrequencyGate(cards) as { passed: boolean; reads: number };
+      const { share } = strategyFrequency(cards) as { share: Record<string, number> };
+      const top = Object.entries(share)
+        .sort(([leftName, left], [rightName, right]) => right - left || leftName.localeCompare(rightName))
+        .slice(0, 3)
+        .map(([strategy, value]) => `${strategy} ${value.toFixed(2)}`);
+      return `gate ${writer}: ${gate.passed ? "passed" : "failed"} over ${gate.reads} reads; top strategies: ${top.length > 0 ? top.join(", ") : "none"}`;
+    });
+}
+
+async function armFilesInOutDir(outDir: string): Promise<HowItWinsArmFile[]> {
+  const names = (await readdir(outDir)).filter((name) => name.endsWith(".json") && name !== "index.json");
+  const files: HowItWinsArmFile[] = [];
+  for (const name of names.sort()) {
+    try {
+      files.push(JSON.parse(await readFile(path.join(outDir, name), "utf8")) as HowItWinsArmFile);
+    } catch {
+      console.log(`skip ${name}: not readable as an arm file`);
+    }
+  }
+  return files;
+}
+
 async function writeIndex(outDir: string, row: IndexRow) {
   const indexPath = path.join(outDir, "index.json");
   let rows: IndexRow[] = [];
@@ -403,6 +449,9 @@ async function main() {
         `${slug}  failed after ${Math.round((Date.now() - startedAt) / 1000)}s: ${error instanceof Error ? error.message : String(error)}`
       );
     }
+  }
+  for (const line of strategyGateLines(await armFilesInOutDir(outDir))) {
+    console.log(line);
   }
   console.log(`total $${spent.toFixed(4)}`);
 }

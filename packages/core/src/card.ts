@@ -113,7 +113,7 @@ export const sourcedTextSchema = z.object({
   citationIds: z.array(z.string().min(1))
 });
 
-// The sixth Lens category: what the company and its founders are loud about, what never
+// The Pay attention to row of the Lens: what the company and its founders are loud about, what never
 // appears in the filed record, and the smallest inference that asymmetry supports. Quiet is
 // a plain string scoped to the file ("Nothing filed shows..."), so it carries no citations;
 // Loud and Read cite like any synthesis claim. thin_file is decided in code before any model

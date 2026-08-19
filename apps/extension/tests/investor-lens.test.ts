@@ -15,7 +15,8 @@ import { EMPHASIS_EMPTY_COPY, LENS_TENSION_EMPTY_COPY } from "../src/research/in
 import { minimalWarpCard } from "./lens-card-fixtures";
 
 // A filed how-it-wins read: three running strategies, a pair drawn from two of them, one next,
-// each note carrying a citation marker so the display model has something real to strip.
+// with markers on every note and on the pair's wrong-if so the display model has something
+// real to strip.
 const howItWinsFiled: HowItWinsRead = {
   status: "read",
   sentence: "Warp wins by pairing a narrow terminal competence with the shell every engineer already opens [c1].",
@@ -42,7 +43,7 @@ const howItWinsFiled: HowItWinsRead = {
   pair: {
     strategies: ["specialization", "omnipresence"] as const,
     note: "Depth in one surface only pays because that surface is always open [c1][c2].",
-    wrongIf: "Engineers move their daily work into an editor agent instead.",
+    wrongIf: "Engineers move their daily work into an editor agent instead [c2].",
     citationIds: ["c1", "c2"]
   },
   next: [
@@ -498,7 +499,7 @@ describe("investor lens display", () => {
   });
 
   // Fix wave (2026-08-12): supportedClaims (fed to lensSources) never included the emphasis
-  // read's own loud/read claims, so the sixth card's citations never surfaced as footer source
+  // read's own loud/read claims, so that card's citations never surfaced as footer source
   // chips even when the read was entirely backed by founder-voice evidence.
   it("surfaces founder-authored source chips for a filed read whose only citations are fv-prefixed", () => {
     const founderCitation: Citation = {
@@ -590,7 +591,6 @@ describe("investor lens display", () => {
           note: "No platform team has made it the default shell yet."
         }
       ],
-      wrongIf: "Editors bundle a comparable terminal agent before team budgets move.",
       count: 3
     });
   });
@@ -638,7 +638,7 @@ describe("investor lens display", () => {
       throw new Error("fixtures must produce filed reads");
     }
 
-    const empty = { running: [], pair: null, next: [], wrongIf: null, count: 0 };
+    const empty = { running: [], pair: null, next: [], count: 0 };
     expect(thinFile.howItWins).toEqual({ state: "thin_file", sentence: null, ...empty });
     expect(nothingWithSentence.howItWins).toEqual({
       state: "nothing_stands_out",

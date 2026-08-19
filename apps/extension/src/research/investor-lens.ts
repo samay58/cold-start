@@ -111,7 +111,6 @@ export type HowItWinsDisplay = {
     wrongIf: string;
   } | null;
   next: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
-  wrongIf: string | null;
   count: number;
 };
 
@@ -458,7 +457,7 @@ function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
 // Every non-read state carries the same empty content. A function rather than a shared
 // constant so each display gets its own arrays and no two reads can alias one another.
 function noHowItWinsContent() {
-  return { running: [], pair: null, next: [], wrongIf: null, count: 0 };
+  return { running: [], pair: null, next: [], count: 0 };
 }
 
 // The crown's display model. Names come from the shared vocabulary rather than the model's
@@ -496,7 +495,7 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
         strategies: [pairLeft, pairRight],
         names: [howItWinsStrategyById(pairLeft).name, howItWinsStrategyById(pairRight).name],
         note: stripCitationMarkers(howItWins.pair.note),
-        wrongIf: howItWins.pair.wrongIf
+        wrongIf: stripCitationMarkers(howItWins.pair.wrongIf)
       }
       : null,
     next: howItWins.next.map((entry) => ({
@@ -504,7 +503,6 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
       name: howItWinsStrategyById(entry.strategy).name,
       note: stripCitationMarkers(entry.note)
     })),
-    wrongIf: howItWins.wrongIf,
     count: howItWins.running.length
   };
 }

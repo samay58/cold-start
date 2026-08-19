@@ -2,8 +2,8 @@
  * The "How it wins" read: four passes over one card. Pass 1 reasons in prose under the writing
  * standard, pass 2 fits that reasoning to the panel's slots as JSON, pass 3 is a second model
  * reading the draft as a hostile editor, pass 4 trims the result to the surface. Pass 3 is
- * optional by design: when it fails for any reason other than transport, the draft it was given
- * goes on to pass 4 unchanged.
+ * optional by design: when it fails for any reason at all, the draft it was given goes on to
+ * pass 4 unchanged.
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
@@ -29,7 +29,6 @@ import {
   HOW_IT_WINS_WRITING_STANDARD
 } from "./how-it-wins-prompts";
 import { visibleCitationMarkers } from "./tool-schema-fragments";
-import { isTransientLlmError } from "./transient-error";
 import type { z } from "zod";
 
 export const HOW_IT_WINS_DEFAULT_EDITOR_MODEL = "deepseek/deepseek-v4-pro";
@@ -384,7 +383,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     checkNote(
       entry.note,
       `${label}, in the note`,
-      `${label}: the note states certainty more than once; say it once, at the end`
+      `${label}: the note repeats its certainty; say it once, at the end`
     );
   });
 
@@ -392,7 +391,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     checkNote(
       read.pair.note,
       "the pair note",
-      "the pair note states certainty more than once; say it once, at the end"
+      "the pair note repeats its certainty; say it once, at the end"
     );
     checkEmDash(read.pair.wrongIf, "the pair wrong_if");
   }
@@ -402,7 +401,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     checkNote(
       entry.note,
       `${label}, in the note`,
-      `${label}: the note states certainty more than once; say it once, at the end`
+      `${label}: the note repeats its certainty; say it once, at the end`
     );
   });
 
@@ -543,10 +542,9 @@ export async function synthesizeHowItWins(input: {
       user: `The draft:\n\n${edited}\n\nThe evidence the draft must stay within (do not add facts not in it):\n\n${cardJson}`,
       maxTokens: EDITOR_MAX_TOKENS
     });
-  } catch (error) {
-    if (isTransientLlmError(error)) {
-      throw error;
-    }
+  } catch {
+    // Every editor failure skips the pass, transient or not. The pass is optional, and the
+    // openai-compat adapter has already spent its own in-process retries by this point.
     editorSkipped = true;
   }
 

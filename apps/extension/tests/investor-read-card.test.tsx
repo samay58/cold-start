@@ -25,7 +25,7 @@ vi.mock("../src/shared/alpha-analytics", () => analytics);
 type Captured = { body: string | TooltipDossier | TooltipMemo; id: string; title: string };
 const analyticsSettings = { apiOrigin: "https://example.com", apiToken: "token" };
 
-// The sixth Lens category's filed fixture: loud/read cite like any other synthesis claim
+// The Pay attention to row's filed fixture: loud/read cite like any other synthesis claim
 // (so stripCitationMarkers has a real marker to strip), quiet and wouldChangeIf are plain
 // file-scoped strings per emphasisReadFiledSchema.
 const emphasisReadFiled: EmphasisRead = {
@@ -44,7 +44,7 @@ const emphasisReadFiled: EmphasisRead = {
 
 // (b)/(e): rich synthesis with multiple bull/bear claims and multiple timing fields, so the
 // overflow disclosure has something to expand. emphasisRead defaults to absent (the legacy
-// not_read state); pass a status to exercise the other three sixth-category states.
+// not_read state); pass a status to exercise the other three Pay attention to states.
 function richCard(emphasisRead?: EmphasisRead): ColdStartCard {
   return baseCard({
     funding: {

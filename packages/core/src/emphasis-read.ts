@@ -1,5 +1,5 @@
 /*
- * Pure logic for the emphasis read (the sixth Lens category). The thin-file gate runs in
+ * Pure logic for the emphasis read (the Pay attention to row of the Lens). The thin-file gate runs in
  * code before any model call or paid lane fetch, so a thin card costs nothing. Digests give
  * the LLM stage what each filed source is, says, and leads with, without shipping raw pages.
  */

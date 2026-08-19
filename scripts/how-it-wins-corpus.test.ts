@@ -1,7 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { GenerationLlmCallTrace } from "@cold-start/core";
-import { armAssignment, failedArmResult, parseFlags, selectHowItWinsSlugs, type HowItWinsCandidate } from "./how-it-wins-corpus";
+import type { GenerationLlmCallTrace, HowItWinsRead, HowItWinsStrategyId } from "@cold-start/core";
+import {
+  armAssignment,
+  failedArmResult,
+  parseFlags,
+  selectHowItWinsSlugs,
+  strategyGateLines,
+  type HowItWinsArmFile,
+  type HowItWinsCandidate
+} from "./how-it-wins-corpus";
 
 function candidate(slug: string, over: Partial<HowItWinsCandidate> = {}): HowItWinsCandidate {
   return { slug, richnessBand: "rich", hasSynthesis: true, thinFileReason: null, ...over };
@@ -105,4 +113,63 @@ test("a failed arm bounds a runaway message and survives a non-Error throw", () 
   const long = failedArmResult("w", new Error("x".repeat(500)), []);
   assert.equal(long.failure?.length, 300);
   assert.equal(failedArmResult("w", "plain string blew up", []).failure, "plain string blew up");
+});
+
+function filedRead(strategies: HowItWinsStrategyId[]): HowItWinsRead {
+  return {
+    status: "read",
+    sentence: "It wins on one narrow surface its buyers already stand on.",
+    running: strategies.map((strategy) => ({
+      strategy,
+      meaning: "It goes deep on one surface instead of the whole toolchain.",
+      note: "Every shipped feature lands there [c1].",
+      citationIds: ["c1"]
+    })),
+    pair: null,
+    next: [],
+    wrongIf: "A competitor ships the same surface with no switching cost."
+  };
+}
+
+// writer-a leans on chokepoint in all 12 reads, which is the staleness the gate exists to catch.
+// writer-b spreads across three, none past the half-share ceiling.
+function sittingFiles(): HowItWinsArmFile[] {
+  const bWays: HowItWinsStrategyId[][] = [
+    ...Array.from({ length: 5 }, () => ["chokepoint"] as HowItWinsStrategyId[]),
+    ...Array.from({ length: 4 }, () => ["hybrid"] as HowItWinsStrategyId[]),
+    ...Array.from({ length: 3 }, () => ["prestige"] as HowItWinsStrategyId[])
+  ];
+  return bWays.map((ways, index) => ({
+    arms: {
+      A: { writer: "writer-a", read: filedRead(["chokepoint", index < 6 ? "hybrid" : "prestige"]) },
+      B: { writer: "writer-b", read: filedRead(ways) }
+    }
+  }));
+}
+
+test("gate lines fail a writer leaning on one way and pass a writer that spreads", () => {
+  assert.deepEqual(strategyGateLines(sittingFiles()), [
+    "gate writer-a: failed over 12 reads; top strategies: chokepoint 1.00, hybrid 0.50, prestige 0.50",
+    "gate writer-b: passed over 12 reads; top strategies: chokepoint 0.42, hybrid 0.33, prestige 0.25"
+  ]);
+});
+
+test("gate lines count only filed reads and still name a writer that filed none", () => {
+  assert.deepEqual(
+    strategyGateLines([
+      {
+        arms: {
+          A: { writer: "quiet", read: { status: "nothing_stands_out" } },
+          B: { writer: "loud", read: filedRead(["hybrid"]) }
+        }
+      },
+      { arms: { A: { writer: "quiet", read: { status: "thin_file" } } } },
+      { arms: {} },
+      {}
+    ]),
+    [
+      "gate loud: passed over 1 reads; top strategies: hybrid 1.00",
+      "gate quiet: passed over 0 reads; top strategies: none"
+    ]
+  );
 });

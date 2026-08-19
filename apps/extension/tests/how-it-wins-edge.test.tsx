@@ -51,7 +51,6 @@ const filedDisplay: HowItWinsDisplay = {
     { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
     { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
-  wrongIf: "a lab could swap evaluators without a visible change in its own documentation.",
   count: 3
 };
 
@@ -60,7 +59,7 @@ const filedDisplay: HowItWinsDisplay = {
 // which is why keyboard order is not simply running-then-next.
 const KEYBOARD_ORDER = ["Hybrid", "Hybrid + Chokepoint", "Chokepoint", "Monopoly, not yet", "Prestige", "Standardization, not yet"];
 
-const emptyContent = { running: [], pair: null, next: [], wrongIf: null, count: 0 };
+const emptyContent = { running: [], pair: null, next: [], count: 0 };
 const nothingStandsOut = (sentence: string | null): HowItWinsDisplay => ({
   state: "nothing_stands_out",
   sentence,

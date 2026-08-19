@@ -825,7 +825,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         }
         const draft = synthesizeResult.value.value;
 
-        // The sixth Lens category: what the company and its founders are loud about, what
+        // The Pay attention to row of the Lens: what the company and its founders are loud about, what
         // never appears in the filed record, and the smallest cited inference that asymmetry
         // supports. Runs between synthesize and verify so its claims ride the existing verify
         // call (packages/pipeline/src/generate-card.ts's verifyCardSynthesisDraft extras) rather

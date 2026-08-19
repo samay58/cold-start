@@ -17,8 +17,9 @@ export type HowItWinsStepResult = { ok: true; value: HowItWinsResult } | { ok: f
 // passes. Callers degrade a semantic failure to nothing_stands_out rather than failing the run:
 // the how-it-wins read is a Lens category, never a reason to fail analysis.
 //
-// The hostile-editor pass has its own internal degrade (synthesizeHowItWins sets editorSkipped
-// and carries the pre-editor draft forward), so only a writer-side failure reaches this catch.
+// Editor failures never reach this catch. synthesizeHowItWins swallows every one of them, sets
+// editorSkipped, and carries the pre-editor draft forward. Only writer-side failures land here:
+// transient ones rethrow, semantic ones return { ok: false }.
 export async function howItWinsStepBody(input: {
   card: ColdStartCard;
   client: ReturnType<typeof createAnthropicClient>;

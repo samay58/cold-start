@@ -40,7 +40,6 @@ const fixtureDisplay: HowItWinsDisplay = {
     { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
     { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
-  wrongIf: "a lab could swap evaluators without a visible change in its own documentation.",
   count: 3
 };
 

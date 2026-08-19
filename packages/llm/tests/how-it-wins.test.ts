@@ -14,6 +14,7 @@ import {
   synthesizeHowItWins,
   textFromMessage
 } from "../src/how-it-wins";
+import { isTransientLlmError } from "../src/transient-error";
 
 const tracedMessage = vi.hoisted(() => vi.fn());
 
@@ -367,7 +368,7 @@ describe("styleIssuesForRead", () => {
     );
 
     expect(styleIssuesForRead(read)).toContain(
-      'running item 1 ("Hybrid"): the note states certainty more than once; say it once, at the end'
+      'running item 1 ("Hybrid"): the note repeats its certainty; say it once, at the end'
     );
   });
 
@@ -397,7 +398,7 @@ describe("textFromMessage", () => {
 });
 
 describe("synthesizeHowItWins", () => {
-  it("skips the hostile editor when it fails on something other than transport", async () => {
+  it("skips the hostile editor when it fails on a semantic error", async () => {
     tracedMessage.mockReset();
     tracedMessage
       .mockResolvedValueOnce(textMessage("The reasoning, at length."))
@@ -423,6 +424,27 @@ describe("synthesizeHowItWins", () => {
     expect(calls.every((call) => call.stage === "how_it_wins")).toBe(true);
     expect(calls[2]?.model).toBe("deepseek/deepseek-v4-pro");
     expect(calls[3]?.model).toBe("claude-sonnet-5");
+  });
+
+  it("skips the hostile editor when it fails on transport too", async () => {
+    // The pass is optional and the adapter already retried in-process, so a transient editor
+    // failure degrades like any other instead of failing the read.
+    const transient = new Error("openai-compat request failed with 529: overloaded");
+    expect(isTransientLlmError(transient)).toBe(true);
+
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockRejectedValueOnce(transient)
+      .mockResolvedValueOnce(textMessage(draftJson()));
+
+    const result = await runDriver();
+
+    expect(result.editorSkipped).toBe(true);
+    expect(result.read.status).toBe("read");
+    expect(tracedMessage).toHaveBeenCalledTimes(4);
+    expect(callsMade()[3]?.label).toBe("how-it-wins-fit");
   });
 
   it("retries the first pass at a higher token ceiling when the response has no text", async () => {
