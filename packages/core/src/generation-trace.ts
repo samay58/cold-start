@@ -56,7 +56,7 @@ export type GenerationProviderEndpointTrace = {
 };
 
 export type GenerationLlmCallTrace = {
-  stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read";
+  stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read" | "how_it_wins";
   label: string;
   model: string;
   // LLM provider that served the call ("anthropic", "deepseek", ...). Absent on rows

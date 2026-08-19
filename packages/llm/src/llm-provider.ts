@@ -38,11 +38,12 @@ const stageEnvChain: Record<LlmCallStage, string[]> = {
   person_read: ["LLM_PERSON_READ_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
   expanded_description: ["LLM_EXPANDED_DESCRIPTION_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
   emphasis_read: ["LLM_EMPHASIS_READ_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
+  how_it_wins: ["LLM_HOW_IT_WINS_MODEL", "LLM_SYNTHESIS_MODEL", "ANTHROPIC_SYNTHESIS_MODEL"],
 };
 
 export type LlmFallbackStage = Extract<
   LlmCallStage,
-  "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read"
+  "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read" | "how_it_wins"
 >;
 
 const stageFallbackEnv: Record<LlmFallbackStage, string> = {
@@ -52,6 +53,7 @@ const stageFallbackEnv: Record<LlmFallbackStage, string> = {
   person_read: "LLM_PERSON_READ_FALLBACK_MODEL",
   expanded_description: "LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL",
   emphasis_read: "LLM_EMPHASIS_READ_FALLBACK_MODEL",
+  how_it_wins: "LLM_HOW_IT_WINS_FALLBACK_MODEL",
 };
 
 export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHROPIC_MODEL): string {

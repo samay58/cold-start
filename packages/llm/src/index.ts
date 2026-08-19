@@ -5,6 +5,7 @@ export * from "./llm-provider";
 export * from "./openai-compat";
 export * from "./pricing";
 export * from "./expanded-description";
+export * from "./how-it-wins";
 export * from "./investor-taste-kernel";
 export * from "./person-read";
 export * from "./research-plan";
