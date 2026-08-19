@@ -37,14 +37,6 @@ function emphasisTexts(card) {
   return [text(emphasis.loud?.text), text(emphasis.read?.text)].filter(Boolean);
 }
 
-export function genericPhraseCount(card) {
-  const haystack = [
-    ...synthesisClaims(card).map((claim) => text(claim.text)),
-    ...emphasisTexts(card)
-  ].map((claim) => claim.toLowerCase()).join("\n");
-  return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
-}
-
 // Citation markers are bracketed id lists like [c1], [fv3], or [c1, c2]: the same shape
 // packages/core/src/citation-text.ts strips for display. A stored, filed read's text ALWAYS
 // carries these, and their digits (e.g. "fv3") would otherwise satisfy the /[\d$%]/ specificity
@@ -60,6 +52,28 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function howItWinsTexts(card) {
+  const howItWins = card?.synthesis?.howItWins;
+  if (!howItWins || howItWins.status !== "read") {
+    return [];
+  }
+  return [
+    text(howItWins.sentence),
+    ...(howItWins.running ?? []).map((entry) => text(entry.note)),
+    text(howItWins.pair?.note),
+    ...(howItWins.next ?? []).map((entry) => text(entry.note))
+  ].filter(Boolean).map(withoutCitationMarkers);
+}
+
+export function genericPhraseCount(card) {
+  const haystack = [
+    ...synthesisClaims(card).map((claim) => text(claim.text)),
+    ...emphasisTexts(card),
+    ...howItWinsTexts(card)
+  ].map((claim) => claim.toLowerCase()).join("\n");
+  return GENERIC_PHRASES.filter((phrase) => haystack.includes(phrase)).length;
+}
+
 export function emphasisIsSpecificOrEmpty(card) {
   const emphasis = card?.synthesis?.emphasisRead;
   if (!emphasis || emphasis.status !== "read") {
@@ -71,6 +85,55 @@ export function emphasisIsSpecificOrEmpty(card) {
   // substring hit ("expand", "exact") that has nothing to do with the company itself.
   const nameHit = Boolean(companyName) && new RegExp(`\\b${escapeRegExp(companyName)}\\b`, "i").test(readText);
   return /[\d$%]/.test(readText) || nameHit;
+}
+
+// A capitalised word past the sentence's own opening is usually a named thing (a competitor,
+// a customer, a product) carried into the read, not just a capital letter from grammar.
+function hasCapitalizedWordAfterFirst(value) {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  return words.slice(1).some((word) => /^[A-Z]/.test(word.replace(/^[^A-Za-z]+/, "")));
+}
+
+export function howItWinsSentenceIsSpecificOrEmpty(card) {
+  const howItWins = card?.synthesis?.howItWins;
+  if (!howItWins || howItWins.status !== "read") {
+    return true;
+  }
+  const sentence = withoutCitationMarkers(text(howItWins.sentence));
+  const companyName = text(card?.identity?.name?.value).toLowerCase();
+  const nameHit = Boolean(companyName) && new RegExp(`\\b${escapeRegExp(companyName)}\\b`, "i").test(sentence);
+  return /[\d$%]/.test(sentence) || nameHit || hasCapitalizedWordAfterFirst(sentence);
+}
+
+// Runs once per read card: dedupe a read's own running strategies before tallying, since a
+// strategy should count once toward a card's frequency even if the model somehow repeats it.
+export function strategyFrequency(cards) {
+  const reads = (cards ?? []).filter((card) => card?.synthesis?.howItWins?.status === "read");
+  const counts = {};
+  for (const card of reads) {
+    const strategies = new Set((card.synthesis.howItWins.running ?? []).map((entry) => entry.strategy));
+    for (const strategy of strategies) {
+      counts[strategy] = (counts[strategy] ?? 0) + 1;
+    }
+  }
+  const share = {};
+  for (const [strategy, count] of Object.entries(counts)) {
+    share[strategy] = count / reads.length;
+  }
+  return { reads: reads.length, counts, share };
+}
+
+// A strategy leaning on most reads is the read going stale, not the company's real edge.
+// Only meaningful once there is enough of a corpus to trust; skip the check below minReads.
+export function strategyFrequencyGate(cards, { maxShare = 0.5, minReads = 10 } = {}) {
+  const { reads, share } = strategyFrequency(cards);
+  if (reads < minReads) {
+    return { passed: true, offenders: [], reads };
+  }
+  const offenders = Object.entries(share)
+    .filter(([, strategyShare]) => strategyShare > maxShare)
+    .map(([strategy, strategyShare]) => ({ strategy, share: strategyShare }));
+  return { passed: offenders.length === 0, offenders, reads };
 }
 
 export function hasConcreteTension(card) {
@@ -103,7 +166,8 @@ export function scoreInvestorLens({ extensionCard, publicCard }) {
     firstQuestionIsTestable,
     timingSupportedOrAbsent,
     genericPhraseCountLow: genericCount <= 1,
-    emphasisSpecificOrEmpty: emphasisIsSpecificOrEmpty(extensionCard)
+    emphasisSpecificOrEmpty: emphasisIsSpecificOrEmpty(extensionCard),
+    howItWinsSentenceSpecificOrEmpty: howItWinsSentenceIsSpecificOrEmpty(extensionCard)
   };
 
   return {

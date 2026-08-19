@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoreInvestorLens, genericPhraseCount, emphasisIsSpecificOrEmpty } from "./score.mjs";
+import {
+  scoreInvestorLens,
+  genericPhraseCount,
+  emphasisIsSpecificOrEmpty,
+  howItWinsTexts,
+  strategyFrequency,
+  strategyFrequencyGate,
+  howItWinsSentenceIsSpecificOrEmpty
+} from "./score.mjs";
 
 const extensionCard = {
   synthesis: {
@@ -165,4 +173,98 @@ test("empty states and legacy cards pass the specificity check", () => {
   assert.equal(emphasisIsSpecificOrEmpty({ synthesis: { emphasisRead: { status: "nothing_notable" } } }), true);
   assert.equal(emphasisIsSpecificOrEmpty({ synthesis: {} }), true);
   assert.equal(emphasisIsSpecificOrEmpty({}), true);
+});
+
+function howItWinsReadCard(running, overrides = {}) {
+  return {
+    identity: overrides.identity,
+    synthesis: {
+      howItWins: {
+        status: "read",
+        sentence: overrides.sentence ?? "It wins by owning the workflow where switching costs compound [c1].",
+        running: running.map((strategy) => ({
+          strategy,
+          meaning: "meaning",
+          note: overrides.note ?? "Ties usage to a shared account structure [c1].",
+          citationIds: ["c1"]
+        })),
+        pair: null,
+        next: [],
+        wrongIf: "A competitor ships the same workflow with zero switching cost."
+      }
+    }
+  };
+}
+
+test("strategyFrequency reports share across reads, ignoring non-read cards", () => {
+  const cards = [
+    howItWinsReadCard(["usership", "chokepoint"]),
+    howItWinsReadCard(["usership", "first_mover"]),
+    howItWinsReadCard(["usership"]),
+    { synthesis: { howItWins: { status: "thin_file" } } },
+    { synthesis: { howItWins: { status: "nothing_stands_out" } } }
+  ];
+
+  const result = strategyFrequency(cards);
+
+  assert.equal(result.reads, 3);
+  assert.equal(result.counts.usership, 3);
+  assert.equal(result.share.usership, 1);
+  assert.equal(result.counts.chokepoint, 1);
+  assert.ok(Math.abs(result.share.chokepoint - 1 / 3) < 0.001);
+});
+
+test("strategyFrequencyGate passes trivially under minReads", () => {
+  const cards = [
+    howItWinsReadCard(["usership", "chokepoint"]),
+    howItWinsReadCard(["usership", "first_mover"]),
+    howItWinsReadCard(["usership"])
+  ];
+
+  const result = strategyFrequencyGate(cards);
+
+  assert.equal(result.passed, true);
+  assert.deepEqual(result.offenders, []);
+  assert.equal(result.reads, 3);
+});
+
+test("strategyFrequencyGate fails when a strategy dominates past minReads", () => {
+  const cards = Array.from({ length: 11 }, () => howItWinsReadCard(["usership"]));
+
+  const result = strategyFrequencyGate(cards);
+
+  assert.equal(result.passed, false);
+  assert.equal(result.reads, 11);
+  assert.deepEqual(result.offenders, [{ strategy: "usership", share: 1 }]);
+});
+
+test("genericPhraseCount counts a generic phrase inside a running note", () => {
+  const card = howItWinsReadCard(["usership", "chokepoint"], {
+    note: "The company is well positioned to keep users locked in [c1]."
+  });
+
+  assert.ok(genericPhraseCount(card) >= 1);
+  assert.ok(howItWinsTexts(card).some((entry) => entry.includes("well positioned")));
+});
+
+test("howItWinsSentenceIsSpecificOrEmpty fails a generic sentence", () => {
+  const card = howItWinsReadCard(["usership", "chokepoint"], {
+    sentence: "It wins by being the best platform."
+  });
+
+  assert.equal(howItWinsSentenceIsSpecificOrEmpty(card), false);
+});
+
+test("howItWinsSentenceIsSpecificOrEmpty passes an irregular but specific sentence", () => {
+  const card = howItWinsReadCard(["usership", "chokepoint"], {
+    sentence: "OpenAI and Anthropic cite its benchmarks by name in their model safety documents; dropping it later would show."
+  });
+
+  assert.equal(howItWinsSentenceIsSpecificOrEmpty(card), true);
+});
+
+test("howItWinsSentenceIsSpecificOrEmpty passes non-read statuses", () => {
+  assert.equal(howItWinsSentenceIsSpecificOrEmpty({ synthesis: { howItWins: { status: "thin_file" } } }), true);
+  assert.equal(howItWinsSentenceIsSpecificOrEmpty({ synthesis: { howItWins: { status: "nothing_stands_out" } } }), true);
+  assert.equal(howItWinsSentenceIsSpecificOrEmpty({}), true);
 });
