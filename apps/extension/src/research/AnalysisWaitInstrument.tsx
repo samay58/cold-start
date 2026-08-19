@@ -45,6 +45,10 @@ const STAGE_INDEX_BY_EVENT_TYPE: Record<string, number> = {
   // documents the real event stream for anyone reading this table.
   "emphasis.started": 2,
   "emphasis.complete": 2,
+  // The how-it-wins read runs concurrently with the emphasis pair, in the same window between
+  // synthesis and verify, so it is mapped to the same stage index for the same reason.
+  "how-it-wins.started": 2,
+  "how-it-wins.complete": 2,
   "verify.started": 3,
   "verify.complete": 3,
   "card.saved": 4,

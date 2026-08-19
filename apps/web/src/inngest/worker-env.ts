@@ -1,3 +1,4 @@
+import { HOW_IT_WINS_DEFAULT_EDITOR_MODEL, modelForStage, type HowItWinsModels } from "@cold-start/llm";
 import type { DirectExaEnv, StableenrichEnv, WebsetsEnv } from "@cold-start/providers";
 
 function readEnvSubset<K extends string>(keys: readonly K[]): Partial<Record<K, string>> {
@@ -91,6 +92,21 @@ export function personReadsEnabled() {
 
 export function emphasisReadEnabled() {
   return process.env.EMPHASIS_READ_ENABLED !== "false";
+}
+
+export function howItWinsEnabled() {
+  return process.env.HOW_IT_WINS_ENABLED !== "false";
+}
+
+// Two models, not one: the writer runs passes 1, 2, and 4 through the stage's own routing chain
+// (LLM_HOW_IT_WINS_MODEL, then the synthesis chain), while the hostile editor pass 3 is a second
+// model reading the draft cold. The editor is addressed directly rather than through
+// modelForStage because it is not a routable stage of its own; it is one pass inside how_it_wins.
+export function howItWinsModelsFromProcess(defaultModel?: string): HowItWinsModels {
+  return {
+    writer: modelForStage("how_it_wins", defaultModel),
+    editor: process.env.LLM_HOW_IT_WINS_EDITOR_MODEL?.trim() || HOW_IT_WINS_DEFAULT_EDITOR_MODEL
+  };
 }
 
 export type FounderVoiceEnv = { xaiApiKey?: string; githubToken?: string; directExa: DirectExaEnv };

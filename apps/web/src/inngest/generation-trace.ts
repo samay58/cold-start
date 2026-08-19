@@ -323,6 +323,13 @@ export function mergeTracePatch(trace: GenerationTrace, patch?: GenerationTraceP
     trace.emphasis = { ...trace.emphasis, ...patch.emphasis };
   }
 
+  // Shallow-merged for the same reason as emphasis above: the how-it-wins wiring merges twice
+  // across a run (the thin-file decision, then the verify outcome), each carrying a different
+  // subset, and a wholesale replace would let the later call wipe out thinFileReason.
+  if ("howItWins" in patch && patch.howItWins) {
+    trace.howItWins = { ...trace.howItWins, ...patch.howItWins };
+  }
+
   if ("failure" in patch && patch.failure) {
     trace.failure = patch.failure;
   }

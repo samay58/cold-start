@@ -261,6 +261,19 @@ export type GenerationTrace = {
     laneFailures?: string[];
     estimatedLaneCostUsd?: number;
   };
+  howItWins?: {
+    enabled: boolean;
+    // "discarded" is trace/event-only, same as the emphasis block above: a freshly verified
+    // "read" that never lands on the stored card because the synthesis it rides on was dropped.
+    status?: "read" | "thin_file" | "nothing_stands_out" | "discarded";
+    thinFileReason?: string;
+    dropReason?: string;
+    // The four-pass driver's own diagnostics: whether the hostile editor pass was skipped and
+    // whether the fit pass needed its one corrective re-ask.
+    editorSkipped?: boolean;
+    fitRetried?: boolean;
+    styleIssueCount?: number;
+  };
   // Per-section provenance and cost for the section model. A derived section is
   // recorded as "derived", never as "deep".
   sections?: GenerationSectionTrace[];

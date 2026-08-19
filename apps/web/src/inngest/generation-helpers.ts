@@ -5,6 +5,7 @@ import {
   type ColdStartCard,
   type EmphasisReadFiled,
   type GenerationLlmCallTrace,
+  type HowItWinsRead,
   type GenerationTrace,
   type ResearchSectionId
 } from "@cold-start/core";
@@ -147,6 +148,7 @@ export async function verifySynthesisStepBody(input: {
   telemetry: AnthropicTelemetrySink;
   synthesisRequired: boolean;
   emphasisRead?: EmphasisReadFiled;
+  howItWins?: HowItWinsRead;
 }): Promise<VerifySynthesisStepResult> {
   try {
     const result = await verifyCardSynthesisDraft(
@@ -164,7 +166,12 @@ export async function verifySynthesisStepBody(input: {
           }),
         synthesisRequired: input.synthesisRequired
       },
-      input.emphasisRead ? { emphasisRead: input.emphasisRead } : undefined
+      input.emphasisRead || input.howItWins
+        ? {
+            ...(input.emphasisRead ? { emphasisRead: input.emphasisRead } : {}),
+            ...(input.howItWins ? { howItWins: input.howItWins } : {})
+          }
+        : undefined
     );
     return { ok: true, value: result };
   } catch (error) {

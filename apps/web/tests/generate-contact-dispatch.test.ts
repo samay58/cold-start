@@ -193,6 +193,9 @@ vi.mock("@cold-start/llm", () => ({
   BLOCK_ENRICHMENT_IDS: ["description", "funding", "team", "signals", "comparables"],
   anthropicModel: () => "claude-test",
   modelForStage: () => "claude-test",
+  // worker-env's howItWinsModelsFromProcess reads this default at module scope, so this full
+  // (non-importActual) mock has to carry it or the handler throws on the missing export.
+  HOW_IT_WINS_DEFAULT_EDITOR_MODEL: "deepseek/deepseek-v4-pro",
   createAnthropicClient: () => ({}),
   // The section step consults the transient classifier before memoizing a failure; the errors
   // these tests throw are semantic, so the mock mirrors the real classifier's verdict for them.

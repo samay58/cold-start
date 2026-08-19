@@ -1,12 +1,15 @@
 import { createHash } from "node:crypto";
 
 import {
+  applyHowItWinsVerification,
   clusterSignals,
   type ColdStartCard,
   coldStartCardSchema,
   type EmphasisRead,
   type EmphasisReadFiled,
   type GenerationTrace,
+  type HowItWins,
+  type HowItWinsRead,
   publicCard,
   type ResolvedFact,
   type SourcedText,
@@ -979,6 +982,38 @@ function emphasisResultFields(outcome?: ReturnType<typeof verifiedEmphasisRead>)
   };
 }
 
+// One verdict per running strategy, then one for the pair note, in the order
+// howItWinsClaims below appends them. The degrade rules themselves (a pair dies with either leg,
+// the read degrades below two survivors) live in packages/core/src/how-it-wins.ts so the schema
+// and the rules cannot drift apart; this function only turns verifier results into the keep flags
+// they take.
+function verifiedHowItWins(
+  filed: HowItWinsRead,
+  results: VerificationResult[],
+  offset: number
+): { howItWins: HowItWins; dropReason?: "running-dropped" | "pair-dropped" } {
+  const running = filed.running.map(
+    (entry, index) =>
+      applyVerifierResults([{ text: entry.note, citationIds: entry.citationIds }], results, offset + index).length === 1
+  );
+  const pairClaim = filed.pair ? { text: filed.pair.note, citationIds: filed.pair.citationIds } : null;
+  const pair = pairClaim
+    ? applyVerifierResults([pairClaim], results, offset + filed.running.length).length === 1
+    : false;
+  return applyHowItWinsVerification(filed, { running, pair });
+}
+
+// Same discipline as emphasisResultFields: present only when the caller supplied extras.howItWins.
+function howItWinsResultFields(outcome?: ReturnType<typeof verifiedHowItWins>) {
+  if (!outcome) {
+    return {};
+  }
+  return {
+    howItWins: outcome.howItWins,
+    ...(outcome.dropReason ? { howItWinsDropReason: outcome.dropReason } : {})
+  };
+}
+
 export type SynthesisDraft = {
   synthesis: CardSynthesis;
   claimCountBeforeVerify: number;
@@ -1002,11 +1037,13 @@ export async function verifyCardSynthesisDraft(
   card: ColdStartCard,
   draft: SynthesisDraft,
   deps: { verify: VerifySynthesisFn; synthesisRequired?: boolean },
-  extras?: { emphasisRead?: EmphasisReadFiled }
+  extras?: { emphasisRead?: EmphasisReadFiled; howItWins?: HowItWinsRead }
 ): Promise<{
   synthesis?: CardSynthesis;
   emphasisRead?: EmphasisRead;
   emphasisDropReason?: "loud-dropped" | "read-dropped" | "quiet-contradicted";
+  howItWins?: HowItWins;
+  howItWinsDropReason?: "running-dropped" | "pair-dropped";
   tracePatch: GenerateCardTracePatch;
 }> {
   const { synthesis, claimCountBeforeVerify } = draft;
@@ -1020,7 +1057,14 @@ export async function verifyCardSynthesisDraft(
   const emphasisClaims: SourcedText[] = emphasis
     ? [emphasis.loud, emphasis.read, { text: emphasis.quiet, citationIds: [] }]
     : [];
-  const claims = [...allSynthesisClaims(synthesis), ...emphasisClaims];
+  const howItWins = extras?.howItWins;
+  const howItWinsClaims: SourcedText[] = howItWins
+    ? [
+        ...howItWins.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
+        ...(howItWins.pair ? [{ text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }] : [])
+      ]
+    : [];
+  const claims = [...allSynthesisClaims(synthesis), ...emphasisClaims, ...howItWinsClaims];
   const results = await deps.verify(claims, citationSources, verificationFactsForClaims(card, claims));
   const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);
   const bullCaseOffset = 1;
@@ -1030,7 +1074,9 @@ export async function verifyCardSynthesisDraft(
   let bullCase = applyVerifierResults(synthesis.bullCase, results, bullCaseOffset);
   let bearCase = applyVerifierResults(synthesis.bearCase, results, bearCaseOffset);
   const marketStructureAndTiming = verifiedMarketStructureAndTiming(synthesis, results, marketOffset);
+  const howItWinsOffset = emphasisOffset + emphasisClaims.length;
   const emphasisOutcome = emphasis ? verifiedEmphasisRead(emphasis, results, emphasisOffset) : undefined;
+  const howItWinsOutcome = howItWins ? verifiedHowItWins(howItWins, results, howItWinsOffset) : undefined;
   let whyItMatters = verifiedWhyItMatters[0];
 
   if (!whyItMatters) {
@@ -1051,7 +1097,7 @@ export async function verifyCardSynthesisDraft(
   };
 
   if (!whyItMatters) {
-    return { tracePatch, ...emphasisResultFields(emphasisOutcome) };
+    return { tracePatch, ...emphasisResultFields(emphasisOutcome), ...howItWinsResultFields(howItWinsOutcome) };
   }
 
   const gated = applySynthesisUsefulnessGate({
@@ -1066,7 +1112,12 @@ export async function verifyCardSynthesisDraft(
       marketStructureClaims(gated.synthesis).length;
     tracePatch.synthesis.usefulnessDroppedClaims = gated.droppedClaimCount;
   }
-  return { tracePatch, synthesis: gated.synthesis, ...emphasisResultFields(emphasisOutcome) };
+  return {
+    tracePatch,
+    synthesis: gated.synthesis,
+    ...emphasisResultFields(emphasisOutcome),
+    ...howItWinsResultFields(howItWinsOutcome)
+  };
 }
 
 export async function generateCardForDomainWithTrace(
