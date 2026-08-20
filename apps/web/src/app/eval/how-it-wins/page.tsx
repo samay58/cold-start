@@ -98,14 +98,21 @@ export default async function HowItWinsPage() {
   const judged = reads.filter((entry) => judgedSlugs.has(entry.slug)).length;
 
   return (
-    <main>
+    <main className="eval-hiw-page">
+      <div className="eval-hiw-progress" aria-hidden="true">
+        <span style={{ width: `${(judged / reads.length) * 100}%` }} />
+      </div>
       <p className="eval-progress">
         Read {judged + 1} of {reads.length}
       </p>
       <h1 className="eval-question">
         {file.name} <span className="eval-table-slug">{file.domain}</span>
       </h1>
-      <div className="eval-grid">
+      <p className="eval-hiw-brief">
+        Two blind reads of the same company. Pick the better one, rate each, then the writers are
+        revealed. The bar at the bottom follows you down the page.
+      </p>
+      <div className="eval-grid eval-hiw-grid">
         {(["A", "B"] as const).map((label) => {
           const arm = file.arms[label];
           return (
@@ -123,7 +130,13 @@ export default async function HowItWinsPage() {
         })}
       </div>
       {/* Keyed by slug: a stale verdict must never survive into the next card. */}
-      <HowItWinsReview key={slug} slug={slug} />
+      <HowItWinsReview
+        key={slug}
+        slug={slug}
+        name={file.name}
+        position={judged + 1}
+        total={reads.length}
+      />
     </main>
   );
 }

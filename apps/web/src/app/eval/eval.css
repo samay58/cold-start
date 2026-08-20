@@ -448,47 +448,99 @@ body:has(.eval-rig) {
   border: 1px solid #e4ded2;
   border-radius: 8px;
   background: #fffdf9;
-  padding: 16px 18px;
+  padding: 18px 22px 22px;
+  line-height: 1.55;
+}
+
+.eval-hiw-arm .eval-pair-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.eval-hiw-arm .eval-pair-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e4ded2;
 }
 
 .eval-hiw-lede {
-  font-size: 17px;
-  line-height: 1.4;
-  margin: 0 0 14px;
+  font-size: 18px;
+  line-height: 1.45;
+  margin: 0 0 18px;
+}
+
+.eval-hiw-section {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7a7466;
+  margin: 18px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ece7dc;
+}
+
+.eval-hiw-lede + .eval-hiw-section {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
 }
 
 .eval-hiw-running,
 .eval-hiw-next {
-  margin: 0 0 14px;
-  padding-left: 20px;
-  font-size: 14px;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 15px;
 }
 
 .eval-hiw-running li,
 .eval-hiw-next li {
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.eval-hiw-running li:last-child,
+.eval-hiw-next li:last-child {
+  margin-bottom: 0;
 }
 
 .eval-hiw-name {
   font-weight: 700;
   margin: 0 0 2px;
+  font-size: 15px;
 }
 
 .eval-hiw-meaning {
   color: #7a7466;
-  margin: 0 0 4px;
+  margin: 0 0 6px;
+  font-size: 14px;
 }
 
 .eval-hiw-note {
-  font-size: 14px;
-  margin: 0 0 4px;
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+
+.eval-hiw-wrongif {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #f4f0f9;
+  border-radius: 6px;
+}
+
+.eval-hiw-wrongif-final {
+  margin-top: 16px;
 }
 
 .eval-hiw-pair {
-  border-top: 1px solid #e4ded2;
-  padding-top: 10px;
-  margin-bottom: 14px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 15px;
+}
+
+.eval-hiw-next-block {
+  margin: 0;
 }
 
 .eval-hiw-label {
@@ -497,6 +549,7 @@ body:has(.eval-rig) {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #6e5c9e;
+  margin-bottom: 2px;
 }
 
 .eval-hiw-empty {
@@ -509,4 +562,137 @@ body:has(.eval-rig) {
   font-size: 12px;
   color: #7a7466;
   margin: 6px 0 0;
+}
+
+/* How it wins blind read: page frame and the pinned verdict bar. */
+
+.eval-hiw-page {
+  padding-bottom: 260px;
+}
+
+.eval-hiw-progress {
+  height: 3px;
+  background: #e4ded2;
+  border-radius: 999px;
+  margin: 0 0 12px;
+  overflow: hidden;
+}
+
+.eval-hiw-progress span {
+  display: block;
+  height: 100%;
+  background: #6e5c9e;
+}
+
+.eval-hiw-brief {
+  font-size: 14px;
+  color: #7a7466;
+  margin: -6px 0 16px;
+  max-width: 60ch;
+}
+
+.eval-hiw-grid {
+  gap: 16px;
+  align-items: start;
+}
+
+.eval-verdict-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  background: rgba(255, 253, 249, 0.96);
+  border-top: 1px solid #e4ded2;
+  box-shadow: 0 -6px 24px rgba(35, 32, 27, 0.06);
+  backdrop-filter: blur(6px);
+}
+
+.eval-verdict-bar-inner {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 12px 24px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eval-verdict-bar-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.eval-verdict-bar-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.eval-verdict-bar-count {
+  font-size: 12px;
+  color: #7a7466;
+}
+
+.eval-verdict-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+}
+
+.eval-verdict-bar .eval-verdict-label {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.eval-verdict-bar .eval-chip {
+  font-size: 13px;
+  padding: 5px 12px;
+}
+
+.eval-verdict-bar .eval-note {
+  min-height: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  resize: none;
+  overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.eval-verdict-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.eval-verdict-hint,
+.eval-verdict-saved {
+  font-size: 13px;
+  color: #7a7466;
+}
+
+.eval-verdict-bar.eval-reveal {
+  border-radius: 0;
+  padding: 0;
+}
+
+.eval-verdict-bar.eval-reveal h2 {
+  margin: 0;
+}
+
+.eval-reveal-key {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+  font-size: 15px;
+}
+
+.eval-reveal-key b {
+  color: #6e5c9e;
+  margin-right: 6px;
+}
+
+.eval-verdict-bar.eval-reveal button {
+  margin-top: 0;
 }
