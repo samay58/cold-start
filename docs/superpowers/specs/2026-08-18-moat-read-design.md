@@ -125,8 +125,8 @@ The first sitting raised a design question, and the queue now answers it. In the
 
 ### This sitting
 
-1. Blind-read the twenty cards at `/eval/how-it-wins` on the production-build rig. Two arms per card; pick the better one; rate each Ship, Weak, or Slop. On every Weak or Slop, the note says what a thoughtful investor would have asked instead, or which label the evidence actually supports. Those notes are the judgment standard's first draft; wording stays verbatim when they are enriched.
-2. Writer pick is a prose decision now, not a judgment decision: Sonnet 5 unless the reads say otherwise. A stronger third arm (DeepSeek v4-pro, already the hostile editor, or another frontier model) runs through `npm run eval:how-it-wins -- --writers <a>,<b>` on the same cards once this sitting is logged, a few dollars per arm.
+1. Blind-read ten of the twenty cards at `/eval/how-it-wins` on the production-build rig, then stop. Two arms per card; pick the better one; rate each Ship, Weak, or Slop. On every Weak or Slop, the note says what a thoughtful investor would have asked instead, or which label the evidence actually supports. Those notes are the judgment standard's first draft; wording stays verbatim when they are enriched (`eval/curation/notes/sitting-2-how-it-wins.md`). The other ten stay unread as the holdout: the revised pipeline is judged against them, so nothing tuned on the first ten gets credit for memorising them. After four cards the picks ran 3 to 1 for Sonnet 4.6, which held both Ships; Sonnet 5 anchored each read on its most dramatic fact.
+2. Writer pick is a prose decision, not a judgment decision, and it is made by tournament on fresh cards (step 8), not by extending this sitting.
 
 ### After the sitting: split judgment from writing
 
@@ -134,11 +134,18 @@ The first sitting raised a design question, and the queue now answers it. In the
 4. Judgment standard, Samay's document. The prompt today carries a full writing standard and four lines of judgment guidance. The judge's system prompt becomes a standard he writes from the sitting notes: absence of data is never analysis; what a pair has to exclude before it counts as unusual; when durable compounding advantage is present and when it is only a customer list; when to say nothing stands out. Claude drafts from his notes verbatim and pressure-tests it; he owns the lines.
 5. Consensus on the verdict. Three judge draws, majority on strategies and pair, then one write. Sonnet 5 rejects `temperature`, so the noise control is the vote, not the sampler. The split across draws (3/3, 2/3) is recorded in the trace as a confidence signal and can reach the crown later.
 6. Vocabulary. The judge names the mechanism in plain words first and maps it to the nearest of the 80 names second; sibling names (Alliance and Symbiosis, Usership and Reliability) need a stated reason to differ, checked against the group rules. Decide whether the verdict lives at the group level (13) with the name left to the writer. The frequency gate extends to each judge's label distribution against the corpus base rate, so habit shows up as a number.
-7. Judge blind read. Two judge arms on the same twenty cards, verdicts only, no prose to seduce the reader. Pick the judge on judgment alone, through the rig.
+7. Judge blind read. Two judge arms on the holdout ten, verdicts only, no prose to seduce the reader. Pick the judge on judgment alone, through the rig.
+8. Writer tournament beyond the two Sonnets. Challengers: DeepSeek v4-pro, an OpenAI model through OpenRouter (`openrouter/openai/<model>`, cost reported by OpenRouter, no pricing row needed), and on a few cards only the highest-powered models, Claude Fable 5 (`claude-fable-5`, Anthropic direct) and the 5.6 model Samay named (dictation reads "5.6 sol"; confirm the exact id before wiring). Design, so nothing is spoiled:
+   - Fresh cards. Each pairing runs on slugs Samay has never seen in any rig, drawn from the corpus with `--slugs`, same stratification as the first twenty. Never the first ten (his eye is trained on them) and never the holdout (reserved for the revised pipeline).
+   - Champion against challenger, two arms per card, the rig unchanged. The champion is whichever Sonnet wins the first ten. Five cards per challenger; three for Fable and the 5.6 model. About twenty-three reads, on the order of $15 plus the frontier models' own rates.
+   - Only the writer varies. Same prompts, same DeepSeek v4-pro editor, same verifier, for every arm. When DeepSeek is the writer it is also the editor; record that confound in the arm file rather than switching editors mid-tournament.
+   - The arm file records the prompt version (a hash of the four prompt constants) so a later prompt edit can never be compared against an earlier arm by accident. Small code change in `scripts/how-it-wins-corpus.ts`.
+   - Answer keys stay out of terminals and out of chat. Production build only. Arm assignment is already seeded per slug.
+   - The tournament measures prose under today's single-model driver. Once the judge split lands, the judge gets its own tournament on verdicts alone (step 7), and the writer tournament is re-run only if the split changes what the writer is asked to do.
 
 ### Release
 
-8. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
-9. The flip decision rests on this sitting. If the winning arm's reads are mostly Ship, set `LLM_HOW_IT_WINS_MODEL` to the winner in Vercel production, then `HOW_IT_WINS_ENABLED=true`, and land the judge split as the next revision behind the same flag. If they are mostly Weak, hold the flip until the split lands. Either way, watch one analysis run's wall time against the route's 300s cap; the judge pass adds a call, so a background function may become the right home.
-10. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
-11. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
+9. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
+10. The flip decision rests on this sitting. If the winning arm's reads are mostly Ship, set `LLM_HOW_IT_WINS_MODEL` to the winner in Vercel production, then `HOW_IT_WINS_ENABLED=true`, and land the judge split as the next revision behind the same flag. If they are mostly Weak, hold the flip until the split lands. Either way, watch one analysis run's wall time against the route's 300s cap; the judge pass adds a call, so a background function may become the right home.
+11. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
+12. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
