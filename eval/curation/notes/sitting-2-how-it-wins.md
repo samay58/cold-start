@@ -1,8 +1,8 @@
-# Sitting 2 notes, enriched: the How it wins blind read (2026-08-20, in progress)
+# Sitting 2 notes, enriched: the How it wins blind read (2026-08-20, paused at 7 of 10)
 
-Samay's dictated notes from the how-it-wins ledger, wording verbatim including dictation typos. Added here: which writer was which arm (revealed to him after each verdict), what part of the read each fragment is about, tags, and the findings that already change the build. Cards 1 through 4 are processed below; the sitting continues to 10, and each new card is appended in the same shape. The second ten of the original twenty are held out, unread, as the test set for the revised pipeline.
+Samay's dictated notes from the how-it-wins ledger, wording verbatim including dictation typos. Added here: which writer was which arm (revealed to him after each verdict), what part of the read each fragment is about, tags, and the findings that already change the build. Samay paused after card 7 (a break, not a stop; seven blind reads in a row is a lot); cards 8 through 10 finish on resume and are appended in the same shape. The second ten of the original twenty are held out, unread, as the test set for the revised pipeline.
 
-Tag vocabulary: anchoring, breadth, hedge-in-sentence, prompt-induced-slop, missing-center, label-choice, meaning-lines, confidence, sentence-craft, evidence.
+Tag vocabulary: anchoring, breadth, hedge-in-sentence, prompt-induced-slop, missing-center, label-choice, meaning-lines, confidence, sentence-craft, evidence, wordy.
 
 Writers in this sitting: Sonnet 4.6 and Sonnet 5. Editor for every arm: DeepSeek v4-pro. Same frozen evidence per card.
 
@@ -65,15 +65,65 @@ Writers in this sitting: Sonnet 4.6 and Sonnet 5. Editor for every arm: DeepSeek
 
 - **B (Sonnet 5)**: the whole read built on Windsurf (Hybrid, Scavenging, Prestige). "One chapter." [anchoring]
 
-## Findings after four cards
+## Card 5: Notion. Pick A. A ship (Sonnet 4.6), B weak (Sonnet 5)
+
+> "The first paragraph - A is WAY better than B so far. What A is missing is a short discussion about Custom agents, like literally a few words. But its making the right points, judgement and writing are both better."
+
+- **A (Sonnet 4.6)**, the sentence: AI-paying customers are over half of recurring revenue, and the link from workspace content to AI usefulness is unshown. Judgment and writing both better, in his read. Gap: the Custom Agents launch, a few words. **B (Sonnet 5)** built its sentence on competitor roundups plus the Custom Agents timeline and said the two facts share no cause. [sentence-craft] [anchoring]
+
+> "Completeness, Composability, Usership are all fantastic insights for this one. Definitely A over B I think."
+
+- Labels endorsed: A's running three. [label-choice]
+
+> "Not sure I agree with Prestige or Aggregation, but TBD on those. Oh you mean vs. Microsoft 365, yes"
+
+- A's "next" entries, doubted then accepted once the note named Microsoft 365. The meaning line would have made this instant. [label-choice] [meaning-lines]
+
+## Card 6: Doppel. Pick B. A slop (Sonnet 5), B weak (Sonnet 4.6)
+
+> "I really don't like when you refer to "on the card confirms" like stop saying on the card man. Its unecessary and not professional the way we want."
+
+- Banned phrasing, third of the sitting. Prompt-induced again: the task hands the model "The company's card (facts, signals, citations with source snippets)," so the model writes about "the card." The prompt should call it the evidence, or nothing, and the read should never name its own input. [prompt-induced-slop]
+
+> "B first paragraph is written WAY BETTER. Even if the insights are similar."
+
+- **B (Sonnet 4.6)**, the sentence: four expansions in a year, a threat graph across six channels, breadth unmeasured against narrower competitors. Same insight as A, better written. [sentence-craft]
+
+> "I don't get how Iteration works here though, the evidence for Iteration is super weak. Its just saying the company raised a lot and launched things? I really don't get it? But maybe I'm just misunderstanding."
+
+- Both arms ran Iteration. Raising money and shipping features is not a fast feedback loop. A judgment-standard rule candidate: Iteration needs evidence of learning between releases, not release count. [label-choice] [evidence]
+
+> "Violence is interesting, Antifragility is...okay?!"
+
+- A's pair (Violence, Antifragility): one label earned interest, the other did not convince. [label-choice]
+
+> "Overall B is much better than A, but I think this is one of the weaker pairs vs. others. But B is good just not great."
+
+- Card-level: weaker pair overall. [evidence]
+
+## Card 7: Profluent. Pick B. A weak (Sonnet 5), B weak (Sonnet 4.6)
+
+> "I think the judgement and analysis for B, at least in the selections it made, are better. Specialization and Lure are both interesting and probably good."
+
+- **B (Sonnet 4.6)**: Secrecy, Specialization, Lure; the Lilly deal as the centre. Judgment endorsed on the selections. [label-choice]
+
+> "Prestige is weak, although its true it works for literally every company that raises from "top tier" VC's. Which is going to be a big chunk lol."
+
+- **A (Sonnet 5)** ran Prestige. Second sighting of Prestige as a lazy label (Notion's "next" was the first). Judgment-standard rule candidate: a top-tier cap table is not Prestige; Prestige needs the brand to change a buyer's decision. [label-choice]
+
+> "But I think I like A's writing slightly better? So maybe B's insights, but honestly I like B's depth of analysis, its just INCREDIBLY wordy which is fine but not IDEAL I guess?"
+
+- First card where Sonnet 5's prose wins and Sonnet 4.6's judgment wins. Sonnet 4.6 wordy. Both Weak. This is the split in one card: the judgment he wants from one arm, the sentences from the other. [wordy] [sentence-craft]
+
+## Findings after seven cards
 
 These change the build. Each is stated once, with the evidence that produced it.
 
-1. **Sonnet 5 is losing on judgment, not prose.** Picks 3 to 1 for Sonnet 4.6. Sonnet 4.6 holds both Ships; Sonnet 5 has none (weak, slop, weak, slop). The assumption that the stronger writer would read better is failing in his own verdicts.
+1. **Sonnet 5 is losing on judgment, not prose.** Picks 6 to 1 for Sonnet 4.6 after seven cards. Sonnet 4.6: 3 Ship, 3 Weak, 1 Slop. Sonnet 5: 0 Ship, 4 Weak, 3 Slop. The assumption that the stronger writer would read better is failing in his own verdicts.
 2. **Sonnet 5 has one nameable habit: anchor on the most dramatic fact and build the read around it.** Cognition on Windsurf. DeepInfra on NVIDIA-investor timing. Neko on $4M revenue against $325M raised. Suki on the competing-EHR paradox. The cause is structural: the sentence slot rewards the punchiest fact, and pass 1 reasons and writes in one breath, so the punchy fact drags the judgment. This is the evidence for separating the judge pass from the writer passes.
 3. **Sonnet 4.6 has the mirror habit: breadth without commitment.** Completeness in two of four reads, Specialization in two of four, hedges inside the sentence. It fails the corpus-wide label-habit gate for the same reason. The shape that wins is Sonnet 4.6's prose with labels chosen by a judge, not by habit.
 4. **The Cognition miss is judgment, not evidence.** Nine mentions of the cloud-agent bet in the frozen card; neither writer made it the center. A judge with a standard catches this. A smarter writer did not.
-5. **Both phrasing bans are manufactured by the prompt.** "The read would weaken" comes from the wrong_if slot asking about the read. "Is observed fact" comes from the certainty-statement rule. Fix the prompt: wrong_if is a plain conditional about the world; certainty lives in the verb, never as a tag. Add both phrases, and the pattern "would weaken if", to the banned list and the hostile editor's checks.
+5. **All three phrasing bans are manufactured by the prompt.** "The read would weaken" comes from the wrong_if slot asking about the read. "Is observed fact" comes from the certainty-statement rule. "On the card" comes from the task calling the evidence "the company's card." Fix the prompt: wrong_if is a plain conditional about the world; certainty lives in the verb, never as a tag; the input is never named. Add all three, and the pattern "would weaken if", to the banned list and the hostile editor's checks.
 6. **Meaning lines: render the canonical one.** Core holds a meaning sentence for all 80 strategies. Show it for running, pair, and next; stop asking the model to write its own. Removes variance and tokens, and covers his ask.
 7. **Confidence tag maps onto the judge vote.** Three draws; 3 of 3 reads high, 2 of 3 reads medium; no percentages.
 8. **Process parity holds; the smarter model loses because it obeys the prompt harder.** Checked across all 40 arms: same four passes, prompts, DeepSeek editor (zero skips either side), verifier, evidence, seeded A/B. Style violations left after the editor: 3 for Sonnet 5, 20 for Sonnet 4.6. The sentence slot asks for "stark evidence and mechanism, taken in at a glance"; Sonnet 5 optimises that and anchors on the sharpest hook. Sonnet 4.6 half-ignores it, writes broader, and broader is what Samay picks. The prompt asks for the thing he dislikes, and the weaker model's non-compliance is saving it. A smarter writer amplifies a spec flaw; it does not correct one.
@@ -88,3 +138,10 @@ These change the build. Each is stated once, with the evidence that produced it.
 - Judge pass split from the writer passes, three draws with a majority vote, its own model var and its own blind read. The judgment standard is Samay's document, drafted from these notes verbatim.
 - Writer tournament on fresh cards (see the spec's queue): champion against each challenger, two arms per card, rig unchanged.
 - Holdout: the unread ten of the original twenty, read only against the revised pipeline.
+12. **Source parity holds.** Checked in the rig and the driver: one packet per card (`cardForHowItWinsPrompt`, same facts, signals, citations, and snippets), built once and handed to both arms; no per-model truncation. Sonnet 4.6 did not see more sources. Samay's wider point stands as a product question: if any future arm wins on evidence volume, the fix is the pipeline's source budget for every model, never a per-model allowance.
+13. **Two label rules surfaced from his own words.** Prestige: a top-tier cap table is not Prestige (Notion, Profluent). Iteration: shipping and raising is not a feedback loop (Doppel). Both go into the judgment standard as he wrote them.
+14. **Profluent is the split in one card.** Sonnet 4.6's judgment, Sonnet 5's sentences, both Weak alone. The judge pass and the writer pass want different models.
+
+## Why the sitting paused at seven, and what it is for
+
+Samay paused for a break, and because the first cards uncovered something bigger than a writer pick: the driver's judgment is an accident of which model obeys the prompt less, and the prompt itself manufactures the phrasing he bans. Resuming means cards 8 through 10 first; after that the work is not more of the same. The feedback above becomes: prompt edits (items 5 and 6), the judge split with the three-draw vote and his written standard (items 2, 4, 13), a parity record per arm (item 10), and only then the writer tournament on fresh cards. Cards 8 through 10 finish this sitting when it resumes; the holdout ten stay sealed.

@@ -117,3 +117,8 @@ Proportionate to an internal tool. Three real tests: the production 404 gate (se
 ## Costs and time
 
 Samay: four to five sittings of 45 to 60 minutes across phases 1 to 3, then shorter validation reads in phase 5. Dollars: regen lane $5 to $8; tuning pairs similar per iteration; pre-reads down-laddered and cheap. Build: the snapshot script, the rig route, and the ledger are the only code.
+
+## Reading layout, decided 2026-08-20
+
+The how-it-wins route set the layout for every rig surface: a verdict bar pinned to the bottom of the viewport carrying the company name, the count, the picks, the ratings, the note, the submit, and then the reveal in the same bar; labelled sections inside each read; a note box that grows with dictation; a thin progress strip under the header; a saved-state line after submit. Samay asked that the same design cross-apply to quick-pick rounds, pairs, and deep singles. The port shares the `eval-verdict-bar` styles in `apps/web/src/app/eval/eval.css` and changes nothing about blindness or the append-only ledger.
+
