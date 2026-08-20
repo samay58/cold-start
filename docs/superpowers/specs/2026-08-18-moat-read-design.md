@@ -119,11 +119,26 @@ The whole crown is one target. Nothing depends on hitting a 4px mark. The senten
 - Motion tuned 2026-08-19: the starting values held after frame capture at 16ms and 25ms steps. Spring 420/38, zeta 0.93, crosses the whole edge in about 75ms. Sigma 11, magnification 1.6. Scale 0.55. Note 120/90/100ms. Arrival 300ms delay, 40ms stagger, 220ms drop, bracket 180ms.
 - Plate heights at the gallery fixture: 575px before the change, 490px after the fold, 542px with the crown added. Ceiling 580px.
 
-## Next steps (recorded 2026-08-19, Samay's queue)
+## Next steps (recorded 2026-08-19, revised 2026-08-20 during the sitting)
 
-1. Blind-read the twenty cards at `/eval/how-it-wins` on the production-build rig. Two arms per card; pick the better one; rate each Ship, Weak, or Slop.
-2. Writer pick: Sonnet 5, unless the reads say otherwise. Samay is open to a stronger writer for this read specifically (DeepSeek v4-pro, which is already the hostile editor, or another frontier model); a third arm runs through `npm run eval:how-it-wins -- --writers <a>,<b>` on the same cards once the first sitting is logged, a few dollars per arm.
-3. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
-4. In Vercel production: set `LLM_HOW_IT_WINS_MODEL` to the winner, then `HOW_IT_WINS_ENABLED=true`. Watch one analysis run's wall time against the route's 300s cap; if the writer pushes runs near it, move the step to a background function.
-5. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
-6. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
+The first sitting raised a design question, and the queue now answers it. In the four-pass driver the writer is also the judge: pass 1 reasons and writes in one breath, so the choice of model moves the judgment, not only the prose. On Suki the two arms read the same evidence and the same citation ids and named Alliance against Symbiosis, Usership against Reliability. The verifier checks that each note is grounded in its cited evidence. It cannot say which label is right or which read is better. A smarter writer raises the floor (Sonnet 5 passes the repetition gate, Sonnet 4.6 does not) and leaves three things untouched: overlap inside the 80-name vocabulary, one draw at default sampling, and the absence of a written judgment standard. The fix is structural. It lands after this sitting because the sitting produces its raw material.
+
+### This sitting
+
+1. Blind-read the twenty cards at `/eval/how-it-wins` on the production-build rig. Two arms per card; pick the better one; rate each Ship, Weak, or Slop. On every Weak or Slop, the note says what a thoughtful investor would have asked instead, or which label the evidence actually supports. Those notes are the judgment standard's first draft; wording stays verbatim when they are enriched.
+2. Writer pick is a prose decision now, not a judgment decision: Sonnet 5 unless the reads say otherwise. A stronger third arm (DeepSeek v4-pro, already the hostile editor, or another frontier model) runs through `npm run eval:how-it-wins -- --writers <a>,<b>` on the same cards once this sitting is logged, a few dollars per arm.
+
+### After the sitting: split judgment from writing
+
+3. Judge pass. A new first stage returns a structured verdict and no prose: the running strategies with their evidence ids, the pair and the mechanism a competitor cannot copy, next with its condition, and what is inferred rather than observed. The four writer passes then render that verdict and may not add, drop, or swap a strategy. Judge and writer get separate env vars (`LLM_HOW_IT_WINS_JUDGE_MODEL`, `LLM_HOW_IT_WINS_MODEL`) and are chosen by separate blind reads. One extra call per read; the judge returns JSON only, so it is a fraction of a writer pass.
+4. Judgment standard, Samay's document. The prompt today carries a full writing standard and four lines of judgment guidance. The judge's system prompt becomes a standard he writes from the sitting notes: absence of data is never analysis; what a pair has to exclude before it counts as unusual; when durable compounding advantage is present and when it is only a customer list; when to say nothing stands out. Claude drafts from his notes verbatim and pressure-tests it; he owns the lines.
+5. Consensus on the verdict. Three judge draws, majority on strategies and pair, then one write. Sonnet 5 rejects `temperature`, so the noise control is the vote, not the sampler. The split across draws (3/3, 2/3) is recorded in the trace as a confidence signal and can reach the crown later.
+6. Vocabulary. The judge names the mechanism in plain words first and maps it to the nearest of the 80 names second; sibling names (Alliance and Symbiosis, Usership and Reliability) need a stated reason to differ, checked against the group rules. Decide whether the verdict lives at the group level (13) with the name left to the writer. The frequency gate extends to each judge's label distribution against the corpus base rate, so habit shows up as a number.
+7. Judge blind read. Two judge arms on the same twenty cards, verdicts only, no prose to seduce the reader. Pick the judge on judgment alone, through the rig.
+
+### Release
+
+8. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
+9. The flip decision rests on this sitting. If the winning arm's reads are mostly Ship, set `LLM_HOW_IT_WINS_MODEL` to the winner in Vercel production, then `HOW_IT_WINS_ENABLED=true`, and land the judge split as the next revision behind the same flag. If they are mostly Weak, hold the flip until the split lands. Either way, watch one analysis run's wall time against the route's 300s cap; the judge pass adds a call, so a background function may become the right home.
+10. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
+11. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
