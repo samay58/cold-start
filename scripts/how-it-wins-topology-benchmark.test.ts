@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import Ajv2020 from "ajv/dist/2020.js";
+
 import {
   HOW_IT_WINS_STRATEGIES,
   type HowItWinsJudgeCallTrace,
@@ -613,6 +615,49 @@ test("every stage schema restricts every evidence reference to the request regis
   }
 });
 
+test("every provider stage schema is valid Draft 2020-12", () => {
+  const requests = [
+    stageRequest("bet_map"),
+    stageRequest("group_scout"),
+    stageRequest("global_judge"),
+    stageRequest("global_judge", { multiStage: true }),
+    stageRequest("critic"),
+    stageRequest("adjudication")
+  ];
+  const ajv = new Ajv2020({ strict: false });
+  for (const request of requests) {
+    assert.doesNotThrow(
+      () => ajv.compile(benchmarkToolSchemaForRequest(request)),
+      `${request.stage} schema must compile under Draft 2020-12`
+    );
+  }
+
+  const global = benchmarkToolSchemaForRequest(stageRequest("global_judge")) as {
+    properties: {
+      unusualPair: {
+        anyOf: Array<{
+          properties?: {
+            strategyIds?: {
+              prefixItems?: Array<{ enum?: string[] }>;
+              items?: unknown;
+              minItems?: number;
+              maxItems?: number;
+            };
+          };
+        }>;
+      };
+    };
+  };
+  const pair = global.properties.unusualPair.anyOf.find((option) => option.properties?.strategyIds)
+    ?.properties?.strategyIds;
+  assert.equal(pair?.prefixItems?.length, 2);
+  assert.equal(pair?.items, false);
+  assert.equal(pair?.minItems, 2);
+  assert.equal(pair?.maxItems, 2);
+  assert.deepEqual(pair?.prefixItems?.[0]?.enum, HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id));
+  assert.deepEqual(pair?.prefixItems?.[1]?.enum, HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id));
+});
+
 test("provider payloads replace frozen evidence IDs with deterministic short handles", () => {
   const request = stageRequest("global_judge", { multiStage: true });
   request.payload = {
@@ -1127,5 +1172,75 @@ test("blind review preserves full answers and highlights differences without rep
   assert.match(html, /Complete 80-strategy audit/);
   assert.match(html, /data-difference="different"/);
   assert.match(html, /data-difference="same"/);
+  assert.doesNotMatch(html, /thirteen_groups|four_bundles|monolith/);
+});
+
+test("decision-screen review includes agreement and all-failed companies without topology leaks", () => {
+  const blandRecords = recordsForCard("bland", {
+    monolith: null,
+    four_bundles: null,
+    thirteen_groups: null
+  });
+  blandRecords[0]!.traces = [{
+    ...fixtureVerdict().calls[0]!,
+    outcome: "failed",
+    retryCount: 1,
+    latencyMs: 360_000,
+    error: "benchmark stage timed out after 360000ms"
+  }];
+  blandRecords[1]!.error = JSON.stringify({
+    code: "unrecognized_keys",
+    keys: [" supportingClaims"]
+  });
+  blandRecords[2]!.error = "current strategy set and dispositions do not agree";
+  blandRecords[2]!.traces = [{
+    ...fixtureVerdict().calls[0]!,
+    outcome: "failed",
+    retryCount: 1,
+    error: "current strategy set and dispositions do not agree"
+  }];
+  const records = [
+    ...recordsForCard("cognition"),
+    ...blandRecords,
+    ...recordsForCard("hebbia"),
+    ...recordsForCard("august", { thirteen_groups: null }),
+    ...recordsForCard("nekohealth")
+  ];
+  const review = buildBlindBenchmarkReview({
+    records,
+    seed: "blind-seed",
+    inclusion: "all_companies"
+  });
+
+  assert.deepEqual(
+    review.packet.items.map((item) => item.companyName),
+    ["Neko Health", "Cognition", "Bland", "Hebbia", "August"]
+  );
+  assert.equal(review.packet.items.length, 5);
+  const bland = review.packet.items.find((item) => item.companyName === "Bland");
+  assert.ok(bland);
+  assert.equal(bland.arms.every((arm) => arm.outcome === "failed_closed"), true);
+  assert.deepEqual(
+    new Set(bland.arms.map((arm) => arm.outcome === "failed_closed" ? arm.failureClass : null)),
+    new Set(["provider_transport", "mechanical_transport", "judgment_failure"])
+  );
+  assert.equal(JSON.stringify(bland).includes("fixture failed closed"), false);
+
+  for (const item of review.packet.items) {
+    for (const arm of item.arms) {
+      if (arm.outcome === "valid") {
+        assert.equal(arm.fullAnswer.strategyEvaluations.length, HOW_IT_WINS_STRATEGIES.length);
+      }
+    }
+  }
+  const html = renderBlindBenchmarkReviewHtml(review.packet);
+  assert.match(html, /Neko Health/);
+  assert.match(html, /Bland/);
+  assert.match(html, /Judgment failure/);
+  assert.match(html, /Review one company at a time/);
+  assert.equal((html.match(/data-review-target=/g) ?? []).length, 5);
+  assert.equal((html.match(/data-company-review=/g) ?? []).length, 5);
+  assert.match(html, /Expand this company/);
+  assert.match(html, /Complete 80-strategy audit/);
   assert.doesNotMatch(html, /thirteen_groups|four_bundles|monolith/);
 });

@@ -16,7 +16,7 @@
   ],
   "promptHash": "c25bc3601f0f24ee787c0c867e31f9f2a7261a9bcf27586248f7847ec0995b7e",
   "vocabularyHash": "7d3480d67fd32e1be7868bd933ffbc978ccf847ac034f86768973853a9a1404d",
-  "transportHash": "efed6bb25e1e18a737dd27afec7fe52da1f23b143595e73afbb85116196de1a1",
+  "transportHash": "3c87581d69ddd680a790be38a32a8b075512787bc795d5196868ad4aaade7ecf",
   "topologies": ["monolith", "four_bundles", "thirteen_groups"],
   "fourBundles": [
     { "id": "bundle_1", "groupIds": ["accumulation", "price", "defense"], "strategyCount": 21 },
@@ -111,6 +111,10 @@
     {
       "at": "2026-08-24T01:52:49.000Z",
       "reason": "The decision screen reuses the reviewed two-card pilot and freezes three additional closed cards from the existing seed before inspecting their judgments. It runs exactly nine new balanced arms and can stop the comparison after five companies. Cards, evidence, topology, routes, judgment rules, and the historical repeat rules did not change."
+    },
+    {
+      "at": "2026-08-24T02:54:24.000Z",
+      "reason": "Every provider-facing schema now converts tuple arrays to the Draft 2020-12 prefixItems form before execution. The decision-screen review explicitly includes agreement and all-failed companies while preserving full valid answers and hidden topology identities. Judgment rules, cards, evidence, routes, topologies, groupings, seed, and repeat rules did not change."
     }
   ],
   "rawResultRoot": "apps/web/.cold-start/how-it-wins-topology-benchmark",

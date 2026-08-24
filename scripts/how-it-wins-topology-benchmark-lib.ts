@@ -576,9 +576,27 @@ function semanticAnswer(judgment: HowItWinsJudgment) {
   };
 }
 
+function failureClassForRecord(record: BenchmarkRunRecord) {
+  const errors = [record.error, ...record.traces.map((trace) => trace.error)]
+    .filter((error): error is string => typeof error === "string")
+    .join(" ")
+    .toLowerCase();
+  if (
+    /input_schema|json schema is invalid|tool schema/.test(errors) ||
+    /"keys"\s*:\s*\[\s*"\s+[a-z_]/.test(errors)
+  ) {
+    return "mechanical_transport" as const;
+  }
+  if (/connection|timed out|timeout/.test(errors)) {
+    return "provider_transport" as const;
+  }
+  return "judgment_failure" as const;
+}
+
 export function buildBlindBenchmarkReview(input: {
   records: readonly BenchmarkRunRecord[];
   seed: string;
+  inclusion?: "material_disagreements" | "all_companies";
 }) {
   const aliasOrder = seededOrder(BENCHMARK_TOPOLOGIES, `${input.seed}:blind-alias`);
   const aliasToTopology = Object.fromEntries(aliasOrder.map((topology, index) => [
@@ -596,18 +614,26 @@ export function buildBlindBenchmarkReview(input: {
     const records = bySlug.get(card.slug) ?? [];
     if (records.length < 2) return [];
     const categories = classifyMaterialDivergence(records);
-    if (categories.length === 0) return [];
+    if (categories.length === 0 && input.inclusion !== "all_companies") return [];
     const judgments = records
       .filter((record) => record.outcome === "ok")
       .map((record) => howItWinsJudgmentSchema.parse(record.verdict));
     const disputed = disputedStrategyIds(judgments);
     return [{
       reviewId: canonicalHash([input.seed, card.slug, categories]).slice(0, 16),
+      companyName: card.name,
       categories,
       arms: records.map((record) => {
         const alias = topologyToAlias[record.run.topology];
         const runLabel = `${record.run.variant}:${record.run.repeat}`;
-        if (record.outcome === "failed") return { alias, runLabel, outcome: "failed_closed" as const };
+        if (record.outcome === "failed") {
+          return {
+            alias,
+            runLabel,
+            outcome: "failed_closed" as const,
+            failureClass: failureClassForRecord(record)
+          };
+        }
         const judgment = howItWinsJudgmentSchema.parse(record.verdict);
         return {
           alias,
@@ -660,6 +686,7 @@ function escapeHtml(value: unknown) {
 
 function fieldLabel(value: string) {
   return value
+    .replaceAll("_", " ")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replaceAll("Ids", " IDs")
     .replaceAll("Id", " ID")
@@ -757,15 +784,31 @@ function renderArm(
 }
 
 export function renderBlindBenchmarkReviewHtml(packet: BlindBenchmarkReviewPacket) {
-  const items = packet.items.map((item) => {
+  const defaultIndex = Math.max(0, packet.items.findIndex((item) =>
+    item.arms.some((arm) => arm.runLabel.startsWith("screen:")) &&
+    item.arms.filter((arm) => arm.outcome === "valid").length > 1
+  ));
+  const companyNav = packet.items.map((item, index) => {
+    const valid = item.arms.filter((arm) => arm.outcome === "valid").length;
+    return `<button type="button" class="company-nav-button${index === defaultIndex ? " active" : ""}" data-review-target="${escapeHtml(item.reviewId)}" aria-pressed="${index === defaultIndex}"><span>${escapeHtml(item.companyName)}</span><small>${valid} answer${valid === 1 ? "" : "s"}</small></button>`;
+  }).join("");
+  const items = packet.items.map((item, index) => {
     const validArms = item.arms.filter((arm): arm is Extract<typeof arm, { outcome: "valid" }> => arm.outcome === "valid");
-    const arms = item.arms
+    const arms = validArms
       .sort((left, right) => left.alias.localeCompare(right.alias))
-      .map((arm) => arm.outcome === "valid"
-        ? renderArm(arm, validArms)
-        : `<article class="arm failed"><header><div class="arm-kicker">Blind arm</div><h2>${escapeHtml(arm.alias)}</h2></header><p>This arm failed closed. It has no answer to compare.</p></article>`)
+      .map((arm) => renderArm(arm, validArms))
       .join("");
-    return `<section class="company"><header class="company-header"><h1>${escapeHtml(item.reviewId)}</h1><p>${escapeHtml(item.question)}</p><div class="category-row">${item.categories.map((category) => `<span>${escapeHtml(category.replaceAll("_", " "))}</span>`).join("")}</div></header><div class="arms">${arms}</div></section>`;
+    const failures = item.arms
+      .filter((arm): arm is Extract<typeof arm, { outcome: "failed_closed" }> => arm.outcome === "failed_closed")
+      .sort((left, right) => left.alias.localeCompare(right.alias))
+      .map((arm) => `<div class="failure-row"><strong>${escapeHtml(arm.alias)}</strong><span>${escapeHtml(fieldLabel(arm.failureClass))}. No answer to compare.</span></div>`)
+      .join("");
+    const categoryLabels = item.categories.length > 0
+      ? item.categories.map((category) => category.replaceAll("_", " "))
+      : item.arms.every((arm) => arm.outcome === "failed_closed")
+        ? ["all failed closed"]
+        : ["agreement"];
+    return `<section class="company" data-company-review="${escapeHtml(item.reviewId)}"${index === defaultIndex ? "" : " hidden"}><header class="company-header"><div><h1>${escapeHtml(item.companyName)}</h1><p>${escapeHtml(item.question)}</p></div><div class="category-row">${categoryLabels.map((category) => `<span>${escapeHtml(category)}</span>`).join("")}</div></header>${failures ? `<aside class="failure-list"><div class="failure-title">Failed closed</div>${failures}</aside>` : ""}<div class="arms" style="--arm-count:${Math.max(1, validArms.length)}">${arms || '<p class="no-answer">No complete answer survived validation for this company.</p>'}</div></section>`;
   }).join("");
 
   return `<!doctype html>
@@ -778,23 +821,37 @@ export function renderBlindBenchmarkReviewHtml(packet: BlindBenchmarkReviewPacke
     :root { color-scheme: light; --paper: #fafaf7; --ink: #171714; --muted: #6f6e66; --line: #d8d6cd; --same: #eef5ed; --same-line: #7a9a74; --different: #fff1cf; --different-line: #bf8425; --missing: #f9e6e2; --missing-line: #b45f55; }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--paper); color: var(--ink); font-family: Satoshi, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    main { width: min(1800px, calc(100% - 40px)); margin: 32px auto 80px; }
+    body { font-size: 16px; line-height: 1.55; }
+    main { width: min(1500px, calc(100% - 40px)); margin: 28px auto 80px; }
     .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: end; padding-bottom: 20px; border-bottom: 1px solid var(--ink); }
-    .topbar h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 48px); font-weight: 500; }
-    .topbar p { max-width: 700px; margin: 8px 0 0; color: var(--muted); }
+    .topbar h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(30px, 4vw, 52px); font-weight: 500; }
+    .topbar p { max-width: 720px; margin: 8px 0 0; color: var(--muted); font-size: 17px; }
     .legend { display: flex; flex-wrap: wrap; gap: 8px; font: 12px "Berkeley Mono", ui-monospace, monospace; }
     .legend span, .category-row span { padding: 5px 7px; border: 1px solid var(--line); }
     .legend .same { background: var(--same); border-color: var(--same-line); }
     .legend .different { background: var(--different); border-color: var(--different-line); }
     .legend .missing { background: var(--missing); border-color: var(--missing-line); }
-    .company { margin-top: 52px; }
-    .company-header { margin-bottom: 18px; }
-    .company-header h1 { margin: 0; font: 15px "Berkeley Mono", ui-monospace, monospace; }
-    .company-header p { max-width: 760px; margin: 10px 0; font-size: 18px; }
+    .company-nav { position: sticky; top: 0; z-index: 10; display: flex; gap: 8px; padding: 12px 0; overflow-x: auto; background: rgba(250, 250, 247, .96); border-bottom: 1px solid var(--line); }
+    .company-nav-button { min-width: 150px; padding: 10px 12px; border: 1px solid var(--line); background: #fff; color: var(--ink); text-align: left; cursor: pointer; }
+    .company-nav-button span { display: block; font-weight: 650; }
+    .company-nav-button small { display: block; margin-top: 2px; color: var(--muted); }
+    .company-nav-button.active { border-color: var(--ink); box-shadow: inset 0 -3px 0 var(--ink); }
+    .review-tools { display: flex; gap: 8px; margin: 18px 0 0; }
+    .review-tools button { padding: 8px 11px; border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; }
+    .company { margin-top: 34px; }
+    .company[hidden] { display: none; }
+    .company-header { display: flex; justify-content: space-between; gap: 24px; align-items: end; margin-bottom: 18px; }
+    .company-header h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(32px, 4vw, 48px); font-weight: 500; }
+    .company-header p { max-width: 760px; margin: 8px 0 0; font-size: 17px; color: var(--muted); }
     .category-row { display: flex; gap: 6px; flex-wrap: wrap; color: var(--muted); font: 11px "Berkeley Mono", ui-monospace, monospace; }
-    .arms { display: grid; grid-template-columns: repeat(var(--arm-count, 3), minmax(320px, 1fr)); gap: 14px; align-items: start; }
+    .failure-list { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--missing-line); background: var(--missing); }
+    .failure-title { margin-bottom: 5px; font: 11px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .06em; }
+    .failure-row { display: flex; gap: 8px; align-items: baseline; }
+    .failure-row span { color: var(--muted); }
+    .arms { display: grid; grid-template-columns: repeat(var(--arm-count, 2), minmax(0, 1fr)); gap: 18px; align-items: start; }
+    .arms[style*="--arm-count:1"] { max-width: 820px; }
     .arm { min-width: 0; border: 1px solid var(--ink); background: #fff; }
-    .arm > header { position: sticky; top: 0; z-index: 2; padding: 14px 16px; border-bottom: 1px solid var(--ink); background: #fff; }
+    .arm > header { position: sticky; top: 73px; z-index: 2; padding: 14px 16px; border-bottom: 1px solid var(--ink); background: #fff; }
     .arm-kicker, .run-label { color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
     .arm h2 { margin: 4px 0; font-family: Georgia, serif; font-size: 28px; font-weight: 500; }
     .arm section { padding: 16px; border-bottom: 1px solid var(--line); }
@@ -805,7 +862,7 @@ export function renderBlindBenchmarkReviewHtml(packet: BlindBenchmarkReviewPacke
     .field.different { background: var(--different); border-color: var(--different-line); }
     .field.missing { background: var(--missing); border-color: var(--missing-line); }
     .field-label { margin-bottom: 5px; color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .05em; }
-    .field-value { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+    .field-value { font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
     .record { margin-top: 8px; border: 1px solid var(--line); }
     .record > summary { cursor: pointer; padding: 10px; font: 12px "Berkeley Mono", ui-monospace, monospace; }
     .record-body { padding: 0 8px 8px; }
@@ -817,16 +874,42 @@ export function renderBlindBenchmarkReviewHtml(packet: BlindBenchmarkReviewPacke
     .nested-fields dt { color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; }
     .nested-fields dd { margin: 0; }
     .empty, .empty-block { color: var(--muted); font-style: italic; }
-    .failed { padding-bottom: 20px; }
-    .failed p { padding: 0 16px; }
-    @media (max-width: 1100px) { .arms { grid-template-columns: 1fr; } .arm > header { position: static; } }
+    .no-answer { padding: 24px; border: 1px solid var(--line); background: #fff; color: var(--muted); }
+    @media (max-width: 900px) { main { width: min(100% - 24px, 760px); } .topbar, .company-header { display: block; } .legend { margin-top: 14px; } .arms { grid-template-columns: 1fr; } .arm > header { position: static; } }
   </style>
 </head>
 <body>
   <main>
-    <header class="topbar"><div><h1>Full blind comparison</h1><p>Every answer is preserved. Color only shows whether the same field agrees, differs, or is missing across arms.</p></div><div class="legend"><span class="same">Same</span><span class="different">Different</span><span class="missing">Missing</span></div></header>
+    <header class="topbar"><div><h1>How it wins review</h1><p>Review one company at a time. The main reasoning is open. The complete 80-strategy audit and evidence remain available inside each answer.</p></div><div class="legend"><span class="same">Same</span><span class="different">Different</span><span class="missing">Missing</span></div></header>
+    <nav class="company-nav" aria-label="Companies">${companyNav}</nav>
+    <div class="review-tools"><button type="button" data-review-action="expand">Expand this company</button><button type="button" data-review-action="collapse">Collapse details</button></div>
     ${items}
   </main>
+  <script>
+    const buttons = [...document.querySelectorAll('[data-review-target]')];
+    const companies = [...document.querySelectorAll('[data-company-review]')];
+    function showCompany(id) {
+      for (const company of companies) company.hidden = company.dataset.companyReview !== id;
+      for (const button of buttons) {
+        const active = button.dataset.reviewTarget === id;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      }
+      history.replaceState(null, '', '#' + id);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+    for (const button of buttons) button.addEventListener('click', () => showCompany(button.dataset.reviewTarget));
+    for (const control of document.querySelectorAll('[data-review-action]')) {
+      control.addEventListener('click', () => {
+        const active = companies.find((company) => !company.hidden);
+        if (!active) return;
+        const open = control.dataset.reviewAction === 'expand';
+        for (const detail of active.querySelectorAll('details')) detail.open = open;
+      });
+    }
+    const requested = location.hash.slice(1);
+    if (companies.some((company) => company.dataset.companyReview === requested)) showCompany(requested);
+  </script>
 </body>
 </html>\n`;
 }

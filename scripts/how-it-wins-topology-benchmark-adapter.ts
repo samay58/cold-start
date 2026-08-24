@@ -16,7 +16,7 @@ import {
 } from "@cold-start/llm";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
-const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-23.10";
+const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-23.11";
 
 const STAGE_TIMEOUT_MS: Record<HowItWinsJudgeCallRequest["stage"], number> = {
   bet_map: 120_000,

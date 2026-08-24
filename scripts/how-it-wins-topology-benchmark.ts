@@ -659,7 +659,11 @@ async function runPaid(
       runIds: input.manifest.decisionPilotRunIds
     });
     const combined = [...pilotRecords, ...records];
-    const blind = buildBlindBenchmarkReview({ records: combined, seed: input.manifest.seed });
+    const blind = buildBlindBenchmarkReview({
+      records: combined,
+      seed: input.manifest.seed,
+      inclusion: "all_companies"
+    });
     await writePrivateJson(resolve(rawRoot, "decision-screen-aggregate.json"), aggregateBenchmarkRuns(combined));
     await writePrivateJson(resolve(rawRoot, "decision-screen-blind-packet.json"), blind.packet);
     await writePrivateJson(resolve(rawRoot, "decision-screen-blind-metadata.json"), blind.metadata);

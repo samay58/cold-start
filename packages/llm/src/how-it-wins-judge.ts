@@ -193,6 +193,19 @@ function howItWinsJudgeStageSchema(
   }
 }
 
+function jsonSchema202012(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(jsonSchema202012);
+  if (value === null || typeof value !== "object") return value;
+  const converted = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, jsonSchema202012(child)])
+  ) as Record<string, unknown>;
+  if (converted.type === "array" && Array.isArray(converted.items)) {
+    converted.prefixItems = converted.items;
+    converted.items = false;
+  }
+  return converted;
+}
+
 export function howItWinsJudgeToolJsonSchema(
   stage: HowItWinsJudgeCallTrace["stage"],
   options: { multiStage?: boolean } = {}
@@ -201,7 +214,7 @@ export function howItWinsJudgeToolJsonSchema(
     $refStrategy: "none",
     target: "jsonSchema7"
   });
-  return json;
+  return jsonSchema202012(json);
 }
 
 const settledCrossGroupSiblings: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>> = {
