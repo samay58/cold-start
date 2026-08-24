@@ -129,10 +129,35 @@ describe("Clippings", () => {
     const items = container.querySelectorAll(".cs-clipping");
     expect(items).toHaveLength(3);
     expect(items[0]?.getAttribute("data-active")).toBe("true");
+    expect(items[0]?.getAttribute("data-presentation")).toBe("featured");
+    expect(items[0]?.querySelector(".cs-clipping-link")?.getAttribute("data-presentation")).toBe("featured");
     expect(items[1]?.getAttribute("data-position")).toBe("1");
+    expect(items[1]?.getAttribute("data-presentation")).toBe("receipt");
     expect(items[2]?.getAttribute("data-position")).toBe("2");
+    expect(items[2]?.getAttribute("data-presentation")).toBe("receipt");
+    expect(items[0]?.querySelector(".cs-clipping-note")?.textContent).toBe("Company positioning");
+    expect(items[1]?.querySelector(".cs-clipping-note")).toBeNull();
+    expect(items[2]?.querySelector(".cs-clipping-note")).toBeNull();
     expect(container.textContent).toContain("Company positioning");
     expect(container.textContent).not.toContain("Funding history");
+  });
+
+  it("uses concise receipt labels and keeps unclassified sources unlabeled", async () => {
+    const container = await render(
+      <Clippings
+        clippings={[
+          clipping({ domain: "company.com", title: "Company", note: null, sourceClass: "company_site" }),
+          clipping({ domain: "source.example", title: "Source", note: null, sourceClass: "other" })
+        ]}
+        prefersReducedMotion={true}
+        variant="carousel"
+      />
+    );
+
+    const items = container.querySelectorAll(".cs-clipping");
+    expect(items[0]?.querySelector(".cs-clipping-kind")?.textContent).toBe("Company");
+    expect(items[0]?.textContent).not.toContain("Company site");
+    expect(items[1]?.querySelector(".cs-clipping-kind")).toBeNull();
   });
 
   it("brings a newly arrived source straight into focus", async () => {
@@ -197,8 +222,25 @@ describe("Clippings", () => {
 
     const item = container.querySelector<HTMLElement>(".cs-clipping");
     expect(item?.getAttribute("data-active")).toBe("false");
+    expect(item?.getAttribute("data-presentation")).toBe("receipt");
     expect(item?.getAttribute("data-position")).toBe("0");
     expect(item?.style.opacity).toBe("1");
+    expect(item?.querySelector(".cs-clipping-note")).toBeNull();
+  });
+
+  it("does not leak rejected provider text through a receipt tooltip", async () => {
+    const providerPayload = '{"requestId":"abc","results":[{"title":"Real-time TTS API"}]}';
+    const container = await render(
+      <Clippings
+        clippings={[clipping({ domain: "company.com", title: providerPayload, note: null })]}
+        prefersReducedMotion={true}
+        variant="carousel"
+      />
+    );
+
+    const receipt = container.querySelector(".cs-clipping-link");
+    expect(receipt?.getAttribute("title")).toBe("company.com");
+    expect(receipt?.textContent).not.toContain(providerPayload);
   });
 
   it("lets a useful source snippet take focus when the page title is generic", async () => {
@@ -241,7 +283,7 @@ describe("Clippings", () => {
     expect(container.querySelector('.cs-clipping[data-active="true"]')?.textContent).toBe(before);
   });
 
-  it("drops the leading well entirely for an imageless carousel clipping and keeps the meta dot", async () => {
+  it("never renders media wells in the carousel and keeps the source dots", async () => {
     const container = await render(
       <Clippings
         clippings={[
@@ -254,10 +296,12 @@ describe("Clippings", () => {
     );
 
     const links = container.querySelectorAll(".cs-clipping-link");
-    expect(links[0]?.getAttribute("data-lead")).toBe("thumb");
+    expect(links[0]?.getAttribute("data-lead")).toBe("none");
     expect(links[1]?.getAttribute("data-lead")).toBe("none");
-    // The old empty-well placeholder is gone for good; the class dot leads the meta row instead.
+    expect(container.querySelector(".cs-clipping-thumb")).toBeNull();
+    expect(container.querySelector(".cs-clipping-favicon")).toBeNull();
     expect(container.querySelector(".cs-clipping-source-mark")).toBeNull();
+    expect(links[0]?.querySelector(".cs-clipping-meta .cs-clipping-dot")).not.toBeNull();
     expect(links[1]?.querySelector(".cs-clipping-meta .cs-clipping-dot")).not.toBeNull();
   });
 

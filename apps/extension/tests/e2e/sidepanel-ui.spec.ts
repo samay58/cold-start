@@ -933,14 +933,37 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   const clippings = page.locator(".cs-clipping");
   await expect(clippings).toHaveCount(3);
   await expect(clippings.nth(0)).toHaveAttribute("data-active", "true");
+  await expect(clippings.nth(0)).toHaveAttribute("data-presentation", "featured");
+  await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveAttribute("data-presentation", "featured");
   await expect(clippings.nth(0)).toContainText("techcrunch.com");
   await expect(clippings.nth(0)).toContainText("Funding");
   await expect(clippings.nth(1)).toHaveAttribute("data-active", "false");
+  await expect(clippings.nth(1)).toHaveAttribute("data-presentation", "receipt");
+  await expect(clippings.nth(1)).toContainText("Company");
+  await expect(clippings.nth(1)).not.toContainText("Company site");
   await expect(clippings.nth(2)).toHaveAttribute("data-active", "false");
+  await expect(clippings.nth(2)).toHaveAttribute("data-presentation", "receipt");
+  await expect(clippings.locator(".cs-clipping-note")).toHaveCount(1);
+  await expect(page.getByText("Cartesia docs", { exact: true })).toHaveCount(0);
+  await expect(clippings.locator(".cs-clipping-thumb, .cs-clipping-favicon")).toHaveCount(0);
   await expect(clippings.nth(0).locator(".cs-clipping-link")).toHaveCSS("background-image", "none");
-  // The featured bubble reads as lit: a seal ring plus a low wide shadow, no solid edge.
   await expect(clippings.nth(0).locator(".cs-clipping-link")).not.toHaveCSS("box-shadow", "none");
   await expect(clippings.nth(1).locator(".cs-clipping-link")).toHaveCSS("box-shadow", "none");
+  await expect(clippings.nth(1).locator(".cs-clipping-link")).toHaveCSS("border-radius", "0px");
+
+  const featuredLink = clippings.nth(0).locator(".cs-clipping-link");
+  const featuredLabel = clippings.nth(0).locator(".cs-clipping-kind");
+  const [featuredLinkBox, featuredLabelBox] = await Promise.all([
+    featuredLink.boundingBox(),
+    featuredLabel.boundingBox()
+  ]);
+  expect(featuredLinkBox).not.toBeNull();
+  expect(featuredLabelBox).not.toBeNull();
+  expect(featuredLinkBox!.x + featuredLinkBox!.width - featuredLabelBox!.x - featuredLabelBox!.width).toBeLessThan(14);
+
+  await featuredLink.focus();
+  await expect(featuredLink).toHaveCSS("outline-style", "solid");
+  await featuredLink.evaluate((node) => (node as HTMLElement).blur());
 
   const earlyRead = page.locator(".cs-early-read-line");
   await expect(earlyRead).toBeVisible();
@@ -957,7 +980,7 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(tree.locator('.cs-build-stage[data-active="true"]')).toContainText("Build");
   await expect(page.getByText("Stages", { exact: true })).toHaveCount(0);
   await expect(tree).toContainText("3 sources found");
-  await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
+  await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-clippings-420x900.png" });
 
   await page.setViewportSize({ width: 420, height: 700 });
   await expect(earlyRead).toBeVisible();
@@ -967,13 +990,27 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
     scroll: body.scrollWidth
   }));
   expect(shortWidth.scroll).toBeLessThanOrEqual(shortWidth.client);
-  await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-building-early-read-short.png" });
+  await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-clippings-420x700.png" });
 
   await page.setViewportSize({ width: 420, height: 900 });
   await page.emulateMedia({ colorScheme: "dark" });
   await expect(earlyRead).toBeVisible();
   await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-building-early-read-dark.png" });
   await page.emulateMedia({ colorScheme: "light" });
+
+  const receiptDomain = clippings.nth(1).locator(".cs-clipping-domain");
+  await receiptDomain.evaluate((node) => {
+    node.textContent = "a-deliberately-long-company-source-domain-that-cannot-fit-inside-the-side-panel-receipt.example.com";
+  });
+  await expect(receiptDomain).toHaveCSS("text-overflow", "ellipsis");
+  expect(await receiptDomain.evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true);
+
+  const featuredNote = clippings.nth(0).locator(".cs-clipping-note");
+  await featuredNote.evaluate((node) => {
+    node.textContent = "A deliberately long funding headline that tests whether the featured clipping stays within two readable lines without crowding the source label on the receipt above";
+  });
+  await expect(featuredNote).toHaveCSS("overflow", "hidden");
+  await expect(featuredNote).toHaveCSS("-webkit-line-clamp", "2");
 
   await page.waitForTimeout(3600);
   await expect(page.locator('.cs-clipping[data-active="true"] .cs-clipping-domain')).toHaveText("techcrunch.com");
@@ -2597,7 +2634,8 @@ test("the How it wins crown never moves the plate or covers the sentence", async
   );
   expect(marks.length).toBe(3);
 
-  await page.mouse.click(marks[0] ?? left, y);
+  await crown.focus();
+  await crown.press("Enter");
   await expect(crown).toHaveAttribute("data-pinned", "true");
   const note = crown.locator('.cs-how-it-wins-note[data-open="true"]');
   await expect(note).toHaveCount(1);

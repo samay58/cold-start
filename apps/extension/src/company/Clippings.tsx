@@ -19,7 +19,7 @@ const CAROUSEL_DWELL_MS = 3400;
 const THUMBNAIL_ELIGIBLE_SOURCE_CLASSES = new Set<ClippingSourceClass>(["news", "funding", "customer_proof"]);
 
 const KIND_LABEL: Record<ClippingSourceClass, string> = {
-  company_site: "Company site",
+  company_site: "Company",
   customer_proof: "Customer",
   database: "Database",
   docs: "Docs",
@@ -81,10 +81,18 @@ function ClippingRow({
   const [faviconFailed, setFaviconFailed] = useState(false);
   const sourceUrl = safeWebUrl(clipping.url);
   const imageUrl = safePublicImageUrl(clipping.imageUrl);
-  const showThumb = thumbEligible && !thumbFailed && Boolean(imageUrl);
+  const showFiledMedia = variant !== "carousel";
+  const showThumb = showFiledMedia && thumbEligible && !thumbFailed && Boolean(imageUrl);
   const favicon = showThumb || !sourceUrl ? null : faviconUrl(sourceUrl);
-  const showFavicon = Boolean(favicon) && !faviconFailed;
+  const showFavicon = showFiledMedia && Boolean(favicon) && !faviconFailed;
   const active = variant === "carousel" && focused;
+  const presentation = variant === "carousel" ? (active ? "featured" : "receipt") : "filed";
+  const note = variant === "carousel"
+    ? active && clippingHasUsefulTitle(clipping)
+      ? clipping.note ?? clipping.title
+      : null
+    : clipping.note;
+  const accessibleTitle = note ? `${clipping.domain}: ${note}` : clipping.domain;
   const lead = variant === "carousel" && position === 0;
   const carouselMotion = prefersReducedMotion
     ? { opacity: lead ? 1 : position === 1 ? 0.52 : 0.3 }
@@ -121,7 +129,7 @@ function ClippingRow({
           <span className="cs-clipping-domain">{clipping.domain}</span>
           {KIND_LABEL[clipping.sourceClass] ? <span className="cs-clipping-kind">{KIND_LABEL[clipping.sourceClass]}</span> : null}
         </span>
-        {clipping.note ? <span className="cs-clipping-note">{clipping.note}</span> : null}
+        {note ? <span className="cs-clipping-note">{note}</span> : null}
       </span>
     </>
   );
@@ -131,6 +139,7 @@ function ClippingRow({
       className="cs-clipping"
       data-active={active ? "true" : "false"}
       data-position={position}
+      data-presentation={presentation}
       data-source-class={clipping.sourceClass}
       // One vertical axis for the whole desk: new evidence lands into focus from above and
       // settles on the snap spring (a breath of follow-through, no bounce), the waiting queue
@@ -161,6 +170,7 @@ function ClippingRow({
         <a
           className="cs-clipping-link"
           data-lead={showThumb ? "thumb" : showFavicon ? "favicon" : "none"}
+          data-presentation={presentation}
           href={sourceUrl}
           onClick={() => {
             emitAlphaEvent("source.opened", {
@@ -171,7 +181,7 @@ function ClippingRow({
           }}
           rel="noreferrer"
           target="_blank"
-          title={clipping.title || clipping.domain}
+          title={accessibleTitle}
         >
           {content}
         </a>
@@ -179,7 +189,8 @@ function ClippingRow({
         <div
           className="cs-clipping-link"
           data-lead={showThumb ? "thumb" : "none"}
-          title={clipping.title || clipping.domain}
+          data-presentation={presentation}
+          title={accessibleTitle}
         >
           {content}
         </div>

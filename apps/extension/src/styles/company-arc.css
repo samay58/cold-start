@@ -1034,8 +1034,8 @@
 .cs-clippings[data-variant="carousel"] .cs-clippings-list {
   position: relative;
   display: grid;
-  gap: 7px;
-  min-height: 194px;
+  gap: 0;
+  min-height: 146px;
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping {
@@ -1045,27 +1045,29 @@
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-link {
   position: relative;
-  display: grid;
-  grid-template-columns: 50px minmax(0, 1fr);
-  gap: 11px;
+  display: block;
   width: 100%;
   max-width: none;
-  min-height: 58px;
+  min-height: 36px;
   overflow: hidden;
-  padding: 9px 11px;
-  border-color: rgb(var(--cs-c-204-199-184) / 0.68);
+  padding: 10px 8px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  border-radius: 0;
+  background: transparent;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping-link:focus-visible {
+  outline: 2px solid rgb(var(--cs-c-110-92-158) / 0.32);
+  outline-offset: 2px;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-presentation="featured"] .cs-clipping-link {
+  min-height: 62px;
+  margin-bottom: 6px;
+  padding: 9px 11px 10px;
+  border: 1px solid rgb(var(--cs-c-110-92-158) / 0.3);
   border-radius: 7px;
-  background: var(--color-plate);
-}
-
-/* An imageless clipping keeps no empty well: the copy takes the full width and the
-   classification dot returns to the meta row as its lead mark. */
-.cs-clippings[data-variant="carousel"] .cs-clipping-link[data-lead="none"] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-active="true"] .cs-clipping-link {
-  border-color: rgb(var(--cs-c-110-92-158) / 0.3);
   background: var(--color-plate);
   box-shadow:
     0 0 0 1px rgb(var(--cs-c-110-92-158) / 0.14),
@@ -1073,33 +1075,21 @@
     0 8px 22px rgb(var(--cs-c-110-92-158) / 0.13);
 }
 
-.cs-clippings[data-variant="carousel"] .cs-clipping-thumb,
-.cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
-  align-self: center;
-  width: 50px;
-  height: 40px;
-  border: 1px solid rgb(var(--cs-c-204-199-184) / 0.62);
-  border-radius: 5px;
-  background: var(--color-field);
-  object-fit: cover;
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping-link:not([data-lead="none"]) .cs-clipping-meta > .cs-clipping-dot {
-  display: none;
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping-favicon {
-  padding: 12px;
-  object-fit: contain;
-}
-
 .cs-clippings[data-variant="carousel"] .cs-clipping-copy {
   display: grid;
   gap: 5px;
   align-content: center;
+  width: 100%;
 }
 
-.cs-clippings[data-variant="carousel"] .cs-clipping-note {
+.cs-clippings[data-variant="carousel"] .cs-clipping-meta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  width: 100%;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-presentation="featured"] .cs-clipping-note {
   display: -webkit-box;
   overflow: hidden;
   color: var(--color-ink);
@@ -1112,12 +1102,38 @@
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-domain {
+  min-width: 0;
   font-size: 10.5px;
   font-weight: 650;
 }
 
 .cs-clippings[data-variant="carousel"] .cs-clipping-kind {
-  font-size: 8.5px;
+  justify-self: end;
+  color: var(--color-muted);
+  font-size: 9px;
+  font-weight: 620;
+  letter-spacing: 0;
+  line-height: 1.1;
+  opacity: 0.82;
+  text-transform: none;
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="company_site"] .cs-clipping-kind,
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="people"] .cs-clipping-kind {
+  color: var(--color-seal);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="docs"] .cs-clipping-kind,
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="news"] .cs-clipping-kind {
+  color: var(--color-reported);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="funding"] .cs-clipping-kind {
+  color: var(--color-company);
+}
+
+.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="customer_proof"] .cs-clipping-kind {
+  color: var(--color-verified);
 }
 
 .cs-early-read-line {

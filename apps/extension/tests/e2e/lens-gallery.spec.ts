@@ -83,27 +83,26 @@ async function captureCrown(page: Page, read: Locator, screenshotDir: string) {
   await expect(crown.locator('.cs-how-it-wins-note[data-open="true"]')).toHaveCount(0);
   await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-hover-tick.png") });
 
-  const mark = await crownGeometry(crown);
-  await page.mouse.click(mark.centres[0] ?? 0, mark.y);
+  const targetButtons = crown.locator(".cs-how-it-wins-targets button");
+  const markButton = targetButtons.filter({ hasNotText: /\+/ }).first();
+  await markButton.focus();
+  await markButton.press("Enter");
   await expect(crown).toHaveAttribute("data-pinned", "true");
   await expect(crown.locator('.cs-how-it-wins-note[data-open="true"]')).toHaveCount(1);
   await expect(crown.locator(".cs-how-it-wins-kicker small")).toHaveText("pinned");
   await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-pinned-mark.png") });
 
-  const release = await crownGeometry(crown);
-  await page.mouse.click(release.centres[0] ?? 0, release.y);
+  await markButton.press("Escape");
   await expect(crown).toHaveAttribute("data-pinned", "false");
 
-  // The bracket claims the span between its two legs, so its midpoint pins the pair.
-  const pair = await crownGeometry(crown);
-  const bracket = ((pair.centres[1] ?? 0) + (pair.centres[2] ?? 0)) / 2;
-  await page.mouse.click(bracket, pair.y);
+  const pairButton = targetButtons.filter({ hasText: /\+/ }).first();
+  await pairButton.focus();
+  await pairButton.press("Enter");
   await expect(crown).toHaveAttribute("data-pinned", "true");
   await expect(crown.locator(".cs-how-it-wins-note")).toHaveAttribute("aria-label", /and/);
   await read.screenshot({ path: path.join(screenshotDir, "how-it-wins-pinned-pair.png") });
 
-  const done = await crownGeometry(crown);
-  await page.mouse.click(bracket, done.y);
+  await pairButton.press("Escape");
   await expect(crown).toHaveAttribute("data-pinned", "false");
   await page.mouse.move(5, 5);
 }
