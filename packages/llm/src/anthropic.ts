@@ -51,7 +51,12 @@ function perMillionTokenPricing(model: string) {
   if (normalized.includes("sonnet")) {
     return { input: 3, output: 15 };
   }
-  if (normalized.includes("opus-4-7") || normalized.includes("opus-4-6") || normalized.includes("opus-4-5")) {
+  if (
+    normalized.includes("opus-5") ||
+    normalized.includes("opus-4-7") ||
+    normalized.includes("opus-4-6") ||
+    normalized.includes("opus-4-5")
+  ) {
     return { input: 5, output: 25 };
   }
   if (normalized.includes("opus")) {

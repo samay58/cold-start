@@ -24,5 +24,13 @@ describe("estimateAnthropicCostUsd", () => {
       })
     ).toBe(3.25);
   });
-});
 
+  it("uses the current Opus 5 rate", () => {
+    expect(
+      estimateAnthropicCostUsd("claude-opus-5", {
+        input_tokens: 1_000_000,
+        output_tokens: 1_000_000
+      })
+    ).toBe(30);
+  });
+});

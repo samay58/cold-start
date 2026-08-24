@@ -10,8 +10,8 @@ export type HowItWinsGroupId =
   | "accumulation" | "price" | "time" | "uniqueness" | "offense" | "defense" | "deception"
   | "timing" | "accreditation" | "collaboration" | "speed_and_scale" | "ease" | "transformation";
 
-// Meanings are the prompt's vocabulary (one plain sentence each). The model writes its own
-// meaning line per running strategy; these are never shown in the UI.
+// Meanings are the prompt vocabulary and the single display source for every strategy note.
+// The model selects a strategy; it never rewrites that strategy's meaning.
 const GROUP_SOURCE = [
   {
     id: "accumulation", name: "Accumulation", entries: [

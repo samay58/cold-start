@@ -26,19 +26,23 @@ const fixtureDisplay: HowItWinsDisplay = {
   state: "read",
   sentence: "It wins by combining two rare skills, and by sitting where two labs must pass through it.",
   running: [
-    { id: "hybrid", name: "Hybrid", meaning: "Wins by pairing two skills rarely combined.", note: "It builds live network environments and has models attack and defend inside them." },
-    { id: "chokepoint", name: "Chokepoint", meaning: "Controls a required passage.", note: "Two labs cite its benchmarks by name before releasing a model." },
-    { id: "prestige", name: "Prestige", meaning: "Endorsed by credible outside sources.", note: "Two named investors put in personal money alongside the round." }
+    { id: "hybrid", name: "Hybrid", meaning: "Competence in two distinct areas, or two strengths not usually found together.", note: "It builds live network environments and has models attack and defend inside them." },
+    { id: "chokepoint", name: "Chokepoint", meaning: "Controls a passage that competitors or prey must pass through.", note: "Two labs cite its benchmarks by name before releasing a model." },
+    { id: "prestige", name: "Prestige", meaning: "Endorsed by authoritative sources through awards, degrees, or recognition.", note: "Two named investors put in personal money alongside the round." }
   ],
   pair: {
     strategies: ["hybrid", "chokepoint"],
     names: ["Hybrid", "Chokepoint"],
+    meanings: [
+      "Competence in two distinct areas, or two strengths not usually found together.",
+      "Controls a passage that competitors or prey must pass through."
+    ],
     note: "The method produced the passage: the same testing approach is what got cited in both labs' documents.",
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
   },
   next: [
-    { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
-    { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
+    { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
+    { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
   count: 3
 };
@@ -224,7 +228,7 @@ describe("noteFor", () => {
   it("running: kicker is the name, meaning carried, no wrongIf", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "hybrid"));
     expect(note.kicker).toBe("Hybrid");
-    expect(note.meaning).toBe("Wins by pairing two skills rarely combined.");
+    expect(note.meaning).toBe("Competence in two distinct areas, or two strengths not usually found together.");
     expect(note.body).toBe(at(fixtureDisplay.running, 0).note);
     expect(note.wrongIf).toBeNull();
   });
@@ -232,12 +236,15 @@ describe("noteFor", () => {
   it("next: kicker is name, not yet", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "standardization"));
     expect(note.kicker).toBe("Standardization, not yet");
-    expect(note.meaning).toBeNull();
+    expect(note.meaning).toBe("Emergent alignment that reduces friction.");
   });
 
   it("pair: kicker joins both names, wrongIf carried", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "pair"));
     expect(note.kicker).toBe("Hybrid and Chokepoint");
+    expect(note.meaning).toBe(
+      "Hybrid: Competence in two distinct areas, or two strengths not usually found together. Chokepoint: Controls a passage that competitors or prey must pass through."
+    );
     expect(note.body).toBe(fixtureDisplay.pair?.note);
     expect(note.wrongIf).toBe(fixtureDisplay.pair?.wrongIf);
   });

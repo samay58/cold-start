@@ -22,6 +22,7 @@ export function buildLlmCallTrace(input: {
   label: string;
   model: string;
   provider: string;
+  retryCount?: number | undefined;
   stage: GenerationLlmCallTrace["stage"];
   status: GenerationLlmCallTrace["status"];
   usage?: AnthropicUsage;
@@ -52,6 +53,7 @@ export function buildLlmCallTrace(input: {
         }
       : {}),
     ...(input.estimatedCostUsd !== undefined ? { estimatedCostUsd: input.estimatedCostUsd } : {}),
+    ...(input.retryCount !== undefined ? { retryCount: input.retryCount } : {}),
     ...(input.error ? { error: input.error instanceof Error ? input.error.message.slice(0, 300) : String(input.error).slice(0, 300) } : {}),
   };
 }

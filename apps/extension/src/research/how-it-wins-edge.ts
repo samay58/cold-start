@@ -3,7 +3,7 @@
 // React state; this module turns a HowItWinsDisplay plus a pixel width into positions, the
 // target under a given x, what the readout should say, and how the magnify-follow spring moves.
 // Ported from the interaction in docs/product/design/2026-08-18-moat-read-direction/gen.py.
-import { HOW_IT_WINS_GROUPS, HOW_IT_WINS_STRATEGIES } from "@cold-start/core";
+import { HOW_IT_WINS_GROUPS, HOW_IT_WINS_STRATEGIES, howItWinsStrategyById } from "@cold-start/core";
 import type { HowItWinsDisplay } from "./investor-lens";
 import { HOW_IT_WINS_COPY } from "./investor-read-copy";
 
@@ -178,13 +178,18 @@ export type EdgeNote = { kicker: string; meaning: string | null; body: string; w
 export function noteFor(display: HowItWinsDisplay, target: EdgeTarget): EdgeNote {
   if (target.kind === "running") {
     const entry = display.running.find((candidate) => candidate.id === target.key);
-    return { kicker: entry?.name ?? "", meaning: entry?.meaning ?? null, body: entry?.note ?? "", wrongIf: null };
+    return {
+      kicker: entry?.name ?? "",
+      meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
+      body: entry?.note ?? "",
+      wrongIf: null
+    };
   }
   if (target.kind === "next") {
     const entry = display.next.find((candidate) => candidate.id === target.key);
     return {
       kicker: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.notYet}`,
-      meaning: null,
+      meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
       body: entry?.note ?? "",
       wrongIf: null
     };
@@ -192,7 +197,9 @@ export function noteFor(display: HowItWinsDisplay, target: EdgeTarget): EdgeNote
   const pair = display.pair;
   return {
     kicker: pair ? `${pair.names[0]} and ${pair.names[1]}` : "",
-    meaning: null,
+    meaning: pair
+      ? `${pair.names[0]}: ${howItWinsStrategyById(pair.strategies[0]).meaning} ${pair.names[1]}: ${howItWinsStrategyById(pair.strategies[1]).meaning}`
+      : null,
     body: pair?.note ?? "",
     wrongIf: pair?.wrongIf ?? null
   };

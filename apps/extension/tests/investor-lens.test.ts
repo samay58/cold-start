@@ -562,25 +562,29 @@ describe("investor lens display", () => {
         {
           id: "specialization",
           name: "Specialization",
-          meaning: "It goes deep on one surface instead of spreading across the whole toolchain.",
+          meaning: "Strong competence in a narrow niche.",
           note: "Every shipped feature lands in the terminal itself."
         },
         {
           id: "omnipresence",
           name: "Omnipresence",
-          meaning: "It sits in the one window engineers keep open all day.",
+          meaning: "Available everywhere it might be needed and accepted by default.",
           note: "The shell is already open on every machine it runs on."
         },
         {
           id: "usership",
           name: "Usership",
-          meaning: "Each new team makes the shared workflow worth more.",
+          meaning: "A critical mass of users makes the product more useful to each of them.",
           note: "Teams adopt it after one engineer brings it in."
         }
       ],
       pair: {
         strategies: ["specialization", "omnipresence"],
         names: ["Specialization", "Omnipresence"],
+        meanings: [
+          "Strong competence in a narrow niche.",
+          "Available everywhere it might be needed and accepted by default."
+        ],
         note: "Depth in one surface only pays because that surface is always open.",
         wrongIf: "Engineers move their daily work into an editor agent instead."
       },
@@ -588,6 +592,7 @@ describe("investor lens display", () => {
         {
           id: "standardization",
           name: "Standardization",
+          meaning: "Emergent alignment that reduces friction.",
           note: "No platform team has made it the default shell yet."
         }
       ],

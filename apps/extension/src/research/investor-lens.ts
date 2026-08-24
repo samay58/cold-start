@@ -107,10 +107,11 @@ export type HowItWinsDisplay = {
   pair: {
     strategies: [HowItWinsStrategyId, HowItWinsStrategyId];
     names: [string, string];
+    meanings: [string, string];
     note: string;
     wrongIf: string;
   } | null;
-  next: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
+  next: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
   count: number;
 };
 
@@ -461,8 +462,8 @@ function noHowItWinsContent() {
 }
 
 // The crown's display model. Names come from the shared vocabulary rather than the model's
-// output, so a filed read can never show a strategy name Cold Start does not recognize; the
-// meaning line is the model's own sentence about this company, not the vocabulary gloss.
+// output, so a filed read can never show a strategy name Cold Start does not recognize. Meanings
+// also come from that vocabulary, never from the filed model prose.
 function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
   const howItWins = card.synthesis?.howItWins;
   if (!howItWins) {
@@ -487,13 +488,14 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
     running: howItWins.running.map((entry) => ({
       id: entry.strategy,
       name: howItWinsStrategyById(entry.strategy).name,
-      meaning: stripCitationMarkers(entry.meaning),
+      meaning: howItWinsStrategyById(entry.strategy).meaning,
       note: stripCitationMarkers(entry.note)
     })),
     pair: howItWins.pair && pairLeft && pairRight
       ? {
         strategies: [pairLeft, pairRight],
         names: [howItWinsStrategyById(pairLeft).name, howItWinsStrategyById(pairRight).name],
+        meanings: [howItWinsStrategyById(pairLeft).meaning, howItWinsStrategyById(pairRight).meaning],
         note: stripCitationMarkers(howItWins.pair.note),
         wrongIf: stripCitationMarkers(howItWins.pair.wrongIf)
       }
@@ -501,6 +503,7 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
     next: howItWins.next.map((entry) => ({
       id: entry.strategy,
       name: howItWinsStrategyById(entry.strategy).name,
+      meaning: howItWinsStrategyById(entry.strategy).meaning,
       note: stripCitationMarkers(entry.note)
     })),
     count: howItWins.running.length

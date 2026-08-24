@@ -3,7 +3,7 @@
 // here whenever a new model joins the eval matrix; unknown models return undefined and the
 // trace simply omits estimatedCostUsd, matching the Anthropic behavior for unknown models.
 //
-// DeepSeek rates verified 2026-06-11 against api-docs.deepseek.com/quick_start/pricing.
+// DeepSeek rates verified 2026-08-22 against api-docs.deepseek.com/quick_start/pricing.
 
 type AnthropicUsageLike = {
   input_tokens?: number;
@@ -18,13 +18,6 @@ export type TokenPricing = {
 };
 
 const pricingTable: Array<{ provider: string; modelIncludes: string; pricing: TokenPricing }> = [
-  // deepseek-v4-flash is the current name; deepseek-chat is the deprecated alias (same model,
-  // same price) until 2026-07-24. The flash row must come before the pro row only if substrings
-  // could collide; they cannot, so order is alphabetical.
-  { provider: "deepseek", modelIncludes: "deepseek-v4-flash", pricing: { input: 0.14, cacheRead: 0.0028, output: 0.28 } },
-  { provider: "deepseek", modelIncludes: "deepseek-chat", pricing: { input: 0.14, cacheRead: 0.0028, output: 0.28 } },
-  { provider: "deepseek", modelIncludes: "deepseek-v4-pro", pricing: { input: 0.435, cacheRead: 0.003625, output: 0.87 } },
-  { provider: "deepseek", modelIncludes: "deepseek-reasoner", pricing: { input: 0.435, cacheRead: 0.003625, output: 0.87 } },
   // Kimi K3 (Moonshot AI, released 2026-07-16), OpenRouter only. Rates verified 2026-07-16
   // against platform.kimi.ai/docs/pricing/chat-k3 and openrouter.ai/moonshotai/kimi-k3. This row
   // is a fallback only: createTracedOpenAiCompatMessage prefers the response's own usage.cost
@@ -33,7 +26,25 @@ const pricingTable: Array<{ provider: string; modelIncludes: string; pricing: To
   { provider: "openrouter", modelIncludes: "kimi-k3", pricing: { input: 3, cacheRead: 0.3, output: 15 } },
 ];
 
-export function pricingFor(provider: string, model: string): TokenPricing | null {
+function deepSeekPricing(model: string, at: Date): TokenPricing | null {
+  const hour = at.getUTCHours();
+  const peak = (hour >= 1 && hour < 4) || (hour >= 6 && hour < 10);
+  const normalized = model.toLowerCase();
+  if (normalized.includes("deepseek-v4-flash") || normalized.includes("deepseek-chat")) {
+    return peak
+      ? { input: 0.44, cacheRead: 0.014, output: 1.32 }
+      : { input: 0.22, cacheRead: 0.007, output: 0.66 };
+  }
+  if (normalized.includes("deepseek-v4-pro") || normalized.includes("deepseek-reasoner")) {
+    return peak
+      ? { input: 1.32, cacheRead: 0.044, output: 3.96 }
+      : { input: 0.66, cacheRead: 0.022, output: 1.98 };
+  }
+  return null;
+}
+
+export function pricingFor(provider: string, model: string, at = new Date()): TokenPricing | null {
+  if (provider === "deepseek") return deepSeekPricing(model, at);
   const normalizedModel = model.toLowerCase();
   const row = pricingTable.find(
     (entry) => entry.provider === provider && normalizedModel.includes(entry.modelIncludes)
@@ -41,8 +52,13 @@ export function pricingFor(provider: string, model: string): TokenPricing | null
   return row?.pricing ?? null;
 }
 
-export function estimateLlmCostUsd(provider: string, model: string, usage?: AnthropicUsageLike): number | undefined {
-  const pricing = pricingFor(provider, model);
+export function estimateLlmCostUsd(
+  provider: string,
+  model: string,
+  usage?: AnthropicUsageLike,
+  at = new Date()
+): number | undefined {
+  const pricing = pricingFor(provider, model, at);
   if (!pricing || !usage) {
     return undefined;
   }

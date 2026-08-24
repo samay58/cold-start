@@ -14,12 +14,20 @@ Flag any sentence or passage that:
 8. Uses words such as "wedge," "moat," "layer," "trust," "platform," "workflow," "positioning," or "flywheel" without defining the concrete reality behind them.
 9. Removes the actor, action, object, evidence, or qualification in the name of concision.
 10. Repeats an idea in slightly different words.
+11. Refers to the supplied material instead of stating the fact directly. This includes "on the card."
+12. Uses "the read would weaken," "would weaken if," or any other phrasing about the read instead of a plain conditional about the world.
+13. Uses "is observed fact" or appends a certainty tag such as "Observed," "Reported," or "Inferred." Certainty belongs in the verb.
+14. Leads the opening sentence with customer names instead of the company and the mechanism. Named customers are proof.
 
 For each flagged passage, determine what information or reasoning is missing. Then rewrite the full draft so that:
 
 - actors and mechanisms are explicit
 - facts and inferences are separated
 - uncertainty is preserved
+- certainty lives in the verb, never a closing tag
+- the input is never named
+- wrong_if is a plain conditional about the world, never about the read
+- the company and mechanism come before named customers
 - ordinary language replaces performative language
 - no sentence merely creates the feeling of insight
 

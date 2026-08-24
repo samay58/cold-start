@@ -258,7 +258,7 @@ async function postChatCompletion(input: {
   apiKey: string;
   body: OpenAiCompatBody;
   timeoutMs: number;
-}): Promise<OpenAiCompatResponse> {
+}): Promise<{ payload: OpenAiCompatResponse; retryCount: number }> {
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -284,7 +284,7 @@ async function postChatCompletion(input: {
     }
 
     if (response.ok) {
-      return (await response.json()) as OpenAiCompatResponse;
+      return { payload: (await response.json()) as OpenAiCompatResponse, retryCount: attempt };
     }
 
     const bodySnippet = (await response.text().catch(() => "")).slice(0, 300);
@@ -308,15 +308,18 @@ export async function createTracedOpenAiCompatMessage(input: {
   const startedAt = Date.now();
 
   let payload: OpenAiCompatResponse;
+  let retryCount = 0;
   try {
     const config = providerConfigFor(input.resolved.provider);
     const body = openAiCompatBodyFromAnthropicParams(input.params, input.resolved.model, config.extraBody);
-    payload = await postChatCompletion({
+    const result = await postChatCompletion({
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
       body,
       timeoutMs: config.timeoutMs,
     });
+    payload = result.payload;
+    retryCount = result.retryCount;
   } catch (error) {
     input.telemetry?.(
       buildLlmCallTrace({
@@ -345,6 +348,7 @@ export async function createTracedOpenAiCompatMessage(input: {
       label: input.label,
       model: input.resolved.model,
       provider: input.resolved.provider,
+      retryCount,
       stage: input.stage,
       status: "ok",
       ...(usage ? { usage } : {}),

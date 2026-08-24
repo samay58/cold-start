@@ -17,12 +17,12 @@ export function HowItWinsView({ read }: { read: HowItWins }) {
   return (
     <div className="eval-hiw">
       <p className="eval-hiw-lede">{read.sentence}</p>
-      <p className="eval-hiw-section">Running</p>
+      <p className="eval-hiw-section">What currently wins</p>
       <ol className="eval-hiw-running">
         {read.running.map((entry) => (
           <li key={entry.strategy}>
             <p className="eval-hiw-name">{howItWinsStrategyById(entry.strategy).name}</p>
-            <p className="eval-hiw-meaning">{entry.meaning}</p>
+            <p className="eval-hiw-meaning">{howItWinsStrategyById(entry.strategy).meaning}</p>
             <p className="eval-hiw-note">{entry.note}</p>
           </li>
         ))}
@@ -31,6 +31,11 @@ export function HowItWinsView({ read }: { read: HowItWins }) {
         <div className="eval-hiw-pair">
           <p className="eval-hiw-section">The pair</p>
           <p className="eval-hiw-name">{pairNames.join(" and ")}</p>
+          {read.pair.strategies.map((strategy) => (
+            <p className="eval-hiw-meaning" key={strategy}>
+              {howItWinsStrategyById(strategy).name}: {howItWinsStrategyById(strategy).meaning}
+            </p>
+          ))}
           <p className="eval-hiw-note">{read.pair.note}</p>
           <p className="eval-hiw-note eval-hiw-wrongif">
             <span className="eval-hiw-label">Wrong if</span>
@@ -45,6 +50,7 @@ export function HowItWinsView({ read }: { read: HowItWins }) {
             {read.next.map((entry) => (
               <li key={entry.strategy}>
                 <p className="eval-hiw-name">{howItWinsStrategyById(entry.strategy).name}</p>
+                <p className="eval-hiw-meaning">{howItWinsStrategyById(entry.strategy).meaning}</p>
                 <p className="eval-hiw-note">{entry.note}</p>
               </li>
             ))}

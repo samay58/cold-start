@@ -59,8 +59,10 @@ const THINKING_DISABLED_MAX_TOKENS = 16000;
 
 const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
+const CLOSING_CERTAINTY_TAG_PATTERN = /(?:^|[.!?]\s+)(?:(?:the\s+)?(?:claim|mechanism|conclusion)\s+is\s+)?(?:observed(?:\s+fact)?|reported|inferred(?:\s+from\s+[^.]*)?)\.\s*$/i;
 const CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/;
 const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
+const BANNED_OUTPUT_PHRASES = ["the read would weaken", "would weaken if", "is observed fact", "on the card"] as const;
 
 export class HowItWinsEmptyTextError extends Error {
   constructor(message = "the how-it-wins model returned no text block") {
@@ -173,7 +175,7 @@ function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
     return "the sentence slot needs one plain sentence saying how this company wins today";
   }
   if (head === "wrongIf") {
-    return "wrong_if needs one sentence naming what would make the whole read wrong";
+    return "wrong_if needs one plain conditional about the world that would make the conclusion wrong";
   }
   if (head === "running") {
     if (typeof second !== "number") {
@@ -181,10 +183,7 @@ function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
     }
     const label = `running item ${second + 1} ("${runningNames[second] ?? "unnamed"}")`;
     if (third === "citationIds") {
-      return `${label} has no citation ids in square brackets in its note; cite at least one id from the card, like [e3]`;
-    }
-    if (third === "meaning") {
-      return `${label} needs a meaning line: one complete plain sentence saying what that way of winning means`;
+      return `${label} has no citation ids in square brackets in its note; cite at least one supplied id, like [e3]`;
     }
     if (third === "note") {
       return `${label} needs a note in plain prose, with the citation ids it rests on`;
@@ -196,10 +195,10 @@ function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
       return "the pair needs a note in plain prose, with the citation ids it rests on";
     }
     if (second === "wrongIf") {
-      return "the pair needs a wrong_if sentence naming what would make the pair read wrong";
+      return "the pair needs a wrong_if conditional about the world that would make the pair wrong";
     }
     if (second === "citationIds") {
-      return "the pair note has no citation ids in square brackets; cite at least one id from the card, like [e3]";
+      return "the pair note has no citation ids in square brackets; cite at least one supplied id, like [e3]";
     }
     return "the pair must name two of the running strategies, or be null";
   }
@@ -245,7 +244,7 @@ export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWin
     } else if (!id) {
       issues.push(`"${name}" is not one of the 80 ways; use a name from the list exactly as written`);
     }
-    return { id, name, meaning: item.meaning, note: item.note, citationIds: citationIdsFromNote(item.note) };
+    return { id, name, note: item.note, citationIds: citationIdsFromNote(item.note) };
   });
 
   // A repeated way is a drafting slip, not a broken read; the first mention keeps its note.
@@ -309,7 +308,7 @@ export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWin
     sentence: raw.sentence,
     running: running.map((entry) => ({
       strategy: entry.id,
-      meaning: entry.meaning,
+      meaning: entry.id ? howItWinsStrategyById(entry.id).meaning : "",
       note: entry.note,
       citationIds: entry.citationIds
     })),
@@ -328,7 +327,7 @@ export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWin
   if (missing.length > 0) {
     return {
       issues: [
-        `these cited ids are not on the card: ${missing.map((id) => `[${id}]`).join(" ")}; cite only ids that appear in the card's citations`
+        `these cited ids were not supplied: ${missing.map((id) => `[${id}]`).join(" ")}; cite only supplied ids`
       ]
     };
   }
@@ -350,6 +349,14 @@ export function styleIssuesForRead(read: HowItWins): string[] {
       issues.push(`an em dash appears in ${where}; use a period or a semicolon`);
     }
   };
+  const checkBannedPhrases = (value: string, where: string) => {
+    const lower = value.toLowerCase();
+    for (const phrase of BANNED_OUTPUT_PHRASES) {
+      if (lower.includes(phrase)) {
+        issues.push(`${where} uses the banned phrase "${phrase}"`);
+      }
+    }
+  };
   const checkSentence = (value: string) => {
     if (wordCount(value) < 6 || !value.trimEnd().endsWith(".")) {
       issues.push("the sentence is too short or has no terminal period");
@@ -357,33 +364,36 @@ export function styleIssuesForRead(read: HowItWins): string[] {
   };
   const checkNote = (value: string, where: string, certaintyIssue: string) => {
     checkEmDash(value, where);
+    checkBannedPhrases(value, where);
     if ((value.match(CERTAINTY_PATTERN) ?? []).length >= 3) {
       issues.push(certaintyIssue);
+    }
+    if (CLOSING_CERTAINTY_TAG_PATTERN.test(value)) {
+      issues.push(`${where} ends with a certainty tag; put certainty in the verb`);
     }
   };
 
   if (read.status !== "read") {
     if (read.status === "nothing_stands_out" && read.sentence) {
       checkEmDash(read.sentence, "the sentence");
+      checkBannedPhrases(read.sentence, "the sentence");
       checkSentence(read.sentence);
     }
     return issues;
   }
 
   checkEmDash(read.sentence, "the sentence");
+  checkBannedPhrases(read.sentence, "the sentence");
   checkSentence(read.sentence);
   checkEmDash(read.wrongIf, "wrong_if");
+  checkBannedPhrases(read.wrongIf, "wrong_if");
 
   read.running.forEach((entry, index) => {
     const label = runningLabel(entry.strategy, index);
-    checkEmDash(entry.meaning, `${label}, in the meaning line`);
-    if (!/^[A-Z].*[.]$/.test(entry.meaning.trim()) || wordCount(entry.meaning) < 5) {
-      issues.push(`${label}: the meaning line is a fragment; write one complete sentence`);
-    }
     checkNote(
       entry.note,
       `${label}, in the note`,
-      `${label}: the note repeats its certainty; say it once, at the end`
+      `${label}: the note repeats its certainty; put certainty in the verb that carries the claim`
     );
   });
 
@@ -391,9 +401,10 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     checkNote(
       read.pair.note,
       "the pair note",
-      "the pair note repeats its certainty; say it once, at the end"
+      "the pair note repeats its certainty; put certainty in the verb that carries the claim"
     );
     checkEmDash(read.pair.wrongIf, "the pair wrong_if");
+    checkBannedPhrases(read.pair.wrongIf, "the pair wrong_if");
   }
 
   read.next.forEach((entry, index) => {
@@ -401,7 +412,7 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     checkNote(
       entry.note,
       `${label}, in the note`,
-      `${label}: the note repeats its certainty; say it once, at the end`
+      `${label}: the note repeats its certainty; put certainty in the verb that carries the claim`
     );
   });
 
@@ -509,7 +520,7 @@ export async function synthesizeHowItWins(input: {
 }): Promise<HowItWinsResult> {
   const { client, models, card, telemetry } = input;
   const cardJson = JSON.stringify(cardForHowItWinsPrompt(card));
-  const task = `${HOW_IT_WINS_TASK_INTRO}\n\nThe 80 ways, in 13 groups:\n${vocabularyForPrompt()}\n\nThe company's card (facts, signals, citations with source snippets):\n${cardJson}`;
+  const task = `${HOW_IT_WINS_TASK_INTRO}\n\nThe 80 ways, in 13 groups:\n${vocabularyForPrompt()}\n\nEvidence:\n${cardJson}`;
 
   const askWriter = (pass: HowItWinsPassName, system: string, user: string, maxTokens: number) =>
     withProviderFallback("how_it_wins", models.writer, (model) =>

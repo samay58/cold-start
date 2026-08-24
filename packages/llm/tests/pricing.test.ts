@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { estimateLlmCostUsd, pricingFor } from "../src/index";
 
 describe("pricingFor", () => {
-  it("matches deepseek current and deprecated model names to the same rates", () => {
-    expect(pricingFor("deepseek", "deepseek-v4-flash")).toEqual({ input: 0.14, cacheRead: 0.0028, output: 0.28 });
-    expect(pricingFor("deepseek", "deepseek-chat")).toEqual({ input: 0.14, cacheRead: 0.0028, output: 0.28 });
-    expect(pricingFor("deepseek", "deepseek-v4-pro")?.output).toBe(0.87);
+  it("uses DeepSeek's current peak and off-peak schedules", () => {
+    const offPeak = new Date("2026-08-22T04:30:00.000Z");
+    const peak = new Date("2026-08-22T06:30:00.000Z");
+    expect(pricingFor("deepseek", "deepseek-v4-flash", offPeak)).toEqual({ input: 0.22, cacheRead: 0.007, output: 0.66 });
+    expect(pricingFor("deepseek", "deepseek-v4-flash", peak)).toEqual({ input: 0.44, cacheRead: 0.014, output: 1.32 });
+    expect(pricingFor("deepseek", "deepseek-v4-pro", offPeak)).toEqual({ input: 0.66, cacheRead: 0.022, output: 1.98 });
+    expect(pricingFor("deepseek", "deepseek-v4-pro", peak)).toEqual({ input: 1.32, cacheRead: 0.044, output: 3.96 });
   });
 
   it("resolves the openrouter kimi-k3 row", () => {
@@ -25,8 +28,8 @@ describe("estimateLlmCostUsd", () => {
         input_tokens: 1_000_000,
         cache_read_input_tokens: 1_000_000,
         output_tokens: 1_000_000,
-      })
-    ).toBe(0.4228);
+      }, new Date("2026-08-22T04:30:00.000Z"))
+    ).toBe(0.887);
   });
 
   it("returns undefined for unknown models or missing usage", () => {

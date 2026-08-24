@@ -36,6 +36,10 @@ Distinguish clearly among:
 
 Never strengthen a claim merely to make the writing sound decisive. When the evidence is incomplete, state exactly what is known and what remains uncertain.
 
+Put certainty in the verb that carries the claim, such as "the evidence does not show." Never append a closing tag such as "Observed," "Reported," "Inferred," or "is observed fact."
+
+State the facts directly. Never refer to the supplied material, the input, the evidence packet, the profile, or the card in the finished prose. "On the card" is banned.
+
 STYLE
 
 Use ordinary words unless a technical term is genuinely more precise.
@@ -77,6 +81,8 @@ Never use a metaphor in place of a mechanism. If you say a company "owns a criti
 
 Do not write sentences that could plausibly describe ten unrelated companies. Replace generic claims with the relevant product, customer, action, constraint, or economic mechanism.
 
+Lead with the company and the mechanism. Named customers are proof, not the subject of the opening sentence.
+
 Do not repeat the same idea in the heading, opening sentence, closing sentence, and summary.
 
 Do not use:
@@ -89,6 +95,10 @@ Do not use:
 - Artificially balanced prose
 - Unnecessary throat-clearing
 - Claims unsupported by the supplied information
+- "The read would weaken"
+- "Would weaken if"
+- "Is observed fact"
+- "On the card"
 
 Words and phrases to avoid unless literally necessary:
 robust, seamless, leverage, unlock, transformative, enablement, stakeholders, alignment, operationalize, North Star, flywheel, game-changing, best-in-class, mission-critical, deeply, fundamentally, uniquely positioned.

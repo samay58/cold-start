@@ -6,7 +6,14 @@ import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { ColdStartCard, HowItWinsRead } from "@cold-start/core";
 import { describe, expect, it, vi } from "vitest";
 
-import { HOW_IT_WINS_HOSTILE_EDITOR, HOW_IT_WINS_WRITING_STANDARD } from "../src/how-it-wins-prompts";
+import {
+  HOW_IT_WINS_HOSTILE_EDITOR,
+  HOW_IT_WINS_PASS_2,
+  HOW_IT_WINS_PASS_4,
+  HOW_IT_WINS_SLOTS,
+  HOW_IT_WINS_TASK_INTRO,
+  HOW_IT_WINS_WRITING_STANDARD
+} from "../src/how-it-wins-prompts";
 import {
   HowItWinsEmptyTextError,
   parseHowItWinsDraft,
@@ -58,28 +65,25 @@ function thinkingOnlyMessage(): Message {
 function draftObject() {
   return {
     status: "read",
-    sentence: "OpenAI and Anthropic name its evaluations inside their own model safety documents.",
+    sentence: "Irregular's evaluation harness sits inside model-release decisions for two frontier labs.",
     running: [
       {
         strategy: "Hybrid",
-        meaning: "The company holds two competences that rarely sit in one team.",
-        note: "Irregular runs frontier security research and ships the harness that produces the numbers [e1]. Observed in the launch coverage."
+        note: "Launch coverage shows that Irregular runs frontier security research and ships the harness that produces the numbers [e1]."
       },
       {
         strategy: "Chokepoint",
-        meaning: "The company sits on a step buyers cannot route around.",
-        note: "Its evaluations run inside the release path of two frontier labs [e2] [e4]. The same announcement names them again [e2]. That placement is inferred from the customer naming."
+        note: "Two frontier labs name its evaluations inside their release path [e2] [e4]. The same announcement names them again [e2], but does not show whether either lab must keep using them."
       },
       {
         strategy: "Prestige",
-        meaning: "Named authorities endorse the work in their own public documents.",
-        note: "Sequoia led the round and both labs cite the evaluations by name [e12]. Reported."
+        note: "Round coverage names Sequoia as the lead, and both labs cite the evaluations by name [e12]."
       }
     ],
     pair: {
       strategies: ["Hybrid", "Chokepoint"],
-      note: "The research and the harness ship together, so a competitor copying the harness still lacks the research that decides what to measure [e1] [e2]. The mechanism is inferred.",
-      wrong_if: "A lab publishing its own equivalent harness would make the pair read wrong."
+      note: "Coverage shows that the research and harness ship together [e1] [e2], but does not show whether a competitor can reproduce both.",
+      wrong_if: "A lab can publish an equivalent harness without losing evaluation quality."
     },
     next: [
       {
@@ -87,7 +91,7 @@ function draftObject() {
         note: "It could publish the harness as a shared standard if a third lab adopted it first [e5]."
       }
     ],
-    wrong_if: "A second vendor appearing in the same release notes would change the read."
+    wrong_if: "A second vendor appears in the same release notes and performs the same role."
   };
 }
 
@@ -121,6 +125,28 @@ describe("how-it-wins prompt constants", () => {
   it("carries the hostile editor verbatim", () => {
     expect(HOW_IT_WINS_HOSTILE_EDITOR).toBe(readFileSync(resolve(promptDir, "hostile-editor.md"), "utf8"));
   });
+
+  it("makes wrong_if a world conditional and never asks for a model-authored meaning line", () => {
+    expect(HOW_IT_WINS_SLOTS).toContain("plain conditional about the world");
+    expect(HOW_IT_WINS_SLOTS).toContain('"running": two to four items {strategy, note}');
+    expect(HOW_IT_WINS_SLOTS).toContain("Irregular's evaluation harness sits inside model-release decisions");
+    expect(HOW_IT_WINS_SLOTS).not.toContain('"meaning"');
+    expect(HOW_IT_WINS_PASS_2).not.toContain("Meaning lines");
+    expect(HOW_IT_WINS_PASS_4).not.toContain("meaning line");
+  });
+
+  it("tells every writer to keep the input unnamed and lead with the company and mechanism", () => {
+    expect(HOW_IT_WINS_TASK_INTRO).toContain("Never refer to the input");
+    expect(HOW_IT_WINS_TASK_INTRO).toContain("Lead with the company and the mechanism");
+    expect(HOW_IT_WINS_TASK_INTRO).not.toContain("from the card");
+    expect(HOW_IT_WINS_TASK_INTRO).not.toContain("card's citations");
+  });
+
+  it("makes the hostile editor catch the sitting's four banned phrases", () => {
+    for (const phrase of ["the read would weaken", "would weaken if", "is observed fact", "on the card"]) {
+      expect(HOW_IT_WINS_HOSTILE_EDITOR.toLowerCase()).toContain(phrase);
+    }
+  });
 });
 
 describe("parseHowItWinsDraft", () => {
@@ -132,14 +158,19 @@ describe("parseHowItWinsDraft", () => {
       throw new Error("expected a read");
     }
     expect(parsed.read.running.map((entry) => entry.strategy)).toEqual(["hybrid", "chokepoint", "prestige"]);
+    expect(parsed.read.running.map((entry) => entry.meaning)).toEqual([
+      "Competence in two distinct areas, or two strengths not usually found together.",
+      "Controls a passage that competitors or prey must pass through.",
+      "Endorsed by authoritative sources through awards, degrees, or recognition."
+    ]);
     expect(parsed.read.running[0]?.citationIds).toEqual(["e1"]);
     expect(parsed.read.running[1]?.citationIds).toEqual(["e2", "e4"]);
     expect(parsed.read.pair?.strategies).toEqual(["hybrid", "chokepoint"]);
     expect(parsed.read.pair?.citationIds).toEqual(["e1", "e2"]);
-    expect(parsed.read.pair?.wrongIf).toBe("A lab publishing its own equivalent harness would make the pair read wrong.");
+    expect(parsed.read.pair?.wrongIf).toBe("A lab can publish an equivalent harness without losing evaluation quality.");
     expect(parsed.read.next[0]?.strategy).toBe("standardization");
     expect(parsed.read.next[0]?.citationIds).toEqual(["e5"]);
-    expect(parsed.read.wrongIf).toBe("A second vendor appearing in the same release notes would change the read.");
+    expect(parsed.read.wrongIf).toBe("A second vendor appears in the same release notes and performs the same role.");
   });
 
   it("reads a draft wrapped in a code fence", () => {
@@ -194,7 +225,7 @@ describe("parseHowItWinsDraft", () => {
       throw new Error("expected issues");
     }
     expect(parsed.issues.join(" ")).toContain("[z9]");
-    expect(parsed.issues.join(" ")).toContain("cite only ids that appear in the card's citations");
+    expect(parsed.issues.join(" ")).toContain("cite only supplied ids");
   });
 
   it("reports a strategy name outside the vocabulary", () => {
@@ -227,7 +258,7 @@ describe("parseHowItWinsDraft", () => {
       throw new Error("expected issues");
     }
     expect(parsed.issues).toContain(
-      'running item 3 ("Prestige") has no citation ids in square brackets in its note; cite at least one id from the card, like [e3]'
+      'running item 3 ("Prestige") has no citation ids in square brackets in its note; cite at least one supplied id, like [e3]'
     );
   });
 
@@ -303,7 +334,6 @@ describe("parseHowItWinsDraft", () => {
           ...draft.running,
           {
             strategy: "Chokepoint",
-            meaning: "The company sits on a step buyers cannot route around.",
             note: "Said a second time, with the same evidence [e2]."
           }
         ];
@@ -339,24 +369,20 @@ describe("styleIssuesForRead", () => {
     expect(styleIssuesForRead(readFromValidDraft())).toEqual([]);
   });
 
-  it("flags a meaning line that is a fragment", () => {
+  it("does not review canonical meaning lines as model prose", () => {
     const read = readFromValidDraft();
     read.running = read.running.map((entry, index) =>
       index === 0 ? { ...entry, meaning: "Two competences at once" } : entry
     );
 
-    expect(styleIssuesForRead(read)).toContain(
-      'running item 1 ("Hybrid"): the meaning line is a fragment; write one complete sentence'
-    );
+    expect(styleIssuesForRead(read)).toEqual([]);
   });
 
-  it("flags a meaning line under five words", () => {
+  it("flags banned self-referential phrasing", () => {
     const read = readFromValidDraft();
-    read.running = read.running.map((entry, index) => (index === 1 ? { ...entry, meaning: "It sits between." } : entry));
+    read.wrongIf = "The read would weaken if another vendor appears.";
 
-    expect(styleIssuesForRead(read)).toContain(
-      'running item 2 ("Chokepoint"): the meaning line is a fragment; write one complete sentence'
-    );
+    expect(styleIssuesForRead(read)).toContain('wrong_if uses the banned phrase "the read would weaken"');
   });
 
   it("flags a note that states certainty three times", () => {
@@ -368,7 +394,18 @@ describe("styleIssuesForRead", () => {
     );
 
     expect(styleIssuesForRead(read)).toContain(
-      'running item 1 ("Hybrid"): the note repeats its certainty; say it once, at the end'
+      'running item 1 ("Hybrid"): the note repeats its certainty; put certainty in the verb that carries the claim'
+    );
+  });
+
+  it("flags a closing certainty tag", () => {
+    const read = readFromValidDraft();
+    read.running = read.running.map((entry, index) =>
+      index === 0 ? { ...entry, note: "The launch coverage names the harness [e1]. Reported." } : entry
+    );
+
+    expect(styleIssuesForRead(read)).toContain(
+      'running item 1 ("Hybrid"), in the note ends with a certainty tag; put certainty in the verb'
     );
   });
 
@@ -523,9 +560,7 @@ describe("synthesizeHowItWins", () => {
       .mockResolvedValueOnce(
         textMessage(
           draftJson((draft) => {
-            draft.running = draft.running.map((entry, index) =>
-              index === 0 ? { ...entry, meaning: "Two competences at once" } : entry
-            );
+            draft.wrong_if = "The read would weaken if another vendor appears.";
           })
         )
       )
@@ -541,7 +576,7 @@ describe("synthesizeHowItWins", () => {
     const retry = callsMade()[4];
     expect(retry?.label).toBe("how-it-wins-fit");
     expect(retry?.params.messages[0]?.content).toContain(
-      'running item 1 ("Hybrid"): the meaning line is a fragment'
+      'wrong_if uses the banned phrase "the read would weaken"'
     );
     expect(retry?.params.messages[0]?.content).toContain("fix them and return only the JSON");
   });
@@ -582,9 +617,7 @@ describe("synthesizeHowItWins", () => {
 
   it("keeps the first parsed read when the corrective re-ask parses into nothing", async () => {
     const styledDraft = draftJson((draft) => {
-      draft.running = draft.running.map((entry, index) =>
-        index === 0 ? { ...entry, meaning: "Two competences at once" } : entry
-      );
+      draft.wrong_if = "The read would weaken if another vendor appears.";
     });
 
     tracedMessage.mockReset();
@@ -602,9 +635,27 @@ describe("synthesizeHowItWins", () => {
     if (result.read.status !== "read") {
       throw new Error("expected a read");
     }
-    expect(result.read.running[0]?.meaning).toBe("Two competences at once");
-    expect(result.styleIssues).toContain(
-      'running item 1 ("Hybrid"): the meaning line is a fragment; write one complete sentence'
+    expect(result.read.running[0]?.meaning).toBe(
+      "Competence in two distinct areas, or two strengths not usually found together."
     );
+    expect(result.styleIssues).toContain(
+      'wrong_if uses the banned phrase "the read would weaken"'
+    );
+  });
+
+  it("passes evidence without naming it as a card", async () => {
+    tracedMessage.mockReset();
+    tracedMessage
+      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()))
+      .mockResolvedValueOnce(textMessage(draftJson()));
+
+    await runDriver();
+
+    const task = callsMade()[0]?.params.messages[0]?.content ?? "";
+    expect(task).toContain("Evidence:");
+    expect(task).not.toContain("The company's card");
+    expect(task.toLowerCase()).not.toContain("on the card");
   });
 });

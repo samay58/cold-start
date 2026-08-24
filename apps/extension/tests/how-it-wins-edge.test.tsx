@@ -25,31 +25,35 @@ const filedDisplay: HowItWinsDisplay = {
     {
       id: "hybrid",
       name: "Hybrid",
-      meaning: "Wins by pairing two skills rarely combined.",
+      meaning: "Competence in two distinct areas, or two strengths not usually found together.",
       note: "It builds live network environments and has models attack and defend inside them."
     },
     {
       id: "chokepoint",
       name: "Chokepoint",
-      meaning: "Controls a required passage.",
+      meaning: "Controls a passage that competitors or prey must pass through.",
       note: "Two labs name its benchmarks before releasing a model."
     },
     {
       id: "prestige",
       name: "Prestige",
-      meaning: "Endorsed by credible outside sources.",
+      meaning: "Endorsed by authoritative sources through awards, degrees, or recognition.",
       note: "Two named investors put in personal money alongside the round."
     }
   ],
   pair: {
     strategies: ["hybrid", "chokepoint"],
     names: ["Hybrid", "Chokepoint"],
+    meanings: [
+      "Competence in two distinct areas, or two strengths not usually found together.",
+      "Controls a passage that competitors or prey must pass through."
+    ],
     note: "The method produced the passage: the same testing approach is what both labs now name in their own documents.",
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
   },
   next: [
-    { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
-    { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
+    { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
+    { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
   count: 3
 };

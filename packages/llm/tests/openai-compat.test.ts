@@ -245,12 +245,15 @@ describe("createTracedOpenAiCompatMessage", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-08-22T04:30:00.000Z"));
     process.env.DEEPSEEK_API_KEY = "test-key";
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     if (savedKey === undefined) {
       delete process.env.DEEPSEEK_API_KEY;
@@ -310,9 +313,9 @@ describe("createTracedOpenAiCompatMessage", () => {
       inputTokens: 800,
       cacheReadInputTokens: 200,
       outputTokens: 50,
+      retryCount: 0,
     });
-    // 800 in * 0.14/M + 200 cache * 0.0028/M + 50 out * 0.28/M
-    expect(traces[0]?.estimatedCostUsd).toBeCloseTo(0.000127, 6);
+    expect(traces[0]?.estimatedCostUsd).toBeCloseTo(0.00021, 6);
   });
 
   it("prefers the provider's billed usage.cost over the pricing-table estimate when present", async () => {
@@ -331,9 +334,11 @@ describe("createTracedOpenAiCompatMessage", () => {
       .mockResolvedValueOnce(jsonResponse({ error: "upstream" }, { status: 503 }))
       .mockResolvedValueOnce(jsonResponse(okPayload));
 
-    const message = await createTracedOpenAiCompatMessage(callInput());
+    const traces: GenerationLlmCallTrace[] = [];
+    const message = await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: (call) => traces.push(call) });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(message.content[0]).toMatchObject({ type: "tool_use" });
+    expect(traces[0]?.retryCount).toBe(2);
   }, 15_000);
 
   it("retries network errors", async () => {
