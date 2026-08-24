@@ -533,6 +533,22 @@ function disputedStrategyIds(judgments: readonly HowItWinsJudgment[]) {
     .filter((strategyId) => (byStrategy.get(strategyId)?.size ?? 0) > 1);
 }
 
+function semanticAnswer(judgment: HowItWinsJudgment) {
+  return {
+    evidenceCutoff: judgment.evidenceCutoff,
+    evidenceRegistry: judgment.evidenceRegistry,
+    claims: judgment.claims,
+    materialBets: judgment.materialBets,
+    currentStrategyIds: judgment.currentStrategyIds,
+    unusualPair: judgment.unusualPair,
+    openQuestions: judgment.openQuestions,
+    overallWrongCondition: judgment.overallWrongCondition,
+    disagreements: judgment.disagreements,
+    overrides: judgment.overrides,
+    strategyEvaluations: judgment.strategyEvaluations
+  };
+}
+
 export function buildBlindBenchmarkReview(input: {
   records: readonly BenchmarkRunRecord[];
   seed: string;
@@ -570,6 +586,7 @@ export function buildBlindBenchmarkReview(input: {
           alias,
           runLabel,
           outcome: "valid" as const,
+          fullAnswer: semanticAnswer(judgment),
           materialBets: judgment.materialBets.map((bet) => ({
             statement: bet.statement,
             scope: bet.scope,
@@ -601,6 +618,190 @@ export function buildBlindBenchmarkReview(input: {
     packet: { version: 1 as const, seedHash: canonicalHash(input.seed), items },
     metadata: { version: 1 as const, aliasToTopology }
   };
+}
+
+export type BlindBenchmarkReviewPacket = ReturnType<typeof buildBlindBenchmarkReview>["packet"];
+
+function escapeHtml(value: unknown) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function fieldLabel(value: string) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replaceAll("Ids", " IDs")
+    .replaceAll("Id", " ID")
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function renderValue(value: unknown): string {
+  if (value === null) return '<span class="empty">None</span>';
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '<span class="empty">None</span>';
+    if (value.every((entry) => ["string", "number", "boolean"].includes(typeof entry))) {
+      return `<ul class="value-list">${value.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}</ul>`;
+    }
+    return `<div class="object-list">${value.map((entry) => `<div class="nested-object">${renderValue(entry)}</div>`).join("")}</div>`;
+  }
+  if (typeof value === "object") {
+    return `<dl class="nested-fields">${Object.entries(value as Record<string, unknown>).map(([key, entry]) =>
+      `<div><dt>${escapeHtml(fieldLabel(key))}</dt><dd>${renderValue(entry)}</dd></div>`
+    ).join("")}</dl>`;
+  }
+  if (typeof value === "boolean") return `<span class="boolean">${value ? "Yes" : "No"}</span>`;
+  return `<span>${escapeHtml(value)}</span>`;
+}
+
+function differenceState(value: unknown, peerValues: readonly unknown[]) {
+  if (value === undefined) return "missing" as const;
+  const ownHash = canonicalHash(value);
+  return peerValues.every((peer) => peer !== undefined && canonicalHash(peer) === ownHash)
+    ? "same" as const
+    : "different" as const;
+}
+
+function renderField(key: string, value: unknown, peerValues: readonly unknown[]) {
+  const state = differenceState(value, peerValues);
+  return `<div class="field ${state}" data-difference="${state}"><div class="field-label">${escapeHtml(fieldLabel(key))}</div><div class="field-value">${renderValue(value)}</div></div>`;
+}
+
+function renderRecord(
+  title: string,
+  value: Record<string, unknown>,
+  peerValues: readonly Array<Record<string, unknown> | undefined>,
+  options: { open?: boolean } = {}
+) {
+  const body = Object.entries(value).map(([key, entry]) =>
+    renderField(key, entry, peerValues.map((peer) => peer?.[key]))
+  ).join("");
+  return `<details class="record"${options.open ? " open" : ""}><summary>${escapeHtml(title)}</summary><div class="record-body">${body}</div></details>`;
+}
+
+function strategyName(strategyId: string) {
+  return HOW_IT_WINS_STRATEGIES.find((strategy) => strategy.id === strategyId)?.name ?? strategyId;
+}
+
+function renderArm(
+  arm: Extract<BlindBenchmarkReviewPacket["items"][number]["arms"][number], { outcome: "valid" }>,
+  peers: readonly Extract<BlindBenchmarkReviewPacket["items"][number]["arms"][number], { outcome: "valid" }>[]
+) {
+  const answer = arm.fullAnswer;
+  const peerAnswers = peers.map((peer) => peer.fullAnswer);
+  const records = <T extends Record<string, unknown>>(
+    title: string,
+    rows: readonly T[],
+    peerRows: readonly (readonly T[])[],
+    key: (row: T, index: number) => string,
+    open = false
+  ) => `<section><h3>${escapeHtml(title)}</h3>${rows.length === 0 ? '<p class="empty-block">None</p>' : rows.map((row, index) => {
+    const rowKey = key(row, index);
+    const matches = peerRows.map((entries) => entries.find((entry, peerIndex) => key(entry, peerIndex) === rowKey));
+    return renderRecord(rowKey, row, matches, { open });
+  }).join("")}</section>`;
+
+  const currentEvaluations = answer.currentStrategyIds.map((strategyId) =>
+    answer.strategyEvaluations.find((entry) => entry.strategyId === strategyId)!
+  );
+  const peerCurrentEvaluations = peerAnswers.map((peer) => peer.currentStrategyIds.map((strategyId) =>
+    peer.strategyEvaluations.find((entry) => entry.strategyId === strategyId)!
+  ));
+  const notYet = answer.strategyEvaluations.filter((entry) => entry.disposition === "not_yet");
+  const peerNotYet = peerAnswers.map((peer) => peer.strategyEvaluations.filter((entry) => entry.disposition === "not_yet"));
+
+  return `<article class="arm"><header><div class="arm-kicker">Blind arm</div><h2>${escapeHtml(arm.alias)}</h2><div class="run-label">${escapeHtml(arm.runLabel)}</div></header>
+    ${records("Company bets", answer.materialBets, peerAnswers.map((peer) => peer.materialBets), (row, index) => `Bet ${index + 1}`, true)}
+    <section><h3>Ordered current strategy set</h3>${renderField("currentStrategyIds", answer.currentStrategyIds.map(strategyName), peerAnswers.map((peer) => peer.currentStrategyIds.map(strategyName)))}</section>
+    ${records("Full current-strategy reasoning", currentEvaluations, peerCurrentEvaluations, (row) => strategyName(String(row.strategyId)), true)}
+    <section><h3>Unusual pair</h3>${renderField("unusualPair", answer.unusualPair, peerAnswers.map((peer) => peer.unusualPair))}</section>
+    ${records("Not yet", notYet, peerNotYet, (row) => strategyName(String(row.strategyId)), true)}
+    ${records("Open questions", answer.openQuestions, peerAnswers.map((peer) => peer.openQuestions), (row, index) => `Question ${index + 1}`, true)}
+    <section><h3>What would make this answer wrong</h3>${renderField("overallWrongCondition", answer.overallWrongCondition, peerAnswers.map((peer) => peer.overallWrongCondition))}</section>
+    ${records("Claims", answer.claims, peerAnswers.map((peer) => peer.claims), (row, index) => `Claim ${index + 1}`)}
+    ${records("Complete 80-strategy audit", answer.strategyEvaluations, peerAnswers.map((peer) => peer.strategyEvaluations), (row) => strategyName(String(row.strategyId)))}
+    ${records("Disagreements", answer.disagreements, peerAnswers.map((peer) => peer.disagreements), (row, index) => `Disagreement ${index + 1}`)}
+    ${records("Overrides", answer.overrides, peerAnswers.map((peer) => peer.overrides), (row, index) => `Override ${index + 1}`)}
+    ${records("Evidence record", answer.evidenceRegistry, peerAnswers.map((peer) => peer.evidenceRegistry), (row) => String(row.evidenceId))}
+  </article>`;
+}
+
+export function renderBlindBenchmarkReviewHtml(packet: BlindBenchmarkReviewPacket) {
+  const items = packet.items.map((item) => {
+    const validArms = item.arms.filter((arm): arm is Extract<typeof arm, { outcome: "valid" }> => arm.outcome === "valid");
+    const arms = item.arms
+      .sort((left, right) => left.alias.localeCompare(right.alias))
+      .map((arm) => arm.outcome === "valid"
+        ? renderArm(arm, validArms)
+        : `<article class="arm failed"><header><div class="arm-kicker">Blind arm</div><h2>${escapeHtml(arm.alias)}</h2></header><p>This arm failed closed. It has no answer to compare.</p></article>`)
+      .join("");
+    return `<section class="company"><header class="company-header"><h1>${escapeHtml(item.reviewId)}</h1><p>${escapeHtml(item.question)}</p><div class="category-row">${item.categories.map((category) => `<span>${escapeHtml(category.replaceAll("_", " "))}</span>`).join("")}</div></header><div class="arms">${arms}</div></section>`;
+  }).join("");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How it wins blind review</title>
+  <style>
+    :root { color-scheme: light; --paper: #fafaf7; --ink: #171714; --muted: #6f6e66; --line: #d8d6cd; --same: #eef5ed; --same-line: #7a9a74; --different: #fff1cf; --different-line: #bf8425; --missing: #f9e6e2; --missing-line: #b45f55; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: Satoshi, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: min(1800px, calc(100% - 40px)); margin: 32px auto 80px; }
+    .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: end; padding-bottom: 20px; border-bottom: 1px solid var(--ink); }
+    .topbar h1 { margin: 0; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 48px); font-weight: 500; }
+    .topbar p { max-width: 700px; margin: 8px 0 0; color: var(--muted); }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; font: 12px "Berkeley Mono", ui-monospace, monospace; }
+    .legend span, .category-row span { padding: 5px 7px; border: 1px solid var(--line); }
+    .legend .same { background: var(--same); border-color: var(--same-line); }
+    .legend .different { background: var(--different); border-color: var(--different-line); }
+    .legend .missing { background: var(--missing); border-color: var(--missing-line); }
+    .company { margin-top: 52px; }
+    .company-header { margin-bottom: 18px; }
+    .company-header h1 { margin: 0; font: 15px "Berkeley Mono", ui-monospace, monospace; }
+    .company-header p { max-width: 760px; margin: 10px 0; font-size: 18px; }
+    .category-row { display: flex; gap: 6px; flex-wrap: wrap; color: var(--muted); font: 11px "Berkeley Mono", ui-monospace, monospace; }
+    .arms { display: grid; grid-template-columns: repeat(var(--arm-count, 3), minmax(320px, 1fr)); gap: 14px; align-items: start; }
+    .arm { min-width: 0; border: 1px solid var(--ink); background: #fff; }
+    .arm > header { position: sticky; top: 0; z-index: 2; padding: 14px 16px; border-bottom: 1px solid var(--ink); background: #fff; }
+    .arm-kicker, .run-label { color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; }
+    .arm h2 { margin: 4px 0; font-family: Georgia, serif; font-size: 28px; font-weight: 500; }
+    .arm section { padding: 16px; border-bottom: 1px solid var(--line); }
+    .arm section:last-child { border-bottom: 0; }
+    .arm h3 { margin: 0 0 10px; font-size: 15px; }
+    .field { margin-top: 8px; padding: 10px; border-left: 3px solid var(--line); }
+    .field.same { background: var(--same); border-color: var(--same-line); }
+    .field.different { background: var(--different); border-color: var(--different-line); }
+    .field.missing { background: var(--missing); border-color: var(--missing-line); }
+    .field-label { margin-bottom: 5px; color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .05em; }
+    .field-value { font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+    .record { margin-top: 8px; border: 1px solid var(--line); }
+    .record > summary { cursor: pointer; padding: 10px; font: 12px "Berkeley Mono", ui-monospace, monospace; }
+    .record-body { padding: 0 8px 8px; }
+    .value-list { margin: 0; padding-left: 18px; }
+    .object-list { display: grid; gap: 7px; }
+    .nested-object { padding: 8px; border: 1px solid rgba(23, 23, 20, .14); }
+    .nested-fields { display: grid; gap: 7px; margin: 0; }
+    .nested-fields > div { display: grid; grid-template-columns: minmax(105px, .35fr) 1fr; gap: 8px; }
+    .nested-fields dt { color: var(--muted); font: 10px "Berkeley Mono", ui-monospace, monospace; text-transform: uppercase; }
+    .nested-fields dd { margin: 0; }
+    .empty, .empty-block { color: var(--muted); font-style: italic; }
+    .failed { padding-bottom: 20px; }
+    .failed p { padding: 0 16px; }
+    @media (max-width: 1100px) { .arms { grid-template-columns: 1fr; } .arm > header { position: static; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="topbar"><div><h1>Full blind comparison</h1><p>Every answer is preserved. Color only shows whether the same field agrees, differs, or is missing across arms.</p></div><div class="legend"><span class="same">Same</span><span class="different">Different</span><span class="missing">Missing</span></div></header>
+    ${items}
+  </main>
+</body>
+</html>\n`;
 }
 
 const RESERVATION_ORDER: Record<HowItWinsJudgeTopology, number> = {
@@ -819,10 +1020,6 @@ export function createBenchmarkAttemptStore(input: { root: string; capUsd: numbe
       });
     }
   };
-}
-
-export function strategyIdsFromRules(rules: HowItWinsJudgeRules): HowItWinsStrategyId[] {
-  return rules.strategyRubric.map((row) => row.strategyId);
 }
 
 export { canonicalHash as hashBenchmarkValue };

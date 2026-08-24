@@ -16,7 +16,7 @@ import {
 } from "@cold-start/llm";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
-export const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-23.9";
+const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-23.10";
 
 const STAGE_TIMEOUT_MS: Record<HowItWinsJudgeCallRequest["stage"], number> = {
   bet_map: 120_000,
@@ -153,6 +153,58 @@ function restrictEvidenceReferences(value: unknown, ids: readonly string[]) {
   }
 }
 
+function localBetRefsForRequest(request: HowItWinsJudgeCallRequest) {
+  if (!isMultiStageGlobal(request)) return null;
+  const payload = record(request.payload);
+  const betMap = record(payload?.betMap);
+  const materialBets = Array.isArray(betMap?.materialBets) ? betMap.materialBets : [];
+  const refs = materialBets.flatMap((value) => {
+    const bet = record(value);
+    return Number.isInteger(bet?.betRef) && Number(bet?.betRef) > 0 ? [Number(bet?.betRef)] : [];
+  });
+  if (refs.length !== materialBets.length || new Set(refs).size !== refs.length) {
+    throw new Error("multi-stage global request needs unique local bet references");
+  }
+  return refs;
+}
+
+function restrictLocalBetReferences(value: unknown, refs: readonly number[]) {
+  if (!value || typeof value !== "object") return;
+  const object = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(object)) {
+    if (key === "betRefs") {
+      const field = record(child);
+      if (!field || field.type !== "array") throw new Error("invalid local bet-reference schema");
+      const items = record(field.items);
+      field.items = { ...(items ?? { type: "integer" }), enum: [...refs] };
+      continue;
+    }
+    restrictLocalBetReferences(child, refs);
+  }
+}
+
+function assertLocalBetReferences(value: unknown, refs: readonly number[], path = "output") {
+  if (Array.isArray(value)) {
+    value.forEach((child, index) => assertLocalBetReferences(child, refs, `${path}[${index}]`));
+    return;
+  }
+  const object = record(value);
+  if (!object) return;
+  for (const [key, child] of Object.entries(object)) {
+    const childPath = `${path}.${key}`;
+    if (key === "betRefs") {
+      if (!Array.isArray(child)) throw new Error(`${childPath} must be a local bet-reference array`);
+      for (const ref of child) {
+        if (typeof ref !== "number" || !refs.includes(ref)) {
+          throw new Error(`${childPath} contains unknown local bet reference ${String(ref)}`);
+        }
+      }
+      continue;
+    }
+    assertLocalBetReferences(child, refs, childPath);
+  }
+}
+
 function isMultiStageGlobal(request: HowItWinsJudgeCallRequest) {
   return request.stage === "global_judge" && record(request.payload)?.betMap != null;
 }
@@ -162,6 +214,8 @@ export function benchmarkToolSchemaForRequest(request: HowItWinsJudgeCallRequest
     multiStage: isMultiStageGlobal(request)
   })) as Record<string, unknown>;
   restrictEvidenceReferences(schema, evidenceHandlesForRequest(request).handles);
+  const localBetRefs = localBetRefsForRequest(request);
+  if (localBetRefs) restrictLocalBetReferences(schema, localBetRefs);
   return schema;
 }
 
@@ -393,6 +447,8 @@ export function normalizeBenchmarkToolOutput(request: HowItWinsJudgeCallRequest,
   ) {
     throw new Error(`${request.stage} tool result needs strategyEvaluations`);
   }
+  const localBetRefs = localBetRefsForRequest(request);
+  if (localBetRefs) assertLocalBetReferences(normalized, localBetRefs);
   return restoreEvidenceReferences(request, normalized);
 }
 
@@ -450,6 +506,7 @@ export function createBenchmarkModelAdapter(input: {
 }): HowItWinsJudgeAdapter {
   return async (request) => {
     let providerTrace: GenerationLlmCallTrace | undefined;
+    let rawToolOutputReceived = false;
     try {
       const maxTokens = request.stage === "global_judge" || request.stage === "adjudication" ? 50_000 : 12_000;
       const params = {
@@ -517,6 +574,7 @@ export function createBenchmarkModelAdapter(input: {
           params
         });
       const rawOutput = toolInput(message);
+      rawToolOutputReceived = true;
       input.onRawOutput?.(request, rawOutput);
       const output = normalizeBenchmarkToolOutput(request, rawOutput);
       input.onOutput?.(request, output);
@@ -525,7 +583,12 @@ export function createBenchmarkModelAdapter(input: {
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
-        retryable: isTransientLlmError(error),
+        retryable: isTransientLlmError(error) || rawToolOutputReceived,
+        ...(rawToolOutputReceived
+          ? {
+            repairInstruction: `Return one complete corrected ${request.stage} result. Previous structured output failed validation: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500)
+          }
+          : {}),
         trace: mapTrace(request, providerTrace, "failed", error)
       };
     }

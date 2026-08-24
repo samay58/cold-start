@@ -753,6 +753,35 @@ describe("createHowItWinsJudge", () => {
     }
   });
 
+  it("passes structured-output correction feedback into the single retry", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    let failed = false;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      if (request.stage === "global_judge" && !failed) {
+        failed = true;
+        return {
+          ok: false,
+          error: "output.betRefs contains unknown local bet reference 2",
+          retryable: true,
+          repairInstruction: "Use only local bet reference 1 and return the complete result.",
+          trace: trace(request, "fake-strong", "failed")
+        };
+      }
+      return original(request);
+    });
+
+    await makeJudge(fake)(judgeInput());
+
+    const globalCalls = fake.strong.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.stage === "global_judge");
+    expect(globalCalls).toHaveLength(2);
+    expect(globalCalls[1]?.payload).toMatchObject({
+      retryCorrection: "Use only local bet reference 1 and return the complete result."
+    });
+  });
+
   it("stops closed after two transient failures and does not retry semantic failures", async () => {
     const twice = adapters();
     twice.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => ({

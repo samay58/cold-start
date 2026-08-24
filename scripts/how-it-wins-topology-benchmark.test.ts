@@ -27,6 +27,7 @@ import {
   hashBenchmarkValue,
   orderBenchmarkRunsForCap,
   parseHowItWinsJudgeRules,
+  renderBlindBenchmarkReviewHtml,
   selectBenchmarkRunPlan,
   verifyClosedBenchmarkCards,
   type BenchmarkRunRecord
@@ -566,6 +567,29 @@ test("model-facing verdicts contain semantic references but no durable bookkeepi
   assert.ok(Object.hasOwn(fullStrategy, "supportingClaims"));
 });
 
+test("multi-stage bet references are limited to bets code already owns", () => {
+  const request = stageRequest("global_judge", { multiStage: true });
+  request.payload = {
+    ...request.payload,
+    betMap: { materialBets: [{ betRef: 1 }, { betRef: 2 }] }
+  };
+  const schema = benchmarkToolSchemaForRequest(request) as {
+    properties: {
+      strategyEvaluations: {
+        items: { anyOf: Array<{ properties: { betRefs?: { items?: { enum?: number[] } } } }> };
+      };
+    };
+  };
+  const full = schema.properties.strategyEvaluations.items.anyOf.find((option) => option.properties.betRefs);
+  assert.deepEqual(full?.properties.betRefs?.items?.enum, [1, 2]);
+  assert.throws(
+    () => normalizeBenchmarkToolOutput(request, {
+      strategyEvaluations: [{ strategyId: "usership", betRefs: [3] }]
+    }),
+    /unknown local bet reference 3/i
+  );
+});
+
 test("every stage schema restricts every evidence reference to the request registry", () => {
   const requests = [
     stageRequest("bet_map"),
@@ -689,6 +713,10 @@ test("the model adapter preserves rejected raw tool output before normalization"
   const result = await adapter(stageRequest("bet_map"));
   assert.equal(result.ok, false);
   assert.deepEqual(observed, raw);
+  if (!result.ok) {
+    assert.equal(result.retryable, true);
+    assert.match(result.repairInstruction ?? "", /previous structured output failed validation/i);
+  }
 });
 
 test("provider evidence handles map back exactly and unknown handles fail closed", () => {
@@ -1045,14 +1073,41 @@ test("aggregate comparison reconciles outcomes, spend, latency, retries, critics
   });
 });
 
-test("blind review aliases are seeded and the reader packet contains no topology names or raw audit", () => {
+test("blind review aliases are seeded and the private reader packet hides topology names", () => {
   const divergent = recordsForCard("suki", { thirteen_groups: null });
   const first = buildBlindBenchmarkReview({ records: divergent, seed: "blind-seed" });
   const second = buildBlindBenchmarkReview({ records: divergent, seed: "blind-seed" });
   assert.deepEqual(first, second);
   assert.equal(first.packet.items.length, 1);
   assert.equal(JSON.stringify(first.packet).includes("thirteen_groups"), false);
-  assert.equal(JSON.stringify(first.packet).includes("evidenceRegistry"), false);
-  assert.equal(JSON.stringify(first.packet).includes("claims"), false);
+  assert.equal(JSON.stringify(first.packet).includes("evidenceRegistry"), true);
+  assert.equal(JSON.stringify(first.packet).includes("claims"), true);
   assert.deepEqual(new Set(Object.values(first.metadata.aliasToTopology)), new Set(BENCHMARK_TOPOLOGIES));
+});
+
+test("blind review preserves full answers and highlights differences without replacing them with summaries", () => {
+  const changed = fixtureVerdict(["usership"]);
+  changed.materialBets[0]!.statement = "The company is betting on a different fixture mechanism.";
+  changed.strategyEvaluations.find((entry) => entry.strategyId === "usership")!.mechanism =
+    "The complete alternate mechanism stays visible.";
+  const review = buildBlindBenchmarkReview({
+    records: recordsForCard("suki", { thirteen_groups: changed }),
+    seed: "blind-seed"
+  });
+  const validArms = review.packet.items[0]!.arms.filter((arm) => arm.outcome === "valid");
+  assert.equal(validArms.length, 3);
+  for (const arm of validArms) {
+    assert.equal(arm.fullAnswer.strategyEvaluations.length, HOW_IT_WINS_STRATEGIES.length);
+    assert.equal(arm.fullAnswer.claims.length, 1);
+    assert.equal(arm.fullAnswer.materialBets.length, 1);
+    assert.equal(arm.fullAnswer.overallWrongCondition.condition, "The mechanism stops affecting buyer choice.");
+  }
+
+  const html = renderBlindBenchmarkReviewHtml(review.packet);
+  assert.match(html, /The complete alternate mechanism stays visible\./);
+  assert.match(html, /A fixture source supports the mechanism\./);
+  assert.match(html, /Complete 80-strategy audit/);
+  assert.match(html, /data-difference="different"/);
+  assert.match(html, /data-difference="same"/);
+  assert.doesNotMatch(html, /thirteen_groups|four_bundles|monolith/);
 });

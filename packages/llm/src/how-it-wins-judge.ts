@@ -221,7 +221,13 @@ export type HowItWinsJudgeCallRequest = {
 
 export type HowItWinsJudgeAdapterResult =
   | { ok: true; output: unknown; trace: HowItWinsJudgeCallTrace }
-  | { ok: false; error: string; retryable: boolean; trace: HowItWinsJudgeCallTrace };
+  | {
+    ok: false;
+    error: string;
+    retryable: boolean;
+    repairInstruction?: string;
+    trace: HowItWinsJudgeCallTrace;
+  };
 
 export type HowItWinsJudgeAdapter = (
   request: HowItWinsJudgeCallRequest
@@ -532,7 +538,15 @@ export function createHowItWinsJudge(config: {
       return invoke(adapter, {
         ...request,
         callId: `${request.callId}:2`,
-        attempt: 2
+        attempt: 2,
+        ...(first.repairInstruction && request.payload && typeof request.payload === "object" && !Array.isArray(request.payload)
+          ? {
+            payload: {
+              ...(request.payload as Record<string, unknown>),
+              retryCorrection: first.repairInstruction
+            }
+          }
+          : {})
       });
     };
 

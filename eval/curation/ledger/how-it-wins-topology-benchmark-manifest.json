@@ -16,7 +16,7 @@
   ],
   "promptHash": "c25bc3601f0f24ee787c0c867e31f9f2a7261a9bcf27586248f7847ec0995b7e",
   "vocabularyHash": "7d3480d67fd32e1be7868bd933ffbc978ccf847ac034f86768973853a9a1404d",
-  "transportHash": "bfc06a1e6815671dbe07e9de1ed255106859a97fe8943cea66f1fc5ee72ec929",
+  "transportHash": "efed6bb25e1e18a737dd27afec7fe52da1f23b143595e73afbb85116196de1a1",
   "topologies": ["monolith", "four_bundles", "thirteen_groups"],
   "fourBundles": [
     { "id": "bundle_1", "groupIds": ["accumulation", "price", "defense"], "strategyCount": 21 },
@@ -94,6 +94,10 @@
     {
       "at": "2026-08-24T00:55:00.000Z",
       "reason": "The model-facing tool form is now generated from the Zod semantic contract. The hand-built JSON Schema copy and the leftover { judgment } envelope are gone. Provider peeling is unchanged for one JSON string layer, the exact parameter tag, and the proven bet-array wrappers. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-24T01:08:03.000Z",
+      "reason": "A malformed structured result or unknown local bet reference now receives one bounded correction attempt. Multi-stage schemas enumerate only the local bets code owns. A second invalid result still fails closed. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
     }
   ],
   "rawResultRoot": "apps/web/.cold-start/how-it-wins-topology-benchmark",

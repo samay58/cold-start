@@ -42,6 +42,7 @@ import {
   hashBenchmarkValue,
   orderBenchmarkRunsForCap,
   parseHowItWinsJudgeRules,
+  renderBlindBenchmarkReviewHtml,
   scopesForTopology,
   selectBenchmarkRunPlan,
   verifyClosedBenchmarkCards,
@@ -517,6 +518,7 @@ async function writeBaseAnalysis(input: {
   await writePrivateJson(resolve(input.rawRoot, "repeat-plan.json"), adaptive);
   await writePrivateJson(resolve(input.rawRoot, "blind-base-packet.json"), blind.packet);
   await writePrivateJson(resolve(input.rawRoot, "blind-base-metadata.json"), blind.metadata);
+  await writeFile(resolve(input.rawRoot, "blind-base-review.html"), renderBlindBenchmarkReviewHtml(blind.packet), { mode: 0o600 });
   return adaptive;
 }
 
@@ -589,7 +591,14 @@ async function runPaid(
       phase: "pilot",
       transportHash: input.manifest.transportHash
     });
-    return runPaidPlan(mode, cap, input, selectBenchmarkRunPlan(pilotPlan, only));
+    const records = await runPaidPlan(mode, cap, input, selectBenchmarkRunPlan(pilotPlan, only));
+    if (only.length === 0) {
+      const blind = buildBlindBenchmarkReview({ records, seed: input.manifest.seed });
+      await writePrivateJson(resolve(rawRoot, "pilot-blind-packet.json"), blind.packet);
+      await writePrivateJson(resolve(rawRoot, "pilot-blind-metadata.json"), blind.metadata);
+      await writeFile(resolve(rawRoot, "pilot-blind-review.html"), renderBlindBenchmarkReviewHtml(blind.packet), { mode: 0o600 });
+    }
+    return records;
   }
   const basePlan = buildBenchmarkRunPlan({ phase: "base", transportHash: input.manifest.transportHash });
   if (mode === "base") {
@@ -621,6 +630,7 @@ async function runPaid(
   await writePrivateJson(resolve(rawRoot, "aggregate.json"), aggregateBenchmarkRuns(allRecords));
   await writePrivateJson(resolve(rawRoot, "blind-packet.json"), blind.packet);
   await writePrivateJson(resolve(rawRoot, "blind-metadata.json"), blind.metadata);
+  await writeFile(resolve(rawRoot, "blind-review.html"), renderBlindBenchmarkReviewHtml(blind.packet), { mode: 0o600 });
   return allRecords;
 }
 
