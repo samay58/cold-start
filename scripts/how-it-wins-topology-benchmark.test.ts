@@ -20,6 +20,7 @@ import {
   buildAdaptiveBenchmarkRunPlan,
   buildBenchmarkRunPlan,
   buildBlindBenchmarkReview,
+  buildDecisionScreenRunPlan,
   buildHowItWinsEvidencePacket,
   classifyMaterialDivergence,
   createBenchmarkAttemptStore,
@@ -28,6 +29,7 @@ import {
   orderBenchmarkRunsForCap,
   parseHowItWinsJudgeRules,
   renderBlindBenchmarkReviewHtml,
+  selectDecisionScreenSlugs,
   selectBenchmarkRunPlan,
   verifyClosedBenchmarkCards,
   type BenchmarkRunRecord
@@ -923,6 +925,22 @@ test("the full base plan contains exactly ten cards by three topologies", () => 
   assert.equal(plan.length, 30);
   assert.equal(new Set(plan.map((run) => run.slug)).size, 10);
   assert.deepEqual(new Set(plan.map((run) => run.topology)), new Set(BENCHMARK_TOPOLOGIES));
+});
+
+test("the seeded decision screen freezes three non-pilot cards across all topologies", () => {
+  const slugs = selectDecisionScreenSlugs("how-it-wins-topology-2026-08-22-v1");
+  assert.deepEqual(slugs, ["hebbia", "august", "nekohealth"]);
+  assert.equal(slugs.some((slug) => slug === "cognition" || slug === "bland"), false);
+
+  const plan = buildDecisionScreenRunPlan({
+    seed: "how-it-wins-topology-2026-08-22-v1",
+    transportHash: fixtureHash
+  });
+  assert.equal(plan.length, 9);
+  assert.deepEqual([...new Set(plan.map((run) => run.slug))], slugs);
+  assert.deepEqual(new Set(plan.map((run) => run.topology)), new Set(BENCHMARK_TOPOLOGIES));
+  assert.ok(plan.every((run) => run.variant === "screen"));
+  assert.equal(new Set(plan.map((run) => run.runId)).size, 9);
 });
 
 test("material divergence detects every frozen category without comparing trace prose", () => {

@@ -36,6 +36,7 @@ import {
   buildAdaptiveBenchmarkRunPlan,
   buildBenchmarkRunPlan,
   buildBlindBenchmarkReview,
+  buildDecisionScreenRunPlan,
   buildHowItWinsEvidencePacket,
   createBenchmarkAttemptStore,
   createBenchmarkResultStore,
@@ -45,6 +46,7 @@ import {
   renderBlindBenchmarkReviewHtml,
   scopesForTopology,
   selectBenchmarkRunPlan,
+  selectDecisionScreenSlugs,
   verifyClosedBenchmarkCards,
   type HowItWinsJudgeTopology,
   type BenchmarkRunRecord,
@@ -68,6 +70,8 @@ type Manifest = {
   topologies: HowItWinsJudgeTopology[];
   fourBundles: Array<{ id: string; groupIds: string[]; strategyCount: number }>;
   pilotSlugs: string[];
+  decisionScreenSlugs: string[];
+  decisionPilotRunIds: string[];
   orderPerturbationSlugs: string[];
   repeatRule: typeof FROZEN_REPEAT_RULE;
   routing: { strong: string; scout: string; critic: string };
@@ -88,10 +92,12 @@ type PrivateRunResult = {
 };
 
 function parseArgs(argv: string[]) {
-  const selectedModes = ["--pilot", "--base", "--full", "--repeats"].filter((flag) => argv.includes(flag));
+  const selectedModes = ["--pilot", "--screen", "--base", "--full", "--repeats"].filter((flag) => argv.includes(flag));
   if (selectedModes.length > 1) throw new Error("choose only one benchmark mode");
   const mode = argv.includes("--pilot")
     ? "pilot"
+    : argv.includes("--screen")
+      ? "screen"
     : argv.includes("--repeats")
       ? "repeats"
       : argv.includes("--base") || argv.includes("--full")
@@ -137,6 +143,12 @@ async function loadAndVerifyManifest() {
   }
   if (hashBenchmarkValue(manifest.pilotSlugs) !== hashBenchmarkValue(PILOT_SLUGS)) {
     throw new Error("manifest pilot cards drifted");
+  }
+  if (hashBenchmarkValue(manifest.decisionScreenSlugs) !== hashBenchmarkValue(selectDecisionScreenSlugs(manifest.seed))) {
+    throw new Error("manifest decision-screen cards drifted");
+  }
+  if (manifest.decisionPilotRunIds.length !== 6 || new Set(manifest.decisionPilotRunIds).size !== 6) {
+    throw new Error("manifest decision pilot runs drifted");
   }
   if (hashBenchmarkValue(manifest.orderPerturbationSlugs) !== hashBenchmarkValue(ORDER_PERTURBATION_SLUGS)) {
     throw new Error("manifest order-perturbation cards drifted");
@@ -499,6 +511,42 @@ async function readBenchmarkRunRecords(input: {
   return records;
 }
 
+async function readBenchmarkRunRecordsById(input: {
+  rawRoot: string;
+  runIds: readonly string[];
+}) {
+  const allowedSlugs = new Set(CLOSED_HOW_IT_WINS_CARDS.map((card) => card.slug));
+  const records: BenchmarkRunRecord[] = [];
+  for (const runId of input.runIds) {
+    if (!/^[a-z0-9:_-]+$/i.test(runId)) throw new Error(`unsafe stored run id ${runId}`);
+    const exactPath = resolve(input.rawRoot, "runs", `${runId.replaceAll(":", "__")}.json`);
+    const stored = JSON.parse(await readFile(exactPath, "utf8")) as {
+      costUsd: number;
+      value: PrivateRunResult;
+    };
+    const run = stored.value.run;
+    if (run.runId !== runId) throw new Error(`stored run identity drifted for ${runId}`);
+    if (!allowedSlugs.has(run.slug) || !BENCHMARK_TOPOLOGIES.includes(run.topology)) {
+      throw new Error(`stored run is outside the closed benchmark: ${runId}`);
+    }
+    if (stored.value.outcome === "ok") howItWinsJudgmentSchema.parse(stored.value.verdict);
+    if (stored.value.outcome === "failed" && stored.value.verdict !== null) {
+      throw new Error(`failed run retained a verdict for ${runId}`);
+    }
+    records.push({
+      run,
+      outcome: stored.value.outcome,
+      costUsd: stored.costUsd,
+      wallTimeMs: stored.value.wallTimeMs,
+      preCriticJudgment: stored.value.preCriticJudgment,
+      verdict: stored.value.verdict,
+      traces: stored.value.traces,
+      error: stored.value.error
+    });
+  }
+  return records;
+}
+
 async function writePrivateJson(path: string, value: unknown) {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
 }
@@ -523,7 +571,7 @@ async function writeBaseAnalysis(input: {
 }
 
 async function runPaidPlan(
-  mode: "pilot" | "base" | "repeats",
+  mode: "pilot" | "screen" | "base" | "repeats",
   cap: number,
   input: Awaited<ReturnType<typeof loadAndVerifyManifest>>,
   requestedPlan: readonly BenchmarkRunPlanItem[]
@@ -580,7 +628,7 @@ async function runPaidPlan(
 }
 
 async function runPaid(
-  mode: "pilot" | "base" | "repeats",
+  mode: "pilot" | "screen" | "base" | "repeats",
   cap: number,
   input: Awaited<ReturnType<typeof loadAndVerifyManifest>>,
   only: readonly string[] = []
@@ -599,6 +647,28 @@ async function runPaid(
       await writeFile(resolve(rawRoot, "pilot-blind-review.html"), renderBlindBenchmarkReviewHtml(blind.packet), { mode: 0o600 });
     }
     return records;
+  }
+  if (mode === "screen") {
+    const screenPlan = buildDecisionScreenRunPlan({
+      seed: input.manifest.seed,
+      transportHash: input.manifest.transportHash
+    });
+    const records = await runPaidPlan(mode, cap, input, screenPlan);
+    const pilotRecords = await readBenchmarkRunRecordsById({
+      rawRoot,
+      runIds: input.manifest.decisionPilotRunIds
+    });
+    const combined = [...pilotRecords, ...records];
+    const blind = buildBlindBenchmarkReview({ records: combined, seed: input.manifest.seed });
+    await writePrivateJson(resolve(rawRoot, "decision-screen-aggregate.json"), aggregateBenchmarkRuns(combined));
+    await writePrivateJson(resolve(rawRoot, "decision-screen-blind-packet.json"), blind.packet);
+    await writePrivateJson(resolve(rawRoot, "decision-screen-blind-metadata.json"), blind.metadata);
+    await writeFile(
+      resolve(rawRoot, "decision-screen-blind-review.html"),
+      renderBlindBenchmarkReviewHtml(blind.packet),
+      { mode: 0o600 }
+    );
+    return combined;
   }
   const basePlan = buildBenchmarkRunPlan({ phase: "base", transportHash: input.manifest.transportHash });
   if (mode === "base") {

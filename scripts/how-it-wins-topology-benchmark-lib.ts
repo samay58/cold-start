@@ -44,6 +44,7 @@ export const CLOSED_HOW_IT_WINS_CARDS = [
 export type ClosedHowItWinsSlug = (typeof CLOSED_HOW_IT_WINS_CARDS)[number]["slug"];
 
 export const PILOT_SLUGS: readonly ClosedHowItWinsSlug[] = ["cognition", "bland"];
+const DECISION_SCREEN_CARD_COUNT = 3;
 export const ORDER_PERTURBATION_SLUGS: readonly ClosedHowItWinsSlug[] = [
   "cognition",
   "deepinfra",
@@ -198,7 +199,7 @@ export type BenchmarkRunPlanItem = {
   slug: ClosedHowItWinsSlug;
   topology: HowItWinsJudgeTopology;
   repeat: number;
-  variant: "base" | "divergence" | "control" | "order";
+  variant: "base" | "screen" | "divergence" | "control" | "order";
   minimumCallCount: number;
   orderSeed?: string;
 };
@@ -215,6 +216,32 @@ export function buildBenchmarkRunPlan(input: { phase: "pilot" | "base"; transpor
     variant: "base" as const,
     minimumCallCount: MINIMUM_CALL_COUNTS[topology]
   })));
+}
+
+export function selectDecisionScreenSlugs(seed: string): ClosedHowItWinsSlug[] {
+  const pilot = new Set<ClosedHowItWinsSlug>(PILOT_SLUGS);
+  const eligible = CLOSED_HOW_IT_WINS_CARDS
+    .map((card) => card.slug)
+    .filter((slug) => !pilot.has(slug));
+  return seededOrder(eligible, `${seed}:decision-screen`).slice(0, DECISION_SCREEN_CARD_COUNT);
+}
+
+export function buildDecisionScreenRunPlan(input: {
+  seed: string;
+  transportHash: string;
+}): BenchmarkRunPlanItem[] {
+  if (!/^[a-f0-9]{64}$/.test(input.transportHash)) throw new Error("invalid benchmark transport hash");
+  const transportId = input.transportHash.slice(0, 12);
+  return selectDecisionScreenSlugs(input.seed).flatMap((slug) =>
+    BENCHMARK_TOPOLOGIES.map((topology) => ({
+      runId: `${slug}:screen:0:${topology}:${transportId}`,
+      slug,
+      topology,
+      repeat: 0,
+      variant: "screen" as const,
+      minimumCallCount: MINIMUM_CALL_COUNTS[topology]
+    }))
+  );
 }
 
 export function selectBenchmarkRunPlan(

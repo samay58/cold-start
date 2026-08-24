@@ -40,6 +40,15 @@
     }
   },
   "pilotSlugs": ["cognition", "bland"],
+  "decisionScreenSlugs": ["hebbia", "august", "nekohealth"],
+  "decisionPilotRunIds": [
+    "cognition:base:0:monolith:cbd50a9001b7",
+    "cognition:base:0:four_bundles:7200e5708f69",
+    "cognition:base:0:thirteen_groups:cbd50a9001b7",
+    "bland:base:0:monolith:cbd50a9001b7",
+    "bland:base:0:four_bundles:7200e5708f69",
+    "bland:base:0:thirteen_groups:7200e5708f69"
+  ],
   "orderPerturbationSlugs": ["cognition", "deepinfra", "nekohealth"],
   "repeatRule": {
     "materialDivergenceAdditionalRunsPerTopology": 2,
@@ -98,6 +107,10 @@
     {
       "at": "2026-08-24T01:08:03.000Z",
       "reason": "A malformed structured result or unknown local bet reference now receives one bounded correction attempt. Multi-stage schemas enumerate only the local bets code owns. A second invalid result still fails closed. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-24T01:52:49.000Z",
+      "reason": "The decision screen reuses the reviewed two-card pilot and freezes three additional closed cards from the existing seed before inspecting their judgments. It runs exactly nine new balanced arms and can stop the comparison after five companies. Cards, evidence, topology, routes, judgment rules, and the historical repeat rules did not change."
     }
   ],
   "rawResultRoot": "apps/web/.cold-start/how-it-wins-topology-benchmark",
