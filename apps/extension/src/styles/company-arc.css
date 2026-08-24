@@ -1120,6 +1120,77 @@
   font-size: 8.5px;
 }
 
+.cs-early-read-line {
+  margin: 15px 12px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.cs-early-read-line-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-early-read-line-head > strong {
+  color: var(--color-seal);
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.cs-early-read-line-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 6px 0;
+  color: var(--color-muted);
+  font-family: var(--font-text);
+  font-size: 10px;
+  font-weight: 540;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.cs-early-read-line-source:hover,
+.cs-early-read-line-source:focus-visible {
+  color: var(--color-seal);
+}
+
+.cs-early-read-line-mark {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--color-reported);
+}
+
+.cs-early-read-line-mark[data-quality="company"] {
+  background: var(--color-company);
+}
+
+.cs-early-read-line-mark[data-quality="independent"] {
+  background: var(--color-verified);
+}
+
+.cs-early-read-line p {
+  max-width: 36rem;
+  margin: 5px 0 0;
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 13.25px;
+  font-weight: 470;
+  line-height: 1.48;
+  text-wrap: pretty;
+}
+
+.cs-early-read-line + .cs-assembly-details {
+  margin-top: 15px;
+}
+
 @media (max-width: 360px) {
   .cs-clippings[data-variant="carousel"] .cs-clipping-link {
     grid-template-columns: 42px minmax(0, 1fr);

@@ -299,6 +299,8 @@ Use real verbs from generation events:
 
 Render as a compact event ledger with the current row highlighted by `--color-focus`. No spinners. No skeleton screen after a saved card exists.
 
+When a matched company source supports one plain sentence about what the company does, show it during the wait as a flat `Early read` line between the source clippings and the build tree. The sentence links to its source. It has no card, fill, source list, fallback copy, or funding headline. If the sentence reads like marketing, a directory label, an SEO title, or a data-provider blurb, show nothing.
+
 ### Empty State
 
 Plain, not cute:

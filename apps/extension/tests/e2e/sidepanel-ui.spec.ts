@@ -843,6 +843,50 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
         ]
       },
       createdAt: "2026-06-01T00:00:02.000Z"
+    },
+    {
+      id: "e2-payoff",
+      runId: "r1",
+      slug: "cartesia",
+      domain: "cartesia.ai",
+      sectionId: null,
+      type: "first_payoff.ready",
+      message: "Early evidence ready",
+      metadata: {
+        firstPayoff: {
+          status: "substantive_first_read",
+          slug: "cartesia",
+          domain: "cartesia.ai",
+          generatedAt: "2026-06-01T00:00:03.000Z",
+          generatedAtMs: Date.parse("2026-06-01T00:00:03.000Z"),
+          entityConfidence: "high",
+          entityConfidenceReason: "Company-controlled source matches the current domain.",
+          evidenceSoFar: [{
+            sourceId: "source-home",
+            url: "https://cartesia.ai/",
+            domain: "cartesia.ai",
+            title: "Cartesia",
+            sourceClass: "company_site",
+            quality: "company",
+            arrivedAtMs: Date.parse("2026-06-01T00:00:03.000Z"),
+            entityMatched: true
+          }],
+          stillChecking: {
+            text: "Independent funding or source-of-capital proof.",
+            missingEvidenceClass: "funding"
+          },
+          whatItDoes: {
+            text: "Cartesia builds real-time voice models and APIs for developers.",
+            supportingText: "Cartesia builds real-time voice models and APIs for developers.",
+            sourceIds: ["source-home"],
+            citationIds: [],
+            sourceClass: "company_site",
+            claimKind: "what_it_does"
+          },
+          suppressionReasons: []
+        }
+      },
+      createdAt: "2026-06-01T00:00:03.000Z"
     }
   ];
   await page.route("**/api/extension/bootstrap?**", async (route) => {
@@ -880,7 +924,7 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
 
   // The seal inks up in discrete steps tied to real stage events, not a clock.
   const seal = page.locator(".cs-seal-inst");
-  await expect(seal).toHaveAttribute("data-level", "2");
+  await expect(seal).toHaveAttribute("data-level", "3");
   await expect(seal).toHaveAttribute("data-filed", "false");
 
   // Source receipts become clippings, the card's first content before any fact exists.
@@ -898,16 +942,38 @@ test("running basics progress shows the assembly whisper, seal, and clippings", 
   await expect(clippings.nth(0).locator(".cs-clipping-link")).not.toHaveCSS("box-shadow", "none");
   await expect(clippings.nth(1).locator(".cs-clipping-link")).toHaveCSS("box-shadow", "none");
 
+  const earlyRead = page.locator(".cs-early-read-line");
+  await expect(earlyRead).toBeVisible();
+  await expect(earlyRead).toContainText("Cartesia builds real-time voice models and APIs for developers");
+  await expect(earlyRead).not.toContainText("APIs for developers.");
+  await expect(earlyRead.getByRole("link", { name: "Open early-read source: cartesia.ai" })).toHaveAttribute("href", "https://cartesia.ai/");
+
   // The build tree is open from the first frame: verbs anchored to real events, no ledger,
   // no toggle, never the old pipeline nouns or a heading.
   const tree = page.locator(".cs-build-tree");
   await expect(tree).toBeVisible();
   await expect(page.locator(".cs-progress-ledger")).toHaveCount(0);
   await expect(page.locator(".cs-assembly-details-toggle")).toHaveCount(0);
-  await expect(tree.locator('.cs-build-stage[data-active="true"]')).toContainText("Read");
+  await expect(tree.locator('.cs-build-stage[data-active="true"]')).toContainText("Build");
   await expect(page.getByText("Stages", { exact: true })).toHaveCount(0);
   await expect(tree).toContainText("3 sources found");
   await page.screenshot({ fullPage: true, path: "/private/tmp/cold-start-building-clippings.png" });
+
+  await page.setViewportSize({ width: 420, height: 700 });
+  await expect(earlyRead).toBeVisible();
+  await expect(tree).toBeVisible();
+  const shortWidth = await page.locator("body").evaluate((body) => ({
+    client: body.clientWidth,
+    scroll: body.scrollWidth
+  }));
+  expect(shortWidth.scroll).toBeLessThanOrEqual(shortWidth.client);
+  await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-building-early-read-short.png" });
+
+  await page.setViewportSize({ width: 420, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(earlyRead).toBeVisible();
+  await page.screenshot({ fullPage: false, path: "/private/tmp/cold-start-building-early-read-dark.png" });
+  await page.emulateMedia({ colorScheme: "light" });
 
   await page.waitForTimeout(3600);
   await expect(page.locator('.cs-clipping[data-active="true"] .cs-clipping-domain')).toHaveText("techcrunch.com");

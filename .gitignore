@@ -3,6 +3,7 @@
 node_modules/
 .next/
 apps/web/.cold-start/
+.cold-start/
 dist/
 dist-dev/
 dist-firefox/

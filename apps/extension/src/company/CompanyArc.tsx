@@ -1,6 +1,6 @@
-import type { ColdStartCard, ResearchSection } from "@cold-start/core";
+import { earlyReadClaimForDisplay, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
@@ -20,6 +20,7 @@ import {
 import { Clippings } from "./Clippings";
 import { clippingsFromEvents, clippingsFromSources } from "./clipping-model";
 import { earlyReadState, formatSavedDate } from "./company-display";
+import { EarlyReadLine } from "./EarlyReadLine";
 import type {
   AlphaAccessState,
   ExtensionResearchRunEvent,
@@ -240,8 +241,9 @@ export function CompanyArc({
   const profileSummary = profile ? profileSummaryCopy(profile.card) : null;
   const profileCard = profile?.card ?? null;
   const profilePeople = profileCard ? managementPeople(profileCard) : [];
-  const visibleFirstPayoff = buildingPayoff?.firstPayoff
-    ?? (profileRead?.showRead ? profileRead.firstPayoff : null);
+  const earlyRead = buildingPayoff?.showRead && buildingPayoff.firstPayoff
+    ? earlyReadClaimForDisplay(buildingPayoff.firstPayoff)
+    : null;
   const profileStartDisabled = Boolean(
     alphaAccess &&
     (!alphaAccess.generationEnabled || alphaAccess.profile?.remaining === 0)
@@ -263,20 +265,20 @@ export function CompanyArc({
       ? "This invitation has used its fresh Investor Lens runs."
       : undefined;
 
-  useEffect(() => {
-    if (!visibleFirstPayoff) {
+  const markEarlyReadVisible = useCallback(() => {
+    if (!buildingPayoff?.firstPayoff || !earlyRead) {
       return;
     }
-    const viewKey = `${domain}:${visibleFirstPayoff.generatedAt}:${visibleFirstPayoff.status}`;
+    const viewKey = `${domain}:${buildingPayoff.firstPayoff.generatedAt}:${buildingPayoff.firstPayoff.status}`;
     if (firstPayoffViews.current.has(viewKey)) {
       return;
     }
     firstPayoffViews.current.add(viewKey);
     emitAlphaEvent("profile.first_payoff_viewed", {
       domain,
-      state: visibleFirstPayoff.status
+      state: buildingPayoff.firstPayoff.status
     });
-  }, [domain, emitAlphaEvent, visibleFirstPayoff]);
+  }, [buildingPayoff?.firstPayoff, domain, earlyRead, emitAlphaEvent]);
 
   useEffect(() => {
     if (!profileCard) {
@@ -536,6 +538,19 @@ export function CompanyArc({
               prefersReducedMotion={prefersReducedMotion}
               variant="carousel"
             />
+            {earlyRead ? (
+              <EarlyReadLine
+                claim={earlyRead.claim}
+                evidence={earlyRead.evidence}
+                onSourceOpen={() => emitAlphaEvent("source.opened", {
+                  domain,
+                  sourceClass: "company",
+                  ordinal: 1
+                })}
+                onVisible={markEarlyReadVisible}
+                prefersReducedMotion={prefersReducedMotion}
+              />
+            ) : null}
             <ResearchTrail
               events={building.events}
               generationStatus={building.generationStatus}

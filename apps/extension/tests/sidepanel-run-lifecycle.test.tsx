@@ -134,7 +134,60 @@ describe("SidePanel run lifecycle", () => {
               sectionId: null,
               type: "source.found",
               message: "Found 8 accepted sources",
-              metadata: { acceptedCount: 8 },
+              metadata: {
+                acceptedCount: 8,
+                sources: [{
+                  url: "https://cartesia.ai/",
+                  domain: "cartesia.ai",
+                  title: "Cartesia",
+                  sourceType: "company_site",
+                  imageUrl: null
+                }]
+              },
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: "event-payoff",
+              runId: "run-1",
+              slug: "cartesia",
+              domain: "cartesia.ai",
+              sectionId: null,
+              type: "first_payoff.ready",
+              message: "Early evidence ready",
+              metadata: {
+                firstPayoff: {
+                  status: "substantive_first_read",
+                  slug: "cartesia",
+                  domain: "cartesia.ai",
+                  generatedAt: "2026-08-23T12:00:00.000Z",
+                  generatedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+                  entityConfidence: "high",
+                  entityConfidenceReason: "Company-controlled source matches the current domain.",
+                  evidenceSoFar: [{
+                    sourceId: "source-home",
+                    url: "https://cartesia.ai/",
+                    domain: "cartesia.ai",
+                    title: "Cartesia",
+                    sourceClass: "company_site",
+                    quality: "company",
+                    arrivedAtMs: Date.parse("2026-08-23T12:00:00.000Z"),
+                    entityMatched: true
+                  }],
+                  stillChecking: {
+                    text: "Independent funding or source-of-capital proof.",
+                    missingEvidenceClass: "funding"
+                  },
+                  whatItDoes: {
+                    text: "Cartesia builds real-time voice models and APIs for developers.",
+                    supportingText: "Cartesia builds real-time voice models and APIs for developers.",
+                    sourceIds: ["source-home"],
+                    citationIds: [],
+                    sourceClass: "company_site",
+                    claimKind: "what_it_does"
+                  },
+                  suppressionReasons: []
+                }
+              },
               createdAt: new Date().toISOString()
             }
           ]
@@ -143,7 +196,7 @@ describe("SidePanel run lifecycle", () => {
 
       return missingCardResponse();
     });
-    const { container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
+    const { alphaEvents, container, unmount } = await renderSidePanel({ domain: "cartesia.ai", fetchMock });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(350);
@@ -152,7 +205,7 @@ describe("SidePanel run lifecycle", () => {
 
     // The source.found event drives the header whisper and the seal, not a labeled trail.
     expect(container.querySelector(".cs-assembly-whisper")?.textContent).toContain("8 sources, building profile");
-    expect(container.querySelector(".cs-seal-inst")?.getAttribute("data-level")).toBe("2");
+    expect(container.querySelector(".cs-seal-inst")?.getAttribute("data-level")).toBe("3");
     expect(container.querySelector(".cs-trail-segment")).toBeNull();
     // The details tree is open from the first frame and carries the source count.
     expect(container.querySelector(".cs-assembly-details-toggle")).toBeNull();
@@ -164,6 +217,17 @@ describe("SidePanel run lifecycle", () => {
     expect(container.querySelector(".cs-build-meta")).toBeNull();
     expect(container.textContent).not.toContain("Research progress");
     expect(container.querySelector(".cs-build-stage-marker")).not.toBeNull();
+    const earlyRead = container.querySelector(".cs-early-read-line");
+    expect(earlyRead?.textContent).toContain("Early read");
+    expect(earlyRead?.textContent).toContain("Cartesia builds real-time voice models and APIs for developers");
+    expect(earlyRead?.textContent).not.toContain("APIs for developers.");
+    expect(earlyRead?.querySelector("a")?.getAttribute("href")).toBe("https://cartesia.ai/");
+    expect(alphaEvents()).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        eventName: "profile.first_payoff_viewed",
+        properties: { domain: "cartesia.ai", state: "substantive_first_read" }
+      })
+    ]));
     await unmount();
   });
 

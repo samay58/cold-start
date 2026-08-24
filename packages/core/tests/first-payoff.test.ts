@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "../src/index";
-import { buildFirstPayoff } from "../src/first-payoff";
+import { buildFirstPayoff, earlyReadClaimForDisplay } from "../src/first-payoff";
 import { generationTraceSchema } from "../src/generation-trace";
 
 const generatedAtMs = Date.parse("2026-06-23T12:00:00.000Z");
@@ -259,6 +259,108 @@ describe("buildFirstPayoff", () => {
     expect(payoff.status).toBe("receipt");
     expect(payoff.whatItDoes).toBeUndefined();
     expect(payoff.suppressionReasons).toContain("marketing_filler");
+  });
+
+  it.each([
+    "Irregular is a Technology, Information and Internet company.",
+    "Gecko Robotics Gecko Robotics, Inc.",
+    "Future Society employs 4 people +33.3% YoY, +1 person.",
+    "Biotech Venture Ecosystem: Quick Health Check - LifeSciVC.",
+    "Poolside is a foundation model company bringing intelligence to everywhere work gets done.",
+    "Soma is the modern instrument for cognitive performance, surfacing insights from your voice."
+  ])("suppresses a real production line that does not plainly explain the company: %s", (rawText) => {
+    const payoff = buildFirstPayoff({
+      domain: "example.com",
+      slug: "example",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Example",
+          url: "https://example.com",
+          rawText
+        })
+      ]
+    });
+
+    expect(payoff.whatItDoes).toBeUndefined();
+    expect(earlyReadClaimForDisplay(payoff)).toBeNull();
+  });
+
+  it("selects one plain what-it-does sentence and its matched source for display", () => {
+    const payoff = buildFirstPayoff({
+      domain: "browserbase.com",
+      slug: "browserbase",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Browserbase",
+          url: "https://browserbase.com",
+          rawText: "Browserbase runs managed headless browser sessions for AI agents to navigate the web."
+        })
+      ]
+    });
+
+    expect(earlyReadClaimForDisplay(payoff)).toMatchObject({
+      claim: {
+        text: "Browserbase runs managed headless browser sessions for AI agents to navigate the web.",
+        claimKind: "what_it_does"
+      },
+      evidence: {
+        domain: "browserbase.com",
+        sourceId: "src-home",
+        sourceClass: "company_site"
+      }
+    });
+  });
+
+  it("refuses a stored claim that predates the stricter copy gate", () => {
+    const payoff = buildFirstPayoff({
+      domain: "browserbase.com",
+      slug: "browserbase",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-home",
+          sourceType: "company_site",
+          title: "Browserbase",
+          url: "https://browserbase.com",
+          rawText: "Browserbase runs managed headless browser sessions for AI agents to navigate the web."
+        })
+      ]
+    });
+    const storedPayoff = {
+      ...payoff,
+      whatItDoes: {
+        ...payoff.whatItDoes!,
+        text: "Browserbase is a Technology, Information and Internet company.",
+        supportingText: "Browserbase is a Technology, Information and Internet company."
+      }
+    };
+
+    expect(earlyReadClaimForDisplay(storedPayoff)).toBeNull();
+  });
+
+  it("does not substitute a funding headline when no useful company description survives", () => {
+    const payoff = buildFirstPayoff({
+      domain: "runloop.ai",
+      slug: "runloop",
+      generatedAtMs,
+      sources: [
+        source({
+          id: "src-news",
+          title: "Runloop raises $7M seed to build test environments for coding agents",
+          url: "https://techcrunch.com/runloop-seed",
+          rawText: "Runloop raised a $7M seed round to build cloud test environments for AI coding agents."
+        })
+      ]
+    });
+
+    expect(payoff.proofHeadline).toBeDefined();
+    expect(earlyReadClaimForDisplay(payoff)).toBeNull();
   });
 
   it("does not turn raw provider payload text into a First Read claim", () => {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ColdStartCard, Citation } from "./card";
 import { newsworthyTitlePattern, titleMentionsCompany } from "./headline";
+import { isReadableProse } from "./prose";
 import { splitIntoSentences } from "./sentences";
 import { textLooksLikeCustomerProof, textLooksLikeDocs, textLooksLikeFunding } from "./source-class";
 import { sourceQualityForSource, type SourceQualityTier } from "./source-quality";
@@ -84,6 +85,11 @@ const marketingFillerPattern = /\b(ai-native|agentic|next[-\s]?generation|transf
 const investmentLanguagePattern = /\b(attractive|compelling|could matter|bull case|bear case|risk|winner|underwrite|invest)\b/i;
 const rawPayloadPattern = /(^\s*(?:\[|{))|(?:["']?[a-zA-Z0-9_-]+["']?\s*:\s*(?:["'{]|\[))|(?:\\[nrt])/;
 const directoryCategoryPattern = /\bis an?\s+[A-Z][A-Za-z]+(?:\s+(?:and|&)?\s*[A-Z][A-Za-z]+)*\s+company\b/;
+const directoryDescriptionPattern = /\bis an?\s+[^.]{0,100}\bcompany\.$/i;
+const earlyReadFillerPattern = /\b(?:bringing intelligence|cutting[-\s]?edge|future of|industry[-\s]?leading|innovative|leading|modern|next[-\s]?generation|powerful|seamless|world[-\s]?class|world(?:'s|s)? leading)\b/i;
+const earlyReadMetricPattern = /(?:\bemploys?\s+\d|\bheadcount\b|\bpeople\s+[+-]?\d|[+-]?\d+(?:\.\d+)?%|\byoy\b)/i;
+const earlyReadActionPattern = /\b(?:automates?|builds?|connects?|creates?|delivers?|develops?|enables?|gives?|helps?|lets?|makes?|manages?|offers?|operates?|powers?|provides?|runs?|sells?|serves?|surfaces?|turns?|uses?)\b/i;
+const earlyReadProductPattern = /\b(?:api|app|application|database|engine|infrastructure|marketplace|model|network|platform|service|software|studio|system|tool|workspace)\b/i;
 
 function domainFromUrl(url: string) {
   try {
@@ -232,7 +238,7 @@ function isBadClaimText(text: string) {
   if (rawPayloadPattern.test(text)) {
     return "claim_not_source_supported" as const;
   }
-  if (directoryCategoryPattern.test(text)) {
+  if (directoryCategoryPattern.test(text) || directoryDescriptionPattern.test(text)) {
     return "marketing_filler" as const;
   }
   if (text.length > 220) {
@@ -241,17 +247,64 @@ function isBadClaimText(text: string) {
   if (investmentLanguagePattern.test(text)) {
     return "investment_language" as const;
   }
-  if (marketingFillerPattern.test(text)) {
+  if (marketingFillerPattern.test(text) || earlyReadFillerPattern.test(text)) {
     return "marketing_filler" as const;
   }
   return null;
 }
 
-function looksLikeRawProviderPayload(text: string) {
-  return (
-    (/^\s*(?:\[|\{)/.test(text) && /["']?[a-zA-Z0-9_-]+["']?\s*:/.test(text)) ||
-    /\\[nrt]/.test(text)
+function hasImmediateRepeatedWords(text: string) {
+  const words = text.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  for (let width = 1; width <= Math.min(4, Math.floor(words.length / 2)); width += 1) {
+    const first = words.slice(0, width).join(" ");
+    const second = words.slice(width, width * 2).join(" ");
+    if (first === second) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// The loading screen earns one sentence only when it plainly explains the business. This is
+// deliberately stricter than schema validity: source pages often begin with directory labels,
+// headcount blurbs, SEO titles, or company marketing that are readable but not useful.
+export function isUsefulEarlyCompanyRead(value: string) {
+  const text = value.replace(/\s+/g, " ").trim();
+  const words = text.match(/[A-Za-z0-9][A-Za-z0-9&'/-]*/g) ?? [];
+  if (
+    isBadClaimText(text) ||
+    !isReadableProse(text) ||
+    words.length < 7 ||
+    words.length > 32 ||
+    text.length > 180 ||
+    splitIntoSentences(text).length !== 1 ||
+    /^(?:i|our|we)\b/i.test(text) ||
+    /\bAl\b/.test(text) ||
+    /[:|]|\s[-–]\s/u.test(text) ||
+    earlyReadMetricPattern.test(text) ||
+    hasImmediateRepeatedWords(text)
+  ) {
+    return false;
+  }
+  return earlyReadActionPattern.test(text) || earlyReadProductPattern.test(text);
+}
+
+export function earlyReadClaimForDisplay(firstPayoff: FirstPayoff) {
+  const claim = firstPayoff.whatItDoes;
+  if (
+    firstPayoff.status !== "substantive_first_read" ||
+    firstPayoff.entityConfidence !== "high" ||
+    !claim ||
+    claim.claimKind !== "what_it_does" ||
+    claim.sourceClass !== "company_site" ||
+    !isUsefulEarlyCompanyRead(claim.text)
+  ) {
+    return null;
+  }
+  const evidence = firstPayoff.evidenceSoFar.find(
+    (item) => claim.sourceIds.includes(item.sourceId) && item.entityMatched && item.sourceClass === "company_site"
   );
+  return evidence ? { claim, evidence } : null;
 }
 
 function normalizedEvidenceKey(evidence: FirstPayoffEvidence) {
@@ -444,7 +497,7 @@ function buildWhatItDoesClaim({
   if (source.sourceType !== "company_site" || !evidence.entityMatched) {
     return {};
   }
-  if (looksLikeRawProviderPayload(sourceText(source))) {
+  if (rawPayloadPattern.test(sourceText(source))) {
     return { reason: "claim_not_source_supported" };
   }
   const line = firstUsefulLine(sourceText(source), domain);
@@ -455,6 +508,9 @@ function buildWhatItDoesClaim({
   const badReason = isBadClaimText(text);
   if (badReason) {
     return { reason: badReason };
+  }
+  if (!isUsefulEarlyCompanyRead(text)) {
+    return { reason: "no_incremental_claim" };
   }
   const summary = card?.identity.description?.value?.shortDescription ?? card?.identity.oneLiner.value ?? "";
   if (summary && text.toLowerCase() === normalizeSentence(summary)?.toLowerCase()) {
