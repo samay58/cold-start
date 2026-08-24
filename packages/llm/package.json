@@ -14,7 +14,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
     "@cold-start/core": "file:../core",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "vitest": "^3.2.0"

@@ -69,7 +69,8 @@
     "eval:providers:matrix": "tsx eval/provider-matrix/run-matrix.ts",
     "eval:snapshot": "tsx scripts/eval-corpus-snapshot.ts",
     "eval:session-plan": "tsx scripts/eval-session-plan.ts",
-    "eval:how-it-wins": "tsx scripts/how-it-wins-corpus.ts"
+    "eval:how-it-wins": "tsx scripts/how-it-wins-corpus.ts",
+    "benchmark:how-it-wins-topology": "tsx scripts/how-it-wins-topology-benchmark.ts"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

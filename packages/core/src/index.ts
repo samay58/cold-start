@@ -15,6 +15,8 @@ export * from "./generation-quality";
 export * from "./generation-trace";
 export * from "./headline";
 export * from "./how-it-wins";
+export * from "./how-it-wins-judgment";
+export * from "./how-it-wins-judgment-transport";
 export * from "./intelligence";
 export * from "./invite-codes";
 export * from "./money-format";

@@ -1,0 +1,101 @@
+{
+  "benchmarkId": "how-it-wins-topology-2026-08-23-semantic-repair",
+  "frozenAt": "2026-08-22T05:00:00.000Z",
+  "seed": "how-it-wins-topology-2026-08-22-v1",
+  "safeCards": [
+    { "slug": "suki", "evidenceHash": "c02adb4c8ba76d2432c785551f79aa72adb7b1c2f5ed8abfea45da3573c7dcde" },
+    { "slug": "nekohealth", "evidenceHash": "1c7bf29af3d4e4819a63d880b44dfb0e0a8151fab7c73423bf7be542ab0ad7f6" },
+    { "slug": "deepinfra", "evidenceHash": "7342640ccb38992c2d64b0ac5c466be385e660cf527f820f8ea17635e2e9ba8e" },
+    { "slug": "cognition", "evidenceHash": "0ff7397daedce40a9c9ed86f1bd398816a55cc44d9d421b66e946240f3445298" },
+    { "slug": "notion", "evidenceHash": "e57bcc191c4fbf14aa827a26ccf5572ad84377e5acc4c35cc1520ca2b07287ca" },
+    { "slug": "doppel", "evidenceHash": "97d6a378be398f8a187fc571f43ece21fbf4ce67566589098dbf218bbf176e07" },
+    { "slug": "profluent", "evidenceHash": "1d9cd8a65c9bebdcee1ff0cb57d026007986a56f8ed541942a9c7b77d284738d" },
+    { "slug": "bland", "evidenceHash": "cfa74257c112b869181aaa2ef5b0256f1586b3a28a792a4586e909639f40e25a" },
+    { "slug": "hebbia", "evidenceHash": "71afb09a025b3059024f6ff6301fe2973f1ab2c6c575268d601351a606ef2f68" },
+    { "slug": "august", "evidenceHash": "597ffc7718813e02aed3a23666f0661c4c4754e6519057d66537d80dd175b38d" }
+  ],
+  "promptHash": "c25bc3601f0f24ee787c0c867e31f9f2a7261a9bcf27586248f7847ec0995b7e",
+  "vocabularyHash": "7d3480d67fd32e1be7868bd933ffbc978ccf847ac034f86768973853a9a1404d",
+  "transportHash": "bfc06a1e6815671dbe07e9de1ed255106859a97fe8943cea66f1fc5ee72ec929",
+  "topologies": ["monolith", "four_bundles", "thirteen_groups"],
+  "fourBundles": [
+    { "id": "bundle_1", "groupIds": ["accumulation", "price", "defense"], "strategyCount": 21 },
+    { "id": "bundle_2", "groupIds": ["time", "uniqueness", "accreditation", "transformation"], "strategyCount": 19 },
+    { "id": "bundle_3", "groupIds": ["offense", "deception", "timing"], "strategyCount": 19 },
+    { "id": "bundle_4", "groupIds": ["collaboration", "speed_and_scale", "ease"], "strategyCount": 21 }
+  ],
+  "routing": {
+    "strong": "claude-opus-5",
+    "scout": "deepseek/deepseek-v4-flash",
+    "critic": "deepseek/deepseek-v4-pro",
+    "thinking": "disabled",
+    "sampling": {
+      "strong": "provider_default_temperature_parameter_removed",
+      "scout": "temperature_0",
+      "critic": "temperature_0"
+    },
+    "maxOutputTokens": {
+      "betMapScoutCritic": 12000,
+      "monolithGlobalAdjudication": 50000
+    }
+  },
+  "pilotSlugs": ["cognition", "bland"],
+  "orderPerturbationSlugs": ["cognition", "deepinfra", "nekohealth"],
+  "repeatRule": {
+    "materialDivergenceAdditionalRunsPerTopology": 2,
+    "seededAgreementControls": 2,
+    "agreementControlAdditionalRunsPerTopology": 2,
+    "tuningAfterResults": false
+  },
+  "costGate": {
+    "pilotCapUsd": 0,
+    "fullBatchRequiresApproval": true,
+    "silentModelDowngrade": false,
+    "silentScopeReduction": false
+  },
+  "amendments": [
+    {
+      "at": "2026-08-22T06:10:00.000Z",
+      "reason": "The pilot exposed two transport-contract gaps. Positive rows now require mechanism evidence, the global request now carries the exact required sibling map, and saved-run identity includes the transport hash. Cards, evidence, topology, routes, seed, and repeat rules did not change.",
+      "approvedCumulativePilotCapUsd": 14.5
+    },
+    {
+      "at": "2026-08-22T16:35:00.000Z",
+      "reason": "The no-provider repair added one-layer JSON envelope handling, explicit unchanged-or-revised bet ownership, one bounded strong-stage transport retry, stage deadlines, per-attempt spend persistence, and resumable stage checkpoints. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T05:32:39.000Z",
+      "reason": "The no-provider contract repair made code carry the frozen bet map unless the global judge returns an explicit cited revision, and constrained every provider evidence reference to the exact request registry. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T06:03:57.000Z",
+      "reason": "The no-provider transport repair accepts one JSON string layer around the complete bet-map array and replaces provider-facing evidence IDs with deterministic short handles that code maps back exactly. Unknown handles still fail closed. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T20:50:00.000Z",
+      "reason": "The fair-repair experiment gives all three topologies one shared semantic contract. Models return meanings, evidence handles, local bet references, and strategy judgments. Code assigns durable claim, bet, question, disagreement, and critic IDs. The completed 2026-08-22 base benchmark remains historical and unchanged. Cards, evidence, groupings, routes, seed, judgment rules, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T21:47:35.000Z",
+      "reason": "The transport boundary now accepts bounded unambiguous bet-list wrappers, removes only unknown null fields before strict semantic validation, and stores raw tool output privately before normalization. Required judgment fields, evidence references, all-80 validation, cards, routes, topology definitions, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T23:18:29.000Z",
+      "reason": "The provider contract now returns verdict fields directly instead of serializing one giant nested judgment string. The boundary also removes the exact observed parameter tag only when the remaining field value parses in its required shape. Evidence references are resolved only after field parsing. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    },
+    {
+      "at": "2026-08-23T23:45:25.000Z",
+      "reason": "Private raw capture proved that three failed bet-map fields contained one leading newline, then the exact supported parameter tag, then a valid bet array. The boundary now ignores leading whitespace only before that exact tag. Saved failures replay successfully without a provider call. Judgment rules and frozen experiment inputs did not change."
+    },
+    {
+      "at": "2026-08-23T23:52:20.000Z",
+      "reason": "The field-by-field transport cleanup was replaced with one recursive schema-guided normalizer. Any structured array or object may use one safe JSON layer and the exact matching provider parameter tag. Semantic strings and unknown content are never rewritten, and core validation remains unchanged."
+    },
+    {
+      "at": "2026-08-24T00:55:00.000Z",
+      "reason": "The model-facing tool form is now generated from the Zod semantic contract. The hand-built JSON Schema copy and the leftover { judgment } envelope are gone. Provider peeling is unchanged for one JSON string layer, the exact parameter tag, and the proven bet-array wrappers. Judgment rules, cards, evidence, topology, routes, seed, and repeat rules did not change."
+    }
+  ],
+  "rawResultRoot": "apps/web/.cold-start/how-it-wins-topology-benchmark",
+  "environmentSource": ".env.local"
+}

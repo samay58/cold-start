@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { FirstPayoff } from "./first-payoff";
 import type { GenerationFailureCode } from "./failure-code";
+import type { HowItWinsJudgment } from "./how-it-wins-judgment";
 
 export type GenerationJobKind =
   | "basics"
@@ -76,6 +77,7 @@ export type GenerationLlmCallTrace = {
     ephemeral1hInputTokens?: number;
   };
   estimatedCostUsd?: number;
+  retryCount?: number;
   error?: string;
 };
 
@@ -273,6 +275,9 @@ export type GenerationTrace = {
     editorSkipped?: boolean;
     fitRetried?: boolean;
     styleIssueCount?: number;
+    // The full all-80 audit stays in the private generation-run trace. It is not part of
+    // ColdStartCard, the public profile index, or either card response contract.
+    judgment?: HowItWinsJudgment;
   };
   // Per-section provenance and cost for the section model. A derived section is
   // recorded as "derived", never as "deep".
