@@ -1,6 +1,8 @@
 # Corpus Eval and Taste Rig
 
-Written 2026-08-11 from a design session with Samay. This is the human-in-the-loop eval program over the full profile corpus, and the compare-and-pick instrument it runs on. The goal: find the best profiles Cold Start has ever produced, extract why they are the best, and tune prompts, routing, and models until the live pipeline produces that quality on demand. This program is the quality gate in front of the library flip (`docs/product/strategy/resonance-audience-and-10x.md`, section 4.1). Mass-filing thousands of cards before knowing what our best card looks like would waste the unit-cost advantage.
+Written 2026-08-11 from a design session with Samay. Status 2026-08-21: Phase 1 is 9 of 19 quick-pick rounds, paused. Resume in the live repo (`eval/curation/`), not `~/cold-start-eval/repo`. How-it-wins sitting 2 closed the same day (10 of 10, holdout sealed, flip HOLD); that queue is tabled and is a different question. Do not start Phase 2 deep singles until rounds 10-19 finish. Do not start Phase 3 regen, golden eval, or teach until both evals have been converted into prompt and standard changes.
+
+This is the human-in-the-loop eval program over the full profile corpus, and the compare-and-pick instrument it runs on. The goal: find the best profiles Cold Start has ever produced, extract why they are the best, and tune prompts, routing, and models until the live pipeline produces that quality on demand. This program is the quality gate in front of the library flip (`docs/product/strategy/resonance-audience-and-10x.md`, section 4.1). Mass-filing thousands of cards before knowing what our best card looks like would waste the unit-cost advantage.
 
 ## What exists today
 

@@ -1,4 +1,6 @@
-# Sitting 1 notes, enriched (rounds 1-9, 2026-08-12)
+# Sitting 1 notes, enriched (rounds 1-9, 2026-08-12; still 9 of 19)
+
+Paused. Resume in this repo (`/Users/samaydhawan/Projects/active/cold-start/eval/curation/`), not the clone at `~/cold-start-eval/repo` (clone ledger has the same 9 quick-picks and no how-it-wins lane). Frozen pool is `eval/curation/pool.json` (75 entries, 19 rounds in `session-plan.json`). How-it-wins sitting 2 closed 2026-08-21; these two evals stay separate. Next cheap sitting is rounds 10-19 at `/eval`.
 
 Samay's dictated notes from the quick-pick ledger, wording verbatim including dictation typos. Added here: company attribution, tags, and a running tally of cross-round patterns. This file is pattern-extraction fuel; the raw record stays in `ledger/picks.jsonl`.
 

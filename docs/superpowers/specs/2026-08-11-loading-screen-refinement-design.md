@@ -1,5 +1,7 @@
 # Loading Screen Refinement
 
+> Superseded in one respect on 2026-08-23: the boxed Early read remains deleted, but a strictly gated, source-linked sentence may appear between the clippings and build tree. `DESIGN.md` is the current visual rule.
+
 Design spec, approved by Samay 2026-08-11. Scope: the extension's building phase (the profile loading screen) in `apps/extension/src/company/` and `src/research/`. Six changes. No server changes, no web card changes, no analysis-wait changes.
 
 ## Why
