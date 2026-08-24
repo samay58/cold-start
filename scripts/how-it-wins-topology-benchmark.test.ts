@@ -125,9 +125,11 @@ test("the rubric parser proves all 80 canonical rows and exact meanings", async 
 });
 
 test("evidence-order perturbation changes order but not evidence content", async () => {
-  const raw = JSON.parse(await readFile("eval/curation/corpus/cards/cognition.json", "utf8")) as { card: unknown };
-  const base = buildHowItWinsEvidencePacket(raw.card, { orderSeed: null });
-  const shuffled = buildHowItWinsEvidencePacket(raw.card, { orderSeed: "order-test" });
+  const card = JSON.parse(
+    await readFile("packages/llm/tests/fixtures/how-it-wins-irregular.json", "utf8")
+  ) as unknown;
+  const base = buildHowItWinsEvidencePacket(card, { orderSeed: null });
+  const shuffled = buildHowItWinsEvidencePacket(card, { orderSeed: "order-test" });
   assert.notDeepEqual(base.evidence.map((entry) => entry.evidenceId), shuffled.evidence.map((entry) => entry.evidenceId));
   assert.deepEqual(
     [...base.evidence].sort((a, b) => a.evidenceId.localeCompare(b.evidenceId)),
@@ -564,6 +566,30 @@ test("model-facing verdicts contain semantic references but no durable bookkeepi
   assert.ok(Object.hasOwn(fullStrategy, "supportingClaims"));
 });
 
+test("multi-stage bet references are limited to bets code already owns", () => {
+  const request = stageRequest("global_judge", { multiStage: true });
+  request.payload = {
+    ...request.payload,
+    betMap: { materialBets: [{ betRef: 1 }, { betRef: 2 }] }
+  };
+  const schema = benchmarkToolSchemaForRequest(request) as {
+    properties: {
+      strategyEvaluations: {
+        items: { anyOf: Array<{ properties: { betRefs?: { items?: { enum?: number[] } } } }> };
+      };
+    };
+  };
+  const full = schema.properties.strategyEvaluations.items.anyOf.find((option) => option.properties.betRefs);
+  assert.deepEqual(full?.properties.betRefs?.items?.enum, [1, 2]);
+
+  assert.throws(
+    () => normalizeBenchmarkToolOutput(request, {
+      strategyEvaluations: [{ strategyId: "usership", betRefs: [3] }]
+    }),
+    /unknown local bet reference 3/i
+  );
+});
+
 test("every stage schema restricts every evidence reference to the request registry", () => {
   const requests = [
     stageRequest("bet_map"),
@@ -687,6 +713,7 @@ test("the model adapter preserves rejected raw tool output before normalization"
   const result = await adapter(stageRequest("bet_map"));
   assert.equal(result.ok, false);
   assert.deepEqual(observed, raw);
+  if (!result.ok) assert.equal(result.retryable, true);
 });
 
 test("provider evidence handles map back exactly and unknown handles fail closed", () => {
