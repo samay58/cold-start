@@ -414,7 +414,10 @@ export const howItWinsJudgmentBodySchema = bodyObjectSchema.superRefine(validate
 const refinementSchema = z.object({
   critic: z.enum(["ok", "failed", "skipped_same_provider"]),
   adjudication: z.enum(["ok", "failed", "not_needed"]),
-  notes: z.array(z.string().min(1).max(300))
+  notes: z.array(z.string().min(1).max(300)),
+  // Deterministic fixes the transport made to the model's own answer before it was
+  // materialized. Judgments stored before the repair pass existed carry none.
+  repairs: z.array(z.string().min(1).max(300)).default([])
 });
 
 const judgmentObjectSchema = z.object({

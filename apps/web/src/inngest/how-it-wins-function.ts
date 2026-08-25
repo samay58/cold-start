@@ -292,7 +292,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
       verifiedRunning: 0,
       writerCitationDropped: 0,
       verifierDropped: 0,
-      underTwoFired: false
+      floorFired: false
     };
   }
 

@@ -245,6 +245,11 @@ async function seedJudgmentCacheFromBenchmarkRuns(cardsBySlug: Map<string, ColdS
     const missingEvidence = parsed.data.evidenceRegistry.some((entry) => !citationIds.has(entry.evidenceId));
     if (missingEvidence) continue;
     const fileName = judgmentCacheKeyForCard(card, rules);
+    // The verdict carries the hashes it was judged under. Only a verdict judged under the current
+    // evidence, prompt, and vocabulary may stand in for a fresh call; anything else is a different
+    // contract wearing the same slug.
+    const storedKey = judgmentCacheFileName(parsed.data.hashes.evidencePacket, parsed.data.hashes.prompt, parsed.data.hashes.vocabulary);
+    if (storedKey !== fileName) continue;
     const filePath = path.join(JUDGMENT_CACHE_DIR, fileName);
     if (existsSync(filePath)) continue;
     await writeFile(filePath, `${JSON.stringify(parsed.data, null, 2)}\n`);

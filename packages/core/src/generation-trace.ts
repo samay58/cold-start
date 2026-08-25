@@ -303,6 +303,7 @@ export type GenerationTrace = {
         critic: string;
         adjudication: string;
         notes: string[];
+        repairs?: string[];
       };
       calls: Array<{
         stage: string;
@@ -324,7 +325,7 @@ export type GenerationTrace = {
       verifiedRunning: number;
       writerCitationDropped: number;
       verifierDropped: number;
-      underTwoFired: boolean;
+      floorFired: boolean;
     };
     // Legacy: traces written before the judgment moved into its own table carry the whole audit
     // inline. Nothing writes this any more; readers that need the body use judgmentRef.

@@ -223,7 +223,7 @@ export async function howItWinsVerifyStepBody(input: {
         verifiedRunning: outcome.verifiedRunningCount,
         writerCitationDropped: howItWinsUncitableRunningCount(input.card, input.read),
         verifierDropped: Math.max(0, writerCurrent - outcome.verifiedRunningCount),
-        underTwoFired:
+        floorFired:
           outcome.howItWins.status === "nothing_stands_out" && outcome.dropReason === "running-dropped"
       }
     };

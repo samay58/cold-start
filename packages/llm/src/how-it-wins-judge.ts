@@ -14,6 +14,7 @@ import {
   howItWinsStrategyIdForName,
   howItWinsStrategyIdSchema,
   materializeSemanticJudgment,
+  repairSemanticJudgment,
   semanticJudgmentForModel,
   semanticJudgmentSchema,
   semanticMaterialBetSchema,
@@ -371,9 +372,10 @@ function assertRequiredSiblingResolutions(
   siblingMap: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
 ) {
   for (const evaluation of body.strategyEvaluations) {
-    // A compact row carries no mechanism, so it has no sibling to distinguish itself from. That
-    // covers the failed evidence gate, which is the compact case with a fixed evidence strength.
-    if (evaluation.mechanism === null) continue;
+    // Only a current strategy owes a discriminating reason against its siblings: that is the
+    // standard's current gate. A compact row has no mechanism to distinguish, and an open
+    // question or not-yet row is by definition not yet claiming the label.
+    if (evaluation.mechanism === null || evaluation.disposition !== "current") continue;
     const required = siblingMap[evaluation.strategyId] ?? [];
     const resolved = new Set(evaluation.siblingResolutions.map((entry) => entry.strategyId));
     for (const siblingId of required) {
@@ -384,6 +386,15 @@ function assertRequiredSiblingResolutions(
       }
     }
   }
+}
+
+// A body-schema rejection is a contract violation like any assert, and its raw zod message is a
+// page of JSON. Both readers of this want the failing path and reason, nothing else.
+function contractViolationMessage(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`).join("; ");
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 function betMapForModel(betMap: z.infer<typeof betMapSchema> | null) {
@@ -405,14 +416,21 @@ function materializeFromPacket(
   decidingQuestionFor: DecidingQuestionLookup,
   retainedOverrides?: HowItWinsJudgmentBody["overrides"]
 ) {
-  return materializeSemanticJudgment({
-    semantic,
-    materialBets,
-    evidenceCutoff: packet.cutoff,
-    evidenceRegistry: packet.evidence,
-    decidingQuestionFor,
-    ...(retainedOverrides ? { retainedOverrides } : {})
-  });
+  try {
+    return materializeSemanticJudgment({
+      semantic,
+      materialBets,
+      evidenceCutoff: packet.cutoff,
+      evidenceRegistry: packet.evidence,
+      decidingQuestionFor,
+      ...(retainedOverrides ? { retainedOverrides } : {})
+    });
+  } catch (error) {
+    // A body the repair pass could not settle is a contract violation, not a transport failure.
+    // Naming it as one is what lets the single paid re-ask fire on a contradictory verdict.
+    if (!(error instanceof z.ZodError)) throw error;
+    throw new HowItWinsJudgmentClosedError(`the judgment body is contradictory: ${contractViolationMessage(error)}`);
+  }
 }
 
 function assertBetRevisionRecorded(
@@ -429,21 +447,25 @@ function parseGlobalJudgment(
   output: unknown,
   betMap: z.infer<typeof betMapSchema> | null,
   packet: z.infer<typeof evidencePacketSchema>,
-  decidingQuestionFor: DecidingQuestionLookup
+  decidingQuestionFor: DecidingQuestionLookup,
+  requiredSiblingIds: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
 ) {
   const transport = globalJudgmentTransportSchema.parse(stripUnknownNullTransportFields(output));
-  const { betRevision, ...semantic } = transport;
+  const { betRevision, ...parsed } = transport;
+  const { semantic, repairs } = repairSemanticJudgment(parsed, { requiredSiblingIds });
   if (!betMap) {
     if (!semantic.materialBets) {
       throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
     }
-    return materializeFromPacket(semantic, assignMaterialBetIds(semantic.materialBets), packet, decidingQuestionFor);
+    const bets = assignMaterialBetIds(semantic.materialBets);
+    return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
   }
   if (!betRevision) {
-    return materializeFromPacket(semantic, structuredClone(betMap.materialBets), packet, decidingQuestionFor);
+    const bets = structuredClone(betMap.materialBets);
+    return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
   }
   const materialBets = assignMaterialBetIds(betRevision.materialBets);
-  return materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [{
+  const body = materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [{
     kind: "bet",
     betId: materialBets[0]!.betId,
     from: hashHowItWinsJudgeValue(betMap.materialBets),
@@ -451,6 +473,7 @@ function parseGlobalJudgment(
     reason: betRevision.reason,
     evidenceIds: betRevision.evidenceIds
   }]);
+  return { body, repairs };
 }
 
 function assertTargetedAdjudication(
@@ -489,11 +512,11 @@ type HowItWinsRefinementRecord = {
   critic: "ok" | "failed" | "skipped_same_provider";
   adjudication: "ok" | "failed" | "not_needed";
   notes: string[];
+  repairs: string[];
 };
 
 function refinementNote(label: string, error: unknown) {
-  const detail = error instanceof Error ? error.message : String(error);
-  return `${label}: ${detail}`.slice(0, 300);
+  return `${label}: ${contractViolationMessage(error)}`.slice(0, 300);
 }
 
 export function createHowItWinsJudge(config: {
@@ -678,32 +701,44 @@ export function createHowItWinsJudge(config: {
     };
     const globalResult = await invokeTransport(config.adapters.strong, globalRequest);
     if (!globalResult.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
+    // The deterministic repair pass runs first, inside parseGlobalJudgment. Whatever survives it
+    // is a contradiction that needs evidence to settle, which only the model can supply.
     const acceptGlobalJudgment = (output: unknown) => {
-      const parsed = parseGlobalJudgment(output, betMap, packet, decidingQuestionFor);
-      assertFrozenEvidence(parsed, packet);
-      assertScoutOverrides(parsed, availableScouts);
-      assertRequiredSiblingResolutions(parsed, siblingMap);
-      return parsed;
+      const accepted = parseGlobalJudgment(output, betMap, packet, decidingQuestionFor, siblingMap);
+      assertFrozenEvidence(accepted.body, packet);
+      assertScoutOverrides(accepted.body, availableScouts);
+      assertRequiredSiblingResolutions(accepted.body, siblingMap);
+      return accepted;
     };
 
-    const refinement: HowItWinsRefinementRecord = { critic: "ok", adjudication: "not_needed", notes: [] };
+    const refinement: HowItWinsRefinementRecord = {
+      critic: "ok",
+      adjudication: "not_needed",
+      notes: [],
+      repairs: []
+    };
     let globalTraceProvider = globalResult.trace.provider;
     let globalJudgment: HowItWinsJudgmentBody;
     try {
-      globalJudgment = acceptGlobalJudgment(globalResult.output);
+      const accepted = acceptGlobalJudgment(globalResult.output);
+      globalJudgment = accepted.body;
+      refinement.repairs.push(...accepted.repairs);
     } catch (error) {
       // Exactly one re-ask, never two. A global judge call runs about a dollar and five minutes,
       // so a second repair costs more than it is worth. Anything but a contract violation, and
       // any failure on the corrected answer, still fails closed.
       if (!(error instanceof HowItWinsJudgmentClosedError)) throw error;
+      const detail = contractViolationMessage(error);
       const repair = await invoke(config.adapters.strong, correctedRequest(
         globalRequest,
-        `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${error.message}`.slice(0, 500),
+        `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${detail}`.slice(0, 500),
         "repair"
       ));
       if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
       globalTraceProvider = repair.trace.provider;
-      globalJudgment = acceptGlobalJudgment(repair.output);
+      const accepted = acceptGlobalJudgment(repair.output);
+      globalJudgment = accepted.body;
+      refinement.repairs.push(...accepted.repairs);
       refinement.notes.push(refinementNote("global judgment repaired after", error));
     }
 
@@ -773,8 +808,9 @@ export function createHowItWinsJudge(config: {
           if (!adjudicationTransport.materialBets) {
             throw new HowItWinsJudgmentClosedError("adjudication requires material bets");
           }
+          const repaired = repairSemanticJudgment(adjudicationTransport, { requiredSiblingIds: siblingMap });
           const adjudicated = materializeFromPacket(
-            adjudicationTransport,
+            repaired.semantic,
             assignMaterialBetIds(adjudicationTransport.materialBets),
             packet,
             decidingQuestionFor,
@@ -787,6 +823,7 @@ export function createHowItWinsJudge(config: {
           if (betMap) assertBetRevisionRecorded(adjudicated, betMap);
           finalBody = adjudicated;
           refinement.adjudication = "ok";
+          refinement.repairs.push(...repaired.repairs);
         } catch (error) {
           if (isTransientLlmError(error)) throw error;
           refinement.adjudication = "failed";

@@ -7,10 +7,13 @@ import {
   howItWinsJudgmentSelection,
   howItWinsStrategyById,
   materializeSemanticJudgment,
+  repairSemanticJudgment,
   semanticJudgmentForModel,
+  semanticJudgmentSchema,
   type HowItWinsJudgment,
   type HowItWinsJudgmentBody,
   type HowItWinsStrategyEvaluation,
+  type SemanticHowItWinsJudgment,
   type HowItWinsStrategyId
 } from "../src";
 
@@ -484,5 +487,294 @@ describe("howItWinsJudgmentSchema", () => {
       stage: "group_scout"
     };
     expect(howItWinsJudgmentSchema.safeParse(missingScope).success).toBe(false);
+  });
+});
+
+const notYetRecord = {
+  precursorEvidenceIds: ["e1"],
+  causalPath: "The cited proof is the step before the mechanism starts changing buyer choice.",
+  missingCondition: "A buyer still has to choose on this mechanism.",
+  promotionEvidence: "A named buyer citing the mechanism.",
+  horizonMonths: 18
+};
+
+function fullSemanticRow(strategyId: HowItWinsStrategyId, overrides: Record<string, unknown> = {}) {
+  return {
+    strategyId,
+    disposition: "current",
+    betRefs: [1],
+    mechanism: "The mechanism changes how the company is chosen.",
+    evidenceGate: "pass",
+    evidenceIds: ["e1"],
+    supportingClaims: [{
+      type: "observed_fact",
+      text: "A current source describes the mechanism.",
+      evidenceIds: ["e1"]
+    }],
+    counterevidenceIds: [],
+    dimensions: passingDimensions(),
+    presentRelevance: "current",
+    historicalEvidenceIds: [],
+    presentEvidenceIds: ["e1"],
+    presentBridge: null,
+    siblingCandidateIds: [],
+    siblingResolutions: [],
+    notYet: null,
+    dispositionReason: "The mechanism is current and material.",
+    ...overrides
+  };
+}
+
+function compactSemanticRow(strategyId: HowItWinsStrategyId) {
+  return {
+    strategyId,
+    disposition: "rejected",
+    evidenceGate: "pass",
+    dispositionReason: "The record does not put this mechanism in the buying decision."
+  };
+}
+
+function semanticInput(rows: unknown[], overrides: Record<string, unknown> = {}) {
+  return semanticJudgmentSchema.parse({
+    strategyEvaluations: rows,
+    currentStrategyIds: [],
+    unusualPair: null,
+    openQuestions: [],
+    overallWrongCondition: {
+      condition: "The current mechanism stops affecting buyer choice.",
+      evidenceIds: ["e1"]
+    },
+    disagreements: [],
+    overrides: [],
+    ...overrides
+  });
+}
+
+function repairedRow(semantic: SemanticHowItWinsJudgment, strategyId: HowItWinsStrategyId) {
+  const row = semantic.strategyEvaluations.find((entry) => entry.strategyId === strategyId);
+  if (!row || !("mechanism" in row)) throw new Error(`${strategyId} did not survive as a full row`);
+  return row;
+}
+
+function pair(left: HowItWinsStrategyId, right: HowItWinsStrategyId) {
+  return {
+    strategyIds: [left, right],
+    referenceClass: "Companies selling the same buyer.",
+    normalChoice: "The reference class picks one of the two.",
+    excludedAlternative: "Running both at once.",
+    acceptedCost: "Slower coverage of either mechanism.",
+    interaction: "Each mechanism makes the other cheaper to run.",
+    copyingDifficulty: "A copy has to accept both costs together.",
+    evidenceIds: ["e1"]
+  };
+}
+
+describe("repairSemanticJudgment", () => {
+  it("moves present relevance off current on a not-yet row", () => {
+    const input = semanticInput([
+      fullSemanticRow("usership", { disposition: "not_yet", notYet: notYetRecord, presentRelevance: "current" })
+    ]);
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.repairs).toHaveLength(1);
+    expect(result.repairs[0]).toMatch(/usership/);
+    expect(repairedRow(result.semantic, "usership")).toMatchObject({
+      disposition: "not_yet",
+      presentRelevance: "unresolved"
+    });
+  });
+
+  it("turns a not-yet row with no not-yet record into an open question", () => {
+    const input = semanticInput([
+      fullSemanticRow("usership", { disposition: "not_yet", notYet: null, presentRelevance: "unresolved" })
+    ]);
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.repairs).toEqual([expect.stringMatching(/usership carries no not-yet record/)]);
+    expect(repairedRow(result.semantic, "usership")).toMatchObject({ disposition: "open_question", notYet: null });
+  });
+
+  it("drops a not-yet record from a row that is not not yet", () => {
+    const input = semanticInput(
+      [fullSemanticRow("usership", { notYet: notYetRecord })],
+      { currentStrategyIds: ["usership"] }
+    );
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.repairs).toEqual([expect.stringMatching(/not a not-yet row/)]);
+    expect(repairedRow(result.semantic, "usership")).toMatchObject({ disposition: "current", notYet: null });
+  });
+
+  it("downgrades a current row that misses any one current-selection gate", () => {
+    const gates: Array<[string, Record<string, unknown>]> = [
+      ["evidence gate", { evidenceGate: "unresolved" }],
+      ["materiality", { dimensions: { ...passingDimensions(), materiality: "unresolved" } }],
+      ["independence", { dimensions: { ...passingDimensions(), independence: "duplicate" } }],
+      ["explanatory value", { dimensions: { ...passingDimensions(), explanatoryValue: "redundant" } }],
+      ["present relevance", { presentRelevance: "historical_only" }],
+      ["recent support", { presentEvidenceIds: [], presentBridge: null }]
+    ];
+
+    for (const [label, overrides] of gates) {
+      const input = semanticInput(
+        [fullSemanticRow("usership", overrides)],
+        { currentStrategyIds: ["usership"] }
+      );
+
+      const result = repairSemanticJudgment(input);
+
+      expect(repairedRow(result.semantic, "usership").disposition, label).toBe("open_question");
+      expect(result.semantic.currentStrategyIds, label).toEqual([]);
+      expect(result.repairs.join(" "), label).toMatch(/fails the current-selection gate/);
+    }
+  });
+
+  it("rebuilds the current set from the rows and keeps the order the model gave", () => {
+    const input = semanticInput(
+      [fullSemanticRow("usership"), fullSemanticRow("aggregation"), compactSemanticRow("reliability")],
+      { currentStrategyIds: ["reliability", "aggregation", "aggregation"] }
+    );
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.semantic.currentStrategyIds).toEqual(["aggregation", "usership"]);
+    expect(result.repairs).toEqual([
+      expect.stringMatching(/drops reliability/),
+      expect.stringMatching(/keeps one copy of aggregation/),
+      expect.stringMatching(/adds usership/)
+    ]);
+  });
+
+  it("settles a required sibling the row never distinguished itself from", () => {
+    const requiredSiblingIds = { usership: ["reliability"] as const, aggregation: ["reliability"] as const };
+    const currentRow = semanticInput(
+      [fullSemanticRow("usership", { siblingCandidateIds: ["reliability"] })],
+      { currentStrategyIds: ["usership"] }
+    );
+
+    const downgraded = repairSemanticJudgment(currentRow, { requiredSiblingIds });
+
+    expect(repairedRow(downgraded.semantic, "usership")).toMatchObject({
+      disposition: "open_question",
+      siblingCandidateIds: []
+    });
+    expect(downgraded.semantic.currentStrategyIds).toEqual([]);
+    expect(downgraded.repairs.join(" ")).toMatch(/no cited distinction against reliability/);
+
+    const notYetRow = semanticInput([
+      fullSemanticRow("aggregation", {
+        disposition: "not_yet",
+        notYet: notYetRecord,
+        presentRelevance: "unresolved",
+        siblingCandidateIds: ["reliability"]
+      })
+    ]);
+
+    const kept = repairSemanticJudgment(notYetRow, { requiredSiblingIds });
+
+    expect(repairedRow(kept.semantic, "aggregation")).toMatchObject({
+      disposition: "not_yet",
+      siblingCandidateIds: []
+    });
+    expect(kept.repairs).toEqual([expect.stringMatching(/drops sibling candidate reliability/)]);
+  });
+
+  it("cleans sibling candidates against the distinctions the row actually carries", () => {
+    const input = semanticInput(
+      [fullSemanticRow("usership", {
+        siblingCandidateIds: ["usership", "reliability", "reliability"],
+        siblingResolutions: [
+          { strategyId: "reliability", reason: "The cited mechanism is upkeep, not usage.", evidenceIds: ["e1"] },
+          { strategyId: "aggregation", reason: "The cited mechanism is usage, not supply.", evidenceIds: ["e1"] }
+        ]
+      })],
+      { currentStrategyIds: ["usership"] }
+    );
+
+    const result = repairSemanticJudgment(input);
+
+    expect(repairedRow(result.semantic, "usership").siblingCandidateIds).toEqual(["reliability", "aggregation"]);
+    expect(result.repairs).toEqual([
+      expect.stringMatching(/drops itself/),
+      expect.stringMatching(/drops a repeated sibling candidate reliability/),
+      expect.stringMatching(/adds sibling candidate aggregation/)
+    ]);
+  });
+
+  it("drops an unusual pair whose legs are not two current strategies", () => {
+    const stale = semanticInput(
+      [fullSemanticRow("usership"), compactSemanticRow("aggregation")],
+      { currentStrategyIds: ["usership"], unusualPair: pair("usership", "aggregation") }
+    );
+    const doubled = semanticInput(
+      [fullSemanticRow("usership")],
+      { currentStrategyIds: ["usership"], unusualPair: pair("usership", "usership") }
+    );
+
+    expect(repairSemanticJudgment(stale).semantic.unusualPair).toBeNull();
+    expect(repairSemanticJudgment(stale).repairs.join(" ")).toMatch(/aggregation is not current/);
+    expect(repairSemanticJudgment(doubled).semantic.unusualPair).toBeNull();
+    expect(repairSemanticJudgment(doubled).repairs.join(" ")).toMatch(/both legs name usership/);
+  });
+
+  it("leaves a dimension the judge never reached for the paid re-ask", () => {
+    const input = semanticInput([
+      fullSemanticRow("usership", {
+        disposition: "open_question",
+        dimensions: { ...passingDimensions(), centrality: "not_reached" }
+      })
+    ]);
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.repairs).toEqual([]);
+    expect(repairedRow(result.semantic, "usership").dimensions.centrality).toBe("not_reached");
+  });
+
+  it("chains a row downgrade through the current set into the pair, and settles", () => {
+    const rows = HOW_IT_WINS_STRATEGIES.map((strategy) => {
+      if (strategy.id === "usership") return fullSemanticRow("usership", { presentEvidenceIds: [], presentBridge: null });
+      if (strategy.id === "aggregation") return fullSemanticRow("aggregation");
+      return compactSemanticRow(strategy.id);
+    });
+    const input = semanticInput(rows, {
+      currentStrategyIds: ["usership", "aggregation"],
+      unusualPair: pair("usership", "aggregation")
+    });
+
+    const result = repairSemanticJudgment(input);
+
+    expect(result.repairs).toHaveLength(3);
+    expect(result.semantic.currentStrategyIds).toEqual(["aggregation"]);
+    expect(result.semantic.unusualPair).toBeNull();
+
+    const base = judgment();
+    const body = materializeSemanticJudgment({
+      semantic: result.semantic,
+      materialBets: base.materialBets,
+      evidenceCutoff: base.evidenceCutoff,
+      evidenceRegistry: base.evidenceRegistry
+    });
+    expect(body.currentStrategyIds).toEqual(["aggregation"]);
+    expect(howItWinsJudgmentSelection(body)).toEqual({ status: "current", strategyIds: ["aggregation"] });
+
+    const again = repairSemanticJudgment(result.semantic);
+    expect(again.repairs).toEqual([]);
+    expect(again.semantic).toEqual(result.semantic);
+  });
+
+  it("leaves a settled judgment alone", () => {
+    const input = semanticInput(
+      [fullSemanticRow("usership"), compactSemanticRow("aggregation")],
+      { currentStrategyIds: ["usership"] }
+    );
+
+    const result = repairSemanticJudgment(input, { requiredSiblingIds: { usership: [] } });
+
+    expect(result.repairs).toEqual([]);
+    expect(result.semantic).toEqual(input);
   });
 });

@@ -270,7 +270,7 @@ describe("how-it-wins prompt constants", () => {
 
   it("makes wrong_if a world conditional and never asks for a model-authored meaning line", () => {
     expect(HOW_IT_WINS_SLOTS).toContain("plain conditional about the world");
-    expect(HOW_IT_WINS_SLOTS).toContain('"running": two to four items {strategy, note}');
+    expect(HOW_IT_WINS_SLOTS).toContain('"running": one to six items {strategy, note}');
     expect(HOW_IT_WINS_SLOTS).toContain("Irregular's evaluation harness sits inside model-release decisions");
     expect(HOW_IT_WINS_SLOTS).not.toContain('"meaning"');
     expect(HOW_IT_WINS_PASS_2).not.toContain("Meaning lines");

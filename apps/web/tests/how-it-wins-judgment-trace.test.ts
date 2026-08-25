@@ -59,7 +59,7 @@ describe("How it wins judgment trace", () => {
           verifiedRunning: 2,
           writerCitationDropped: 0,
           verifierDropped: 1,
-          underTwoFired: false
+          floorFired: false
         }
       }
     });

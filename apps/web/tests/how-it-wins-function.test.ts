@@ -269,7 +269,7 @@ describe("how-it-wins background function", () => {
       styleIssueCount: 0,
       judgmentRef: { id: "judgment-id", cached: false },
       judgeSummary: { currentCount: 2, notYetCount: 1, openQuestionCount: 0 },
-      losses: { judgeCurrent: 2, writerCurrent: 2, verifiedRunning: 2, verifierDropped: 0, underTwoFired: false }
+      losses: { judgeCurrent: 2, writerCurrent: 2, verifiedRunning: 2, verifierDropped: 0, floorFired: false }
     });
     expect(trace.steps?.["how-it-wins"]?.status).toBe("complete");
     expect(completeEvent()).toMatchObject({
@@ -352,7 +352,7 @@ describe("how-it-wins background function", () => {
       verifiedRunning: 0,
       writerCitationDropped: 0,
       verifierDropped: 0,
-      underTwoFired: false
+      floorFired: false
     });
     expect(completeEvent()?.message).toBe("No how-it-wins read");
   });

@@ -169,7 +169,7 @@ Return only the revised draft.
 `;
 
 export const HOW_IT_WINS_TASK_INTRO = `You are writing one read for Cold Start, an investor's side panel that shows a sourced profile of a startup. This read answers one question: how does this company win? Its vocabulary is a fixed list of 80 ways companies win (below). It is never a checklist. From the evidence, identify:
-- the two to four ways this company is winning today, each tied to specific cited evidence [id];
+- the one to six ways this company is winning today, each tied to specific cited evidence [id];
 - which one pair among them is unusual for a company in its category, and what specifically makes that pair hard for a competitor to copy;
 - zero to two ways it could take but has not, each with the condition that would have to hold;
 - what would have to happen in the world for the conclusion to be wrong.
@@ -183,7 +183,7 @@ Develop the analysis fully before optimizing the prose. For each important concl
 export const HOW_IT_WINS_SLOTS = `The finished read fills these slots in the panel. Every slot is complete, plain prose. There are no word limits; the limit is the reasoning itself, stated once.
 - "status": "read" or "nothing_stands_out".
 - "sentence": what appears at rest under the label "How it wins". One sentence in ordinary words that carries the stark evidence and the mechanism together, for example: "Irregular's evaluation harness sits inside model-release decisions; OpenAI and Anthropic cite its benchmarks by name." It carries no citation ids; the notes carry the citations. It is one sentence a reader takes in at a glance in a narrow panel. A bare fact with no mechanism is not enough; a mechanism with no evidence is not allowed. If it cannot be written plainly, set status to "nothing_stands_out" and let "sentence" say so plainly for this company, naming its category (for example "It competes the way most LLM tooling companies do.").
-- "running": two to four items {strategy, note}. "strategy" is the name from the list. "note" is plain prose: what this company does that fits it, the evidence with its citation ids in square brackets, and the justified level of certainty carried by the verbs.
+- "running": one to six items {strategy, note}. "strategy" is the name from the list. "note" is plain prose: what this company does that fits it, the evidence with its citation ids in square brackets, and the justified level of certainty carried by the verbs.
 - "pair": {strategies: [two names from running], note, wrong_if} or null when no pair is unusual. "note": what the two are, why they hold together for this company, the mechanism that makes the pair hard to copy, the evidence with citation ids, and what remains uncertain. "wrong_if" is one plain conditional about the world that would make the pair wrong. It never refers to the read.
 - "next": zero to two items {strategy, note}: a way it could take but has not, and the condition that would have to hold.
 - "wrong_if": one plain conditional about the world that would make the conclusion wrong. It never refers to the read.

@@ -147,10 +147,13 @@ by setting:
 ```text
 INNGEST_CARD_ENRICHMENT_CONCURRENCY=2
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY=1
+INNGEST_HOW_IT_WINS_CONCURRENCY=1
 ```
 
 Section work uses the remaining account capacity. Upgrade only if production
-evidence shows queueing after these caps.
+evidence shows queueing after these caps. `INNGEST_HOW_IT_WINS_CONCURRENCY` caps
+the background `how-it-wins-read` function the same way; it draws from the same
+account pool once `HOW_IT_WINS_ENABLED` is back on in production.
 
 ## Production Environment Variables
 
@@ -187,6 +190,7 @@ INNGEST_EVENT_KEY
 INNGEST_SIGNING_KEY
 INNGEST_CARD_ENRICHMENT_CONCURRENCY
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY
+INNGEST_HOW_IT_WINS_CONCURRENCY
 ```
 
 `DATABASE_DIRECT_URL` is local migration-only configuration. Keep it in the
@@ -281,6 +285,7 @@ ALPHA_SUPPORTED_EXTENSION_VERSIONS=0.2.0
 CHROME_WEB_STORE_URL=<Unlisted item URL>
 INNGEST_CARD_ENRICHMENT_CONCURRENCY=2
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY=1
+INNGEST_HOW_IT_WINS_CONCURRENCY=1
 ```
 
 The extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`. The file is ignored by git and should not be committed. Its value must match Vercel `EXTENSION_API_TOKEN`.

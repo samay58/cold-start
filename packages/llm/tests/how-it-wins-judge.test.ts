@@ -1077,6 +1077,69 @@ describe("createHowItWinsJudge", () => {
     expect(result.refinement?.notes.join(" ")).toMatch(/global judgment repaired after/i);
   });
 
+  it("repairs a contradictory not-yet row in code instead of buying a re-ask", async () => {
+    const contradictory = body();
+    contradictory.strategyEvaluations = contradictory.strategyEvaluations.map((entry) => entry.strategyId === "aggregation"
+      ? {
+        ...current("aggregation"),
+        disposition: "not_yet" as const,
+        presentRelevance: "current" as const,
+        notYet: {
+          precursorEvidenceIds: ["e1"],
+          causalPath: "The cited proof is the step before the mechanism starts changing buyer choice.",
+          missingCondition: "A buyer still has to choose on this mechanism.",
+          promotionEvidence: "A named buyer citing the mechanism.",
+          horizonMonths: 18
+        }
+      }
+      : entry);
+    const fake = adapters({ judgment: contradictory });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    expect(fake.strong).toHaveBeenCalledTimes(1);
+    expect(result.refinement?.repairs).toHaveLength(1);
+    expect(result.refinement?.repairs[0]).toMatch(/aggregation/);
+    expect(result.refinement?.notes).toEqual([]);
+    expect(result.strategyEvaluations.find((entry) => entry.strategyId === "aggregation")).toMatchObject({
+      disposition: "not_yet",
+      presentRelevance: "unresolved"
+    });
+  });
+
+  it("still buys one re-ask for a contradiction the repair pass cannot settle", async () => {
+    const unrepairable = body();
+    unrepairable.strategyEvaluations = unrepairable.strategyEvaluations.map((entry) => entry.strategyId === "aggregation"
+      ? {
+        ...current("aggregation"),
+        disposition: "open_question" as const,
+        dimensions: { ...passingDimensions(), centrality: "not_reached" as const }
+      }
+      : entry);
+    const fake = adapters();
+    const original = fake.strong;
+    let globalCalls = 0;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      if (request.stage !== "global_judge" || !result.ok) return result;
+      globalCalls += 1;
+      if (globalCalls > 1) return result;
+      return { ...result, output: semanticFromBody(unrepairable, true) };
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    const globalRequests = fake.strong.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.stage === "global_judge");
+    expect(globalRequests).toHaveLength(2);
+    expect(globalRequests[1]?.payload).toMatchObject({
+      retryCorrection: expect.stringMatching(/strategyEvaluations.*dimension/i)
+    });
+    expect(result.refinement?.repairs).toEqual([]);
+    expect(result.refinement?.notes.join(" ")).toMatch(/the judgment body is contradictory/i);
+  });
+
   it("fails closed when the one global re-ask also breaks the contract", async () => {
     const fake = adapters();
     const original = fake.strong;
@@ -1138,9 +1201,13 @@ describe("createHowItWinsJudge", () => {
       return makeJudge(fake, { scopes: [] })(judgeInput());
     };
 
-    // usership must be distinguished from reliability. A current row that skips it fails closed.
-    await expect(monolith(semanticJudgment(["usership"])))
-      .rejects.toThrow(/usership needs a discriminating reason against reliability/i);
+    // usership must be distinguished from reliability. A current row that skips it is no longer a
+    // failure: the repair pass downgrades it to an open question and records why, so the verdict
+    // survives with an empty current set instead of failing closed.
+    const downgraded = await monolith(semanticJudgment(["usership"]));
+    expect(downgraded.currentStrategyIds).toEqual([]);
+    expect(downgraded.strategyEvaluations.find((entry) => entry.strategyId === "usership")?.disposition).toBe("open_question");
+    expect(downgraded.refinement?.repairs.join(" ")).toMatch(/usership/);
 
     // The same missing distinction is not a failure once usership is a compact rejection: a row
     // with no mechanism has nothing to distinguish.

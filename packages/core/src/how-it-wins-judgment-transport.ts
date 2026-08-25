@@ -215,6 +215,173 @@ function isCompactSemanticStrategy(
   return !("mechanism" in evaluation);
 }
 
+export type SemanticJudgmentRepairOptions = {
+  requiredSiblingIds?: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
+};
+
+type FullSemanticStrategy = z.infer<typeof fullSemanticStrategySchema>;
+
+const currentSelectionGates: ReadonlyArray<{ label: string; fails: (row: FullSemanticStrategy) => boolean }> = [
+  { label: "the evidence gate did not pass", fails: (row) => row.evidenceGate !== "pass" },
+  { label: "materiality is not material", fails: (row) => row.dimensions.materiality !== "material" },
+  { label: "independence is not independent", fails: (row) => row.dimensions.independence !== "independent" },
+  {
+    label: "explanatory value is neither necessary nor additive",
+    fails: (row) => !["necessary", "additive"].includes(row.dimensions.explanatoryValue)
+  },
+  { label: "present relevance is not current", fails: (row) => row.presentRelevance !== "current" },
+  {
+    label: "no recent evidence and no present bridge",
+    fails: (row) => row.presentEvidenceIds.length === 0 && !row.presentBridge
+  }
+];
+
+function repairFullStrategy(
+  input: FullSemanticStrategy,
+  requiredSiblingIds: readonly HowItWinsStrategyId[],
+  note: (text: string) => void
+): FullSemanticStrategy {
+  const strategyId = input.strategyId;
+
+  const siblingResolutions = input.siblingResolutions.filter((resolution) => {
+    if (resolution.strategyId !== strategyId) return true;
+    note(`${strategyId} drops a sibling distinction against itself.`);
+    return false;
+  });
+  const resolved = new Set(siblingResolutions.map((resolution) => resolution.strategyId));
+
+  const siblingCandidateIds: HowItWinsStrategyId[] = [];
+  const carried = new Set<HowItWinsStrategyId>();
+  for (const candidateId of input.siblingCandidateIds) {
+    if (candidateId === strategyId) {
+      note(`${strategyId} drops itself from its sibling candidates.`);
+      continue;
+    }
+    if (carried.has(candidateId)) {
+      note(`${strategyId} drops a repeated sibling candidate ${candidateId}.`);
+      continue;
+    }
+    if (!resolved.has(candidateId)) {
+      note(`${strategyId} drops sibling candidate ${candidateId} because it carries no distinction against it.`);
+      continue;
+    }
+    carried.add(candidateId);
+    siblingCandidateIds.push(candidateId);
+  }
+  for (const resolution of siblingResolutions) {
+    if (carried.has(resolution.strategyId)) continue;
+    carried.add(resolution.strategyId);
+    siblingCandidateIds.push(resolution.strategyId);
+    note(`${strategyId} adds sibling candidate ${resolution.strategyId} because it carries a distinction against it.`);
+  }
+
+  let disposition = input.disposition;
+  let presentRelevance = input.presentRelevance;
+  let notYet = input.notYet;
+  if (disposition === "not_yet" && !notYet) {
+    disposition = "open_question";
+    note(`${strategyId} carries no not-yet record, so it becomes an open question.`);
+  } else if (disposition !== "not_yet" && notYet) {
+    notYet = null;
+    note(`${strategyId} is not a not-yet row, so its not-yet record is dropped.`);
+  }
+  if (disposition === "not_yet" && presentRelevance === "current") {
+    presentRelevance = "unresolved";
+    note(`${strategyId} is not yet, so its present relevance moves from current to unresolved.`);
+  }
+
+  const missingSibling = requiredSiblingIds.find((siblingId) => !resolved.has(siblingId));
+  if (disposition === "current" && missingSibling) {
+    disposition = "open_question";
+    note(`${strategyId} carries no cited distinction against ${missingSibling}, so it becomes an open question.`);
+  }
+
+  const repaired: FullSemanticStrategy = {
+    ...input,
+    disposition,
+    presentRelevance,
+    notYet,
+    siblingCandidateIds,
+    siblingResolutions
+  };
+  if (repaired.disposition !== "current") return repaired;
+  const failures = currentSelectionGates.filter((gate) => gate.fails(repaired)).map((gate) => gate.label);
+  if (failures.length === 0) return repaired;
+  note(`${strategyId} fails the current-selection gate (${failures.join("; ")}), so it becomes an open question.`);
+  return { ...repaired, disposition: "open_question" };
+}
+
+function repairSemanticPass(
+  semantic: SemanticHowItWinsJudgment,
+  requiredSiblingIds: SemanticJudgmentRepairOptions["requiredSiblingIds"],
+  note: (text: string) => void
+): SemanticHowItWinsJudgment {
+  const strategyEvaluations = semantic.strategyEvaluations.map((evaluation) => isCompactSemanticStrategy(evaluation)
+    ? evaluation
+    : repairFullStrategy(evaluation, requiredSiblingIds?.[evaluation.strategyId] ?? [], note));
+
+  const currentRowIds = strategyEvaluations.flatMap((evaluation) =>
+    !isCompactSemanticStrategy(evaluation) && evaluation.disposition === "current" ? [evaluation.strategyId] : []);
+  const currentRows = new Set(currentRowIds);
+  const currentStrategyIds: HowItWinsStrategyId[] = [];
+  const selected = new Set<HowItWinsStrategyId>();
+  for (const strategyId of semantic.currentStrategyIds) {
+    if (!currentRows.has(strategyId)) {
+      note(`The current set drops ${strategyId} because its row is not current.`);
+      continue;
+    }
+    if (selected.has(strategyId)) {
+      note(`The current set keeps one copy of ${strategyId}.`);
+      continue;
+    }
+    selected.add(strategyId);
+    currentStrategyIds.push(strategyId);
+  }
+  for (const strategyId of currentRowIds) {
+    if (selected.has(strategyId)) continue;
+    selected.add(strategyId);
+    currentStrategyIds.push(strategyId);
+    note(`The current set adds ${strategyId} because its row is current.`);
+  }
+
+  let unusualPair = semantic.unusualPair;
+  if (unusualPair) {
+    const [left, right] = unusualPair.strategyIds;
+    if (left === right) {
+      note(`The unusual pair is dropped because both legs name ${left}.`);
+      unusualPair = null;
+    } else if (!selected.has(left) || !selected.has(right)) {
+      note(`The unusual pair is dropped because ${selected.has(left) ? right : left} is not current.`);
+      unusualPair = null;
+    }
+  }
+
+  return { ...semantic, strategyEvaluations, currentStrategyIds, unusualPair };
+}
+
+const MAXIMUM_REPAIR_PASSES = 3;
+
+// Contradictions the model can leave behind that code can settle without reading the evidence:
+// a not-yet row that also claims present relevance, a current row that misses its own selection
+// gate, a current set that drifted from the rows. Each fix lowers a claim or drops a reference;
+// none of them invents an evidence id. One fix can open another, so the pass repeats to a fixed
+// point. This runs before materialization so the body schema sees a settled verdict, which keeps
+// a one-row contradiction from throwing away a judgment that already cost a dollar to produce.
+export function repairSemanticJudgment(
+  semantic: SemanticHowItWinsJudgment,
+  options: SemanticJudgmentRepairOptions = {}
+): { semantic: SemanticHowItWinsJudgment; repairs: string[] } {
+  const repairs: string[] = [];
+  const note = (text: string) => { repairs.push(text.slice(0, 300)); };
+  let repaired = semantic;
+  for (let pass = 0; pass < MAXIMUM_REPAIR_PASSES; pass += 1) {
+    const before = repairs.length;
+    repaired = repairSemanticPass(repaired, options.requiredSiblingIds, note);
+    if (repairs.length === before) break;
+  }
+  return { semantic: repaired, repairs };
+}
+
 export function materializeSemanticJudgment(input: {
   semantic: SemanticHowItWinsJudgment;
   materialBets: HowItWinsJudgmentBody["materialBets"];

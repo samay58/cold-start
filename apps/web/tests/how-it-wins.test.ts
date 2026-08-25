@@ -274,7 +274,7 @@ describe("howItWinsVerifyStepBody", () => {
       verifiedRunning: 2,
       writerCitationDropped: 0,
       verifierDropped: 0,
-      underTwoFired: false
+      floorFired: false
     });
   });
 
@@ -293,7 +293,7 @@ describe("howItWinsVerifyStepBody", () => {
     expect(result.howItWins.running.map((entry) => entry.strategy)).toEqual(["specialization"]);
     expect(result.howItWins.pair).toBeNull();
     expect(result.dropReason).toBe("pair-dropped");
-    expect(result.losses).toMatchObject({ verifiedRunning: 1, verifierDropped: 1, underTwoFired: false });
+    expect(result.losses).toMatchObject({ verifiedRunning: 1, verifierDropped: 1, floorFired: false });
   });
 
   // The losses field is still named for the old under-two rule; what it records now is the floor
@@ -310,7 +310,7 @@ describe("howItWinsVerifyStepBody", () => {
     if (!result.ok) throw new Error("expected a verified read");
     expect(result.howItWins.status).toBe("nothing_stands_out");
     expect(result.dropReason).toBe("running-dropped");
-    expect(result.losses).toMatchObject({ verifiedRunning: 0, verifierDropped: 2, underTwoFired: true });
+    expect(result.losses).toMatchObject({ verifiedRunning: 0, verifierDropped: 2, floorFired: true });
   });
 
   it("counts a running note whose citation is not on the card", async () => {
