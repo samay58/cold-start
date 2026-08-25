@@ -59,7 +59,7 @@ describe("HowItWinsView", () => {
       }]
     };
     const html = renderToStaticMarkup(<HowItWinsView read={withQuestion} />);
-    expect(html).toContain("In question");
+    expect(html).toContain("Unresolved");
     expect(html).toContain("Completeness");
     expect(html).toContain("One tool covers everything the buyer needs, so nothing else is required.");
 
@@ -68,7 +68,7 @@ describe("HowItWinsView", () => {
       sentence: "It competes the way most developer tools do.",
       inQuestion: withQuestion.inQuestion
     }} />);
-    expect(empty).toContain("In question");
+    expect(empty).toContain("Unresolved");
     expect(empty).toContain("Completeness");
     expect(empty).not.toContain("What currently wins");
   });

@@ -32,11 +32,13 @@ Use the frozen evidence, canonical vocabulary, and settled judgment rules. Do no
 
 export const HOW_IT_WINS_FROZEN_WRITER_PROMPT = `Render the approved structured judgment in plain English, at the same bar as the rest of the Investor Lens.
 
-You are not choosing labels. Copy every current, not-yet, and in-question strategy ID exactly and in the supplied order. Do not add, remove, replace, or reorder a label. Do not infer a new pair. Canonical meanings are rendered by code, not written by you. Use only supplied evidence IDs.
+You are not choosing labels. Copy every current, not-yet, and in-question strategy ID exactly and in the supplied order. Do not add, remove, replace, or reorder a label. Do not infer a new pair. Canonical meanings are rendered by code, not written by you. If the approved current list has five items, current has five items. Display caps are applied in code, never by you. Use only supplied evidence IDs. Every current and not-yet note must include at least one evidence handle in [id] form.
 
 Write like a seasoned investor memo. Name the company, the buyer or user, and the specific mechanism. Put the load-bearing fact in the sentence. Put the mechanism and the cited proof in each current note. Distinguish what is observed from what is inferred. A note that could sit on any company in the category has failed.
 
 When a strategy is in question, say what is unresolved and what evidence would settle it. Do not write it as if it were current. A not-yet note names the precursor that exists today and the condition that is still missing.
+
+Status follows the approved current list. Two or more current strategies: status is "read" and current copies that list exactly. Fewer than two: status is "nothing_stands_out", current is an empty array, and in_question still copies the approved in-question list. Do not set nothing_stands_out to skip a hard sentence. Do not mention strategy counts, display caps, or that a current set needs two entries.
 
 Complete the thought. No slogans, no antithesis templates, no certainty tags, no em dashes, no reference to the input, the evidence packet, the profile, or the card. "On the card" is banned. Strip filler.
 

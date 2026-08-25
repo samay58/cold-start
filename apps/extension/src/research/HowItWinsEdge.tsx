@@ -37,6 +37,7 @@ import {
   nearestTickIndex,
   noteFor,
   readoutText,
+  spokenKicker,
   springAtRest,
   springStep,
   targetAt,
@@ -711,7 +712,7 @@ function HowItWinsCrown({
           <div className="cs-how-it-wins-note-content" key={noteTarget.key}>
             <div className="cs-how-it-wins-kicker">
               <span>
-                <b>{note.kicker}.</b>
+                <b>{spokenKicker(note.kicker)}</b>
                 {note.meaning ? ` ${note.meaning}` : null}
               </span>
               {pinned ? <small>{HOW_IT_WINS_COPY.pinned}</small> : null}

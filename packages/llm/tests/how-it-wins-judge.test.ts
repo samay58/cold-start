@@ -1011,6 +1011,11 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     }
   });
 
+  it("accepts a markdown-fenced JSON draft", () => {
+    const parsed = parseFrozenHowItWinsWriterDraft(`\`\`\`json\n${draft()}\n\`\`\``, verdict());
+    expect("read" in parsed).toBe(true);
+  });
+
   it("rejects added, removed, swapped, and reordered labels", () => {
     expect(parseFrozenHowItWinsWriterDraft(draft(["usership", "aggregation", "reliability", "precision"]), verdict())).toHaveProperty("issues");
     expect(parseFrozenHowItWinsWriterDraft(draft(["usership", "aggregation"]), verdict())).toHaveProperty("issues");
@@ -1027,6 +1032,28 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     if (display.status !== "read") throw new Error("expected a display read");
     expect(display.running.map((entry) => entry.strategy)).toEqual(["usership", "aggregation", "reliability"]);
     expect(display.running.every((entry) => entry.meaning.length > 0)).toBe(true);
+  });
+
+  it("accepts nothing_stands_out when fewer than two current strategies were approved", () => {
+    const frozen = verdict();
+    const one = { ...frozen, currentStrategyIds: ["usership"] as typeof frozen.currentStrategyIds };
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "nothing_stands_out",
+        sentence: "Nothing stands out yet for Fixture Company.",
+        current: [],
+        pair: null,
+        not_yet: [],
+        in_question: [],
+        wrong_if: "A second current mechanism appears."
+      }),
+      one
+    );
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "nothing_stands_out") {
+      throw new Error("expected a nothing_stands_out read");
+    }
+    expect(parsed.read.sentence).toBe("Nothing stands out yet for Fixture Company.");
   });
 
   it("degrades a single current strategy to nothing_stands_out without changing the stored verdict", () => {

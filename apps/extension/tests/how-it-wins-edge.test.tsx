@@ -65,7 +65,7 @@ const filedDisplay: HowItWinsDisplay = {
 // chokepoint (32), monopoly (53), prestige (54), standardization (60). The bracket sits between
 // its own legs, which is why keyboard order is not simply running-then-next.
 const KEYBOARD_ORDER = [
-  "Completeness, in question",
+  "Completeness?",
   "Hybrid",
   "Hybrid + Chokepoint",
   "Chokepoint",
@@ -213,7 +213,7 @@ describe("HowItWinsEdge", () => {
     expect(crown.readout()).toBe("0 of 80 strategies");
     expect(crown.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(1);
     await crown.key("ArrowRight");
-    expect(crown.readout()).toBe("Completeness, in question");
+    expect(crown.readout()).toBe("Completeness?");
     await crown.unmount();
   });
 
@@ -235,7 +235,7 @@ describe("HowItWinsEdge", () => {
     const crown = await renderCrown(filedDisplay);
 
     await crown.key("ArrowRight");
-    expect(crown.readout()).toBe("Completeness, in question");
+    expect(crown.readout()).toBe("Completeness?");
     expect(crown.readoutInk()).toBe("true");
 
     await crown.key("ArrowRight");
@@ -259,7 +259,9 @@ describe("HowItWinsEdge", () => {
   it("opens the note below the sentence, named, with the pair's Wrong if and a pinned receipt", async () => {
     const crown = await renderCrown(filedDisplay);
     await crown.key("ArrowRight");
-    expect(crown.container.querySelector(".cs-how-it-wins-note")?.getAttribute("aria-label")).toBe("Completeness, in question");
+    expect(crown.container.querySelector(".cs-how-it-wins-note")?.getAttribute("aria-label")).toBe("Completeness?");
+    expect(crown.container.querySelector(".cs-how-it-wins-kicker")?.textContent?.startsWith("Completeness?")).toBe(true);
+    expect(crown.container.querySelector(".cs-how-it-wins-kicker")?.textContent?.startsWith("Completeness?.")).toBe(false);
 
     await crown.key("ArrowRight");
 

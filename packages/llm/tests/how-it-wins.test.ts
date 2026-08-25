@@ -289,6 +289,8 @@ describe("how-it-wins prompt constants", () => {
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in-question");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in_question");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Do not write it as if it were current");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Status follows the approved current list");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Display caps are applied in code");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("on the card");
   });
 
@@ -831,7 +833,9 @@ describe("synthesizeHowItWins", () => {
 
     const call = callsMade()[0];
     expect(call?.label).toBe("how-it-wins-frozen-writer");
-    expect(call?.params.system.map((block) => block.text).join("")).toContain(HOW_IT_WINS_FROZEN_WRITER_PROMPT);
+    const system = call?.params.system.map((block) => block.text).join("") ?? "";
+    expect(system).toContain(HOW_IT_WINS_FROZEN_WRITER_PROMPT);
+    expect(system).not.toContain("If it cannot be written plainly");
     expect(call?.params.messages[0]?.content).toContain("Approved judgment:");
     expect(call?.params.messages[0]?.content).not.toContain("how-it-wins-reason");
   });

@@ -22,7 +22,8 @@ import { parseModelString, withProviderFallback } from "./llm-provider";
 import {
   frozenHowItWinsWriterRequest,
   howItWinsFromFrozenWriter,
-  parseFrozenHowItWinsWriterDraft
+  parseFrozenHowItWinsWriterDraft,
+  parseHowItWinsJson
 } from "./how-it-wins-frozen-writer";
 import {
   HOW_IT_WINS_HOSTILE_EDITOR,
@@ -67,7 +68,6 @@ const THINKING_DISABLED_MAX_TOKENS = 16000;
 const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
 const CLOSING_CERTAINTY_TAG_PATTERN = /(?:^|[.!?]\s+)(?:(?:the\s+)?(?:claim|mechanism|conclusion)\s+is\s+)?(?:observed(?:\s+fact)?|reported|inferred(?:\s+from\s+[^.]*)?)\.\s*$/i;
-const CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/;
 const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
 const BANNED_OUTPUT_PHRASES = ["the read would weaken", "would weaken if", "is observed fact", "on the card"] as const;
 
@@ -113,30 +113,7 @@ function wordCount(value: string): number {
 // slip. Try the whole response, then a fenced block, then the outermost braces. The first parser
 // error is kept so the re-ask can quote it back.
 function parseDraftJson(text: string): { value: unknown } | { error: string } {
-  const trimmed = text.trim();
-  const fenced = CODE_FENCE_PATTERN.exec(trimmed)?.[1]?.trim();
-  const firstBrace = trimmed.indexOf("{");
-  const lastBrace = trimmed.lastIndexOf("}");
-  const braced = firstBrace >= 0 && lastBrace > firstBrace ? trimmed.slice(firstBrace, lastBrace + 1) : undefined;
-
-  let firstError = "the response held no JSON object";
-  let sawCandidate = false;
-
-  for (const candidate of [trimmed, fenced, braced]) {
-    if (!candidate) {
-      continue;
-    }
-    try {
-      return { value: JSON.parse(candidate) };
-    } catch (error) {
-      if (!sawCandidate) {
-        firstError = error instanceof Error ? error.message : String(error);
-        sawCandidate = true;
-      }
-    }
-  }
-
-  return { error: firstError };
+  return parseHowItWinsJson(text);
 }
 
 // Models write [e1, e2] often enough that a strict one-id-per-bracket reader loses the whole
@@ -561,7 +538,9 @@ async function synthesizeHowItWinsFromFrozenJudgment(
   judgment: HowItWinsJudgment
 ): Promise<HowItWinsResult> {
   const request = frozenHowItWinsWriterRequest(judgment);
-  const system = `${HOW_IT_WINS_WRITING_STANDARD}\n\n${request.prompt}`;
+  // The frozen prompt is the bar. The four-pass writing standard lets the model set
+  // nothing_stands_out when a sentence is hard, which would drop a frozen verdict.
+  const system = request.prompt;
   const user = `Approved judgment:\n${JSON.stringify(request.payload)}\n\nEvidence:\n${JSON.stringify(cardForHowItWinsPrompt(input.card))}`;
   const askWriter = (userText: string) =>
     withProviderFallback("how_it_wins", input.models.writer, (model) =>

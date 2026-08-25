@@ -156,7 +156,7 @@ export function readoutText(
   }
   if (target.kind === "in_question") {
     const entry = display.inQuestion.find((candidate) => candidate.id === target.key);
-    return { text: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.inQuestion}`, ink: true };
+    return { text: inQuestionLabel(entry?.name ?? ""), ink: true };
   }
   const entry = display.next.find((candidate) => candidate.id === target.key);
   return { text: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.notYet}`, ink: true };
@@ -206,7 +206,7 @@ export function noteFor(display: HowItWinsDisplay, target: EdgeTarget): EdgeNote
   if (target.kind === "in_question") {
     const entry = display.inQuestion.find((candidate) => candidate.id === target.key);
     return {
-      kicker: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.inQuestion}`,
+      kicker: inQuestionLabel(entry?.name ?? ""),
       meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
       body: entry?.note ?? "",
       wrongIf: null
@@ -232,3 +232,11 @@ export function crownAriaLabel(display: HowItWinsDisplay): string {
 }
 
 export const BANNED_MICRO_COPY = ["cut", "open to it", "could be next", "the pair", "one of its", "not this one"] as const;
+
+function inQuestionLabel(name: string): string {
+  return `${name}${HOW_IT_WINS_COPY.inQuestion}`;
+}
+
+export function spokenKicker(kicker: string): string {
+  return /[.?!]$/.test(kicker) ? kicker : `${kicker}.`;
+}

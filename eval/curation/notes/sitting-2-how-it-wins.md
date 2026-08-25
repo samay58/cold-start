@@ -297,3 +297,20 @@ Recorded in his words, not Packet 2 scope:
 Judge-then-writer on the analysis path, behind the existing off flag. Writer renders a frozen verdict and may not add, drop, swap, or reorder labels. Hostile editor skipped on the frozen path. Full all-80 audit stays on `trace.howItWins.judgment`. Semantic failure still degrades to `nothing_stands_out`. No production model env vars. No holdout. No flag flip.
 
 The parity record, writer tournament, and unread holdout remain later.
+
+## Known-company writer sitting, 2026-08-24
+
+Replay only. Same monolith verdicts as the screen. New frozen writer, in-question marks on the real crown. No new judge. Neko skipped again.
+
+Private page: `apps/web/.cold-start/how-it-wins-known-company-review/index.html` (local `http://127.0.0.1:9876/`). Not `/eval/how-it-wins`. Production stays off.
+
+Filed:
+
+- Cognition: `read`, 2 of 80 after citation check (judge had 5 current). Running: Divergence, Blitzing. Cloud-agent bet is in Divergence. Four in-question. Sentence still leads with Goldman/Citi/Dell/Cisco.
+- August: `read`, 4 of 80, no drop. Running: Specialization, Precision, Malleability, Low friction. In-question capped at 8 of 9.
+- Hebbia: `nothing_stands_out` on the ship topology (monolith), not his B pick. Eight in-question of ten. Empty current is the under-2 running rule.
+- Bland: `nothing_stands_out`. Eight in-question. Completeness and Security stay questions, which is the point of this card.
+
+Writer spend across retries is on the order of $2. Topology spend unchanged at `$58.114951`.
+
+Read Cognition, then August, then Hebbia, then Bland. Question is writing plus the third mark language, not a flag flip. Parity, tournament, and holdout stay later.

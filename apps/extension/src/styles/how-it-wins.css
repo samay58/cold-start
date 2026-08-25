@@ -120,8 +120,8 @@
   stroke: var(--color-ink);
 }
 
-/* An in-question strategy: solid muted walls, no floor, distinct from the dashed not-yet hollow
-   and from the ink cut. The crown stays ink-only; distinction is the mark, not a seal color. */
+/* Unresolved: solid muted walls, no floor. Distinct from the dashed not-yet hollow and from the
+   ink cut. The crown stays ink-only; the mark plus a trailing ? on the name carry the split. */
 .cs-hiw-question {
   fill: none;
   stroke: var(--color-muted);

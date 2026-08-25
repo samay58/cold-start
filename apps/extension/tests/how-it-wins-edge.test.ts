@@ -13,6 +13,7 @@ import {
   nearestTickIndex,
   noteFor,
   readoutText,
+  spokenKicker,
   springAtRest,
   springStep,
   targetAt,
@@ -181,9 +182,9 @@ describe("readoutText", () => {
     });
   });
 
-  it("reads an in-question mark as name, in question", () => {
+  it("reads an in-question mark as the name with a question mark", () => {
     expect(readoutText(fixtureDisplay, 0, findTarget(targets, "completeness"))).toEqual({
-      text: "Completeness, in question",
+      text: "Completeness?",
       ink: true
     });
   });
@@ -250,9 +251,9 @@ describe("noteFor", () => {
     expect(note.meaning).toBe("Emergent alignment that reduces friction.");
   });
 
-  it("in-question: kicker is name, in question", () => {
+  it("in-question: kicker is the name with a question mark", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "completeness"));
-    expect(note.kicker).toBe("Completeness, in question");
+    expect(note.kicker).toBe("Completeness?");
     expect(note.meaning).toBe("One tool covers everything the buyer needs, so nothing else is required.");
     expect(note.body).toBe(at(fixtureDisplay.inQuestion, 0).note);
     expect(note.wrongIf).toBeNull();
@@ -285,6 +286,16 @@ describe("targetsInKeyboardOrder", () => {
 describe("crownAriaLabel", () => {
   it("names the label and the count", () => {
     expect(crownAriaLabel(fixtureDisplay)).toBe("How it wins, 3 of 80 strategies");
+  });
+});
+
+describe("spokenKicker", () => {
+  it("adds a period to a bare name", () => {
+    expect(spokenKicker("Hybrid")).toBe("Hybrid.");
+  });
+
+  it("leaves a question mark alone", () => {
+    expect(spokenKicker("Completeness?")).toBe("Completeness?");
   });
 });
 

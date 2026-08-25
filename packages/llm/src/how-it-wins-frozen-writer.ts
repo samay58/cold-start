@@ -11,6 +11,33 @@ import {
 
 import { HOW_IT_WINS_FROZEN_WRITER_PROMPT } from "./how-it-wins-judge-prompts";
 
+const CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/;
+
+export function parseHowItWinsJson(text: string): { value: unknown } | { error: string } {
+  const trimmed = text.trim();
+  const fenced = CODE_FENCE_PATTERN.exec(trimmed)?.[1]?.trim();
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  const braced = firstBrace >= 0 && lastBrace > firstBrace ? trimmed.slice(firstBrace, lastBrace + 1) : undefined;
+
+  let firstError = "the response held no JSON object";
+  let sawCandidate = false;
+
+  for (const candidate of [trimmed, fenced, braced]) {
+    if (!candidate) continue;
+    try {
+      return { value: JSON.parse(candidate) };
+    } catch (error) {
+      if (!sawCandidate) {
+        firstError = error instanceof Error ? error.message : String(error);
+        sawCandidate = true;
+      }
+    }
+  }
+
+  return { error: firstError };
+}
+
 type FrozenWriterItem = {
   strategy: HowItWinsStrategyId;
   meaning: string;
@@ -119,21 +146,22 @@ export function parseFrozenHowItWinsWriterDraft(
   text: string,
   judgment: HowItWinsJudgment
 ): FrozenHowItWinsWriterParse {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch (error) {
-    return { issues: [`writer output is not JSON: ${error instanceof Error ? error.message : String(error)}`] };
+  const parsedJson = parseHowItWinsJson(text);
+  if ("error" in parsedJson) {
+    return { issues: [`writer output is not JSON: ${parsedJson.error}`] };
   }
-  const draft = record(raw);
+  const draft = record(parsedJson.value);
   if (!draft) return { issues: ["writer output must be a JSON object"] };
 
-  if (judgment.currentStrategyIds.length === 0) {
-    if (writerItems(draft.current).length > 0 || writerItems(draft.not_yet).length > 0 || record(draft.pair)) {
-      return { issues: ["writer added a strategy or pair to a zero-strategy verdict"] };
+  if (draft.status === "nothing_stands_out") {
+    if (judgment.currentStrategyIds.length >= 2) {
+      return { issues: ["a supported verdict cannot become nothing_stands_out"] };
     }
-    if (draft.status !== "nothing_stands_out" || typeof draft.sentence !== "string" || !draft.sentence.trim()) {
-      return { issues: ["a zero-strategy verdict must remain nothing_stands_out"] };
+    if (writerItems(draft.current).length > 0 || writerItems(draft.not_yet).length > 0 || record(draft.pair)) {
+      return { issues: ["writer added a strategy or pair to a nothing_stands_out read"] };
+    }
+    if (typeof draft.sentence !== "string" || !draft.sentence.trim()) {
+      return { issues: ["a nothing_stands_out read needs a sentence"] };
     }
     const inQuestionIds = openQuestionIdsFrom(judgment);
     const inQuestionItems = writerItems(draft.in_question);
@@ -149,11 +177,15 @@ export function parseFrozenHowItWinsWriterDraft(
     };
   }
 
-  if (draft.status !== "read") return { issues: ["a supported verdict cannot become nothing_stands_out"] };
+  if (judgment.currentStrategyIds.length === 0) {
+    return { issues: ["a zero-strategy verdict must remain nothing_stands_out"] };
+  }
+
+  if (draft.status !== "read") return { issues: ["writer used an unknown status"] };
   const currentItems = writerItems(draft.current);
   const writtenCurrent = currentItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
   if (!sameStrings(writtenCurrent, judgment.currentStrategyIds)) {
-    return { issues: ["writer changed the approved current strategy labels or their order"] };
+    return { issues: [`writer changed the approved current strategy labels or their order (got ${writtenCurrent.join(", ") || "none"}; expected ${judgment.currentStrategyIds.join(", ")})`] };
   }
   const notYetIds = judgment.strategyEvaluations
     .filter((entry) => entry.disposition === "not_yet")

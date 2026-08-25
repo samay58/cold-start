@@ -86,7 +86,7 @@ function InQuestionEntries({
   if (entries.length === 0) return null;
   return (
     <div className="eval-hiw-next-block">
-      <p className="eval-hiw-section">In question</p>
+      <p className="eval-hiw-section">Unresolved</p>
       <ul className="eval-hiw-next">
         {entries.map((entry) => (
           <li key={entry.strategy}>
