@@ -4,6 +4,7 @@ import {
   HOW_IT_WINS_GROUPS,
   HOW_IT_WINS_STRATEGIES,
   HowItWinsJudgmentClosedError,
+  adjudicationPatchSchema,
   assignMaterialBetIds,
   globalJudgmentTransportSchema,
   howItWinsEvidenceItemSchema,
@@ -14,8 +15,11 @@ import {
   howItWinsStrategyIdForName,
   howItWinsStrategyIdSchema,
   materializeSemanticJudgment,
+  mergeAdjudicationPatch,
   repairSemanticJudgment,
+  restoreUndisputedCurrentOrder,
   semanticJudgmentForModel,
+  semanticJudgmentFromBody,
   semanticJudgmentSchema,
   semanticMaterialBetSchema,
   stripUnknownNullTransportFields,
@@ -191,7 +195,7 @@ function howItWinsJudgeStageSchema(
         })
         : modelFacingJudgmentSchema().required({ materialBets: true });
     case "adjudication":
-      return modelFacingJudgmentSchema().required({ materialBets: true });
+      return adjudicationPatchSchema;
   }
 }
 
@@ -433,6 +437,22 @@ function materializeFromPacket(
   }
 }
 
+function betRevisionOverride(input: {
+  from: HowItWinsJudgmentBody["materialBets"];
+  to: HowItWinsJudgmentBody["materialBets"];
+  reason: string;
+  evidenceIds: string[];
+}): HowItWinsJudgmentBody["overrides"][number] {
+  return {
+    kind: "bet",
+    betId: input.to[0]!.betId,
+    from: hashHowItWinsJudgeValue(input.from),
+    to: hashHowItWinsJudgeValue(input.to),
+    reason: input.reason,
+    evidenceIds: input.evidenceIds
+  };
+}
+
 function assertBetRevisionRecorded(
   body: HowItWinsJudgmentBody,
   betMap: z.infer<typeof betMapSchema>
@@ -465,47 +485,15 @@ function parseGlobalJudgment(
     return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
   }
   const materialBets = assignMaterialBetIds(betRevision.materialBets);
-  const body = materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [{
-    kind: "bet",
-    betId: materialBets[0]!.betId,
-    from: hashHowItWinsJudgeValue(betMap.materialBets),
-    to: hashHowItWinsJudgeValue(materialBets),
-    reason: betRevision.reason,
-    evidenceIds: betRevision.evidenceIds
-  }]);
+  const body = materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [
+    betRevisionOverride({
+      from: betMap.materialBets,
+      to: materialBets,
+      reason: betRevision.reason,
+      evidenceIds: betRevision.evidenceIds
+    })
+  ]);
   return { body, repairs };
-}
-
-function assertTargetedAdjudication(
-  before: HowItWinsJudgmentBody,
-  after: HowItWinsJudgmentBody,
-  findings: Array<z.infer<typeof criticFindingSchema>>
-) {
-  const allowedStrategies = new Set(findings.flatMap((finding) => finding.strategyIds));
-  const beforeById = new Map(before.strategyEvaluations.map((entry) => [entry.strategyId, entry]));
-  for (const entry of after.strategyEvaluations) {
-    const prior = beforeById.get(entry.strategyId);
-    if (hashHowItWinsJudgeValue(entry) !== hashHowItWinsJudgeValue(prior) && !allowedStrategies.has(entry.strategyId)) {
-      throw new HowItWinsJudgmentClosedError(`adjudication changed undisputed strategy ${entry.strategyId}`);
-    }
-  }
-  const beforeUndisputedOrder = before.currentStrategyIds.filter((id) => !allowedStrategies.has(id));
-  const afterUndisputedOrder = after.currentStrategyIds.filter((id) => !allowedStrategies.has(id));
-  if (!sameStrings(beforeUndisputedOrder, afterUndisputedOrder)) {
-    throw new HowItWinsJudgmentClosedError("adjudication changed the order of undisputed strategies");
-  }
-  if (
-    hashHowItWinsJudgeValue(before.materialBets) !== hashHowItWinsJudgeValue(after.materialBets) &&
-    !findings.some((finding) => finding.kind === "bet")
-  ) {
-    throw new HowItWinsJudgmentClosedError("adjudication changed an undisputed bet");
-  }
-  if (
-    hashHowItWinsJudgeValue(before.unusualPair) !== hashHowItWinsJudgeValue(after.unusualPair) &&
-    !findings.some((finding) => finding.kind === "pair")
-  ) {
-    throw new HowItWinsJudgmentClosedError("adjudication changed the pair without a pair dispute");
-  }
 }
 
 type HowItWinsRefinementRecord = {
@@ -782,6 +770,8 @@ export function createHowItWinsJudge(config: {
     const materialFindings = critic.findings.filter((finding) => finding.material);
     let finalBody = globalJudgment;
     if (materialFindings.length > 0) {
+      const disputedStrategyIds = Array.from(new Set(materialFindings.flatMap((finding) => finding.strategyIds)));
+      const settled = semanticJudgmentFromBody(globalJudgment);
       const adjudicationRequest: HowItWinsJudgeCallRequest = {
         callId: "how-it-wins:adjudication",
         stage: "adjudication",
@@ -793,7 +783,8 @@ export function createHowItWinsJudge(config: {
           rules: config.rules,
           requiredSiblingIdsByStrategy: siblingMap,
           judgment: semanticJudgmentForModel(globalJudgment),
-          disputes: materialFindings
+          disputes: materialFindings,
+          disputedStrategyIds
         }
       };
       const adjudicationResult = await invokeTransport(config.adapters.strong, adjudicationRequest);
@@ -802,28 +793,50 @@ export function createHowItWinsJudge(config: {
         refinement.notes.push(refinementNote("adjudication call failed", adjudicationResult.error));
       } else {
         try {
-          const adjudicationTransport = semanticJudgmentSchema.parse(
+          const patch = adjudicationPatchSchema.parse(
             stripUnknownNullTransportFields(adjudicationResult.output)
           );
-          if (!adjudicationTransport.materialBets) {
-            throw new HowItWinsJudgmentClosedError("adjudication requires material bets");
-          }
-          const repaired = repairSemanticJudgment(adjudicationTransport, { requiredSiblingIds: siblingMap });
+          const merged = mergeAdjudicationPatch({
+            settled,
+            patch,
+            disputedStrategyIds,
+            pairDisputed: materialFindings.some((finding) => finding.kind === "pair"),
+            betDisputed: materialFindings.some((finding) => finding.kind === "bet")
+          });
+          const repaired = repairSemanticJudgment(merged.semantic, { requiredSiblingIds: siblingMap });
+          const ordered = restoreUndisputedCurrentOrder({
+            semantic: repaired.semantic,
+            settledCurrentStrategyIds: globalJudgment.currentStrategyIds,
+            disputedStrategyIds
+          });
+          const revisedBets = merged.betRevision
+            ? assignMaterialBetIds(merged.betRevision.materialBets)
+            : null;
           const adjudicated = materializeFromPacket(
-            repaired.semantic,
-            assignMaterialBetIds(adjudicationTransport.materialBets),
+            ordered.semantic,
+            revisedBets ?? structuredClone(globalJudgment.materialBets),
             packet,
             decidingQuestionFor,
-            globalJudgment.overrides.filter((entry) => entry.kind === "bet")
+            [
+              ...globalJudgment.overrides.filter((entry) => entry.kind === "bet"),
+              ...(revisedBets && merged.betRevision
+                ? [betRevisionOverride({
+                  from: globalJudgment.materialBets,
+                  to: revisedBets,
+                  reason: merged.betRevision.reason,
+                  evidenceIds: merged.betRevision.evidenceIds
+                })]
+                : [])
+            ]
           );
           assertFrozenEvidence(adjudicated, packet);
-          assertTargetedAdjudication(globalJudgment, adjudicated, materialFindings);
           assertScoutOverrides(adjudicated, availableScouts);
           assertRequiredSiblingResolutions(adjudicated, siblingMap);
           if (betMap) assertBetRevisionRecorded(adjudicated, betMap);
           finalBody = adjudicated;
           refinement.adjudication = "ok";
           refinement.repairs.push(...repaired.repairs);
+          refinement.notes.push(...merged.notes, ...ordered.notes);
         } catch (error) {
           if (isTransientLlmError(error)) throw error;
           refinement.adjudication = "failed";

@@ -87,8 +87,28 @@ function current(strategyId: HowItWinsStrategyId): HowItWinsStrategyEvaluation {
   };
 }
 
-function body(currentIds: HowItWinsStrategyId[] = []): HowItWinsJudgmentBody {
+// An open question the judge answered in full, with a historical bridge and no claims. Carrying
+// one through adjudication is what proves the merge reads the settled body rather than the
+// shorter projection the model gets.
+function openQuestion(strategyId: HowItWinsStrategyId): HowItWinsStrategyEvaluation {
+  return {
+    ...current(strategyId),
+    disposition: "open_question",
+    betIds: [],
+    claimIds: [],
+    presentRelevance: "historical_only",
+    historicalEvidenceIds: ["e1"],
+    presentEvidenceIds: [],
+    dispositionReason: "The record does not settle whether the mechanism still holds."
+  };
+}
+
+function body(
+  currentIds: HowItWinsStrategyId[] = [],
+  openQuestionIds: HowItWinsStrategyId[] = []
+): HowItWinsJudgmentBody {
   const selected = new Set(currentIds);
+  const open = new Set(openQuestionIds);
   return {
     evidenceCutoff: "2026-08-21T00:00:00.000Z",
     evidenceRegistry: [
@@ -113,9 +133,11 @@ function body(currentIds: HowItWinsStrategyId[] = []): HowItWinsJudgmentBody {
         scopeReasons: ["The same buyer and operating model apply."]
       }
     ],
-    strategyEvaluations: HOW_IT_WINS_STRATEGIES.map((strategy) =>
-      selected.has(strategy.id) ? current(strategy.id) : evaluation(strategy.id)
-    ),
+    strategyEvaluations: HOW_IT_WINS_STRATEGIES.map((strategy) => {
+      if (selected.has(strategy.id)) return current(strategy.id);
+      if (open.has(strategy.id)) return openQuestion(strategy.id);
+      return evaluation(strategy.id);
+    }),
     currentStrategyIds: currentIds,
     unusualPair: null,
     openQuestions: [],
@@ -241,6 +263,28 @@ function semanticFromBody(input: HowItWinsJudgmentBody, includeMaterialBets: boo
   };
 }
 
+// Adjudication answers with a patch: rows only for the disputed strategies, the whole ordered
+// current list, and the overrides for what moved.
+function adjudicationPatch(
+  request: HowItWinsJudgeCallRequest,
+  source: HowItWinsJudgmentBody,
+  options: {
+    rowStrategyIds?: HowItWinsStrategyId[];
+    currentStrategyIds?: HowItWinsStrategyId[];
+    unusualPair?: unknown;
+  } = {}
+) {
+  const disputed = (request.payload as { disputedStrategyIds: HowItWinsStrategyId[] }).disputedStrategyIds;
+  const rows = new Set(options.rowStrategyIds ?? disputed);
+  const semantic = semanticFromBody(source, false);
+  return {
+    strategyEvaluations: semantic.strategyEvaluations.filter((row) => rows.has(row.strategyId)),
+    currentStrategyIds: options.currentStrategyIds ?? source.currentStrategyIds,
+    ...(options.unusualPair !== undefined ? { unusualPair: options.unusualPair } : {}),
+    overrides: []
+  };
+}
+
 function scoutOutput(request: HowItWinsJudgeCallRequest) {
   const payload = request.payload as { strategies: typeof HOW_IT_WINS_STRATEGIES };
   const strategies = payload.strategies;
@@ -276,6 +320,9 @@ function adapters(options: {
   judgment?: HowItWinsJudgmentBody;
   criticFindings?: Array<Record<string, unknown>>;
   adjudicated?: HowItWinsJudgmentBody;
+  adjudicationRowIds?: HowItWinsStrategyId[];
+  adjudicationCurrentIds?: HowItWinsStrategyId[];
+  adjudicationPair?: unknown;
   betRevision?: {
     materialBets: HowItWinsJudgmentBody["materialBets"];
     reason?: string;
@@ -307,7 +354,11 @@ function adapters(options: {
     if (request.stage === "adjudication") {
       return {
         ok: true,
-        output: semanticFromBody(options.adjudicated ?? finalBody, true),
+        output: adjudicationPatch(request, options.adjudicated ?? finalBody, {
+          ...(options.adjudicationRowIds ? { rowStrategyIds: options.adjudicationRowIds } : {}),
+          ...(options.adjudicationCurrentIds ? { currentStrategyIds: options.adjudicationCurrentIds } : {}),
+          ...(options.adjudicationPair !== undefined ? { unusualPair: options.adjudicationPair } : {})
+        }),
         trace: trace(request, "fake-strong")
       };
     }
@@ -1031,9 +1082,10 @@ describe("createHowItWinsJudge", () => {
     expect(result.disagreements.map((entry) => entry.disagreementId)).toEqual(["f1"]);
   });
 
-  it("keeps the global judgment when adjudication touches an undisputed strategy", async () => {
+  it("drops an adjudication row for a strategy nobody disputed", async () => {
     const fake = adapters({
       adjudicated: body(["affordability"]),
+      adjudicationRowIds: ["affordability"],
       criticFindings: [{
         findingId: "f1",
         kind: "strategy",
@@ -1047,8 +1099,114 @@ describe("createHowItWinsJudge", () => {
     const result = await makeJudge(fake)(judgeInput());
 
     expect(result.currentStrategyIds).toEqual([]);
-    expect(result.refinement).toMatchObject({ adjudication: "failed" });
+    expect(result.refinement).toMatchObject({ adjudication: "ok" });
     expect(result.refinement?.notes.join(" ")).toMatch(/undisputed strategy affordability/i);
+  });
+
+  it("merges a two-row adjudication patch and leaves every other row exactly as it was", async () => {
+    // None of the three owes a sibling distinction, so the repair pass leaves each one current.
+    // Cloning sits ahead of both disputed strategies in canonical order, so an untouched row
+    // that carries a claim keeps its claim id through the merge.
+    const disputed: HowItWinsStrategyId[] = ["affordability", "durability"];
+    const findings = [{
+      findingId: "f1",
+      kind: "strategy",
+      material: true,
+      summary: "Two mechanisms may have been missed.",
+      strategyIds: disputed,
+      evidenceIds: ["e1"]
+    }];
+    const settledBody = body(["cloning"], ["reliability"]);
+    const settled = await makeJudge(adapters({ judgment: settledBody }), { scopes: [] })(judgeInput());
+    const result = await makeJudge(adapters({
+      judgment: settledBody,
+      adjudicated: body(["cloning", ...disputed], ["reliability"]),
+      criticFindings: findings
+    }), { scopes: [] })(judgeInput());
+
+    expect(result.refinement).toMatchObject({ adjudication: "ok" });
+    expect(result.currentStrategyIds).toEqual(["cloning", ...disputed]);
+    const untouched = (rows: typeof result.strategyEvaluations) =>
+      rows.filter((row) => !disputed.includes(row.strategyId));
+    expect(untouched(result.strategyEvaluations)).toEqual(untouched(settled.strategyEvaluations));
+    expect(untouched(result.strategyEvaluations)).toHaveLength(HOW_IT_WINS_STRATEGIES.length - 2);
+    expect(untouched(result.strategyEvaluations).find((row) => row.strategyId === "cloning"))
+      .toMatchObject({ disposition: "current", claimIds: ["c1"] });
+    expect(untouched(result.strategyEvaluations).find((row) => row.strategyId === "reliability"))
+      .toMatchObject({ presentRelevance: "historical_only", historicalEvidenceIds: ["e1"] });
+  });
+
+  it("puts undisputed current strategies back in order instead of rejecting the patch", async () => {
+    const fake = adapters({
+      judgment: body(["cloning", "affordability", "durability"]),
+      adjudicationCurrentIds: ["affordability", "cloning", "durability"],
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Durability may have been missed.",
+        strategyIds: ["durability"],
+        evidenceIds: ["e1"]
+      }]
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    expect(result.refinement).toMatchObject({ adjudication: "ok" });
+    expect(result.currentStrategyIds).toEqual(["cloning", "affordability", "durability"]);
+    expect(result.refinement?.notes.join(" ")).toMatch(/settled order was restored/i);
+  });
+
+  it("keeps the settled judgment when the patch changes no row at all", async () => {
+    const fake = adapters({
+      judgment: body(["cloning"]),
+      adjudicationRowIds: [],
+      criticFindings: [{
+        findingId: "f1",
+        kind: "evidence",
+        material: true,
+        summary: "One citation may not carry the mechanism.",
+        strategyIds: ["cloning"],
+        evidenceIds: ["e1"]
+      }]
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    expect(result.refinement).toMatchObject({ adjudication: "ok" });
+    expect(result.refinement?.notes).toEqual([]);
+    expect(result.currentStrategyIds).toEqual(["cloning"]);
+  });
+
+  it("ignores an adjudication pair that no material dispute named", async () => {
+    const fake = adapters({
+      judgment: body(["cloning", "affordability"]),
+      adjudicationPair: {
+        strategyIds: ["cloning", "affordability"],
+        referenceClass: "Companies selling the same buyer.",
+        normalChoice: "The reference class picks one of the two.",
+        excludedAlternative: "Running both at once.",
+        acceptedCost: "Slower coverage of either mechanism.",
+        interaction: "Each mechanism makes the other cheaper to run.",
+        copyingDifficulty: "A copy has to accept both costs together.",
+        evidenceIds: ["e1"]
+      },
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Affordability may have been missed.",
+        strategyIds: ["affordability"],
+        evidenceIds: ["e1"]
+      }]
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    expect(result.currentStrategyIds).toEqual(["cloning", "affordability"]);
+    expect(result.unusualPair).toBeNull();
+    expect(result.refinement).toMatchObject({ adjudication: "ok" });
+    expect(result.refinement?.notes.join(" ")).toMatch(/no material dispute named the pair/i);
   });
 
   it("re-asks the global judge exactly once when its answer breaks the contract", async () => {

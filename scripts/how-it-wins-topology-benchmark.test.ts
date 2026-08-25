@@ -223,9 +223,15 @@ test("the exact provider parameter prefix around a bet array is normalized", () 
     materialBets: `\n<parameter name="materialBets">${JSON.stringify(bets)}`
   }) as { materialBets: Array<{ supportingEvidenceIds: string[] }> };
   assert.deepEqual(withLeadingWhitespace.materialBets[0]?.supportingEvidenceIds, ["e1"]);
+  // A wrapper the exact prefix strip does not know is no longer fatal: one balanced top-level
+  // array inside the string is the list, whatever prose surrounds it. Two of them still are.
+  const wrongPrefix = normalizeBenchmarkToolOutput(request, {
+    materialBets: `<parameter name="other">${JSON.stringify(bets)}`
+  }) as { materialBets: Array<{ supportingEvidenceIds: string[] }> };
+  assert.deepEqual(wrongPrefix.materialBets[0]?.supportingEvidenceIds, ["e1"]);
   assert.throws(
     () => normalizeBenchmarkToolOutput(request, {
-      materialBets: `<parameter name="other">${JSON.stringify(bets)}`
+      materialBets: `${JSON.stringify(bets)} and also ${JSON.stringify(bets)}`
     }),
     /JSON array/i
   );
@@ -596,7 +602,12 @@ test("multi-stage bet references are limited to bets code already owns", () => {
   );
 });
 
-test("every stage schema restricts every evidence reference to the request registry", () => {
+test("every stage schema restricts every evidence reference to the fixed handle universe", () => {
+  // The enum used to list the run's own handles, which put the company's packet size inside the
+  // cached prefix and kept it from ever hitting across companies. It is a fixed universe now. The
+  // packet is still the only thing that decides which handles resolve on the way back.
+  const universe = Array.from({ length: 200 }, (_, index) => `ev_${String(index + 1).padStart(3, "0")}`);
+  const outside = ["ev_000", "ev_201", "e1", "unknown"];
   const requests = [
     stageRequest("bet_map"),
     stageRequest("group_scout"),
@@ -609,12 +620,24 @@ test("every stage schema restricts every evidence reference to the request regis
     const references = evidenceIdArrays(benchmarkToolSchemaForRequest(request));
     assert.ok(references.length > 0, `${request.stage} should expose evidence references`);
     for (const reference of references) {
-      const items = reference.items as { enum?: string[] } | undefined;
-      assert.deepEqual(items?.enum, ["ev_001", "ev_002"]);
-      assert.equal(items?.enum?.includes("unknown"), false);
-      assert.equal(items?.enum?.includes("e1"), false);
+      const items = reference.items as { pattern?: string } | undefined;
+      assert.ok(items?.pattern, `${request.stage} evidence reference needs the handle pattern`);
+      const handle = new RegExp(items.pattern);
+      assert.ok(universe.every((value) => handle.test(value)));
+      assert.ok(outside.every((value) => !handle.test(value)));
     }
   }
+});
+
+test("a wider evidence packet does not change the tool schema", () => {
+  const wider = stageRequest("global_judge");
+  (wider.payload as { evidencePacket: { evidence: Array<{ evidenceId: string }> } }).evidencePacket.evidence =
+    Array.from({ length: 41 }, (_, index) => ({ evidenceId: `wide-${index + 1}` }));
+
+  assert.deepEqual(
+    benchmarkToolSchemaForRequest(wider),
+    benchmarkToolSchemaForRequest(stageRequest("global_judge"))
+  );
 });
 
 test("every provider stage schema is valid Draft 2020-12", () => {

@@ -371,6 +371,7 @@ export type JudgeCallSummary = {
   latencyMs: number;
   estimatedCostUsd?: number;
   outcome: "ok" | "failed";
+  error?: string;
 };
 
 export type HowItWinsBatchCardRecord = {
@@ -415,7 +416,8 @@ function judgeCallSummaryFromJudgment(judgment: HowItWinsJudgment): JudgeCallSum
       outputTokens: call.outputTokens,
       latencyMs: call.latencyMs,
       ...(cost !== null && cost !== undefined ? { estimatedCostUsd: cost } : {}),
-      outcome: call.outcome
+      outcome: call.outcome,
+      ...(call.error ? { error: call.error } : {})
     };
   });
 }

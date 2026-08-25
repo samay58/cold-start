@@ -1,11 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
 
+import { HOW_IT_WINS_STRATEGIES, adjudicationPatchSchema } from "@cold-start/core";
+
 import {
   benchmarkToolSchemaForRequest,
   benchmarkTransportHash,
   createBenchmarkModelAdapter,
   createHowItWinsJudgeModelAdapter,
+  loadHowItWinsJudgeRules,
   normalizeBenchmarkToolOutput,
   type HowItWinsJudgeCallRequest
 } from "../src";
@@ -45,13 +48,51 @@ function globalRequest(): HowItWinsJudgeCallRequest {
   };
 }
 
+// Two real companies differ in packet size and in every word of their evidence. Cognition ran 40
+// to 41 items; the corpus median is 16 and its widest card 36.
+function companyRequest(input: { slug: string; items: number }): HowItWinsJudgeCallRequest {
+  return {
+    callId: `how-it-wins:${input.slug}`,
+    stage: "global_judge",
+    attempt: 1,
+    prompt: "Judge the record.",
+    payload: {
+      evidencePacket: {
+        cutoff: "2026-08-21T00:00:00.000Z",
+        evidence: Array.from({ length: input.items }, (_, index) => ({
+          evidenceId: `${input.slug}-c${index + 1}`,
+          text: `${input.slug} coverage ${index + 1} reports the mechanism.`,
+          source: `${input.slug} press ${index + 1}`,
+          sourceDate: "2026-08-20",
+          attribution: "independent",
+          scope: "company"
+        })),
+        context: { companyName: input.slug }
+      },
+      betMap: null,
+      rules: loadHowItWinsJudgeRules(),
+      vocabulary: HOW_IT_WINS_STRATEGIES
+    }
+  };
+}
+
+function evidenceIdEnums(schema: unknown, key = ""): string[][] {
+  if (!schema || typeof schema !== "object") return [];
+  const object = schema as Record<string, unknown>;
+  if (/evidenceids$/i.test(key)) {
+    const items = object.items as { pattern?: string } | undefined;
+    return items?.pattern ? [[items.pattern]] : [];
+  }
+  return Object.entries(object).flatMap(([childKey, child]) => evidenceIdEnums(child, childKey));
+}
+
 function sseBody(events: Array<{ event: string; data: unknown }>) {
   return events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join("");
 }
 
 // One tool_use block streamed the way the API sends it: the input arrives as input_json_delta
 // fragments, so the SDK's own parser has to reassemble it.
-function toolUseStream(toolInput: unknown) {
+function toolUseStream(toolInput: unknown, usageOverrides: Record<string, unknown> = {}) {
   const serialized = JSON.stringify(toolInput);
   const split = Math.floor(serialized.length / 2);
   return sseBody([
@@ -71,7 +112,8 @@ function toolUseStream(toolInput: unknown) {
             input_tokens: 1_200,
             output_tokens: 1,
             cache_creation_input_tokens: 0,
-            cache_read_input_tokens: 0
+            cache_read_input_tokens: 0,
+            ...usageOverrides
           }
         }
       }
@@ -183,11 +225,116 @@ describe("the how it wins judge transport", () => {
   });
 
   it("holds the frozen benchmark transport hash", () => {
-    // Re-pinned by packet B of the How it wins repair, which shrank the judgment's output
-    // contract: compact rows for every strategy that is not current, not yet, or an open
-    // question, no model-written deciding question, and prose length hints on the tool schema.
-    // A changed value here invalidates every frozen benchmark checkpoint.
-    expect(benchmarkTransportHash()).toBe("3ab0fa44acbc1155506bb6c00f4abcd10b8cdd8f78b0de958c726aad62126b05");
+    // Re-pinned after packet J of the How it wins repair, which replaced the per-run handle enum with a
+    // fixed universe so the cached prefix is identical across companies, and cut adjudication to
+    // a 12000-token budget. A changed value here invalidates every frozen benchmark checkpoint.
+    expect(benchmarkTransportHash()).toBe("d7d3e8ad318ee650d05f400913a6dabaca77e46638cc13204737c059d849f47d");
+  });
+
+  it("sends the rubric and the vocabulary once, in a cached system block", async () => {
+    const rules = loadHowItWinsJudgeRules();
+    const request = globalRequest();
+    request.payload = {
+      ...(request.payload as Record<string, unknown>),
+      rules,
+      vocabulary: HOW_IT_WINS_STRATEGIES
+    };
+    const { client, requests } = stubbedClient(toolUseStream(minimalToolOutput));
+
+    await createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(request);
+
+    const body = requestBody(requests) as {
+      system: Array<{ type: string; text: string; cache_control?: { type: string; ttl: string } }>;
+      messages: Array<{ content: string }>;
+    };
+    expect(body.system).toHaveLength(2);
+    expect(body.system[0]?.cache_control).toBeUndefined();
+    expect(body.system[0]?.text).toContain("Judge the record.");
+    expect(body.system[1]?.cache_control).toMatchObject({ type: "ephemeral" });
+    expect(body.system[1]?.text).toBe(
+      `Rules:\n${JSON.stringify(rules)}\n\nVocabulary:\n${JSON.stringify(HOW_IT_WINS_STRATEGIES)}`
+    );
+    const userPayload = JSON.parse(body.messages[0]!.content) as Record<string, unknown>;
+    expect(Object.hasOwn(userPayload, "rules")).toBe(false);
+    expect(Object.hasOwn(userPayload, "vocabulary")).toBe(false);
+    expect(Object.hasOwn(userPayload, "evidencePacket")).toBe(true);
+  });
+
+  it("prices a one-hour cache write and a cache read from the streamed usage", async () => {
+    // A 1h write bills twice the input rate and a read a tenth of it. Flattening the two into
+    // one cache_creation_input_tokens total prices the write at 1.25x and understates the run.
+    const { client } = stubbedClient(toolUseStream(minimalToolOutput, {
+      input_tokens: 1_000,
+      cache_read_input_tokens: 20_000,
+      cache_creation_input_tokens: 20_000,
+      cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 20_000 }
+    }));
+
+    const result = await createHowItWinsJudgeModelAdapter({ client, model: "claude-opus-5" })(globalRequest());
+
+    expect(result.trace).toMatchObject({
+      inputTokens: 1_000,
+      cacheReadInputTokens: 20_000,
+      cacheCreationInputTokens: 20_000,
+      // 1000 at $5/M, 20000 read at $0.5/M, 20000 written for an hour at $10/M, 24000 out at $25/M.
+      estimatedCostUsd: 0.815
+    });
+  });
+
+  it("sends two companies the same cacheable prefix and different messages", async () => {
+    // Anthropic caches tools, then system, then messages. While the tool schema listed the run's
+    // own handles, a 40-item packet and a 41-item packet had different tools, so the prefix never
+    // hit and every one-hour write was paid twice.
+    const cognition = stubbedClient(toolUseStream(minimalToolOutput));
+    const bland = stubbedClient(toolUseStream(minimalToolOutput));
+
+    await createHowItWinsJudgeModelAdapter({ client: cognition.client, model: "claude-opus-5" })(
+      companyRequest({ slug: "cognition", items: 40 })
+    );
+    await createHowItWinsJudgeModelAdapter({ client: bland.client, model: "claude-opus-5" })(
+      companyRequest({ slug: "bland", items: 41 })
+    );
+
+    const first = requestBody(cognition.requests);
+    const second = requestBody(bland.requests);
+    expect(first.tools).toEqual(second.tools);
+    expect(first.system).toEqual(second.system);
+    expect(first.messages).not.toEqual(second.messages);
+  });
+
+  it("restricts every evidence array to the fixed handle universe, not the packet", () => {
+    const enums = evidenceIdEnums(benchmarkToolSchemaForRequest(companyRequest({ slug: "cognition", items: 40 })));
+
+    expect(enums.length).toBeGreaterThan(0);
+    for (const [pattern] of enums) {
+      const handle = new RegExp(pattern!);
+      expect(handle.test("ev_001")).toBe(true);
+      expect(handle.test("ev_200")).toBe(true);
+      expect(handle.test("ev_000")).toBe(false);
+      expect(handle.test("ev_201")).toBe(false);
+      expect(handle.test("e1")).toBe(false);
+    }
+  });
+
+  it("fails closed when a packet outgrows the handle universe", () => {
+    expect(() => benchmarkToolSchemaForRequest(companyRequest({ slug: "sprawling", items: 201 })))
+      .toThrow(/holds 201 items and the handle universe stops at 200/);
+  });
+
+  it("rejects a handle the packet never listed", () => {
+    // The enum offers 200 handles to every company, so the packet is the only thing that decides
+    // which of them mean something.
+    expect(() => normalizeBenchmarkToolOutput(globalRequest(), {
+      strategyEvaluations: [],
+      overallWrongCondition: { condition: "The mechanism stops mattering.", evidenceIds: ["ev_200"] }
+    })).toThrow(/unknown evidence handle: ev_200/);
+  });
+
+  it("keeps every evidence reference out of the cached block", () => {
+    // The handle mapping only rewrites the user payload now, so the cached block has to be free
+    // of evidence references rather than assumed to be.
+    const cached = JSON.stringify({ rules: loadHowItWinsJudgeRules(), vocabulary: HOW_IT_WINS_STRATEGIES });
+    expect(cached).not.toMatch(/"evidenceIds?"/i);
   });
 });
 
@@ -322,5 +469,128 @@ describe("compact strategy rows", () => {
     };
 
     expect(rowsFrom(full)).toEqual({ ...full, evidenceIds: ["e1"] });
+  });
+});
+
+describe("lean open-question rows", () => {
+  function rowsFrom(row: Record<string, unknown>) {
+    const output = normalizeBenchmarkToolOutput(globalRequest(), { strategyEvaluations: [row] });
+    return (output as { strategyEvaluations: Array<Record<string, unknown>> }).strategyEvaluations[0]!;
+  }
+
+  // The real transport union is what decides whether a row survives, so the tests ask it rather
+  // than restate its rules.
+  function transportAccepts(row: unknown) {
+    return adjudicationPatchSchema.safeParse({
+      strategyEvaluations: [row],
+      currentStrategyIds: [],
+      overrides: []
+    }).success;
+  }
+
+  const lean = {
+    strategyId: "usership",
+    disposition: "open_question",
+    evidenceGate: "unresolved",
+    mechanism: "Users bring other users.",
+    evidenceIds: ["ev_001"],
+    counterevidenceIds: [],
+    dimensions: {
+      evidenceStrength: "inferred",
+      centrality: "supporting",
+      materiality: "material",
+      distinctiveness: "company_specific",
+      independence: "independent",
+      explanatoryValue: "additive"
+    },
+    dispositionReason: "The pull is described but never measured."
+  };
+
+  const fullOnlyKeys = {
+    betRefs: [1],
+    supportingClaims: [],
+    siblingCandidateIds: [],
+    siblingResolutions: [],
+    historicalEvidenceIds: [],
+    presentEvidenceIds: [],
+    presentBridge: null,
+    notYet: null,
+    presentRelevance: "current"
+  };
+
+  it("drops the full-record padding a model puts on a lean row", () => {
+    const trimmed = rowsFrom({
+      ...lean,
+      betRefs: [],
+      supportingClaims: [],
+      siblingCandidateIds: [],
+      siblingResolutions: [],
+      historicalEvidenceIds: [],
+      presentEvidenceIds: [],
+      presentBridge: null,
+      notYet: null,
+      presentRelevance: ""
+    });
+
+    expect(trimmed).toEqual({ ...lean, evidenceIds: ["e1"] });
+    expect(transportAccepts(trimmed)).toBe(true);
+  });
+
+  it("leaves a full-shaped open-question row whole", () => {
+    // Every full record carries notYet: null and usually presentBridge: null. Reading those as
+    // padding and dropping them would leave a row that matches no shape at all.
+    const trimmed = rowsFrom({ ...lean, ...fullOnlyKeys });
+
+    expect(trimmed).toEqual({ ...lean, ...fullOnlyKeys, evidenceIds: ["e1"] });
+    expect(transportAccepts(trimmed)).toBe(true);
+  });
+
+  it("leaves a lean row that needs no trimming alone", () => {
+    const trimmed = rowsFrom({ ...lean, counterevidenceIds: ["ev_001"] });
+
+    expect(trimmed).toEqual({ ...lean, evidenceIds: ["e1"], counterevidenceIds: ["e1"] });
+    expect(transportAccepts(trimmed)).toBe(true);
+  });
+});
+
+describe("tolerant list transport", () => {
+  function bets(raw: unknown) {
+    const request: HowItWinsJudgeCallRequest = {
+      callId: "how-it-wins:bet-map",
+      stage: "bet_map",
+      attempt: 1,
+      prompt: "Map the bet.",
+      payload: { evidencePacket: evidencePacket() }
+    };
+    return (normalizeBenchmarkToolOutput(request, raw) as { materialBets: unknown[] }).materialBets;
+  }
+
+  const bet = {
+    statement: "The company is betting on one evidenced mechanism.",
+    scope: "company",
+    supportingEvidenceIds: ["ev_001"],
+    scopeReasons: ["The same buyer and operating model apply."]
+  };
+
+  it("reads a list the model wrapped in prose", () => {
+    expect(bets({ materialBets: `Here is the list: ${JSON.stringify([bet])}` }))
+      .toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
+  });
+
+  it("reads a list the model numbered into an object", () => {
+    expect(bets({ materialBets: { "0": bet, "1": bet } })).toHaveLength(2);
+  });
+
+  it("refuses two top-level lists rather than guessing which one is the answer", () => {
+    expect(() => bets({ materialBets: `first ${JSON.stringify([bet])} then ${JSON.stringify([bet])}` }))
+      .toThrow(/must be a JSON array/i);
+  });
+
+  it("names the shape it got when it rejects a list", () => {
+    expect(() => bets({ materialBets: 7 })).toThrow(/must be a JSON array: number/i);
+    expect(() => bets({ materialBets: { statement: "one bet", scope: "company" } }))
+      .toThrow(/object with keys statement, scope/i);
+    expect(() => bets({ materialBets: "the bets are not written down anywhere" }))
+      .toThrow(/must be a JSON array: string "the bets are not written down anywhere"/i);
   });
 });

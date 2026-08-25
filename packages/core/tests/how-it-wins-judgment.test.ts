@@ -193,6 +193,110 @@ function materializeRows(options: Parameters<typeof semanticRows>[0] & {
   });
 }
 
+function openQuestionEvaluation(strategyId: HowItWinsStrategyId): HowItWinsStrategyEvaluation {
+  return {
+    ...current(strategyId),
+    disposition: "open_question",
+    betIds: [],
+    claimIds: [],
+    presentRelevance: "historical_only",
+    historicalEvidenceIds: ["e1"],
+    presentEvidenceIds: [],
+    dispositionReason: "The record does not settle whether the mechanism still holds."
+  };
+}
+
+const leanOpenQuestionRow = {
+  strategyId: "usership" as const,
+  disposition: "open_question" as const,
+  evidenceGate: "unresolved" as const,
+  mechanism: "The mechanism may change how the company is chosen.",
+  evidenceIds: ["e1"],
+  dimensions: passingDimensions(),
+  dispositionReason: "The record does not settle whether the mechanism still holds."
+};
+
+describe("open question records", () => {
+  it("expands the shorter open-question row into a full stored record", () => {
+    const base = judgment();
+    const body = materializeSemanticJudgment({
+      semantic: {
+        strategyEvaluations: HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id === "usership"
+          ? leanOpenQuestionRow
+          : {
+            strategyId: strategy.id,
+            disposition: "rejected" as const,
+            evidenceGate: "pass" as const,
+            dispositionReason: "The record does not put this mechanism in the buying decision."
+          }),
+        currentStrategyIds: [],
+        unusualPair: null,
+        openQuestions: [],
+        overallWrongCondition: base.overallWrongCondition,
+        disagreements: [],
+        overrides: []
+      },
+      materialBets: base.materialBets,
+      evidenceCutoff: base.evidenceCutoff,
+      evidenceRegistry: base.evidenceRegistry
+    });
+
+    expect(body.strategyEvaluations.find((entry) => entry.strategyId === "usership")).toEqual({
+      strategyId: "usership",
+      disposition: "open_question",
+      betIds: [],
+      mechanism: leanOpenQuestionRow.mechanism,
+      evidenceGate: "unresolved",
+      evidenceIds: ["e1"],
+      claimIds: [],
+      counterevidenceIds: [],
+      dimensions: passingDimensions(),
+      presentRelevance: "unresolved",
+      historicalEvidenceIds: [],
+      presentEvidenceIds: [],
+      presentBridge: null,
+      siblingCandidateIds: [],
+      siblingResolutions: [],
+      notYet: null,
+      dispositionReason: leanOpenQuestionRow.dispositionReason
+    });
+  });
+
+  it("still accepts the full open-question row an older judgment carries", () => {
+    const parsed = semanticInput([
+      fullSemanticRow("usership", { disposition: "open_question", presentRelevance: "historical_only" })
+    ]);
+    const row = parsed.strategyEvaluations[0]!;
+
+    expect(row).toMatchObject({ disposition: "open_question", presentRelevance: "historical_only" });
+    expect("supportingClaims" in row).toBe(true);
+  });
+
+  it("projects a stored open-question record to the shorter model form", () => {
+    const stored = judgment();
+    replaceEvaluation(stored, "usership", openQuestionEvaluation("usership"));
+    const projected = semanticJudgmentForModel(stored as HowItWinsJudgmentBody);
+    const row = projected.strategyEvaluations.find((entry) => entry.strategyId === "usership");
+
+    expect(row).toEqual({
+      strategyId: "usership",
+      disposition: "open_question",
+      evidenceGate: "pass",
+      mechanism: "The mechanism changes how the company is chosen.",
+      evidenceIds: ["e1"],
+      dimensions: passingDimensions(),
+      dispositionReason: "The record does not settle whether the mechanism still holds."
+    });
+  });
+
+  it("leaves the shorter row alone through the repair pass", () => {
+    const { semantic, repairs } = repairSemanticJudgment(semanticInput([leanOpenQuestionRow]));
+
+    expect(repairs).toEqual([]);
+    expect(semantic.strategyEvaluations[0]).toEqual(leanOpenQuestionRow);
+  });
+});
+
 describe("compact strategy records", () => {
   it("expands a compact row whose evidence gate did not fail", () => {
     const body = materializeRows({ current: "usership", evidenceGate: "pass" });
@@ -552,7 +656,7 @@ function semanticInput(rows: unknown[], overrides: Record<string, unknown> = {})
 
 function repairedRow(semantic: SemanticHowItWinsJudgment, strategyId: HowItWinsStrategyId) {
   const row = semantic.strategyEvaluations.find((entry) => entry.strategyId === strategyId);
-  if (!row || !("mechanism" in row)) throw new Error(`${strategyId} did not survive as a full row`);
+  if (!row || !("supportingClaims" in row)) throw new Error(`${strategyId} did not survive as a full row`);
   return row;
 }
 

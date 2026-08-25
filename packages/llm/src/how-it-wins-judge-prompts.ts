@@ -28,7 +28,7 @@ Mark a finding material only when correcting it could change the bet, a strategy
 
 export const HOW_IT_WINS_ADJUDICATION_PROMPT = `Resolve only the material disputes supplied with the request.
 
-Use the frozen evidence, canonical vocabulary, and settled judgment rules. Do not reopen undisputed decisions. Return a complete semantic judgment so validation can prove that no unrelated decision changed. State supporting facts and inferences inline, use one-based local bet references, and create no durable identifiers. Record every change and its cited reason. Spend words on the current, not-yet, and open-question strategies; a rejected or inapplicable strategy gets one clause, and every reason is one short sentence.`;
+Use the frozen evidence, canonical vocabulary, and settled judgment rules. Do not reopen an undisputed decision. Return a patch over the settled judgment, not a new judgment: one row for each disputed strategy id, the complete ordered current list, and an override for each thing you changed. Code carries every undisputed row forward unchanged, so a row for anything else is dropped. State supporting facts and inferences inline, use one-based local bet references, and create no durable identifiers. Every reason is one short sentence.`;
 
 export const HOW_IT_WINS_FROZEN_WRITER_PROMPT = `Render the approved structured judgment in plain English at the bar of a seasoned investor memo.
 

@@ -43,6 +43,15 @@ export function anthropicSystemCacheControl(): { type: "ephemeral"; ttl: Anthrop
   return { type: "ephemeral", ttl: resolveCacheTtl() };
 }
 
+// The 1h TTL only lands with the beta header; without it the API silently downgrades to 5m.
+// Every Anthropic call that sets a cache_control block needs these options, including the
+// streamed judge call, which does not go through createTracedAnthropicMessage.
+export function anthropicCacheRequestOptions(): { headers: Record<string, string> } | undefined {
+  return resolveCacheTtl() === "1h"
+    ? { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } }
+    : undefined;
+}
+
 function perMillionTokenPricing(model: string) {
   const normalized = model.toLowerCase();
   if (normalized.includes("haiku")) {
@@ -129,12 +138,7 @@ export async function createTracedAnthropicMessage(input: {
   }
 
   const startedAt = Date.now();
-  // Attach the extended-cache-ttl beta header only when the resolved TTL is 1h. The API silently
-  // downgrades to 5m without it; the beta name is in the SDK's known list (AnthropicBeta).
-  const requestOptions =
-    resolveCacheTtl() === "1h"
-      ? { headers: { "anthropic-beta": EXTENDED_CACHE_TTL_BETA } }
-      : undefined;
+  const requestOptions = anthropicCacheRequestOptions();
   try {
     const response = (await input.client.messages.create({ ...input.params, model: resolved.model }, requestOptions)) as Message & {
       usage?: AnthropicUsage;

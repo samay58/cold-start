@@ -138,6 +138,39 @@ const fullSemanticStrategySchema = z.object({
   dispositionReason: z.string().min(1)
 }).strict();
 
+// An open question reaches the writer as a mechanism, its evidence, and the reason it is still
+// open. Nothing downstream reads the rest, so the judge returns those and stops. A full-shaped
+// open-question row stays valid: stored judgments carry one, and so may a model.
+const leanSemanticStrategySchema = z.object({
+  strategyId: howItWinsStrategyIdSchema,
+  disposition: z.literal("open_question"),
+  evidenceGate: z.enum(["pass", "unresolved"]),
+  mechanism: z.string().min(1),
+  evidenceIds: z.array(z.string().min(1)).min(1),
+  counterevidenceIds: z.array(z.string().min(1)).optional(),
+  dimensions: howItWinsJudgmentDimensionsSchema,
+  dispositionReason: z.string().min(1)
+}).strict();
+
+// Order matters. Compact and full are both strict, so a lean row falls through to the last
+// option; keeping lean last also keeps the tool schema's anyOf indices stable.
+const semanticStrategyEvaluationSchema = z.union([
+  compactSemanticStrategySchema,
+  fullSemanticStrategySchema,
+  leanSemanticStrategySchema
+]);
+
+const semanticUnusualPairSchema = z.object({
+  strategyIds: z.tuple([howItWinsStrategyIdSchema, howItWinsStrategyIdSchema]),
+  referenceClass: z.string().min(1),
+  normalChoice: z.string().min(1),
+  excludedAlternative: z.string().min(1),
+  acceptedCost: z.string().min(1),
+  interaction: z.string().min(1),
+  copyingDifficulty: z.string().min(1),
+  evidenceIds: z.array(z.string().min(1)).min(1)
+}).strict();
+
 const semanticOpenQuestionSchema = z.object({
   question: z.string().min(1),
   whyMaterial: z.string().min(1),
@@ -165,21 +198,9 @@ const semanticOverrideSchema = z.object({
 
 export const semanticJudgmentSchema = z.object({
   materialBets: z.array(semanticMaterialBetSchema).min(1).optional(),
-  strategyEvaluations: z.array(z.union([
-    compactSemanticStrategySchema,
-    fullSemanticStrategySchema
-  ])),
+  strategyEvaluations: z.array(semanticStrategyEvaluationSchema),
   currentStrategyIds: z.array(howItWinsStrategyIdSchema),
-  unusualPair: z.object({
-    strategyIds: z.tuple([howItWinsStrategyIdSchema, howItWinsStrategyIdSchema]),
-    referenceClass: z.string().min(1),
-    normalChoice: z.string().min(1),
-    excludedAlternative: z.string().min(1),
-    acceptedCost: z.string().min(1),
-    interaction: z.string().min(1),
-    copyingDifficulty: z.string().min(1),
-    evidenceIds: z.array(z.string().min(1)).min(1)
-  }).strict().nullable(),
+  unusualPair: semanticUnusualPairSchema.nullable(),
   openQuestions: z.array(semanticOpenQuestionSchema),
   overallWrongCondition: z.object({
     condition: z.string().min(1),
@@ -201,6 +222,20 @@ export const globalJudgmentTransportSchema = semanticJudgmentSchema.extend({
   betRevision: betRevisionSchema.optional()
 }).strict();
 
+// Adjudication used to re-emit all 80 rows so validation could prove nothing else moved. That
+// cost a second full judgment and threw the whole answer away when one undisputed row drifted by
+// a word. The patch names only what changed; everything else is carried from the settled body by
+// code, so there is nothing left to drift.
+export const adjudicationPatchSchema = z.object({
+  strategyEvaluations: z.array(semanticStrategyEvaluationSchema),
+  currentStrategyIds: z.array(howItWinsStrategyIdSchema),
+  unusualPair: semanticUnusualPairSchema.nullable().optional(),
+  overrides: z.array(semanticOverrideSchema),
+  betRevision: betRevisionSchema.optional()
+}).strict();
+
+export type HowItWinsAdjudicationPatch = z.infer<typeof adjudicationPatchSchema>;
+
 export function assignMaterialBetIds(
   bets: Array<z.infer<typeof semanticMaterialBetSchema>>
 ): HowItWinsJudgmentBody["materialBets"] {
@@ -213,6 +248,36 @@ function isCompactSemanticStrategy(
   evaluation: SemanticStrategyEvaluation
 ): evaluation is z.infer<typeof compactSemanticStrategySchema> {
   return !("mechanism" in evaluation);
+}
+
+function isLeanSemanticStrategy(
+  evaluation: SemanticStrategyEvaluation
+): evaluation is z.infer<typeof leanSemanticStrategySchema> {
+  return "mechanism" in evaluation && !("supportingClaims" in evaluation);
+}
+
+function leanStrategyEvaluation(
+  input: z.infer<typeof leanSemanticStrategySchema>
+): HowItWinsStrategyEvaluation {
+  return {
+    strategyId: input.strategyId,
+    disposition: "open_question",
+    betIds: [],
+    mechanism: input.mechanism,
+    evidenceGate: input.evidenceGate,
+    evidenceIds: input.evidenceIds,
+    claimIds: [],
+    counterevidenceIds: input.counterevidenceIds ?? [],
+    dimensions: input.dimensions,
+    presentRelevance: "unresolved",
+    historicalEvidenceIds: [],
+    presentEvidenceIds: [],
+    presentBridge: null,
+    siblingCandidateIds: [],
+    siblingResolutions: [],
+    notYet: null,
+    dispositionReason: input.dispositionReason
+  };
 }
 
 export type SemanticJudgmentRepairOptions = {
@@ -316,12 +381,15 @@ function repairSemanticPass(
   requiredSiblingIds: SemanticJudgmentRepairOptions["requiredSiblingIds"],
   note: (text: string) => void
 ): SemanticHowItWinsJudgment {
-  const strategyEvaluations = semantic.strategyEvaluations.map((evaluation) => isCompactSemanticStrategy(evaluation)
-    ? evaluation
-    : repairFullStrategy(evaluation, requiredSiblingIds?.[evaluation.strategyId] ?? [], note));
+  // A compact row carries nothing to repair, and a lean row is an open question with no
+  // siblings, no not-yet record, and no current claim, so every rule below is already settled.
+  const strategyEvaluations = semantic.strategyEvaluations.map((evaluation) =>
+    isCompactSemanticStrategy(evaluation) || isLeanSemanticStrategy(evaluation)
+      ? evaluation
+      : repairFullStrategy(evaluation, requiredSiblingIds?.[evaluation.strategyId] ?? [], note));
 
   const currentRowIds = strategyEvaluations.flatMap((evaluation) =>
-    !isCompactSemanticStrategy(evaluation) && evaluation.disposition === "current" ? [evaluation.strategyId] : []);
+    evaluation.disposition === "current" ? [evaluation.strategyId] : []);
   const currentRows = new Set(currentRowIds);
   const currentStrategyIds: HowItWinsStrategyId[] = [];
   const selected = new Set<HowItWinsStrategyId>();
@@ -395,7 +463,7 @@ export function materializeSemanticJudgment(input: {
   const claims: HowItWinsJudgmentBody["claims"] = [];
   const claimIdsByStrategy = new Map<HowItWinsStrategyId, string[]>();
   for (const evaluation of input.semantic.strategyEvaluations) {
-    if (isCompactSemanticStrategy(evaluation)) continue;
+    if (isCompactSemanticStrategy(evaluation) || isLeanSemanticStrategy(evaluation)) continue;
     const claimIds: string[] = [];
     for (const claim of evaluation.supportingClaims) {
       const claimId = `c${claims.length + 1}`;
@@ -407,6 +475,7 @@ export function materializeSemanticJudgment(input: {
 
   const strategyEvaluations = input.semantic.strategyEvaluations.map((evaluation) => {
     if (isCompactSemanticStrategy(evaluation)) return compactStrategyEvaluation(evaluation);
+    if (isLeanSemanticStrategy(evaluation)) return leanStrategyEvaluation(evaluation);
     const { betRefs, supportingClaims: _supportingClaims, siblingResolutions, ...rest } = evaluation;
     const betIds = betRefs.map((reference) => {
       const bet = input.materialBets[reference - 1];
@@ -454,7 +523,10 @@ export function materializeSemanticJudgment(input: {
   });
 }
 
-export function semanticJudgmentForModel(body: HowItWinsJudgmentBody): SemanticHowItWinsJudgment {
+// The lossless projection: what materializeSemanticJudgment took in, recovered from what it put
+// out. Merging an adjudication patch runs through this, so the rows nobody disputed round-trip
+// back to the same records they started as.
+export function semanticJudgmentFromBody(body: HowItWinsJudgmentBody): SemanticHowItWinsJudgment {
   const betIndexById = new Map(body.materialBets.map((bet, index) => [bet.betId, index + 1]));
   const claimsById = new Map(body.claims.map((claim) => [claim.claimId, claim]));
   return semanticJudgmentSchema.parse({
@@ -504,4 +576,127 @@ export function semanticJudgmentForModel(body: HowItWinsJudgmentBody): SemanticH
       return [semantic];
     })
   });
+}
+
+// What the critic and the adjudicator read. Same body, minus the parts of an open-question row
+// no reader downstream uses.
+export function semanticJudgmentForModel(body: HowItWinsJudgmentBody): SemanticHowItWinsJudgment {
+  const semantic = semanticJudgmentFromBody(body);
+  return {
+    ...semantic,
+    strategyEvaluations: semantic.strategyEvaluations.map((evaluation) => {
+      if (evaluation.disposition !== "open_question") return evaluation;
+      if (isCompactSemanticStrategy(evaluation) || isLeanSemanticStrategy(evaluation)) return evaluation;
+      return {
+        strategyId: evaluation.strategyId,
+        disposition: evaluation.disposition,
+        evidenceGate: evaluation.evidenceGate,
+        mechanism: evaluation.mechanism,
+        evidenceIds: evaluation.evidenceIds,
+        ...(evaluation.counterevidenceIds.length > 0
+          ? { counterevidenceIds: evaluation.counterevidenceIds }
+          : {}),
+        dimensions: evaluation.dimensions,
+        dispositionReason: evaluation.dispositionReason
+      };
+    })
+  };
+}
+
+function overrideKey(entry: SemanticHowItWinsJudgment["overrides"][number]) {
+  return [entry.kind, entry.strategyId ?? "", entry.from, entry.to, entry.reason].join(" ");
+}
+
+export function mergeAdjudicationPatch(input: {
+  settled: SemanticHowItWinsJudgment;
+  patch: HowItWinsAdjudicationPatch;
+  disputedStrategyIds: readonly HowItWinsStrategyId[];
+  pairDisputed: boolean;
+  betDisputed: boolean;
+}): {
+  semantic: SemanticHowItWinsJudgment;
+  betRevision: z.infer<typeof betRevisionSchema> | null;
+  notes: string[];
+} {
+  const notes: string[] = [];
+  const note = (text: string) => { notes.push(text.slice(0, 300)); };
+  const disputed = new Set(input.disputedStrategyIds);
+
+  const replacements = new Map<HowItWinsStrategyId, SemanticStrategyEvaluation>();
+  for (const row of input.patch.strategyEvaluations) {
+    if (!disputed.has(row.strategyId)) {
+      note(`Adjudication dropped its row for undisputed strategy ${row.strategyId}.`);
+      continue;
+    }
+    if (replacements.has(row.strategyId)) {
+      note(`Adjudication returned ${row.strategyId} more than once, so the first row stands.`);
+      continue;
+    }
+    replacements.set(row.strategyId, row);
+  }
+  const strategyEvaluations = input.settled.strategyEvaluations.map(
+    (row) => replacements.get(row.strategyId) ?? row
+  );
+
+  let unusualPair = input.settled.unusualPair;
+  if (input.patch.unusualPair !== undefined) {
+    if (input.pairDisputed) unusualPair = input.patch.unusualPair;
+    else note("Adjudication kept the settled pair because no material dispute named the pair.");
+  }
+
+  const overrides = [...input.settled.overrides];
+  const seen = new Set(overrides.map(overrideKey));
+  for (const entry of input.patch.overrides) {
+    if (seen.has(overrideKey(entry))) continue;
+    seen.add(overrideKey(entry));
+    overrides.push(entry);
+  }
+
+  let betRevision: z.infer<typeof betRevisionSchema> | null = null;
+  if (input.patch.betRevision) {
+    if (input.betDisputed) betRevision = input.patch.betRevision;
+    else note("Adjudication kept the settled bets because no material dispute named a bet.");
+  }
+
+  return {
+    semantic: {
+      ...input.settled,
+      strategyEvaluations,
+      currentStrategyIds: input.patch.currentStrategyIds,
+      unusualPair,
+      overrides
+    },
+    betRevision,
+    notes
+  };
+}
+
+// The one ordering claim adjudication still owes: a strategy nobody disputed keeps its place
+// relative to the others. A patch that shuffles them is put back in order rather than thrown out.
+export function restoreUndisputedCurrentOrder(input: {
+  semantic: SemanticHowItWinsJudgment;
+  settledCurrentStrategyIds: readonly HowItWinsStrategyId[];
+  disputedStrategyIds: readonly HowItWinsStrategyId[];
+}): { semantic: SemanticHowItWinsJudgment; notes: string[] } {
+  const disputed = new Set(input.disputedStrategyIds);
+  const positions: number[] = [];
+  const found: HowItWinsStrategyId[] = [];
+  input.semantic.currentStrategyIds.forEach((strategyId, index) => {
+    if (disputed.has(strategyId)) return;
+    positions.push(index);
+    found.push(strategyId);
+  });
+  const settledOrder = input.settledCurrentStrategyIds.filter(
+    (strategyId) => !disputed.has(strategyId) && found.includes(strategyId)
+  );
+  if (settledOrder.length !== found.length) return { semantic: input.semantic, notes: [] };
+  if (settledOrder.every((strategyId, index) => strategyId === found[index])) {
+    return { semantic: input.semantic, notes: [] };
+  }
+  const currentStrategyIds = [...input.semantic.currentStrategyIds];
+  positions.forEach((position, index) => { currentStrategyIds[position] = settledOrder[index]!; });
+  return {
+    semantic: { ...input.semantic, currentStrategyIds },
+    notes: ["Adjudication reordered undisputed current strategies, so the settled order was restored."]
+  };
 }
