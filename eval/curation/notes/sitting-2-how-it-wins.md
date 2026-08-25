@@ -194,7 +194,7 @@ They answer different questions. Do not merge the sittings.
 
 | Eval | State | Question it answers | Next sitting |
 | --- | --- | --- | --- |
-| How it wins | 10 of 10 closed. Holdout sealed. Judgment standard and judge build complete. The first 30-arm topology base is historical because grouped handoffs were broken. | Which repaired topology makes the strongest evidence-grounded judgments? | Review the complete five-company blind decision screen. |
+| How it wins | 10 of 10 closed. Holdout sealed. Topology pick is monolith. Judge-then-writer is the live next step. | Does a frozen verdict plus a writer, under the off flag, file a display read without changing stored judgment? | Wire judge-then-writer. Parity record, writer tournament, and unread holdout stay later. |
 | Corpus quick-pick | 9 of 19. Ledger in this repo, `eval/curation/`. The clone at `~/cold-start-eval/repo` has only the same 9 quick-picks and no how-it-wins lane. Resume here. | Which full card makes him smartest about the company? | Low-energy sitting: rounds 10-19 at `/eval`. Then deep singles on the finalists. |
 
 Do not start golden eval, Jun 16 quality seams, or the teach walkthrough until this queue has been converted into prompt and standard changes. Those are later Cold Start sittings, not this close.
@@ -236,3 +236,64 @@ The earlier recommendation is complete. The current How it wins sitting uses one
 - The nine-arm decision screen stopped on one shared mechanical schema defect. Anthropic rejected every global-judge tool definition before generation because the optional unusual-pair strategy tuple used the Draft 7 array form at `/properties/unusualPair/anyOf/0/properties/strategyIds/items`. Draft 2020-12 requires tuple entries under `prefixItems` and requires `items` to be a schema object or boolean. Grouped arms spent money on bet mapping and scouts before hitting the same rejection; monolith failed immediately at zero cost. All nine arms failed closed without producing a new verdict. The screen cost $1.356809 and took 611,079 ms, bringing cumulative spend to $48.522718. No critic or adjudication ran. Do not use the incomplete generated review as a five-company judgment comparison. The next action is a no-provider schema repair and deterministic Draft 2020-12 validation. Any rerun needs a separate approval.
 - The no-provider schema repair is complete. All six provider-facing stage shapes validate under Draft 2020-12, including the exact unusual-pair path that Anthropic rejected. The decision-screen review now includes all five companies even when their arms agree or all fail closed, while preserving full valid answers and all 80 strategy rows. The repair passed 10 core tests, 26 judge tests, 44 benchmark tests, all workspace typechecks, lint, and a dry run with 30 fake arms, 250 fake calls, and zero providers. The transport hash changed to `3c87581d69ddd680a790be38a32a8b075512787bc795d5196868ad4aaade7ecf`, and all nine rerun IDs are fresh. Spend remains $48.522718. The fresh screen is estimated at $10.158367 before reserves; its proposed hard cumulative cap is $64. Production remains disabled and the holdout remains unread.
 - The repaired nine-arm decision screen is complete. Three arms produced valid all-80 verdicts. Six failed closed: four on judgment-contract violations, one after a bounded provider timeout, and one on a malformed field name. The shared Draft 2020 schema defect did not recur. The screen cost $9.592233 and took 3,464,506 ms, bringing cumulative spend to $58.114951. Four critics cost $0.190712, produced 15 findings with five marked material, and triggered one $0.839995 adjudication that still failed closed. The combined private blind review includes Cognition, Bland, Hebbia, August, and Neko Health, with seven full valid answers, seven complete 80-row audits, and eight visible failures. Next is Samay's blind review. No additional paid work is approved. Production remains disabled and the holdout remains unread.
+
+## Decision-screen sitting, 2026-08-24
+
+Samay reviewed the five-company compare canvas. Blindness is over. Aliases were global, not per-company, and do not transfer from the earlier Cognition pilot letters.
+
+- Arm A = `monolith`
+- Arm B = `thirteen_groups`
+- Arm C = `four_bundles`
+
+Valid answers shown, which is not the quality pick: Cognition A and B; Bland A and C; Hebbia A and B; August A only; Neko Health none.
+
+Mechanical survival, said once: monolith 4/5, thirteen_groups 2/5, four_bundles 1/5. Cumulative topology spend `$58.114951`. No further paid topology batch.
+
+Picks and notes are verbatim from `how-it-wins-compare.canvas.data.json`, typos included.
+
+### Cognition. Pick A (monolith)
+
+> "A is far sharper, it could be better written, but honestly its pretty strong and I like the direction A is heading (or at least the insight its revealing to me we're POTENTIALLY capable of."
+
+### Bland. Pick neither (A monolith vs C four_bundles)
+
+> "Both are fine. just fine I'd say. They have sparks of interesting ideas and I do agee with the thesis but I just feel like its shoddily written, and somewhat tough to read, it could be a lot better. Also iI'm wondering if this is the right mapping to the moats.
+> Honestly, I see sometimes we label the moats as questionable or in question, that would be super interseting stuff to include too. I feel like we're artificially constraining by only includng the ones that confidently light up as applicable or whatever.
+>
+> Anyway, just a thought. Both are fine I guess, nothing great."
+
+### Hebbia. Pick B (thirteen_groups)
+
+> "The writing again could be better. Its quite shoddy, but we're almost there with B it feels like. A is not well written at all
+>
+> Again, is specialization really the ONLY aplicable one? What are the questionable ones? I really feel like we should include them, perhaps with a different glow instead of the lilac and of course when the popout window appears, just to distinguish them from the confident ones."
+
+### August. Pick A (monolith; only survivor)
+
+> "Theres' only one for august? That said, that's fine.
+>
+> I'd say its okay written, good insights I think. But I think we could include more insight, nuance etc. Please once again we need to ensure no AI slop. That everything is written to the highest possible quality. We're doing a job of this in other sections, including (to an extent) the investor lens read."
+
+### Neko Health. Skip
+
+Empty note. No valid answers.
+
+### Topology decision
+
+**monolith** (`scopes: []` on `createHowItWinsJudge`).
+
+Quality is split: Cognition A is the strongest language in the sitting, Hebbia picked B as "almost there" and "shoddy." four_bundles never won a pick. August only had monolith. The split is documented, then monolith is the topology to wire. Two-way door. `HOW_IT_WINS_ENABLED` stays false.
+
+### Product notes, not this wiring
+
+Recorded in his words, not Packet 2 scope:
+
+1. Show in-question / questionable strategies, not only the confident current set. Different glow from the lilac, same distinction in the popout. Said on Bland and Hebbia.
+2. Writing is still shoddy. Cognition A is the ceiling he actually liked. Bland, Hebbia, and August are "fine" / "almost there" / "okay." Match the investor-lens bar. No instrument slop.
+3. Uncapped current judgment already exists on the judge; display still collapses. Do not treat survival as the quality pick.
+
+### What this sitting builds next
+
+Judge-then-writer on the analysis path, behind the existing off flag. Writer renders a frozen verdict and may not add, drop, swap, or reorder labels. Hostile editor skipped on the frozen path. Full all-80 audit stays on `trace.howItWins.judgment`. Semantic failure still degrades to `nothing_stands_out`. No production model env vars. No holdout. No flag flip.
+
+The parity record, writer tournament, and unread holdout remain later.

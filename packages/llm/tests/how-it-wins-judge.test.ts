@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   HOW_IT_WINS_STRATEGIES,
   type HowItWinsJudgmentBody,
@@ -14,6 +17,9 @@ import {
   howItWinsFourBundleScopes,
   howItWinsJudgePromptHash,
   parseFrozenHowItWinsWriterDraft,
+  howItWinsFromFrozenWriter,
+  loadHowItWinsJudgeRules,
+  parseHowItWinsJudgeRules,
   type HowItWinsJudgeAdapter,
   type HowItWinsJudgeCallRequest,
   type HowItWinsJudgeCallTrace,
@@ -1009,5 +1015,42 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     expect(parseFrozenHowItWinsWriterDraft(draft(["usership", "aggregation"]), verdict())).toHaveProperty("issues");
     expect(parseFrozenHowItWinsWriterDraft(draft(["usership", "aggregation", "precision"]), verdict())).toHaveProperty("issues");
     expect(parseFrozenHowItWinsWriterDraft(draft(["reliability", "aggregation", "usership"]), verdict())).toHaveProperty("issues");
+  });
+
+  it("collapses an uncapped current set onto the display running budget", () => {
+    const parsed = parseFrozenHowItWinsWriterDraft(draft(), verdict());
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    expect(display.status).toBe("read");
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.running.map((entry) => entry.strategy)).toEqual(["usership", "aggregation", "reliability"]);
+    expect(display.running.every((entry) => entry.meaning.length > 0)).toBe(true);
+  });
+
+  it("degrades a single current strategy to nothing_stands_out without changing the stored verdict", () => {
+    const frozen = verdict();
+    const one = { ...frozen, currentStrategyIds: ["usership"] as typeof frozen.currentStrategyIds };
+    const parsed = parseFrozenHowItWinsWriterDraft(draft(["usership"]), one);
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    expect(howItWinsFromFrozenWriter(parsed.read)).toEqual({
+      status: "nothing_stands_out",
+      sentence: "Fixture Company wins through three current mechanisms."
+    });
+    expect(one.currentStrategyIds).toEqual(["usership"]);
+    expect(frozen.currentStrategyIds).toEqual(["usership", "aggregation", "reliability"]);
+  });
+});
+
+describe("loadHowItWinsJudgeRules", () => {
+  it("matches the authoritative spec files", () => {
+    const specDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../docs/superpowers/specs");
+    const fromDocs = parseHowItWinsJudgeRules({
+      standard: readFileSync(resolve(specDir, "2026-08-21-how-it-wins-judgment-standard.md"), "utf8"),
+      rubric: readFileSync(resolve(specDir, "2026-08-21-how-it-wins-strategy-rubric.md"), "utf8")
+    });
+    expect(loadHowItWinsJudgeRules()).toEqual(fromDocs);
+    expect(fromDocs.strategyRubric).toHaveLength(HOW_IT_WINS_STRATEGIES.length);
   });
 });

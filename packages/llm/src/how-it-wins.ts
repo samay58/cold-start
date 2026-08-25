@@ -14,10 +14,16 @@ import {
   howItWinsStrategyIdForName,
   type ColdStartCard,
   type HowItWins,
+  type HowItWinsJudgment,
   type HowItWinsStrategyId
 } from "@cold-start/core";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { parseModelString, withProviderFallback } from "./llm-provider";
+import {
+  frozenHowItWinsWriterRequest,
+  howItWinsFromFrozenWriter,
+  parseFrozenHowItWinsWriterDraft
+} from "./how-it-wins-frozen-writer";
 import {
   HOW_IT_WINS_HOSTILE_EDITOR,
   HOW_IT_WINS_PASS_1,
@@ -43,6 +49,7 @@ export type HowItWinsResult = {
   // Slips the parser corrected instead of failing on: a repeated running way, a next way that is
   // already running or outside the vocabulary, a pair leg spelled as a running way. Not failures.
   normalizations: string[];
+  judgment?: HowItWinsJudgment;
 };
 
 const REASON_MAX_TOKENS = 16000;
@@ -512,12 +519,76 @@ function vocabularyForPrompt(): string {
   ).join("\n");
 }
 
+async function synthesizeHowItWinsFromFrozenJudgment(
+  input: {
+    client: Anthropic;
+    models: HowItWinsModels;
+    card: ColdStartCard;
+    telemetry?: AnthropicTelemetrySink;
+  },
+  judgment: HowItWinsJudgment
+): Promise<HowItWinsResult> {
+  const request = frozenHowItWinsWriterRequest(judgment);
+  const system = `${HOW_IT_WINS_WRITING_STANDARD}\n\n${request.prompt}`;
+  const user = `Approved judgment:\n${JSON.stringify(request.payload)}\n\nEvidence:\n${JSON.stringify(cardForHowItWinsPrompt(input.card))}`;
+  const askWriter = (userText: string) =>
+    withProviderFallback("how_it_wins", input.models.writer, (model) =>
+      callWithEmptyTextRetry({
+        client: input.client,
+        telemetry: input.telemetry,
+        label: "how-it-wins-frozen-writer",
+        model,
+        system,
+        user: userText,
+        maxTokens: FIT_MAX_TOKENS
+      })
+    );
+
+  let parsed = parseFrozenHowItWinsWriterDraft(await askWriter(user), judgment);
+  let fitRetried = false;
+  const retryUser = (issues: string[]) =>
+    `${user}\n\nThe previous attempt had these problems; fix them and return only the JSON:\n- ${issues.join("\n- ")}`;
+
+  if ("issues" in parsed) {
+    fitRetried = true;
+    parsed = parseFrozenHowItWinsWriterDraft(await askWriter(retryUser(parsed.issues)), judgment);
+  }
+  if ("issues" in parsed) {
+    throw new Error(`how-it-wins frozen writer invalid: ${parsed.issues.join("; ")}`);
+  }
+
+  let read = howItWinsFromFrozenWriter(parsed.read);
+  let styleIssues = styleIssuesForRead(read);
+  if (styleIssues.length > 0 && !fitRetried) {
+    fitRetried = true;
+    const retried = parseFrozenHowItWinsWriterDraft(await askWriter(retryUser(styleIssues)), judgment);
+    if ("read" in retried) {
+      parsed = retried;
+      read = howItWinsFromFrozenWriter(retried.read);
+      styleIssues = styleIssuesForRead(read);
+    }
+  }
+
+  return {
+    read: stripEmDashes(read),
+    editorSkipped: true,
+    fitRetried,
+    styleIssues,
+    normalizations: [],
+    judgment
+  };
+}
+
 export async function synthesizeHowItWins(input: {
   client: Anthropic;
   models: HowItWinsModels;
   card: ColdStartCard;
   telemetry?: AnthropicTelemetrySink;
+  judgment?: HowItWinsJudgment;
 }): Promise<HowItWinsResult> {
+  if (input.judgment) {
+    return synthesizeHowItWinsFromFrozenJudgment(input, input.judgment);
+  }
   const { client, models, card, telemetry } = input;
   const cardJson = JSON.stringify(cardForHowItWinsPrompt(card));
   const task = `${HOW_IT_WINS_TASK_INTRO}\n\nThe 80 ways, in 13 groups:\n${vocabularyForPrompt()}\n\nEvidence:\n${cardJson}`;

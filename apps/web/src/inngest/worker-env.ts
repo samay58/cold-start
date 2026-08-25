@@ -98,10 +98,11 @@ export function howItWinsEnabled() {
   return process.env.HOW_IT_WINS_ENABLED !== "false";
 }
 
-// Two models, not one: the writer runs passes 1, 2, and 4 through the stage's own routing chain
-// (LLM_HOW_IT_WINS_MODEL, then the synthesis chain), while the hostile editor pass 3 is a second
-// model reading the draft cold. The editor is addressed directly rather than through
-// modelForStage because it is not a routable stage of its own; it is one pass inside how_it_wins.
+// Two models, not one: the monolith judge and the frozen writer run through the stage's own
+// routing chain (LLM_HOW_IT_WINS_MODEL, then the synthesis chain). The critic is the existing
+// editor model (LLM_HOW_IT_WINS_EDITOR_MODEL, default deepseek/deepseek-v4-pro) because the
+// judge requires a different provider from the global call. The editor is addressed directly
+// rather than through modelForStage because it is not a routable stage of its own.
 export function howItWinsModelsFromProcess(defaultModel?: string): HowItWinsModels {
   return {
     writer: modelForStage("how_it_wins", defaultModel),

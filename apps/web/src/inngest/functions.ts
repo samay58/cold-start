@@ -8,6 +8,7 @@ import {
   type FirstPayoff,
   type GenerationTrace,
   type HowItWins,
+  type HowItWinsJudgment,
   deriveLegacyResearchSectionsFromCard,
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionJobKind,
@@ -832,10 +833,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         // than paying for a second verifier round trip.
         //
         // The how-it-wins read runs as a second, concurrent closure below rather than after this
-        // one: its four passes cost around two minutes on their own, and nothing it reads depends
-        // on the founder-voice citations the emphasis closure fetches. Both closures are awaited
-        // together and joined once both settle, so a rejection from either always has a handler.
-        // Neither writes the other's fields: emphasis owns generatedCard.citations,
+        // one: the monolith judge plus frozen writer cost their own model time, and nothing it
+        // reads depends on the founder-voice citations the emphasis closure fetches. Both closures
+        // are awaited together and joined once both settle, so a rejection from either always has
+        // a handler. Neither writes the other's fields: emphasis owns generatedCard.citations,
         // sourcesToRecord, and trace.emphasis; how-it-wins owns only trace.howItWins.
         //
         // currentStage is the one genuinely shared write. Last-writer-wins is fine for the happy
@@ -949,15 +950,15 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
         const runHowItWinsPipeline = async (): Promise<{
           draft: HowItWins | null;
-          meta: { editorSkipped?: boolean; fitRetried?: boolean; styleIssueCount?: number };
+          meta: { editorSkipped?: boolean; fitRetried?: boolean; styleIssueCount?: number; judgment?: HowItWinsJudgment };
         }> => {
           if (!howItWinsEnabled()) {
             trace.steps = { ...trace.steps, "how-it-wins": skippedStep("HOW_IT_WINS_ENABLED=false") };
             return { draft: null, meta: {} };
           }
           // The same gate the emphasis read uses, run in code before any model call, so a thin
-          // card pays for none of the four passes. Read off the pre-founder-voice snapshot, which
-          // is the card this read is written from either way.
+          // card pays for none of the judge or writer calls. Read off the pre-founder-voice
+          // snapshot, which is the card this read is written from either way.
           const thinFileReason = howItWinsThinFileReason(cardForHowItWins);
           if (thinFileReason) {
             mergeTracePatch(trace, { howItWins: { enabled: true, status: "thin_file", thinFileReason } });
@@ -993,7 +994,10 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           mergeTracePatch(trace, howItWinsResult.tracePatch);
           // A semantic how-it-wins failure degrades to nothing_stands_out; it never fails the run.
           if (!howItWinsResult.value.ok) {
-            return { draft: { status: "nothing_stands_out" }, meta: {} };
+            return {
+              draft: { status: "nothing_stands_out" },
+              meta: howItWinsResult.value.judgment ? { judgment: howItWinsResult.value.judgment } : {}
+            };
           }
           const stage = howItWinsResult.value.value;
           return {
@@ -1001,7 +1005,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             meta: {
               editorSkipped: stage.editorSkipped,
               fitRetried: stage.fitRetried,
-              styleIssueCount: stage.styleIssues.length
+              styleIssueCount: stage.styleIssues.length,
+              ...(stage.judgment ? { judgment: stage.judgment } : {})
             }
           };
         };

@@ -3,7 +3,14 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
-import type { ColdStartCard, HowItWinsRead } from "@cold-start/core";
+import {
+  HOW_IT_WINS_STRATEGIES,
+  howItWinsJudgmentSchema,
+  type ColdStartCard,
+  type HowItWinsJudgment,
+  type HowItWinsRead,
+  type HowItWinsStrategyId
+} from "@cold-start/core";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -14,6 +21,7 @@ import {
   HOW_IT_WINS_TASK_INTRO,
   HOW_IT_WINS_WRITING_STANDARD
 } from "../src/how-it-wins-prompts";
+import { HOW_IT_WINS_FROZEN_WRITER_PROMPT } from "../src/how-it-wins-judge-prompts";
 import {
   HowItWinsEmptyTextError,
   parseHowItWinsDraft,
@@ -111,6 +119,139 @@ function readFromValidDraft(): HowItWinsRead {
 
 function writerModels() {
   return { writer: "claude-sonnet-5", editor: "deepseek/deepseek-v4-pro" };
+}
+
+function frozenJudgment(
+  currentIds: HowItWinsStrategyId[] = ["hybrid", "chokepoint", "prestige"]
+): HowItWinsJudgment {
+  const selected = new Set(currentIds);
+  return howItWinsJudgmentSchema.parse({
+    version: 1,
+    hashes: {
+      evidencePacket: "a".repeat(64),
+      prompt: "b".repeat(64),
+      vocabulary: "c".repeat(64)
+    },
+    evidenceCutoff: "2026-08-21T00:00:00.000Z",
+    evidenceRegistry: [
+      {
+        evidenceId: "e1",
+        text: "A current source describes the mechanism.",
+        source: "Primary source",
+        sourceDate: "2026-08-20",
+        attribution: "independent",
+        scope: "company"
+      }
+    ],
+    claims: [
+      { claimId: "c1", type: "observed_fact", text: "A current source describes the mechanism.", evidenceIds: ["e1"] }
+    ],
+    materialBets: [
+      {
+        betId: "b1",
+        statement: "The company is betting on one evidenced mechanism.",
+        scope: "company",
+        supportingEvidenceIds: ["e1"],
+        scopeReasons: ["The same buyer and operating model apply."]
+      }
+    ],
+    strategyEvaluations: HOW_IT_WINS_STRATEGIES.map((strategy) =>
+      selected.has(strategy.id)
+        ? {
+            strategyId: strategy.id,
+            disposition: "current",
+            betIds: ["b1"],
+            mechanism: "The mechanism changes how the company is chosen.",
+            evidenceGate: "pass",
+            evidenceIds: ["e1"],
+            claimIds: ["c1"],
+            counterevidenceIds: [],
+            dimensions: {
+              evidenceStrength: "direct",
+              centrality: "central",
+              materiality: "material",
+              distinctiveness: "company_specific",
+              independence: "independent",
+              explanatoryValue: "necessary"
+            },
+            presentRelevance: "current",
+            historicalEvidenceIds: [],
+            presentEvidenceIds: ["e1"],
+            presentBridge: null,
+            siblingCandidateIds: [],
+            siblingResolutions: [],
+            notYet: null,
+            dispositionReason: "The mechanism is current and material."
+          }
+        : {
+            strategyId: strategy.id,
+            disposition: "insufficient_evidence",
+            betIds: [],
+            mechanism: null,
+            evidenceGate: "fail",
+            evidenceIds: [],
+            claimIds: [],
+            counterevidenceIds: [],
+            dimensions: {
+              evidenceStrength: "insufficient",
+              centrality: "not_reached",
+              materiality: "not_reached",
+              distinctiveness: "not_reached",
+              independence: "not_reached",
+              explanatoryValue: "not_reached"
+            },
+            presentRelevance: "not_reached",
+            historicalEvidenceIds: [],
+            presentEvidenceIds: [],
+            presentBridge: null,
+            siblingCandidateIds: [],
+            siblingResolutions: [],
+            notYet: null,
+            dispositionReason: "The supplied evidence does not establish this mechanism."
+          }
+    ),
+    currentStrategyIds: currentIds,
+    unusualPair: null,
+    openQuestions: [],
+    overallWrongCondition: {
+      condition: "The current mechanism stops affecting buyer choice.",
+      evidenceIds: ["e1"]
+    },
+    disagreements: [],
+    overrides: [],
+    calls: [
+      {
+        callId: "global-1",
+        stage: "global_judge",
+        provider: "fake-strong",
+        model: "fake-model",
+        inputTokens: 10,
+        outputTokens: 20,
+        cacheCreationInputTokens: 0,
+        cacheReadInputTokens: 0,
+        actualCostUsd: null,
+        estimatedCostUsd: 0,
+        latencyMs: 1,
+        retryCount: 0,
+        thinkingState: "unknown",
+        outcome: "ok"
+      }
+    ]
+  });
+}
+
+function frozenWriterDraftJson(strategyIds: HowItWinsStrategyId[] = ["hybrid", "chokepoint", "prestige"]) {
+  return JSON.stringify({
+    status: "read",
+    sentence: "Irregular's evaluation harness sits inside model-release decisions for two frontier labs.",
+    current: strategyIds.map((strategy) => ({
+      strategy,
+      note: `Irregular uses ${strategy} in its current bet [e1].`
+    })),
+    pair: null,
+    not_yet: [],
+    wrong_if: "A second vendor appears in the same release notes and performs the same role."
+  });
 }
 
 async function runDriver() {
@@ -657,5 +798,31 @@ describe("synthesizeHowItWins", () => {
     expect(task).toContain("Evidence:");
     expect(task).not.toContain("The company's card");
     expect(task.toLowerCase()).not.toContain("on the card");
+  });
+
+  it("renders a frozen judgment in one writer call and skips the hostile editor", async () => {
+    tracedMessage.mockReset();
+    tracedMessage.mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
+
+    const judgment = frozenJudgment();
+    const result = await synthesizeHowItWins({
+      client: {} as Anthropic,
+      models: writerModels(),
+      card,
+      judgment
+    });
+
+    expect(result.editorSkipped).toBe(true);
+    expect(result.judgment).toBe(judgment);
+    expect(result.read.status).toBe("read");
+    if (result.read.status !== "read") throw new Error("expected a frozen read");
+    expect(result.read.running.map((entry) => entry.strategy)).toEqual(["hybrid", "chokepoint", "prestige"]);
+    expect(tracedMessage).toHaveBeenCalledTimes(1);
+
+    const call = callsMade()[0];
+    expect(call?.label).toBe("how-it-wins-frozen-writer");
+    expect(call?.params.system.map((block) => block.text).join("")).toContain(HOW_IT_WINS_FROZEN_WRITER_PROMPT);
+    expect(call?.params.messages[0]?.content).toContain("Approved judgment:");
+    expect(call?.params.messages[0]?.content).not.toContain("how-it-wins-reason");
   });
 });

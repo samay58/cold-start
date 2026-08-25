@@ -37,6 +37,7 @@ import {
   HOW_IT_WINS_MONOLITH_PROMPT,
   HOW_IT_WINS_JUDGE_PROMPTS
 } from "./how-it-wins-judge-prompts";
+import { isTransientLlmError } from "./transient-error";
 
 export type { HowItWinsJudgeCallTrace } from "@cold-start/core";
 export { HowItWinsJudgmentClosedError as HowItWinsJudgeClosedError };
@@ -523,7 +524,8 @@ export function createHowItWinsJudge(config: {
       let result: HowItWinsJudgeAdapterResult;
       try {
         result = await adapter(request);
-      } catch {
+      } catch (error) {
+        if (isTransientLlmError(error)) throw error;
         throw new HowItWinsJudgmentClosedError(`${request.callId} threw without returning trace data`);
       }
       const trace = howItWinsJudgeCallTraceSchema.parse(result.trace);

@@ -1,7 +1,9 @@
 import {
   howItWinsJudgmentSchema,
+  howItWinsSchema,
   howItWinsStrategyById,
   howItWinsStrategyIdSchema,
+  type HowItWins,
   type HowItWinsJudgment,
   type HowItWinsStrategyId
 } from "@cold-start/core";
@@ -171,4 +173,36 @@ export function parseFrozenHowItWinsWriterDraft(
     read: { status: "read", sentence, current: current.parsed, pair, notYet: notYet.parsed, wrongIf },
     prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT
   };
+}
+
+export const HOW_IT_WINS_DISPLAY_RUNNING_MAX = 4;
+
+export function howItWinsFromFrozenWriter(
+  read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string }
+): HowItWins {
+  if (read.status !== "read") {
+    return { status: "nothing_stands_out", sentence: read.sentence };
+  }
+  const running = read.current.slice(0, HOW_IT_WINS_DISPLAY_RUNNING_MAX);
+  if (running.length < 2) {
+    return read.sentence.trim()
+      ? { status: "nothing_stands_out", sentence: read.sentence }
+      : { status: "nothing_stands_out" };
+  }
+  const runningIds = new Set(running.map((entry) => entry.strategy));
+  const pair = read.pair && read.pair.strategies.every((leg) => runningIds.has(leg))
+    ? read.pair
+    : null;
+  const next = read.notYet
+    .filter((entry) => !runningIds.has(entry.strategy))
+    .slice(0, 2)
+    .map((entry) => ({ strategy: entry.strategy, note: entry.note, citationIds: entry.citationIds }));
+  return howItWinsSchema.parse({
+    status: "read",
+    sentence: read.sentence,
+    running,
+    pair,
+    next,
+    wrongIf: read.wrongIf
+  });
 }

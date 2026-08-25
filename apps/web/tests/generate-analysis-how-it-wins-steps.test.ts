@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import type { ColdStartCard, GenerationTrace, HowItWinsJudgment } from "@cold-start/core";
 import type { FounderVoiceItem } from "@cold-start/providers";
 
 import type { GenerationStepWarning } from "../src/inngest/client";
@@ -9,9 +9,10 @@ import type { GenerationStepWarning } from "../src/inngest/client";
 // the real generateCardHandler for mode "analysis" with both HOW_IT_WINS_ENABLED and
 // EMPHASIS_READ_ENABLED left at their production defaults (on), and asserts the how-it-wins step
 // placement, its events, its trace block, and the verified read landing on the stored card.
-// synthesizeHowItWins is the one boundary this suite mocks that the emphasis sibling does not;
-// fetchFounderVoiceEvidence and synthesizeEmphasisRead stay mocked exactly as that file does, so
-// the emphasis pair runs its real default-on path alongside the how-it-wins step.
+// synthesizeHowItWins and judgeHowItWinsForAnalysis are the boundaries this suite mocks that the
+// emphasis sibling does not; fetchFounderVoiceEvidence and synthesizeEmphasisRead stay mocked
+// exactly as that file does, so the emphasis pair runs its real default-on path alongside the
+// how-it-wins step.
 const generatedAt = "2026-08-12T20:00:00.000Z";
 
 const providerSource = {
@@ -184,11 +185,14 @@ const howItWinsReadFixture = {
   next: [],
   wrongIf: "A broad cloud matches the release cadence on serverless GPU."
 };
+const howItWinsJudgmentFixture = { version: 1, marker: "analysis-judgment" } as unknown as HowItWinsJudgment;
 const howItWinsStageResult = {
   read: howItWinsReadFixture,
-  editorSkipped: false,
+  editorSkipped: true,
   fitRetried: true,
-  styleIssues: []
+  styleIssues: [],
+  normalizations: [],
+  judgment: howItWinsJudgmentFixture
 };
 const runningClaimOne = { text: runningOne.note, citationIds: runningOne.citationIds };
 const runningClaimTwo = { text: runningTwo.note, citationIds: runningTwo.citationIds };
@@ -217,6 +221,7 @@ const mocks = vi.hoisted(() => ({
   verifySynthesis: vi.fn(),
   synthesizeEmphasisRead: vi.fn(),
   synthesizeHowItWins: vi.fn(),
+  judgeHowItWinsForAnalysis: vi.fn(),
   fetchFounderVoiceEvidence: vi.fn(),
   fetchInitialSourcesForGeneration: vi.fn(),
   fetchLateEnrichmentSources: vi.fn(),
@@ -262,7 +267,8 @@ vi.mock("@cold-start/llm", async () => {
     synthesizeCard: mocks.synthesizeCard,
     verifySynthesis: mocks.verifySynthesis,
     synthesizeEmphasisRead: mocks.synthesizeEmphasisRead,
-    synthesizeHowItWins: mocks.synthesizeHowItWins
+    synthesizeHowItWins: mocks.synthesizeHowItWins,
+    judgeHowItWinsForAnalysis: mocks.judgeHowItWinsForAnalysis
   };
 });
 
@@ -400,6 +406,7 @@ describe("generate-card analysis how-it-wins step", () => {
     mocks.fetchFounderVoiceEvidence.mockResolvedValue(founderVoiceEvidence());
     mocks.synthesizeEmphasisRead.mockResolvedValue(emphasisReadFixture);
     mocks.synthesizeHowItWins.mockResolvedValue(howItWinsStageResult);
+    mocks.judgeHowItWinsForAnalysis.mockResolvedValue(howItWinsJudgmentFixture);
     // No result carries claimIndex, so applyVerifierResults falls back to matching each claim by
     // its own {text, citationIds} key; the ordering inside the full claims array never matters.
     mocks.verifySynthesis.mockResolvedValue([
@@ -433,6 +440,8 @@ describe("generate-card analysis how-it-wins step", () => {
     // the emphasis closure appends this run's founder-voice citations to the working card.
     const cardArg = mocks.synthesizeHowItWins.mock.calls[0]?.[0]?.card as ColdStartCard;
     expect(cardArg.citations.some((citation) => citation.id.startsWith("fv"))).toBe(false);
+    expect(mocks.synthesizeHowItWins.mock.calls[0]?.[0]?.judgment).toBe(howItWinsJudgmentFixture);
+    expect(mocks.judgeHowItWinsForAnalysis).toHaveBeenCalledTimes(1);
   });
 
   it("emits how-it-wins.started then how-it-wins.complete with status read", async () => {
@@ -458,7 +467,13 @@ describe("generate-card analysis how-it-wins step", () => {
     await runAnalysisGeneration();
 
     const trace = persistedTrace();
-    expect(trace.howItWins).toMatchObject({ enabled: true, status: "read", fitRetried: true, editorSkipped: false });
+    expect(trace.howItWins).toMatchObject({
+      enabled: true,
+      status: "read",
+      fitRetried: true,
+      editorSkipped: true,
+      judgment: howItWinsJudgmentFixture
+    });
     expect(trace.steps?.["how-it-wins"]?.status).toBe("complete");
 
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
@@ -473,6 +488,7 @@ describe("generate-card analysis how-it-wins step", () => {
     const { names } = await runAnalysisGeneration(stepHarness(), { howItWinsEnabled: false });
 
     expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
     expect(names).not.toContain("how-it-wins");
 
     const types = eventTypes();
@@ -488,10 +504,11 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(storedCard.synthesis?.howItWins).toBeUndefined();
   });
 
-  // A semantic failure of the stage (an unparseable draft, a citation that is not on the card)
-  // must never fail the analysis run: the step body memoizes it as { ok: false } and the wiring
-  // degrades to nothing_stands_out, while the trace still records the step as failed so the
-  // failure is not invisible.
+  // A semantic failure of the stage (an unparseable draft, a citation that is not on the card,
+  // a judge fail-closed) must never fail the analysis run: the step body memoizes it as
+  // { ok: false } and the wiring degrades to nothing_stands_out, while the trace still records
+  // the step as failed so the failure is not invisible. A writer failure after a successful
+  // judge still keeps the all-80 audit on the private trace.
   it("degrades to nothing_stands_out when the stage fails semantically, without failing the run", async () => {
     mocks.synthesizeHowItWins.mockRejectedValue(new Error("how-it-wins draft did not parse"));
 
@@ -502,7 +519,11 @@ describe("generate-card analysis how-it-wins step", () => {
       status: "failed",
       message: "how-it-wins draft did not parse"
     });
-    expect(trace.howItWins).toMatchObject({ enabled: true, status: "nothing_stands_out" });
+    expect(trace.howItWins).toMatchObject({
+      enabled: true,
+      status: "nothing_stands_out",
+      judgment: howItWinsJudgmentFixture
+    });
     expect(trace.failure).toBeUndefined();
 
     const completeEvent = eventOfType("how-it-wins.complete");
@@ -517,7 +538,7 @@ describe("generate-card analysis how-it-wins step", () => {
 
   // Same gate as the emphasis read (howItWinsThinFileReason is emphasisThinFileReason), so a card
   // with no company-authored citation thin-files both. The gate runs in code before any model
-  // call: no lane fetch, no four passes, no started event.
+  // call: no judge, no frozen writer, no started event.
   it("thin-files a card with no company-authored evidence without a model call", async () => {
     mocks.generateCardForDomainWithTrace.mockResolvedValue({
       card: cardWithCitations(8, { includeCompanySite: false }),
@@ -531,6 +552,7 @@ describe("generate-card analysis how-it-wins step", () => {
     const { names } = await runAnalysisGeneration();
 
     expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
     expect(names).not.toContain("how-it-wins");
 
     const types = eventTypes();
