@@ -313,4 +313,4 @@ Filed:
 
 Writer spend across retries is on the order of $2. Topology spend unchanged at `$58.114951`.
 
-Read Cognition, then August, then Hebbia, then Bland. Question is writing plus the third mark language, not a flag flip. Parity, tournament, and holdout stay later.
+Read Cognition, then August, then Hebbia, then Bland. Closed later the same day: Samay enabled production. Rollback is `HOW_IT_WINS_ENABLED=false`. Parity, tournament, and holdout stay later. Chrome testers need extension `0.2.7`; `0.2.6` is the Clippings zip still in store review.

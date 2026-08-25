@@ -115,7 +115,7 @@ The whole crown is one target. Nothing depends on hitting a 4px mark. The senten
 - The empty-text retry ladder: 16000 tokens, then 21000 under the SDK's non-streaming ceiling, then thinking disabled. Sonnet 5 thinks by default and an under-sized budget comes back empty.
 - The `how-it-wins` step runs concurrently with the emphasis-read pair. Measured latency on Irregular's card: the Sonnet 5 writer took 207 seconds and $0.39 per read; the Sonnet 4.6 writer took 110 seconds and $0.15.
 - The twenty-card blind read runs two arms per card through `/eval/how-it-wins`. Run the sitting on a production build (`npm run build -w @cold-start/web`, then `EVAL_RIG_ENABLED=true EVAL_RIG_DATA_DIR=$PWD/eval/curation npm run start -w @cold-start/web`): `next dev` writes React's I/O debug info into the page, which includes every frozen file's raw text, writers and answer key included. Nothing shows on screen, but the key is one View Source away.
-- Production keeps `HOW_IT_WINS_ENABLED=false` until the blind read clears.
+- Production is on as of 2026-08-24 (`HOW_IT_WINS_ENABLED` unset or not `false`). Rollback is `HOW_IT_WINS_ENABLED=false`.
 - Motion tuned 2026-08-19: the starting values held after frame capture at 16ms and 25ms steps. Spring 420/38, zeta 0.93, crosses the whole edge in about 75ms. Sigma 11, magnification 1.6. Scale 0.55. Note 120/90/100ms. Arrival 300ms delay, 40ms stagger, 220ms drop, bracket 180ms.
 - Plate heights at the gallery fixture: 575px before the change, 490px after the fold, 542px with the crown added. Ceiling 580px.
 
@@ -187,6 +187,6 @@ Samay reviewed the five-company screen on 2026-08-24. Arm A is monolith, Arm B i
 ### Release
 
 10. Upload `dist/chrome-web-store/cold-start-chrome-0.2.6-5365a94fa958.zip` to the Chrome Web Store. Installed 0.2.5 shows "api deployment out of date" until it is accepted. Advance `release-version.json` only on acceptance.
-11. The flip decision rests on this sitting. Closed 2026-08-21: HOLD. The winning writer arm (Sonnet 4.6) is 4 Ship against 5 Weak. Closed 2026-08-24: topology pick is monolith. `HOW_IT_WINS_ENABLED` stays false. Do not set `LLM_HOW_IT_WINS_MODEL` in production. Wire judge-then-writer behind the off flag; the writer renders a frozen monolith verdict and may not change labels. The parity record, writer tournament, and unread holdout remain separate and later. No more topology cards in this sitting.
+11. The flip decision rests on this sitting. Closed 2026-08-21: HOLD. The winning writer arm (Sonnet 4.6) is 4 Ship against 5 Weak. Closed 2026-08-24: topology pick is monolith. Closed later the same day: Samay enabled production after the known-company writer sitting. Do not set `LLM_HOW_IT_WINS_MODEL` in production; the writer falls back through the synthesis chain. The parity record, writer tournament, and unread holdout remain separate and later.
 12. Rollback at any point: `HOW_IT_WINS_ENABLED=false`. One minute, no deploy.
 13. Open label decision: "The case" (shipped) or "Thesis" for the Bull/Bear row.
