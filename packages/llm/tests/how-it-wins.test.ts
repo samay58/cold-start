@@ -250,6 +250,7 @@ function frozenWriterDraftJson(strategyIds: HowItWinsStrategyId[] = ["hybrid", "
     })),
     pair: null,
     not_yet: [],
+    in_question: [],
     wrong_if: "A second vendor appears in the same release notes and performs the same role."
   });
 }
@@ -283,6 +284,14 @@ describe("how-it-wins prompt constants", () => {
     expect(HOW_IT_WINS_TASK_INTRO).not.toContain("card's citations");
   });
 
+  it("holds the frozen writer to the Investor Lens bar and the in-question slot", () => {
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Investor Lens");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in-question");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in_question");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Do not write it as if it were current");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("on the card");
+  });
+
   it("makes the hostile editor catch the sitting's four banned phrases", () => {
     for (const phrase of ["the read would weaken", "would weaken if", "is observed fact", "on the card"]) {
       expect(HOW_IT_WINS_HOSTILE_EDITOR.toLowerCase()).toContain(phrase);
@@ -311,6 +320,7 @@ describe("parseHowItWinsDraft", () => {
     expect(parsed.read.pair?.wrongIf).toBe("A lab can publish an equivalent harness without losing evaluation quality.");
     expect(parsed.read.next[0]?.strategy).toBe("standardization");
     expect(parsed.read.next[0]?.citationIds).toEqual(["e5"]);
+    expect(parsed.read.inQuestion).toEqual([]);
     expect(parsed.read.wrongIf).toBe("A second vendor appears in the same release notes and performs the same role.");
   });
 
@@ -346,7 +356,7 @@ describe("parseHowItWinsDraft", () => {
     );
 
     expect(parsed).toEqual({
-      read: { status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do." },
+      read: { status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do.", inQuestion: [] },
       normalizations: []
     });
   });

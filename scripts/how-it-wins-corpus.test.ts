@@ -127,6 +127,7 @@ function filedRead(strategies: HowItWinsStrategyId[]): HowItWinsRead {
     })),
     pair: null,
     next: [],
+    inQuestion: [],
     wrongIf: "A competitor ships the same surface with no switching cost."
   };
 }
@@ -159,7 +160,7 @@ test("gate lines count only filed reads and still name a writer that filed none"
     strategyGateLines([
       {
         arms: {
-          A: { writer: "quiet", read: { status: "nothing_stands_out" } },
+          A: { writer: "quiet", read: { status: "nothing_stands_out", inQuestion: [] } },
           B: { writer: "loud", read: filedRead(["hybrid"]) }
         }
       },

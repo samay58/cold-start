@@ -33,6 +33,7 @@ const read: HowItWinsRead = {
       citationIds: []
     }
   ],
+  inQuestion: [],
   wrongIf: "Buyers can replace the release step without losing quality."
 };
 
@@ -46,5 +47,29 @@ describe("HowItWinsView", () => {
     expect(html).toContain("Controls a passage that competitors or prey must pass through.");
     expect(html).toContain("Emergent alignment that reduces friction.");
     expect(html).not.toContain("MODEL-WRITTEN");
+  });
+
+  it("renders in-question strategies under their own heading, including on nothing_stands_out", () => {
+    const withQuestion = {
+      ...read,
+      inQuestion: [{
+        strategy: "completeness" as const,
+        note: "The filed record does not show whether buyers still need another tool.",
+        citationIds: []
+      }]
+    };
+    const html = renderToStaticMarkup(<HowItWinsView read={withQuestion} />);
+    expect(html).toContain("In question");
+    expect(html).toContain("Completeness");
+    expect(html).toContain("One tool covers everything the buyer needs, so nothing else is required.");
+
+    const empty = renderToStaticMarkup(<HowItWinsView read={{
+      status: "nothing_stands_out",
+      sentence: "It competes the way most developer tools do.",
+      inQuestion: withQuestion.inQuestion
+    }} />);
+    expect(empty).toContain("In question");
+    expect(empty).toContain("Completeness");
+    expect(empty).not.toContain("What currently wins");
   });
 });

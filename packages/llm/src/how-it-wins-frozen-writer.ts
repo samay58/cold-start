@@ -1,4 +1,5 @@
 import {
+  HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX,
   howItWinsJudgmentSchema,
   howItWinsSchema,
   howItWinsStrategyById,
@@ -28,11 +29,12 @@ export type FrozenHowItWinsWriterRead = {
     citationIds: string[];
   };
   notYet: FrozenWriterItem[];
+  inQuestion: FrozenWriterItem[];
   wrongIf: string;
 };
 
 export type FrozenHowItWinsWriterParse =
-  | { read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string }; prompt: string }
+  | { read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string; inQuestion: FrozenWriterItem[] }; prompt: string }
   | { issues: string[] };
 
 function sameStrings(left: readonly string[], right: readonly string[]) {
@@ -49,6 +51,35 @@ function writerCitationIds(note: string) {
 
 function writerItems(value: unknown): Array<Record<string, unknown>> {
   return Array.isArray(value) ? value.flatMap((entry) => record(entry) ? [record(entry)!] : []) : [];
+}
+
+function openQuestionIdsFrom(judgment: HowItWinsJudgment): HowItWinsStrategyId[] {
+  return judgment.strategyEvaluations
+    .filter((entry) => entry.disposition === "open_question")
+    .map((entry) => entry.strategyId);
+}
+
+function parseWriterItems(
+  items: Array<Record<string, unknown>>,
+  expected: readonly HowItWinsStrategyId[],
+  validEvidenceIds: Set<string>,
+  options: { requireCitations: boolean }
+) {
+  const parsed: FrozenWriterItem[] = [];
+  const issues: string[] = [];
+  items.forEach((entry, index) => {
+    const strategy = howItWinsStrategyIdSchema.safeParse(entry.strategy);
+    const note = typeof entry.note === "string" ? entry.note : "";
+    const citationIds = writerCitationIds(note);
+    if (!strategy.success || strategy.data !== expected[index]) issues.push(`item ${index + 1} changed its strategy`);
+    if (!note.trim()) issues.push(`item ${index + 1} needs a note`);
+    if (options.requireCitations && citationIds.length === 0) issues.push(`item ${index + 1} needs cited evidence`);
+    for (const id of citationIds) if (!validEvidenceIds.has(id)) issues.push(`item ${index + 1} cites unknown evidence ${id}`);
+    if (strategy.success) {
+      parsed.push({ strategy: strategy.data, meaning: howItWinsStrategyById(strategy.data).meaning, note, citationIds });
+    }
+  });
+  return { parsed, issues };
 }
 
 export function frozenHowItWinsWriterRequest(judgment: HowItWinsJudgment) {
@@ -74,6 +105,10 @@ export function frozenHowItWinsWriterRequest(judgment: HowItWinsJudgment) {
       notYet: frozen.strategyEvaluations
         .filter((entry) => entry.disposition === "not_yet")
         .map((entry) => ({ ...item(entry.strategyId), notYet: entry.notYet })),
+      inQuestion: frozen.strategyEvaluations
+        .filter((entry) => entry.disposition === "open_question")
+        .map((entry) => item(entry.strategyId)),
+      openQuestions: frozen.openQuestions,
       evidenceRegistry: frozen.evidenceRegistry,
       overallWrongCondition: frozen.overallWrongCondition
     }
@@ -100,7 +135,18 @@ export function parseFrozenHowItWinsWriterDraft(
     if (draft.status !== "nothing_stands_out" || typeof draft.sentence !== "string" || !draft.sentence.trim()) {
       return { issues: ["a zero-strategy verdict must remain nothing_stands_out"] };
     }
-    return { read: { status: "nothing_stands_out", sentence: draft.sentence }, prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT };
+    const inQuestionIds = openQuestionIdsFrom(judgment);
+    const inQuestionItems = writerItems(draft.in_question);
+    const writtenInQuestion = inQuestionItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
+    if (!sameStrings(writtenInQuestion, inQuestionIds)) {
+      return { issues: ["writer changed the approved in-question strategy labels or their order"] };
+    }
+    const parsedInQuestion = parseWriterItems(inQuestionItems, inQuestionIds, new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId)), { requireCitations: false });
+    if (parsedInQuestion.issues.length > 0) return { issues: parsedInQuestion.issues };
+    return {
+      read: { status: "nothing_stands_out", sentence: draft.sentence, inQuestion: parsedInQuestion.parsed },
+      prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT
+    };
   }
 
   if (draft.status !== "read") return { issues: ["a supported verdict cannot become nothing_stands_out"] };
@@ -119,27 +165,17 @@ export function parseFrozenHowItWinsWriterDraft(
   }
 
   const validEvidenceIds = new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId));
-  const parseItems = (items: Array<Record<string, unknown>>, expected: readonly HowItWinsStrategyId[]) => {
-    const parsed: FrozenWriterItem[] = [];
-    const issues: string[] = [];
-    items.forEach((entry, index) => {
-      const strategy = howItWinsStrategyIdSchema.safeParse(entry.strategy);
-      const note = typeof entry.note === "string" ? entry.note : "";
-      const citationIds = writerCitationIds(note);
-      if (!strategy.success || strategy.data !== expected[index]) issues.push(`item ${index + 1} changed its strategy`);
-      if (!note.trim()) issues.push(`item ${index + 1} needs a note`);
-      if (citationIds.length === 0) issues.push(`item ${index + 1} needs cited evidence`);
-      for (const id of citationIds) if (!validEvidenceIds.has(id)) issues.push(`item ${index + 1} cites unknown evidence ${id}`);
-      if (strategy.success) {
-        parsed.push({ strategy: strategy.data, meaning: howItWinsStrategyById(strategy.data).meaning, note, citationIds });
-      }
-    });
-    return { parsed, issues };
-  };
+  const inQuestionIds = openQuestionIdsFrom(judgment);
+  const inQuestionItems = writerItems(draft.in_question);
+  const writtenInQuestion = inQuestionItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
+  if (!sameStrings(writtenInQuestion, inQuestionIds)) {
+    return { issues: ["writer changed the approved in-question strategy labels or their order"] };
+  }
 
-  const current = parseItems(currentItems, judgment.currentStrategyIds);
-  const notYet = parseItems(notYetItems, notYetIds);
-  const issues = [...current.issues, ...notYet.issues];
+  const current = parseWriterItems(currentItems, judgment.currentStrategyIds, validEvidenceIds, { requireCitations: true });
+  const notYet = parseWriterItems(notYetItems, notYetIds, validEvidenceIds, { requireCitations: true });
+  const inQuestion = parseWriterItems(inQuestionItems, inQuestionIds, validEvidenceIds, { requireCitations: false });
+  const issues = [...current.issues, ...notYet.issues, ...inQuestion.issues];
   const sentence = typeof draft.sentence === "string" ? draft.sentence : "";
   const wrongIf = typeof draft.wrong_if === "string" ? draft.wrong_if : "";
   if (!sentence.trim()) issues.push("writer needs a sentence");
@@ -170,26 +206,48 @@ export function parseFrozenHowItWinsWriterDraft(
 
   if (issues.length > 0) return { issues: Array.from(new Set(issues)) };
   return {
-    read: { status: "read", sentence, current: current.parsed, pair, notYet: notYet.parsed, wrongIf },
+    read: {
+      status: "read",
+      sentence,
+      current: current.parsed,
+      pair,
+      notYet: notYet.parsed,
+      inQuestion: inQuestion.parsed,
+      wrongIf
+    },
     prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT
   };
 }
 
 export const HOW_IT_WINS_DISPLAY_RUNNING_MAX = 4;
 
+function filedInQuestion(items: FrozenWriterItem[], runningIds: Set<HowItWinsStrategyId>) {
+  return items
+    .filter((entry) => !runningIds.has(entry.strategy))
+    .slice(0, HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX)
+    .map((entry) => ({ strategy: entry.strategy, note: entry.note, citationIds: entry.citationIds }));
+}
+
 export function howItWinsFromFrozenWriter(
-  read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string }
+  read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string; inQuestion: FrozenWriterItem[] }
 ): HowItWins {
   if (read.status !== "read") {
-    return { status: "nothing_stands_out", sentence: read.sentence };
+    return howItWinsSchema.parse({
+      status: "nothing_stands_out",
+      sentence: read.sentence,
+      inQuestion: filedInQuestion(read.inQuestion, new Set())
+    });
   }
   const running = read.current.slice(0, HOW_IT_WINS_DISPLAY_RUNNING_MAX);
-  if (running.length < 2) {
-    return read.sentence.trim()
-      ? { status: "nothing_stands_out", sentence: read.sentence }
-      : { status: "nothing_stands_out" };
-  }
   const runningIds = new Set(running.map((entry) => entry.strategy));
+  const inQuestion = filedInQuestion(read.inQuestion, runningIds);
+  if (running.length < 2) {
+    return howItWinsSchema.parse({
+      status: "nothing_stands_out",
+      ...(read.sentence.trim() ? { sentence: read.sentence } : {}),
+      inQuestion
+    });
+  }
   const pair = read.pair && read.pair.strategies.every((leg) => runningIds.has(leg))
     ? read.pair
     : null;
@@ -203,6 +261,7 @@ export function howItWinsFromFrozenWriter(
     running,
     pair,
     next,
+    inQuestion,
     wrongIf: read.wrongIf
   });
 }

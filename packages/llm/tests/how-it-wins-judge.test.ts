@@ -990,6 +990,7 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
       })),
       pair: null,
       not_yet: [],
+      in_question: [],
       wrong_if: "The mechanisms stop affecting buyer choice."
     });
   }
@@ -1036,10 +1037,58 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
     expect(howItWinsFromFrozenWriter(parsed.read)).toEqual({
       status: "nothing_stands_out",
-      sentence: "Fixture Company wins through three current mechanisms."
+      sentence: "Fixture Company wins through three current mechanisms.",
+      inQuestion: []
     });
     expect(one.currentStrategyIds).toEqual(["usership"]);
     expect(frozen.currentStrategyIds).toEqual(["usership", "aggregation", "reliability"]);
+  });
+
+  it("files an approved in-question strategy without requiring citations", () => {
+    const frozen = verdict();
+    const withQuestion = {
+      ...frozen,
+      strategyEvaluations: frozen.strategyEvaluations.map((entry) =>
+        entry.strategyId === "completeness"
+          ? {
+            ...entry,
+            disposition: "open_question" as const,
+            evidenceGate: "unresolved" as const,
+            presentRelevance: "unresolved" as const,
+            dispositionReason: "The record does not show whether completeness is current."
+          }
+          : entry
+      )
+    };
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through three current mechanisms.",
+        current: ["usership", "aggregation", "reliability"].map((strategy) => ({
+          strategy,
+          note: `Fixture Company uses ${strategy} in its current bet [e1].`
+        })),
+        pair: null,
+        not_yet: [],
+        in_question: [{
+          strategy: "completeness",
+          note: "The filed record does not show whether buyers still need another tool for the same job."
+        }],
+        wrong_if: "The mechanisms stop affecting buyer choice."
+      }),
+      withQuestion
+    );
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    expect(parsed.read.inQuestion.map((entry) => entry.strategy)).toEqual(["completeness"]);
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    expect(display.status).toBe("read");
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.inQuestion).toEqual([{
+      strategy: "completeness",
+      note: "The filed record does not show whether buyers still need another tool for the same job.",
+      citationIds: []
+    }]);
   });
 });
 

@@ -103,6 +103,7 @@
 
 .cs-hiw-cut-wall[data-pinned="true"],
 .cs-hiw-hollow[data-pinned="true"],
+.cs-hiw-question[data-pinned="true"],
 .cs-hiw-bracket[data-pinned="true"] {
   stroke-width: 1.5;
 }
@@ -116,6 +117,18 @@
 }
 
 .cs-hiw-hollow[data-hot="true"] {
+  stroke: var(--color-ink);
+}
+
+/* An in-question strategy: solid muted walls, no floor, distinct from the dashed not-yet hollow
+   and from the ink cut. The crown stays ink-only; distinction is the mark, not a seal color. */
+.cs-hiw-question {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1;
+}
+
+.cs-hiw-question[data-hot="true"] {
   stroke: var(--color-ink);
 }
 

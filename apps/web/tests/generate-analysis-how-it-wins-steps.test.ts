@@ -183,6 +183,7 @@ const howItWinsReadFixture = {
   running: [runningOne, runningTwo],
   pair: howItWinsPair,
   next: [],
+  inQuestion: [],
   wrongIf: "A broad cloud matches the release cadence on serverless GPU."
 };
 const howItWinsJudgmentFixture = { version: 1, marker: "analysis-judgment" } as unknown as HowItWinsJudgment;
@@ -531,7 +532,7 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(completeEvent?.metadata).toMatchObject({ status: "nothing_stands_out" });
 
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
-    expect(storedCard.synthesis?.howItWins).toEqual({ status: "nothing_stands_out" });
+    expect(storedCard.synthesis?.howItWins).toEqual({ status: "nothing_stands_out", inQuestion: [] });
     // The rest of the run is untouched: the synthesis and the emphasis read still land.
     expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
   });

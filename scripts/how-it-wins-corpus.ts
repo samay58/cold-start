@@ -199,11 +199,12 @@ function usageFromCalls(calls: GenerationLlmCallTrace[]) {
 }
 
 // The same claim order verifiedHowItWins reads its verdicts back in: one claim per running
-// strategy, then the pair note.
+// strategy, then the pair note, then in-question notes.
 function howItWinsClaims(read: HowItWinsRead): SourcedText[] {
   return [
     ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
-    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : [])
+    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : []),
+    ...(read.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
   ];
 }
 
@@ -243,8 +244,8 @@ export function failedArmResult(
   const message = error instanceof Error ? error.message : String(error);
   return {
     writer,
-    preVerify: { status: "nothing_stands_out" },
-    read: { status: "nothing_stands_out" },
+    preVerify: { status: "nothing_stands_out", inQuestion: [] },
+    read: { status: "nothing_stands_out", inQuestion: [] },
     failure: message.slice(0, 300),
     editorSkipped: false,
     fitRetried: false,

@@ -42,7 +42,8 @@ const read = {
   ],
   pair: null,
   next: [],
-  wrongIf: "The citations turn out to be paid placements."
+  wrongIf: "The citations turn out to be paid placements.",
+  inQuestion: []
 };
 
 const armFile = (slug: string) => ({

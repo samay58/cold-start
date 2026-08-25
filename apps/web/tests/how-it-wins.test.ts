@@ -69,7 +69,7 @@ describe("howItWinsStepBody", () => {
 
   it("returns the full stage result on success", async () => {
     const value: HowItWinsResult = {
-      read: { status: "nothing_stands_out", sentence: "Nothing here separates it from the field yet." },
+      read: { status: "nothing_stands_out", sentence: "Nothing here separates it from the field yet.", inQuestion: [] },
       editorSkipped: true,
       fitRetried: false,
       styleIssues: [],
@@ -85,7 +85,7 @@ describe("howItWinsStepBody", () => {
 
   it("judges first, then freezes that verdict for the writer", async () => {
     mocks.synthesizeHowItWins.mockResolvedValue({
-      read: { status: "nothing_stands_out" },
+      read: { status: "nothing_stands_out", inQuestion: [] },
       editorSkipped: true,
       fitRetried: false,
       styleIssues: [],

@@ -17,6 +17,7 @@ const read: HowItWinsRead = {
   running: [running("hybrid"), running("chokepoint", "c2"), running("prestige", "c3")],
   pair: { strategies: ["hybrid", "chokepoint"] as const, note: "The method produces the named benchmarks the labs cite [c1][c2].", wrongIf: "A lab swaps evaluators without a visible change in its documentation.", citationIds: ["c1", "c2"] },
   next: [{ strategy: "standardization", note: "Only two labs have adopted it; a third lab or a standards body would have to converge on it.", citationIds: [] }],
+  inQuestion: [{ strategy: "completeness", note: "The filed record does not show whether labs still need another evaluator for the same job.", citationIds: [] }],
   wrongIf: "A lab builds the evaluation in-house and stops citing outside benchmarks."
 };
 
@@ -44,6 +45,14 @@ describe("howItWinsSchema", () => {
     expect(howItWinsSchema.safeParse({ ...read, pair: { ...read.pair, strategies: ["hybrid", "usership"] } }).success).toBe(false);
     expect(howItWinsSchema.safeParse({ ...read, running: [running("hybrid"), running("hybrid")] }).success).toBe(false);
     expect(howItWinsSchema.safeParse({ ...read, next: [{ strategy: "hybrid", note: "x", citationIds: [] }] }).success).toBe(false);
+    expect(howItWinsSchema.safeParse({ ...read, inQuestion: [{ strategy: "hybrid", note: "x", citationIds: [] }] }).success).toBe(false);
+    expect(howItWinsSchema.safeParse({ ...read, inQuestion: [{ strategy: "standardization", note: "x", citationIds: [] }] }).success).toBe(false);
+  });
+  it("fills inQuestion when a legacy read omitted it", () => {
+    const { inQuestion: _inQuestion, ...legacy } = read;
+    const parsed = howItWinsSchema.parse(legacy);
+    expect(parsed.status).toBe("read");
+    if (parsed.status === "read") expect(parsed.inQuestion).toEqual([]);
   });
   it("legacy synthesis without the field still parses", () => {
     const legacy = { whyItMatters: { text: "a [c1]", citationIds: ["c1"] }, bullCase: [], bearCase: [], openQuestions: [] };
@@ -65,6 +74,15 @@ describe("applyHowItWinsVerification", () => {
     expect(applyHowItWinsVerification(read, { running: [true, true, true], pair: false }).howItWins).toMatchObject({ status: "read", pair: null });
   });
   it("degrades to nothing_stands_out when fewer than two running survive", () => {
-    expect(applyHowItWinsVerification(read, { running: [false, false, true], pair: true })).toEqual({ howItWins: { status: "nothing_stands_out" }, dropReason: "running-dropped" });
+    expect(applyHowItWinsVerification(read, { running: [false, false, true], pair: true })).toEqual({
+      howItWins: { status: "nothing_stands_out", inQuestion: read.inQuestion },
+      dropReason: "running-dropped"
+    });
+  });
+  it("drops an in-question note that the verifier rejected without touching the current set", () => {
+    const out = applyHowItWinsVerification(read, { running: [true, true, true], pair: true, inQuestion: [false] });
+    expect(out.dropReason).toBeUndefined();
+    expect(out.howItWins.status).toBe("read");
+    if (out.howItWins.status === "read") expect(out.howItWins.inQuestion).toEqual([]);
   });
 });

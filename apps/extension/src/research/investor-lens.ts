@@ -112,6 +112,7 @@ export type HowItWinsDisplay = {
     wrongIf: string;
   } | null;
   next: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
+  inQuestion: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
   count: number;
 };
 
@@ -458,12 +459,21 @@ function emphasisDisplayForCard(card: ColdStartCard): EmphasisDisplay {
 // Every non-read state carries the same empty content. A function rather than a shared
 // constant so each display gets its own arrays and no two reads can alias one another.
 function noHowItWinsContent() {
-  return { running: [], pair: null, next: [], count: 0 };
+  return { running: [], pair: null, next: [], inQuestion: [], count: 0 };
 }
 
 // The crown's display model. Names come from the shared vocabulary rather than the model's
 // output, so a filed read can never show a strategy name Cold Start does not recognize. Meanings
 // also come from that vocabulary, never from the filed model prose.
+function howItWinsEntries(entries: Array<{ strategy: HowItWinsStrategyId; note: string }>) {
+  return entries.map((entry) => ({
+    id: entry.strategy,
+    name: howItWinsStrategyById(entry.strategy).name,
+    meaning: howItWinsStrategyById(entry.strategy).meaning,
+    note: stripCitationMarkers(entry.note)
+  }));
+}
+
 function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
   const howItWins = card.synthesis?.howItWins;
   if (!howItWins) {
@@ -476,7 +486,8 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
     return {
       state: "nothing_stands_out",
       sentence: howItWins.sentence ? stripCitationMarkers(howItWins.sentence) : null,
-      ...noHowItWinsContent()
+      ...noHowItWinsContent(),
+      inQuestion: howItWinsEntries(howItWins.inQuestion ?? [])
     };
   }
 
@@ -485,12 +496,7 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
   return {
     state: "read",
     sentence: stripCitationMarkers(howItWins.sentence),
-    running: howItWins.running.map((entry) => ({
-      id: entry.strategy,
-      name: howItWinsStrategyById(entry.strategy).name,
-      meaning: howItWinsStrategyById(entry.strategy).meaning,
-      note: stripCitationMarkers(entry.note)
-    })),
+    running: howItWinsEntries(howItWins.running),
     pair: howItWins.pair && pairLeft && pairRight
       ? {
         strategies: [pairLeft, pairRight],
@@ -500,12 +506,8 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
         wrongIf: stripCitationMarkers(howItWins.pair.wrongIf)
       }
       : null,
-    next: howItWins.next.map((entry) => ({
-      id: entry.strategy,
-      name: howItWinsStrategyById(entry.strategy).name,
-      meaning: howItWinsStrategyById(entry.strategy).meaning,
-      note: stripCitationMarkers(entry.note)
-    })),
+    next: howItWinsEntries(howItWins.next),
+    inQuestion: howItWinsEntries(howItWins.inQuestion ?? []),
     count: howItWins.running.length
   };
 }
@@ -515,15 +517,20 @@ function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
 // stays scoped to supportedClaims alone, so neither read can move the posture judgment.
 function howItWinsSourcedClaims(card: ColdStartCard): SourcedText[] {
   const howItWins = card.synthesis?.howItWins;
-  if (!howItWins || howItWins.status !== "read") {
+  if (!howItWins || (howItWins.status !== "read" && howItWins.status !== "nothing_stands_out")) {
     return [];
+  }
+
+  const inQuestion = (howItWins.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
+  if (howItWins.status === "nothing_stands_out") {
+    return inQuestion;
   }
 
   const running = howItWins.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
   const next = howItWins.next.map((entry) => ({ text: entry.note, citationIds: entry.citationIds }));
   return howItWins.pair
-    ? [...running, { text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }, ...next]
-    : [...running, ...next];
+    ? [...running, { text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }, ...next, ...inQuestion]
+    : [...running, ...next, ...inQuestion];
 }
 
 export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | null {

@@ -96,6 +96,7 @@ function galleryHowItWins(): NonNullable<NonNullable<ColdStartCard["synthesis"]>
         citationIds: ["e3"]
       }
     ],
+    inQuestion: [],
     wrongIf: "a hyperscaler ships the same per-model autoscaling inside its own runtime."
   };
 }

@@ -60,6 +60,7 @@ describe("GET /api/cards/[slug]", () => {
           running: [],
           pair: null,
           next: [],
+          inQuestion: [],
           wrongIf: "Hidden wrongIf."
         }
       }

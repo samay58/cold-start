@@ -40,11 +40,14 @@ const fixtureDisplay: HowItWinsDisplay = {
     note: "The method produced the passage: the same testing approach is what got cited in both labs' documents.",
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
   },
-  next: [
-    { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
-    { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
-  ],
-  count: 3
+    next: [
+      { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
+      { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
+    ],
+    inQuestion: [
+      { id: "completeness", name: "Completeness", meaning: "One tool covers everything the buyer needs, so nothing else is required.", note: "The filed record does not show whether labs still need another evaluator for the same job." }
+    ],
+    count: 3
 };
 
 function findTarget(targets: EdgeTarget[], key: string): EdgeTarget {
@@ -97,10 +100,11 @@ describe("edgeTargets", () => {
   const xs = edgePositions(372);
   const targets = edgeTargets(fixtureDisplay, xs);
 
-  it("yields six targets: three running, two next, one pair", () => {
-    expect(targets).toHaveLength(6);
+  it("yields seven targets: three running, two next, one in-question, one pair", () => {
+    expect(targets).toHaveLength(7);
     expect(targets.filter((t) => t.kind === "running")).toHaveLength(3);
     expect(targets.filter((t) => t.kind === "next")).toHaveLength(2);
+    expect(targets.filter((t) => t.kind === "in_question")).toHaveLength(1);
     expect(targets.filter((t) => t.kind === "pair")).toHaveLength(1);
   });
 
@@ -177,6 +181,13 @@ describe("readoutText", () => {
     });
   });
 
+  it("reads an in-question mark as name, in question", () => {
+    expect(readoutText(fixtureDisplay, 0, findTarget(targets, "completeness"))).toEqual({
+      text: "Completeness, in question",
+      ink: true
+    });
+  });
+
   it("reads the pair as A + B", () => {
     expect(readoutText(fixtureDisplay, 0, findTarget(targets, "pair"))).toEqual({
       text: "Hybrid + Chokepoint",
@@ -239,6 +250,14 @@ describe("noteFor", () => {
     expect(note.meaning).toBe("Emergent alignment that reduces friction.");
   });
 
+  it("in-question: kicker is name, in question", () => {
+    const note = noteFor(fixtureDisplay, findTarget(targets, "completeness"));
+    expect(note.kicker).toBe("Completeness, in question");
+    expect(note.meaning).toBe("One tool covers everything the buyer needs, so nothing else is required.");
+    expect(note.body).toBe(at(fixtureDisplay.inQuestion, 0).note);
+    expect(note.wrongIf).toBeNull();
+  });
+
   it("pair: kicker joins both names, wrongIf carried", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "pair"));
     expect(note.kicker).toBe("Hybrid and Chokepoint");
@@ -291,6 +310,7 @@ describe("BANNED_MICRO_COPY", () => {
       HOW_IT_WINS_COPY.count(3),
       HOW_IT_WINS_COPY.count(0),
       HOW_IT_WINS_COPY.notYet,
+      HOW_IT_WINS_COPY.inQuestion,
       HOW_IT_WINS_COPY.wrongIf,
       HOW_IT_WINS_COPY.pinned,
       HOW_IT_WINS_COPY.thinFile,

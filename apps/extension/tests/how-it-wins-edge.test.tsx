@@ -55,15 +55,26 @@ const filedDisplay: HowItWinsDisplay = {
     { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
     { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
+  inQuestion: [
+    { id: "completeness", name: "Completeness", meaning: "One tool covers everything the buyer needs, so nothing else is required.", note: "The filed record does not show whether labs still need another evaluator for the same job." }
+  ],
   count: 3
 };
 
-// x order across the 80 positions: hybrid (16), the bracket midpoint (24), chokepoint (32),
-// monopoly (53), prestige (54), standardization (60). The bracket sits between its own legs,
-// which is why keyboard order is not simply running-then-next.
-const KEYBOARD_ORDER = ["Hybrid", "Hybrid + Chokepoint", "Chokepoint", "Monopoly, not yet", "Prestige", "Standardization, not yet"];
+// x order across the 80 positions: completeness (1), hybrid (16), the bracket midpoint (24),
+// chokepoint (32), monopoly (53), prestige (54), standardization (60). The bracket sits between
+// its own legs, which is why keyboard order is not simply running-then-next.
+const KEYBOARD_ORDER = [
+  "Completeness, in question",
+  "Hybrid",
+  "Hybrid + Chokepoint",
+  "Chokepoint",
+  "Monopoly, not yet",
+  "Prestige",
+  "Standardization, not yet"
+];
 
-const emptyContent = { running: [], pair: null, next: [], count: 0 };
+const emptyContent = { running: [], pair: null, next: [], inQuestion: [], count: 0 };
 const nothingStandsOut = (sentence: string | null): HowItWinsDisplay => ({
   state: "nothing_stands_out",
   sentence,
@@ -166,7 +177,7 @@ describe("HowItWinsEdge", () => {
     expect(filed.container.textContent).toContain(HOW_IT_WINS_COPY.label);
     expect(filed.readout()).toBe("3 of 80 strategies");
     expect(filed.container.querySelector(".cs-how-it-wins-sentence")?.textContent).toBe(filedDisplay.sentence);
-    expect(filed.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(6);
+    expect(filed.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(7);
     await filed.unmount();
 
     const named = await renderCrown(nothingStandsOut("Nothing about how it wins stands out in the filed record yet."));
@@ -192,6 +203,20 @@ describe("HowItWinsEdge", () => {
     await absent.unmount();
   });
 
+  it("keeps in-question marks when nothing currently stands out", async () => {
+    const crown = await renderCrown({
+      state: "nothing_stands_out",
+      sentence: "Nothing about how it wins stands out in the filed record yet.",
+      ...emptyContent,
+      inQuestion: filedDisplay.inQuestion
+    });
+    expect(crown.readout()).toBe("0 of 80 strategies");
+    expect(crown.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(1);
+    await crown.key("ArrowRight");
+    expect(crown.readout()).toBe("Completeness, in question");
+    await crown.unmount();
+  });
+
   // (a), the mount: the plate carries the crown above its header, and omits it on a legacy card.
   it("mounts above the Lens header on a filed read and not at all on a legacy card", async () => {
     const filed = await renderCardWith(filedHowItWins());
@@ -208,6 +233,10 @@ describe("HowItWinsEdge", () => {
   // (b)
   it("reads out a running mark, a queued mark, and the bracket as the keyboard steps them", async () => {
     const crown = await renderCrown(filedDisplay);
+
+    await crown.key("ArrowRight");
+    expect(crown.readout()).toBe("Completeness, in question");
+    expect(crown.readoutInk()).toBe("true");
 
     await crown.key("ArrowRight");
     expect(crown.readout()).toBe("Hybrid");
@@ -229,6 +258,9 @@ describe("HowItWinsEdge", () => {
   // (c)
   it("opens the note below the sentence, named, with the pair's Wrong if and a pinned receipt", async () => {
     const crown = await renderCrown(filedDisplay);
+    await crown.key("ArrowRight");
+    expect(crown.container.querySelector(".cs-how-it-wins-note")?.getAttribute("aria-label")).toBe("Completeness, in question");
+
     await crown.key("ArrowRight");
 
     const sentence = crown.container.querySelector(".cs-how-it-wins-sentence");
@@ -286,7 +318,7 @@ describe("HowItWinsEdge", () => {
     expect(crown.crown?.getAttribute("data-reduced-motion")).toBe("true");
 
     const frames = vi.spyOn(globalThis, "requestAnimationFrame");
-    for (let step = 0; step < 3; step += 1) {
+    for (let step = 0; step < 4; step += 1) {
       await crown.key("ArrowRight");
     }
     expect(frames).not.toHaveBeenCalled();
@@ -330,17 +362,17 @@ describe("HowItWinsEdge", () => {
 
     expect(buttons.map((button) => button.textContent)).toEqual(KEYBOARD_ORDER);
 
-    await press(buttons[2], "Enter");
-    expect(crown.crown?.getAttribute("data-pinned")).toBe("true");
-    expect(crown.readout()).toBe(KEYBOARD_ORDER[2]);
-    expect(crown.container.querySelector('.cs-how-it-wins-note[data-open="true"]')?.getAttribute("aria-label"))
-      .toBe(KEYBOARD_ORDER[2]);
-
-    await press(buttons[2], "ArrowRight");
-    expect(document.activeElement).toBe(buttons[3]);
-    expect(crown.readout()).toBe(KEYBOARD_ORDER[3]);
-
     await press(buttons[3], "Enter");
+    expect(crown.crown?.getAttribute("data-pinned")).toBe("true");
+    expect(crown.readout()).toBe(KEYBOARD_ORDER[3]);
+    expect(crown.container.querySelector('.cs-how-it-wins-note[data-open="true"]')?.getAttribute("aria-label"))
+      .toBe(KEYBOARD_ORDER[3]);
+
+    await press(buttons[3], "ArrowRight");
+    expect(document.activeElement).toBe(buttons[4]);
+    expect(crown.readout()).toBe(KEYBOARD_ORDER[4]);
+
+    await press(buttons[4], "Enter");
     expect(crown.crown?.getAttribute("data-pinned")).toBe("false");
     expect(crown.readout()).toBe("3 of 80 strategies");
 
@@ -352,6 +384,15 @@ describe("HowItWinsEdge", () => {
     const crown = await renderCrown(filedDisplay);
     await crown.key("ArrowRight");
     expect(crown.crown?.outerHTML.toLowerCase()).not.toContain("seal");
+    await crown.unmount();
+  });
+
+  it("paints in-question marks with the question class, not the dashed hollow", async () => {
+    stubReducedMotion(true);
+    const crown = await renderCrown(filedDisplay, true);
+    expect(crown.container.querySelector(".cs-hiw-question")).not.toBeNull();
+    expect(crown.container.querySelector(".cs-hiw-hollow")).not.toBeNull();
+    expect(crown.container.querySelector(".cs-hiw-question")?.getAttribute("class")).not.toContain("cs-hiw-hollow");
     await crown.unmount();
   });
 });

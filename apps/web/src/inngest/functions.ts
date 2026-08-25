@@ -995,7 +995,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           // A semantic how-it-wins failure degrades to nothing_stands_out; it never fails the run.
           if (!howItWinsResult.value.ok) {
             return {
-              draft: { status: "nothing_stands_out" },
+              draft: { status: "nothing_stands_out", inQuestion: [] },
               meta: howItWinsResult.value.judgment ? { judgment: howItWinsResult.value.judgment } : {}
             };
           }
@@ -1114,7 +1114,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         // through as filed, and no draft at all means the read never ran this run.
         const finalHowItWins: HowItWins | undefined = howItWinsDraft
           ? howItWinsDraft.status === "read"
-            ? verified.howItWins ?? { status: "nothing_stands_out" }
+            ? verified.howItWins ?? { status: "nothing_stands_out", inQuestion: [] }
             : howItWinsDraft
           : undefined;
 

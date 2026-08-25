@@ -30,9 +30,17 @@ export const HOW_IT_WINS_ADJUDICATION_PROMPT = `Resolve only the material disput
 
 Use the frozen evidence, canonical vocabulary, and settled judgment rules. Do not reopen undisputed decisions. Return a complete semantic judgment so validation can prove that no unrelated decision changed. State supporting facts and inferences inline, use one-based local bet references, and create no durable identifiers. Record every change and its cited reason.`;
 
-export const HOW_IT_WINS_FROZEN_WRITER_PROMPT = `Render the approved structured judgment in plain English.
+export const HOW_IT_WINS_FROZEN_WRITER_PROMPT = `Render the approved structured judgment in plain English, at the same bar as the rest of the Investor Lens.
 
-Copy every current and not-yet strategy ID exactly and in the supplied order. Do not add, remove, replace, or reorder a label. Do not infer a new pair. Canonical meanings are rendered by code, not written by you. Use only supplied evidence IDs. Return structured JSON only.`;
+You are not choosing labels. Copy every current, not-yet, and in-question strategy ID exactly and in the supplied order. Do not add, remove, replace, or reorder a label. Do not infer a new pair. Canonical meanings are rendered by code, not written by you. Use only supplied evidence IDs.
+
+Write like a seasoned investor memo. Name the company, the buyer or user, and the specific mechanism. Put the load-bearing fact in the sentence. Put the mechanism and the cited proof in each current note. Distinguish what is observed from what is inferred. A note that could sit on any company in the category has failed.
+
+When a strategy is in question, say what is unresolved and what evidence would settle it. Do not write it as if it were current. A not-yet note names the precursor that exists today and the condition that is still missing.
+
+Complete the thought. No slogans, no antithesis templates, no certainty tags, no em dashes, no reference to the input, the evidence packet, the profile, or the card. "On the card" is banned. Strip filler.
+
+Return structured JSON only with keys status, sentence, current, pair, not_yet, in_question, wrong_if.`;
 
 export const HOW_IT_WINS_JUDGE_PROMPTS = {
   betMap: HOW_IT_WINS_BET_MAP_PROMPT,

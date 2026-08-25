@@ -162,14 +162,19 @@ function strategyNameOf(value: unknown): string {
 }
 
 function citationIdsOf(read: HowItWins): string[] {
-  if (read.status !== "read") {
+  if (read.status === "thin_file") {
     return [];
+  }
+  const inQuestion = read.inQuestion.flatMap((entry) => entry.citationIds);
+  if (read.status !== "read") {
+    return inQuestion;
   }
 
   return [
     ...read.running.flatMap((entry) => entry.citationIds),
     ...(read.pair ? read.pair.citationIds : []),
-    ...read.next.flatMap((entry) => entry.citationIds)
+    ...read.next.flatMap((entry) => entry.citationIds),
+    ...inQuestion
   ];
 }
 
@@ -231,7 +236,9 @@ export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWin
   if (raw.status === "nothing_stands_out") {
     const sentence = typeof raw.sentence === "string" && raw.sentence.trim().length > 0 ? raw.sentence : undefined;
     return {
-      read: sentence ? { status: "nothing_stands_out", sentence } : { status: "nothing_stands_out" },
+      read: sentence
+        ? { status: "nothing_stands_out", sentence, inQuestion: [] }
+        : { status: "nothing_stands_out", inQuestion: [] },
       normalizations: []
     };
   }
@@ -381,10 +388,20 @@ export function styleIssuesForRead(read: HowItWins): string[] {
   };
 
   if (read.status !== "read") {
-    if (read.status === "nothing_stands_out" && read.sentence) {
-      checkEmDash(read.sentence, "the sentence");
-      checkBannedPhrases(read.sentence, "the sentence");
-      checkSentence(read.sentence);
+    if (read.status === "nothing_stands_out") {
+      if (read.sentence) {
+        checkEmDash(read.sentence, "the sentence");
+        checkBannedPhrases(read.sentence, "the sentence");
+        checkSentence(read.sentence);
+      }
+      read.inQuestion.forEach((entry, index) => {
+        const label = `in-question item ${index + 1} ("${howItWinsStrategyById(entry.strategy).name}")`;
+        checkNote(
+          entry.note,
+          `${label}, in the note`,
+          `${label}: the note repeats its certainty; put certainty in the verb that carries the claim`
+        );
+      });
     }
     return issues;
   }
@@ -423,6 +440,15 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     );
   });
 
+  read.inQuestion.forEach((entry, index) => {
+    const label = `in-question item ${index + 1} ("${howItWinsStrategyById(entry.strategy).name}")`;
+    checkNote(
+      entry.note,
+      `${label}, in the note`,
+      `${label}: the note repeats its certainty; put certainty in the verb that carries the claim`
+    );
+  });
+
   return issues;
 }
 
@@ -432,9 +458,14 @@ function withoutEmDashes(value: string): string {
 
 function stripEmDashes(read: HowItWins): HowItWins {
   if (read.status !== "read") {
-    return read.status === "nothing_stands_out" && read.sentence
-      ? { status: "nothing_stands_out", sentence: withoutEmDashes(read.sentence) }
-      : read;
+    if (read.status === "nothing_stands_out") {
+      return {
+        status: "nothing_stands_out",
+        ...(read.sentence ? { sentence: withoutEmDashes(read.sentence) } : {}),
+        inQuestion: read.inQuestion.map((entry) => ({ ...entry, note: withoutEmDashes(entry.note) }))
+      };
+    }
+    return read;
   }
 
   return {
@@ -449,7 +480,8 @@ function stripEmDashes(read: HowItWins): HowItWins {
     pair: read.pair
       ? { ...read.pair, note: withoutEmDashes(read.pair.note), wrongIf: withoutEmDashes(read.pair.wrongIf) }
       : null,
-    next: read.next.map((entry) => ({ ...entry, note: withoutEmDashes(entry.note) }))
+    next: read.next.map((entry) => ({ ...entry, note: withoutEmDashes(entry.note) })),
+    inQuestion: read.inQuestion.map((entry) => ({ ...entry, note: withoutEmDashes(entry.note) }))
   };
 }
 

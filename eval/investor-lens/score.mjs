@@ -54,14 +54,21 @@ function escapeRegExp(value) {
 
 export function howItWinsTexts(card) {
   const howItWins = card?.synthesis?.howItWins;
-  if (!howItWins || howItWins.status !== "read") {
+  if (!howItWins || howItWins.status === "thin_file") {
     return [];
+  }
+  if (howItWins.status === "nothing_stands_out") {
+    return [
+      text(howItWins.sentence),
+      ...(howItWins.inQuestion ?? []).map((entry) => text(entry.note))
+    ].filter(Boolean).map(withoutCitationMarkers);
   }
   return [
     text(howItWins.sentence),
     ...(howItWins.running ?? []).map((entry) => text(entry.note)),
     text(howItWins.pair?.note),
-    ...(howItWins.next ?? []).map((entry) => text(entry.note))
+    ...(howItWins.next ?? []).map((entry) => text(entry.note)),
+    ...(howItWins.inQuestion ?? []).map((entry) => text(entry.note))
   ].filter(Boolean).map(withoutCitationMarkers);
 }
 

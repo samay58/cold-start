@@ -13,6 +13,7 @@ export const EDGE_TOP_PX = 3;
 export const EDGE_MARK_WIDTH_PX = 4;
 export const EDGE_MARK_DEPTH_PX = 8;
 export const EDGE_HOLLOW_DEPTH_PX = 7;
+export const EDGE_QUESTION_DEPTH_PX = 6;
 export const EDGE_TARGET_REACH_PX = 6;
 const EDGE_SIGMA_PX = 11;
 export const EDGE_MAGNIFICATION = 1.6;
@@ -55,14 +56,14 @@ export function edgePositions(width: number): number[] {
 
 export type EdgeTarget = {
   key: string;
-  kind: "running" | "next" | "pair";
+  kind: "running" | "next" | "in_question" | "pair";
   index: number;
   x: number;
   span?: [number, number];
 };
 
-// One target per running mark, per next mark, and (if a pair is filed) one more for the
-// bracket spanning its two legs.
+// One target per running mark, per next mark, per in-question mark, and (if a pair is filed)
+// one more for the bracket spanning its two legs.
 export function edgeTargets(display: HowItWinsDisplay, xs: number[]): EdgeTarget[] {
   const targets: EdgeTarget[] = [];
   for (const entry of display.running) {
@@ -72,6 +73,10 @@ export function edgeTargets(display: HowItWinsDisplay, xs: number[]): EdgeTarget
   for (const entry of display.next) {
     const index = edgeIndexOf(entry.id);
     targets.push({ key: entry.id, kind: "next", index, x: xAt(xs, index) });
+  }
+  for (const entry of display.inQuestion) {
+    const index = edgeIndexOf(entry.id);
+    targets.push({ key: entry.id, kind: "in_question", index, x: xAt(xs, index) });
   }
   if (display.pair) {
     const [aId, bId] = display.pair.strategies;
@@ -105,14 +110,14 @@ export function nearestTickIndex(xs: number[], x: number): number {
   return best;
 }
 
-// A running or next mark within reach wins outright. Otherwise the pair claims the span
-// between its two legs, but only when the pointer isn't actually sitting on one of those
-// legs (a pair leg is a running mark, and the mark always wins).
+// A running, next, or in-question mark within reach wins outright. Otherwise the pair claims
+// the span between its two legs, but only when the pointer isn't actually sitting on one of
+// those legs (a pair leg is a running mark, and the mark always wins).
 export function targetAt(targets: EdgeTarget[], display: HowItWinsDisplay, xs: number[], x: number): EdgeTarget | null {
   let nearestMark: EdgeTarget | null = null;
   let nearestMarkDistance = Infinity;
   for (const target of targets) {
-    if (target.kind !== "running" && target.kind !== "next") continue;
+    if (target.kind !== "running" && target.kind !== "next" && target.kind !== "in_question") continue;
     const distance = Math.abs(target.x - x);
     if (distance < nearestMarkDistance) {
       nearestMarkDistance = distance;
@@ -148,6 +153,10 @@ export function readoutText(
   if (target.kind === "running") {
     const entry = display.running.find((candidate) => candidate.id === target.key);
     return { text: entry?.name ?? "", ink: true };
+  }
+  if (target.kind === "in_question") {
+    const entry = display.inQuestion.find((candidate) => candidate.id === target.key);
+    return { text: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.inQuestion}`, ink: true };
   }
   const entry = display.next.find((candidate) => candidate.id === target.key);
   return { text: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.notYet}`, ink: true };
@@ -189,6 +198,15 @@ export function noteFor(display: HowItWinsDisplay, target: EdgeTarget): EdgeNote
     const entry = display.next.find((candidate) => candidate.id === target.key);
     return {
       kicker: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.notYet}`,
+      meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
+      body: entry?.note ?? "",
+      wrongIf: null
+    };
+  }
+  if (target.kind === "in_question") {
+    const entry = display.inQuestion.find((candidate) => candidate.id === target.key);
+    return {
+      kicker: `${entry?.name ?? ""}, ${HOW_IT_WINS_COPY.inQuestion}`,
       meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
       body: entry?.note ?? "",
       wrongIf: null

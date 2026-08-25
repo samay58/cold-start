@@ -203,6 +203,9 @@ export const howItWinsNextSchema = z.object({
   note: z.string().min(1),
   citationIds
 });
+export const howItWinsInQuestionSchema = howItWinsNextSchema;
+
+export const HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX = 8;
 
 // A plain object schema (no superRefine) so discriminatedUnion below can read its shape.
 // z.discriminatedUnion needs a real ZodObject per branch, not the ZodEffects a superRefine
@@ -214,6 +217,7 @@ const howItWinsReadObjectSchema = z.object({
   running: z.array(howItWinsRunningSchema).min(2).max(4),
   pair: howItWinsPairSchema.nullable(),
   next: z.array(howItWinsNextSchema).max(2),
+  inQuestion: z.array(howItWinsInQuestionSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([]),
   wrongIf: z.string().min(1)
 });
 
@@ -231,9 +235,22 @@ function checkHowItWinsRead(value: z.infer<typeof howItWinsReadObjectSchema>, ct
       }
     }
   }
+  const next = value.next.map((entry) => entry.strategy);
   for (const entry of value.next) {
     if (running.includes(entry.strategy)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["next"], message: `${entry.strategy} is already running` });
+    }
+  }
+  const inQuestion = value.inQuestion.map((entry) => entry.strategy);
+  if (new Set(inQuestion).size !== inQuestion.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["inQuestion"], message: "in-question strategies must be distinct" });
+  }
+  for (const entry of value.inQuestion) {
+    if (running.includes(entry.strategy)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["inQuestion"], message: `${entry.strategy} is already running` });
+    }
+    if (next.includes(entry.strategy)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["inQuestion"], message: `${entry.strategy} is already queued as not yet` });
     }
   }
 }
@@ -245,7 +262,11 @@ export const howItWinsReadSchema = howItWinsReadObjectSchema.superRefine(checkHo
 // then falls back to its fixed empty copy.
 export const howItWinsSchema = z.discriminatedUnion("status", [
   howItWinsReadObjectSchema,
-  z.object({ status: z.literal("nothing_stands_out"), sentence: z.string().min(1).optional() }),
+  z.object({
+    status: z.literal("nothing_stands_out"),
+    sentence: z.string().min(1).optional(),
+    inQuestion: z.array(howItWinsInQuestionSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([])
+  }),
   z.object({ status: z.literal("thin_file") })
 ]).superRefine((value, ctx) => {
   if (value.status === "read") checkHowItWinsRead(value, ctx);
@@ -261,14 +282,26 @@ export const howItWinsThinFileReason = emphasisThinFileReason;
 // drops; the read degrades to nothing_stands_out if fewer than two running strategies survive.
 export function applyHowItWinsVerification(
   read: HowItWinsRead,
-  keep: { running: boolean[]; pair: boolean }
+  keep: { running: boolean[]; pair: boolean; inQuestion?: boolean[] }
 ): { howItWins: HowItWins; dropReason?: "running-dropped" | "pair-dropped" } {
   const running = read.running.filter((_, index) => keep.running[index] === true);
-  if (running.length < 2) return { howItWins: { status: "nothing_stands_out" }, dropReason: "running-dropped" };
+  const filedInQuestion = read.inQuestion ?? [];
+  const inQuestionKeep = keep.inQuestion ?? filedInQuestion.map(() => true);
+  const inQuestion = filedInQuestion.filter((entry, index) => {
+    if (inQuestionKeep[index] !== true) return false;
+    return !running.some((item) => item.strategy === entry.strategy)
+      && !read.next.some((item) => item.strategy === entry.strategy);
+  });
+  if (running.length < 2) {
+    return {
+      howItWins: { status: "nothing_stands_out", inQuestion },
+      dropReason: "running-dropped"
+    };
+  }
   const survivors = new Set(running.map((entry) => entry.strategy));
   const pairAlive = read.pair !== null && keep.pair && read.pair.strategies.every((leg) => survivors.has(leg));
   const pair = pairAlive ? read.pair : null;
   const dropped = running.length !== read.running.length || (read.pair !== null && !pairAlive);
-  const howItWins: HowItWinsRead = { ...read, running, pair };
+  const howItWins: HowItWinsRead = { ...read, running, pair, inQuestion };
   return dropped ? { howItWins, dropReason: read.pair !== null && !pairAlive ? "pair-dropped" : "running-dropped" } : { howItWins };
 }

@@ -1,9 +1,9 @@
 import type { ColdStartCard, HowItWins } from "@cold-start/core";
 
 // One filed How it wins read, shared by the crown's jsdom suite and the Playwright specs so the
-// same six targets (three running, the hybrid/chokepoint bracket, two queued) are on screen
-// everywhere. Notes carry citation markers like every other synthesis string; the display model
-// strips them before the crown renders.
+// same seven targets (three running, the hybrid/chokepoint bracket, two queued, completeness in
+// question) are on screen everywhere. Notes carry citation markers like every other synthesis
+// string; the display model strips them before the crown renders.
 export function filedHowItWins(): HowItWins {
   return {
     status: "read",
@@ -44,6 +44,13 @@ export function filedHowItWins(): HowItWins {
         strategy: "standardization",
         note: "Would need a third lab to adopt the same benchmarks independently [c1].",
         citationIds: ["c1"]
+      }
+    ],
+    inQuestion: [
+      {
+        strategy: "completeness",
+        note: "The filed record does not show whether labs still need another evaluator for the same job.",
+        citationIds: []
       }
     ],
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."

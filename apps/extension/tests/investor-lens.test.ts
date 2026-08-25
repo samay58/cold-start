@@ -53,6 +53,7 @@ const howItWinsFiled: HowItWinsRead = {
       citationIds: []
     }
   ],
+  inQuestion: [],
   wrongIf: "Editors bundle a comparable terminal agent before team budgets move."
 };
 
@@ -596,6 +597,7 @@ describe("investor lens display", () => {
           note: "No platform team has made it the default shell yet."
         }
       ],
+      inQuestion: [],
       count: 3
     });
   });
@@ -661,18 +663,18 @@ describe("investor lens display", () => {
     const nothingWithSentence = investorReadForCard(card({
       synthesis: {
         ...baseSynthesis,
-        howItWins: { status: "nothing_stands_out", sentence: "It competes the way most developer tools do [c1]." }
+        howItWins: { status: "nothing_stands_out", sentence: "It competes the way most developer tools do [c1].", inQuestion: [] }
       }
     }));
     const nothingBare = investorReadForCard(card({
-      synthesis: { ...baseSynthesis, howItWins: { status: "nothing_stands_out" } }
+      synthesis: { ...baseSynthesis, howItWins: { status: "nothing_stands_out", inQuestion: [] } }
     }));
     const legacy = investorReadForCard(card({ synthesis: baseSynthesis }));
     if (!thinFile || !nothingWithSentence || !nothingBare || !legacy) {
       throw new Error("fixtures must produce filed reads");
     }
 
-    const empty = { running: [], pair: null, next: [], count: 0 };
+    const empty = { running: [], pair: null, next: [], inQuestion: [], count: 0 };
     expect(thinFile.howItWins).toEqual({ state: "thin_file", sentence: null, ...empty });
     expect(nothingWithSentence.howItWins).toEqual({
       state: "nothing_stands_out",
@@ -681,5 +683,69 @@ describe("investor lens display", () => {
     });
     expect(nothingBare.howItWins).toEqual({ state: "nothing_stands_out", sentence: null, ...empty });
     expect(legacy.howItWins).toEqual({ state: "not_read", sentence: null, ...empty });
+  });
+
+  it("resolves in-question strategy names and keeps them on a nothing_stands_out read", () => {
+    const questionCitation = {
+      id: "c4",
+      url: "https://example.com/completeness",
+      title: "Whether the terminal covers the whole job",
+      fetchedAt: "2026-06-23T12:00:00.000Z",
+      sourceType: "news" as const
+    };
+    const baseSynthesis = {
+      whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+    };
+    const completenessNote = "The filed record does not show whether teams still need another terminal [c4].";
+    const filed = investorReadForCard(card({
+      citations: [...minimalWarpCard().citations, questionCitation],
+      synthesis: {
+        ...baseSynthesis,
+        howItWins: {
+          ...howItWinsFiled,
+          inQuestion: [{
+            strategy: "completeness",
+            note: completenessNote,
+            citationIds: ["c4"]
+          }]
+        }
+      }
+    }));
+    const nothing = investorReadForCard(card({
+      synthesis: {
+        ...baseSynthesis,
+        howItWins: {
+          status: "nothing_stands_out",
+          sentence: "It competes the way most developer tools do.",
+          inQuestion: [{
+            strategy: "completeness",
+            note: "The filed record does not show whether teams still need another terminal.",
+            citationIds: []
+          }]
+        }
+      }
+    }));
+    if (!filed || !nothing) {
+      throw new Error("fixture must produce a filed read");
+    }
+
+    expect(filed.howItWins.inQuestion).toEqual([{
+      id: "completeness",
+      name: "Completeness",
+      meaning: "One tool covers everything the buyer needs, so nothing else is required.",
+      note: "The filed record does not show whether teams still need another terminal."
+    }]);
+    expect(nothing.howItWins.state).toBe("nothing_stands_out");
+    expect(nothing.howItWins.inQuestion).toEqual([{
+      id: "completeness",
+      name: "Completeness",
+      meaning: "One tool covers everything the buyer needs, so nothing else is required.",
+      note: "The filed record does not show whether teams still need another terminal."
+    }]);
+    expect(nothing.howItWins.count).toBe(0);
+    expect(filed.sources.map((source) => source.id)).toContain("c4");
   });
 });

@@ -24,6 +24,7 @@ export const HOW_IT_WINS_COPY = {
   label: "How it wins",
   count: (n: number) => `${n} of 80 strategies`,
   notYet: "not yet",
+  inQuestion: "in question",
   wrongIf: "Wrong if",
   pinned: "pinned",
   thinFile: "Not enough filed.",

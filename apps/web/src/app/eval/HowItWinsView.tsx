@@ -1,13 +1,25 @@
-import { howItWinsStrategyById, type HowItWins } from "@cold-start/core";
+import { howItWinsStrategyById, type HowItWins, type HowItWinsStrategyId } from "@cold-start/core";
 
 // Plain rendering of one filed read, shared by the blind arm columns and the deep-single dossier.
 // Citation markers stay in the note text: the rig reads the frozen artifact, not the panel.
-// Each part of the read gets a quiet heading so a reader can find the pair or the next-up list
-// without re-reading the running entries above it.
+// Each part of the read gets a quiet heading so a reader can find the pair, the next-up list,
+// or the in-question marks without re-reading the running entries above it.
 export function HowItWinsView({ read }: { read: HowItWins }) {
-  if (read.status !== "read") {
-    const sentence = read.status === "nothing_stands_out" ? read.sentence : undefined;
-    return <p className="eval-hiw-empty">{sentence ?? "Not enough filed."}</p>;
+  if (read.status === "thin_file") {
+    return <p className="eval-hiw-empty">Not enough filed.</p>;
+  }
+
+  if (read.status === "nothing_stands_out") {
+    const sentence = read.sentence ?? "Not enough filed.";
+    if (read.inQuestion.length === 0) {
+      return <p className="eval-hiw-empty">{sentence}</p>;
+    }
+    return (
+      <div className="eval-hiw">
+        <p className="eval-hiw-empty">{sentence}</p>
+        <InQuestionEntries entries={read.inQuestion} />
+      </div>
+    );
   }
 
   const pairNames = read.pair
@@ -57,10 +69,33 @@ export function HowItWinsView({ read }: { read: HowItWins }) {
           </ul>
         </div>
       ) : null}
+      <InQuestionEntries entries={read.inQuestion} />
       <p className="eval-hiw-note eval-hiw-wrongif eval-hiw-wrongif-final">
         <span className="eval-hiw-label">Wrong if</span>
         {read.wrongIf}
       </p>
+    </div>
+  );
+}
+
+function InQuestionEntries({
+  entries
+}: {
+  entries: Array<{ strategy: HowItWinsStrategyId; note: string }>;
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <div className="eval-hiw-next-block">
+      <p className="eval-hiw-section">In question</p>
+      <ul className="eval-hiw-next">
+        {entries.map((entry) => (
+          <li key={entry.strategy}>
+            <p className="eval-hiw-name">{howItWinsStrategyById(entry.strategy).name}</p>
+            <p className="eval-hiw-meaning">{howItWinsStrategyById(entry.strategy).meaning}</p>
+            <p className="eval-hiw-note">{entry.note}</p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

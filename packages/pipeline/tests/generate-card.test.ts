@@ -2185,6 +2185,7 @@ describe("split synthesize/verify units", () => {
           running: [runningOne, runningTwo],
           pair,
           next: [],
+          inQuestion: [],
           wrongIf: "A broad platform matches the release cadence on voice."
         };
         const draft = {
@@ -2325,8 +2326,56 @@ describe("split synthesize/verify units", () => {
           { howItWins: filedHowItWins }
         );
 
-        expect(result.howItWins).toEqual({ status: "nothing_stands_out" });
+        expect(result.howItWins).toEqual({ status: "nothing_stands_out", inQuestion: [] });
         expect(result.howItWinsDropReason).toBe("running-dropped");
+      });
+
+      it("keeps a citation-less in-question note and drops a cited one the verifier rejected", async () => {
+        const card = await assembledCard();
+        const {
+          whyItMatters,
+          bullCase,
+          bearCase,
+          filedHowItWins,
+          draft,
+          runningClaimOne,
+          runningClaimTwo,
+          pairClaim
+        } = howItWinsFixtures();
+        const kept = {
+          strategy: "completeness" as const,
+          note: "The filed record does not show whether buyers still need another voice stack.",
+          citationIds: [] as string[]
+        };
+        const dropped = {
+          strategy: "security" as const,
+          note: "A named customer said they still need a second vendor [c1].",
+          citationIds: ["c1"]
+        };
+        const withQuestion = { ...filedHowItWins, inQuestion: [kept, dropped] };
+        const verify = vi.fn(async () => [
+          { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+          { claimIndex: 1, ...bullCase, status: "supported" as const },
+          { claimIndex: 2, ...bearCase, status: "supported" as const },
+          { claimIndex: 3, ...runningClaimOne, status: "supported" as const },
+          { claimIndex: 4, ...runningClaimTwo, status: "supported" as const },
+          { claimIndex: 5, ...pairClaim, status: "supported" as const },
+          { claimIndex: 6, text: kept.note, citationIds: kept.citationIds, status: "unsupported" as const },
+          { claimIndex: 7, text: dropped.note, citationIds: dropped.citationIds, status: "unsupported" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { howItWins: withQuestion }
+        );
+
+        expect(result.howItWins).toMatchObject({
+          status: "read",
+          inQuestion: [kept]
+        });
+        expect(result.howItWinsDropReason).toBeUndefined();
       });
 
       it("without the extra the verify payload and result shape are unchanged", async () => {

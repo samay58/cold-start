@@ -25,6 +25,7 @@ import {
   EDGE_FALLBACK_WIDTH_PX,
   EDGE_HEIGHT_PX,
   EDGE_HOLLOW_DEPTH_PX,
+  EDGE_QUESTION_DEPTH_PX,
   EDGE_MAGNIFICATION,
   EDGE_MARK_DEPTH_PX,
   EDGE_MARK_WIDTH_PX,
@@ -75,6 +76,7 @@ const SVG_CLASS = {
   cutFill: "cs-hiw-cut-fill",
   cutWall: "cs-hiw-cut-wall",
   hollow: "cs-hiw-hollow",
+  question: "cs-hiw-question",
   rule: "cs-hiw-rule",
   tick: "cs-hiw-tick"
 } as const;
@@ -88,7 +90,8 @@ function readKey(display: HowItWinsDisplay): string {
     display.state,
     display.sentence ?? "",
     ...display.running.map((entry) => entry.id),
-    ...display.next.map((entry) => entry.id)
+    ...display.next.map((entry) => entry.id),
+    ...display.inQuestion.map((entry) => entry.id)
   ].join("|");
 }
 
@@ -198,13 +201,15 @@ function HowItWinsCrown({
   const marks = useMemo(() => {
     const cuts = new Set<number>();
     const hollows = new Set<number>();
+    const questions = new Set<number>();
     for (const target of targets) {
       if (target.kind === "running") cuts.add(target.index);
       if (target.kind === "next") hollows.add(target.index);
+      if (target.kind === "in_question") questions.add(target.index);
     }
     const order = new Map<number, number>();
-    [...cuts, ...hollows].sort((a, b) => a - b).forEach((index, rank) => order.set(index, rank));
-    return { cuts, hollows, order };
+    [...cuts, ...hollows, ...questions].sort((a, b) => a - b).forEach((index, rank) => order.set(index, rank));
+    return { cuts, hollows, questions, order };
   }, [targets]);
 
   // Both legs of the bracket take ink together, so the pair reads as one object.
@@ -245,9 +250,10 @@ function HowItWinsCrown({
       const held = isPinned && hot;
       const isCut = marks.cuts.has(index);
       const isHollow = marks.hollows.has(index);
+      const isQuestion = marks.questions.has(index);
 
-      if (isCut || isHollow) {
-        const base = isCut ? EDGE_MARK_DEPTH_PX : EDGE_HOLLOW_DEPTH_PX;
+      if (isCut || isHollow || isQuestion) {
+        const base = isCut ? EDGE_MARK_DEPTH_PX : isHollow ? EDGE_HOLLOW_DEPTH_PX : EDGE_QUESTION_DEPTH_PX;
         const depth = (base + HOVER_DEPTH_GAIN_PX * mag + (held ? PINNED_DEPTH_PX : 0)) * markArrive(index);
         const wide = EDGE_MARK_WIDTH_PX + HOVER_WIDTH_GAIN_PX * mag;
         const left = round(x - wide / 2);
@@ -260,7 +266,7 @@ function HowItWinsCrown({
           );
         } else {
           parts.push(
-            `<path class="${SVG_CLASS.hollow}" d="M ${left} ${EDGE_TOP_PX} V ${floor} H ${right} V ${EDGE_TOP_PX}"${flag(hot)}${pin(held)}/>`
+            `<path class="${isHollow ? SVG_CLASS.hollow : SVG_CLASS.question}" d="M ${left} ${EDGE_TOP_PX} V ${floor} H ${right} V ${EDGE_TOP_PX}"${flag(hot)}${pin(held)}/>`
           );
         }
         continue;
