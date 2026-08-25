@@ -7,7 +7,7 @@ import {
   type ColdStartCard,
   type ResearchSection
 } from "@cold-start/core";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { AnimatePresence, motion } from "framer-motion";
@@ -35,9 +35,12 @@ import { CompanyArc, type CompanyArcState } from "./company/CompanyArc";
 import { CompanyLogo } from "./company/CompanyLogo";
 import { LENS_RUN_FAILED_NOTICE } from "./shared/extension-format";
 import { sectionIdForLayer, type ResearchLayerId } from "./research/research-layer";
+import { howItWinsPendingForCard } from "./research/investor-lens";
+import { HowItWinsReadingProvider, useHowItWinsReadPoll } from "./research/how-it-wins-reading";
 import { resolveTheme, useTheme, type ThemePreference } from "./shared/theme";
 import {
   fetchBootstrap,
+  fetchCard,
   isActiveRun,
   markPerformance,
   pollGenerationUntilCard,
@@ -826,6 +829,35 @@ export function SidePanel() {
 
     void writeCachedCard(domain, settings, requestState.card);
   }, [domain, requestState, settings]);
+
+  // The How it wins read runs in the background and lands minutes after the analysis run
+  // settles, so a settled profile whose crown has not arrived waits for it here. No wait starts
+  // while any run is in flight: the card those runs are about to replace is not the one waiting.
+  const howItWinsPending = requestState.status === "success"
+    && !requestState.analysisRun
+    && !requestState.profileRun
+    && !requestState.activeSectionRun
+    && howItWinsPendingForCard(requestState.card, requestState.events ?? []);
+
+  const fetchCardWhileReading = useMemo(
+    () => (domain && settings ? (signal: AbortSignal) => fetchCard(domain, settings, signal) : null),
+    [domain, settings]
+  );
+
+  // The read arriving swaps the card in state, and the effect above writes that card through to
+  // the cache, so reopening the panel keeps the crown instead of starting the wait again.
+  const applyReadCard = useCallback((card: ColdStartCard) => {
+    setRequestState((current) => current.status === "success"
+      ? { ...current, card, sections: sectionsForCard(card, current.sections) }
+      : current);
+  }, []);
+
+  const howItWinsReading = useHowItWinsReadPoll({
+    pending: howItWinsPending,
+    pollKey: domain,
+    fetchCard: fetchCardWhileReading,
+    onCard: applyReadCard
+  });
 
   const abortActiveRequest = useCallback(() => {
     activeRequest.current?.abort();
@@ -1833,18 +1865,20 @@ export function SidePanel() {
     }
     panel = (
       <AlphaAnalyticsProvider settings={settings ?? undefined}>
-        <CompanyArc
-          alphaAccess={alphaAccess}
-          arc={arc}
-          domain={domain}
-          onEditSettings={openSettings}
-          onRefile={handleRefile}
-          onRegenerate={() => handleStartGeneration(true, "retry", "unknown")}
-          onRunAnalysis={handleRunAnalysis}
-          onRunSection={handleRunSection}
-          onStart={() => handleStartGeneration(true)}
-          queuedLayerIds={sectionQueue}
-        />
+        <HowItWinsReadingProvider value={howItWinsReading}>
+          <CompanyArc
+            alphaAccess={alphaAccess}
+            arc={arc}
+            domain={domain}
+            onEditSettings={openSettings}
+            onRefile={handleRefile}
+            onRegenerate={() => handleStartGeneration(true, "retry", "unknown")}
+            onRunAnalysis={handleRunAnalysis}
+            onRunSection={handleRunSection}
+            onStart={() => handleStartGeneration(true)}
+            queuedLayerIds={sectionQueue}
+          />
+        </HowItWinsReadingProvider>
       </AlphaAnalyticsProvider>
     );
   } else if (requestState.status === "pending") {

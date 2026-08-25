@@ -17,7 +17,7 @@ import { parseModelString } from "./llm-provider";
 import { isTransientLlmError } from "./transient-error";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
-const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-23.11";
+const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-25.1";
 
 const STAGE_TIMEOUT_MS: Record<HowItWinsJudgeCallRequest["stage"], number> = {
   bet_map: 120_000,
@@ -44,11 +44,12 @@ export function benchmarkStageReservationUsd(stage: HowItWinsJudgeCallRequest["s
 }
 
 const judgmentContract = `The judgment object is a compact semantic transport. Code assigns durable bet, claim, question, disagreement, and override identifiers. Do not create or return those identifiers. Do not repeat evidenceCutoff or evidenceRegistry because code injects the frozen packet exactly.
-strategyEvaluations: exactly 80 records in canonical vocabulary order. Each supported or disputed record needs strategyId, disposition, betRefs, mechanism, evidenceGate, evidenceIds, supportingClaims, counterevidenceIds, dimensions, presentRelevance, historicalEvidenceIds, presentEvidenceIds, presentBridge, siblingCandidateIds, siblingResolutions, notYet, dispositionReason.
+strategyEvaluations: exactly 80 records in canonical vocabulary order. A full record is only for disposition current, not_yet, or open_question. It needs strategyId, disposition, betRefs, mechanism, evidenceGate, evidenceIds, supportingClaims, counterevidenceIds, dimensions, presentRelevance, historicalEvidenceIds, presentEvidenceIds, presentBridge, siblingCandidateIds, siblingResolutions, notYet, dispositionReason.
+Every other strategy returns exactly four fields: strategyId, disposition of insufficient_evidence, rejected, or not_applicable, evidenceGate of pass, fail, or unresolved, and a dispositionReason of one clause under 20 words. Code expands its empty arrays, nulls, and not_reached dimensions. Most of the 80 are this shape. Do not spend words on them and do not repeat the same explanation.
+Length limits inside a full record: mechanism under 40 words, dispositionReason under 30 words, at most three supportingClaims of under 30 words each, each siblingResolution reason under 20 words, each openQuestions field under 30 words.
 betRefs are one-based positions in the supplied material-bet list. supportingClaims are inline observed_fact or reasonable_inference records. An observed fact needs text and evidenceIds. An inference also needs a short bridge. Code assigns claim IDs after validation.
-dimensions needs evidenceStrength, centrality, materiality, distinctiveness, independence, explanatoryValue using the supplied categorical standard. Fields after a failed evidence gate may use not_reached.
-For an evidence-failed strategy, return only strategyId, disposition, evidenceGate, and a short dispositionReason. Code expands its empty arrays, nulls, and not_reached dimensions. Do not write repetitive explanations.
-siblingResolutions records need strategyId, decidingQuestion, reason, evidenceIds. For every full strategy, copy every ID from requiredSiblingIdsByStrategy[strategyId] into siblingCandidateIds and resolve each one exactly once in siblingResolutions. Do not omit a required sibling because it looks weak.
+dimensions needs evidenceStrength, centrality, materiality, distinctiveness, independence, explanatoryValue using the supplied categorical standard.
+siblingResolutions records need strategyId, reason, evidenceIds. Code fills the deciding question from the frozen rubric, so do not write one. For every full strategy, copy every ID from requiredSiblingIdsByStrategy[strategyId] into siblingCandidateIds and resolve each one exactly once in siblingResolutions. Do not omit a required sibling because it looks weak.
 notYet is null unless disposition is not_yet. A not-yet record needs precursorEvidenceIds, causalPath, missingCondition, promotionEvidence, horizonMonths from 12 through 24.
 currentStrategyIds: every current strategy, ordered mainly by centrality, with no cap.
 unusualPair: null or one record with strategyIds, referenceClass, normalChoice, excludedAlternative, acceptedCost, interaction, copyingDifficulty, evidenceIds.
@@ -154,6 +155,48 @@ function restrictEvidenceReferences(value: unknown, ids: readonly string[]) {
   }
 }
 
+// Character budgets for the prose the judgment spends its output on, at roughly 6.5 characters
+// per word. They are hints the model sees in the tool schema, not validation: rejecting a
+// five-minute judgment over a long sentence would cost more than the sentence.
+const PROSE_MAX_LENGTH: Record<string, number> = {
+  mechanism: 260,
+  dispositionReason: 200,
+  reason: 130,
+  text: 200,
+  bridge: 200,
+  question: 200,
+  whyMaterial: 200,
+  evidenceNeeded: 200
+};
+
+function applyMaxLength(value: unknown, maxLength: number) {
+  const object = record(value);
+  if (!object) return;
+  if (object.type === "string") {
+    object.maxLength = maxLength;
+    return;
+  }
+  if (Array.isArray(object.anyOf)) {
+    for (const option of object.anyOf) applyMaxLength(option, maxLength);
+  }
+}
+
+function hintProseLengths(value: unknown) {
+  if (Array.isArray(value)) {
+    for (const child of value) hintProseLengths(child);
+    return;
+  }
+  const object = record(value);
+  if (!object) return;
+  const properties = record(object.properties);
+  if (properties) {
+    for (const [name, maxLength] of Object.entries(PROSE_MAX_LENGTH)) {
+      if (Object.hasOwn(properties, name)) applyMaxLength(properties[name], maxLength);
+    }
+  }
+  for (const child of Object.values(object)) hintProseLengths(child);
+}
+
 function localBetRefsForRequest(request: HowItWinsJudgeCallRequest) {
   if (!isMultiStageGlobal(request)) return null;
   const payload = record(request.payload);
@@ -215,6 +258,7 @@ export function benchmarkToolSchemaForRequest(request: HowItWinsJudgeCallRequest
     multiStage: isMultiStageGlobal(request)
   })) as Record<string, unknown>;
   restrictEvidenceReferences(schema, evidenceHandlesForRequest(request).handles);
+  hintProseLengths(schema);
   const localBetRefs = localBetRefsForRequest(request);
   if (localBetRefs) restrictLocalBetReferences(schema, localBetRefs);
   return schema;
@@ -419,6 +463,34 @@ function materialBetsFromToolOutput(raw: unknown) {
   });
 }
 
+const COMPACT_ROW_DISPOSITIONS = new Set(["insufficient_evidence", "rejected", "not_applicable"]);
+const COMPACT_ROW_KEYS = new Set(["strategyId", "disposition", "evidenceGate", "dispositionReason"]);
+
+function isEmptyPadding(value: unknown): boolean {
+  return value === null
+    || value === ""
+    || (Array.isArray(value) && value.length === 0);
+}
+
+// A compact row is four fields. Models pad it anyway, with mechanism: null or evidenceIds: [],
+// and the strict compact schema then rejects the whole 80-row judgment and buys a paid repair.
+// Empty padding on a compact row carries nothing, so it goes. A padded key holding real content
+// stays, and the judgment still fails loudly, because that row was not compact after all.
+function trimCompactStrategyRows(value: Record<string, unknown>): Record<string, unknown> {
+  const rows = value.strategyEvaluations;
+  if (!Array.isArray(rows)) return value;
+  return {
+    ...value,
+    strategyEvaluations: rows.map((row) => {
+      const entry = record(row);
+      if (!entry || !COMPACT_ROW_DISPOSITIONS.has(entry.disposition as string)) return row;
+      return Object.fromEntries(
+        Object.entries(entry).filter(([key, child]) => COMPACT_ROW_KEYS.has(key) || !isEmptyPadding(child))
+      );
+    })
+  };
+}
+
 export function normalizeBenchmarkToolOutput(request: HowItWinsJudgeCallRequest, raw: unknown) {
   const toolSchema = benchmarkToolSchemaForRequest(request);
   if (request.stage === "bet_map") {
@@ -448,25 +520,50 @@ export function normalizeBenchmarkToolOutput(request: HowItWinsJudgeCallRequest,
   ) {
     throw new Error(`${request.stage} tool result needs strategyEvaluations`);
   }
+  const trimmed = trimCompactStrategyRows(normalized);
   const localBetRefs = localBetRefsForRequest(request);
-  if (localBetRefs) assertLocalBetReferences(normalized, localBetRefs);
-  return restoreEvidenceReferences(request, normalized);
+  if (localBetRefs) assertLocalBetReferences(trimmed, localBetRefs);
+  return restoreEvidenceReferences(request, trimmed);
 }
 
-type BenchmarkTimers = {
+type JudgeTransportTimers = {
   setTimeout: (callback: () => void, delayMs: number) => unknown;
   clearTimeout: (timer: unknown) => void;
 };
 
-function deadline(input: { timeoutMs: number; timers: BenchmarkTimers }) {
+const realTimers: JudgeTransportTimers = {
+  setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
+  clearTimeout: (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>)
+};
+
+function deadline(input: {
+  stage: HowItWinsJudgeCallRequest["stage"];
+  timeoutMs: number;
+  timers: JudgeTransportTimers;
+}) {
   const controller = new AbortController();
   const timer = input.timers.setTimeout(() => {
-    controller.abort(new DOMException(`benchmark stage timed out after ${input.timeoutMs}ms`, "TimeoutError"));
+    controller.abort(new DOMException(
+      `how-it-wins ${input.stage} stage timed out after ${input.timeoutMs}ms`,
+      "TimeoutError"
+    ));
   }, input.timeoutMs);
   return {
     signal: controller.signal,
     clear: () => input.timers.clearTimeout(timer)
   };
+}
+
+// The OpenAI-compat path (the DeepSeek critic) takes no abort signal, so the stage deadline is
+// applied by racing it. The underlying request keeps its own provider timeout; this only bounds
+// how long the judge waits.
+function withDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
 }
 
 function mapTrace(
@@ -497,17 +594,34 @@ function mapTrace(
   };
 }
 
-export function createBenchmarkModelAdapter(input: {
+type JudgeTransportInput = {
   client: Anthropic;
   model: string;
+  telemetry?: AnthropicTelemetrySink | undefined;
   onOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
   onRawOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
   timeoutMsForStage?: (stage: HowItWinsJudgeCallRequest["stage"]) => number;
-  timers?: BenchmarkTimers;
-}): HowItWinsJudgeAdapter {
+  timers?: JudgeTransportTimers;
+  // Production runs inside an Inngest step, which retries the whole step on a thrown transient
+  // error. Set to 2 there so a second transient attempt escapes as a throw. Left unset by the
+  // benchmark, which keeps every failure as a returned result.
+  rethrowTransientOnAttempt?: number;
+};
+
+// The one judge transport. Anthropic models always stream: a non-streaming call with the
+// global_judge and adjudication max_tokens of 50000 throws client-side inside the SDK
+// ("Streaming is required for operations that may take longer than 10 minutes"), which is what
+// kept production from ever producing a How it wins read. Never route Anthropic through
+// messages.create here.
+function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJudgeAdapter {
   return async (request) => {
     let providerTrace: GenerationLlmCallTrace | undefined;
     let rawToolOutputReceived = false;
+    const callDeadline = deadline({
+      stage: request.stage,
+      timeoutMs: input.timeoutMsForStage?.(request.stage) ?? benchmarkTimeoutMsForStage(request.stage),
+      timers: input.timers ?? realTimers
+    });
     try {
       const maxTokens = request.stage === "global_judge" || request.stage === "adjudication" ? 50_000 : 12_000;
       const params = {
@@ -519,17 +633,14 @@ export function createBenchmarkModelAdapter(input: {
         tools: [toolFor(request)],
         messages: [{ role: "user" as const, content: JSON.stringify(benchmarkProviderPayloadForRequest(request)) }]
       };
+      const emit = (trace: GenerationLlmCallTrace) => {
+        providerTrace = trace;
+        input.telemetry?.(trace);
+      };
       const resolved = parseModelString(input.model);
       const message = resolved.provider === "anthropic"
         ? await (async () => {
           const startedAt = Date.now();
-          const callDeadline = deadline({
-            timeoutMs: input.timeoutMsForStage?.(request.stage) ?? benchmarkTimeoutMsForStage(request.stage),
-            timers: input.timers ?? {
-              setTimeout: (callback, delayMs) => setTimeout(callback, delayMs),
-              clearTimeout: (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>)
-            }
-          });
           try {
             const finalMessage = await input.client.messages
               .stream({ ...params, model: resolved.model }, { signal: callDeadline.signal })
@@ -540,7 +651,7 @@ export function createBenchmarkModelAdapter(input: {
               cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? 0,
               cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? 0
             };
-            providerTrace = buildLlmCallTrace({
+            emit(buildLlmCallTrace({
               stage: "how_it_wins",
               label: request.callId,
               model: resolved.model,
@@ -550,10 +661,10 @@ export function createBenchmarkModelAdapter(input: {
               usage,
               estimatedCostUsd: estimateAnthropicCostUsd(resolved.model, usage),
               retryCount: 0
-            });
+            }));
             return finalMessage;
           } catch (error) {
-            providerTrace = buildLlmCallTrace({
+            emit(buildLlmCallTrace({
               stage: "how_it_wins",
               label: request.callId,
               model: resolved.model,
@@ -563,20 +674,40 @@ export function createBenchmarkModelAdapter(input: {
               estimatedCostUsd: 0,
               retryCount: 0,
               error
-            });
+            }));
             throw error;
-          } finally {
-            callDeadline.clear();
           }
         })()
-        : await createTracedAnthropicMessage({
-          client: input.client,
-          label: request.callId,
-          model: input.model,
-          stage: "how_it_wins",
-          telemetry: (trace) => { providerTrace = trace; },
-          params
-        });
+        : await (async () => {
+          const startedAt = Date.now();
+          try {
+            return await withDeadline(createTracedAnthropicMessage({
+              client: input.client,
+              label: request.callId,
+              model: input.model,
+              stage: "how_it_wins",
+              telemetry: emit,
+              params
+            }), callDeadline.signal);
+          } catch (error) {
+            // The stage deadline can win the race before the traced call emits anything, and
+            // every failure still has to come back as a result carrying a trace.
+            if (!providerTrace) {
+              emit(buildLlmCallTrace({
+                stage: "how_it_wins",
+                label: request.callId,
+                model: resolved.model,
+                provider: resolved.provider,
+                status: "failed",
+                durationMs: Date.now() - startedAt,
+                estimatedCostUsd: 0,
+                retryCount: 0,
+                error
+              }));
+            }
+            throw error;
+          }
+        })();
       const rawOutput = toolInput(message);
       rawToolOutputReceived = true;
       input.onRawOutput?.(request, rawOutput);
@@ -584,6 +715,11 @@ export function createBenchmarkModelAdapter(input: {
       input.onOutput?.(request, output);
       return { ok: true, output, trace: mapTrace(request, providerTrace, "ok") };
     } catch (error) {
+      if (
+        input.rethrowTransientOnAttempt !== undefined &&
+        isTransientLlmError(error) &&
+        request.attempt >= input.rethrowTransientOnAttempt
+      ) throw error;
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
@@ -595,8 +731,22 @@ export function createBenchmarkModelAdapter(input: {
           : {}),
         trace: mapTrace(request, providerTrace, "failed", error)
       };
+    } finally {
+      callDeadline.clear();
     }
   };
+}
+
+export function createBenchmarkModelAdapter(input: {
+  client: Anthropic;
+  model: string;
+  telemetry?: AnthropicTelemetrySink | undefined;
+  onOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
+  onRawOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
+  timeoutMsForStage?: (stage: HowItWinsJudgeCallRequest["stage"]) => number;
+  timers?: JudgeTransportTimers;
+}): HowItWinsJudgeAdapter {
+  return createHowItWinsJudgeTransport(input);
 }
 
 export function createHowItWinsJudgeModelAdapter(input: {
@@ -604,48 +754,5 @@ export function createHowItWinsJudgeModelAdapter(input: {
   model: string;
   telemetry?: AnthropicTelemetrySink | undefined;
 }): HowItWinsJudgeAdapter {
-  return async (request) => {
-    let providerTrace: GenerationLlmCallTrace | undefined;
-    let rawToolOutputReceived = false;
-    try {
-      const maxTokens = request.stage === "global_judge" || request.stage === "adjudication" ? 50_000 : 12_000;
-      const params = {
-        model: input.model,
-        max_tokens: maxTokens,
-        ...(input.model.includes("opus-5") ? {} : { temperature: 0 }),
-        system: `${request.prompt}\n\n${stageContracts[request.stage]}`,
-        tool_choice: { type: "tool" as const, name: TOOL_NAME },
-        tools: [toolFor(request)],
-        messages: [{ role: "user" as const, content: JSON.stringify(benchmarkProviderPayloadForRequest(request)) }]
-      };
-      const message = await createTracedAnthropicMessage({
-        client: input.client,
-        label: request.callId,
-        model: input.model,
-        stage: "how_it_wins",
-        telemetry: (trace) => {
-          providerTrace = trace;
-          input.telemetry?.(trace);
-        },
-        params
-      });
-      const rawOutput = toolInput(message);
-      rawToolOutputReceived = true;
-      const output = normalizeBenchmarkToolOutput(request, rawOutput);
-      return { ok: true, output, trace: mapTrace(request, providerTrace, "ok") };
-    } catch (error) {
-      if (isTransientLlmError(error) && request.attempt >= 2) throw error;
-      return {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-        retryable: isTransientLlmError(error) || rawToolOutputReceived,
-        ...(rawToolOutputReceived
-          ? {
-            repairInstruction: `Return one complete corrected ${request.stage} result. Previous structured output failed validation: ${error instanceof Error ? error.message : String(error)}`.slice(0, 500)
-          }
-          : {}),
-        trace: mapTrace(request, providerTrace, "failed", error)
-      };
-    }
-  };
+  return createHowItWinsJudgeTransport({ ...input, rethrowTransientOnAttempt: 2 });
 }

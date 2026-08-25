@@ -28,7 +28,10 @@ export const HOW_IT_WINS_COPY = {
   wrongIf: "Wrong if",
   pinned: "pinned",
   thinFile: "Not enough filed.",
-  nothingStandsOut: "Nothing stands out yet."
+  nothingStandsOut: "Nothing stands out yet.",
+  // The read runs in the background after the analysis run settles, so the crown mounts empty
+  // and says what it is doing. Flat status, no ellipsis and no promise about when it lands.
+  reading: "Reading the record."
 } as const;
 
 // The Pay attention to category's flat empty-state copy, one line per state the emphasis read

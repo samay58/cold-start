@@ -371,7 +371,9 @@ function assertRequiredSiblingResolutions(
   siblingMap: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
 ) {
   for (const evaluation of body.strategyEvaluations) {
-    if (evaluation.evidenceGate === "fail") continue;
+    // A compact row carries no mechanism, so it has no sibling to distinguish itself from. That
+    // covers the failed evidence gate, which is the compact case with a fixed evidence strength.
+    if (evaluation.mechanism === null) continue;
     const required = siblingMap[evaluation.strategyId] ?? [];
     const resolved = new Set(evaluation.siblingResolutions.map((entry) => entry.strategyId));
     for (const siblingId of required) {
@@ -394,10 +396,13 @@ function betMapForModel(betMap: z.infer<typeof betMapSchema> | null) {
   };
 }
 
+type DecidingQuestionLookup = (strategyId: HowItWinsStrategyId) => string | undefined;
+
 function materializeFromPacket(
   semantic: z.infer<typeof semanticJudgmentSchema>,
   materialBets: HowItWinsJudgmentBody["materialBets"],
   packet: z.infer<typeof evidencePacketSchema>,
+  decidingQuestionFor: DecidingQuestionLookup,
   retainedOverrides?: HowItWinsJudgmentBody["overrides"]
 ) {
   return materializeSemanticJudgment({
@@ -405,6 +410,7 @@ function materializeFromPacket(
     materialBets,
     evidenceCutoff: packet.cutoff,
     evidenceRegistry: packet.evidence,
+    decidingQuestionFor,
     ...(retainedOverrides ? { retainedOverrides } : {})
   });
 }
@@ -422,7 +428,8 @@ function assertBetRevisionRecorded(
 function parseGlobalJudgment(
   output: unknown,
   betMap: z.infer<typeof betMapSchema> | null,
-  packet: z.infer<typeof evidencePacketSchema>
+  packet: z.infer<typeof evidencePacketSchema>,
+  decidingQuestionFor: DecidingQuestionLookup
 ) {
   const transport = globalJudgmentTransportSchema.parse(stripUnknownNullTransportFields(output));
   const { betRevision, ...semantic } = transport;
@@ -430,13 +437,13 @@ function parseGlobalJudgment(
     if (!semantic.materialBets) {
       throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
     }
-    return materializeFromPacket(semantic, assignMaterialBetIds(semantic.materialBets), packet);
+    return materializeFromPacket(semantic, assignMaterialBetIds(semantic.materialBets), packet, decidingQuestionFor);
   }
   if (!betRevision) {
-    return materializeFromPacket(semantic, structuredClone(betMap.materialBets), packet);
+    return materializeFromPacket(semantic, structuredClone(betMap.materialBets), packet, decidingQuestionFor);
   }
   const materialBets = assignMaterialBetIds(betRevision.materialBets);
-  return materializeFromPacket(semantic, materialBets, packet, [{
+  return materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [{
     kind: "bet",
     betId: materialBets[0]!.betId,
     from: hashHowItWinsJudgeValue(betMap.materialBets),
@@ -478,6 +485,17 @@ function assertTargetedAdjudication(
   }
 }
 
+type HowItWinsRefinementRecord = {
+  critic: "ok" | "failed" | "skipped_same_provider";
+  adjudication: "ok" | "failed" | "not_needed";
+  notes: string[];
+};
+
+function refinementNote(label: string, error: unknown) {
+  const detail = error instanceof Error ? error.message : String(error);
+  return `${label}: ${detail}`.slice(0, 300);
+}
+
 export function createHowItWinsJudge(config: {
   adapters: { strong: HowItWinsJudgeAdapter; scout: HowItWinsJudgeAdapter; critic: HowItWinsJudgeAdapter };
   rules: HowItWinsJudgeRules;
@@ -485,8 +503,14 @@ export function createHowItWinsJudge(config: {
   siblingMap?: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
   maxScoutConcurrency?: number;
   telemetry?: HowItWinsJudgeTelemetrySink;
+  // Named at construction so a same-provider critic costs nothing. The old check compared
+  // provider strings on the returned traces, after both paid calls had already run.
+  providers?: { strong: string; critic: string };
 }) {
   assertExactRules(config.rules);
+  if (config.providers && config.providers.strong === config.providers.critic) {
+    throw new HowItWinsJudgmentClosedError("critic must use a different provider from the global judge");
+  }
   const scopes = config.scopes ?? howItWinsGroupScopes();
   const monolith = scopes.length === 0;
   const maximumConcurrency = scopes.length || 1;
@@ -495,6 +519,8 @@ export function createHowItWinsJudge(config: {
     throw new Error(`maxScoutConcurrency must be between 1 and ${maximumConcurrency}`);
   }
   const rubricById = new Map(config.rules.strategyRubric.map((row) => [row.strategyId, row]));
+  const decidingQuestionFor: DecidingQuestionLookup = (strategyId) =>
+    rubricById.get(strategyId)?.decidingQuestion;
   const siblingMap = Object.fromEntries(HOW_IT_WINS_STRATEGIES.map((strategy) => {
     const rubricSiblings = (rubricById.get(strategy.id)?.nearestSiblings ?? [])
       .map(howItWinsStrategyIdForName)
@@ -544,25 +570,30 @@ export function createHowItWinsJudge(config: {
       config.telemetry?.(trace);
       return result;
     };
+    const correctedRequest = (
+      request: HowItWinsJudgeCallRequest,
+      correction: string | undefined,
+      callIdSuffix: string
+    ): HowItWinsJudgeCallRequest => ({
+      ...request,
+      callId: `${request.callId}:${callIdSuffix}`,
+      attempt: 2,
+      ...(correction && request.payload && typeof request.payload === "object" && !Array.isArray(request.payload)
+        ? {
+          payload: {
+            ...(request.payload as Record<string, unknown>),
+            retryCorrection: correction
+          }
+        }
+        : {})
+    });
     const invokeTransport = async (
       adapter: HowItWinsJudgeAdapter,
       request: HowItWinsJudgeCallRequest
     ) => {
       const first = await invoke(adapter, request);
       if (first.ok || !first.retryable) return first;
-      return invoke(adapter, {
-        ...request,
-        callId: `${request.callId}:2`,
-        attempt: 2,
-        ...(first.repairInstruction && request.payload && typeof request.payload === "object" && !Array.isArray(request.payload)
-          ? {
-            payload: {
-              ...(request.payload as Record<string, unknown>),
-              retryCorrection: first.repairInstruction
-            }
-          }
-          : {})
-      });
+      return invoke(adapter, correctedRequest(request, first.repairInstruction, "2"));
     };
 
     let betMap: z.infer<typeof betMapSchema> | null = null;
@@ -647,10 +678,34 @@ export function createHowItWinsJudge(config: {
     };
     const globalResult = await invokeTransport(config.adapters.strong, globalRequest);
     if (!globalResult.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
-    const globalJudgment = parseGlobalJudgment(globalResult.output, betMap, packet);
-    assertFrozenEvidence(globalJudgment, packet);
-    assertScoutOverrides(globalJudgment, availableScouts);
-    assertRequiredSiblingResolutions(globalJudgment, siblingMap);
+    const acceptGlobalJudgment = (output: unknown) => {
+      const parsed = parseGlobalJudgment(output, betMap, packet, decidingQuestionFor);
+      assertFrozenEvidence(parsed, packet);
+      assertScoutOverrides(parsed, availableScouts);
+      assertRequiredSiblingResolutions(parsed, siblingMap);
+      return parsed;
+    };
+
+    const refinement: HowItWinsRefinementRecord = { critic: "ok", adjudication: "not_needed", notes: [] };
+    let globalTraceProvider = globalResult.trace.provider;
+    let globalJudgment: HowItWinsJudgmentBody;
+    try {
+      globalJudgment = acceptGlobalJudgment(globalResult.output);
+    } catch (error) {
+      // Exactly one re-ask, never two. A global judge call runs about a dollar and five minutes,
+      // so a second repair costs more than it is worth. Anything but a contract violation, and
+      // any failure on the corrected answer, still fails closed.
+      if (!(error instanceof HowItWinsJudgmentClosedError)) throw error;
+      const repair = await invoke(config.adapters.strong, correctedRequest(
+        globalRequest,
+        `Return one complete corrected global_judge result. The previous judgment failed a contract check: ${error.message}`.slice(0, 500),
+        "repair"
+      ));
+      if (!repair.ok) throw new HowItWinsJudgmentClosedError("global judgment failed");
+      globalTraceProvider = repair.trace.provider;
+      globalJudgment = acceptGlobalJudgment(repair.output);
+      refinement.notes.push(refinementNote("global judgment repaired after", error));
+    }
 
     const criticRequest: HowItWinsJudgeCallRequest = {
       callId: "how-it-wins:critic",
@@ -664,17 +719,29 @@ export function createHowItWinsJudge(config: {
         judgment: semanticJudgmentForModel(globalJudgment)
       }
     };
+    // Everything past the global judgment is refinement. A failure here drops back to the global
+    // judgment and records why, rather than throwing away a judgment that already cost the run.
     const criticResult = await invokeTransport(config.adapters.critic, criticRequest);
-    if (!criticResult.ok) throw new HowItWinsJudgmentClosedError("critic failed");
-    const criticTransport = criticOutputSchema.parse(stripUnknownNullTransportFields(criticResult.output));
-    const critic = {
-      findings: criticTransport.findings.map((finding, index) => ({
-        findingId: `f${index + 1}`,
-        ...finding
-      }))
-    };
-    if (globalResult.trace.provider === criticResult.trace.provider) {
-      throw new HowItWinsJudgmentClosedError("critic must use a different provider from the global judge");
+    let critic: { findings: Array<{ findingId: string } & z.infer<typeof criticFindingSchema>> } = { findings: [] };
+    if (!criticResult.ok) {
+      refinement.critic = "failed";
+      refinement.notes.push(refinementNote("critic call failed", criticResult.error));
+    } else if (globalTraceProvider === criticResult.trace.provider) {
+      refinement.critic = "skipped_same_provider";
+      refinement.notes.push(`critic ran on the same provider as the global judge: ${criticResult.trace.provider}`.slice(0, 300));
+    } else {
+      const criticTransport = criticOutputSchema.safeParse(stripUnknownNullTransportFields(criticResult.output));
+      if (!criticTransport.success) {
+        refinement.critic = "failed";
+        refinement.notes.push(refinementNote("critic output rejected", criticTransport.error));
+      } else {
+        critic = {
+          findings: criticTransport.data.findings.map((finding, index) => ({
+            findingId: `f${index + 1}`,
+            ...finding
+          }))
+        };
+      }
     }
 
     const materialFindings = critic.findings.filter((finding) => finding.material);
@@ -695,25 +762,37 @@ export function createHowItWinsJudge(config: {
         }
       };
       const adjudicationResult = await invokeTransport(config.adapters.strong, adjudicationRequest);
-      if (!adjudicationResult.ok) throw new HowItWinsJudgmentClosedError("adjudication failed");
-      const adjudicationTransport = semanticJudgmentSchema.parse(
-        stripUnknownNullTransportFields(adjudicationResult.output)
-      );
-      if (!adjudicationTransport.materialBets) {
-        throw new HowItWinsJudgmentClosedError("adjudication requires material bets");
+      if (!adjudicationResult.ok) {
+        refinement.adjudication = "failed";
+        refinement.notes.push(refinementNote("adjudication call failed", adjudicationResult.error));
+      } else {
+        try {
+          const adjudicationTransport = semanticJudgmentSchema.parse(
+            stripUnknownNullTransportFields(adjudicationResult.output)
+          );
+          if (!adjudicationTransport.materialBets) {
+            throw new HowItWinsJudgmentClosedError("adjudication requires material bets");
+          }
+          const adjudicated = materializeFromPacket(
+            adjudicationTransport,
+            assignMaterialBetIds(adjudicationTransport.materialBets),
+            packet,
+            decidingQuestionFor,
+            globalJudgment.overrides.filter((entry) => entry.kind === "bet")
+          );
+          assertFrozenEvidence(adjudicated, packet);
+          assertTargetedAdjudication(globalJudgment, adjudicated, materialFindings);
+          assertScoutOverrides(adjudicated, availableScouts);
+          assertRequiredSiblingResolutions(adjudicated, siblingMap);
+          if (betMap) assertBetRevisionRecorded(adjudicated, betMap);
+          finalBody = adjudicated;
+          refinement.adjudication = "ok";
+        } catch (error) {
+          if (isTransientLlmError(error)) throw error;
+          refinement.adjudication = "failed";
+          refinement.notes.push(refinementNote("adjudication output rejected", error));
+        }
       }
-      const adjudicated = materializeFromPacket(
-        adjudicationTransport,
-        assignMaterialBetIds(adjudicationTransport.materialBets),
-        packet,
-        globalJudgment.overrides.filter((entry) => entry.kind === "bet")
-      );
-      assertFrozenEvidence(adjudicated, packet);
-      assertTargetedAdjudication(globalJudgment, adjudicated, materialFindings);
-      assertScoutOverrides(adjudicated, availableScouts);
-      assertRequiredSiblingResolutions(adjudicated, siblingMap);
-      if (betMap) assertBetRevisionRecorded(adjudicated, betMap);
-      finalBody = adjudicated;
     }
 
     const existingDisagreements = new Set(finalBody.disagreements.map((entry) => entry.disagreementId));
@@ -740,6 +819,7 @@ export function createHowItWinsJudge(config: {
         vocabulary: input.vocabularyHash
       },
       ...finalBody,
+      refinement,
       calls
     });
   };

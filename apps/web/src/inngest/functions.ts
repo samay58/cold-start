@@ -8,7 +8,6 @@ import {
   type FirstPayoff,
   type GenerationTrace,
   type HowItWins,
-  type HowItWinsJudgment,
   deriveLegacyResearchSectionsFromCard,
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   researchSectionJobKind,
@@ -102,7 +101,7 @@ import {
   fetchFounderVoiceStepBody,
   nextFounderVoiceIndex
 } from "./emphasis-read";
-import { howItWinsStepBody } from "./how-it-wins";
+import { buildHowItWinsRequestedEvent } from "./how-it-wins-function";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -120,7 +119,6 @@ import {
   expandedDescriptionEnabled,
   founderVoiceEnvFromProcess,
   howItWinsEnabled,
-  howItWinsModelsFromProcess,
   stableenrichEnvFromProcess
 } from "./worker-env";
 import {
@@ -425,7 +423,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     const verifierModel = modelForStage("verify", defaultModel);
     const sectionModel = modelForStage("research_section", defaultModel);
     const emphasisModel = modelForStage("emphasis_read", defaultModel);
-    const howItWinsModels = howItWinsModelsFromProcess(defaultModel);
 
     if (requestedSectionId) {
       currentStage = "generate-section";
@@ -770,6 +767,13 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     // that already has a filed read. The read is preserved either way, but whether the write
     // happens at all depends on the evidence comparison made once cardToStore exists below.
     let preserveFiledSynthesis = false;
+    // Set when this analysis run filed fresh, verified synthesis. The deferred how-it-wins read
+    // is dispatched only then: on the preserve-old-read and no-survivors branches the fresh
+    // synthesis is discarded wholesale, and a read written against it would have nothing to sit on.
+    let analysisFiledFreshSynthesis = false;
+    // Set when the read is neither flagged off nor thin-filed, so the store below should hand it
+    // to the background function.
+    let howItWinsDeferred = false;
 
     if (mode === "analysis") {
       currentStage = "evaluate-synthesis-gate";
@@ -831,23 +835,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
         // supports. Runs between synthesize and verify so its claims ride the existing verify
         // call (packages/pipeline/src/generate-card.ts's verifyCardSynthesisDraft extras) rather
         // than paying for a second verifier round trip.
-        //
-        // The how-it-wins read runs as a second, concurrent closure below rather than after this
-        // one: the monolith judge plus frozen writer cost their own model time, and nothing it
-        // reads depends on the founder-voice citations the emphasis closure fetches. Both closures
-        // are awaited together and joined once both settle, so a rejection from either always has
-        // a handler. Neither writes the other's fields: emphasis owns generatedCard.citations,
-        // sourcesToRecord, and trace.emphasis; how-it-wins owns only trace.howItWins.
-        //
-        // currentStage is the one genuinely shared write. Last-writer-wins is fine for the happy
-        // path, but it is wrong for failure attribution: how-it-wins sets it and then awaits for
-        // minutes while the emphasis closure overwrites it, so a how-it-wins failure would be
-        // filed under "emphasis-read". Each closure therefore records its own stage as it moves,
-        // and the join below stamps the FAILING closure's stage onto currentStage right before it
-        // rethrows, so trace.failure.stage names the step that actually failed.
-        const cardForHowItWins = generatedCard;
-        let emphasisStage = "fetch-founder-voice";
-        const howItWinsStage = "how-it-wins";
 
         const runEmphasisPipeline = async (): Promise<EmphasisRead | null> => {
           let emphasisDraft: EmphasisRead | null = null;
@@ -863,7 +850,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
               };
             } else {
               await recordEvent("emphasis-started", "emphasis.started", "Reading what they lead with", {}, null);
-              currentStage = emphasisStage = "fetch-founder-voice";
+              currentStage = "fetch-founder-voice";
               // A repeat analysis run can already carry fv-prefixed citations on generatedCard
               // (extraction reuse spreads the existing card's citations wholesale) and, separately,
               // on the stored existingCard row that storage will later merge this card against
@@ -909,7 +896,7 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
                 sourcesToRecord = [...sourcesToRecord, ...founderVoice.value.sources];
               }
 
-              currentStage = emphasisStage = "emphasis-read";
+              currentStage = "emphasis-read";
               const emphasisResult = await step.run("emphasis-read", async () => {
                 const llmTelemetry = createStepLlmTelemetryCollector();
                 const result = await timed(() =>
@@ -948,98 +935,32 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           return emphasisDraft;
         };
 
-        const runHowItWinsPipeline = async (): Promise<{
-          draft: HowItWins | null;
-          meta: { editorSkipped?: boolean; fitRetried?: boolean; styleIssueCount?: number; judgment?: HowItWinsJudgment };
-        }> => {
-          if (!howItWinsEnabled()) {
-            trace.steps = { ...trace.steps, "how-it-wins": skippedStep("HOW_IT_WINS_ENABLED=false") };
-            return { draft: null, meta: {} };
-          }
-          // The same gate the emphasis read uses, run in code before any model call, so a thin
-          // card pays for none of the judge or writer calls. Read off the pre-founder-voice
-          // snapshot, which is the card this read is written from either way.
-          const thinFileReason = howItWinsThinFileReason(cardForHowItWins);
-          if (thinFileReason) {
-            mergeTracePatch(trace, { howItWins: { enabled: true, status: "thin_file", thinFileReason } });
-            trace.steps = { ...trace.steps, "how-it-wins": skippedStep(`thin file: ${thinFileReason}`) };
-            return { draft: { status: "thin_file" }, meta: {} };
-          }
-
-          await recordEvent("how-it-wins-started", "how-it-wins.started", "Reading how it wins", {}, null);
-          currentStage = howItWinsStage;
-          const howItWinsResult = await step.run("how-it-wins", async () => {
-            const llmTelemetry = createStepLlmTelemetryCollector();
-            const result = await timed(() =>
-              howItWinsStepBody({
-                card: cardForHowItWins,
-                client: anthropic,
-                models: howItWinsModels,
-                telemetry: llmTelemetry.telemetry
-              })
-            );
-            const llmTracePatch = llmTelemetry.tracePatch();
-            return {
-              value: result.value,
-              tracePatch: {
-                ...llmTracePatch,
-                steps: {
-                  "how-it-wins": result.value.ok
-                    ? completedStep(result.durationMs)
-                    : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
-                }
-              }
-            };
-          });
-          mergeTracePatch(trace, howItWinsResult.tracePatch);
-          // A semantic how-it-wins failure degrades to nothing_stands_out; it never fails the run.
-          if (!howItWinsResult.value.ok) {
-            return {
-              draft: { status: "nothing_stands_out", inQuestion: [] },
-              meta: howItWinsResult.value.judgment ? { judgment: howItWinsResult.value.judgment } : {}
-            };
-          }
-          const stage = howItWinsResult.value.value;
-          return {
-            draft: stage.read,
-            meta: {
-              editorSkipped: stage.editorSkipped,
-              fitRetried: stage.fitRetried,
-              styleIssueCount: stage.styleIssues.length,
-              ...(stage.judgment ? { judgment: stage.judgment } : {})
-            }
-          };
-        };
-
-        // allSettled rather than all, with the rejection rethrown by hand: a transient failure in
-        // either closure must still fail the run (the same way a transient emphasis failure
-        // always has), but waiting for both to settle first means the loser can never still be
-        // writing trace, generatedCard, or a progress event while the failure path is already
-        // unwinding. Every promise gets a handler either way, so neither rejection sits unhandled.
-        const [emphasisSettled, howItWinsSettled] = await Promise.allSettled([
-          runEmphasisPipeline(),
-          runHowItWinsPipeline()
-        ]);
-        if (emphasisSettled.status === "rejected") {
-          // Only one reason can be thrown. When both closures failed, the discarded one would
-          // otherwise vanish from every surface, so it is logged before the emphasis error wins.
-          if (howItWinsSettled.status === "rejected") {
-            console.warn("[generation] how-it-wins also failed; rethrowing the emphasis failure instead", {
-              slug,
-              stage: howItWinsStage,
-              error: boundedErrorMessage(howItWinsSettled.reason)
+        // The how-it-wins read is decided here and written by its own background function
+        // (apps/web/src/inngest/how-it-wins-function.ts). The judge alone is five model calls and
+        // tens of thousands of output tokens, so keeping it inside this run delayed the Lens the
+        // tester is already reading and made a judge retry replay the whole analysis chain. Only
+        // the two free code decisions stay here, because both change what this run stores: the
+        // flag, and the same thin-file gate the emphasis read uses.
+        let howItWinsThinFile: HowItWins | null = null;
+        if (!howItWinsEnabled()) {
+          trace.steps = { ...trace.steps, "how-it-wins": skippedStep("HOW_IT_WINS_ENABLED=false") };
+        } else {
+          const howItWinsThinFileReasonValue = howItWinsThinFileReason(generatedCard);
+          if (howItWinsThinFileReasonValue) {
+            howItWinsThinFile = { status: "thin_file" };
+            mergeTracePatch(trace, {
+              howItWins: { enabled: true, status: "thin_file", thinFileReason: howItWinsThinFileReasonValue }
             });
+            trace.steps = {
+              ...trace.steps,
+              "how-it-wins": skippedStep(`thin file: ${howItWinsThinFileReasonValue}`)
+            };
+          } else {
+            howItWinsDeferred = true;
           }
-          currentStage = emphasisStage;
-          throw emphasisSettled.reason;
         }
-        if (howItWinsSettled.status === "rejected") {
-          currentStage = howItWinsStage;
-          throw howItWinsSettled.reason;
-        }
-        const emphasisDraft = emphasisSettled.value;
-        const howItWinsDraft = howItWinsSettled.value.draft;
-        const howItWinsMeta = howItWinsSettled.value.meta;
+
+        const emphasisDraft = await runEmphasisPipeline();
 
         await recordEvent(
           "verify-started",
@@ -1057,7 +978,6 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
               card: generatedCard,
               draft,
               ...(emphasisDraft?.status === "read" ? { emphasisRead: emphasisDraft } : {}),
-              ...(howItWinsDraft?.status === "read" ? { howItWins: howItWinsDraft } : {}),
               client: anthropic,
               model: verifierModel,
               telemetry: llmTelemetry.telemetry,
@@ -1109,15 +1029,11 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             ? verified.emphasisRead ?? { status: "nothing_notable" }
             : emphasisDraft
           : undefined;
-        // Same shape for the how-it-wins read: a "read" draft takes whatever the verifier left of
-        // it (a fully dropped one comes back as nothing_stands_out), any other draft passes
-        // through as filed, and no draft at all means the read never ran this run.
-        const finalHowItWins: HowItWins | undefined = howItWinsDraft
-          ? howItWinsDraft.status === "read"
-            ? verified.howItWins ?? { status: "nothing_stands_out", inQuestion: [] }
-            : howItWinsDraft
-          : undefined;
+        // The only how-it-wins value this run can still file is the thin-file marker: everything
+        // else is written by the background function, against the card as stored.
+        const finalHowItWins: HowItWins | undefined = howItWinsThinFile ?? undefined;
 
+        analysisFiledFreshSynthesis = Boolean(verified.synthesis);
         if (verified.synthesis) {
           const { synthesisWithheld: _synthesisWithheld, ...cardWithoutWithheld } = generatedCard;
           generatedCard = {
@@ -1171,32 +1087,12 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
           );
         }
 
-        // Same discard rule as the emphasis read above: a freshly filed "read" only lands on the
-        // stored card via the verified.synthesis branch, so on the preserve-old-read and
-        // no-survivors branches it is reported as discarded rather than filed.
-        const howItWinsDiscarded = finalHowItWins?.status === "read" && !verified.synthesis;
-        if (finalHowItWins) {
-          const reportedStatus = howItWinsDiscarded ? "discarded" : finalHowItWins.status;
-          mergeTracePatch(trace, {
-            howItWins: {
-              enabled: true,
-              status: reportedStatus,
-              ...(verified.howItWinsDropReason ? { dropReason: verified.howItWinsDropReason } : {}),
-              ...howItWinsMeta
-            }
-          });
-          await recordEvent(
-            "how-it-wins-complete",
-            "how-it-wins.complete",
-            howItWinsDiscarded
-              ? "How it wins computed but not kept"
-              : finalHowItWins.status === "read" ? "How it wins filed" : "No how-it-wins read",
-            {
-              status: reportedStatus,
-              ...(verified.howItWinsDropReason ? { dropReason: verified.howItWinsDropReason } : {})
-            },
-            null
-          );
+        // Thin file is the one how-it-wins outcome this run states itself, and it is terminal:
+        // no background function is dispatched, so nothing later will close the event trail.
+        if (howItWinsThinFile) {
+          await recordEvent("how-it-wins-complete", "how-it-wins.complete", "No how-it-wins read", {
+            status: "thin_file"
+          }, null);
         }
 
         // generatedCard.citations stays additive through the whole run above (nothing visible to
@@ -1468,6 +1364,33 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
 
     if (mode === "analysis" && analysisReadyMs !== null) {
       writeGenerationMilestoneValue(trace, "analysisReadyMs", analysisReadyMs);
+    }
+
+    // Dispatched after the store, never before: the background function reads the card back by
+    // slug, so it has to be looking at the row this run just wrote. The step id "how-it-wins" is
+    // no longer a step.run on this run; a step id only has to stay stable for runs in flight
+    // across a deploy, and nothing outside a single run ever reads one.
+    if (mode === "analysis" && howItWinsDeferred) {
+      if (analysisFiledFreshSynthesis && generatedStore) {
+        await recordEvent("how-it-wins-started", "how-it-wins.started", "Reading how it wins", {}, null);
+        mergeTracePatch(trace, { howItWins: { enabled: true, status: "deferred" } });
+        trace.steps = { ...trace.steps, "how-it-wins": { status: "started" } };
+        await step.sendEvent(
+          "request-how-it-wins",
+          buildHowItWinsRequestedEvent({
+            slug: cardToStore.slug,
+            domain,
+            requestedAtMs,
+            parentGenerationRunId: generationRunDbId,
+            parentInngestRunId: trace.inngest?.runId ?? null
+          })
+        );
+      } else {
+        // The run produced no fresh synthesis to hang a read on (the gate blocked it, every claim
+        // dropped, or the card was too underfilled to store). Nothing is dispatched.
+        mergeTracePatch(trace, { howItWins: { enabled: true, status: "skipped" } });
+        trace.steps = { ...trace.steps, "how-it-wins": skippedStep("no fresh synthesis was stored this run") };
+      }
     }
 
     const walletSnapshotAfter = await step.run("wallet-snapshot-after", () => safeAgentcashWalletSnapshot());

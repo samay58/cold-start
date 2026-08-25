@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
+import type { ExtensionResearchRunEvent } from "../src/shared/extension-config";
 import type {
   Citation,
   ColdStartCard,
   EmphasisReadFiled,
   HowItWinsRead,
+  HowItWinsStrategyId,
   SourceQualityTier
 } from "@cold-start/core";
 import {
+  howItWinsDisplayForCard,
+  howItWinsPendingForCard,
   investorLensCategories,
   investorReadForCard,
   sourcePostureForCitation
@@ -543,7 +547,7 @@ describe("investor lens display", () => {
   });
 
   it("resolves strategy names and strips markers for a filed how-it-wins read", () => {
-    const display = investorReadForCard(card({
+    const display = howItWinsDisplayForCard(card({
       synthesis: {
         whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
         bullCase: [],
@@ -552,11 +556,8 @@ describe("investor lens display", () => {
         howItWins: howItWinsFiled
       }
     }));
-    if (!display) {
-      throw new Error("fixture must produce a filed read");
-    }
 
-    expect(display.howItWins).toEqual({
+    expect(display).toEqual({
       state: "read",
       sentence: "Warp wins by pairing a narrow terminal competence with the shell every engineer already opens.",
       running: [
@@ -657,32 +658,51 @@ describe("investor lens display", () => {
       bearCase: [],
       openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
     };
-    const thinFile = investorReadForCard(card({
+    const thinFile = howItWinsDisplayForCard(card({
       synthesis: { ...baseSynthesis, howItWins: { status: "thin_file" } }
     }));
-    const nothingWithSentence = investorReadForCard(card({
+    const nothingWithSentence = howItWinsDisplayForCard(card({
       synthesis: {
         ...baseSynthesis,
         howItWins: { status: "nothing_stands_out", sentence: "It competes the way most developer tools do [c1].", inQuestion: [] }
       }
     }));
-    const nothingBare = investorReadForCard(card({
+    const nothingBare = howItWinsDisplayForCard(card({
       synthesis: { ...baseSynthesis, howItWins: { status: "nothing_stands_out", inQuestion: [] } }
     }));
-    const legacy = investorReadForCard(card({ synthesis: baseSynthesis }));
-    if (!thinFile || !nothingWithSentence || !nothingBare || !legacy) {
-      throw new Error("fixtures must produce filed reads");
-    }
+    const legacy = howItWinsDisplayForCard(card({ synthesis: baseSynthesis }));
 
     const empty = { running: [], pair: null, next: [], inQuestion: [], count: 0 };
-    expect(thinFile.howItWins).toEqual({ state: "thin_file", sentence: null, ...empty });
-    expect(nothingWithSentence.howItWins).toEqual({
+    expect(thinFile).toEqual({ state: "thin_file", sentence: null, ...empty });
+    expect(nothingWithSentence).toEqual({
       state: "nothing_stands_out",
       sentence: "It competes the way most developer tools do.",
       ...empty
     });
-    expect(nothingBare.howItWins).toEqual({ state: "nothing_stands_out", sentence: null, ...empty });
-    expect(legacy.howItWins).toEqual({ state: "not_read", sentence: null, ...empty });
+    expect(nothingBare).toEqual({ state: "nothing_stands_out", sentence: null, ...empty });
+    expect(legacy).toEqual({ state: "not_read", sentence: null, ...empty });
+  });
+
+  it("reads as reading only while a read is pending on a card that carries synthesis", () => {
+    const baseSynthesis = {
+      whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+    };
+    const empty = { running: [], pair: null, next: [], inQuestion: [], count: 0 };
+    const waiting = card({ synthesis: baseSynthesis });
+
+    expect(howItWinsDisplayForCard(waiting, { pending: true }))
+      .toEqual({ state: "reading", sentence: null, ...empty });
+    expect(howItWinsDisplayForCard(waiting, { pending: false }).state).toBe("not_read");
+    expect(howItWinsDisplayForCard(waiting).state).toBe("not_read");
+    // No synthesis means no packet to crown, pending or not.
+    expect(howItWinsDisplayForCard(card({}), { pending: true }).state).toBe("not_read");
+    // A read that already landed is never reading, whatever the panel thinks.
+    expect(howItWinsDisplayForCard(card({
+      synthesis: { ...baseSynthesis, howItWins: { status: "thin_file" } }
+    }), { pending: true }).state).toBe("thin_file");
   });
 
   it("resolves in-question strategy names and keeps them on a nothing_stands_out read", () => {
@@ -700,7 +720,7 @@ describe("investor lens display", () => {
       openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
     };
     const completenessNote = "The filed record does not show whether teams still need another terminal [c4].";
-    const filed = investorReadForCard(card({
+    const filedCard = card({
       citations: [...minimalWarpCard().citations, questionCitation],
       synthesis: {
         ...baseSynthesis,
@@ -713,8 +733,8 @@ describe("investor lens display", () => {
           }]
         }
       }
-    }));
-    const nothing = investorReadForCard(card({
+    });
+    const nothingCard = card({
       synthesis: {
         ...baseSynthesis,
         howItWins: {
@@ -727,25 +747,142 @@ describe("investor lens display", () => {
           }]
         }
       }
-    }));
-    if (!filed || !nothing) {
+    });
+    const filed = investorReadForCard(filedCard);
+    if (!filed) {
       throw new Error("fixture must produce a filed read");
     }
 
-    expect(filed.howItWins.inQuestion).toEqual([{
+    expect(howItWinsDisplayForCard(filedCard).inQuestion).toEqual([{
       id: "completeness",
       name: "Completeness",
       meaning: "One tool covers everything the buyer needs, so nothing else is required.",
       note: "The filed record does not show whether teams still need another terminal."
     }]);
-    expect(nothing.howItWins.state).toBe("nothing_stands_out");
-    expect(nothing.howItWins.inQuestion).toEqual([{
+    const nothingCrown = howItWinsDisplayForCard(nothingCard);
+    expect(nothingCrown.state).toBe("nothing_stands_out");
+    expect(nothingCrown.inQuestion).toEqual([{
       id: "completeness",
       name: "Completeness",
       meaning: "One tool covers everything the buyer needs, so nothing else is required.",
       note: "The filed record does not show whether teams still need another terminal."
     }]);
-    expect(nothing.howItWins.count).toBe(0);
+    expect(nothingCrown.count).toBe(0);
     expect(filed.sources.map((source) => source.id)).toContain("c4");
+  });
+
+  // The floors and caps moved: one running mark is a read now, six is the running cap, and
+  // twelve is the in-question cap. The display model maps arrays, so it has to carry all three
+  // without a special case for any of them.
+  it("carries one running mark, six running marks, and twelve in-question marks", () => {
+    const baseSynthesis = {
+      whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+    };
+    const crownFor = (howItWins: HowItWinsRead) =>
+      howItWinsDisplayForCard(card({ synthesis: { ...baseSynthesis, howItWins } }));
+
+    const one = crownFor({
+      ...howItWinsFiled,
+      running: [howItWinsFiled.running[0]!],
+      pair: null,
+      next: []
+    });
+    expect(one.state).toBe("read");
+    expect(one.count).toBe(1);
+    expect(one.running.map((entry) => entry.id)).toEqual(["specialization"]);
+    expect(one.pair).toBeNull();
+
+    const sixIds: HowItWinsStrategyId[] = [
+      "specialization", "omnipresence", "usership", "precision", "curation", "secrecy"
+    ];
+    const six = crownFor({
+      ...howItWinsFiled,
+      running: sixIds.map((strategy, index) => ({
+        strategy,
+        meaning: `Meaning ${index + 1}.`,
+        note: `Note ${index + 1} [c1].`,
+        citationIds: ["c1"]
+      })),
+      next: []
+    });
+    expect(six.running.map((entry) => entry.id)).toEqual(sixIds);
+    expect(six.count).toBe(6);
+    expect(six.running.every((entry) => entry.name.length > 0 && entry.meaning.length > 0)).toBe(true);
+
+    const twelveIds: HowItWinsStrategyId[] = [
+      "completeness", "aggregation", "diversification", "cloning", "affordability", "luxury",
+      "skimming", "bundling", "heritage", "craftsmanship", "organic", "endurance"
+    ];
+    const twelve = crownFor({
+      ...howItWinsFiled,
+      next: [],
+      inQuestion: twelveIds.map((strategy) => ({
+        strategy,
+        note: `Nothing filed settles ${strategy}.`,
+        citationIds: []
+      }))
+    });
+    expect(twelve.inQuestion.map((entry) => entry.id)).toEqual(twelveIds);
+    expect(twelve.inQuestion.every((entry) => entry.name.length > 0)).toBe(true);
+  });
+});
+
+describe("howItWinsPendingForCard", () => {
+  const synthesis = {
+    whyItMatters: { text: "Warp has a developer workflow wedge [c1].", citationIds: ["c1"] },
+    bullCase: [],
+    bearCase: [],
+    openQuestions: [{ question: "Can this reach team budgets?", category: "buyer_budget" as const }]
+  };
+  const now = Date.parse("2026-08-25T12:00:00.000Z");
+  const minutesAgo = (minutes: number) => new Date(now - minutes * 60_000).toISOString();
+
+  function event(type: string): ExtensionResearchRunEvent {
+    return {
+      id: `e-${type}`,
+      runId: "run-1",
+      slug: "warp-dev",
+      domain: "warp.dev",
+      sectionId: null,
+      type,
+      message: "",
+      metadata: {},
+      createdAt: minutesAgo(1)
+    };
+  }
+
+  const waiting = (generatedAt: string) => card({ generatedAt, synthesis });
+
+  it("waits while the run's trail says the read started and has not landed", () => {
+    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), [event("how-it-wins.started")], now)).toBe(true);
+    // An hour on, the trail still decides: freshness is only the fallback.
+    expect(howItWinsPendingForCard(waiting(minutesAgo(60)), [event("how-it-wins.started")], now)).toBe(true);
+  });
+
+  it("stops on a completion in the trail even when no read reached the card", () => {
+    const trail = [event("how-it-wins.started"), event("how-it-wins.complete")];
+    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), trail, now)).toBe(false);
+  });
+
+  it("does not wait when a trail exists and never mentions the read", () => {
+    expect(howItWinsPendingForCard(waiting(minutesAgo(1)), [event("verify.complete")], now)).toBe(false);
+  });
+
+  it("falls back to the card's age when the panel holds no trail", () => {
+    expect(howItWinsPendingForCard(waiting(minutesAgo(2)), [], now)).toBe(true);
+    expect(howItWinsPendingForCard(waiting(minutesAgo(30)), [], now)).toBe(false);
+    expect(howItWinsPendingForCard(waiting("not a date"), [], now)).toBe(false);
+  });
+
+  it("never waits on a card with no synthesis or with the read already filed", () => {
+    expect(howItWinsPendingForCard(card({ generatedAt: minutesAgo(1) }), [event("how-it-wins.started")], now)).toBe(false);
+    const filed = card({
+      generatedAt: minutesAgo(1),
+      synthesis: { ...synthesis, howItWins: { status: "thin_file" } }
+    });
+    expect(howItWinsPendingForCard(filed, [event("how-it-wins.started")], now)).toBe(false);
   });
 });

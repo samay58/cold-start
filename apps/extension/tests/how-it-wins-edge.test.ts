@@ -196,6 +196,20 @@ describe("readoutText", () => {
     });
   });
 
+  it("says nothing at all while the read is still running", () => {
+    const reading: HowItWinsDisplay = {
+      state: "reading",
+      sentence: null,
+      running: [],
+      pair: null,
+      next: [],
+      inQuestion: [],
+      count: 0
+    };
+    expect(readoutText(reading, null, null)).toEqual({ text: "", ink: false });
+    expect(crownAriaLabel(reading)).toBe(`How it wins, ${HOW_IT_WINS_COPY.reading}`);
+  });
+
   it("reads an unmarked tick's name in grey", () => {
     const craftsmanshipIndex = HOW_IT_WINS_STRATEGIES.findIndex((s) => s.id === "craftsmanship");
     expect(readoutText(fixtureDisplay, craftsmanshipIndex, null)).toEqual({ text: "Craftsmanship", ink: false });
@@ -251,10 +265,12 @@ describe("noteFor", () => {
     expect(note.meaning).toBe("Emergent alignment that reduces friction.");
   });
 
-  it("in-question: kicker is the name with a question mark", () => {
+  it("in-question: kicker is the name with a question mark, and the note opens on what is unresolved", () => {
     const note = noteFor(fixtureDisplay, findTarget(targets, "completeness"));
     expect(note.kicker).toBe("Completeness?");
-    expect(note.meaning).toBe("One tool covers everything the buyer needs, so nothing else is required.");
+    // The vocabulary's definition states how a company wins with the strategy. Under a name the
+    // record has not settled it reads as the claim, so an unresolved note carries none.
+    expect(note.meaning).toBeNull();
     expect(note.body).toBe(at(fixtureDisplay.inQuestion, 0).note);
     expect(note.wrongIf).toBeNull();
   });
@@ -325,7 +341,8 @@ describe("BANNED_MICRO_COPY", () => {
       HOW_IT_WINS_COPY.wrongIf,
       HOW_IT_WINS_COPY.pinned,
       HOW_IT_WINS_COPY.thinFile,
-      HOW_IT_WINS_COPY.nothingStandsOut
+      HOW_IT_WINS_COPY.nothingStandsOut,
+      HOW_IT_WINS_COPY.reading
     ];
 
     for (const target of targets) {

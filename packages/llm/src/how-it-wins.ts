@@ -40,7 +40,9 @@ import type { z } from "zod";
 
 export const HOW_IT_WINS_DEFAULT_EDITOR_MODEL = "deepseek/deepseek-v4-pro";
 
-export type HowItWinsModels = { writer: string; editor: string };
+// Three models, not two. The judge slot used to be the writer slot: the same model that renders
+// the read also ran the all-80 audit, so neither could be routed without moving the other.
+export type HowItWinsModels = { judge: string; writer: string; editor: string };
 export type HowItWinsPassName = "reason" | "edit" | "editor" | "fit";
 export type HowItWinsResult = {
   read: HowItWins;
@@ -69,7 +71,25 @@ const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
 const CLOSING_CERTAINTY_TAG_PATTERN = /(?:^|[.!?]\s+)(?:(?:the\s+)?(?:claim|mechanism|conclusion)\s+is\s+)?(?:observed(?:\s+fact)?|reported|inferred(?:\s+from\s+[^.]*)?)\.\s*$/i;
 const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
-const BANNED_OUTPUT_PHRASES = ["the read would weaken", "would weaken if", "is observed fact", "on the card"] as const;
+// The four the hostile editor already caught, plus the seven the frozen writer prompt bans by
+// name. Every one is a formula the writer reaches for instead of saying what the source said.
+const BANNED_OUTPUT_PHRASES = [
+  "the read would weaken",
+  "would weaken if",
+  "is observed fact",
+  "on the card",
+  "what is unresolved is whether",
+  "would settle it",
+  "would resolve it",
+  "the record",
+  "the evidence shows",
+  "bears this out",
+  "is consistent with"
+] as const;
+// The prompt asks for one sentence under 40 words and at most four handles a note. The checks sit
+// a little wider than the ask so a good sentence at 41 words is not re-asked for its own sake.
+const SENTENCE_MAX_WORDS = 45;
+const NOTE_MAX_CITATION_MARKERS = 4;
 
 export class HowItWinsEmptyTextError extends Error {
   constructor(message = "the how-it-wins model returned no text block") {
@@ -168,7 +188,7 @@ function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
   }
   if (head === "running") {
     if (typeof second !== "number") {
-      return "the read needs two to four running ways, each with a strategy name, a meaning, and a note";
+      return "the read needs one to six running ways, each with a strategy name, a meaning, and a note";
     }
     const label = `running item ${second + 1} ("${runningNames[second] ?? "unnamed"}")`;
     if (third === "citationIds") {
@@ -352,6 +372,9 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     if (wordCount(value) < 6 || !value.trimEnd().endsWith(".")) {
       issues.push("the sentence is too short or has no terminal period");
     }
+    if (wordCount(value) > SENTENCE_MAX_WORDS) {
+      issues.push(`the sentence runs past ${SENTENCE_MAX_WORDS} words; say the one load-bearing fact and stop`);
+    }
   };
   const checkNote = (value: string, where: string, certaintyIssue: string) => {
     checkEmDash(value, where);
@@ -361,6 +384,9 @@ export function styleIssuesForRead(read: HowItWins): string[] {
     }
     if (CLOSING_CERTAINTY_TAG_PATTERN.test(value)) {
       issues.push(`${where} ends with a certainty tag; put certainty in the verb`);
+    }
+    if (citationIdsFromNote(value).length > NOTE_MAX_CITATION_MARKERS) {
+      issues.push(`${where} cites more than ${NOTE_MAX_CITATION_MARKERS} sources; keep the strongest ones`);
     }
   };
 

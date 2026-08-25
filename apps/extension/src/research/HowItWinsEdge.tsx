@@ -97,6 +97,7 @@ function readKey(display: HowItWinsDisplay): string {
 }
 
 function sentenceFor(display: HowItWinsDisplay): string {
+  if (display.state === "reading") return HOW_IT_WINS_COPY.reading;
   if (display.state === "thin_file") return HOW_IT_WINS_COPY.thinFile;
   if (display.state === "nothing_stands_out") return display.sentence ?? HOW_IT_WINS_COPY.nothingStandsOut;
   return display.sentence ?? "";
@@ -703,6 +704,7 @@ function HowItWinsCrown({
         <div
           aria-label={note.kicker}
           className="cs-how-it-wins-note"
+          data-kind={noteTarget.kind}
           data-open={noteOpen ? "true" : "false"}
           data-placement="below"
           ref={noteRef}

@@ -982,8 +982,20 @@ function emphasisResultFields(outcome?: ReturnType<typeof verifiedEmphasisRead>)
   };
 }
 
+// The claim batch a how-it-wins read is verified as, in the order verifiedHowItWins reads its
+// verdicts back: one per running strategy, then the pair note, then the in-question notes.
+// Exported because the deferred read (apps/web/src/inngest/how-it-wins-function.ts, through
+// packages/pipeline/src/how-it-wins-verify.ts) verifies the same claims outside this call.
+export function howItWinsVerificationClaims(read: HowItWinsRead): SourcedText[] {
+  return [
+    ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
+    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : []),
+    ...(read.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
+  ];
+}
+
 // One verdict per running strategy, then one for the pair note, then in-question notes, in the
-// order howItWinsClaims below appends them. Exported because the eval lane
+// order howItWinsVerificationClaims above appends them. Exported because the eval lane
 // (scripts/how-it-wins-corpus.ts) verifies its own reads and must use this claim order rather
 // than a second copy of it. Citation-less in-question notes are kept without a verifier pass;
 // a cited in-question note still has to survive. The degrade rules themselves (a pair dies with
@@ -1071,13 +1083,7 @@ export async function verifyCardSynthesisDraft(
     ? [emphasis.loud, emphasis.read, { text: emphasis.quiet, citationIds: [] }]
     : [];
   const howItWins = extras?.howItWins;
-  const howItWinsClaims: SourcedText[] = howItWins
-    ? [
-        ...howItWins.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
-        ...(howItWins.pair ? [{ text: howItWins.pair.note, citationIds: howItWins.pair.citationIds }] : []),
-        ...(howItWins.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
-      ]
-    : [];
+  const howItWinsClaims: SourcedText[] = howItWins ? howItWinsVerificationClaims(howItWins) : [];
   const claims = [...allSynthesisClaims(synthesis), ...emphasisClaims, ...howItWinsClaims];
   const results = await deps.verify(claims, citationSources, verificationFactsForClaims(card, claims));
   const verifiedWhyItMatters = applyVerifierResults([synthesis.whyItMatters], results);

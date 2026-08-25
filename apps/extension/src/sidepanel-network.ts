@@ -109,7 +109,7 @@ function assertUsableBasicsCard(mode: GenerationStatus["mode"], card: ColdStartC
   }
 }
 
-async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
+export async function fetchCard(domain: string, settings: Settings, signal: AbortSignal): Promise<ColdStartCard> {
   const request = buildCardRequest(domain, settings, signal, chrome.runtime.id);
   const response = await fetch(request.url, request.init);
   return parseCardResponse(response);

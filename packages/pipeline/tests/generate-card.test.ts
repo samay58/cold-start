@@ -2298,6 +2298,42 @@ describe("split synthesize/verify units", () => {
         expect(result.howItWinsDropReason).toBe("pair-dropped");
       });
 
+      it("keeps a read on one running survivor and kills the pair with its dropped leg", async () => {
+        const card = await assembledCard();
+        const {
+          whyItMatters,
+          bullCase,
+          bearCase,
+          filedHowItWins,
+          draft,
+          runningClaimOne,
+          runningClaimTwo,
+          pairClaim
+        } = howItWinsFixtures();
+        const verify = vi.fn(async () => [
+          { claimIndex: 0, ...whyItMatters, status: "supported" as const },
+          { claimIndex: 1, ...bullCase, status: "supported" as const },
+          { claimIndex: 2, ...bearCase, status: "supported" as const },
+          { claimIndex: 3, ...runningClaimOne, status: "unsupported" as const },
+          { claimIndex: 4, ...runningClaimTwo, status: "supported" as const },
+          { claimIndex: 5, ...pairClaim, status: "supported" as const }
+        ]);
+
+        const result = await verifyCardSynthesisDraft(
+          card,
+          draft,
+          { verify, synthesisRequired: true },
+          { howItWins: filedHowItWins }
+        );
+
+        expect(result.howItWins).toMatchObject({
+          status: "read",
+          running: [filedHowItWins.running[1]],
+          pair: null
+        });
+        expect(result.howItWinsDropReason).toBe("pair-dropped");
+      });
+
       it("degrades to nothing_stands_out when both running notes drop", async () => {
         const card = await assembledCard();
         const {

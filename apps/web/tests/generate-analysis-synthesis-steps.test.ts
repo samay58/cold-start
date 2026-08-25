@@ -416,7 +416,9 @@ describe("generate-card analysis synthesize/verify steps", () => {
       expect.anything(),
       expect.objectContaining({ synthesis: expect.objectContaining({ whyItMatters }) })
     );
-    expect(step.sendEvent).not.toHaveBeenCalled();
+    // The one dispatch an analysis run makes: the deferred how-it-wins read, sent after the card
+    // is stored. No contact or block enrichment is dispatched from the analysis path.
+    expect(step.sendEvent.mock.calls.map(([name]: [string]) => name)).toEqual(["request-how-it-wins"]);
     // Runs the whole analysis handler with the real gate, synthesize, and verify units. It lands
     // around 2s alone and can pass 5s when the rest of the suite is competing for the machine.
   }, 15_000);

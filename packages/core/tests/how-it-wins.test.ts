@@ -48,6 +48,23 @@ describe("howItWinsSchema", () => {
     expect(howItWinsSchema.safeParse({ ...read, inQuestion: [{ strategy: "hybrid", note: "x", citationIds: [] }] }).success).toBe(false);
     expect(howItWinsSchema.safeParse({ ...read, inQuestion: [{ strategy: "standardization", note: "x", citationIds: [] }] }).success).toBe(false);
   });
+  it("accepts one running strategy and six, and rejects a seventh", () => {
+    const one = { ...read, running: [running("hybrid")], pair: null, next: [] };
+    expect(howItWinsSchema.safeParse(one).success).toBe(true);
+    const ids: HowItWinsStrategyId[] = ["hybrid", "chokepoint", "prestige", "usership", "curation", "secrecy"];
+    const six = { ...read, running: ids.map((id, index) => running(id, `c${index + 1}`)), next: [] };
+    expect(howItWinsSchema.safeParse(six).success).toBe(true);
+    const seven = { ...six, running: [...six.running, running("rarity", "c7")] };
+    expect(howItWinsSchema.safeParse(seven).success).toBe(false);
+  });
+  it("accepts twelve in-question marks and rejects a thirteenth", () => {
+    const marks = (count: number) =>
+      HOW_IT_WINS_STRATEGIES.slice(0, count).map((strategy) => ({
+        strategy: strategy.id, note: "The filed sources do not settle this one.", citationIds: []
+      }));
+    expect(howItWinsSchema.safeParse({ ...read, inQuestion: marks(12) }).success).toBe(true);
+    expect(howItWinsSchema.safeParse({ ...read, inQuestion: marks(13) }).success).toBe(false);
+  });
   it("fills inQuestion when a legacy read omitted it", () => {
     const { inQuestion: _inQuestion, ...legacy } = read;
     const parsed = howItWinsSchema.parse(legacy);
@@ -73,8 +90,17 @@ describe("applyHowItWinsVerification", () => {
   it("kills the pair when its own note drops", () => {
     expect(applyHowItWinsVerification(read, { running: [true, true, true], pair: false }).howItWins).toMatchObject({ status: "read", pair: null });
   });
-  it("degrades to nothing_stands_out when fewer than two running survive", () => {
-    expect(applyHowItWinsVerification(read, { running: [false, false, true], pair: true })).toEqual({
+  it("keeps a read when one running strategy survives, and kills the pair with its leg", () => {
+    const out = applyHowItWinsVerification(read, { running: [false, false, true], pair: true });
+    expect(out.dropReason).toBe("pair-dropped");
+    expect(out.howItWins.status).toBe("read");
+    if (out.howItWins.status === "read") {
+      expect(out.howItWins.running.map((r) => r.strategy)).toEqual(["prestige"]);
+      expect(out.howItWins.pair).toBeNull();
+    }
+  });
+  it("degrades to nothing_stands_out only when no running strategy survives", () => {
+    expect(applyHowItWinsVerification(read, { running: [false, false, false], pair: true })).toEqual({
       howItWins: { status: "nothing_stands_out", inQuestion: read.inQuestion },
       dropReason: "running-dropped"
     });

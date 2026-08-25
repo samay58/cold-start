@@ -7,12 +7,14 @@ import {
 import { AnimatePresence, motion, type TargetAndTransition, type Transition } from "framer-motion";
 import { useId, useState, type ReactNode } from "react";
 import {
+  howItWinsDisplayForCard,
   investorLensCategories,
   type InvestorLensCategory,
   type InvestorLensCategoryId,
   type InvestorReadDisplay,
   type LensTensionClaim
 } from "./investor-lens";
+import { useHowItWinsReading } from "./how-it-wins-reading";
 import { EMPHASIS_EMPTY_COPY, EMPHASIS_LABELS, LENS_CASE_LABEL, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
 import { HowItWinsEdge } from "./HowItWinsEdge";
 import { advisoryCopy, isSynthesisAdvisory } from "./synthesis-advisory-copy";
@@ -432,12 +434,17 @@ export function InvestorReadCard({
 }) {
   const emitAlphaEvent = useAlphaEvent();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const readingHowItWins = useHowItWinsReading();
   const categoryUid = useId().replace(/:/g, "");
   const [openCategory, setOpenCategory] = useState<InvestorLensCategoryId | null>("why-care");
   const categories = investorLensCategories(read);
   const visibleSources = read.sources.slice(0, LENS_FOOTER_SOURCE_COUNT);
   const hiddenSources = read.sources.slice(LENS_FOOTER_SOURCE_COUNT);
   const postureLines = evidencePostureLines(card);
+  // The crown is built here rather than carried on the read: it is the one part of the packet
+  // that depends on panel-local state, since a read still running in the background leaves the
+  // card correct and the crown empty.
+  const howItWins = howItWinsDisplayForCard(card, { pending: readingHowItWins });
   const showPosture = postureLines.length > 0 || !read.independentlyBacked;
 
   function trackDisclosure(disclosure: LensDisclosureId, expanded: boolean) {
@@ -450,8 +457,8 @@ export function InvestorReadCard({
 
   return (
     <article className="cs-investor-read" aria-label="Investor read">
-      {read.howItWins.state === "not_read" ? null : (
-        <HowItWinsEdge display={read.howItWins} prefersReducedMotion={prefersReducedMotion} />
+      {howItWins.state === "not_read" ? null : (
+        <HowItWinsEdge display={howItWins} prefersReducedMotion={prefersReducedMotion} />
       )}
       <motion.header
         className="cs-investor-read-head"

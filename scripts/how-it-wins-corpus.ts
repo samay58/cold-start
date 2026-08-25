@@ -267,7 +267,8 @@ async function runArm(input: {
   try {
     const result = await synthesizeHowItWins({
       client: input.client,
-      models: { writer: input.writer, editor: input.editor },
+      // The four-pass path, which never judges. The judge slot is filled for shape.
+      models: { judge: input.writer, writer: input.writer, editor: input.editor },
       card: input.card,
       telemetry
     });

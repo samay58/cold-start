@@ -80,6 +80,12 @@
   text-wrap: pretty;
 }
 
+/* While the read is still running the sentence is a status, not a filed line, so it sits in the
+   muted register until the real sentence replaces it. */
+.cs-how-it-wins[data-state="reading"] .cs-how-it-wins-sentence {
+  color: var(--color-muted);
+}
+
 .cs-how-it-wins-targets {
   margin: 0;
   padding: 0;
@@ -221,6 +227,12 @@
 .cs-how-it-wins-kicker b {
   color: var(--color-ink);
   font-weight: 600;
+}
+
+/* An unresolved mark is not a claim, so its name stays in the muted register while a running
+   mark's name takes ink. Same weight, same size, different confidence. */
+.cs-how-it-wins-note[data-kind="in_question"] .cs-how-it-wins-kicker b {
+  color: var(--color-muted);
 }
 
 .cs-how-it-wins-kicker small {

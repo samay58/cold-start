@@ -9,6 +9,7 @@ import {
   howItWinsJudgePromptHash
 } from "./how-it-wins-judge";
 import { howItWinsEvidencePacketFromCard, loadHowItWinsJudgeRules } from "./how-it-wins-judge-rules";
+import { parseModelString } from "./llm-provider";
 import type { HowItWinsModels } from "./how-it-wins";
 
 export async function judgeHowItWinsForAnalysis(input: {
@@ -27,9 +28,13 @@ export async function judgeHowItWinsForAnalysis(input: {
   const judge = createHowItWinsJudge({
     scopes: [],
     rules,
+    providers: {
+      strong: parseModelString(input.models.judge).provider,
+      critic: parseModelString(input.models.editor).provider
+    },
     adapters: {
-      strong: adapterFor(input.models.writer),
-      scout: adapterFor(input.models.writer),
+      strong: adapterFor(input.models.judge),
+      scout: adapterFor(input.models.judge),
       critic: adapterFor(input.models.editor)
     }
   });

@@ -203,9 +203,12 @@ export const howItWinsNextSchema = z.object({
   note: z.string().min(1),
   citationIds
 });
-export const howItWinsInQuestionSchema = howItWinsNextSchema;
 
-export const HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX = 8;
+// Both display budgets sit here, next to the schema that enforces them. The running cap used to
+// live alone in packages/llm/src/how-it-wins-frozen-writer.ts as a 4, applied after the judge had
+// already ruled; the judge routinely finds five or six, and the cap was dropping them silently.
+export const HOW_IT_WINS_DISPLAY_RUNNING_MAX = 6;
+export const HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX = 12;
 
 // A plain object schema (no superRefine) so discriminatedUnion below can read its shape.
 // z.discriminatedUnion needs a real ZodObject per branch, not the ZodEffects a superRefine
@@ -214,10 +217,11 @@ export const HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX = 8;
 const howItWinsReadObjectSchema = z.object({
   status: z.literal("read"),
   sentence: z.string().min(1),
-  running: z.array(howItWinsRunningSchema).min(2).max(4),
+  running: z.array(howItWinsRunningSchema).min(1).max(HOW_IT_WINS_DISPLAY_RUNNING_MAX),
   pair: howItWinsPairSchema.nullable(),
   next: z.array(howItWinsNextSchema).max(2),
-  inQuestion: z.array(howItWinsInQuestionSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([]),
+  // In-question items carry the same shape as a not-yet item: one strategy, one note, citations.
+  inQuestion: z.array(howItWinsNextSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([]),
   wrongIf: z.string().min(1)
 });
 
@@ -265,7 +269,7 @@ export const howItWinsSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("nothing_stands_out"),
     sentence: z.string().min(1).optional(),
-    inQuestion: z.array(howItWinsInQuestionSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([])
+    inQuestion: z.array(howItWinsNextSchema).max(HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX).default([])
   }),
   z.object({ status: z.literal("thin_file") })
 ]).superRefine((value, ctx) => {
@@ -278,8 +282,10 @@ export type HowItWinsRead = z.infer<typeof howItWinsReadSchema>;
 // one read is too thin for the other, and both run before any model call.
 export const howItWinsThinFileReason = emphasisThinFileReason;
 
-// Verifier degrade rules from the spec: the pair dies if its own note drops or either leg
-// drops; the read degrades to nothing_stands_out if fewer than two running strategies survive.
+// Verifier degrade rules: the pair dies if its own note drops or either leg drops; the read
+// degrades to nothing_stands_out only when no running strategy survives. One survivor is a read.
+// The old rule degraded below two survivors, which turned a single supported mechanism into an
+// empty crown on cards where the judge had found exactly one.
 export function applyHowItWinsVerification(
   read: HowItWinsRead,
   keep: { running: boolean[]; pair: boolean; inQuestion?: boolean[] }
@@ -292,7 +298,7 @@ export function applyHowItWinsVerification(
     return !running.some((item) => item.strategy === entry.strategy)
       && !read.next.some((item) => item.strategy === entry.strategy);
   });
-  if (running.length < 2) {
+  if (running.length < 1) {
     return {
       howItWins: { status: "nothing_stands_out", inQuestion },
       dropReason: "running-dropped"

@@ -1,18 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ColdStartCard, GenerationTrace, HowItWinsJudgment } from "@cold-start/core";
+import type { ColdStartCard, GenerationTrace } from "@cold-start/core";
+import { buildSkeletonCard } from "@cold-start/pipeline";
 import type { FounderVoiceItem } from "@cold-start/providers";
 
 import type { GenerationStepWarning } from "../src/inngest/client";
+import { prepareCardSnapshotForStorage } from "../src/inngest/card-storage";
 
-// Sibling to generate-analysis-emphasis-steps.test.ts, scoped to the how-it-wins wiring: drives
-// the real generateCardHandler for mode "analysis" with both HOW_IT_WINS_ENABLED and
-// EMPHASIS_READ_ENABLED left at their production defaults (on), and asserts the how-it-wins step
-// placement, its events, its trace block, and the verified read landing on the stored card.
-// synthesizeHowItWins and judgeHowItWinsForAnalysis are the boundaries this suite mocks that the
-// emphasis sibling does not; fetchFounderVoiceEvidence and synthesizeEmphasisRead stay mocked
-// exactly as that file does, so the emphasis pair runs its real default-on path alongside the
-// how-it-wins step.
+// Sibling to generate-analysis-emphasis-steps.test.ts, scoped to what the analysis run itself
+// still decides about how it wins now that the read is written by its own background function:
+// the flag, the thin-file gate, and the dispatch after the card is stored. The judge and the
+// writer are asserted never to run here; their own wiring is covered in how-it-wins-function.test.ts.
+// fetchFounderVoiceEvidence and synthesizeEmphasisRead stay mocked exactly as the emphasis sibling
+// does, so the emphasis pair runs its real default-on path alongside the dispatch decision.
 const generatedAt = "2026-08-12T20:00:00.000Z";
 
 const providerSource = {
@@ -159,45 +159,28 @@ const emphasisReadFixture = {
   wouldChangeIf: "A named customer with a dollar figure would break this read."
 };
 
-const runningOne = {
-  strategy: "specialization" as const,
-  meaning: "Strong competence in a narrow niche.",
-  note: "Modal builds only serverless compute for AI teams. [c1]",
-  citationIds: ["c1"]
-};
-const runningTwo = {
-  strategy: "iteration" as const,
-  meaning: "Iterates and changes quickly.",
-  note: "Modal ships container runtime changes on a weekly cadence. [c2]",
-  citationIds: ["c2"]
-};
-const howItWinsPair = {
-  strategies: ["specialization", "iteration"] as const,
-  note: "A narrow surface plus weekly shipping compounds faster than a broad platform can. [c3]",
-  wrongIf: "The roadmap widens past compute.",
-  citationIds: ["c3"]
-};
 const howItWinsReadFixture = {
   status: "read" as const,
   sentence: "Modal wins by staying narrow on compute and shipping faster than broader platforms.",
-  running: [runningOne, runningTwo],
-  pair: howItWinsPair,
+  running: [
+    {
+      strategy: "specialization" as const,
+      meaning: "Strong competence in a narrow niche.",
+      note: "Modal builds only serverless compute for AI teams. [c1]",
+      citationIds: ["c1"]
+    },
+    {
+      strategy: "iteration" as const,
+      meaning: "Iterates and changes quickly.",
+      note: "Modal ships container runtime changes on a weekly cadence. [c2]",
+      citationIds: ["c2"]
+    }
+  ],
+  pair: null,
   next: [],
   inQuestion: [],
   wrongIf: "A broad cloud matches the release cadence on serverless GPU."
 };
-const howItWinsJudgmentFixture = { version: 1, marker: "analysis-judgment" } as unknown as HowItWinsJudgment;
-const howItWinsStageResult = {
-  read: howItWinsReadFixture,
-  editorSkipped: true,
-  fitRetried: true,
-  styleIssues: [],
-  normalizations: [],
-  judgment: howItWinsJudgmentFixture
-};
-const runningClaimOne = { text: runningOne.note, citationIds: runningOne.citationIds };
-const runningClaimTwo = { text: runningTwo.note, citationIds: runningTwo.citationIds };
-const howItWinsPairClaim = { text: howItWinsPair.note, citationIds: howItWinsPair.citationIds };
 
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({})),
@@ -406,98 +389,72 @@ describe("generate-card analysis how-it-wins step", () => {
     });
     mocks.fetchFounderVoiceEvidence.mockResolvedValue(founderVoiceEvidence());
     mocks.synthesizeEmphasisRead.mockResolvedValue(emphasisReadFixture);
-    mocks.synthesizeHowItWins.mockResolvedValue(howItWinsStageResult);
-    mocks.judgeHowItWinsForAnalysis.mockResolvedValue(howItWinsJudgmentFixture);
     // No result carries claimIndex, so applyVerifierResults falls back to matching each claim by
     // its own {text, citationIds} key; the ordering inside the full claims array never matters.
     mocks.verifySynthesis.mockResolvedValue([
       { ...whyItMatters, status: "supported" },
       { ...bullCase, status: "supported" },
       { ...emphasisReadFixture.loud, status: "supported" },
-      { ...emphasisReadFixture.read, status: "supported" },
-      { ...runningClaimOne, status: "supported" },
-      { ...runningClaimTwo, status: "supported" },
-      { ...howItWinsPairClaim, status: "supported" }
+      { ...emphasisReadFixture.read, status: "supported" }
     ]);
   });
 
-  it("runs how-it-wins after synthesize-card and before verify-synthesis", async () => {
-    const { names } = await runAnalysisGeneration();
+  it("hands the read to the background function after the card is stored, never inside the run", async () => {
+    const { names, step } = await runAnalysisGeneration();
 
-    expect(names).toContain("how-it-wins");
-    expect(names.indexOf("how-it-wins")).toBeGreaterThan(names.indexOf("synthesize-card"));
-    expect(names.indexOf("how-it-wins")).toBeLessThan(names.indexOf("verify-synthesis"));
+    // No judge, no writer, no verifier claims: the analysis run only decides and dispatches.
+    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
+    expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
+    expect(names).not.toContain("how-it-wins");
+    expect(names.indexOf("request-how-it-wins")).toBeGreaterThan(names.indexOf("upsert-card"));
+
+    const dispatched = step.sendEvent.mock.calls.at(-1);
+    expect(dispatched?.[0]).toBe("request-how-it-wins");
+    expect(dispatched?.[1]).toMatchObject({
+      name: "card/how-it-wins.requested",
+      data: {
+        slug: "modal",
+        domain: "modal.com",
+        parentGenerationRunId: "generation-run-id",
+        parentInngestRunId: "inngest-run"
+      }
+    });
+    expect(typeof (dispatched?.[1] as { data: { requestedAtMs: unknown } }).data.requestedAtMs).toBe("number");
   });
 
-  // The how-it-wins step runs concurrently with the founder-voice fetch and the emphasis-read
-  // step (functions.ts awaits both closures through one Promise.all), so its own start is not
-  // queued behind the emphasis pair. Both assertions read the same deterministic microtask
-  // ordering the step harness records: nothing here depends on wall-clock timing.
-  it("starts how-it-wins without waiting for the emphasis pair to finish", async () => {
-    const { names } = await runAnalysisGeneration();
-
-    expect(names.indexOf("event-how-it-wins-started")).toBeLessThan(names.indexOf("emphasis-read"));
-    // The card handed to the stage is the snapshot taken right after the synthesis draft, before
-    // the emphasis closure appends this run's founder-voice citations to the working card.
-    const cardArg = mocks.synthesizeHowItWins.mock.calls[0]?.[0]?.card as ColdStartCard;
-    expect(cardArg.citations.some((citation) => citation.id.startsWith("fv"))).toBe(false);
-    expect(mocks.synthesizeHowItWins.mock.calls[0]?.[0]?.judgment).toBe(howItWinsJudgmentFixture);
-    expect(mocks.judgeHowItWinsForAnalysis).toHaveBeenCalledTimes(1);
-  });
-
-  it("emits how-it-wins.started then how-it-wins.complete with status read", async () => {
+  it("emits how-it-wins.started after the card is saved and leaves the trace deferred", async () => {
     await runAnalysisGeneration();
 
     const types = eventTypes();
     expect(types).toContain("how-it-wins.started");
-    expect(types).toContain("how-it-wins.complete");
-    // how-it-wins.complete reads verify's outcome, so it fires after verify.complete, the same
-    // ordering the emphasis pair follows.
-    expect(types.indexOf("synthesis.started")).toBeLessThan(types.indexOf("how-it-wins.started"));
-    expect(types.indexOf("how-it-wins.started")).toBeLessThan(types.indexOf("verify.started"));
-    expect(types.indexOf("verify.complete")).toBeLessThan(types.indexOf("how-it-wins.complete"));
-
-    const startedEvent = eventOfType("how-it-wins.started");
-    expect(startedEvent?.message).toBe("Reading how it wins");
-    const completeEvent = eventOfType("how-it-wins.complete");
-    expect(completeEvent?.message).toBe("How it wins filed");
-    expect(completeEvent?.metadata).toMatchObject({ status: "read" });
-  });
-
-  it("records the how-it-wins trace block and attaches the verified read to the stored card", async () => {
-    await runAnalysisGeneration();
+    // Nothing closes the trail here any more: the background function records how-it-wins.complete.
+    expect(types).not.toContain("how-it-wins.complete");
+    expect(types.indexOf("verify.complete")).toBeLessThan(types.indexOf("how-it-wins.started"));
+    expect(types.indexOf("card.saved")).toBeLessThan(types.indexOf("how-it-wins.started"));
+    expect(types.indexOf("how-it-wins.started")).toBeLessThan(types.indexOf("generation.complete"));
+    expect(eventOfType("how-it-wins.started")?.message).toBe("Reading how it wins");
 
     const trace = persistedTrace();
-    expect(trace.howItWins).toMatchObject({
-      enabled: true,
-      status: "read",
-      fitRetried: true,
-      editorSkipped: true,
-      judgment: howItWinsJudgmentFixture
-    });
-    expect(trace.steps?.["how-it-wins"]?.status).toBe("complete");
+    expect(trace.howItWins).toEqual({ enabled: true, status: "deferred" });
+    expect(trace.steps?.["how-it-wins"]).toEqual({ status: "started" });
 
+    // The stored card carries no how-it-wins field yet; the background function writes it.
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
-    expect(storedCard.synthesis?.howItWins?.status).toBe("read");
-    expect(storedCard.synthesis?.howItWins).toEqual(howItWinsReadFixture);
-    // The emphasis read still lands on the same synthesis: the two closures write different
-    // fields, neither overwriting the other.
+    expect(storedCard.synthesis?.howItWins).toBeUndefined();
     expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
   });
 
-  it("skips the step entirely when HOW_IT_WINS_ENABLED=false", async () => {
+  it("skips the dispatch entirely when HOW_IT_WINS_ENABLED=false", async () => {
     const { names } = await runAnalysisGeneration(stepHarness(), { howItWinsEnabled: false });
 
-    expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
-    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
-    expect(names).not.toContain("how-it-wins");
-
+    expect(names).not.toContain("request-how-it-wins");
     const types = eventTypes();
     expect(types).not.toContain("how-it-wins.started");
     expect(types).not.toContain("how-it-wins.complete");
 
     const trace = persistedTrace();
     expect(trace.steps?.["how-it-wins"]).toMatchObject({ status: "skipped", message: "HOW_IT_WINS_ENABLED=false" });
+    expect(trace.howItWins).toBeUndefined();
 
     // The emphasis pair is unaffected by the how-it-wins flag.
     expect(mocks.synthesizeEmphasisRead).toHaveBeenCalledTimes(1);
@@ -505,42 +462,10 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(storedCard.synthesis?.howItWins).toBeUndefined();
   });
 
-  // A semantic failure of the stage (an unparseable draft, a citation that is not on the card,
-  // a judge fail-closed) must never fail the analysis run: the step body memoizes it as
-  // { ok: false } and the wiring degrades to nothing_stands_out, while the trace still records
-  // the step as failed so the failure is not invisible. A writer failure after a successful
-  // judge still keeps the all-80 audit on the private trace.
-  it("degrades to nothing_stands_out when the stage fails semantically, without failing the run", async () => {
-    mocks.synthesizeHowItWins.mockRejectedValue(new Error("how-it-wins draft did not parse"));
-
-    await runAnalysisGeneration();
-
-    const trace = persistedTrace();
-    expect(trace.steps?.["how-it-wins"]).toMatchObject({
-      status: "failed",
-      message: "how-it-wins draft did not parse"
-    });
-    expect(trace.howItWins).toMatchObject({
-      enabled: true,
-      status: "nothing_stands_out",
-      judgment: howItWinsJudgmentFixture
-    });
-    expect(trace.failure).toBeUndefined();
-
-    const completeEvent = eventOfType("how-it-wins.complete");
-    expect(completeEvent?.message).toBe("No how-it-wins read");
-    expect(completeEvent?.metadata).toMatchObject({ status: "nothing_stands_out" });
-
-    const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
-    expect(storedCard.synthesis?.howItWins).toEqual({ status: "nothing_stands_out", inQuestion: [] });
-    // The rest of the run is untouched: the synthesis and the emphasis read still land.
-    expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
-  });
-
   // Same gate as the emphasis read (howItWinsThinFileReason is emphasisThinFileReason), so a card
-  // with no company-authored citation thin-files both. The gate runs in code before any model
-  // call: no judge, no frozen writer, no started event.
-  it("thin-files a card with no company-authored evidence without a model call", async () => {
+  // with no company-authored citation thin-files both. The gate runs in code before any dispatch:
+  // the run states thin_file itself, writes it onto the card, and hands nothing off.
+  it("thin-files a card with no company-authored evidence and dispatches nothing", async () => {
     mocks.generateCardForDomainWithTrace.mockResolvedValue({
       card: cardWithCitations(8, { includeCompanySite: false }),
       sections,
@@ -552,10 +477,7 @@ describe("generate-card analysis how-it-wins step", () => {
 
     const { names } = await runAnalysisGeneration();
 
-    expect(mocks.synthesizeHowItWins).not.toHaveBeenCalled();
-    expect(mocks.judgeHowItWinsForAnalysis).not.toHaveBeenCalled();
-    expect(names).not.toContain("how-it-wins");
-
+    expect(names).not.toContain("request-how-it-wins");
     const types = eventTypes();
     expect(types).not.toContain("how-it-wins.started");
     expect(eventOfType("how-it-wins.complete")?.metadata).toMatchObject({ status: "thin_file" });
@@ -566,5 +488,53 @@ describe("generate-card analysis how-it-wins step", () => {
 
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
     expect(storedCard.synthesis?.howItWins).toEqual({ status: "thin_file" });
+  });
+
+  // Nothing to hang a read on: the verifier dropped every claim and there is no prior read, so
+  // the run stores a withheld card. Dispatching would send the background function at a card
+  // with no synthesis.
+  it("dispatches nothing when the run files no fresh synthesis", async () => {
+    mocks.verifySynthesis.mockResolvedValue([
+      { ...whyItMatters, status: "unsupported" },
+      { ...bullCase, status: "unsupported" },
+      { ...emphasisReadFixture.loud, status: "unsupported" },
+      { ...emphasisReadFixture.read, status: "unsupported" }
+    ]);
+
+    const { names } = await runAnalysisGeneration();
+
+    expect(names).not.toContain("request-how-it-wins");
+    expect(eventTypes()).not.toContain("how-it-wins.started");
+
+    const trace = persistedTrace();
+    expect(trace.howItWins).toMatchObject({ enabled: true, status: "skipped" });
+    expect(trace.steps?.["how-it-wins"]).toMatchObject({
+      status: "skipped",
+      message: "no fresh synthesis was stored this run"
+    });
+  });
+});
+
+// synthesis is carried across a basics refresh as a unit, never merged field by field, so a
+// how-it-wins read filed by the background function rides along exactly the way emphasisRead
+// does. functions.ts passes preserveAnalysis: true on a basics run whenever the stored row's
+// analysis state moved since the run started; this pins that mode="basics" combination.
+describe("how-it-wins across a basics refresh", () => {
+  it("carries synthesis.howItWins onto the refreshed card", () => {
+    const existing = {
+      ...buildSkeletonCard("modal.com"),
+      synthesis: {
+        whyItMatters: { text: "Cited thesis [c1].", citationIds: ["c1"] },
+        bullCase: [{ text: "Bull case [c1].", citationIds: ["c1"] }],
+        bearCase: [],
+        openQuestions: [{ question: "What must be checked next?", category: "buyer_budget" as const }],
+        howItWins: howItWinsReadFixture
+      }
+    };
+    const fresh = buildSkeletonCard("modal.com");
+
+    const merged = prepareCardSnapshotForStorage("basics", existing, fresh, { preserveAnalysis: true });
+
+    expect(merged.synthesis?.howItWins).toEqual(howItWinsReadFixture);
   });
 });

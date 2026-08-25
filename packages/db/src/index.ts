@@ -5,6 +5,7 @@ export * from "./repositories/card-revisions";
 export * from "./repositories/cards";
 export * from "./repositories/evidence";
 export * from "./repositories/generation-runs";
+export * from "./repositories/how-it-wins-judgments";
 export * from "./repositories/research-events";
 export * from "./repositories/research-sections";
 export * from "./repositories/sources";

@@ -9,7 +9,7 @@ import {
   type HowItWinsJudgmentBody,
   type HowItWinsStrategyEvaluation
 } from "./how-it-wins-judgment";
-import { howItWinsStrategyIdSchema, type HowItWinsStrategyId } from "./how-it-wins";
+import { howItWinsStrategyById, howItWinsStrategyIdSchema, type HowItWinsStrategyId } from "./how-it-wins";
 
 export class HowItWinsJudgmentClosedError extends Error {
   constructor(message: string) {
@@ -31,8 +31,8 @@ export function stripUnknownNullTransportFields(value: unknown): unknown {
 
 export const semanticMaterialBetSchema = howItWinsMaterialBetSchema.omit({ betId: true }).strict();
 
-export const failedStrategyDimensions = {
-  evidenceStrength: "insufficient",
+const notReachedStrategyDimensions = {
+  evidenceStrength: "not_reached",
   centrality: "not_reached",
   materiality: "not_reached",
   distinctiveness: "not_reached",
@@ -40,21 +40,34 @@ export const failedStrategyDimensions = {
   explanatoryValue: "not_reached"
 } as const;
 
-export function failedStrategyEvaluation(
-  strategyId: HowItWinsStrategyId,
-  dispositionReason: string,
-  disposition: Extract<HowItWinsStrategyEvaluation["disposition"], "insufficient_evidence" | "rejected" | "not_applicable"> = "insufficient_evidence"
-): HowItWinsStrategyEvaluation {
+export const failedStrategyDimensions = {
+  ...notReachedStrategyDimensions,
+  evidenceStrength: "insufficient"
+} as const;
+
+type CompactDisposition = Extract<
+  HowItWinsStrategyEvaluation["disposition"],
+  "insufficient_evidence" | "rejected" | "not_applicable"
+>;
+
+// One shape for every strategy the judgment does not carry: no mechanism, nothing cited, no
+// dimension reached. A failed evidence gate is the case that also fixes evidence strength.
+function compactStrategyEvaluation(input: {
+  strategyId: HowItWinsStrategyId;
+  disposition: CompactDisposition;
+  evidenceGate: HowItWinsStrategyEvaluation["evidenceGate"];
+  dispositionReason: string;
+}): HowItWinsStrategyEvaluation {
   return {
-    strategyId,
-    disposition,
+    strategyId: input.strategyId,
+    disposition: input.disposition,
     betIds: [],
     mechanism: null,
-    evidenceGate: "fail",
+    evidenceGate: input.evidenceGate,
     evidenceIds: [],
     claimIds: [],
     counterevidenceIds: [],
-    dimensions: failedStrategyDimensions,
+    dimensions: input.evidenceGate === "fail" ? failedStrategyDimensions : notReachedStrategyDimensions,
     presentRelevance: "not_reached",
     historicalEvidenceIds: [],
     presentEvidenceIds: [],
@@ -62,8 +75,16 @@ export function failedStrategyEvaluation(
     siblingCandidateIds: [],
     siblingResolutions: [],
     notYet: null,
-    dispositionReason
+    dispositionReason: input.dispositionReason
   };
+}
+
+export function failedStrategyEvaluation(
+  strategyId: HowItWinsStrategyId,
+  dispositionReason: string,
+  disposition: CompactDisposition = "insufficient_evidence"
+): HowItWinsStrategyEvaluation {
+  return compactStrategyEvaluation({ strategyId, disposition, evidenceGate: "fail", dispositionReason });
 }
 
 const semanticSupportingClaimSchema = z.discriminatedUnion("type", [
@@ -80,16 +101,23 @@ const semanticSupportingClaimSchema = z.discriminatedUnion("type", [
   }).strict()
 ]);
 
+// Nothing downstream reads a rejected strategy's full record, so the model returns four fields
+// for one. Only current, not-yet, and open-question strategies pay for the full shape.
 const compactSemanticStrategySchema = z.object({
   strategyId: howItWinsStrategyIdSchema,
   disposition: z.enum(["insufficient_evidence", "rejected", "not_applicable"]),
-  evidenceGate: z.literal("fail"),
+  evidenceGate: z.enum(["pass", "fail", "unresolved"]),
   dispositionReason: z.string().min(1)
 }).strict();
 
+// The deciding question comes from the frozen rubric, so the model never writes it back.
+const semanticSiblingResolutionSchema = howItWinsSiblingResolutionSchema
+  .omit({ decidingQuestion: true })
+  .strict();
+
 const fullSemanticStrategySchema = z.object({
   strategyId: howItWinsStrategyIdSchema,
-  disposition: z.enum(["current", "not_yet", "open_question", "insufficient_evidence", "rejected", "not_applicable"]),
+  disposition: z.enum(["current", "not_yet", "open_question"]),
   betRefs: z.array(z.number().int().positive()),
   mechanism: z.string().min(1),
   evidenceGate: z.enum(["pass", "unresolved"]),
@@ -105,7 +133,7 @@ const fullSemanticStrategySchema = z.object({
     evidenceIds: z.array(z.string().min(1)).min(1)
   }).strict().nullable(),
   siblingCandidateIds: z.array(howItWinsStrategyIdSchema),
-  siblingResolutions: z.array(howItWinsSiblingResolutionSchema),
+  siblingResolutions: z.array(semanticSiblingResolutionSchema),
   notYet: howItWinsNotYetSchema.nullable(),
   dispositionReason: z.string().min(1)
 }).strict();
@@ -179,17 +207,28 @@ export function assignMaterialBetIds(
   return bets.map((bet, index) => ({ betId: `b${index + 1}`, ...bet }));
 }
 
+type SemanticStrategyEvaluation = SemanticHowItWinsJudgment["strategyEvaluations"][number];
+
+function isCompactSemanticStrategy(
+  evaluation: SemanticStrategyEvaluation
+): evaluation is z.infer<typeof compactSemanticStrategySchema> {
+  return !("mechanism" in evaluation);
+}
+
 export function materializeSemanticJudgment(input: {
   semantic: SemanticHowItWinsJudgment;
   materialBets: HowItWinsJudgmentBody["materialBets"];
   evidenceCutoff: string;
   evidenceRegistry: HowItWinsJudgmentBody["evidenceRegistry"];
+  decidingQuestionFor?: (strategyId: HowItWinsStrategyId) => string | undefined;
   retainedOverrides?: HowItWinsJudgmentBody["overrides"];
 }) {
+  const decidingQuestion = (strategyId: HowItWinsStrategyId) =>
+    input.decidingQuestionFor?.(strategyId) || howItWinsStrategyById(strategyId).meaning;
   const claims: HowItWinsJudgmentBody["claims"] = [];
   const claimIdsByStrategy = new Map<HowItWinsStrategyId, string[]>();
   for (const evaluation of input.semantic.strategyEvaluations) {
-    if (evaluation.evidenceGate === "fail") continue;
+    if (isCompactSemanticStrategy(evaluation)) continue;
     const claimIds: string[] = [];
     for (const claim of evaluation.supportingClaims) {
       const claimId = `c${claims.length + 1}`;
@@ -200,10 +239,8 @@ export function materializeSemanticJudgment(input: {
   }
 
   const strategyEvaluations = input.semantic.strategyEvaluations.map((evaluation) => {
-    if (evaluation.evidenceGate === "fail") {
-      return failedStrategyEvaluation(evaluation.strategyId, evaluation.dispositionReason, evaluation.disposition);
-    }
-    const { betRefs, supportingClaims: _supportingClaims, ...rest } = evaluation;
+    if (isCompactSemanticStrategy(evaluation)) return compactStrategyEvaluation(evaluation);
+    const { betRefs, supportingClaims: _supportingClaims, siblingResolutions, ...rest } = evaluation;
     const betIds = betRefs.map((reference) => {
       const bet = input.materialBets[reference - 1];
       if (!bet) {
@@ -216,7 +253,13 @@ export function materializeSemanticJudgment(input: {
     return {
       ...rest,
       betIds,
-      claimIds: claimIdsByStrategy.get(evaluation.strategyId) ?? []
+      claimIds: claimIdsByStrategy.get(evaluation.strategyId) ?? [],
+      siblingResolutions: siblingResolutions.map((resolution) => ({
+        strategyId: resolution.strategyId,
+        decidingQuestion: decidingQuestion(resolution.strategyId),
+        reason: resolution.reason,
+        evidenceIds: resolution.evidenceIds
+      }))
     };
   });
 
@@ -250,7 +293,9 @@ export function semanticJudgmentForModel(body: HowItWinsJudgmentBody): SemanticH
   return semanticJudgmentSchema.parse({
     materialBets: body.materialBets.map(({ betId: _betId, ...bet }) => bet),
     strategyEvaluations: body.strategyEvaluations.map((evaluation) => {
-      if (evaluation.evidenceGate === "fail") {
+      // A judgment stored before the compact rows existed can carry a full rejected record.
+      // The model never needs to read one back, so every such row projects compact.
+      if (!["current", "not_yet", "open_question"].includes(evaluation.disposition)) {
         return {
           strategyId: evaluation.strategyId,
           disposition: evaluation.disposition,
@@ -271,8 +316,15 @@ export function semanticJudgmentForModel(body: HowItWinsJudgmentBody): SemanticH
         }
         return reference;
       });
-      const { betIds: _betIds, claimIds: _claimIds, ...rest } = evaluation;
-      return { ...rest, betRefs, supportingClaims };
+      const { betIds: _betIds, claimIds: _claimIds, siblingResolutions, ...rest } = evaluation;
+      return {
+        ...rest,
+        betRefs,
+        supportingClaims,
+        siblingResolutions: siblingResolutions.map(
+          ({ decidingQuestion: _decidingQuestion, ...resolution }) => resolution
+        )
+      };
     }),
     currentStrategyIds: body.currentStrategyIds,
     unusualPair: body.unusualPair,

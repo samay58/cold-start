@@ -5,7 +5,11 @@ import {
   failedStrategyEvaluation,
   howItWinsJudgmentSchema,
   howItWinsJudgmentSelection,
+  howItWinsStrategyById,
+  materializeSemanticJudgment,
+  semanticJudgmentForModel,
   type HowItWinsJudgment,
+  type HowItWinsJudgmentBody,
   type HowItWinsStrategyEvaluation,
   type HowItWinsStrategyId
 } from "../src";
@@ -113,6 +117,179 @@ function replaceEvaluation(
     entry.strategyId === strategyId ? next : entry
   );
 }
+
+function fullRejectedEvaluation(strategyId: HowItWinsStrategyId): HowItWinsStrategyEvaluation {
+  return {
+    ...current(strategyId),
+    disposition: "rejected",
+    evidenceGate: "unresolved",
+    presentRelevance: "historical_only",
+    dispositionReason: "The mechanism is real but it does not change how buyers choose."
+  };
+}
+
+function semanticRows(options: {
+  current?: HowItWinsStrategyId;
+  evidenceGate?: "pass" | "fail" | "unresolved";
+  siblings?: HowItWinsStrategyId[];
+}) {
+  return HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id === options.current
+    ? {
+      strategyId: strategy.id,
+      disposition: "current" as const,
+      betRefs: [1],
+      mechanism: "The mechanism changes how the company is chosen.",
+      evidenceGate: "pass" as const,
+      evidenceIds: ["e1"],
+      supportingClaims: [{
+        type: "observed_fact" as const,
+        text: "A current source describes the mechanism.",
+        evidenceIds: ["e1"]
+      }],
+      counterevidenceIds: [],
+      dimensions: passingDimensions(),
+      presentRelevance: "current" as const,
+      historicalEvidenceIds: [],
+      presentEvidenceIds: ["e1"],
+      presentBridge: null,
+      siblingCandidateIds: options.siblings ?? [],
+      siblingResolutions: (options.siblings ?? []).map((siblingId) => ({
+        strategyId: siblingId,
+        reason: "The cited mechanism is the one this strategy names.",
+        evidenceIds: ["e1"]
+      })),
+      notYet: null,
+      dispositionReason: "The mechanism is current and material."
+    }
+    : {
+      strategyId: strategy.id,
+      disposition: "rejected" as const,
+      evidenceGate: options.evidenceGate ?? "pass",
+      dispositionReason: "The record does not put this mechanism in the buying decision."
+    });
+}
+
+function materializeRows(options: Parameters<typeof semanticRows>[0] & {
+  decidingQuestionFor?: (strategyId: HowItWinsStrategyId) => string | undefined;
+}) {
+  const base = judgment();
+  return materializeSemanticJudgment({
+    semantic: {
+      strategyEvaluations: semanticRows(options),
+      currentStrategyIds: options.current ? [options.current] : [],
+      unusualPair: null,
+      openQuestions: [],
+      overallWrongCondition: base.overallWrongCondition,
+      disagreements: [],
+      overrides: []
+    },
+    materialBets: base.materialBets,
+    evidenceCutoff: base.evidenceCutoff,
+    evidenceRegistry: base.evidenceRegistry,
+    ...(options.decidingQuestionFor ? { decidingQuestionFor: options.decidingQuestionFor } : {})
+  });
+}
+
+describe("compact strategy records", () => {
+  it("expands a compact row whose evidence gate did not fail", () => {
+    const body = materializeRows({ current: "usership", evidenceGate: "pass" });
+    const row = body.strategyEvaluations.find((entry) => entry.strategyId === "aggregation");
+
+    expect(row).toEqual({
+      strategyId: "aggregation",
+      disposition: "rejected",
+      betIds: [],
+      mechanism: null,
+      evidenceGate: "pass",
+      evidenceIds: [],
+      claimIds: [],
+      counterevidenceIds: [],
+      dimensions: {
+        evidenceStrength: "not_reached",
+        centrality: "not_reached",
+        materiality: "not_reached",
+        distinctiveness: "not_reached",
+        independence: "not_reached",
+        explanatoryValue: "not_reached"
+      },
+      presentRelevance: "not_reached",
+      historicalEvidenceIds: [],
+      presentEvidenceIds: [],
+      presentBridge: null,
+      siblingCandidateIds: [],
+      siblingResolutions: [],
+      notYet: null,
+      dispositionReason: "The record does not put this mechanism in the buying decision."
+    });
+  });
+
+  it("keeps insufficient evidence strength as the failed-gate case of the same shape", () => {
+    const failed = materializeRows({ current: "usership", evidenceGate: "fail" });
+    const unresolved = materializeRows({ current: "usership", evidenceGate: "unresolved" });
+
+    expect(failed.strategyEvaluations[1]).toMatchObject({
+      evidenceGate: "fail",
+      dimensions: { evidenceStrength: "insufficient", centrality: "not_reached" }
+    });
+    expect(unresolved.strategyEvaluations[1]).toMatchObject({
+      evidenceGate: "unresolved",
+      dimensions: { evidenceStrength: "not_reached" }
+    });
+  });
+
+  it("still validates a full rejected record stored before the compact rows existed", () => {
+    const stored = judgment();
+    replaceEvaluation(stored, "aggregation", fullRejectedEvaluation("aggregation"));
+    expect(howItWinsJudgmentSchema.safeParse(stored).success).toBe(true);
+
+    const halfway = judgment();
+    replaceEvaluation(halfway, "aggregation", {
+      ...fullRejectedEvaluation("aggregation"),
+      mechanism: null
+    });
+    expect(howItWinsJudgmentSchema.safeParse(halfway).success).toBe(false);
+  });
+
+  it("projects a stored full rejected record to the compact model form", () => {
+    const stored = judgment();
+    replaceEvaluation(stored, "aggregation", fullRejectedEvaluation("aggregation"));
+
+    const projected = semanticJudgmentForModel(stored as HowItWinsJudgmentBody);
+
+    expect(projected.strategyEvaluations.find((entry) => entry.strategyId === "aggregation")).toEqual({
+      strategyId: "aggregation",
+      disposition: "rejected",
+      evidenceGate: "unresolved",
+      dispositionReason: "The mechanism is real but it does not change how buyers choose."
+    });
+  });
+
+  it("fills the deciding question from the rubric, and from the canonical meaning without one", () => {
+    const fromRubric = materializeRows({
+      current: "usership",
+      siblings: ["reliability"],
+      decidingQuestionFor: () => "Does the mechanism reduce failure and upkeep?"
+    });
+    expect(fromRubric.strategyEvaluations[0]?.siblingResolutions).toEqual([{
+      strategyId: "reliability",
+      decidingQuestion: "Does the mechanism reduce failure and upkeep?",
+      reason: "The cited mechanism is the one this strategy names.",
+      evidenceIds: ["e1"]
+    }]);
+
+    const fallback = materializeRows({ current: "usership", siblings: ["reliability"] });
+    expect(fallback.strategyEvaluations[0]?.siblingResolutions[0]?.decidingQuestion)
+      .toBe(howItWinsStrategyById("reliability").meaning);
+
+    const emptyLookup = materializeRows({
+      current: "usership",
+      siblings: ["reliability"],
+      decidingQuestionFor: () => undefined
+    });
+    expect(emptyLookup.strategyEvaluations[0]?.siblingResolutions[0]?.decidingQuestion)
+      .toBe(howItWinsStrategyById("reliability").meaning);
+  });
+});
 
 describe("howItWinsJudgmentSchema", () => {
   it("requires every exact canonical strategy once", () => {
@@ -264,6 +441,30 @@ describe("howItWinsJudgmentSchema", () => {
       status: "nothing_stands_out",
       strategyIds: []
     });
+  });
+
+  it("carries a refinement record and still accepts judgments stored before it existed", () => {
+    const recorded = howItWinsJudgmentSchema.safeParse({
+      ...judgment(),
+      refinement: {
+        critic: "failed",
+        adjudication: "not_needed",
+        notes: ["critic call failed: connection reset"]
+      }
+    });
+    expect(recorded.success).toBe(true);
+    if (recorded.success) {
+      expect(recorded.data.refinement).toMatchObject({ critic: "failed", adjudication: "not_needed" });
+    }
+
+    const stored = howItWinsJudgmentSchema.safeParse(judgment());
+    expect(stored.success).toBe(true);
+    if (stored.success) expect(stored.data.refinement).toBeUndefined();
+
+    expect(howItWinsJudgmentSchema.safeParse({
+      ...judgment(),
+      refinement: { critic: "invented", adjudication: "ok", notes: [] }
+    }).success).toBe(false);
   });
 
   it("records bundled scout calls without pretending a bundle is a canonical group", () => {

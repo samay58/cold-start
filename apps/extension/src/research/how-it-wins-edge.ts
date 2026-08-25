@@ -145,6 +145,9 @@ export function readoutText(
   tick: number | null,
   target: EdgeTarget | null
 ): { text: string; ink: boolean } {
+  // While the read is still running the count is unknown, and "0 of 80 strategies" would be a
+  // number the crown has not earned. It stays blank until the read lands.
+  if (display.state === "reading") return { text: "", ink: false };
   if (tick === null) return { text: HOW_IT_WINS_COPY.count(display.count), ink: false };
   if (target === null) return { text: HOW_IT_WINS_STRATEGIES[tick]?.name ?? "", ink: false };
   if (target.kind === "pair" && display.pair) {
@@ -204,10 +207,13 @@ export function noteFor(display: HowItWinsDisplay, target: EdgeTarget): EdgeNote
     };
   }
   if (target.kind === "in_question") {
+    // No meaning line here, unlike every other kind: the shared vocabulary's definition states
+    // how a company wins with the strategy, and set under a name the record has not settled it
+    // reads as the claim itself. The note opens on what is unresolved instead.
     const entry = display.inQuestion.find((candidate) => candidate.id === target.key);
     return {
       kicker: inQuestionLabel(entry?.name ?? ""),
-      meaning: entry ? howItWinsStrategyById(entry.id).meaning : null,
+      meaning: null,
       body: entry?.note ?? "",
       wrongIf: null
     };
@@ -228,6 +234,7 @@ export function targetsInKeyboardOrder(targets: EdgeTarget[]): EdgeTarget[] {
 }
 
 export function crownAriaLabel(display: HowItWinsDisplay): string {
+  if (display.state === "reading") return `${HOW_IT_WINS_COPY.label}, ${HOW_IT_WINS_COPY.reading}`;
   return `${HOW_IT_WINS_COPY.label}, ${HOW_IT_WINS_COPY.count(display.count)}`;
 }
 

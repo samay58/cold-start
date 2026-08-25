@@ -210,6 +210,28 @@ function unique(values: readonly string[]) {
   return new Set(values).size === values.length;
 }
 
+const judgedDispositions = new Set(["current", "not_yet", "open_question"]);
+
+// A strategy the judgment does not carry may arrive compact: no mechanism, nothing reached,
+// nothing cited. Judgments stored before the compact rows existed carry the full shape instead,
+// and both stay valid.
+function isCompactStrategyRecord(entry: HowItWinsStrategyEvaluation) {
+  const cited = [
+    entry.betIds,
+    entry.evidenceIds,
+    entry.claimIds,
+    entry.counterevidenceIds,
+    entry.historicalEvidenceIds,
+    entry.presentEvidenceIds,
+    entry.siblingCandidateIds,
+    entry.siblingResolutions
+  ];
+  return Object.values(entry.dimensions).every((value) => value === "not_reached")
+    && cited.every((value) => value.length === 0)
+    && entry.presentRelevance === "not_reached"
+    && entry.presentBridge === null;
+}
+
 function validateEvidenceIds(
   ids: readonly string[],
   validIds: Set<string>,
@@ -282,13 +304,15 @@ function validateBody(body: HowItWinsJudgmentBody, ctx: z.RefinementCtx) {
       if (dimensions.slice(1).some((value) => value !== "not_reached")) {
         addIssue(ctx, [...path, "dimensions"], "dimensions after a failed evidence gate must be not_reached");
       }
-    } else {
+    } else if (judgedDispositions.has(entry.disposition) || entry.mechanism !== null) {
       if (dimensions.includes("not_reached")) {
         addIssue(ctx, [...path, "dimensions"], "supported or disputed strategies require every judgment dimension");
       }
       if (!entry.mechanism || entry.evidenceIds.length === 0) {
         addIssue(ctx, path, "supported or disputed strategies require a mechanism and evidence");
       }
+    } else if (!isCompactStrategyRecord(entry)) {
+      addIssue(ctx, path, "a rejected strategy record must stay compact or carry the full judgment");
     }
 
     if (entry.disposition === "current") {
@@ -384,10 +408,20 @@ function validateBody(body: HowItWinsJudgmentBody, ctx: z.RefinementCtx) {
 
 export const howItWinsJudgmentBodySchema = bodyObjectSchema.superRefine(validateBody);
 
+// What the refinement stages after the global judgment actually did. Judgments stored before
+// this field existed omit it, so every reader treats an absent record as unknown rather than
+// as a clean run.
+const refinementSchema = z.object({
+  critic: z.enum(["ok", "failed", "skipped_same_provider"]),
+  adjudication: z.enum(["ok", "failed", "not_needed"]),
+  notes: z.array(z.string().min(1).max(300))
+});
+
 const judgmentObjectSchema = z.object({
   version: z.literal(1),
   hashes: z.object({ evidencePacket: hashSchema, prompt: hashSchema, vocabulary: hashSchema }),
   ...bodyObjectSchema.shape,
+  refinement: refinementSchema.optional(),
   calls: z.array(howItWinsJudgeCallTraceSchema).min(1)
 });
 

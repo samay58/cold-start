@@ -213,9 +213,12 @@ function semanticFromBody(input: HowItWinsJudgmentBody, includeMaterialBets: boo
           dispositionReason: entry.dispositionReason
         };
       }
-      const { betIds: _betIds, claimIds: _claimIds, ...rest } = entry;
+      const { betIds: _betIds, claimIds: _claimIds, siblingResolutions, ...rest } = entry;
       return {
         ...rest,
+        siblingResolutions: siblingResolutions.map(
+          ({ decidingQuestion: _decidingQuestion, ...resolution }) => resolution
+        ),
         betRefs: entry.betIds.map((betId) => betRefById.get(betId)),
         supportingClaims: entry.claimIds.flatMap((claimId) => {
           const claim = claimById.get(claimId);
@@ -429,7 +432,6 @@ describe("createHowItWinsJudge", () => {
         siblingCandidateIds: ["reliability"],
         siblingResolutions: [{
           strategyId: "reliability",
-          decidingQuestion: "Does another user's participation directly increase existing-user value?",
           reason: "The evidence describes participant utility, not lower failure or maintenance.",
           evidenceIds: ["e1"]
         }]
@@ -468,7 +470,13 @@ describe("createHowItWinsJudge", () => {
     expect(first.disagreements.map((entry) => entry.disagreementId)).toEqual(["d1"]);
     expect(first.strategyEvaluations.find((entry) => entry.strategyId === "usership")).toMatchObject({
       betIds: ["b1"],
-      claimIds: ["c1"]
+      claimIds: ["c1"],
+      siblingResolutions: [{
+        strategyId: "reliability",
+        decidingQuestion: rules.strategyRubric.find((row) => row.strategyId === "reliability")!.decidingQuestion,
+        reason: "The evidence describes participant utility, not lower failure or maintenance.",
+        evidenceIds: ["e1"]
+      }]
     });
 
     const secondFake = adapters();
@@ -923,6 +931,227 @@ describe("createHowItWinsJudge", () => {
     });
   });
 
+  it("refuses a same-provider critic at construction, before any paid call", () => {
+    const fake = adapters();
+    expect(() => createHowItWinsJudge({
+      adapters: fake,
+      rules,
+      providers: { strong: "anthropic", critic: "anthropic" }
+    })).toThrow(/different provider/i);
+    expect(fake.strong).not.toHaveBeenCalled();
+    expect(() => createHowItWinsJudge({
+      adapters: fake,
+      rules,
+      providers: { strong: "anthropic", critic: "deepseek" }
+    })).not.toThrow();
+  });
+
+  it("keeps the global judgment when the critic call fails", async () => {
+    const fake = adapters();
+    fake.critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => ({
+      ok: false,
+      error: "critic request contract failure",
+      retryable: false,
+      trace: trace(request, "fake-critic", "failed")
+    }));
+
+    const result = await makeJudge(fake)(judgeInput());
+
+    expect(result.currentStrategyIds).toEqual([]);
+    expect(result.refinement).toMatchObject({ critic: "failed", adjudication: "not_needed" });
+    expect(result.refinement?.notes.join(" ")).toMatch(/critic call failed/i);
+    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["bet_map", "global_judge"]);
+  });
+
+  it("keeps the global judgment when critic output fails its schema", async () => {
+    const fake = adapters();
+    fake.critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => ({
+      ok: true,
+      output: { findings: [{ kind: "invented_kind", material: true }] },
+      trace: trace(request, "fake-critic")
+    }));
+
+    const result = await makeJudge(fake)(judgeInput());
+
+    expect(result.refinement).toMatchObject({ critic: "failed", adjudication: "not_needed" });
+    expect(result.disagreements).toEqual([]);
+  });
+
+  it("skips a critic that answered on the global judge's own provider", async () => {
+    const fake = adapters({
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Usership may have been missed.",
+        strategyIds: ["usership"],
+        evidenceIds: ["e1"]
+      }]
+    });
+    const original = fake.critic;
+    fake.critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      return { ...result, trace: trace(request, "fake-strong") };
+    });
+
+    const result = await makeJudge(fake)(judgeInput());
+
+    expect(result.refinement).toMatchObject({ critic: "skipped_same_provider", adjudication: "not_needed" });
+    expect(result.disagreements).toEqual([]);
+    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["bet_map", "global_judge"]);
+  });
+
+  it("keeps the global judgment when the adjudication call fails", async () => {
+    const fake = adapters({
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Usership may have been missed.",
+        strategyIds: ["usership"],
+        evidenceIds: ["e1"]
+      }]
+    });
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      if (request.stage !== "adjudication") return original(request);
+      return {
+        ok: false,
+        error: "adjudication request contract failure",
+        retryable: false,
+        trace: trace(request, "fake-strong", "failed")
+      };
+    });
+
+    const result = await makeJudge(fake)(judgeInput());
+
+    expect(result.currentStrategyIds).toEqual([]);
+    expect(result.refinement).toMatchObject({ adjudication: "failed" });
+    expect(result.refinement?.notes.join(" ")).toMatch(/adjudication call failed/i);
+    expect(result.disagreements.map((entry) => entry.disagreementId)).toEqual(["f1"]);
+  });
+
+  it("keeps the global judgment when adjudication touches an undisputed strategy", async () => {
+    const fake = adapters({
+      adjudicated: body(["affordability"]),
+      criticFindings: [{
+        findingId: "f1",
+        kind: "strategy",
+        material: true,
+        summary: "Usership may have been missed.",
+        strategyIds: ["usership"],
+        evidenceIds: ["e1"]
+      }]
+    });
+
+    const result = await makeJudge(fake)(judgeInput());
+
+    expect(result.currentStrategyIds).toEqual([]);
+    expect(result.refinement).toMatchObject({ adjudication: "failed" });
+    expect(result.refinement?.notes.join(" ")).toMatch(/undisputed strategy affordability/i);
+  });
+
+  it("re-asks the global judge exactly once when its answer breaks the contract", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    let globalCalls = 0;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      if (request.stage !== "global_judge" || !result.ok) return result;
+      globalCalls += 1;
+      if (globalCalls > 1) return result;
+      const { materialBets: _materialBets, ...withoutMaterialBets } = result.output as Record<string, unknown>;
+      return { ...result, output: withoutMaterialBets };
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    const globalRequests = fake.strong.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.stage === "global_judge");
+    expect(globalRequests).toHaveLength(2);
+    expect(globalRequests[1]?.payload).toMatchObject({
+      retryCorrection: expect.stringMatching(/monolith judgment requires material bets/i)
+    });
+    expect(new Set(result.calls.map((call) => call.callId)).size).toBe(result.calls.length);
+    expect(result.refinement?.notes.join(" ")).toMatch(/global judgment repaired after/i);
+  });
+
+  it("fails closed when the one global re-ask also breaks the contract", async () => {
+    const fake = adapters();
+    const original = fake.strong;
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      const result = await original(request);
+      if (request.stage !== "global_judge" || !result.ok) return result;
+      const { materialBets: _materialBets, ...withoutMaterialBets } = result.output as Record<string, unknown>;
+      return { ...result, output: withoutMaterialBets };
+    });
+
+    await expect(makeJudge(fake, { scopes: [] })(judgeInput())).rejects.toThrow(/material bets/i);
+    expect(fake.strong.mock.calls.filter(([request]) => request.stage === "global_judge")).toHaveLength(2);
+  });
+
+  it("accepts a compact rejected row whose evidence gate passed", async () => {
+    const fake = adapters();
+    const semantic = semanticJudgment(["affordability"]);
+    // The gate is what the evidence supported. The disposition is still a rejection, so the row
+    // stays four fields and nothing downstream asks it for a mechanism or a sibling resolution.
+    const rejected = semantic.strategyEvaluations.find((entry) => entry.strategyId === "usership")!;
+    Object.assign(rejected, { disposition: "rejected", evidenceGate: "pass" });
+    fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+      if (request.stage !== "global_judge") throw new Error(`unexpected stage ${request.stage}`);
+      return {
+        ok: true,
+        output: { ...semantic, materialBets: betMap().materialBets },
+        trace: trace(request, "fake-strong")
+      };
+    });
+
+    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+
+    expect(result.currentStrategyIds).toEqual(["affordability"]);
+    expect(result.strategyEvaluations.find((entry) => entry.strategyId === "usership")).toMatchObject({
+      disposition: "rejected",
+      evidenceGate: "pass",
+      mechanism: null,
+      evidenceIds: [],
+      siblingResolutions: [],
+      dimensions: {
+        evidenceStrength: "not_reached",
+        centrality: "not_reached",
+        explanatoryValue: "not_reached"
+      }
+    });
+  });
+
+  it("demands a sibling resolution from a full row and never from a compact one", async () => {
+    const monolith = (semantic: ReturnType<typeof semanticJudgment>) => {
+      const fake = adapters();
+      fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
+        if (request.stage !== "global_judge") throw new Error(`unexpected stage ${request.stage}`);
+        return {
+          ok: true,
+          output: { ...semantic, materialBets: betMap().materialBets },
+          trace: trace(request, "fake-strong")
+        };
+      });
+      return makeJudge(fake, { scopes: [] })(judgeInput());
+    };
+
+    // usership must be distinguished from reliability. A current row that skips it fails closed.
+    await expect(monolith(semanticJudgment(["usership"])))
+      .rejects.toThrow(/usership needs a discriminating reason against reliability/i);
+
+    // The same missing distinction is not a failure once usership is a compact rejection: a row
+    // with no mechanism has nothing to distinguish.
+    const compact = semanticJudgment(["affordability"]);
+    Object.assign(
+      compact.strategyEvaluations.find((entry) => entry.strategyId === "usership")!,
+      { disposition: "rejected", evidenceGate: "unresolved" }
+    );
+    await expect(monolith(compact)).resolves.toMatchObject({ currentStrategyIds: ["affordability"] });
+  });
+
   it("retains complete per-call telemetry without a provider call", async () => {
     const telemetry = vi.fn();
     const fake = adapters();
@@ -949,8 +1178,8 @@ describe("createHowItWinsJudge", () => {
 });
 
 describe("parseFrozenHowItWinsWriterDraft", () => {
-  function verdict() {
-    const audit = body(["usership", "aggregation", "reliability"]);
+  function verdict(currentIds: HowItWinsStrategyId[] = ["usership", "aggregation", "reliability"]) {
+    const audit = body(currentIds);
     return {
       version: 1 as const,
       hashes: {
@@ -980,7 +1209,7 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     };
   }
 
-  function draft(strategyIds = ["usership", "aggregation", "reliability"]) {
+  function draft(strategyIds: string[] = ["usership", "aggregation", "reliability"]) {
     return JSON.stringify({
       status: "read",
       sentence: "Fixture Company wins through three current mechanisms.",
@@ -1023,7 +1252,7 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     expect(parseFrozenHowItWinsWriterDraft(draft(["reliability", "aggregation", "usership"]), verdict())).toHaveProperty("issues");
   });
 
-  it("collapses an uncapped current set onto the display running budget", () => {
+  it("carries every approved current strategy onto the display, up to six", () => {
     const parsed = parseFrozenHowItWinsWriterDraft(draft(), verdict());
     expect("read" in parsed).toBe(true);
     if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
@@ -1032,41 +1261,60 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     if (display.status !== "read") throw new Error("expected a display read");
     expect(display.running.map((entry) => entry.strategy)).toEqual(["usership", "aggregation", "reliability"]);
     expect(display.running.every((entry) => entry.meaning.length > 0)).toBe(true);
+
+    const six: HowItWinsStrategyId[] = ["usership", "aggregation", "reliability", "precision", "curation", "secrecy"];
+    const sixParsed = parseFrozenHowItWinsWriterDraft(draft(six), verdict(six));
+    if (!("read" in sixParsed) || sixParsed.read.status !== "read") throw new Error("expected a frozen read");
+    const sixDisplay = howItWinsFromFrozenWriter(sixParsed.read);
+    if (sixDisplay.status !== "read") throw new Error("expected a display read");
+    expect(sixDisplay.running.map((entry) => entry.strategy)).toEqual(six);
   });
 
-  it("accepts nothing_stands_out when fewer than two current strategies were approved", () => {
-    const frozen = verdict();
-    const one = { ...frozen, currentStrategyIds: ["usership"] as typeof frozen.currentStrategyIds };
-    const parsed = parseFrozenHowItWinsWriterDraft(
-      JSON.stringify({
-        status: "nothing_stands_out",
-        sentence: "Nothing stands out yet for Fixture Company.",
-        current: [],
-        pair: null,
-        not_yet: [],
-        in_question: [],
-        wrong_if: "A second current mechanism appears."
-      }),
-      one
-    );
+  it("trims a seventh approved current strategy at the display cap", () => {
+    const seven: HowItWinsStrategyId[] = [
+      "usership", "aggregation", "reliability", "precision", "curation", "secrecy", "rarity"
+    ];
+    const parsed = parseFrozenHowItWinsWriterDraft(draft(seven), verdict(seven));
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.running.map((entry) => entry.strategy)).toEqual(seven.slice(0, 6));
+  });
+
+  it("accepts nothing_stands_out only when no current strategy was approved", () => {
+    const nothing = verdict([]);
+    const nothingDraft = JSON.stringify({
+      status: "nothing_stands_out",
+      sentence: "Nothing stands out yet for Fixture Company.",
+      current: [],
+      pair: null,
+      not_yet: [],
+      in_question: [],
+      wrong_if: "A current mechanism appears."
+    });
+    const parsed = parseFrozenHowItWinsWriterDraft(nothingDraft, nothing);
     expect("read" in parsed).toBe(true);
     if (!("read" in parsed) || parsed.read.status !== "nothing_stands_out") {
       throw new Error("expected a nothing_stands_out read");
     }
     expect(parsed.read.sentence).toBe("Nothing stands out yet for Fixture Company.");
+
+    expect(parseFrozenHowItWinsWriterDraft(nothingDraft, verdict(["usership"]))).toEqual({
+      issues: ["a supported verdict cannot become nothing_stands_out"]
+    });
   });
 
-  it("degrades a single current strategy to nothing_stands_out without changing the stored verdict", () => {
+  it("keeps a single approved current strategy as a read without changing the stored verdict", () => {
     const frozen = verdict();
-    const one = { ...frozen, currentStrategyIds: ["usership"] as typeof frozen.currentStrategyIds };
+    const one = verdict(["usership"]);
     const parsed = parseFrozenHowItWinsWriterDraft(draft(["usership"]), one);
     expect("read" in parsed).toBe(true);
     if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
-    expect(howItWinsFromFrozenWriter(parsed.read)).toEqual({
-      status: "nothing_stands_out",
-      sentence: "Fixture Company wins through three current mechanisms.",
-      inQuestion: []
-    });
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    expect(display.status).toBe("read");
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.running.map((entry) => entry.strategy)).toEqual(["usership"]);
+    expect(display.pair).toBeNull();
     expect(one.currentStrategyIds).toEqual(["usership"]);
     expect(frozen.currentStrategyIds).toEqual(["usership", "aggregation", "reliability"]);
   });

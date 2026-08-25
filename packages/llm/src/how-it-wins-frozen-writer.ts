@@ -1,5 +1,6 @@
 import {
   HOW_IT_WINS_DISPLAY_IN_QUESTION_MAX,
+  HOW_IT_WINS_DISPLAY_RUNNING_MAX,
   howItWinsJudgmentSchema,
   howItWinsSchema,
   howItWinsStrategyById,
@@ -154,7 +155,7 @@ export function parseFrozenHowItWinsWriterDraft(
   if (!draft) return { issues: ["writer output must be a JSON object"] };
 
   if (draft.status === "nothing_stands_out") {
-    if (judgment.currentStrategyIds.length >= 2) {
+    if (judgment.currentStrategyIds.length >= 1) {
       return { issues: ["a supported verdict cannot become nothing_stands_out"] };
     }
     if (writerItems(draft.current).length > 0 || writerItems(draft.not_yet).length > 0 || record(draft.pair)) {
@@ -251,8 +252,6 @@ export function parseFrozenHowItWinsWriterDraft(
   };
 }
 
-export const HOW_IT_WINS_DISPLAY_RUNNING_MAX = 4;
-
 function filedInQuestion(items: FrozenWriterItem[], runningIds: Set<HowItWinsStrategyId>) {
   return items
     .filter((entry) => !runningIds.has(entry.strategy))
@@ -273,7 +272,7 @@ export function howItWinsFromFrozenWriter(
   const running = read.current.slice(0, HOW_IT_WINS_DISPLAY_RUNNING_MAX);
   const runningIds = new Set(running.map((entry) => entry.strategy));
   const inQuestion = filedInQuestion(read.inQuestion, runningIds);
-  if (running.length < 2) {
+  if (running.length < 1) {
     return howItWinsSchema.parse({
       status: "nothing_stands_out",
       ...(read.sentence.trim() ? { sentence: read.sentence } : {}),

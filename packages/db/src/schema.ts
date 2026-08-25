@@ -505,3 +505,31 @@ export const accessRequests = pgTable(
     index("access_requests_handled_at_idx").on(table.handledAt)
   ]
 );
+
+// One row per completed How it wins judge verdict, keyed by the three inputs that decide it:
+// the frozen evidence packet, the judge prompt plus rules, and the strategy vocabulary. The
+// judge is the expensive half of the read (five model calls, 24k-33k output tokens), so a
+// re-file over unchanged evidence replays the stored verdict instead of re-paying for it.
+export const howItWinsJudgments = pgTable(
+  "how_it_wins_judgments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    evidencePacketHash: text("evidence_packet_hash").notNull(),
+    promptHash: text("prompt_hash").notNull(),
+    vocabularyHash: text("vocabulary_hash").notNull(),
+    slug: text("slug").notNull(),
+    model: text("model").notNull(),
+    judgmentJson: jsonb("judgment_json").notNull(),
+    estimatedCostUsd: numeric("estimated_cost_usd", { precision: 10, scale: 4 }),
+    latencyMs: integer("latency_ms"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+  },
+  (table) => [
+    uniqueIndex("how_it_wins_judgments_inputs_idx").on(
+      table.evidencePacketHash,
+      table.promptHash,
+      table.vocabularyHash
+    ),
+    index("how_it_wins_judgments_slug_idx").on(table.slug)
+  ]
+);

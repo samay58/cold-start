@@ -265,9 +265,19 @@ export type GenerationTrace = {
   };
   howItWins?: {
     enabled: boolean;
-    // "discarded" is trace/event-only, same as the emphasis block above: a freshly verified
-    // "read" that never lands on the stored card because the synthesis it rides on was dropped.
-    status?: "read" | "thin_file" | "nothing_stands_out" | "discarded";
+    // Statuses beyond the card's own three. "discarded" and "deferred" are trace/event-only:
+    // "discarded" is a freshly verified read that never lands because the synthesis it rides on
+    // was dropped, "deferred" is the analysis run handing the read to the background function.
+    // "failed", "stale", and "skipped" are that background function's own terminal outcomes.
+    status?:
+      | "read"
+      | "thin_file"
+      | "nothing_stands_out"
+      | "discarded"
+      | "deferred"
+      | "failed"
+      | "stale"
+      | "skipped";
     thinFileReason?: string;
     dropReason?: string;
     // The four-pass driver's own diagnostics: whether the hostile editor pass was skipped and
@@ -275,8 +285,49 @@ export type GenerationTrace = {
     editorSkipped?: boolean;
     fitRetried?: boolean;
     styleIssueCount?: number;
-    // The full all-80 audit stays in the private generation-run trace. It is not part of
-    // ColdStartCard, the public profile index, or either card response contract.
+    // Where the all-80 verdict is stored, not the verdict itself. The body lives in
+    // how_it_wins_judgments and is resolved through findHowItWinsJudgment; keeping it out of the
+    // trace is what stops a single run's trace from carrying tens of thousands of tokens.
+    judgmentRef?: {
+      id: string;
+      evidencePacketHash: string;
+      promptHash: string;
+      cached: boolean;
+    };
+    // The countable shape of that verdict, small enough to keep inline.
+    judgeSummary?: {
+      currentCount: number;
+      notYetCount: number;
+      openQuestionCount: number;
+      refinement?: {
+        critic: string;
+        adjudication: string;
+        notes: string[];
+      };
+      calls: Array<{
+        stage: string;
+        model: string;
+        provider: string;
+        inputTokens: number;
+        outputTokens: number;
+        latencyMs: number;
+        estimatedCostUsd: number | null;
+        actualCostUsd: number | null;
+        outcome: string;
+      }>;
+    };
+    // Where running strategies die between the judge and the stored card, the measurement the
+    // deferred read is tuned against.
+    losses?: {
+      judgeCurrent: number;
+      writerCurrent: number;
+      verifiedRunning: number;
+      writerCitationDropped: number;
+      verifierDropped: number;
+      underTwoFired: boolean;
+    };
+    // Legacy: traces written before the judgment moved into its own table carry the whole audit
+    // inline. Nothing writes this any more; readers that need the body use judgmentRef.
     judgment?: HowItWinsJudgment;
   };
   // Per-section provenance and cost for the section model. A derived section is

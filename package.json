@@ -21,7 +21,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && node --test eval/*.test.mjs eval/**/*.test.mjs && npm run test:scripts",
     "test:alpha-db": "PGPASSWORD=local dropdb --if-exists -h 127.0.0.1 -p 55432 -U coldstart coldstart_test && PGPASSWORD=local createdb -h 127.0.0.1 -p 55432 -U coldstart coldstart_test && ALPHA_DB_TEST_URL=postgres://coldstart:local@127.0.0.1:55432/coldstart_test npm run test -w @cold-start/db -- alpha-repository.integration.test.ts",
-    "test:cards-db": "PGPASSWORD=local dropdb --if-exists -h 127.0.0.1 -p 55432 -U coldstart coldstart_cards_test && PGPASSWORD=local createdb -h 127.0.0.1 -p 55432 -U coldstart coldstart_cards_test && CARDS_DB_TEST_URL=postgres://coldstart:local@127.0.0.1:55432/coldstart_cards_test npm run test -w @cold-start/db -- cards-repository.integration.test.ts",
+    "test:cards-db": "PGPASSWORD=local dropdb --if-exists -h 127.0.0.1 -p 55432 -U coldstart coldstart_cards_test && PGPASSWORD=local createdb -h 127.0.0.1 -p 55432 -U coldstart coldstart_cards_test && CARDS_DB_TEST_URL=postgres://coldstart:local@127.0.0.1:55432/coldstart_cards_test npm run test -w @cold-start/db -- --no-file-parallelism cards-repository.integration.test.ts how-it-wins-judgments.integration.test.ts",
     "db:local": "./scripts/local-postgres.sh start",
     "db:local:stop": "./scripts/local-postgres.sh stop",
     "db:local:status": "./scripts/local-postgres.sh status",
@@ -49,6 +49,7 @@
     "trace:generation": "tsx scripts/trace-generation.ts",
     "measure:first-usable": "tsx scripts/measure-first-usable.ts",
     "measure:analysis-latency": "tsx scripts/measure-analysis-latency.ts",
+    "measure:how-it-wins": "tsx scripts/measure-how-it-wins.ts",
     "study:synthesis-gate": "tsx scripts/study-synthesis-gate.ts",
     "measure:contact-yield": "tsx scripts/measure-contact-yield.ts",
     "optimize:generation": "tsx scripts/optimize-generation.ts",
@@ -70,7 +71,9 @@
     "eval:snapshot": "tsx scripts/eval-corpus-snapshot.ts",
     "eval:session-plan": "tsx scripts/eval-session-plan.ts",
     "eval:how-it-wins": "tsx scripts/how-it-wins-corpus.ts",
-    "benchmark:how-it-wins-topology": "tsx scripts/how-it-wins-topology-benchmark.ts"
+    "eval:how-it-wins:batch": "tsx scripts/how-it-wins-batch.ts",
+    "benchmark:how-it-wins-topology": "tsx scripts/how-it-wins-topology-benchmark.ts",
+    "review:how-it-wins-known": "tsx scripts/how-it-wins-known-company-review.ts"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.60.0",
@@ -141,6 +144,13 @@
       "apps/video/remotion.config.ts",
       "docs/design/mockups/**",
       "docs/product/design/**"
-    ]
+    ],
+    "workspaces": {
+      ".": {
+        "entry": [
+          "scripts/how-it-wins-known-company-review-ui.tsx"
+        ]
+      }
+    }
   }
 }

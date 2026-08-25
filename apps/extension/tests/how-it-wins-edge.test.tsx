@@ -82,6 +82,7 @@ const nothingStandsOut = (sentence: string | null): HowItWinsDisplay => ({
 });
 const thinFile: HowItWinsDisplay = { state: "thin_file", sentence: null, ...emptyContent };
 const notRead: HowItWinsDisplay = { state: "not_read", sentence: null, ...emptyContent };
+const reading: HowItWinsDisplay = { state: "reading", sentence: null, ...emptyContent };
 
 type Crown = {
   container: HTMLDivElement;
@@ -203,6 +204,56 @@ describe("HowItWinsEdge", () => {
     await absent.unmount();
   });
 
+  // The floors and caps moved under the crown: one running mark is a read, six is the running
+  // cap, and twelve is the in-question cap. Every one of those has to draw its own marks and
+  // reach its own buttons without the geometry throwing.
+  it("draws one running mark, six running marks, and twelve in-question marks", async () => {
+    const entry = (id: string, name: string) => ({ id, name, meaning: `${name} means something plain.`, note: `${name} has a note.` });
+
+    const one = await renderCrown({
+      state: "read",
+      sentence: "It wins on one mechanism the filed sources actually show.",
+      running: [entry("hybrid", "Hybrid")],
+      pair: null,
+      next: [],
+      inQuestion: [],
+      count: 1
+    });
+    expect(one.readout()).toBe("1 of 80 strategies");
+    expect(one.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(1);
+    expect(one.container.querySelectorAll(".cs-hiw-cut-wall").length).toBeGreaterThan(0);
+    await one.key("ArrowRight");
+    expect(one.readout()).toBe("Hybrid");
+    await one.unmount();
+
+    const sixRunning = [
+      entry("usership", "Usership"),
+      entry("hybrid", "Hybrid"),
+      entry("chokepoint", "Chokepoint"),
+      entry("prestige", "Prestige"),
+      entry("precision", "Precision"),
+      entry("simplicity", "Simplicity")
+    ];
+    const twelveQuestions = [
+      "completeness", "aggregation", "diversification", "cloning", "affordability", "luxury",
+      "skimming", "bundling", "heritage", "craftsmanship", "organic", "endurance"
+    ].map((id) => entry(id, id));
+
+    const full = await renderCrown({
+      state: "read",
+      sentence: "It wins on six mechanisms, with twelve more the filed sources do not settle.",
+      running: sixRunning,
+      pair: null,
+      next: [],
+      inQuestion: twelveQuestions,
+      count: 6
+    });
+    expect(full.readout()).toBe("6 of 80 strategies");
+    expect(full.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(18);
+    expect(full.container.querySelectorAll(".cs-hiw-question")).toHaveLength(12);
+    await full.unmount();
+  });
+
   it("keeps in-question marks when nothing currently stands out", async () => {
     const crown = await renderCrown({
       state: "nothing_stands_out",
@@ -212,9 +263,56 @@ describe("HowItWinsEdge", () => {
     });
     expect(crown.readout()).toBe("0 of 80 strategies");
     expect(crown.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(1);
+    // The marks themselves draw, not just their hidden buttons: a nothing_stands_out read whose
+    // only content is an unresolved strategy must never leave the edge blank.
+    expect(crown.container.querySelectorAll(".cs-hiw-question")).toHaveLength(1);
     await crown.key("ArrowRight");
     expect(crown.readout()).toBe("Completeness?");
     await crown.unmount();
+  });
+
+  // The wait: the crown holds its resting geometry, says what it is doing, and offers nothing
+  // to hover or pin until the read lands.
+  it("mounts empty and non-interactive while the read is still running", async () => {
+    const crown = await renderCrown(reading);
+    expect(crown.crown).not.toBeNull();
+    expect(crown.crown?.getAttribute("data-state")).toBe("reading");
+    expect(crown.container.textContent).toContain(HOW_IT_WINS_COPY.label);
+    expect(crown.container.querySelector(".cs-how-it-wins-sentence")?.textContent).toBe(HOW_IT_WINS_COPY.reading);
+    expect(crown.readout()).toBe("");
+    expect(crown.container.querySelector(".cs-how-it-wins-edge svg")).not.toBeNull();
+    expect(crown.container.querySelectorAll(".cs-hiw-cut-wall, .cs-hiw-hollow, .cs-hiw-question, .cs-hiw-bracket"))
+      .toHaveLength(0);
+    expect(crown.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(0);
+
+    await crown.key("ArrowRight");
+    await crown.key("Enter");
+    expect(crown.crown?.getAttribute("data-pinned")).toBe("false");
+    expect(crown.container.querySelector(".cs-how-it-wins-note")).toBeNull();
+    expect(crown.readout()).toBe("");
+
+    await crown.unmount();
+  });
+
+  it("keeps the running read legible under reduced motion and hands the edge over when it lands", async () => {
+    stubReducedMotion(true);
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<HowItWinsEdge display={reading} prefersReducedMotion />);
+    });
+    expect(container.querySelector(".cs-how-it-wins-sentence")?.textContent).toBe(HOW_IT_WINS_COPY.reading);
+
+    await act(async () => {
+      root.render(<HowItWinsEdge display={filedDisplay} prefersReducedMotion />);
+    });
+    expect(container.querySelector(".cs-how-it-wins")?.getAttribute("data-state")).toBe("read");
+    expect(container.querySelector(".cs-how-it-wins-sentence")?.textContent).toBe(filedDisplay.sentence);
+    expect(container.querySelectorAll(".cs-hiw-cut-wall").length).toBeGreaterThan(0);
+
+    await act(async () => root.unmount());
+    container.remove();
   });
 
   // (a), the mount: the plate carries the crown above its header, and omits it on a legacy card.
@@ -339,6 +437,10 @@ describe("HowItWinsEdge", () => {
       seen.push(crown.container.textContent ?? "");
     }
 
+    const waiting = await renderCrown(reading);
+    seen.push(waiting.container.textContent ?? "");
+    await waiting.unmount();
+
     for (const text of seen) {
       for (const phrase of BANNED_MICRO_COPY) {
         const pattern = new RegExp(phrase === "cut" ? "\\bcut\\b" : phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
@@ -386,6 +488,23 @@ describe("HowItWinsEdge", () => {
     const crown = await renderCrown(filedDisplay);
     await crown.key("ArrowRight");
     expect(crown.crown?.outerHTML.toLowerCase()).not.toContain("seal");
+    await crown.unmount();
+  });
+
+  it("opens an in-question note on what is unresolved, named as its own kind", async () => {
+    const crown = await renderCrown(filedDisplay);
+    await crown.key("ArrowRight");
+    const note = crown.container.querySelector(".cs-how-it-wins-note");
+    expect(note?.getAttribute("data-kind")).toBe("in_question");
+    // The kicker is the name alone. The body under it is the record's own unresolved account,
+    // with no definition line in between claiming how the company wins.
+    expect(crown.container.querySelector(".cs-how-it-wins-kicker span")?.textContent).toBe("Completeness?");
+    expect(note?.querySelector("p")?.textContent).toBe(filedDisplay.inQuestion[0]?.note);
+    expect(note?.textContent).not.toContain(filedDisplay.inQuestion[0]?.meaning);
+
+    await crown.key("ArrowRight");
+    expect(crown.container.querySelector(".cs-how-it-wins-note")?.getAttribute("data-kind")).toBe("running");
+
     await crown.unmount();
   });
 

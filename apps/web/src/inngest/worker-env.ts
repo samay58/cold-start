@@ -98,14 +98,18 @@ export function howItWinsEnabled() {
   return process.env.HOW_IT_WINS_ENABLED !== "false";
 }
 
-// Two models, not one: the monolith judge and the frozen writer run through the stage's own
-// routing chain (LLM_HOW_IT_WINS_MODEL, then the synthesis chain). The critic is the existing
-// editor model (LLM_HOW_IT_WINS_EDITOR_MODEL, default deepseek/deepseek-v4-pro) because the
-// judge requires a different provider from the global call. The editor is addressed directly
-// rather than through modelForStage because it is not a routable stage of its own.
+// Three models, not two. The frozen writer runs through the stage's own routing chain
+// (LLM_HOW_IT_WINS_MODEL, then the synthesis chain). The all-80 judge reads
+// LLM_HOW_IT_WINS_JUDGE_MODEL and falls back to the writer, so the two can be routed apart
+// without a deploy; they were one slot before, and moving either moved both. The critic is the
+// existing editor model (LLM_HOW_IT_WINS_EDITOR_MODEL, default deepseek/deepseek-v4-pro) because
+// the judge requires a different provider from the global call. Both the judge and the editor
+// are addressed directly rather than through modelForStage: neither is a routable stage.
 export function howItWinsModelsFromProcess(defaultModel?: string): HowItWinsModels {
+  const writer = modelForStage("how_it_wins", defaultModel);
   return {
-    writer: modelForStage("how_it_wins", defaultModel),
+    judge: process.env.LLM_HOW_IT_WINS_JUDGE_MODEL?.trim() || writer,
+    writer,
     editor: process.env.LLM_HOW_IT_WINS_EDITOR_MODEL?.trim() || HOW_IT_WINS_DEFAULT_EDITOR_MODEL
   };
 }

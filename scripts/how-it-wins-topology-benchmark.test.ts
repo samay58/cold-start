@@ -535,7 +535,9 @@ test("the paid global tool schema fixes all 80 rows and canonical enum words", (
   const evaluations = schema.properties.strategyEvaluations;
   assert.equal(evaluations.minItems, 80);
   assert.equal(evaluations.maxItems, 80);
-  assert.equal(evaluations.items.anyOf[0]?.properties.evidenceGate?.const, "fail");
+  // The compact branch takes any of the three gates now, not a fixed fail: packet B widened it
+  // when every non-judged strategy dropped to four fields.
+  assert.deepEqual(evaluations.items.anyOf[0]?.properties.evidenceGate?.enum, ["pass", "fail", "unresolved"]);
   assert.deepEqual(evaluations.items.anyOf[1]?.properties.evidenceGate?.enum, ["pass", "unresolved"]);
   assert.deepEqual(evaluations.items.anyOf[1]?.properties.presentRelevance?.enum, [
     "current",

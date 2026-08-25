@@ -118,7 +118,7 @@ function readFromValidDraft(): HowItWinsRead {
 }
 
 function writerModels() {
-  return { writer: "claude-sonnet-5", editor: "deepseek/deepseek-v4-pro" };
+  return { judge: "claude-opus-5", writer: "claude-sonnet-5", editor: "deepseek/deepseek-v4-pro" };
 }
 
 function frozenJudgment(
@@ -284,14 +284,36 @@ describe("how-it-wins prompt constants", () => {
     expect(HOW_IT_WINS_TASK_INTRO).not.toContain("card's citations");
   });
 
-  it("holds the frozen writer to the Investor Lens bar and the in-question slot", () => {
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Investor Lens");
+  it("holds the frozen writer to the investor-memo bar and the in-question slot", () => {
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("seasoned investor memo");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in-question");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in_question");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Do not write it as if it were current");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Status follows the approved current list");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Display caps are applied in code");
     expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("on the card");
+  });
+
+  it("gives every slot its own length and asks for one current strategy, not two", () => {
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("one sentence, under 40 words");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("A current note, 40 to 80 words");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("A not-yet note, 30 to 60 words");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("An in-question note, 25 to 50 words");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("One or more current strategies");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("no note carries more than four");
+    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("Two or more current strategies");
+  });
+
+  it("bans every phrase the style checks reject", () => {
+    for (const phrase of [
+      "what is unresolved is whether",
+      "would settle it",
+      "the record",
+      "the evidence shows",
+      "bears this out",
+      "is consistent with"
+    ]) {
+      expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain(phrase);
+    }
   });
 
   it("makes the hostile editor catch the sitting's four banned phrases", () => {
@@ -574,6 +596,45 @@ describe("styleIssuesForRead", () => {
     read.sentence = "It wins";
 
     expect(styleIssuesForRead(read)).toContain("the sentence is too short or has no terminal period");
+  });
+
+  it("flags a sentence that runs past the word budget", () => {
+    const read = readFromValidDraft();
+    read.sentence = `${Array.from({ length: 46 }, () => "word").join(" ")}.`;
+
+    expect(styleIssuesForRead(read)).toContain(
+      "the sentence runs past 45 words; say the one load-bearing fact and stop"
+    );
+  });
+
+  it("flags a note that cites more than four sources", () => {
+    const read = readFromValidDraft();
+    read.running = read.running.map((entry, index) =>
+      index === 0
+        ? { ...entry, note: "The launch coverage names the harness [e1] [e2] [e4] [e5] [e12]." }
+        : entry
+    );
+
+    expect(styleIssuesForRead(read)).toContain(
+      'running item 1 ("Hybrid"), in the note cites more than 4 sources; keep the strongest ones'
+    );
+  });
+
+  it("flags every phrase the frozen writer prompt bans by name", () => {
+    for (const phrase of [
+      "what is unresolved is whether",
+      "would settle it",
+      "would resolve it",
+      "the record",
+      "the evidence shows",
+      "bears this out",
+      "is consistent with"
+    ]) {
+      const read = readFromValidDraft();
+      read.wrongIf = `A second vendor appears and ${phrase} changes.`;
+
+      expect(styleIssuesForRead(read)).toContain(`wrong_if uses the banned phrase "${phrase}"`);
+    }
   });
 });
 

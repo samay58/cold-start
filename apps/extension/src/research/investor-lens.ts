@@ -12,6 +12,7 @@ import {
   type SourcedText
 } from "@cold-start/core";
 import { EMPHASIS_EMPTY_COPY, LENS_TENSION_EMPTY_COPY } from "./investor-read-copy";
+import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 
 export type SourcePosture =
   | "company-authored"
@@ -96,8 +97,10 @@ type EmphasisDisplay = {
 
 // How it wins is not a category row: it is the crown on the packet's edge, so it carries its
 // own display shape rather than a preview string. "not_read" covers a legacy card generated
-// before the field existed; the other three mirror howItWinsSchema's own statuses.
-type HowItWinsDisplayState = "read" | "thin_file" | "nothing_stands_out" | "not_read";
+// before the field existed; three of the rest mirror howItWinsSchema's own statuses. "reading"
+// is the one state no stored card can carry: the read runs in the background after the analysis
+// run settles, so the panel supplies it from the run's trail (see howItWinsPendingForCard).
+type HowItWinsDisplayState = "read" | "reading" | "thin_file" | "nothing_stands_out" | "not_read";
 export type HowItWinsDisplay = {
   state: HowItWinsDisplayState;
   // read: the model's sentence. nothing_stands_out: the model's own sentence when it named
@@ -125,7 +128,6 @@ export type InvestorReadDisplay = {
   sources: LensSource[];
   independentlyBacked: boolean;
   emphasis: EmphasisDisplay;
-  howItWins: HowItWinsDisplay;
 };
 
 export type InvestorLensCategoryId =
@@ -474,10 +476,45 @@ function howItWinsEntries(entries: Array<{ strategy: HowItWinsStrategyId; note: 
   }));
 }
 
-function howItWinsDisplayForCard(card: ColdStartCard): HowItWinsDisplay {
+// A card is fresh enough that a read dispatched alongside it could still be running. Only
+// consulted when the panel holds no event trail to ask instead.
+const HOW_IT_WINS_FRESH_CARD_MS = 10 * 60 * 1000;
+
+// The crown's one panel-local state. The background read lands one to four minutes after the
+// analysis run settles, and the stored card carries no status for that gap, so the panel reads
+// it off the run's own trail: the read started and has not landed. An explicit completion in
+// the trail is final even with no read on the card, because the background function emits it
+// when it gives up too. With no trail at all (a panel opened cold on a cached card) the card's
+// own age stands in for one.
+export function howItWinsPendingForCard(
+  card: ColdStartCard,
+  events: ExtensionResearchRunEvent[],
+  now: number = Date.now()
+): boolean {
+  if (!card.synthesis || card.synthesis.howItWins) {
+    return false;
+  }
+  if (events.some((event) => event.type === "how-it-wins.complete")) {
+    return false;
+  }
+  if (events.some((event) => event.type === "how-it-wins.started")) {
+    return true;
+  }
+  if (events.length > 0) {
+    return false;
+  }
+  const generatedAt = Date.parse(card.generatedAt);
+  return Number.isFinite(generatedAt) && now >= generatedAt && now - generatedAt < HOW_IT_WINS_FRESH_CARD_MS;
+}
+
+export function howItWinsDisplayForCard(
+  card: ColdStartCard,
+  options: { pending?: boolean } = {}
+): HowItWinsDisplay {
   const howItWins = card.synthesis?.howItWins;
   if (!howItWins) {
-    return { state: "not_read", sentence: null, ...noHowItWinsContent() };
+    const reading = options.pending === true && Boolean(card.synthesis);
+    return { state: reading ? "reading" : "not_read", sentence: null, ...noHowItWinsContent() };
   }
   if (howItWins.status === "thin_file") {
     return { state: "thin_file", sentence: null, ...noHowItWinsContent() };
@@ -565,7 +602,6 @@ export function investorReadForCard(card: ColdStartCard): InvestorReadDisplay | 
       const posture = strongestPosture(citations, claim.citationIds);
       return posture === "independent" || posture === "reporting";
     }),
-    emphasis: emphasisDisplayForCard(card),
-    howItWins: howItWinsDisplayForCard(card)
+    emphasis: emphasisDisplayForCard(card)
   };
 }
