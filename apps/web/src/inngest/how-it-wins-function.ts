@@ -122,9 +122,6 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
     judgmentRef?: NonNullable<HowItWinsTraceBlock["judgmentRef"]>;
     judgeSummary?: HowItWinsJudgeSummary;
     losses?: HowItWinsLosses;
-    editorSkipped?: boolean;
-    fitRetried?: boolean;
-    styleIssueCount?: number;
   }) => {
     mergeTracePatch(trace, {
       howItWins: {
@@ -134,10 +131,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
         ...(outcome.thinFileReason ? { thinFileReason: outcome.thinFileReason } : {}),
         ...(outcome.judgmentRef ? { judgmentRef: outcome.judgmentRef } : {}),
         ...(outcome.judgeSummary ? { judgeSummary: outcome.judgeSummary } : {}),
-        ...(outcome.losses ? { losses: outcome.losses } : {}),
-        ...(outcome.editorSkipped === undefined ? {} : { editorSkipped: outcome.editorSkipped }),
-        ...(outcome.fitRetried === undefined ? {} : { fitRetried: outcome.fitRetried }),
-        ...(outcome.styleIssueCount === undefined ? {} : { styleIssueCount: outcome.styleIssueCount })
+        ...(outcome.losses ? { losses: outcome.losses } : {})
       }
     });
     trace.steps = {
@@ -258,11 +252,6 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
   if (!written.value.ok) {
     return finish({ status: "failed", stepStatus: "failed", stepMessage: written.value.error, ...judgeFields });
   }
-  const writerFields = {
-    editorSkipped: written.value.editorSkipped,
-    fitRetried: written.value.fitRetried,
-    styleIssueCount: written.value.styleIssueCount
-  };
   const draft = written.value.read;
 
   let verified: HowItWins = draft;
@@ -289,8 +278,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
         status: "failed",
         stepStatus: "failed",
         stepMessage: verifyResult.value.error,
-        ...judgeFields,
-        ...writerFields
+        ...judgeFields
       });
     }
     verified = verifyResult.value.howItWins;
@@ -339,7 +327,6 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
       stepStatus: "skipped",
       stepMessage: "stored card moved since the judgment was made",
       ...judgeFields,
-      ...writerFields,
       ...(losses ? { losses } : {})
     });
   }
@@ -349,7 +336,6 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
     stepStatus: "complete",
     ...(dropReason ? { dropReason } : {}),
     ...judgeFields,
-    ...writerFields,
     ...(losses ? { losses } : {})
   });
 };

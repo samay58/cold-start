@@ -5,7 +5,10 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import {
   HOW_IT_WINS_STRATEGIES,
+  howItWinsSchema,
   howItWinsJudgmentSchema,
+  howItWinsStrategyById,
+  howItWinsStrategyIdForName,
   type ColdStartCard,
   type HowItWinsJudgment,
   type HowItWinsRead,
@@ -13,23 +16,14 @@ import {
 } from "@cold-start/core";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  HOW_IT_WINS_HOSTILE_EDITOR,
-  HOW_IT_WINS_PASS_2,
-  HOW_IT_WINS_PASS_4,
-  HOW_IT_WINS_SLOTS,
-  HOW_IT_WINS_TASK_INTRO,
-  HOW_IT_WINS_WRITING_STANDARD
-} from "../src/how-it-wins-prompts";
 import { HOW_IT_WINS_FROZEN_WRITER_PROMPT } from "../src/how-it-wins-judge-prompts";
+import { citationIdsFromNote } from "../src/how-it-wins-frozen-writer";
 import {
   HowItWinsEmptyTextError,
-  parseHowItWinsDraft,
   styleIssuesForRead,
   synthesizeHowItWins,
   textFromMessage
 } from "../src/how-it-wins";
-import { isTransientLlmError } from "../src/transient-error";
 
 const tracedMessage = vi.hoisted(() => vi.fn());
 
@@ -39,8 +33,6 @@ vi.mock("../src/anthropic", async (importOriginal) => {
 });
 
 const testDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(testDir, "../../..");
-const promptDir = resolve(repoRoot, "docs/product/design/2026-08-18-moat-read-direction/prompt-test");
 
 const card = JSON.parse(
   readFileSync(resolve(testDir, "fixtures/how-it-wins-irregular.json"), "utf8")
@@ -103,18 +95,37 @@ function draftObject() {
   };
 }
 
-function draftJson(mutate?: (draft: ReturnType<typeof draftObject>) => void): string {
-  const draft = draftObject();
-  mutate?.(draft);
-  return JSON.stringify(draft);
+function strategyIdForFixture(name: string): HowItWinsStrategyId {
+  const id = howItWinsStrategyIdForName(name);
+  if (!id) throw new Error(`the fixture names a strategy outside the vocabulary: ${name}`);
+  return id;
 }
 
 function readFromValidDraft(): HowItWinsRead {
-  const parsed = parseHowItWinsDraft(draftJson(), card);
-  if (!("read" in parsed) || parsed.read.status !== "read") {
-    throw new Error("the fixture draft should parse into a read");
-  }
-  return structuredClone(parsed.read);
+  const draft = draftObject();
+  const queued = (entry: { strategy: string; note: string }) => ({
+    strategy: strategyIdForFixture(entry.strategy),
+    note: entry.note,
+    citationIds: citationIdsFromNote(entry.note)
+  });
+  const parsed = howItWinsSchema.parse({
+    status: "read",
+    sentence: draft.sentence,
+    running: draft.running.map((entry) => ({
+      ...queued(entry),
+      meaning: howItWinsStrategyById(strategyIdForFixture(entry.strategy)).meaning
+    })),
+    pair: {
+      strategies: draft.pair.strategies.map(strategyIdForFixture),
+      note: draft.pair.note,
+      wrongIf: draft.pair.wrong_if,
+      citationIds: citationIdsFromNote(draft.pair.note)
+    },
+    next: draft.next.map(queued),
+    wrongIf: draft.wrong_if
+  });
+  if (parsed.status !== "read") throw new Error("the fixture draft should build a read");
+  return parsed;
 }
 
 function writerModels() {
@@ -240,8 +251,11 @@ function frozenJudgment(
   });
 }
 
-function frozenWriterDraftJson(strategyIds: HowItWinsStrategyId[] = ["hybrid", "chokepoint", "prestige"]) {
-  return JSON.stringify({
+function frozenWriterDraftJson(
+  strategyIds: HowItWinsStrategyId[] = ["hybrid", "chokepoint", "prestige"],
+  mutate?: (draft: { wrong_if: string }) => void
+) {
+  const draft = {
     status: "read",
     sentence: "Irregular's evaluation harness sits inside model-release decisions for two frontier labs.",
     current: strategyIds.map((strategy) => ({
@@ -252,292 +266,14 @@ function frozenWriterDraftJson(strategyIds: HowItWinsStrategyId[] = ["hybrid", "
     not_yet: [],
     in_question: [],
     wrong_if: "A second vendor appears in the same release notes and performs the same role."
-  });
+  };
+  mutate?.(draft);
+  return JSON.stringify(draft);
 }
 
-async function runDriver() {
-  return synthesizeHowItWins({ client: {} as Anthropic, models: writerModels(), card });
+async function runWriter(models = writerModels()) {
+  return synthesizeHowItWins({ client: {} as Anthropic, models, card, judgment: frozenJudgment() });
 }
-
-describe("how-it-wins prompt constants", () => {
-  it("carries the writing standard verbatim", () => {
-    expect(HOW_IT_WINS_WRITING_STANDARD).toBe(readFileSync(resolve(promptDir, "writing-standard.md"), "utf8"));
-  });
-
-  it("carries the hostile editor verbatim", () => {
-    expect(HOW_IT_WINS_HOSTILE_EDITOR).toBe(readFileSync(resolve(promptDir, "hostile-editor.md"), "utf8"));
-  });
-
-  it("makes wrong_if a world conditional and never asks for a model-authored meaning line", () => {
-    expect(HOW_IT_WINS_SLOTS).toContain("plain conditional about the world");
-    expect(HOW_IT_WINS_SLOTS).toContain('"running": one to six items {strategy, note}');
-    expect(HOW_IT_WINS_SLOTS).toContain("Irregular's evaluation harness sits inside model-release decisions");
-    expect(HOW_IT_WINS_SLOTS).not.toContain('"meaning"');
-    expect(HOW_IT_WINS_PASS_2).not.toContain("Meaning lines");
-    expect(HOW_IT_WINS_PASS_4).not.toContain("meaning line");
-  });
-
-  it("tells every writer to keep the input unnamed and lead with the company and mechanism", () => {
-    expect(HOW_IT_WINS_TASK_INTRO).toContain("Never refer to the input");
-    expect(HOW_IT_WINS_TASK_INTRO).toContain("Lead with the company and the mechanism");
-    expect(HOW_IT_WINS_TASK_INTRO).not.toContain("from the card");
-    expect(HOW_IT_WINS_TASK_INTRO).not.toContain("card's citations");
-  });
-
-  it("holds the frozen writer to the investor-memo bar and the in-question slot", () => {
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("seasoned investor memo");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in-question");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("in_question");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Do not write it as if it were current");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("Status follows the approved current list");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("on the card");
-  });
-
-  it("gives every slot its own length and asks for one current strategy, not two", () => {
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("one sentence, under 40 words");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("A current note, 40 to 80 words");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("A not-yet note, 30 to 60 words");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("An in-question note, 25 to 50 words");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("One or more current strategies");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain("no note carries more than four");
-    expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).not.toContain("Two or more current strategies");
-  });
-
-  it("bans every phrase the style checks reject", () => {
-    for (const phrase of [
-      "what is unresolved is whether",
-      "would settle it",
-      "the record",
-      "the evidence shows",
-      "bears this out",
-      "is consistent with"
-    ]) {
-      expect(HOW_IT_WINS_FROZEN_WRITER_PROMPT).toContain(phrase);
-    }
-  });
-
-  it("makes the hostile editor catch the sitting's four banned phrases", () => {
-    for (const phrase of ["the read would weaken", "would weaken if", "is observed fact", "on the card"]) {
-      expect(HOW_IT_WINS_HOSTILE_EDITOR.toLowerCase()).toContain(phrase);
-    }
-  });
-});
-
-describe("parseHowItWinsDraft", () => {
-  it("maps strategy names to ids and derives citation ids from the visible markers", () => {
-    const parsed = parseHowItWinsDraft(draftJson(), card);
-
-    expect("read" in parsed).toBe(true);
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.running.map((entry) => entry.strategy)).toEqual(["hybrid", "chokepoint", "prestige"]);
-    expect(parsed.read.running.map((entry) => entry.meaning)).toEqual([
-      "Competence in two distinct areas, or two strengths not usually found together.",
-      "Controls a passage that competitors or prey must pass through.",
-      "Endorsed by authoritative sources through awards, degrees, or recognition."
-    ]);
-    expect(parsed.read.running[0]?.citationIds).toEqual(["e1"]);
-    expect(parsed.read.running[1]?.citationIds).toEqual(["e2", "e4"]);
-    expect(parsed.read.pair?.strategies).toEqual(["hybrid", "chokepoint"]);
-    expect(parsed.read.pair?.citationIds).toEqual(["e1", "e2"]);
-    expect(parsed.read.pair?.wrongIf).toBe("A lab can publish an equivalent harness without losing evaluation quality.");
-    expect(parsed.read.next[0]?.strategy).toBe("standardization");
-    expect(parsed.read.next[0]?.citationIds).toEqual(["e5"]);
-    expect(parsed.read.inQuestion).toEqual([]);
-    expect(parsed.read.wrongIf).toBe("A second vendor appears in the same release notes and performs the same role.");
-  });
-
-  it("reads a draft wrapped in a code fence", () => {
-    const parsed = parseHowItWinsDraft(`Here it is:\n\n\`\`\`json\n${draftJson()}\n\`\`\`\n`, card);
-
-    expect("read" in parsed).toBe(true);
-  });
-
-  it("derives every id from a comma list inside one bracket", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.running = draft.running.map((entry, index) =>
-          index === 0
-            ? { ...entry, note: "It ships research and harness together [e1, e2]. Observed in the coverage." }
-            : entry
-        );
-      }),
-      card
-    );
-
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.running[0]?.citationIds).toEqual(["e1", "e2"]);
-    expect(parsed.read.running[0]?.note).toContain("[e1, e2]");
-  });
-
-  it("returns a nothing_stands_out read with its sentence", () => {
-    const parsed = parseHowItWinsDraft(
-      JSON.stringify({ status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do." }),
-      card
-    );
-
-    expect(parsed).toEqual({
-      read: { status: "nothing_stands_out", sentence: "It competes the way most LLM tooling companies do.", inQuestion: [] },
-      normalizations: []
-    });
-  });
-
-  it("reports a citation id that is not on the card", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.running = draft.running.map((entry, index) =>
-          index === 0 ? { ...entry, note: "It ships the harness itself [z9]. Observed." } : entry
-        );
-      }),
-      card
-    );
-
-    expect("issues" in parsed).toBe(true);
-    if (!("issues" in parsed)) {
-      throw new Error("expected issues");
-    }
-    expect(parsed.issues.join(" ")).toContain("[z9]");
-    expect(parsed.issues.join(" ")).toContain("cite only supplied ids");
-  });
-
-  it("reports a strategy name outside the vocabulary", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.running = draft.running.map((entry, index) => (index === 0 ? { ...entry, strategy: "Moat" } : entry));
-      }),
-      card
-    );
-
-    expect("issues" in parsed).toBe(true);
-    if (!("issues" in parsed)) {
-      throw new Error("expected issues");
-    }
-    expect(parsed.issues).toContain('"Moat" is not one of the 80 ways; use a name from the list exactly as written');
-  });
-
-  it("reports a running note with no citation marker", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.running = draft.running.map((entry, index) =>
-          index === 2 ? { ...entry, note: "Sequoia led the round and both labs cite the work. Reported." } : entry
-        );
-      }),
-      card
-    );
-
-    expect("issues" in parsed).toBe(true);
-    if (!("issues" in parsed)) {
-      throw new Error("expected issues");
-    }
-    expect(parsed.issues).toContain(
-      'running item 3 ("Prestige") has no citation ids in square brackets in its note; cite at least one supplied id, like [e3]'
-    );
-  });
-
-  it("quotes the parser error when the response is not JSON", () => {
-    const parsed = parseHowItWinsDraft("I could not write this read.", card);
-
-    if (!("issues" in parsed)) {
-      throw new Error("expected issues");
-    }
-    expect(parsed.issues[0]).toMatch(/^the JSON could not be parsed: /);
-  });
-
-  it("reports a status outside the two the slots allow", () => {
-    const parsed = parseHowItWinsDraft(JSON.stringify({ ...JSON.parse(draftJson()), status: "nothing_unusual" }), card);
-
-    expect(parsed).toEqual({ issues: ['status must be "read" or "nothing_stands_out"'] });
-  });
-
-  it("reports a pair leg that is not one of the running ways", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.pair = { ...draft.pair, strategies: ["Hybrid", "Curation"] };
-      }),
-      card
-    );
-
-    expect(parsed).toEqual({ issues: ["the pair must name two of the running strategies, or be null"] });
-  });
-
-  it("records no normalizations for a clean draft", () => {
-    const parsed = parseHowItWinsDraft(draftJson(), card);
-
-    if (!("read" in parsed)) {
-      throw new Error("expected a read");
-    }
-    expect(parsed.normalizations).toEqual([]);
-  });
-
-  it("drops a next way that is already running instead of failing", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.next = [{ strategy: "Prestige", note: "It could lean harder on the endorsements [e5]." }];
-      }),
-      card
-    );
-
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.next).toEqual([]);
-    expect(parsed.normalizations).toEqual(['dropped the next way "Prestige"; it is already running']);
-  });
-
-  it("drops a next way whose name is not one of the 80 instead of failing", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.next = [{ strategy: "Expansion", note: "It could open a second market [e5]." }];
-      }),
-      card
-    );
-
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.next).toEqual([]);
-    expect(parsed.normalizations).toEqual(['dropped the next way "Expansion"; it is not one of the 80 ways']);
-  });
-
-  it("keeps the first mention when a running way is repeated", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.running = [
-          ...draft.running,
-          {
-            strategy: "Chokepoint",
-            note: "Said a second time, with the same evidence [e2]."
-          }
-        ];
-      }),
-      card
-    );
-
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.running.map((entry) => entry.strategy)).toEqual(["hybrid", "chokepoint", "prestige"]);
-    expect(parsed.read.running[1]?.citationIds).toEqual(["e2", "e4"]);
-    expect(parsed.normalizations).toEqual(['dropped a repeated running way: "Chokepoint"']);
-  });
-
-  it("resolves pair legs written in another case or punctuation", () => {
-    const parsed = parseHowItWinsDraft(
-      draftJson((draft) => {
-        draft.pair = { ...draft.pair, strategies: ["hybrid", "choke-point"] };
-      }),
-      card
-    );
-
-    if (!("read" in parsed) || parsed.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(parsed.read.pair?.strategies).toEqual(["hybrid", "chokepoint"]);
-  });
-});
 
 describe("styleIssuesForRead", () => {
   it("passes a clean read", () => {
@@ -649,72 +385,20 @@ describe("textFromMessage", () => {
 });
 
 describe("synthesizeHowItWins", () => {
-  it("skips the hostile editor when it fails on a semantic error", async () => {
-    tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockRejectedValueOnce(new Error("editor model rejected the request"))
-      .mockResolvedValueOnce(textMessage(draftJson()));
-
-    const result = await runDriver();
-
-    expect(result.read.status).toBe("read");
-    expect(result.editorSkipped).toBe(true);
-    expect(result.fitRetried).toBe(false);
-    expect(result.styleIssues).toEqual([]);
-    expect(tracedMessage).toHaveBeenCalledTimes(4);
-
-    const calls = callsMade();
-    expect(calls.map((call) => call.label)).toEqual([
-      "how-it-wins-reason",
-      "how-it-wins-edit",
-      "how-it-wins-editor",
-      "how-it-wins-fit"
-    ]);
-    expect(calls.every((call) => call.stage === "how_it_wins")).toBe(true);
-    expect(calls[2]?.model).toBe("deepseek/deepseek-v4-pro");
-    expect(calls[3]?.model).toBe("claude-sonnet-5");
-  });
-
-  it("skips the hostile editor when it fails on transport too", async () => {
-    // The pass is optional and the adapter already retried in-process, so a transient editor
-    // failure degrades like any other instead of failing the read.
-    const transient = new Error("openai-compat request failed with 529: overloaded");
-    expect(isTransientLlmError(transient)).toBe(true);
-
-    tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockRejectedValueOnce(transient)
-      .mockResolvedValueOnce(textMessage(draftJson()));
-
-    const result = await runDriver();
-
-    expect(result.editorSkipped).toBe(true);
-    expect(result.read.status).toBe("read");
-    expect(tracedMessage).toHaveBeenCalledTimes(4);
-    expect(callsMade()[3]?.label).toBe("how-it-wins-fit");
-  });
-
-  it("retries the first pass at a higher token ceiling when the response has no text", async () => {
+  it("retries at a higher token ceiling when the response has no text", async () => {
     tracedMessage.mockReset();
     tracedMessage
       .mockResolvedValueOnce(thinkingOnlyMessage())
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()));
+      .mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
 
-    const result = await runDriver();
+    const result = await runWriter();
 
-    expect(result.editorSkipped).toBe(false);
+    expect(result.read.status).toBe("read");
     const calls = callsMade();
     expect(calls[0]?.params.max_tokens).toBe(16000);
     expect(calls[1]?.params.max_tokens).toBe(21000);
     expect(calls[1]?.params.thinking).toBeUndefined();
-    expect(calls[1]?.label).toBe("how-it-wins-reason");
+    expect(calls[1]?.label).toBe("how-it-wins-frozen-writer");
   });
 
   it("turns thinking off for a third attempt when both budgets came back empty", async () => {
@@ -722,19 +406,14 @@ describe("synthesizeHowItWins", () => {
     tracedMessage
       .mockResolvedValueOnce(thinkingOnlyMessage())
       .mockResolvedValueOnce(thinkingOnlyMessage())
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()));
+      .mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
 
-    const result = await runDriver();
+    const result = await runWriter();
 
     expect(result.read.status).toBe("read");
     const calls = callsMade();
     expect(calls[2]?.params.thinking?.type).toBe("disabled");
     expect(calls[2]?.params.max_tokens).toBe(16000);
-    expect(calls[2]?.label).toBe("how-it-wins-reason");
-    expect(calls[3]?.params.thinking).toBeUndefined();
   });
 
   it("gives up after three empty responses", async () => {
@@ -744,133 +423,72 @@ describe("synthesizeHowItWins", () => {
       .mockResolvedValueOnce(thinkingOnlyMessage())
       .mockResolvedValueOnce(thinkingOnlyMessage());
 
-    await expect(runDriver()).rejects.toThrow(HowItWinsEmptyTextError);
+    await expect(runWriter()).rejects.toThrow(HowItWinsEmptyTextError);
     expect(tracedMessage).toHaveBeenCalledTimes(3);
   });
 
   it("does not offer a thinking config to a non-Anthropic model", async () => {
     tracedMessage.mockReset();
     tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
       .mockResolvedValueOnce(thinkingOnlyMessage())
-      .mockResolvedValueOnce(thinkingOnlyMessage())
-      .mockResolvedValueOnce(textMessage(draftJson()));
+      .mockResolvedValueOnce(thinkingOnlyMessage());
 
-    const result = await runDriver();
-
-    // The editor is deepseek: two empty responses end the pass instead of a third attempt.
-    expect(result.editorSkipped).toBe(true);
-    expect(tracedMessage).toHaveBeenCalledTimes(5);
+    // Two empty responses end a DeepSeek writer instead of buying a third attempt.
+    await expect(runWriter({ ...writerModels(), writer: "deepseek/deepseek-v4-pro" }))
+      .rejects.toThrow(HowItWinsEmptyTextError);
+    expect(tracedMessage).toHaveBeenCalledTimes(2);
     expect(callsMade().every((call) => call.params.thinking === undefined)).toBe(true);
   });
 
-  it("re-asks the fit pass once with the style issues and reports the retry", async () => {
+  it("re-asks the writer once with the style issues and reports the retry", async () => {
     tracedMessage.mockReset();
     tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
       .mockResolvedValueOnce(
         textMessage(
-          draftJson((draft) => {
+          frozenWriterDraftJson(undefined, (draft) => {
             draft.wrong_if = "The read would weaken if another vendor appears.";
           })
         )
       )
-      .mockResolvedValueOnce(textMessage(draftJson()));
+      .mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
 
-    const result = await runDriver();
+    const result = await runWriter();
 
-    expect(tracedMessage).toHaveBeenCalledTimes(5);
+    expect(tracedMessage).toHaveBeenCalledTimes(2);
     expect(result.fitRetried).toBe(true);
     expect(result.styleIssues).toEqual([]);
     expect(result.read.status).toBe("read");
 
-    const retry = callsMade()[4];
-    expect(retry?.label).toBe("how-it-wins-fit");
+    const retry = callsMade()[1];
+    expect(retry?.label).toBe("how-it-wins-frozen-writer");
     expect(retry?.params.messages[0]?.content).toContain(
       'wrong_if uses the banned phrase "the read would weaken"'
     );
     expect(retry?.params.messages[0]?.content).toContain("fix them and return only the JSON");
   });
 
-  it("carries the parse normalizations out on the result", async () => {
-    const withNormalizations = draftJson((draft) => {
-      draft.next = [{ strategy: "Expansion", note: "It could open a second market [e5]." }];
-    });
-
+  it("sends no temperature on the writer call", async () => {
     tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(withNormalizations));
+    tracedMessage.mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
 
-    const result = await runDriver();
+    await runWriter();
 
-    expect(result.normalizations).toEqual(['dropped the next way "Expansion"; it is not one of the 80 ways']);
-    expect(result.fitRetried).toBe(false);
-  });
-
-  it("sends no temperature on any pass", async () => {
-    tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()));
-
-    await runDriver();
-
-    expect(tracedMessage).toHaveBeenCalledTimes(4);
+    expect(tracedMessage).toHaveBeenCalledTimes(1);
     for (const call of callsMade()) {
       expect(call.params).not.toHaveProperty("temperature");
     }
   });
 
-  it("keeps the first parsed read when the corrective re-ask parses into nothing", async () => {
-    const styledDraft = draftJson((draft) => {
-      draft.wrong_if = "The read would weaken if another vendor appears.";
-    });
-
-    tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(styledDraft))
-      .mockResolvedValueOnce(textMessage("I cannot write this read."));
-
-    const result = await runDriver();
-
-    expect(result.fitRetried).toBe(true);
-    expect(result.read.status).toBe("read");
-    if (result.read.status !== "read") {
-      throw new Error("expected a read");
-    }
-    expect(result.read.running[0]?.meaning).toBe(
-      "Competence in two distinct areas, or two strengths not usually found together."
-    );
-    expect(result.styleIssues).toContain(
-      'wrong_if uses the banned phrase "the read would weaken"'
-    );
-  });
-
   it("passes evidence without naming it as a card", async () => {
     tracedMessage.mockReset();
-    tracedMessage
-      .mockResolvedValueOnce(textMessage("The reasoning, at length."))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()))
-      .mockResolvedValueOnce(textMessage(draftJson()));
+    tracedMessage.mockResolvedValueOnce(textMessage(frozenWriterDraftJson()));
 
-    await runDriver();
+    await runWriter();
 
-    const task = callsMade()[0]?.params.messages[0]?.content ?? "";
-    expect(task).toContain("Evidence:");
-    expect(task).not.toContain("The company's card");
-    expect(task.toLowerCase()).not.toContain("on the card");
+    const user = callsMade()[0]?.params.messages[0]?.content ?? "";
+    expect(user).toContain("Evidence:");
+    expect(user).not.toContain("The company's card");
+    expect(user.toLowerCase()).not.toContain("on the card");
   });
 
   it("renders a frozen judgment in one writer call and skips the hostile editor", async () => {

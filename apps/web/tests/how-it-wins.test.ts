@@ -243,7 +243,7 @@ describe("howItWinsWriteStepBody", () => {
   it("reads the stored verdict back and writes from it", async () => {
     const result = await howItWinsWriteStepBody(writeInput);
 
-    expect(result).toEqual({ ok: true, read, editorSkipped: true, fitRetried: false, styleIssueCount: 1 });
+    expect(result).toEqual({ ok: true, read });
     expect(mocks.findHowItWinsJudgment.mock.calls[0]?.[1]).toEqual(hashes);
     expect(mocks.synthesizeHowItWins.mock.calls[0]?.[0]).toMatchObject({ card, models, judgment });
   });

@@ -280,11 +280,6 @@ export type GenerationTrace = {
       | "skipped";
     thinFileReason?: string;
     dropReason?: string;
-    // The four-pass driver's own diagnostics: whether the hostile editor pass was skipped and
-    // whether the fit pass needed its one corrective re-ask.
-    editorSkipped?: boolean;
-    fitRetried?: boolean;
-    styleIssueCount?: number;
     // Where the all-80 verdict is stored, not the verdict itself. The body lives in
     // how_it_wins_judgments and is resolved through findHowItWinsJudgment; keeping it out of the
     // trace is what stops a single run's trace from carrying tens of thousands of tokens.

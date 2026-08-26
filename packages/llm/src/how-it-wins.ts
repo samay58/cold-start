@@ -1,17 +1,12 @@
 /*
- * The "How it wins" read: four passes over one card. Pass 1 reasons in prose under the writing
- * standard, pass 2 fits that reasoning to the panel's slots as JSON, pass 3 is a second model
- * reading the draft as a hostile editor, pass 4 trims the result to the surface. Pass 3 is
- * optional by design: when it fails for any reason at all, the draft it was given goes on to
- * pass 4 unchanged.
+ * The "How it wins" read: the frozen writer renders one approved judgment into the panel's slots.
+ * It chooses no label, so everything here is about getting the prose inside the writing standard,
+ * with one corrective re-ask when the draft or its style misses.
  */
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import {
-  HOW_IT_WINS_GROUPS,
-  howItWinsSchema,
   howItWinsStrategyById,
-  howItWinsStrategyIdForName,
   type ColdStartCard,
   type HowItWins,
   type HowItWinsJudgment,
@@ -20,45 +15,31 @@ import {
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { parseModelString, withProviderFallback } from "./llm-provider";
 import {
+  citationIdsFromNote,
   frozenHowItWinsWriterRequest,
   howItWinsFromFrozenWriter,
-  parseFrozenHowItWinsWriterDraft,
-  parseHowItWinsJson
+  parseFrozenHowItWinsWriterDraft
 } from "./how-it-wins-frozen-writer";
-import {
-  HOW_IT_WINS_HOSTILE_EDITOR,
-  HOW_IT_WINS_PASS_1,
-  HOW_IT_WINS_PASS_2,
-  HOW_IT_WINS_PASS_3_FRAME,
-  HOW_IT_WINS_PASS_4,
-  HOW_IT_WINS_SLOTS,
-  HOW_IT_WINS_TASK_INTRO,
-  HOW_IT_WINS_WRITING_STANDARD
-} from "./how-it-wins-prompts";
-import { visibleCitationMarkers } from "./tool-schema-fragments";
-import type { z } from "zod";
 
 export const HOW_IT_WINS_DEFAULT_EDITOR_MODEL = "deepseek/deepseek-v4-pro";
 
 // Three models, not two. The judge slot used to be the writer slot: the same model that renders
 // the read also ran the all-80 audit, so neither could be routed without moving the other.
 export type HowItWinsModels = { judge: string; writer: string; editor: string };
-export type HowItWinsPassName = "reason" | "edit" | "editor" | "fit";
 export type HowItWinsResult = {
   read: HowItWins;
+  // Always true since the judge replaced the writer's own hostile-editor pass. The eval rig's
+  // frozen arm files carry the field, so it stays on the shape they read back.
   editorSkipped: boolean;
   fitRetried: boolean;
   styleIssues: string[];
-  // Slips the parser corrected instead of failing on: a repeated running way, a next way that is
-  // already running or outside the vocabulary, a pair leg spelled as a running way. Not failures.
+  // Slips the writer made on an optional slot that code corrected instead of failing on: a
+  // dropped pair, an in-question item the approved list did not name. Not failures.
   normalizations: string[];
   judgment?: HowItWinsJudgment;
 };
 
-const REASON_MAX_TOKENS = 16000;
-const EDIT_MAX_TOKENS = 16000;
-const EDITOR_MAX_TOKENS = 8000;
-const FIT_MAX_TOKENS = 16000;
+const WRITER_MAX_TOKENS = 16000;
 // A response with no text block is almost always reasoning that ran out of budget before the
 // answer started, so the second attempt buys room rather than changing the ask. It cannot buy much:
 // the SDK refuses a non-streaming call whose max_tokens implies over ten minutes at 128k tokens per
@@ -70,9 +51,8 @@ const THINKING_DISABLED_MAX_TOKENS = 16000;
 const EM_DASH = "\u2014";
 const CERTAINTY_PATTERN = /\b(inferred|inference|reported|observed)\b/gi;
 const CLOSING_CERTAINTY_TAG_PATTERN = /(?:^|[.!?]\s+)(?:(?:the\s+)?(?:claim|mechanism|conclusion)\s+is\s+)?(?:observed(?:\s+fact)?|reported|inferred(?:\s+from\s+[^.]*)?)\.\s*$/i;
-const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
-// The four the hostile editor already caught, plus the seven the frozen writer prompt bans by
-// name. Every one is a formula the writer reaches for instead of saying what the source said.
+// Every one is a formula the writer reaches for instead of saying what the source said. The
+// frozen writer prompt bans the last seven by name; the first four predate it.
 const BANNED_OUTPUT_PHRASES = [
   "the read would weaken",
   "would weaken if",
@@ -117,237 +97,11 @@ export function cardForHowItWinsPrompt(card: ColdStartCard): Omit<ColdStartCard,
   return rest;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
 function wordCount(value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
 }
 
-// The model is asked for JSON and only JSON, but a fence or a sentence of preamble is the common
-// slip. Try the whole response, then a fenced block, then the outermost braces. The first parser
-// error is kept so the re-ask can quote it back.
-function parseDraftJson(text: string): { value: unknown } | { error: string } {
-  return parseHowItWinsJson(text);
-}
-
-// Models write [e1, e2] often enough that a strict one-id-per-bracket reader loses the whole
-// note's evidence. Expanded only for the marker derivation; the stored note keeps its own text.
-function expandedMarkerLists(note: string): string {
-  return note.replace(COMMA_MARKER_LIST_PATTERN, (_match, ids: string) =>
-    ids
-      .split(",")
-      .map((id) => `[${id.trim()}]`)
-      .join("")
-  );
-}
-
-function citationIdsFromNote(note: unknown): string[] {
-  if (typeof note !== "string") {
-    return [];
-  }
-  return Array.from(new Set(visibleCitationMarkers(expandedMarkerLists(note))));
-}
-
-function strategyNameOf(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function citationIdsOf(read: HowItWins): string[] {
-  if (read.status === "thin_file") {
-    return [];
-  }
-  const inQuestion = read.inQuestion.flatMap((entry) => entry.citationIds);
-  if (read.status !== "read") {
-    return inQuestion;
-  }
-
-  return [
-    ...read.running.flatMap((entry) => entry.citationIds),
-    ...(read.pair ? read.pair.citationIds : []),
-    ...read.next.flatMap((entry) => entry.citationIds),
-    ...inQuestion
-  ];
-}
-
-// The model never sees the derived schema, so a zod path means nothing to it. Every failure is
-// restated in the slot names and the vocabulary the prompt actually gave it.
-function issueSentence(issue: z.ZodIssue, runningNames: string[]): string {
-  const [head, second, third] = issue.path;
-
-  if (head === "sentence") {
-    return "the sentence slot needs one plain sentence saying how this company wins today";
-  }
-  if (head === "wrongIf") {
-    return "wrong_if needs one plain conditional about the world that would make the conclusion wrong";
-  }
-  if (head === "running") {
-    if (typeof second !== "number") {
-      return "the read needs one to six running ways, each with a strategy name, a meaning, and a note";
-    }
-    const label = `running item ${second + 1} ("${runningNames[second] ?? "unnamed"}")`;
-    if (third === "citationIds") {
-      return `${label} has no citation ids in square brackets in its note; cite at least one supplied id, like [e3]`;
-    }
-    if (third === "note") {
-      return `${label} needs a note in plain prose, with the citation ids it rests on`;
-    }
-    return `${label} does not name one of the 80 ways; use a name from the list exactly as written`;
-  }
-  if (head === "pair") {
-    if (second === "note") {
-      return "the pair needs a note in plain prose, with the citation ids it rests on";
-    }
-    if (second === "wrongIf") {
-      return "the pair needs a wrong_if conditional about the world that would make the pair wrong";
-    }
-    if (second === "citationIds") {
-      return "the pair note has no citation ids in square brackets; cite at least one supplied id, like [e3]";
-    }
-    return "the pair must name two of the running strategies, or be null";
-  }
-  if (head === "next") {
-    return "each next item needs a strategy name from the list and a note, and there may be at most two";
-  }
-
-  return 'the JSON must hold the keys status, sentence, running, pair, next, and wrong_if';
-}
-
-export type HowItWinsParse = { read: HowItWins; normalizations: string[] } | { issues: string[] };
-
-export function parseHowItWinsDraft(text: string, card: ColdStartCard): HowItWinsParse {
-  const draft = parseDraftJson(text);
-  if ("error" in draft) {
-    return { issues: [`the JSON could not be parsed: ${draft.error.slice(0, 120)}`] };
-  }
-  const raw = draft.value;
-  if (!isRecord(raw)) {
-    return { issues: ["the JSON could not be parsed: the draft was not a JSON object"] };
-  }
-
-  if (raw.status === "nothing_stands_out") {
-    const sentence = typeof raw.sentence === "string" && raw.sentence.trim().length > 0 ? raw.sentence : undefined;
-    return {
-      read: sentence
-        ? { status: "nothing_stands_out", sentence, inQuestion: [] }
-        : { status: "nothing_stands_out", inQuestion: [] },
-      normalizations: []
-    };
-  }
-  if (raw.status !== "read") {
-    return { issues: ['status must be "read" or "nothing_stands_out"'] };
-  }
-
-  const issues: string[] = [];
-  const normalizations: string[] = [];
-
-  const drafted = asArray(raw.running).map((entry, index) => {
-    const item = isRecord(entry) ? entry : {};
-    const name = strategyNameOf(item.strategy);
-    const id = name ? howItWinsStrategyIdForName(name) : null;
-    if (!name) {
-      issues.push(`running item ${index + 1} has no strategy name; use a name from the list exactly as written`);
-    } else if (!id) {
-      issues.push(`"${name}" is not one of the 80 ways; use a name from the list exactly as written`);
-    }
-    return { id, name, note: item.note, citationIds: citationIdsFromNote(item.note) };
-  });
-
-  // A repeated way is a drafting slip, not a broken read; the first mention keeps its note.
-  const running: typeof drafted = [];
-  for (const entry of drafted) {
-    if (entry.id && running.some((kept) => kept.id === entry.id)) {
-      normalizations.push(`dropped a repeated running way: "${entry.name}"`);
-      continue;
-    }
-    running.push(entry);
-  }
-
-  const runningIds = new Set(running.map((entry) => entry.id).filter((id): id is HowItWinsStrategyId => id !== null));
-
-  const pairRaw = isRecord(raw.pair) ? raw.pair : null;
-  const pair = pairRaw
-    ? {
-        strategies: asArray(pairRaw.strategies).map((value) => {
-          const name = strategyNameOf(value);
-          const mapped = name ? howItWinsStrategyIdForName(name) : null;
-          if (mapped && runningIds.has(mapped)) {
-            return mapped;
-          }
-          // The pair names a running way by a spelling the vocabulary map missed.
-          const sameName = running.find((entry) => entry.id && entry.name.toLowerCase() === name.toLowerCase());
-          if (sameName?.id) {
-            normalizations.push(`read the pair leg "${name}" as the running way "${sameName.name}"`);
-            return sameName.id;
-          }
-          return mapped;
-        }),
-        note: pairRaw.note,
-        wrongIf: pairRaw.wrong_if ?? pairRaw.wrongIf,
-        citationIds: citationIdsFromNote(pairRaw.note)
-      }
-    : null;
-
-  // next is inference about what the company could still take. A name outside the vocabulary, or
-  // one it is already running, costs that single item rather than the whole read.
-  const next = asArray(raw.next).flatMap((entry) => {
-    const item = isRecord(entry) ? entry : {};
-    const name = strategyNameOf(item.strategy);
-    const id = name ? howItWinsStrategyIdForName(name) : null;
-    if (!id) {
-      normalizations.push(`dropped the next way "${name || "unnamed"}"; it is not one of the 80 ways`);
-      return [];
-    }
-    if (runningIds.has(id)) {
-      normalizations.push(`dropped the next way "${name}"; it is already running`);
-      return [];
-    }
-    return [{ strategy: id, note: item.note, citationIds: citationIdsFromNote(item.note) }];
-  });
-
-  if (issues.length > 0) {
-    return { issues: Array.from(new Set(issues)) };
-  }
-
-  const parsed = howItWinsSchema.safeParse({
-    status: "read",
-    sentence: raw.sentence,
-    running: running.map((entry) => ({
-      strategy: entry.id,
-      meaning: entry.id ? howItWinsStrategyById(entry.id).meaning : "",
-      note: entry.note,
-      citationIds: entry.citationIds
-    })),
-    pair,
-    next,
-    wrongIf: raw.wrong_if ?? raw.wrongIf
-  });
-
-  if (!parsed.success) {
-    const names = running.map((entry) => entry.name);
-    return { issues: Array.from(new Set(parsed.error.issues.map((issue) => issueSentence(issue, names)))) };
-  }
-
-  const onCard = new Set(card.citations.map((citation) => citation.id));
-  const missing = Array.from(new Set(citationIdsOf(parsed.data).filter((id) => !onCard.has(id))));
-  if (missing.length > 0) {
-    return {
-      issues: [
-        `these cited ids were not supplied: ${missing.map((id) => `[${id}]`).join(" ")}; cite only supplied ids`
-      ]
-    };
-  }
-
-  return { read: parsed.data, normalizations };
-}
-
-// Same voice as the parse issues: the model is told which running item, by the name it wrote, and
-// what to do about it. It never saw a zod path or a zero-based index.
+// The re-ask names the running item the way the writer wrote it, never by a zero-based index.
 function runningLabel(strategy: HowItWinsStrategyId, index: number): string {
   return `running item ${index + 1} ("${howItWinsStrategyById(strategy).name}")`;
 }
@@ -488,7 +242,7 @@ function stripEmDashes(read: HowItWins): HowItWins {
   };
 }
 
-type PassCall = {
+type WriterCall = {
   client: Anthropic;
   label: string;
   maxTokens: number;
@@ -498,7 +252,7 @@ type PassCall = {
   user: string;
 };
 
-async function callOnce(call: PassCall, maxTokens: number, thinkingDisabled = false): Promise<string> {
+async function callOnce(call: WriterCall, maxTokens: number, thinkingDisabled = false): Promise<string> {
   const message = await createTracedAnthropicMessage({
     client: call.client,
     label: call.label,
@@ -528,7 +282,7 @@ async function emptyTextOnly(run: () => Promise<string>): Promise<string | null>
   }
 }
 
-async function callWithEmptyTextRetry(call: PassCall): Promise<string> {
+async function callWithEmptyTextRetry(call: WriterCall): Promise<string> {
   const first = await emptyTextOnly(() => callOnce(call, call.maxTokens));
   if (first !== null) {
     return first;
@@ -548,25 +302,18 @@ async function callWithEmptyTextRetry(call: PassCall): Promise<string> {
   return callOnce(call, THINKING_DISABLED_MAX_TOKENS, true);
 }
 
-function vocabularyForPrompt(): string {
-  return HOW_IT_WINS_GROUPS.map(
-    (group) => `${group.name}: ${group.strategies.map((strategy) => `${strategy.name} (${strategy.meaning})`).join("; ")}`
-  ).join("\n");
-}
-
-async function synthesizeHowItWinsFromFrozenJudgment(
-  input: {
-    client: Anthropic;
-    models: HowItWinsModels;
-    card: ColdStartCard;
-    telemetry?: AnthropicTelemetrySink;
-    writerPrompt?: string;
-  },
-  judgment: HowItWinsJudgment
-): Promise<HowItWinsResult> {
+export async function synthesizeHowItWins(input: {
+  client: Anthropic;
+  models: HowItWinsModels;
+  card: ColdStartCard;
+  telemetry?: AnthropicTelemetrySink;
+  judgment: HowItWinsJudgment;
+  // Only the eval rig sets this, to put an older writer prompt against the shipped one over a
+  // single frozen verdict. Production never sets it and always writes with the shipped prompt.
+  writerPrompt?: string;
+}): Promise<HowItWinsResult> {
+  const judgment = input.judgment;
   const request = frozenHowItWinsWriterRequest(judgment);
-  // The frozen prompt is the bar. The four-pass writing standard lets the model set
-  // nothing_stands_out when a sentence is hard, which would drop a frozen verdict.
   const system = input.writerPrompt ?? request.prompt;
   const user = `Approved judgment:\n${JSON.stringify(request.payload)}\n\nEvidence:\n${JSON.stringify(cardForHowItWinsPrompt(input.card))}`;
   const askWriter = (userText: string) =>
@@ -578,7 +325,7 @@ async function synthesizeHowItWinsFromFrozenJudgment(
         model,
         system,
         user: userText,
-        maxTokens: FIT_MAX_TOKENS
+        maxTokens: WRITER_MAX_TOKENS
       })
     );
 
@@ -616,101 +363,5 @@ async function synthesizeHowItWinsFromFrozenJudgment(
     styleIssues,
     normalizations,
     judgment
-  };
-}
-
-export async function synthesizeHowItWins(input: {
-  client: Anthropic;
-  models: HowItWinsModels;
-  card: ColdStartCard;
-  telemetry?: AnthropicTelemetrySink;
-  judgment?: HowItWinsJudgment;
-  // Only the eval rig sets this, to put an older writer prompt against the shipped one over a
-  // single frozen verdict. Production never sets it and always writes with the shipped prompt.
-  writerPrompt?: string;
-}): Promise<HowItWinsResult> {
-  if (input.judgment) {
-    return synthesizeHowItWinsFromFrozenJudgment(input, input.judgment);
-  }
-  const { client, models, card, telemetry } = input;
-  const cardJson = JSON.stringify(cardForHowItWinsPrompt(card));
-  const task = `${HOW_IT_WINS_TASK_INTRO}\n\nThe 80 ways, in 13 groups:\n${vocabularyForPrompt()}\n\nEvidence:\n${cardJson}`;
-
-  const askWriter = (pass: HowItWinsPassName, system: string, user: string, maxTokens: number) =>
-    withProviderFallback("how_it_wins", models.writer, (model) =>
-      callWithEmptyTextRetry({ client, telemetry, label: `how-it-wins-${pass}`, model, system, user, maxTokens })
-    );
-
-  const reasoning = await askWriter(
-    "reason",
-    `${HOW_IT_WINS_WRITING_STANDARD}\n\n${HOW_IT_WINS_PASS_1}`,
-    task,
-    REASON_MAX_TOKENS
-  );
-
-  const edited = await askWriter(
-    "edit",
-    `${HOW_IT_WINS_WRITING_STANDARD}\n\n${HOW_IT_WINS_PASS_2}\n\n${HOW_IT_WINS_SLOTS}`,
-    `The draft:\n\n${reasoning}\n\nFor reference, the task and evidence the draft was written from:\n\n${task}`,
-    EDIT_MAX_TOKENS
-  );
-
-  let hostile = edited;
-  let editorSkipped = false;
-  try {
-    hostile = await callWithEmptyTextRetry({
-      client,
-      telemetry,
-      label: "how-it-wins-editor",
-      model: models.editor,
-      system: `${HOW_IT_WINS_HOSTILE_EDITOR}\n\n${HOW_IT_WINS_PASS_3_FRAME}\n${HOW_IT_WINS_SLOTS}\nReturn only the revised JSON.`,
-      user: `The draft:\n\n${edited}\n\nThe evidence the draft must stay within (do not add facts not in it):\n\n${cardJson}`,
-      maxTokens: EDITOR_MAX_TOKENS
-    });
-  } catch {
-    // Every editor failure skips the pass, transient or not. The pass is optional, and the
-    // openai-compat adapter has already spent its own in-process retries by this point.
-    editorSkipped = true;
-  }
-
-  const fitSystem = `${HOW_IT_WINS_WRITING_STANDARD}\n\n${HOW_IT_WINS_PASS_4}`;
-  let parsed = parseHowItWinsDraft(await askWriter("fit", fitSystem, hostile, FIT_MAX_TOKENS), card);
-  let styleIssues = "read" in parsed ? styleIssuesForRead(parsed.read) : [];
-  let fitRetried = false;
-
-  if ("issues" in parsed || styleIssues.length > 0) {
-    const firstParse = "read" in parsed ? parsed : null;
-    const issues = "issues" in parsed ? parsed.issues : styleIssues;
-    const retry = await askWriter(
-      "fit",
-      fitSystem,
-      `${hostile}\n\nThe previous attempt had these problems; fix them and return only the JSON:\n- ${issues.join("\n- ")}`,
-      FIT_MAX_TOKENS
-    );
-    fitRetried = true;
-    const retried = parseHowItWinsDraft(retry, card);
-
-    if ("read" in retried) {
-      parsed = retried;
-      styleIssues = styleIssuesForRead(retried.read);
-    } else if (firstParse) {
-      // A first fit that parsed and only tripped style checks beats a re-ask that parses into
-      // nothing. Keep it, with the style issues it still carries.
-      parsed = firstParse;
-    } else {
-      parsed = retried;
-    }
-  }
-
-  if ("issues" in parsed) {
-    throw new Error(`how-it-wins draft invalid: ${parsed.issues.join("; ")}`);
-  }
-
-  return {
-    read: stripEmDashes(parsed.read),
-    editorSkipped,
-    fitRetried,
-    styleIssues,
-    normalizations: parsed.normalizations
   };
 }

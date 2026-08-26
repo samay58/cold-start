@@ -178,7 +178,7 @@ export async function howItWinsJudgeStepBody(input: {
 }
 
 export type HowItWinsWriteStepResult =
-  | { ok: true; read: HowItWins; editorSkipped: boolean; fitRetried: boolean; styleIssueCount: number }
+  | { ok: true; read: HowItWins }
   | { ok: false; error: string };
 
 export async function howItWinsWriteStepBody(input: {
@@ -203,13 +203,7 @@ export async function howItWinsWriteStepBody(input: {
       telemetry: input.telemetry,
       judgment: stored.judgment
     });
-    return {
-      ok: true,
-      read: result.read,
-      editorSkipped: result.editorSkipped,
-      fitRetried: result.fitRetried,
-      styleIssueCount: result.styleIssues.length
-    };
+    return { ok: true, read: result.read };
   } catch (error) {
     return memoizedFailure(error);
   }
