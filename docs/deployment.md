@@ -153,7 +153,8 @@ INNGEST_HOW_IT_WINS_CONCURRENCY=1
 Section work uses the remaining account capacity. Upgrade only if production
 evidence shows queueing after these caps. `INNGEST_HOW_IT_WINS_CONCURRENCY` caps
 the background `how-it-wins-read` function the same way; it draws from the same
-account pool once `HOW_IT_WINS_ENABLED` is back on in production.
+account pool while `HOW_IT_WINS_ENABLED` is on in production (on since the
+2026-08-25 repair deploy).
 
 ## Production Environment Variables
 
@@ -191,7 +192,16 @@ INNGEST_SIGNING_KEY
 INNGEST_CARD_ENRICHMENT_CONCURRENCY
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY
 INNGEST_HOW_IT_WINS_CONCURRENCY
+HOW_IT_WINS_ENABLED
+HOW_IT_WINS_REFINEMENT
+LLM_HOW_IT_WINS_JUDGE_MODEL
+LLM_HOW_IT_WINS_MODEL
 ```
+
+`HOW_IT_WINS_ENABLED` is the How it wins rollback: set it to `false` and
+redeploy (Vercel env changes apply to the next deployment only). The judge
+model falls back to `LLM_HOW_IT_WINS_MODEL` when unset; production runs both
+on `claude-opus-5`.
 
 `DATABASE_DIRECT_URL` is local migration-only configuration. Keep it in the
 ignored `.env.production.migrate.local` file. Do not add it to Vercel runtime
@@ -286,6 +296,9 @@ CHROME_WEB_STORE_URL=<Unlisted item URL>
 INNGEST_CARD_ENRICHMENT_CONCURRENCY=2
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY=1
 INNGEST_HOW_IT_WINS_CONCURRENCY=1
+HOW_IT_WINS_ENABLED=true
+LLM_HOW_IT_WINS_JUDGE_MODEL=claude-opus-5
+LLM_HOW_IT_WINS_MODEL=claude-opus-5
 ```
 
 The extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`. The file is ignored by git and should not be committed. Its value must match Vercel `EXTENSION_API_TOKEN`.
