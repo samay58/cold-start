@@ -34,6 +34,7 @@ npm ci                                  # one-time install
 npm run dev:full                        # local web app plus Inngest worker
 npm run dev                             # web app only
 npm run dev:extension                   # Vite dev server for the extension
+npm run dev:inngest                     # Inngest dev worker only (scripts/dev-inngest.sh rebuilds the inngest-cli binary once if ~/.npmrc ignore-scripts skipped its postinstall)
 npm run build                           # build all workspaces
 npm run typecheck                       # tsc --noEmit across workspaces
 npm run test                            # vitest across workspaces, then `node --test` over eval/*.test.mjs and eval/**/*.test.mjs, then `tsx --test` over scripts/*.test.ts
@@ -98,6 +99,7 @@ Local Postgres (host port `55432`, not `5432`):
 ```bash
 npm run db:local         # bring up native PostgreSQL 17
 npm run db:local:stop    # stop it
+npm run db:local:status  # is it running
 ```
 
 Provider smoke, paid path:
