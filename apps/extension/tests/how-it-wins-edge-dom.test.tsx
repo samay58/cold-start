@@ -370,7 +370,7 @@ describe("HowItWinsEdge", () => {
     expect(note?.getAttribute("data-placement")).toBe("below");
     expect(note?.getAttribute("role")).toBe("dialog");
     expect(note?.getAttribute("aria-label")).toBe("Hybrid");
-    expect(sentence?.compareDocumentPosition(note as Node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect((sentence?.compareDocumentPosition(note as Node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(crown.container.querySelector(".cs-how-it-wins-kicker")?.textContent?.startsWith("Hybrid.")).toBe(true);
     expect(crown.container.querySelector(".cs-how-it-wins-kicker small")?.textContent).toBe(HOW_IT_WINS_COPY.pinned);
 
