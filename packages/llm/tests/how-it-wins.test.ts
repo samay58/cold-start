@@ -35,7 +35,7 @@ vi.mock("../src/anthropic", async (importOriginal) => {
 const testDir = dirname(fileURLToPath(import.meta.url));
 
 const card = JSON.parse(
-  readFileSync(resolve(testDir, "fixtures/how-it-wins-irregular.json"), "utf8")
+  readFileSync(resolve(testDir, "fixtures/how-it-wins-card.json"), "utf8")
 ) as ColdStartCard;
 
 type TracedCall = {

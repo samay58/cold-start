@@ -38,3 +38,9 @@ docs/motion-references/
 docs/product/research/private-prompts/
 docs/product/research/private-analysis/
 web-ext-artifacts/
+# Writer-prompt sitting root: its how-it-wins/ holds synthesis.
+eval/curation-writer-sitting/
+# Prompt-test run outputs hold synthesis over real company evidence; the standard docs stay.
+docs/product/design/**/prompt-test/out-*
+# A prompt-test run against a real company; only invented fixtures are tracked.
+**/irregular-card.json

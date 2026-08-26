@@ -1,0 +1,531 @@
+{
+  "slug": "keelsonlabs",
+  "team": {
+    "founders": {
+      "value": [
+        {
+          "name": "Marit Okonkwo",
+          "read": {
+            "text": "Okonkwo co-founded Keelson Labs in March 2023 and closed an $80M round led by Northline Capital within roughly two years, with Meridian Grid and Talara Power as named operators; that operator set is a meaningful signal of technical credibility, but no prior founding or operating history is surfaced in any available evidence, so repeat-founder pattern and domain depth cannot be assessed independent of this single data point.",
+            "citationIds": [
+              "e12",
+              "e1",
+              "e2"
+            ]
+          },
+          "role": "Co-Founder & CEO",
+          "sourceUrl": "https://profiles.example.com/in/marit-okonkwo"
+        },
+        {
+          "name": "Teodor Vance",
+          "read": {
+            "text": "Vance brings a decade of substation controls work to the CTO seat, which is unusual depth for a 2023-vintage company, but the profile is sparse and no prior employer, shipped system, or publication is surfaced in the evidence, so the relevance of that experience cannot be independently verified.",
+            "citationIds": [
+              "e13",
+              "e2"
+            ]
+          },
+          "role": "Co-Founder & CTO",
+          "sourceUrl": "https://profiles.example.com/in/teodor-vance"
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e2",
+        "e12",
+        "e13"
+      ]
+    },
+    "keyExecs": {
+      "value": [
+        {
+          "name": "Lena Sorbo",
+          "read": null,
+          "role": "Head of Deployment",
+          "sourceUrl": null
+        },
+        {
+          "name": "Amir Ghosh",
+          "read": null,
+          "role": "Head of Engineering",
+          "sourceUrl": null
+        },
+        {
+          "name": "Priya Raman",
+          "read": null,
+          "role": "Head of Operations",
+          "sourceUrl": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "medium",
+      "citationIds": [
+        "e7"
+      ]
+    },
+    "headcount": {
+      "value": {
+        "asOf": "2026-06-27",
+        "value": 41
+      },
+      "status": "verified",
+      "confidence": "low",
+      "citationIds": [
+        "e7"
+      ]
+    }
+  },
+  "domain": "keelsonlabs.example.com",
+  "funding": {
+    "rounds": {
+      "value": [
+        {
+          "name": "Seed",
+          "amountUsd": 25000000,
+          "announcedAt": "2025-10-08",
+          "leadInvestors": [
+            "Northline Capital"
+          ]
+        },
+        {
+          "name": "Series A",
+          "amountUsd": 55000000,
+          "announcedAt": "2025-10-08",
+          "leadInvestors": [
+            "Northline Capital",
+            "Ardent Reach Partners"
+          ]
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e2",
+        "e4"
+      ]
+    },
+    "investors": {
+      "value": [
+        {
+          "name": "Northline Capital",
+          "domain": "northline.example.com"
+        },
+        {
+          "name": "Ardent Reach Partners",
+          "domain": "ardentreach.example.com"
+        },
+        {
+          "name": "Cape Foundry",
+          "domain": null
+        },
+        {
+          "name": "Ines Duarte",
+          "domain": null
+        },
+        {
+          "name": "Ravi Kalb",
+          "domain": null
+        }
+      ],
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e3"
+      ]
+    },
+    "lastRound": {
+      "value": {
+        "name": "Series A",
+        "amountUsd": 80000000,
+        "announcedAt": "2025-10-08",
+        "leadInvestors": [
+          "Northline Capital",
+          "Ardent Reach Partners"
+        ]
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e3",
+        "e5"
+      ]
+    },
+    "totalRaisedUsd": {
+      "value": 80000000,
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e7"
+      ]
+    }
+  },
+  "signals": [
+    {
+      "url": "https://keelsonlabs.example.com/about",
+      "date": "2026-08-18",
+      "title": "About - Keelson Labs",
+      "source": "keelsonlabs.example.com",
+      "category": "news",
+      "citationIds": [
+        "s1"
+      ]
+    },
+    {
+      "url": "https://coastaltech.example.com/story/keelson-labs-limits",
+      "date": "2026-08-07",
+      "title": "The Porthaven startup testing the limits of autonomous substation controllers | Coastal Tech Daily",
+      "source": "coastaltech.example.com",
+      "category": "news",
+      "citationIds": [
+        "p1"
+      ]
+    },
+    {
+      "url": "https://keelsonlabs.example.com/news/introducing-grid-assurance",
+      "date": "2025-10-08",
+      "title": "Introducing grid assurance",
+      "source": "keelsonlabs.example.com",
+      "category": "news",
+      "citationIds": [
+        "s4"
+      ]
+    },
+    {
+      "url": "https://ledgerwire.example.com/2025/10/08/keelson-labs-raises-80-million-for-grid-controller-assurance/",
+      "date": "2025-10-08",
+      "title": "Keelson Labs raises $80M to certify autonomous grid controllers | Ledger Wire",
+      "source": "ledgerwire.example.com",
+      "category": "news",
+      "citationIds": [
+        "e1"
+      ]
+    }
+  ],
+  "identity": {
+    "hq": {
+      "value": {
+        "city": "Porthaven",
+        "country": "Norland"
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e7"
+      ]
+    },
+    "name": {
+      "value": "Keelson Labs",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e7"
+      ]
+    },
+    "status": "private",
+    "logoUrl": "https://cdn.example.com/logos/keelson-labs-200.png",
+    "oneLiner": {
+      "value": "Keelson Labs is a grid assurance lab that replays fault conditions against autonomous substation controllers before an operator energises them.",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e3"
+      ]
+    },
+    "websiteUrl": {
+      "value": "https://keelsonlabs.example.com",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e7",
+        "e14"
+      ]
+    },
+    "description": {
+      "value": {
+        "serves": "Keelson sells to grid operators such as Meridian Grid and Talara Power, and to the Norland Energy Authority, all of which need an independent report on a substation controller before it is energised.",
+        "concept": "Keelson treats substation autonomy as a problem of proving behaviour under fault rather than trusting a vendor datasheet, replaying recorded and synthetic faults against the controller on a hardware rig.",
+        "mechanism": "Keelson runs the controller on a hardware-in-the-loop rig, replays a library of recorded and synthetic faults against it, and reports the result to the operator that commissioned the test rather than to the manufacturer.",
+        "shortDescription": "Keelson Labs is a grid assurance lab that replays fault conditions against autonomous substation controllers before an operator energises them.",
+        "expandedDescription": "Keelson Labs runs autonomous substation controllers on a hardware-in-the-loop rig and replays recorded and synthetic faults against them to see how the controller behaves before it is energised on a live network. Its buyers are the operators themselves, including Meridian Grid and Talara Power, plus the Norland Energy Authority, which pay for an independent report on a controller they are about to commission. The report goes to the operator that ordered the test, not to the manufacturer, and two operators now ask for one before energisation."
+      },
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e1",
+        "e2",
+        "e3",
+        "e7"
+      ]
+    },
+    "foundedYear": {
+      "value": 2023,
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e2",
+        "e7"
+      ]
+    },
+    "linkedinUrl": {
+      "value": "https://profiles.example.com/company/keelson-labs",
+      "status": "verified",
+      "confidence": "high",
+      "citationIds": [
+        "e7",
+        "e14"
+      ]
+    }
+  },
+  "citations": [
+    {
+      "id": "e1",
+      "url": "https://ledgerwire.example.com/2025/10/08/keelson-labs-raises-80-million-for-grid-controller-assurance/",
+      "title": "Keelson Labs raises $80M to certify autonomous grid controllers | Ledger Wire",
+      "snippet": "{\"id\":\"https://ledgerwire.example.com/2025/10/08/keelson-labs-raises-80-million-for-grid-controller-assurance/\",\"title\":\"Keelson Labs raises $80M to certify autonomous grid controllers | Ledger Wire\",\"publishedDate\":\"2025-10-08T18:20:00.000Z\",\"author\":\"Rowan Petch\",\"text\":\"Keelson Labs raises $80M to certify autonomous grid controllers\\n\\n11:20 AM PDT - October 8, 2025\\n\\nGrid assurance firm Keelson Labs announced $80 million in new funding in a round led by Northline Capital and Ardent Reach Partners, with participation from Cape Foundry. Meridian Grid and Talara Power both run Keelson evaluations before energising a new controller.\"}",
+      "fetchedAt": "2026-08-18T00:43:08.793Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial, data-provider, or platform incentives.",
+        "rationale": "Third-party reporting or database context."
+      }
+    },
+    {
+      "id": "e2",
+      "url": "https://coastaltech.example.com/story/keelson-labs-emerges",
+      "title": "Quiet grid startup Keelson Labs surfaces with $80M to test substation autonomy | Coastal Tech Daily",
+      "snippet": "Northline leads the rounds, joined by Cape Foundry and angels Ines Duarte and Ravi Kalb, backing the Porthaven company founded by Marit Okonkwo and Teodor Vance as it works with Meridian Grid, Talara Power, and the Norland Energy Authority.\\n\\nKeelson Labs has emerged from stealth with $80 million in funding and standing contracts with two of the region's largest grid operators.",
+      "fetchedAt": "2026-08-18T00:43:08.793Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e7",
+      "url": "https://keelsonlabs.example.com/",
+      "title": "Keelson Labs",
+      "snippet": "Has $80M in total funding.\\n\\n## About\\n\\nKeelson Labs is a grid assurance lab that replays failure conditions against autonomous substation controllers before an operator energises them.\\n\\n## Company Details\\n- Industry: Energy, Industrial Automation\\n- Type: Privately Held\\n- Headquarters: Porthaven, Norland\\n- Founded Year: 2023\\n- Homepage: keelsonlabs.example.com\\n- Status: active\\n- Profile: profiles.example.com/company/keelson-labs\\n- Emails: hello@keelsonlabs.example.com\\n\\n## Financials\\n- Total Funding: USD 80,000,000\\n - Series A (2025-10-08): USD 80.0M - 5 investors, led by Northline Capital, Ardent Reach\\n\\n## Workforce\\n- Employees: 41 (11-50 employees)\\n - Monthly Growth: +3.9%\\n - Yearly Growth: +141.2%\\n- Key Executives:\\n - Lena Sorbo: Head of Deployment\\n - Amir Ghosh: Head of Engineering\\n - Priya Raman: Head of Operations\\n - Teodor Vance: Co-Founder & CTO\\n - Marit Okonkwo: Co-Founder & CEO\\n- Breakdown:\\n - By Department: Research: 18 (44%), Field Engineering: 9 (22%), Operations: 5 (12%)\\n- Active Job Postings: 2\\n\\n### Open Positions (showing 2)\\n- Controls Engineer\\n- Field Reliability Engineer\\n\\n## Products & Technology\\n- Tech Stack: grid simulation, hardware-in-the-loop rigs\\n\\n## Web Presence\\n- Monthly Visits: 18,402\\n- Top Countries: Norland: 41%, United States: 22%\\n\\n## Categories\\nenergy, grid reliability, industrial safety, certification, simulation\\n\\n## Recent News\\n- [2025-10-09] Ledger Wire: Keelson Labs raises $80M to certify autonomous grid controllers\\n- [2025-10-08] Newsroom Direct: Keelson Labs Raises $80 Million to Set Assurance Standards for Autonomous Substations",
+      "fetchedAt": "2026-08-18T00:43:08.793Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "e14",
+      "url": "agentcash:org_enrichment",
+      "title": "org_enrichment",
+      "snippet": "It notes standing evaluation contracts with two regional grid operators and backing from established infrastructure investors, positioning itself as an assurance layer for substation autonomy.",
+      "fetchedAt": "2026-08-18T00:43:18.564Z",
+      "sourceType": "enrichment",
+      "sourceQuality": {
+        "tier": "enrichment",
+        "label": "Data vendor",
+        "incentive": "Vendor-derived.",
+        "rationale": "Useful for coverage, weaker for investor judgment unless confirmed elsewhere."
+      }
+    },
+    {
+      "id": "e3",
+      "url": "https://newsroomdirect.example.com/release/keelson-labs-raises-80-million-1072285",
+      "title": "Keelson Labs Raises $80 Million to Set Assurance Standards for Autonomous Substations",
+      "snippet": "{\"id\":\"https://newsroomdirect.example.com/release/keelson-labs-raises-80-million-1072285\",\"title\":\"Keelson Labs Raises $80 Million to Set Assurance Standards for Autonomous Substations\",\"publishedDate\":\"2025-10-08T08:15:00.000Z\",\"author\":\"Keelson Labs\",\"text\":\"Keelson Labs Raises $80 Million to Set Assurance Standards for Autonomous Substations\\n\\nAlready generating millions in revenue, Keelson Labs partners with operators including Meridian Grid and Talara Power to replay fault conditions against new controllers and define the assurance frameworks for safe energisation\\n\\nPORTHAVEN, NORLAND / Newsroom Direct / October 8, 2025 / Keelson Labs today announced it has raised $80 million led by Northline Capital and Ardent Reach Partners, with participation from Cape Foundry and angel investors Ines Duarte and Ravi Kalb.\"}",
+      "fetchedAt": "2026-08-18T00:43:08.793Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e5",
+      "url": "https://harlowpike.example.com/insights/harlow-pike-advises-keelson-labs-on-80-million-round.html",
+      "title": "Harlow & Pike Advises Keelson Labs on $80 Million Funding Round",
+      "snippet": "{\"id\":\"https://harlowpike.example.com/insights/harlow-pike-advises-keelson-labs-on-80-million-round.html\",\"title\":\"Harlow & Pike Advises Keelson Labs on $80 Million Funding Round\",\"publishedDate\":\"2025-10-08T00:00:00.000Z\",\"text\":\"On October 8, 2025, Keelson Labs, a grid assurance lab, announced that it has closed an $80 million round of Seed and Series A funding.\"}",
+      "fetchedAt": "2026-08-18T00:43:08.797Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e4",
+      "url": "https://coastaltech.example.com/story/keelson-labs-founders-interview",
+      "title": "“We want to be the test bench every operator has to clear” | Coastal Tech Daily",
+      "snippet": "The funding Okonkwo and Vance refer to, announced in October 2025, consisted of two rounds completed within weeks.",
+      "fetchedAt": "2026-08-18T00:43:08.797Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "e12",
+      "url": "https://profiles.example.com/in/marit-okonkwo",
+      "title": "Marit Okonkwo",
+      "snippet": "Has $80M in total funding.\\n\\n### Co-Founder - Keelson Labs (Current)\\n\\nMar 2023 - Present\\n\\nDepartment: General Management - Level: Founder\\n\\n### Lecturer - Porthaven Institute of Technology\\n\\nJun 2019 - Aug 2023\\n\\nDepartment: Education",
+      "fetchedAt": "2026-08-18T00:43:08.791Z",
+      "sourceType": "other",
+      "sourceQuality": {
+        "tier": "enrichment",
+        "label": "Professional profile",
+        "incentive": "Self-reported professional-network data.",
+        "rationale": "Useful for company presence and people evidence. Weak for market, traction, or evaluative claims."
+      }
+    },
+    {
+      "id": "e13",
+      "url": "https://profiles.example.com/in/teodor-vance",
+      "title": "Teodor Vance",
+      "snippet": "Has $80M in total funding.\\n\\n### Keelson Labs\\n\\n#### Co-Founder & CTO (Current)\\n\\nMar 2023 - Present\\n\\nDepartment: Engineering - Level: Founder\\n\\n#### Controls Lead\\n\\nNov 2016 - Feb 2023\\n\\nDepartment: Engineering",
+      "fetchedAt": "2026-08-18T00:43:08.792Z",
+      "sourceType": "other",
+      "sourceQuality": {
+        "tier": "enrichment",
+        "label": "Professional profile",
+        "incentive": "Self-reported professional-network data.",
+        "rationale": "Useful for company presence and people evidence. Weak for market, traction, or evaluative claims."
+      }
+    },
+    {
+      "id": "s1",
+      "url": "https://keelsonlabs.example.com/about",
+      "title": "About",
+      "snippet": "{\"id\":\"https://keelsonlabs.example.com/about\",\"title\":\"About\",\"url\":\"https://keelsonlabs.example.com/about\"}",
+      "fetchedAt": "2026-08-18T00:43:18.563Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "s2",
+      "url": "https://keelsonlabs.example.com/research/substation-controller-benchmarks",
+      "title": "Substation controller benchmarks",
+      "snippet": "Keelson publishes the fault library it replays against a controller, so an operator can see which failure modes a passing score does and does not cover.",
+      "fetchedAt": "2026-08-18T00:43:18.564Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "s3",
+      "url": "https://gridwire.example.com/2025/10/08/keelson-labs-raises-80m-assurance/",
+      "title": "Keelson Labs raises $80M to set assurance standards for substation autonomy | Grid Wire",
+      "snippet": "Keelson Labs said the round will fund a second hardware-in-the-loop site and a larger fault library. The company runs its rig against controllers from four manufacturers and reports results to the operator that commissioned the test rather than to the manufacturer.",
+      "fetchedAt": "2026-08-18T00:43:08.797Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial, data-provider, or platform incentives.",
+        "rationale": "Third-party reporting or database context."
+      }
+    },
+    {
+      "id": "s4",
+      "url": "https://keelsonlabs.example.com/news/introducing-grid-assurance",
+      "title": "Introducing grid assurance",
+      "snippet": "We built Keelson because an autonomous substation controller is trusted on the strength of a vendor datasheet. We replay recorded faults and synthetic ones against the controller on a rig, and we report to the operator, not the vendor.",
+      "fetchedAt": "2026-08-18T00:43:08.793Z",
+      "sourceType": "company_site",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "s5",
+      "url": "https://keelsonlabs.example.com/",
+      "title": "Keelson Labs",
+      "snippet": "{\"id\":\"https://keelsonlabs.example.com/\",\"title\":\"Keelson Labs\",\"url\":\"https://keelsonlabs.example.com/\"}",
+      "fetchedAt": "2026-08-18T00:43:18.563Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "primary_company",
+        "label": "Company-authored",
+        "incentive": "Company positioning.",
+        "rationale": "Best for product mechanics and official facts, weaker for claims about importance."
+      }
+    },
+    {
+      "id": "p1",
+      "url": "https://coastaltech.example.com/story/keelson-labs-limits",
+      "title": "The Porthaven startup testing the limits of autonomous substation controllers | Coastal Tech Daily",
+      "snippet": "Two operators now require a Keelson report before a controller is energised. Neither has said whether that requirement is contractual or a matter of internal policy.",
+      "fetchedAt": "2026-08-18T00:44:00.719Z",
+      "sourceType": "news",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial reporting.",
+        "rationale": "Third-party reporting."
+      }
+    },
+    {
+      "id": "s6",
+      "url": "https://companyindex.example.com/organization/keelson-labs",
+      "title": "Keelson Labs - Company Index",
+      "snippet": "Keelson Labs is a grid assurance lab founded in 2023 and based in Porthaven, Norland. Total funding: $80M.",
+      "fetchedAt": "2026-08-18T00:44:00.714Z",
+      "sourceType": "other",
+      "sourceQuality": {
+        "tier": "independent_report",
+        "label": "Independent report",
+        "incentive": "Editorial, data-provider, or platform incentives.",
+        "rationale": "Third-party reporting or database context."
+      }
+    }
+  ],
+  "cacheStatus": "hit",
+  "comparables": [],
+  "generatedAt": "2026-08-18T00:50:22.895Z",
+  "generationCostUsd": 0.0807,
+  "expandedDescription": {
+    "paragraphs": [
+      "Keelson Labs runs autonomous substation controllers on a hardware-in-the-loop rig and replays two kinds of fault against them: recorded events from the operator's own network, and synthetic ones drawn from a published library. The controller is exercised on real hardware rather than in a vendor simulator, and the resulting report describes which failure modes it handled and which it did not.",
+      "The report is commissioned by, and delivered to, the grid operator rather than the controller's manufacturer. Meridian Grid and Talara Power both ask for one before a controller is energised, and the Norland Energy Authority has cited Keelson's fault library in its own guidance. Neither operator has said whether the requirement is contractual or internal policy, which is the open question in the record."
+    ],
+    "citationIds": [
+      "e7",
+      "s2",
+      "s4",
+      "p1"
+    ]
+  }
+}
