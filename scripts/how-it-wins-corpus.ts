@@ -203,6 +203,10 @@ export type Flags = {
   // model is then writers[0] for both arms.
   promptArms: boolean;
   previousPrompt: string | null;
+  // Absolute cumulative spend approved for this run, in USD. Required before any paid call:
+  // main() rejects an unset cap, and parseFlags validates the value only when one is given, so a
+  // caller who wants to unit-test the rest of Flags without a spend opinion still can.
+  cap: number | null;
 };
 
 export function parseFlags(argv: string[]): Flags {
@@ -216,7 +220,8 @@ export function parseFlags(argv: string[]): Flags {
     out: DEFAULT_OUT,
     verify: true,
     promptArms: false,
-    previousPrompt: null
+    previousPrompt: null,
+    cap: null
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? "";
@@ -229,6 +234,7 @@ export function parseFlags(argv: string[]): Flags {
     else if (arg === "--out") flags.out = value();
     else if (arg === "--verify") flags.verify = true;
     else if (arg === "--no-verify") flags.verify = false;
+    else if (arg === "--cap") flags.cap = Number(value());
     else if (arg === "--prompt-arms") flags.promptArms = true;
     else if (arg === "--previous-prompt") flags.previousPrompt = value();
     else if (arg === "--writers") {
@@ -242,10 +248,42 @@ export function parseFlags(argv: string[]): Flags {
     }
   }
   if (!Number.isFinite(flags.limit) || flags.limit < 1) throw new Error("--limit must be a positive integer");
+  if (flags.cap !== null && (!Number.isFinite(flags.cap) || flags.cap <= 0)) {
+    throw new Error("--cap must be a positive number");
+  }
   if (flags.promptArms && !flags.previousPrompt?.trim()) {
     throw new Error("--prompt-arms needs --previous-prompt <git-ref>:<path> or a file");
   }
   return flags;
+}
+
+export function requireCap(cap: number | null): number {
+  if (cap === null) {
+    throw new Error("this script requires an explicit --cap <usd>; there is no default spend approval");
+  }
+  return cap;
+}
+
+// ---- cap --------------------------------------------------------------------------------------
+
+export class CapExceededError extends Error {}
+
+// Checked before each paid stage against spend already tallied from telemetry, projecting the
+// next stage off what the last one of its kind actually cost. The first stage of a run has no
+// prior cost to project from and always clears: spend is zero and --cap is validated positive.
+export function assertWithinCap(input: {
+  stage: string;
+  capUsd: number;
+  spentUsd: number;
+  nextCostUsd: number | null;
+}) {
+  const projectedUsd = input.spentUsd + (input.nextCostUsd ?? 0);
+  if (projectedUsd > input.capUsd) {
+    throw new CapExceededError(
+      `--cap $${input.capUsd.toFixed(2)} would be exceeded by the next ${input.stage}: ` +
+        `$${input.spentUsd.toFixed(4)} spent plus $${(input.nextCostUsd ?? 0).toFixed(4)} projects to $${projectedUsd.toFixed(4)}`
+    );
+  }
 }
 
 // ---- corpus -------------------------------------------------------------------------------------
@@ -420,17 +458,23 @@ export function strategyGateLines(files: HowItWinsArmFile[]): string[] {
   );
 }
 
-async function armFilesInOutDir(outDir: string): Promise<HowItWinsArmFile[]> {
+export function anyStrategyGateFailed(files: HowItWinsArmFile[]): boolean {
+  return strategyGateSummaries(files).some((summary) => !summary.passed);
+}
+
+async function armFilesInOutDir(outDir: string): Promise<{ files: HowItWinsArmFile[]; skipped: number }> {
   const names = (await readdir(outDir)).filter((name) => name.endsWith(".json") && name !== "index.json");
   const files: HowItWinsArmFile[] = [];
+  let skipped = 0;
   for (const name of names.sort()) {
     try {
       files.push(JSON.parse(await readFile(path.join(outDir, name), "utf8")) as HowItWinsArmFile);
     } catch {
+      skipped += 1;
       console.log(`skip ${name}: not readable as an arm file`);
     }
   }
-  return files;
+  return { files, skipped };
 }
 
 async function writeIndex(outDir: string, row: IndexRow) {
@@ -450,6 +494,7 @@ async function writeIndex(outDir: string, row: IndexRow) {
 async function main() {
   loadRootEnv(process.cwd());
   const flags = parseFlags(process.argv.slice(2));
+  const cap = requireCap(flags.cap);
   const corpus = await loadCorpus();
 
   const candidates: HowItWinsCandidate[] = [...corpus.values()].map((entry) => ({
@@ -474,16 +519,18 @@ async function main() {
   await mkdir(outDir, { recursive: true });
   console.log(
     promptArms
-      ? `${slugs.length} cards, judge ${judgeModel}, writer ${writerModel} on ${promptArms.versions.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}`
-      : `${slugs.length} cards, judge ${judgeModel}, writers ${flags.writers.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}`
+      ? `${slugs.length} cards, judge ${judgeModel}, writer ${writerModel} on ${promptArms.versions.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}, cap $${cap.toFixed(2)}`
+      : `${slugs.length} cards, judge ${judgeModel}, writers ${flags.writers.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}, cap $${cap.toFixed(2)}`
   );
 
-  // Tallied from telemetry as calls return, so the run's total covers every stage rather than
-  // only the cards that finished.
+  // Tallied from telemetry as calls return, so the cap is checked against money actually spent
+  // rather than against cards actually finished.
   let spent = 0;
   const onCall = (call: GenerationLlmCallTrace) => {
     spent += call.estimatedCostUsd ?? 0;
   };
+  let lastJudgeCostUsd: number | null = null;
+  let lastArmsCostUsd: number | null = null;
 
   for (const slug of slugs) {
     const entry = corpus.get(slug);
@@ -495,7 +542,10 @@ async function main() {
     const startedAt = Date.now();
     const spentBeforeCard = spent;
     try {
+      // Outside every catch below: a cap breach stops the sitting, it does not skip a card.
+      assertWithinCap({ stage: "judge", capUsd: cap, spentUsd: spent, nextCostUsd: lastJudgeCostUsd });
       const judgeCalls: GenerationLlmCallTrace[] = [];
+      const spentBeforeJudge = spent;
       const { judgment, cached } = await loadOrRunJudgment({
         card: entry.card,
         client,
@@ -506,7 +556,10 @@ async function main() {
         },
         refinement: true
       });
+      if (!cached) lastJudgeCostUsd = spent - spentBeforeJudge;
 
+      assertWithinCap({ stage: "arm pair", capUsd: cap, spentUsd: spent, nextCostUsd: lastArmsCostUsd });
+      const spentBeforeArms = spent;
       // One card at a time (Anthropic rate limits), but its two arms are independent.
       const run = (label: ArmLabel) =>
         runArm({
@@ -523,6 +576,7 @@ async function main() {
           onCall
         });
       const [armA, armB] = await Promise.all([run("A"), run("B")]);
+      lastArmsCostUsd = spent - spentBeforeArms;
 
       const file = {
         slug,
@@ -550,15 +604,23 @@ async function main() {
       );
       await slopcheck(slug, filePath);
     } catch (error) {
+      if (error instanceof CapExceededError) {
+        console.log(error.message);
+        console.log("cap reached; the rest of the sitting did not run");
+        break;
+      }
       console.log(
         `${slug}  failed after ${Math.round((Date.now() - startedAt) / 1000)}s: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
-  for (const line of strategyGateLines(await armFilesInOutDir(outDir))) {
+  const { files: armFiles, skipped } = await armFilesInOutDir(outDir);
+  console.log(`${armFiles.length} arm files read, ${skipped} skipped as unreadable`);
+  for (const line of strategyGateLines(armFiles)) {
     console.log(line);
   }
+  if (anyStrategyGateFailed(armFiles)) process.exitCode = 1;
   console.log(`total $${spent.toFixed(4)}`);
 }
 

@@ -163,6 +163,16 @@ export function shouldStopForBudget(spentSoFar: number, budgetUsd: number): bool
   return spentSoFar >= budgetUsd;
 }
 
+// ---- gate --------------------------------------------------------------------------------------
+
+// A batch whose reads lean on one strategy is a result the caller has to act on, so it decides
+// the exit code rather than only the summary text. Pure, and takes the filed reads rather than
+// whole records, so the rule is testable without a batch run.
+export function strategyGateFailed(filedReads: HowItWins[]): boolean {
+  const cards = filedReads.map((filed) => ({ synthesis: { howItWins: filed } }));
+  return !(strategyFrequencyGate(cards) as { passed: boolean }).passed;
+}
+
 // Best-effort reuse of monolith verdicts captured before this batch runner existed. Seeds only
 // when the verdict still parses under the current judgment schema and every evidence id it cites
 // still resolves against the card, then only if the freshly computed cache key has no file yet.
@@ -762,6 +772,10 @@ async function main() {
   await writeFile(summaryMdPath, `${summaryMarkdown(records)}\n`);
   await slopcheck("summary", summaryMdPath);
 
+  const filedReads = records.filter((record) => record.status === "ok").map((record) => record.filed);
+  const gateFailed = strategyGateFailed(filedReads);
+  console.log(`strategy frequency gate: ${gateFailed ? "failed" : "passed"} over ${filedReads.length} filed cards`);
+  if (gateFailed) process.exitCode = 1;
   console.log(`total $${spent.toFixed(4)}`);
   console.log(`run dir: ${runDir}`);
 }

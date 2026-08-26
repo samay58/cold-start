@@ -2,12 +2,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GenerationLlmCallTrace, HowItWinsRead, HowItWinsStrategyId } from "@cold-start/core";
 import {
+  anyStrategyGateFailed,
   armAssignment,
+  assertWithinCap,
   buildPromptArms,
+  CapExceededError,
   failedArmResult,
   frozenWriterPromptFromSource,
   parseFlags,
   promptVersionId,
+  requireCap,
   selectHowItWinsSlugs,
   strategyGateLines,
   type HowItWinsArmFile,
@@ -179,6 +183,38 @@ test("gate lines count only filed reads and still name a writer that filed none"
       "gate loud: passed over 1 reads; top strategies: hybrid 1.00",
       "gate quiet: passed over 0 reads; top strategies: none"
     ]
+  );
+});
+
+test("a failing writer trips the gate exit and a spreading sitting does not", () => {
+  assert.equal(anyStrategyGateFailed(sittingFiles()), true);
+  const spreadOnly = sittingFiles().map((file) => ({ arms: { B: file.arms?.B } }));
+  assert.equal(anyStrategyGateFailed(spreadOnly), false);
+  assert.equal(anyStrategyGateFailed([]), false);
+});
+
+// ---- cap -----------------------------------------------------------------------------------------
+
+test("the cap has no default and has to be a positive number", () => {
+  assert.equal(parseFlags([]).cap, null);
+  assert.equal(parseFlags(["--cap", "12.5"]).cap, 12.5);
+  assert.throws(() => parseFlags(["--cap", "0"]), /positive number/);
+  assert.throws(() => parseFlags(["--cap", "-3"]), /positive number/);
+  assert.throws(() => parseFlags(["--cap", "lots"]), /positive number/);
+});
+
+test("a run with no cap is refused before anything is paid for", () => {
+  assert.throws(() => requireCap(null), /explicit --cap/);
+  assert.equal(requireCap(4), 4);
+});
+
+test("the cap clears the first read and stops the one that would cross it", () => {
+  const capUsd = 5;
+  assert.doesNotThrow(() => assertWithinCap({ stage: "judge", capUsd, spentUsd: 0, nextCostUsd: null }));
+  assert.doesNotThrow(() => assertWithinCap({ stage: "arm pair", capUsd, spentUsd: 4, nextCostUsd: 1 }));
+  assert.throws(
+    () => assertWithinCap({ stage: "arm pair", capUsd, spentUsd: 4.5, nextCostUsd: 1 }),
+    (error: unknown) => error instanceof CapExceededError && /would be exceeded by the next arm pair/.test((error as Error).message)
   );
 });
 

@@ -7,6 +7,7 @@ import {
   parseFlags,
   selectBatchSlugs,
   shouldStopForBudget,
+  strategyGateFailed,
   median,
   type BatchCandidate
 } from "./how-it-wins-batch";
@@ -273,3 +274,21 @@ test("median handles even and odd counts and an empty list", () => {
   assert.equal(median([1, 2, 3, 4]), 2.5);
 });
 
+// ---- gate ---------------------------------------------------------------------------------------
+
+test("a batch leaning on one strategy fails the gate; a spread batch passes", () => {
+  const leaning = Array.from({ length: 12 }, () => runningRead(["chokepoint", "hybrid"]));
+  assert.equal(strategyGateFailed(leaning), true);
+
+  const spread: HowItWins[] = [
+    ...Array.from({ length: 5 }, () => runningRead(["chokepoint"])),
+    ...Array.from({ length: 4 }, () => runningRead(["hybrid"])),
+    ...Array.from({ length: 3 }, () => runningRead(["prestige"]))
+  ];
+  assert.equal(strategyGateFailed(spread), false);
+});
+
+test("too few reads to judge is not a gate failure", () => {
+  assert.equal(strategyGateFailed([]), false);
+  assert.equal(strategyGateFailed([runningRead(["chokepoint"]), runningRead(["chokepoint"])]), false);
+});
