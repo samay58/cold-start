@@ -1,4 +1,5 @@
 import {
+  HOW_IT_WINS_STRATEGIES,
   howItWinsStrategyById,
   sourceQualityForSource,
   sourceQualityRank,
@@ -106,16 +107,15 @@ export type HowItWinsDisplay = {
   // read: the model's sentence. nothing_stands_out: the model's own sentence when it named
   // one, null when the verifier degraded a read in code and the crown falls back to its copy.
   sentence: string | null;
-  running: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
+  running: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
   pair: {
     strategies: [HowItWinsStrategyId, HowItWinsStrategyId];
     names: [string, string];
-    meanings: [string, string];
     note: string;
     wrongIf: string;
   } | null;
-  next: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
-  inQuestion: Array<{ id: HowItWinsStrategyId; name: string; meaning: string; note: string }>;
+  next: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
+  inQuestion: Array<{ id: HowItWinsStrategyId; name: string; note: string }>;
   count: number;
 };
 
@@ -464,16 +464,21 @@ function noHowItWinsContent() {
   return { running: [], pair: null, next: [], inQuestion: [], count: 0 };
 }
 
+const KNOWN_STRATEGY_IDS = new Set<string>(HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id));
+
 // The crown's display model. Names come from the shared vocabulary rather than the model's
-// output, so a filed read can never show a strategy name Cold Start does not recognize. Meanings
-// also come from that vocabulary, never from the filed model prose.
+// output, so a filed read can never show a strategy name Cold Start does not recognize. An id
+// the vocabulary has never heard of drops out rather than throwing on lookup: the write path
+// enforces the enum twice, but the panel has no error boundary and does not parse the cards it
+// fetches, so a card filed by a newer build must cost its own entry and nothing else.
 function howItWinsEntries(entries: Array<{ strategy: HowItWinsStrategyId; note: string }>) {
-  return entries.map((entry) => ({
-    id: entry.strategy,
-    name: howItWinsStrategyById(entry.strategy).name,
-    meaning: howItWinsStrategyById(entry.strategy).meaning,
-    note: stripCitationMarkers(entry.note)
-  }));
+  return entries
+    .filter((entry) => KNOWN_STRATEGY_IDS.has(entry.strategy))
+    .map((entry) => ({
+      id: entry.strategy,
+      name: howItWinsStrategyById(entry.strategy).name,
+      note: stripCitationMarkers(entry.note)
+    }));
 }
 
 // A card is fresh enough that a read dispatched alongside it could still be running. Only
@@ -529,23 +534,27 @@ export function howItWinsDisplayForCard(
   }
 
   const [pairLeft, pairRight] = howItWins.pair?.strategies ?? [];
+  const running = howItWinsEntries(howItWins.running);
+  const pairIds: [HowItWinsStrategyId, HowItWinsStrategyId] | null =
+    pairLeft && pairRight && KNOWN_STRATEGY_IDS.has(pairLeft) && KNOWN_STRATEGY_IDS.has(pairRight)
+      ? [pairLeft, pairRight]
+      : null;
 
   return {
     state: "read",
     sentence: stripCitationMarkers(howItWins.sentence),
-    running: howItWinsEntries(howItWins.running),
-    pair: howItWins.pair && pairLeft && pairRight
+    running,
+    pair: howItWins.pair && pairIds
       ? {
-        strategies: [pairLeft, pairRight],
-        names: [howItWinsStrategyById(pairLeft).name, howItWinsStrategyById(pairRight).name],
-        meanings: [howItWinsStrategyById(pairLeft).meaning, howItWinsStrategyById(pairRight).meaning],
+        strategies: pairIds,
+        names: [howItWinsStrategyById(pairIds[0]).name, howItWinsStrategyById(pairIds[1]).name],
         note: stripCitationMarkers(howItWins.pair.note),
         wrongIf: stripCitationMarkers(howItWins.pair.wrongIf)
       }
       : null,
     next: howItWinsEntries(howItWins.next),
     inQuestion: howItWinsEntries(howItWins.inQuestion ?? []),
-    count: howItWins.running.length
+    count: running.length
   };
 }
 

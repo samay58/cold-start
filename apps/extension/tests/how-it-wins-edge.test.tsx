@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
+import { howItWinsStrategyById, type HowItWinsStrategyId } from "@cold-start/core";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BANNED_MICRO_COPY } from "../src/research/how-it-wins-edge";
-import { HowItWinsEdge } from "../src/research/HowItWinsEdge";
+import { HowItWinsEdge, resetHowItWinsArrivals } from "../src/research/HowItWinsEdge";
 import { InvestorReadCard } from "../src/research/InvestorReadCard";
 import { investorReadForCard, type HowItWinsDisplay } from "../src/research/investor-lens";
 import { HOW_IT_WINS_COPY } from "../src/research/investor-read-copy";
@@ -25,38 +26,31 @@ const filedDisplay: HowItWinsDisplay = {
     {
       id: "hybrid",
       name: "Hybrid",
-      meaning: "Competence in two distinct areas, or two strengths not usually found together.",
       note: "It builds live network environments and has models attack and defend inside them."
     },
     {
       id: "chokepoint",
       name: "Chokepoint",
-      meaning: "Controls a passage that competitors or prey must pass through.",
       note: "Two labs name its benchmarks before releasing a model."
     },
     {
       id: "prestige",
       name: "Prestige",
-      meaning: "Endorsed by authoritative sources through awards, degrees, or recognition.",
       note: "Two named investors put in personal money alongside the round."
     }
   ],
   pair: {
     strategies: ["hybrid", "chokepoint"],
     names: ["Hybrid", "Chokepoint"],
-    meanings: [
-      "Competence in two distinct areas, or two strengths not usually found together.",
-      "Controls a passage that competitors or prey must pass through."
-    ],
     note: "The method produced the passage: the same testing approach is what both labs now name in their own documents.",
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
   },
   next: [
-    { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
-    { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
+    { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
+    { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
   ],
   inQuestion: [
-    { id: "completeness", name: "Completeness", meaning: "One tool covers everything the buyer needs, so nothing else is required.", note: "The filed record does not show whether labs still need another evaluator for the same job." }
+    { id: "completeness", name: "Completeness", note: "The filed record does not show whether labs still need another evaluator for the same job." }
   ],
   count: 3
 };
@@ -169,6 +163,9 @@ describe("HowItWinsEdge", () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     stubReducedMotion(false);
+    // The arrival memory outlives a single case, so without this the order of the file decides
+    // which crowns animate in.
+    resetHowItWinsArrivals();
   });
 
   // (a)
@@ -177,6 +174,9 @@ describe("HowItWinsEdge", () => {
     expect(filed.crown).not.toBeNull();
     expect(filed.container.textContent).toContain(HOW_IT_WINS_COPY.label);
     expect(filed.readout()).toBe("3 of 80 strategies");
+    // One pointer sweep rewrites the readout up to eighty times, so it is not a live region.
+    // The sr-only button list under the edge is the path a screen reader takes.
+    expect(filed.container.querySelector(".cs-how-it-wins-readout")?.getAttribute("aria-live")).toBeNull();
     expect(filed.container.querySelector(".cs-how-it-wins-sentence")?.textContent).toBe(filedDisplay.sentence);
     expect(filed.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(7);
     await filed.unmount();
@@ -208,7 +208,7 @@ describe("HowItWinsEdge", () => {
   // cap, and twelve is the in-question cap. Every one of those has to draw its own marks and
   // reach its own buttons without the geometry throwing.
   it("draws one running mark, six running marks, and twelve in-question marks", async () => {
-    const entry = (id: string, name: string) => ({ id, name, meaning: `${name} means something plain.`, note: `${name} has a note.` });
+    const entry = (id: HowItWinsStrategyId, name: string) => ({ id, name, note: `${name} has a note.` });
 
     const one = await renderCrown({
       state: "read",
@@ -234,10 +234,10 @@ describe("HowItWinsEdge", () => {
       entry("precision", "Precision"),
       entry("simplicity", "Simplicity")
     ];
-    const twelveQuestions = [
+    const twelveQuestions = ([
       "completeness", "aggregation", "diversification", "cloning", "affordability", "luxury",
       "skimming", "bundling", "heritage", "craftsmanship", "organic", "endurance"
-    ].map((id) => entry(id, id));
+    ] as HowItWinsStrategyId[]).map((id) => entry(id, id));
 
     const full = await renderCrown({
       state: "read",
@@ -416,6 +416,9 @@ describe("HowItWinsEdge", () => {
     stubReducedMotion(true);
     const crown = await renderCrown(filedDisplay, true);
     expect(crown.crown?.getAttribute("data-reduced-motion")).toBe("true");
+    // draw() writes the arrival flag the reduced-motion fade reads. Without it the edge would
+    // never fade in at all.
+    expect(crown.crown?.hasAttribute("data-arrived")).toBe(true);
 
     const frames = vi.spyOn(globalThis, "requestAnimationFrame");
     for (let step = 0; step < 4; step += 1) {
@@ -500,12 +503,37 @@ describe("HowItWinsEdge", () => {
     // with no definition line in between claiming how the company wins.
     expect(crown.container.querySelector(".cs-how-it-wins-kicker span")?.textContent).toBe("Completeness?");
     expect(note?.querySelector("p")?.textContent).toBe(filedDisplay.inQuestion[0]?.note);
-    expect(note?.textContent).not.toContain(filedDisplay.inQuestion[0]?.meaning);
+    expect(note?.textContent).not.toContain(howItWinsStrategyById("completeness").meaning);
 
     await crown.key("ArrowRight");
     expect(crown.container.querySelector(".cs-how-it-wins-note")?.getAttribute("data-kind")).toBe("running");
 
     await crown.unmount();
+  });
+
+  // A card filed by a newer build can name a strategy this vocabulary has never heard of. The
+  // panel has no error boundary and never parses what it fetches, so that entry has to cost
+  // itself and nothing else.
+  it("drops a strategy id this build cannot resolve and keeps the rest of the crown", async () => {
+    const drifted = filedHowItWins();
+    if (drifted.status !== "read") throw new Error("the shared fixture must file a read");
+    const filed = await renderCardWith({
+      ...drifted,
+      running: [
+        ...drifted.running,
+        {
+          strategy: "sovereign_compute" as HowItWinsStrategyId,
+          meaning: "Named by a vocabulary this build does not carry.",
+          note: "Filed against a strategy id the extension cannot resolve [c1].",
+          citationIds: ["c1"]
+        }
+      ]
+    });
+
+    expect(filed.container.querySelector(".cs-how-it-wins")).not.toBeNull();
+    expect(filed.container.querySelector(".cs-how-it-wins-readout")?.textContent).toBe("3 of 80 strategies");
+    expect(filed.container.querySelectorAll(".cs-how-it-wins-targets button")).toHaveLength(7);
+    await filed.unmount();
   });
 
   it("paints in-question marks with the question class, not the dashed hollow", async () => {

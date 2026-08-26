@@ -1,6 +1,6 @@
-import { earlyReadClaimForDisplay, type ColdStartCard, type ResearchSection } from "@cold-start/core";
+import { earlyReadClaimForDisplay, safeWebUrl, type ColdStartCard, type ResearchSection } from "@cold-start/core";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
@@ -265,20 +265,22 @@ export function CompanyArc({
       ? "This invitation has used its fresh Investor Lens runs."
       : undefined;
 
-  const markEarlyReadVisible = useCallback(() => {
-    if (!buildingPayoff?.firstPayoff || !earlyRead) {
+  // The early read counts as seen once it is on screen with a source a reader can open, which
+  // is exactly when EarlyReadLine renders anything. The view key carries that whole condition,
+  // so a re-render cannot re-fire the event and a re-file, which restamps the payoff, can.
+  const earlyReadPayoff = buildingPayoff?.firstPayoff ?? null;
+  const earlyReadViewKey = earlyRead && earlyReadPayoff && safeWebUrl(earlyRead.evidence.url)
+    ? `${domain}:${earlyReadPayoff.generatedAt}:${earlyReadPayoff.status}`
+    : null;
+  const earlyReadStatus = earlyReadPayoff?.status ?? null;
+
+  useEffect(() => {
+    if (!earlyReadViewKey || !earlyReadStatus || firstPayoffViews.current.has(earlyReadViewKey)) {
       return;
     }
-    const viewKey = `${domain}:${buildingPayoff.firstPayoff.generatedAt}:${buildingPayoff.firstPayoff.status}`;
-    if (firstPayoffViews.current.has(viewKey)) {
-      return;
-    }
-    firstPayoffViews.current.add(viewKey);
-    emitAlphaEvent("profile.first_payoff_viewed", {
-      domain,
-      state: buildingPayoff.firstPayoff.status
-    });
-  }, [buildingPayoff?.firstPayoff, domain, earlyRead, emitAlphaEvent]);
+    firstPayoffViews.current.add(earlyReadViewKey);
+    emitAlphaEvent("profile.first_payoff_viewed", { domain, state: earlyReadStatus });
+  }, [domain, earlyReadStatus, earlyReadViewKey, emitAlphaEvent]);
 
   useEffect(() => {
     if (!profileCard) {
@@ -547,7 +549,6 @@ export function CompanyArc({
                   sourceClass: "company",
                   ordinal: 1
                 })}
-                onVisible={markEarlyReadVisible}
                 prefersReducedMotion={prefersReducedMotion}
               />
             ) : null}

@@ -18,6 +18,9 @@ export const LENS_CASE_LABEL = {
   holds: "Bull"
 } as const;
 
+// One thin file, one sentence: the crown and the emphasis read say it the same way.
+const THIN_FILE = "Not enough filed.";
+
 // The How it wins crown's copy. The count reads against the full vocabulary so a filed read
 // stays honestly small: three of eighty, not "three strategies".
 export const HOW_IT_WINS_COPY = {
@@ -27,7 +30,7 @@ export const HOW_IT_WINS_COPY = {
   inQuestion: "?",
   wrongIf: "Wrong if",
   pinned: "pinned",
-  thinFile: "Not enough filed.",
+  thinFile: THIN_FILE,
   nothingStandsOut: "Nothing stands out yet.",
   // The read runs in the background after the analysis run settles, so the crown mounts empty
   // and says what it is doing. Flat status, no ellipsis and no promise about when it lands.
@@ -39,7 +42,7 @@ export const HOW_IT_WINS_COPY = {
 // the model ran and found no loud/quiet asymmetry worth filing (nothing_notable), or the
 // card predates this feature and never carries the field at all (legacy, reads as not_read).
 export const EMPHASIS_EMPTY_COPY = {
-  thinFile: "Not enough filed.",
+  thinFile: THIN_FILE,
   nothingNotable: "Nothing notable.",
   notRead: "Not read yet."
 } as const;

@@ -564,29 +564,22 @@ describe("investor lens display", () => {
         {
           id: "specialization",
           name: "Specialization",
-          meaning: "Strong competence in a narrow niche.",
           note: "Every shipped feature lands in the terminal itself."
         },
         {
           id: "omnipresence",
           name: "Omnipresence",
-          meaning: "Available everywhere it might be needed and accepted by default.",
           note: "The shell is already open on every machine it runs on."
         },
         {
           id: "usership",
           name: "Usership",
-          meaning: "A critical mass of users makes the product more useful to each of them.",
           note: "Teams adopt it after one engineer brings it in."
         }
       ],
       pair: {
         strategies: ["specialization", "omnipresence"],
         names: ["Specialization", "Omnipresence"],
-        meanings: [
-          "Strong competence in a narrow niche.",
-          "Available everywhere it might be needed and accepted by default."
-        ],
         note: "Depth in one surface only pays because that surface is always open.",
         wrongIf: "Engineers move their daily work into an editor agent instead."
       },
@@ -594,7 +587,6 @@ describe("investor lens display", () => {
         {
           id: "standardization",
           name: "Standardization",
-          meaning: "Emergent alignment that reduces friction.",
           note: "No platform team has made it the default shell yet."
         }
       ],
@@ -756,7 +748,6 @@ describe("investor lens display", () => {
     expect(howItWinsDisplayForCard(filedCard).inQuestion).toEqual([{
       id: "completeness",
       name: "Completeness",
-      meaning: "One tool covers everything the buyer needs, so nothing else is required.",
       note: "The filed record does not show whether teams still need another terminal."
     }]);
     const nothingCrown = howItWinsDisplayForCard(nothingCard);
@@ -764,7 +755,6 @@ describe("investor lens display", () => {
     expect(nothingCrown.inQuestion).toEqual([{
       id: "completeness",
       name: "Completeness",
-      meaning: "One tool covers everything the buyer needs, so nothing else is required.",
       note: "The filed record does not show whether teams still need another terminal."
     }]);
     expect(nothingCrown.count).toBe(0);
@@ -810,7 +800,7 @@ describe("investor lens display", () => {
     });
     expect(six.running.map((entry) => entry.id)).toEqual(sixIds);
     expect(six.count).toBe(6);
-    expect(six.running.every((entry) => entry.name.length > 0 && entry.meaning.length > 0)).toBe(true);
+    expect(six.running.every((entry) => entry.name.length > 0)).toBe(true);
 
     const twelveIds: HowItWinsStrategyId[] = [
       "completeness", "aggregation", "diversification", "cloning", "affordability", "luxury",

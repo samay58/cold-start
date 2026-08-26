@@ -1,6 +1,5 @@
 import { safeWebUrl, type FirstPayoffClaim, type FirstPayoffEvidence } from "@cold-start/core";
 import { motion } from "framer-motion";
-import { useEffect } from "react";
 
 import { motionTokens } from "../shared/motion-primitives";
 
@@ -8,7 +7,6 @@ type EarlyReadLineProps = {
   claim: FirstPayoffClaim;
   evidence: FirstPayoffEvidence;
   onSourceOpen: () => void;
-  onVisible: () => void;
   prefersReducedMotion: boolean;
 };
 
@@ -16,17 +14,10 @@ export function EarlyReadLine({
   claim,
   evidence,
   onSourceOpen,
-  onVisible,
   prefersReducedMotion
 }: EarlyReadLineProps) {
   const sourceUrl = safeWebUrl(evidence.url);
   const displayText = claim.text.replace(/\.\s*$/u, "");
-
-  useEffect(() => {
-    if (sourceUrl) {
-      onVisible();
-    }
-  }, [onVisible, sourceUrl]);
 
   if (!sourceUrl) {
     return null;

@@ -10,6 +10,7 @@ import {
   edgePositions,
   edgeTargets,
   magnification,
+  nearestTarget,
   nearestTickIndex,
   noteFor,
   readoutText,
@@ -21,34 +22,31 @@ import {
 } from "../src/research/how-it-wins-edge";
 
 // Irregular example: hybrid + chokepoint pair, prestige also running, monopoly and
-// standardization queued as next. Notes are deliberately plain (no banned phrasing, no
-// model-prose flourishes) since this fixture feeds the banned-copy check below.
+// standardization queued as next, completeness unresolved. Notes are deliberately plain (no
+// banned phrasing, no model-prose flourishes) since this fixture feeds the banned-copy check
+// below.
 const fixtureDisplay: HowItWinsDisplay = {
   state: "read",
   sentence: "It wins by combining two rare skills, and by sitting where two labs must pass through it.",
   running: [
-    { id: "hybrid", name: "Hybrid", meaning: "Competence in two distinct areas, or two strengths not usually found together.", note: "It builds live network environments and has models attack and defend inside them." },
-    { id: "chokepoint", name: "Chokepoint", meaning: "Controls a passage that competitors or prey must pass through.", note: "Two labs cite its benchmarks by name before releasing a model." },
-    { id: "prestige", name: "Prestige", meaning: "Endorsed by authoritative sources through awards, degrees, or recognition.", note: "Two named investors put in personal money alongside the round." }
+    { id: "hybrid", name: "Hybrid", note: "It builds live network environments and has models attack and defend inside them." },
+    { id: "chokepoint", name: "Chokepoint", note: "Two labs cite its benchmarks by name before releasing a model." },
+    { id: "prestige", name: "Prestige", note: "Two named investors put in personal money alongside the round." }
   ],
   pair: {
     strategies: ["hybrid", "chokepoint"],
     names: ["Hybrid", "Chokepoint"],
-    meanings: [
-      "Competence in two distinct areas, or two strengths not usually found together.",
-      "Controls a passage that competitors or prey must pass through."
-    ],
     note: "The method produced the passage: the same testing approach is what got cited in both labs' documents.",
     wrongIf: "a lab could swap evaluators without a visible change in its own documentation."
   },
-    next: [
-      { id: "monopoly", name: "Monopoly", meaning: "Control of a resource or market approved by a governing body.", note: "Would need a regulator naming it directly, not just a government contract." },
-      { id: "standardization", name: "Standardization", meaning: "Emergent alignment that reduces friction.", note: "Would need a third lab to adopt the same benchmarks independently." }
-    ],
-    inQuestion: [
-      { id: "completeness", name: "Completeness", meaning: "One tool covers everything the buyer needs, so nothing else is required.", note: "The filed record does not show whether labs still need another evaluator for the same job." }
-    ],
-    count: 3
+  next: [
+    { id: "monopoly", name: "Monopoly", note: "Would need a regulator naming it directly, not just a government contract." },
+    { id: "standardization", name: "Standardization", note: "Would need a third lab to adopt the same benchmarks independently." }
+  ],
+  inQuestion: [
+    { id: "completeness", name: "Completeness", note: "The filed record does not show whether labs still need another evaluator for the same job." }
+  ],
+  count: 3
 };
 
 function findTarget(targets: EdgeTarget[], key: string): EdgeTarget {
@@ -160,6 +158,13 @@ describe("targetAt", () => {
 
   it("returns null far from any target", () => {
     expect(targetAt(targets, fixtureDisplay, xs, -1000)).toBeNull();
+  });
+
+  // A tap is not a hover: the same x that targetAt refuses still has to land on something.
+  it("nearestTarget keeps no reach limit, so a far x still claims the closest mark", () => {
+    expect(nearestTarget(targets, -1000)?.key).toBe("completeness");
+    expect(nearestTarget(targets, 1e6)?.key).toBe("standardization");
+    expect(nearestTarget([], 0)).toBeNull();
   });
 });
 

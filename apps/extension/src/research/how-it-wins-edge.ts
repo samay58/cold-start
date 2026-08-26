@@ -138,6 +138,21 @@ export function targetAt(targets: EdgeTarget[], display: HowItWinsDisplay, xs: n
   return null;
 }
 
+// A tap has no reach limit: the finger lands somewhere on the plate and the closest target
+// wins, however far away it is. targetAt is the pointer's stricter cousin.
+export function nearestTarget(targets: EdgeTarget[], x: number): EdgeTarget | null {
+  let best: EdgeTarget | null = null;
+  let bestDistance = Infinity;
+  for (const target of targets) {
+    const distance = Math.abs(target.x - x);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = target;
+    }
+  }
+  return best;
+}
+
 // tick null: pointer is off the crown, read the rest count. target null (tick set): pointer
 // is over an unmarked tick, read its name in grey. Otherwise read the target itself.
 export function readoutText(

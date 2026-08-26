@@ -34,6 +34,7 @@ import {
   edgePositions,
   edgeTargets,
   magnification,
+  nearestTarget,
   nearestTickIndex,
   noteFor,
   readoutText,
@@ -86,6 +87,12 @@ const SVG_CLASS = {
 // replay it. A re-file changes the sentence or the strategies, which changes the key.
 const arrivedReads = new Set<string>();
 
+// Tests share this module across cases, so without a reset the order of a suite would decide
+// which crowns replay their arrival.
+export function resetHowItWinsArrivals(): void {
+  arrivedReads.clear();
+}
+
 function readKey(display: HowItWinsDisplay): string {
   return [
     display.state,
@@ -103,48 +110,36 @@ function sentenceFor(display: HowItWinsDisplay): string {
   return display.sentence ?? "";
 }
 
+// Every pointer predicate asks the same question of a different ref.
+function inside<T extends Element>(ref: { current: T | null }, node: EventTarget | null): boolean {
+  return node instanceof Node && ref.current?.contains(node) === true;
+}
+
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const easeOut = (value: number) => 1 - Math.pow(1 - value, 3);
 const round = (value: number) => value.toFixed(2);
 const flag = (value: boolean) => (value ? ` data-hot="true"` : "");
 const pin = (value: boolean) => (value ? ` data-pinned="true"` : "");
 
-function nearestTarget(targets: EdgeTarget[], x: number): EdgeTarget | null {
-  let best: EdgeTarget | null = null;
-  let bestDistance = Infinity;
-  for (const target of targets) {
-    const distance = Math.abs(target.x - x);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      best = target;
-    }
-  }
-  return best;
-}
-
 export function HowItWinsEdge({
   display,
-  prefersReducedMotion,
-  onPin
+  prefersReducedMotion
 }: {
   display: HowItWinsDisplay;
   prefersReducedMotion: boolean | null;
-  onPin?: ((target: EdgeTarget | null) => void) | undefined;
 }) {
   if (display.state === "not_read") {
     return null;
   }
-  return <HowItWinsCrown display={display} onPin={onPin} prefersReducedMotion={prefersReducedMotion} />;
+  return <HowItWinsCrown display={display} prefersReducedMotion={prefersReducedMotion} />;
 }
 
 function HowItWinsCrown({
   display,
-  prefersReducedMotion,
-  onPin
+  prefersReducedMotion
 }: {
   display: HowItWinsDisplay;
   prefersReducedMotion: boolean | null;
-  onPin?: ((target: EdgeTarget | null) => void) | undefined;
 }) {
   const uid = useId().replace(/:/g, "");
   const reduced = prefersReducedMotion === true;
@@ -161,7 +156,6 @@ function HowItWinsCrown({
   const [pinned, setPinned] = useState(false);
   const [targetKey, setTargetKey] = useState<string | null>(null);
   const [noteKey, setNoteKey] = useState<string | null>(null);
-  const [arrived, setArrived] = useState(() => arrivedReads.has(arrivalKey));
 
   const hoverXRef = useRef<number | null>(null);
   const cursorRef = useRef<number | null>(null);
@@ -180,6 +174,10 @@ function HowItWinsCrown({
   const arriveStartRef = useRef<number | null>(null);
   const arriveElapsedRef = useRef<number | null>(arrivedReads.has(arrivalKey) || reduced ? null : 0);
   const arrivalKeyRef = useRef(arrivalKey);
+  // One reduced-motion rule reads this, so it rides the root's dataset from draw() rather than
+  // a state flip that would re-render the whole crown to move one attribute.
+  const arrivedRef = useRef(arrivedReads.has(arrivalKey));
+  const drawRef = useRef<() => void>(() => undefined);
   const pointerTypeRef = useRef<string>("mouse");
 
   // A re-file swaps the read under a live crown. Reset the arrival clock here, in render, not in
@@ -190,7 +188,7 @@ function HowItWinsCrown({
     const replays = !arrivedReads.has(arrivalKey);
     arriveStartRef.current = null;
     arriveElapsedRef.current = replays && !reduced ? 0 : null;
-    setArrived(!replays);
+    arrivedRef.current = !replays;
   }
 
   const xs = useMemo(() => edgePositions(width), [width]);
@@ -297,6 +295,7 @@ function HowItWinsCrown({
 
     svg.innerHTML = parts.join("");
     root.dataset.hover = hoverXRef.current === null ? "false" : "true";
+    root.dataset.arrived = arrivedRef.current ? "true" : "false";
 
     const readout = readoutRef.current;
     if (readout) {
@@ -399,7 +398,6 @@ function HowItWinsCrown({
   }, [runFrame]);
 
   const release = useCallback(() => {
-    const wasPinned = pinnedRef.current;
     pinnedRef.current = false;
     setPinned(false);
     targetRef.current = null;
@@ -417,8 +415,7 @@ function HowItWinsCrown({
     draw();
     syncState();
     if (!reduced) schedule();
-    if (wasPinned) onPin?.(null);
-  }, [draw, onPin, reduced, retarget, schedule, syncState]);
+  }, [draw, reduced, retarget, schedule, syncState]);
 
   const pinTo = useCallback(
     (target: EdgeTarget) => {
@@ -434,9 +431,8 @@ function HowItWinsCrown({
       scaleRef.current = 1; // keyboard and touch park the cursor; no spring travel to watch
       draw();
       syncState();
-      onPin?.(target);
     },
-    [draw, onPin, syncState]
+    [draw, syncState]
   );
 
   const localX = useCallback(
@@ -450,16 +446,11 @@ function HowItWinsCrown({
     [width]
   );
 
-  const insideNote = (node: EventTarget | null) => node instanceof Node && noteRef.current?.contains(node) === true;
-  const insideList = (node: EventTarget | null) => node instanceof Node && listRef.current?.contains(node) === true;
-  const insideSentence = (node: EventTarget | null) => node instanceof Node && sentenceRef.current?.contains(node) === true;
-
   // The target under a pointer event's own x, which is what a click means even when the spring
   // has not finished travelling there yet.
   const targetFromClient = useCallback(
     (clientX: number, node: EventTarget | null) => {
-      const onSentence = node instanceof Node && sentenceRef.current?.contains(node) === true;
-      if (onSentence) return targets.find((target) => target.kind === "pair") ?? null;
+      if (inside(sentenceRef, node)) return targets.find((target) => target.kind === "pair") ?? null;
       const x = localX(clientX);
       return x === null ? null : targetAt(targets, display, xs, x);
     },
@@ -469,9 +460,9 @@ function HowItWinsCrown({
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     pointerTypeRef.current = event.pointerType;
     if (targets.length === 0 || event.pointerType === "touch" || pinnedRef.current) return;
-    if (insideNote(event.target)) return;
+    if (inside(noteRef, event.target)) return;
 
-    if (insideSentence(event.target)) {
+    if (inside(sentenceRef, event.target)) {
       const pair = targets.find((target) => target.kind === "pair");
       if (!pair) return;
       hoverXRef.current = pair.x;
@@ -518,11 +509,11 @@ function HowItWinsCrown({
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     pointerTypeRef.current = event.pointerType;
     if (event.pointerType !== "touch" || targets.length === 0) return;
-    if (insideNote(event.target) || insideList(event.target)) return;
+    if (inside(noteRef, event.target) || inside(listRef, event.target)) return;
 
     // A tap snaps: the nearest target wins even when the finger lands between marks.
     let next = targetFromClient(event.clientX, event.target);
-    if (!next && !insideSentence(event.target)) {
+    if (!next && !inside(sentenceRef, event.target)) {
       const x = localX(event.clientX);
       if (x !== null) next = nearestTarget(targets, x);
     }
@@ -536,7 +527,7 @@ function HowItWinsCrown({
 
   function handleClick(event: ReactMouseEvent<HTMLDivElement>) {
     if (pointerTypeRef.current === "touch") return;
-    if (targets.length === 0 || insideNote(event.target) || insideList(event.target)) return;
+    if (targets.length === 0 || inside(noteRef, event.target) || inside(listRef, event.target)) return;
     if (pinnedRef.current) {
       release();
       return;
@@ -618,7 +609,8 @@ function HowItWinsCrown({
     if (reduced) {
       const fade = setTimeout(() => {
         arrivedReads.add(arrivalKey);
-        setArrived(true);
+        arrivedRef.current = true;
+        drawRef.current();
       }, 0);
       return () => clearTimeout(fade);
     }
@@ -626,16 +618,21 @@ function HowItWinsCrown({
       arrivedReads.add(arrivalKey);
       arriveStartRef.current = performance.now();
       arriveElapsedRef.current = 0;
-      setArrived(true);
+      arrivedRef.current = true;
+      drawRef.current();
       schedule();
     }, ARRIVAL_DELAY_MS);
     return () => clearTimeout(start);
   }, [arrivalKey, reduced, schedule]);
 
-  // Every render redraws once, so a React update can never leave the svg or the readout stale.
+  // A change in geometry or content redraws once, so a React update can never leave the svg or
+  // the readout stale. Pointer and keyboard handlers draw for themselves. The arrival timer
+  // draws through the ref so this list can stay narrow: a parent re-render must never restart
+  // the wait.
   useLayoutEffect(() => {
+    drawRef.current = draw;
     draw();
-  });
+  }, [draw]);
 
   useEffect(() => () => {
     mountedRef.current = false;
@@ -651,7 +648,6 @@ function HowItWinsCrown({
     <div
       aria-label={crownAriaLabel(display)}
       className="cs-how-it-wins"
-      data-arrived={arrived ? "true" : "false"}
       data-pinned={pinned ? "true" : "false"}
       data-reduced-motion={reduced ? "true" : "false"}
       data-state={display.state}
@@ -666,7 +662,7 @@ function HowItWinsCrown({
     >
       <div className="cs-how-it-wins-label">
         <b>{HOW_IT_WINS_COPY.label}</b>
-        <span aria-live="polite" className="cs-how-it-wins-readout" ref={readoutRef} />
+        <span className="cs-how-it-wins-readout" ref={readoutRef} />
       </div>
       <div className="cs-how-it-wins-edge">
         <svg aria-hidden="true" ref={svgRef} viewBox={`0 0 ${width} ${EDGE_HEIGHT_PX}`} />

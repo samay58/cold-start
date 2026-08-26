@@ -1118,24 +1118,6 @@
   text-transform: none;
 }
 
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="company_site"] .cs-clipping-kind,
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="people"] .cs-clipping-kind {
-  color: var(--color-seal);
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="docs"] .cs-clipping-kind,
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="news"] .cs-clipping-kind {
-  color: var(--color-reported);
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="funding"] .cs-clipping-kind {
-  color: var(--color-company);
-}
-
-.cs-clippings[data-variant="carousel"] .cs-clipping[data-source-class="customer_proof"] .cs-clipping-kind {
-  color: var(--color-verified);
-}
-
 .cs-early-read-line {
   margin: 15px 12px 0;
   padding-top: 12px;
