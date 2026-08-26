@@ -6,9 +6,11 @@ import {
   accessRequests,
   alphaEvents,
   alphaInviteAttempts,
+  howItWinsJudgments,
   pruneAlphaEvents,
   pruneAlphaInviteAttempts,
-  pruneHandledAccessRequests
+  pruneHandledAccessRequests,
+  pruneHowItWinsJudgments
 } from "@cold-start/db";
 
 import {
@@ -22,14 +24,16 @@ import {
   withAlphaDb
 } from "./alpha-common";
 
-const HELP = `Delete raw alpha events older than the retention boundary.
+const HELP = `Delete raw alpha events older than the retention boundary, handled access requests
+older than 30 days, and How it wins judgments older than 90 days.
 
 Usage:
   npm run alpha:prune -- [--before 30d] [--batch 1000] [--max 10000]              # dry run
   npm run alpha:prune -- [--before 30d] [--batch 1000] [--max 10000] --apply      # delete
 
 Options:
-  --before <duration>  Delete events received before this age, default 30d
+  --before <duration>  Delete events received before this age, default 30d. The access-request
+                       and judgment windows are fixed and do not follow this flag.
   --batch <count>      Rows per repository call, default 1000
   --max <count>        Maximum rows deleted in one invocation, default 10000
   --apply              Perform the deletion. Without it, only reports the count.
@@ -66,7 +70,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   // above, so tuning the events cutoff never quietly changes this one.
   const accessRequestsBefore = dateBefore(new Date(), "30d", "--before");
 
-  const { eligible, attemptsEligible, accessRequestsEligible } = await withAlphaDb(async (db) => {
+  // How it wins judgments are a cache keyed by evidence hashes (no tester data). One row per
+  // distinct evidence packet at 60 to 80 KB each; a verdict nothing has reached for in 90 days
+  // goes, and the next run over that evidence pays for a fresh one. Fixed window, same reason.
+  const judgmentsBefore = dateBefore(new Date(), "90d", "--before");
+
+  const { eligible, attemptsEligible, accessRequestsEligible, judgmentsEligible } = await withAlphaDb(async (db) => {
     const rows = await db
       .select({ value: count() })
       .from(alphaEvents)
@@ -79,10 +88,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       .select({ value: count() })
       .from(accessRequests)
       .where(and(isNotNull(accessRequests.handledAt), lt(accessRequests.handledAt, accessRequestsBefore)));
+    const judgmentRows = await db
+      .select({ value: count() })
+      .from(howItWinsJudgments)
+      .where(lt(howItWinsJudgments.createdAt, judgmentsBefore));
     return {
       eligible: rows[0]?.value ?? 0,
       attemptsEligible: attemptRows[0]?.value ?? 0,
-      accessRequestsEligible: accessRequestRows[0]?.value ?? 0
+      accessRequestsEligible: accessRequestRows[0]?.value ?? 0,
+      judgmentsEligible: judgmentRows[0]?.value ?? 0
     };
   });
 
@@ -99,12 +113,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           before: before.toISOString(),
           eligible,
           wouldDelete: eventsWouldDelete,
-          cappedByMax: eligible > maximum || accessRequestsEligible > maximum,
+          cappedByMax: eligible > maximum || accessRequestsEligible > maximum || judgmentsEligible > maximum,
           attemptsBefore: attemptsBefore.toISOString(),
           attemptsEligible,
           accessRequestsBefore: accessRequestsBefore.toISOString(),
           accessRequestsEligible,
-          accessRequestsWouldDelete
+          accessRequestsWouldDelete,
+          howItWinsJudgmentsBefore: judgmentsBefore.toISOString(),
+          howItWinsJudgmentsEligible: judgmentsEligible,
+          howItWinsJudgmentsWouldDelete: Math.min(judgmentsEligible, maximum)
         },
         null,
         2
@@ -113,7 +130,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  const { deleted, attemptsDeleted, accessRequestsDeleted } = await withAlphaDb(async (db) => {
+  const { deleted, attemptsDeleted, accessRequestsDeleted, judgmentsDeleted } = await withAlphaDb(async (db) => {
     let countDeleted = 0;
     while (countDeleted < maximum) {
       const removed = await pruneAlphaEvents(db, {
@@ -133,7 +150,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       removedAccessRequests += removed;
       if (removed < batch) break;
     }
-    return { deleted: countDeleted, attemptsDeleted: removedAttempts, accessRequestsDeleted: removedAccessRequests };
+    let removedJudgments = 0;
+    while (removedJudgments < maximum) {
+      const removed = await pruneHowItWinsJudgments(db, {
+        before: judgmentsBefore,
+        limit: Math.min(batch, maximum - removedJudgments)
+      });
+      removedJudgments += removed;
+      if (removed < batch) break;
+    }
+    return {
+      deleted: countDeleted,
+      attemptsDeleted: removedAttempts,
+      accessRequestsDeleted: removedAccessRequests,
+      judgmentsDeleted: removedJudgments
+    };
   });
 
   console.log(
@@ -147,7 +178,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         attemptsDeleted,
         accessRequestsBefore: accessRequestsBefore.toISOString(),
         accessRequestsDeleted,
-        accessRequestsStoppedAtMax: accessRequestsDeleted === maximum
+        accessRequestsStoppedAtMax: accessRequestsDeleted === maximum,
+        howItWinsJudgmentsBefore: judgmentsBefore.toISOString(),
+        howItWinsJudgmentsDeleted: judgmentsDeleted,
+        howItWinsJudgmentsStoppedAtMax: judgmentsDeleted === maximum
       },
       null,
       2

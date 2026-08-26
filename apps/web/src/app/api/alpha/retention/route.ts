@@ -1,10 +1,19 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { createDb, pruneAlphaEvents, pruneHandledAccessRequests } from "@cold-start/db";
+import {
+  createDb,
+  pruneAlphaEvents,
+  pruneHandledAccessRequests,
+  pruneHowItWinsJudgments
+} from "@cold-start/db";
 
 import { webEnv } from "../../../../lib/web-env";
 
 const RETENTION_DAYS = 30;
+// How it wins judgments are a cache keyed by evidence hashes, not tester data. One row per
+// distinct evidence packet at 60 to 80 KB each; a verdict nothing has reached for in 90 days is
+// dropped, and the next run over that evidence pays for a fresh one.
+const JUDGMENT_RETENTION_DAYS = 90;
 const BATCH_SIZE = 1_000;
 const MAX_DELETIONS = 10_000;
 
@@ -51,7 +60,21 @@ export async function GET(request: Request) {
     if (removed < BATCH_SIZE) break;
   }
 
-  const capped = deleted === MAX_DELETIONS || accessRequestsDeleted === MAX_DELETIONS;
+  const judgmentsBefore = new Date(Date.now() - JUDGMENT_RETENTION_DAYS * 24 * 60 * 60 * 1_000);
+  let howItWinsJudgmentsDeleted = 0;
+  while (howItWinsJudgmentsDeleted < MAX_DELETIONS) {
+    const removed = await pruneHowItWinsJudgments(db, {
+      before: judgmentsBefore,
+      limit: Math.min(BATCH_SIZE, MAX_DELETIONS - howItWinsJudgmentsDeleted)
+    });
+    howItWinsJudgmentsDeleted += removed;
+    if (removed < BATCH_SIZE) break;
+  }
+
+  const capped =
+    deleted === MAX_DELETIONS ||
+    accessRequestsDeleted === MAX_DELETIONS ||
+    howItWinsJudgmentsDeleted === MAX_DELETIONS;
   console.info("[alpha-retention]", {
     signal: "events_pruned",
     deleted,
@@ -65,8 +88,21 @@ export async function GET(request: Request) {
     before: before.toISOString()
   });
 
+  console.info("[alpha-retention]", {
+    signal: "how_it_wins_judgments_pruned",
+    deleted: howItWinsJudgmentsDeleted,
+    before: judgmentsBefore.toISOString()
+  });
+
   return Response.json(
-    { deleted, capped, before: before.toISOString(), accessRequestsDeleted },
+    {
+      deleted,
+      capped,
+      before: before.toISOString(),
+      accessRequestsDeleted,
+      howItWinsJudgmentsDeleted,
+      howItWinsJudgmentsBefore: judgmentsBefore.toISOString()
+    },
     { headers: { "Cache-Control": "no-store" } }
   );
 }

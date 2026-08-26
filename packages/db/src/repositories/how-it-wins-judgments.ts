@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { howItWinsJudgmentSchema, type HowItWinsJudgment } from "@cold-start/core";
 
-import type { ColdStartDb } from "../client";
+import { rowsFromExecuteResult, type ColdStartDb } from "../client";
 import { howItWinsJudgments } from "../schema";
 
 export type HowItWinsJudgmentInputHashes = {
@@ -117,4 +117,32 @@ export async function storeHowItWinsJudgment(
     throw new Error(`Failed to store how-it-wins judgment for ${input.slug}`);
   }
   return { id: row.id, judgment: input.judgment, createdAt: row.createdAt };
+}
+
+// Judgments are a cache, not a record. A verdict older than the boundary is one no analysis run
+// has reached for through its evidence hashes in that time; dropping it costs one fresh judge
+// call if that exact evidence ever comes back. Oldest first, in bounded batches, so a backlog
+// never holds one long delete open on the Neon HTTP driver (same shape as pruneAlphaEvents).
+export async function pruneHowItWinsJudgments(
+  db: ColdStartDb,
+  input: { before: Date; limit?: number }
+): Promise<number> {
+  const limit = input.limit ?? 1_000;
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error("limit must be a positive integer");
+  }
+  const result = await db.execute<{ id: string }>(sql`
+    with doomed as (
+      select id
+      from how_it_wins_judgments
+      where created_at < ${input.before}
+      order by created_at
+      limit ${limit}
+    )
+    delete from how_it_wins_judgments judgments
+    using doomed
+    where judgments.id = doomed.id
+    returning judgments.id
+  `);
+  return rowsFromExecuteResult(result).length;
 }

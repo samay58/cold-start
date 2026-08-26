@@ -3,13 +3,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({ kind: "db" })),
   pruneEvents: vi.fn(),
-  pruneAccessRequests: vi.fn()
+  pruneAccessRequests: vi.fn(),
+  pruneJudgments: vi.fn()
 }));
 
 vi.mock("@cold-start/db", () => ({
   createDb: mocks.createDb,
   pruneAlphaEvents: mocks.pruneEvents,
-  pruneHandledAccessRequests: mocks.pruneAccessRequests
+  pruneHandledAccessRequests: mocks.pruneAccessRequests,
+  pruneHowItWinsJudgments: mocks.pruneJudgments
 }));
 
 vi.mock("../src/lib/web-env", () => ({
@@ -30,6 +32,7 @@ describe("GET /api/alpha/retention", () => {
     mocks.createDb.mockClear();
     mocks.pruneEvents.mockReset().mockResolvedValue(0);
     mocks.pruneAccessRequests.mockReset().mockResolvedValue(0);
+    mocks.pruneJudgments.mockReset().mockResolvedValue(0);
   });
 
   afterEach(() => {
@@ -117,5 +120,38 @@ describe("GET /api/alpha/retention", () => {
       capped: true
     });
     expect(mocks.pruneAccessRequests).toHaveBeenCalledOnce();
+  });
+
+  it("prunes How it wins judgments past a 90-day boundary of their own", async () => {
+    mocks.pruneJudgments
+      .mockResolvedValueOnce(1_000)
+      .mockResolvedValueOnce(7);
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ howItWinsJudgmentsDeleted: 1_007, capped: false });
+    expect(mocks.pruneJudgments).toHaveBeenCalledTimes(2);
+    const [dbArg, inputArg] = mocks.pruneJudgments.mock.calls[0];
+    expect(dbArg).toEqual({ kind: "db" });
+    expect(inputArg.limit).toBe(1_000);
+    const ageDays = (Date.now() - new Date(inputArg.before).getTime()) / (24 * 60 * 60 * 1_000);
+    expect(ageDays).toBeGreaterThan(89.9);
+    expect(ageDays).toBeLessThan(90.1);
+    expect(new Date(body.howItWinsJudgmentsBefore).getTime()).toBe(new Date(inputArg.before).getTime());
+  });
+
+  it("caps judgment deletions independently of the event backlog", async () => {
+    mocks.pruneJudgments.mockResolvedValue(1_000);
+
+    const response = await GET(request());
+
+    await expect(response.json()).resolves.toMatchObject({
+      deleted: 0,
+      howItWinsJudgmentsDeleted: 10_000,
+      capped: true
+    });
+    expect(mocks.pruneJudgments).toHaveBeenCalledTimes(10);
   });
 });

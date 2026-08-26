@@ -12,7 +12,7 @@ import {
 } from "@cold-start/core";
 
 import type { ColdStartDb } from "../src/client";
-import { findHowItWinsJudgment, storeHowItWinsJudgment } from "../src/index";
+import { findHowItWinsJudgment, pruneHowItWinsJudgments, storeHowItWinsJudgment } from "../src/index";
 import * as schema from "../src/schema";
 
 const databaseUrl = process.env.CARDS_DB_TEST_URL;
@@ -112,6 +112,32 @@ describeDatabase("how-it-wins judgment cache against Postgres", () => {
     expect(found).toBeNull();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("prunes judgments older than the boundary, oldest first, and leaves newer ones", async () => {
+    const stale = hashesFixture();
+    const fresh = hashesFixture();
+    const staleRow = await storeHowItWinsJudgment(db, {
+      ...stale,
+      slug: "modal-stale",
+      model: "claude-test",
+      judgment: judgmentFixture(stale)
+    });
+    await storeHowItWinsJudgment(db, {
+      ...fresh,
+      slug: "modal-fresh",
+      model: "claude-test",
+      judgment: judgmentFixture(fresh)
+    });
+    await pool.query("UPDATE how_it_wins_judgments SET created_at = $1 WHERE id = $2", [
+      new Date("2026-01-01T00:00:00.000Z"),
+      staleRow.id
+    ]);
+
+    expect(await pruneHowItWinsJudgments(db, { before: new Date("2026-04-01T00:00:00.000Z"), limit: 1 })).toBe(1);
+    expect(await findHowItWinsJudgment(db, stale)).toBeNull();
+    expect(await findHowItWinsJudgment(db, fresh)).not.toBeNull();
+    expect(await pruneHowItWinsJudgments(db, { before: new Date("2026-04-01T00:00:00.000Z") })).toBe(0);
   });
 
   it("stores a judgment the schema accepts, so the fixture cannot drift from the real shape", () => {

@@ -453,9 +453,12 @@ back to the production web origin when unset. Set it to a local origin only
 when testing invite generation against a non-production database.
 
 Vercel Cron calls `/api/alpha/retention` daily at 04:17 UTC. The route requires
-the sensitive `CRON_SECRET`, deletes only events older than 30 days, works in
-1,000-row batches, and stops after 10,000 rows per invocation. `alpha:prune`
-remains the manual inspection and repair path.
+the sensitive `CRON_SECRET`, deletes events and handled access requests older
+than 30 days and How it wins judgments (`how_it_wins_judgments`, a cache keyed
+by evidence hashes, no tester data) older than 90 days, works in 1,000-row
+batches, and stops after 10,000 rows per table per invocation. `alpha:prune`
+remains the manual inspection and repair path and applies the same three
+windows.
 
 Immediate stop controls:
 
