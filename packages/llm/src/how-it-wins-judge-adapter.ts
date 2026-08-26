@@ -20,7 +20,7 @@ import {
   type HowItWinsJudgeAdapter,
   type HowItWinsJudgeCallRequest
 } from "./how-it-wins-judge";
-import { parseModelString } from "./llm-provider";
+import { parseModelString, quirksForModel } from "./llm-provider";
 import { isTransientLlmError } from "./transient-error";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
@@ -851,7 +851,7 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
       const params = {
         model: input.model,
         max_tokens: maxTokens,
-        ...(input.model.includes("opus-5") ? {} : { temperature: 0 }),
+        ...(quirksForModel(input.model).omitSamplingParams ? {} : { temperature: 0 }),
         system: [
           { type: "text" as const, text: `${request.prompt}\n\n${stageContracts[request.stage]}` },
           ...(cachedSystemText

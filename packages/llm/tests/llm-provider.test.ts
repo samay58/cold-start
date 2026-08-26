@@ -98,9 +98,15 @@ describe("quirksForModel", () => {
     expect(quirksForModel("moonshotai/Kimi-K3")).toEqual({ omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true });
   });
 
-  it("returns no quirks for deepseek and anthropic models", () => {
+  it("flags opus-5 as omitting sampling params", () => {
+    expect(quirksForModel("claude-opus-5")).toEqual({ omitSamplingParams: true });
+    expect(quirksForModel("anthropic/claude-opus-5")).toEqual({ omitSamplingParams: true });
+  });
+
+  it("returns no quirks for deepseek and other anthropic models", () => {
     expect(quirksForModel("deepseek-v4-flash")).toEqual({});
     expect(quirksForModel("claude-sonnet-4-6")).toEqual({});
+    expect(quirksForModel("claude-opus-4-7")).toEqual({});
   });
 });
 

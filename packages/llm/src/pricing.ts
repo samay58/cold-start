@@ -3,7 +3,10 @@
 // here whenever a new model joins the eval matrix; unknown models return undefined and the
 // trace simply omits estimatedCostUsd, matching the Anthropic behavior for unknown models.
 //
-// DeepSeek rates verified 2026-08-22 against api-docs.deepseek.com/quick_start/pricing.
+// DeepSeek rates and the peak window verified 2026-08-26 against
+// https://api-docs.deepseek.com/quick_start/pricing, which reads: "Off-peak rates are half of
+// the peak rates. Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC, Monday through Friday (all
+// other hours are off-peak)."
 
 type AnthropicUsageLike = {
   input_tokens?: number;
@@ -27,8 +30,11 @@ const pricingTable: Array<{ provider: string; modelIncludes: string; pricing: To
 ];
 
 function deepSeekPricing(model: string, at: Date): TokenPricing | null {
+  // Both published boundaries land on the hour, so whole UTC hours are exact. The weekend is
+  // off-peak at every hour, which is the half of the rule this used to miss.
+  const weekday = at.getUTCDay() >= 1 && at.getUTCDay() <= 5;
   const hour = at.getUTCHours();
-  const peak = (hour >= 1 && hour < 4) || (hour >= 6 && hour < 10);
+  const peak = weekday && ((hour >= 1 && hour < 4) || (hour >= 6 && hour < 10));
   const normalized = model.toLowerCase();
   if (normalized.includes("deepseek-v4-flash") || normalized.includes("deepseek-chat")) {
     return peak

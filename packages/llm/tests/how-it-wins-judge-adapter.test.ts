@@ -194,6 +194,17 @@ describe("the how it wins judge transport", () => {
     expect(result.trace.latencyMs).toBeGreaterThan(0);
   });
 
+  it("takes the opus-5 sampling rule from the shared quirks table", async () => {
+    const opus = stubbedClient(toolUseStream(minimalToolOutput));
+    const sonnet = stubbedClient(toolUseStream(minimalToolOutput));
+
+    await createHowItWinsJudgeModelAdapter({ client: opus.client, model: "claude-opus-5" })(globalRequest());
+    await createHowItWinsJudgeModelAdapter({ client: sonnet.client, model: "claude-sonnet-5" })(globalRequest());
+
+    expect(Object.hasOwn(requestBody(opus.requests), "temperature")).toBe(false);
+    expect(requestBody(sonnet.requests).temperature).toBe(0);
+  });
+
   it("pins the non-streaming ceiling the production adapter used to trip", () => {
     let fetchCalls = 0;
     const client = new Anthropic({

@@ -161,6 +161,9 @@ export type ModelQuirks = {
 
 const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = [
   { modelIncludes: "kimi-k3", quirks: { omitSamplingParams: true, minMaxTokens: 32768, forceToolChoiceRequired: true } },
+  // Opus 5 always reasons and rejects temperature outright, on the Anthropic path and through
+  // any gateway that forwards the parameter.
+  { modelIncludes: "opus-5", quirks: { omitSamplingParams: true } },
 ];
 
 export function quirksForModel(model: string): ModelQuirks {

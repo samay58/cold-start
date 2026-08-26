@@ -1919,4 +1919,27 @@ describe("loadHowItWinsJudgeRules", () => {
     expect(loadHowItWinsJudgeRules()).toEqual(fromDocs);
     expect(fromDocs.strategyRubric).toHaveLength(HOW_IT_WINS_STRATEGIES.length);
   });
+
+  it("refuses a rubric whose nearest sibling is not one of the 80 names", () => {
+    const rules = loadHowItWinsJudgeRules();
+    const canonical = "Aggregation; Emergence; Omnipresence; Antifragility; Reliability";
+    const rubric = [
+      "| Strategy | Steph's canonical meaning | Positive operational evidence | Common false positives | Nearest siblings | Deciding question | Disqualifying evidence |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      ...rules.strategyRubric.map((row) => [
+        "",
+        row.name,
+        row.canonicalMeaning,
+        row.positiveEvidence,
+        row.falsePositives,
+        row.strategyId === "usership" ? canonical.replace("Aggregation", "Agregation") : row.nearestSiblings.join("; "),
+        row.decidingQuestion,
+        row.disqualifyingEvidence,
+        ""
+      ].join(" | ").trim())
+    ].join("\n");
+
+    expect(() => parseHowItWinsJudgeRules({ standard: rules.standard, rubric }))
+      .toThrow(/noncanonical nearest sibling in the Usership row: Agregation/);
+  });
 });

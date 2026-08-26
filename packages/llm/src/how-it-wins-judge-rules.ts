@@ -31,16 +31,25 @@ export function parseHowItWinsJudgeRules(input: { standard: string; rubric: stri
       const [name, canonicalMeaning, positiveEvidence, falsePositives, nearestSiblings, decidingQuestion, disqualifyingEvidence] = cells;
       const strategyId = howItWinsStrategyIdForName(name!);
       if (!strategyId) throw new Error(`noncanonical rubric strategy: ${name}`);
+      const siblings = nearestSiblings!
+        .split(";")
+        .map((value) => value.trim().replace(/\.$/, ""))
+        .filter(Boolean);
+      // A sibling the judge cannot resolve to a canonical strategy used to survive as a raw
+      // string and then get filtered out where the sibling map is built, so a misspelling took
+      // the whole distinction out of the judge's prompt without saying so.
+      for (const sibling of siblings) {
+        if (!howItWinsStrategyIdForName(sibling)) {
+          throw new Error(`noncanonical nearest sibling in the ${name} row: ${sibling}`);
+        }
+      }
       return {
         strategyId,
         name: name!,
         canonicalMeaning: canonicalMeaning!,
         positiveEvidence: positiveEvidence!,
         falsePositives: falsePositives!,
-        nearestSiblings: nearestSiblings!
-          .split(";")
-          .map((value) => value.trim().replace(/\.$/, ""))
-          .filter(Boolean),
+        nearestSiblings: siblings,
         decidingQuestion: decidingQuestion!,
         disqualifyingEvidence: disqualifyingEvidence!
       };
