@@ -588,10 +588,34 @@ describe("tolerant list transport", () => {
       .toThrow(/must be a JSON array/i);
   });
 
+  it("reads one bet the model wrote bare instead of as a one-item list", () => {
+    // Friend, 2026-08-26: the judge answered with the bet object itself and paid a full re-ask.
+    expect(bets({ materialBets: bet })).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
+    expect(bets({ materialBets: JSON.stringify(bet) })).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
+  });
+
+  it("reads bets the model wrote as XML parameter blocks inside the list string", () => {
+    // DeepInfra, Sparxell, Tavily, Boom Supersonic: the list arrived as
+    // `<parameter name="statement">...</parameter><parameter name="scope">...`, one block per field,
+    // a repeated field name starting the next bet.
+    const block = (item: typeof bet) =>
+      `<parameter name="statement">${item.statement}</parameter>\n` +
+      `<parameter name="scope">${item.scope}</parameter>\n` +
+      `<parameter name="supportingEvidenceIds">${JSON.stringify(item.supportingEvidenceIds)}</parameter>\n` +
+      `<parameter name="scopeReasons">${JSON.stringify(item.scopeReasons)}</parameter>\n`;
+    const second = { ...bet, statement: "A second bet on a different buyer." };
+
+    expect(bets({ materialBets: `\n${block(bet)}${block(second)}` })).toEqual([
+      { ...bet, supportingEvidenceIds: ["e1"] },
+      { ...second, supportingEvidenceIds: ["e1"] }
+    ]);
+    // The same shape with the outer materialBets block still wrapped around it.
+    expect(bets({ materialBets: `<parameter name="materialBets">\n${block(bet)}</parameter>` })).toHaveLength(1);
+  });
+
   it("names the shape it got when it rejects a list", () => {
     expect(() => bets({ materialBets: 7 })).toThrow(/must be a JSON array: number/i);
-    expect(() => bets({ materialBets: { statement: "one bet", scope: "company" } }))
-      .toThrow(/object with keys statement, scope/i);
+    expect(() => bets({ materialBets: {} })).toThrow(/must be a JSON array: object/i);
     expect(() => bets({ materialBets: "the bets are not written down anywhere" }))
       .toThrow(/must be a JSON array: string "the bets are not written down anywhere"/i);
   });

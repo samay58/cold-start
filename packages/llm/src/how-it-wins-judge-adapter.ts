@@ -524,6 +524,46 @@ function normalizeStructuredTransport(
   ]));
 }
 
+// The model sometimes writes a list's items as XML tool-parameter blocks inside the JSON string
+// meant to hold the list: `<parameter name="statement">...</parameter><parameter name="scope">...`.
+// Every field of an item is a block; a repeated field name starts the next item. Values that read
+// as JSON (arrays, objects, numbers) are parsed, the rest stay strings. Null when the string is not
+// in that form at all. 4 of 6 judge calls on 2026-08-26 paid a full re-ask for this shape.
+function parameterBlocksToItems(value: string): unknown[] | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("<parameter name=")) return null;
+  const parts = trimmed.split(/<parameter name="([^"]+)">/);
+  if (parts.length < 3) return null;
+  const items: Record<string, unknown>[] = [];
+  let current: Record<string, unknown> = {};
+  for (let index = 1; index + 1 < parts.length; index += 2) {
+    const key = parts[index]!;
+    const rawValue = parts[index + 1]!.replace(/<\/parameter>\s*$/, "").trim();
+    let parsedValue: unknown = rawValue;
+    if (/^[[{\d-]/.test(rawValue)) {
+      try {
+        parsedValue = JSON.parse(rawValue) as unknown;
+      } catch {
+        parsedValue = rawValue;
+      }
+    }
+    if (Object.hasOwn(current, key)) {
+      items.push(current);
+      current = {};
+    }
+    current[key] = parsedValue;
+  }
+  if (Object.keys(current).length > 0) items.push(current);
+  if (items.length === 0) return null;
+  // One block whose value is the list itself is a wrapper the exact-prefix strip did not know
+  // (`<parameter name="other">[...]`), not a one-field item; hand its contents back as the list.
+  if (items.length === 1) {
+    const only = Object.values(items[0]!);
+    if (only.length === 1 && Array.isArray(only[0])) return only[0] as unknown[];
+  }
+  return items;
+}
+
 function unwrapUnambiguousArray(
   value: unknown,
   label: string,
@@ -531,6 +571,8 @@ function unwrapUnambiguousArray(
 ): unknown[] {
   if (Array.isArray(value)) return value;
   if (typeof value === "string") {
+    const blocks = parameterBlocksToItems(value);
+    if (blocks) return blocks;
     if (state.jsonLayers >= 1) {
       try {
         JSON.parse(value);
@@ -559,7 +601,18 @@ function unwrapUnambiguousArray(
   if (indexed) return indexed;
   if (state.objectLayers >= 2) throw new Error(`${label} must be a JSON array: ${transportPreview(value)}`);
   const entries = Object.entries(object);
-  if (entries.length !== 1) throw new Error(`${label} must be a JSON array: ${transportPreview(value)}`);
+  if (entries.length === 0) throw new Error(`${label} must be a JSON array: ${transportPreview(value)}`);
+  // A record with several named fields where a list was asked for is one item of that list written
+  // bare (a lone bet with statement, scope, and so on). Reading it as the one-item list is the only
+  // sensible reading; if it is not an item, the item's own schema rejects it with the field named.
+  // A record whose every value is itself a list is not an item but two or more candidate lists,
+  // and guessing between them stays a rejection.
+  if (entries.length > 1) {
+    if (entries.every(([, child]) => Array.isArray(child))) {
+      throw new Error(`${label} must be a JSON array: ${transportPreview(value)}`);
+    }
+    return [object];
+  }
   return unwrapUnambiguousArray(entries[0]![1], label, {
     ...state,
     objectLayers: state.objectLayers + 1
