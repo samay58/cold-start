@@ -17,6 +17,7 @@ import {
   hashHowItWinsJudgeValue,
   howItWinsFourBundleScopes,
   howItWinsJudgePromptHash,
+  citationIdsFromNote,
   parseFrozenHowItWinsWriterDraft,
   howItWinsFromFrozenWriter,
   loadHowItWinsJudgeRules,
@@ -1768,6 +1769,143 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     expect(parsed.normalizations).toHaveLength(2);
     expect(parsed.normalizations[0]).toMatch(/precision/);
     expect(parsed.normalizations[1]).toMatch(new RegExp(`omitted .*"${secondId}"`));
+  });
+
+  function withExtraEvidence(frozen: ReturnType<typeof verdict>, evidenceIds: string[]) {
+    return {
+      ...frozen,
+      evidenceRegistry: [
+        ...frozen.evidenceRegistry,
+        ...evidenceIds.map((evidenceId) => ({
+          evidenceId,
+          text: `A second source describes the mechanism (${evidenceId}).`,
+          source: "Secondary source",
+          sourceDate: "2026-08-20",
+          attribution: "independent" as const,
+          scope: "company" as const
+        }))
+      ]
+    };
+  }
+
+  it("reads a comma-separated marker list as separate citation ids", () => {
+    expect(citationIdsFromNote("Ships weekly [e1, e2].")).toEqual(["e1", "e2"]);
+
+    const frozen = withExtraEvidence(verdict(["usership"]), ["e2"]);
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through one current mechanism.",
+        current: [{ strategy: "usership", note: "Ships weekly [e1, e2]." }],
+        pair: null,
+        not_yet: [],
+        in_question: [],
+        wrong_if: "The mechanism stops affecting buyer choice."
+      }),
+      frozen
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error(`expected a frozen read, got ${JSON.stringify(parsed)}`);
+    expect(parsed.read.current[0]?.citationIds).toEqual(["e1", "e2"]);
+  });
+
+  it("cites the judgment's own evidence when an approved note carries no marker", () => {
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through one current mechanism.",
+        current: [{ strategy: "usership", note: "Every new user makes the product more useful to the rest." }],
+        pair: null,
+        not_yet: [],
+        in_question: [],
+        wrong_if: "The mechanism stops affecting buyer choice."
+      }),
+      verdict(["usership"])
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error(`expected a frozen read, got ${JSON.stringify(parsed)}`);
+    expect(parsed.read.current[0]?.citationIds).toEqual(["e1"]);
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.running[0]?.citationIds).toEqual(["e1"]);
+  });
+
+  it("still asks the writer to fix a marker that names evidence the judgment never had", () => {
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through one current mechanism.",
+        current: [{ strategy: "usership", note: "Every new user makes the product more useful [e9]." }],
+        pair: null,
+        not_yet: [],
+        in_question: [],
+        wrong_if: "The mechanism stops affecting buyer choice."
+      }),
+      verdict(["usership"])
+    );
+
+    expect(parsed).toEqual({ issues: ["item 1 cites unknown evidence e9"] });
+  });
+
+  it("seats both approved pair legs inside the running cap", () => {
+    const seven: HowItWinsStrategyId[] = [
+      "usership", "aggregation", "reliability", "precision", "curation", "secrecy", "rarity"
+    ];
+    const frozen = withApprovedPair(verdict(seven), ["usership", "rarity"]);
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through seven current mechanisms.",
+        current: seven.map((strategy) => ({
+          strategy,
+          note: `Fixture Company uses ${strategy} in its current bet [e1].`
+        })),
+        pair: {
+          strategies: ["usership", "rarity"],
+          note: "The two mechanisms compound together [e1].",
+          wrong_if: "A competitor copies both mechanisms at once."
+        },
+        not_yet: [],
+        in_question: [],
+        wrong_if: "The mechanisms stop affecting buyer choice."
+      }),
+      frozen
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error(`expected a frozen read, got ${JSON.stringify(parsed)}`);
+    const display = howItWinsFromFrozenWriter(parsed.read);
+    if (display.status !== "read") throw new Error("expected a display read");
+    expect(display.running.map((entry) => entry.strategy)).toEqual([
+      "usership", "aggregation", "reliability", "precision", "curation", "rarity"
+    ]);
+    expect(display.pair?.strategies).toEqual(["usership", "rarity"]);
+  });
+
+  it("keeps an approved pair whose note lost its marker", () => {
+    const frozen = withApprovedPair(verdict(), ["usership", "aggregation"]);
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "read",
+        sentence: "Fixture Company wins through three current mechanisms.",
+        current: ["usership", "aggregation", "reliability"].map((strategy) => ({
+          strategy,
+          note: `Fixture Company uses ${strategy} in its current bet [e1].`
+        })),
+        pair: {
+          strategies: ["usership", "aggregation"],
+          note: "The two mechanisms compound together.",
+          wrong_if: "A competitor copies both mechanisms at once."
+        },
+        not_yet: [],
+        in_question: [],
+        wrong_if: "The mechanisms stop affecting buyer choice."
+      }),
+      frozen
+    );
+
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error(`expected a frozen read, got ${JSON.stringify(parsed)}`);
+    expect(parsed.read.pair?.citationIds).toEqual(["e1"]);
+    expect(parsed.normalizations).toEqual([]);
   });
 });
 

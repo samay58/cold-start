@@ -11,8 +11,10 @@ import {
 } from "@cold-start/core";
 
 import { HOW_IT_WINS_FROZEN_WRITER_PROMPT } from "./how-it-wins-judge-prompts";
+import { visibleCitationMarkers } from "./tool-schema-fragments";
 
 const CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/;
+const COMMA_MARKER_LIST_PATTERN = /\[([A-Za-z0-9_-]+(?:\s*,\s*[A-Za-z0-9_-]+)+)\]/g;
 
 export function parseHowItWinsJson(text: string): { value: unknown } | { error: string } {
   const trimmed = text.trim();
@@ -79,8 +81,50 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
-function writerCitationIds(note: string) {
-  return Array.from(new Set(Array.from(note.matchAll(/\[([A-Za-z0-9_-]+)\]/g), (match) => match[1]!)));
+// Models write [e1, e2] often enough that a strict one-id-per-bracket reader finds nothing at
+// all in the note. Expanded only for the marker derivation; the stored note keeps its own text.
+function expandedMarkerLists(note: string): string {
+  return note.replace(COMMA_MARKER_LIST_PATTERN, (_match, ids: string) =>
+    ids
+      .split(",")
+      .map((id) => `[${id.trim()}]`)
+      .join("")
+  );
+}
+
+export function citationIdsFromNote(note: unknown): string[] {
+  if (typeof note !== "string") return [];
+  return Array.from(new Set(visibleCitationMarkers(expandedMarkerLists(note))));
+}
+
+type JudgmentEvidenceIds = ReadonlyMap<HowItWinsStrategyId, string[]>;
+
+// A writer that forgets the marker on an approved note used to throw away a judgment that cost
+// about a dollar. The judgment already records the evidence each approved strategy rests on, so
+// that record stands in when the note carries no marker at all. Markers the writer did supply
+// still have to resolve.
+function judgmentEvidenceIdsByStrategy(
+  judgment: HowItWinsJudgment,
+  validEvidenceIds: Set<string>
+): JudgmentEvidenceIds {
+  const claimsById = new Map(judgment.claims.map((claim) => [claim.claimId, claim] as const));
+  const evidenceForClaim = (claimId: string, seen: Set<string>): string[] => {
+    if (seen.has(claimId)) return [];
+    seen.add(claimId);
+    const claim = claimsById.get(claimId);
+    if (!claim) return [];
+    const basis = "basisClaimIds" in claim
+      ? claim.basisClaimIds.flatMap((basisId) => evidenceForClaim(basisId, seen))
+      : [];
+    return [...claim.evidenceIds, ...basis];
+  };
+  return new Map(judgment.strategyEvaluations.map((entry) => [
+    entry.strategyId,
+    Array.from(new Set([
+      ...entry.evidenceIds,
+      ...entry.claimIds.flatMap((claimId) => evidenceForClaim(claimId, new Set()))
+    ])).filter((id) => validEvidenceIds.has(id))
+  ]));
 }
 
 function writerItems(value: unknown): Array<Record<string, unknown>> {
@@ -97,18 +141,22 @@ function parseWriterItems(
   items: Array<Record<string, unknown>>,
   expected: readonly HowItWinsStrategyId[],
   validEvidenceIds: Set<string>,
-  options: { requireCitations: boolean }
+  options: { requireCitations: boolean; judgmentEvidenceIds?: JudgmentEvidenceIds }
 ) {
   const parsed: FrozenWriterItem[] = [];
   const issues: string[] = [];
   items.forEach((entry, index) => {
     const strategy = howItWinsStrategyIdSchema.safeParse(entry.strategy);
     const note = typeof entry.note === "string" ? entry.note : "";
-    const citationIds = writerCitationIds(note);
+    const markerIds = citationIdsFromNote(note);
+    const fallbackIds = markerIds.length === 0 && options.requireCitations && strategy.success
+      ? options.judgmentEvidenceIds?.get(strategy.data) ?? []
+      : [];
+    const citationIds = markerIds.length > 0 ? markerIds : fallbackIds;
     if (!strategy.success || strategy.data !== expected[index]) issues.push(`item ${index + 1} changed its strategy`);
     if (!note.trim()) issues.push(`item ${index + 1} needs a note`);
     if (options.requireCitations && citationIds.length === 0) issues.push(`item ${index + 1} needs cited evidence`);
-    for (const id of citationIds) if (!validEvidenceIds.has(id)) issues.push(`item ${index + 1} cites unknown evidence ${id}`);
+    for (const id of markerIds) if (!validEvidenceIds.has(id)) issues.push(`item ${index + 1} cites unknown evidence ${id}`);
     if (strategy.success) {
       parsed.push({ strategy: strategy.data, meaning: howItWinsStrategyById(strategy.data).meaning, note, citationIds });
     }
@@ -123,7 +171,7 @@ function reconcileOptionalWriterItems(
   items: Array<Record<string, unknown>>,
   expected: readonly HowItWinsStrategyId[],
   validEvidenceIds: Set<string>,
-  options: { requireCitations: boolean; label: string }
+  options: { requireCitations: boolean; label: string; judgmentEvidenceIds?: JudgmentEvidenceIds }
 ): { parsed: FrozenWriterItem[]; issues: string[]; normalizations: string[] } {
   const normalizations: string[] = [];
   // Match by strategy id, not by position: a writer that skips one approved item must not take
@@ -148,7 +196,8 @@ function reconcileOptionalWriterItems(
   const matchedEntries = matchedExpected.map((expectedId) => byStrategy.get(expectedId)!);
 
   const { parsed, issues } = parseWriterItems(matchedEntries, matchedExpected, validEvidenceIds, {
-    requireCitations: options.requireCitations
+    requireCitations: options.requireCitations,
+    ...(options.judgmentEvidenceIds ? { judgmentEvidenceIds: options.judgmentEvidenceIds } : {})
   });
   return { parsed, issues, normalizations };
 }
@@ -204,6 +253,7 @@ export function parseFrozenHowItWinsWriterDraft(
   if (!draft) return { issues: ["writer output must be a JSON object"] };
 
   const validEvidenceIds = new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId));
+  const judgmentEvidenceIds = judgmentEvidenceIdsByStrategy(judgment, validEvidenceIds);
 
   if (draft.status === "nothing_stands_out") {
     if (judgment.currentStrategyIds.length >= 1) {
@@ -258,7 +308,8 @@ export function parseFrozenHowItWinsWriterDraft(
     .map((entry) => entry.strategyId);
   const notYetResult = reconcileOptionalWriterItems(writerItems(draft.not_yet), notYetIds, validEvidenceIds, {
     requireCitations: true,
-    label: "not-yet"
+    label: "not-yet",
+    judgmentEvidenceIds
   });
 
   const inQuestionIds = openQuestionIdsFrom(judgment);
@@ -267,7 +318,10 @@ export function parseFrozenHowItWinsWriterDraft(
     label: "in-question"
   });
 
-  const current = parseWriterItems(currentItems, judgment.currentStrategyIds, validEvidenceIds, { requireCitations: true });
+  const current = parseWriterItems(currentItems, judgment.currentStrategyIds, validEvidenceIds, {
+    requireCitations: true,
+    judgmentEvidenceIds
+  });
   const issues = [...current.issues, ...notYetResult.issues, ...inQuestionResult.issues];
   const sentence = typeof draft.sentence === "string" ? draft.sentence : "";
   const wrongIf = typeof draft.wrong_if === "string" ? draft.wrong_if : "";
@@ -289,14 +343,17 @@ export function parseFrozenHowItWinsWriterDraft(
         : [];
       const note = typeof pairRaw.note === "string" ? pairRaw.note : "";
       const pairWrongIf = typeof pairRaw.wrong_if === "string" ? pairRaw.wrong_if : "";
-      const citationIds = writerCitationIds(note);
+      const markerIds = citationIdsFromNote(note);
+      const citationIds = markerIds.length > 0
+        ? markerIds
+        : judgment.unusualPair.evidenceIds.filter((id) => validEvidenceIds.has(id));
       const wellFormed =
         strategies.length === 2 &&
         sameStrings(strategies, judgment.unusualPair.strategyIds) &&
         note.trim().length > 0 &&
         pairWrongIf.trim().length > 0 &&
         citationIds.length > 0 &&
-        citationIds.every((id) => validEvidenceIds.has(id));
+        markerIds.every((id) => validEvidenceIds.has(id));
       if (wellFormed) {
         pair = { strategies: [strategies[0]!, strategies[1]!], note, wrongIf: pairWrongIf, citationIds };
       } else {
@@ -330,6 +387,21 @@ function filedInQuestion(items: FrozenWriterItem[], runningIds: Set<HowItWinsStr
     .map((entry) => ({ strategy: entry.strategy, note: entry.note, citationIds: entry.citationIds }));
 }
 
+// The cap trims by rank, and a pair whose second leg ranked past the cut used to disappear with
+// it, silently, after the judge had approved it. Seat both legs first, then fill the rest of the
+// cap in rank order.
+function runningWithinCap(current: FrozenWriterItem[], pair: FrozenHowItWinsWriterRead["pair"]) {
+  const keep = new Set<HowItWinsStrategyId>();
+  for (const leg of pair?.strategies ?? []) {
+    if (current.some((entry) => entry.strategy === leg)) keep.add(leg);
+  }
+  for (const entry of current) {
+    if (keep.size >= HOW_IT_WINS_DISPLAY_RUNNING_MAX) break;
+    keep.add(entry.strategy);
+  }
+  return current.filter((entry) => keep.has(entry.strategy)).slice(0, HOW_IT_WINS_DISPLAY_RUNNING_MAX);
+}
+
 export function howItWinsFromFrozenWriter(
   read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string; inQuestion: FrozenWriterItem[] }
 ): HowItWins {
@@ -340,7 +412,7 @@ export function howItWinsFromFrozenWriter(
       inQuestion: filedInQuestion(read.inQuestion, new Set())
     });
   }
-  const running = read.current.slice(0, HOW_IT_WINS_DISPLAY_RUNNING_MAX);
+  const running = runningWithinCap(read.current, read.pair);
   const runningIds = new Set(running.map((entry) => entry.strategy));
   const inQuestion = filedInQuestion(read.inQuestion, runningIds);
   if (running.length < 1) {
