@@ -209,8 +209,21 @@ export function parseFrozenHowItWinsWriterDraft(
     if (judgment.currentStrategyIds.length >= 1) {
       return { issues: ["a supported verdict cannot become nothing_stands_out"] };
     }
-    if (writerItems(draft.current).length > 0 || writerItems(draft.not_yet).length > 0 || record(draft.pair)) {
-      return { issues: ["writer added a strategy or pair to a nothing_stands_out read"] };
+    // A zero-current verdict has nothing for the writer to add. When it adds a strategy or a pair
+    // anyway, the verdict is not in doubt, only the writer's discipline, so the extras are
+    // dropped and recorded rather than costing the whole paid read (Boom Supersonic, 2026-08-26:
+    // $1.32 lost to exactly this).
+    const strayNormalizations: string[] = [];
+    const strayCurrent = writerItems(draft.current).length;
+    const strayNotYet = writerItems(draft.not_yet).length;
+    if (strayCurrent > 0) {
+      strayNormalizations.push(`dropped ${strayCurrent} current item(s) the writer added to a nothing_stands_out read`);
+    }
+    if (strayNotYet > 0) {
+      strayNormalizations.push(`dropped ${strayNotYet} not-yet item(s) the writer added to a nothing_stands_out read`);
+    }
+    if (record(draft.pair)) {
+      strayNormalizations.push("dropped a pair the writer added to a nothing_stands_out read");
     }
     if (typeof draft.sentence !== "string" || !draft.sentence.trim()) {
       return { issues: ["a nothing_stands_out read needs a sentence"] };
@@ -225,7 +238,7 @@ export function parseFrozenHowItWinsWriterDraft(
     return {
       read: { status: "nothing_stands_out", sentence: draft.sentence, inQuestion: inQuestionResult.parsed },
       prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT,
-      normalizations: inQuestionResult.normalizations
+      normalizations: [...strayNormalizations, ...inQuestionResult.normalizations]
     };
   }
 

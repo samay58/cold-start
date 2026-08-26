@@ -175,6 +175,15 @@ test("empty states and legacy cards pass the specificity check", () => {
   assert.equal(emphasisIsSpecificOrEmpty({}), true);
 });
 
+function inQuestionEntries(strategies = []) {
+  return strategies.map((strategy) => ({
+    strategy,
+    meaning: "meaning",
+    note: "Whether the named partner chose it over a substitute [c1].",
+    citationIds: ["c1"]
+  }));
+}
+
 function howItWinsReadCard(running, overrides = {}) {
   return {
     identity: overrides.identity,
@@ -190,7 +199,20 @@ function howItWinsReadCard(running, overrides = {}) {
         })),
         pair: null,
         next: [],
+        inQuestion: inQuestionEntries(overrides.inQuestion),
         wrongIf: "A competitor ships the same workflow with zero switching cost."
+      }
+    }
+  };
+}
+
+function howItWinsNothingCard(overrides = {}) {
+  return {
+    synthesis: {
+      howItWins: {
+        status: "nothing_stands_out",
+        sentence: "It competes the way most companies in its category do.",
+        inQuestion: inQuestionEntries(overrides.inQuestion)
       }
     }
   };
@@ -225,6 +247,7 @@ test("strategyFrequencyGate passes trivially under minReads", () => {
 
   assert.equal(result.passed, true);
   assert.deepEqual(result.offenders, []);
+  assert.deepEqual(result.inQuestionOffenders, []);
   assert.equal(result.reads, 3);
 });
 
@@ -236,6 +259,40 @@ test("strategyFrequencyGate fails when a strategy dominates past minReads", () =
   assert.equal(result.passed, false);
   assert.equal(result.reads, 11);
   assert.deepEqual(result.offenders, [{ strategy: "usership", share: 1 }]);
+});
+
+test("strategyFrequency counts in-question labels over read and nothing_stands_out cards", () => {
+  const cards = [
+    howItWinsReadCard(["usership"], { inQuestion: ["alliance", "first_mover"] }),
+    howItWinsReadCard(["chokepoint"], { inQuestion: ["alliance"] }),
+    howItWinsNothingCard({ inQuestion: ["alliance", "efficiency"] }),
+    { synthesis: { howItWins: { status: "thin_file" } } }
+  ];
+
+  const result = strategyFrequency(cards);
+
+  assert.equal(result.reads, 2);
+  assert.equal(result.judged, 3);
+  assert.equal(result.inQuestionCounts.alliance, 3);
+  assert.equal(result.inQuestionShare.alliance, 1);
+  assert.ok(Math.abs(result.inQuestionShare.first_mover - 1 / 3) < 0.001);
+  assert.equal(result.counts.usership, 1);
+});
+
+test("strategyFrequencyGate fails when one label sits in question on most judged cards", () => {
+  const strategies = ["usership", "chokepoint", "curation", "charm", "hybrid", "luxury", "rarity", "secrecy", "cloning", "bundling", "skimming"];
+  const cards = strategies.map((strategy, index) =>
+    index % 2 === 0
+      ? howItWinsReadCard([strategy], { inQuestion: ["alliance"] })
+      : howItWinsNothingCard({ inQuestion: ["alliance", "first_mover"] })
+  );
+
+  const result = strategyFrequencyGate(cards);
+
+  assert.equal(result.passed, false);
+  assert.deepEqual(result.offenders, []);
+  assert.equal(result.judged, 11);
+  assert.deepEqual(result.inQuestionOffenders, [{ strategy: "alliance", share: 1 }]);
 });
 
 test("genericPhraseCount counts a generic phrase inside a running note", () => {

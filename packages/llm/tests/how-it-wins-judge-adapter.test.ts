@@ -225,10 +225,12 @@ describe("the how it wins judge transport", () => {
   });
 
   it("holds the frozen benchmark transport hash", () => {
-    // Re-pinned after packet J of the How it wins repair, which replaced the per-run handle enum with a
-    // fixed universe so the cached prefix is identical across companies, and cut adjudication to
-    // a 12000-token budget. A changed value here invalidates every frozen benchmark checkpoint.
-    expect(benchmarkTransportHash()).toBe("d7d3e8ad318ee650d05f400913a6dabaca77e46638cc13204737c059d849f47d");
+    // Re-pinned 2026-08-26 after the rubric audit: specialization, first mover, alliance,
+    // efficiency, and divergence rows tightened against the default state of a startup, the
+    // standard's open-question and distinctiveness gates named, and the critic told to attack
+    // generic labels first. A changed value here invalidates every frozen benchmark checkpoint
+    // and every cached judgment, which is intended: the old verdicts were judged by the old rows.
+    expect(benchmarkTransportHash()).toBe("421f854d0618e27bdb0fabde3c4b55029873b868a67beb37625420a218a370c2");
   });
 
   it("sends the rubric and the vocabulary once, in a cached system block", async () => {

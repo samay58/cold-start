@@ -1490,6 +1490,34 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
     });
   }
 
+  it("drops what the writer adds to a nothing_stands_out verdict instead of failing the read", () => {
+    const parsed = parseFrozenHowItWinsWriterDraft(
+      JSON.stringify({
+        status: "nothing_stands_out",
+        sentence: "Fixture Company competes the way the rest of its category does.",
+        current: [{ strategy: "usership", note: "Added against the verdict [e1]." }],
+        pair: { strategies: ["usership", "aggregation"], note: "Also added [e1]." },
+        not_yet: [],
+        in_question: [],
+        wrong_if: "A buyer starts choosing it for a reason the record does not show."
+      }),
+      verdict([])
+    );
+
+    if (!("read" in parsed)) {
+      throw new Error(`expected a read, got ${JSON.stringify(parsed)}`);
+    }
+    expect(parsed.read).toEqual({
+      status: "nothing_stands_out",
+      sentence: "Fixture Company competes the way the rest of its category does.",
+      inQuestion: []
+    });
+    expect(parsed.normalizations).toEqual([
+      "dropped 1 current item(s) the writer added to a nothing_stands_out read",
+      "dropped a pair the writer added to a nothing_stands_out read"
+    ]);
+  });
+
   it("accepts an exact frozen verdict", () => {
     const request = frozenHowItWinsWriterRequest(verdict());
     expect(request.payload.current.map((entry) => entry.strategy)).toEqual([

@@ -24,6 +24,8 @@ An unusual pair is secondary and optional. It cannot change the selected strateg
 
 export const HOW_IT_WINS_CRITIC_PROMPT = `Attack the structured judgment for a missed bet, missed strategy, unsupported selection, duplicated mechanism, unresolved sibling, stale historical claim, speculative not-yet claim, weak pair, or broken evidence reference.
 
+Start with the generic labels. Ask which current strategies would apply to any company in this category, or to any early-stage company at all: narrow focus, early entry, named customers, a lean team. Those are your first findings, ahead of a specific, measured mechanism that only lacks a comparative baseline. Then check the open questions: a row that names no obtainable fact, or rests on a mechanism with no observed precursor and no counterevidence, belongs in insufficient evidence.
+
 Mark a finding material only when correcting it could change the bet, a strategy disposition, the current ordering, a not-yet disposition, or the overall wrong condition. Return structured findings only. Do not rewrite the verdict.`;
 
 export const HOW_IT_WINS_ADJUDICATION_PROMPT = `Resolve only the material disputes supplied with the request.

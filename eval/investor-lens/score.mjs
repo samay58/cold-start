@@ -112,35 +112,63 @@ export function howItWinsSentenceIsSpecificOrEmpty(card) {
   return /[\d$%]/.test(sentence) || nameHit || hasCapitalizedWordAfterFirst(sentence);
 }
 
-// Runs once per read card: dedupe a read's own running strategies before tallying, since a
-// strategy should count once toward a card's frequency even if the model somehow repeats it.
-export function strategyFrequency(cards) {
-  const reads = (cards ?? []).filter((card) => card?.synthesis?.howItWins?.status === "read");
+function tallyStrategies(cards, pick) {
   const counts = {};
-  for (const card of reads) {
-    const strategies = new Set((card.synthesis.howItWins.running ?? []).map((entry) => entry.strategy));
+  for (const card of cards) {
+    const strategies = new Set(pick(card.synthesis.howItWins).map((entry) => entry.strategy));
     for (const strategy of strategies) {
       counts[strategy] = (counts[strategy] ?? 0) + 1;
     }
   }
   const share = {};
   for (const [strategy, count] of Object.entries(counts)) {
-    share[strategy] = count / reads.length;
+    share[strategy] = count / cards.length;
   }
-  return { reads: reads.length, counts, share };
+  return { counts, share };
+}
+
+// Runs once per card: dedupe a card's own strategies before tallying, since a strategy should
+// count once toward a card's frequency even if the model somehow repeats it. Running share is
+// over read cards. In-question share is over every judged card (read or nothing_stands_out), since
+// both carry an in-question list and the panel shows it either way: the same four "maybe" labels
+// on every company (2026-08-26: alliance, first_mover, efficiency, divergence on 5 to 6 of 9) is
+// the same staleness as one running label everywhere, just on the other side of the crown.
+export function strategyFrequency(cards) {
+  const status = (card) => card?.synthesis?.howItWins?.status;
+  const reads = (cards ?? []).filter((card) => status(card) === "read");
+  const judged = (cards ?? []).filter((card) => status(card) === "read" || status(card) === "nothing_stands_out");
+  const running = tallyStrategies(reads, (howItWins) => howItWins.running ?? []);
+  const inQuestion = tallyStrategies(judged, (howItWins) => howItWins.inQuestion ?? []);
+  return {
+    reads: reads.length,
+    counts: running.counts,
+    share: running.share,
+    judged: judged.length,
+    inQuestionCounts: inQuestion.counts,
+    inQuestionShare: inQuestion.share
+  };
+}
+
+function offendersOver(share, maxShare) {
+  return Object.entries(share)
+    .filter(([, strategyShare]) => strategyShare > maxShare)
+    .map(([strategy, strategyShare]) => ({ strategy, share: strategyShare }));
 }
 
 // A strategy leaning on most reads is the read going stale, not the company's real edge.
 // Only meaningful once there is enough of a corpus to trust; skip the check below minReads.
+// The in-question list gets the same test at the same share, over judged cards.
 export function strategyFrequencyGate(cards, { maxShare = 0.5, minReads = 10 } = {}) {
-  const { reads, share } = strategyFrequency(cards);
-  if (reads < minReads) {
-    return { passed: true, offenders: [], reads };
-  }
-  const offenders = Object.entries(share)
-    .filter(([, strategyShare]) => strategyShare > maxShare)
-    .map(([strategy, strategyShare]) => ({ strategy, share: strategyShare }));
-  return { passed: offenders.length === 0, offenders, reads };
+  const { reads, share, judged, inQuestionShare } = strategyFrequency(cards);
+  const offenders = reads < minReads ? [] : offendersOver(share, maxShare);
+  const inQuestionOffenders = judged < minReads ? [] : offendersOver(inQuestionShare, maxShare);
+  return {
+    passed: offenders.length === 0 && inQuestionOffenders.length === 0,
+    offenders,
+    inQuestionOffenders,
+    reads,
+    judged
+  };
 }
 
 export function hasConcreteTension(card) {

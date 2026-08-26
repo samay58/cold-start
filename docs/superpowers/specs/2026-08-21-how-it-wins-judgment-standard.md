@@ -31,7 +31,7 @@ Every claim in the audit has one type.
 | Observed fact | A statement reported, measured, demonstrated, or recorded by a source without added causal meaning. | Cite its evidence ID. Preserve attribution, scope, date, and uncertainty. A company claim remains a company claim. |
 | Reasonable inference | A conclusion supported by observed facts through a short, explicit bridge. | Cite every supporting fact and state the bridge. Record meaningful counterevidence. |
 | Judgment | An application of this standard, including the bet, materiality, sibling choice, strategy disposition, ordering, or pair. | Link it to the facts and inferences on which it rests. Do not present it as sourced fact. |
-| Open question | A specific unresolved fact that could materially change a bet, strategy, pair, or not-yet decision. | State why it matters, what evidence would answer it, and which judgment could change. |
+| Open question | A specific unresolved fact that could materially change a bet, strategy, pair, or not-yet decision. | Name the obtainable fact, the source that would carry it, and the judgment it would flip. A mechanism that merely could operate, with no observed precursor and no counterevidence, is insufficient evidence, not an open question. |
 | Insufficient evidence | The record cannot establish or disqualify a mechanism. | Treat it as a disposition about the record, never as a claim about the company. |
 | Unsupported speculation | A proposed mechanism with no observed precursor, an invented causal step, or a hidden premise. | Exclude it from current and not yet. |
 
@@ -56,9 +56,12 @@ A current strategy must pass every applicable gate:
 - The mechanism does strategic work in the present.
 - The nearest plausible siblings have been resolved from evidence.
 - The mechanism is not a duplicate of another selected strategy.
+- The mechanism is not a category baseline. Name the reference class; if two comparable companies in it share the trait, the label fails.
 - Removing the strategy would make the account of the company's bet meaningfully less accurate.
 
 A capability may be real and still fail selection because it is peripheral, generic, duplicated, historical only, or immaterial.
+
+Being small and focused, being early, having named customers, and running lean are the default state of a startup. None of them is a mechanism until an outcome is traced to it. A specific, measured mechanism with a named counterparty outranks a general state, and a label that lacks only a comparative baseline is not weaker than a label that makes no testable claim at all.
 
 Prestige needs the brand to change a buyer's decision. A top-tier cap table is not Prestige.
 
@@ -75,7 +78,7 @@ Use these questions:
 | Evidence strength | How directly and comprehensively is the mechanism supported? |
 | Centrality | How much does it explain the company's actual bet and consequential choices? |
 | Materiality | Does it change buyer choice, economics, competitive conduct, or operations? |
-| Distinctiveness | Is it specific to this company or merely a category baseline? |
+| Distinctiveness | Is it specific to this company or merely a category baseline? Name the reference class. If two comparable companies in it share the trait, it is category baseline. |
 | Independence | Does it add a causal mechanism not already captured by another selected strategy? |
 
 Order current strategies primarily by centrality. Use evidence strength, materiality, and distinctiveness to explain close calls. No strong dimension can compensate for a failed selection gate.
@@ -141,7 +144,7 @@ Every strategy receives one disposition:
 | --- | --- |
 | Current | The mechanism operates now and passes every current-selection gate. |
 | Not yet | A present precursor, causal path, missing condition, promotion test, and approved horizon are established. |
-| Open question | A specific obtainable fact could materially change the mapping. |
+| Open question | A specific obtainable fact could materially change the mapping, and both the fact and the judgment it would flip are named. A mechanism that could operate but has no observed precursor is insufficient evidence. |
 | Insufficient evidence | The record cannot establish or refute the mechanism, and no material evidence-led question is available. |
 | Rejected | The mechanism is contradicted or fails materiality, independence, explanatory value, sibling fit, present relevance, or speculation controls. |
 | Not applicable | The mechanism's domain is structurally absent from the company bet. |

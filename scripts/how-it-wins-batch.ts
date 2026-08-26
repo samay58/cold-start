@@ -616,12 +616,24 @@ function summaryMarkdown(records: HowItWinsBatchCardRecord[]): string {
   const ok = records.filter((record) => record.status === "ok");
   const failed = records.filter((record) => record.status === "failed");
   const gateCards = ok.map((record) => ({ synthesis: { howItWins: record.filed } }));
-  const gate = strategyFrequencyGate(gateCards) as { passed: boolean; reads: number };
-  const { share } = strategyFrequency(gateCards) as { share: Record<string, number> };
-  const topStrategies = Object.entries(share)
-    .sort(([leftName, left], [rightName, right]) => right - left || leftName.localeCompare(rightName))
-    .slice(0, 5)
-    .map(([strategy, value]) => `${strategy} ${value.toFixed(2)}`);
+  const gate = strategyFrequencyGate(gateCards) as {
+    passed: boolean;
+    reads: number;
+    judged: number;
+    offenders: Array<{ strategy: string; share: number }>;
+    inQuestionOffenders: Array<{ strategy: string; share: number }>;
+  };
+  const { share, inQuestionShare } = strategyFrequency(gateCards) as {
+    share: Record<string, number>;
+    inQuestionShare: Record<string, number>;
+  };
+  const topShares = (shares: Record<string, number>) =>
+    Object.entries(shares)
+      .sort(([leftName, left], [rightName, right]) => right - left || leftName.localeCompare(rightName))
+      .slice(0, 5)
+      .map(([strategy, value]) => `${strategy} ${value.toFixed(2)}`);
+  const topStrategies = topShares(share);
+  const topInQuestion = topShares(inQuestionShare);
 
   const outTokens = ok.map(judgeOutputTokens);
   const latencies = ok.map(judgeLatencyMs);
@@ -666,8 +678,12 @@ function summaryMarkdown(records: HowItWinsBatchCardRecord[]): string {
   lines.push("");
   lines.push("## Strategy frequency gate");
   lines.push("");
-  lines.push(`${gate.passed ? "Passed" : "Failed"} over ${gate.reads} reads.`);
-  lines.push(`Top strategies: ${topStrategies.length > 0 ? topStrategies.join(", ") : "none"}.`);
+  const offenderText = (offenders: Array<{ strategy: string; share: number }>) =>
+    offenders.length > 0 ? offenders.map((entry) => `${entry.strategy} ${entry.share.toFixed(2)}`).join(", ") : "none";
+  lines.push(`${gate.passed ? "Passed" : "Failed"} over ${gate.reads} reads and ${gate.judged} judged cards.`);
+  lines.push(`Running offenders: ${offenderText(gate.offenders)}. In-question offenders: ${offenderText(gate.inQuestionOffenders)}.`);
+  lines.push(`Top running strategies: ${topStrategies.length > 0 ? topStrategies.join(", ") : "none"}.`);
+  lines.push(`Top in-question strategies: ${topInQuestion.length > 0 ? topInQuestion.join(", ") : "none"}.`);
   lines.push("");
   return lines.join("\n");
 }
