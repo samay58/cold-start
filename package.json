@@ -72,7 +72,6 @@
     "eval:session-plan": "tsx scripts/eval-session-plan.ts",
     "eval:how-it-wins": "tsx scripts/how-it-wins-corpus.ts",
     "eval:how-it-wins:batch": "tsx scripts/how-it-wins-batch.ts",
-    "benchmark:how-it-wins-topology": "tsx scripts/how-it-wins-topology-benchmark.ts",
     "review:how-it-wins-known": "tsx scripts/how-it-wins-known-company-review.ts"
   },
   "devDependencies": {
@@ -81,7 +80,6 @@
     "@next/env": "^15.5.15",
     "@next/eslint-plugin-next": "^15.5.18",
     "@types/node": "^22.15.0",
-    "ajv": "^8.20.0",
     "concurrently": "^9.2.1",
     "drizzle-orm": "^0.45.2",
     "eslint": "^9.39.4",
