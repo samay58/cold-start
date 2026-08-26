@@ -1,18 +1,14 @@
 import { z } from "zod";
 
 import {
-  HOW_IT_WINS_GROUPS,
   HOW_IT_WINS_STRATEGIES,
   howItWinsStrategyIdSchema,
-  type HowItWinsGroupId,
   type HowItWinsStrategyId
 } from "./how-it-wins";
 
 const nonemptyIds = z.array(z.string().min(1));
 const hashSchema = z.string().regex(/^[a-f0-9]{64}$/);
-const groupIds = HOW_IT_WINS_GROUPS.map((group) => group.id) as [HowItWinsGroupId, ...HowItWinsGroupId[]];
 
-export const howItWinsGroupIdSchema = z.enum(groupIds);
 export const howItWinsDispositionSchema = z.enum([
   "current",
   "not_yet",
@@ -148,9 +144,7 @@ export const howItWinsOverrideSchema = z.object({
 
 export const howItWinsJudgeCallTraceSchema = z.object({
   callId: z.string().min(1),
-  stage: z.enum(["bet_map", "group_scout", "global_judge", "critic", "adjudication"]),
-  groupId: howItWinsGroupIdSchema.optional(),
-  bundleId: z.string().min(1).optional(),
+  stage: z.enum(["global_judge", "critic", "adjudication"]),
   provider: z.string().min(1),
   model: z.string().min(1),
   inputTokens: z.number().int().nonnegative(),
@@ -167,20 +161,6 @@ export const howItWinsJudgeCallTraceSchema = z.object({
 }).superRefine((call, ctx) => {
   if (call.actualCostUsd === null && call.estimatedCostUsd === null) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["estimatedCostUsd"], message: "actual or estimated cost is required" });
-  }
-  if (call.stage === "group_scout" && !call.groupId && !call.bundleId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["groupId"],
-      message: "group scout trace requires a canonical group or benchmark bundle"
-    });
-  }
-  if (call.groupId && call.bundleId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["bundleId"],
-      message: "a scout trace cannot be both a canonical group and a benchmark bundle"
-    });
   }
 });
 

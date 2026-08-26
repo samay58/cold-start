@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Tool } from "@anthropic-ai/sdk/resources/messages";
-import { createHash } from "node:crypto";
 import {
   HowItWinsJudgmentClosedError,
   type GenerationLlmCallTrace,
@@ -24,30 +23,15 @@ import { parseModelString, quirksForModel } from "./llm-provider";
 import { isTransientLlmError } from "./transient-error";
 
 const TOOL_NAME = "emit_how_it_wins_judgment";
-const HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION = "2026-08-26.1";
 
 const STAGE_TIMEOUT_MS: Record<HowItWinsJudgeCallRequest["stage"], number> = {
-  bet_map: 120_000,
-  group_scout: 120_000,
   global_judge: 360_000,
   critic: 180_000,
   adjudication: 180_000
 };
 
-const STAGE_RESERVATION_USD: Record<HowItWinsJudgeCallRequest["stage"], number> = {
-  bet_map: 0.5,
-  group_scout: 0.03,
-  global_judge: 2.25,
-  critic: 0.25,
-  adjudication: 0.75
-};
-
-export function benchmarkTimeoutMsForStage(stage: HowItWinsJudgeCallRequest["stage"]) {
+function benchmarkTimeoutMsForStage(stage: HowItWinsJudgeCallRequest["stage"]) {
   return STAGE_TIMEOUT_MS[stage];
-}
-
-export function benchmarkStageReservationUsd(stage: HowItWinsJudgeCallRequest["stage"]) {
-  return STAGE_RESERVATION_USD[stage];
 }
 
 const judgmentContract = `The judgment object is a compact semantic transport. Code assigns durable bet, claim, question, disagreement, and override identifiers. Do not create or return those identifiers. Do not repeat evidenceCutoff or evidenceRegistry because code injects the frozen packet exactly.
@@ -77,8 +61,6 @@ betRevision: return it only when a dispute names a bet. It carries replacement m
 Every evidence-reference field must use the short supplied handles such as ev_001. Keep reasons short and specific.`;
 
 const stageContracts: Record<HowItWinsJudgeCallRequest["stage"], string> = {
-  bet_map: `Return materialBets only. Each record needs statement, scope, supportingEvidenceIds, and scopeReasons. Code assigns stable bet IDs.`,
-  group_scout: `Return scopeId exactly as supplied. Return one evaluation per supplied strategy, in supplied order. Each evaluation needs strategyId, recommendation, mechanism, evidenceIds, siblingCandidateIds, siblingResolutions, and reason. Return betChallenges. Sibling resolutions need strategyId, decidingQuestion, reason, and evidenceIds.`,
   global_judge: `${judgmentContract}\nReturn the judgment fields directly as tool parameters. Do not wrap or stringify them inside a judgment field. A monolith request has no frozen betMap, so include materialBets. A multi-stage request supplies a frozen betMap owned by code, so omit materialBets. Only when the frozen map is wrong, return betRevision with replacement materialBets, a specific reason, and supporting evidenceIds. Code records the directly evaluated strategy IDs after validating that all 80 rows are present.`,
   critic: `Return findings. Each finding needs kind, material, summary, strategyIds, and evidenceIds. Code assigns finding IDs. kind is bet, strategy, pair, not_yet, or evidence. Return an empty findings array when no material or nonmaterial error is found.`,
   adjudication: adjudicationContract
@@ -266,73 +248,13 @@ function hintProseLengths(value: unknown) {
   for (const child of Object.values(object)) hintProseLengths(child);
 }
 
-function localBetRefsForRequest(request: HowItWinsJudgeCallRequest) {
-  if (!isMultiStageGlobal(request)) return null;
-  const payload = record(request.payload);
-  const betMap = record(payload?.betMap);
-  const materialBets = Array.isArray(betMap?.materialBets) ? betMap.materialBets : [];
-  const refs = materialBets.flatMap((value) => {
-    const bet = record(value);
-    return Number.isInteger(bet?.betRef) && Number(bet?.betRef) > 0 ? [Number(bet?.betRef)] : [];
-  });
-  if (refs.length !== materialBets.length || new Set(refs).size !== refs.length) {
-    throw new Error("multi-stage global request needs unique local bet references");
-  }
-  return refs;
-}
-
-function restrictLocalBetReferences(value: unknown, refs: readonly number[]) {
-  if (!value || typeof value !== "object") return;
-  const object = value as Record<string, unknown>;
-  for (const [key, child] of Object.entries(object)) {
-    if (key === "betRefs") {
-      const field = record(child);
-      if (!field || field.type !== "array") throw new Error("invalid local bet-reference schema");
-      const items = record(field.items);
-      field.items = { ...(items ?? { type: "integer" }), enum: [...refs] };
-      continue;
-    }
-    restrictLocalBetReferences(child, refs);
-  }
-}
-
-function assertLocalBetReferences(value: unknown, refs: readonly number[], path = "output") {
-  if (Array.isArray(value)) {
-    value.forEach((child, index) => assertLocalBetReferences(child, refs, `${path}[${index}]`));
-    return;
-  }
-  const object = record(value);
-  if (!object) return;
-  for (const [key, child] of Object.entries(object)) {
-    const childPath = `${path}.${key}`;
-    if (key === "betRefs") {
-      if (!Array.isArray(child)) throw new Error(`${childPath} must be a local bet-reference array`);
-      for (const ref of child) {
-        if (typeof ref !== "number" || !refs.includes(ref)) {
-          throw new Error(`${childPath} contains unknown local bet reference ${String(ref)}`);
-        }
-      }
-      continue;
-    }
-    assertLocalBetReferences(child, refs, childPath);
-  }
-}
-
-function isMultiStageGlobal(request: HowItWinsJudgeCallRequest) {
-  return request.stage === "global_judge" && record(request.payload)?.betMap != null;
-}
-
 export function benchmarkToolSchemaForRequest(request: HowItWinsJudgeCallRequest) {
-  const schema = structuredClone(howItWinsJudgeToolJsonSchema(request.stage, {
-    multiStage: isMultiStageGlobal(request)
-  })) as Record<string, unknown>;
+  const schema = structuredClone(howItWinsJudgeToolJsonSchema(request.stage)) as Record<string, unknown>;
   // The schema no longer depends on the packet, but the packet still has to be a legal registry
   // that fits the handle universe before a request built from it goes to the wire.
   evidenceHandlesForRequest(request);
   restrictEvidenceReferences(schema);
   hintProseLengths(schema);
-  const localBetRefs = localBetRefsForRequest(request);
-  if (localBetRefs) restrictLocalBetReferences(schema, localBetRefs);
   return schema;
 }
 
@@ -342,40 +264,6 @@ function toolFor(request: HowItWinsJudgeCallRequest): Tool {
     description: "Return the required structured judgment-stage output.",
     input_schema: benchmarkToolSchemaForRequest(request)
   } as Tool;
-}
-
-export function benchmarkTransportHash() {
-  const fixturePacket = {
-    cutoff: "2000-01-01T00:00:00.000Z",
-    evidence: [{ evidenceId: "__evidence_id__" }]
-  };
-  const schemaRequest = (
-    stage: HowItWinsJudgeCallRequest["stage"],
-    betMap?: unknown
-  ): HowItWinsJudgeCallRequest => ({
-    callId: `transport:${stage}`,
-    stage,
-    attempt: 1,
-    prompt: "transport contract",
-    payload: {
-      evidencePacket: fixturePacket,
-      ...(stage === "global_judge" ? { betMap: betMap ?? null } : {})
-    }
-  });
-  return createHash("sha256").update(JSON.stringify({
-    version: HOW_IT_WINS_BENCHMARK_TRANSPORT_VERSION,
-    stageSchemas: {
-      betMap: benchmarkToolSchemaForRequest(schemaRequest("bet_map")),
-      groupScout: benchmarkToolSchemaForRequest(schemaRequest("group_scout")),
-      monolith: benchmarkToolSchemaForRequest(schemaRequest("global_judge")),
-      multiStageGlobal: benchmarkToolSchemaForRequest(schemaRequest("global_judge", { materialBets: [] })),
-      critic: benchmarkToolSchemaForRequest(schemaRequest("critic")),
-      adjudication: benchmarkToolSchemaForRequest(schemaRequest("adjudication"))
-    },
-    stageContracts,
-    stageTimeoutMs: STAGE_TIMEOUT_MS,
-    stageReservationUsd: STAGE_RESERVATION_USD
-  })).digest("hex");
 }
 
 function toolInput(message: { content: Array<{ type: string; name?: string; input?: unknown }> }) {
@@ -619,45 +507,6 @@ function unwrapUnambiguousArray(
   });
 }
 
-function materialBetsFromToolOutput(raw: unknown) {
-  let value = raw;
-  let jsonLayers = 0;
-  if (typeof value === "string") {
-    try {
-      value = JSON.parse(value) as unknown;
-      jsonLayers = 1;
-    } catch {
-      throw new Error(`bet_map tool result must contain one JSON object or array: ${transportPreview(value)}`);
-    }
-    if (typeof value === "string") {
-      throw new Error(`bet_map tool result may contain only one JSON string layer: ${transportPreview(value)}`);
-    }
-  }
-  if (Array.isArray(value)) return value;
-  const output = record(value);
-  if (!output) {
-    throw new Error(`bet_map tool result must contain one JSON object or array: ${transportPreview(value)}`);
-  }
-  if (Object.hasOwn(output, "materialBets")) {
-    return unwrapUnambiguousArray(
-      removeExactParameterPrefix(output.materialBets, "materialBets"),
-      "bet_map materialBets",
-      {
-      jsonLayers,
-      objectLayers: 0
-      }
-    );
-  }
-  const entries = Object.entries(output);
-  if (entries.length !== 1) {
-    throw new Error(`bet_map tool result needs materialBets: ${transportPreview(output)}`);
-  }
-  return unwrapUnambiguousArray(entries[0]![1], "bet_map materialBets", {
-    jsonLayers,
-    objectLayers: 0
-  });
-}
-
 const COMPACT_ROW_DISPOSITIONS = new Set(["insufficient_evidence", "rejected", "not_applicable"]);
 const COMPACT_ROW_KEYS = new Set(["strategyId", "disposition", "evidenceGate", "dispositionReason"]);
 const OPEN_QUESTION_ROW_KEYS = new Set([
@@ -717,12 +566,6 @@ function trimLeanStrategyRows(value: Record<string, unknown>): Record<string, un
 
 export function normalizeBenchmarkToolOutput(request: HowItWinsJudgeCallRequest, raw: unknown) {
   const toolSchema = benchmarkToolSchemaForRequest(request);
-  if (request.stage === "bet_map") {
-    const normalized = normalizeStructuredTransport({
-      materialBets: materialBetsFromToolOutput(raw)
-    }, toolSchema, "bet_map", "bet_map tool result");
-    return restoreEvidenceReferences(request, normalized as Record<string, unknown>);
-  }
   const normalized = normalizeStructuredTransport(
     unwrapOneJsonObject(raw, `${request.stage} tool result`),
     toolSchema,
@@ -732,22 +575,13 @@ export function normalizeBenchmarkToolOutput(request: HowItWinsJudgeCallRequest,
   if (request.stage === "critic" && !Object.hasOwn(normalized, "findings")) {
     throw new Error("critic tool result needs findings");
   }
-  if (request.stage === "group_scout") {
-    if (!Object.hasOwn(normalized, "evaluations") || !Object.hasOwn(normalized, "betChallenges")) {
-      throw new Error("group_scout tool result needs evaluations and betChallenges");
-    }
-    normalized.scopeId = request.groupId ?? request.bundleId;
-  }
   if (
     (request.stage === "global_judge" || request.stage === "adjudication")
     && !Object.hasOwn(normalized, "strategyEvaluations")
   ) {
     throw new Error(`${request.stage} tool result needs strategyEvaluations`);
   }
-  const trimmed = trimLeanStrategyRows(normalized);
-  const localBetRefs = localBetRefsForRequest(request);
-  if (localBetRefs) assertLocalBetReferences(trimmed, localBetRefs);
-  return restoreEvidenceReferences(request, trimmed);
+  return restoreEvidenceReferences(request, trimLeanStrategyRows(normalized));
 }
 
 type JudgeTransportTimers = {
@@ -800,8 +634,6 @@ function mapTrace(
   return {
     callId: request.callId,
     stage: request.stage,
-    ...(request.groupId ? { groupId: request.groupId } : {}),
-    ...(request.bundleId ? { bundleId: request.bundleId } : {}),
     provider: trace.provider ?? "anthropic",
     model: trace.model,
     inputTokens: trace.inputTokens ?? 0,
@@ -974,18 +806,6 @@ function createHowItWinsJudgeTransport(input: JudgeTransportInput): HowItWinsJud
       callDeadline.clear();
     }
   };
-}
-
-export function createBenchmarkModelAdapter(input: {
-  client: Anthropic;
-  model: string;
-  telemetry?: AnthropicTelemetrySink | undefined;
-  onOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
-  onRawOutput?: (request: HowItWinsJudgeCallRequest, output: unknown) => void;
-  timeoutMsForStage?: (stage: HowItWinsJudgeCallRequest["stage"]) => number;
-  timers?: JudgeTransportTimers;
-}): HowItWinsJudgeAdapter {
-  return createHowItWinsJudgeTransport(input);
 }
 
 export function createHowItWinsJudgeModelAdapter(input: {

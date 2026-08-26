@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import {
-  HOW_IT_WINS_GROUPS,
   HOW_IT_WINS_STRATEGIES,
   HowItWinsJudgmentClosedError,
   adjudicationPatchSchema,
@@ -10,8 +9,6 @@ import {
   howItWinsEvidenceItemSchema,
   howItWinsJudgeCallTraceSchema,
   howItWinsJudgmentSchema,
-  howItWinsMaterialBetSchema,
-  howItWinsSiblingResolutionSchema,
   howItWinsStrategyIdForName,
   howItWinsStrategyIdSchema,
   materializeSemanticJudgment,
@@ -21,9 +18,7 @@ import {
   semanticJudgmentForModel,
   semanticJudgmentFromBody,
   semanticJudgmentSchema,
-  semanticMaterialBetSchema,
   stripUnknownNullTransportFields,
-  type HowItWinsGroupId,
   type HowItWinsJudgeCallTrace,
   type HowItWinsJudgment,
   type HowItWinsJudgmentBody,
@@ -35,10 +30,7 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 import {
   HOW_IT_WINS_ADJUDICATION_PROMPT,
-  HOW_IT_WINS_BET_MAP_PROMPT,
   HOW_IT_WINS_CRITIC_PROMPT,
-  HOW_IT_WINS_GLOBAL_JUDGE_PROMPT,
-  HOW_IT_WINS_GROUP_SCOUT_PROMPT,
   HOW_IT_WINS_MONOLITH_PROMPT,
   HOW_IT_WINS_JUDGE_PROMPTS
 } from "./how-it-wins-judge-prompts";
@@ -74,13 +66,6 @@ export function hashHowItWinsJudgeValue(value: unknown) {
 
 export const HOW_IT_WINS_JUDGE_PROMPT_HASH = hashHowItWinsJudgeValue(HOW_IT_WINS_JUDGE_PROMPTS);
 
-export type HowItWinsJudgeScope = {
-  id: string;
-  strategies: readonly HowItWinsStrategy[];
-  groupId?: HowItWinsGroupId;
-  bundleId?: string;
-};
-
 export type HowItWinsJudgeStrategyRule = {
   strategyId: HowItWinsStrategyId;
   name: string;
@@ -106,64 +91,11 @@ export function howItWinsJudgePromptHash(rules: HowItWinsJudgeRules, options?: {
   return hashHowItWinsJudgeValue({ prompts: HOW_IT_WINS_JUDGE_PROMPTS, rules, refinement: options?.refinement ?? true });
 }
 
-const bundleGroupIds: ReadonlyArray<{ id: string; groups: readonly HowItWinsGroupId[] }> = [
-  { id: "bundle_1", groups: ["accumulation", "price", "defense"] },
-  { id: "bundle_2", groups: ["time", "uniqueness", "accreditation", "transformation"] },
-  { id: "bundle_3", groups: ["offense", "deception", "timing"] },
-  { id: "bundle_4", groups: ["collaboration", "speed_and_scale", "ease"] }
-];
-
-export const HOW_IT_WINS_FOUR_BUNDLES = bundleGroupIds.map((bundle) => ({
-  id: bundle.id,
-  groupIds: bundle.groups,
-  strategies: HOW_IT_WINS_STRATEGIES.filter((strategy) => bundle.groups.includes(strategy.group))
-}));
-
-export function howItWinsGroupScopes(): HowItWinsJudgeScope[] {
-  return HOW_IT_WINS_GROUPS.map((group) => ({
-    id: group.id,
-    strategies: group.strategies,
-    groupId: group.id
-  }));
-}
-
-export function howItWinsFourBundleScopes(): HowItWinsJudgeScope[] {
-  return HOW_IT_WINS_FOUR_BUNDLES.map((bundle) => ({
-    id: bundle.id,
-    strategies: bundle.strategies,
-    bundleId: bundle.id
-  }));
-}
-
 const evidencePacketSchema = z.object({
   cutoff: z.string().datetime(),
   evidence: z.array(howItWinsEvidenceItemSchema).min(1),
   context: z.unknown()
 });
-
-const semanticBetMapSchema = z.object({
-  materialBets: z.array(semanticMaterialBetSchema).min(1)
-}).strict();
-const betMapSchema = z.object({ materialBets: z.array(howItWinsMaterialBetSchema).min(1) }).strict();
-
-const scoutEvaluationSchema = z.object({
-  strategyId: howItWinsStrategyIdSchema,
-  recommendation: z.enum(["supported", "rejected", "open_question"]),
-  mechanism: z.string().min(1).nullable(),
-  evidenceIds: z.array(z.string().min(1)),
-  siblingCandidateIds: z.array(howItWinsStrategyIdSchema),
-  siblingResolutions: z.array(howItWinsSiblingResolutionSchema),
-  reason: z.string().min(1)
-}).strict();
-
-const scoutOutputSchema = z.object({
-  scopeId: z.string().min(1),
-  evaluations: z.array(scoutEvaluationSchema),
-  betChallenges: z.array(z.object({
-    summary: z.string().min(1),
-    evidenceIds: z.array(z.string().min(1)).min(1)
-  }).strict())
-}).strict();
 
 const criticFindingSchema = z.object({
   kind: z.enum(["bet", "strategy", "pair", "not_yet", "evidence"]),
@@ -181,23 +113,12 @@ function modelFacingJudgmentSchema() {
   });
 }
 
-function howItWinsJudgeStageSchema(
-  stage: HowItWinsJudgeCallTrace["stage"],
-  options: { multiStage?: boolean } = {}
-) {
+function howItWinsJudgeStageSchema(stage: HowItWinsJudgeCallTrace["stage"]) {
   switch (stage) {
-    case "bet_map":
-      return semanticBetMapSchema;
-    case "group_scout":
-      return scoutOutputSchema;
     case "critic":
       return criticOutputSchema;
     case "global_judge":
-      return options.multiStage
-        ? globalJudgmentTransportSchema.omit({ materialBets: true }).extend({
-          strategyEvaluations: modelFacingJudgmentSchema().shape.strategyEvaluations
-        })
-        : modelFacingJudgmentSchema().required({ materialBets: true });
+      return modelFacingJudgmentSchema().required({ materialBets: true });
     case "adjudication":
       return adjudicationPatchSchema;
   }
@@ -216,11 +137,8 @@ function jsonSchema202012(value: unknown): unknown {
   return converted;
 }
 
-export function howItWinsJudgeToolJsonSchema(
-  stage: HowItWinsJudgeCallTrace["stage"],
-  options: { multiStage?: boolean } = {}
-) {
-  const { $schema: _schema, ...json } = zodToJsonSchema(howItWinsJudgeStageSchema(stage, options), {
+export function howItWinsJudgeToolJsonSchema(stage: HowItWinsJudgeCallTrace["stage"]) {
+  const { $schema: _schema, ...json } = zodToJsonSchema(howItWinsJudgeStageSchema(stage), {
     $refStrategy: "none",
     target: "jsonSchema7"
   });
@@ -236,8 +154,6 @@ export type HowItWinsJudgeCallRequest = {
   callId: string;
   stage: HowItWinsJudgeCallTrace["stage"];
   attempt: number;
-  groupId?: HowItWinsGroupId;
-  bundleId?: string;
   prompt: string;
   payload: unknown;
 };
@@ -266,10 +182,6 @@ export type HowItWinsJudgeInput = {
   promptHash: string;
 };
 
-function sameStrings(left: readonly string[], right: readonly string[]) {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function assertExactVocabulary(vocabulary: readonly HowItWinsStrategy[]) {
   if (vocabulary.length !== HOW_IT_WINS_STRATEGIES.length) {
     throw new HowItWinsJudgmentClosedError(`expected ${HOW_IT_WINS_STRATEGIES.length} canonical strategies`);
@@ -288,19 +200,6 @@ function assertExactVocabulary(vocabulary: readonly HowItWinsStrategy[]) {
   });
 }
 
-function assertExactScout(
-  output: z.infer<typeof scoutOutputSchema>,
-  scopeId: string,
-  strategies: readonly HowItWinsStrategy[]
-) {
-  if (output.scopeId !== scopeId) throw new Error(`scout returned the wrong scope for ${scopeId}`);
-  const expected = strategies.map((strategy) => strategy.id);
-  const actual = output.evaluations.map((entry) => entry.strategyId);
-  if (!sameStrings(actual, expected) || new Set(actual).size !== actual.length) {
-    throw new Error(`scout did not return every ${scopeId} strategy once`);
-  }
-}
-
 function assertExactRules(rules: HowItWinsJudgeRules) {
   if (!rules.standard.trim() || !rules.actualBetStandard.trim()) {
     throw new HowItWinsJudgmentClosedError("authoritative judgment rules are missing");
@@ -316,62 +215,12 @@ function assertExactRules(rules: HowItWinsJudgeRules) {
   });
 }
 
-async function mapBounded<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>) {
-  const output = new Array<R>(items.length);
-  let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (true) {
-      const index = nextIndex;
-      nextIndex += 1;
-      if (index >= items.length) return;
-      output[index] = await fn(items[index]!);
-    }
-  });
-  await Promise.all(workers);
-  return output;
-}
-
 function assertFrozenEvidence(body: HowItWinsJudgmentBody, packet: z.infer<typeof evidencePacketSchema>) {
   if (body.evidenceCutoff !== packet.cutoff) {
     throw new HowItWinsJudgmentClosedError("the judgment changed the evidence cutoff");
   }
   if (hashHowItWinsJudgeValue(body.evidenceRegistry) !== hashHowItWinsJudgeValue(packet.evidence)) {
     throw new HowItWinsJudgmentClosedError("the judgment changed the frozen evidence registry");
-  }
-}
-
-function requiredOverride(
-  body: HowItWinsJudgmentBody,
-  strategyId: HowItWinsStrategyId,
-  from: string
-) {
-  const found = body.overrides.find(
-    (entry) => entry.kind === "strategy" && entry.strategyId === strategyId && entry.from === from
-  );
-  if (!found) {
-    throw new HowItWinsJudgmentClosedError(`global override for ${strategyId} is missing a cited reason`);
-  }
-}
-
-function assertScoutOverrides(
-  body: HowItWinsJudgmentBody,
-  scouts: Array<z.infer<typeof scoutOutputSchema>>
-) {
-  const finalById = new Map(body.strategyEvaluations.map((entry) => [entry.strategyId, entry]));
-  for (const scout of scouts) {
-    for (const candidate of scout.evaluations) {
-      const final = finalById.get(candidate.strategyId);
-      if (!final) continue;
-      if (candidate.recommendation === "supported" && final.evidenceGate === "fail") {
-        requiredOverride(body, candidate.strategyId, "supported");
-      }
-      if (candidate.recommendation === "rejected" && final.disposition === "current") {
-        requiredOverride(body, candidate.strategyId, "rejected");
-      }
-      if (candidate.recommendation === "open_question" && final.disposition !== "open_question") {
-        requiredOverride(body, candidate.strategyId, "open_question");
-      }
-    }
   }
 }
 
@@ -403,16 +252,6 @@ function contractViolationMessage(error: unknown) {
     return error.issues.map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`).join("; ");
   }
   return error instanceof Error ? error.message : String(error);
-}
-
-function betMapForModel(betMap: z.infer<typeof betMapSchema> | null) {
-  if (!betMap) return null;
-  return {
-    materialBets: betMap.materialBets.map(({ betId: _betId, ...bet }, index) => ({
-      betRef: index + 1,
-      ...bet
-    }))
-  };
 }
 
 type DecidingQuestionLookup = (strategyId: HowItWinsStrategyId) => string | undefined;
@@ -457,47 +296,23 @@ function betRevisionOverride(input: {
   };
 }
 
-function assertBetRevisionRecorded(
-  body: HowItWinsJudgmentBody,
-  betMap: z.infer<typeof betMapSchema>
-) {
-  if (hashHowItWinsJudgeValue(body.materialBets) === hashHowItWinsJudgeValue(betMap.materialBets)) return;
-  if (!body.overrides.some((entry) => entry.kind === "bet")) {
-    throw new HowItWinsJudgmentClosedError("a revised bet map needs a cited override reason");
-  }
-}
-
 function parseGlobalJudgment(
   output: unknown,
-  betMap: z.infer<typeof betMapSchema> | null,
   packet: z.infer<typeof evidencePacketSchema>,
   decidingQuestionFor: DecidingQuestionLookup,
   requiredSiblingIds: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>
 ) {
-  const transport = globalJudgmentTransportSchema.parse(stripUnknownNullTransportFields(output));
-  const { betRevision, ...parsed } = transport;
+  // The stage contract still names betRevision, which adjudication owns. A judgment that returns
+  // one anyway is read and its revision dropped, rather than costing the one paid re-ask.
+  const { betRevision: _betRevision, ...parsed } = globalJudgmentTransportSchema.parse(
+    stripUnknownNullTransportFields(output)
+  );
   const { semantic, repairs } = repairSemanticJudgment(parsed, { requiredSiblingIds });
-  if (!betMap) {
-    if (!semantic.materialBets) {
-      throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
-    }
-    const bets = assignMaterialBetIds(semantic.materialBets);
-    return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
+  if (!semantic.materialBets) {
+    throw new HowItWinsJudgmentClosedError("monolith judgment requires material bets");
   }
-  if (!betRevision) {
-    const bets = structuredClone(betMap.materialBets);
-    return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
-  }
-  const materialBets = assignMaterialBetIds(betRevision.materialBets);
-  const body = materializeFromPacket(semantic, materialBets, packet, decidingQuestionFor, [
-    betRevisionOverride({
-      from: betMap.materialBets,
-      to: materialBets,
-      reason: betRevision.reason,
-      evidenceIds: betRevision.evidenceIds
-    })
-  ]);
-  return { body, repairs };
+  const bets = assignMaterialBetIds(semantic.materialBets);
+  return { body: materializeFromPacket(semantic, bets, packet, decidingQuestionFor), repairs };
 }
 
 type HowItWinsRefinementRecord = {
@@ -512,11 +327,9 @@ function refinementNote(label: string, error: unknown) {
 }
 
 export function createHowItWinsJudge(config: {
-  adapters: { strong: HowItWinsJudgeAdapter; scout: HowItWinsJudgeAdapter; critic: HowItWinsJudgeAdapter };
+  adapters: { strong: HowItWinsJudgeAdapter; critic: HowItWinsJudgeAdapter };
   rules: HowItWinsJudgeRules;
-  scopes?: HowItWinsJudgeScope[];
   siblingMap?: Partial<Record<HowItWinsStrategyId, readonly HowItWinsStrategyId[]>>;
-  maxScoutConcurrency?: number;
   telemetry?: HowItWinsJudgeTelemetrySink;
   // Named at construction so a same-provider critic costs nothing. The old check compared
   // provider strings on the returned traces, after both paid calls had already run.
@@ -530,13 +343,6 @@ export function createHowItWinsJudge(config: {
   assertExactRules(config.rules);
   if (config.providers && config.providers.strong === config.providers.critic) {
     throw new HowItWinsJudgmentClosedError("critic must use a different provider from the global judge");
-  }
-  const scopes = config.scopes ?? howItWinsGroupScopes();
-  const monolith = scopes.length === 0;
-  const maximumConcurrency = scopes.length || 1;
-  const concurrency = config.maxScoutConcurrency ?? maximumConcurrency;
-  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > maximumConcurrency) {
-    throw new Error(`maxScoutConcurrency must be between 1 and ${maximumConcurrency}`);
   }
   const rubricById = new Map(config.rules.strategyRubric.map((row) => [row.strategyId, row]));
   const decidingQuestionFor: DecidingQuestionLookup = (strategyId) =>
@@ -579,8 +385,6 @@ export function createHowItWinsJudge(config: {
         trace.callId !== request.callId ||
         trace.stage !== request.stage ||
         trace.retryCount < request.attempt - 1 ||
-        (request.groupId && trace.groupId !== request.groupId) ||
-        (request.bundleId && trace.bundleId !== request.bundleId) ||
         (result.ok && trace.outcome !== "ok") ||
         (!result.ok && trace.outcome !== "failed")
       ) {
@@ -616,84 +420,22 @@ export function createHowItWinsJudge(config: {
       return invoke(adapter, correctedRequest(request, first.repairInstruction, "2"));
     };
 
-    let betMap: z.infer<typeof betMapSchema> | null = null;
-    let availableScouts: Array<z.infer<typeof scoutOutputSchema>> = [];
-
-    if (!monolith) {
-      const betRequest: HowItWinsJudgeCallRequest = {
-        callId: "how-it-wins:bet-map",
-        stage: "bet_map",
-        attempt: 1,
-        prompt: HOW_IT_WINS_BET_MAP_PROMPT,
-        payload: { evidencePacket: packet, rules: config.rules.actualBetStandard }
-      };
-      const betResult = await invokeTransport(config.adapters.strong, betRequest);
-      if (!betResult.ok) throw new HowItWinsJudgmentClosedError("bet mapping failed");
-      const semanticBetMap = semanticBetMapSchema.parse(stripUnknownNullTransportFields(betResult.output));
-      betMap = betMapSchema.parse({ materialBets: assignMaterialBetIds(semanticBetMap.materialBets) });
-
-      const scoutResults = await mapBounded(scopes, concurrency, async (scope) => {
-        const scopeIds = new Set(scope.strategies.map((strategy) => strategy.id));
-        const siblingIds = Array.from(new Set(
-          scope.strategies.flatMap((strategy) => siblingMap[strategy.id] ?? [])
-        )).filter((strategyId) => !scopeIds.has(strategyId));
-        for (let attempt = 1; attempt <= 2; attempt += 1) {
-          const request: HowItWinsJudgeCallRequest = {
-            callId: `how-it-wins:scout:${scope.id}:${attempt}`,
-            stage: "group_scout",
-            ...(scope.groupId ? { groupId: scope.groupId } : {}),
-            ...(scope.bundleId ? { bundleId: scope.bundleId } : {}),
-            attempt,
-            prompt: HOW_IT_WINS_GROUP_SCOUT_PROMPT,
-            payload: {
-              scopeId: scope.id,
-              evidencePacket: packet,
-              betMap: betMapForModel(betMap),
-              strategies: scope.strategies,
-              rubric: scope.strategies.map((strategy) => rubricById.get(strategy.id)),
-              siblingRubric: siblingIds.map((strategyId) => rubricById.get(strategyId))
-            }
-          };
-          const result = await invoke(config.adapters.scout, request);
-          if (!result.ok) {
-            if (!result.retryable) break;
-            continue;
-          }
-          const parsed = scoutOutputSchema.safeParse(stripUnknownNullTransportFields(result.output));
-          if (!parsed.success) continue;
-          try {
-            assertExactScout(parsed.data, scope.id, scope.strategies);
-            return parsed.data;
-          } catch {
-            continue;
-          }
-        }
-        return null;
-      });
-
-      availableScouts = scoutResults.filter(
-        (result): result is z.infer<typeof scoutOutputSchema> => result !== null
-      );
-    }
-
-    const coveredIds = new Set(availableScouts.flatMap((scout) => scout.evaluations.map((entry) => entry.strategyId)));
-    const missingStrategyIds = HOW_IT_WINS_STRATEGIES
-      .map((strategy) => strategy.id)
-      .filter((strategyId) => !coveredIds.has(strategyId));
-
+    // betMap, scouts, and missingStrategyIds are what the retired multi-stage topology fed this
+    // call. The one call left always saw them at these three values, so they stay as written
+    // rather than change what a production judge reads.
     const globalRequest: HowItWinsJudgeCallRequest = {
-      callId: monolith ? "how-it-wins:monolith" : "how-it-wins:global",
+      callId: "how-it-wins:monolith",
       stage: "global_judge",
       attempt: 1,
-      prompt: monolith ? HOW_IT_WINS_MONOLITH_PROMPT : HOW_IT_WINS_GLOBAL_JUDGE_PROMPT,
+      prompt: HOW_IT_WINS_MONOLITH_PROMPT,
       payload: {
         evidencePacket: packet,
-        betMap: betMapForModel(betMap),
+        betMap: null,
         vocabulary: input.vocabulary,
         rules: config.rules,
         requiredSiblingIdsByStrategy: siblingMap,
-        scouts: availableScouts,
-        missingStrategyIds
+        scouts: [],
+        missingStrategyIds: HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id)
       }
     };
     const globalResult = await invokeTransport(config.adapters.strong, globalRequest);
@@ -701,9 +443,8 @@ export function createHowItWinsJudge(config: {
     // The deterministic repair pass runs first, inside parseGlobalJudgment. Whatever survives it
     // is a contradiction that needs evidence to settle, which only the model can supply.
     const acceptGlobalJudgment = (output: unknown) => {
-      const accepted = parseGlobalJudgment(output, betMap, packet, decidingQuestionFor, siblingMap);
+      const accepted = parseGlobalJudgment(output, packet, decidingQuestionFor, siblingMap);
       assertFrozenEvidence(accepted.body, packet);
-      assertScoutOverrides(accepted.body, availableScouts);
       assertRequiredSiblingResolutions(accepted.body, siblingMap);
       return accepted;
     };
@@ -857,9 +598,7 @@ export function createHowItWinsJudge(config: {
             ]
           );
           assertFrozenEvidence(adjudicated, packet);
-          assertScoutOverrides(adjudicated, availableScouts);
           assertRequiredSiblingResolutions(adjudicated, siblingMap);
-          if (betMap) assertBetRevisionRecorded(adjudicated, betMap);
           finalBody = adjudicated;
           refinement.adjudication = "ok";
           refinement.repairs.push(...repaired.repairs);

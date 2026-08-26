@@ -1,26 +1,8 @@
-export const HOW_IT_WINS_BET_MAP_PROMPT = `Identify the company's material strategic bet or bets before considering strategy labels.
-
-Use only the supplied evidence. A bet must explain consequential product, customer, economic, and operating choices. Remove the most vivid fact and check whether the bet still explains the company. Split the company only when combining activities would conceal a material difference in how they expect to win.
-
-Return structured data only. Cite supplied evidence handles. Return each bet's meaning, scope, support, and split reasons. Do not create identifiers. Do not name or choose any strategy.`;
-
-export const HOW_IT_WINS_GROUP_SCOUT_PROMPT = `Evaluate every supplied strategy in the assigned scope against the frozen bet map and evidence.
-
-Positive support must show the mechanism, not a proxy. Missing evidence is insufficient evidence, never a negative claim. Record the plain mechanism, evidence IDs, close sibling candidates, the deciding distinction, and disqualifying evidence. Sibling rubric rows supplied with the request are part of the comparison, including siblings outside this scope. A scout may challenge the bet map when evidence does not fit it.
-
-Return structured data only. Use canonical strategy IDs and inline evidence handles. Do not create claim or bet identifiers. Do not rank a company-wide current set.`;
-
 export const HOW_IT_WINS_MONOLITH_PROMPT = `Produce the complete structured all-80 judgment in one call.
 
 First identify the company's material bet or bets without using strategy labels. Then evaluate every canonical strategy against that frozen bet map. Every strategy receives exactly one disposition. There is no strategy-count target or cap. Apply the supplied authoritative standard and strategy rubric exactly. Absence of data is never analysis. Treat the unusual pair as secondary and optional. A current strategy passes every current gate it reports: evidence gate pass, material, independent, present relevance current, and a present outcome or bridge. A not-yet strategy carries a complete not-yet record and its present relevance is never current. The current list names exactly the strategies whose disposition is current, in centrality order.
 
 Return the complete semantic judgment only. State supporting facts and inferences inline. Refer to returned bets by their one-based local position. Code assigns every durable identifier. Spend words on the current, not-yet, and open-question strategies; a rejected or inapplicable strategy gets one clause, and every reason is one short sentence.`;
-
-export const HOW_IT_WINS_GLOBAL_JUDGE_PROMPT = `Judge the complete all-80 audit against the company's material bet or bets.
-
-Every canonical strategy receives exactly one disposition. There is no strategy-count target or cap. A current strategy needs positive evidence, materiality, present relevance, sibling resolution, independence, and explanatory value. Order current strategies mainly by centrality. Absence of data is never analysis. Historical evidence needs a present bridge. Not yet needs an observed precursor, causal path, missing condition, promotion evidence, and a plausible 12-to-24-month horizon.
-
-An unusual pair is secondary and optional. It cannot change the selected strategies or their order. Record every scout override with cited reasons. State supporting facts and inferences inline. Use the supplied one-based local bet references. Code assigns every durable identifier. Return the complete semantic judgment only. Spend words on the current, not-yet, and open-question strategies; a rejected or inapplicable strategy gets one clause, and every reason is one short sentence.`;
 
 export const HOW_IT_WINS_CRITIC_PROMPT = `Attack the structured judgment for a missed bet, missed strategy, unsupported selection, duplicated mechanism, unresolved sibling, stale historical claim, speculative not-yet claim, weak pair, or broken evidence reference.
 
@@ -53,10 +35,7 @@ Vary sentence length. Complete every thought. No slogans, no antithesis template
 Return structured JSON only with keys status, sentence, current, pair, not_yet, in_question, wrong_if.`;
 
 export const HOW_IT_WINS_JUDGE_PROMPTS = {
-  betMap: HOW_IT_WINS_BET_MAP_PROMPT,
-  scout: HOW_IT_WINS_GROUP_SCOUT_PROMPT,
   monolith: HOW_IT_WINS_MONOLITH_PROMPT,
-  globalJudge: HOW_IT_WINS_GLOBAL_JUDGE_PROMPT,
   critic: HOW_IT_WINS_CRITIC_PROMPT,
   adjudication: HOW_IT_WINS_ADJUDICATION_PROMPT,
   frozenWriter: HOW_IT_WINS_FROZEN_WRITER_PROMPT

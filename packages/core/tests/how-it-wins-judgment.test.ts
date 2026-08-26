@@ -573,25 +573,6 @@ describe("howItWinsJudgmentSchema", () => {
       refinement: { critic: "invented", adjudication: "ok", notes: [] }
     }).success).toBe(false);
   });
-
-  it("records bundled scout calls without pretending a bundle is a canonical group", () => {
-    const input = judgment();
-    input.calls[0] = {
-      ...input.calls[0]!,
-      callId: "bundle-1",
-      stage: "group_scout",
-      bundleId: "bundle_1"
-    };
-    expect(howItWinsJudgmentSchema.safeParse(input).success).toBe(true);
-
-    const missingScope = judgment();
-    missingScope.calls[0] = {
-      ...missingScope.calls[0]!,
-      callId: "scout-without-scope",
-      stage: "group_scout"
-    };
-    expect(howItWinsJudgmentSchema.safeParse(missingScope).success).toBe(false);
-  });
 });
 
 const notYetRecord = {

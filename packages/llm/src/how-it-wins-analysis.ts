@@ -29,7 +29,6 @@ export async function judgeHowItWinsForAnalysis(input: {
     ...(input.telemetry ? { telemetry: input.telemetry } : {})
   });
   const judge = createHowItWinsJudge({
-    scopes: [],
     rules,
     providers: {
       strong: parseModelString(input.models.judge).provider,
@@ -37,7 +36,6 @@ export async function judgeHowItWinsForAnalysis(input: {
     },
     adapters: {
       strong: adapterFor(input.models.judge),
-      scout: adapterFor(input.models.judge),
       critic: adapterFor(input.models.editor)
     },
     ...(input.refinement === undefined ? {} : { refinement: input.refinement })

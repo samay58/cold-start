@@ -5,8 +5,6 @@ import { HOW_IT_WINS_STRATEGIES, adjudicationPatchSchema } from "@cold-start/cor
 
 import {
   benchmarkToolSchemaForRequest,
-  benchmarkTransportHash,
-  createBenchmarkModelAdapter,
   createHowItWinsJudgeModelAdapter,
   loadHowItWinsJudgeRules,
   normalizeBenchmarkToolOutput,
@@ -221,27 +219,6 @@ describe("the how it wins judge transport", () => {
       messages: [{ role: "user", content: "judge the record" }]
     })).toThrow(/streaming is required/i);
     expect(fetchCalls).toBe(0);
-  });
-
-  it("sends the same request body from the production and benchmark wrappers", async () => {
-    const production = stubbedClient(toolUseStream(minimalToolOutput));
-    const benchmark = stubbedClient(toolUseStream(minimalToolOutput));
-
-    await createHowItWinsJudgeModelAdapter({ client: production.client, model: "claude-opus-5" })(globalRequest());
-    await createBenchmarkModelAdapter({ client: benchmark.client, model: "claude-opus-5" })(globalRequest());
-
-    expect(production.requests).toHaveLength(1);
-    expect(benchmark.requests).toHaveLength(1);
-    expect(requestBody(production.requests)).toEqual(requestBody(benchmark.requests));
-  });
-
-  it("holds the frozen benchmark transport hash", () => {
-    // Re-pinned 2026-08-26 after the rubric audit: specialization, first mover, alliance,
-    // efficiency, and divergence rows tightened against the default state of a startup, the
-    // standard's open-question and distinctiveness gates named, and the critic told to attack
-    // generic labels first. A changed value here invalidates every frozen benchmark checkpoint
-    // and every cached judgment, which is intended: the old verdicts were judged by the old rows.
-    expect(benchmarkTransportHash()).toBe("421f854d0618e27bdb0fabde3c4b55029873b868a67beb37625420a218a370c2");
   });
 
   it("sends the rubric and the vocabulary once, in a cached system block", async () => {
@@ -568,14 +545,8 @@ describe("lean open-question rows", () => {
 
 describe("tolerant list transport", () => {
   function bets(raw: unknown) {
-    const request: HowItWinsJudgeCallRequest = {
-      callId: "how-it-wins:bet-map",
-      stage: "bet_map",
-      attempt: 1,
-      prompt: "Map the bet.",
-      payload: { evidencePacket: evidencePacket() }
-    };
-    return (normalizeBenchmarkToolOutput(request, raw) as { materialBets: unknown[] }).materialBets;
+    const output = normalizeBenchmarkToolOutput(globalRequest(), { strategyEvaluations: [], materialBets: raw });
+    return (output as { materialBets: unknown[] }).materialBets;
   }
 
   const bet = {
@@ -586,23 +557,23 @@ describe("tolerant list transport", () => {
   };
 
   it("reads a list the model wrapped in prose", () => {
-    expect(bets({ materialBets: `Here is the list: ${JSON.stringify([bet])}` }))
+    expect(bets(`Here is the list: ${JSON.stringify([bet])}`))
       .toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
   });
 
   it("reads a list the model numbered into an object", () => {
-    expect(bets({ materialBets: { "0": bet, "1": bet } })).toHaveLength(2);
+    expect(bets({ "0": bet, "1": bet })).toHaveLength(2);
   });
 
   it("refuses two top-level lists rather than guessing which one is the answer", () => {
-    expect(() => bets({ materialBets: `first ${JSON.stringify([bet])} then ${JSON.stringify([bet])}` }))
+    expect(() => bets(`first ${JSON.stringify([bet])} then ${JSON.stringify([bet])}`))
       .toThrow(/must be a JSON array/i);
   });
 
   it("reads one bet the model wrote bare instead of as a one-item list", () => {
     // Friend, 2026-08-26: the judge answered with the bet object itself and paid a full re-ask.
-    expect(bets({ materialBets: bet })).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
-    expect(bets({ materialBets: JSON.stringify(bet) })).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
+    expect(bets(bet)).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
+    expect(bets(JSON.stringify(bet))).toEqual([{ ...bet, supportingEvidenceIds: ["e1"] }]);
   });
 
   it("reads bets the model wrote as XML parameter blocks inside the list string", () => {
@@ -616,18 +587,18 @@ describe("tolerant list transport", () => {
       `<parameter name="scopeReasons">${JSON.stringify(item.scopeReasons)}</parameter>\n`;
     const second = { ...bet, statement: "A second bet on a different buyer." };
 
-    expect(bets({ materialBets: `\n${block(bet)}${block(second)}` })).toEqual([
+    expect(bets(`\n${block(bet)}${block(second)}`)).toEqual([
       { ...bet, supportingEvidenceIds: ["e1"] },
       { ...second, supportingEvidenceIds: ["e1"] }
     ]);
     // The same shape with the outer materialBets block still wrapped around it.
-    expect(bets({ materialBets: `<parameter name="materialBets">\n${block(bet)}</parameter>` })).toHaveLength(1);
+    expect(bets(`<parameter name="materialBets">\n${block(bet)}</parameter>`)).toHaveLength(1);
   });
 
   it("names the shape it got when it rejects a list", () => {
-    expect(() => bets({ materialBets: 7 })).toThrow(/must be a JSON array: number/i);
-    expect(() => bets({ materialBets: {} })).toThrow(/must be a JSON array: object/i);
-    expect(() => bets({ materialBets: "the bets are not written down anywhere" }))
+    expect(() => bets(7)).toThrow(/must be a JSON array: number/i);
+    expect(() => bets({})).toThrow(/must be a JSON array: object/i);
+    expect(() => bets("the bets are not written down anywhere"))
       .toThrow(/must be a JSON array: string "the bets are not written down anywhere"/i);
   });
 });

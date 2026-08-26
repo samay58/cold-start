@@ -10,12 +10,10 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  HOW_IT_WINS_FOUR_BUNDLES,
   HowItWinsJudgeClosedError,
   createHowItWinsJudge,
   frozenHowItWinsWriterRequest,
   hashHowItWinsJudgeValue,
-  howItWinsFourBundleScopes,
   howItWinsJudgePromptHash,
   citationIdsFromNote,
   parseFrozenHowItWinsWriterDraft,
@@ -25,8 +23,7 @@ import {
   type HowItWinsJudgeAdapter,
   type HowItWinsJudgeCallRequest,
   type HowItWinsJudgeCallTrace,
-  type HowItWinsJudgeRules,
-  type HowItWinsJudgeScope
+  type HowItWinsJudgeRules
 } from "../src";
 
 function failedDimensions() {
@@ -196,8 +193,6 @@ function trace(request: HowItWinsJudgeCallRequest, provider: string, outcome: "o
   return {
     callId: request.callId,
     stage: request.stage,
-    ...(request.groupId ? { groupId: request.groupId } : {}),
-    ...(request.bundleId ? { bundleId: request.bundleId } : {}),
     provider,
     model: `${provider}-model`,
     inputTokens: 10,
@@ -287,37 +282,6 @@ function adjudicationPatch(
   };
 }
 
-function scoutOutput(request: HowItWinsJudgeCallRequest) {
-  const payload = request.payload as { strategies: typeof HOW_IT_WINS_STRATEGIES };
-  const strategies = payload.strategies;
-  const output: {
-    scopeId: string;
-    evaluations: Array<{
-      strategyId: HowItWinsStrategyId;
-      recommendation: "supported" | "rejected" | "open_question";
-      mechanism: string | null;
-      evidenceIds: string[];
-      siblingCandidateIds: HowItWinsStrategyId[];
-      siblingResolutions: never[];
-      reason: string;
-    }>;
-    betChallenges: never[];
-  } = {
-    scopeId: request.groupId ?? request.bundleId ?? "missing-scope",
-    evaluations: strategies.map((strategy) => ({
-      strategyId: strategy.id,
-      recommendation: "rejected",
-      mechanism: null,
-      evidenceIds: [],
-      siblingCandidateIds: [],
-      siblingResolutions: [],
-      reason: "The mechanism is not established."
-    })),
-    betChallenges: []
-  };
-  return output;
-}
-
 function adapters(options: {
   judgment?: HowItWinsJudgmentBody;
   criticFindings?: Array<Record<string, unknown>>;
@@ -331,18 +295,26 @@ function adapters(options: {
     evidenceIds?: string[];
   } | null;
   onRequest?: (request: HowItWinsJudgeCallRequest) => void | Promise<void>;
-  scoutFailure?: (request: HowItWinsJudgeCallRequest) => boolean;
 } = {}) {
   const finalBody = options.judgment ?? body();
   const strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
     await options.onRequest?.(request);
-    if (request.stage === "bet_map") return { ok: true, output: betMap(), trace: trace(request, "fake-strong") };
     if (request.stage === "global_judge") {
-      const payload = request.payload as { betMap: unknown };
+      return {
+        ok: true,
+        output: semanticFromBody(finalBody, true),
+        trace: trace(request, "fake-strong")
+      };
+    }
+    if (request.stage === "adjudication") {
       return {
         ok: true,
         output: {
-          ...semanticFromBody(finalBody, payload.betMap === null),
+          ...adjudicationPatch(request, options.adjudicated ?? finalBody, {
+            ...(options.adjudicationRowIds ? { rowStrategyIds: options.adjudicationRowIds } : {}),
+            ...(options.adjudicationCurrentIds ? { currentStrategyIds: options.adjudicationCurrentIds } : {}),
+            ...(options.adjudicationPair !== undefined ? { unusualPair: options.adjudicationPair } : {})
+          }),
           ...(options.betRevision ? {
             betRevision: {
               ...options.betRevision,
@@ -353,25 +325,7 @@ function adapters(options: {
         trace: trace(request, "fake-strong")
       };
     }
-    if (request.stage === "adjudication") {
-      return {
-        ok: true,
-        output: adjudicationPatch(request, options.adjudicated ?? finalBody, {
-          ...(options.adjudicationRowIds ? { rowStrategyIds: options.adjudicationRowIds } : {}),
-          ...(options.adjudicationCurrentIds ? { currentStrategyIds: options.adjudicationCurrentIds } : {}),
-          ...(options.adjudicationPair !== undefined ? { unusualPair: options.adjudicationPair } : {})
-        }),
-        trace: trace(request, "fake-strong")
-      };
-    }
     throw new Error(`unexpected strong stage ${request.stage}`);
-  });
-  const scout = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
-    await options.onRequest?.(request);
-    if (options.scoutFailure?.(request)) {
-      return { ok: false, error: "fixture failure", retryable: true, trace: trace(request, "fake-scout", "failed") };
-    }
-    return { ok: true, output: scoutOutput(request), trace: trace(request, "fake-scout") };
   });
   const critic = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
     await options.onRequest?.(request);
@@ -383,7 +337,7 @@ function adapters(options: {
       trace: trace(request, "fake-critic")
     };
   });
-  return { strong, scout, critic };
+  return { strong, critic };
 }
 
 function semanticJudgment(currentIds: HowItWinsStrategyId[] = ["usership"]) {
@@ -447,8 +401,6 @@ describe("createHowItWinsJudge", () => {
   function makeJudge(
     fake: ReturnType<typeof adapters>,
     options: {
-      scopes?: HowItWinsJudgeScope[];
-      maxScoutConcurrency?: number;
       telemetry?: (trace: HowItWinsJudgeCallTrace) => void;
       refinement?: boolean;
     } = {}
@@ -456,21 +408,11 @@ describe("createHowItWinsJudge", () => {
     return createHowItWinsJudge({ adapters: fake, rules, ...options });
   }
 
-  it("maps the company bet before launching any strategy scout", async () => {
-    const order: string[] = [];
-    const fake = adapters({ onRequest: (request) => { order.push(request.stage); } });
-    const judge = makeJudge(fake, { maxScoutConcurrency: 4 });
-
-    await judge(judgeInput());
-
-    expect(order[0]).toBe("bet_map");
-    expect(order.indexOf("group_scout")).toBeGreaterThan(order.indexOf("bet_map"));
-  });
-
   it("assigns durable bet, claim, question, and disagreement ids in code", async () => {
     const fake = adapters();
     const semantic = {
       ...semanticJudgment(),
+      materialBets: betMap().materialBets,
       overrides: [{
         kind: "strategy" as const,
         strategyId: "usership" as const,
@@ -493,20 +435,6 @@ describe("createHowItWinsJudge", () => {
     );
     const originalStrong = fake.strong;
     fake.strong = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
-      if (request.stage === "bet_map") {
-        return {
-          ok: true,
-          output: {
-            materialBets: [{
-              statement: "The company is betting on one evidenced mechanism.",
-              scope: "company",
-              supportingEvidenceIds: ["e1"],
-              scopeReasons: ["The same buyer and operating model apply."]
-            }]
-          },
-          trace: trace(request, "fake-strong")
-        };
-      }
       if (request.stage === "global_judge") {
         return {
           ok: true,
@@ -517,7 +445,7 @@ describe("createHowItWinsJudge", () => {
       return originalStrong(request);
     });
 
-    const first = await makeJudge(fake, { scopes: howItWinsFourBundleScopes() })(judgeInput());
+    const first = await makeJudge(fake)(judgeInput());
     expect(first.materialBets.map((bet) => bet.betId)).toEqual(["b1"]);
     expect(first.claims.map((claim) => claim.claimId)).toEqual(["c1"]);
     expect(first.openQuestions.map((question) => question.questionId)).toEqual(["q1"]);
@@ -535,7 +463,7 @@ describe("createHowItWinsJudge", () => {
 
     const secondFake = adapters();
     secondFake.strong = fake.strong;
-    const second = await makeJudge(secondFake, { scopes: howItWinsFourBundleScopes() })(judgeInput());
+    const second = await makeJudge(secondFake)(judgeInput());
     expect(second.materialBets.map((bet) => bet.betId)).toEqual(["b1"]);
     expect(second.claims.map((claim) => claim.claimId)).toEqual(["c1"]);
   });
@@ -559,7 +487,7 @@ describe("createHowItWinsJudge", () => {
       };
     });
 
-    await expect(makeJudge(fake, { scopes: [] })(judgeInput()))
+    await expect(makeJudge(fake)(judgeInput()))
       .rejects.toThrow(/unknown local bet 2/i);
   });
 
@@ -576,7 +504,7 @@ describe("createHowItWinsJudge", () => {
       trace: trace(request, "fake-strong")
     }));
 
-    await expect(makeJudge(fake, { scopes: [] })(judgeInput())).rejects.toThrow();
+    await expect(makeJudge(fake)(judgeInput())).rejects.toThrow();
   });
 
   it("ignores null-only extra transport fields without weakening required judgment fields", async () => {
@@ -593,7 +521,7 @@ describe("createHowItWinsJudge", () => {
       };
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
     expect(result.currentStrategyIds).toEqual(["affordability"]);
   });
 
@@ -611,21 +539,8 @@ describe("createHowItWinsJudge", () => {
       };
     });
 
-    await expect(makeJudge(fake, { scopes: [] })(judgeInput()))
+    await expect(makeJudge(fake)(judgeInput()))
       .rejects.toThrow(/reason/i);
-  });
-
-  it("gives group scouts the settled cross-group sibling distinctions", async () => {
-    const fake = adapters();
-    const judge = makeJudge(fake);
-
-    await judge(judgeInput());
-
-    const accumulationCall = (fake.scout as ReturnType<typeof vi.fn>).mock.calls
-      .map(([request]) => request)
-      .find((request) => request.groupId === "accumulation");
-    const payload = accumulationCall?.payload as { siblingRubric: Array<{ strategyId: string }> };
-    expect(payload.siblingRubric.map((entry) => entry.strategyId)).toContain("reliability");
   });
 
   it("gives the global judge the exact sibling distinctions validation will require", async () => {
@@ -643,110 +558,6 @@ describe("createHowItWinsJudge", () => {
     expect(payload.requiredSiblingIdsByStrategy.usership).toContain("reliability");
   });
 
-  it("keeps monolith, four-bundle, and thirteen-group scopes behind the same interface", async () => {
-    const cases: Array<{ scopes?: HowItWinsJudgeScope[]; calls: number }> = [
-      { scopes: [], calls: 2 },
-      { scopes: howItWinsFourBundleScopes(), calls: 7 },
-      { calls: 16 }
-    ];
-    for (const testCase of cases) {
-      const fake = adapters();
-      const result = await makeJudge(fake, testCase.scopes ? { scopes: testCase.scopes } : {})(judgeInput());
-      expect(result.calls).toHaveLength(testCase.calls);
-    }
-  });
-
-  it("freezes four complete bundles without duplicating a canonical strategy", () => {
-    expect(HOW_IT_WINS_FOUR_BUNDLES.map((bundle) => bundle.strategies.length)).toEqual([21, 19, 19, 21]);
-    const ids = HOW_IT_WINS_FOUR_BUNDLES.flatMap((bundle) => bundle.strategies.map((strategy) => strategy.id));
-    expect(ids).toHaveLength(80);
-    expect(new Set(ids).size).toBe(80);
-    expect(new Set(ids)).toEqual(new Set(HOW_IT_WINS_STRATEGIES.map((strategy) => strategy.id)));
-  });
-
-  it("launches all 13 scouts concurrently without exceeding the bound", async () => {
-    let active = 0;
-    let maxActive = 0;
-    let launched = 0;
-    const fake = adapters({
-      onRequest: async (request) => {
-        if (request.stage !== "group_scout") return;
-        active += 1;
-        launched += 1;
-        maxActive = Math.max(maxActive, active);
-        await new Promise<void>((resolve) => queueMicrotask(resolve));
-        active -= 1;
-      }
-    });
-    const judge = makeJudge(fake, { maxScoutConcurrency: 4 });
-
-    await judge(judgeInput());
-
-    expect(launched).toBe(13);
-    expect(maxActive).toBeGreaterThan(1);
-    expect(maxActive).toBeLessThanOrEqual(4);
-  });
-
-  it("retries a missing scout once", async () => {
-    let failures = 0;
-    const fake = adapters({
-      scoutFailure: (request) => {
-        if (request.groupId !== "price" || failures > 0) return false;
-        failures += 1;
-        return true;
-      }
-    });
-    const judge = makeJudge(fake);
-
-    const result = await judge(judgeInput());
-
-    const strategyIds = result.strategyEvaluations.map((entry) => entry.strategyId);
-    expect(strategyIds).toEqual(HOW_IT_WINS_STRATEGIES.map((entry) => entry.id));
-    expect(new Set(strategyIds).size).toBe(80);
-    expect((fake.scout as ReturnType<typeof vi.fn>).mock.calls.filter(([request]) => request.groupId === "price")).toHaveLength(2);
-  });
-
-  it("retries malformed scout output once and does not retry a nonretryable scout failure", async () => {
-    const malformed = adapters();
-    const originalMalformed = malformed.scout;
-    let malformedOnce = false;
-    malformed.scout = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
-      if (request.groupId === "price" && !malformedOnce) {
-        malformedOnce = true;
-        return { ok: true, output: { scopeId: "price" }, trace: trace(request, "fake-scout") };
-      }
-      return originalMalformed(request);
-    });
-    await makeJudge(malformed)(judgeInput());
-    expect(malformed.scout.mock.calls.filter(([request]) => request.groupId === "price")).toHaveLength(2);
-
-    const permanent = adapters();
-    const originalPermanent = permanent.scout;
-    permanent.scout = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
-      if (request.groupId === "price") {
-        return {
-          ok: false,
-          error: "permanent request failure",
-          retryable: false,
-          trace: trace(request, "fake-scout", "failed")
-        };
-      }
-      return originalPermanent(request);
-    });
-    await makeJudge(permanent)(judgeInput());
-    expect(permanent.scout.mock.calls.filter(([request]) => request.groupId === "price")).toHaveLength(1);
-  });
-
-  it("lets the global judge cover a scout that failed twice", async () => {
-    const fake = adapters({ scoutFailure: (request) => request.groupId === "price" });
-    const judge = makeJudge(fake);
-
-    const result = await judge(judgeInput());
-
-    expect(result.strategyEvaluations).toHaveLength(80);
-    expect(result.calls.filter((call) => call.groupId === "price")).toHaveLength(2);
-  });
-
   it("skips strong adjudication when the critic finds no material dispute", async () => {
     const fake = adapters();
     const judge = makeJudge(fake);
@@ -754,7 +565,7 @@ describe("createHowItWinsJudge", () => {
     await judge(judgeInput());
 
     const strongStages = (fake.strong as ReturnType<typeof vi.fn>).mock.calls.map(([request]) => request.stage);
-    expect(strongStages).toEqual(["bet_map", "global_judge"]);
+    expect(strongStages).toEqual(["global_judge"]);
   });
 
   it("makes exactly one strong call and no critic call when refinement is disabled", async () => {
@@ -770,7 +581,7 @@ describe("createHowItWinsJudge", () => {
         }
       ]
     });
-    const judge = makeJudge(fake, { scopes: [], refinement: false });
+    const judge = makeJudge(fake, { refinement: false });
 
     const result = await judge(judgeInput({ refinement: false }));
 
@@ -798,11 +609,11 @@ describe("createHowItWinsJudge", () => {
     await judge(judgeInput());
 
     const strongStages = (fake.strong as ReturnType<typeof vi.fn>).mock.calls.map(([request]) => request.stage);
-    expect(strongStages).toEqual(["bet_map", "global_judge", "adjudication"]);
+    expect(strongStages).toEqual(["global_judge", "adjudication"]);
   });
 
   it("retries each transient strong stage once with distinct traced call ids", async () => {
-    for (const stage of ["bet_map", "global_judge", "critic", "adjudication"] as const) {
+    for (const stage of ["global_judge", "critic", "adjudication"] as const) {
       const needsAdjudication = stage === "adjudication";
       const fake = adapters({
         ...(needsAdjudication
@@ -906,29 +717,25 @@ describe("createHowItWinsJudge", () => {
     expect(semantic.strong.mock.calls.filter(([request]) => request.stage === "global_judge")).toHaveLength(1);
   });
 
-  it("carries the frozen bet map forward when a multi-stage judge does not revise it", async () => {
-    const changed = body();
-    changed.materialBets = [{
-      ...changed.materialBets[0]!,
-      betId: "b2",
-      statement: "A different fixture bet.",
-      scopeReasons: ["The global stage rewrote a frozen scope reason."]
-    }];
-    const result = await makeJudge(adapters({ judgment: changed }))(judgeInput());
-    expect(hashHowItWinsJudgeValue(result.materialBets)).toBe(hashHowItWinsJudgeValue(body().materialBets));
-    expect(result.materialBets).toEqual(body().materialBets);
-  });
-
-  it("accepts only an explicit cited bet revision and records one override", async () => {
+  it("accepts only an explicit cited bet revision from adjudication and records one override", async () => {
     const changed = body();
     changed.materialBets = [{
       ...changed.materialBets[0]!,
       betId: "b2",
       statement: "A revised fixture bet."
     }];
+    const betDispute = [{
+      findingId: "f1",
+      kind: "bet",
+      material: true,
+      summary: "The material bet reads the wrong scope.",
+      strategyIds: [],
+      evidenceIds: ["e1"]
+    }];
 
     const revised = await makeJudge(adapters({
       judgment: changed,
+      criticFindings: betDispute,
       betRevision: {
         materialBets: changed.materialBets,
         reason: "The cited evidence changes the material scope.",
@@ -946,18 +753,23 @@ describe("createHowItWinsJudge", () => {
       })
     ]);
 
-    await expect(makeJudge(adapters({
-      judgment: changed,
-      betRevision: { materialBets: changed.materialBets, evidenceIds: ["e1"] }
-    }))(judgeInput())).rejects.toThrow();
-    await expect(makeJudge(adapters({
-      judgment: changed,
-      betRevision: {
+    // An uncited or unciteable revision leaves adjudication failed and the settled bets standing.
+    for (const betRevision of [
+      { materialBets: changed.materialBets, evidenceIds: ["e1"] },
+      {
         materialBets: changed.materialBets,
         reason: "The evidence changes the material scope.",
         evidenceIds: ["unknown"]
       }
-    }))(judgeInput())).rejects.toThrow(/unknown evidence id/i);
+    ]) {
+      const kept = await makeJudge(adapters({
+        judgment: changed,
+        criticFindings: betDispute,
+        betRevision
+      }))(judgeInput());
+      expect(kept.refinement).toMatchObject({ adjudication: "failed" });
+      expect(kept.overrides.filter((entry) => entry.kind === "bet")).toEqual([]);
+    }
   });
 
   it("still requires a monolith to produce material bets", async () => {
@@ -971,41 +783,7 @@ describe("createHowItWinsJudge", () => {
       return { ...result, output: withoutMaterialBets };
     });
 
-    await expect(makeJudge(fake, { scopes: [] })(judgeInput())).rejects.toThrow();
-  });
-
-  it("requires a cited reason when the global judge overturns a scout", async () => {
-    const fake = adapters();
-    fake.scout = vi.fn<HowItWinsJudgeAdapter>(async (request) => {
-      const output = scoutOutput(request);
-      if (request.groupId === "accumulation") {
-        output.evaluations[0] = {
-          ...output.evaluations[0]!,
-          recommendation: "supported",
-          mechanism: "More users increase utility.",
-          evidenceIds: ["e1"]
-        };
-      }
-      return { ok: true, output, trace: trace(request, "fake-scout") };
-    });
-    const judge = makeJudge(fake);
-
-    await expect(judge(judgeInput())).rejects.toThrow(/override/i);
-
-    const withOverride = body();
-    withOverride.overrides.push({
-      kind: "strategy",
-      strategyId: "usership",
-      from: "supported",
-      to: "insufficient_evidence",
-      reason: "The cited usage does not show that one user's participation helps another user.",
-      evidenceIds: ["e1"]
-    });
-    const passing = adapters({ judgment: withOverride });
-    passing.scout = fake.scout;
-    await expect(makeJudge(passing)(judgeInput())).resolves.toMatchObject({
-      overrides: [expect.objectContaining({ strategyId: "usership" })]
-    });
+    await expect(makeJudge(fake)(judgeInput())).rejects.toThrow();
   });
 
   it("refuses a same-provider critic at construction, before any paid call", () => {
@@ -1037,7 +815,7 @@ describe("createHowItWinsJudge", () => {
     expect(result.currentStrategyIds).toEqual([]);
     expect(result.refinement).toMatchObject({ critic: "failed", adjudication: "not_needed" });
     expect(result.refinement?.notes.join(" ")).toMatch(/critic call failed/i);
-    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["bet_map", "global_judge"]);
+    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["global_judge"]);
   });
 
   it("keeps the global judgment when critic output fails its schema", async () => {
@@ -1075,7 +853,7 @@ describe("createHowItWinsJudge", () => {
 
     expect(result.refinement).toMatchObject({ critic: "skipped_same_provider", adjudication: "not_needed" });
     expect(result.disagreements).toEqual([]);
-    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["bet_map", "global_judge"]);
+    expect(fake.strong.mock.calls.map(([request]) => request.stage)).toEqual(["global_judge"]);
   });
 
   it("keeps the global judgment when the adjudication call fails", async () => {
@@ -1143,12 +921,12 @@ describe("createHowItWinsJudge", () => {
       evidenceIds: ["e1"]
     }];
     const settledBody = body(["cloning"], ["reliability"]);
-    const settled = await makeJudge(adapters({ judgment: settledBody }), { scopes: [] })(judgeInput());
+    const settled = await makeJudge(adapters({ judgment: settledBody }))(judgeInput());
     const result = await makeJudge(adapters({
       judgment: settledBody,
       adjudicated: body(["cloning", ...disputed], ["reliability"]),
       criticFindings: findings
-    }), { scopes: [] })(judgeInput());
+    }))(judgeInput());
 
     expect(result.refinement).toMatchObject({ adjudication: "ok" });
     expect(result.currentStrategyIds).toEqual(["cloning", ...disputed]);
@@ -1176,7 +954,7 @@ describe("createHowItWinsJudge", () => {
       }]
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     expect(result.refinement).toMatchObject({ adjudication: "ok" });
     expect(result.currentStrategyIds).toEqual(["cloning", "affordability", "durability"]);
@@ -1197,7 +975,7 @@ describe("createHowItWinsJudge", () => {
       }]
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     expect(result.refinement).toMatchObject({ adjudication: "ok" });
     expect(result.refinement?.notes).toEqual([]);
@@ -1227,7 +1005,7 @@ describe("createHowItWinsJudge", () => {
       }]
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     expect(result.currentStrategyIds).toEqual(["cloning", "affordability"]);
     expect(result.unusualPair).toBeNull();
@@ -1248,7 +1026,7 @@ describe("createHowItWinsJudge", () => {
       return { ...result, output: withoutMaterialBets };
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     const globalRequests = fake.strong.mock.calls
       .map(([request]) => request)
@@ -1279,7 +1057,7 @@ describe("createHowItWinsJudge", () => {
       : entry);
     const fake = adapters({ judgment: contradictory });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     expect(fake.strong).toHaveBeenCalledTimes(1);
     expect(result.refinement?.repairs).toHaveLength(1);
@@ -1311,7 +1089,7 @@ describe("createHowItWinsJudge", () => {
       return { ...result, output: semanticFromBody(unrepairable, true) };
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     const globalRequests = fake.strong.mock.calls
       .map(([request]) => request)
@@ -1334,7 +1112,7 @@ describe("createHowItWinsJudge", () => {
       return { ...result, output: withoutMaterialBets };
     });
 
-    await expect(makeJudge(fake, { scopes: [] })(judgeInput())).rejects.toThrow(/material bets/i);
+    await expect(makeJudge(fake)(judgeInput())).rejects.toThrow(/material bets/i);
     expect(fake.strong.mock.calls.filter(([request]) => request.stage === "global_judge")).toHaveLength(2);
   });
 
@@ -1354,7 +1132,7 @@ describe("createHowItWinsJudge", () => {
       };
     });
 
-    const result = await makeJudge(fake, { scopes: [] })(judgeInput());
+    const result = await makeJudge(fake)(judgeInput());
 
     expect(result.currentStrategyIds).toEqual(["affordability"]);
     expect(result.strategyEvaluations.find((entry) => entry.strategyId === "usership")).toMatchObject({
@@ -1382,7 +1160,7 @@ describe("createHowItWinsJudge", () => {
           trace: trace(request, "fake-strong")
         };
       });
-      return makeJudge(fake, { scopes: [] })(judgeInput());
+      return makeJudge(fake)(judgeInput());
     };
 
     // usership must be distinguished from reliability. A current row that skips it is no longer a
@@ -1408,8 +1186,8 @@ describe("createHowItWinsJudge", () => {
     const fake = adapters();
     const result = await makeJudge(fake, { telemetry })(judgeInput());
 
-    expect(result.calls).toHaveLength(16);
-    expect(telemetry).toHaveBeenCalledTimes(16);
+    expect(result.calls).toHaveLength(2);
+    expect(telemetry).toHaveBeenCalledTimes(2);
     for (const call of result.calls) {
       expect(call).toMatchObject({
         provider: expect.any(String),

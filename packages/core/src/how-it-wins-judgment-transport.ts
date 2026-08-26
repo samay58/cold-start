@@ -212,6 +212,8 @@ export const semanticJudgmentSchema = z.object({
 
 export type SemanticHowItWinsJudgment = z.infer<typeof semanticJudgmentSchema>;
 
+// Adjudication is the stage that may replace the material bets. The global judgment still
+// tolerates the field because its stage contract names it; the judge drops what it carries.
 export const betRevisionSchema = z.object({
   materialBets: z.array(semanticMaterialBetSchema).min(1),
   reason: z.string().min(1),
