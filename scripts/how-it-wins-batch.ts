@@ -6,18 +6,14 @@
  * small sampled batch, under a hard spend cap. Output goes to eval/curation/how-it-wins-batch/,
  * which is gitignored: these files hold synthesis.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
-import { homedir } from "node:os";
-import { promisify } from "node:util";
 
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  HOW_IT_WINS_STRATEGIES,
   HowItWinsJudgmentClosedError,
   coldStartCardSchema,
   howItWinsJudgmentSchema,
@@ -26,16 +22,11 @@ import {
   type GenerationLlmCallTrace,
   type HowItWins,
   type HowItWinsJudgment,
-  type HowItWinsRead,
-  type SourcedText
+  type HowItWinsRead
 } from "@cold-start/core";
 import {
   HOW_IT_WINS_DEFAULT_EDITOR_MODEL,
   createAnthropicClient,
-  hashHowItWinsJudgeValue,
-  howItWinsEvidencePacketFromCard,
-  howItWinsJudgePromptHash,
-  judgeHowItWinsForAnalysis,
   loadHowItWinsJudgeRules,
   modelForStage,
   synthesizeHowItWins,
@@ -43,18 +34,29 @@ import {
   type HowItWinsModels,
   type VerificationResult
 } from "@cold-start/llm";
-import { verificationFactsForClaims, verifiedHowItWins } from "@cold-start/pipeline";
+import {
+  howItWinsVerificationClaims,
+  verificationFactsForClaims,
+  verifiedHowItWins
+} from "@cold-start/pipeline";
 
 import { createSeededRng, shuffled } from "./eval-curation-lib";
+import {
+  HOW_IT_WINS_JUDGMENT_CACHE_DIR,
+  judgmentCacheFileName,
+  judgmentCacheKeyForCard,
+  loadOrRunJudgment,
+  loadRootEnv,
+  slopcheck,
+  usageFromCalls
+} from "./how-it-wins-eval-shared";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore score.mjs is plain JS shared with the node:test suite
 import { strategyFrequency, strategyFrequencyGate } from "../eval/investor-lens/score.mjs";
 
-const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CORPUS_DIR = path.join(ROOT, "eval", "curation", "corpus");
 const OUT_ROOT = path.join(ROOT, "eval", "curation", "how-it-wins-batch");
-const JUDGMENT_CACHE_DIR = path.join(OUT_ROOT, "_judgments");
 // A local, gitignored capture of pre-repair monolith judge runs. This directory only exists in
 // a worktree that also ran the topology benchmark; a fresh checkout has none, and seeding
 // reports zero attempts rather than failing.
@@ -62,7 +64,6 @@ const BENCHMARK_RUNS_DIR = path.join(
   ROOT,
   "apps/web/.cold-start/how-it-wins-topology-benchmark/how-it-wins-topology-2026-08-23-semantic-repair/runs"
 );
-const SLOPCHECK = path.join(homedir(), ".claude", "scripts", "slopcheck.py");
 
 // The ten unread sitting-2 cards. Never sampled and never run, even when named directly with
 // --slugs. There is no override flag; that is deliberate.
@@ -78,17 +79,6 @@ export const HOW_IT_WINS_BATCH_HOLDOUT: readonly string[] = [
   "uniqlo",
   "vercel"
 ];
-
-function loadRootEnv() {
-  const envPath = path.join(ROOT, ".env.local");
-  if (!existsSync(envPath)) return;
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    const name = match?.[1];
-    if (!name || process.env[name]) continue;
-    process.env[name] = (match[2] ?? "").trim().replace(/^['"]|['"]$/g, "");
-  }
-}
 
 const DEFAULT_LIMIT = 15;
 const DEFAULT_SEED = "how-it-wins-batch-1";
@@ -173,54 +163,6 @@ export function shouldStopForBudget(spentSoFar: number, budgetUsd: number): bool
   return spentSoFar >= budgetUsd;
 }
 
-// ---- judgment cache ------------------------------------------------------------------------
-
-// One cache file per (evidence, prompt, vocabulary) triple. A hit means the same card content
-// under the same judge rules and the same 80-strategy vocabulary already has a filed verdict, so
-// the judge does not run again. Deliberately not exported as one opaque function: the filename
-// shape is the thing the test checks, independent of how the three hashes get computed.
-export function judgmentCacheFileName(evidencePacketHash: string, promptHash: string, vocabularyHash: string): string {
-  return `${evidencePacketHash}.${promptHash}.${vocabularyHash}.json`;
-}
-
-function judgmentCacheKeyForCard(
-  card: ColdStartCard,
-  rules: ReturnType<typeof loadHowItWinsJudgeRules>,
-  refinement: boolean
-): string {
-  const packet = howItWinsEvidencePacketFromCard(card);
-  const evidencePacketHash = hashHowItWinsJudgeValue(packet);
-  const promptHash = howItWinsJudgePromptHash(rules, { refinement });
-  const vocabularyHash = hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES);
-  return judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash);
-}
-
-async function loadOrRunJudgment(input: {
-  card: ColdStartCard;
-  client: Anthropic;
-  models: HowItWinsModels;
-  telemetry: (call: GenerationLlmCallTrace) => void;
-  refinement: boolean;
-}): Promise<{ judgment: HowItWinsJudgment; cached: boolean }> {
-  const rules = loadHowItWinsJudgeRules();
-  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement);
-  const filePath = path.join(JUDGMENT_CACHE_DIR, fileName);
-  if (existsSync(filePath)) {
-    const stored = JSON.parse(await readFile(filePath, "utf8"));
-    return { judgment: howItWinsJudgmentSchema.parse(stored), cached: true };
-  }
-  const judgment = await judgeHowItWinsForAnalysis({
-    card: input.card,
-    client: input.client,
-    models: input.models,
-    telemetry: input.telemetry,
-    refinement: input.refinement
-  });
-  await mkdir(JUDGMENT_CACHE_DIR, { recursive: true });
-  await writeFile(filePath, `${JSON.stringify(judgment, null, 2)}\n`);
-  return { judgment, cached: false };
-}
-
 // Best-effort reuse of monolith verdicts captured before this batch runner existed. Seeds only
 // when the verdict still parses under the current judgment schema and every evidence id it cites
 // still resolves against the card, then only if the freshly computed cache key has no file yet.
@@ -234,7 +176,7 @@ async function seedJudgmentCacheFromBenchmarkRuns(
   const names = (await readdir(BENCHMARK_RUNS_DIR)).filter((name) => name.includes("monolith") && name.endsWith(".json"));
   if (names.length === 0) return { attempted: 0, hits: 0 };
   const rules = loadHowItWinsJudgeRules();
-  await mkdir(JUDGMENT_CACHE_DIR, { recursive: true });
+  await mkdir(HOW_IT_WINS_JUDGMENT_CACHE_DIR, { recursive: true });
   let attempted = 0;
   let hits = 0;
   for (const name of names) {
@@ -262,7 +204,7 @@ async function seedJudgmentCacheFromBenchmarkRuns(
     // contract wearing the same slug.
     const storedKey = judgmentCacheFileName(parsed.data.hashes.evidencePacket, parsed.data.hashes.prompt, parsed.data.hashes.vocabulary);
     if (storedKey !== fileName) continue;
-    const filePath = path.join(JUDGMENT_CACHE_DIR, fileName);
+    const filePath = path.join(HOW_IT_WINS_JUDGMENT_CACHE_DIR, fileName);
     if (existsSync(filePath)) continue;
     await writeFile(filePath, `${JSON.stringify(parsed.data, null, 2)}\n`);
     hits += 1;
@@ -288,16 +230,6 @@ function howItWinsModelsFor(
 
 // ---- verification ----------------------------------------------------------------------------
 
-// Same claim order verifiedHowItWins reads its verdicts back in: one claim per running strategy,
-// then the pair note, then in-question notes.
-function howItWinsClaims(read: HowItWinsRead): SourcedText[] {
-  return [
-    ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
-    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : []),
-    ...(read.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
-  ];
-}
-
 async function verifyFiledRead(input: {
   client: Anthropic;
   model: string;
@@ -305,7 +237,7 @@ async function verifyFiledRead(input: {
   read: HowItWinsRead;
   telemetry: (call: GenerationLlmCallTrace) => void;
 }): Promise<{ howItWins: HowItWins; dropReason?: "running-dropped" | "pair-dropped"; results: VerificationResult[] }> {
-  const claims = howItWinsClaims(input.read);
+  const claims = howItWinsVerificationClaims(input.read);
   const sources = input.card.citations.map((citation) => ({
     id: citation.id,
     url: citation.url,
@@ -406,17 +338,6 @@ export type HowItWinsBatchCardRecord = {
   failure?: string;
 };
 
-function usageTotals(calls: GenerationLlmCallTrace[]) {
-  return calls.reduce(
-    (total, call) => ({
-      outputTokens: total.outputTokens + (call.outputTokens ?? 0),
-      estimatedCostUsd: total.estimatedCostUsd + (call.estimatedCostUsd ?? 0),
-      durationMs: total.durationMs + call.durationMs
-    }),
-    { outputTokens: 0, estimatedCostUsd: 0, durationMs: 0 }
-  );
-}
-
 function judgeCallSummaryFromJudgment(judgment: HowItWinsJudgment): JudgeCallSummary[] {
   return judgment.calls.map((call) => {
     const cost = call.estimatedCostUsd ?? call.actualCostUsd;
@@ -506,7 +427,7 @@ async function runCard(input: {
       preVerify: EMPTY_HOW_IT_WINS,
       filed: EMPTY_HOW_IT_WINS,
       losses: ZERO_LOSSES,
-      costUsd: usageTotals(judgeTelemetry).estimatedCostUsd,
+      costUsd: usageFromCalls(judgeTelemetry).estimatedCostUsd,
       latencyMs: Date.now() - startedAt,
       failure: message.slice(0, 300)
     };
@@ -523,8 +444,8 @@ async function runCard(input: {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const judgeCosts = usageTotals(judgeTelemetry).estimatedCostUsd;
-    const writerCosts = usageTotals(writerTelemetry).estimatedCostUsd;
+    const judgeCosts = usageFromCalls(judgeTelemetry).estimatedCostUsd;
+    const writerCosts = usageFromCalls(writerTelemetry).estimatedCostUsd;
     return {
       slug: input.slug,
       status: "failed",
@@ -561,8 +482,8 @@ async function runCard(input: {
   }
 
   const losses = computeLosses({ judgment, preVerify: writerResult.read, filed });
-  const writerTotals = usageTotals(writerTelemetry);
-  const totalCost = usageTotals(judgeTelemetry).estimatedCostUsd + writerTotals.estimatedCostUsd + usageTotals(verifyTelemetry).estimatedCostUsd;
+  const writerTotals = usageFromCalls(writerTelemetry);
+  const totalCost = usageFromCalls(judgeTelemetry).estimatedCostUsd + writerTotals.estimatedCostUsd + usageFromCalls(verifyTelemetry).estimatedCostUsd;
 
   return {
     slug: input.slug,
@@ -688,19 +609,6 @@ function summaryMarkdown(records: HowItWinsBatchCardRecord[]): string {
   return lines.join("\n");
 }
 
-async function slopcheck(file: string) {
-  if (!existsSync(SLOPCHECK)) return;
-  try {
-    await execFileAsync("python3", [SLOPCHECK, file]);
-  } catch (error) {
-    const report = (error as { stdout?: string }).stdout ?? "";
-    const kills = report.split("\n").filter((line) => line.includes("KILL"));
-    for (const line of kills.length > 0 ? kills : [`slopcheck failed on ${file}`]) {
-      console.log(`  summary slop: ${line.trim()}`);
-    }
-  }
-}
-
 // ---- corpus loading ------------------------------------------------------------------------
 
 type CorpusIndexRow = { slug: string; name: string; domain: string; createdAt: string; hasSynthesis: boolean };
@@ -738,7 +646,7 @@ function cardLine(record: HowItWinsBatchCardRecord): string {
 }
 
 async function main() {
-  loadRootEnv();
+  loadRootEnv(ROOT);
   const flags = parseFlags(process.argv.slice(2));
   const index = await loadCorpusIndex();
 
@@ -852,7 +760,7 @@ async function main() {
   await writeFile(path.join(runDir, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
   const summaryMdPath = path.join(runDir, "summary.md");
   await writeFile(summaryMdPath, `${summaryMarkdown(records)}\n`);
-  await slopcheck(summaryMdPath);
+  await slopcheck("summary", summaryMdPath);
 
   console.log(`total $${spent.toFixed(4)}`);
   console.log(`run dir: ${runDir}`);

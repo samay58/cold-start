@@ -1,16 +1,16 @@
 #!/usr/bin/env tsx
 /*
- * Two "How it wins" reads per corpus card, one per writer arm, from frozen evidence. The arms
- * share an editor and a verifier; only the writer model differs, and which model sits in slot A
- * is a seeded per-card flip so the rig's reader cannot learn the key from position. Output goes
- * to eval/curation/how-it-wins/, which is gitignored: these files hold synthesis.
+ * Two "How it wins" reads per corpus card, from frozen evidence, on the path production runs:
+ * one judge per card, then the frozen writer twice over that one verdict. The arms differ by
+ * writer model, or with --prompt-arms by writer prompt; which arm sits in slot A is a seeded
+ * per-card flip so the rig's reader cannot learn the key from position. Output goes to
+ * eval/curation/how-it-wins/, which is gitignored: these files hold synthesis.
  */
-import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type Anthropic from "@anthropic-ai/sdk";
@@ -20,20 +20,29 @@ import {
   type ColdStartCard,
   type GenerationLlmCallTrace,
   type HowItWins,
-  type HowItWinsRead,
-  type SourcedText
+  type HowItWinsJudgment,
+  type HowItWinsRead
 } from "@cold-start/core";
 import {
   createAnthropicClient,
   isTransientLlmError,
   modelForStage,
   synthesizeHowItWins,
-  verifySynthesis,
-  HOW_IT_WINS_DEFAULT_EDITOR_MODEL
+  HOW_IT_WINS_DEFAULT_EDITOR_MODEL,
+  HOW_IT_WINS_FROZEN_WRITER_PROMPT
 } from "@cold-start/llm";
-import { verificationFactsForClaims, verifiedHowItWins } from "@cold-start/pipeline";
 
 import { createSeededRng, shuffled, type RichnessBand } from "./eval-curation-lib";
+import {
+  compactCalls,
+  hashBenchmarkValue,
+  loadOrRunJudgment,
+  loadRootEnv,
+  slopcheck,
+  usageFromCalls,
+  verifyRead,
+  type CompactCall
+} from "./how-it-wins-eval-shared";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore score.mjs is plain JS shared with the node:test suite
 import { strategyFrequency, strategyFrequencyGate } from "../eval/investor-lens/score.mjs";
@@ -41,11 +50,12 @@ import { strategyFrequency, strategyFrequencyGate } from "../eval/investor-lens/
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_WRITERS: [string, string] = ["claude-sonnet-5", "claude-sonnet-4-6"];
+const DEFAULT_JUDGE = "claude-opus-5";
 const DEFAULT_SEED = "how-it-wins-1";
 const DEFAULT_LIMIT = 20;
 const DEFAULT_OUT = path.join("eval", "curation", "how-it-wins");
 const CORPUS = path.join("eval", "curation", "corpus");
-const SLOPCHECK = path.join(homedir(), ".claude", "scripts", "slopcheck.py");
+const FROZEN_WRITER_PROMPT_PATTERN = /export const HOW_IT_WINS_FROZEN_WRITER_PROMPT = `([\s\S]*?)`;/;
 
 export type HowItWinsCandidate = {
   slug: string;
@@ -57,6 +67,8 @@ export type HowItWinsCandidate = {
 type ArmLabel = "A" | "B";
 
 export type ArmResult = {
+  // What the rig groups and reveals this arm by. It is the writer model in a model comparison and
+  // the writer prompt version in a prompt comparison; the field name is the rig's, not a claim.
   writer: string;
   preVerify: HowItWins;
   read: HowItWins;
@@ -68,6 +80,9 @@ export type ArmResult = {
   fitRetried: boolean;
   styleIssues: string[];
   usage: { inputTokens: number; outputTokens: number; estimatedCostUsd: number; durationMs: number };
+  // Per-call rows behind that total, so a later pass can tell the writer's price from the
+  // verifier's without paying for the read a second time.
+  calls: CompactCall[];
 };
 
 type IndexRow = { slug: string; name: string; domain: string; createdAt: string };
@@ -95,31 +110,99 @@ export function selectHowItWinsSlugs(
 export function armAssignment(
   seed: string,
   slug: string,
-  writers: [string, string]
+  arms: readonly [string, string]
 ): Record<ArmLabel, string> {
   const flip = createSeededRng(`${seed}:${slug}`)() < 0.5;
-  return flip ? { A: writers[0], B: writers[1] } : { A: writers[1], B: writers[0] };
+  return flip ? { A: arms[0], B: arms[1] } : { A: arms[1], B: arms[0] };
 }
 
-function loadRootEnv() {
-  const envPath = path.resolve(process.cwd(), ".env.local");
-  if (!existsSync(envPath)) return;
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    const name = match?.[1];
-    if (!name || process.env[name]) continue;
-    process.env[name] = (match[2] ?? "").trim().replace(/^['"]|['"]$/g, "");
+// ---- prompt arms ------------------------------------------------------------------------------
+
+// One judge per card, then the frozen writer twice over that one verdict, once under a previous
+// writer prompt and once under the one in the tree. The writer model is held fixed, so the only
+// thing the reader compares is the prose the two prompts ask for.
+export type PromptArms = {
+  versions: [string, string];
+  promptById: Record<string, string>;
+  manifest: Record<string, { hash: string; source: string }>;
+};
+
+// Accepts either the prompt module (the constant is pulled out of it) or a file holding nothing
+// but the prompt text.
+export function frozenWriterPromptFromSource(source: string): string {
+  const matched = FROZEN_WRITER_PROMPT_PATTERN.exec(source)?.[1];
+  if (matched) return matched;
+  if (source.includes("HOW_IT_WINS_FROZEN_WRITER_PROMPT")) {
+    throw new Error("the source names HOW_IT_WINS_FROZEN_WRITER_PROMPT but no prompt literal parsed out of it");
   }
+  const bare = source.trim();
+  if (bare === "") throw new Error("the previous writer prompt source is empty");
+  return bare;
 }
+
+export function promptVersionId(name: string, prompt: string): string {
+  return `prompt-${name}-${hashBenchmarkValue(prompt).slice(0, 8)}`;
+}
+
+export function buildPromptArms(input: {
+  previousSource: string;
+  currentPrompt: string;
+  origin: string;
+}): PromptArms {
+  const previous = frozenWriterPromptFromSource(input.previousSource);
+  if (previous === input.currentPrompt) {
+    throw new Error(`the writer prompt at ${input.origin} matches the shipped one; there is nothing to compare`);
+  }
+  const previousId = promptVersionId("previous", previous);
+  const currentId = promptVersionId("current", input.currentPrompt);
+  return {
+    versions: [previousId, currentId],
+    promptById: { [previousId]: previous, [currentId]: input.currentPrompt },
+    manifest: {
+      [previousId]: { hash: hashBenchmarkValue(previous), source: input.origin },
+      [currentId]: { hash: hashBenchmarkValue(input.currentPrompt), source: "packages/llm/src/how-it-wins-judge-prompts.ts" }
+    }
+  };
+}
+
+// A path on disk wins over a git ref, so a working copy can be compared without committing it.
+async function loadPromptArms(spec: string): Promise<PromptArms> {
+  if (existsSync(spec)) {
+    return buildPromptArms({
+      previousSource: await readFile(spec, "utf8"),
+      currentPrompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT,
+      origin: spec
+    });
+  }
+  if (!spec.includes(":")) {
+    throw new Error(`--previous-prompt ${spec} is neither a file on disk nor a <git-ref>:<path>`);
+  }
+  const { stdout } = await execFileAsync("git", ["show", spec], {
+    cwd: process.cwd(),
+    maxBuffer: 4 * 1024 * 1024
+  });
+  return buildPromptArms({
+    previousSource: stdout,
+    currentPrompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT,
+    origin: spec
+  });
+}
+
+// ---- flags ------------------------------------------------------------------------------------
 
 export type Flags = {
   limit: number;
   slugs: string[] | null;
   seed: string;
   writers: [string, string];
-  editor: string;
+  judge: string | null;
+  editor: string | null;
   out: string;
   verify: boolean;
+  // Compare two writer prompts over one frozen verdict instead of two writer models. The writer
+  // model is then writers[0] for both arms.
+  promptArms: boolean;
+  previousPrompt: string | null;
 };
 
 export function parseFlags(argv: string[]): Flags {
@@ -128,9 +211,12 @@ export function parseFlags(argv: string[]): Flags {
     slugs: null,
     seed: DEFAULT_SEED,
     writers: DEFAULT_WRITERS,
-    editor: HOW_IT_WINS_DEFAULT_EDITOR_MODEL,
+    judge: null,
+    editor: null,
     out: DEFAULT_OUT,
-    verify: true
+    verify: true,
+    promptArms: false,
+    previousPrompt: null
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? "";
@@ -138,10 +224,13 @@ export function parseFlags(argv: string[]): Flags {
     if (arg === "--limit") flags.limit = Number.parseInt(value(), 10);
     else if (arg === "--slugs") flags.slugs = value().split(",").map((s) => s.trim()).filter(Boolean);
     else if (arg === "--seed") flags.seed = value();
+    else if (arg === "--judge") flags.judge = value();
     else if (arg === "--editor") flags.editor = value();
     else if (arg === "--out") flags.out = value();
     else if (arg === "--verify") flags.verify = true;
     else if (arg === "--no-verify") flags.verify = false;
+    else if (arg === "--prompt-arms") flags.promptArms = true;
+    else if (arg === "--previous-prompt") flags.previousPrompt = value();
     else if (arg === "--writers") {
       const [first, second, ...rest] = value().split(",").map((s) => s.trim()).filter(Boolean);
       if (!first || !second || rest.length > 0) {
@@ -153,8 +242,13 @@ export function parseFlags(argv: string[]): Flags {
     }
   }
   if (!Number.isFinite(flags.limit) || flags.limit < 1) throw new Error("--limit must be a positive integer");
+  if (flags.promptArms && !flags.previousPrompt?.trim()) {
+    throw new Error("--prompt-arms needs --previous-prompt <git-ref>:<path> or a file");
+  }
   return flags;
 }
+
+// ---- corpus -------------------------------------------------------------------------------------
 
 type CorpusEntry = { row: IndexRow; band: RichnessBand; card: ColdStartCard };
 
@@ -186,53 +280,7 @@ async function loadCorpus(): Promise<Map<string, CorpusEntry>> {
   return entries;
 }
 
-function usageFromCalls(calls: GenerationLlmCallTrace[]) {
-  return calls.reduce(
-    (total, call) => ({
-      inputTokens: total.inputTokens + (call.inputTokens ?? 0),
-      outputTokens: total.outputTokens + (call.outputTokens ?? 0),
-      estimatedCostUsd: total.estimatedCostUsd + (call.estimatedCostUsd ?? 0),
-      durationMs: total.durationMs + call.durationMs
-    }),
-    { inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, durationMs: 0 }
-  );
-}
-
-// The same claim order verifiedHowItWins reads its verdicts back in: one claim per running
-// strategy, then the pair note, then in-question notes.
-function howItWinsClaims(read: HowItWinsRead): SourcedText[] {
-  return [
-    ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
-    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : []),
-    ...(read.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
-  ];
-}
-
-async function verifyRead(input: {
-  client: Anthropic;
-  model: string;
-  card: ColdStartCard;
-  read: HowItWinsRead;
-  telemetry: (call: GenerationLlmCallTrace) => void;
-}) {
-  const claims = howItWinsClaims(input.read);
-  const sources = input.card.citations.map((citation) => ({
-    id: citation.id,
-    url: citation.url,
-    title: citation.title,
-    ...(citation.snippet ? { snippet: citation.snippet } : {})
-  }));
-  const results = await verifySynthesis({
-    client: input.client,
-    model: input.model,
-    claims,
-    sources,
-    evidenceFacts: verificationFactsForClaims(input.card, claims),
-    telemetry: input.telemetry
-  });
-  // Offset zero: these are the only claims in the call, so the read starts the array.
-  return verifiedHowItWins(input.read, results, 0);
-}
+// ---- arms ---------------------------------------------------------------------------------------
 
 // One arm that could not produce a read. The tokens it already spent stay on the record, so a
 // half-failed card still accounts for what it cost. Bound matches buildLlmCallTrace's 300 chars.
@@ -250,27 +298,39 @@ export function failedArmResult(
     editorSkipped: false,
     fitRetried: false,
     styleIssues: [],
-    usage: usageFromCalls(calls)
+    usage: usageFromCalls(calls),
+    calls: compactCalls(calls)
   };
 }
 
 async function runArm(input: {
   client: Anthropic;
   card: ColdStartCard;
+  judgeModel: string;
   writer: string;
   editor: string;
   verifyModel: string;
   verify: boolean;
+  judgment: HowItWinsJudgment;
+  // What the arm files itself under. The writer model in a model comparison, the prompt version
+  // in a prompt comparison.
+  armLabel: string;
+  writerPrompt?: string;
+  onCall: (call: GenerationLlmCallTrace) => void;
 }): Promise<ArmResult> {
   const calls: GenerationLlmCallTrace[] = [];
-  const telemetry = (call: GenerationLlmCallTrace) => calls.push(call);
+  const telemetry = (call: GenerationLlmCallTrace) => {
+    calls.push(call);
+    input.onCall(call);
+  };
   try {
     const result = await synthesizeHowItWins({
       client: input.client,
-      // The four-pass path, which never judges. The judge slot is filled for shape.
-      models: { judge: input.writer, writer: input.writer, editor: input.editor },
+      models: { judge: input.judgeModel, writer: input.writer, editor: input.editor },
       card: input.card,
-      telemetry
+      telemetry,
+      judgment: input.judgment,
+      ...(input.writerPrompt ? { writerPrompt: input.writerPrompt } : {})
     });
 
     let read = result.read;
@@ -288,14 +348,15 @@ async function runArm(input: {
     }
 
     return {
-      writer: input.writer,
+      writer: input.armLabel,
       preVerify: result.read,
       read,
       ...(dropReason ? { dropReason } : {}),
       editorSkipped: result.editorSkipped,
       fitRetried: result.fitRetried,
       styleIssues: result.styleIssues,
-      usage: usageFromCalls(calls)
+      usage: usageFromCalls(calls),
+      calls: compactCalls(calls)
     };
   } catch (error) {
     // A transient failure is worth retrying the whole card, so it still throws and skips it.
@@ -303,22 +364,7 @@ async function runArm(input: {
     if (isTransientLlmError(error)) {
       throw error;
     }
-    return failedArmResult(input.writer, error, calls);
-  }
-}
-
-// slopcheck exits non-zero only on kill-list hits, and prints its report on stdout either way.
-// Warn and structural lines are noise against a JSON file, so only the kill lines are surfaced.
-async function slopcheck(slug: string, file: string) {
-  if (!existsSync(SLOPCHECK)) return;
-  try {
-    await execFileAsync("python3", [SLOPCHECK, file]);
-  } catch (error) {
-    const report = (error as { stdout?: string }).stdout ?? "";
-    const kills = report.split("\n").filter((line) => line.includes("KILL"));
-    for (const line of kills.length > 0 ? kills : [`slopcheck failed on ${file}`]) {
-      console.log(`  ${slug} slop: ${line.trim()}`);
-    }
+    return failedArmResult(input.armLabel, error, calls);
   }
 }
 
@@ -328,13 +374,17 @@ function statusLabel(arm: ArmResult): string {
   return `read/${arm.read.running.length}`;
 }
 
+// ---- gate ---------------------------------------------------------------------------------------
+
 // The written arm file, read back loosely: a sitting can span versions of this script, and a
 // field the gate does not need must never cost the whole summary.
 export type HowItWinsArmFile = { arms?: Record<string, { writer?: string; read?: HowItWins } | undefined> };
 
+type GateSummary = { writer: string; passed: boolean; reads: number; topStrategies: string };
+
 // The frequency gate is the only check that needs the whole sitting rather than one card, so it
 // runs once at the end over every arm file on disk. Pure, so the test feeds it arm files directly.
-export function strategyGateLines(files: HowItWinsArmFile[]): string[] {
+function strategyGateSummaries(files: HowItWinsArmFile[]): GateSummary[] {
   const byWriter = new Map<string, Array<{ synthesis: { howItWins: HowItWinsRead } }>>();
   for (const file of files) {
     for (const arm of Object.values(file.arms ?? {})) {
@@ -354,8 +404,20 @@ export function strategyGateLines(files: HowItWinsArmFile[]): string[] {
         .sort(([leftName, left], [rightName, right]) => right - left || leftName.localeCompare(rightName))
         .slice(0, 3)
         .map(([strategy, value]) => `${strategy} ${value.toFixed(2)}`);
-      return `gate ${writer}: ${gate.passed ? "passed" : "failed"} over ${gate.reads} reads; top strategies: ${top.length > 0 ? top.join(", ") : "none"}`;
+      return {
+        writer,
+        passed: gate.passed,
+        reads: gate.reads,
+        topStrategies: top.length > 0 ? top.join(", ") : "none"
+      };
     });
+}
+
+export function strategyGateLines(files: HowItWinsArmFile[]): string[] {
+  return strategyGateSummaries(files).map(
+    (summary) =>
+      `gate ${summary.writer}: ${summary.passed ? "passed" : "failed"} over ${summary.reads} reads; top strategies: ${summary.topStrategies}`
+  );
 }
 
 async function armFilesInOutDir(outDir: string): Promise<HowItWinsArmFile[]> {
@@ -383,8 +445,10 @@ async function writeIndex(outDir: string, row: IndexRow) {
   await writeFile(indexPath, `${JSON.stringify(rows, null, 2)}\n`);
 }
 
+// ---- run -----------------------------------------------------------------------------------------
+
 async function main() {
-  loadRootEnv();
+  loadRootEnv(process.cwd());
   const flags = parseFlags(process.argv.slice(2));
   const corpus = await loadCorpus();
 
@@ -401,41 +465,80 @@ async function main() {
   }
 
   const client = createAnthropicClient();
+  const judgeModel = flags.judge?.trim() || process.env.LLM_HOW_IT_WINS_JUDGE_MODEL?.trim() || DEFAULT_JUDGE;
+  const editorModel = flags.editor?.trim() || process.env.LLM_HOW_IT_WINS_EDITOR_MODEL?.trim() || HOW_IT_WINS_DEFAULT_EDITOR_MODEL;
   const verifyModel = modelForStage("verify");
+  const promptArms = flags.promptArms && flags.previousPrompt ? await loadPromptArms(flags.previousPrompt) : null;
+  const writerModel = flags.writers[0];
   const outDir = path.resolve(process.cwd(), flags.out);
   await mkdir(outDir, { recursive: true });
   console.log(
-    `${slugs.length} cards, writers ${flags.writers.join(" and ")}, editor ${flags.editor}, verifier ${flags.verify ? verifyModel : "off"}`
+    promptArms
+      ? `${slugs.length} cards, judge ${judgeModel}, writer ${writerModel} on ${promptArms.versions.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}`
+      : `${slugs.length} cards, judge ${judgeModel}, writers ${flags.writers.join(" and ")}, critic ${editorModel}, verifier ${flags.verify ? verifyModel : "off"}`
   );
 
+  // Tallied from telemetry as calls return, so the run's total covers every stage rather than
+  // only the cards that finished.
   let spent = 0;
+  const onCall = (call: GenerationLlmCallTrace) => {
+    spent += call.estimatedCostUsd ?? 0;
+  };
+
   for (const slug of slugs) {
     const entry = corpus.get(slug);
     if (!entry) {
       console.log(`${slug}  not in corpus`);
       continue;
     }
-    const key = armAssignment(flags.seed, slug, flags.writers);
+    const key = armAssignment(flags.seed, slug, promptArms?.versions ?? flags.writers);
     const startedAt = Date.now();
+    const spentBeforeCard = spent;
     try {
+      const judgeCalls: GenerationLlmCallTrace[] = [];
+      const { judgment, cached } = await loadOrRunJudgment({
+        card: entry.card,
+        client,
+        models: { judge: judgeModel, writer: writerModel, editor: editorModel },
+        telemetry: (call) => {
+          judgeCalls.push(call);
+          onCall(call);
+        },
+        refinement: true
+      });
+
       // One card at a time (Anthropic rate limits), but its two arms are independent.
       const run = (label: ArmLabel) =>
         runArm({
           client,
           card: entry.card,
-          writer: key[label],
-          editor: flags.editor,
+          judgeModel,
+          writer: promptArms ? writerModel : key[label],
+          editor: editorModel,
           verifyModel,
-          verify: flags.verify
+          verify: flags.verify,
+          judgment,
+          armLabel: key[label],
+          ...(promptArms ? { writerPrompt: promptArms.promptById[key[label]]! } : {}),
+          onCall
         });
       const [armA, armB] = await Promise.all([run("A"), run("B")]);
-      const cost = armA.usage.estimatedCostUsd + armB.usage.estimatedCostUsd;
-      spent += cost;
+
       const file = {
         slug,
         name: entry.row.name,
         domain: entry.row.domain,
-        editor: flags.editor,
+        editor: editorModel,
+        judge: {
+          model: judgeModel,
+          cached,
+          usage: usageFromCalls(judgeCalls),
+          calls: compactCalls(judgeCalls)
+        },
+        // The whole verdict, every strategy row included, so field-level measurement can run
+        // offline against what the writer was actually handed.
+        judgment,
+        ...(promptArms ? { writerModel, prompts: promptArms.manifest } : {}),
         arms: { A: armA, B: armB },
         key
       };
@@ -443,7 +546,7 @@ async function main() {
       await writeFile(filePath, `${JSON.stringify(file, null, 2)}\n`);
       await writeIndex(outDir, { ...entry.row, createdAt: new Date().toISOString() });
       console.log(
-        `${slug}  A ${statusLabel(armA)}  B ${statusLabel(armB)}  $${cost.toFixed(4)}  ${Math.round((Date.now() - startedAt) / 1000)}s`
+        `${slug}  A ${statusLabel(armA)}  B ${statusLabel(armB)}  ${cached ? "cached verdict" : "fresh verdict"}  $${(spent - spentBeforeCard).toFixed(4)}  ${Math.round((Date.now() - startedAt) / 1000)}s`
       );
       await slopcheck(slug, filePath);
     } catch (error) {
@@ -452,6 +555,7 @@ async function main() {
       );
     }
   }
+
   for (const line of strategyGateLines(await armFilesInOutDir(outDir))) {
     console.log(line);
   }

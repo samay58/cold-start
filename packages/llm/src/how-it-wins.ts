@@ -560,13 +560,14 @@ async function synthesizeHowItWinsFromFrozenJudgment(
     models: HowItWinsModels;
     card: ColdStartCard;
     telemetry?: AnthropicTelemetrySink;
+    writerPrompt?: string;
   },
   judgment: HowItWinsJudgment
 ): Promise<HowItWinsResult> {
   const request = frozenHowItWinsWriterRequest(judgment);
   // The frozen prompt is the bar. The four-pass writing standard lets the model set
   // nothing_stands_out when a sentence is hard, which would drop a frozen verdict.
-  const system = request.prompt;
+  const system = input.writerPrompt ?? request.prompt;
   const user = `Approved judgment:\n${JSON.stringify(request.payload)}\n\nEvidence:\n${JSON.stringify(cardForHowItWinsPrompt(input.card))}`;
   const askWriter = (userText: string) =>
     withProviderFallback("how_it_wins", input.models.writer, (model) =>
@@ -624,6 +625,9 @@ export async function synthesizeHowItWins(input: {
   card: ColdStartCard;
   telemetry?: AnthropicTelemetrySink;
   judgment?: HowItWinsJudgment;
+  // Only the eval rig sets this, to put an older writer prompt against the shipped one over a
+  // single frozen verdict. Production never sets it and always writes with the shipped prompt.
+  writerPrompt?: string;
 }): Promise<HowItWinsResult> {
   if (input.judgment) {
     return synthesizeHowItWinsFromFrozenJudgment(input, input.judgment);

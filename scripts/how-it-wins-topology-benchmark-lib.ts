@@ -3,22 +3,24 @@ import { join } from "node:path";
 
 import {
   HOW_IT_WINS_STRATEGIES,
-  coldStartCardSchema,
   howItWinsJudgmentSchema,
-  type HowItWinsEvidenceItem,
   type HowItWinsJudgeCallTrace,
   type HowItWinsJudgment,
   type HowItWinsStrategyId
 } from "@cold-start/core";
 import {
-  cardForHowItWinsPrompt,
-  hashHowItWinsJudgeValue,
   howItWinsFourBundleScopes,
   howItWinsGroupScopes,
   type HowItWinsJudgeScope
 } from "@cold-start/llm";
 
+import {
+  hashBenchmarkValue as canonicalHash,
+  seededBenchmarkOrder as seededOrder
+} from "./how-it-wins-eval-shared";
+
 export { parseHowItWinsJudgeRules } from "@cold-start/llm";
+export { buildHowItWinsEvidencePacket, hashBenchmarkValue } from "./how-it-wins-eval-shared";
 
 export type HowItWinsJudgeTopology = "monolith" | "four_bundles" | "thirteen_groups";
 
@@ -68,18 +70,6 @@ const MINIMUM_CALL_COUNTS: Record<HowItWinsJudgeTopology, number> = {
   thirteen_groups: 16
 };
 
-function canonicalHash(value: unknown) {
-  return hashHowItWinsJudgeValue(value);
-}
-
-function seededOrder<T>(values: readonly T[], seed: string) {
-  return [...values].sort((left, right) => {
-    const leftHash = canonicalHash([seed, left]);
-    const rightHash = canonicalHash([seed, right]);
-    return leftHash.localeCompare(rightHash);
-  });
-}
-
 export async function verifyClosedBenchmarkCards(input: {
   ledgerPath: string;
   notesPath: string;
@@ -113,32 +103,6 @@ export async function verifyClosedBenchmarkCards(input: {
     if (!card) throw new Error(`${slug} is not in the closed benchmark allowlist`);
     return card;
   });
-}
-
-export function buildHowItWinsEvidencePacket(cardInput: unknown, options: { orderSeed: string | null }) {
-  const card = coldStartCardSchema.parse(cardInput);
-  const context = structuredClone(cardForHowItWinsPrompt(card));
-  const citations = options.orderSeed
-    ? seededOrder(context.citations, `${options.orderSeed}:citations`)
-    : context.citations;
-  context.citations = citations;
-  if (options.orderSeed) {
-    context.signals = seededOrder(context.signals, `${options.orderSeed}:signals`);
-    context.comparables = seededOrder(context.comparables, `${options.orderSeed}:comparables`);
-  }
-  const evidence: HowItWinsEvidenceItem[] = citations.map((citation) => ({
-    evidenceId: citation.id,
-    text: citation.snippet?.trim() || citation.title,
-    source: `${citation.title} (${citation.url})`,
-    sourceDate: null,
-    attribution: citation.sourceQuality?.tier ?? citation.sourceType,
-    scope: "company"
-  }));
-  return {
-    cutoff: card.generatedAt,
-    evidence,
-    context
-  };
 }
 
 export type BenchmarkRunPlanItem = {
@@ -1078,5 +1042,3 @@ export function createBenchmarkAttemptStore(input: { root: string; capUsd: numbe
     }
   };
 }
-
-export { canonicalHash as hashBenchmarkValue };

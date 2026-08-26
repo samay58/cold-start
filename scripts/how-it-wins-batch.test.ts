@@ -4,7 +4,6 @@ import type { HowItWins, HowItWinsJudgment, HowItWinsStrategyId } from "@cold-st
 import {
   HOW_IT_WINS_BATCH_HOLDOUT,
   computeLosses,
-  judgmentCacheFileName,
   parseFlags,
   selectBatchSlugs,
   shouldStopForBudget,
@@ -83,19 +82,8 @@ test("--parallel and --limit parse with sane defaults", () => {
   assert.throws(() => parseFlags(["--limit", "0"]), /positive integer/);
 });
 
-// ---- cache key naming --------------------------------------------------------------------------
-
-test("the judgment cache file name is the three hashes joined with dots", () => {
-  const name = judgmentCacheFileName("evidence-hash", "prompt-hash", "vocab-hash");
-  assert.equal(name, "evidence-hash.prompt-hash.vocab-hash.json");
-});
-
-test("the cache file name changes when any one of the three hashes changes", () => {
-  const base = judgmentCacheFileName("a", "b", "c");
-  assert.notEqual(judgmentCacheFileName("a2", "b", "c"), base);
-  assert.notEqual(judgmentCacheFileName("a", "b2", "c"), base);
-  assert.notEqual(judgmentCacheFileName("a", "b", "c2"), base);
-});
+// The judgment cache name is shared with the corpus reads; it is tested in
+// how-it-wins-eval-shared.test.ts.
 
 // ---- losses ------------------------------------------------------------------------------------
 
@@ -284,3 +272,4 @@ test("median handles even and odd counts and an empty list", () => {
   assert.equal(median([1, 3, 2]), 2);
   assert.equal(median([1, 2, 3, 4]), 2.5);
 });
+

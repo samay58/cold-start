@@ -7,7 +7,6 @@
 import { execFile } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -19,21 +18,24 @@ import {
   type ColdStartCard,
   type GenerationLlmCallTrace,
   type HowItWins,
-  type HowItWinsJudgment,
-  type HowItWinsRead,
-  type SourcedText
+  type HowItWinsJudgment
 } from "@cold-start/core";
 import {
   createAnthropicClient,
   isTransientLlmError,
   modelForStage,
   synthesizeHowItWins,
-  verifySynthesis,
   HOW_IT_WINS_DEFAULT_EDITOR_MODEL
 } from "@cold-start/llm";
-import { verificationFactsForClaims, verifiedHowItWins } from "@cold-start/pipeline";
 
-import { buildHowItWinsEvidencePacket, hashBenchmarkValue } from "./how-it-wins-topology-benchmark-lib";
+import {
+  buildHowItWinsEvidencePacket,
+  hashBenchmarkValue,
+  loadRootEnv,
+  slopcheck,
+  usageFromCalls,
+  verifyRead
+} from "./how-it-wins-eval-shared";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -46,7 +48,6 @@ const RUNS_DIR = path.join(
 const OUT_DIR = path.join(ROOT, "apps/web/.cold-start/how-it-wins-known-company-review");
 const UI_ENTRY = path.join(path.dirname(fileURLToPath(import.meta.url)), "how-it-wins-known-company-review-ui.tsx");
 const CROWN_CSS = path.join(ROOT, "apps/extension/src/styles/how-it-wins.css");
-const SLOPCHECK = path.join(homedir(), ".claude", "scripts", "slopcheck.py");
 const ESBUILD = path.join(ROOT, "node_modules/.bin/esbuild");
 
 const COMPANIES = [
@@ -97,68 +98,12 @@ export type KnownCompanyReview = {
   failure?: string;
 };
 
-function loadRootEnv() {
-  const envPath = path.join(ROOT, ".env.local");
-  if (!existsSync(envPath)) return;
-  for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
-    const match = line.match(/^([A-Z0-9_]+)\s*=\s*(.*)$/);
-    const name = match?.[1];
-    if (!name || process.env[name]) continue;
-    process.env[name] = (match[2] ?? "").trim().replace(/^['"]|['"]$/g, "");
-  }
-}
-
 function parseFlags(argv: string[]) {
   return {
     force: argv.includes("--force"),
     uiOnly: argv.includes("--ui-only"),
     dryRun: argv.includes("--dry-run")
   };
-}
-
-function usageFromCalls(calls: GenerationLlmCallTrace[]) {
-  return calls.reduce(
-    (total, call) => ({
-      inputTokens: total.inputTokens + (call.inputTokens ?? 0),
-      outputTokens: total.outputTokens + (call.outputTokens ?? 0),
-      estimatedCostUsd: total.estimatedCostUsd + (call.estimatedCostUsd ?? 0),
-      durationMs: total.durationMs + call.durationMs
-    }),
-    { inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0, durationMs: 0 }
-  );
-}
-
-function howItWinsClaims(read: HowItWinsRead): SourcedText[] {
-  return [
-    ...read.running.map((entry) => ({ text: entry.note, citationIds: entry.citationIds })),
-    ...(read.pair ? [{ text: read.pair.note, citationIds: read.pair.citationIds }] : []),
-    ...(read.inQuestion ?? []).map((entry) => ({ text: entry.note, citationIds: entry.citationIds }))
-  ];
-}
-
-async function verifyRead(input: {
-  client: Anthropic;
-  model: string;
-  card: ColdStartCard;
-  read: HowItWinsRead;
-  telemetry: (call: GenerationLlmCallTrace) => void;
-}) {
-  const claims = howItWinsClaims(input.read);
-  const sources = input.card.citations.map((citation) => ({
-    id: citation.id,
-    url: citation.url,
-    title: citation.title,
-    ...(citation.snippet ? { snippet: citation.snippet } : {})
-  }));
-  const results = await verifySynthesis({
-    client: input.client,
-    model: input.model,
-    claims,
-    sources,
-    evidenceFacts: verificationFactsForClaims(input.card, claims),
-    telemetry: input.telemetry
-  });
-  return verifiedHowItWins(input.read, results, 0);
 }
 
 function loadCard(slug: string) {
@@ -194,19 +139,6 @@ function preflight(company: Company, card: ColdStartCard, judgment: HowItWinsJud
     .filter((id) => !citations.has(id));
   if (missing.length > 0) {
     throw new Error(`${company.slug}: judgment cites evidence missing from the card: ${missing.join(", ")}`);
-  }
-}
-
-async function slopcheck(slug: string, file: string) {
-  if (!existsSync(SLOPCHECK)) return;
-  try {
-    await execFileAsync("python3", [SLOPCHECK, file]);
-  } catch (error) {
-    const report = (error as { stdout?: string }).stdout ?? "";
-    const kills = report.split("\n").filter((line) => line.includes("KILL"));
-    for (const line of kills.length > 0 ? kills : [`slopcheck failed on ${file}`]) {
-      console.log(`  ${slug} slop: ${line.trim()}`);
-    }
   }
 }
 
@@ -372,7 +304,7 @@ async function runCompany(input: {
 }
 
 async function main() {
-  loadRootEnv();
+  loadRootEnv(ROOT);
   const flags = parseFlags(process.argv.slice(2));
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8")) as Manifest;
   await mkdir(OUT_DIR, { recursive: true });
