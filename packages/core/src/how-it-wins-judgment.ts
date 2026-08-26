@@ -412,7 +412,7 @@ export const howItWinsJudgmentBodySchema = bodyObjectSchema.superRefine(validate
 // this field existed omit it, so every reader treats an absent record as unknown rather than
 // as a clean run.
 const refinementSchema = z.object({
-  critic: z.enum(["ok", "failed", "skipped_same_provider"]),
+  critic: z.enum(["ok", "failed", "skipped_same_provider", "skipped_disabled"]),
   adjudication: z.enum(["ok", "failed", "not_needed"]),
   notes: z.array(z.string().min(1).max(300)),
   // Deterministic fixes the transport made to the model's own answer before it was

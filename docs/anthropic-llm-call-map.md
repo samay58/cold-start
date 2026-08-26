@@ -134,6 +134,7 @@ Per-stage provider routing (the `LLM_*_MODEL` env chains) is the only non-Anthro
 | `PERSON_READS_ENABLED` | `false` disables the person-reads step in contact enrichment (default on) |
 | `EMPHASIS_READ_ENABLED` | `false` disables the founder-voice fetch and the `emphasis_read` stage in the analysis path (default on) |
 | `HOW_IT_WINS_ENABLED` | `false` disables the background `how-it-wins-read` Inngest function the analysis run dispatches after storing synthesis (default on; production is OFF as of 2026-08-25 pending verification of the streaming-transport repair) |
+| `HOW_IT_WINS_REFINEMENT` | `off` skips the critic and adjudication calls that follow the all-80 judge (default on); the judge returns straight from its global judgment, saving about $0.30 and 60s per run |
 | `LLM_HOW_IT_WINS_JUDGE_MODEL` | model for the all-80 monolith judge and its scout/critic-adjudication passes; falls back to `LLM_HOW_IT_WINS_MODEL` (the writer) when unset; must be a different provider from `LLM_HOW_IT_WINS_EDITOR_MODEL` |
 | `LLM_HOW_IT_WINS_EDITOR_MODEL` | model for the how-it-wins hostile editor pass (default `deepseek/deepseek-v4-pro`) |
 | `INNGEST_HOW_IT_WINS_CONCURRENCY` | optional concurrency cap on the `how-it-wins-read` function, same pattern as `INNGEST_CARD_ENRICHMENT_CONCURRENCY` |

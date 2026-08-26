@@ -191,6 +191,24 @@ describe("howItWinsJudgeStepBody", () => {
     expect(result).not.toHaveProperty("judgment");
   });
 
+  it("passes the refinement flag through to the judge", async () => {
+    await howItWinsJudgeStepBody({ db, card, slug: "cognition", client, models, refinement: false });
+
+    expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
+  });
+
+  it("hashes the lookup and the stored verdict under the same refinement flag it judges with", async () => {
+    const offHashes = howItWinsJudgeInputs(card, false).hashes;
+    expect(offHashes.promptHash).not.toBe(hashes.promptHash);
+
+    const result = await howItWinsJudgeStepBody({ db, card, slug: "cognition", client, models, refinement: false });
+
+    expect(result).toMatchObject({ ok: true, hashes: offHashes });
+    expect(mocks.findHowItWinsJudgment.mock.calls[0]?.[1]).toEqual(offHashes);
+    expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
+    expect(mocks.storeHowItWinsJudgment.mock.calls[0]?.[1]).toMatchObject(offHashes);
+  });
+
   it("memoizes a judge fail-closed as { ok: false } and rethrows a transient transport error", async () => {
     mocks.judgeHowItWinsForAnalysis.mockRejectedValueOnce(
       new Error("how-it-wins judge failed closed: global judgment failed")

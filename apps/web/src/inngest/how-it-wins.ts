@@ -46,14 +46,19 @@ function memoizedFailure(error: unknown): { ok: false; error: string } {
 
 // The three inputs that decide a verdict, hashed. Everything else about a run (the model, the
 // slug, the clock) can move without changing what the judge should conclude, which is what makes
-// the stored verdict safe to replay.
-export function howItWinsJudgeInputs(card: ColdStartCard): { hashes: HowItWinsJudgmentInputHashes } {
+// the stored verdict safe to replay. Refinement changes what the judge does under the same rules,
+// so it rides into the prompt hash: a verdict judged with refinement on must never replay for a
+// run with it off, and vice versa.
+export function howItWinsJudgeInputs(
+  card: ColdStartCard,
+  refinement?: boolean
+): { hashes: HowItWinsJudgmentInputHashes } {
   const packet = howItWinsEvidencePacketFromCard(card);
   const rules = loadHowItWinsJudgeRules();
   return {
     hashes: {
       evidencePacketHash: hashHowItWinsJudgeValue(packet),
-      promptHash: howItWinsJudgePromptHash(rules),
+      promptHash: howItWinsJudgePromptHash(rules, { refinement }),
       vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES)
     }
   };
@@ -106,8 +111,10 @@ export async function howItWinsJudgeStepBody(input: {
   slug: string;
   client: ReturnType<typeof createAnthropicClient>;
   models: HowItWinsModels;
+  // Default true (undefined means on). False skips the critic and adjudication passes.
+  refinement?: boolean;
 }): Promise<HowItWinsJudgeStepResult> {
-  const { hashes } = howItWinsJudgeInputs(input.card);
+  const { hashes } = howItWinsJudgeInputs(input.card, input.refinement);
   try {
     const cached = await findHowItWinsJudgment(input.db, hashes);
     if (cached) {
@@ -126,7 +133,8 @@ export async function howItWinsJudgeStepBody(input: {
     const judgment = await judgeHowItWinsForAnalysis({
       card: input.card,
       client: input.client,
-      models: input.models
+      models: input.models,
+      ...(input.refinement === undefined ? {} : { refinement: input.refinement })
     });
     const stored = await storeHowItWinsJudgment(input.db, {
       ...hashes,

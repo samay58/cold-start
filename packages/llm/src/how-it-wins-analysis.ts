@@ -17,6 +17,9 @@ export async function judgeHowItWinsForAnalysis(input: {
   client: Anthropic;
   models: HowItWinsModels;
   telemetry?: AnthropicTelemetrySink;
+  // Default true (undefined means on). False skips the critic and adjudication passes; see
+  // createHowItWinsJudge.
+  refinement?: boolean;
 }): Promise<HowItWinsJudgment> {
   const packet = howItWinsEvidencePacketFromCard(input.card);
   const rules = loadHowItWinsJudgeRules();
@@ -36,13 +39,14 @@ export async function judgeHowItWinsForAnalysis(input: {
       strong: adapterFor(input.models.judge),
       scout: adapterFor(input.models.judge),
       critic: adapterFor(input.models.editor)
-    }
+    },
+    ...(input.refinement === undefined ? {} : { refinement: input.refinement })
   });
   return judge({
     evidencePacket: packet,
     evidencePacketHash: hashHowItWinsJudgeValue(packet),
     vocabulary: HOW_IT_WINS_STRATEGIES,
     vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
-    promptHash: howItWinsJudgePromptHash(rules)
+    promptHash: howItWinsJudgePromptHash(rules, { refinement: input.refinement })
   });
 }

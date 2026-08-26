@@ -62,7 +62,13 @@ export type FrozenHowItWinsWriterRead = {
 };
 
 export type FrozenHowItWinsWriterParse =
-  | { read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string; inQuestion: FrozenWriterItem[] }; prompt: string }
+  | {
+      read: FrozenHowItWinsWriterRead | { status: "nothing_stands_out"; sentence: string; inQuestion: FrozenWriterItem[] };
+      prompt: string;
+      // Slips the writer made on an optional slot, corrected in code instead of a paid retry: a
+      // dropped pair, a not-yet or in-question item that did not match its approved position.
+      normalizations: string[];
+    }
   | { issues: string[] };
 
 function sameStrings(left: readonly string[], right: readonly string[]) {
@@ -110,6 +116,49 @@ function parseWriterItems(
   return { parsed, issues };
 }
 
+// The pair, not-yet, and in-question slots are secondary and optional by the judgment standard.
+// A writer slip on one of them costs that item, not the whole read: match each returned item
+// against the approved list at its own position, keep what matches, and name what got dropped.
+function reconcileOptionalWriterItems(
+  items: Array<Record<string, unknown>>,
+  expected: readonly HowItWinsStrategyId[],
+  validEvidenceIds: Set<string>,
+  options: { requireCitations: boolean; label: string }
+): { parsed: FrozenWriterItem[]; issues: string[]; normalizations: string[] } {
+  const normalizations: string[] = [];
+  // Match by strategy id, not by position: a writer that skips one approved item must not take
+  // the items after it down with it. Survivors keep the approved order; anything the writer sent
+  // outside the approved list, or twice, is dropped with a note.
+  const byStrategy = new Map<HowItWinsStrategyId, Record<string, unknown>>();
+  items.forEach((entry, index) => {
+    const strategy = howItWinsStrategyIdSchema.safeParse(entry.strategy);
+    const got = strategy.success ? strategy.data : typeof entry.strategy === "string" ? entry.strategy : "an unnamed strategy";
+    if (strategy.success && expected.includes(strategy.data) && !byStrategy.has(strategy.data)) {
+      byStrategy.set(strategy.data, entry);
+      return;
+    }
+    normalizations.push(`dropped ${options.label} item ${index + 1}: "${got}" is not an approved ${options.label} strategy`);
+  });
+  for (const expectedId of expected) {
+    if (!byStrategy.has(expectedId)) {
+      normalizations.push(`the writer omitted the approved ${options.label} strategy "${expectedId}"`);
+    }
+  }
+  const matchedExpected = expected.filter((expectedId) => byStrategy.has(expectedId));
+  const matchedEntries = matchedExpected.map((expectedId) => byStrategy.get(expectedId)!);
+
+  const { parsed, issues } = parseWriterItems(matchedEntries, matchedExpected, validEvidenceIds, {
+    requireCitations: options.requireCitations
+  });
+  return { parsed, issues, normalizations };
+}
+
+function rawPairStrategyNames(pairRaw: Record<string, unknown>): string {
+  const raw = Array.isArray(pairRaw.strategies) ? pairRaw.strategies : [];
+  if (raw.length === 0) return "no strategies";
+  return raw.map((value) => (typeof value === "string" ? value : JSON.stringify(value))).join(" and ");
+}
+
 export function frozenHowItWinsWriterRequest(judgment: HowItWinsJudgment) {
   const frozen = howItWinsJudgmentSchema.parse(judgment);
   const evaluationById = new Map(frozen.strategyEvaluations.map((entry) => [entry.strategyId, entry]));
@@ -154,6 +203,8 @@ export function parseFrozenHowItWinsWriterDraft(
   const draft = record(parsedJson.value);
   if (!draft) return { issues: ["writer output must be a JSON object"] };
 
+  const validEvidenceIds = new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId));
+
   if (draft.status === "nothing_stands_out") {
     if (judgment.currentStrategyIds.length >= 1) {
       return { issues: ["a supported verdict cannot become nothing_stands_out"] };
@@ -166,15 +217,15 @@ export function parseFrozenHowItWinsWriterDraft(
     }
     const inQuestionIds = openQuestionIdsFrom(judgment);
     const inQuestionItems = writerItems(draft.in_question);
-    const writtenInQuestion = inQuestionItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
-    if (!sameStrings(writtenInQuestion, inQuestionIds)) {
-      return { issues: ["writer changed the approved in-question strategy labels or their order"] };
-    }
-    const parsedInQuestion = parseWriterItems(inQuestionItems, inQuestionIds, new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId)), { requireCitations: false });
-    if (parsedInQuestion.issues.length > 0) return { issues: parsedInQuestion.issues };
+    const inQuestionResult = reconcileOptionalWriterItems(inQuestionItems, inQuestionIds, validEvidenceIds, {
+      requireCitations: false,
+      label: "in-question"
+    });
+    if (inQuestionResult.issues.length > 0) return { issues: inQuestionResult.issues };
     return {
-      read: { status: "nothing_stands_out", sentence: draft.sentence, inQuestion: parsedInQuestion.parsed },
-      prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT
+      read: { status: "nothing_stands_out", sentence: draft.sentence, inQuestion: inQuestionResult.parsed },
+      prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT,
+      normalizations: inQuestionResult.normalizations
     };
   }
 
@@ -188,53 +239,59 @@ export function parseFrozenHowItWinsWriterDraft(
   if (!sameStrings(writtenCurrent, judgment.currentStrategyIds)) {
     return { issues: [`writer changed the approved current strategy labels or their order (got ${writtenCurrent.join(", ") || "none"}; expected ${judgment.currentStrategyIds.join(", ")})`] };
   }
+
   const notYetIds = judgment.strategyEvaluations
     .filter((entry) => entry.disposition === "not_yet")
     .map((entry) => entry.strategyId);
-  const notYetItems = writerItems(draft.not_yet);
-  const writtenNotYet = notYetItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
-  if (!sameStrings(writtenNotYet, notYetIds)) {
-    return { issues: ["writer changed the approved not-yet strategy labels or their order"] };
-  }
+  const notYetResult = reconcileOptionalWriterItems(writerItems(draft.not_yet), notYetIds, validEvidenceIds, {
+    requireCitations: true,
+    label: "not-yet"
+  });
 
-  const validEvidenceIds = new Set(judgment.evidenceRegistry.map((entry) => entry.evidenceId));
   const inQuestionIds = openQuestionIdsFrom(judgment);
-  const inQuestionItems = writerItems(draft.in_question);
-  const writtenInQuestion = inQuestionItems.map((entry) => entry.strategy).filter((value): value is string => typeof value === "string");
-  if (!sameStrings(writtenInQuestion, inQuestionIds)) {
-    return { issues: ["writer changed the approved in-question strategy labels or their order"] };
-  }
+  const inQuestionResult = reconcileOptionalWriterItems(writerItems(draft.in_question), inQuestionIds, validEvidenceIds, {
+    requireCitations: false,
+    label: "in-question"
+  });
 
   const current = parseWriterItems(currentItems, judgment.currentStrategyIds, validEvidenceIds, { requireCitations: true });
-  const notYet = parseWriterItems(notYetItems, notYetIds, validEvidenceIds, { requireCitations: true });
-  const inQuestion = parseWriterItems(inQuestionItems, inQuestionIds, validEvidenceIds, { requireCitations: false });
-  const issues = [...current.issues, ...notYet.issues, ...inQuestion.issues];
+  const issues = [...current.issues, ...notYetResult.issues, ...inQuestionResult.issues];
   const sentence = typeof draft.sentence === "string" ? draft.sentence : "";
   const wrongIf = typeof draft.wrong_if === "string" ? draft.wrong_if : "";
   if (!sentence.trim()) issues.push("writer needs a sentence");
   if (!wrongIf.trim()) issues.push("writer needs wrong_if");
 
+  const normalizations = [...notYetResult.normalizations, ...inQuestionResult.normalizations];
+
+  // The pair is secondary and optional by the judgment standard: any problem with it (a strategy
+  // mismatch, an unapproved pair, a missing note or citation) costs the pair, not the read.
   let pair: FrozenHowItWinsWriterRead["pair"] = null;
   const pairRaw = record(draft.pair);
   if (judgment.unusualPair) {
     if (!pairRaw) {
-      issues.push("writer removed the approved unusual pair");
+      normalizations.push("the writer omitted the approved unusual pair");
     } else {
       const strategies = Array.isArray(pairRaw.strategies)
         ? pairRaw.strategies.filter((value): value is HowItWinsStrategyId => howItWinsStrategyIdSchema.safeParse(value).success)
         : [];
-      if (!sameStrings(strategies, judgment.unusualPair.strategyIds)) issues.push("writer changed the approved unusual pair");
       const note = typeof pairRaw.note === "string" ? pairRaw.note : "";
       const pairWrongIf = typeof pairRaw.wrong_if === "string" ? pairRaw.wrong_if : "";
       const citationIds = writerCitationIds(note);
-      if (!note || !pairWrongIf || citationIds.length === 0) issues.push("writer pair needs its note, wrong_if, and cited evidence");
-      for (const id of citationIds) if (!validEvidenceIds.has(id)) issues.push(`writer pair cites unknown evidence ${id}`);
-      if (strategies.length === 2) {
+      const wellFormed =
+        strategies.length === 2 &&
+        sameStrings(strategies, judgment.unusualPair.strategyIds) &&
+        note.trim().length > 0 &&
+        pairWrongIf.trim().length > 0 &&
+        citationIds.length > 0 &&
+        citationIds.every((id) => validEvidenceIds.has(id));
+      if (wellFormed) {
         pair = { strategies: [strategies[0]!, strategies[1]!], note, wrongIf: pairWrongIf, citationIds };
+      } else {
+        normalizations.push(`dropped the writer's pair (${rawPairStrategyNames(pairRaw)}); it did not match the approved unusual pair`);
       }
     }
   } else if (pairRaw) {
-    issues.push("writer added an unusual pair that was not approved");
+    normalizations.push(`dropped the writer's pair (${rawPairStrategyNames(pairRaw)}); no unusual pair was approved`);
   }
 
   if (issues.length > 0) return { issues: Array.from(new Set(issues)) };
@@ -244,11 +301,12 @@ export function parseFrozenHowItWinsWriterDraft(
       sentence,
       current: current.parsed,
       pair,
-      notYet: notYet.parsed,
-      inQuestion: inQuestion.parsed,
+      notYet: notYetResult.parsed,
+      inQuestion: inQuestionResult.parsed,
       wrongIf
     },
-    prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT
+    prompt: HOW_IT_WINS_FROZEN_WRITER_PROMPT,
+    normalizations
   };
 }
 

@@ -98,8 +98,12 @@ export type HowItWinsJudgeRules = {
   strategyRubric: HowItWinsJudgeStrategyRule[];
 };
 
-export function howItWinsJudgePromptHash(rules: HowItWinsJudgeRules) {
-  return hashHowItWinsJudgeValue({ prompts: HOW_IT_WINS_JUDGE_PROMPTS, rules });
+// Refinement changes what the judge does with the same rules, so a verdict judged under one
+// setting must never replay for a run under the other. Folded into the prompt hash, not a
+// separate cache column: default true when the caller omits the option, matching
+// createHowItWinsJudge's own default.
+export function howItWinsJudgePromptHash(rules: HowItWinsJudgeRules, options?: { refinement: boolean | undefined }) {
+  return hashHowItWinsJudgeValue({ prompts: HOW_IT_WINS_JUDGE_PROMPTS, rules, refinement: options?.refinement ?? true });
 }
 
 const bundleGroupIds: ReadonlyArray<{ id: string; groups: readonly HowItWinsGroupId[] }> = [
@@ -497,7 +501,7 @@ function parseGlobalJudgment(
 }
 
 type HowItWinsRefinementRecord = {
-  critic: "ok" | "failed" | "skipped_same_provider";
+  critic: "ok" | "failed" | "skipped_same_provider" | "skipped_disabled";
   adjudication: "ok" | "failed" | "not_needed";
   notes: string[];
   repairs: string[];
@@ -517,6 +521,11 @@ export function createHowItWinsJudge(config: {
   // Named at construction so a same-provider critic costs nothing. The old check compared
   // provider strings on the returned traces, after both paid calls had already run.
   providers?: { strong: string; critic: string };
+  // Default true. False skips the critic and adjudication calls after the global judgment: no
+  // second paid pass, no patch. The taste question those passes answer (do the trims they make
+  // match what the read should say) is Samay's blind read to make, so this needs a switch that
+  // costs no deploy.
+  refinement?: boolean;
 }) {
   assertExactRules(config.rules);
   if (config.providers && config.providers.strong === config.providers.critic) {
@@ -552,7 +561,7 @@ export function createHowItWinsJudge(config: {
     if (hashHowItWinsJudgeValue(input.vocabulary) !== input.vocabularyHash) {
       throw new HowItWinsJudgmentClosedError("vocabulary hash mismatch");
     }
-    if (input.promptHash !== howItWinsJudgePromptHash(config.rules)) {
+    if (input.promptHash !== howItWinsJudgePromptHash(config.rules, { refinement: config.refinement })) {
       throw new HowItWinsJudgmentClosedError("prompt hash mismatch");
     }
 
@@ -728,6 +737,24 @@ export function createHowItWinsJudge(config: {
       globalJudgment = accepted.body;
       refinement.repairs.push(...accepted.repairs);
       refinement.notes.push(refinementNote("global judgment repaired after", error));
+    }
+
+    // No critic call, no adjudication call: the global judgment is the answer. Whatever the
+    // deterministic repair pass already fixed above stays recorded in refinement.repairs.
+    if (config.refinement === false) {
+      refinement.critic = "skipped_disabled";
+      refinement.adjudication = "not_needed";
+      return howItWinsJudgmentSchema.parse({
+        version: 1,
+        hashes: {
+          evidencePacket: input.evidencePacketHash,
+          prompt: input.promptHash,
+          vocabulary: input.vocabularyHash
+        },
+        ...globalJudgment,
+        refinement,
+        calls
+      });
     }
 
     const criticRequest: HowItWinsJudgeCallRequest = {

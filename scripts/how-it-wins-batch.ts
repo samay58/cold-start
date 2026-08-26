@@ -102,6 +102,7 @@ export type Flags = {
   writerModel: string | null;
   budgetUsd: number;
   parallel: number;
+  refinement: boolean;
 };
 
 export function parseFlags(argv: string[]): Flags {
@@ -112,7 +113,8 @@ export function parseFlags(argv: string[]): Flags {
     judgeModel: null,
     writerModel: null,
     budgetUsd: DEFAULT_BUDGET_USD,
-    parallel: 1
+    parallel: 1,
+    refinement: true
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? "";
@@ -124,6 +126,7 @@ export function parseFlags(argv: string[]): Flags {
     else if (arg === "--writer-model") flags.writerModel = value();
     else if (arg === "--budget-usd") flags.budgetUsd = Number.parseFloat(value());
     else if (arg === "--parallel") flags.parallel = Number.parseInt(value(), 10);
+    else if (arg === "--no-refinement") flags.refinement = false;
     else if (arg.startsWith("--")) throw new Error(`unknown flag: ${arg}`);
   }
   if (!Number.isFinite(flags.limit) || flags.limit < 1) throw new Error("--limit must be a positive integer");
@@ -180,10 +183,14 @@ export function judgmentCacheFileName(evidencePacketHash: string, promptHash: st
   return `${evidencePacketHash}.${promptHash}.${vocabularyHash}.json`;
 }
 
-function judgmentCacheKeyForCard(card: ColdStartCard, rules: ReturnType<typeof loadHowItWinsJudgeRules>): string {
+function judgmentCacheKeyForCard(
+  card: ColdStartCard,
+  rules: ReturnType<typeof loadHowItWinsJudgeRules>,
+  refinement: boolean
+): string {
   const packet = howItWinsEvidencePacketFromCard(card);
   const evidencePacketHash = hashHowItWinsJudgeValue(packet);
-  const promptHash = howItWinsJudgePromptHash(rules);
+  const promptHash = howItWinsJudgePromptHash(rules, { refinement });
   const vocabularyHash = hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES);
   return judgmentCacheFileName(evidencePacketHash, promptHash, vocabularyHash);
 }
@@ -193,9 +200,10 @@ async function loadOrRunJudgment(input: {
   client: Anthropic;
   models: HowItWinsModels;
   telemetry: (call: GenerationLlmCallTrace) => void;
+  refinement: boolean;
 }): Promise<{ judgment: HowItWinsJudgment; cached: boolean }> {
   const rules = loadHowItWinsJudgeRules();
-  const fileName = judgmentCacheKeyForCard(input.card, rules);
+  const fileName = judgmentCacheKeyForCard(input.card, rules, input.refinement);
   const filePath = path.join(JUDGMENT_CACHE_DIR, fileName);
   if (existsSync(filePath)) {
     const stored = JSON.parse(await readFile(filePath, "utf8"));
@@ -205,7 +213,8 @@ async function loadOrRunJudgment(input: {
     card: input.card,
     client: input.client,
     models: input.models,
-    telemetry: input.telemetry
+    telemetry: input.telemetry,
+    refinement: input.refinement
   });
   await mkdir(JUDGMENT_CACHE_DIR, { recursive: true });
   await writeFile(filePath, `${JSON.stringify(judgment, null, 2)}\n`);
@@ -217,7 +226,10 @@ async function loadOrRunJudgment(input: {
 // still resolves against the card, then only if the freshly computed cache key has no file yet.
 // A schema or prompt change since those runs were captured (in flight alongside this packet)
 // means most or all of these will not seed; that is expected, not a bug, and gets reported.
-async function seedJudgmentCacheFromBenchmarkRuns(cardsBySlug: Map<string, ColdStartCard>): Promise<{ attempted: number; hits: number }> {
+async function seedJudgmentCacheFromBenchmarkRuns(
+  cardsBySlug: Map<string, ColdStartCard>,
+  refinement: boolean
+): Promise<{ attempted: number; hits: number }> {
   if (!existsSync(BENCHMARK_RUNS_DIR)) return { attempted: 0, hits: 0 };
   const names = (await readdir(BENCHMARK_RUNS_DIR)).filter((name) => name.includes("monolith") && name.endsWith(".json"));
   if (names.length === 0) return { attempted: 0, hits: 0 };
@@ -244,7 +256,7 @@ async function seedJudgmentCacheFromBenchmarkRuns(cardsBySlug: Map<string, ColdS
     const citationIds = new Set(card.citations.map((citation) => citation.id));
     const missingEvidence = parsed.data.evidenceRegistry.some((entry) => !citationIds.has(entry.evidenceId));
     if (missingEvidence) continue;
-    const fileName = judgmentCacheKeyForCard(card, rules);
+    const fileName = judgmentCacheKeyForCard(card, rules, refinement);
     // The verdict carries the hashes it was judged under. Only a verdict judged under the current
     // evidence, prompt, and vocabulary may stand in for a fresh call; anything else is a different
     // contract wearing the same slug.
@@ -456,6 +468,7 @@ async function runCard(input: {
   models: HowItWinsModels;
   writerModelLabel: string;
   verifyModel: string;
+  refinement: boolean;
 }): Promise<HowItWinsBatchCardRecord> {
   const startedAt = Date.now();
   const judgeTelemetry: GenerationLlmCallTrace[] = [];
@@ -469,7 +482,8 @@ async function runCard(input: {
       card: input.card,
       client: input.client,
       models: input.models,
-      telemetry: (call) => judgeTelemetry.push(call)
+      telemetry: (call) => judgeTelemetry.push(call),
+      refinement: input.refinement
     });
     judgment = loaded.judgment;
     cached = loaded.cached;
@@ -735,7 +749,7 @@ async function main() {
     return;
   }
 
-  const seed = await seedJudgmentCacheFromBenchmarkRuns(cardsBySlug);
+  const seed = await seedJudgmentCacheFromBenchmarkRuns(cardsBySlug, flags.refinement);
   console.log(`benchmark seed: ${seed.attempted} attempted, ${seed.hits} written`);
 
   const client = createAnthropicClient();
@@ -747,7 +761,7 @@ async function main() {
   const models = howItWinsModelsFor(modelSet);
 
   console.log(
-    `${runSlugs.length} cards; judge ${judgeModel}; writer ${writerModel}; editor ${editorModel}; verifier ${verifyModel}; budget $${flags.budgetUsd.toFixed(2)}`
+    `${runSlugs.length} cards; judge ${judgeModel}; writer ${writerModel}; editor ${editorModel}; verifier ${verifyModel}; budget $${flags.budgetUsd.toFixed(2)}; refinement ${flags.refinement ? "on" : "off"}`
   );
 
   const runDir = path.join(OUT_ROOT, runStamp());
@@ -773,7 +787,8 @@ async function main() {
           client,
           models,
           writerModelLabel: writerModel,
-          verifyModel
+          verifyModel,
+          refinement: flags.refinement
         })
       )
     );

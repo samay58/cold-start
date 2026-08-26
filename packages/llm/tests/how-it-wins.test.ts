@@ -900,4 +900,52 @@ describe("synthesizeHowItWins", () => {
     expect(call?.params.messages[0]?.content).toContain("Approved judgment:");
     expect(call?.params.messages[0]?.content).not.toContain("how-it-wins-reason");
   });
+
+  it("carries the writer's normalizations onto the frozen result", async () => {
+    tracedMessage.mockReset();
+    tracedMessage.mockResolvedValueOnce(
+      textMessage(
+        JSON.stringify({
+          status: "read",
+          sentence: "Irregular's evaluation harness sits inside model-release decisions for two frontier labs.",
+          current: ["hybrid", "chokepoint", "prestige"].map((strategy) => ({
+            strategy,
+            note: `Irregular uses ${strategy} in its current bet [e1].`
+          })),
+          pair: null,
+          not_yet: [],
+          in_question: [{ strategy: "aggregation", note: "A strategy nothing in the approved list named." }],
+          wrong_if: "A second vendor appears in the same release notes and performs the same role."
+        })
+      )
+    );
+
+    const judgment = frozenJudgment();
+    const result = await synthesizeHowItWins({
+      client: {} as Anthropic,
+      models: writerModels(),
+      card,
+      judgment
+    });
+
+    expect(tracedMessage).toHaveBeenCalledTimes(1);
+    expect(result.read.status).toBe("read");
+    if (result.read.status !== "read") throw new Error("expected a frozen read");
+    expect(result.read.inQuestion).toEqual([]);
+    expect(result.normalizations).toHaveLength(1);
+    expect(result.normalizations[0]).toMatch(/in-question/);
+  });
+
+  it("retries once, then throws, when the writer changes an approved current label", async () => {
+    tracedMessage.mockReset();
+    const changedLabels = frozenWriterDraftJson(["chokepoint", "hybrid", "prestige"]);
+    tracedMessage.mockResolvedValueOnce(textMessage(changedLabels)).mockResolvedValueOnce(textMessage(changedLabels));
+
+    const judgment = frozenJudgment();
+    await expect(
+      synthesizeHowItWins({ client: {} as Anthropic, models: writerModels(), card, judgment })
+    ).rejects.toThrow(/how-it-wins frozen writer invalid/);
+
+    expect(tracedMessage).toHaveBeenCalledTimes(2);
+  });
 });

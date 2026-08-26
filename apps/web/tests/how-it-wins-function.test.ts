@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ColdStartCard, GenerationTrace, HowItWinsJudgment, HowItWinsRead } from "@cold-start/core";
+
+import { howItWinsRefinementEnabled } from "../src/inngest/worker-env";
 
 // Drives the real howItWinsHandler through the same fake step executor the analysis-run suites
 // use, with the judge, the writer, the verifier, and every database call mocked at their module
@@ -162,7 +164,10 @@ function stepHarness() {
   };
 }
 
-async function runHowItWins(harness = stepHarness(), options: { enabled?: boolean } = {}) {
+async function runHowItWins(
+  harness = stepHarness(),
+  options: { enabled?: boolean; refinement?: boolean } = {}
+) {
   vi.resetModules();
   process.env.DATABASE_URL = "postgres://cold-start-test";
   process.env.NEXT_PUBLIC_WEB_ORIGIN = "http://localhost:3000";
@@ -170,6 +175,11 @@ async function runHowItWins(harness = stepHarness(), options: { enabled?: boolea
     process.env.HOW_IT_WINS_ENABLED = "false";
   } else {
     delete process.env.HOW_IT_WINS_ENABLED;
+  }
+  if (options.refinement === false) {
+    process.env.HOW_IT_WINS_REFINEMENT = "off";
+  } else {
+    delete process.env.HOW_IT_WINS_REFINEMENT;
   }
 
   const { howItWinsHandler } = await import("../src/inngest/how-it-wins-function");
@@ -391,5 +401,35 @@ describe("how-it-wins background function", () => {
     expect(names).not.toContain("how-it-wins-load");
     expect(mocks.findCardBySlug).not.toHaveBeenCalled();
     expect(patchedTrace().howItWins).toMatchObject({ enabled: false, status: "skipped" });
+  });
+
+  it("passes HOW_IT_WINS_REFINEMENT through to the judge, on by default and off when set", async () => {
+    await runHowItWins();
+    expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: true });
+
+    // Clear the in-memory judgment table so the second run is a cache miss too, and only the
+    // judge mock's call history so its second call lands at index 0 again.
+    storedJudgment = null;
+    mocks.judgeHowItWinsForAnalysis.mockClear();
+
+    await runHowItWins(stepHarness(), { refinement: false });
+    expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });
+  });
+});
+
+describe("howItWinsRefinementEnabled", () => {
+  afterEach(() => {
+    delete process.env.HOW_IT_WINS_REFINEMENT;
+  });
+
+  it("is on unless the env var is exactly \"off\"", () => {
+    delete process.env.HOW_IT_WINS_REFINEMENT;
+    expect(howItWinsRefinementEnabled()).toBe(true);
+
+    process.env.HOW_IT_WINS_REFINEMENT = "off";
+    expect(howItWinsRefinementEnabled()).toBe(false);
+
+    process.env.HOW_IT_WINS_REFINEMENT = "not-a-real-value";
+    expect(howItWinsRefinementEnabled()).toBe(true);
   });
 });

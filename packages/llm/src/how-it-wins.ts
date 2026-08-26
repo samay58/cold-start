@@ -596,6 +596,7 @@ async function synthesizeHowItWinsFromFrozenJudgment(
 
   let read = howItWinsFromFrozenWriter(parsed.read);
   let styleIssues = styleIssuesForRead(read);
+  let normalizations = parsed.normalizations;
   if (styleIssues.length > 0 && !fitRetried) {
     fitRetried = true;
     const retried = parseFrozenHowItWinsWriterDraft(await askWriter(retryUser(styleIssues)), judgment);
@@ -603,6 +604,7 @@ async function synthesizeHowItWinsFromFrozenJudgment(
       parsed = retried;
       read = howItWinsFromFrozenWriter(retried.read);
       styleIssues = styleIssuesForRead(read);
+      normalizations = retried.normalizations;
     }
   }
 
@@ -611,7 +613,7 @@ async function synthesizeHowItWinsFromFrozenJudgment(
     editorSkipped: true,
     fitRetried,
     styleIssues,
-    normalizations: [],
+    normalizations,
     judgment
   };
 }

@@ -32,7 +32,12 @@ import {
   type HowItWinsJudgeSummary,
   type HowItWinsLosses
 } from "./how-it-wins";
-import { backgroundConcurrencyLimit, howItWinsEnabled, howItWinsModelsFromProcess } from "./worker-env";
+import {
+  backgroundConcurrencyLimit,
+  howItWinsEnabled,
+  howItWinsModelsFromProcess,
+  howItWinsRefinementEnabled
+} from "./worker-env";
 
 const HOW_IT_WINS_EVENT_NAME = "card/how-it-wins.requested" as const;
 const HOW_IT_WINS_STEP_ID = "how-it-wins";
@@ -187,6 +192,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
   }
 
   const models = howItWinsModelsFromProcess(anthropicModel());
+  const refinementEnabled = howItWinsRefinementEnabled();
   const verifierModel = modelForStage("verify", anthropicModel());
   const anthropic = createAnthropicClient();
 
@@ -213,7 +219,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
   }
 
   const judged = await step.run("how-it-wins-judge", () =>
-    howItWinsJudgeStepBody({ db, card, slug, client: anthropic, models })
+    howItWinsJudgeStepBody({ db, card, slug, client: anthropic, models, refinement: refinementEnabled })
   );
   if (!judged.ok) {
     return finish({ status: "failed", stepStatus: "failed", stepMessage: judged.error });
@@ -303,7 +309,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
         // against the card this run loaded: a re-file that landed while the judge was running
         // must not have this read written over its new evidence.
         if (!current.synthesis) throw new HowItWinsStaleCardError();
-        if (howItWinsJudgeInputs(current).hashes.evidencePacketHash !== judged.hashes.evidencePacketHash) {
+        if (howItWinsJudgeInputs(current, refinementEnabled).hashes.evidencePacketHash !== judged.hashes.evidencePacketHash) {
           throw new HowItWinsStaleCardError();
         }
         return { ...current, synthesis: { ...current.synthesis, howItWins: verified } };

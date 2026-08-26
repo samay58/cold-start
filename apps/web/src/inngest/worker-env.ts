@@ -98,6 +98,13 @@ export function howItWinsEnabled() {
   return process.env.HOW_IT_WINS_ENABLED !== "false";
 }
 
+// HOW_IT_WINS_REFINEMENT off skips the critic and adjudication passes that follow the global
+// judgment: no second paid call, no patch. Read before the judge step, same as howItWinsEnabled,
+// so a run dispatched before the flag flipped still pays for what it was dispatched to pay for.
+export function howItWinsRefinementEnabled() {
+  return process.env.HOW_IT_WINS_REFINEMENT !== "off";
+}
+
 // Three models, not two. The frozen writer runs through the stage's own routing chain
 // (LLM_HOW_IT_WINS_MODEL, then the synthesis chain). The all-80 judge reads
 // LLM_HOW_IT_WINS_JUDGE_MODEL and falls back to the writer, so the two can be routed apart

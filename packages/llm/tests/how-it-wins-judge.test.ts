@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   HOW_IT_WINS_FOUR_BUNDLES,
+  HowItWinsJudgeClosedError,
   createHowItWinsJudge,
   frozenHowItWinsWriterRequest,
   hashHowItWinsJudgeValue,
@@ -180,13 +181,13 @@ const rules: HowItWinsJudgeRules = {
   }))
 };
 
-function judgeInput() {
+function judgeInput(options?: { refinement?: boolean }) {
   return {
     evidencePacket,
     evidencePacketHash: hashHowItWinsJudgeValue(evidencePacket),
     vocabulary: HOW_IT_WINS_STRATEGIES,
     vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
-    promptHash: howItWinsJudgePromptHash(rules)
+    promptHash: howItWinsJudgePromptHash(rules, { refinement: options?.refinement })
   };
 }
 
@@ -448,6 +449,7 @@ describe("createHowItWinsJudge", () => {
       scopes?: HowItWinsJudgeScope[];
       maxScoutConcurrency?: number;
       telemetry?: (trace: HowItWinsJudgeCallTrace) => void;
+      refinement?: boolean;
     } = {}
   ) {
     return createHowItWinsJudge({ adapters: fake, rules, ...options });
@@ -752,6 +754,29 @@ describe("createHowItWinsJudge", () => {
 
     const strongStages = (fake.strong as ReturnType<typeof vi.fn>).mock.calls.map(([request]) => request.stage);
     expect(strongStages).toEqual(["bet_map", "global_judge"]);
+  });
+
+  it("makes exactly one strong call and no critic call when refinement is disabled", async () => {
+    const fake = adapters({
+      criticFindings: [
+        {
+          findingId: "f1",
+          kind: "strategy",
+          material: true,
+          summary: "Usership may have been missed.",
+          strategyIds: ["usership"],
+          evidenceIds: ["e1"]
+        }
+      ]
+    });
+    const judge = makeJudge(fake, { scopes: [], refinement: false });
+
+    const result = await judge(judgeInput({ refinement: false }));
+
+    expect(fake.strong.mock.calls).toHaveLength(1);
+    expect((fake.strong as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]?.stage).toBe("global_judge");
+    expect(fake.critic).not.toHaveBeenCalled();
+    expect(result.refinement).toMatchObject({ critic: "skipped_disabled", adjudication: "not_needed" });
   });
 
   it("runs one targeted adjudication for a material dispute", async () => {
@@ -1400,6 +1425,22 @@ describe("createHowItWinsJudge", () => {
       expect(call.actualCostUsd !== null || call.estimatedCostUsd !== null).toBe(true);
     }
   });
+
+  it("hashes a different prompt hash for refinement on than for refinement off", () => {
+    const on = howItWinsJudgePromptHash(rules, { refinement: true });
+    const off = howItWinsJudgePromptHash(rules, { refinement: false });
+    expect(on).not.toBe(off);
+    expect(howItWinsJudgePromptHash(rules)).toBe(on);
+    expect(howItWinsJudgePromptHash(rules, { refinement: undefined })).toBe(on);
+  });
+
+  it("fails closed when the input's prompt hash was computed under the other refinement setting", async () => {
+    const fake = adapters();
+    const judge = makeJudge(fake, { refinement: false });
+
+    await expect(judge(judgeInput({ refinement: true }))).rejects.toThrow(HowItWinsJudgeClosedError);
+    await expect(judge(judgeInput({ refinement: true }))).rejects.toThrow(/prompt hash mismatch/);
+  });
 });
 
 describe("parseFrozenHowItWinsWriterDraft", () => {
@@ -1589,6 +1630,116 @@ describe("parseFrozenHowItWinsWriterDraft", () => {
       note: "The filed record does not show whether buyers still need another tool for the same job.",
       citationIds: []
     }]);
+  });
+
+  function withApprovedPair(frozen: ReturnType<typeof verdict>, strategyIds: [HowItWinsStrategyId, HowItWinsStrategyId]) {
+    return {
+      ...frozen,
+      unusualPair: {
+        strategyIds,
+        referenceClass: "peer companies solving the same buyer problem",
+        normalChoice: "most peers run only one of the two mechanisms",
+        excludedAlternative: "running usership without aggregation",
+        acceptedCost: "the operational overhead of running both at once",
+        interaction: "usership feeds the volume that makes aggregation defensible",
+        copyingDifficulty: "a competitor needs both motions built at the same time",
+        evidenceIds: ["e1"]
+      }
+    };
+  }
+
+  it("drops a pair that does not match the approved unusual pair, with a normalization and no issue", () => {
+    const frozen = withApprovedPair(verdict(), ["usership", "aggregation"]);
+    const mismatchedPair = JSON.stringify({
+      status: "read",
+      sentence: "Fixture Company wins through three current mechanisms.",
+      current: ["usership", "aggregation", "reliability"].map((strategy) => ({
+        strategy,
+        note: `Fixture Company uses ${strategy} in its current bet [e1].`
+      })),
+      pair: {
+        strategies: ["usership", "reliability"],
+        note: "The two mechanisms compound together [e1].",
+        wrong_if: "A competitor copies both mechanisms at once."
+      },
+      not_yet: [],
+      in_question: [],
+      wrong_if: "The mechanisms stop affecting buyer choice."
+    });
+
+    const parsed = parseFrozenHowItWinsWriterDraft(mismatchedPair, frozen);
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    expect(parsed.read.pair).toBeNull();
+    expect(parsed.normalizations).toHaveLength(1);
+    expect(parsed.normalizations[0]).toMatch(/pair/i);
+  });
+
+  it("leaves the pair absent, with a normalization, when the writer omits an approved pair", () => {
+    const frozen = withApprovedPair(verdict(), ["usership", "aggregation"]);
+    const omittedPair = JSON.stringify({
+      status: "read",
+      sentence: "Fixture Company wins through three current mechanisms.",
+      current: ["usership", "aggregation", "reliability"].map((strategy) => ({
+        strategy,
+        note: `Fixture Company uses ${strategy} in its current bet [e1].`
+      })),
+      pair: null,
+      not_yet: [],
+      in_question: [],
+      wrong_if: "The mechanisms stop affecting buyer choice."
+    });
+
+    const parsed = parseFrozenHowItWinsWriterDraft(omittedPair, frozen);
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    expect(parsed.read.pair).toBeNull();
+    expect(parsed.normalizations).toEqual(["the writer omitted the approved unusual pair"]);
+  });
+
+  it("keeps the in-question items the judge approved and drops the one it did not, noting the omission", () => {
+    const frozen = verdict();
+    const [firstId, secondId] = HOW_IT_WINS_STRATEGIES
+      .filter((strategy) => strategy.id === "completeness" || strategy.id === "curation")
+      .map((strategy) => strategy.id);
+    const withTwoQuestions = {
+      ...frozen,
+      strategyEvaluations: frozen.strategyEvaluations.map((entry) =>
+        entry.strategyId === firstId || entry.strategyId === secondId
+          ? {
+            ...entry,
+            disposition: "open_question" as const,
+            evidenceGate: "unresolved" as const,
+            presentRelevance: "unresolved" as const,
+            dispositionReason: "The record does not show whether this is current."
+          }
+          : entry
+      )
+    };
+
+    const draftText = JSON.stringify({
+      status: "read",
+      sentence: "Fixture Company wins through three current mechanisms.",
+      current: ["usership", "aggregation", "reliability"].map((strategy) => ({
+        strategy,
+        note: `Fixture Company uses ${strategy} in its current bet [e1].`
+      })),
+      pair: null,
+      not_yet: [],
+      in_question: [
+        { strategy: firstId, note: "The filed record does not settle whether this still holds." },
+        { strategy: "precision", note: "A wrong label at the second approved position." }
+      ],
+      wrong_if: "The mechanisms stop affecting buyer choice."
+    });
+
+    const parsed = parseFrozenHowItWinsWriterDraft(draftText, withTwoQuestions);
+    expect("read" in parsed).toBe(true);
+    if (!("read" in parsed) || parsed.read.status !== "read") throw new Error("expected a frozen read");
+    expect(parsed.read.inQuestion.map((entry) => entry.strategy)).toEqual([firstId]);
+    expect(parsed.normalizations).toHaveLength(2);
+    expect(parsed.normalizations[0]).toMatch(/precision/);
+    expect(parsed.normalizations[1]).toMatch(new RegExp(`omitted .*"${secondId}"`));
   });
 });
 
