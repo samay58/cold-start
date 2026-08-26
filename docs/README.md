@@ -29,6 +29,7 @@ Start here before adding or editing docs.
 - `qa/extension-interaction-contract.md`: interaction contract the side panel must honor.
 - `qa/generation-trace-and-production-qa.md`: generation trace and production QA commands.
 - `qa/analysis-run-observations.md`: dated log of notable analysis runs and the attack list they feed.
+- `qa/how-it-wins-repair-2026-08-25.md`: the How it wins production repair, its before-and-after measurements, and the handoff commands.
 - `qa/exa-websets-contact-enrichment-playbook.md`: Websets contact enrichment QA.
 - `superpowers/plans/`: active implementation plans, including the friend-alpha production-readiness build. Shipped plans move to `archive/plans/`.
 - `superpowers/specs/`: live approved design specs, currently the investor-lens overhaul design. Shipped specs move to `archive/specs/`.
