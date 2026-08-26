@@ -140,8 +140,10 @@ const howItWinsArmSchema = z.object({
   dropReason: z.enum(["running-dropped", "pair-dropped"]).optional(),
   // Present only on an arm that threw. Its twin still filed, so the card is still worth showing.
   failure: z.string().optional(),
-  editorSkipped: z.boolean(),
-  fitRetried: z.boolean(),
+  // Both go back to the four-pass writer, retired on main. A production-path sitting (the
+  // judge-then-writer corpus reads) never sets them; the rig never reads either field.
+  editorSkipped: z.boolean().optional(),
+  fitRetried: z.boolean().optional(),
   styleIssues: z.array(z.string()),
   usage: howItWinsUsageSchema
 });
@@ -150,7 +152,9 @@ export const howItWinsFileSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   domain: z.string().min(1),
-  editor: z.string().min(1),
+  // Named for the four-pass writer's hostile editor. A production-path sitting names its critic
+  // and judge models instead and carries no top-level editor field at all.
+  editor: z.string().min(1).optional(),
   arms: z.object({ A: howItWinsArmSchema, B: howItWinsArmSchema }),
   key: z.object({ A: z.string().min(1), B: z.string().min(1) })
 });

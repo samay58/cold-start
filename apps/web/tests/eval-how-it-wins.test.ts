@@ -143,6 +143,65 @@ describe("how-it-wins rig data", () => {
     expect(reads[0].key.B).toBe("claude-sonnet-4-6");
   });
 
+  // The judge-then-writer path on main names its critic and judge instead of a hostile editor,
+  // and never sets editorSkipped or fitRetried; both go back to the retired four-pass writer.
+  it("reads a production-path file with no editor, editorSkipped, or fitRetried", async () => {
+    const productionPathFile = {
+      slug: "gamma",
+      name: "GAMMA",
+      domain: "gamma.com",
+      writerModel: "claude-sonnet-5",
+      critic: "deepseek/deepseek-v4-pro",
+      judge: { model: "claude-opus-5" },
+      prompts: { writer: "current" },
+      arms: {
+        A: {
+          writer: "claude-sonnet-5",
+          preVerify: read,
+          read,
+          styleIssues: [],
+          usage: { inputTokens: 100, outputTokens: 200, estimatedCostUsd: 0.25, durationMs: 1000 },
+          calls: [
+            {
+              label: "how-it-wins-frozen-writer",
+              model: "claude-sonnet-5",
+              status: "ok",
+              inputTokens: 100,
+              outputTokens: 200,
+              durationMs: 1000,
+              estimatedCostUsd: 0.25
+            }
+          ]
+        },
+        B: {
+          writer: "claude-sonnet-4-6",
+          preVerify: read,
+          read,
+          styleIssues: [],
+          usage: { inputTokens: 100, outputTokens: 200, estimatedCostUsd: 0.2, durationMs: 900 },
+          calls: []
+        }
+      },
+      key: { A: "claude-sonnet-5", B: "claude-sonnet-4-6" }
+    };
+    await writeFile(
+      path.join(dir, "how-it-wins", "index.json"),
+      JSON.stringify([
+        { slug: "alpha", name: "ALPHA", domain: "alpha.com", createdAt: "2026-08-19T00:00:00Z" },
+        { slug: "beta", name: "BETA", domain: "beta.com", createdAt: "2026-08-19T00:01:00Z" },
+        { slug: "gamma", name: "GAMMA", domain: "gamma.com", createdAt: "2026-08-19T00:02:00Z" }
+      ])
+    );
+    await writeFile(path.join(dir, "how-it-wins", "gamma.json"), JSON.stringify(productionPathFile));
+
+    const reads = await readHowItWinsReads();
+    const gamma = reads.find((entry) => entry.slug === "gamma");
+    expect(gamma?.editor).toBeUndefined();
+    expect(gamma?.arms.A.editorSkipped).toBeUndefined();
+    expect(gamma?.arms.A.fitRetried).toBeUndefined();
+    expect(gamma?.arms.A.writer).toBe("claude-sonnet-5");
+  });
+
   it("accepts an arm that failed, carrying its message and its spent tokens", async () => {
     await writeHalfFailedAlpha();
 
