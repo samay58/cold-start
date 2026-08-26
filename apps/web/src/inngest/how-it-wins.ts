@@ -1,6 +1,7 @@
 import {
   HOW_IT_WINS_STRATEGIES,
   type ColdStartCard,
+  type GenerationLlmCallTrace,
   type GenerationTrace,
   type HowItWins,
   type HowItWinsJudgment,
@@ -92,6 +93,25 @@ export function howItWinsJudgeSummary(judgment: HowItWinsJudgment): HowItWinsJud
   };
 }
 
+// The judge's calls as rows for the run's LLM ledger (trace.llm.calls), the ledger cost_usd is
+// derived from. Called only for a judgment this run paid for; a cached one adds no rows. The
+// judgment keeps its own copy of the calls as the cache's record, which is a different ledger.
+export function howItWinsJudgeLlmCalls(summary: HowItWinsJudgeSummary): GenerationLlmCallTrace[] {
+  return (summary.calls ?? []).map((call) => ({
+    stage: "how_it_wins",
+    label: `how-it-wins:${call.stage}`,
+    model: call.model,
+    provider: call.provider,
+    status: call.outcome === "ok" ? "ok" : "failed",
+    durationMs: call.latencyMs,
+    ...(call.inputTokens === undefined ? {} : { inputTokens: call.inputTokens }),
+    ...(call.outputTokens === undefined ? {} : { outputTokens: call.outputTokens }),
+    ...((call.actualCostUsd ?? call.estimatedCostUsd) === undefined || (call.actualCostUsd ?? call.estimatedCostUsd) === null
+      ? {}
+      : { estimatedCostUsd: (call.actualCostUsd ?? call.estimatedCostUsd) as number })
+  }));
+}
+
 export type HowItWinsJudgeStepResult =
   | {
       ok: true;
@@ -128,8 +148,9 @@ export async function howItWinsJudgeStepBody(input: {
     }
 
     const startedAtMs = Date.now();
-    // No telemetry sink: every judge call already records its own cost, tokens, and latency in
-    // judgment.calls, and mirroring them into trace.llm.calls would double-count the read.
+    // No telemetry sink here: every judge call records its own cost, tokens, and latency in
+    // judgment.calls, and the function copies those rows onto the run's ledger once, through
+    // howItWinsJudgeLlmCalls, only when this run paid for the judgment.
     const judgment = await judgeHowItWinsForAnalysis({
       card: input.card,
       client: input.client,

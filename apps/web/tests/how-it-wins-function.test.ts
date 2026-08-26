@@ -286,6 +286,12 @@ describe("how-it-wins background function", () => {
       message: "How it wins filed",
       metadata: { status: "read", cached: false }
     });
+    // The paid judge call lands on the run's LLM ledger, so cost_usd counts the whole read.
+    const judgeCalls = (trace.llm?.calls ?? []).filter((call) => call.stage === "how_it_wins" && call.label === "how-it-wins:global_judge");
+    expect(judgeCalls).toHaveLength(1);
+    expect(judgeCalls[0]).toMatchObject({ model: "claude-test", provider: "anthropic", status: "ok", durationMs: 91_000, estimatedCostUsd: 1.5 });
+    expect(trace.llm?.totalEstimatedCostUsd ?? 0).toBeGreaterThanOrEqual(1.5);
+    expect(trace.costUsdAnthropic).toBe(trace.llm?.totalEstimatedCostUsd);
   });
 
   it("replays a stored verdict without calling the judge", async () => {
@@ -298,6 +304,8 @@ describe("how-it-wins background function", () => {
     expect(mocks.synthesizeHowItWins).toHaveBeenCalledTimes(1);
     expect(patchedTrace().howItWins?.judgmentRef).toMatchObject({ id: "stored-id", cached: true });
     expect(completeEvent()?.metadata).toMatchObject({ status: "read", cached: true });
+    // A replayed verdict cost this run nothing, so no judge call joins its ledger.
+    expect((patchedTrace().llm?.calls ?? []).some((call) => call.label.startsWith("how-it-wins:global_judge"))).toBe(false);
   });
 
   it("writes nothing and reports stale when the card moved under the judgment", async () => {

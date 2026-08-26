@@ -20,12 +20,14 @@ import {
 } from "./generation-helpers";
 import {
   completedStep,
+  llmTracePatchFromCalls,
   mergeGenerationTrace,
   mergeTracePatch,
   skippedStep
 } from "./generation-trace";
 import {
   howItWinsJudgeInputs,
+  howItWinsJudgeLlmCalls,
   howItWinsJudgeStepBody,
   howItWinsVerifyStepBody,
   howItWinsWriteStepBody,
@@ -231,6 +233,12 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
     cached: judged.cached
   };
   const judgeFields = { judgmentRef, judgeSummary: judged.judgeSummary };
+  // A paid judgment is this run's spend: its calls join the run's LLM ledger so cost_usd and every
+  // spend report count the whole read (the first live run stamped $0.40 against a $0.49 judge).
+  // A cached judgment cost this run nothing and adds nothing.
+  if (!judged.cached) {
+    mergeTracePatch(trace, llmTracePatchFromCalls(howItWinsJudgeLlmCalls(judged.judgeSummary)));
+  }
 
   const written = await step.run("how-it-wins-write", async () => {
     const llmTelemetry = createStepLlmTelemetryCollector();
