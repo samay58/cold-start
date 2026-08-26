@@ -47,7 +47,7 @@ Start here before adding or editing docs.
 
 - `archive/plans/` was `superpowers/plans/`: shipped implementation plans.
 - `archive/specs/` was `superpowers/specs/`: shipped design specs, closed release ledgers, and screenshots.
-- `archive/product/` holds the dated direction reviews, shipped product specs, capture notes, and slow-work essays formerly under `product/`.
+- `archive/product/` holds the dated direction reviews, shipped product specs, capture notes, and slow-work essays formerly under `product/`, including the How it wins adversarial review and its 2026-08-26 port record (`2026-08-25-how-it-wins-adversarial-review.md`).
 - `archive/qa/` holds dated QA baselines and the June 2026 Exa sidebar teardown formerly under `qa/`.
 
 Read the relevant archived review before reworking a product surface; the dated filenames carry the era.
