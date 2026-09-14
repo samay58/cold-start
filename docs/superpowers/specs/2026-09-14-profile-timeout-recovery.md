@@ -13,6 +13,14 @@ Source retrieval completed in 13.5 s and 23.1 s. The remaining time closely matc
 
 The same deployment's preceding successful profile traces identify `deepseek-v4-flash` as the extractor. The failed runs lost their model-call telemetry, so the exact provider-side reason and number of internal requests cannot be established retrospectively. The application caught and saved both errors before its 300-second route limit. These are application request timeouts, not evidence of Neon failure or Vercel terminating the process.
 
+## Why the failures appeared suddenly
+
+A second read-only check of Vercel's production deployment history found no deployment after August 27. Neon contains 43 initial-profile runs since then: 27 completed, 11 failed evidence checks, three failed for other reasons, and only the two September 14 runs timed out. On September 11, Vivino and Shipveho completed in 31.4 and 30.6 seconds; their extractor calls took 18.5 and 18.8 seconds.
+
+The requested model name does not identify an immutable deployed model. DeepSeek's September 10 announcement retired V4 Flash and redirected `deepseek-v4-flash` to V4.1 Flash. Its current [model documentation](https://api-docs.deepseek.com/quick_start/pricing/) confirms that mapping. Successful September 11 calls occurred after that announcement, so the migration alone does not establish the trigger for September 14. The provider's status page reports operational service at inspection time; it provides no incident explanation for our requests.
+
+Provider-side stalling is the leading explanation for the new symptom, with transport conditions and request-specific behavior still unresolved. The repair addresses the confirmed application recovery and observability defects. It does not prove the provider-side trigger. Before attributing the failure to a model migration, compare bounded provider requests using an approved spend cap. No paid diagnostic requests were made in this investigation.
+
 ## Defects
 
 1. Full-profile extraction lacks the alternate-provider recovery already used by synthesis. A provider timeout repeats the same work, then fails the profile.
