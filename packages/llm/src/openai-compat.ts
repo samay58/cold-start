@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
-import { providerConfigFor, quirksForModel, type ResolvedLlmModel } from "./llm-provider";
+import { providerConfigFor, quirksForModel, type LlmRequestOptions, type ResolvedLlmModel } from "./llm-provider";
 import { estimateLlmCostUsd } from "./pricing";
 
 type AnthropicMessageParams = Parameters<Anthropic["messages"]["create"]>[0];
@@ -258,11 +258,14 @@ async function postChatCompletion(input: {
   apiKey: string;
   body: OpenAiCompatBody;
   timeoutMs: number;
+  requestOptions?: LlmRequestOptions | undefined;
 }): Promise<{ payload: OpenAiCompatResponse; retryCount: number }> {
   let lastError: unknown = null;
+  const attempts = input.requestOptions ? input.requestOptions.maxRetries + 1 : MAX_ATTEMPTS;
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const isLastAttempt = attempt === MAX_ATTEMPTS - 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    input.requestOptions?.signal.throwIfAborted();
+    const isLastAttempt = attempt === attempts - 1;
     let response: Response;
     try {
       response = await fetch(`${input.baseUrl}/chat/completions`, {
@@ -272,11 +275,13 @@ async function postChatCompletion(input: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(input.body),
-        signal: AbortSignal.timeout(input.timeoutMs),
+        signal: input.requestOptions
+          ? AbortSignal.any([input.requestOptions.signal, AbortSignal.timeout(Math.min(input.timeoutMs, input.requestOptions.timeout))])
+          : AbortSignal.timeout(input.timeoutMs),
       });
     } catch (error) {
       lastError = error;
-      if (isLastAttempt) {
+      if (isLastAttempt || input.requestOptions?.signal.aborted) {
         throw error;
       }
       await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt] ?? 1500));
@@ -304,6 +309,7 @@ export async function createTracedOpenAiCompatMessage(input: {
   resolved: ResolvedLlmModel;
   stage: Parameters<typeof buildLlmCallTrace>[0]["stage"];
   telemetry?: AnthropicTelemetrySink | undefined;
+  requestOptions?: LlmRequestOptions | undefined;
 }): Promise<Message> {
   const startedAt = Date.now();
 
@@ -317,6 +323,7 @@ export async function createTracedOpenAiCompatMessage(input: {
       apiKey: config.apiKey,
       body,
       timeoutMs: config.timeoutMs,
+      requestOptions: input.requestOptions,
     });
     payload = result.payload;
     retryCount = result.retryCount;

@@ -153,6 +153,7 @@ const mocks = vi.hoisted(() => ({
   buildSeedProfileCard: vi.fn(),
   enrichExtractedSectionsForDomain: vi.fn(),
   generateCardForDomainWithTrace: vi.fn(),
+  extractCompanyClaims: vi.fn(),
   applyProviderFactCandidates: vi.fn(),
   totalGenerationCost: vi.fn()
 }));
@@ -199,12 +200,12 @@ vi.mock("@cold-start/llm", () => ({
   createAnthropicClient: () => ({}),
   // The section step consults the transient classifier before memoizing a failure; the errors
   // these tests throw are semantic, so the mock mirrors the real classifier's verdict for them.
-  isTransientLlmError: () => false,
+  isTransientLlmError: (error: unknown) => error instanceof Error && error.name === "TimeoutError",
   // @cold-start/pipeline re-exports this schema from llm, so the mock must provide it; a passthrough
   // is enough for the section shapes the tests feed in.
   extractedCardSectionsSchema: { parse: (value: unknown) => value },
   extractCompanyBlockClaims: vi.fn(),
-  extractCompanyClaims: vi.fn(),
+  extractCompanyClaims: mocks.extractCompanyClaims,
   fallbackResearchPlan: vi.fn(() => ({ searchQueries: {} })),
   synthesizeResearchSection: mocks.synthesizeResearchSection,
   synthesizeExpandedDescription: mocks.synthesizeExpandedDescription,
@@ -238,6 +239,7 @@ function stepHarness(options: {
   replayNowMs?: number;
   replayedStepResults?: Record<string, unknown>;
   stepNowMs?: Record<string, number>;
+  retryStepOnce?: string;
 } = {}) {
   const names: string[] = [];
   let nowMs = options.replayNowMs ?? Date.now();
@@ -260,7 +262,10 @@ function stepHarness(options: {
         if (stepNow !== undefined) {
           nowMs = stepNow;
         }
-        const value = await fn();
+        const value = await Promise.resolve().then(fn).catch(error => {
+          if (options.retryStepOnce !== name) throw error;
+          return fn();
+        });
         nowMs = options.replayNowMs ?? nowMs;
         return value;
       }),
@@ -1030,6 +1035,60 @@ describe("generate-card contact dispatch", () => {
     expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ id: "generation-run-id", status: "failed" })
+    );
+  });
+
+  it("persists extraction call telemetry when a transient step throws", async () => {
+    const failedCall = {
+      label: "extract-company-claims", stage: "extract_full", model: "test-model",
+      provider: "test-provider", status: "failed", durationMs: 45_000, error: "timed out"
+    };
+    mocks.extractCompanyClaims.mockImplementationOnce(async ({ telemetry }) => {
+      telemetry(failedCall);
+      throw new DOMException("timed out", "TimeoutError");
+    });
+    mocks.generateCardForDomainWithTrace.mockImplementationOnce(async (domain, deps) => {
+      return deps.extractSections({ domain, sources: [providerSource], evidenceLedger: [] });
+    });
+
+    await expect(runBasicsGeneration("true")).rejects.toThrow("timed out");
+    const failedTrace = mocks.updateGenerationRunTrace.mock.calls
+      .map(([, input]) => input.patch(null))
+      .find(trace => trace.failure);
+    expect(failedTrace.llm.calls).toEqual([failedCall]);
+    expect(failedTrace.steps["generate-card"].status).toBe("failed");
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ status: "failed" })
+    );
+  });
+
+  it("retains the failed call exactly once when the same invocation retries successfully", async () => {
+    const failedCall = {
+      label: "extract-company-claims", stage: "extract_full", model: "test-model",
+      provider: "test-provider", status: "failed", durationMs: 45_000, error: "timed out"
+    };
+    const successfulCall = { ...failedCall, status: "ok", durationMs: 500, error: undefined };
+    mocks.extractCompanyClaims
+      .mockImplementationOnce(async ({ telemetry }) => {
+        telemetry(failedCall);
+        throw new DOMException("timed out", "TimeoutError");
+      })
+      .mockImplementationOnce(async ({ telemetry }) => {
+        telemetry(successfulCall);
+        return sections;
+      });
+    const generate = async (domain: string, deps: { extractSections: (evidence: unknown) => Promise<unknown> }) => {
+      await deps.extractSections({ domain, sources: [providerSource], evidenceLedger: [] });
+      return { card, sections, sources: [providerSource], tracePatch: {} };
+    };
+    mocks.generateCardForDomainWithTrace.mockImplementationOnce(generate).mockImplementationOnce(generate);
+
+    await runBasicsGeneration("true", { retryStepOnce: "generate-card" });
+    const trace = mocks.updateGenerationRunTrace.mock.calls.at(-1)![1].patch(null);
+    expect(trace.llm.calls).toEqual([failedCall, successfulCall]);
+    expect(trace.steps["generate-card"].status).toBe("complete");
+    expect(mocks.transitionGenerationRunById).toHaveBeenCalledWith(
+      expect.anything(), expect.objectContaining({ status: "complete" })
     );
   });
 

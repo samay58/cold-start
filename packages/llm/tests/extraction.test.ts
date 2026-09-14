@@ -5,6 +5,7 @@ import {
   evidenceForExtractionPrompt,
   extractionSystemPrompt,
   extractionTool,
+  extractCompanyClaims,
   parseBlockEnrichmentToolUse,
   parseExtractionToolUse
 } from "../src/index";
@@ -66,6 +67,65 @@ const validExtractionPayload = {
     }
   ]
 };
+
+describe("profile extraction recovery", () => {
+  it("leaves provider comparisons on the requested model when recovery is disabled", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const timeout = new DOMException("timed out", "TimeoutError");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => { throw timeout; } }));
+    const create = vi.fn();
+    try {
+      await expect(extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash", providerRecovery: false,
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] }
+      })).rejects.toBe(timeout);
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("uses the alternate provider when successful headers are followed by a timed-out body", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const fetchMock = vi.fn().mockImplementation(async (_url, options) => ({
+      ok: true,
+      json: () => new Promise((_, reject) => {
+        options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const create = vi.fn().mockResolvedValue({ content: [{
+      type: "tool_use", name: "emit_company_claims", input: validExtractionPayload
+    }] });
+    const telemetry = vi.fn();
+    try {
+      const pending = extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+        telemetry
+      });
+      await vi.advanceTimersByTimeAsync(45_000);
+      const result = await pending;
+      expect(result.identity.name.value).toBe("Cartesia");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.calls[0]![1]).toMatchObject({ maxRetries: 0, timeout: 90_000 });
+      expect(telemetry.mock.calls.map(([call]) => [call.provider, call.status])).toEqual([
+        ["deepseek", "failed"], ["anthropic", "ok"]
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("extractionTool", () => {
   it("exposes typed resolved fact value schemas", () => {

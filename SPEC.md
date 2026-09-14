@@ -188,6 +188,8 @@ The AgentCash path collapses what Spec 3 modeled as separate vendor-account inte
 
 Provider budgets are executable, not just spreadsheet assumptions. StableEnrich endpoint timeout, expected facts, estimated cost, mode, and stop condition live in `packages/providers/src/provider-budget.ts`; generation traces copy that metadata next to endpoint results. Adding a paid endpoint without registering its budget is a contract miss.
 
+Full-profile extraction has a bounded provider recovery path. The primary gets 45 seconds when an alternate is configured; the alternate gets 90 seconds. Without an alternate, the primary gets 90 seconds. The alternate resolves from `LLM_EXTRACT_FALLBACK_MODEL`, `LLM_FALLBACK_MODEL`, then `ANTHROPIC_MODEL`, and must use a different provider. An explicit `off` disables it. Transport failures and provider unavailability can trigger recovery; authentication and content-validation failures cannot. Schema correction shares each provider's deadline. Exhausted recovery does not replay at the step layer. Failed extraction calls remain in the saved trace, and the existing citation and usable-profile checks still guard every card write.
+
 **Generation modes**:
 
 `basics` is the extension activation path. The side panel asks before starting it; the request carries `confirmStart` after that click. The API still accepts extension-authenticated basics requests without `confirmStart` for compatibility, but non-extension requests need confirmation. The target is p95 under 10 seconds for the first useful card. It retrieves fast fundamentals, extracts cited facts, skips synthesis, and may cache `cacheStatus: "partial"`.

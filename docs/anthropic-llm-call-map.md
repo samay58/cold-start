@@ -101,6 +101,8 @@ The judge's cached prefix (rules, vocabulary, tool schema; byte-identical across
 
 `contactEnrichmentFunction` (apps/web/src/inngest/contact-enrichment.ts) makes at most one LLM call: its `person-reads` step batches every cited person into a single `synthesizePersonReads` call, skipped when `PERSON_READS_ENABLED=false` (default on) or no people qualify. Everything else in that worker is provider-only. The seed profile step (`seed-profile-card`, `functions.ts:663`, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
 
+Full-profile extraction now bounds transport recovery in `extraction-recovery.ts`: 45 seconds for the primary and 90 seconds for a different configured provider, or one 90-second attempt without an alternate. Schema corrections share the same deadline. Calls remain on the `extract_full` trace, including failed attempts. The provider matrix passes `providerRecovery: false` so another model cannot silently rescue a measured candidate. See `docs/superpowers/specs/2026-09-14-profile-timeout-recovery.md` for configuration and acceptance evidence.
+
 ## Direct Anthropic callers outside production
 
 - `scripts/verify-cache-ttl.ts` (call at line 79): diagnostic for the 1h cache TTL beta header. Builds its own client and makes one real call through `createTracedAnthropicMessage` (stage `verify`, label `verify-cache-ttl`), defaulting to `ANTHROPIC_VERIFIER_MODEL`, then `ANTHROPIC_MODEL`, then `claude-haiku-4-5-20251001`. Run via `npm run verify:cache-ttl` after SDK upgrades. Under $0.01 per run.

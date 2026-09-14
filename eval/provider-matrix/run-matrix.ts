@@ -351,6 +351,7 @@ async function main() {
         if (stages.includes("extract_full")) {
           makeCell("extract_full", undefined, (telemetry) =>
             extractCompanyClaims({
+              providerRecovery: false,
               client: anthropic,
               model,
               evidence: { domain: fixture.domain, researchPlan, sources: providerSources, evidenceLedger },

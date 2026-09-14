@@ -235,6 +235,12 @@ LLM_RESEARCH_SECTION_FALLBACK_MODEL
 LLM_PERSON_READ_FALLBACK_MODEL
 LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL
 
+# Full-profile extraction uses this override, LLM_FALLBACK_MODEL, then ANTHROPIC_MODEL.
+# Only a different provider qualifies; off disables it. The primary gets 45s when an
+# alternate exists; the alternate gets 90s. Without an alternate the primary gets 90s.
+# These deadlines include schema correction and disable nested transport retries.
+LLM_EXTRACT_FALLBACK_MODEL
+
 # Credentials and tuning for non-Anthropic providers. DEEPSEEK_BASE_URL defaults to
 # https://api.deepseek.com; the adapter disables DeepSeek thinking mode automatically.
 DEEPSEEK_API_KEY

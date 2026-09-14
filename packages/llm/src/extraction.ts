@@ -18,7 +18,8 @@ import {
 } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
-import { withSchemaRetry } from "./llm-provider";
+import { withSchemaRetry, type LlmRequestOptions } from "./llm-provider";
+import { withExtractionRecovery } from "./extraction-recovery";
 import {
   budgetEvidenceSources,
   compactEvidenceText,
@@ -814,16 +815,19 @@ export async function extractCompanyClaims(input: {
   model: string;
   evidence: ExtractionEvidence;
   telemetry?: AnthropicTelemetrySink;
+  providerRecovery?: boolean;
 }) {
-  return withSchemaRetry(input.model, async () => {
+  const extract = (model: string, requestOptions?: LlmRequestOptions) => withSchemaRetry(model, async () => {
+    requestOptions?.signal.throwIfAborted();
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
       label: "extract-company-claims",
-      model: input.model,
+      model,
       stage: "extract_full",
       telemetry: input.telemetry,
+      requestOptions,
       params: {
-        model: input.model,
+        model,
         max_tokens: 4000,
         temperature: 0,
         system: [
@@ -851,6 +855,8 @@ export async function extractCompanyClaims(input: {
 
     return parseExtractionToolUse(response);
   });
+  // Provider comparisons must measure the requested model, including its failures.
+  return input.providerRecovery === false ? extract(input.model) : withExtractionRecovery(input.model, extract);
 }
 
 export const blockGuidance: Record<BlockEnrichmentId, string> = {

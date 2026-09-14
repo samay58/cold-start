@@ -9,6 +9,12 @@ export type ResolvedLlmModel = {
   raw: string;
 };
 
+export type LlmRequestOptions = {
+  signal: AbortSignal;
+  maxRetries: number;
+  timeout: number;
+};
+
 // "deepseek/deepseek-v4-flash" -> { provider: "deepseek", model: "deepseek-v4-flash" }.
 // Unprefixed strings are Anthropic model ids. Split on the FIRST slash only: Fireworks
 // model ids ("accounts/fireworks/models/...") contain slashes of their own.
