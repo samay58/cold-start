@@ -1,6 +1,7 @@
 import {
   clusterSignals,
   hasUsablePublicProfile,
+  preserveKnownFundingAmounts,
   publicProfileQuality,
   type ColdStartCard,
   type GenerationTrace,
@@ -88,6 +89,80 @@ function mergeByKey<T>(preferred: T[], fallback: T[], key: (value: T) => string)
   return Array.from(merged.values());
 }
 
+function nextAvailableCitationId(id: string, reserved: Set<string>) {
+  const numbered = /^(.*?)(\d+)$/.exec(id);
+  if (numbered?.[1] && numbered[2]) {
+    let index = Number(numbered[2]) + 1;
+    while (Number.isSafeInteger(index)) {
+      const candidate = `${numbered[1]}${index}`;
+      if (!reserved.has(candidate)) {
+        reserved.add(candidate);
+        return candidate;
+      }
+      index += 1;
+    }
+  }
+
+  let index = 2;
+  while (reserved.has(`${id}_${index}`)) {
+    index += 1;
+  }
+  const candidate = `${id}_${index}`;
+  reserved.add(candidate);
+  return candidate;
+}
+
+const citationMarkerTextKeys = new Set(["note", "paragraphs", "question", "sentence", "text"]);
+
+function remapCitationMarkers(text: string, idMap: Map<string, string>) {
+  return text.replace(/\[([\w.-]+(?:,\s*[\w.-]+)*)\]/g, (marker, ids: string) => {
+    const remapped = ids.replace(/[\w.-]+/g, (id) => idMap.get(id) ?? id);
+    return remapped === ids ? marker : `[${remapped}]`;
+  });
+}
+
+function remapCitationReferences<T>(value: T, idMap: Map<string, string>, parentKey?: string): T {
+  if (typeof value === "string") {
+    return (parentKey && citationMarkerTextKeys.has(parentKey)
+      ? remapCitationMarkers(value, idMap)
+      : value) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => remapCitationReferences(item, idMap, parentKey)) as T;
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      key,
+      key === "citationIds" && Array.isArray(child)
+        ? child.map((id) => typeof id === "string" ? idMap.get(id) ?? id : id)
+        : remapCitationReferences(child, idMap, key)
+    ])
+  ) as T;
+}
+
+function remapIncomingCitationCollisions(existing: ColdStartCard, incoming: ColdStartCard): ColdStartCard {
+  const existingById = new Map(existing.citations.map((citation) => [citation.id, citation]));
+  const existingIdByUrl = new Map(existing.citations.map((citation) => [citation.url, citation.id]));
+  const reserved = new Set([...existing.citations, ...incoming.citations].map((citation) => citation.id));
+  const idMap = new Map<string, string>();
+  const citations = incoming.citations.map((citation) => {
+    const collision = existingById.get(citation.id);
+    if (!collision || collision.url === citation.url) {
+      return citation;
+    }
+
+    const id = existingIdByUrl.get(citation.url) ?? nextAvailableCitationId(citation.id, reserved);
+    idMap.set(citation.id, id);
+    return { ...citation, id };
+  });
+
+  return idMap.size === 0 ? incoming : remapCitationReferences({ ...incoming, citations }, idMap);
+}
+
 export function preserveExistingBasics(
   existing: ColdStartCard | null,
   next: ColdStartCard,
@@ -97,68 +172,70 @@ export function preserveExistingBasics(
     return next;
   }
 
-  const preferredCitations = options.preferExisting ? existing.citations : next.citations;
-  const fallbackCitations = options.preferExisting ? next.citations : existing.citations;
+  const incoming = remapIncomingCitationCollisions(existing, next);
+  const preferredCitations = options.preferExisting ? existing.citations : incoming.citations;
+  const fallbackCitations = options.preferExisting ? incoming.citations : existing.citations;
   const citations = mergeByKey(preferredCitations, fallbackCitations, (citation) => citation.id);
-  const synthesis = next.synthesis ?? (options.preserveAnalysis ? existing.synthesis : undefined);
+  const synthesis = incoming.synthesis ?? (options.preserveAnalysis ? existing.synthesis : undefined);
   const synthesisWithheld = synthesis
     ? undefined
-    : next.synthesisWithheld ?? (options.preserveAnalysis ? existing.synthesisWithheld : undefined);
+    : incoming.synthesisWithheld ?? (options.preserveAnalysis ? existing.synthesisWithheld : undefined);
   // Background-earned like synthesis: a profile refresh regenerates facts but never carries
   // an expanded description of its own, and wiping the stored one would re-pay its LLM call
   // and churn the copy on every refresh. The citation merge below unions by id, so the
   // preserved description's citationIds always still resolve.
-  const expandedDescription = next.expandedDescription ?? existing.expandedDescription;
+  const expandedDescription = incoming.expandedDescription ?? existing.expandedDescription;
   const mergeFact = <T>(current: ResolvedFact<T>, incoming: ResolvedFact<T>) =>
     options.preferExisting ? preserveFact(incoming, current) : preserveFact(current, incoming);
   const mergeOptionalFact = <T>(current: ResolvedFact<T> | undefined, incoming: ResolvedFact<T> | undefined) =>
     options.preferExisting
       ? preserveOptionalFact(incoming, current)
       : preserveOptionalFact(current, incoming);
-  const websiteUrl = mergeOptionalFact(existing.identity.websiteUrl, next.identity.websiteUrl);
-  const linkedinUrl = mergeOptionalFact(existing.identity.linkedinUrl, next.identity.linkedinUrl);
-  const description = mergeOptionalFact(existing.identity.description, next.identity.description);
-  const rounds = mergeOptionalFact(existing.funding.rounds, next.funding.rounds);
-  const name = mergeFact(existing.identity.name, next.identity.name);
+  const websiteUrl = mergeOptionalFact(existing.identity.websiteUrl, incoming.identity.websiteUrl);
+  const linkedinUrl = mergeOptionalFact(existing.identity.linkedinUrl, incoming.identity.linkedinUrl);
+  const description = mergeOptionalFact(existing.identity.description, incoming.identity.description);
+  const rounds = mergeOptionalFact(existing.funding.rounds, incoming.funding.rounds);
+  const name = mergeFact(existing.identity.name, incoming.identity.name);
+  const funding = preserveKnownFundingAmounts({
+    ...incoming.funding,
+    totalRaisedUsd: mergeFact(existing.funding.totalRaisedUsd, incoming.funding.totalRaisedUsd),
+    lastRound: mergeFact(existing.funding.lastRound, incoming.funding.lastRound),
+    ...(rounds ? { rounds } : {}),
+    investors: mergeFact(existing.funding.investors, incoming.funding.investors)
+  }, options.preferExisting ? incoming.funding : existing.funding);
 
   return {
-    ...next,
+    ...incoming,
     ...(synthesis ? { synthesis } : {}),
     ...(synthesisWithheld ? { synthesisWithheld } : {}),
     ...(expandedDescription ? { expandedDescription } : {}),
     identity: {
-      ...next.identity,
+      ...incoming.identity,
       name,
       ...(websiteUrl ? { websiteUrl } : {}),
       ...(linkedinUrl ? { linkedinUrl } : {}),
-      oneLiner: mergeFact(existing.identity.oneLiner, next.identity.oneLiner),
+      oneLiner: mergeFact(existing.identity.oneLiner, incoming.identity.oneLiner),
       ...(description ? { description } : {}),
-      hq: mergeFact(existing.identity.hq, next.identity.hq),
-      foundedYear: mergeFact(existing.identity.foundedYear, next.identity.foundedYear),
+      hq: mergeFact(existing.identity.hq, incoming.identity.hq),
+      foundedYear: mergeFact(existing.identity.foundedYear, incoming.identity.foundedYear),
     },
-    funding: {
-      ...next.funding,
-      totalRaisedUsd: mergeFact(existing.funding.totalRaisedUsd, next.funding.totalRaisedUsd),
-      lastRound: mergeFact(existing.funding.lastRound, next.funding.lastRound),
-      ...(rounds ? { rounds } : {}),
-      investors: mergeFact(existing.funding.investors, next.funding.investors),
-    },
+    funding,
     team: {
-      founders: mergePeopleFact(existing.team.founders, next.team.founders, options.preferExisting === true),
-      keyExecs: mergePeopleFact(existing.team.keyExecs, next.team.keyExecs, options.preferExisting === true),
-      headcount: mergeFact(existing.team.headcount, next.team.headcount),
+      founders: mergePeopleFact(existing.team.founders, incoming.team.founders, options.preferExisting === true),
+      keyExecs: mergePeopleFact(existing.team.keyExecs, incoming.team.keyExecs, options.preferExisting === true),
+      headcount: mergeFact(existing.team.headcount, incoming.team.headcount),
     },
     // A URL-keyed merge only dedupes the same link. Two runs that each caught a different outlet
     // covering one announcement would otherwise land as two signals, so the merged list goes
     // through the same one-per-event clustering the pipeline applies at generation time; it
     // carries the corroboration in citationIds, orders date-descending, and caps at six.
     signals: clusterSignals(
-      mergeByKey(next.signals, existing.signals, (signal) => signal.url.trim().toLowerCase()),
-      { companyDomain: next.domain, companyName: name.value }
+      mergeByKey(incoming.signals, existing.signals, (signal) => signal.url.trim().toLowerCase()),
+      { companyDomain: incoming.domain, companyName: name.value }
     ),
     comparables: mergeByKey(
-      options.preferExisting ? existing.comparables : next.comparables,
-      options.preferExisting ? next.comparables : existing.comparables,
+      options.preferExisting ? existing.comparables : incoming.comparables,
+      options.preferExisting ? incoming.comparables : existing.comparables,
       (comparable) => comparable.domain.trim().toLowerCase()
     ).slice(0, 8),
     citations,

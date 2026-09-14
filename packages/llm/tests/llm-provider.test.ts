@@ -4,6 +4,7 @@ import {
   fallbackModelForStage,
   modelForStage,
   parseModelString,
+  providerEndpointHost,
   providerConfigFor,
   quirksForModel,
   withProviderFallback,
@@ -31,10 +32,14 @@ const stageEnvNames = [
   "ANTHROPIC_SYNTHESIS_MODEL",
   "ANTHROPIC_RESEARCH_PLAN_MODEL",
   "ANTHROPIC_MODEL",
+  "ANTHROPIC_BASE_URL",
   "DEEPSEEK_API_KEY",
   "DEEPSEEK_BASE_URL",
   "OPENROUTER_API_KEY",
   "OPENROUTER_BASE_URL",
+  "DEEPINFRA_API_KEY",
+  "DEEPINFRA_BASE_URL",
+  "FIREWORKS_BASE_URL",
   "LLM_PROVIDER_CUSTOMHOST_API_KEY",
   "LLM_PROVIDER_CUSTOMHOST_BASE_URL",
 ];
@@ -169,6 +174,43 @@ describe("providerConfigFor", () => {
     expect(config.extraBody).toEqual({ usage: { include: true } });
   });
 
+  it("keeps full extraction on independent OpenRouter hosts with forced-tool support", () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    const config = providerConfigFor("openrouter", { stage: "extract_full", model: "deepseek/deepseek-v4.1-flash" });
+    expect(config.extraBody).toEqual({
+      usage: { include: true }, reasoning: { enabled: false },
+      provider: { only: ["baseten", "fireworks", "novita"], allow_fallbacks: true,
+        require_parameters: true, data_collection: "deny", sort: "latency" },
+    });
+    expect(providerConfigFor("openrouter", { stage: "synthesize", model: "deepseek/deepseek-v4.1-flash" }).extraBody)
+      .toEqual({ usage: { include: true } });
+  });
+
+  it("excludes the failed primary upstream from OpenRouter extraction routing", () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    const config = providerConfigFor("openrouter", {
+      stage: "extract_full",
+      model: "deepseek/deepseek-v4.1-flash",
+      excludedProviders: [" Fireworks ", "fireworks"],
+    });
+
+    expect(config.extraBody).toMatchObject({
+      provider: {
+        only: ["baseten", "novita"],
+        ignore: ["fireworks"],
+      },
+    });
+  });
+
+  it("configures DeepInfra extraction without changing reasoning for other stages", () => {
+    process.env.DEEPINFRA_API_KEY = "test-key";
+    const config = providerConfigFor("deepinfra", { stage: "extract_full", model: "deepseek-ai/DeepSeek-V4.1-Flash" });
+    expect(config.baseUrl).toBe("https://api.deepinfra.com/v1/openai");
+    expect(config.extraBody).toEqual({ reasoning_effort: "none", service_tier: "priority", fail_fast: true });
+    expect(providerConfigFor("deepinfra", { stage: "synthesize", model: "deepseek-ai/DeepSeek-V4.1-Flash" }).extraBody)
+      .toBeUndefined();
+  });
+
   it("strips trailing slashes from override base URLs", () => {
     process.env.DEEPSEEK_API_KEY = "test-key";
     process.env.DEEPSEEK_BASE_URL = "https://proxy.example.com/v1/";
@@ -190,15 +232,31 @@ describe("providerConfigFor", () => {
   });
 });
 
+describe("providerEndpointHost", () => {
+  it("normalizes case, default ports, paths, and trailing slashes without reading credentials", () => {
+    process.env.DEEPSEEK_BASE_URL = "HTTPS://Gateway.Example.com:443/deepseek/v1/";
+    process.env.OPENROUTER_BASE_URL = "https://gateway.example.com/openrouter/v1";
+
+    expect(providerEndpointHost("deepseek")).toBe("gateway.example.com");
+    expect(providerEndpointHost("openrouter")).toBe("gateway.example.com");
+  });
+
+  it("uses the Anthropic SDK endpoint default without requiring an API key", () => {
+    expect(providerEndpointHost("anthropic")).toBe("api.anthropic.com");
+  });
+});
+
 describe("withSchemaRetry", () => {
   it("retries once on a zod error for non-anthropic models", async () => {
+    const schemaError = new ZodError([]);
     const run = vi
-      .fn<() => Promise<string>>()
-      .mockRejectedValueOnce(new ZodError([]))
+      .fn<(previousError?: unknown) => Promise<string>>()
+      .mockRejectedValueOnce(schemaError)
       .mockResolvedValueOnce("ok");
 
     await expect(withSchemaRetry("deepseek/deepseek-v4-flash", run)).resolves.toBe("ok");
     expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls).toEqual([[], [schemaError]]);
   });
 
   it("retries on malformed tool-argument JSON and missing tool use", async () => {
@@ -269,6 +327,18 @@ describe("provider fallback", () => {
       "deepseek/deepseek-v4-pro",
     );
     expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a fallback that resolves to the same endpoint host", async () => {
+    process.env.LLM_SYNTHESIS_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+    process.env.ANTHROPIC_BASE_URL = "HTTPS://Gateway.Example.com:443/anthropic";
+    process.env.DEEPSEEK_BASE_URL = "https://gateway.example.com/deepseek";
+    const run = vi.fn().mockRejectedValue(new Error("insufficient credits"));
+
+    await expect(withProviderFallback("synthesis", "claude-sonnet-4-6", run)).rejects.toThrow(
+      'fallback "deepseek" resolves to the primary endpoint host gateway.example.com',
+    );
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("does not fallback on a model-contract failure", async () => {

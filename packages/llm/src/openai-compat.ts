@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
-import { providerConfigFor, quirksForModel, type ResolvedLlmModel } from "./llm-provider";
+import { providerConfigFor, quirksForModel, type LlmRequestOptions, type ResolvedLlmModel } from "./llm-provider";
 import { estimateLlmCostUsd } from "./pricing";
 
 type AnthropicMessageParams = Parameters<Anthropic["messages"]["create"]>[0];
@@ -20,6 +20,8 @@ type OpenAiCompatBody = {
 type OpenAiCompatResponse = {
   id?: string;
   model?: string;
+  provider?: string;
+  error?: { code?: number | string; message?: string; metadata?: { provider_name?: string } };
   choices?: Array<{
     message?: {
       content?: string | null;
@@ -41,6 +43,7 @@ type OpenAiCompatResponse = {
     // OpenRouter usage accounting (requested via providerDefaults.openrouter.extraBody): the
     // actual billed USD for this call, present only when usage.include was requested and honored.
     cost?: number;
+    estimated_cost?: number;
   };
 };
 
@@ -237,6 +240,18 @@ export function messageFromOpenAiCompatResponse(payload: OpenAiCompatResponse, m
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [500, 1500];
 
+function responseErrorStatus(code: number | string | undefined, httpStatus: number): number {
+  if (typeof code === "number") return code;
+  if (code === "rate_limit_exceeded" || code === "rate_limit") return 429;
+  if (code === "engine_overloaded" || code === "server_error") return 503;
+  return httpStatus;
+}
+
+function reportedCostUsd(usage: OpenAiCompatResponse["usage"]): number | undefined {
+  const cost = usage?.cost ?? usage?.estimated_cost;
+  return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : undefined;
+}
+
 function isRetryableStatus(status: number) {
   return status === 429 || (status >= 500 && status < 600);
 }
@@ -258,11 +273,14 @@ async function postChatCompletion(input: {
   apiKey: string;
   body: OpenAiCompatBody;
   timeoutMs: number;
+  requestOptions?: LlmRequestOptions | undefined;
 }): Promise<{ payload: OpenAiCompatResponse; retryCount: number }> {
   let lastError: unknown = null;
+  const attempts = input.requestOptions ? input.requestOptions.maxRetries + 1 : MAX_ATTEMPTS;
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-    const isLastAttempt = attempt === MAX_ATTEMPTS - 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    input.requestOptions?.signal.throwIfAborted();
+    const isLastAttempt = attempt === attempts - 1;
     let response: Response;
     try {
       response = await fetch(`${input.baseUrl}/chat/completions`, {
@@ -272,25 +290,39 @@ async function postChatCompletion(input: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(input.body),
-        signal: AbortSignal.timeout(input.timeoutMs),
+        signal: input.requestOptions
+          ? AbortSignal.any([input.requestOptions.signal, AbortSignal.timeout(Math.min(input.timeoutMs, input.requestOptions.timeout))])
+          : AbortSignal.timeout(input.timeoutMs),
       });
     } catch (error) {
       lastError = error;
-      if (isLastAttempt) {
+      if (isLastAttempt || input.requestOptions?.signal.aborted) {
         throw error;
       }
       await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt] ?? 1500));
       continue;
     }
 
+    let payload: OpenAiCompatResponse | undefined;
+    let bodySnippet: string;
     if (response.ok) {
-      return { payload: (await response.json()) as OpenAiCompatResponse, retryCount: attempt };
+      payload = await response.json() as OpenAiCompatResponse;
+      if (!payload?.error) return { payload, retryCount: attempt };
+      bodySnippet = JSON.stringify(payload.error);
+    } else {
+      bodySnippet = await response.text().catch(() => "");
+      try { payload = JSON.parse(bodySnippet) as OpenAiCompatResponse; } catch { /* Non-JSON provider error. */ }
     }
-
-    const bodySnippet = (await response.text().catch(() => "")).slice(0, 300);
-    if (!isRetryableStatus(response.status) || isLastAttempt) {
-      throw new Error(`openai-compat request failed with ${response.status}: ${bodySnippet}`);
-    }
+    const status = response.ok ? responseErrorStatus(payload?.error?.code, response.status) : response.status;
+    const error = Object.assign(new Error(`openai-compat request failed with ${status}: ${bodySnippet.split(input.apiKey).join("[redacted]").slice(0, 300)}`), {
+      responseId: payload?.id ?? response.headers.get("x-request-id") ?? undefined,
+      responseModel: payload?.model,
+      servingProvider: payload?.provider ?? payload?.error?.metadata?.provider_name,
+      estimatedCostUsd: reportedCostUsd(payload?.usage),
+      usage: usageFromOpenAiCompatResponse(payload?.usage),
+    });
+    if (!isRetryableStatus(status) || isLastAttempt || input.requestOptions?.signal.aborted) throw error;
+    lastError = error;
 
     await new Promise((resolve) => setTimeout(resolve, retryAfterMs(response, BACKOFF_MS[attempt] ?? 1500)));
   }
@@ -304,23 +336,26 @@ export async function createTracedOpenAiCompatMessage(input: {
   resolved: ResolvedLlmModel;
   stage: Parameters<typeof buildLlmCallTrace>[0]["stage"];
   telemetry?: AnthropicTelemetrySink | undefined;
+  requestOptions?: LlmRequestOptions | undefined;
 }): Promise<Message> {
   const startedAt = Date.now();
 
   let payload: OpenAiCompatResponse;
   let retryCount = 0;
   try {
-    const config = providerConfigFor(input.resolved.provider);
+    const config = providerConfigFor(input.resolved.provider, { model: input.resolved.model, stage: input.stage, ...(input.requestOptions?.excludedProviders ? { excludedProviders: input.requestOptions.excludedProviders } : {}) });
     const body = openAiCompatBodyFromAnthropicParams(input.params, input.resolved.model, config.extraBody);
     const result = await postChatCompletion({
       baseUrl: config.baseUrl,
       apiKey: config.apiKey,
       body,
       timeoutMs: config.timeoutMs,
+      requestOptions: input.requestOptions,
     });
     payload = result.payload;
     retryCount = result.retryCount;
   } catch (error) {
+    const details = error as { responseId?: unknown; responseModel?: unknown; servingProvider?: unknown; estimatedCostUsd?: number; usage?: AnthropicUsage } | null;
     input.telemetry?.(
       buildLlmCallTrace({
         durationMs: Date.now() - startedAt,
@@ -330,6 +365,11 @@ export async function createTracedOpenAiCompatMessage(input: {
         provider: input.resolved.provider,
         stage: input.stage,
         status: "failed",
+        responseId: typeof details?.responseId === "string" ? details.responseId : undefined,
+        responseModel: typeof details?.responseModel === "string" ? details.responseModel : undefined,
+        estimatedCostUsd: details?.estimatedCostUsd,
+        ...(details?.usage ? { usage: details.usage } : {}),
+        servingProvider: typeof details?.servingProvider === "string" ? details.servingProvider : undefined,
       })
     );
     throw error;
@@ -340,7 +380,8 @@ export async function createTracedOpenAiCompatMessage(input: {
   // providerDefaults.openrouter.extraBody usage.include). Ground truth beats the static per-model
   // estimate table in pricing.ts, and this applies to any provider that starts reporting cost,
   // not only OpenRouter.
-  const estimatedCostUsd = payload.usage?.cost ?? estimateLlmCostUsd(input.resolved.provider, input.resolved.model, usage);
+  const estimatedCostUsd = reportedCostUsd(payload.usage)
+    ?? estimateLlmCostUsd(input.resolved.provider, input.resolved.model, usage);
   input.telemetry?.(
     buildLlmCallTrace({
       durationMs: Date.now() - startedAt,
@@ -349,6 +390,9 @@ export async function createTracedOpenAiCompatMessage(input: {
       model: input.resolved.model,
       provider: input.resolved.provider,
       retryCount,
+      responseId: typeof payload.id === "string" ? payload.id : undefined,
+      responseModel: typeof payload.model === "string" ? payload.model : undefined,
+      servingProvider: typeof payload.provider === "string" ? payload.provider : undefined,
       stage: input.stage,
       status: "ok",
       ...(usage ? { usage } : {}),

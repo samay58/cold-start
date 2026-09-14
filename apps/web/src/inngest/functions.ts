@@ -737,20 +737,34 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     currentStage = "generate-card";
     const clean = await step.run("generate-card", async () => {
       const llmTelemetry = createStepLlmTelemetryCollector();
-      const result = await timed(() =>
-        runCardAttempt(llmTelemetry, { skipBlockEnrichment: mode === "basics" || reuseExistingForAnalysis })
-      );
-      const llmTracePatch = llmTelemetry.tracePatch();
-      return {
-        value: result.value,
-        tracePatch: {
-          ...result.value.tracePatch,
-          ...llmTracePatch,
-          steps: {
-            "generate-card": completedStep(result.durationMs)
+      const startedAt = Date.now();
+      try {
+        const result = await timed(() =>
+          runCardAttempt(llmTelemetry, { skipBlockEnrichment: mode === "basics" || reuseExistingForAnalysis })
+        );
+        return {
+          value: result.value,
+          tracePatch: {
+            ...result.value.tracePatch,
+            ...llmTelemetry.tracePatch(),
+            steps: {
+              "generate-card": result.value.ok
+                ? completedStep(result.durationMs)
+                : { status: "failed" as const, durationMs: result.durationMs, message: result.value.error }
+            }
           }
-        }
-      };
+        };
+      } catch (error) {
+        // A thrown transport failure never returns a step result. Preserve its calls
+        // before the executor retries or the outer failure handler saves the trace.
+        mergeTracePatch(trace, {
+          ...llmTelemetry.tracePatch(),
+          steps: {
+            "generate-card": { status: "failed", durationMs: Date.now() - startedAt, message: boundedErrorMessage(error) }
+          }
+        });
+        throw error;
+      }
     });
     mergeTracePatch(trace, clean.tracePatch);
     applyStableenrichEndpointYield(trace, clean.tracePatch.extraction?.providerFactAppliedByEndpoint);

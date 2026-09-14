@@ -11,6 +11,7 @@ import {
   type HowItWins,
   type HowItWinsRead,
   publicCard,
+  preserveKnownFundingAmounts,
   type ResolvedFact,
   type SourcedText,
   type SynthesisGateDecision,
@@ -741,6 +742,7 @@ function mergeBlockEnrichmentPatch(
     funding.rounds = mergeFact(funding.rounds ?? unknownFact(), remapFact(patch.funding?.rounds, idMap));
   }
   funding.investors = mergeFact(funding.investors, remapFact(patch.funding?.investors, idMap));
+  Object.assign(funding, preserveKnownFundingAmounts(funding, sections.funding));
 
   team.founders = mergePersonFact(team.founders, remapFact(patch.team?.founders, idMap));
   team.keyExecs = mergePersonFact(team.keyExecs, remapFact(patch.team?.keyExecs, idMap));

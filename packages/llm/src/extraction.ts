@@ -18,7 +18,9 @@ import {
 } from "@cold-start/core";
 import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
-import { withSchemaRetry } from "./llm-provider";
+import { withSchemaRetry, type LlmRequestOptions } from "./llm-provider";
+import { withExtractionRecovery } from "./extraction-recovery";
+import { normalizeExtractionInteger } from "./extraction-numbers";
 import {
   budgetEvidenceSources,
   compactEvidenceText,
@@ -292,7 +294,8 @@ export const extractionSystemPrompt = [
   investorTasteKernel,
   "You extract investor-grade public company facts from a structured evidence ledger and raw public sources.",
   "Drop unsupported claims. Every material fact must map to citation IDs. Use null for missing facts.",
-  "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
+  "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. Set totalRaisedUsd.value only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise set its value to null. Record unresolved source disagreement in status as mixed, never as text in value.",
+  "Numeric fields must be JSON numbers or null, never quoted numbers, currency labels, or the string unknown. Unsupported amounts must remain null.",
   "Description standard: identity.description.shortDescription must be one complete sentence, roughly 18 to 24 words and no more than about 170 characters, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
   "identity.description.expandedDescription must be two or three complete sentences in plain English. Explain what the company does, who uses or buys it, what workflow or pain it addresses, and the nuance that matters. Use concrete nouns, clean causal language, and no brochure copy.",
   "Use identity.description.concept for the non-obvious product idea in one complete sentence.",
@@ -440,7 +443,7 @@ function normalizeExtractionInput(input: unknown) {
     ...("competitionFraming" in root ? { competitionFraming: normalizeFact(root.competitionFraming) } : {}),
     citations: filterArray(root.citations, coreCitationSchema),
   };
-  return normalizedRoot;
+  return isolateOptionalFacts(normalizedRoot, false);
 }
 
 function normalizeBlockEnrichmentInput(input: unknown) {
@@ -477,7 +480,25 @@ function normalizeBlockEnrichmentInput(input: unknown) {
     normalizedRoot.competitionFraming = normalizeFact(root.competitionFraming);
   }
 
-  return normalizedRoot;
+  return isolateOptionalFacts(normalizedRoot, true);
+}
+
+function isolateOptionalFacts(root: Record<string, unknown>, block: boolean) {
+  for (const section of ["identity", "funding", "team"] as const) {
+    const facts = objectRecord(root[section]);
+    const schemas = coldStartCardObjectSchema.shape[section].shape;
+    for (const [key, schema] of Object.entries(schemas)) {
+      if (!(key in facts) || key === "status" || key === "logoUrl") continue;
+      // The initial profile still needs a valid identity. Background patches
+      // can omit any fact and retain the version already on the saved card.
+      if (!block && section === "identity" && (key === "name" || key === "oneLiner")) continue;
+      if (!schema.safeParse(facts[key]).success) facts[key] = unknownFact();
+    }
+  }
+  if ("competitionFraming" in root && !coldStartCardObjectSchema.shape.competitionFraming.safeParse(root.competitionFraming).success) {
+    root.competitionFraming = unknownFact();
+  }
+  return root;
 }
 
 function normalizeBlockIdentity(input: unknown) {
@@ -499,7 +520,7 @@ function normalizeBlockFunding(input: unknown) {
   const output: Record<string, unknown> = {};
 
   if ("totalRaisedUsd" in record) {
-    output.totalRaisedUsd = normalizeFact(record.totalRaisedUsd);
+    output.totalRaisedUsd = normalizeFact(record.totalRaisedUsd, normalizeUsd);
   }
   if ("lastRound" in record) {
     output.lastRound = normalizeFact(record.lastRound, normalizeRoundValue);
@@ -525,7 +546,7 @@ function normalizeBlockTeam(input: unknown) {
     output.keyExecs = normalizeFact(record.keyExecs, normalizePersonArray);
   }
   if ("headcount" in record) {
-    output.headcount = normalizeFact(record.headcount);
+    output.headcount = normalizeFact(record.headcount, normalizeHeadcount);
   }
 
   return Object.keys(output).length > 0 ? output : null;
@@ -564,7 +585,7 @@ function normalizeIdentity(input: unknown) {
       : oneLiner,
     description,
     hq: normalizeFact(record.hq),
-    foundedYear: normalizeFact(record.foundedYear),
+    foundedYear: normalizeFact(record.foundedYear, (value) => normalizeExtractionInteger(value)),
     status: status === "public" || status === "acquired" || status === "shutdown" ? status : "private",
   };
 }
@@ -639,7 +660,7 @@ function normalizeFunding(input: unknown) {
   const record = objectRecord(input);
 
   return {
-    totalRaisedUsd: normalizeFact(record.totalRaisedUsd),
+    totalRaisedUsd: normalizeFact(record.totalRaisedUsd, normalizeUsd),
     lastRound: normalizeFact(record.lastRound, normalizeRoundValue),
     rounds: normalizeFact(record.rounds, normalizeRoundArray),
     investors: normalizeFact(record.investors, normalizeInvestorArray),
@@ -652,8 +673,18 @@ function normalizeTeam(input: unknown) {
   return {
     founders: normalizeFact(record.founders, normalizePersonArray),
     keyExecs: normalizeFact(record.keyExecs, normalizePersonArray),
-    headcount: normalizeFact(record.headcount),
+    headcount: normalizeFact(record.headcount, normalizeHeadcount),
   };
+}
+
+function normalizeUsd(value: unknown) {
+  return normalizeExtractionInteger(value, true);
+}
+
+function normalizeHeadcount(value: unknown) {
+  const record = objectRecord(value);
+  const count = normalizeExtractionInteger(record.value);
+  return count === null ? null : { value: count, asOf: record.asOf };
 }
 
 function normalizeFact<T = unknown>(
@@ -704,7 +735,7 @@ function normalizeRoundValue(value: unknown) {
 
   return {
     name: record.name.trim(),
-    amountUsd: typeof record.amountUsd === "number" && Number.isInteger(record.amountUsd) && record.amountUsd > 0 ? record.amountUsd : null,
+    amountUsd: normalizeUsd(record.amountUsd) || null,
     announcedAt: typeof record.announcedAt === "string" && record.announcedAt.trim().length > 0 ? record.announcedAt.trim() : null,
     leadInvestors: stringArray(record.leadInvestors),
   };
@@ -809,21 +840,60 @@ function filterArray<T>(value: unknown, schema: z.ZodType<T>) {
   });
 }
 
+const schemaCorrectionIssueLimit = 8;
+const schemaCorrectionMessageLimit = 1200;
+const schemaCorrectionPathSegmentLimit = 80;
+
+function boundedIssuePath(path: PropertyKey[]) {
+  if (path.length === 0) return "(root)";
+  return path
+    .map((segment) => String(segment).replace(/[^a-zA-Z0-9_-]/g, "?").slice(0, schemaCorrectionPathSegmentLimit))
+    .join(".");
+}
+
+function expectedIssueType(issue: z.ZodIssue) {
+  const expected = (issue as z.ZodIssue & { expected?: unknown }).expected;
+  if (typeof expected === "string" && expected.length > 0) {
+    return expected.slice(0, 80);
+  }
+  return "a value matching the declared schema";
+}
+
+function schemaCorrectionMessage(error: unknown) {
+  const lead = [
+    `The prior ${EXTRACTION_TOOL_NAME} tool call did not match the unchanged schema.`,
+    "Return the complete tool call again. Correct only the validation failures and keep every claim and citation grounded in the original evidence.",
+  ];
+  const details = error instanceof z.ZodError
+    ? [
+        "Validation failures:",
+        ...error.issues.slice(0, schemaCorrectionIssueLimit).map(
+          (issue) => `- ${boundedIssuePath(issue.path)}: expected ${expectedIssueType(issue)}`,
+        ),
+      ]
+    : ["The prior response did not contain one complete, valid tool call. Return valid JSON matching the declared schema."];
+  const message = [...lead, ...details].join("\n");
+  return message.slice(0, schemaCorrectionMessageLimit);
+}
+
 export async function extractCompanyClaims(input: {
   client: Anthropic;
   model: string;
   evidence: ExtractionEvidence;
   telemetry?: AnthropicTelemetrySink;
+  providerRecovery?: boolean;
 }) {
-  return withSchemaRetry(input.model, async () => {
+  const extract = (model: string, requestOptions?: LlmRequestOptions) => withSchemaRetry(model, async (previousError) => {
+    requestOptions?.signal.throwIfAborted();
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
       label: "extract-company-claims",
-      model: input.model,
+      model,
       stage: "extract_full",
       telemetry: input.telemetry,
+      requestOptions,
       params: {
-        model: input.model,
+        model,
         max_tokens: 4000,
         temperature: 0,
         system: [
@@ -842,7 +912,10 @@ export async function extractCompanyClaims(input: {
                 text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
               }
             ]
-          }
+          },
+          ...(previousError
+            ? [{ role: "user" as const, content: [{ type: "text" as const, text: schemaCorrectionMessage(previousError) }] }]
+            : [])
         ],
         tools: [extractionTool],
         tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }
@@ -851,6 +924,8 @@ export async function extractCompanyClaims(input: {
 
     return parseExtractionToolUse(response);
   });
+  // Provider comparisons must measure the requested model, including its failures.
+  return input.providerRecovery === false ? extract(input.model) : withExtractionRecovery(input.model, extract);
 }
 
 export const blockGuidance: Record<BlockEnrichmentId, string> = {

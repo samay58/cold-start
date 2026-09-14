@@ -5,6 +5,8 @@ import {
   evidenceForExtractionPrompt,
   extractionSystemPrompt,
   extractionTool,
+  extractCompanyClaims,
+  extractCompanyBlockClaims,
   parseBlockEnrichmentToolUse,
   parseExtractionToolUse
 } from "../src/index";
@@ -66,6 +68,256 @@ const validExtractionPayload = {
     }
   ]
 };
+
+function openAiExtractionResponse(payload: unknown, toolName = "emit_company_claims") {
+  return new Response(JSON.stringify({
+    id: "response-id",
+    model: "deepseek-v4-flash",
+    choices: [{
+      message: {
+        tool_calls: [{
+          id: "tool-call-id",
+          function: { name: toolName, arguments: JSON.stringify(payload) },
+        }],
+      },
+    }],
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+describe("profile extraction recovery", () => {
+  it.each(["USD 25 million", "undisclosed"])("handles block amount %j without a paid correction", async (value) => {
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const payload = {
+      blockId: "funding", citations: validExtractionPayload.citations,
+      funding: { totalRaisedUsd: { value, status: "verified", confidence: "high", citationIds: ["c1"] } },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(openAiExtractionResponse(payload, "emit_block_claims"));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const result = await extractCompanyBlockClaims({
+        client: { messages: { create: vi.fn() } } as never,
+        model: "deepseek/deepseek-v4-flash", block: "funding",
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(result.funding?.totalRaisedUsd?.value).toBe(value === "undisclosed" ? null : 25000000);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each(["$25 million", "unknown", "25-30m", { amount: "25m" }])(
+    "handles optional amount %j in one model call",
+    async (value) => {
+      vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+      const payload = structuredClone(validExtractionPayload);
+      Object.assign(payload.funding.totalRaisedUsd, { value, status: "mixed", confidence: "medium", citationIds: ["c1"] });
+      const fetchMock = vi.fn().mockResolvedValue(openAiExtractionResponse(payload));
+      vi.stubGlobal("fetch", fetchMock);
+      try {
+        const result = await extractCompanyClaims({
+          client: { messages: { create: vi.fn() } } as never,
+          model: "deepseek/deepseek-v4-flash",
+          providerRecovery: false,
+          evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(result.identity.name).toEqual(payload.identity.name);
+        expect(result.citations).toEqual(payload.citations);
+        expect(result.funding.totalRaisedUsd).toEqual(value === "$25 million"
+          ? { value: 25000000, status: "mixed", confidence: "medium", citationIds: ["c1"] }
+          : unknownFact);
+      } finally {
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
+      }
+    }
+  );
+
+  it("adds bounded validation feedback only to the correction attempt", async () => {
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const invalidPayload = structuredClone(validExtractionPayload);
+    Object.assign(invalidPayload.identity.name, { value: { private: "INVALID_VALUE_SHOULD_NOT_BE_ECHOED" } });
+    const correctedPayload = structuredClone(validExtractionPayload);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(openAiExtractionResponse(invalidPayload))
+      .mockResolvedValueOnce(openAiExtractionResponse(correctedPayload));
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await extractCompanyClaims({
+        client: { messages: { create: vi.fn() } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        providerRecovery: false,
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+      });
+
+      expect(result.identity.name.value).toBe("Cartesia");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const firstBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string);
+      const secondBody = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string);
+      const { messages: firstMessages, ...firstRequest } = firstBody;
+      const { messages: secondMessages, ...secondRequest } = secondBody;
+      expect(secondRequest).toEqual(firstRequest);
+      expect(secondMessages.slice(0, -1)).toEqual(firstMessages);
+      expect(firstMessages).toHaveLength(2);
+      expect(secondMessages).toHaveLength(3);
+      const feedback = secondMessages.at(-1).content as string;
+      expect(feedback).toContain("identity.name.value: expected string");
+      expect(feedback).not.toContain("INVALID_VALUE_SHOULD_NOT_BE_ECHOED");
+      expect(feedback.length).toBeLessThanOrEqual(1200);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not switch providers when the correction still fails schema validation", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const invalidPayload = structuredClone(validExtractionPayload);
+    Object.assign(invalidPayload.identity.name, { value: ["Invalid identity"] });
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(openAiExtractionResponse(invalidPayload)));
+    const create = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+      })).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("leaves provider comparisons on the requested model when recovery is disabled", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const timeout = new DOMException("timed out", "TimeoutError");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => { throw timeout; } }));
+    const create = vi.fn();
+    try {
+      await expect(extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash", providerRecovery: false,
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] }
+      })).rejects.toBe(timeout);
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("uses the alternate provider when successful headers are followed by a timed-out body", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const fetchMock = vi.fn().mockImplementation(async (_url, options) => ({
+      ok: true,
+      json: () => new Promise((_, reject) => {
+        options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+      })
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const create = vi.fn().mockResolvedValue({ content: [{
+      type: "tool_use", name: "emit_company_claims", input: validExtractionPayload
+    }] });
+    const telemetry = vi.fn();
+    try {
+      const pending = extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+        telemetry
+      });
+      await vi.advanceTimersByTimeAsync(45_000);
+      const result = await pending;
+      expect(result.identity.name.value).toBe("Cartesia");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(create).toHaveBeenCalledTimes(1);
+      expect(create.mock.calls[0]![1]).toMatchObject({ maxRetries: 0, timeout: 90_000 });
+      expect(telemetry.mock.calls.map(([call]) => [call.provider, call.status])).toEqual([
+        ["deepseek", "failed"], ["anthropic", "ok"]
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("optional extraction facts", () => {
+  const fact = (value: unknown) => ({ value, status: "verified", confidence: "high", citationIds: ["c1"] });
+  const parse = (payload: unknown) => parseExtractionToolUse({ content: [{ type: "tool_use", name: "emit_company_claims", input: payload }] });
+  const parseBlock = (payload: unknown) => parseBlockEnrichmentToolUse({ content: [{ type: "tool_use", name: "emit_block_claims", input: payload }] });
+
+  it("normalizes amounts and counts identically in full and background extraction", () => {
+    const payload = {
+      ...validExtractionPayload,
+      identity: { ...validExtractionPayload.identity, foundedYear: fact("2020") },
+      funding: {
+        ...validExtractionPayload.funding,
+        totalRaisedUsd: fact("$25m"),
+        lastRound: fact({ name: "Series A", amountUsd: "USD 2.75 million" }),
+        rounds: fact([{ name: "Seed", amountUsd: "undisclosed" }, { name: "Series A", amountUsd: "2.75m" }]),
+      },
+      team: { ...validExtractionPayload.team, headcount: fact({ value: "1,200", asOf: "2026-09" }) },
+    };
+    const full = parse(payload);
+    const block = parseBlock({ ...payload, blockId: "funding" });
+    expect(full.funding).toEqual(block.funding);
+    expect(full.team).toEqual(block.team);
+    expect(full.identity.foundedYear.value).toBe(2020);
+    expect(full.funding.lastRound.value?.amountUsd).toBe(2750000);
+    expect(full.funding.rounds?.value?.map((round) => round.amountUsd)).toEqual([null, 2750000]);
+    expect(full.team.headcount.value?.value).toBe(1200);
+  });
+
+  it("isolates invalid optional facts while preserving usable identity and funding rounds", () => {
+    const payload = {
+      ...validExtractionPayload,
+      identity: { ...validExtractionPayload.identity, hq: fact("New York"), foundedYear: fact("2200"), websiteUrl: fact("not a URL") },
+      funding: { ...validExtractionPayload.funding, totalRaisedUsd: fact("25-30m"), lastRound: fact({ name: "Series A", amountUsd: "$12.50" }) },
+      team: { ...validExtractionPayload.team, headcount: fact({ value: "100", asOf: null }) },
+      competitionFraming: fact({ text: "malformed" }),
+    };
+    const result = parse(payload);
+    expect(result.identity.name).toEqual(validExtractionPayload.identity.name);
+    expect(result.identity.oneLiner).toEqual(validExtractionPayload.identity.oneLiner);
+    expect(result.citations).toEqual(validExtractionPayload.citations);
+    expect(result.identity.hq).toEqual(unknownFact);
+    expect(result.identity.websiteUrl).toEqual(unknownFact);
+    expect(result.identity.foundedYear).toEqual(unknownFact);
+    expect(result.funding.totalRaisedUsd).toEqual(unknownFact);
+    expect(result.funding.lastRound.value).toMatchObject({ name: "Series A", amountUsd: null });
+    expect(result.team.headcount).toEqual(unknownFact);
+    expect(result.competitionFraming).toEqual(unknownFact);
+    const block = parseBlock({ ...payload, blockId: "funding" });
+    expect(block.funding).toEqual(result.funding);
+    expect(block.team).toEqual(result.team);
+    expect(block.competitionFraming).toEqual(unknownFact);
+  });
+
+  it("never promotes a converted amount without citation evidence", () => {
+    const result = parse({ ...validExtractionPayload, funding: {
+      ...validExtractionPayload.funding, totalRaisedUsd: { ...fact("$25m"), citationIds: [] },
+    } });
+    expect(result.funding.totalRaisedUsd).toEqual(unknownFact);
+  });
+
+  it("still rejects irrecoverable identity and malformed root responses", () => {
+    expect(() => parse(null)).toThrow();
+    expect(() => parse({ ...validExtractionPayload, identity: { ...validExtractionPayload.identity, name: fact({ name: "Cartesia" }) } })).toThrow();
+  });
+});
 
 describe("extractionTool", () => {
   it("exposes typed resolved fact value schemas", () => {
@@ -200,6 +452,8 @@ describe("extractionSystemPrompt", () => {
     expect(extractionSystemPrompt).toContain("round ledger");
     expect(extractionSystemPrompt).toContain("Do not write generic category labels");
     expect(extractionSystemPrompt).toContain("mechanically reconciled");
+    expect(extractionSystemPrompt).toContain("Numeric fields must be JSON numbers or null");
+    expect(extractionSystemPrompt).toContain("Unsupported amounts must remain null");
     expect(extractionSystemPrompt).toContain("source incentives");
     expect(extractionSystemPrompt).toContain("18 to 24 words");
     expect(extractionSystemPrompt).toContain("expandedDescription");

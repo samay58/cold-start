@@ -3,7 +3,7 @@
 // here whenever a new model joins the eval matrix; unknown models return undefined and the
 // trace simply omits estimatedCostUsd, matching the Anthropic behavior for unknown models.
 //
-// DeepSeek rates and the peak window verified 2026-08-26 against
+// DeepSeek rates and the peak window verified 2026-09-14 against
 // https://api-docs.deepseek.com/quick_start/pricing, which reads: "Off-peak rates are half of
 // the peak rates. Peak hours are 01:00 - 04:00 and 06:00 - 10:00 UTC, Monday through Friday (all
 // other hours are off-peak)."
@@ -36,7 +36,14 @@ function deepSeekPricing(model: string, at: Date): TokenPricing | null {
   const hour = at.getUTCHours();
   const peak = weekday && ((hour >= 1 && hour < 4) || (hour >= 6 && hour < 10));
   const normalized = model.toLowerCase();
-  if (normalized.includes("deepseek-v4-flash") || normalized.includes("deepseek-chat")) {
+  if (normalized.includes("deepseek-flash") || normalized.includes("deepseek-v4.1-flash")
+    || normalized.includes("deepseek-v4-flash") || normalized.includes("deepseek-chat")) {
+    // V4 aliases switched to V4.1 Flash on September 10. Keep historical estimates intact.
+    if (at.getTime() >= Date.parse("2026-09-10T04:00:00Z")) {
+      return peak
+        ? { input: 0.3, cacheRead: 0.006, output: 1.2 }
+        : { input: 0.15, cacheRead: 0.003, output: 0.6 };
+    }
     return peak
       ? { input: 0.44, cacheRead: 0.014, output: 1.32 }
       : { input: 0.22, cacheRead: 0.007, output: 0.66 };

@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Message } from "@anthropic-ai/sdk/resources/messages";
 import type { GenerationLlmCallTrace } from "@cold-start/core";
 import { buildLlmCallTrace, type AnthropicTelemetrySink, type AnthropicUsage } from "./call-trace";
-import { parseModelString } from "./llm-provider";
+import { parseModelString, type LlmRequestOptions } from "./llm-provider";
 import { createTracedOpenAiCompatMessage } from "./openai-compat";
 
 export type AnthropicCallStage = GenerationLlmCallTrace["stage"];
@@ -103,6 +103,8 @@ function callTrace(input: {
   error?: unknown;
   label: string;
   model: string;
+  responseId?: string | undefined;
+  responseModel?: string | undefined;
   stage: AnthropicCallStage;
   status: GenerationLlmCallTrace["status"];
   usage?: AnthropicUsage;
@@ -125,6 +127,7 @@ export async function createTracedAnthropicMessage(input: {
   params: Parameters<Anthropic["messages"]["create"]>[0];
   stage: AnthropicCallStage;
   telemetry?: AnthropicTelemetrySink | undefined;
+  requestOptions?: LlmRequestOptions | undefined;
 }): Promise<Message> {
   const resolved = parseModelString(input.model);
   if (resolved.provider !== "anthropic") {
@@ -134,11 +137,13 @@ export async function createTracedAnthropicMessage(input: {
       resolved,
       stage: input.stage,
       telemetry: input.telemetry,
+      requestOptions: input.requestOptions,
     });
   }
 
   const startedAt = Date.now();
-  const requestOptions = anthropicCacheRequestOptions();
+  const cacheOptions = anthropicCacheRequestOptions();
+  const requestOptions = input.requestOptions ? { ...cacheOptions, ...input.requestOptions } : cacheOptions;
   try {
     const response = (await input.client.messages.create({ ...input.params, model: resolved.model }, requestOptions)) as Message & {
       usage?: AnthropicUsage;
@@ -148,6 +153,8 @@ export async function createTracedAnthropicMessage(input: {
         durationMs: Date.now() - startedAt,
         label: input.label,
         model: resolved.model,
+        responseId: response.id,
+        responseModel: response.model,
         stage: input.stage,
         status: "ok",
         usage: response.usage,
@@ -161,6 +168,7 @@ export async function createTracedAnthropicMessage(input: {
         error,
         label: input.label,
         model: resolved.model,
+        responseId: error instanceof Anthropic.APIError ? error.requestID ?? undefined : undefined,
         stage: input.stage,
         status: "failed",
       }),

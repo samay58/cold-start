@@ -9,6 +9,13 @@ export type ResolvedLlmModel = {
   raw: string;
 };
 
+export type LlmRequestOptions = {
+  signal: AbortSignal;
+  maxRetries: number;
+  timeout: number;
+  excludedProviders?: readonly string[];
+};
+
 // "deepseek/deepseek-v4-flash" -> { provider: "deepseek", model: "deepseek-v4-flash" }.
 // Unprefixed strings are Anthropic model ids. Split on the FIRST slash only: Fireworks
 // model ids ("accounts/fireworks/models/...") contain slashes of their own.
@@ -91,6 +98,16 @@ export async function withProviderFallback<T>(
     if (!fallback || !isProviderUnavailableLlmError(error)) {
       throw error;
     }
+    const primaryProvider = parseModelString(primaryModel).provider;
+    const fallbackProvider = parseModelString(fallback).provider;
+    const primaryHost = providerEndpointHost(primaryProvider);
+    const fallbackHost = providerEndpointHost(fallbackProvider);
+    if (primaryHost && primaryHost === fallbackHost) {
+      throw new Error(
+        `Provider fallback "${fallbackProvider}" resolves to the primary endpoint host ${primaryHost}`,
+        { cause: error },
+      );
+    }
     return run(fallback);
   }
 }
@@ -112,7 +129,18 @@ type ProviderDefaults = {
   extraBody?: Record<string, unknown>;
 };
 
+type ProviderRequestContext = {
+  model: string;
+  stage: string;
+  excludedProviders?: readonly string[];
+};
+
 const providerDefaults: Record<string, ProviderDefaults> = {
+  deepinfra: {
+    apiKeyEnv: "DEEPINFRA_API_KEY",
+    baseUrlEnv: "DEEPINFRA_BASE_URL",
+    defaultBaseUrl: "https://api.deepinfra.com/v1/openai",
+  },
   deepseek: {
     apiKeyEnv: "DEEPSEEK_API_KEY",
     baseUrlEnv: "DEEPSEEK_BASE_URL",
@@ -178,7 +206,26 @@ function timeoutMsFromEnv() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultOpenAiCompatTimeoutMs;
 }
 
-export function providerConfigFor(provider: string): OpenAiCompatProviderConfig {
+function providerBaseUrl(provider: string): string | undefined {
+  const upper = provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  const defaults = providerDefaults[provider];
+  const baseUrlEnv = defaults?.baseUrlEnv ?? `LLM_PROVIDER_${upper}_BASE_URL`;
+  return (process.env[baseUrlEnv]?.trim() || defaults?.defaultBaseUrl)?.replace(/\/+$/, "");
+}
+
+export function providerEndpointHost(provider: string): string | null {
+  const baseUrl = provider === "anthropic"
+    ? process.env.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com"
+    : providerBaseUrl(provider);
+  if (!baseUrl) return null;
+  try {
+    return new URL(baseUrl).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+export function providerConfigFor(provider: string, context?: ProviderRequestContext): OpenAiCompatProviderConfig {
   const upper = provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   const defaults = providerDefaults[provider];
   const apiKeyEnv = defaults?.apiKeyEnv ?? `LLM_PROVIDER_${upper}_API_KEY`;
@@ -189,17 +236,41 @@ export function providerConfigFor(provider: string): OpenAiCompatProviderConfig 
     throw new Error(`${apiKeyEnv} is required to call provider "${provider}"`);
   }
 
-  const baseUrl = (process.env[baseUrlEnv]?.trim() || defaults?.defaultBaseUrl)?.replace(/\/+$/, "");
+  const baseUrl = providerBaseUrl(provider);
   if (!baseUrl) {
     throw new Error(`${baseUrlEnv} is required to call provider "${provider}"`);
   }
 
+  let extraBody = defaults?.extraBody;
+  if (context?.stage === "extract_full") {
+    if (provider === "openrouter") {
+      const excludedProviders = [...new Set(
+        (context.excludedProviders ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean),
+      )];
+      const deepSeekProviders = ["baseten", "fireworks", "novita"]
+        .filter((value) => !excludedProviders.includes(value));
+      extraBody = {
+        ...extraBody,
+        ...(/deepseek|gemini-2\.5-flash/i.test(context.model) ? { reasoning: { enabled: false } } : {}),
+        provider: {
+          ...(/deepseek/i.test(context.model) ? { only: deepSeekProviders } : {}),
+          ...(excludedProviders.length > 0 ? { ignore: excludedProviders } : {}),
+          allow_fallbacks: true,
+          require_parameters: true,
+          data_collection: "deny",
+          sort: "latency",
+        },
+      };
+    } else if (provider === "deepinfra" && /deepseek/i.test(context.model)) {
+      extraBody = { ...extraBody, reasoning_effort: "none", service_tier: "priority", fail_fast: true };
+    }
+  }
   return {
     provider,
     baseUrl,
     apiKey,
     timeoutMs: timeoutMsFromEnv(),
-    ...(defaults?.extraBody ? { extraBody: defaults.extraBody } : {}),
+    ...(extraBody ? { extraBody } : {}),
   };
 }
 
@@ -218,7 +289,7 @@ function isSchemaParseError(error: unknown): boolean {
 // One re-ask when a non-Anthropic model returns output the stage parser rejects. Anthropic
 // behavior stays bit-for-bit identical: forced tool choice there has not needed retries, and
 // keeping the path untouched preserves the existing failure semantics.
-export async function withSchemaRetry<T>(modelRaw: string, run: () => Promise<T>): Promise<T> {
+export async function withSchemaRetry<T>(modelRaw: string, run: (previousError?: unknown) => Promise<T>): Promise<T> {
   if (parseModelString(modelRaw).provider === "anthropic") {
     return run();
   }
@@ -230,6 +301,6 @@ export async function withSchemaRetry<T>(modelRaw: string, run: () => Promise<T>
       throw error;
     }
 
-    return run();
+    return run(error);
   }
 }

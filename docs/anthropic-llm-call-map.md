@@ -101,6 +101,8 @@ The judge's cached prefix (rules, vocabulary, tool schema; byte-identical across
 
 `contactEnrichmentFunction` (apps/web/src/inngest/contact-enrichment.ts) makes at most one LLM call: its `person-reads` step batches every cited person into a single `synthesizePersonReads` call, skipped when `PERSON_READS_ENABLED=false` (default on) or no people qualify. Everything else in that worker is provider-only. The seed profile step (`seed-profile-card`, `functions.ts:663`, built by `packages/pipeline/src/seed-profile.ts`) is provider-facts-only; it imports only a schema and a type from `@cold-start/llm`.
 
+Full-profile extraction now bounds transport recovery in `extraction-recovery.ts`: 45 seconds for the primary and 90 seconds for a different configured provider, or one 90-second attempt without an alternate. Schema corrections share the same deadline. Calls remain on the `extract_full` trace, including failed attempts. The provider matrix passes `providerRecovery: false` so another model cannot silently rescue a measured candidate. See `docs/superpowers/specs/2026-09-14-profile-timeout-recovery.md` for configuration and acceptance evidence.
+
 ## Direct Anthropic callers outside production
 
 - `scripts/verify-cache-ttl.ts` (call at line 79): diagnostic for the 1h cache TTL beta header. Builds its own client and makes one real call through `createTracedAnthropicMessage` (stage `verify`, label `verify-cache-ttl`), defaulting to `ANTHROPIC_VERIFIER_MODEL`, then `ANTHROPIC_MODEL`, then `claude-haiku-4-5-20251001`. Run via `npm run verify:cache-ttl` after SDK upgrades. Under $0.01 per run.
@@ -164,3 +166,9 @@ Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Verc
 - Group ad-hoc trace SQL by (provider, model), not model alone.
 - The verifier's drops stay dropped, and `synthesizeCard` output must pass `assertSynthesisCitationsExistOnCard`. Both are correctness gates, not style.
 - Synthesis only ever runs extension-gated (`analysis` mode or section jobs). Nothing on the public card path may call `synthesizeCard`.
+
+## Profile recovery, September 14
+
+Full-profile extraction uses `withExtractionRecovery`: 45 seconds for the primary and 90 for an independent alternate, or 90 total without one. Transport retries are disabled; schema correction shares the same deadline. Exhausted recovery is terminal so the outer executor cannot replay the paid sequence. Traces retain failed calls, returned model and response identifier, serving provider, and reported cost when available.
+
+The selected production configuration is `openrouter/google/gemini-2.5-flash` with `deepseek/deepseek-flash` as `LLM_EXTRACT_FALLBACK_MODEL`. OpenRouter extraction requires tool-parameter support and providers that do not collect data. Optional reasoning is disabled for these extraction models. DeepInfra is supported through `DEEPINFRA_API_KEY` and `DEEPINFRA_BASE_URL`; its DeepSeek extraction uses priority fail-fast requests. It remains unselected after live capacity failures. Other model stages are unchanged. See the [verification record](superpowers/specs/2026-09-14-profile-timeout-recovery.md).
