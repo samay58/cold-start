@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ColdStartCard, GenerationTrace, HowItWinsJudgment, HowItWinsRead } from "@cold-start/core";
 
+import { howItWinsEvaluatorFor } from "../src/inngest/how-it-wins";
 import { howItWinsRefinementEnabled } from "../src/inngest/worker-env";
 
 // Drives the real howItWinsHandler through the same fake step executor the analysis-run suites
@@ -90,7 +91,22 @@ const read: HowItWinsRead = {
   wrongIf: "A broad cloud matches the release cadence on serverless GPU."
 };
 
-function cardFixture(options: { citationCount?: number; includeCompanySite?: boolean; withSynthesis?: boolean } = {}): ColdStartCard {
+function evaluatorFixture(signature?: string, refinement = true) {
+  const evaluator = howItWinsEvaluatorFor({
+    models: { judge: "claude-test", writer: "claude-test", editor: "deepseek/deepseek-v4-pro" },
+    verifierModel: "claude-test",
+    refinement
+  });
+  return signature ? { ...evaluator, signature } : evaluator;
+}
+
+function cardFixture(options: {
+  citationCount?: number;
+  includeCompanySite?: boolean;
+  withSynthesis?: boolean;
+  evaluatorSignature?: string;
+  evaluatorRefinement?: boolean;
+} = {}): ColdStartCard {
   const citationCount = options.citationCount ?? 6;
   const includeCompanySite = options.includeCompanySite ?? true;
   const card: ColdStartCard = {
@@ -142,7 +158,8 @@ function cardFixture(options: { citationCount?: number; includeCompanySite?: boo
       whyItMatters: { text: "Modal has cited public product evidence. [c1]", citationIds: ["c1"] },
       bullCase: [],
       bearCase: [],
-      openQuestions: []
+      openQuestions: [],
+      howItWinsEvaluator: evaluatorFixture(options.evaluatorSignature, options.evaluatorRefinement)
     }
   };
 }
@@ -324,6 +341,22 @@ describe("how-it-wins background function", () => {
     expect(completeEvent()?.metadata).toMatchObject({ status: "stale" });
   });
 
+  it("writes nothing when unchanged evidence was refiled under a different evaluator", async () => {
+    // The evidence is byte-for-byte identical. Only the filed evaluator provenance differs,
+    // which reproduces a late worker crossing a prompt, refinement, or model-routing change.
+    mocks.mutateCard.mockImplementation(
+      async (_db: unknown, _slug: string, mutate: (card: ColdStartCard) => ColdStartCard) => {
+        mutate(cardFixture({ evaluatorSignature: "f".repeat(64) }));
+        return { card: cardFixture(), row: { id: "card-row-id" } };
+      }
+    );
+
+    const { result } = await runHowItWins();
+
+    expect(result).toEqual({ slug: "modal", status: "stale" });
+    expect(completeEvent()?.metadata).toMatchObject({ status: "stale" });
+  });
+
   it("reports failed and writes no card when the writer fails semantically", async () => {
     mocks.synthesizeHowItWins.mockRejectedValue(new Error("how-it-wins draft did not parse"));
 
@@ -416,6 +449,7 @@ describe("how-it-wins background function", () => {
     // judge mock's call history so its second call lands at index 0 again.
     storedJudgment = null;
     mocks.judgeHowItWinsForAnalysis.mockClear();
+    mocks.findCardBySlug.mockResolvedValue(cardFixture({ evaluatorRefinement: false }));
 
     await runHowItWins(stepHarness(), { refinement: false });
     expect(mocks.judgeHowItWinsForAnalysis.mock.calls[0]?.[0]).toMatchObject({ refinement: false });

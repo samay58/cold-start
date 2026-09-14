@@ -226,9 +226,11 @@ snippets, Lens prose, names, email addresses, copied values, raw errors, stack
 traces, invitation secrets, access credentials, or client-supplied identity.
 The server derives invitation and installation identity after authentication.
 
-Raw alpha events are retained for at most 30 days. Vercel Cron calls the
-authenticated `/api/alpha/retention` route daily. The route is bounded to
-10,000 deletions. `npm run alpha:prune` remains the manual repair path.
+Raw alpha events and handled access requests are retained for at most 30 days.
+How it wins judgments are a cache retained for 90 days from `created_at`.
+Reading a cached judgment does not extend that window. Vercel Cron calls the
+authenticated `/api/alpha/retention` route daily. Each record type is bounded
+to 10,000 deletions per run. `npm run alpha:prune` remains the manual repair path.
 `npm run alpha:delete-tester` removes identity-linked alpha data on request.
 De-identified operational totals may remain.
 

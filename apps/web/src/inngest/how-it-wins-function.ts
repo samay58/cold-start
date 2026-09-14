@@ -27,6 +27,7 @@ import {
 } from "./generation-trace";
 import {
   howItWinsJudgeInputs,
+  howItWinsEvaluatorFor,
   howItWinsJudgeLlmCalls,
   howItWinsJudgeStepBody,
   howItWinsVerifyStepBody,
@@ -190,6 +191,7 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
   const models = howItWinsModelsFromProcess(anthropicModel());
   const refinementEnabled = howItWinsRefinementEnabled();
   const verifierModel = modelForStage("verify", anthropicModel());
+  const evaluator = howItWinsEvaluatorFor({ models, verifierModel, refinement: refinementEnabled });
   const anthropic = createAnthropicClient();
 
   const loaded = await step.run("how-it-wins-load", async () => ({
@@ -201,6 +203,18 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
   }
   if (!card.synthesis) {
     return finish({ status: "skipped", stepStatus: "skipped", stepMessage: "stored card carries no synthesis" });
+  }
+  // The analysis filing records the evaluator it requested. Missing provenance is stale rather
+  // than guessed: old cards get a fresh analysis run, and no old worker can overwrite them.
+  if (
+    card.synthesis.howItWinsEvaluator?.contractVersion !== evaluator.contractVersion ||
+    card.synthesis.howItWinsEvaluator.signature !== evaluator.signature
+  ) {
+    return finish({
+      status: "stale",
+      stepStatus: "skipped",
+      stepMessage: "stored card moved to a different how-it-wins evaluator"
+    });
   }
   const thinFileReason = howItWinsThinFileReason(card);
   if (thinFileReason) {
@@ -305,7 +319,13 @@ export const howItWinsHandler = async ({ event, runId, step }: WorkerEventContex
         // against the card this run loaded: a re-file that landed while the judge was running
         // must not have this read written over its new evidence.
         if (!current.synthesis) throw new HowItWinsStaleCardError();
-        if (howItWinsJudgeInputs(current, refinementEnabled).hashes.evidencePacketHash !== judged.hashes.evidencePacketHash) {
+        if (howItWinsJudgeInputs(current, refinementEnabled, models).hashes.evidencePacketHash !== judged.hashes.evidencePacketHash) {
+          throw new HowItWinsStaleCardError();
+        }
+        if (
+          current.synthesis.howItWinsEvaluator?.contractVersion !== evaluator.contractVersion ||
+          current.synthesis.howItWinsEvaluator.signature !== evaluator.signature
+        ) {
           throw new HowItWinsStaleCardError();
         }
         return { ...current, synthesis: { ...current.synthesis, howItWins: verified } };

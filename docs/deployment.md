@@ -201,7 +201,10 @@ LLM_HOW_IT_WINS_MODEL
 `HOW_IT_WINS_ENABLED` is the How it wins rollback: set it to `false` and
 redeploy (Vercel env changes apply to the next deployment only). The judge
 model falls back to `LLM_HOW_IT_WINS_MODEL` when unset; production runs both
-on `claude-opus-5`.
+on `claude-opus-5`. A fresh filed synthesis records a versioned evaluator
+signature over the judge prompt, vocabulary, refinement setting, all How it
+wins model routes, and verifier model. A worker exits stale if that signature
+or the card evidence changes before it stores its read.
 
 `DATABASE_DIRECT_URL` is local migration-only configuration. Keep it in the
 ignored `.env.production.migrate.local` file. Do not add it to Vercel runtime
@@ -455,7 +458,8 @@ when testing invite generation against a non-production database.
 Vercel Cron calls `/api/alpha/retention` daily at 04:17 UTC. The route requires
 the sensitive `CRON_SECRET`, deletes events and handled access requests older
 than 30 days and How it wins judgments (`how_it_wins_judgments`, a cache keyed
-by evidence hashes, no tester data) older than 90 days, works in 1,000-row
+by evidence, prompt, vocabulary, and routing hashes, no tester data) older
+than 90 days from `created_at`, works in 1,000-row
 batches, and stops after 10,000 rows per table per invocation. `alpha:prune`
 remains the manual inspection and repair path and applies the same three
 windows.

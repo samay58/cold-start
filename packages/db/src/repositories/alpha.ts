@@ -5,7 +5,6 @@ import {
   alphaAllowanceLedger,
   alphaAllowances,
   alphaInstallations,
-  alphaInviteAttempts,
   alphaInvites,
   alphaRunRequests
 } from "../schema";
@@ -328,12 +327,26 @@ export async function inspectAlphaInvite(
   };
 }
 
-export async function pruneAlphaInviteAttempts(db: ColdStartDb, before: Date): Promise<number> {
-  const rows = await db
-    .delete(alphaInviteAttempts)
-    .where(sql`${alphaInviteAttempts.createdAt} < ${before}`)
-    .returning();
-  return rows.length;
+export async function pruneAlphaInviteAttempts(
+  db: ColdStartDb,
+  input: { before: Date; limit?: number }
+): Promise<number> {
+  const limit = input.limit ?? 1_000;
+  assertPositiveInteger(limit, "limit");
+  const result = await db.execute<{ id: string }>(sql`
+    with doomed as (
+      select id
+      from alpha_invite_attempts
+      where created_at < ${input.before}
+      order by created_at
+      limit ${limit}
+    )
+    delete from alpha_invite_attempts attempts
+    using doomed
+    where attempts.id = doomed.id
+    returning attempts.id
+  `);
+  return rowsFromExecuteResult(result).length;
 }
 
 // The one path that attaches an installation to an invitation, for the first seat and every later

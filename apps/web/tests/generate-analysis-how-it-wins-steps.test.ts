@@ -438,9 +438,12 @@ describe("generate-card analysis how-it-wins step", () => {
     expect(trace.howItWins).toEqual({ enabled: true, status: "deferred" });
     expect(trace.steps?.["how-it-wins"]).toEqual({ status: "started" });
 
-    // The stored card carries no how-it-wins field yet; the background function writes it.
+    // The stored card carries no how-it-wins field yet; the background function writes it. It
+    // does carry the evaluator provenance that the worker must match before it can file.
     const storedCard = mocks.upsertCard.mock.calls.at(-1)?.[1] as ColdStartCard;
     expect(storedCard.synthesis?.howItWins).toBeUndefined();
+    expect(storedCard.synthesis?.howItWinsEvaluator).toMatchObject({ contractVersion: 1 });
+    expect(storedCard.synthesis?.howItWinsEvaluator?.signature).toMatch(/^[a-f0-9]{64}$/);
     expect(storedCard.synthesis?.emphasisRead).toEqual(emphasisReadFixture);
   });
 

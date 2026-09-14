@@ -791,7 +791,7 @@ describeDatabase("alpha repositories against Postgres", () => {
     });
     expect(redemption?.invite.id).toBe(invite.id);
 
-    const removed = await pruneAlphaInviteAttempts(db, new Date(Date.now() + 1000));
+    const removed = await pruneAlphaInviteAttempts(db, { before: new Date(Date.now() + 1000) });
     expect(removed).toBeGreaterThanOrEqual(11);
   }, 30_000);
 

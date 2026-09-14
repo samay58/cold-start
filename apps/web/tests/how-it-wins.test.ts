@@ -5,6 +5,7 @@ import { buildSkeletonCard } from "@cold-start/pipeline";
 
 import {
   howItWinsJudgeInputs,
+  howItWinsEvaluatorFor,
   howItWinsJudgeStepBody,
   howItWinsJudgeSummary,
   howItWinsVerifyStepBody,
@@ -93,7 +94,7 @@ function cardWithCitations(): ColdStartCard {
 }
 
 const card = cardWithCitations();
-const { hashes } = howItWinsJudgeInputs(card);
+const { hashes } = howItWinsJudgeInputs(card, undefined, models);
 
 const runningOne = {
   strategy: "specialization" as const,
@@ -162,6 +163,31 @@ describe("howItWinsJudgeSummary", () => {
   });
 });
 
+describe("how-it-wins evaluator contract", () => {
+  it("keeps the judge cache when only the writer changes but changes the evaluator signature", () => {
+    const reroutedModels = { ...models, writer: "openai/gpt-test" };
+    const current = howItWinsEvaluatorFor({ models, verifierModel: "claude-verify-test", refinement: true });
+    const rerouted = howItWinsEvaluatorFor({
+      models: reroutedModels,
+      verifierModel: "claude-verify-test",
+      refinement: true
+    });
+
+    expect(rerouted.signature).not.toBe(current.signature);
+    expect(howItWinsJudgeInputs(card, true, reroutedModels).hashes).toEqual(
+      howItWinsJudgeInputs(card, true, models).hashes
+    );
+  });
+
+  it.each(["judge", "editor"] as const)("invalidates the judge cache when the %s changes", (role) => {
+    const reroutedModels = { ...models, [role]: "openai/gpt-test" };
+
+    expect(howItWinsJudgeInputs(card, true, reroutedModels).hashes.promptHash).not.toBe(
+      howItWinsJudgeInputs(card, true, models).hashes.promptHash
+    );
+  });
+});
+
 describe("howItWinsJudgeStepBody", () => {
   it("replays a stored verdict for the same evidence, prompt, and vocabulary", async () => {
     mocks.findHowItWinsJudgment.mockResolvedValue({ id: "stored-id", judgment, createdAt: new Date() });
@@ -198,7 +224,7 @@ describe("howItWinsJudgeStepBody", () => {
   });
 
   it("hashes the lookup and the stored verdict under the same refinement flag it judges with", async () => {
-    const offHashes = howItWinsJudgeInputs(card, false).hashes;
+    const offHashes = howItWinsJudgeInputs(card, false, models).hashes;
     expect(offHashes.promptHash).not.toBe(hashes.promptHash);
 
     const result = await howItWinsJudgeStepBody({ db, card, slug: "cognition", client, models, refinement: false });

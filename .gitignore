@@ -44,3 +44,6 @@ eval/curation-writer-sitting/
 docs/product/design/**/prompt-test/out-*
 # A prompt-test run against a real company; only invented fixtures are tracked.
 **/irregular-card.json
+
+# Local design studies contain private synthesis and bundled licensed fonts.
+docs/design/mockups/quiet-monochrome-study/

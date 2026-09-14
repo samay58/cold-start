@@ -33,6 +33,42 @@ type HowItWinsTraceBlock = NonNullable<GenerationTrace["howItWins"]>;
 export type HowItWinsJudgeSummary = NonNullable<HowItWinsTraceBlock["judgeSummary"]>;
 export type HowItWinsLosses = NonNullable<HowItWinsTraceBlock["losses"]>;
 
+// Bump this when a code or prompt change can alter a filed read without changing the judge
+// rules, vocabulary, refinement setting, or selected models. It deliberately covers the writer
+// and verifier prompts as well as their surrounding implementation, which do not have a stable
+// data input of their own to hash.
+const HOW_IT_WINS_EVALUATOR_CONTRACT_VERSION = 1;
+
+export type HowItWinsEvaluator = {
+  contractVersion: typeof HOW_IT_WINS_EVALUATOR_CONTRACT_VERSION;
+  signature: string;
+};
+
+export type HowItWinsEvaluatorConfig = {
+  models: HowItWinsModels;
+  verifierModel: string;
+  refinement?: boolean;
+};
+
+// The complete evaluator identity is durable card metadata. Model routing is intentionally part
+// of the signature: changing a routed model is a product change, so a worker that began under the
+// old route must not write onto a card filed under the new one.
+export function howItWinsEvaluatorFor(config: HowItWinsEvaluatorConfig): HowItWinsEvaluator {
+  const refinement = config.refinement !== false;
+  const rules = loadHowItWinsJudgeRules();
+  return {
+    contractVersion: HOW_IT_WINS_EVALUATOR_CONTRACT_VERSION,
+    signature: hashHowItWinsJudgeValue({
+      contractVersion: HOW_IT_WINS_EVALUATOR_CONTRACT_VERSION,
+      judgePromptHash: howItWinsJudgePromptHash(rules, { refinement }),
+      vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES),
+      refinement,
+      models: config.models,
+      verifierModel: config.verifierModel
+    })
+  };
+}
+
 // Every step body below shares one catch rule, the one the emphasis read already used: a
 // transient transport failure rethrows so Inngest retries the step, and a semantic failure (an
 // unparseable draft, a citation that is not on the card, a judge fail-closed) is memoized as
@@ -45,21 +81,24 @@ function memoizedFailure(error: unknown): { ok: false; error: string } {
   return { ok: false, error: boundedErrorMessage(error) };
 }
 
-// The three inputs that decide a verdict, hashed. Everything else about a run (the model, the
-// slug, the clock) can move without changing what the judge should conclude, which is what makes
-// the stored verdict safe to replay. Refinement changes what the judge does under the same rules,
-// so it rides into the prompt hash: a verdict judged with refinement on must never replay for a
-// run with it off, and vice versa.
+// The judge cache includes evidence, rules, vocabulary, refinement, and judge/editor routing.
+// Writer routing changes only the later read, so it does not invalidate the stored verdict.
 export function howItWinsJudgeInputs(
   card: ColdStartCard,
-  refinement?: boolean
+  refinement?: boolean,
+  models?: Pick<HowItWinsModels, "judge" | "editor">
 ): { hashes: HowItWinsJudgmentInputHashes } {
   const packet = howItWinsEvidencePacketFromCard(card);
   const rules = loadHowItWinsJudgeRules();
   return {
     hashes: {
       evidencePacketHash: hashHowItWinsJudgeValue(packet),
-      promptHash: howItWinsJudgePromptHash(rules, { refinement }),
+      // Judge and editor routing changes can change the memoized verdict. Folding them into this
+      // hash prevents the cache from replaying a verdict produced by an older evaluator route.
+      promptHash: hashHowItWinsJudgeValue({
+        judgePromptHash: howItWinsJudgePromptHash(rules, { refinement }),
+        ...(models ? { models: { judge: models.judge, editor: models.editor } } : {})
+      }),
       vocabularyHash: hashHowItWinsJudgeValue(HOW_IT_WINS_STRATEGIES)
     }
   };
@@ -134,7 +173,7 @@ export async function howItWinsJudgeStepBody(input: {
   // Default true (undefined means on). False skips the critic and adjudication passes.
   refinement?: boolean;
 }): Promise<HowItWinsJudgeStepResult> {
-  const { hashes } = howItWinsJudgeInputs(input.card, input.refinement);
+  const { hashes } = howItWinsJudgeInputs(input.card, input.refinement, input.models);
   try {
     const cached = await findHowItWinsJudgment(input.db, hashes);
     if (cached) {

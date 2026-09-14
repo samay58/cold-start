@@ -102,6 +102,7 @@ import {
   nextFounderVoiceIndex
 } from "./emphasis-read";
 import { buildHowItWinsRequestedEvent } from "./how-it-wins-function";
+import { howItWinsEvaluatorFor } from "./how-it-wins";
 import {
   assertTerminalCardQuality,
   canStoreCardSnapshot,
@@ -119,6 +120,8 @@ import {
   expandedDescriptionEnabled,
   founderVoiceEnvFromProcess,
   howItWinsEnabled,
+  howItWinsModelsFromProcess,
+  howItWinsRefinementEnabled,
   stableenrichEnvFromProcess
 } from "./worker-env";
 import {
@@ -776,6 +779,13 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
     let howItWinsDeferred = false;
 
     if (mode === "analysis") {
+      const howItWinsModels = howItWinsModelsFromProcess(defaultModel);
+      const howItWinsRefinement = howItWinsRefinementEnabled();
+      const howItWinsEvaluator = howItWinsEvaluatorFor({
+        models: howItWinsModels,
+        verifierModel,
+        refinement: howItWinsRefinement
+      });
       currentStage = "evaluate-synthesis-gate";
       // Evaluated ahead of both LLM calls (deterministic, no timestamp) so a gate-blocked run
       // never pays for either. The card mutation this may apply (stamping synthesisWithheld with
@@ -1041,7 +1051,8 @@ export const generateCardHandler = async ({ event, runId, step }: WorkerEventCon
             synthesis: {
               ...verified.synthesis,
               ...(finalEmphasis ? { emphasisRead: finalEmphasis } : {}),
-              ...(finalHowItWins ? { howItWins: finalHowItWins } : {})
+              ...(finalHowItWins ? { howItWins: finalHowItWins } : {}),
+              ...(howItWinsDeferred ? { howItWinsEvaluator } : {})
             }
           };
         } else if (existingCardHasSynthesis) {

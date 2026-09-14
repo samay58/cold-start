@@ -2,68 +2,22 @@
 import { spawnSync } from "node:child_process";
 
 const allowedAdvisorySources = new Set([
-  1101610,
+  // @vercel/node and Vercel CLI hard-pin Undici 5.x. Their package contracts reject the patched
+  // 6.x branch, so this is the one remaining high-severity production-tree exception. Recheck by
+  // 2026-10-14 and remove the whole group when either upstream moves to a patched compatible line.
   1112496,
-  1113069,
-  1113517,
   1113715,
   1114594,
   1114638,
   1114640,
   1114642,
-  1115573,
-  1115582,
-  1117941,
-  1117942,
-  1117943,
-  1118640,
-  1118923,
-  1118925,
-  1118927,
-  1118929,
-  1118931,
-  1118934,
-  1119377,
-  1119378,
-  1119502,
-  1120082,
-  1120083,
-  1120084,
-  1120085,
-  1120251,
-  1120252,
-  1120253,
-  1120582,
-  1120588,
-  1120679,
-  1120680,
-  1120739,
-  1120742,
-  1120743,
-  1120785,
-  1120790,
-  1120792,
-  1120798,
-  1120799,
-  1120821,
-  1120910,
-  1120911,
-  1120913,
-  1120921,
-  1120922,
-  // Vercel CLI's @vercel/node hard-pins undici 5.x; keep visible until upstream publishes a
-  // patched 5.x or moves off this branch. Recheck by 2026-09-01.
   1121242,
   1121245,
-  1121250,
   1121255,
   1130716,
   1130727,
   1130732,
-  1137243,
-  // @hono/node-server, reached through AgentCash's MCP SDK chain. Windows-only serve-static
-  // traversal is unreachable here. Recheck by 2026-09-01; remove when that chain upgrades.
-  1124006
+  1137243
 ]);
 
 const result = spawnSync("npm", ["audit", "--omit=dev", "--json"], {

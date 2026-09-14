@@ -1,4 +1,5 @@
 export * from "./client";
+export * from "./alpha-retention";
 export * from "./repositories/access-requests";
 export * from "./repositories/alpha";
 export * from "./repositories/card-revisions";

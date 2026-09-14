@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@cold-start/core": "file:../core",
-    "agentcash": "0.14.4"
+    "agentcash": "0.17.1"
   },
   "devDependencies": {
     "tsx": "^4.20.0",

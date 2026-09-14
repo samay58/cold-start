@@ -194,6 +194,13 @@ export const synthesisSchema = z.object({
   openQuestions: z.array(openQuestionEntrySchema),
   emphasisRead: emphasisReadSchema.optional(),
   howItWins: howItWinsSchema.optional(),
+  // This is internal evaluator provenance, not Lens copy. The analysis run stamps the exact
+  // deferred-read contract it requested so an older worker cannot attach a result after the
+  // prompt, vocabulary, refinement policy, or model routing has changed.
+  howItWinsEvaluator: z.object({
+    contractVersion: z.literal(1),
+    signature: z.string().regex(/^[a-f0-9]{64}$/)
+  }).optional(),
   // The synthesis prompt tells the model "use null when sources do not support a field" for the
   // fields inside this container; models sometimes null the whole container instead of its seven
   // fields. Coerce that null to undefined before validating so it means the same thing as an

@@ -119,10 +119,9 @@ export async function storeHowItWinsJudgment(
   return { id: row.id, judgment: input.judgment, createdAt: row.createdAt };
 }
 
-// Judgments are a cache, not a record. A verdict older than the boundary is one no analysis run
-// has reached for through its evidence hashes in that time; dropping it costs one fresh judge
-// call if that exact evidence ever comes back. Oldest first, in bounded batches, so a backlog
-// never holds one long delete open on the Neon HTTP driver (same shape as pruneAlphaEvents).
+// Judgments are a fixed-age cache, not an access-tracked record. A verdict older than the shared
+// retention boundary costs one fresh judge call if that exact evidence ever comes back. Oldest
+// first, in bounded batches, so a backlog never holds one long delete open on the Neon HTTP driver.
 export async function pruneHowItWinsJudgments(
   db: ColdStartDb,
   input: { before: Date; limit?: number }
