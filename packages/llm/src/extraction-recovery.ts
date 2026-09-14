@@ -1,4 +1,4 @@
-import { parseModelString, type LlmRequestOptions } from "./llm-provider";
+import { parseModelString, providerEndpointHost, type LlmRequestOptions } from "./llm-provider";
 import { isProviderUnavailableLlmError } from "./transient-error";
 
 const PRIMARY_TIMEOUT_MS = 45_000;
@@ -14,13 +14,23 @@ function alternateModel(primary: string): string | null {
   return alternate;
 }
 
-async function attempt<T>(model: string, timeout: number, run: (model: string, options: LlmRequestOptions) => Promise<T>) {
+async function attempt<T>(
+  model: string,
+  timeout: number,
+  run: (model: string, options: LlmRequestOptions) => Promise<T>,
+  excludedProviders?: readonly string[],
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort(new DOMException("Profile extraction timed out", "TimeoutError"));
   }, timeout);
   try {
-    return await run(model, { signal: controller.signal, timeout, maxRetries: 0 });
+    return await run(model, {
+      signal: controller.signal,
+      timeout,
+      maxRetries: 0,
+      ...(excludedProviders?.length ? { excludedProviders } : {}),
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -39,8 +49,18 @@ export async function withExtractionRecovery<T>(
     lastError = error;
   }
   if (alternate) {
+    const primaryProvider = parseModelString(primary).provider;
+    const alternateProvider = parseModelString(alternate).provider;
+    const primaryHost = providerEndpointHost(primaryProvider);
+    const alternateHost = providerEndpointHost(alternateProvider);
+    if (primaryHost && primaryHost === alternateHost) {
+      throw new Error(
+        `Profile extraction is temporarily unavailable: fallback provider "${alternateProvider}" resolves to the primary endpoint host ${primaryHost}`,
+        { cause: lastError },
+      );
+    }
     try {
-      return await attempt(alternate, RECOVERY_TIMEOUT_MS, run);
+      return await attempt(alternate, RECOVERY_TIMEOUT_MS, run, [primaryProvider]);
     } catch (error) {
       if (!isProviderUnavailableLlmError(error)) throw error;
       lastError = error;

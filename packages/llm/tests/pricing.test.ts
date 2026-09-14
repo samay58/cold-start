@@ -18,6 +18,11 @@ describe("pricingFor", () => {
     expect(pricingFor("deepseek", "deepseek-v4-pro", sunday)).toEqual({ input: 0.66, cacheRead: 0.022, output: 1.98 });
   });
 
+  it.each(["deepseek-flash", "deepseek-v4.1-flash", "deepseek-v4-flash"])("prices current Flash alias %s after the provider migration", (model) => {
+    expect(pricingFor("deepseek", model, new Date("2026-09-14T06:00:00Z"))).toEqual({ input: 0.3, cacheRead: 0.006, output: 1.2 });
+    expect(pricingFor("deepseek", model, new Date("2026-09-14T20:00:00Z"))).toEqual({ input: 0.15, cacheRead: 0.003, output: 0.6 });
+  });
+
   it("resolves the openrouter kimi-k3 row", () => {
     expect(pricingFor("openrouter", "moonshotai/kimi-k3")).toEqual({ input: 3, cacheRead: 0.3, output: 15 });
   });

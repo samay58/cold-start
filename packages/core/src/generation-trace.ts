@@ -57,6 +57,9 @@ export type GenerationProviderEndpointTrace = {
 };
 
 export type GenerationLlmCallTrace = {
+  responseId?: string;
+  responseModel?: string;
+  servingProvider?: string;
   stage: "research_plan" | "extract_full" | "extract_block" | "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read" | "how_it_wins";
   label: string;
   model: string;

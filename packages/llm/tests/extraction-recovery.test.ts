@@ -93,6 +93,38 @@ describe("extraction recovery budget", () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
+  it("does not resolve fallback credentials before a successful primary call", async () => {
+    vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/google/gemini-2.5-flash");
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    const run = vi.fn().mockResolvedValue("saved");
+
+    await expect(withExtractionRecovery(primary, run)).resolves.toBe("saved");
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a fallback that resolves to the same normalized endpoint host", async () => {
+    vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/google/gemini-2.5-flash");
+    vi.stubEnv("DEEPSEEK_BASE_URL", "HTTPS://Gateway.Example.com:443/deepseek/v1/");
+    vi.stubEnv("OPENROUTER_BASE_URL", "https://gateway.example.com/openrouter/v1");
+    const run = vi.fn().mockRejectedValue(new Error("openai-compat request failed with 503: unavailable"));
+
+    await expect(withExtractionRecovery(primary, run)).rejects.toThrow(
+      'fallback provider "openrouter" resolves to the primary endpoint host gateway.example.com',
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it("excludes the primary upstream from an OpenRouter recovery request", async () => {
+    vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/deepseek/deepseek-v4.1-flash");
+    const fireworksPrimary = "fireworks/accounts/fireworks/models/deepseek-v4";
+    const run = vi.fn()
+      .mockRejectedValueOnce(new Error("openai-compat request failed with 503: unavailable"))
+      .mockResolvedValueOnce("saved");
+
+    await expect(withExtractionRecovery(fireworksPrimary, run)).resolves.toBe("saved");
+    expect(run.mock.calls[1]![1]).toMatchObject({ excludedProviders: ["fireworks"] });
+  });
+
   it("honors the explicit alternate before the global and Anthropic defaults", async () => {
     vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", "openrouter/example/extractor");
     vi.stubEnv("LLM_FALLBACK_MODEL", "other/extractor");

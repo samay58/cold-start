@@ -328,6 +328,60 @@ describe("createTracedOpenAiCompatMessage", () => {
     expect(traces[0]?.estimatedCostUsd).toBe(0.0123);
   });
 
+  it("retains the serving identity and DeepInfra's reported estimate", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...okPayload, model: "served-model", provider: "actual-host",
+      usage: { ...okPayload.usage, estimated_cost: 0.0042 } }));
+    const traces: GenerationLlmCallTrace[] = [];
+    await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: call => traces.push(call) });
+    expect(traces[0]).toMatchObject({ model: "deepseek-v4-flash", responseId: "resp-1",
+      responseModel: "served-model", servingProvider: "actual-host", estimatedCostUsd: 0.0042 });
+  });
+
+  it("does not invent serving identity when the provider omits it", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...okPayload, id: undefined, model: undefined }));
+    const traces: GenerationLlmCallTrace[] = [];
+    await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: call => traces.push(call) });
+    expect(traces[0]).not.toHaveProperty("responseId");
+    expect(traces[0]).not.toHaveProperty("responseModel");
+    expect(traces[0]).not.toHaveProperty("servingProvider");
+  });
+
+  it("rejects negative reported costs instead of subtracting them from the ledger", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ ...okPayload, usage: { ...okPayload.usage, cost: -1 } }));
+    const traces: GenerationLlmCallTrace[] = [];
+    await createTracedOpenAiCompatMessage({ ...callInput(), telemetry: call => traces.push(call) });
+    expect(traces[0]?.estimatedCostUsd).toBeGreaterThanOrEqual(0);
+  });
+
+  it("treats an HTTP-200 gateway error as a failure and retains its request details", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: 503, message: "test-key overloaded",
+      metadata: { provider_name: "actual-host" } } }, { headers: { "x-request-id": "request-123" } }));
+    const traces: GenerationLlmCallTrace[] = [];
+    await expect(createTracedOpenAiCompatMessage({ ...callInput(), telemetry: call => traces.push(call),
+      requestOptions: { signal: new AbortController().signal, timeout: 1000, maxRetries: 0 },
+    })).rejects.toThrow("openai-compat request failed with 503: ");
+    expect(traces).toHaveLength(1);
+    expect(traces[0]).toMatchObject({ status: "failed", responseId: "request-123", servingProvider: "actual-host" });
+    expect(traces[0]?.error).not.toContain("test-key");
+    expect(traces[0]).not.toHaveProperty("estimatedCostUsd");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["engine_overloaded", 503], ["server_error", 503], ["rate_limit_exceeded", 429],
+    ["invalid_request_error", 200], ["invalid_api_key", 200],
+  ])("classifies error envelope %s without retrying semantic failures", async (code, expected) => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code, message: "provider error" },
+      id: "failed-call", model: "served-model", provider: "served-host", usage: { cost: 0.012, prompt_tokens: 123 } }));
+    const traces: GenerationLlmCallTrace[] = [];
+    await expect(createTracedOpenAiCompatMessage({ ...callInput(), telemetry: call => traces.push(call),
+      requestOptions: { signal: new AbortController().signal, timeout: 1000, maxRetries: 0 },
+    })).rejects.toThrow(`failed with ${expected}:`);
+    expect(traces[0]).toMatchObject({ status: "failed", responseId: "failed-call", responseModel: "served-model",
+      servingProvider: "served-host", estimatedCostUsd: 0.012, inputTokens: 123 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("retries 429 and 5xx then succeeds", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ error: "rate limited" }, { status: 429, headers: { "retry-after": "0" } }))

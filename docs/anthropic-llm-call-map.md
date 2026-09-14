@@ -166,3 +166,9 @@ Rollback from any provider flip = unset the `LLM_*` stage env and redeploy; Verc
 - Group ad-hoc trace SQL by (provider, model), not model alone.
 - The verifier's drops stay dropped, and `synthesizeCard` output must pass `assertSynthesisCitationsExistOnCard`. Both are correctness gates, not style.
 - Synthesis only ever runs extension-gated (`analysis` mode or section jobs). Nothing on the public card path may call `synthesizeCard`.
+
+## Profile recovery, September 14
+
+Full-profile extraction uses `withExtractionRecovery`: 45 seconds for the primary and 90 for an independent alternate, or 90 total without one. Transport retries are disabled; schema correction shares the same deadline. Exhausted recovery is terminal so the outer executor cannot replay the paid sequence. Traces retain failed calls, returned model and response identifier, serving provider, and reported cost when available.
+
+The selected production configuration is `openrouter/google/gemini-2.5-flash` with `deepseek/deepseek-flash` as `LLM_EXTRACT_FALLBACK_MODEL`. OpenRouter extraction requires tool-parameter support and providers that do not collect data. Optional reasoning is disabled for these extraction models. DeepInfra is supported through `DEEPINFRA_API_KEY` and `DEEPINFRA_BASE_URL`; its DeepSeek extraction uses priority fail-fast requests. It remains unselected after live capacity failures. Other model stages are unchanged. See the [verification record](superpowers/specs/2026-09-14-profile-timeout-recovery.md).

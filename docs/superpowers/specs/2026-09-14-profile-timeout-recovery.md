@@ -19,7 +19,7 @@ A second read-only check of Vercel's production deployment history found no depl
 
 The requested model name does not identify an immutable deployed model. DeepSeek's September 10 announcement retired V4 Flash and redirected `deepseek-v4-flash` to V4.1 Flash. Its current [model documentation](https://api-docs.deepseek.com/quick_start/pricing/) confirms that mapping. Successful September 11 calls occurred after that announcement, so the migration alone does not establish the trigger for September 14. The provider's status page reports operational service at inspection time; it provides no incident explanation for our requests.
 
-Provider-side stalling is the leading explanation for the new symptom, with transport conditions and request-specific behavior still unresolved. The repair addresses the confirmed application recovery and observability defects. It does not prove the provider-side trigger. Before attributing the failure to a model migration, compare bounded provider requests using an approved spend cap. No paid diagnostic requests were made in this investigation.
+Provider-side stalling is the leading explanation for the new symptom, with transport conditions and request-specific behavior still unresolved. The repair addresses the confirmed application recovery and observability defects. It does not prove the provider-side trigger. Before attributing the failure to a model migration, compare bounded provider requests using an approved spend cap. The owner subsequently authorized provider configuration, paid diagnostics, deployment, and live verification. The diagnostic cap is $2; the complete verification cap is $5. See the provider verification record below.
 
 ## Defects
 
@@ -52,14 +52,36 @@ The extraction allowance is at most 135 seconds. This is not a promise that ever
 
 ## Release and live proof
 
-Implement on `codex/profile-timeout-recovery` in a separate worktree. Do not change production variables, deploy, or rerun paid production generation during local verification. Before release, confirm the alternate credential and model are configured, and inspect the completed diff and tests. After an approved deployment, run the two failed domains within an explicit spend cap and verify final cards, citations, traces, and settlement in Neon. A local passing test is not production recovery.
+Implement on `codex/profile-timeout-recovery` in a separate worktree. The owner authorized production changes on September 14. Before release, confirm the alternate credential and model are configured, and inspect the completed diff and tests. After deployment, run the two failed domains within an explicit spend cap and verify final cards, citations, traces, and settlement in Neon. A local passing test is not production recovery.
 
-## Verification
+## Provider verification
 
-The timeout and lost-telemetry regressions failed before their fixes and passed afterward. Focused checks passed: 45 extraction and recovery tests, 20 adapter tests, and 40 generation and inline-dispatch tests. Coverage includes stalled response bodies, exhausted recovery, schema correction within the original deadline, provider-switch exclusions, failed trace persistence, and successful same-invocation retry without duplicate calls.
+Real extraction requests used frozen production evidence for Craftcloud3D (26 sources) and Vivino (36 sources), with the production schema and citation scorer. Each request reserved a conservative maximum cost before dispatch. Transport retries were disabled and requests had cancellable deadlines.
 
-The full `npm run check` passed lint, workspace typechecks, unit and script tests, both real-Postgres suites, web and extension builds, Firefox validation, the golden-set dry run, unused-code checks, and the secrets scan. Firefox validation reported zero errors and seven warnings. The final dependency audit failed on existing advisories, including a critical Next.js finding. Running the same audit in the untouched original checkout reproduced the same findings. No dependency or lockfile changes are included in this repair. The complete release gate is therefore not green.
+| Route | Craftcloud3D | Vivino | Decision |
+| --- | --- | --- | --- |
+| OpenRouter, Gemini 2.5 Flash | 17.1 s, valid | 31.4 s, valid | Primary |
+| Direct DeepSeek Flash | 14.3 s, valid | 18.7 s, valid | Alternate |
+| OpenRouter, DeepSeek V4.1 Flash | One valid 10.6 s result; one 429 | 429 | Exclude from initial release |
+| DeepInfra, DeepSeek V4.1 Flash | 45 s timeout; priority fail-fast returned 429 | Not run | Exclude from initial release |
+| DeepInfra, DeepSeek V4 Flash 0731 | Priority fail-fast returned 429 | Not run | Exclude from initial release |
+
+Both selected routes returned schema-valid output with no unresolved source URLs. Gemini matched all five funding checks on Vivino. The DeepSeek scorer matched six of seven; manual inspection found the seventh amount, USD 25.0M, in the frozen source, which the scorer did not recognize. That discrepancy is a scorer limitation, not evidence of an invented amount. Production trust checks remain unchanged.
+
+OpenRouter already supports invitation art in this repository. For full extraction it now requires parameter support, excludes providers that collect data, and disables optional reasoning for Gemini 2.5 Flash and DeepSeek. Other stages retain their routing. The optional DeepInfra adapter uses priority and fail-fast for DeepSeek extraction, but it is not selected for production after the capacity failures.
+
+Set `LLM_EXTRACT_MODEL=openrouter/google/gemini-2.5-flash` and `LLM_EXTRACT_FALLBACK_MODEL=deepseek/deepseek-flash`. Use the owner's project OpenRouter credential and the existing direct DeepSeek credential. The latter's balance endpoint confirmed USD 21.69 available after the owner's top-up. A funded account does not establish why the earlier requests timed out.
+
+Provider traces retain returned model, serving host, response identifier, and reported usage when available. HTTP-200 gateway error envelopes are classified as errors. Known overload codes permit bounded recovery; authentication and invalid-request errors remain terminal. Unknown call cost remains absent.
+
+## Verification and release status
+
+The timeout and lost-telemetry regressions failed before their fixes and passed afterward. Tests cover stalled response bodies, exhausted recovery, schema correction within the original deadline, provider-switch exclusions, failed trace persistence, and successful same-invocation retry without duplicate calls.
+
+The first full check failed at the existing dependency audit. Scoped compatible upgrades repair the blocking advisories without changing the audit policy. The final `npm run check` passed on September 14: lint, all workspace types and tests, both real-Postgres suites, production builds, Firefox validation, golden dry run, unused-code checks, secrets scan, and dependency audit. The audit still reports its existing temporary allowances and two nonblocking moderate dependency findings; no audit policy was weakened. A forced HTTP-200 overload followed by a real DeepSeek extraction completed in 13.2 seconds with both attempts recorded.
+
+Rollback target: production deployment `dpl_4YotCgJWsUNC2JWa2vC95EETLioY` at `d91a8af`. Only the extractor model, its alternate, and the new OpenRouter credential change in the production environment. No database migration is required. Preserve all synthesis and How it wins settings.
 
 ## Where we left off
 
-The repair is implemented and tested locally in the isolated worktree. Production is unchanged. Resolve the existing dependency-audit blockers, verify the configured alternate provider, then review and deploy the repair. The two capped production reruns and their saved-card readback remain the live acceptance check. Raw traces and environment downloads stay outside the repository.
+Implementation and provider selection are complete in the isolated worktree. The full verification gate passed. Deployment and the two capped production reruns remain. Read the saved cards and terminal traces from Neon before declaring recovery.

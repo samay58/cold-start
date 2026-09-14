@@ -103,6 +103,8 @@ function callTrace(input: {
   error?: unknown;
   label: string;
   model: string;
+  responseId?: string | undefined;
+  responseModel?: string | undefined;
   stage: AnthropicCallStage;
   status: GenerationLlmCallTrace["status"];
   usage?: AnthropicUsage;
@@ -151,6 +153,8 @@ export async function createTracedAnthropicMessage(input: {
         durationMs: Date.now() - startedAt,
         label: input.label,
         model: resolved.model,
+        responseId: response.id,
+        responseModel: response.model,
         stage: input.stage,
         status: "ok",
         usage: response.usage,
@@ -164,6 +168,7 @@ export async function createTracedAnthropicMessage(input: {
         error,
         label: input.label,
         model: resolved.model,
+        responseId: error instanceof Anthropic.APIError ? error.requestID ?? undefined : undefined,
         stage: input.stage,
         status: "failed",
       }),

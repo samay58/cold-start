@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTracedAnthropicMessage } from "../src/index";
 import type { GenerationLlmCallTrace } from "@cold-start/core";
@@ -27,6 +27,8 @@ afterEach(() => {
 
 function mockAnthropicClient() {
   const create = vi.fn().mockResolvedValue({
+    id: "msg_actual",
+    model: "claude-sonnet-4-6-20260901",
     content: [{ type: "tool_use", name: "emit_block_claims", input: {} }],
     usage: { input_tokens: 100, output_tokens: 10 },
   });
@@ -57,7 +59,40 @@ describe("createTracedAnthropicMessage dispatch", () => {
     const [sentParams, requestOptions] = create.mock.calls[0] as [typeof params, { headers: Record<string, string> }];
     expect(sentParams).toEqual(params);
     expect(requestOptions.headers["anthropic-beta"]).toBe("extended-cache-ttl-2025-04-11");
-    expect(traces[0]).toMatchObject({ provider: "anthropic", model: "claude-sonnet-4-6", status: "ok" });
+    expect(traces[0]).toMatchObject({
+      provider: "anthropic",
+      model: "claude-sonnet-4-6",
+      responseId: "msg_actual",
+      responseModel: "claude-sonnet-4-6-20260901",
+      status: "ok",
+    });
+  });
+
+  it("records the Anthropic request id when the SDK call fails", async () => {
+    const error = new Anthropic.APIError(
+      503,
+      { message: "capacity unavailable" },
+      undefined,
+      new Headers({ "request-id": "req_failed" }),
+    );
+    const create = vi.fn().mockRejectedValue(error);
+    const client = { messages: { create } } as unknown as Anthropic;
+    const traces: GenerationLlmCallTrace[] = [];
+
+    await expect(createTracedAnthropicMessage({
+      client,
+      label: "test",
+      model: "claude-sonnet-4-6",
+      params,
+      stage: "extract_block",
+      telemetry: (call) => traces.push(call),
+    })).rejects.toBe(error);
+
+    expect(traces[0]).toMatchObject({
+      provider: "anthropic",
+      responseId: "req_failed",
+      status: "failed",
+    });
   });
 
   it("normalizes an explicit anthropic/ prefix to the bare model id", async () => {

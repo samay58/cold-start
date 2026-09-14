@@ -23,6 +23,9 @@ export function buildLlmCallTrace(input: {
   model: string;
   provider: string;
   retryCount?: number | undefined;
+  responseId?: string | undefined;
+  responseModel?: string | undefined;
+  servingProvider?: string | undefined;
   stage: GenerationLlmCallTrace["stage"];
   status: GenerationLlmCallTrace["status"];
   usage?: AnthropicUsage;
@@ -34,6 +37,9 @@ export function buildLlmCallTrace(input: {
     provider: input.provider,
     status: input.status,
     durationMs: input.durationMs,
+    ...(input.responseId ? { responseId: input.responseId.slice(0, 200) } : {}),
+    ...(input.responseModel ? { responseModel: input.responseModel.slice(0, 200) } : {}),
+    ...(input.servingProvider ? { servingProvider: input.servingProvider.slice(0, 100) } : {}),
     ...(input.usage?.input_tokens !== undefined ? { inputTokens: input.usage.input_tokens } : {}),
     ...(input.usage?.output_tokens !== undefined ? { outputTokens: input.usage.output_tokens } : {}),
     ...(input.usage?.cache_creation_input_tokens !== undefined
