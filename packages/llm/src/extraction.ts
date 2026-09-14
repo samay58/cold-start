@@ -293,7 +293,8 @@ export const extractionSystemPrompt = [
   investorTasteKernel,
   "You extract investor-grade public company facts from a structured evidence ledger and raw public sources.",
   "Drop unsupported claims. Every material fact must map to citation IDs. Use null for missing facts.",
-  "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. totalRaisedUsd may be used only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise return null or mixed.",
+  "Funding standard: build a round ledger first. Include rounds only when amount, round name, date, or investors are explicitly supported. Set totalRaisedUsd.value only when explicitly stated by a cited source or mechanically reconciled from a complete cited round ledger; otherwise set its value to null. Record unresolved source disagreement in status as mixed, never as text in value.",
+  "Numeric fields must be JSON numbers or null, never quoted numbers, currency labels, or the string unknown. Unsupported amounts must remain null.",
   "Description standard: identity.description.shortDescription must be one complete sentence, roughly 18 to 24 words and no more than about 170 characters, that explains what the company actually does and who it serves. It is the card lead, not a product-page overview.",
   "identity.description.expandedDescription must be two or three complete sentences in plain English. Explain what the company does, who uses or buys it, what workflow or pain it addresses, and the nuance that matters. Use concrete nouns, clean causal language, and no brochure copy.",
   "Use identity.description.concept for the non-obvious product idea in one complete sentence.",
@@ -810,6 +811,42 @@ function filterArray<T>(value: unknown, schema: z.ZodType<T>) {
   });
 }
 
+const schemaCorrectionIssueLimit = 8;
+const schemaCorrectionMessageLimit = 1200;
+const schemaCorrectionPathSegmentLimit = 80;
+
+function boundedIssuePath(path: PropertyKey[]) {
+  if (path.length === 0) return "(root)";
+  return path
+    .map((segment) => String(segment).replace(/[^a-zA-Z0-9_-]/g, "?").slice(0, schemaCorrectionPathSegmentLimit))
+    .join(".");
+}
+
+function expectedIssueType(issue: z.ZodIssue) {
+  const expected = (issue as z.ZodIssue & { expected?: unknown }).expected;
+  if (typeof expected === "string" && expected.length > 0) {
+    return expected.slice(0, 80);
+  }
+  return "a value matching the declared schema";
+}
+
+function schemaCorrectionMessage(error: unknown) {
+  const lead = [
+    `The prior ${EXTRACTION_TOOL_NAME} tool call did not match the unchanged schema.`,
+    "Return the complete tool call again. Correct only the validation failures and keep every claim and citation grounded in the original evidence.",
+  ];
+  const details = error instanceof z.ZodError
+    ? [
+        "Validation failures:",
+        ...error.issues.slice(0, schemaCorrectionIssueLimit).map(
+          (issue) => `- ${boundedIssuePath(issue.path)}: expected ${expectedIssueType(issue)}`,
+        ),
+      ]
+    : ["The prior response did not contain one complete, valid tool call. Return valid JSON matching the declared schema."];
+  const message = [...lead, ...details].join("\n");
+  return message.slice(0, schemaCorrectionMessageLimit);
+}
+
 export async function extractCompanyClaims(input: {
   client: Anthropic;
   model: string;
@@ -817,7 +854,7 @@ export async function extractCompanyClaims(input: {
   telemetry?: AnthropicTelemetrySink;
   providerRecovery?: boolean;
 }) {
-  const extract = (model: string, requestOptions?: LlmRequestOptions) => withSchemaRetry(model, async () => {
+  const extract = (model: string, requestOptions?: LlmRequestOptions) => withSchemaRetry(model, async (previousError) => {
     requestOptions?.signal.throwIfAborted();
     const response: Message = await createTracedAnthropicMessage({
       client: input.client,
@@ -846,7 +883,10 @@ export async function extractCompanyClaims(input: {
                 text: JSON.stringify(evidenceForExtractionPrompt(input.evidence))
               }
             ]
-          }
+          },
+          ...(previousError
+            ? [{ role: "user" as const, content: [{ type: "text" as const, text: schemaCorrectionMessage(previousError) }] }]
+            : [])
         ],
         tools: [extractionTool],
         tool_choice: { type: "tool", name: EXTRACTION_TOOL_NAME }

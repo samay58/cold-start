@@ -248,13 +248,15 @@ describe("providerEndpointHost", () => {
 
 describe("withSchemaRetry", () => {
   it("retries once on a zod error for non-anthropic models", async () => {
+    const schemaError = new ZodError([]);
     const run = vi
-      .fn<() => Promise<string>>()
-      .mockRejectedValueOnce(new ZodError([]))
+      .fn<(previousError?: unknown) => Promise<string>>()
+      .mockRejectedValueOnce(schemaError)
       .mockResolvedValueOnce("ok");
 
     await expect(withSchemaRetry("deepseek/deepseek-v4-flash", run)).resolves.toBe("ok");
     expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls).toEqual([[], [schemaError]]);
   });
 
   it("retries on malformed tool-argument JSON and missing tool use", async () => {

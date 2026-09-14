@@ -68,7 +68,99 @@ const validExtractionPayload = {
   ]
 };
 
+function openAiExtractionResponse(payload: unknown) {
+  return new Response(JSON.stringify({
+    id: "response-id",
+    model: "deepseek-v4-flash",
+    choices: [{
+      message: {
+        tool_calls: [{
+          id: "tool-call-id",
+          function: { name: "emit_company_claims", arguments: JSON.stringify(payload) },
+        }],
+      },
+    }],
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
 describe("profile extraction recovery", () => {
+  it("adds bounded validation feedback only to the correction attempt", async () => {
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const invalidPayload = structuredClone(validExtractionPayload) as unknown as { funding: Record<string, unknown> };
+    invalidPayload.funding.totalRaisedUsd = {
+      value: "INVALID_MONEY_VALUE_SHOULD_NOT_BE_ECHOED",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"],
+    };
+    const correctedPayload = structuredClone(validExtractionPayload) as unknown as { funding: Record<string, unknown> };
+    correctedPayload.funding.totalRaisedUsd = {
+      value: 25_000_000,
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"],
+    };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(openAiExtractionResponse(invalidPayload))
+      .mockResolvedValueOnce(openAiExtractionResponse(correctedPayload));
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const result = await extractCompanyClaims({
+        client: { messages: { create: vi.fn() } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        providerRecovery: false,
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+      });
+
+      expect(result.funding.totalRaisedUsd.value).toBe(25_000_000);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const firstBody = JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string);
+      const secondBody = JSON.parse((fetchMock.mock.calls[1]![1] as RequestInit).body as string);
+      const { messages: firstMessages, ...firstRequest } = firstBody;
+      const { messages: secondMessages, ...secondRequest } = secondBody;
+      expect(secondRequest).toEqual(firstRequest);
+      expect(secondMessages.slice(0, -1)).toEqual(firstMessages);
+      expect(firstMessages).toHaveLength(2);
+      expect(secondMessages).toHaveLength(3);
+      const feedback = secondMessages.at(-1).content as string;
+      expect(feedback).toContain("funding.totalRaisedUsd.value: expected number");
+      expect(feedback).not.toContain("INVALID_MONEY_VALUE_SHOULD_NOT_BE_ECHOED");
+      expect(feedback.length).toBeLessThanOrEqual(1200);
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not switch providers when the correction still fails schema validation", async () => {
+    vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
+    vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
+    const invalidPayload = structuredClone(validExtractionPayload) as unknown as { funding: Record<string, unknown> };
+    invalidPayload.funding.totalRaisedUsd = {
+      value: "INVALID_MONEY_VALUE",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"],
+    };
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(openAiExtractionResponse(invalidPayload)));
+    const create = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      await expect(extractCompanyClaims({
+        client: { messages: { create } } as never,
+        model: "deepseek/deepseek-v4-flash",
+        evidence: { domain: "cartesia.ai", sources: [], evidenceLedger: [] },
+      })).rejects.toThrow();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(create).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("leaves provider comparisons on the requested model when recovery is disabled", async () => {
     vi.stubEnv("ANTHROPIC_MODEL", "claude-sonnet-4-6");
     vi.stubEnv("DEEPSEEK_API_KEY", "test-key");
@@ -260,6 +352,8 @@ describe("extractionSystemPrompt", () => {
     expect(extractionSystemPrompt).toContain("round ledger");
     expect(extractionSystemPrompt).toContain("Do not write generic category labels");
     expect(extractionSystemPrompt).toContain("mechanically reconciled");
+    expect(extractionSystemPrompt).toContain("Numeric fields must be JSON numbers or null");
+    expect(extractionSystemPrompt).toContain("Unsupported amounts must remain null");
     expect(extractionSystemPrompt).toContain("source incentives");
     expect(extractionSystemPrompt).toContain("18 to 24 words");
     expect(extractionSystemPrompt).toContain("expandedDescription");

@@ -19,6 +19,8 @@ Compare the existing extraction request against direct DeepSeek, OpenRouter, and
 
 Reserve a conservative maximum cost before each paid diagnostic request. Cap diagnostics at $2 and the complete investigation plus production verification at $5. Unknown usage consumes its full reservation. Disable automatic SDK retries during comparisons. Use cancellable deadlines that cover response bodies and schema correction. Run paid work serially and stop before another reservation would exceed the cap. Do not enable automatic credit purchases.
 
+Schema correction must include the validation error. Do not repeat an identical deterministic request and call it a correction. Keep numeric fields typed; never coerce an unsupported funding amount into a number.
+
 Keep recovery bounded. Choose an explicitly configured, independently hosted alternate. Fail visibly on authentication, invalid configuration, and invalid evidence rather than switching providers to evade validation. Preserve the existing cancellation and no-whole-step-replay fix. Keep useful existing cards intact. Failed runs must terminate, record their cause, and follow the existing allowance-refund rules without a second debit.
 
 Record requested model, returned model, serving provider, response/request identifier when available, latency, retry count, usage, and provider-reported cost. Omit unavailable fields instead of inventing zero cost or a served-model identity. Preserve earlier attempts when recovery succeeds. Never store full prompts or credentials in the trace.

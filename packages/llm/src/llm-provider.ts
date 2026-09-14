@@ -289,7 +289,7 @@ function isSchemaParseError(error: unknown): boolean {
 // One re-ask when a non-Anthropic model returns output the stage parser rejects. Anthropic
 // behavior stays bit-for-bit identical: forced tool choice there has not needed retries, and
 // keeping the path untouched preserves the existing failure semantics.
-export async function withSchemaRetry<T>(modelRaw: string, run: () => Promise<T>): Promise<T> {
+export async function withSchemaRetry<T>(modelRaw: string, run: (previousError?: unknown) => Promise<T>): Promise<T> {
   if (parseModelString(modelRaw).provider === "anthropic") {
     return run();
   }
@@ -301,6 +301,6 @@ export async function withSchemaRetry<T>(modelRaw: string, run: () => Promise<T>
       throw error;
     }
 
-    return run();
+    return run(error);
   }
 }
