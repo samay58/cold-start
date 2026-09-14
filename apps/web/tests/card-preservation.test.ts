@@ -1,6 +1,6 @@
 import { buildSkeletonCard } from "@cold-start/pipeline";
 import { describe, expect, it } from "vitest";
-import { hasUsablePublicProfile } from "@cold-start/core";
+import { coldStartCardSchema, hasUsablePublicProfile } from "@cold-start/core";
 import {
   prepareCardForStorage,
   prepareCardSnapshotForStorage,
@@ -60,6 +60,206 @@ describe("preserveExistingBasics", () => {
     const next = buildSkeletonCard("cognition.ai");
 
     expect(preserveExistingBasics(existing, next).expandedDescription).toEqual(expandedDescription);
+  });
+
+  it.each([false, true])(
+    "keeps stored and incoming facts bound to different sources when citation IDs collide (preferExisting=%s)",
+    (preferExisting) => {
+      const existing = buildSkeletonCard("cognition.ai");
+      existing.funding.totalRaisedUsd = {
+        value: 25_000_000,
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      };
+      existing.citations = [
+        {
+          id: "c1",
+          url: "https://old.example/funding",
+          title: "Stored funding source",
+          fetchedAt: "2026-07-01T00:00:00.000Z",
+          sourceType: "news"
+        },
+        {
+          id: "c2",
+          url: "https://old.example/team",
+          title: "Stored team source",
+          fetchedAt: "2026-07-01T00:00:00.000Z",
+          sourceType: "news"
+        }
+      ];
+      const incoming = buildSkeletonCard("cognition.ai");
+      incoming.team.headcount = {
+        value: { value: 150, asOf: "2026-09-14" },
+        status: "verified",
+        confidence: "high",
+        citationIds: ["c1"]
+      };
+      incoming.comparables = [{
+        name: "Fresh comparable",
+        domain: "fresh.example",
+        oneLiner: "A fresh comparison.",
+        citationIds: ["c1"]
+      }];
+      incoming.citations = [{
+        id: "c1",
+        url: "https://new.example/headcount",
+        title: "Fresh headcount source",
+        fetchedAt: "2026-09-14T00:00:00.000Z",
+        sourceType: "news"
+      }];
+      const existingBefore = structuredClone(existing);
+      const incomingBefore = structuredClone(incoming);
+
+      const merged = preserveExistingBasics(existing, incoming, { preferExisting });
+      const storedFundingCitation = merged.citations.find((citation) =>
+        merged.funding.totalRaisedUsd.citationIds.includes(citation.id));
+      const incomingHeadcountCitation = merged.citations.find((citation) =>
+        merged.team.headcount.citationIds.includes(citation.id));
+
+      expect(storedFundingCitation?.url).toBe("https://old.example/funding");
+      expect(incomingHeadcountCitation?.url).toBe("https://new.example/headcount");
+      expect(incomingHeadcountCitation?.id).not.toBe("c1");
+      expect(incomingHeadcountCitation?.id).not.toBe("c2");
+      expect(merged.comparables[0]?.citationIds).toEqual([incomingHeadcountCitation?.id]);
+      expect(existing).toEqual(existingBefore);
+      expect(incoming).toEqual(incomingBefore);
+      expect(() => coldStartCardSchema.parse(merged)).not.toThrow();
+    }
+  );
+
+  it("remaps crossed citation IDs once without changing literal bracket text in URLs or titles", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.citations = [
+      { id: "c1", url: "https://old.example/one", title: "Stored one", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "news" },
+      { id: "c2", url: "https://old.example/two", title: "Stored two", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "news" }
+    ];
+    const incoming = buildSkeletonCard("cognition.ai");
+    incoming.identity.websiteUrl = {
+      value: "https://cognition.ai/research/[c1]",
+      status: "verified",
+      confidence: "high",
+      citationIds: ["c1"]
+    };
+    incoming.citations = [
+      { id: "c1", url: "https://old.example/two", title: "Fresh title with literal [c1]", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "news" },
+      { id: "c2", url: "https://old.example/one", title: "Fresh two", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "news" }
+    ];
+    incoming.synthesis = {
+      whyItMatters: { text: "Crossed proof [c1] then [c2] and together [c1, c2].", citationIds: ["c1", "c2"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "Could [c1] change the read?", category: "buyer_budget" }],
+      howItWins: {
+        status: "read",
+        sentence: "Usership is running [c1].",
+        running: [{
+          strategy: "usership",
+          meaning: "A critical mass of users makes the product more useful to each of them.",
+          note: "Each user adds value [c1].",
+          citationIds: ["c1"]
+        }],
+        pair: null,
+        next: [],
+        inQuestion: [],
+        wrongIf: "The bracket [c1] is literal here."
+      }
+    };
+
+    const merged = preserveExistingBasics(existing, incoming);
+
+    expect(merged.synthesis?.whyItMatters).toEqual({
+      text: "Crossed proof [c2] then [c1] and together [c2, c1].",
+      citationIds: ["c2", "c1"]
+    });
+    expect(merged.synthesis?.openQuestions[0]?.question).toBe("Could [c2] change the read?");
+    expect(merged.synthesis?.howItWins).toMatchObject({
+      sentence: "Usership is running [c2].",
+      running: [{ note: "Each user adds value [c2].", citationIds: ["c2"] }],
+      wrongIf: "The bracket [c1] is literal here."
+    });
+    expect(merged.identity.websiteUrl?.value).toBe("https://cognition.ai/research/[c1]");
+    expect(merged.citations.find((citation) => citation.id === "c2")?.title).toBe("Fresh title with literal [c1]");
+    expect(() => coldStartCardSchema.parse(merged)).not.toThrow();
+  });
+
+  it("remaps colliding refs throughout incoming analysis and expanded description", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.citations = [
+      { id: "c1", url: "https://old.example/company", title: "Stored company", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "news" },
+      { id: "fv1", url: "https://old.example/founder", title: "Stored founder", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "other" }
+    ];
+    const incoming = buildSkeletonCard("cognition.ai");
+    incoming.citations = [
+      { id: "c1", url: "https://new.example/company", title: "Fresh company", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "news" },
+      { id: "fv1", url: "https://new.example/founder", title: "Fresh founder", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "other" }
+    ];
+    incoming.expandedDescription = {
+      paragraphs: ["Fresh description grounded in the new company source."],
+      citationIds: ["c1"]
+    };
+    incoming.synthesis = {
+      whyItMatters: { text: "Fresh company proof [c1].", citationIds: ["c1"] },
+      bullCase: [{ text: "Fresh founder proof [fv1].", citationIds: ["fv1"] }],
+      bearCase: [],
+      openQuestions: [{ question: "What must be checked next?", category: "buyer_budget" }],
+      emphasisRead: {
+        status: "read",
+        loud: { text: "The founder stresses product speed [fv1].", citationIds: ["fv1"] },
+        quiet: "Named customer proof remains absent.",
+        read: { text: "The public emphasis stays on product speed [fv1].", citationIds: ["fv1"] },
+        wouldChangeIf: "A named customer disclosed measured adoption."
+      }
+    };
+
+    const merged = prepareCardSnapshotForStorage("analysis", existing, incoming);
+    const companyId = merged.citations.find((citation) => citation.url === "https://new.example/company")?.id;
+    const founderId = merged.citations.find((citation) => citation.url === "https://new.example/founder")?.id;
+
+    expect(companyId).not.toBe("c1");
+    expect(founderId).toMatch(/^fv\d+$/);
+    expect(founderId).not.toBe("fv1");
+    expect(merged.expandedDescription?.citationIds).toEqual([companyId]);
+    expect(merged.synthesis?.whyItMatters).toEqual({ text: `Fresh company proof [${companyId}].`, citationIds: [companyId] });
+    expect(merged.synthesis?.emphasisRead?.loud).toEqual({
+      text: `The founder stresses product speed [${founderId}].`,
+      citationIds: [founderId]
+    });
+    expect(() => coldStartCardSchema.parse(merged)).not.toThrow();
+  });
+
+  it("keeps preserved analysis refs on their stored sources during a basics refresh", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.citations = [{ id: "c1", url: "https://old.example/read", title: "Stored read", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "news" }];
+    existing.synthesis = {
+      whyItMatters: { text: "Stored thesis [c1].", citationIds: ["c1"] },
+      bullCase: [],
+      bearCase: [],
+      openQuestions: [{ question: "What must be checked next?", category: "buyer_budget" }]
+    };
+    existing.expandedDescription = { paragraphs: ["Stored description."], citationIds: ["c1"] };
+    const incoming = buildSkeletonCard("cognition.ai");
+    incoming.citations = [{ id: "c1", url: "https://new.example/profile", title: "Fresh profile", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "company_site" }];
+
+    const merged = prepareCardSnapshotForStorage("basics", existing, incoming, { preserveAnalysis: true });
+
+    expect(merged.synthesis).toEqual(existing.synthesis);
+    expect(merged.expandedDescription).toEqual(existing.expandedDescription);
+    expect(merged.citations.find((citation) => citation.id === "c1")?.url).toBe("https://old.example/read");
+    expect(() => coldStartCardSchema.parse(merged)).not.toThrow();
+  });
+
+  it("reuses the first remap when the same incoming card is merged again", () => {
+    const existing = buildSkeletonCard("cognition.ai");
+    existing.citations = [{ id: "c1", url: "https://old.example/source", title: "Stored source", fetchedAt: "2026-07-01T00:00:00.000Z", sourceType: "news" }];
+    const incoming = buildSkeletonCard("cognition.ai");
+    incoming.team.headcount = { value: { value: 150, asOf: "2026-09-14" }, status: "verified", confidence: "high", citationIds: ["c1"] };
+    incoming.citations = [{ id: "c1", url: "https://new.example/source", title: "Fresh source", fetchedAt: "2026-09-14T00:00:00.000Z", sourceType: "news" }];
+
+    const once = preserveExistingBasics(existing, incoming);
+    const twice = preserveExistingBasics(once, incoming);
+
+    expect(twice).toEqual(once);
   });
 
   it("preserves a filed read and enriched person fields for a stale background write", () => {

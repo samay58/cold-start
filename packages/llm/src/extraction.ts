@@ -20,6 +20,7 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { withSchemaRetry, type LlmRequestOptions } from "./llm-provider";
 import { withExtractionRecovery } from "./extraction-recovery";
+import { normalizeExtractionInteger } from "./extraction-numbers";
 import {
   budgetEvidenceSources,
   compactEvidenceText,
@@ -442,7 +443,7 @@ function normalizeExtractionInput(input: unknown) {
     ...("competitionFraming" in root ? { competitionFraming: normalizeFact(root.competitionFraming) } : {}),
     citations: filterArray(root.citations, coreCitationSchema),
   };
-  return normalizedRoot;
+  return isolateOptionalFacts(normalizedRoot, false);
 }
 
 function normalizeBlockEnrichmentInput(input: unknown) {
@@ -479,7 +480,25 @@ function normalizeBlockEnrichmentInput(input: unknown) {
     normalizedRoot.competitionFraming = normalizeFact(root.competitionFraming);
   }
 
-  return normalizedRoot;
+  return isolateOptionalFacts(normalizedRoot, true);
+}
+
+function isolateOptionalFacts(root: Record<string, unknown>, block: boolean) {
+  for (const section of ["identity", "funding", "team"] as const) {
+    const facts = objectRecord(root[section]);
+    const schemas = coldStartCardObjectSchema.shape[section].shape;
+    for (const [key, schema] of Object.entries(schemas)) {
+      if (!(key in facts) || key === "status" || key === "logoUrl") continue;
+      // The initial profile still needs a valid identity. Background patches
+      // can omit any fact and retain the version already on the saved card.
+      if (!block && section === "identity" && (key === "name" || key === "oneLiner")) continue;
+      if (!schema.safeParse(facts[key]).success) facts[key] = unknownFact();
+    }
+  }
+  if ("competitionFraming" in root && !coldStartCardObjectSchema.shape.competitionFraming.safeParse(root.competitionFraming).success) {
+    root.competitionFraming = unknownFact();
+  }
+  return root;
 }
 
 function normalizeBlockIdentity(input: unknown) {
@@ -501,7 +520,7 @@ function normalizeBlockFunding(input: unknown) {
   const output: Record<string, unknown> = {};
 
   if ("totalRaisedUsd" in record) {
-    output.totalRaisedUsd = normalizeFact(record.totalRaisedUsd);
+    output.totalRaisedUsd = normalizeFact(record.totalRaisedUsd, normalizeUsd);
   }
   if ("lastRound" in record) {
     output.lastRound = normalizeFact(record.lastRound, normalizeRoundValue);
@@ -527,7 +546,7 @@ function normalizeBlockTeam(input: unknown) {
     output.keyExecs = normalizeFact(record.keyExecs, normalizePersonArray);
   }
   if ("headcount" in record) {
-    output.headcount = normalizeFact(record.headcount);
+    output.headcount = normalizeFact(record.headcount, normalizeHeadcount);
   }
 
   return Object.keys(output).length > 0 ? output : null;
@@ -566,7 +585,7 @@ function normalizeIdentity(input: unknown) {
       : oneLiner,
     description,
     hq: normalizeFact(record.hq),
-    foundedYear: normalizeFact(record.foundedYear),
+    foundedYear: normalizeFact(record.foundedYear, (value) => normalizeExtractionInteger(value)),
     status: status === "public" || status === "acquired" || status === "shutdown" ? status : "private",
   };
 }
@@ -641,7 +660,7 @@ function normalizeFunding(input: unknown) {
   const record = objectRecord(input);
 
   return {
-    totalRaisedUsd: normalizeFact(record.totalRaisedUsd),
+    totalRaisedUsd: normalizeFact(record.totalRaisedUsd, normalizeUsd),
     lastRound: normalizeFact(record.lastRound, normalizeRoundValue),
     rounds: normalizeFact(record.rounds, normalizeRoundArray),
     investors: normalizeFact(record.investors, normalizeInvestorArray),
@@ -654,8 +673,18 @@ function normalizeTeam(input: unknown) {
   return {
     founders: normalizeFact(record.founders, normalizePersonArray),
     keyExecs: normalizeFact(record.keyExecs, normalizePersonArray),
-    headcount: normalizeFact(record.headcount),
+    headcount: normalizeFact(record.headcount, normalizeHeadcount),
   };
+}
+
+function normalizeUsd(value: unknown) {
+  return normalizeExtractionInteger(value, true);
+}
+
+function normalizeHeadcount(value: unknown) {
+  const record = objectRecord(value);
+  const count = normalizeExtractionInteger(record.value);
+  return count === null ? null : { value: count, asOf: record.asOf };
 }
 
 function normalizeFact<T = unknown>(
@@ -706,7 +735,7 @@ function normalizeRoundValue(value: unknown) {
 
   return {
     name: record.name.trim(),
-    amountUsd: typeof record.amountUsd === "number" && Number.isInteger(record.amountUsd) && record.amountUsd > 0 ? record.amountUsd : null,
+    amountUsd: normalizeUsd(record.amountUsd) || null,
     announcedAt: typeof record.announcedAt === "string" && record.announcedAt.trim().length > 0 ? record.announcedAt.trim() : null,
     leadInvestors: stringArray(record.leadInvestors),
   };

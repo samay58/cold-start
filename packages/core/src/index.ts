@@ -20,6 +20,7 @@ export * from "./how-it-wins-judgment-transport";
 export * from "./intelligence";
 export * from "./invite-codes";
 export * from "./money-format";
+export * from "./funding-preservation";
 export * from "./prose";
 export * from "./research-sections";
 export * from "./sentences";
