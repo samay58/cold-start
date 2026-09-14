@@ -490,6 +490,13 @@ describe("parseGenerateResponse", () => {
 });
 
 describe("readableCardError", () => {
+  it("hides extraction provider details", () => {
+    expect(readableCardError(
+      "Profile extraction is temporarily unavailable: upstream.example timed out",
+      "https://cold-start.semitechie.vc"
+    )).toBe("Cold Start could not finish this profile. Please try again later.");
+  });
+
   it("explains missing web app extension auth env", () => {
     expect(readableCardError("extension auth not configured", "http://localhost:3000")).toContain(
       "Restart the local web app"

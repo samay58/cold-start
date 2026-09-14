@@ -21,14 +21,12 @@ Generation is private by default. Public pages at `/c/{slug}` can be shared, but
 
 ## Friend-Alpha Readiness
 
-Repository implementation and production migrations through `0016` are
-complete. Vercel Pro, Neon Launch, restore, and retention scheduling are proven.
-The live release gate still fails on its seven-day software-failure window and
-the provider-wallet floor. Current evidence and blockers live in
-`docs/product/alpha-production-readiness-2026-07-24.md`.
-
-Do not create friend invitations before the paid canary and store review are
-complete.
+The production schema is applied through migration `0018`. Vercel Pro, Neon
+Launch, restore, and retention scheduling are proven. The proof below records
+the July 24 state; it is not a current gate result. Run
+`npm run alpha:status -- --gate` before creating invitations, and read the
+current Chrome Web Store review state in
+`docs/product/chrome-web-store-alpha/release-compatibility-matrix.md`.
 
 Production proof on July 24:
 
@@ -152,9 +150,8 @@ INNGEST_HOW_IT_WINS_CONCURRENCY=1
 
 Section work uses the remaining account capacity. Upgrade only if production
 evidence shows queueing after these caps. `INNGEST_HOW_IT_WINS_CONCURRENCY` caps
-the background `how-it-wins-read` function the same way; it draws from the same
-account pool while `HOW_IT_WINS_ENABLED` is on in production (on since the
-2026-08-25 repair deploy).
+the background `how-it-wins-read` function the same way when
+`HOW_IT_WINS_ENABLED` resolves to `true`.
 
 ## Production Environment Variables
 
@@ -199,12 +196,19 @@ LLM_HOW_IT_WINS_MODEL
 ```
 
 `HOW_IT_WINS_ENABLED` is the How it wins rollback: set it to `false` and
-redeploy (Vercel env changes apply to the next deployment only). The judge
-model falls back to `LLM_HOW_IT_WINS_MODEL` when unset; production runs both
-on `claude-opus-5`. A fresh filed synthesis records a versioned evaluator
-signature over the judge prompt, vocabulary, refinement setting, all How it
-wins model routes, and verifier model. A worker exits stale if that signature
-or the card evidence changes before it stores its read.
+redeploy. Vercel environment changes apply to the next deployment only. The
+August 25 deploy ran the judge and writer on `claude-opus-5`; the stored flag was
+changed to `false` on August 26. Production analysis run
+`70540ffd-ea21-4ba6-8ccc-c71d6eaa87a1`, started September 14 at 22:02:44 UTC,
+completed with `trace.howItWins.enabled=true`, status `read`, judge
+`claude-opus-5`, and critic `deepseek/deepseek-v4-pro`. That trace verifies the
+behavior of that run, not the sensitive environment value. The Vercel CLI and
+API return blank values for sensitive settings, so verify the current flag and
+model routing through a current production run trace before changing them. This
+verification did not change configuration. A fresh filed synthesis records a
+versioned evaluator signature over the judge prompt, vocabulary, refinement
+setting, all How it wins model routes, and verifier model. A worker exits stale
+if that signature or the card evidence changes before it stores its read.
 
 `DATABASE_DIRECT_URL` is local migration-only configuration. Keep it in the
 ignored `.env.production.migrate.local` file. Do not add it to Vercel runtime
@@ -248,6 +252,10 @@ LLM_EXTRACT_FALLBACK_MODEL
 # https://api.deepseek.com; the adapter disables DeepSeek thinking mode automatically.
 DEEPSEEK_API_KEY
 DEEPSEEK_BASE_URL
+OPENROUTER_API_KEY
+OPENROUTER_BASE_URL
+DEEPINFRA_API_KEY
+DEEPINFRA_BASE_URL
 LLM_OPENAI_COMPAT_TIMEOUT_MS
 
 # Per-stage Anthropic model overrides. Each falls back to ANTHROPIC_MODEL if unset.
@@ -270,7 +278,7 @@ EXA_WEBSETS_CREDIT_USD
 # Prompt cache TTL on stable system prompts. Defaults to "1h"; verified end-to-end against the
 # Anthropic API via scripts/verify-cache-ttl.ts. The traced LLM helper attaches the
 # `extended-cache-ttl-2025-04-11` beta header automatically when TTL is 1h. Set to "5m" to roll
-# back without redeploy if cost telemetry shows the 1h create cost is not amortizing. Re-run
+# back on the next deployment if cost telemetry shows the 1h create cost is not amortizing. Re-run
 # `npm run verify:cache-ttl` after upgrading @anthropic-ai/sdk.
 ANTHROPIC_CACHE_TTL
 
@@ -290,25 +298,35 @@ For current internal production testing:
 ```text
 NEXT_PUBLIC_WEB_ORIGIN=https://cold-start.semitechie.vc
 PUBLIC_GENERATION_ENABLED=false
+LLM_EXTRACT_MODEL=openrouter/google/gemini-2.5-flash
+LLM_EXTRACT_FALLBACK_MODEL=deepseek/deepseek-flash
+OPENROUTER_API_KEY=<project-secret>
+DEEPSEEK_API_KEY=<project-secret>
 ALLOWED_EXTENSION_ORIGINS=chrome-extension://<your-loaded-extension-id>
 CHROME_EXTENSION_ID=<your-loaded-extension-id>
 EXTENSION_API_TOKEN=<long-random-token>
 ```
 
-For the friend-alpha deployment:
+The extraction routes above were verified in production on September 14. The
+DeepInfra variables remain available for diagnostics, but DeepInfra was not
+selected after capacity failures.
+
+For a friend-alpha deployment, use the reviewed extension version as the
+allowlist value. This is a template, not a readback of sensitive production
+configuration:
 
 ```text
 ALPHA_ACCESS_ENABLED=true
 ALPHA_GENERATION_ENABLED=false
-ALPHA_SUPPORTED_EXTENSION_VERSIONS=0.2.0
+ALPHA_SUPPORTED_EXTENSION_VERSIONS=0.2.8
 CHROME_WEB_STORE_URL=<Unlisted item URL>
 INNGEST_CARD_ENRICHMENT_CONCURRENCY=2
 INNGEST_CONTACT_ENRICHMENT_CONCURRENCY=1
 INNGEST_HOW_IT_WINS_CONCURRENCY=1
-HOW_IT_WINS_ENABLED=true
-LLM_HOW_IT_WINS_JUDGE_MODEL=claude-opus-5
-LLM_HOW_IT_WINS_MODEL=claude-opus-5
 ```
+
+Preserve existing `HOW_IT_WINS_*` values unless a current production run trace
+supports changing them. Any change needs a new deployment.
 
 The extension token generated during setup is stored locally at `.vercel/extension-api-token.production.local`. The file is ignored by git and should not be committed. Its value must match Vercel `EXTENSION_API_TOKEN`.
 

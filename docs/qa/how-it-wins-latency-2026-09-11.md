@@ -36,7 +36,7 @@ Neither judgment was a cache hit (`judgmentRef.cached` false on both). Losses we
 
 The global judge writes about 12.4k output tokens. At the roughly 90 tokens a second Opus 5 produced here, that is about 135 s before anything else happens. The run is bound by model output, not by queues, the database, or the network.
 
-Refinement (critic plus adjudication) is 21 to 25 percent of wall time and $0.21 to $0.61 of the judge-side cost. `HOW_IT_WINS_REFINEMENT=off` removes it with no deploy. CLAUDE.md's "about $0.30 and 60s" estimate holds for shipveho and undershoots craftcloud3d.
+Refinement (critic plus adjudication) is 21 to 25 percent of wall time and $0.21 to $0.61 of the judge-side cost. `HOW_IT_WINS_REFINEMENT=off` removes it on the next deployment. CLAUDE.md's "about $0.30 and 60s" estimate holds for shipveho and undershoots craftcloud3d.
 
 ## Levers, in order of size
 

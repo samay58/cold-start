@@ -1,16 +1,16 @@
 import React from "react";
 import type { ReactNode } from "react";
-import type { ResearchSection, ResearchSectionContent } from "@cold-start/core";
+import { stripCitationMarkers, type ResearchSection, type ResearchSectionContent } from "@cold-start/core";
 import { formatMediumDate } from "@cold-start/ui";
 import {
   citationMarks,
-  evidenceStateForFact,
   hasPeopleContent,
   headcountConflict,
   INVESTOR_READ_LABELS,
   isThinFile,
   moneyBullets,
   nextQuestionForCard,
+  peopleRows,
   publicEvidenceText,
   resolvedEvidenceState,
   riskCaveats,
@@ -113,7 +113,7 @@ function MoneySection({ card, sections, index }: { card: PublicCardData; section
         });
         return (
           <BulletRow
-            bullet={{ text: publicEvidenceText(item.text), state, citationIds: item.citationIds }}
+            bullet={{ text: stripCitationMarkers(item.text), state, citationIds: item.citationIds }}
             index={index}
             key={`${item.label}:${item.text}`}
           />
@@ -126,27 +126,16 @@ function MoneySection({ card, sections, index }: { card: PublicCardData; section
 // --- People ---
 
 function PeopleSection({ card, conflict, index }: { card: PublicCardData; conflict: ReturnType<typeof headcountConflict>; index: CitationIndex }) {
-  const founders = card.team.founders.value ?? [];
-  const execs = card.team.keyExecs.value ?? [];
-  const foundersState = evidenceStateForFact(card, card.team.founders);
-  const execsState = evidenceStateForFact(card, card.team.keyExecs);
+  const people = peopleRows(card);
 
   return (
     <SectionRow label="People">
-      {founders.map((person) => (
-        <p className="cs-face-person" key={`founder:${person.name}`}>
-          <Mark state={foundersState} />
+      {people.map((person, position) => (
+        <p className="cs-face-person" key={`${person.name}:${person.role}:${position}`}>
+          <Mark state={person.state} />
           <span className="cs-face-person-name">{person.name}</span>
           {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
-          <CiteMarks marks={citationMarks(card.team.founders.citationIds, index)} />
-        </p>
-      ))}
-      {execs.map((person) => (
-        <p className="cs-face-person" key={`exec:${person.name}`}>
-          <Mark state={execsState} />
-          <span className="cs-face-person-name">{person.name}</span>
-          {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
-          <CiteMarks marks={citationMarks(card.team.keyExecs.citationIds, index)} />
+          <CiteMarks marks={citationMarks(person.citationIds, index)} />
         </p>
       ))}
       {conflict ? <ConflictPanel conflict={conflict} index={index} /> : null}

@@ -499,6 +499,57 @@ export function hasPeopleContent(card: PublicCardData, conflict: HeadcountConfli
   return founders.length > 0 || execs.length > 0 || conflict !== null;
 }
 
+export function peopleRows(card: PublicCardData) {
+  const rows: Array<{
+    name: string;
+    role: string | null;
+    founder: boolean;
+    executive: boolean;
+    citationIds: string[];
+    facts: ResolvedFactLike[];
+  }> = [];
+  const normalize = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
+
+  for (const kind of ["founders", "keyExecs"] as const) {
+    const fact = card.team[kind];
+    for (const person of fact.value ?? []) {
+      // Match only a complete name and role. Different roles and unnamed roles stay separate.
+      const name = normalize(person.name);
+      const role = person.role ? normalize(person.role) : "";
+      const existing = name && role && rows.find((row) =>
+        normalize(row.name) === name && row.role !== null && normalize(row.role) === role
+      );
+      if (existing) {
+        existing.founder ||= kind === "founders";
+        existing.executive ||= kind === "keyExecs";
+        existing.citationIds = [...new Set([...existing.citationIds, ...fact.citationIds])];
+        existing.facts.push(fact);
+      } else {
+        rows.push({
+          name: person.name,
+          role: person.role,
+          founder: kind === "founders",
+          executive: kind === "keyExecs",
+          citationIds: [...new Set(fact.citationIds)],
+          facts: [fact]
+        });
+      }
+    }
+  }
+
+  return rows.map(({ facts, ...row }) => ({
+    ...row,
+    state: evidenceStateForFact(card, {
+      value: row.name,
+      citationIds: row.citationIds,
+      status: facts.some((fact) => fact.status === "mixed") ? "mixed"
+        : facts.some((fact) => fact.status === "inferred") ? "inferred" : facts[0]!.status,
+      confidence: facts.some((fact) => fact.confidence === "low") ? "low"
+        : facts.some((fact) => fact.confidence === "medium") ? "medium" : "high"
+    })
+  }));
+}
+
 // --- Signals ---
 
 // Signals are raw events, not ResolvedFacts (no status/confidence to read), so they get their

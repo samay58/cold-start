@@ -2,6 +2,7 @@ import {
   RESEARCH_SECTION_DEFINITIONS_BY_ID,
   analysisBlockedReason,
   companySlugFromDomain,
+  generationFailureMessage,
   researchSectionJobKind,
   hasUsablePublicProfile,
   isSynthesisOnlySectionId,
@@ -203,11 +204,16 @@ function serializeGenerationRun(
     mode: input.mode,
     status: input.status,
     ...(input.id ? { runId: input.id } : {}),
-    ...(input.error ? { error: input.error } : {}),
+    ...(input.error ? { error: generationFailureMessage(input.error) } : {}),
     ...(costUsd !== undefined && Number.isFinite(costUsd) ? { costUsd } : {}),
     ...(input.startedAt ? { startedAt: input.startedAt.toISOString() } : {}),
     ...(input.completedAt ? { completedAt: input.completedAt.toISOString() } : {}),
-    ...(input.events && input.events.length > 0 ? { events: input.events } : {})
+    ...(input.events && input.events.length > 0 ? {
+      events: input.events.map(event => ({
+        ...event,
+        ...(event.message ? { message: generationFailureMessage(event.message) } : {})
+      }))
+    } : {})
   };
 }
 

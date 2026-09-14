@@ -10,7 +10,7 @@ type ComparisonRow = {
 const ROWS: ComparisonRow[] = [
   {
     label: "A company founded in the last year",
-    coldStart: "A full cited profile in about a minute",
+    coldStart: "A cited profile in about a minute",
     pitchbook: "Thin profile, or none at all"
   },
   {
@@ -33,8 +33,8 @@ const ROWS: ComparisonRow[] = [
     label: "Cost",
     // Measured 2026-08-12 on 30 days of real prod traffic: median basics+analysis pair for
     // the same domain, all four cost streams, $0.178 over 61 domains (p90 $0.242).
-    coldStart: "18 cents per full profile",
-    coldStartNote: "one seat of PitchBook buys 140,000 profiles",
+    coldStart: "18 cents median in the August sample",
+    coldStartNote: "61 companies, measured before How it wins was added",
     pitchbook: "About $25k per seat per year, reported"
   },
   {

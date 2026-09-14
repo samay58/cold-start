@@ -1973,6 +1973,31 @@ describe("GET /api/generate", () => {
     expect(response.headers.get(COLD_START_API_CONTRACT_HEADER)).toBe(COLD_START_API_CONTRACT_VERSION);
   });
 
+  it("hides extraction provider details in run errors and events without changing stored records", async () => {
+    const detail = "Profile extraction is temporarily unavailable: upstream.example timed out";
+    const run = {
+      id: "run-1", slug: "cartesia", domain: "cartesia.ai", mode: "analysis",
+      jobKind: "analysis", status: "failed", error: detail,
+      startedAt: new Date("2026-05-06T12:00:00.000Z"),
+      completedAt: new Date("2026-05-06T12:01:00.000Z")
+    };
+    const event = {
+      type: "generation.failed", message: detail,
+      createdAt: "2026-05-06T12:01:00.000Z", metadata: { stage: "extract" }
+    };
+    mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue(run);
+    mocks.findResearchRunEventsByRunId.mockResolvedValue([event]);
+
+    const response = await GET(statusRequest());
+    const body = await response.json();
+
+    expect(body.error).toBe("Cold Start could not finish this profile. Please try again later.");
+    expect(body.events[0].message).toBe(body.error);
+    expect(JSON.stringify(body)).not.toContain("upstream.example");
+    expect(run.error).toBe(detail);
+    expect(event.message).toBe(detail);
+  });
+
   it("can return the status for one requested section run", async () => {
     mocks.findLatestGenerationRunStatusBySlug.mockResolvedValue({
       id: "run-section",

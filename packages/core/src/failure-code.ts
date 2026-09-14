@@ -44,3 +44,10 @@ export function generationFailureCode(error: unknown): GenerationFailureCode {
   const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
   return classifiers.find(([, pattern]) => pattern.test(message))?.[0] ?? "unknown";
 }
+
+export function generationFailureMessage(message: string): string {
+  if (message.startsWith("Profile extraction is temporarily unavailable:")) {
+    return "Cold Start could not finish this profile. Please try again later.";
+  }
+  return message;
+}

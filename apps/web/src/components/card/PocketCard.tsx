@@ -14,6 +14,7 @@ import {
   isAgedCard,
   isThinFile,
   nextQuestionForCard,
+  peopleRows,
   signalEvidenceState,
   statSlots,
   vettedCounts,
@@ -196,22 +197,15 @@ function CardTab({ card, sections, index }: { card: PublicCardData; sections: Re
 // --- People tab: name/role pairs, compact conflict panel, hiring bullet ---
 
 function PeopleTab({ card, index, onJumpToSources }: { card: PublicCardData; index: CitationIndex; onJumpToSources: () => void }) {
-  const founders = card.team.founders.value ?? [];
-  const execs = card.team.keyExecs.value ?? [];
+  const people = peopleRows(card);
   const conflict = headcountConflict(card);
   const hiringSignal = card.signals.find((signal) => signal.category === "hiring");
 
   return (
     <PocketPanel>
       <div className="cs-pocket-people">
-        {founders.map((person) => (
-          <p className="cs-face-person" key={`founder:${person.name}`}>
-            <span className="cs-face-person-name">{person.name}</span>
-            {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
-          </p>
-        ))}
-        {execs.map((person) => (
-          <p className="cs-face-person" key={`exec:${person.name}`}>
+        {people.map((person, position) => (
+          <p className="cs-face-person" key={`${person.name}:${person.role}:${position}`}>
             <span className="cs-face-person-name">{person.name}</span>
             {person.role ? <span className="cs-face-person-role">, {person.role}</span> : null}
           </p>

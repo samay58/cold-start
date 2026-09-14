@@ -1,4 +1,4 @@
-import { companySlugFromDomain, mergeStoredResearchSectionsWithLegacy } from "@cold-start/core";
+import { companySlugFromDomain, generationFailureMessage, mergeStoredResearchSectionsWithLegacy } from "@cold-start/core";
 import {
   createDb,
   findCardBySlug,
@@ -42,7 +42,7 @@ function serializeRun(input: {
     mode: input.mode,
     status: input.status,
     ...(input.id ? { runId: input.id } : {}),
-    ...(input.error ? { error: input.error } : {}),
+    ...(input.error ? { error: generationFailureMessage(input.error) } : {}),
     ...(costUsd !== undefined && Number.isFinite(costUsd) ? { costUsd } : {}),
     ...(input.startedAt ? { startedAt: input.startedAt.toISOString() } : {}),
     ...(input.completedAt ? { completedAt: input.completedAt.toISOString() } : {})
@@ -183,7 +183,10 @@ export async function GET(request: Request) {
       card,
       sections,
       sources: sourceSummaries,
-      events,
+      events: events.map(event => ({
+        ...event,
+        message: generationFailureMessage(event.message)
+      })),
       ...(auth.principal.kind === "alpha"
         ? {
             alpha: {

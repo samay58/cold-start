@@ -33,6 +33,22 @@ function source(input: Partial<ExtensionSourceSummary> & Pick<ExtensionSourceSum
 }
 
 describe("artifact-led research progress", () => {
+  it("hides extraction provider details from older API events without changing the event", () => {
+    const failure = event({
+      id: "failure",
+      type: "generation.failed",
+      message: "Profile extraction is temporarily unavailable: upstream.example timed out"
+    });
+    const plan = buildResearchProgressPlan({ activeIndex: 2, events: [failure], stageNote: "" });
+
+    expect(plan[2]?.substeps).toEqual([{
+      key: "failure",
+      message: "Cold Start could not finish this profile. Please try again later.",
+      status: "failed"
+    }]);
+    expect(failure.message).toContain("upstream.example");
+  });
+
   it("uses verb stage labels and honest waiting proof lines without events", () => {
     const plan = buildResearchProgressPlan({
       activeIndex: 0,

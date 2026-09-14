@@ -3,6 +3,7 @@ import {
   COLD_START_API_CONTRACT_VERSION,
   COLD_START_CLIENT_CONTRACT_HEADER,
   companySlugFromDomain,
+  generationFailureMessage,
   INVITE_TOKEN_PATTERN,
   type ColdStartCard,
   type ResearchSection
@@ -487,6 +488,7 @@ export const parseGenerateResponse = (response: Response) => parseApiResponse<Ge
 export const parseGenerationStatusResponse = (response: Response) => parseApiResponse<GenerationRunStatus>(response);
 
 export function readableCardError(message: string, apiOrigin: string): string {
+  message = generationFailureMessage(message);
   if (message === "extension identity required") {
     return "Reload the unpacked extension, then reopen Cold Start.";
   }

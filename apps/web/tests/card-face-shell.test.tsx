@@ -1,6 +1,7 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { emptyResearchSectionForCard } from "@cold-start/core";
 import { CardFace } from "../src/components/card/CardFace";
 import { ChoreographyProvider } from "../src/components/card/choreography";
 import { ConflictPanel } from "../src/components/card/ConflictPanel";
@@ -16,7 +17,51 @@ function renderPocket(card: Parameters<typeof PocketCard>[0]["card"], initialTab
   return renderToStaticMarkup(<PocketCard card={card} initialTab={initialTab} sections={[]} />);
 }
 
+describe("People rows", () => {
+  it.each(["desktop", "pocket"] as const)("renders a founder/CEO once on %s", (view) => {
+    const card = structuredClone(richConflictCard);
+    const person = { name: "Daniel Hogenkamp", role: "CEO", sourceUrl: null };
+    card.team.founders = { ...card.team.founders, value: [person], citationIds: ["c1", "c2"] };
+    card.team.keyExecs = { ...card.team.keyExecs, value: [person], citationIds: ["c2", "c3"] };
+
+    const html = view === "desktop" ? renderFace(card) : renderPocket(card, "people");
+    const rows = html.match(/<p class="cs-face-person">.*?<\/p>/g) ?? [];
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toContain("Daniel Hogenkamp");
+    expect(rows[0]).toContain(", CEO");
+    if (view === "desktop") {
+      for (const citationId of ["c1", "c2", "c3"]) {
+        expect(rows[0]).toContain(`data-cite-id="${citationId}"`);
+      }
+    }
+  });
+});
+
 describe("CardFace", () => {
+  it("keeps the name-collision qualification in a cited financing item", () => {
+    const qualification = "The company name, geography, product category, and founding team do not match the current boski.com, making this an almost certain name collision rather than a prior round for the same company.";
+    const section = emptyResearchSectionForCard(richConflictCard, "financing", "available");
+    section.content = {
+      status: "available",
+      summary: null,
+      confidence: "high",
+      items: [{
+        label: "Different company",
+        text: `A similarly named company reportedly raised $1M in seed financing from investors backing its consumer retail products and international expansion. ${qualification} [c1]`,
+        citationIds: ["c1"]
+      }]
+    };
+
+    const html = renderToStaticMarkup(<CardFace card={richConflictCard} sections={[section]} />);
+    const financingRow = html.match(/<p class="cs-face-bullet">.*?<\/p>/g)
+      ?.find((row) => row.includes("A similarly named company"));
+
+    expect(financingRow).toContain(qualification);
+    expect(financingRow).toContain('data-cite-id="c1"');
+    expect(financingRow).not.toContain("[c1]");
+  });
+
   it("renders the call number, FILED stamp, and domain for a card with a vetted citation", () => {
     const html = renderFace(richConflictCard);
 

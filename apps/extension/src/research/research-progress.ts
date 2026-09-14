@@ -1,4 +1,4 @@
-import { parseFirstPayoff, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
+import { generationFailureMessage, parseFirstPayoff, textLooksLikeDocs, textLooksLikeFunding, type FirstPayoff } from "@cold-start/core";
 import type { ExtensionResearchRunEvent } from "../shared/extension-config";
 import type { ExtensionSourceSummary } from "../shared/extension-config";
 import { latestEventOfType, latestRunEvents, metadataNumber } from "./research-events";
@@ -389,7 +389,7 @@ function displayResearchEventMessage(event: ExtensionResearchRunEvent) {
     return "Research run complete";
   }
 
-  return event.message
+  return generationFailureMessage(event.message)
     .replace(/\baccepted sources\b/gi, "sources")
     .replace(/\bcompany profile\b/gi, "this company")
     .replace(/\bcompany card\b/gi, "profile")

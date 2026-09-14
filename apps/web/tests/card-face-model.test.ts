@@ -11,6 +11,7 @@ import {
   isThinFile,
   moneyBullets,
   nextQuestionForCard,
+  peopleRows,
   publicEvidenceText,
   resolvedEvidenceState,
   riskCaveats,
@@ -42,6 +43,55 @@ function resolvedFact<T>(
     citationIds
   };
 }
+
+describe("peopleRows", () => {
+  it("combines the duplicated CEO founder and executive while keeping every citation and membership", () => {
+    const person = { name: "Daniel Hogenkamp", role: "CEO", sourceUrl: null };
+    const card = structuredClone(richConflictCard);
+    card.citations = Array.from({ length: 22 }, (_, index) => ({
+      ...richConflictCard.citations[0]!,
+      id: `c${index + 1}`,
+      url: `https://example.com/source-${index + 1}`
+    }));
+    card.team.founders = resolvedFact([person], ["c5", "c9", "c11"]);
+    card.team.keyExecs = resolvedFact([person], ["c1", "c5", "c9", "c10", "c11", "c12", "c22"]);
+    const original = structuredClone(card);
+
+    expect(peopleRows(card)).toEqual([{
+      name: "Daniel Hogenkamp",
+      role: "CEO",
+      founder: true,
+      executive: true,
+      citationIds: ["c5", "c9", "c11", "c1", "c10", "c12", "c22"],
+      state: "verified"
+    }]);
+    expect(card).toEqual(original);
+  });
+
+  it("keeps different names, different roles, and unknown roles separate", () => {
+    const card = structuredClone(richConflictCard);
+    card.team.founders = resolvedFact([
+      { name: "Daniel Hogenkamp", role: "Founder", sourceUrl: null },
+      { name: "Alex Lee", role: null, sourceUrl: null }
+    ]);
+    card.team.keyExecs = resolvedFact([
+      { name: "Daniel Hogenkamp", role: "CEO", sourceUrl: null },
+      { name: "Daniel Hogan", role: "CEO", sourceUrl: null },
+      { name: "Alex Lee", role: null, sourceUrl: null }
+    ]);
+
+    expect(peopleRows(card)).toHaveLength(5);
+  });
+
+  it("preserves a conflict when identical people rows have mixed evidence", () => {
+    const person = { name: "Daniel Hogenkamp", role: "CEO", sourceUrl: null };
+    const card = structuredClone(richConflictCard);
+    card.team.founders = resolvedFact([person], ["c1"]);
+    card.team.keyExecs = resolvedFact([person], ["c2"], { status: "mixed" });
+
+    expect(peopleRows(card)[0]?.state).toBe("conflict");
+  });
+});
 
 describe("INVESTOR_READ_LABELS", () => {
   it("lists all five locked categories, ending with How it wins", () => {
