@@ -12,6 +12,7 @@ The production failure was reproduced from the actual saved Column card. The old
 - All six records were backed up, schema-checked, and updated in one transaction after matching both their versions and full prior JSON. Timestamps governing freshness, costs, and run history were preserved. Raw source records were retained.
 - Public and authenticated card endpoints returned 200 and schema-valid, usable cards for all six repaired records. Public responses did not expose synthesis. Column had 11 resolving citations and no invented funding amount. Its authenticated bootstrap returned the repaired card.
 - Column's two failed runs remain terminal with their original diagnostic evidence. No alpha run reservations were attached, so no allowance refund or second debit was required.
+- Browser inspection found the old funding paragraph in the separate financing section after the card was repaired. A regression reproduced that stale display. The section merge now checks references against the current card and falls back to current facts when evidence has been removed. Column's stored financing section was also cleared with a matching-prior-content check.
 
 ## Release boundary
 

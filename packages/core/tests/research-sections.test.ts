@@ -210,6 +210,19 @@ describe("research section registry", () => {
     });
   });
 
+  it("falls back to current facts when a stored section cites removed evidence", () => {
+    const input = card();
+    const stored = deriveLegacyResearchSectionsFromCard(input).find((section) => section.sectionId === "financing")!;
+    stored.citationIds = ["removed-source"];
+    stored.content = { status: "available", summary: "Reported financing was $33M.", confidence: "medium", items: [{ label: "Reported financing", text: "Reported financing was $33M.", citationIds: ["removed-source"] }] };
+    stored.status = "available";
+    const sections = mergeStoredResearchSectionsWithLegacy({ card: input, storedSections: [stored] });
+    expect(sections.find((section) => section.sectionId === "financing")).toEqual(
+      deriveLegacyResearchSectionsFromCard(input).find((section) => section.sectionId === "financing")
+    );
+    expect(sections.find((section) => section.sectionId === "buyer")?.status).toBe("available");
+  });
+
   it("composes one line when a single round accounts for the full raised total", () => {
     const singleRoundCard = card({
       funding: {

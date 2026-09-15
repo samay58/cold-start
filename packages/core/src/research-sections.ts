@@ -496,7 +496,9 @@ export function mergeStoredResearchSectionsWithLegacy(input: {
   storedSections: ResearchSection[];
   includeGated?: boolean;
 }): ResearchSection[] {
-  const storedById = new Map(input.storedSections.map((section) => [section.sectionId, section]));
+  const storedById = new Map(input.storedSections
+    .filter((section) => !input.card || researchSectionCitationIssues(input.card, section).length === 0)
+    .map((section) => [section.sectionId, section]));
   let legacySections: ResearchSection[] = [];
   if (input.card) {
     try {

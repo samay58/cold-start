@@ -14,6 +14,7 @@ The source also described the public-notice company Column, not the bank at colu
 - Limit citation funding fallback to the company's own domain or sources already assigned to a non-null identity fact by extraction. A matching name in a search result is insufficient. This conservative check can omit legitimate reporting; it does not prove entity identity in every article.
 - Do not materialize lifetime totals as individual rounds.
 - Validate after final card transformations and immediately before every upsert. Preserve the existing strict mutation boundary, citation checks, and stored edition if a write fails.
+- Check stored research-section citations when merging them with a card. If a section references removed evidence, use current card facts instead. Repair Column's separately stored financing section as well as its card.
 - Repair Column using a backed-up, version-checked update. Remove its unrelated inferred funding and the unrelated citations, retaining the bank's valid facts. Do not rerun paid generation or rewrite failed-run history.
 - Inspect the full saved-card corpus for similar failures. Any additional repair must enumerate exact fields, preserve supporting facts, pass the final schema, and compare the saved version before writing.
 

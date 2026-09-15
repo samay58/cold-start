@@ -186,6 +186,7 @@ describe("GET /api/extension/bootstrap", () => {
     const card = {
       slug: "cartesia",
       domain: "cartesia.ai",
+      citations: [{ id: "c1", url: "https://cartesia.ai", title: "Cartesia", fetchedAt: "2026-05-06T12:00:00.000Z", sourceType: "company_site" }],
       synthesis: {
         whyItMatters: { text: "Fast inference matters [c1].", citationIds: ["c1"] },
         bullCase: [],
