@@ -39,6 +39,7 @@ jobs:
         run: npm run install:browser:ci -w @cold-start/web
         timeout-minutes: 5
       - run: npm run lint -- --max-warnings=0
+      - run: npm run check:file-size
       - run: npm run typecheck
       - run: npm run test
       - run: npm run test:alpha-db
