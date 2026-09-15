@@ -1,17 +1,18 @@
-import { parseModelString, providerEndpointHost, type LlmRequestOptions } from "./llm-provider";
+import { EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
+import {
+  assertDistinctProviderHost,
+  fallbackModelForStage,
+  parseModelString,
+  type LlmRequestOptions,
+} from "./llm-provider";
 import { isProviderUnavailableLlmError } from "./transient-error";
 
 const PRIMARY_TIMEOUT_MS = 45_000;
 const RECOVERY_TIMEOUT_MS = 90_000;
 
-function alternateModel(primary: string): string | null {
-  const alternate = process.env.LLM_EXTRACT_FALLBACK_MODEL?.trim()
-    || process.env.LLM_FALLBACK_MODEL?.trim()
-    || process.env.ANTHROPIC_MODEL?.trim();
-  if (!alternate || alternate === "off" || parseModelString(alternate).provider === parseModelString(primary).provider) {
-    return null;
-  }
-  return alternate;
+function alternateFor(primary: string): string | null {
+  // ANTHROPIC_MODEL is extraction's last link: a flipped primary still has the Anthropic path.
+  return fallbackModelForStage("extract_full", primary, { defaultModel: process.env.ANTHROPIC_MODEL });
 }
 
 async function attempt<T>(
@@ -40,7 +41,7 @@ export async function withExtractionRecovery<T>(
   primary: string,
   run: (model: string, options: LlmRequestOptions) => Promise<T>
 ): Promise<T> {
-  const alternate = alternateModel(primary);
+  const alternate = alternateFor(primary);
   let lastError: unknown;
   try {
     return await attempt(primary, alternate ? PRIMARY_TIMEOUT_MS : RECOVERY_TIMEOUT_MS, run);
@@ -49,18 +50,15 @@ export async function withExtractionRecovery<T>(
     lastError = error;
   }
   if (alternate) {
-    const primaryProvider = parseModelString(primary).provider;
-    const alternateProvider = parseModelString(alternate).provider;
-    const primaryHost = providerEndpointHost(primaryProvider);
-    const alternateHost = providerEndpointHost(alternateProvider);
-    if (primaryHost && primaryHost === alternateHost) {
-      throw new Error(
-        `Profile extraction is temporarily unavailable: fallback provider "${alternateProvider}" resolves to the primary endpoint host ${primaryHost}`,
-        { cause: lastError },
-      );
+    try {
+      assertDistinctProviderHost(primary, alternate, lastError);
+    } catch (error) {
+      throw new Error(`${EXTRACTION_UNAVAILABLE_PREFIX} ${error instanceof Error ? error.message : String(error)}`, {
+        cause: lastError,
+      });
     }
     try {
-      return await attempt(alternate, RECOVERY_TIMEOUT_MS, run, [primaryProvider]);
+      return await attempt(alternate, RECOVERY_TIMEOUT_MS, run, [parseModelString(primary).provider]);
     } catch (error) {
       if (!isProviderUnavailableLlmError(error)) throw error;
       lastError = error;
@@ -70,5 +68,5 @@ export async function withExtractionRecovery<T>(
   // This operation already owns its recovery budget. A plain terminal error prevents
   // the inline executor or an Inngest step from replaying the whole paid sequence.
   const detail = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Profile extraction is temporarily unavailable: ${detail}`, { cause: lastError });
+  throw new Error(`${EXTRACTION_UNAVAILABLE_PREFIX} ${detail}`, { cause: lastError });
 }

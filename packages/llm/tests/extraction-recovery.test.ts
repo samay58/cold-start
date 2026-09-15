@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EXTRACTION_UNAVAILABLE_PREFIX } from "@cold-start/core";
 import { withExtractionRecovery } from "../src/extraction-recovery";
 import { isTransientLlmError } from "../src/transient-error";
 import { withSchemaRetry, type LlmRequestOptions } from "../src/llm-provider";
@@ -66,7 +67,7 @@ describe("extraction recovery budget", () => {
     expect(run).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["off", "deepseek/deepseek-v4-pro"])("uses one 90-second attempt when configured with %s", async (model) => {
+  it.each(["off", " OFF ", "deepseek/deepseek-v4-pro"])("uses one 90-second attempt when configured with %j", async (model) => {
     vi.stubEnv("LLM_EXTRACT_FALLBACK_MODEL", model);
     const run = vi.fn(waitForAbort);
     const result = withExtractionRecovery(primary, run).catch(error => error);
@@ -110,7 +111,7 @@ describe("extraction recovery budget", () => {
     const run = vi.fn().mockRejectedValue(new OpenAiCompatHttpError({ status: 503, message: "unavailable" }));
 
     await expect(withExtractionRecovery(primary, run)).rejects.toThrow(
-      'fallback provider "openrouter" resolves to the primary endpoint host gateway.example.com',
+      `${EXTRACTION_UNAVAILABLE_PREFIX} Provider fallback "openrouter" resolves to the primary endpoint host gateway.example.com`,
     );
     expect(run).toHaveBeenCalledTimes(1);
   });
@@ -124,6 +125,15 @@ describe("extraction recovery budget", () => {
 
     await expect(withExtractionRecovery(fireworksPrimary, run)).resolves.toBe("saved");
     expect(run.mock.calls[1]![1]).toMatchObject({ excludedProviders: ["fireworks"] });
+  });
+
+  it("stops at an off written into the global fallback", async () => {
+    vi.stubEnv("LLM_FALLBACK_MODEL", "Off");
+    const run = vi.fn(waitForAbort);
+    const result = withExtractionRecovery(primary, run).catch(error => error);
+    await vi.advanceTimersByTimeAsync(90_000);
+    expect(await result).toBeInstanceOf(Error);
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("honors the explicit alternate before the global and Anthropic defaults", async () => {

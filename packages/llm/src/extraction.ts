@@ -11,6 +11,7 @@ import {
   descriptionSentences,
   firstDescriptionSentence,
   isWeakDescriptionLabel,
+  normalizeExactInteger as normalizeExtractionInteger,
   safePublicImageUrl,
   safeWebUrl,
   signalCategorySchema,
@@ -20,7 +21,6 @@ import { z } from "zod";
 import { anthropicSystemCacheControl, createTracedAnthropicMessage, type AnthropicTelemetrySink } from "./anthropic";
 import { withSchemaRetry, type LlmRequestOptions } from "./llm-provider";
 import { withExtractionRecovery } from "./extraction-recovery";
-import { normalizeExtractionInteger } from "./extraction-numbers";
 import {
   budgetEvidenceSources,
   compactEvidenceText,
@@ -735,7 +735,7 @@ function normalizeRoundValue(value: unknown) {
 
   return {
     name: record.name.trim(),
-    amountUsd: normalizeUsd(record.amountUsd) || null,
+    amountUsd: normalizeUsd(record.amountUsd) ?? null,
     announcedAt: typeof record.announcedAt === "string" && record.announcedAt.trim().length > 0 ? record.announcedAt.trim() : null,
     leadInvestors: stringArray(record.leadInvestors),
   };

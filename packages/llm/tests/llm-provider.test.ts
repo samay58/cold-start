@@ -26,6 +26,7 @@ const stageEnvNames = [
   "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
   "LLM_PERSON_READ_FALLBACK_MODEL",
   "LLM_EXPANDED_DESCRIPTION_FALLBACK_MODEL",
+  "LLM_EXTRACT_FALLBACK_MODEL",
   "ANTHROPIC_EXTRACT_MODEL",
   "ANTHROPIC_BLOCK_MODEL",
   "ANTHROPIC_VERIFIER_MODEL",
@@ -211,6 +212,20 @@ describe("providerConfigFor", () => {
       .toBeUndefined();
   });
 
+  it("consults the stage request policy only for extract_full", () => {
+    process.env.OPENROUTER_API_KEY = "test-key";
+    process.env.DEEPINFRA_API_KEY = "test-key";
+    const context = { model: "deepseek/deepseek-v4.1-flash", excludedProviders: ["fireworks"] };
+
+    for (const stage of ["extract_block", "synthesis", "verify", "research_section", "how_it_wins"]) {
+      expect(providerConfigFor("openrouter", { ...context, stage }).extraBody).toEqual({ usage: { include: true } });
+      expect(providerConfigFor("deepinfra", { ...context, stage }).extraBody).toBeUndefined();
+    }
+
+    expect(providerConfigFor("openrouter", { ...context, stage: "extract_full" }).extraBody)
+      .toMatchObject({ provider: { sort: "latency", ignore: ["fireworks"] } });
+  });
+
   it("strips trailing slashes from override base URLs", () => {
     process.env.DEEPSEEK_API_KEY = "test-key";
     process.env.DEEPSEEK_BASE_URL = "https://proxy.example.com/v1/";
@@ -306,6 +321,29 @@ describe("provider fallback", () => {
     process.env.LLM_VERIFIER_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
 
     expect(fallbackModelForStage("verify", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-pro");
+  });
+
+  it.each(["off", " OFF "])("treats %j as recovery disabled on every stage", (value) => {
+    process.env.LLM_FALLBACK_MODEL = value;
+    expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBeNull();
+    expect(fallbackModelForStage("verify", "deepseek/deepseek-v4-pro")).toBeNull();
+
+    process.env.LLM_SYNTHESIS_FALLBACK_MODEL = value;
+    process.env.LLM_FALLBACK_MODEL = "deepseek/deepseek-v4-pro";
+    expect(fallbackModelForStage("synthesis", "claude-sonnet-4-6")).toBeNull();
+    expect(fallbackModelForStage("verify", "claude-sonnet-4-6")).toBe("deepseek/deepseek-v4-pro");
+  });
+
+  it("falls through to the caller's default model as the last link", () => {
+    const options = { defaultModel: "claude-sonnet-4-6" };
+    expect(fallbackModelForStage("extract_full", "deepseek/deepseek-v4-flash", options)).toBe("claude-sonnet-4-6");
+
+    process.env.LLM_FALLBACK_MODEL = "openrouter/example/extractor";
+    expect(fallbackModelForStage("extract_full", "deepseek/deepseek-v4-flash", options))
+      .toBe("openrouter/example/extractor");
+
+    process.env.LLM_EXTRACT_FALLBACK_MODEL = "off";
+    expect(fallbackModelForStage("extract_full", "deepseek/deepseek-v4-flash", options)).toBeNull();
   });
 
   it("returns null when no distinct fallback is configured", () => {

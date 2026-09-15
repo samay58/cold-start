@@ -281,6 +281,14 @@ describe("optional extraction facts", () => {
     expect(full.team.headcount.value?.value).toBe(1200);
   });
 
+  it("withholds a zero-dollar round instead of passing it off as an undisclosed amount", () => {
+    const payload = {
+      ...validExtractionPayload,
+      funding: { ...validExtractionPayload.funding, lastRound: fact({ name: "Series A", amountUsd: 0 }) },
+    };
+    expect(parse(payload).funding.lastRound).toEqual(unknownFact);
+  });
+
   it("isolates invalid optional facts while preserving usable identity and funding rounds", () => {
     const payload = {
       ...validExtractionPayload,

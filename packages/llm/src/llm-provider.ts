@@ -50,10 +50,11 @@ const stageEnvChain: Record<LlmCallStage, string[]> = {
 
 export type LlmFallbackStage = Extract<
   LlmCallStage,
-  "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read" | "how_it_wins"
+  "extract_full" | "synthesis" | "verify" | "research_section" | "person_read" | "expanded_description" | "emphasis_read" | "how_it_wins"
 >;
 
 const stageFallbackEnv: Record<LlmFallbackStage, string> = {
+  extract_full: "LLM_EXTRACT_FALLBACK_MODEL",
   synthesis: "LLM_SYNTHESIS_FALLBACK_MODEL",
   verify: "LLM_VERIFIER_FALLBACK_MODEL",
   research_section: "LLM_RESEARCH_SECTION_FALLBACK_MODEL",
@@ -78,12 +79,44 @@ export function modelForStage(stage: LlmCallStage, fallback = process.env.ANTHRO
   return fallback;
 }
 
-export function fallbackModelForStage(stage: LlmFallbackStage, primaryModel: string): string | null {
-  const fallback = process.env[stageFallbackEnv[stage]]?.trim() || process.env.LLM_FALLBACK_MODEL?.trim();
-  if (!fallback || parseModelString(fallback).provider === parseModelString(primaryModel).provider) {
+export type FallbackModelOptions = {
+  // Last link of the chain, after the stage env and LLM_FALLBACK_MODEL. Extraction passes
+  // ANTHROPIC_MODEL so a flipped primary still has the Anthropic path left to recover on.
+  defaultModel?: string | undefined;
+};
+
+// Chain: LLM_<STAGE>_FALLBACK_MODEL -> LLM_FALLBACK_MODEL -> options.defaultModel. An explicit
+// "off" at whichever link answers first turns recovery off for that stage; a fallback on the
+// primary's own provider is no fallback at all.
+export function fallbackModelForStage(
+  stage: LlmFallbackStage,
+  primaryModel: string,
+  options?: FallbackModelOptions,
+): string | null {
+  const fallback = process.env[stageFallbackEnv[stage]]?.trim()
+    || process.env.LLM_FALLBACK_MODEL?.trim()
+    || options?.defaultModel?.trim();
+  if (!fallback || fallback.toLowerCase() === "off") {
+    return null;
+  }
+  if (parseModelString(fallback).provider === parseModelString(primaryModel).provider) {
     return null;
   }
   return fallback;
+}
+
+// Two provider names can sit behind one gateway host. Falling back onto the host that just
+// failed buys nothing and hides the outage, so it is a configuration error, not a retry.
+export function assertDistinctProviderHost(primaryModel: string, fallbackModel: string, cause?: unknown): void {
+  const primaryProvider = parseModelString(primaryModel).provider;
+  const fallbackProvider = parseModelString(fallbackModel).provider;
+  const primaryHost = providerEndpointHost(primaryProvider);
+  if (primaryHost && primaryHost === providerEndpointHost(fallbackProvider)) {
+    throw new Error(
+      `Provider fallback "${fallbackProvider}" resolves to the primary endpoint host ${primaryHost}`,
+      { cause },
+    );
+  }
 }
 
 export async function withProviderFallback<T>(
@@ -98,16 +131,7 @@ export async function withProviderFallback<T>(
     if (!fallback || !isProviderUnavailableLlmError(error)) {
       throw error;
     }
-    const primaryProvider = parseModelString(primaryModel).provider;
-    const fallbackProvider = parseModelString(fallback).provider;
-    const primaryHost = providerEndpointHost(primaryProvider);
-    const fallbackHost = providerEndpointHost(fallbackProvider);
-    if (primaryHost && primaryHost === fallbackHost) {
-      throw new Error(
-        `Provider fallback "${fallbackProvider}" resolves to the primary endpoint host ${primaryHost}`,
-        { cause: error },
-      );
-    }
+    assertDistinctProviderHost(primaryModel, fallback, error);
     return run(fallback);
   }
 }
@@ -194,6 +218,39 @@ const modelQuirksTable: Array<{ modelIncludes: string; quirks: ModelQuirks }> = 
   { modelIncludes: "opus-5", quirks: { omitSamplingParams: true } },
 ];
 
+// Stage-scoped request policy, the counterpart to quirksForModel: these fragments belong to one
+// pipeline stage rather than to a model, so they are keyed by stage and never by model id. Full
+// extraction is the only stage that pins routing; every other stage keeps provider defaults.
+type StageRequestPolicy = (input: {
+  provider: string;
+  model: string;
+  excludedProviders: readonly string[];
+}) => Record<string, unknown> | undefined;
+
+const stageRequestPolicies: Record<string, StageRequestPolicy> = {
+  extract_full: ({ provider, model, excludedProviders }) => {
+    if (provider === "openrouter") {
+      const excluded = [...new Set(excludedProviders.map((value) => value.trim().toLowerCase()).filter(Boolean))];
+      const deepSeekProviders = ["baseten", "fireworks", "novita"].filter((value) => !excluded.includes(value));
+      return {
+        ...(/deepseek|gemini-2\.5-flash/i.test(model) ? { reasoning: { enabled: false } } : {}),
+        provider: {
+          ...(/deepseek/i.test(model) ? { only: deepSeekProviders } : {}),
+          ...(excluded.length > 0 ? { ignore: excluded } : {}),
+          allow_fallbacks: true,
+          require_parameters: true,
+          data_collection: "deny",
+          sort: "latency",
+        },
+      };
+    }
+    if (provider === "deepinfra" && /deepseek/i.test(model)) {
+      return { reasoning_effort: "none", service_tier: "priority", fail_fast: true };
+    }
+    return undefined;
+  },
+};
+
 export function quirksForModel(model: string): ModelQuirks {
   const normalized = model.toLowerCase();
   const row = modelQuirksTable.find((entry) => normalized.includes(entry.modelIncludes));
@@ -241,30 +298,13 @@ export function providerConfigFor(provider: string, context?: ProviderRequestCon
     throw new Error(`${baseUrlEnv} is required to call provider "${provider}"`);
   }
 
-  let extraBody = defaults?.extraBody;
-  if (context?.stage === "extract_full") {
-    if (provider === "openrouter") {
-      const excludedProviders = [...new Set(
-        (context.excludedProviders ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean),
-      )];
-      const deepSeekProviders = ["baseten", "fireworks", "novita"]
-        .filter((value) => !excludedProviders.includes(value));
-      extraBody = {
-        ...extraBody,
-        ...(/deepseek|gemini-2\.5-flash/i.test(context.model) ? { reasoning: { enabled: false } } : {}),
-        provider: {
-          ...(/deepseek/i.test(context.model) ? { only: deepSeekProviders } : {}),
-          ...(excludedProviders.length > 0 ? { ignore: excludedProviders } : {}),
-          allow_fallbacks: true,
-          require_parameters: true,
-          data_collection: "deny",
-          sort: "latency",
-        },
-      };
-    } else if (provider === "deepinfra" && /deepseek/i.test(context.model)) {
-      extraBody = { ...extraBody, reasoning_effort: "none", service_tier: "priority", fail_fast: true };
-    }
-  }
+  const stagePolicy = context ? stageRequestPolicies[context.stage] : undefined;
+  const stageBody = stagePolicy?.({
+    provider,
+    model: context!.model,
+    excludedProviders: context!.excludedProviders ?? [],
+  });
+  const extraBody = stageBody ? { ...defaults?.extraBody, ...stageBody } : defaults?.extraBody;
   return {
     provider,
     baseUrl,
