@@ -452,6 +452,7 @@ describe("research layer model", () => {
       ]
     });
 
+    card.identity.name = { value: "Polymarket", status: "verified", confidence: "high", citationIds: ["e2"] };
     expect(fundingEvidenceFromCitations(card)[0]).toMatchObject({
       amountLabel: "$600M",
       status: "closed"

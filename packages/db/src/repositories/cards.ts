@@ -217,7 +217,7 @@ export async function listPublicCardSummaries(db: ColdStartDb): Promise<PublicCa
 }
 
 export async function upsertCard(db: ColdStartDb, card: ColdStartCard, options: CardWriteOptions = {}) {
-  const cardToStore = card.cacheStatus === "stale" ? { ...card, cacheStatus: "hit" as const } : card;
+  const cardToStore = coldStartCardSchema.parse(card.cacheStatus === "stale" ? { ...card, cacheStatus: "hit" as const } : card);
   const generatedAt = new Date(cardToStore.generatedAt);
   const now = new Date();
   const expiresAt = cardExpiryDates(now);

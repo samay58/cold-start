@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ColdStartCard } from "../src/index";
-import { fundingEvidenceFromCitations, materializeFundingFromCitations } from "../src/index";
+import { coldStartCardSchema, fundingEvidenceFromCitations, materializeFundingFromCitations } from "../src/index";
 
 function fact<T>(value: T | null, citationIds: string[] = []) {
   return {
@@ -33,8 +33,8 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
       investors: fact(null),
     },
     team: {
-      founders: fact([]),
-      keyExecs: fact([]),
+      founders: fact(null),
+      keyExecs: fact(null),
       headcount: fact({ value: 209, asOf: "2026-04-21" }, ["c1"]),
     },
     signals: [],
@@ -80,8 +80,42 @@ function card(overrides: Partial<ColdStartCard> = {}): ColdStartCard {
 }
 
 describe("funding evidence fallback", () => {
+  it("expands decimal millions without binary rounding before saving a card", () => {
+    const input = card();
+    input.citations = [{ ...input.citations[0]!, snippet: "Polymarket raised $33.3 million in a Series A round." }];
+    const result = materializeFundingFromCitations(input);
+    expect(result.funding.lastRound.value?.amountUsd).toBe(33_300_000);
+    expect(coldStartCardSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("does not promote a lifetime total to a single financing round", () => {
+    const input = card();
+    input.citations = [{ ...input.citations[0]!, snippet: "Polymarket has raised a total of $33.3 million." }];
+    expect(materializeFundingFromCitations(input).funding.lastRound.value).toBeNull();
+  });
+
+  it("does not use an unassigned same-name article to fill funding", () => {
+    const input = card();
+    input.slug = "column";
+    input.domain = "column.com";
+    input.identity.name = fact("Column", ["c1"]);
+    input.citations = [{ ...input.citations[0]!, url: "https://column.com/", title: "Column bank" }, {
+      ...input.citations[1]!, title: "Startup Public Notice Tech Firm Column Raises $30M",
+      snippet: "Column raised $30 million for its public notice business."
+    }];
+    expect(materializeFundingFromCitations(input).funding.lastRound.value).toBeNull();
+    expect(fundingEvidenceFromCitations(input)).toEqual([]);
+  });
+
+  it.each(["$1.0000001 million", "$99,99 million", "$9007199255 billion"])("keeps an unusable amount unknown: %s", (amount) => {
+    const input = card();
+    input.citations = [{ ...input.citations[0]!, snippet: `Polymarket raised ${amount} in a round.` }];
+    expect(materializeFundingFromCitations(input).funding.lastRound.value).toBeNull();
+  });
   it("prefers a completed financing amount over valuation and target amounts", () => {
-    expect(fundingEvidenceFromCitations(card())[0]).toMatchObject({
+    const input = card();
+    input.identity.name.citationIds.push("e2");
+    expect(fundingEvidenceFromCitations(input)[0]).toMatchObject({
       amountLabel: "$600M",
       amountUsd: 600_000_000,
       citationIds: ["e2"],
@@ -90,7 +124,9 @@ describe("funding evidence fallback", () => {
   });
 
   it("materializes a cited financing round when structured funding is empty", () => {
-    const materialized = materializeFundingFromCitations(card());
+    const input = card();
+    input.identity.name.citationIds.push("e2");
+    const materialized = materializeFundingFromCitations(input);
 
     expect(materialized.funding.lastRound).toMatchObject({
       value: {
@@ -119,6 +155,7 @@ describe("funding evidence fallback", () => {
       ],
     });
 
+    pledgeOnly.identity.name.citationIds = ["e1"];
     expect(fundingEvidenceFromCitations(pledgeOnly)[0]).toMatchObject({
       amountLabel: "$2B",
       amountUsd: 2_000_000_000,

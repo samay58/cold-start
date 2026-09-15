@@ -32,3 +32,4 @@ export * from "./source-quality";
 export * from "./source-target";
 export * from "./synthesis-evidence";
 export * from "./trust";
+export * from "./exact-integer";

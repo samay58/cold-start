@@ -1,6 +1,8 @@
 import type { Citation, ColdStartCard, ResolvedFact } from "./card";
 import { stripCitationMarkers } from "./citation-text";
 import { splitIntoSentences } from "./sentences";
+import { normalizeExactInteger } from "./exact-integer";
+import { targetHostMatchesDomain } from "./source-target";
 import { sourceQualityRank } from "./source-quality";
 
 export type CitationFundingEvidence = {
@@ -55,17 +57,9 @@ function clampText(value: string, maxLength: number) {
 }
 
 function compactCurrencyMatch(amount: string, unit: string) {
-  const numeric = Number(amount.replace(/,/g, ""));
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-
-  const normalizedUnit = unit.toLowerCase();
-  const amountUsd = normalizedUnit.startsWith("b")
-    ? numeric * 1_000_000_000
-    : normalizedUnit.startsWith("m")
-      ? numeric * 1_000_000
-      : numeric;
+  const normalizedUnit = unit.toLowerCase() === "bn" ? "b" : unit;
+  const amountUsd = normalizeExactInteger(`${amount} ${normalizedUnit}`, true);
+  if (amountUsd === null || amountUsd === 0) return null;
 
   return {
     amountUsd,
@@ -144,13 +138,23 @@ export function fundingEvidenceFromCitations(
   const seen = new Set<string>();
   const targetTerms = targetCompanyTerms(card);
 
+  // A name match in search results does not establish which company an article
+  // describes. Only reuse sources the extraction assigned to company identity,
+  // or pages on the company's own domain. Unassigned evidence stays in the ledger.
+  const identityCitations = new Set(Object.values(card.identity ?? {}).flatMap((fact) =>
+    fact && typeof fact === "object" && "citationIds" in fact && fact.value !== null
+      ? fact.citationIds : []
+  ));
   for (const citation of card.citations) {
+    if (!identityCitations.has(citation.id) && !targetHostMatchesDomain(domainFromHref(citation.url), card.domain)) continue;
     const text = [citation.snippet, citation.title].filter((part): part is string => Boolean(part)).join(" ");
     if (!/\b(funding|fundraising|raised|round|investment|investor|valuation|stake|injection)\b/i.test(text)) {
       continue;
     }
 
     for (const sentence of splitIntoSentences(text.replace(/\s+/g, " "))) {
+      // A cumulative total is not the amount of the latest round.
+      if (/\b(total(?:\s+of)?|to date|over its lifetime|across .*rounds)\b/i.test(sentence)) continue;
       const status = fundingSentenceStatus(sentence);
       if (!status) {
         continue;

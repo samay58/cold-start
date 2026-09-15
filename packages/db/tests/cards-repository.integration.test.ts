@@ -27,6 +27,17 @@ describeDatabase("card writes against Postgres", () => {
     });
   }, 30_000);
 
+  it("preserves the saved edition when a later write contains a fractional dollar amount", async () => {
+    const card = cardFixture();
+    await upsertCard(db, card);
+    const invalid = structuredClone(card);
+    invalid.funding.lastRound.value = { name: "Reported financing", amountUsd: 33.3 * 1_000_000, announcedAt: null, leadInvestors: [] };
+    await expect(upsertCard(db, invalid)).rejects.toThrow();
+    expect(await storedVersion(card.slug)).toBe(0);
+    const stored = await pool.query("SELECT card_json FROM cards WHERE slug = $1", [card.slug]);
+    expect(stored.rows[0].card_json.funding).toEqual(card.funding);
+  });
+
   afterAll(async () => {
     await pool?.end();
   });

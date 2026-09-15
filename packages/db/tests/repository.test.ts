@@ -307,6 +307,14 @@ describe("createDb", () => {
 });
 
 describe("upsertCard", () => {
+  it("rejects invalid final card data before issuing a database write", async () => {
+    const insert = vi.fn();
+    const db = { insert } as unknown as ColdStartDb;
+    const invalid = structuredClone(card);
+    invalid.funding.lastRound = { value: { name: "Reported financing", amountUsd: 33.3 * 1_000_000, announcedAt: null, leadInvestors: [] }, status: "inferred", confidence: "medium", citationIds: [card.citations[0]!.id] };
+    await expect(upsertCard(db, invalid)).rejects.toThrow();
+    expect(insert).not.toHaveBeenCalled();
+  });
   it("refreshes TTL columns on insert and conflict update", async () => {
     let insertValues: Record<string, unknown> | undefined;
     let updateSet: Record<string, unknown> | undefined;

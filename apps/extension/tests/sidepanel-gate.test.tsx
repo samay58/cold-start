@@ -77,6 +77,23 @@ describe("SidePanel generation gate", () => {
     await unmount();
   });
 
+  it("shows a repaired card even when the latest recorded profile run failed", async () => {
+    const card = cardForDomain("column.com");
+    const fetchMock = vi.fn(async () => jsonResponse({
+      domain: "column.com", slug: "column", card,
+      runs: {
+        basics: { slug: "column", domain: "column.com", mode: "basics", status: "failed", error: "Validation failed at funding.lastRound.value.amountUsd: Expected integer, received float" },
+        analysis: { slug: "column", domain: "column.com", mode: "analysis", status: "idle" }
+      }
+    }));
+    const { container, unmount } = await renderSidePanel({ domain: "column.com", fetchMock });
+    expect(container.textContent).toContain("column.com");
+    expect(container.textContent).not.toContain("Card unavailable");
+    expect(container.textContent).not.toContain("Validation failed");
+    expect(generateCalls(fetchMock)).toHaveLength(0);
+    await unmount();
+  });
+
   it("does not let a bloated overview take over the profile card", async () => {
     const card = cardForDomain("hanoverpark.com");
     card.identity.name = { value: "Hanover Park", status: "verified", confidence: "high", citationIds: ["c1"] };
@@ -99,7 +116,7 @@ describe("SidePanel generation gate", () => {
 
   it("keeps critical metrics visible when structured funding misses cited financing", async () => {
     const card = cardForDomain("polymarket.com");
-    card.identity.name = { value: "Polymarket", status: "verified", confidence: "high", citationIds: ["c1"] };
+    card.identity.name = { value: "Polymarket", status: "verified", confidence: "high", citationIds: ["c1", "e1"] };
     card.identity.hq = {
       value: { city: "New York", country: "United States" },
       status: "verified",

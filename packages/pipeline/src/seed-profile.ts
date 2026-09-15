@@ -198,11 +198,11 @@ export function finalizeGeneratedCard(card: ColdStartCard): ColdStartCard {
   const trusted = withDerivedNameFallback(
     stripUnsupportedSynthesis(sanitizeCardTrust(materializeFundingFromCitations(card)))
   );
-  return {
+  return coldStartCardSchema.parse({
     ...trusted,
     signals: clusterSignals(trusted.signals, { companyDomain: trusted.domain, companyName: trusted.identity.name.value }),
     comparables: trusted.comparables.filter((comparable) => isUsableComparableForCompany(trusted, comparable)),
-  };
+  });
 }
 
 function isUsableComparableForCompany(card: ColdStartCard, comparable: ColdStartCard["comparables"][number]) {
