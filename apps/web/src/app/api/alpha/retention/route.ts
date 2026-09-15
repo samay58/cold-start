@@ -5,7 +5,6 @@ import {
   ALPHA_RETENTION_MAX_DELETIONS,
   alphaRetentionPlan,
   createDb,
-  pruneHowItWinsJobs,
   clearExpiredHowItWinsRecoveryPayloads,
   pruneAlphaRetention
 } from "@cold-start/db";
@@ -36,20 +35,21 @@ export async function GET(request: Request) {
   const db = createDb(webEnv().DATABASE_URL);
   const result = await pruneAlphaRetention(db, {
     plan,
-    kinds: ["events", "accessRequests", "howItWinsJudgments"],
+    kinds: ["events", "accessRequests", "howItWinsJudgments", "howItWinsJobs"],
     batch: ALPHA_RETENTION_BATCH_SIZE,
     maximum: ALPHA_RETENTION_MAX_DELETIONS
   });
-  const howItWinsJobsDeleted = await pruneHowItWinsJobs(db, { before: plan.howItWinsJudgmentsBefore, limit: ALPHA_RETENTION_BATCH_SIZE });
   await clearExpiredHowItWinsRecoveryPayloads(db);
   const deleted = result.events.deleted;
   const accessRequestsDeleted = result.accessRequests.deleted;
   const howItWinsJudgmentsDeleted = result.howItWinsJudgments.deleted;
+  const howItWinsJobsDeleted = result.howItWinsJobs.deleted;
 
   const capped =
     result.events.stoppedAtMax ||
     result.accessRequests.stoppedAtMax ||
-    result.howItWinsJudgments.stoppedAtMax;
+    result.howItWinsJudgments.stoppedAtMax ||
+    result.howItWinsJobs.stoppedAtMax;
   console.info("[alpha-retention]", {
     signal: "events_pruned",
     deleted,
@@ -69,6 +69,12 @@ export async function GET(request: Request) {
     before: plan.howItWinsJudgmentsBefore.toISOString()
   });
 
+  console.info("[alpha-retention]", {
+    signal: "how_it_wins_jobs_pruned",
+    deleted: howItWinsJobsDeleted,
+    before: plan.howItWinsJobsBefore.toISOString()
+  });
+
   return Response.json(
     {
       deleted,
@@ -77,7 +83,8 @@ export async function GET(request: Request) {
       accessRequestsDeleted,
       howItWinsJudgmentsDeleted,
       howItWinsJobsDeleted,
-      howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString()
+      howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString(),
+      howItWinsJobsBefore: plan.howItWinsJobsBefore.toISOString()
     },
     { headers: { "Cache-Control": "no-store" } }
   );

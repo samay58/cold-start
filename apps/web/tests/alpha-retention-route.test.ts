@@ -4,20 +4,21 @@ const plan = {
   eventsBefore: new Date("2026-06-01T00:00:00.000Z"),
   accessRequestsBefore: new Date("2026-06-01T00:00:00.000Z"),
   inviteAttemptsBefore: new Date("2026-06-30T00:00:00.000Z"),
-  howItWinsJudgmentsBefore: new Date("2026-04-02T00:00:00.000Z")
+  howItWinsJudgmentsBefore: new Date("2026-04-02T00:00:00.000Z"),
+  howItWinsJobsBefore: new Date("2026-04-02T00:00:00.000Z")
 };
 
 const zeroes = {
   events: { deleted: 0, stoppedAtMax: false },
   accessRequests: { deleted: 0, stoppedAtMax: false },
   inviteAttempts: { deleted: 0, stoppedAtMax: false },
-  howItWinsJudgments: { deleted: 0, stoppedAtMax: false }
+  howItWinsJudgments: { deleted: 0, stoppedAtMax: false },
+  howItWinsJobs: { deleted: 0, stoppedAtMax: false }
 };
 
 const mocks = vi.hoisted(() => ({
   createDb: vi.fn(() => ({ kind: "db" })),
   alphaRetentionPlan: vi.fn(() => plan),
-  pruneHowItWinsJobs: vi.fn().mockResolvedValue(0),
   clearExpiredHowItWinsRecoveryPayloads: vi.fn().mockResolvedValue(0),
   pruneAlphaRetention: vi.fn()
 }));
@@ -27,7 +28,6 @@ vi.mock("@cold-start/db", () => ({
   ALPHA_RETENTION_MAX_DELETIONS: 10_000,
   createDb: mocks.createDb,
   alphaRetentionPlan: mocks.alphaRetentionPlan,
-  pruneHowItWinsJobs: mocks.pruneHowItWinsJobs,
   clearExpiredHowItWinsRecoveryPayloads: mocks.clearExpiredHowItWinsRecoveryPayloads,
   pruneAlphaRetention: mocks.pruneAlphaRetention
 }));
@@ -73,12 +73,13 @@ describe("GET /api/alpha/retention", () => {
     expect(mocks.pruneAlphaRetention).not.toHaveBeenCalled();
   });
 
-  it("uses the shared fixed-age plan and bounded pruner", async () => {
+  it("uses the shared fixed-age plan and bounded pruner, including job diagnostics", async () => {
     mocks.pruneAlphaRetention.mockResolvedValue({
       ...zeroes,
       events: { deleted: 1_230, stoppedAtMax: false },
       accessRequests: { deleted: 42, stoppedAtMax: false },
-      howItWinsJudgments: { deleted: 7, stoppedAtMax: false }
+      howItWinsJudgments: { deleted: 7, stoppedAtMax: false },
+      howItWinsJobs: { deleted: 5, stoppedAtMax: false }
     });
 
     const response = await GET(request());
@@ -88,14 +89,15 @@ describe("GET /api/alpha/retention", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(mocks.pruneAlphaRetention).toHaveBeenCalledWith(
       { kind: "db" },
-      { plan, kinds: ["events", "accessRequests", "howItWinsJudgments"], batch: 1_000, maximum: 10_000 }
+      { plan, kinds: ["events", "accessRequests", "howItWinsJudgments", "howItWinsJobs"], batch: 1_000, maximum: 10_000 }
     );
-    expect(mocks.pruneHowItWinsJobs).toHaveBeenCalledWith({ kind: "db" }, { before: plan.howItWinsJudgmentsBefore, limit: 1_000 });
     expect(body).toMatchObject({
       deleted: 1_230,
       accessRequestsDeleted: 42,
       howItWinsJudgmentsDeleted: 7,
+      howItWinsJobsDeleted: 5,
       howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString(),
+      howItWinsJobsBefore: plan.howItWinsJobsBefore.toISOString(),
       capped: false
     });
   });
@@ -111,6 +113,21 @@ describe("GET /api/alpha/retention", () => {
     await expect(response.json()).resolves.toMatchObject({
       deleted: 0,
       howItWinsJudgmentsDeleted: 10_000,
+      capped: true
+    });
+  });
+
+  it("reports a cap from the how it wins jobs kind", async () => {
+    mocks.pruneAlphaRetention.mockResolvedValue({
+      ...zeroes,
+      howItWinsJobs: { deleted: 10_000, stoppedAtMax: true }
+    });
+
+    const response = await GET(request());
+
+    await expect(response.json()).resolves.toMatchObject({
+      deleted: 0,
+      howItWinsJobsDeleted: 10_000,
       capped: true
     });
   });

@@ -19,7 +19,8 @@ import {
 } from "./alpha-common";
 
 const HELP = `Delete raw alpha events older than the retention boundary, handled access requests
-older than 30 days, and fixed-age How it wins cache judgments older than 90 days.
+older than 30 days, and fixed-age How it wins cache judgments and job diagnostics older than 90
+days.
 
 Usage:
   npm run alpha:prune -- [--before 30d] [--batch 1000] [--max 10000]              # dry run
@@ -27,7 +28,7 @@ Usage:
 
 Options:
   --before <duration>  Delete events received before this age, default 30d. The access-request
-                       and judgment windows are fixed and do not follow this flag.
+                       and judgment/job windows are fixed and do not follow this flag.
   --batch <count>      Rows per repository call, default 1000
   --max <count>        Maximum rows deleted per record type in one invocation, default 10000
   --apply              Perform the deletion. Without it, only reports the count.
@@ -38,42 +39,68 @@ type RetentionCounts = {
   inviteAttempts: number;
   accessRequests: number;
   howItWinsJudgments: number;
+  howItWinsJobs: number;
 };
 
 type RetentionPruneResult = Record<keyof RetentionCounts, { deleted: number; stoppedAtMax: boolean }>;
 
+// Field naming for events (no prefix, bare "before"/"eligible"/"deleted") is baked into the
+// report shape below and stays hand-written; every other kind follows `${prefix}Before` /
+// `${prefix}Eligible` / `${prefix}WouldDelete` (dry run) or `${prefix}Deleted` /
+// `${prefix}StoppedAtMax` (apply). `inviteAttempts` predates the wouldDelete/stoppedAtMax fields
+// and keeps reporting only eligibility and the raw deleted count.
+const RETENTION_REPORT_KINDS: ReadonlyArray<{
+  key: Exclude<keyof RetentionCounts, "events">;
+  prefix: string;
+  includeWouldDelete: boolean;
+  includeStoppedAtMax: boolean;
+}> = [
+  { key: "inviteAttempts", prefix: "attempts", includeWouldDelete: false, includeStoppedAtMax: false },
+  { key: "accessRequests", prefix: "accessRequests", includeWouldDelete: true, includeStoppedAtMax: true },
+  { key: "howItWinsJudgments", prefix: "howItWinsJudgments", includeWouldDelete: true, includeStoppedAtMax: true },
+  { key: "howItWinsJobs", prefix: "howItWinsJobs", includeWouldDelete: true, includeStoppedAtMax: true }
+];
+
+const PLAN_BOUNDARY_FIELD: Record<keyof RetentionCounts, keyof AlphaRetentionPlan> = {
+  events: "eventsBefore",
+  inviteAttempts: "inviteAttemptsBefore",
+  accessRequests: "accessRequestsBefore",
+  howItWinsJudgments: "howItWinsJudgmentsBefore",
+  howItWinsJobs: "howItWinsJobsBefore"
+};
+
 export function alphaPruneDryRunReport(plan: AlphaRetentionPlan, eligible: RetentionCounts, maximum: number) {
+  const kindFields: Record<string, string | number> = {};
+  for (const { key, prefix, includeWouldDelete } of RETENTION_REPORT_KINDS) {
+    kindFields[`${prefix}Before`] = plan[PLAN_BOUNDARY_FIELD[key]].toISOString();
+    kindFields[`${prefix}Eligible`] = eligible[key];
+    if (includeWouldDelete) kindFields[`${prefix}WouldDelete`] = Math.min(eligible[key], maximum);
+  }
+
   return {
     mode: "dry-run",
     before: plan.eventsBefore.toISOString(),
     eligible: eligible.events,
     wouldDelete: Math.min(eligible.events, maximum),
     cappedByMax: Object.values(eligible).some((value) => value > maximum),
-    attemptsBefore: plan.inviteAttemptsBefore.toISOString(),
-    attemptsEligible: eligible.inviteAttempts,
-    accessRequestsBefore: plan.accessRequestsBefore.toISOString(),
-    accessRequestsEligible: eligible.accessRequests,
-    accessRequestsWouldDelete: Math.min(eligible.accessRequests, maximum),
-    howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString(),
-    howItWinsJudgmentsEligible: eligible.howItWinsJudgments,
-    howItWinsJudgmentsWouldDelete: Math.min(eligible.howItWinsJudgments, maximum)
+    ...kindFields
   };
 }
 
 export function alphaPruneApplyReport(plan: AlphaRetentionPlan, removed: RetentionPruneResult) {
+  const kindFields: Record<string, string | number | boolean> = {};
+  for (const { key, prefix, includeStoppedAtMax } of RETENTION_REPORT_KINDS) {
+    kindFields[`${prefix}Before`] = plan[PLAN_BOUNDARY_FIELD[key]].toISOString();
+    kindFields[`${prefix}Deleted`] = removed[key].deleted;
+    if (includeStoppedAtMax) kindFields[`${prefix}StoppedAtMax`] = removed[key].stoppedAtMax;
+  }
+
   return {
     mode: "apply",
     before: plan.eventsBefore.toISOString(),
     deleted: removed.events.deleted,
     stoppedAtMax: removed.events.stoppedAtMax,
-    attemptsBefore: plan.inviteAttemptsBefore.toISOString(),
-    attemptsDeleted: removed.inviteAttempts.deleted,
-    accessRequestsBefore: plan.accessRequestsBefore.toISOString(),
-    accessRequestsDeleted: removed.accessRequests.deleted,
-    accessRequestsStoppedAtMax: removed.accessRequests.stoppedAtMax,
-    howItWinsJudgmentsBefore: plan.howItWinsJudgmentsBefore.toISOString(),
-    howItWinsJudgmentsDeleted: removed.howItWinsJudgments.deleted,
-    howItWinsJudgmentsStoppedAtMax: removed.howItWinsJudgments.stoppedAtMax
+    ...kindFields
   };
 }
 
@@ -115,7 +142,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   const removed = await withAlphaDb((db) => pruneAlphaRetention(db, {
     plan,
-    kinds: ["events", "inviteAttempts", "accessRequests", "howItWinsJudgments"],
+    kinds: ["events", "inviteAttempts", "accessRequests", "howItWinsJudgments", "howItWinsJobs"],
     batch,
     maximum
   }));
